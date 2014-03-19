@@ -28,7 +28,7 @@ class Valve(app_manager.RyuApp):
     _CONTEXTS = {'igmplib': igmplib.IgmpLib}
 
     def __init__(self, *args, **kwargs):
-        super(SimpleSwitchIgmp, self).__init__(*args, **kwargs)
+        super(Valve, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
         self._snoop = kwargs['igmplib']
         # if you want a switch to operate as a querier,
@@ -48,23 +48,24 @@ class Valve(app_manager.RyuApp):
         self.vlandb = {}
 
         with open('valve.yaml', 'r') as stream:
-            portdb = yaml.load(stream)
+            self.portdb = yaml.load(stream)
 
-        for port in portdb:
-            vlans = portdb[port]['vlan']
-            ptype = portdb[port]['type']
+        for port in self.portdb:
+            vlans = self.portdb[port]['vlans']
+            ptype = self.portdb[port]['type']
             if type(vlans) is list:
                 for vlan in vlans:
-                   if vlan not in vlandb:
-                       vlandb[vlan] = {'tagged': [], 'untagged': []}
-                   vlandb[vlan][ptype].append(port)
+                   if vlan not in self.vlandb:
+                       self.vlandb[vlan] = {'tagged': [], 'untagged': []}
+                   self.vlandb[vlan][ptype].append(port)
             else:
-                if vlans not in vlandb:
-                    vlandb[vlans] = {'tagged': [], 'untagged': []}
-                vlandb[vlans][ptype].append(port)
+                if vlans not in self.vlandb:
+                    self.vlandb[vlans] = {'tagged': [], 'untagged': []}
+                self.vlandb[vlans][ptype].append(port)
 
     def add_flow(self, datapath, match, actions):
         ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
         mod = parser.OFPFlowMod(
             datapath=datapath, match=match, cookie=0,
             command=ofproto.OFPFC_ADD, actions=actions)
@@ -89,9 +90,12 @@ class Valve(app_manager.RyuApp):
         # TODO: allow this to support more than one dp
         in_port = msg.in_port
 
+        if in_port not in self.portdb:
+          return
+
         # TODO: actually discover the vlan rather than it always being the
         # same
-        vlan = self.portdb[in_port]['vlan'][0]
+        vlan = self.portdb[in_port]['vlans'][0]
         self.mac_to_port[dpid].setdefault(vlan, {})
 
         self.logger.info("packet in %s %s %s %d",
@@ -100,30 +104,30 @@ class Valve(app_manager.RyuApp):
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][vlan][src] = in_port
 
-        if dst in self.mac_to_port[dpid]:
+        if dst in self.mac_to_port[dpid][vlan]:
             # install a flow to avoid packet_in next time
             out_port = self.mac_to_port[dpid][vlan][dst]
+            actions = []
 
             # ok so if it comes in an access port and goes out an access port
             # then we dont need to do anything about tags
             # if it comes in a trunk we need to match the tag
             # if it comes in an access we need to push the tag
-            if in_port['type'] == 'tagged':
+            if self.portdb[in_port]['type'] == 'tagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
                     dl_src=addrconv.mac.text_to_bin(src),
                     dl_dst=addrconv.mac.text_to_bin(dst),
                     dl_vlan=vlan)
-                actions = []
-                if out_port['type'] == 'untagged':
+                if self.portdb[out_port]['type'] == 'untagged':
                     actions.append(
                         parser.OFPActionStripVlan())
-            if in_port['type'] == 'untagged':
+            if self.portdb[in_port]['type'] == 'untagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
                     dl_src=addrconv.mac.text_to_bin(src),
                     dl_dst=addrconv.mac.text_to_bin(dst))
-                if out_port['type'] == 'tagged':
+                if self.portdb[out_port]['type'] == 'tagged':
                     actions.append(parser.OFPActionVlanVid(vlan))
             actions.append(parser.OFPActionOutput(out_port))
 

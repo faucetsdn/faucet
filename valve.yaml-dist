@@ -1,5 +1,5 @@
 ---
 
-1: {type: untagged, vlan: 10}
-2: {type: tagged, vlan: 10}
-3: {type: tagged, vlan: [10,20]}
+1: {type: untagged, vlans: [10]}
+2: {type: tagged, vlans: [10]}
+3: {type: tagged, vlans: [10,20]}
