@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import struct
+import struct, yaml
 
 from ryu.base import app_manager
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -22,17 +22,6 @@ from ryu.ofproto import ofproto_v1_0
 from ryu.lib import addrconv
 from ryu.lib import igmplib
 from ryu.lib.dpid import str_to_dpid
-
-DEFAULT_VLAN = 7
-
-PORT_ACCESS = 0
-PORT_TRUNK = 1
-
-class Port:
-    def __init__(self, port_no, type_, vlans):
-        self.port_no = port_no
-        self.type_ = type_
-        self.vlans = vlans
 
 class Valve(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
@@ -54,12 +43,25 @@ class Valve(app_manager.RyuApp):
         # when you called this method several times,
         # only the last one becomes effective.
 
-        # you cant configure ports at the moment, so every port is access
-        # and has vid lucky-number-7
-        self.ports = {}
-        # there are 52 ports on our switch
-        for port_no in range(1,52):
-            self.ports[port_no] = Port(port_no, PORT_ACCESS, [DEFAULT_VLAN])
+        # Read in config file
+        self.portdb = None
+        self.vlandb = {}
+
+        with open('valve.yaml', 'r') as stream:
+            portdb = yaml.load(stream)
+
+        for port in portdb:
+            vlans = portdb[port]['vlan']
+            ptype = portdb[port]['type']
+            if type(vlans) is list:
+                for vlan in vlans:
+                   if vlan not in vlandb:
+                       vlandb[vlan] = {'tagged': [], 'untagged': []}
+                   vlandb[vlan][ptype].append(port)
+            else:
+                if vlans not in vlandb:
+                    vlandb[vlans] = {'tagged': [], 'untagged': []}
+                vlandb[vlans][ptype].append(port)
 
     def add_flow(self, datapath, match, actions):
         ofproto = datapath.ofproto
@@ -85,44 +87,45 @@ class Valve(app_manager.RyuApp):
 
         # find the in_port:
         # TODO: allow this to support more than one dp
-        in_port = self.ports[msg.in_port]
+        in_port = msg.in_port
 
         # TODO: actually discover the vlan rather than it always being the
         # same
-        vlan = DEFAULT_VLAN
+        vlan = self.portdb[in_port]['vlan'][0]
+        self.mac_to_port[dpid].setdefault(vlan, {})
 
         self.logger.info("packet in %s %s %s %d",
-                         dpid, src, dst, in_port.port_no)
+                         dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][vlan][src] = in_port
 
         if dst in self.mac_to_port[dpid]:
             # install a flow to avoid packet_in next time
-            out_port = self.mac_to_port[dpid][dst]
+            out_port = self.mac_to_port[dpid][vlan][dst]
 
             # ok so if it comes in an access port and goes out an access port
             # then we dont need to do anything about tags
             # if it comes in a trunk we need to match the tag
             # if it comes in an access we need to push the tag
-            if in_port.type_ == PORT_TRUNK:
+            if in_port['type'] == 'tagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
                     dl_src=addrconv.mac.text_to_bin(src),
                     dl_dst=addrconv.mac.text_to_bin(dst),
                     dl_vlan=vlan)
                 actions = []
-                if out_port.type_ == PORT_ACCESS:
+                if out_port['type'] == 'untagged':
                     actions.append(
                         parser.OFPActionStripVlan())
-            if in_port.type_ == PORT_ACCESS:
+            if in_port['type'] == 'untagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
                     dl_src=addrconv.mac.text_to_bin(src),
                     dl_dst=addrconv.mac.text_to_bin(dst))
-                if out_port.type_ == PORT_TRUNK:
+                if out_port['type'] == 'tagged':
                     actions.append(parser.OFPActionVlanVid(vlan))
-            actions.append(parser.OFPActionOutput(out_port.port_no))
+            actions.append(parser.OFPActionOutput(out_port))
 
             self.add_flow(datapath, match, actions)
         else:
@@ -131,15 +134,17 @@ class Valve(app_manager.RyuApp):
             # this is dependent on whether the packet is already tagged
             access_actions = []
             trunk_actions = []
-            for out_port in self.ports:
-                if port != out_port:
-                    if out_port.type_ == PORT_ACCESS and vlan in out_port.vlans:
-                        access_actions.append(
+            for out_port in self.vlandb[vlan]['untagged']:
+                if in_port != out_port:
+                    access_actions.append(
                             parser.OFPActionOutput(out_port))
-                    elif out_port.type_ == PORT_TRUNK and vlan in out_port.vlans:
-                        trunk_actions.append(
+
+            for out_port in self.vlandb[vlan]['tagged']:
+                if in_port != out_port:
+                    trunk_actions.append(
                             parser.OFPActionOutput(out_port))
-            if tagged:
+
+            if self.portdb[in_port]['type'] == 'tagged':
                 strip_action = [parser.OFPActionStripVlan()]
                 actions = trunk_actions + strip_action + access_actions
             else:
@@ -147,7 +152,7 @@ class Valve(app_manager.RyuApp):
                 actions = access_actions + push_action + trunk_actions
 
         out = parser.OFPPacketOut(
-            datapath=datapath, buffer_id=msg.buffer_id, in_port=msg.in_port,
+            datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port,
             actions=actions)
         datapath.send_msg(out)
 
