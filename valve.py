@@ -78,8 +78,8 @@ class Valve(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        (dst_, src_, _eth_type) = struct.unpack_from(
-            '!6s6sH', buffer(msg.data), 0)
+        (dst_, src_, eth_type, _vlan) = struct.unpack_from(
+            '!6s6sHI', buffer(msg.data), 0)
         src = addrconv.mac.bin_to_text(src_)
         dst = addrconv.mac.bin_to_text(dst_)
 
@@ -93,9 +93,16 @@ class Valve(app_manager.RyuApp):
         if in_port not in self.portdb:
           return
 
-        # TODO: actually discover the vlan rather than it always being the
-        # same
-        vlan = self.portdb[in_port]['vlans'][0]
+        if eth_type == 0x8100:
+            vlan = _vlan & 0xFFF
+            if vlan not in self.portdb[in_port]['vlans']:
+                print "HAXX:RZ %d %d" % (vlan, in_port)
+                return
+        else:
+            vlan = self.portdb[in_port]['vlans'][0]
+            if self.portdb[in_port]['type'] == 'tagged':
+                print "Untagged pkt_in tagged port %d" % (in_port)
+                return
         self.mac_to_port[dpid].setdefault(vlan, {})
 
         self.logger.info("packet in %s %s %s %d",
