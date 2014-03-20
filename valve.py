@@ -23,6 +23,9 @@ from ryu.lib import addrconv
 from ryu.lib import igmplib
 from ryu.lib.dpid import str_to_dpid
 
+HIGH_PRIORITY = 2 # Now that is what I call high
+LOW_PRIORITY = 1
+
 class Valve(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
     _CONTEXTS = {'igmplib': igmplib.IgmpLib}
@@ -63,11 +66,11 @@ class Valve(app_manager.RyuApp):
                     self.vlandb[vlans] = {'tagged': [], 'untagged': []}
                 self.vlandb[vlans][ptype].append(port)
 
-    def add_flow(self, datapath, match, actions):
+    def add_flow(self, datapath, match, actions, priority):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         mod = parser.OFPFlowMod(
-            datapath=datapath, match=match, cookie=0,
+            datapath=datapath, match=match, cookie=0, priority=priority,
             command=ofproto.OFPFC_ADD, actions=actions)
         datapath.send_msg(mod)
 
@@ -116,10 +119,6 @@ class Valve(app_manager.RyuApp):
             out_port = self.mac_to_port[dpid][vlan][dst]
             actions = []
 
-            # ok so if it comes in an access port and goes out an access port
-            # then we dont need to do anything about tags
-            # if it comes in a trunk we need to match the tag
-            # if it comes in an access we need to push the tag
             if self.portdb[in_port]['type'] == 'tagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
@@ -138,34 +137,36 @@ class Valve(app_manager.RyuApp):
                     actions.append(parser.OFPActionVlanVid(vlan))
             actions.append(parser.OFPActionOutput(out_port))
 
-            self.add_flow(datapath, match, actions)
-        else:
-            # generates an action to flood a packet to every port with this
-            # vlan configured
-            # this is dependent on whether the packet is already tagged
-            access_actions = []
-            trunk_actions = []
-            for out_port in self.vlandb[vlan]['untagged']:
-                if in_port != out_port:
-                    access_actions.append(
-                            parser.OFPActionOutput(out_port))
+            self.add_flow(datapath, match, actions, HIGH_PRIORITY)
 
-            for out_port in self.vlandb[vlan]['tagged']:
-                if in_port != out_port:
-                    trunk_actions.append(
-                            parser.OFPActionOutput(out_port))
+    @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
+    def handler_datapath(self, ev):
+        dp = ev.dp
+        ofproto = dp.ofproto
+        parser = dp.ofproto_parser
+        for vid, vlan in self.vlandb:
+            controller_act = parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)
 
-            if self.portdb[in_port]['type'] == 'tagged':
-                strip_action = [parser.OFPActionStripVlan()]
-                actions = trunk_actions + strip_action + access_actions
-            else:
-                push_action = [parser.OFPActionVlanVid(vlan)]
-                actions = access_actions + push_action + trunk_actions
+            # generate the output actions for each port
+            untagged_act = []
+            tagged_act = []
+            for port in vlan['untagged']:
+                untagged_act.append(parser.OFPActionOutput(port))
+            for port in vlan['tagged']:
+                tagged_act.append(parser.OFPActionOutput(port))
 
-        out = parser.OFPPacketOut(
-            datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port,
-            actions=actions)
-        datapath.send_msg(out)
+            # send rule for matching packets arriving on tagged ports
+            strip_act = parser.OFPActionStripVlan()
+            action = controller_act + tagged_act + strip_act + untagged_act
+            match = parser.OFPMatch(dl_vlan=vid)
+            self.add_flow(dp, match, action, LOW_PRIORITY)
+
+            # send rule for each untagged port
+            push_act = parser.OFPActionVlanVid(vid)
+            for port in vlan['untagged']:
+                match = parser.OFPMatch(in_port=port)
+                action = controller_act + untagged_act + push_act + tagged_act
+                self.add_flow(dp, match, action, LOW_PRIORITY)
 
     @set_ev_cls(igmplib.EventMulticastGroupStateChanged,
                 MAIN_DISPATCHER)
