@@ -16,6 +16,7 @@
 import struct, yaml
 
 from ryu.base import app_manager
+from ryu.controller import dpset
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_0
@@ -144,8 +145,9 @@ class Valve(app_manager.RyuApp):
         dp = ev.dp
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
-        for vid, vlan in self.vlandb:
-            controller_act = parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)
+        print self.vlandb
+        for vid, vlan in self.vlandb.iteritems():
+            controller_act = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
 
             # generate the output actions for each port
             untagged_act = []
@@ -156,13 +158,13 @@ class Valve(app_manager.RyuApp):
                 tagged_act.append(parser.OFPActionOutput(port))
 
             # send rule for matching packets arriving on tagged ports
-            strip_act = parser.OFPActionStripVlan()
+            strip_act = [parser.OFPActionStripVlan()]
             action = controller_act + tagged_act + strip_act + untagged_act
             match = parser.OFPMatch(dl_vlan=vid)
             self.add_flow(dp, match, action, LOW_PRIORITY)
 
             # send rule for each untagged port
-            push_act = parser.OFPActionVlanVid(vid)
+            push_act = [parser.OFPActionVlanVid(vid)]
             for port in vlan['untagged']:
                 match = parser.OFPMatch(in_port=port)
                 action = controller_act + untagged_act + push_act + tagged_act
