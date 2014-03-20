@@ -145,7 +145,6 @@ class Valve(app_manager.RyuApp):
         dp = ev.dp
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
-        print self.vlandb
         for vid, vlan in self.vlandb.iteritems():
             controller_act = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
 
