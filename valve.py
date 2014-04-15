@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import struct, yaml
+import struct, yaml, copy
 
 from ryu.base import app_manager
 from ryu.controller import dpset
@@ -158,7 +158,11 @@ class Valve(app_manager.RyuApp):
 
             # send rule for matching packets arriving on tagged ports
             strip_act = [parser.OFPActionStripVlan()]
-            action = controller_act + tagged_act + strip_act + untagged_act
+            action = copy.copy(controller_act)
+            if tagged_act:
+                action += tagged_act
+            if untagged_act:
+                action += strip_act + untagged_act
             match = parser.OFPMatch(dl_vlan=vid)
             self.add_flow(dp, match, action, LOW_PRIORITY)
 
@@ -166,7 +170,11 @@ class Valve(app_manager.RyuApp):
             push_act = [parser.OFPActionVlanVid(vid)]
             for port in vlan['untagged']:
                 match = parser.OFPMatch(in_port=port)
-                action = controller_act + untagged_act + push_act + tagged_act
+                action = copy.copy(controller_act)
+                if untagged_act:
+                    action += untagged_act
+                if tagged_act:
+                    action += push_act + tagged_act
                 self.add_flow(dp, match, action, LOW_PRIORITY)
 
     @set_ev_cls(igmplib.EventMulticastGroupStateChanged,
