@@ -24,8 +24,8 @@ from ryu.lib import addrconv
 from ryu.lib import igmplib
 from ryu.lib.dpid import str_to_dpid
 
-HIGH_PRIORITY = 2 # Now that is what I call high
-LOW_PRIORITY = 1
+HIGH_PRIORITY = 9001 # Now that is what I call high
+LOW_PRIORITY = 9000
 
 class Valve(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
