@@ -19,7 +19,7 @@ from ryu.base import app_manager
 from ryu.controller import dpset
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_0
+from ryu.ofproto import ofproto_v1_3
 from ryu.lib import addrconv
 from ryu.lib import igmplib
 from ryu.lib.dpid import str_to_dpid
@@ -28,7 +28,7 @@ HIGH_PRIORITY = 9001 # Now that is what I call high
 LOW_PRIORITY = 9000
 
 class Valve(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
+    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {'igmplib': igmplib.IgmpLib}
 
     def __init__(self, *args, **kwargs):
@@ -70,9 +70,11 @@ class Valve(app_manager.RyuApp):
     def add_flow(self, datapath, match, actions, priority):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                                                    actions)]
         mod = parser.OFPFlowMod(
-            datapath=datapath, match=match, cookie=0, priority=priority,
-            command=ofproto.OFPFC_ADD, actions=actions)
+            datapath=datapath, cookie=0, priority=priority,
+            command=ofproto.OFPFC_ADD, match=match, instructions=inst)
         datapath.send_msg(mod)
 
     @set_ev_cls(igmplib.EventPacketIn, MAIN_DISPATCHER)
@@ -123,19 +125,19 @@ class Valve(app_manager.RyuApp):
             if self.portdb[in_port]['type'] == 'tagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
-                    dl_src=addrconv.mac.text_to_bin(src),
-                    dl_dst=addrconv.mac.text_to_bin(dst),
-                    dl_vlan=vlan)
+                    eth_src=addrconv.mac.text_to_bin(src),
+                    eth_dst=addrconv.mac.text_to_bin(dst),
+                    vlan_vid=vlan)
                 if self.portdb[out_port]['type'] == 'untagged':
-                    actions.append(
-                        parser.OFPActionStripVlan())
+                    actions.append(parser.OFPActionPopVlan())
             if self.portdb[in_port]['type'] == 'untagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
-                    dl_src=addrconv.mac.text_to_bin(src),
-                    dl_dst=addrconv.mac.text_to_bin(dst))
+                    eth_src=addrconv.mac.text_to_bin(src),
+                    eth_dst=addrconv.mac.text_to_bin(dst))
                 if self.portdb[out_port]['type'] == 'tagged':
-                    actions.append(parser.OFPActionVlanVid(vlan))
+                    actions.append(parser.OFPActionPushVlan())
+                    actions.append(parser.OFPActionSetField(vlan_vid=vlan))
             actions.append(parser.OFPActionOutput(out_port))
 
             self.add_flow(datapath, match, actions, HIGH_PRIORITY)
@@ -157,17 +159,20 @@ class Valve(app_manager.RyuApp):
                 tagged_act.append(parser.OFPActionOutput(port))
 
             # send rule for matching packets arriving on tagged ports
-            strip_act = [parser.OFPActionStripVlan()]
+            strip_act = [parser.OFPActionPopVlan()]
             action = copy.copy(controller_act)
             if tagged_act:
                 action += tagged_act
             if untagged_act:
                 action += strip_act + untagged_act
-            match = parser.OFPMatch(dl_vlan=vid)
+            match = parser.OFPMatch(vlan_vid=vid)
             self.add_flow(dp, match, action, LOW_PRIORITY)
 
             # send rule for each untagged port
-            push_act = [parser.OFPActionVlanVid(vid)]
+            push_act = [
+              parser.OFPActionPushVlan(),
+              parser.OFPActionSetField(vlan_vid=vid)
+              ]
             for port in vlan['untagged']:
                 match = parser.OFPMatch(in_port=port)
                 action = copy.copy(controller_act)
