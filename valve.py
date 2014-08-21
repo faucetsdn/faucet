@@ -127,7 +127,7 @@ class Valve(app_manager.RyuApp):
                     in_port=in_port,
                     eth_src=addrconv.mac.text_to_bin(src),
                     eth_dst=addrconv.mac.text_to_bin(dst),
-                    vlan_vid=vlan)
+                    vlan_vid=vlan|ofproto_v1_3.OFPVID_PRESENT)
                 if self.portdb[out_port]['type'] == 'untagged':
                     actions.append(parser.OFPActionPopVlan())
             if self.portdb[in_port]['type'] == 'untagged':
@@ -165,7 +165,7 @@ class Valve(app_manager.RyuApp):
                 action += tagged_act
             if untagged_act:
                 action += strip_act + untagged_act
-            match = parser.OFPMatch(vlan_vid=vid)
+            match = parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
             self.add_flow(dp, match, action, LOW_PRIORITY)
 
             # send rule for each untagged port
