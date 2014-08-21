@@ -94,7 +94,9 @@ class Valve(app_manager.RyuApp):
 
         # find the in_port:
         # TODO: allow this to support more than one dp
-        in_port = msg.in_port
+        for f in msg.match.fields:
+          if f.header == ofproto_v1_3.OXM_OF_IN_PORT:
+            in_port = f.value
 
         if in_port not in self.portdb:
           return
