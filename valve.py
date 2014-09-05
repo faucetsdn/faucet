@@ -22,6 +22,9 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib import addrconv
 from ryu.lib import igmplib
+from ryu.lib.packet import packet
+from ryu.lib.packet import ethernet
+from ryu.lib.packet import vlan
 from ryu.lib.dpid import str_to_dpid
 
 HIGH_PRIORITY = 9001 # Now that is what I call high
@@ -59,10 +62,10 @@ class Valve(app_manager.RyuApp):
             vlans = self.portdb[port]['vlans']
             ptype = self.portdb[port]['type']
             if type(vlans) is list:
-                for vlan in vlans:
-                   if vlan not in self.vlandb:
-                       self.vlandb[vlan] = {'tagged': [], 'untagged': []}
-                   self.vlandb[vlan][ptype].append(port)
+                for vid in vlans:
+                   if vid not in self.vlandb:
+                       self.vlandb[vid] = {'tagged': [], 'untagged': []}
+                   self.vlandb[vid][ptype].append(port)
             else:
                 if vlans not in self.vlandb:
                     self.vlandb[vlans] = {'tagged': [], 'untagged': []}
@@ -95,62 +98,63 @@ class Valve(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        (dst_, src_, eth_type, vlan_) = struct.unpack_from(
-            '!6s6sHH', buffer(msg.data), 0)
-        src = addrconv.mac.bin_to_text(src_)
-        dst = addrconv.mac.bin_to_text(dst_)
+        pkt = packet.Packet(msg.data)
+        ethernet_proto = pkt.get_protocols(ethernet.ethernet)[0]
+
+        src = ethernet_proto.src
+        dst = ethernet_proto.dst
+        eth_type = ethernet_proto.ethertype
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
         # find the in_port:
         # TODO: allow this to support more than one dp
-        for f in msg.match.fields:
-          if f.header == ofproto_v1_3.OXM_OF_IN_PORT:
-            in_port = f.value
+        in_port = msg.match['in_port']
 
         if in_port not in self.portdb:
           return
 
         if eth_type == 0x8100:
-            vlan = vlan_ & 0xFFF
-            if vlan not in self.portdb[in_port]['vlans']:
-                print "HAXX:RZ %d %d" % (vlan, in_port)
+            vlan_proto = pkt.get_protocols(vlan.vlan)[0]
+            vid = vlan_proto.vid
+            if vid not in self.portdb[in_port]['vlans']:
+                print "HAXX:RZ vlan:%d not on in_port:%d" % (vid, in_port)
                 return
         else:
-            vlan = self.portdb[in_port]['vlans'][0]
+            vid = self.portdb[in_port]['vlans'][0]
             if self.portdb[in_port]['type'] == 'tagged':
-                print "Untagged pkt_in tagged port %d" % (in_port)
+                print "Untagged pkt_in on tagged port %d" % (in_port)
                 return
-        self.mac_to_port[dpid].setdefault(vlan, {})
+        self.mac_to_port[dpid].setdefault(vid, {})
 
-        self.logger.info("packet in %s %s %s %d",
-                         dpid, src, dst, in_port)
+        self.logger.info("packet in dpid:%s src:%s dst:%s in_port:%d vid:%s",
+                         dpid, src, dst, in_port, vid)
 
         # learn a mac address to avoid FLOOD next time.
-        self.mac_to_port[dpid][vlan][src] = in_port
+        self.mac_to_port[dpid][vid][src] = in_port
 
-        if dst in self.mac_to_port[dpid][vlan]:
+        if dst in self.mac_to_port[dpid][vid]:
             # install a flow to avoid packet_in next time
-            out_port = self.mac_to_port[dpid][vlan][dst]
+            out_port = self.mac_to_port[dpid][vid][dst]
             actions = []
 
             if self.portdb[in_port]['type'] == 'tagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
-                    eth_src=addrconv.mac.text_to_bin(src),
-                    eth_dst=addrconv.mac.text_to_bin(dst),
-                    vlan_vid=vlan|ofproto_v1_3.OFPVID_PRESENT)
+                    eth_src=src,
+                    eth_dst=dst,
+                    vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
                 if self.portdb[out_port]['type'] == 'untagged':
                     actions.append(parser.OFPActionPopVlan())
             if self.portdb[in_port]['type'] == 'untagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
-                    eth_src=addrconv.mac.text_to_bin(src),
-                    eth_dst=addrconv.mac.text_to_bin(dst))
+                    eth_src=src,
+                    eth_dst=dst)
                 if self.portdb[out_port]['type'] == 'tagged':
                     actions.append(parser.OFPActionPushVlan())
-                    actions.append(parser.OFPActionSetField(vlan_vid=vlan))
+                    actions.append(parser.OFPActionSetField(vlan_vid=vid))
             actions.append(parser.OFPActionOutput(out_port))
 
             self.add_flow(datapath, match, actions, HIGH_PRIORITY)
@@ -169,15 +173,15 @@ class Valve(app_manager.RyuApp):
         drop_act  = []
         self.add_flow(dp, match_all, drop_act, LOWEST_PRIORITY)
 
-        for vid, vlan in self.vlandb.iteritems():
+        for vid, ports in self.vlandb.iteritems():
             controller_act = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
 
             # generate the output actions for each port
             untagged_act = []
             tagged_act = []
-            for port in vlan['untagged']:
+            for port in ports['untagged']:
                 untagged_act.append(parser.OFPActionOutput(port))
-            for port in vlan['tagged']:
+            for port in ports['tagged']:
                 tagged_act.append(parser.OFPActionOutput(port))
 
             # send rule for matching packets arriving on tagged ports
@@ -195,7 +199,7 @@ class Valve(app_manager.RyuApp):
               parser.OFPActionPushVlan(),
               parser.OFPActionSetField(vlan_vid=vid)
               ]
-            for port in vlan['untagged']:
+            for port in ports['untagged']:
                 match = parser.OFPMatch(in_port=port)
                 action = copy.copy(controller_act)
                 if untagged_act:
