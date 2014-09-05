@@ -26,6 +26,7 @@ from ryu.lib.dpid import str_to_dpid
 
 HIGH_PRIORITY = 9001 # Now that is what I call high
 LOW_PRIORITY = 9000
+LOWEST_PRIORITY = 0
 
 class Valve(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -66,6 +67,16 @@ class Valve(app_manager.RyuApp):
                 if vlans not in self.vlandb:
                     self.vlandb[vlans] = {'tagged': [], 'untagged': []}
                 self.vlandb[vlans][ptype].append(port)
+
+    def clear_flows(self, datapath):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        match = parser.OFPMatch()
+        mod = parser.OFPFlowMod(
+            datapath=datapath, cookie=0, priority=LOWEST_PRIORITY,
+            command=ofproto.OFPFC_DELETE, out_port=ofproto.OFPP_ANY,
+            out_group=ofproto.OFPG_ANY, match=match, instructions=[])
+        datapath.send_msg(mod)
 
     def add_flow(self, datapath, match, actions, priority):
         ofproto = datapath.ofproto
@@ -149,6 +160,15 @@ class Valve(app_manager.RyuApp):
         dp = ev.dp
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
+
+        # clear flow table
+        self.clear_flows(dp)
+
+        # add catchall drop rule
+        match_all = parser.OFPMatch()
+        drop_act  = []
+        self.add_flow(dp, match_all, drop_act, LOWEST_PRIORITY)
+
         for vid, vlan in self.vlandb.iteritems():
             controller_act = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
 
