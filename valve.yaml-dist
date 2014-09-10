@@ -1,5 +1,17 @@
 ---
-
-1: {type: untagged, vlans: [10]}
-2: {type: tagged, vlans: [10]}
+default:
+  type: untagged
+  vlans: [10]
+  exclude: [3]
+  acls:
+    - {match: {eth_type: 0x0800, ip_proto: 17, udp_src: 123}, action: drop}
+acls:
+  192.168.0.0/24:
+    - {match: {eth_type: 0x0800, ip_proto: 6, tcp_dst: 22}, action: drop}
+1:
+  acls:
+    - {match: {eth_type: 0x0800, ip_proto: 17, udp_src: 123}, action: allow}
+2:
+  type: tagged
+  vlans: [10]
 3: {type: tagged, vlans: [10,20]}
