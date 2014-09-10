@@ -80,6 +80,7 @@ class Valve(app_manager.RyuApp):
                 self.acldb[nw_address] = []
             for acl in self.portdb['acls'][nw_address]:
                 acl = ACL(acl['match'], acl['action'])
+                self.logger.info("adding %s on nw_dst:%s" % (acl, nw_address))
                 self.acldb[nw_address].append(acl)
 
         # Parse configuration
