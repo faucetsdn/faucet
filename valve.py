@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import struct, yaml, copy
+import struct, yaml, copy, logging
 
 from ryu.base import app_manager
 from ryu.controller import dpset
@@ -50,6 +50,14 @@ class Valve(app_manager.RyuApp):
         # NOTE: you can set up only the one querier.
         # when you called this method several times,
         # only the last one becomes effective.
+
+        # Setup logging
+        handler = logging.StreamHandler()
+        log_format = '%(asctime)s %(name)-8s %(levelname)-8s %(message)s'
+        formatter = logging.Formatter(log_format, '%b %d %H:%M:%S')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        self.logger.propagate = 0
 
         # Read in config file
         self.portdb = None
@@ -119,12 +127,13 @@ class Valve(app_manager.RyuApp):
             vlan_proto = pkt.get_protocols(vlan.vlan)[0]
             vid = vlan_proto.vid
             if vid not in self.portdb[in_port]['vlans']:
-                print "HAXX:RZ vlan:%d not on in_port:%d" % (vid, in_port)
+                self.logger.warn("HAXX:RZ vlan:%d not on in_port:%d" % \
+                    (vid, in_port))
                 return
         else:
             vid = self.portdb[in_port]['vlans'][0]
             if self.portdb[in_port]['type'] == 'tagged':
-                print "Untagged pkt_in on tagged port %d" % (in_port)
+                self.logger.warn("Untagged pkt_in on tagged port %d" % (in_port))
                 return
         self.mac_to_port[dpid].setdefault(vid, {})
 
@@ -207,6 +216,8 @@ class Valve(app_manager.RyuApp):
                 if tagged_act:
                     action += push_act + tagged_act
                 self.add_flow(dp, match, action, LOW_PRIORITY)
+
+        self.logger.info("valve running")
 
     @set_ev_cls(igmplib.EventMulticastGroupStateChanged,
                 MAIN_DISPATCHER)
