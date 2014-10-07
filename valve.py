@@ -74,6 +74,10 @@ class Valve(app_manager.RyuApp):
         if 'default' in self.portdb and 'exclude' not in self.portdb['default']:
             self.portdb['default'] = []
 
+        # Make sure acls property always at the top level
+        if 'acls' not in self.portdb:
+            self.portdb['acls'] = {}
+
         # Parse top level acls
         for nw_address in self.portdb['acls']:
             if nw_address not in self.acldb:
