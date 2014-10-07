@@ -253,7 +253,7 @@ class Valve(app_manager.RyuApp):
                     eth_dst=dst)
                 if self.portdb[out_port]['type'] == 'tagged':
                     actions.append(parser.OFPActionPushVlan())
-                    actions.append(parser.OFPActionSetField(vlan_vid=vid))
+                    actions.append(parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT))
             actions.append(parser.OFPActionOutput(out_port))
 
             self.add_flow(datapath, match, actions, HIGH_PRIORITY)
@@ -296,7 +296,7 @@ class Valve(app_manager.RyuApp):
             # send rule for each untagged port
             push_act = [
               parser.OFPActionPushVlan(),
-              parser.OFPActionSetField(vlan_vid=vid)
+              parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
               ]
             for port in ports['untagged']:
                 match = parser.OFPMatch(in_port=port)
