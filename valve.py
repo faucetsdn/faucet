@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import struct, yaml, copy, logging
+import sys, struct, yaml, copy, logging
+import pdb
 
 from acl import ACL
 
@@ -21,7 +22,7 @@ from ryu.base import app_manager
 from ryu.controller import dpset
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto import ofproto_v1_3, ether
 from ryu.lib import ofctl_v1_3
 from ryu.lib import igmplib
 from ryu.lib.packet import packet
@@ -88,35 +89,35 @@ class Valve(app_manager.RyuApp):
                 self.acldb[nw_address].append(acl)
 
         # Parse configuration
-        for port in self.portdb:
-            if port in ('all', 'default', 'acls'):
-                # Skip nodes that aren't real ports
+        for dpid in self.portdb:
+            if dpid in ('all', 'default', 'acls'):
+                # Skip nodes that aren't real datapaths
                 continue
 
             # Handle acls, default acls < port acls < global acls
 
             # Copy out port acls and clear port acl list
-            port_acls = []
-            if 'acls' in self.portdb[port]:
-                port_acls = self.portdb[port]['acls']
-            self.portdb[port]['acls'] = []
+            #port_acls = []
+            #if 'acls' in self.portdb[dpid]:
+            #    port_acls = self.portdb[dpid]['acls']
+            #self.portdb[dpid]['acls'] = []
 
             # Add default acls
-            if 'default' in self.portdb and \
-            'acls' in self.portdb['default'] and \
-            port not in self.portdb['default']['exclude']:
-                self.add_acls_to_port(port, self.portdb['default']['acls'])
+            #if 'default' in self.portdb and \
+            #'acls' in self.portdb['default'] and \
+            #port not in self.portdb['default']['exclude']:
+            #    self.add_acls_to_port(port, self.portdb['default']['acls'])
 
             # Add port acls
-            self.add_acls_to_port(port, port_acls)
+            #self.add_acls_to_port(port, port_acls)
 
             # Add global acls
-            if 'all' in self.portdb and 'acls' in self.portdb['all']:
-                self.add_acls_to_port(port, self.portdb['all']['acls'])
+            #if 'all' in self.portdb and 'acls' in self.portdb['all']:
+            #    self.add_acls_to_port(port, self.portdb['all']['acls'])
 
             # Now that we've resolved all acls we can print them
-            for acl in self.portdb[port]['acls']:
-                self.logger.info("adding %s on port:%s" % (acl, port))
+            #for acl in self.portdb[port]['acls']:
+            #    self.logger.info("adding %s on port:%s" % (acl, port))
 
             # Handle vlans
 
@@ -125,40 +126,66 @@ class Valve(app_manager.RyuApp):
             all (k in self.portdb['all'] for k in ('vlans','type')):
                 vlans = self.portdb['all']['vlans']
                 ptype = self.portdb['all']['type']
-                self.portdb[port]['vlans'] = vlans
-                self.portdb[port]['type'] = ptype
+	        self.logger.info("adding ALL type:%s, vlan:%s" % (ptype, str(vlans)))
+                for port in self.portdb[dpid]:
+		  #self.dump(self.portdb[dpid][port])
+                  self.portdb[dpid][port]['vlans'] = vlans
+                  self.portdb[dpid][port]['type'] = ptype
 
+	    for port in self.portdb[dpid]:
             # Add vlans defined on this port (or add default values)
-            if 'vlans' in self.portdb[port] and 'type' in self.portdb[port]:
-                vlans = self.portdb[port]['vlans']
-                ptype = self.portdb[port]['type']
-                self.add_port_to_vlans(port, vlans, ptype)
-            elif 'default' in self.portdb and \
-            all (k in self.portdb['default'] for k in ('vlans','type')) and \
-            port not in self.portdb['default']['exclude']:
-                vlans = self.portdb['default']['vlans']
-                ptype = self.portdb['default']['type']
-                self.portdb[port]['vlans'] = vlans
-                self.portdb[port]['type'] = ptype
-                self.add_port_to_vlans(port, vlans, ptype)
+               if 'vlans' in self.portdb[dpid][port] and 'type' in self.portdb[dpid][port]:
+                   vlans = self.portdb[dpid][port]['vlans']
+                   ptype = self.portdb[dpid][port]['type']
+                   self.add_port_to_vlans(dpid, port, vlans, ptype)
+               elif 'default' in self.portdb and \
+               all (k in self.portdb['default'] for k in ('vlans','type')) and \
+               port not in self.portdb['default']['exclude']:
+                  vlans = self.portdb['default']['vlans']
+                  ptype = self.portdb['default']['type']
+                  self.portdb[dpid][port]['vlans'] = vlans
+                  self.portdb[dpid][port]['type'] = ptype
+                  self.add_port_to_vlans(dpid, subif, vlans, ptype)
+	
 
         # Remove nodes that aren't real ports
         for n in ('all', 'default', 'acls'):
             if n in self.portdb:
                 del self.portdb[n]
 
-    def add_port_to_vlans(self, port, vlans, ptype):
+    def dump(self,obj):
+       if type(obj) == dict:
+           for k, v in obj.items():
+               if hasattr(v, '__iter__'):
+                   print k
+                   self.dump(v)
+               else:
+                   print '%s : %s' % (k, v)
+       elif type(obj) == list:
+           for v in obj:
+               if hasattr(v, '__iter__'):
+                   self.dump(v)
+               else:
+                   print v
+       else:
+           print obj
+
+    def add_port_to_vlans(self, dpid, port, vlans, ptype):
         if type(vlans) is list:
             for vid in vlans:
                if vid not in self.vlandb:
-                   self.vlandb[vid] = {'tagged': [], 'untagged': []}
-               self.logger.info("adding %s vid:%s on port:%s" % (ptype, vid, port))
-               self.vlandb[vid][ptype].append(port)
+		   self.vlandb[vid]={}
+	       if dpid not in self.vlandb[vid]:
+                   self.vlandb[vid][dpid] = {'tagged': [], 'untagged': []}
+               self.logger.info("adding %s vid:%s on dpid:%s, port:%s" % (ptype, vid, dpid, port))
+               self.vlandb[vid][dpid][ptype].append(port)
         else:
             if vlans not in self.vlandb:
-                self.vlandb[vlans] = {'tagged': [], 'untagged': []}
-            self.logger.info("adding %s vid:%s on port:%s" % (ptype, vid, port))
-            self.vlandb[vlans][ptype].append(port)
+		self.vlandb[vlans] = {}
+            if dpid not in self.vlandb[vid]:
+                self.vlandb[vlans][dpid] = {'tagged': [], 'untagged': []}
+            self.logger.info("adding %s vid:%s on dpid:%s, port:%s" % (ptype, vid, dpid, port))
+            self.vlandb[vlans][dpid][ptype].append(port)
 
     def add_acls_to_port(self, port, acls):
         for acl in acls:
@@ -210,19 +237,19 @@ class Valve(app_manager.RyuApp):
         # TODO: allow this to support more than one dp
         in_port = msg.match['in_port']
 
-        if in_port not in self.portdb:
+        if in_port not in self.portdb[dpid]:
           return
 
         if eth_type == 0x8100:
             vlan_proto = pkt.get_protocols(vlan.vlan)[0]
             vid = vlan_proto.vid
-            if vid not in self.portdb[in_port]['vlans']:
+            if vid not in self.portdb[dpid][in_port]['vlans']:
                 self.logger.warn("HAXX:RZ vlan:%d not on in_port:%d" % \
                     (vid, in_port))
                 return
         else:
-            vid = self.portdb[in_port]['vlans'][0]
-            if self.portdb[in_port]['type'] == 'tagged':
+            vid = self.portdb[dpid][in_port]['vlans'][0]
+            if self.portdb[dpid][in_port]['type'] == 'tagged':
                 self.logger.warn("Untagged pkt_in on tagged port %d" % (in_port))
                 return
         self.mac_to_port[dpid].setdefault(vid, {})
@@ -234,26 +261,29 @@ class Valve(app_manager.RyuApp):
         self.mac_to_port[dpid][vid][src] = in_port
 
         if dst in self.mac_to_port[dpid][vid]:
+	    self.logger.info("ADDING UNICAST FLOW - dst:%s dpid:%d vid:%d",
+                         dst,dpid, vid)
+
             # install a flow to avoid packet_in next time
             out_port = self.mac_to_port[dpid][vid][dst]
             actions = []
 
-            if self.portdb[in_port]['type'] == 'tagged':
+            if self.portdb[dpid][in_port]['type'] == 'tagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
                     eth_src=src,
                     eth_dst=dst,
                     vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
-                if self.portdb[out_port]['type'] == 'untagged':
+                if self.portdb[dpid][out_port]['type'] == 'untagged':
                     actions.append(parser.OFPActionPopVlan())
-            if self.portdb[in_port]['type'] == 'untagged':
+            if self.portdb[dpid][in_port]['type'] == 'untagged':
                 match = parser.OFPMatch(
                     in_port=in_port,
                     eth_src=src,
                     eth_dst=dst)
-                if self.portdb[out_port]['type'] == 'tagged':
+                if self.portdb[dpid][out_port]['type'] == 'tagged':
                     actions.append(parser.OFPActionPushVlan())
-                    actions.append(parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT))
+                    actions.append(parser.OFPActionSetField(vlan_vid=vid))
             actions.append(parser.OFPActionOutput(out_port))
 
             self.add_flow(datapath, match, actions, HIGH_PRIORITY)
@@ -272,8 +302,11 @@ class Valve(app_manager.RyuApp):
         drop_act  = []
         self.add_flow(dp, match_all, drop_act, LOWEST_PRIORITY)
 
-        for vid, ports in self.vlandb.iteritems():
+        self.logger.info("DATAPATH*****:%s", dp.id)
+        for vid in self.vlandb.keys():
+	    ports =  self.vlandb[vid][dp.id] 
             controller_act = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
+            self.logger.info("PORTS*****:%s", ports)
 
             # generate the output actions for each port
             untagged_act = []
@@ -295,31 +328,38 @@ class Valve(app_manager.RyuApp):
 
             # send rule for each untagged port
             push_act = [
-              parser.OFPActionPushVlan(),
-              parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
+              parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+              parser.OFPActionSetField(vlan_vid=vid)
               ]
+
             for port in ports['untagged']:
+                self.logger.info("Making Flow for port %s", port)
                 match = parser.OFPMatch(in_port=port)
                 action = copy.copy(controller_act)
                 if untagged_act:
                     action += untagged_act
                 if tagged_act:
-                    action += push_act + tagged_act
+                    #action += push_act + tagged_act
+	            action.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
+                    action.append(parser.OFPActionSetField(vlan_vid=101))
+                    action += tagged_act
+		self.logger.info("*** ACTION %s", action)
+	        #pdb.set_trace()
                 self.add_flow(dp, match, action, LOW_PRIORITY)
 
-        for nw_address in self.acldb:
-            for acl in self.acldb[nw_address]:
-                if acl.action.lower() == "drop":
-                    acl.match['nw_dst'] = nw_address
-                    match = ofctl_v1_3.to_match(dp, acl.match)
-                    self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
+        #for nw_address in self.acldb:
+        #    for acl in self.acldb[nw_address]:
+        #        if acl.action.lower() == "drop":
+        #            acl.match['nw_dst'] = nw_address
+        #            match = ofctl_v1_3.to_match(dp, acl.match)
+        #            self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
 
-        for port in self.portdb:
-            for acl in self.portdb[port]['acls']:
-                if acl.action.lower() == "drop":
-                    acl.match['in_port'] = port
-                    match = ofctl_v1_3.to_match(dp, acl.match)
-                    self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
+        #for port in self.portdb:
+        #    for acl in self.portdb[port]['acls']:
+        #        if acl.action.lower() == "drop":
+        #            acl.match['in_port'] = port
+        #            match = ofctl_v1_3.to_match(dp, acl.match)
+        #            self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
 
         self.logger.info("valve running")
 
