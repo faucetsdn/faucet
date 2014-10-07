@@ -146,7 +146,7 @@ class Valve(app_manager.RyuApp):
                   self.portdb[dpid][port]['vlans'] = vlans
                   self.portdb[dpid][port]['type'] = ptype
                   self.add_port_to_vlans(dpid, subif, vlans, ptype)
-	
+
 
         # Remove nodes that aren't real ports
         for n in ('all', 'default', 'acls'):
@@ -283,7 +283,7 @@ class Valve(app_manager.RyuApp):
                     eth_dst=dst)
                 if self.portdb[dpid][out_port]['type'] == 'tagged':
                     actions.append(parser.OFPActionPushVlan())
-                    actions.append(parser.OFPActionSetField(vlan_vid=vid))
+                    actions.append(parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT))
             actions.append(parser.OFPActionOutput(out_port))
 
             self.add_flow(datapath, match, actions, HIGH_PRIORITY)
@@ -304,7 +304,7 @@ class Valve(app_manager.RyuApp):
 
         self.logger.info("DATAPATH*****:%s", dp.id)
         for vid in self.vlandb.keys():
-	    ports =  self.vlandb[vid][dp.id] 
+	    ports =  self.vlandb[vid][dp.id]
             controller_act = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
             self.logger.info("PORTS*****:%s", ports)
 
@@ -341,7 +341,7 @@ class Valve(app_manager.RyuApp):
                 if tagged_act:
                     #action += push_act + tagged_act
 	            action.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
-                    action.append(parser.OFPActionSetField(vlan_vid=101))
+                    action.append(parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT))
                     action += tagged_act
 		self.logger.info("*** ACTION %s", action)
 	        #pdb.set_trace()
