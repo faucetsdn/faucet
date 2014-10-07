@@ -174,14 +174,14 @@ class Valve(app_manager.RyuApp):
         if type(vlans) is list:
             for vid in vlans:
                if vid not in self.vlandb:
-		   self.vlandb[vid]={}
-	       if dpid not in self.vlandb[vid]:
+                  self.vlandb[vid]={}
+               if dpid not in self.vlandb[vid]:
                    self.vlandb[vid][dpid] = {'tagged': [], 'untagged': []}
                self.logger.info("adding %s vid:%s on dpid:%s, port:%s" % (ptype, vid, dpid, port))
                self.vlandb[vid][dpid][ptype].append(port)
         else:
             if vlans not in self.vlandb:
-		self.vlandb[vlans] = {}
+               self.vlandb[vlans] = {}
             if dpid not in self.vlandb[vid]:
                 self.vlandb[vlans][dpid] = {'tagged': [], 'untagged': []}
             self.logger.info("adding %s vid:%s on dpid:%s, port:%s" % (ptype, vid, dpid, port))
@@ -260,9 +260,47 @@ class Valve(app_manager.RyuApp):
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][vid][src] = in_port
 
+        #put broadcast flows onto DP
+        #####*******
+        ports =  self.vlandb[vid][dpid]
+        #self.logger.info("PORTS*****:%s", ports)
+
+        # generate the output actions for each port
+        untagged_act = []
+        tagged_act = []
+        for port in ports['untagged']:
+            untagged_act.append(parser.OFPActionOutput(port))
+        for port in ports['tagged']:
+            tagged_act.append(parser.OFPActionOutput(port))
+
+        # send rule for matching packets arriving on tagged ports
+        strip_act = [parser.OFPActionPopVlan()]
+        action = []
+        if tagged_act:
+            action += tagged_act
+        if untagged_act:
+            action += strip_act + untagged_act
+        match = parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT, in_port=in_port, eth_src=src,
+                                    eth_dst='ff:ff:ff:ff:ff:ff')
+        self.add_flow(datapath, match, action, LOW_PRIORITY)
+        match = parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT,
+                                in_port=in_port,
+                                eth_src=src,
+                                eth_dst=('01:00:00:00:00:00',
+                                         '01:00:00:00:00:00'))
+        self.add_flow(datapath, match, action, LOW_PRIORITY)
+
+        # send rule for each untagged port
+
+
+      ###*******
+
+
+
+
         if dst in self.mac_to_port[dpid][vid]:
-	    self.logger.info("ADDING UNICAST FLOW - dst:%s dpid:%d vid:%d",
-                         dst,dpid, vid)
+            self.logger.info("ADDING UNICAST FLOW - dst:%s dpid:%d vid:%d",
+                     dst,dpid, vid)
 
             # install a flow to avoid packet_in next time
             out_port = self.mac_to_port[dpid][vid][dst]
@@ -304,7 +342,7 @@ class Valve(app_manager.RyuApp):
 
         self.logger.info("DATAPATH*****:%s", dp.id)
         for vid in self.vlandb.keys():
-	    ports =  self.vlandb[vid][dp.id]
+            ports =  self.vlandb[vid][dp.id]
             controller_act = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
             self.logger.info("PORTS*****:%s", ports)
 
@@ -340,11 +378,10 @@ class Valve(app_manager.RyuApp):
                     action += untagged_act
                 if tagged_act:
                     #action += push_act + tagged_act
-	            action.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
+                    action.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
                     action.append(parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT))
                     action += tagged_act
-		self.logger.info("*** ACTION %s", action)
-	        #pdb.set_trace()
+                    self.logger.info("*** ACTION %s", action)
                 self.add_flow(dp, match, action, LOW_PRIORITY)
 
         #for nw_address in self.acldb:
