@@ -19,12 +19,12 @@ import pdb
 from acl import ACL
 
 from ryu.base import app_manager
+from ryu.controller import ofp_event
 from ryu.controller import dpset
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3, ether
 from ryu.lib import ofctl_v1_3
-from ryu.lib import igmplib
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
@@ -37,23 +37,10 @@ LOWEST_PRIORITY = 0
 
 class Valve(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    _CONTEXTS = {'igmplib': igmplib.IgmpLib}
 
     def __init__(self, *args, **kwargs):
         super(Valve, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
-        self._snoop = kwargs['igmplib']
-        # if you want a switch to operate as a querier,
-        # set up as follows:
-        self._snoop.set_querier_mode(
-            dpid=str_to_dpid('0000000000000001'), server_port=2)
-        # dpid         the datapath id that will operate as a querier.
-        # server_port  a port number which connect to the multicast
-        #              server.
-        #
-        # NOTE: you can set up only the one querier.
-        # when you called this method several times,
-        # only the last one becomes effective.
 
         # Setup logging
         handler = logging.StreamHandler()
@@ -216,7 +203,7 @@ class Valve(app_manager.RyuApp):
             command=ofproto.OFPFC_ADD, match=match, instructions=inst)
         datapath.send_msg(mod)
 
-    @set_ev_cls(igmplib.EventPacketIn, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg
         datapath = msg.datapath
@@ -398,16 +385,4 @@ class Valve(app_manager.RyuApp):
         #            match = ofctl_v1_3.to_match(dp, acl.match)
         #            self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
 
-        self.logger.info("valve running")
-
-    @set_ev_cls(igmplib.EventMulticastGroupStateChanged,
-                MAIN_DISPATCHER)
-    def _status_changed(self, ev):
-        msg = {
-            igmplib.MG_GROUP_ADDED: 'Multicast Group Added',
-            igmplib.MG_MEMBER_CHANGED: 'Multicast Group Member Changed',
-            igmplib.MG_GROUP_REMOVED: 'Multicast Group Removed',
-        }
-        self.logger.info("%s: [%s] querier:[%s] hosts:%s",
-                         msg.get(ev.reason), ev.address, ev.src,
-                         ev.dsts)
+        self.logger.info("valve running on dpid %s" % dp.id)
