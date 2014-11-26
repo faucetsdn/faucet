@@ -8,7 +8,7 @@ class DP:
     vlans = None
     ports = None
     acls = None
-    configured = False
+    running = False
     config_all = None
     config_default = None
     config_acls = None
