@@ -8,6 +8,7 @@ class DP:
     vlans = None
     ports = None
     acls = None
+    ryudp = None
     running = False
     config_all = None
     config_default = None

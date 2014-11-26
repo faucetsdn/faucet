@@ -31,11 +31,17 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
 from ryu.lib.dpid import str_to_dpid
+from ryu.lib import hub
+from operator import attrgetter
 
 HIGHEST_PRIORITY = 9099
 HIGH_PRIORITY = 9001 # Now that is what I call high
 LOW_PRIORITY = 9000
 LOWEST_PRIORITY = 0
+
+# Shall we enable stats? How often shall we collect stats?
+STATS_ENABLE = False
+STATS_INTERVAL = 30
 
 class Valve(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -51,6 +57,11 @@ class Valve(app_manager.RyuApp):
         self.logger_handler.setFormatter(formatter)
         self.logger.addHandler(self.logger_handler)
         self.logger.propagate = 0
+
+        # Start a thread for stats gathering
+        if STATS_ENABLE:
+            self.stats_event = hub.Event()
+            self.threads.append(hub.spawn(self.stats_loop))
 
         self.dps = {}
 
@@ -153,6 +164,35 @@ class Valve(app_manager.RyuApp):
         for port in untagged_ports:
             act.append(parser.OFPActionOutput(port.number))
         return act
+
+    def send_port_stats_request(self, dp):
+        ofp = dp.ofproto
+        ofp_parser = dp.ofproto_parser
+        req = ofp_parser.OFPPortStatsRequest(dp, 0, ofp.OFPP_ANY)
+        dp.send_msg(req)
+
+    def stats_loop(self):
+        while self.is_active:
+            self.stats_event.clear()
+            for dpid, dp in self.dps.items():
+                if dp.running:
+                    self.send_port_stats_request(dp.ryudp)
+            self.stats_event.wait(timeout=STATS_INTERVAL)
+
+    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
+    def port_stats_reply_handler(self, ev):
+        body = ev.msg.body
+        self.logger.info('port     '
+                         'rx-pkts  rx-bytes rx-error '
+                         'tx-pkts  tx-bytes tx-error')
+        self.logger.info('-------- '
+                         '-------- -------- -------- '
+                         '-------- -------- --------')
+        for stat in sorted(body, key=attrgetter('port_no')):
+            self.logger.info('%8x %8d %8d %8d %8d %8d %8d',
+                    stat.port_no,
+                    stat.rx_packets, stat.rx_bytes, stat.rx_errors,
+                    stat.tx_packets, stat.tx_bytes, stat.tx_errors)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -381,6 +421,9 @@ class Valve(app_manager.RyuApp):
                     acl.match['in_port'] = port.number
                     match = ofctl_v1_3.to_match(dp, acl.match)
                     self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
+
+        # Stash ryu.controller.controller.Datapath object in our dp object
+        datapath.ryudp = dp
 
         # Mark datapath as fully configured
         datapath.running = True
