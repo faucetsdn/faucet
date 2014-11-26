@@ -8,6 +8,8 @@ all:
 acls:
  192.168.0.0/24:
   - {match: {eth_type: 0x0800, ip_proto: 6, tcp_dst: 22}, action: drop}
+ 2001:cafe::/32:
+  - {match: {eth_type: 0x86dd, ip_proto: 6, tcp_dst: 22}, action: drop}
 
 0000000000000001:
  default:

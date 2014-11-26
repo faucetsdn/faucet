@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys, struct, yaml, copy, logging
+import sys, struct, yaml, copy, logging, socket
 
 import util
 from acl import ACL
@@ -363,7 +363,14 @@ class Valve(app_manager.RyuApp):
                 if acl.action.lower() == "drop":
                     self.logger.info("Adding ACL:{%s} for nw_address:%s",
                             acl, nw_address)
-                    acl.match['nw_dst'] = nw_address
+
+                    # Hacky method of detecting IPv4/IPv6
+                    try:
+                        socket.inet_aton(nw_address.split('/')[0])
+                        acl.match['nw_dst'] = nw_address
+                    except socket.error:
+                        acl.match['ipv6_dst'] = nw_address
+
                     match = ofctl_v1_3.to_match(dp, acl.match)
                     self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
 
