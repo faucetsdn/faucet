@@ -26,3 +26,8 @@ acls:
   type: tagged
   vlans: [10]
  3:
+
+0xabcd:
+ 1:
+  type: untagged
+  vlans: [10]

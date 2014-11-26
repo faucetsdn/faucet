@@ -13,6 +13,8 @@ It supports:
 
 Valve is configured with a YAML-based configuration file. A sample configuration file is supplied in `valve.yaml-dist`. At the top level you configure your datapaths and ports on each datapath.
 
+The datapath ID may be specified as an integer or hex string (beginning with 0x).
+
 At each level you may have `all` and `default` configuration.
 
 `all` configuration will be applied to each port at the same level or lower levels in the configuration hierarchy.
