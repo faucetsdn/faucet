@@ -1,6 +1,9 @@
 import collections
 
 class ACL:
+    match = None
+    action = None
+
     def __init__(self, match, action):
         self.match = match
         self.action = action
@@ -20,4 +23,4 @@ class ACL:
         s = []
         for k in self.match:
             s.append("%s=%s" % (k, self.match[k]))
-        return "match:%s action:%s" % (",".join(s), self.action)
+        return "%s actions=%s" % (",".join(s), self.action)

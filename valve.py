@@ -14,9 +14,11 @@
 # limitations under the License.
 
 import sys, struct, yaml, copy, logging
-import pdb
 
+import util
 from acl import ACL
+from dp import DP
+from port import Port
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -43,145 +45,82 @@ class Valve(app_manager.RyuApp):
         self.mac_to_port = {}
 
         # Setup logging
-        handler = logging.StreamHandler()
-        log_format = '%(asctime)s %(name)-8s %(levelname)-8s %(message)s'
-        formatter = logging.Formatter(log_format, '%b %d %H:%M:%S')
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+        self.logger_handler = logging.StreamHandler()
+        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
+        formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
+        self.logger_handler.setFormatter(formatter)
+        self.logger.addHandler(self.logger_handler)
         self.logger.propagate = 0
 
+        self.dps = {}
+
         # Read in config file
-        self.portdb = None
-        self.vlandb = {}
-        self.acldb = {}
-
         with open('valve.yaml', 'r') as stream:
-            self.portdb = yaml.load(stream)
+            self.conf = yaml.load(stream)
 
-        # Make sure exclude property always exists in 'default'
-        if 'default' in self.portdb and 'exclude' not in self.portdb['default']:
-            self.portdb['default'] = []
+            # Convert all acls to ACL objects
+            self.fix_acls(self.conf)
 
-        # Make sure acls property always at the top level
-        if 'acls' not in self.portdb:
-            self.portdb['acls'] = {}
+            for dpid, dpconfig in self.conf.items():
+                if dpid in ('all', 'default', 'acls'):
+                    continue
 
-        # Parse top level acls
-        for nw_address in self.portdb['acls']:
-            if nw_address not in self.acldb:
-                self.acldb[nw_address] = []
-            for acl in self.portdb['acls'][nw_address]:
-                acl = ACL(acl['match'], acl['action'])
-                self.logger.info("adding %s on nw_dst:%s" % (acl, nw_address))
-                self.acldb[nw_address].append(acl)
+                conf_all = [ copy.deepcopy(self.conf['all']) ] if 'all' in self.conf else [{}]
+                conf_def = copy.deepcopy(self.conf['default']) if 'default' in self.conf else {}
+                conf_acls = copy.deepcopy(self.conf['acls']) if 'acls' in self.conf else {}
 
-        # Parse configuration
-        for dpid in self.portdb:
-            if dpid in ('all', 'default', 'acls'):
-                # Skip nodes that aren't real datapaths
-                continue
+                # Merge dpconfig['all'] into conf_all
+                if 'all' in dpconfig:
+                    conf_all.append(dpconfig['all'])
 
-            # Handle acls, default acls < port acls < global acls
+                    del dpconfig['all']
 
-            # Copy out port acls and clear port acl list
-            #port_acls = []
-            #if 'acls' in self.portdb[dpid]:
-            #    port_acls = self.portdb[dpid]['acls']
-            #self.portdb[dpid]['acls'] = []
+                # Merge dpconfig['default'] into conf_def
+                if 'default' in dpconfig:
+                    if 'vlans' in dpconfig['default']:
+                        # Let DP-default vlan config
+                        # override global-default vlan config
+                        conf_def['vlans'] = dpconfig['default']['vlans']
 
-            # Add default acls
-            #if 'default' in self.portdb and \
-            #'acls' in self.portdb['default'] and \
-            #port not in self.portdb['default']['exclude']:
-            #    self.add_acls_to_port(port, self.portdb['default']['acls'])
+                    if 'type' in dpconfig['default']:
+                        # Let DP-default type config
+                        # override global-default type config
+                        conf_def['type'] = dpconfig['default']['type']
 
-            # Add port acls
-            #self.add_acls_to_port(port, port_acls)
+                    if 'acls' in dpconfig['default']:
+                        # Let DP-default acl config
+                        # override global-default acl config
+                        conf_def['acls'] = dpconfig['default']['acls']
 
-            # Add global acls
-            #if 'all' in self.portdb and 'acls' in self.portdb['all']:
-            #    self.add_acls_to_port(port, self.portdb['all']['acls'])
+                    if 'exclude' in dpconfig['default']:
+                        # Let DP-default exclude config
+                        # override global-default exclude config
+                        conf_def['exclude'] = dpconfig['default']['exclude']
 
-            # Now that we've resolved all acls we can print them
-            #for acl in self.portdb[port]['acls']:
-            #    self.logger.info("adding %s on port:%s" % (acl, port))
+                    del dpconfig['default']
 
-            # Handle vlans
+                # Merge dpconfig['acls'] into conf_acls
+                if 'acls' in dpconfig:
+                    for ip, acls in dpconfig['acls'].items():
+                        conf_acls.setdefault(ip, [])
+                        conf_acls[ip].extend(x for x in acls if x not in conf_acls[ip])
 
-            # If we have global vlans add them
-            if 'all' in self.portdb and \
-            all (k in self.portdb['all'] for k in ('vlans','type')):
-                vlans = self.portdb['all']['vlans']
-                ptype = self.portdb['all']['type']
-	        self.logger.info("adding ALL type:%s, vlan:%s" % (ptype, str(vlans)))
-                for port in self.portdb[dpid]:
-		  #self.dump(self.portdb[dpid][port])
-                  self.portdb[dpid][port]['vlans'] = vlans
-                  self.portdb[dpid][port]['type'] = ptype
+                    del dpconfig['acls']
 
-	    for port in self.portdb[dpid]:
-            # Add vlans defined on this port (or add default values)
-               if 'vlans' in self.portdb[dpid][port] and 'type' in self.portdb[dpid][port]:
-                   vlans = self.portdb[dpid][port]['vlans']
-                   ptype = self.portdb[dpid][port]['type']
-                   self.add_port_to_vlans(dpid, port, vlans, ptype)
-               elif 'default' in self.portdb and \
-               all (k in self.portdb['default'] for k in ('vlans','type')) and \
-               port not in self.portdb['default']['exclude']:
-                  vlans = self.portdb['default']['vlans']
-                  ptype = self.portdb['default']['type']
-                  self.portdb[dpid][port]['vlans'] = vlans
-                  self.portdb[dpid][port]['type'] = ptype
-                  self.add_port_to_vlans(dpid, subif, vlans, ptype)
+                # Add datapath
+                self.dps[dpid] = DP(dpid, dpconfig, conf_all, conf_def, conf_acls)
 
-
-        # Remove nodes that aren't real ports
-        for n in ('all', 'default', 'acls'):
-            if n in self.portdb:
-                del self.portdb[n]
-
-    def dump(self,obj):
-       if type(obj) == dict:
-           for k, v in obj.items():
-               if hasattr(v, '__iter__'):
-                   print k
-                   self.dump(v)
-               else:
-                   print '%s : %s' % (k, v)
-       elif type(obj) == list:
-           for v in obj:
-               if hasattr(v, '__iter__'):
-                   self.dump(v)
-               else:
-                   print v
-       else:
-           print obj
-
-    def add_port_to_vlans(self, dpid, port, vlans, ptype):
-        if type(vlans) is list:
-            for vid in vlans:
-               if vid not in self.vlandb:
-                  self.vlandb[vid]={}
-               if dpid not in self.vlandb[vid]:
-                   self.vlandb[vid][dpid] = {'tagged': [], 'untagged': []}
-               self.logger.info("adding %s vid:%s on dpid:%s, port:%s" % (ptype, vid, dpid, port))
-               self.vlandb[vid][dpid][ptype].append(port)
-        else:
-            if vlans not in self.vlandb:
-               self.vlandb[vlans] = {}
-            if dpid not in self.vlandb[vid]:
-                self.vlandb[vlans][dpid] = {'tagged': [], 'untagged': []}
-            self.logger.info("adding %s vid:%s on dpid:%s, port:%s" % (ptype, vid, dpid, port))
-            self.vlandb[vlans][dpid][ptype].append(port)
-
-    def add_acls_to_port(self, port, acls):
-        for acl in acls:
-            acl = ACL(acl['match'], acl['action'])
-            if acl in self.portdb[port]['acls']:
-                index = self.portdb[port]['acls'].index(acl)
-                self.portdb[port]['acls'][index] = acl
-            else:
-                self.portdb[port]['acls'].append(acl)
+    def fix_acls(self, conf):
+        # Recursively walk config replacing all acls with ACL objects
+        for k, v in conf.items():
+            if k == 'acls':
+                if isinstance(v, dict):
+                    for ip, acls in v.items():
+                        conf[k][ip] = [ACL(x['match'], x['action']) for x in acls]
+                else:
+                    conf[k] = [ACL(x['match'], x['action']) for x in v]
+            elif isinstance(v, dict):
+                self.fix_acls(v)
 
     def clear_flows(self, datapath):
         ofproto = datapath.ofproto
@@ -203,12 +142,24 @@ class Valve(app_manager.RyuApp):
             command=ofproto.OFPFC_ADD, match=match, instructions=inst)
         datapath.send_msg(mod)
 
+    def tagged_output_action(self, parser, tagged_ports):
+        act = []
+        for port in tagged_ports:
+            act.append(parser.OFPActionOutput(port.number))
+        return act
+
+    def untagged_output_action(self, parser, untagged_ports):
+        act = []
+        for port in untagged_ports:
+            act.append(parser.OFPActionOutput(port.number))
+        return act
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg
-        datapath = msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
+        dp = msg.datapath
+        ofproto = dp.ofproto
+        parser = dp.ofproto_parser
 
         pkt = packet.Packet(msg.data)
         ethernet_proto = pkt.get_protocols(ethernet.ethernet)[0]
@@ -217,101 +168,123 @@ class Valve(app_manager.RyuApp):
         dst = ethernet_proto.dst
         eth_type = ethernet_proto.ethertype
 
-        dpid = datapath.id
-        self.mac_to_port.setdefault(dpid, {})
-
-        # find the in_port:
-        # TODO: allow this to support more than one dp
         in_port = msg.match['in_port']
+        self.mac_to_port.setdefault(dp.id, {})
 
-        if in_port not in self.portdb[dpid]:
-          return
+        # Configure logging to include datapath id
+        dp_str = 'dpid:%-16x' % dp.id
+        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s '+dp_str+' %(message)s'
+        formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
+        self.logger_handler.setFormatter(formatter)
 
-        if eth_type == 0x8100:
+        if dp.id not in self.dps:
+            self.logger.error("Packet_in on unknown datapath")
+            return
+        else:
+            datapath = self.dps[dp.id]
+
+        if not datapath.running:
+            self.logger.error("Packet_in on unconfigured datapath")
+
+        if in_port not in datapath.ports:
+            return
+
+        if eth_type == ether.ETH_TYPE_8021Q:
+            # tagged packet
             vlan_proto = pkt.get_protocols(vlan.vlan)[0]
             vid = vlan_proto.vid
-            if vid not in self.portdb[dpid][in_port]['vlans']:
-                self.logger.warn("HAXX:RZ vlan:%d not on in_port:%d" % \
-                    (vid, in_port))
+            if Port(in_port, 'tagged') not in datapath.vlans[vid].tagged:
+                self.logger.warn("HAXX:RZ in_port:%d isn't tagged on vid:%s" % \
+                    (in_port, vid))
                 return
         else:
-            vid = self.portdb[dpid][in_port]['vlans'][0]
-            if self.portdb[dpid][in_port]['type'] == 'tagged':
-                self.logger.warn("Untagged pkt_in on tagged port %d" % (in_port))
+            # untagged packet
+            vid = datapath.get_native_vlan(in_port).vid
+            if not vid:
+                self.logger.warn("Untagged packet_in on port:%d without native vlan" % \
+                        (in_port))
                 return
-        self.mac_to_port[dpid].setdefault(vid, {})
 
-        self.logger.info("packet in dpid:%s src:%s dst:%s in_port:%d vid:%s",
-                         dpid, src, dst, in_port, vid)
+        self.mac_to_port[dp.id].setdefault(vid, {})
+
+        self.logger.info("Packet_in src:%s dst:%s in_port:%d vid:%s",
+                         src, dst, in_port, vid)
 
         # learn a mac address to avoid FLOOD next time.
-        self.mac_to_port[dpid][vid][src] = in_port
+        self.mac_to_port[dp.id][vid][src] = in_port
 
-        #put broadcast flows onto DP
-        #####*******
-        ports =  self.vlandb[vid][dpid]
-        #self.logger.info("PORTS*****:%s", ports)
+        # generate the output actions for broadcast traffic
+        tagged_act = self.tagged_output_action(parser, datapath.vlans[vid].tagged)
+        untagged_act = self.untagged_output_action(parser, datapath.vlans[vid].untagged)
 
-        # generate the output actions for each port
-        untagged_act = []
-        tagged_act = []
-        for port in ports['untagged']:
-            untagged_act.append(parser.OFPActionOutput(port))
-        for port in ports['tagged']:
-            tagged_act.append(parser.OFPActionOutput(port))
-
-        # send rule for matching packets arriving on tagged ports
-        strip_act = [parser.OFPActionPopVlan()]
+        matches = []
         action = []
-        if tagged_act:
-            action += tagged_act
-        if untagged_act:
-            action += strip_act + untagged_act
-        match = parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT, in_port=in_port, eth_src=src,
-                                    eth_dst='ff:ff:ff:ff:ff:ff')
-        self.add_flow(datapath, match, action, LOW_PRIORITY)
-        match = parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT,
-                                in_port=in_port,
-                                eth_src=src,
-                                eth_dst=('01:00:00:00:00:00',
-                                         '01:00:00:00:00:00'))
-        self.add_flow(datapath, match, action, LOW_PRIORITY)
+        if datapath.ports[in_port].is_tagged():
+            # send rule for mathcing packets arriving on tagged ports
+            strip_act = [parser.OFPActionPopVlan()]
+            if tagged_act:
+                action += tagged_act
+            if untagged_act:
+                action += strip_act + untagged_act
 
-        # send rule for each untagged port
+            matches.append(parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT,
+                    in_port=in_port, eth_src=src, eth_dst='ff:ff:ff:ff:ff:ff'))
 
+            matches.append(parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT,
+                    in_port=in_port,
+                    eth_src=src,
+                    eth_dst=('01:00:00:00:00:00',
+                             '01:00:00:00:00:00')))
+        elif datapath.ports[in_port].is_untagged():
+            # send rule for each untagged port
+            push_act = [
+              parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+              parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
+              ]
+            if untagged_act:
+                action += untagged_act
+            if tagged_act:
+                action += push_act + tagged_act
 
-      ###*******
+            matches.append(parser.OFPMatch(in_port=in_port, eth_src=src,
+                    eth_dst='ff:ff:ff:ff:ff:ff'))
 
+            matches.append(parser.OFPMatch(in_port=in_port,
+                    eth_src=src,
+                    eth_dst=('01:00:00:00:00:00',
+                             '01:00:00:00:00:00')))
 
+        # install broadcast flows onto datapath
+        for match in matches:
+            self.add_flow(dp, match, action, LOW_PRIORITY)
 
-
-        if dst in self.mac_to_port[dpid][vid]:
-            self.logger.info("ADDING UNICAST FLOW - dst:%s dpid:%d vid:%d",
-                     dst,dpid, vid)
+        # install unicast flows onto datapath
+        if dst in self.mac_to_port[dp.id][vid]:
+            self.logger.info("Adding unicast flow dl_dst:%s vid:%d", dst, vid)
 
             # install a flow to avoid packet_in next time
-            out_port = self.mac_to_port[dpid][vid][dst]
+            out_port = self.mac_to_port[dp.id][vid][dst]
             actions = []
 
-            if self.portdb[dpid][in_port]['type'] == 'tagged':
+            if datapath.ports[in_port].is_tagged():
                 match = parser.OFPMatch(
                     in_port=in_port,
                     eth_src=src,
                     eth_dst=dst,
                     vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
-                if self.portdb[dpid][out_port]['type'] == 'untagged':
+                if datapath.ports[out_port].is_untagged():
                     actions.append(parser.OFPActionPopVlan())
-            if self.portdb[dpid][in_port]['type'] == 'untagged':
+            if datapath.ports[in_port].is_untagged():
                 match = parser.OFPMatch(
                     in_port=in_port,
                     eth_src=src,
                     eth_dst=dst)
-                if self.portdb[dpid][out_port]['type'] == 'tagged':
+                if datapath.ports[out_port].is_tagged():
                     actions.append(parser.OFPActionPushVlan())
                     actions.append(parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT))
             actions.append(parser.OFPActionOutput(out_port))
 
-            self.add_flow(datapath, match, actions, HIGH_PRIORITY)
+            self.add_flow(dp, match, actions, HIGH_PRIORITY)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     def handler_datapath(self, ev):
@@ -319,27 +292,46 @@ class Valve(app_manager.RyuApp):
         ofproto = dp.ofproto
         parser = dp.ofproto_parser
 
-        # clear flow table
+        # Configure logging to include datapath id
+        dp_str = 'dpid:%-16x' % dp.id
+        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s '+dp_str+' %(message)s'
+        formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
+        self.logger_handler.setFormatter(formatter)
+
+        if dp.id not in self.dps:
+            self.logger.error("Unknown dpid:%s", dp.id)
+            return
+        else:
+            datapath = self.dps[dp.id]
+
+        for k, port in dp.ports.items():
+            # These are special port numbers
+            if k > 0xF0000000:
+                continue
+            elif k not in datapath.ports:
+                # Autoconfigure port
+                self.logger.info("Autoconfiguring port:%s based on default config",
+                        k)
+                datapath.add_port(k)
+
+        self.logger.info("Configuring datapath")
+
+        # clear flow table on datapath
         self.clear_flows(dp)
 
-        # add catchall drop rule
+        # add catchall drop rule to datapath
         match_all = parser.OFPMatch()
         drop_act  = []
         self.add_flow(dp, match_all, drop_act, LOWEST_PRIORITY)
 
-        self.logger.info("DATAPATH*****:%s", dp.id)
-        for vid in self.vlandb.keys():
-            ports =  self.vlandb[vid][dp.id]
+        for vid, v in datapath.vlans.items():
+            self.logger.info("Configuring %s", v)
+
             controller_act = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
-            self.logger.info("PORTS*****:%s", ports)
 
             # generate the output actions for each port
-            untagged_act = []
-            tagged_act = []
-            for port in ports['untagged']:
-                untagged_act.append(parser.OFPActionOutput(port))
-            for port in ports['tagged']:
-                tagged_act.append(parser.OFPActionOutput(port))
+            tagged_act = self.tagged_output_action(parser, v.tagged)
+            untagged_act = self.untagged_output_action(parser, v.untagged)
 
             # send rule for matching packets arriving on tagged ports
             strip_act = [parser.OFPActionPopVlan()]
@@ -348,41 +340,42 @@ class Valve(app_manager.RyuApp):
                 action += tagged_act
             if untagged_act:
                 action += strip_act + untagged_act
-            match = parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
+            match = parser.OFPMatch(vlan_vid=v.vid|ofproto_v1_3.OFPVID_PRESENT)
             self.add_flow(dp, match, action, LOW_PRIORITY)
 
             # send rule for each untagged port
             push_act = [
               parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-              parser.OFPActionSetField(vlan_vid=vid)
+              parser.OFPActionSetField(vlan_vid=v.vid|ofproto_v1_3.OFPVID_PRESENT)
               ]
 
-            for port in ports['untagged']:
-                self.logger.info("Making Flow for port %s", port)
-                match = parser.OFPMatch(in_port=port)
+            for port in v.untagged:
+                match = parser.OFPMatch(in_port=port.number)
                 action = copy.copy(controller_act)
                 if untagged_act:
                     action += untagged_act
                 if tagged_act:
-                    #action += push_act + tagged_act
-                    action.append(parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
-                    action.append(parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT))
-                    action += tagged_act
-                    self.logger.info("*** ACTION %s", action)
+                    action += push_act + tagged_act
                 self.add_flow(dp, match, action, LOW_PRIORITY)
 
-        #for nw_address in self.acldb:
-        #    for acl in self.acldb[nw_address]:
-        #        if acl.action.lower() == "drop":
-        #            acl.match['nw_dst'] = nw_address
-        #            match = ofctl_v1_3.to_match(dp, acl.match)
-        #            self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
+        for nw_address, acls in datapath.acls.items():
+            for acl in acls:
+                if acl.action.lower() == "drop":
+                    self.logger.info("Adding ACL:{%s} for nw_address:%s",
+                            acl, nw_address)
+                    acl.match['nw_dst'] = nw_address
+                    match = ofctl_v1_3.to_match(dp, acl.match)
+                    self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
 
-        #for port in self.portdb:
-        #    for acl in self.portdb[port]['acls']:
-        #        if acl.action.lower() == "drop":
-        #            acl.match['in_port'] = port
-        #            match = ofctl_v1_3.to_match(dp, acl.match)
-        #            self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
+        for k, port in datapath.ports.items():
+            for acl in port.acls:
+                if acl.action.lower() == "drop":
+                    self.logger.info("Adding ACL:{%s} to port:%s", acl, port)
+                    acl.match['in_port'] = port.number
+                    match = ofctl_v1_3.to_match(dp, acl.match)
+                    self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
 
-        self.logger.info("valve running on dpid %s" % dp.id)
+        # Mark datapath as fully configured
+        datapath.running = True
+
+        self.logger.info("Datapath configured")
