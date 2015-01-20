@@ -53,8 +53,8 @@ class Valve(app_manager.RyuApp):
         # Setup logging
         self.logger_handler = logging.StreamHandler()
         log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
-        formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
-        self.logger_handler.setFormatter(formatter)
+        self.default_formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
+        self.set_default_log_formatter()
         self.logger.addHandler(self.logger_handler)
         self.logger.propagate = 0
 
@@ -132,6 +132,15 @@ class Valve(app_manager.RyuApp):
                     conf[k] = [ACL(x['match'], x['action']) for x in v]
             elif isinstance(v, dict):
                 self.fix_acls(v)
+
+    def set_default_log_formatter(self):
+        self.logger_handler.setFormatter(self.default_formatter)
+
+    def set_dpid_log_formatter(self, dpid):
+        dp_str = 'dpid:%-16x' % dpid
+        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s '+dp_str+' %(message)s'
+        formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
+        self.logger_handler.setFormatter(formatter)
 
     def clear_flows(self, datapath):
         ofproto = datapath.ofproto
@@ -212,13 +221,11 @@ class Valve(app_manager.RyuApp):
         self.mac_to_port.setdefault(dp.id, {})
 
         # Configure logging to include datapath id
-        dp_str = 'dpid:%-16x' % dp.id
-        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s '+dp_str+' %(message)s'
-        formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
-        self.logger_handler.setFormatter(formatter)
+        self.set_dpid_log_formatter(dp.id)
 
         if dp.id not in self.dps:
             self.logger.error("Packet_in on unknown datapath")
+            self.set_default_log_formatter()
             return
         else:
             datapath = self.dps[dp.id]
@@ -227,6 +234,7 @@ class Valve(app_manager.RyuApp):
             self.logger.error("Packet_in on unconfigured datapath")
 
         if in_port not in datapath.ports:
+            self.set_default_log_formatter()
             return
 
         if eth_type == ether.ETH_TYPE_8021Q:
@@ -236,6 +244,7 @@ class Valve(app_manager.RyuApp):
             if Port(in_port, 'tagged') not in datapath.vlans[vid].tagged:
                 self.logger.warn("HAXX:RZ in_port:%d isn't tagged on vid:%s" % \
                     (in_port, vid))
+                self.set_default_log_formatter()
                 return
         else:
             # untagged packet
@@ -243,6 +252,7 @@ class Valve(app_manager.RyuApp):
             if not vid:
                 self.logger.warn("Untagged packet_in on port:%d without native vlan" % \
                         (in_port))
+                self.set_default_log_formatter()
                 return
 
         self.mac_to_port[dp.id].setdefault(vid, {})
@@ -326,6 +336,9 @@ class Valve(app_manager.RyuApp):
 
             self.add_flow(dp, match, actions, HIGH_PRIORITY)
 
+        # Reset log formatter
+        self.set_default_log_formatter()
+
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     def handler_datapath(self, ev):
         dp = ev.dp
@@ -333,13 +346,11 @@ class Valve(app_manager.RyuApp):
         parser = dp.ofproto_parser
 
         # Configure logging to include datapath id
-        dp_str = 'dpid:%-16x' % dp.id
-        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s '+dp_str+' %(message)s'
-        formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
-        self.logger_handler.setFormatter(formatter)
+        self.set_dpid_log_formatter(dp.id)
 
         if dp.id not in self.dps:
             self.logger.error("Unknown dpid:%s", dp.id)
+            self.set_default_log_formatter()
             return
         else:
             datapath = self.dps[dp.id]
@@ -429,3 +440,5 @@ class Valve(app_manager.RyuApp):
         datapath.running = True
 
         self.logger.info("Datapath configured")
+
+        self.set_default_log_formatter()
