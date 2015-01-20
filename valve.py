@@ -46,6 +46,8 @@ STATS_INTERVAL = 30
 class Valve(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
+    _CONTEXTS = {'dpset': dpset.DPSet}
+
     def __init__(self, *args, **kwargs):
         super(Valve, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
@@ -62,6 +64,9 @@ class Valve(app_manager.RyuApp):
         if STATS_ENABLE:
             self.stats_event = hub.Event()
             self.threads.append(hub.spawn(self.stats_loop))
+
+        # Create dpset object for querying Ryu's DPSet application
+        self.dpset = kwargs['dpset']
 
         self.dps = {}
 
@@ -119,7 +124,8 @@ class Valve(app_manager.RyuApp):
                     del dpconfig['acls']
 
                 # Add datapath
-                self.dps[dpid] = DP(dpid, dpconfig, conf_all, conf_def, conf_acls)
+                newdp = DP(dpid, dpconfig, conf_all, conf_def, conf_acls)
+                self.dps[dpid] = newdp
 
     def fix_acls(self, conf):
         # Recursively walk config replacing all acls with ACL objects
@@ -185,7 +191,8 @@ class Valve(app_manager.RyuApp):
             self.stats_event.clear()
             for dpid, dp in self.dps.items():
                 if dp.running:
-                    self.send_port_stats_request(dp.ryudp)
+                    ryudp = self.dpset.get(dpid)
+                    self.send_port_stats_request(ryudp)
             self.stats_event.wait(timeout=STATS_INTERVAL)
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
@@ -432,9 +439,6 @@ class Valve(app_manager.RyuApp):
                     acl.match['in_port'] = port.number
                     match = ofctl_v1_3.to_match(dp, acl.match)
                     self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
-
-        # Stash ryu.controller.controller.Datapath object in our dp object
-        datapath.ryudp = dp
 
         # Mark datapath as fully configured
         datapath.running = True
