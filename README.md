@@ -38,6 +38,12 @@ $ $EDITOR valve.yaml
 $ ryu-manager valve.py
 ```
 
+To tell Valve to reload its configuration file after you've changed it, simply send it a SIGHUP:
+
+```
+$ pkill -SIGHUP -f "ryu-manager valve.py"
+```
+
 We have tested Valve against:
  * Open vSwitch v2.1+
  * Pica8 pronto switches (running picos v2.3+)
