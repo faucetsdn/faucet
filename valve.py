@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys, struct, yaml, copy, logging, socket
+import sys, struct, yaml, copy, logging, socket, os, signal
 
 import util
 from acl import ACL
@@ -50,8 +50,6 @@ class Valve(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(Valve, self).__init__(*args, **kwargs)
-        self.mac_to_port = {}
-
         # Setup logging
         self.logger_handler = logging.StreamHandler()
         log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
@@ -59,6 +57,9 @@ class Valve(app_manager.RyuApp):
         self.set_default_log_formatter()
         self.logger.addHandler(self.logger_handler)
         self.logger.propagate = 0
+
+        # Set the signal handler for reloading config file
+        signal.signal(signal.SIGHUP, self.signal_handler)
 
         # Start a thread for stats gathering
         if STATS_ENABLE:
@@ -68,9 +69,47 @@ class Valve(app_manager.RyuApp):
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
 
+        # Initialise datastructures to store state
+        self.mac_to_port = {}
         self.dps = {}
 
-        # Read in config file
+        # Parse config file
+        self.parse_config()
+
+    def signal_handler(self, sigid, frame):
+        if sigid == signal.SIGHUP:
+            self.logger.info("Caught SIGHUP, reloading configuration")
+
+            # Take a copy of old datapaths
+            olddps = self.dps
+
+            # Reinitialise datastructures
+            self.mac_to_port = {}
+            self.dps = {}
+
+            self.parse_config()
+            for dpid, dp in self.dps.items():
+                if dpid in olddps:
+                    # If we're reconfiguring a pre-existing dp then copy over
+                    # some useful attributes
+                    dp.running = olddps[dpid].running
+                    del olddps[dpid]
+                ryudp = self.dpset.get(dpid)
+                if ryudp:
+                    self.logger.info("Trigger reconfiguration of %s", dp)
+                    ev = dpset.EventDP(ryudp, True)
+                    self.handler_datapath(ev)
+
+            for dpid, dp in olddps.items():
+                # Remove our configuration from the datapath that has
+                # been removed from the configuration
+                ryudp = self.dpset.get(dpid)
+                if ryudp:
+                    self.logger.info("Removing configuration from %s", dp)
+                    self.clear_flows(ryudp)
+                del olddps[dpid]
+
+    def parse_config(self):
         with open('valve.yaml', 'r') as stream:
             self.conf = yaml.load(stream)
 
