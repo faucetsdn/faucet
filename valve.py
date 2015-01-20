@@ -394,6 +394,12 @@ class Valve(app_manager.RyuApp):
         # Configure logging to include datapath id
         self.set_dpid_log_formatter(dp.id)
 
+        if not ev.enter:
+            # Datapath down message
+            self.logger.info("Datapath gone away")
+            self.set_default_log_formatter()
+            return
+
         if dp.id not in self.dps:
             self.logger.error("Unknown dpid:%s", dp.id)
             self.set_default_log_formatter()
