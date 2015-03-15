@@ -34,15 +34,6 @@ from ryu.lib.dpid import str_to_dpid
 from ryu.lib import hub
 from operator import attrgetter
 
-HIGHEST_PRIORITY = 9099
-HIGH_PRIORITY = 9001 # Now that is what I call high
-LOW_PRIORITY = 9000
-LOWEST_PRIORITY = 0
-
-# Shall we enable stats? How often shall we collect stats?
-STATS_ENABLE = False
-STATS_INTERVAL = 30
-
 class Valve(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -61,11 +52,6 @@ class Valve(app_manager.RyuApp):
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
 
-        # Start a thread for stats gathering
-        if STATS_ENABLE:
-            self.stats_event = hub.Event()
-            self.threads.append(hub.spawn(self.stats_loop))
-
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
 
@@ -75,6 +61,11 @@ class Valve(app_manager.RyuApp):
 
         # Parse config file
         self.parse_config()
+
+        # Start a thread for stats gathering
+        if self.conf['default']['stats_enable']:
+            self.stats_event = hub.Event()
+            self.threads.append(hub.spawn(self.stats_loop))
 
     def signal_handler(self, sigid, frame):
         if sigid == signal.SIGHUP:
@@ -106,12 +97,25 @@ class Valve(app_manager.RyuApp):
                 ryudp = self.dpset.get(dpid)
                 if ryudp:
                     self.logger.info("Removing configuration from %s", dp)
-                    self.clear_flows(ryudp)
+                    self.clear_flows(ryudp, dp.config_default['cookie'])
                 del olddps[dpid]
 
     def parse_config(self):
         with open('valve.yaml', 'r') as stream:
             self.conf = yaml.load(stream)
+
+            # Set defaults
+            self.conf.setdefault('default', {})
+            defaults = self.conf['default']
+            defaults.setdefault('table_miss', True)    # Shall we install a table-miss rule?
+            defaults.setdefault('lowest_priority', 0)  # Table-miss priority
+            defaults.setdefault('priority_offset', 0)  # How much to offset default priority by
+            defaults.setdefault('low_priority', defaults['priority_offset'] + 9000)
+            defaults.setdefault('high_priority', defaults['low_priority'] + 1)
+            defaults.setdefault('highest_priority', defaults['high_priority'] + 98)
+            defaults.setdefault('cookie', 0xBADC15C0)  # Identification cookie value
+            defaults.setdefault('stats_enable', False) # Shall we enable stats?
+            defaults.setdefault('stats_interval', 30)  # Stats reporting interval
 
             # Convert all acls to ACL objects
             self.fix_acls(self.conf)
@@ -132,25 +136,8 @@ class Valve(app_manager.RyuApp):
 
                 # Merge dpconfig['default'] into conf_def
                 if 'default' in dpconfig:
-                    if 'vlans' in dpconfig['default']:
-                        # Let DP-default vlan config
-                        # override global-default vlan config
-                        conf_def['vlans'] = dpconfig['default']['vlans']
-
-                    if 'type' in dpconfig['default']:
-                        # Let DP-default type config
-                        # override global-default type config
-                        conf_def['type'] = dpconfig['default']['type']
-
-                    if 'acls' in dpconfig['default']:
-                        # Let DP-default acl config
-                        # override global-default acl config
-                        conf_def['acls'] = dpconfig['default']['acls']
-
-                    if 'exclude' in dpconfig['default']:
-                        # Let DP-default exclude config
-                        # override global-default exclude config
-                        conf_def['exclude'] = dpconfig['default']['exclude']
+                    for key, value in dpconfig['default'].items():
+                        conf_def[key] = value
 
                     del dpconfig['default']
 
@@ -187,23 +174,23 @@ class Valve(app_manager.RyuApp):
         formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
         self.logger_handler.setFormatter(formatter)
 
-    def clear_flows(self, datapath):
+    def clear_flows(self, datapath, cookie):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         match = parser.OFPMatch()
         mod = parser.OFPFlowMod(
-            datapath=datapath, cookie=0, priority=LOWEST_PRIORITY,
+            datapath=datapath, cookie=cookie, cookie_mask=0xFFFFFFFFFFFFFFFF,
             command=ofproto.OFPFC_DELETE, out_port=ofproto.OFPP_ANY,
             out_group=ofproto.OFPG_ANY, match=match, instructions=[])
         datapath.send_msg(mod)
 
-    def add_flow(self, datapath, match, actions, priority):
+    def add_flow(self, datapath, match, actions, priority, cookie):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                                                     actions)]
         mod = parser.OFPFlowMod(
-            datapath=datapath, cookie=0, priority=priority,
+            datapath=datapath, cookie=cookie, priority=priority,
             command=ofproto.OFPFC_ADD, match=match, instructions=inst)
         datapath.send_msg(mod)
 
@@ -232,7 +219,7 @@ class Valve(app_manager.RyuApp):
                 if dp.running:
                     ryudp = self.dpset.get(dpid)
                     self.send_port_stats_request(ryudp)
-            self.stats_event.wait(timeout=STATS_INTERVAL)
+            self.stats_event.wait(timeout=self.conf['default']['stats_interval'])
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def port_stats_reply_handler(self, ev):
@@ -352,7 +339,9 @@ class Valve(app_manager.RyuApp):
 
         # install broadcast flows onto datapath
         for match in matches:
-            self.add_flow(dp, match, action, LOW_PRIORITY)
+            priority = datapath.config_default['low_priority']
+            cookie = datapath.config_default['cookie']
+            self.add_flow(dp, match, action, priority, cookie)
 
         # install unicast flows onto datapath
         if dst in self.mac_to_port[dp.id][vid]:
@@ -380,7 +369,9 @@ class Valve(app_manager.RyuApp):
                     actions.append(parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT))
             actions.append(parser.OFPActionOutput(out_port))
 
-            self.add_flow(dp, match, actions, HIGH_PRIORITY)
+            priority = datapath.config_default['high_priority']
+            cookie = datapath.config_default['cookie']
+            self.add_flow(dp, match, actions, priority, cookie)
 
         # Reset log formatter
         self.set_default_log_formatter()
@@ -420,12 +411,15 @@ class Valve(app_manager.RyuApp):
         self.logger.info("Configuring datapath")
 
         # clear flow table on datapath
-        self.clear_flows(dp)
+        self.clear_flows(dp, datapath.config_default['cookie'])
 
         # add catchall drop rule to datapath
-        match_all = parser.OFPMatch()
-        drop_act  = []
-        self.add_flow(dp, match_all, drop_act, LOWEST_PRIORITY)
+        if datapath.config_default['table_miss']:
+            match_all = parser.OFPMatch()
+            drop_act = []
+            priority = datapath.config_default['lowest_priority']
+            cookie = datapath.config_default['cookie']
+            self.add_flow(dp, match_all, drop_act, priority, cookie)
 
         for vid, v in datapath.vlans.items():
             self.logger.info("Configuring %s", v)
@@ -444,7 +438,9 @@ class Valve(app_manager.RyuApp):
             if untagged_act:
                 action += strip_act + untagged_act
             match = parser.OFPMatch(vlan_vid=v.vid|ofproto_v1_3.OFPVID_PRESENT)
-            self.add_flow(dp, match, action, LOW_PRIORITY)
+            priority = datapath.config_default['low_priority']
+            cookie = datapath.config_default['cookie']
+            self.add_flow(dp, match, action, priority, cookie)
 
             # send rule for each untagged port
             push_act = [
@@ -459,7 +455,9 @@ class Valve(app_manager.RyuApp):
                     action += untagged_act
                 if tagged_act:
                     action += push_act + tagged_act
-                self.add_flow(dp, match, action, LOW_PRIORITY)
+                priority = datapath.config_default['low_priority']
+                cookie = datapath.config_default['cookie']
+                self.add_flow(dp, match, action, priority, cookie)
 
         for nw_address, acls in datapath.acls.items():
             for acl in acls:
@@ -475,7 +473,9 @@ class Valve(app_manager.RyuApp):
                         acl.match['ipv6_dst'] = nw_address
 
                     match = ofctl_v1_3.to_match(dp, acl.match)
-                    self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
+                    priority = datapath.config_default['highest_priority']
+                    cookie = datapath.config_default['cookie']
+                    self.add_flow(dp, match, drop_act, priority, cookie)
 
         for k, port in datapath.ports.items():
             for acl in port.acls:
@@ -483,7 +483,9 @@ class Valve(app_manager.RyuApp):
                     self.logger.info("Adding ACL:{%s} to port:%s", acl, port)
                     acl.match['in_port'] = port.number
                     match = ofctl_v1_3.to_match(dp, acl.match)
-                    self.add_flow(dp, match, drop_act, HIGHEST_PRIORITY)
+                    priority = datapath.config_default['highest_priority']
+                    cookie = datapath.config_default['cookie']
+                    self.add_flow(dp, match, drop_act, priority, cookie)
 
         # Mark datapath as fully configured
         datapath.running = True

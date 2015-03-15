@@ -13,6 +13,8 @@ acls:
 
 0000000000000001:
  default:
+  table_miss: True
+  priority_offset: 0
   type: untagged
   vlans: [10]
   exclude: [1,2]
