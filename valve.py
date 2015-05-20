@@ -345,10 +345,16 @@ class Valve(app_manager.RyuApp):
 
         # install unicast flows onto datapath
         if dst in self.mac_to_port[dp.id][vid]:
-            self.logger.info("Adding unicast flow dl_dst:%s vid:%d", dst, vid)
-
             # install a flow to avoid packet_in next time
             out_port = self.mac_to_port[dp.id][vid][dst]
+            if out_port == in_port:
+                self.logger.info("in_port is the same as out_port, skipping unicast flow " \
+                        "dl_dst:%s dl_src:%s vid:%d", dst, src, vid)
+                self.set_default_log_formatter()
+                return
+
+            self.logger.info("Adding unicast flow dl_dst:%s vid:%d", dst, vid)
+
             actions = []
 
             if datapath.ports[in_port].is_tagged():
