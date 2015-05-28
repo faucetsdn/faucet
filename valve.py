@@ -138,6 +138,11 @@ class Valve(app_manager.RyuApp):
                 if 'default' in dpconfig:
                     for key, value in dpconfig['default'].items():
                         conf_def[key] = value
+                        if key == 'priority_offset':
+                            # apply priority offset
+                            conf_def['low_priority'] = value + 9000
+                            conf_def['high_priority'] = conf_def['low_priority'] + 1
+                            conf_def['highest_priority'] = conf_def['high_priority'] + 98
 
                     del dpconfig['default']
 
