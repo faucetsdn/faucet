@@ -425,9 +425,9 @@ class Valve(app_manager.RyuApp):
         self.clear_flows(dp, datapath.config_default['cookie'])
 
         # add catchall drop rule to datapath
+        drop_act = []
         if datapath.config_default['table_miss']:
             match_all = parser.OFPMatch()
-            drop_act = []
             priority = datapath.config_default['lowest_priority']
             cookie = datapath.config_default['cookie']
             self.add_flow(dp, match_all, drop_act, priority, cookie)
