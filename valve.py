@@ -108,12 +108,13 @@ class Valve(app_manager.RyuApp):
             self.conf.setdefault('default', {})
             defaults = self.conf['default']
             defaults.setdefault('table_miss', True)    # Shall we install a table-miss rule?
+            defaults.setdefault('smart_broadcast', True) # Shall we install a broadcast/multicast rules?
             defaults.setdefault('lowest_priority', 0)  # Table-miss priority
             defaults.setdefault('priority_offset', 0)  # How much to offset default priority by
             defaults.setdefault('low_priority', defaults['priority_offset'] + 9000)
             defaults.setdefault('high_priority', defaults['low_priority'] + 1)
             defaults.setdefault('highest_priority', defaults['high_priority'] + 98)
-            defaults.setdefault('cookie', 0xBADC15C0)  # Identification cookie value
+            defaults.setdefault('cookie', 3134985664)  # Identification cookie value
             defaults.setdefault('stats_enable', False) # Shall we enable stats?
             defaults.setdefault('stats_interval', 30)  # Stats reporting interval
 
@@ -342,11 +343,12 @@ class Valve(app_manager.RyuApp):
                     eth_dst=('01:00:00:00:00:00',
                              '01:00:00:00:00:00')))
 
-        # install broadcast flows onto datapath
-        for match in matches:
-            priority = datapath.config_default['low_priority']
-            cookie = datapath.config_default['cookie']
-            self.add_flow(dp, match, action, priority, cookie)
+        # install broadcast/multicast rules onto datapath
+        if datapath.config_default['smart_broadcast']:
+            for match in matches:
+                priority = datapath.config_default['low_priority']
+                cookie = datapath.config_default['cookie']
+                self.add_flow(dp, match, action, priority, cookie)
 
         # install unicast flows onto datapath
         if dst in self.mac_to_port[dp.id][vid]:
