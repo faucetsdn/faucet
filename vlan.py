@@ -1,4 +1,5 @@
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
+# Copyright (C) 2015 Research and Eduction Advanced Network New Zealand Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,20 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from port import Port
-
 class VLAN:
     vid = None
     tagged = None
     untagged = None
 
-    def __init__(self, vid, ports=[]):
+    def __init__(self, vid, conf=None):
+        if conf is None:
+            conf = {}
         self.vid = vid
         self.tagged = []
         self.untagged = []
-
-        for port in ports:
-            self.add_port(port)
+        self.name = conf.setdefault('name', str(vid))
+        self.description = conf.setdefault('description', self.name)
 
     def __str__(self):
         ports = ",".join(map(str, self.get_ports()))
@@ -34,8 +34,20 @@ class VLAN:
     def get_ports(self):
         return self.tagged+self.untagged
 
-    def add_port(self, port):
-        if port.type == 'tagged':
-            self.tagged.append(port)
-        elif port.type == 'untagged':
-            self.untagged.append(port)
+    def contains_port(self, port_number):
+        for port in self.get_ports():
+            if port.number == port_number:
+                return True
+        return False
+
+    def port_is_tagged(self, port_number):
+        for port in self.tagged:
+            if port.number == port_number:
+                return True
+        return False
+
+    def port_is_untagged(self, port_number):
+        for port in self.untagged:
+            if port.number == port_number:
+                return True
+        return False

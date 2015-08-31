@@ -1,5 +1,6 @@
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
+# Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,496 +14,680 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys, struct, yaml, copy, logging, socket, os, signal
+import logging
 
-import util
-from acl import ACL
-from dp import DP
-from port import Port
+from util import mac_addr_is_unicast
 
-from ryu.base import app_manager
-from ryu.controller import ofp_event
-from ryu.controller import dpset
-from ryu.controller.handler import MAIN_DISPATCHER
-from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3, ether
-from ryu.lib import ofctl_v1_3
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
-from ryu.lib.packet import vlan
-from ryu.lib.dpid import str_to_dpid
-from ryu.lib import hub
-from operator import attrgetter
+from ryu.ofproto import ether
+from ryu.ofproto import ofproto_v1_3 as ofp
+from ryu.ofproto import ofproto_v1_3_parser as parser
 
-class Valve(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+def valve_factory(dp):
+    """Return a Valve object based dp's hardware configuration field.
 
-    _CONTEXTS = {'dpset': dpset.DPSet}
+    Different datapath hardware has different requirements for the valve
+    implementation.
+
+    Currently implemented is the OVSStatelessValve suitable for use with
+    "Open vSwitch" and "Allied-Telesis"
+
+    Arguments:
+    dp -- a DP object with the configuration for this valve.
+    """
+    if dp.hardware == 'Open vSwitch'\
+    or dp.hardware == 'Allied-Telesis':
+        return OVSStatelessValve(dp)
+    else:
+        return None
+
+class Valve(object):
+    """Generates the messages to configure a datapath as a l2 learning switch.
+
+    This is a non functional generic base class. The implementation of datapath
+    entry/exit, port entry/exit and packet in messages are hardware dependant
+    and therefore are unimplemented.
+    """
 
     def __init__(self, *args, **kwargs):
-        super(Valve, self).__init__(*args, **kwargs)
-        # Setup logging
-        self.logger_handler = logging.StreamHandler()
-        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
-        self.default_formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
-        self.set_default_log_formatter()
-        self.logger.addHandler(self.logger_handler)
-        self.logger.propagate = 0
+        raise NotImplementedError
 
-        # Set the signal handler for reloading config file
-        signal.signal(signal.SIGHUP, self.signal_handler)
+    def reload_config(self, new_dp):
+        """Reload the config from new_dp
 
-        # Create dpset object for querying Ryu's DPSet application
-        self.dpset = kwargs['dpset']
+        KW Arguments:
+        new_dp -- A new DP object containing the updated config."""
+        raise NotImplementedError
 
-        # Initialise datastructures to store state
-        self.mac_to_port = {}
-        self.dps = {}
+    def datapath_connect(self, dp_id, ports):
+        """Generate the default openflow msgs for a datapath upon connection.
 
-        # Parse config file
-        self.parse_config()
+        Depending on the implementation, a network state database may be
+        updated.
 
-        # Start a thread for stats gathering
-        if self.conf['default']['stats_enable']:
-            self.stats_event = hub.Event()
-            self.threads.append(hub.spawn(self.stats_loop))
+        Arguments:
+        dp_id -- the Datapath unique ID (64bit int)
+        ports -- a list containing the port numbers of each port on the
+            datapath.
 
-    def signal_handler(self, sigid, frame):
-        if sigid == signal.SIGHUP:
-            self.logger.info("Caught SIGHUP, reloading configuration")
+        Returns:
+        A list of flow mod messages that will be sent in order to the datapath
+        in order to configure it."""
 
-            # Take a copy of old datapaths
-            olddps = self.dps
+        raise NotImplementedError
 
-            # Reinitialise datastructures
-            self.mac_to_port = {}
-            self.dps = {}
+    def datapath_disconnect(self, dp_id):
+        """Update n/w state db upon disconnection of datapath with id dp_id."""
+        raise NotImplementedError
 
-            self.parse_config()
-            for dpid, dp in self.dps.items():
-                if dpid in olddps:
-                    # If we're reconfiguring a pre-existing dp then copy over
-                    # some useful attributes
-                    dp.running = olddps[dpid].running
-                    del olddps[dpid]
-                ryudp = self.dpset.get(dpid)
-                if ryudp:
-                    self.logger.info("Trigger reconfiguration of %s", dp)
-                    ev = dpset.EventDP(ryudp, True)
-                    self.handler_datapath(ev)
+    def port_add(self, dp_id, port):
+        """Generate openflow msgs to update the datapath upon addition of port.
 
-            for dpid, dp in olddps.items():
-                # Remove our configuration from the datapath that has
-                # been removed from the configuration
-                ryudp = self.dpset.get(dpid)
-                if ryudp:
-                    self.logger.info("Removing configuration from %s", dp)
-                    self.clear_flows(ryudp, dp.config_default['cookie'])
-                del olddps[dpid]
+        Arguments:
+        dp_id -- the unique id of the datapath
+        port -- the port number of the new port
 
-    def parse_config(self):
-        with open('valve.yaml', 'r') as stream:
-            self.conf = yaml.load(stream)
+        Returns
+        A list of flow mod messages to be sent to the datapath."""
+        raise NotImplementedError
 
-            # Set defaults
-            self.conf.setdefault('default', {})
-            defaults = self.conf['default']
-            defaults.setdefault('table_miss', True)    # Shall we install a table-miss rule?
-            defaults.setdefault('smart_broadcast', True) # Shall we install a broadcast/multicast rules?
-            defaults.setdefault('lowest_priority', 0)  # Table-miss priority
-            defaults.setdefault('priority_offset', 0)  # How much to offset default priority by
-            defaults.setdefault('low_priority', defaults['priority_offset'] + 9000)
-            defaults.setdefault('high_priority', defaults['low_priority'] + 1)
-            defaults.setdefault('highest_priority', defaults['high_priority'] + 98)
-            defaults.setdefault('cookie', 3134985664)  # Identification cookie value
-            defaults.setdefault('stats_enable', False) # Shall we enable stats?
-            defaults.setdefault('stats_interval', 30)  # Stats reporting interval
+    def port_delete(self, dp_id, portnum):
+        """Generate openflow msgs to update the datapath upon deletion of port.
 
-            # Convert all acls to ACL objects
-            self.fix_acls(self.conf)
+        Returns
+        A list of flow mod messages to be sent to the datapath."""
+        raise NotImplementedError
 
-            for dpid, dpconfig in self.conf.items():
-                if dpid in ('all', 'default', 'acls'):
-                    continue
+    def rcv_packet(self, dp_id, in_port, vlan_vid, eth_src, eth_dst):
+        """Generate openflow msgs to update datapath upon receipt of packet.
 
-                conf_all = [ copy.deepcopy(self.conf['all']) ] if 'all' in self.conf else [{}]
-                conf_def = copy.deepcopy(self.conf['default']) if 'default' in self.conf else {}
-                conf_acls = copy.deepcopy(self.conf['acls']) if 'acls' in self.conf else {}
+        This involves asssociating the ethernet source address of the packet
+        with the given in_port (ethernet switching) ideally so that no packets
+        from this address are sent to the controller, and packets to this
+        address are output to in_port. This may not be fully possible depending
+        on the limitations of the datapath.
 
-                # Merge dpconfig['all'] into conf_all
-                if 'all' in dpconfig:
-                    conf_all.append(dpconfig['all'])
+        Depending on implementation this may involve updating a nw state db.
 
-                    del dpconfig['all']
+        Arguments:
+        dp_id -- the unique id of the datapath that received the packet (64bit
+            int)
+        in_port -- the port number of the port that received the packet
+        vlan_vid -- the vlan_vid tagged to the packet.
+        eth_src -- the ethernet source address of the packet.
 
-                # Merge dpconfig['default'] into conf_def
-                if 'default' in dpconfig:
-                    for key, value in dpconfig['default'].items():
-                        conf_def[key] = value
-                        if key == 'priority_offset':
-                            # apply priority offset
-                            conf_def['low_priority'] = value + 9000
-                            conf_def['high_priority'] = conf_def['low_priority'] + 1
-                            conf_def['highest_priority'] = conf_def['high_priority'] + 98
+        Returns
+        A list of flow mod messages to be sent to the datpath."""
 
-                    del dpconfig['default']
+        raise NotImplementedError
 
-                # Merge dpconfig['acls'] into conf_acls
-                if 'acls' in dpconfig:
-                    for ip, acls in dpconfig['acls'].items():
-                        conf_acls.setdefault(ip, [])
-                        conf_acls[ip].extend(x for x in acls if x not in conf_acls[ip])
 
-                    del dpconfig['acls']
+class OVSStatelessValve(Valve):
+    """Valve implementation for Open vSwitch.
 
-                # Add datapath
-                newdp = DP(dpid, dpconfig, conf_all, conf_def, conf_acls)
-                self.dps[dpid] = newdp
+    Stateless because the controller does not keep track of the mac addresses,
+    it just installs the necessary rules directly to the switch with
+    timeouts."""
 
-    def fix_acls(self, conf):
-        # Recursively walk config replacing all acls with ACL objects
-        for k, v in conf.items():
-            if k == 'acls':
-                if isinstance(v, dict):
-                    for ip, acls in v.items():
-                        conf[k][ip] = [ACL(x['match'], x['action']) for x in acls]
-                else:
-                    conf[k] = [ACL(x['match'], x['action']) for x in v]
-            elif isinstance(v, dict):
-                self.fix_acls(v)
+    def __init__(self, dp, logname='faucet', *args, **kwargs):
+        self.dp = dp
+        self.logger = logging.getLogger(logname)
 
-    def set_default_log_formatter(self):
-        self.logger_handler.setFormatter(self.default_formatter)
-
-    def set_dpid_log_formatter(self, dpid):
-        dp_str = 'dpid:%-16x' % dpid
-        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s '+dp_str+' %(message)s'
-        formatter = logging.Formatter(log_fmt, '%b %d %H:%M:%S')
-        self.logger_handler.setFormatter(formatter)
-
-    def clear_flows(self, datapath, cookie):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        match = parser.OFPMatch()
-        mod = parser.OFPFlowMod(
-            datapath=datapath, cookie=cookie, cookie_mask=0xFFFFFFFFFFFFFFFF,
-            command=ofproto.OFPFC_DELETE, out_port=ofproto.OFPP_ANY,
-            out_group=ofproto.OFPG_ANY, match=match, instructions=[])
-        datapath.send_msg(mod)
-
-    def add_flow(self, datapath, match, actions, priority, cookie):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
-                                                                    actions)]
-        mod = parser.OFPFlowMod(
-            datapath=datapath, cookie=cookie, priority=priority,
-            command=ofproto.OFPFC_ADD, match=match, instructions=inst)
-        datapath.send_msg(mod)
-
-    def tagged_output_action(self, parser, tagged_ports):
-        act = []
-        for port in tagged_ports:
-            act.append(parser.OFPActionOutput(port.number))
-        return act
-
-    def untagged_output_action(self, parser, untagged_ports):
-        act = []
-        for port in untagged_ports:
-            act.append(parser.OFPActionOutput(port.number))
-        return act
-
-    def send_port_stats_request(self, dp):
-        ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
-        req = ofp_parser.OFPPortStatsRequest(dp, 0, ofp.OFPP_ANY)
-        dp.send_msg(req)
-
-    def stats_loop(self):
-        while self.is_active:
-            self.stats_event.clear()
-            for dpid, dp in self.dps.items():
-                if dp.running:
-                    ryudp = self.dpset.get(dpid)
-                    self.send_port_stats_request(ryudp)
-            self.stats_event.wait(timeout=self.conf['default']['stats_interval'])
-
-    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
-    def port_stats_reply_handler(self, ev):
-        body = ev.msg.body
-        self.logger.info('port     '
-                         'rx-pkts  rx-bytes rx-error '
-                         'tx-pkts  tx-bytes tx-error')
-        self.logger.info('-------- '
-                         '-------- -------- -------- '
-                         '-------- -------- --------')
-        for stat in sorted(body, key=attrgetter('port_no')):
-            self.logger.info('%8x %8d %8d %8d %8d %8d %8d',
-                    stat.port_no,
-                    stat.rx_packets, stat.rx_bytes, stat.rx_errors,
-                    stat.tx_packets, stat.tx_bytes, stat.tx_errors)
-
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def _packet_in_handler(self, ev):
-        msg = ev.msg
-        dp = msg.datapath
-        ofproto = dp.ofproto
-        parser = dp.ofproto_parser
-
-        pkt = packet.Packet(msg.data)
-        ethernet_proto = pkt.get_protocols(ethernet.ethernet)[0]
-
-        src = ethernet_proto.src
-        dst = ethernet_proto.dst
-        eth_type = ethernet_proto.ethertype
-
-        in_port = msg.match['in_port']
-        self.mac_to_port.setdefault(dp.id, {})
-
-        # Configure logging to include datapath id
-        self.set_dpid_log_formatter(dp.id)
-
-        if dp.id not in self.dps:
-            self.logger.error("Packet_in on unknown datapath")
-            self.set_default_log_formatter()
-            return
+    def datapath_connect(self, dp_id, ports):
+        if dp_id != self.dp.dp_id:
+            self.logger.error("Unknown dpid:%s", dp_id)
+            return []
         else:
-            datapath = self.dps[dp.id]
+            datapath = self.dp
 
-        if not datapath.running:
-            self.logger.error("Packet_in on unconfigured datapath")
-
-        if in_port not in datapath.ports:
-            self.set_default_log_formatter()
-            return
-
-        if eth_type == ether.ETH_TYPE_8021Q:
-            # tagged packet
-            vlan_proto = pkt.get_protocols(vlan.vlan)[0]
-            vid = vlan_proto.vid
-            if Port(in_port, 'tagged') not in datapath.vlans[vid].tagged:
-                self.logger.warn("HAXX:RZ in_port:%d isn't tagged on vid:%s" % \
-                    (in_port, vid))
-                self.set_default_log_formatter()
-                return
-        else:
-            # untagged packet
-            vid = datapath.get_native_vlan(in_port).vid
-            if not vid:
-                self.logger.warn("Untagged packet_in on port:%d without native vlan" % \
-                        (in_port))
-                self.set_default_log_formatter()
-                return
-
-        self.mac_to_port[dp.id].setdefault(vid, {})
-
-        self.logger.info("Packet_in src:%s dst:%s in_port:%d vid:%s",
-                         src, dst, in_port, vid)
-
-        # learn a mac address to avoid FLOOD next time.
-        self.mac_to_port[dp.id][vid][src] = in_port
-
-        # generate the output actions for broadcast traffic
-        tagged_act = self.tagged_output_action(parser, datapath.vlans[vid].tagged)
-        untagged_act = self.untagged_output_action(parser, datapath.vlans[vid].untagged)
-
-        matches = []
-        action = []
-        if datapath.ports[in_port].is_tagged():
-            # send rule for mathcing packets arriving on tagged ports
-            strip_act = [parser.OFPActionPopVlan()]
-            if tagged_act:
-                action += tagged_act
-            if untagged_act:
-                action += strip_act + untagged_act
-
-            matches.append(parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT,
-                    in_port=in_port, eth_src=src, eth_dst='ff:ff:ff:ff:ff:ff'))
-
-            matches.append(parser.OFPMatch(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT,
-                    in_port=in_port,
-                    eth_src=src,
-                    eth_dst=('01:00:00:00:00:00',
-                             '01:00:00:00:00:00')))
-        elif datapath.ports[in_port].is_untagged():
-            # send rule for each untagged port
-            push_act = [
-              parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-              parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
-              ]
-            if untagged_act:
-                action += untagged_act
-            if tagged_act:
-                action += push_act + tagged_act
-
-            matches.append(parser.OFPMatch(in_port=in_port, eth_src=src,
-                    eth_dst='ff:ff:ff:ff:ff:ff'))
-
-            matches.append(parser.OFPMatch(in_port=in_port,
-                    eth_src=src,
-                    eth_dst=('01:00:00:00:00:00',
-                             '01:00:00:00:00:00')))
-
-        # install broadcast/multicast rules onto datapath
-        if datapath.config_default['smart_broadcast']:
-            for match in matches:
-                priority = datapath.config_default['low_priority']
-                cookie = datapath.config_default['cookie']
-                self.add_flow(dp, match, action, priority, cookie)
-
-        # install unicast flows onto datapath
-        if dst in self.mac_to_port[dp.id][vid]:
-            # install a flow to avoid packet_in next time
-            out_port = self.mac_to_port[dp.id][vid][dst]
-            if out_port == in_port:
-                self.logger.info("in_port is the same as out_port, skipping unicast flow " \
-                        "dl_dst:%s dl_src:%s vid:%d", dst, src, vid)
-                self.set_default_log_formatter()
-                return
-
-            self.logger.info("Adding unicast flow dl_dst:%s vid:%d", dst, vid)
-
-            actions = []
-
-            if datapath.ports[in_port].is_tagged():
-                match = parser.OFPMatch(
-                    in_port=in_port,
-                    eth_src=src,
-                    eth_dst=dst,
-                    vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT)
-                if datapath.ports[out_port].is_untagged():
-                    actions.append(parser.OFPActionPopVlan())
-            if datapath.ports[in_port].is_untagged():
-                match = parser.OFPMatch(
-                    in_port=in_port,
-                    eth_src=src,
-                    eth_dst=dst)
-                if datapath.ports[out_port].is_tagged():
-                    actions.append(parser.OFPActionPushVlan())
-                    actions.append(parser.OFPActionSetField(vlan_vid=vid|ofproto_v1_3.OFPVID_PRESENT))
-            actions.append(parser.OFPActionOutput(out_port))
-
-            priority = datapath.config_default['high_priority']
-            cookie = datapath.config_default['cookie']
-            self.add_flow(dp, match, actions, priority, cookie)
-
-        # Reset log formatter
-        self.set_default_log_formatter()
-
-    @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
-    def handler_datapath(self, ev):
-        dp = ev.dp
-        ofproto = dp.ofproto
-        parser = dp.ofproto_parser
-
-        # Configure logging to include datapath id
-        self.set_dpid_log_formatter(dp.id)
-
-        if not ev.enter:
-            # Datapath down message
-            self.logger.info("Datapath gone away")
-            self.set_default_log_formatter()
-            return
-
-        if dp.id not in self.dps:
-            self.logger.error("Unknown dpid:%s", dp.id)
-            self.set_default_log_formatter()
-            return
-        else:
-            datapath = self.dps[dp.id]
-
-        for k, port in dp.ports.items():
-            # These are special port numbers
-            if k > 0xF0000000:
+        for port in ports:
+            # port numbers > 0xF0000000 indicate a logical port
+            if port > 0xF0000000:
                 continue
-            elif k not in datapath.ports:
+            elif port not in datapath.ports:
                 # Autoconfigure port
-                self.logger.info("Autoconfiguring port:%s based on default config",
-                        k)
-                datapath.add_port(k)
+                self.logger.info(
+                    "Autoconfiguring port:%s based on default config", port)
+                datapath.add_port(port)
+            datapath.ports[port].phys_up = True
 
         self.logger.info("Configuring datapath")
 
-        # clear flow table on datapath
-        self.clear_flows(dp, datapath.config_default['cookie'])
+        # flow_mods to be installed
+        ofmsgs = []
 
-        # add catchall drop rule to datapath
-        drop_act = []
-        if datapath.config_default['table_miss']:
-            match_all = parser.OFPMatch()
-            priority = datapath.config_default['lowest_priority']
-            cookie = datapath.config_default['cookie']
-            self.add_flow(dp, match_all, drop_act, priority, cookie)
+        # default values used in flow mods
+        match_all = parser.OFPMatch()
+        vlan_table_id = datapath.vlan_table
+        src_table_id = datapath.eth_src_table
+        dst_table_id = datapath.eth_dst_table
+        flood_table_id = datapath.flood_table
+        low_priority = datapath.low_priority
+        high_priority = datapath.high_priority
+        lowest_priority = datapath.lowest_priority
+        highest_priority = datapath.highest_priority
+        cookie = datapath.cookie
 
-        for vid, v in datapath.vlans.items():
-            self.logger.info("Configuring %s", v)
+        # Hard reset when datapath connects
+        for table_id in (vlan_table_id, src_table_id, dst_table_id, flood_table_id):
+            mod = parser.OFPFlowMod(
+                datapath=None,
+                cookie=cookie,
+                command=ofp.OFPFC_DELETE,
+                table_id=table_id,
+                out_port=ofp.OFPP_ANY,
+                out_group=ofp.OFPG_ANY,
+                match=match_all)
+            ofmsgs.append(mod)
 
-            controller_act = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
+        # install STDP BPDU and LLDP drop actions
+        for bpdu_mac in ("01:80:C2:00:00:00", "01:00:0C:CC:CC:CD"):
+            match_stp_bpdu = parser.OFPMatch(eth_dst=bpdu_mac)
+            mod = parser.OFPFlowMod(
+                datapath=None,
+                cookie=cookie,
+                table_id=vlan_table_id,
+                priority=highest_priority,
+                match=match_stp_bpdu,
+                instructions=[])
+            ofmsgs.append(mod)
 
-            # generate the output actions for each port
-            tagged_act = self.tagged_output_action(parser, v.tagged)
-            untagged_act = self.untagged_output_action(parser, v.untagged)
+        match_lldp = parser.OFPMatch(eth_type=ether.ETH_TYPE_LLDP)
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=cookie,
+            table_id=vlan_table_id,
+            priority=highest_priority,
+            match=match_lldp,
+            instructions=[])
+        ofmsgs.append(mod)
 
-            # send rule for matching packets arriving on tagged ports
-            strip_act = [parser.OFPActionPopVlan()]
-            action = copy.copy(controller_act)
-            if tagged_act:
-                action += tagged_act
-            if untagged_act:
-                action += strip_act + untagged_act
-            match = parser.OFPMatch(vlan_vid=v.vid|ofproto_v1_3.OFPVID_PRESENT)
-            priority = datapath.config_default['low_priority']
-            cookie = datapath.config_default['cookie']
-            self.add_flow(dp, match, action, priority, cookie)
+        # install vlan_table miss action
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=cookie,
+            table_id=vlan_table_id,
+            priority=lowest_priority,
+            match=match_all,
+            instructions=[])
+        ofmsgs.append(mod)
 
-            # send rule for each untagged port
-            push_act = [
-              parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-              parser.OFPActionSetField(vlan_vid=v.vid|ofproto_v1_3.OFPVID_PRESENT)
-              ]
+        # install eth_dst miss action
+        goto_flood_instruction = parser.OFPInstructionGotoTable(flood_table_id)
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=cookie,
+            table_id=dst_table_id,
+            priority=lowest_priority,
+            match=match_all,
+            instructions=[goto_flood_instruction])
+        ofmsgs.append(mod)
 
-            for port in v.untagged:
-                match = parser.OFPMatch(in_port=port.number)
-                action = copy.copy(controller_act)
-                if untagged_act:
-                    action += untagged_act
-                if tagged_act:
-                    action += push_act + tagged_act
-                priority = datapath.config_default['low_priority']
-                cookie = datapath.config_default['cookie']
-                self.add_flow(dp, match, action, priority, cookie)
+        # install vlan actions
+        goto_src_inst = parser.OFPInstructionGotoTable(src_table_id)
+        for vlan_vid, vlan in datapath.vlans.items():
+            self.logger.info("Configuring %s", vlan)
 
-        for nw_address, acls in datapath.acls.items():
-            for acl in acls:
-                if acl.action.lower() == "drop":
-                    self.logger.info("Adding ACL:{%s} for nw_address:%s",
-                            acl, nw_address)
+            # The correct vlan_id is pushed upon all packets, to simplify the
+            # eth_dst_table
+            # Packets are forwarded to the eth_src_table (with vlan tags) to
+            # determine whether the mac needs to be learned.
+            for port in vlan.tagged:
+                port_match = parser.OFPMatch(
+                    in_port=port.number,
+                    vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+                mod = parser.OFPFlowMod(
+                    datapath=None,
+                    cookie=cookie,
+                    table_id=vlan_table_id,
+                    priority=high_priority,
+                    match=port_match,
+                    instructions=[goto_src_inst])
+                ofmsgs.append(mod)
 
-                    # Hacky method of detecting IPv4/IPv6
-                    try:
-                        socket.inet_aton(nw_address.split('/')[0])
-                        acl.match['nw_dst'] = nw_address
-                    except socket.error:
-                        acl.match['ipv6_dst'] = nw_address
+            for port in vlan.untagged:
+                port_match = parser.OFPMatch(in_port=port.number)
+                push_vlan_act = [
+                  parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+                  parser.OFPActionSetField(vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)]
+                push_vlan_inst = parser.OFPInstructionActions(
+                    ofp.OFPIT_APPLY_ACTIONS, push_vlan_act)
+                mod = parser.OFPFlowMod(
+                    datapath=None,
+                    cookie=cookie,
+                    table_id=vlan_table_id,
+                    priority=low_priority,
+                    match=port_match,
+                    instructions=[push_vlan_inst, goto_src_inst])
+                ofmsgs.append(mod)
 
-                    match = ofctl_v1_3.to_match(dp, acl.match)
-                    priority = datapath.config_default['highest_priority']
-                    cookie = datapath.config_default['cookie']
-                    self.add_flow(dp, match, drop_act, priority, cookie)
+            # install eth_src_table default controller flow mod
+            controller_act = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
+            controller_inst = parser.OFPInstructionActions(
+                ofp.OFPIT_APPLY_ACTIONS, controller_act)
+            goto_dst_inst = parser.OFPInstructionGotoTable(dst_table_id)
+            mod = parser.OFPFlowMod(
+                datapath=None,
+                cookie=cookie,
+                table_id=src_table_id,
+                priority=lowest_priority,
+                match=match_all,
+                instructions=[controller_inst, goto_dst_inst])
+            ofmsgs.append(mod)
 
-        for k, port in datapath.ports.items():
-            for acl in port.acls:
-                if acl.action.lower() == "drop":
-                    self.logger.info("Adding ACL:{%s} to port:%s", acl, port)
-                    acl.match['in_port'] = port.number
-                    match = ofctl_v1_3.to_match(dp, acl.match)
-                    priority = datapath.config_default['highest_priority']
-                    cookie = datapath.config_default['cookie']
-                    self.add_flow(dp, match, drop_act, priority, cookie)
+            # install eth_dst_table flood ofmsgs
+            ofmsgs.append(self.build_flood_rule(vlan))
 
         # Mark datapath as fully configured
         datapath.running = True
 
         self.logger.info("Datapath configured")
 
-        self.set_default_log_formatter()
+        return ofmsgs
+
+    def datapath_disconnect(self, dp_id):
+        if dp_id != self.dp.dp_id:
+            self.logger.error("Unknown dpid:%s", dp_id)
+        self.logger.critical("Datapath disconnected")
+
+    def build_flood_rule(self, vlan, modify=False):
+        # install eth_dst_table flood ofmsgs
+        if modify:
+            command = ofp.OFPFC_MODIFY_STRICT
+        else:
+            command = ofp.OFPFC_ADD
+        match = parser.OFPMatch(vlan_vid=vlan.vid|ofp.OFPVID_PRESENT)
+        act = []
+        for port in vlan.tagged:
+            if port.running():
+                act.append(parser.OFPActionOutput(port.number))
+        act.append(parser.OFPActionPopVlan())
+        for port in vlan.untagged:
+            if port.running():
+                act.append(parser.OFPActionOutput(port.number))
+        instructions = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, act)]
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=self.dp.cookie,
+            command=command,
+            table_id=self.dp.flood_table,
+            priority=self.dp.lowest_priority,
+            match=match,
+            instructions=instructions)
+        return mod
+
+    def datapath_down(self, dp_id):
+        if dp_id != self.dp.dp_id:
+            return
+        self.dp.running = False
+        self.logger.warning("Datapath down {0}".format(dp_id))
+
+    def port_add(self, dp_id, portnum):
+        if dp_id != self.dp.dp_id:
+            return
+        # These are special port numbers
+        if portnum > 0xF0000000:
+            return
+
+        if portnum not in self.dp.ports:
+            # Autoconfigure port
+            self.logger.info(
+                "Autoconfiguring port:%s based on default config", portnum)
+            self.dp.add_port(portnum)
+
+        port = self.dp.ports[portnum]
+
+        self.logger.info("Port added {0}".format(port))
+
+        port.phys_up = True
+
+        ofmsgs = []
+        if port.running():
+            self.logger.info("Sending config for port {0}".format(port))
+
+            # delete eth_src_table rules
+            eth_src_match = parser.OFPMatch(in_port=portnum)
+            mod = parser.OFPFlowMod(
+                datapath=None,
+                cookie=self.dp.cookie,
+                command=ofp.OFPFC_DELETE,
+                out_port=ofp.OFPP_ANY,
+                out_group=ofp.OFPG_ANY,
+                table_id=self.dp.eth_src_table,
+                match=eth_src_match)
+            ofmsgs.append(mod)
+
+            # add vlan_table rules
+            for vid, vlan in self.dp.vlans.iteritems():
+                if port in vlan.untagged:
+                    port_match = parser.OFPMatch(in_port=port.number)
+                    push_vlan_act = [
+                        parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+                        parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
+                    push_vlan_inst = [
+                        parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, push_vlan_act),
+                        parser.OFPInstructionGotoTable(self.dp.eth_src_table)]
+                    mod = parser.OFPFlowMod(
+                        datapath=None,
+                        cookie=self.dp.cookie,
+                        table_id=self.dp.vlan_table,
+                        priority=self.dp.low_priority,
+                        match=port_match,
+                        instructions=push_vlan_inst)
+                    ofmsgs.append(mod)
+                elif port in vlan.tagged:
+                    port_match = parser.OFPMatch(
+                        in_port=port.number,
+                        vlan_vid=vid|ofp.OFPVID_PRESENT)
+                    vlan_inst = [
+                        parser.OFPInstructionGotoTable(self.dp.eth_src_table)]
+                    mod = parser.OFPFlowMod(
+                        datapath=None,
+                        cookie=self.dp.cookie,
+                        table_id=self.dp.vlan_table,
+                        priority=self.dp.low_priority,
+                        match=port_match,
+                        instructions=vlan_inst)
+                    ofmsgs.append(mod)
+
+            # modify eth_dst rules
+            for vid, vlan in self.dp.vlans.iteritems():
+                if port in vlan.tagged:
+                    ofmsgs.append(self.build_flood_rule(vlan))
+                elif port in vlan.untagged:
+                    ofmsgs.append(self.build_flood_rule(vlan))
+
+        return ofmsgs
+
+    def port_delete(self, dp_id, portnum):
+        if dp_id != self.dp.dp_id:
+            return
+        if portnum not in self.dp.ports:
+            return
+        port = self.dp.ports[portnum]
+        port.phys_up = False
+
+        self.logger.warning("Port down: {0}".format(port))
+
+        ofmsgs = []
+
+        # delete vlan_table rules
+        vlan_table_match = parser.OFPMatch(in_port=portnum)
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=self.dp.cookie,
+            command=ofp.OFPFC_DELETE,
+            out_port=ofp.OFPP_ANY,
+            out_group=ofp.OFPG_ANY,
+            table_id=self.dp.vlan_table,
+            priority=self.dp.low_priority,
+            match=vlan_table_match)
+        ofmsgs.append(mod)
+
+        # delete eth_dst rules
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=self.dp.cookie,
+            command=ofp.OFPFC_DELETE,
+            out_port=portnum,
+            out_group=ofp.OFPG_ANY,
+            table_id=self.dp.eth_dst_table,
+            match=parser.OFPMatch())
+        ofmsgs.append(mod)
+
+        ofmsgs.append(parser.OFPBarrierRequest(None))
+
+        for vlan in self.dp.vlans.values():
+            if portnum in vlan.tagged:
+                ofmsgs.append(self.build_flood_rule(vlan), modify=True)
+            elif portnum in vlan.untagged:
+                ofmsgs.append(self.build_flood_rule(vlan), modify=True)
+
+        return ofmsgs
+
+    def rcv_packet(self, dp_id, in_port, vlan_vid, eth_src, eth_dst):
+        if dp_id != self.dp.dp_id:
+            self.logger.error("Packet_in on unknown datapath")
+            return []
+        else:
+            datapath = self.dp
+
+        if not datapath.running:
+            self.logger.error("Packet_in on unconfigured datapath")
+
+        if in_port not in datapath.ports:
+            return []
+
+        if not mac_addr_is_unicast(eth_src):
+            self.logger.info(
+                "Packet_in with multicast ethernet source address")
+            return []
+
+        self.logger.debug("Packet_in dp_id: %x src:%s in_port:%d vid:%s",
+                         dp_id, eth_src, in_port, vlan_vid)
+
+        tagged = datapath.vlans[vlan_vid].port_is_tagged(in_port)
+
+        # flow_mods to be installed
+        ofmsgs = []
+
+        # default values used in flow mods
+        src_table_id = datapath.eth_src_table
+        dst_table_id = datapath.eth_dst_table
+        high_priority = datapath.high_priority
+        timeout = datapath.timeout
+        cookie = datapath.cookie
+
+        # delete any existing ofmsgs for this vlan/mac combination on the
+        # src mac table
+        src_delete_match = parser.OFPMatch(
+            eth_src=eth_src,
+            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=cookie,
+            table_id=src_table_id,
+            command=ofp.OFPFC_DELETE,
+            out_port=ofp.OFPP_ANY,
+            out_group=ofp.OFPG_ANY,
+            match=src_delete_match)
+        ofmsgs.append(mod)
+
+        # delete any existing ofmsgs for this vlan/mac combination on the dst
+        # mac table
+        dst_delete_match = parser.OFPMatch(
+            eth_dst=eth_src,
+            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=cookie,
+            table_id=dst_table_id,
+            command=ofp.OFPFC_DELETE,
+            out_port=ofp.OFPP_ANY,
+            out_group=ofp.OFPG_ANY,
+            match=dst_delete_match)
+        ofmsgs.append(mod)
+
+        ofmsgs.append(parser.OFPBarrierRequest(None))
+
+        # Update datapath to no longer send packets from this mac to controller
+        # note the use of hard_timeout here and idle_timeout for the dst table
+        # this is to ensure that the source rules will always be deleted before
+        # any rules on the dst table. Otherwise if the dst table rule expires
+        # but the src table rule is still being hit intermittantly the switch
+        # will flood packets to that dst and not realise it needs to relearn
+        # the rule
+        src_match = parser.OFPMatch(
+            in_port=in_port,
+            eth_src=eth_src,
+            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+        instructions = [parser.OFPInstructionGotoTable(dst_table_id)]
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=cookie,
+            hard_timeout=timeout,
+            table_id=src_table_id,
+            priority=high_priority,
+            match=src_match,
+            instructions=instructions)
+        ofmsgs.append(mod)
+
+        # update datapath to output packets to this mac via the associated port
+        dst_match = parser.OFPMatch(
+            eth_dst=eth_src,
+            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+        if tagged:
+            dst_act = [parser.OFPActionOutput(in_port)]
+        else:
+            dst_act = [
+                parser.OFPActionPopVlan(),
+                parser.OFPActionOutput(in_port)]
+        instructions = [
+            parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, dst_act)]
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=cookie,
+            idle_timeout=timeout,
+            table_id=dst_table_id,
+            priority=high_priority,
+            match=dst_match,
+            instructions=instructions)
+        ofmsgs.append(mod)
+
+        return ofmsgs
+
+    def reload_config(self, new_dp):
+        if not self.dp.running:
+            return []
+
+        # It would be better to actually check the state of the dp flow table
+        # when you do this. I am leaving this for now because I think it would
+        # be better to use a controller that provides such features natively
+        # rather than trying to implement that myself.
+
+        # check if stuff like the table offset changes - at least error if that
+        # is the case
+
+        ofmsgs = []
+        old_dp = self.dp
+
+        # update the state of the dp/port
+        new_dp.running = old_dp.running
+
+        for portnum, port in old_dp.ports.iteritems():
+            if portnum in new_dp.ports:
+                new_dp.ports[portnum].phys_up = port.phys_up
+            else:
+                port.enabled = False
+                new_dp.ports[portnum] = port
+
+        all_vlans = set(new_dp.vlans.keys()) | set(old_dp.vlans.keys())
+        for vid in all_vlans:
+            # work out what needs to be changed
+            new_untagged = set([])
+            new_tagged = set([])
+            if vid in new_dp.vlans:
+                new_untagged = set([x for x in new_dp.vlans[vid].untagged if x.running()])
+                new_tagged = set([x for x in new_dp.vlans[vid].tagged if x.running()])
+            old_untagged = set([])
+            old_tagged = set([])
+            if vid in old_dp.vlans:
+                old_untagged = set([x for x in old_dp.vlans[vid].untagged if x.running()])
+                old_tagged = set([x for x in old_dp.vlans[vid].tagged if x.running()])
+
+            added_untagged = new_untagged - old_untagged
+            removed_untagged = old_untagged - new_untagged
+            added_tagged = new_tagged - old_tagged
+            removed_tagged = old_tagged - new_tagged
+
+            # remove vlan table rules
+            for port in removed_untagged:
+                match = parser.OFPMatch(in_port=port.number)
+                mod = parser.OFPFlowMod(
+                    datapath=None,
+                    cookie=old_dp.cookie,
+                    command=ofp.OFPFC_DELETE_STRICT,
+                    table_id=old_dp.vlan_table,
+                    out_port=ofp.OFPP_ANY,
+                    out_group=ofp.OFPG_ANY,
+                    priority=old_dp.low_priority,
+                    match=match)
+                ofmsgs.append(mod)
+
+            for port in removed_tagged:
+                match = parser.OFPMatch(
+                    in_port=port.number,
+                    vlan_vid=vid|ofp.OFPVID_PRESENT)
+                mod = parser.OFPFlowMod(
+                    datapath=None,
+                    cookie=old_dp.cookie,
+                    command=ofp.OFPFC_DELETE_STRICT,
+                    table_id=old_dp.vlan_table,
+                    out_port=ofp.OFPP_ANY,
+                    out_group=ofp.OFPG_ANY,
+                    priority=old_dp.high_priority,
+                    match=match)
+                ofmsgs.append(mod)
+
+            # remove learned dst macs
+            for port in removed_untagged | removed_tagged:
+                match = parser.OFPMatch(vlan_vid=vid|ofp.OFPVID_PRESENT)
+                mod = parser.OFPFlowMod(
+                    datapath=None,
+                    cookie=old_dp.cookie,
+                    command=ofp.OFPFC_DELETE,
+                    out_group=ofp.OFPG_ANY,
+                    table_id=old_dp.eth_dst_table,
+                    priority=old_dp.high_priority,
+                    match=match,
+                    out_port=port.number)
+                ofmsgs.append(mod)
+
+            ofmsgs.append(parser.OFPBarrierRequest(None))
+
+            # change flood rules
+            ofmsgs.append(self.build_flood_rule(new_dp.vlans[vid], True))
+
+            # add vlan table rules
+            goto_src_inst = parser.OFPInstructionGotoTable(new_dp.eth_src_table)
+
+            for port in added_tagged:
+                self.logger.debug(
+                    "sending config for port {0} on vlan {1}".format(port, new_dp.vlans[vid]))
+                port_match = parser.OFPMatch(
+                    in_port=port.number,
+                    vlan_vid=vid|ofp.OFPVID_PRESENT)
+                mod = parser.OFPFlowMod(
+                    datapath=None,
+                    cookie=new_dp.cookie,
+                    table_id=new_dp.vlan_table,
+                    priority=new_dp.high_priority,
+                    match=port_match,
+                    instructions=[goto_src_inst])
+                ofmsgs.append(mod)
+
+            for port in added_untagged:
+                self.logger.debug(
+                    "sending config for port {0} on vlan {1}".format(port, new_dp.vlans[vid]))
+                port_match = parser.OFPMatch(in_port=port.number)
+                push_vlan_act = [
+                  parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+                  parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
+                push_vlan_inst = parser.OFPInstructionActions(
+                    ofp.OFPIT_APPLY_ACTIONS, push_vlan_act)
+                mod = parser.OFPFlowMod(
+                    datapath=None,
+                    cookie=new_dp.cookie,
+                    table_id=new_dp.vlan_table,
+                    priority=new_dp.low_priority,
+                    match=port_match,
+                    instructions=[push_vlan_inst, goto_src_inst])
+                ofmsgs.append(mod)
+
+            # adding ofmsgs to remove learned source mac addresses on changed
+            # ports isnt necessary, they will be relearned. However it may be
+            # prudent to do it anyway in order to reduce the number of
+            # flow rules used. I doubt it will be a big deal though.
+
+        self.dp = new_dp
+
+        return ofmsgs

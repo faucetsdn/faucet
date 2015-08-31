@@ -1,4 +1,5 @@
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
+# Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,39 +13,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from acl import ACL
-
 class Port:
     number = None
-    type = None
-    acls = None
 
-    def __init__(self, number, type, acls = []):
+    def __init__(self, number, conf=None):
+        if conf is None:
+            conf = {}
         self.number = number
-        self.type = type
-        self.acls = acls
+        self.name = conf.setdefault('name', str(number))
+        self.description = conf.setdefault('description', self.name)
+        self.enabled = conf.setdefault('enabled', True)
+        self.phys_up = False
+
+    def running(self):
+        return self.enabled and self.phys_up
 
     def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            same_number = (self.number == other.number)
-            same_type = (self.type == other.type)
-            return same_number and same_number
-        else:
-            return False
+        return hash(self) == hash(other)
+
+    def __hash__(self):
+        return hash(('Port', self.number))
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __str__(self):
-        port_desc = "%s(%s)" % (self.number, self.type)
-        return port_desc
-
-    def add_acl(self, acl):
-        if acl not in self.acls:
-            self.acls.append(acl)
-
-    def is_tagged(self):
-        return (self.type == 'tagged')
-
-    def is_untagged(self):
-        return (self.type == 'untagged')
+        return self.name

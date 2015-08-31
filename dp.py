@@ -1,4 +1,5 @@
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
+# Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,116 +14,146 @@
 # limitations under the License.
 
 import copy
+import yaml
+import logging
 
 from vlan import VLAN
 from port import Port
 
 class DP:
-    dpid = None
+    """Object to hold the configuration for a faucet controlled datapath."""
+    dp_id = None
     vlans = None
     ports = None
-    acls = None
     running = False
-    config_all = None
-    config_default = None
-    config_acls = None
 
-    # Defaults (override in config file)
-    default_type = 'untagged'
-
-    def __init__(self, dpid, config, conf_all, conf_default, conf_acls):
-        self.dpid = dpid
+    def __init__(self, dp_id, logname):
+        self.dp_id = dp_id
         self.vlans = {}
         self.ports = {}
-        self.acls = conf_acls
-        self.config = config
-        self.config_all = conf_all if type(conf_all) is list else [{}]
-        self.config_default = conf_default if type(conf_default) is dict else {}
-        self.config_acls = conf_acls if type(conf_acls) is dict else {}
-        self.parse()
+        self.logger = logging.getLogger(logname)
+        self.set_defaults()
 
-    def parse(self):
-        # parse ports
-        for k, v in self.config.items():
-            self.add_port(k, v)
+    @classmethod
+    def parser(cls, config_file, logname=__name__):
+        logger = logging.getLogger(logname)
+        try:
+            with open(config_file, 'r') as stream:
+                conf = yaml.load(stream)
+        except yaml.YAMLError as ex:
+            mark = ex.problem_mark
+            errormsg = "Error in file: {0} at ({1}, {2})".format(
+                config_file,
+                mark.line + 1,
+                mark.column + 1)
+            logger.error(errormsg)
+            return None
 
-    def add_port(self, k, v = {}):
+        if 'dp_id' not in conf:
+            errormsg = "dp_id not configured in file: {0}".format(config_file)
+            logger.error(errormsg)
+            return None
+
+        dp = DP(conf['dp_id'], logname)
+
+        interfaces = conf.pop('interfaces', {})
+        vlans = conf.pop('vlans', {})
+        dp.__dict__.update(conf)
+        dp.set_defaults()
+
+        for k, v in vlans.iteritems():
+            dp.add_vlan(k, v)
+        for k, v in interfaces.iteritems():
+            dp.add_port(k, v)
+
+        return dp
+
+    def sanity_check(self):
+        assert 'dp_id' in self.__dict__
+        assert isinstance(self.dp_id, int)
+        assert self.hardware in ('Open vSwitch', 'Allied-Telesis')
+        for vid, vlan in self.vlans.iteritems():
+            assert isinstance(vid, int)
+            assert isinstance(vlan, VLAN)
+            assert all(isinstance(p, Port) for p in vlan.get_ports())
+        for portnum, port in self.ports.iteritems():
+            assert isinstance(portnum, int)
+            assert isinstance(port, Port)
+        assert isinstance(self.monitor_ports, bool)
+        assert isinstance(self.monitor_ports_file, basestring)
+        assert isinstance(self.monitor_ports_interval, int)
+        assert isinstance(self.monitor_flow_table, bool)
+        assert isinstance(self.monitor_flow_table_file, basestring)
+        assert isinstance(self.monitor_flow_table_interval, int)
+
+    def set_defaults(self):
+        # Offset for tables used by faucet
+        self.__dict__.setdefault('table_offset', 0)
+        # The table for internally associating vlans
+        self.__dict__.setdefault('vlan_table', self.table_offset)
+        # The table for checking eth src addresses are known
+        self.__dict__.setdefault('eth_src_table', self.table_offset + 1)
+        # The table for matching eth dst and applying unicast actions
+        self.__dict__.setdefault('eth_dst_table', self.table_offset + 2)
+        # The table for applying broadcast actions
+        self.__dict__.setdefault('flood_table', self.table_offset + 3)
+        # How much to offset default priority by
+        self.__dict__.setdefault('priority_offset', 0)
+        # Some priority values
+        self.__dict__.setdefault('lowest_priority', self.priority_offset)
+        self.__dict__.setdefault('low_priority', self.priority_offset + 9000)
+        self.__dict__.setdefault('high_priority', self.low_priority + 1)
+        self.__dict__.setdefault('highest_priority', self.high_priority + 98)
+        # Identification cookie value to allow for multiple controllers to
+        # control the same datapath
+        self.__dict__.setdefault('cookie', 1524372928)
+        # inactive MAC timeout
+        self.__dict__.setdefault('timeout', 300)
+        # enable port stats monitoring?
+        self.__dict__.setdefault('monitor_ports', False)
+        # File for port stats logging
+        self.__dict__.setdefault('monitor_ports_file', 'logfile.log')
+        # Stats reporting interval (in seconds)
+        self.__dict__.setdefault('monitor_ports_interval', 30)
+        # Enable flow table monitoring?
+        self.__dict__.setdefault('monitor_flow_table', False)
+        # File for flow table logging
+        self.__dict__.setdefault('monitor_flow_table_file', 'logfile.log')
+        # Stats reporting interval
+        self.__dict__.setdefault('monitor_flow_table_interval', 30)
+        # Name for this dp, used for stats reporting
+        self.__dict__.setdefault('name', str(self.dp_id))
+        # description, strictly informational
+        self.__dict__.setdefault('description', self.name)
+        # The hardware maker (for chosing an openflow driver)
+        self.__dict__.setdefault('hardware', 'Open_vSwitch')
+
+    def add_port(self, port_num, port_conf=None):
         # add port specific vlans or fall back to defaults
-        v = copy.copy(v) if v else {}
+        port_conf = copy.copy(port_conf) if port_conf else {}
 
-        if 'exclude' in self.config_default:
-            excluded = self.is_excluded(self.config_default['exclude'], k)
-        else:
-            excluded = False
+        port = self.ports.setdefault(port_num, Port(port_num, port_conf))
 
-        # set default vlans if we have any
-        if not excluded and 'vlans' in self.config_default:
-            v.setdefault('vlans', self.config_default['vlans'])
-        else:
-            v.setdefault('vlans', [])
-
-        # set default type
-        if not excluded and 'type' in self.config_default:
-            v.setdefault('type', self.config_default['type'])
-        else:
-            v.setdefault('type', self.default_type)
-
-        # set default acls
-        if not excluded and 'acls' in self.config_default:
-            v.setdefault('acls', self.config_default['acls'])
-        else:
-            v.setdefault('acls', [])
-
-        # add vlans & acls configured on a port
-        for vid in v['vlans']:
+        # add native vlan
+        port_conf.setdefault('native_vlan', None)
+        if port_conf['native_vlan'] is not None:
+            vid = port_conf['native_vlan']
             if vid not in self.vlans:
                 self.vlans[vid] = VLAN(vid)
-            if k not in self.ports:
-                self.ports[k] = Port(k, v['type'], v['acls'])
-            self.vlans[vid].add_port(self.ports[k])
+            self.vlans[vid].untagged.append(self.ports[port_num])
 
-        # add configuration that should be on all ports
-        for c in self.config_all:
-            c.setdefault('vlans', [])
-            c.setdefault('type', v['type'])
-            c.setdefault('exclude', [])
-            c.setdefault('acls', [])
+        port_conf.setdefault('tagged_vlans', [])
 
-            # exclude ports
-            if self.is_excluded(c['exclude'], k):
-                continue
+        # add vlans & acls configured on a port
+        for vid in port_conf['tagged_vlans']:
+            if vid not in self.vlans:
+                self.vlans[vid] = VLAN(vid)
+            self.vlans[vid].tagged.append(port)
 
-            # add port to 'all' vlans
-            for vid in c['vlans']:
-                if k not in self.ports:
-                    self.ports[k] = Port(k, c['type'], v['acls'])
-                port = self.ports[k]
+    def add_vlan(self, vid, vlan_conf=None):
+        vlan_conf = copy.copy(vlan_conf) if vlan_conf else {}
 
-                if vid in self.vlans and port in self.vlans[vid].get_ports():
-                    # port is already in vlan, skip
-                    continue
-
-                if vid not in self.vlans:
-                    self.vlans[vid] = VLAN(vid)
-                self.vlans[vid].add_port(port)
-
-            # add 'all' acls to port
-            for acl in c['acls']:
-                self.ports[k].add_acl(acl)
-
-    def is_excluded(self, config_exclude, port):
-        excluded = False
-        for e in config_exclude:
-            if type(e) is str and ':' in e:
-                d, p = e.split(':')
-                if self.dpid == int(d) and port == int(p):
-                    excluded = True
-                    continue
-            else:
-                if port == e:
-                    excluded = True
-                    continue
-        return excluded
+        self.vlans.setdefault(vid, VLAN(vid, vlan_conf))
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
@@ -130,9 +161,11 @@ class DP:
 
         port = self.ports[port_num]
 
-        for vid, vlan in self.vlans.items():
+        for vlan in self.vlans.values():
             if port in vlan.untagged:
                 return vlan
 
+        return None
+
     def __str__(self):
-        return "dpid:%s" % self.dpid
+        return self.name

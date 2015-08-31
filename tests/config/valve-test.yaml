@@ -1,0 +1,20 @@
+---
+dp_id: 0000000000000001
+monitoring: True
+hardware: "Open vSwitch"
+interfaces:
+ 1:
+  native_vlan: 10
+ 2:
+  tagged_vlans: [10, 11]
+ 3:
+  tagged_vlans: [11]
+ 4:
+  native_vlan: 11
+ 5:
+  native_vlan: 11
+ 6:
+  native_vlan: 11
+  enabled: False
+ 7:
+  native_vlan: 11

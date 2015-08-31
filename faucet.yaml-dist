@@ -1,0 +1,46 @@
+---
+dp_id: 0x0000000000000001
+name: "office-faucet-1"
+description: "The REANNZ Office AT-X510"
+hardware: "Allied-Telesis"
+monitor_ports: True
+monitor_ports_file: "ports.out"
+monitor_ports_interval: 10
+monitor_flow_table: True
+monitor_flow_table_file: "ft.out"
+monitor_flow_table_interval: 10
+interfaces:
+    1:
+        tagged_vlans: [2040]
+        name: "port1.0.1"
+        description: "uplink to office-switch-1"
+    2:
+        native_vlan: goldfish
+        name: "port1.0.2"
+        description: "Kit's desk"
+    3:
+        native_vlan: 2040
+        name: "port1.0.3"
+        description: "Sam's desk"
+    4:
+        native_vlan: 2040
+    5:
+        native_vlan: 2040
+    6:
+        native_vlan: 2040
+    7:
+        native_vlan: 2040
+    8:
+        native_vlan: 2040
+    9:
+        native_vlan: 2040
+    10:
+        native_vlan: 2040
+    11:
+        native_vlan: 2040
+    12:
+        native_vlan: 2040
+vlans:
+    2040:
+        description: "REANNZ office vlan"
+        name: "rnz-office"
