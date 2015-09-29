@@ -24,9 +24,9 @@ A port not explicitly defined in the YAML configuration file will be set down an
 Run with ryu-manager (uses /etc/opt/faucet/faucet.yaml as configuration by default):
 
 ```
-$ cp valve.yaml-dist valve.yaml
-$ $EDITOR valve.yaml
-$ ryu-manager valve.py
+$ cp faucet.yaml-dist /etc/opt/faucet/faucet.yaml
+$ $EDITOR faucet.yaml
+$ ryu-manager faucet.py
 ```
 
 To specify a different configuration file set the FAUCET\_CONFIG environment variable.
@@ -52,6 +52,16 @@ It is possible to use Faucet to add layer 2 features to another OpenFlow control
 Simply add Faucet as a second primary OpenFlow controller to your datapath element. You will also probably need to tweak the OpenFlow priority values Faucet uses by modifying `priority_offset` in the configuration file so that rules installed by the other controller don't override those installed by Faucet.
 
 ### Gauge
-Gauge is the monitoring application. It polls each port for statistics and periodically dumps the flow table for statistics. This is configured with a file containing the names of the files for the configuration of any faucets you wish to monitor.
+Gauge is the monitoring application. It polls each port for statistics and periodically dumps the flow table for statistics.
 
-The configuration is by default read from /etc/opt/faucet/gauge.conf. This can be set with the GAUGE\_CONFIG environment variable. Exceptions are logged to the same file as faucet's exceptions.
+Gauge reads the faucet yaml configuration files of the datapaths it monitors. Which datapaths to monitor is provided in a configuration file containing a list of faucet yaml files, one per line.
+
+The list of faucet yaml config is by default read from /etc/opt/faucet/gauge.conf. This can be set with the GAUGE\_CONFIG environment variable. Exceptions are logged to the same file as faucet's exceptions.
+
+Gauge is run with ryu-manager:
+
+```
+$ cp gauge.conf-dist /etc/opt/faucet/gauge.conf
+$ $EDITOR gauge.conf-dist
+$ ryu-manager gauge.py
+```
