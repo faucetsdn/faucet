@@ -11,11 +11,9 @@ It supports:
 
 ### Configuration
 
-Faucet is configured with a YAML-based configuration file. A sample configuration file is supplied in `valve.yaml-dist`.
+Faucet is configured with a YAML-based configuration file. A sample configuration file is supplied in `faucet.yaml-dist`.
 
 The datapath ID may be specified as an integer or hex string (beginning with 0x).
-
-### Autoconfigured ports
 
 A port not explicitly defined in the YAML configuration file will be set down and will drop all packets.
 
@@ -33,13 +31,13 @@ To specify a different configuration file set the FAUCET\_CONFIG environment var
 
 Faucet will log to /var/log/faucet/faucet.log by default, this can be changed with the FAUCET\_LOG environment variable. Exceptions are by default logged to /var/log/faucet/faucet\_exception.log this can be changed with the FAUCET\_EXCEPTION\_LOG environment variable.
 
-To tell Valve to reload its configuration file after you've changed it, simply send it a SIGHUP:
+To tell Faucet to reload its configuration file after you've changed it, simply send it a SIGHUP:
 
 ```
 $ pkill -SIGHUP -f "ryu-manager faucet.py"
 ```
 
-We have tested Valve against:
+We have tested Faucet against:
  * Open vSwitch v2.1+
  * Allied Telesis x510
 
