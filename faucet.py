@@ -33,6 +33,7 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
 
+
 class Faucet(app_manager.RyuApp):
     """A Ryu app that performs layer 2 switching with VLANs.
 

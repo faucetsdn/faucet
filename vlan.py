@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 class VLAN:
     vid = None
     tagged = None
@@ -32,7 +33,7 @@ class VLAN:
         return "vid:%s ports:%s" % (self.vid, ports)
 
     def get_ports(self):
-        return self.tagged+self.untagged
+        return self.tagged + self.untagged
 
     def contains_port(self, port_number):
         for port in self.get_ports():

@@ -22,6 +22,7 @@ from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
+
 def valve_factory(dp):
     """Return a Valve object based dp's hardware configuration field.
 
@@ -39,6 +40,7 @@ def valve_factory(dp):
         return OVSStatelessValve(dp)
     else:
         return None
+
 
 class Valve(object):
     """Generates the messages to configure a datapath as a l2 learning switch.
@@ -168,7 +170,8 @@ class OVSStatelessValve(Valve):
         cookie = datapath.cookie
 
         # Hard reset when datapath connects
-        for table_id in (vlan_table_id, src_table_id, dst_table_id, flood_table_id):
+        for table_id in (vlan_table_id, src_table_id, dst_table_id,
+                         flood_table_id):
             mod = parser.OFPFlowMod(
                 datapath=None,
                 cookie=cookie,
@@ -234,7 +237,7 @@ class OVSStatelessValve(Valve):
             for port in vlan.tagged:
                 port_match = parser.OFPMatch(
                     in_port=port.number,
-                    vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+                    vlan_vid=vlan_vid | ofp.OFPVID_PRESENT)
                 mod = parser.OFPFlowMod(
                     datapath=None,
                     cookie=cookie,
@@ -247,8 +250,10 @@ class OVSStatelessValve(Valve):
             for port in vlan.untagged:
                 port_match = parser.OFPMatch(in_port=port.number)
                 push_vlan_act = [
-                  parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-                  parser.OFPActionSetField(vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)]
+                    parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+                    parser.OFPActionSetField(
+                        vlan_vid=vlan_vid | ofp.OFPVID_PRESENT)
+                ]
                 push_vlan_inst = parser.OFPInstructionActions(
                     ofp.OFPIT_APPLY_ACTIONS, push_vlan_act)
                 mod = parser.OFPFlowMod(
@@ -295,7 +300,7 @@ class OVSStatelessValve(Valve):
             command = ofp.OFPFC_MODIFY_STRICT
         else:
             command = ofp.OFPFC_ADD
-        match = parser.OFPMatch(vlan_vid=vlan.vid|ofp.OFPVID_PRESENT)
+        match = parser.OFPMatch(vlan_vid=vlan.vid | ofp.OFPVID_PRESENT)
         act = []
         for port in vlan.tagged:
             if port.running():
@@ -304,7 +309,9 @@ class OVSStatelessValve(Valve):
         for port in vlan.untagged:
             if port.running():
                 act.append(parser.OFPActionOutput(port.number))
-        instructions = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, act)]
+        instructions = [
+            parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, act)
+        ]
         mod = parser.OFPFlowMod(
             datapath=None,
             cookie=self.dp.cookie,
@@ -362,10 +369,14 @@ class OVSStatelessValve(Valve):
                     port_match = parser.OFPMatch(in_port=port.number)
                     push_vlan_act = [
                         parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-                        parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
+                        parser.OFPActionSetField(
+                            vlan_vid=vid | ofp.OFPVID_PRESENT)
+                    ]
                     push_vlan_inst = [
-                        parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, push_vlan_act),
-                        parser.OFPInstructionGotoTable(self.dp.eth_src_table)]
+                        parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     push_vlan_act),
+                        parser.OFPInstructionGotoTable(self.dp.eth_src_table)
+                    ]
                     mod = parser.OFPFlowMod(
                         datapath=None,
                         cookie=self.dp.cookie,
@@ -377,9 +388,10 @@ class OVSStatelessValve(Valve):
                 elif port in vlan.tagged:
                     port_match = parser.OFPMatch(
                         in_port=port.number,
-                        vlan_vid=vid|ofp.OFPVID_PRESENT)
+                        vlan_vid=vid | ofp.OFPVID_PRESENT)
                     vlan_inst = [
-                        parser.OFPInstructionGotoTable(self.dp.eth_src_table)]
+                        parser.OFPInstructionGotoTable(self.dp.eth_src_table)
+                    ]
                     mod = parser.OFPFlowMod(
                         datapath=None,
                         cookie=self.dp.cookie,
@@ -463,7 +475,7 @@ class OVSStatelessValve(Valve):
             return []
 
         self.logger.debug("Packet_in dp_id: %x src:%s in_port:%d vid:%s",
-                         dp_id, eth_src, in_port, vlan_vid)
+                          dp_id, eth_src, in_port, vlan_vid)
 
         tagged = datapath.vlans[vlan_vid].port_is_tagged(in_port)
 
@@ -481,7 +493,7 @@ class OVSStatelessValve(Valve):
         # src mac table
         src_delete_match = parser.OFPMatch(
             eth_src=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+            vlan_vid=vlan_vid | ofp.OFPVID_PRESENT)
         mod = parser.OFPFlowMod(
             datapath=None,
             cookie=cookie,
@@ -496,7 +508,7 @@ class OVSStatelessValve(Valve):
         # mac table
         dst_delete_match = parser.OFPMatch(
             eth_dst=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+            vlan_vid=vlan_vid | ofp.OFPVID_PRESENT)
         mod = parser.OFPFlowMod(
             datapath=None,
             cookie=cookie,
@@ -519,7 +531,7 @@ class OVSStatelessValve(Valve):
         src_match = parser.OFPMatch(
             in_port=in_port,
             eth_src=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+            vlan_vid=vlan_vid | ofp.OFPVID_PRESENT)
         instructions = [parser.OFPInstructionGotoTable(dst_table_id)]
         mod = parser.OFPFlowMod(
             datapath=None,
@@ -534,15 +546,16 @@ class OVSStatelessValve(Valve):
         # update datapath to output packets to this mac via the associated port
         dst_match = parser.OFPMatch(
             eth_dst=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
+            vlan_vid=vlan_vid | ofp.OFPVID_PRESENT)
         if tagged:
             dst_act = [parser.OFPActionOutput(in_port)]
         else:
             dst_act = [
-                parser.OFPActionPopVlan(),
-                parser.OFPActionOutput(in_port)]
+                parser.OFPActionPopVlan(), parser.OFPActionOutput(in_port)
+            ]
         instructions = [
-            parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, dst_act)]
+            parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, dst_act)
+        ]
         mod = parser.OFPFlowMod(
             datapath=None,
             cookie=cookie,
@@ -586,13 +599,17 @@ class OVSStatelessValve(Valve):
             new_untagged = set([])
             new_tagged = set([])
             if vid in new_dp.vlans:
-                new_untagged = set([x for x in new_dp.vlans[vid].untagged if x.running()])
-                new_tagged = set([x for x in new_dp.vlans[vid].tagged if x.running()])
+                new_untagged = set([x for x in new_dp.vlans[vid].untagged if
+                                    x.running()])
+                new_tagged = set([x for x in new_dp.vlans[vid].tagged if
+                                  x.running()])
             old_untagged = set([])
             old_tagged = set([])
             if vid in old_dp.vlans:
-                old_untagged = set([x for x in old_dp.vlans[vid].untagged if x.running()])
-                old_tagged = set([x for x in old_dp.vlans[vid].tagged if x.running()])
+                old_untagged = set([x for x in old_dp.vlans[vid].untagged if
+                                    x.running()])
+                old_tagged = set([x for x in old_dp.vlans[vid].tagged if
+                                  x.running()])
 
             added_untagged = new_untagged - old_untagged
             removed_untagged = old_untagged - new_untagged
@@ -616,7 +633,7 @@ class OVSStatelessValve(Valve):
             for port in removed_tagged:
                 match = parser.OFPMatch(
                     in_port=port.number,
-                    vlan_vid=vid|ofp.OFPVID_PRESENT)
+                    vlan_vid=vid | ofp.OFPVID_PRESENT)
                 mod = parser.OFPFlowMod(
                     datapath=None,
                     cookie=old_dp.cookie,
@@ -630,7 +647,7 @@ class OVSStatelessValve(Valve):
 
             # remove learned dst macs
             for port in removed_untagged | removed_tagged:
-                match = parser.OFPMatch(vlan_vid=vid|ofp.OFPVID_PRESENT)
+                match = parser.OFPMatch(vlan_vid=vid | ofp.OFPVID_PRESENT)
                 mod = parser.OFPFlowMod(
                     datapath=None,
                     cookie=old_dp.cookie,
@@ -648,14 +665,16 @@ class OVSStatelessValve(Valve):
             ofmsgs.append(self.build_flood_rule(new_dp.vlans[vid], True))
 
             # add vlan table rules
-            goto_src_inst = parser.OFPInstructionGotoTable(new_dp.eth_src_table)
+            goto_src_inst = parser.OFPInstructionGotoTable(
+                new_dp.eth_src_table)
 
             for port in added_tagged:
                 self.logger.debug(
-                    "sending config for port {0} on vlan {1}".format(port, new_dp.vlans[vid]))
+                    "sending config for port {0} on vlan {1}".format(
+                        port, new_dp.vlans[vid]))
                 port_match = parser.OFPMatch(
                     in_port=port.number,
-                    vlan_vid=vid|ofp.OFPVID_PRESENT)
+                    vlan_vid=vid | ofp.OFPVID_PRESENT)
                 mod = parser.OFPFlowMod(
                     datapath=None,
                     cookie=new_dp.cookie,
@@ -667,11 +686,13 @@ class OVSStatelessValve(Valve):
 
             for port in added_untagged:
                 self.logger.debug(
-                    "sending config for port {0} on vlan {1}".format(port, new_dp.vlans[vid]))
+                    "sending config for port {0} on vlan {1}".format(
+                        port, new_dp.vlans[vid]))
                 port_match = parser.OFPMatch(in_port=port.number)
                 push_vlan_act = [
-                  parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-                  parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
+                    parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+                    parser.OFPActionSetField(vlan_vid=vid | ofp.OFPVID_PRESENT)
+                ]
                 push_vlan_inst = parser.OFPInstructionActions(
                     ofp.OFPIT_APPLY_ACTIONS, push_vlan_act)
                 mod = parser.OFPFlowMod(
