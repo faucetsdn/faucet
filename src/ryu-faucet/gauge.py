@@ -208,10 +208,10 @@ class Gauge(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
         self.config_file = os.getenv(
-            'GAUGE_CONFIG', '/etc/opt/faucet/gauge.conf')
+            'GAUGE_CONFIG', '/etc/ryu/faucet/gauge.conf')
         self.exc_logfile = os.getenv(
-            'FAUCET_EXCEPTION_LOG', '/var/log/faucet/faucet_exception.log')
-        self.logfile = os.getenv('GAUGE_LOG', '/var/log/faucet/gauge.log')
+            'FAUCET_LOG_DIR', '/var/log/ryu/') + 'faucet_exception.log'
+        self.logfile = os.getenv('FAUCET_LOG_DIR', '/var/log/ryu/') + 'gauge.log'
 
         # Setup logging
         self.logger = logging.getLogger(__name__)

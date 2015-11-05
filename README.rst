@@ -19,12 +19,15 @@ A port not explicitly defined in the YAML configuration file will be set down an
 
 ### Running
 
-Run with ryu-manager (uses /etc/opt/faucet/faucet.yaml as configuration by default):
+Run with ryu-manager (uses /etc/ryu/faucet/faucet.yaml as configuration by default):
 
 ```
-$ cp faucet.yaml-dist /etc/opt/faucet/faucet.yaml
-$ $EDITOR faucet.yaml
-$ ryu-manager faucet.py
+# export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml
+# export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf
+# export FAUCET_LOG_DIR=/var/log/ryu
+
+$ $EDITOR /etc/ryu/faucet/faucet.yaml
+$ ryu-manager --verbose faucet.py
 ```
 
 To specify a different configuration file set the FAUCET\_CONFIG environment variable.
