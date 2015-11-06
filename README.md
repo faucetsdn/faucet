@@ -11,7 +11,7 @@ It supports:
 
 ### Configuration
 
-Faucet is configured with a YAML-based configuration file. A sample configuration file is supplied in `faucet.yaml-dist`.
+Faucet is configured with a YAML-based configuration file. A sample configuration file is supplied in `faucet.yaml`.
 
 The datapath ID may be specified as an integer or hex string (beginning with 0x).
 
@@ -22,9 +22,9 @@ A port not explicitly defined in the YAML configuration file will be set down an
 Run with ryu-manager (uses /etc/ryu/faucet/faucet.yaml as configuration by default):
 
 ```
-# export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml
-# export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf
-# export FAUCET_LOG_DIR=/var/log/ryu
+$ export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml
+$ export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf
+$ export FAUCET_LOG_DIR=/var/log/ryu
 
 $ $EDITOR /etc/ryu/faucet/faucet.yaml
 $ ryu-manager --verbose faucet.py
@@ -32,7 +32,7 @@ $ ryu-manager --verbose faucet.py
 
 To specify a different configuration file set the FAUCET\_CONFIG environment variable.
 
-Faucet will log to /var/log/faucet/faucet.log by default, this can be changed with the FAUCET\_LOG environment variable. Exceptions are by default logged to /var/log/faucet/faucet\_exception.log this can be changed with the FAUCET\_EXCEPTION\_LOG environment variable.
+Faucet will log to /var/log/ryu/faucet/ by default, this can be changed with the FAUCET\_LOG\_DIR environment variable.
 
 To tell Faucet to reload its configuration file after you've changed it, simply send it a SIGHUP:
 
@@ -62,7 +62,6 @@ The list of faucet yaml config is by default read from /etc/opt/faucet/gauge.con
 Gauge is run with ryu-manager:
 
 ```
-$ cp gauge.conf-dist /etc/opt/faucet/gauge.conf
-$ $EDITOR gauge.conf-dist
+$ $EDITOR /etc/ryu/faucet/gauge.conf
 $ ryu-manager gauge.py
 ```
