@@ -13,9 +13,9 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
 
     setup(
         name='ryu-faucet',
-        version='0.21a',
-        packages=['ryu-faucet'],
-        package_dir={'ryu-faucet': 'src/ryu-faucet'},
+        version='0.25a',
+        packages=['ryu_faucet'],
+        package_dir={'ryu_faucet': 'src/ryu_faucet'},
         data_files=[('/etc/ryu/faucet', ['src/cfg/etc/ryu/faucet/gauge.conf',
                                          'src/cfg/etc/ryu/faucet/faucet.yaml'])
                     ],
