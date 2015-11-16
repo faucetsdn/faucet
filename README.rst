@@ -1,4 +1,4 @@
-:version: 0.25a
+:version: 0.27a
 :copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
 
 .. meta::
@@ -34,7 +34,7 @@ Installation
 ============
 You have run this as ``root`` or use ``sudo``
 
-``# pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.25a.tar.gz``
+``# pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.27a.tar.gz``
 
 ``# pip show ryu-faucet``
 
@@ -43,6 +43,11 @@ Uninstall
 To Uninstall the package
 
 ``# pip uninstall ryu-faucet``
+
+==========
+Deployment
+==========
+.. image:: src/docs/faucet_deployment.png
 
 =======
 Running
