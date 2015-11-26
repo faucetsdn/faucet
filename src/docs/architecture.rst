@@ -24,8 +24,10 @@ Design Principles
 3.  OF v1.3 requirements - Both IPv4 & IPv6 support, push/pop/swap VLAN Tags, Multi-table support (ability to support multiple actions and better use of limited TCAM support), Group Table support is nice to have - if available, optimizations can be deployed. 
 4.  No SNMP is required or used as it is reactive for NMS system.
 5.  Uses Carbon (JSON) to communicate to Network Management System (NMS).  Currently One specified controller is allowed to interact with the switch for telemetry data and switch responds the last 30 seconds of data so that data plane processing performance is consistent.
+
     1.  Hardware data planes needs to push telemetry data to only one end point (unsolicited) and every other client will talk to that one end point.
 6.  Controller:
+
     1.  Support for multiple controllers for HA (Roadmap)
     2.  Controllers to control multiple switches (Roadmap)
     3.  Faucet does not use Master/Slave/Equal Controller roles (Roadmap) 
