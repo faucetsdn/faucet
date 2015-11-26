@@ -65,6 +65,17 @@ Faucet Application
 *  MAC learning supported
 *  ACL support (Roadmap): Cisco ACL functionality such as permit/deny access list on a port; firewall style rules on a per port basis
 
+============
+UML Diagrams
+============
+.. image:: classes_ryu_faucet.png
+
+
+=======================
+Deployment Architecture
+=======================
+.. image:: faucet_deployment.png
+
 -------------
 Roadmap Items
 -------------
