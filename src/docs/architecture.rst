@@ -86,9 +86,9 @@ Roadmap Items
 *  Support for Controller only port/channel
 *  Support for Controller port/channel wherein only OF messages are exchanged without Ethernet headers and use of naked OF messages to enable fast-path processing.
 *  DHCP Server with Faucet:
-   1. Possibly done either in user space in Ryu itself (ie. Python code that runs it) or (for example) using VANDERVECKEN/RouteFlow style VMs (the controller tells the switch to intercept certain packets - like it already does for ARP - and give them to a helper application that runs inside  VM/namespace). RouteFlow already does this for Quagga.
-   2. Integrate with enterprise infrastructure's DHCP server
-   3. Integrating DHCP with Faucet means that it can prevent address conflicts. For example, the switch can enforce policy
-   4. Faucet specific: Possibly add additional config options in the YAML file (so there is no need for an operator who doesn't care about the implementation to know).
+    1. Possibly done either in user space in Ryu itself (ie. Python code that runs it) or (for example) using VANDERVECKEN/RouteFlow style VMs (the controller tells the switch to intercept certain packets - like it already does for ARP - and give them to a helper application that runs inside  VM/namespace). RouteFlow already does this for Quagga.
+    2. Integrate with enterprise infrastructure's DHCP server
+    3. Integrating DHCP with Faucet means that it can prevent address conflicts. For example, the switch can enforce policy
+    4. Faucet specific: Possibly add additional config options in the YAML file (so there is no need for an operator who doesn't care about the implementation to know).
 
 
