@@ -73,6 +73,10 @@ To find the location of ``faucet.py``, run
 
 ``# ryu-manager --verbose <Location_Path>/ryu_faucet/faucet.py``
 
+  Alternatively, if OF Controller is using a non-default port of 6633, for example 6653, then:
+
+``# ryu-manager --verbose  --ofp-tcp-listen-port 6653 <Location_Path>/ryu_faucet/faucet.py``
+
 On MacOS X, for example, one would run this as:
 
 ``#  ryu-manager --verbose /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/ryu_faucet/faucet.py``
@@ -89,12 +93,21 @@ To tell Faucet to reload its configuration file after you've changed it, simply 
 Testing
 =======
 
-Faucet has been tested against:
+Faucet has been tested against the following switches:
 
     1. Open vSwitch v2.1+
     2. Allied Telesis x510
 
 On the Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.
+
+================================================
+Buying Commerical Switches supporting ryu-faucet
+================================================
+
+Allied Telesis
+--------------
+
+ Allied Telesis sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`.  To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`
 
 
 Running with another controller
