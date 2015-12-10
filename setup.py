@@ -24,7 +24,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
         license='Apache License 2.0',
         description='Ryu application to perform Layer 2 switching with VLANs.',
         long_description=README,
-        url='http://http://openflowsdn.github.io/faucet',
+        url='http://openflowsdn.github.io/faucet',
         author='Christopher Lorier',
         author_email='chris.lorier@reannz.co.nz',
         maintainer='Shivaram Mysore, OpenflowSDN.Org',
