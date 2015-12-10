@@ -13,7 +13,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
 
     setup(
         name='ryu-faucet',
-        version='0.27a',
+        version='0.28a',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
         data_files=[('/etc/ryu/faucet', ['src/cfg/etc/ryu/faucet/gauge.conf',
@@ -24,9 +24,11 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
         license='Apache License 2.0',
         description='Ryu application to perform Layer 2 switching with VLANs.',
         long_description=README,
-        url='http://www.reannz.co.nz/',
+        url='http://http://openflowsdn.github.io/faucet',
         author='Christopher Lorier',
         author_email='chris.lorier@reannz.co.nz',
+        maintainer='Shivaram Mysore, OpenflowSDN.Org',
+        maintainer_email='faucet-dev@OpenflowSDN.Org',
         classifiers=[
             'Development Status :: 3 - Alpha',
             'Environment :: Console',
