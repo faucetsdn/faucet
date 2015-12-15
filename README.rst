@@ -144,4 +144,8 @@ Gauge is run with ``ryu-manager``:
 =======
 Support
 =======
-Mailing list info goes here
+
+If you have any technical questions, problems or suggestions regarding Faucet please send them to `faucet-dev@OpenflowSDN.Org <mailto:faucet-dev@openflowsdn.org>`.  Mailing list archives are available `here <https://groups.google.com/a/openflowsdn.org/forum/#!forum/faucet-dev>`.
+
+To create a issue, go to `https://github.com/openflowsdn/faucet/issues <https://github.com/openflowsdn/faucet/issues>`
+
