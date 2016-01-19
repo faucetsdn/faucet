@@ -20,6 +20,7 @@ import logging
 from vlan import VLAN
 from port import Port
 
+
 class DP:
     """Object to hold the configuration for a faucet controlled datapath."""
     dp_id = None
@@ -43,9 +44,7 @@ class DP:
         except yaml.YAMLError as ex:
             mark = ex.problem_mark
             errormsg = "Error in file: {0} at ({1}, {2})".format(
-                config_file,
-                mark.line + 1,
-                mark.column + 1)
+                config_file, mark.line + 1, mark.column + 1)
             logger.error(errormsg)
             return None
 

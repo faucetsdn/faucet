@@ -21,7 +21,7 @@ srcdir = '..'
 sys.path.insert(0, os.path.abspath(os.path.join(testdir, srcdir)))
 
 import unittest
-from dp import DP
+from ryu_faucet.dp import DP
 
 class DistConfigTestCase(unittest.TestCase):
     def setUp(self):

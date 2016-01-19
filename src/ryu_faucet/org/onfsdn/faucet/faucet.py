@@ -33,6 +33,7 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
 
+
 class Faucet(app_manager.RyuApp):
     """A Ryu app that performs layer 2 switching with VLANs.
 
@@ -55,11 +56,10 @@ class Faucet(app_manager.RyuApp):
         # FAUCET_CONFIG to allow this to be set, if it is not set it will
         # default to valve.yaml
         self.config_file = os.getenv(
-            'FAUCET_CONFIG', '/etc/opt/faucet/valve.yaml')
-        self.logfile = os.getenv(
-            'FAUCET_LOG', '/var/log/faucet/faucet.log')
+            'FAUCET_CONFIG', '/etc/ryu/faucet/faucet.yaml')
+        self.logfile = os.getenv('FAUCET_LOG_DIR', '/var/log/ryu/') + 'faucet.log'
         self.exc_logfile = os.getenv(
-            'FAUCET_EXCEPTION_LOG', '/var/log/faucet/faucet_exception.log')
+            'FAUCET_LOG_DIR', '/var/log/ryu/') + 'faucet_exception.log'
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)

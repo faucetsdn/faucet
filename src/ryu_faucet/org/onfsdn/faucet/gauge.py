@@ -29,6 +29,7 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib import hub
 
+
 class GaugePoller(object):
     """A ryu thread object for sending and receiving openflow stats requests.
 
@@ -38,6 +39,7 @@ class GaugePoller(object):
     The methods send_req, update and no_response should be implemented by
     subclasses.
     """
+
     def __init__(self, dp, ryudp, logname):
         self.dp = dp
         self.ryudp = ryudp
@@ -95,9 +97,11 @@ class GaugePoller(object):
         """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError
 
+
 class GaugePortStatsPoller(GaugePoller):
     """Periodically sends a port stats request to the datapath and parses and
     outputs the response."""
+
     def __init__(self, dp, ryudp, logname):
         super(GaugePortStatsPoller, self).__init__(dp, ryudp, logname)
         self.interval = self.dp.monitor_ports_interval
@@ -126,31 +130,25 @@ class GaugePortStatsPoller(GaugePoller):
                 ref = self.dp.name + "-" + self.dp.ports[stat.port_no].name
 
             with open(self.logfile, 'a') as logfile:
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-packets-out",
-                                                        stat.tx_packets))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-packets-in",
-                                                        stat.rx_packets))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-bytes-out",
-                                                        stat.tx_bytes))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-bytes-in",
-                                                        stat.rx_bytes))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-dropped-out",
-                                                        stat.tx_dropped))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-dropped-in",
-                                                        stat.rx_dropped))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-errors-in",
-                                                        stat.rx_errors))
+                logfile.write('{0}\t{1}\t{2}\n'.format(
+                    rcv_time, ref + "-packets-out", stat.tx_packets))
+                logfile.write('{0}\t{1}\t{2}\n'.format(
+                    rcv_time, ref + "-packets-in", stat.rx_packets))
+                logfile.write('{0}\t{1}\t{2}\n'.format(
+                    rcv_time, ref + "-bytes-out", stat.tx_bytes))
+                logfile.write('{0}\t{1}\t{2}\n'.format(
+                    rcv_time, ref + "-bytes-in", stat.rx_bytes))
+                logfile.write('{0}\t{1}\t{2}\n'.format(
+                    rcv_time, ref + "-dropped-out", stat.tx_dropped))
+                logfile.write('{0}\t{1}\t{2}\n'.format(
+                    rcv_time, ref + "-dropped-in", stat.rx_dropped))
+                logfile.write('{0}\t{1}\t{2}\n'.format(
+                    rcv_time, ref + "-errors-in", stat.rx_errors))
 
     def no_response(self):
         self.logger.info(
             "port stats request timed out for {0}".format(self.dp.name))
+
 
 class GaugeFlowTablePoller(GaugePoller):
     """Periodically dumps the current datapath flow table as a yaml object.
@@ -158,6 +156,7 @@ class GaugeFlowTablePoller(GaugePoller):
     Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
     flow table is dumped as an OFFlowStatsReply message (in yaml format) that
     matches all flows."""
+
     def __init__(self, dp, ryudp, logname):
         super(GaugeFlowTablePoller, self).__init__(dp, ryudp, logname)
         self.interval = self.dp.monitor_flow_table_interval
@@ -168,7 +167,8 @@ class GaugeFlowTablePoller(GaugePoller):
         ofp_parser = self.ryudp.ofproto_parser
         match = ofp_parser.OFPMatch()
         req = ofp_parser.OFPFlowStatsRequest(
-            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY, 0, 0, match)
+            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY, 0, 0,
+            match)
         self.ryudp.send_msg(req)
 
     def update(self, rcv_time, msg):
@@ -180,11 +180,15 @@ class GaugeFlowTablePoller(GaugePoller):
             ref = self.dp.name + "-flowtables"
             logfile.write("---\n")
             logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
-                rcv_time, ref, json.dumps(jsondict, indent=4)))
+                rcv_time,
+                ref,
+                json.dumps(jsondict,
+                           indent=4)))
 
     def no_response(self):
         self.logger.info(
             "flow dump request timed out for {0}".format(self.dp.name))
+
 
 class Gauge(app_manager.RyuApp):
     """Ryu app for polling Faucet controlled datapaths for stats/state.
@@ -204,10 +208,10 @@ class Gauge(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
         self.config_file = os.getenv(
-            'GAUGE_CONFIG', '/etc/opt/faucet/gauge.conf')
+            'GAUGE_CONFIG', '/etc/ryu/faucet/gauge.conf')
         self.exc_logfile = os.getenv(
-            'FAUCET_EXCEPTION_LOG', '/var/log/faucet/faucet_exception.log')
-        self.logfile = os.getenv('GAUGE_LOG', '/var/log/faucet/gauge.log')
+            'FAUCET_LOG_DIR', '/var/log/ryu/') + 'faucet_exception.log'
+        self.logfile = os.getenv('FAUCET_LOG_DIR', '/var/log/ryu/') + 'gauge.log'
 
         # Setup logging
         self.logger = logging.getLogger(__name__)
@@ -224,8 +228,7 @@ class Gauge(app_manager.RyuApp):
         # Set up separate logging for exceptions
         exc_logger = logging.getLogger(self.exc_logname)
         exc_logger_handler = logging.FileHandler(self.exc_logfile)
-        exc_logger_handler.setFormatter(
-            logging.Formatter(log_fmt, date_fmt))
+        exc_logger_handler.setFormatter(logging.Formatter(log_fmt, date_fmt))
         exc_logger.addHandler(exc_logger_handler)
         exc_logger.propagate = 1
         exc_logger.setLevel(logging.ERROR)
