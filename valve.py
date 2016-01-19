@@ -222,60 +222,31 @@ class OVSStatelessValve(Valve):
             instructions=[goto_flood_instruction])
         ofmsgs.append(mod)
 
-        # install vlan actions
-        goto_src_inst = parser.OFPInstructionGotoTable(src_table_id)
+        # install eth_src_table default controller flow mod
+        controller_act = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
+        controller_inst = parser.OFPInstructionActions(
+            ofp.OFPIT_APPLY_ACTIONS, controller_act)
+        goto_dst_inst = parser.OFPInstructionGotoTable(dst_table_id)
+        mod = parser.OFPFlowMod(
+            datapath=None,
+            cookie=cookie,
+            table_id=src_table_id,
+            priority=lowest_priority,
+            match=match_all,
+            instructions=[controller_inst, goto_dst_inst])
+        ofmsgs.append(mod)
+
+        # install vlan actions and ports
+        ports = set()
         for vlan_vid, vlan in datapath.vlans.items():
             self.logger.info("Configuring %s", vlan)
-
-            # The correct vlan_id is pushed upon all packets, to simplify the
-            # eth_dst_table
-            # Packets are forwarded to the eth_src_table (with vlan tags) to
-            # determine whether the mac needs to be learned.
-            for port in vlan.tagged:
-                port_match = parser.OFPMatch(
-                    in_port=port.number,
-                    vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
-                mod = parser.OFPFlowMod(
-                    datapath=None,
-                    cookie=cookie,
-                    table_id=vlan_table_id,
-                    priority=high_priority,
-                    match=port_match,
-                    instructions=[goto_src_inst])
-                ofmsgs.append(mod)
-
-            for port in vlan.untagged:
-                port_match = parser.OFPMatch(in_port=port.number)
-                push_vlan_act = [
-                  parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-                  parser.OFPActionSetField(vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)]
-                push_vlan_inst = parser.OFPInstructionActions(
-                    ofp.OFPIT_APPLY_ACTIONS, push_vlan_act)
-                mod = parser.OFPFlowMod(
-                    datapath=None,
-                    cookie=cookie,
-                    table_id=vlan_table_id,
-                    priority=low_priority,
-                    match=port_match,
-                    instructions=[push_vlan_inst, goto_src_inst])
-                ofmsgs.append(mod)
-
-            # install eth_src_table default controller flow mod
-            controller_act = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
-            controller_inst = parser.OFPInstructionActions(
-                ofp.OFPIT_APPLY_ACTIONS, controller_act)
-            goto_dst_inst = parser.OFPInstructionGotoTable(dst_table_id)
-            mod = parser.OFPFlowMod(
-                datapath=None,
-                cookie=cookie,
-                table_id=src_table_id,
-                priority=lowest_priority,
-                match=match_all,
-                instructions=[controller_inst, goto_dst_inst])
-            ofmsgs.append(mod)
-
+            for port in vlan.tagged + vlan.untagged:
+                ports.add(port.number)
             # install eth_dst_table flood ofmsgs
             ofmsgs.append(self.build_flood_rule(vlan))
+
+        for port in ports:
+            ofmsgs.extend(self.port_add(dp_id, port))
 
         # Mark datapath as fully configured
         datapath.running = True
@@ -374,6 +345,7 @@ class OVSStatelessValve(Valve):
                         match=port_match,
                         instructions=push_vlan_inst)
                     ofmsgs.append(mod)
+                    ofmsgs.append(self.build_flood_rule(vlan))
                 elif port in vlan.tagged:
                     port_match = parser.OFPMatch(
                         in_port=port.number,
@@ -388,12 +360,6 @@ class OVSStatelessValve(Valve):
                         match=port_match,
                         instructions=vlan_inst)
                     ofmsgs.append(mod)
-
-            # modify eth_dst rules
-            for vid, vlan in self.dp.vlans.iteritems():
-                if port in vlan.tagged:
-                    ofmsgs.append(self.build_flood_rule(vlan))
-                elif port in vlan.untagged:
                     ofmsgs.append(self.build_flood_rule(vlan))
 
         return ofmsgs
@@ -437,12 +403,11 @@ class OVSStatelessValve(Valve):
         ofmsgs.append(parser.OFPBarrierRequest(None))
 
         for vlan in self.dp.vlans.values():
-            if portnum in vlan.tagged:
-                ofmsgs.append(self.build_flood_rule(vlan), modify=True)
-            elif portnum in vlan.untagged:
+            if portnum in vlan.tagged or portnum in vlan.untagged:
                 ofmsgs.append(self.build_flood_rule(vlan), modify=True)
 
         return ofmsgs
+
 
     def rcv_packet(self, dp_id, in_port, vlan_vid, eth_src, eth_dst):
         if dp_id != self.dp.dp_id:
