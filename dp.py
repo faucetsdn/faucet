@@ -31,6 +31,7 @@ class DP:
         self.dp_id = dp_id
         self.vlans = {}
         self.ports = {}
+        self.mirror_from_port = {}
         self.logger = logging.getLogger(logname)
         self.set_defaults()
 
@@ -133,6 +134,13 @@ class DP:
         port_conf = copy.copy(port_conf) if port_conf else {}
 
         port = self.ports.setdefault(port_num, Port(port_num, port_conf))
+
+        port_conf.setdefault('mirror', None)
+        if port_conf['mirror'] is not None:
+            from_port_num = port_conf['mirror']
+            self.mirror_from_port[from_port_num] = port_num
+            # other configuration entries ignored.
+            return
 
         # add native vlan
         port_conf.setdefault('native_vlan', None)
