@@ -293,7 +293,7 @@ class ValveTestCase(unittest.TestCase):
 
         vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
 
-        ofmsgs = self.valve.port_delete(dp_id=1, portnum=3)
+        ofmsgs = self.valve.port_delete(dp_id=1, port_num=3)
         self.table.apply_ofmsgs(ofmsgs)
 
         # Check packets are output to each port on vlan
@@ -311,7 +311,7 @@ class ValveTestCase(unittest.TestCase):
     def test_port_add_input(self):
         """test that when a port is enabled packets are input correctly."""
         match = {'in_port': 7}
-        ofmsgs = self.valve.port_add(dp_id=1, portnum=7)
+        ofmsgs = self.valve.port_add(dp_id=1, port_num=7)
         self.table.apply_ofmsgs(ofmsgs)
         self.assertTrue(
             self.table.is_output(match),
@@ -320,7 +320,7 @@ class ValveTestCase(unittest.TestCase):
     def test_port_add_flood(self):
         """test that when a port is enabled packets are correctly output."""
         match = {'in_port': 5}
-        ofmsgs = self.valve.port_add(dp_id=1, portnum=7)
+        ofmsgs = self.valve.port_add(dp_id=1, port_num=7)
         self.table.apply_ofmsgs(ofmsgs)
         self.assertTrue(
             self.table.is_output(match, port=7),
