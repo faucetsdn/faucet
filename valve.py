@@ -361,11 +361,17 @@ class OVSStatelessValve(Valve):
                     in_port_match,
                     priority=self.dp.lowest_priority))
             else:
-                # TODO: mirror input as well as output
-                # add vlan_table rules
+                mirror_act = []
+                mirror_inst = []
+                if port_num in self.dp.mirror_from_port:
+                    mirror_port_num = self.dp.mirror_from_port[port_num]
+                    mirror_act = [parser.OFPActionOutput(mirror_port_num)]
+                    mirror_inst = [parser.OFPInstructionActions(
+                        ofp.OFPIT_APPLY_ACTIONS, mirror_act)]
+
                 for vid, vlan in self.dp.vlans.iteritems():
                     if port in vlan.untagged:
-                        push_vlan_act = [
+                        push_vlan_act = mirror_act + [
                             parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
                             parser.OFPActionSetField(
                                 vlan_vid=vid|ofp.OFPVID_PRESENT)]
@@ -384,8 +390,9 @@ class OVSStatelessValve(Valve):
                         vlan_in_port_match = parser.OFPMatch(
                             in_port=port.number,
                             vlan_vid=vid|ofp.OFPVID_PRESENT)
-                        vlan_inst = [parser.OFPInstructionGotoTable(
-                            self.dp.eth_src_table)]
+                        vlan_inst = mirror_inst + [
+                            parser.OFPInstructionGotoTable(
+                                self.dp.eth_src_table)]
                         ofmsgs.append(self.valve_flowmod(
                             self.dp.vlan_table,
                             vlan_in_port_match,
@@ -474,6 +481,11 @@ class OVSStatelessValve(Valve):
 
         ofmsgs.append(parser.OFPBarrierRequest(None))
 
+        mirror_acts = []
+        if in_port in self.dp.mirror_from_port:
+            mirror_port_num = self.dp.mirror_from_port[in_port]
+            mirror_acts = [parser.OFPActionOutput(mirror_port_num)]
+
         # Update datapath to no longer send packets from this mac to controller
         # note the use of hard_timeout here and idle_timeout for the dst table
         # this is to ensure that the source rules will always be deleted before
@@ -503,9 +515,8 @@ class OVSStatelessValve(Valve):
             dst_act = [
                 parser.OFPActionPopVlan(),
                 parser.OFPActionOutput(in_port)]
-        if in_port in self.dp.mirror_from_port:
-            mirror_port = self.dp.mirror_from_port[in_port]
-            dst_act.append(parser.OFPActionOutput(mirror_port))
+        if mirror_acts:
+            dst_act.extend(mirror_acts)
         instructions = [
             parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, dst_act)]
         ofmsgs.append(self.valve_flowmod(
