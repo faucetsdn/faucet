@@ -28,10 +28,15 @@ from ryu.controller import ofp_event
 from ryu.controller import dpset
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
+from ryu.controller import event
 from ryu.ofproto import ofproto_v1_3, ether
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
+
+class EventFaucetReconfigure(event.EventBase):
+    pass
+
 
 class Faucet(app_manager.RyuApp):
     """A Ryu app that performs layer 2 switching with VLANs.
@@ -88,41 +93,38 @@ class Faucet(app_manager.RyuApp):
         exc_logger.propagate = 1
         exc_logger.setLevel(logging.CRITICAL)
 
-        # Parse config file
-        dp = DP.parser(self.config_file, self.logname)
+        dp = self.parse_config(self.config_file, self.logname)
+        self.valve = valve_factory(dp)
+        if self.valve is None:
+            self.logger.error("Hardware type not supported")
 
-        if dp:
+    def parse_config(self, config_file, log_name):
+        new_dp = DP.parser(config_file, log_name)
+        if new_dp:
             try:
-                dp.sanity_check()
+                new_dp.sanity_check()
+                return new_dp
             except AssertionError:
                 self.logger.exception("Error in config file:")
+        return None
 
-            # Load Valve
-            self.valve = valve_factory(dp)
-            if self.valve is None:
-                self.logger.error("Hardware type not supported")
+    def send_flow_msgs(self, dp, flow_msgs):
+        for flow_msg in flow_msgs:
+            flow_msg.datapath = dp
+            dp.send_msg(flow_msg)
 
     def signal_handler(self, sigid, frame):
         if sigid == signal.SIGHUP:
-            self.logger.info("Caught SIGHUP, reloading configuration")
+            self.send_event('Faucet', EventFaucetReconfigure())
 
-            new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
-
-            new_dp = DP.parser(new_config_file, self.logname)
-
-            if new_dp:
-                try:
-                    new_dp.sanity_check()
-                except AssertionError:
-                    self.logger.exception("Error in config file:")
-
-                flowmods = self.valve.reload_config(new_dp)
-                ryudp = self.dpset.get(new_dp.dp_id)
-                for f in flowmods:
-                    # OpenFlow Message objects in ryu require a ryu datapath
-                    # object
-                    f.datapath = ryudp
-                    ryudp.send_msg(f)
+    @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
+    def reload_config(self, ev):
+        new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
+        new_dp = self.parse_config(new_config_file, self.logname)
+        if new_dp:
+            flowmods = self.valve.reload_config(new_dp)
+            ryudp = self.dpset.get(new_dp.dp_id)
+            self.send_flow_msgs(ryudp, flowmods)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -131,13 +133,8 @@ class Faucet(app_manager.RyuApp):
         dp = msg.datapath
 
         pkt = packet.Packet(msg.data)
-        ethernet_proto = pkt.get_protocols(ethernet.ethernet)[0]
-
-        src = ethernet_proto.src
-        dst = ethernet_proto.dst
-        eth_type = ethernet_proto.ethertype
-
-        in_port = msg.match['in_port']
+        eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
+        eth_type = eth_pkt.ethertype
 
         if eth_type == ether.ETH_TYPE_8021Q:
             # tagged packet
@@ -146,11 +143,12 @@ class Faucet(app_manager.RyuApp):
         else:
             return
 
+        in_port = msg.match['in_port']
+        src = eth_pkt.src
+        dst = eth_pkt.dst
+
         flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, src, dst)
-        for f in flowmods:
-            # OpenFlow Message objects in ryu require a ryu datapath object
-            f.datapath = dp
-            dp.send_msg(f)
+        self.send_flow_msgs(dp, flowmods)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -162,35 +160,33 @@ class Faucet(app_manager.RyuApp):
             self.valve.datapath_disconnect(dp.id)
             return
 
-        ports = [p.port_no for p in dp.ports.values() if p.state == 0]
-        flowmods = self.valve.datapath_connect(dp.id, ports)
-        for f in flowmods:
-            # OpenFlow Message objects in ryu require a ryu datapath object
-            f.datapath = dp
-            dp.send_msg(f)
+        discovered_ports = [
+            p.port_no for p in dp.ports.values() if p.state == 0]
+        flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
+        self.send_flow_msgs(dp, flowmods)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath
+        ofp = msg.datapath.ofproto
         reason = msg.reason
         port_no = msg.desc.port_no
-        ofp = msg.datapath.ofproto
+
         flowmods = []
         if reason == ofp.OFPPR_ADD:
             flowmods = self.valve.port_add(dp.id, port_no)
         elif reason == ofp.OFPPR_DELETE:
             flowmods = self.valve.port_delete(dp.id, port_no)
-        elif reason == ofp.OFPPR_MODIFY\
-        and (msg.desc.state & ofp.OFPPS_LINK_DOWN):
-            flowmods = self.valve.port_delete(dp.id, port_no)
-        elif reason == ofp.OFPPR_MODIFY\
-        and not (msg.desc.state & ofp.OFPPS_LINK_DOWN):
-            flowmods = self.valve.port_add(dp.id, port_no)
+        elif reason == ofp.OFPPR_MODIFY:
+            port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN
+            if port_down:
+                flowmods = self.valve.port_delete(dp.id, port_no)
+            else:
+                flowmods = self.valve.port_add(dp.id, port_no)
         else:
-            self.logger.info("Illegal port state %s %s", port_no, reason)
-        for f in flowmods:
-            # OpenFlow Message objects in ryu require a ryu datapath object
-            f.datapath = dp
-            dp.send_msg(f)
+            self.logger.info("Unhandled port status %s for port %u",
+                             port_no, reason)
+
+        self.send_flow_msgs(dp, flowmods)
