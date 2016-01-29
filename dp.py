@@ -23,15 +23,18 @@ from port import Port
 class DP:
     """Object to hold the configuration for a faucet controlled datapath."""
     dp_id = None
+    acls = None
     vlans = None
     ports = None
     running = False
 
     def __init__(self, dp_id, logname):
         self.dp_id = dp_id
+        self.acls = {}
         self.vlans = {}
         self.ports = {}
         self.mirror_from_port = {}
+        self.acl_in = {}
         self.logger = logging.getLogger(logname)
         self.set_defaults()
 
@@ -59,6 +62,7 @@ class DP:
 
         interfaces = conf.pop('interfaces', {})
         vlans = conf.pop('vlans', {})
+        acls = conf.pop('acls', {})
         dp.__dict__.update(conf)
         dp.set_defaults()
 
@@ -66,6 +70,9 @@ class DP:
             dp.add_vlan(k, v)
         for k, v in interfaces.iteritems():
             dp.add_port(k, v)
+        for k, v in acls.iteritems():
+            dp.add_acl(k, v)
+
 
         return dp
 
@@ -92,12 +99,14 @@ class DP:
         self.__dict__.setdefault('table_offset', 0)
         # The table for internally associating vlans
         self.__dict__.setdefault('vlan_table', self.table_offset)
+        # Table for applying ACLs.
+        self.__dict__.setdefault('acl_table', self.table_offset + 1)
         # The table for checking eth src addresses are known
-        self.__dict__.setdefault('eth_src_table', self.table_offset + 1)
+        self.__dict__.setdefault('eth_src_table', self.table_offset + 2)
         # The table for matching eth dst and applying unicast actions
-        self.__dict__.setdefault('eth_dst_table', self.table_offset + 2)
+        self.__dict__.setdefault('eth_dst_table', self.table_offset + 3)
         # The table for applying broadcast actions
-        self.__dict__.setdefault('flood_table', self.table_offset + 3)
+        self.__dict__.setdefault('flood_table', self.table_offset + 4)
         # How much to offset default priority by
         self.__dict__.setdefault('priority_offset', 0)
         # Some priority values
@@ -129,6 +138,10 @@ class DP:
         # The hardware maker (for chosing an openflow driver)
         self.__dict__.setdefault('hardware', 'Open_vSwitch')
 
+    def add_acl(self, acl_num, acl_conf=[]):
+        if acl_conf:
+            self.acls[acl_num] = [x['rule'] for x in acl_conf]
+
     def add_port(self, port_num, port_conf=None):
         # add port specific vlans or fall back to defaults
         port_conf = copy.copy(port_conf) if port_conf else {}
@@ -150,13 +163,17 @@ class DP:
                 self.vlans[vid] = VLAN(vid)
             self.vlans[vid].untagged.append(self.ports[port_num])
 
+        # add vlans
         port_conf.setdefault('tagged_vlans', [])
-
-        # add vlans & acls configured on a port
         for vid in port_conf['tagged_vlans']:
             if vid not in self.vlans:
                 self.vlans[vid] = VLAN(vid)
             self.vlans[vid].tagged.append(port)
+
+        # add ACL
+        port_conf.setdefault('acl_in', None)
+        if port_conf['acl_in'] is not None:
+            self.acl_in[port_num] = port_conf['acl_in']
 
     def add_vlan(self, vid, vlan_conf=None):
         vlan_conf = copy.copy(vlan_conf) if vlan_conf else {}
