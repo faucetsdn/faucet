@@ -16,11 +16,15 @@
 
 import logging
 
+from collections import namedtuple
+
 from util import mac_addr_is_unicast
 
+from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+
 
 def valve_factory(dp):
     """Return a Valve object based dp's hardware configuration field.
@@ -185,6 +189,7 @@ class OVSStatelessValve(Valve):
         match_all = parser.OFPMatch()
         table_ids = (
             self.dp.vlan_table,
+            self.dp.acl_table,
             self.dp.eth_src_table,
             self.dp.eth_dst_table,
             self.dp.flood_table)
@@ -215,6 +220,12 @@ class OVSStatelessValve(Valve):
         match_all = parser.OFPMatch()
         ofmsgs.append(self.valve_flowdrop(
             self.dp.vlan_table,
+            match_all,
+            priority=self.dp.lowest_priority))
+
+        # drop on ACL table miss
+        ofmsgs.append(self.valve_flowdrop(
+            self.dp.acl_table,
             match_all,
             priority=self.dp.lowest_priority))
 
@@ -311,6 +322,8 @@ class OVSStatelessValve(Valve):
     def datapath_connect(self, dp_id, discovered_port_nums):
         if self.ignore_dpid(dp_id):
             return []
+        if discovered_port_nums is None:
+            discovered_port_nums = []
 
         self.logger.info("Configuring datapath")
         ofmsgs = []
@@ -330,6 +343,74 @@ class OVSStatelessValve(Valve):
         self.dp.running = False
         self.logger.warning("Datapath down {0}".format(dp_id))
 
+    def port_add_acl(self, port_num):
+        ofmsgs = []
+        forwarding_table = self.dp.eth_src_table
+        if port_num in self.dp.acl_in:
+            acl_num = self.dp.acl_in[port_num]
+            forwarding_table = self.dp.acl_table
+            acl_rule_priority = self.dp.highest_priority
+            acl_allow_inst = parser.OFPInstructionGotoTable(
+                self.dp.eth_src_table)
+            for rule_conf in self.dp.acls[acl_num]:
+                # default drop
+                acl_inst = []
+                match_dict = {}
+                for attrib, attrib_value in rule_conf.iteritems():
+                    if attrib == "allow":
+                        if attrib_value == 1:
+                            acl_inst.append(acl_allow_inst)
+                        continue
+                    if attrib == "in_port":
+                        continue
+                    match_dict[attrib] = attrib_value
+                # override in_port always
+                match_dict["in_port"] = port_num
+                # to_match() needs to access parser via dp
+                null_dp = namedtuple("null_dp", "ofproto_parser")
+                null_dp.ofproto_parser = parser
+                acl_match = ofctl.to_match(null_dp, match_dict)
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.acl_table,
+                    acl_match,
+                    priority=acl_rule_priority,
+                    inst=acl_inst))
+                acl_rule_priority = acl_rule_priority - 1
+        return ofmsgs, forwarding_table
+
+    def port_add_vlans(self, port, port_num, forwarding_table,
+                       mirror_act, mirror_inst):
+        in_port_match = parser.OFPMatch(in_port=port_num)
+        ofmsgs = []
+        for vid, vlan in self.dp.vlans.iteritems():
+            if port in vlan.untagged:
+                push_vlan_act = mirror_act + [
+                    parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+                    parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
+                push_vlan_inst = [
+                    parser.OFPInstructionActions(
+                        ofp.OFPIT_APPLY_ACTIONS, push_vlan_act),
+                    parser.OFPInstructionGotoTable(forwarding_table)]
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.vlan_table,
+                    in_port_match,
+                    priority=self.dp.low_priority,
+                    inst=push_vlan_inst))
+                ofmsgs.append(self.build_flood_rule(vlan))
+            elif port in vlan.tagged:
+                vlan_in_port_match = parser.OFPMatch(
+                    in_port=port.number,
+                    vlan_vid=vid|ofp.OFPVID_PRESENT)
+                vlan_inst = mirror_inst + [
+                    parser.OFPInstructionGotoTable(forwarding_table)]
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.vlan_table,
+                    vlan_in_port_match,
+                    priority=self.dp.low_priority,
+                    inst=vlan_inst))
+                ofmsgs.append(self.build_flood_rule(vlan))
+        return ofmsgs
+
     def port_add(self, dp_id, port_num):
         if self.ignore_dpid(dp_id) or self.ignore_port(port_num):
             return []
@@ -343,62 +424,39 @@ class OVSStatelessValve(Valve):
         port = self.dp.ports[port_num]
         self.logger.info("Port added {0}".format(port))
         port.phys_up = True
+
+        if not port.running():
+            return []
+
         in_port_match = parser.OFPMatch(in_port=port_num)
         ofmsgs = []
+        self.logger.info("Sending config for port {0}".format(port))
 
-        if port.running():
-            self.logger.info("Sending config for port {0}".format(port))
+        # delete eth_src_table and acl rules
+        for table in (self.dp.eth_src_table, self.dp.acl_table):
+            ofmsgs.append(self.valve_flowdel(table, in_port_match))
 
-            # delete eth_src_table rules
-            ofmsgs.append(self.valve_flowdel(
-                self.dp.eth_src_table,
-                in_port_match))
+        if port_num in self.dp.mirror_from_port.values():
+            # this is a mirror port - drop all input packets
+            ofmsgs.append(self.valve_flowdrop(
+            self.dp.vlan_table,
+            in_port_match,
+            priority=self.dp.lowest_priority))
+            return ofmsgs
 
-            if port_num in self.dp.mirror_from_port.values():
-                # drop all packets from the mirror port
-                ofmsgs.append(self.valve_flowdrop(
-                    self.dp.vlan_table,
-                    in_port_match,
-                    priority=self.dp.lowest_priority))
-            else:
-                mirror_act = []
-                mirror_inst = []
-                if port_num in self.dp.mirror_from_port:
-                    mirror_port_num = self.dp.mirror_from_port[port_num]
-                    mirror_act = [parser.OFPActionOutput(mirror_port_num)]
-                    mirror_inst = [parser.OFPInstructionActions(
-                        ofp.OFPIT_APPLY_ACTIONS, mirror_act)]
+        mirror_act = []
+        mirror_inst = []
+        # this port is mirrored to another port
+        if port_num in self.dp.mirror_from_port:
+            mirror_port_num = self.dp.mirror_from_port[port_num]
+            mirror_act = [parser.OFPActionOutput(mirror_port_num)]
+            mirror_inst = [parser.OFPInstructionActions(
+                ofp.OFPIT_APPLY_ACTIONS, mirror_act)]
 
-                for vid, vlan in self.dp.vlans.iteritems():
-                    if port in vlan.untagged:
-                        push_vlan_act = mirror_act + [
-                            parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-                            parser.OFPActionSetField(
-                                vlan_vid=vid|ofp.OFPVID_PRESENT)]
-                        push_vlan_inst = [
-                            parser.OFPInstructionActions(
-                                ofp.OFPIT_APPLY_ACTIONS, push_vlan_act),
-                            parser.OFPInstructionGotoTable(
-                                self.dp.eth_src_table)]
-                        ofmsgs.append(self.valve_flowmod(
-                            self.dp.vlan_table,
-                            in_port_match,
-                            priority=self.dp.low_priority,
-                            inst=push_vlan_inst))
-                        ofmsgs.append(self.build_flood_rule(vlan))
-                    elif port in vlan.tagged:
-                        vlan_in_port_match = parser.OFPMatch(
-                            in_port=port.number,
-                            vlan_vid=vid|ofp.OFPVID_PRESENT)
-                        vlan_inst = mirror_inst + [
-                            parser.OFPInstructionGotoTable(
-                                self.dp.eth_src_table)]
-                        ofmsgs.append(self.valve_flowmod(
-                            self.dp.vlan_table,
-                            vlan_in_port_match,
-                            priority=self.dp.low_priority,
-                            inst=vlan_inst))
-                        ofmsgs.append(self.build_flood_rule(vlan))
+        acl_ofmsgs, forwarding_table = self.port_add_acl(port_num)
+        ofmsgs.extend(acl_ofmsgs)
+        ofmsgs.extend(self.port_add_vlans(
+            port, port_num, forwarding_table, mirror_act, mirror_inst))
         return ofmsgs
 
     def port_delete(self, dp_id, port_num):
