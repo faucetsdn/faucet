@@ -148,10 +148,14 @@ class OVSStatelessValve(Valve):
             return True
         return False
 
-    def valve_flowmod(self, table_id, match, priority=0,
+    def valve_flowmod(self, table_id, match=None, priority=None,
                      inst=[], command=ofp.OFPFC_ADD, out_port=0,
                      out_group=0, hard_timeout=0, idle_timeout=0):
         """Helper function to construct a flow mod message with cookie."""
+        if match is None:
+            match = parser.OFPMatch()
+        if priority is None:
+            priority = self.dp.lowest_priority
         return parser.OFPFlowMod(
             datapath=None,
             cookie=self.dp.cookie,
@@ -165,28 +169,28 @@ class OVSStatelessValve(Valve):
             hard_timeout=hard_timeout,
             idle_timeout=idle_timeout)
 
-    def valve_flowdel(self, table_id, match, priority=0, out_port=ofp.OFPP_ANY):
+    def valve_flowdel(self, table_id, match=None, priority=None,
+                      out_port=ofp.OFPP_ANY):
         """Delete matching flows from a table."""
         return self.valve_flowmod(
             table_id,
-            match,
+            match=match,
             priority=priority,
             command=ofp.OFPFC_DELETE,
             out_port=out_port,
             out_group=ofp.OFPG_ANY)
 
-    def valve_flowdrop(self, table_id, match, priority=0):
+    def valve_flowdrop(self, table_id, match=None, priority=None):
         """Add drop matching flow to a table."""
         return self.valve_flowmod(
             table_id,
-            match,
+            match=match,
             priority=priority,
             inst=[])
 
     def delete_all_valve_flows(self):
         """Delete all flows from Valve's tables."""
         ofmsgs = []
-        match_all = parser.OFPMatch()
         table_ids = (
             self.dp.vlan_table,
             self.dp.acl_table,
@@ -194,7 +198,7 @@ class OVSStatelessValve(Valve):
             self.dp.eth_dst_table,
             self.dp.flood_table)
         for table_id in table_ids:
-            ofmsgs.append(self.valve_flowdel(table_id, match_all))
+            ofmsgs.append(self.valve_flowdel(table_id))
         return ofmsgs
 
     def add_default_drop_flows(self):
@@ -217,42 +221,31 @@ class OVSStatelessValve(Valve):
             priority=self.dp.highest_priority))
 
         # drop on vlan_table miss
-        match_all = parser.OFPMatch()
         ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            match_all,
-            priority=self.dp.lowest_priority))
+            self.dp.vlan_table))
 
         # drop on ACL table miss
         ofmsgs.append(self.valve_flowdrop(
-            self.dp.acl_table,
-            match_all,
-            priority=self.dp.lowest_priority))
+            self.dp.acl_table))
 
         return ofmsgs
 
     def add_vlan_flood_flow(self):
         """Add a flow to flood packets for unknown destinations."""
-        match_all = parser.OFPMatch()
         goto_flood_instruction = parser.OFPInstructionGotoTable(
             self.dp.flood_table)
         return [self.valve_flowmod(
             self.dp.eth_dst_table,
-            match_all,
-            priority=self.dp.lowest_priority,
             inst=[goto_flood_instruction])]
 
     def add_controller_learn_flow(self):
         """Add a flow to allow the controller to learn and add flows for destinations."""
-        match_all = parser.OFPMatch()
         controller_act = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
         controller_inst = parser.OFPInstructionActions(
             ofp.OFPIT_APPLY_ACTIONS, controller_act)
         goto_dst_inst = parser.OFPInstructionGotoTable(self.dp.eth_dst_table)
         return [self.valve_flowmod(
             self.dp.eth_src_table,
-            match_all,
-            priority=self.dp.lowest_priority,
             inst=[controller_inst, goto_dst_inst])]
 
     def add_default_flows(self):
@@ -314,8 +307,7 @@ class OVSStatelessValve(Valve):
             parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, act)]
         return self.valve_flowmod(
             self.dp.flood_table,
-            match_vlan,
-            priority=self.dp.lowest_priority,
+            match=match_vlan,
             command=command,
             inst=instructions)
 
@@ -439,9 +431,8 @@ class OVSStatelessValve(Valve):
         if port_num in self.dp.mirror_from_port.values():
             # this is a mirror port - drop all input packets
             ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            in_port_match,
-            priority=self.dp.lowest_priority))
+                self.dp.vlan_table,
+                in_port_match))
             return ofmsgs
 
         mirror_act = []
@@ -481,10 +472,8 @@ class OVSStatelessValve(Valve):
             priority=self.dp.low_priority))
 
         # delete eth_dst rules
-        match_all = parser.OFPMatch()
         ofmsgs.append(self.valve_flowdel(
             self.dp.eth_dst_table,
-            match_all,
             out_port=port_num))
 
         ofmsgs.append(parser.OFPBarrierRequest(None))
