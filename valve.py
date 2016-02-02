@@ -260,17 +260,9 @@ class OVSStatelessValve(Valve):
     def add_ports_and_vlans(self, discovered_port_nums):
         """Add all ports and VLANs from configuration and discovered from switch."""
         ofmsgs = []
-
-        for port_num in discovered_port_nums:
-            if self.ignore_port(port_num):
-                continue
-            if port_num not in self.dp.ports:
-                self.logger.info(
-                    "Autoconfiguring port:%u based on default config", port_num)
-                self.dp.add_port(port_num)
-
-        # all vlan actions
         all_port_nums = set()
+
+        # add vlan ports
         for vlan in self.dp.vlans.itervalues():
             self.logger.info("Configuring VLAN %s", vlan)
             vlan_ports = vlan.tagged + vlan.untagged
@@ -286,6 +278,13 @@ class OVSStatelessValve(Valve):
         # now configure all ports
         for port_num in all_port_nums:
             ofmsgs.extend(self.port_add(self.dp.dp_id, port_num))
+
+        # add any ports discovered but not configured
+        for port_num in discovered_port_nums:
+            if self.ignore_port(port_num):
+                continue
+            if port_num not in all_port_nums:
+                all_port_nums.add(port_num)
 
         return ofmsgs
 
@@ -408,7 +407,6 @@ class OVSStatelessValve(Valve):
             return []
 
         if port_num not in self.dp.ports:
-            # Autoconfigure port
             self.logger.info(
                 "Autoconfiguring port:%u based on default config", port_num)
             self.dp.add_port(port_num)
