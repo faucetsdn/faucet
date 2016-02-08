@@ -303,25 +303,29 @@ class OVSStatelessValve(Valve):
 
         return ofmsgs
 
+    def build_flood_rule_actions(self, vlan):
+        flood_acts = []
+        for port in vlan.tagged:
+            if port.running():
+                flood_acts.append(parser.OFPActionOutput(port.number))
+        if vlan.untagged:
+            flood_acts.append(parser.OFPActionPopVlan())
+            for port in vlan.untagged:
+                if port.running():
+                    flood_acts.append(parser.OFPActionOutput(port.number))
+        return flood_acts
+
     def build_flood_rule(self, vlan, modify=False):
         """Add a flow to flood packets to unknown destinations on a VLAN."""
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
-        match_vlan = self.valve_in_match(vlan=vlan)
-        act = []
-        for port in vlan.tagged:
-            if port.running():
-                act.append(parser.OFPActionOutput(port.number))
-        act.append(parser.OFPActionPopVlan())
-        for port in vlan.untagged:
-            if port.running():
-                act.append(parser.OFPActionOutput(port.number))
+        flood_acts = self.build_flood_rule_actions(vlan)
         return self.valve_flowmod(
             self.dp.flood_table,
-            match=match_vlan,
+            match=self.valve_in_match(vlan=vlan),
             command=command,
-            inst=[self.apply_actions(act)])
+            inst=[self.apply_actions(flood_acts)])
 
     def datapath_connect(self, dp_id, discovered_port_nums):
         if self.ignore_dpid(dp_id):
