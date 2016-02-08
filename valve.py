@@ -290,16 +290,16 @@ class OVSStatelessValve(Valve):
         for port_num in self.dp.mirror_from_port.itervalues():
             all_port_nums.add(port_num)
 
-        # now configure all ports
-        for port_num in all_port_nums:
-            ofmsgs.extend(self.port_add(self.dp.dp_id, port_num))
-
         # add any ports discovered but not configured
         for port_num in discovered_port_nums:
             if self.ignore_port(port_num):
                 continue
             if port_num not in all_port_nums:
                 all_port_nums.add(port_num)
+
+        # now configure all ports
+        for port_num in all_port_nums:
+            ofmsgs.extend(self.port_add(self.dp.dp_id, port_num))
 
         return ofmsgs
 
