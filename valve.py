@@ -148,6 +148,14 @@ class OVSStatelessValve(Valve):
             return True
         return False
 
+    def all_valve_tables(self):
+        return (
+            self.dp.vlan_table,
+            self.dp.acl_table,
+            self.dp.eth_src_table,
+            self.dp.eth_dst_table,
+            self.dp.flood_table)
+
     def valve_flowmod(self, table_id, match=None, priority=None,
                      inst=[], command=ofp.OFPFC_ADD, out_port=0,
                      out_group=0, hard_timeout=0, idle_timeout=0):
@@ -191,13 +199,7 @@ class OVSStatelessValve(Valve):
     def delete_all_valve_flows(self):
         """Delete all flows from Valve's tables."""
         ofmsgs = []
-        table_ids = (
-            self.dp.vlan_table,
-            self.dp.acl_table,
-            self.dp.eth_src_table,
-            self.dp.eth_dst_table,
-            self.dp.flood_table)
-        for table_id in table_ids:
+        for table_id in self.all_valve_tables():
             ofmsgs.append(self.valve_flowdel(table_id))
         return ofmsgs
 
