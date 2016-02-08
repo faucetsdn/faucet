@@ -159,6 +159,9 @@ class OVSStatelessValve(Valve):
     def apply_actions(self, actions):
         return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
 
+    def goto_table(self, table_id):
+        return parser.OFPInstructionGotoTable(table_id)
+
     def valve_flowmod(self, table_id, match=None, priority=None,
                      inst=[], command=ofp.OFPFC_ADD, out_port=0,
                      out_group=0, hard_timeout=0, idle_timeout=0):
@@ -210,6 +213,10 @@ class OVSStatelessValve(Valve):
         """Add default drop rules."""
         ofmsgs = []
 
+        # default drop on all tables
+        for table_id in self.all_valve_tables():
+            ofmsgs.append(self.valve_flowdrop(table_id))
+
         # drop STDP BPDU
         for bpdu_mac in ("01:80:C2:00:00:00", "01:00:0C:CC:CC:CD"):
             match_stp_bpdu = parser.OFPMatch(eth_dst=bpdu_mac)
@@ -225,31 +232,22 @@ class OVSStatelessValve(Valve):
             match_lldp,
             priority=self.dp.highest_priority))
 
-        # drop on vlan_table miss
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table))
-
-        # drop on ACL table miss
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.acl_table))
-
         return ofmsgs
 
     def add_vlan_flood_flow(self):
         """Add a flow to flood packets for unknown destinations."""
-        goto_flood_instruction = parser.OFPInstructionGotoTable(
-            self.dp.flood_table)
         return [self.valve_flowmod(
             self.dp.eth_dst_table,
-            inst=[goto_flood_instruction])]
+            inst=[self.goto_table(self.dp.flood_table)])]
 
     def add_controller_learn_flow(self):
         """Add a flow to allow the controller to learn and add flows for destinations."""
         inst = [
             self.apply_actions([parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]),
-            parser.OFPInstructionGotoTable(self.dp.eth_dst_table),
+            self.goto_table(self.dp.eth_dst_table)
         ]
-        return [self.valve_flowmod(self.dp.eth_src_table, inst=inst)]
+        return [self.valve_flowmod(
+            self.dp.eth_src_table, priority=self.dp.low_priority, inst=inst)]
 
     def add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -342,8 +340,7 @@ class OVSStatelessValve(Valve):
             acl_num = self.dp.acl_in[port_num]
             forwarding_table = self.dp.acl_table
             acl_rule_priority = self.dp.highest_priority
-            acl_allow_inst = parser.OFPInstructionGotoTable(
-                self.dp.eth_src_table)
+            acl_allow_inst = self.goto_table(self.dp.eth_src_table)
             for rule_conf in self.dp.acls[acl_num]:
                 # default drop
                 acl_inst = []
@@ -379,7 +376,8 @@ class OVSStatelessValve(Valve):
             parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
         push_vlan_inst = [
             self.apply_actions(push_vlan_act),
-            parser.OFPInstructionGotoTable(forwarding_table)]
+            self.goto_table(forwarding_table)
+        ]
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
             in_port_match,
@@ -396,7 +394,8 @@ class OVSStatelessValve(Valve):
             vlan_vid=vid|ofp.OFPVID_PRESENT)
         vlan_inst = [
             self.apply_actions(mirror_act),
-            parser.OFPInstructionGotoTable(forwarding_table)]
+            self.goto_table(forwarding_table)
+        ]
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
             vlan_in_port_match,
@@ -555,12 +554,11 @@ class OVSStatelessValve(Valve):
             in_port=in_port,
             eth_src=eth_src,
             vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
-        instructions = [parser.OFPInstructionGotoTable(self.dp.eth_dst_table)]
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_src_table,
             src_match,
             priority=self.dp.high_priority,
-            inst=instructions,
+            inst=[self.goto_table(self.dp.eth_dst_table)],
             hard_timeout=self.dp.timeout))
 
         # update datapath to output packets to this mac via the associated port
