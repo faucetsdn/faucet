@@ -463,9 +463,7 @@ class OVSStatelessValve(Valve):
         ofmsgs = []
         self.logger.info("Sending config for port {0}".format(port))
 
-        # delete eth_src_table, ACL, food rules
-        for table in (self.dp.eth_src_table, self.dp.acl_table,
-                      self.dp.flood_table):
+        for table in self.all_valve_tables():
             ofmsgs.append(self.valve_flowdel(table, in_port_match))
 
         if port_num in self.dp.mirror_from_port.values():
@@ -500,11 +498,10 @@ class OVSStatelessValve(Valve):
 
         ofmsgs = []
 
-        # delete vlan_table rules
-        ofmsgs.append(self.valve_flowdel(
-            self.dp.vlan_table,
-            self.valve_in_match(in_port=port_num),
-            priority=self.dp.low_priority))
+        # delete all rules matching this port in all tables.
+        for table in self.all_valve_tables():
+            ofmsgs.append(self.valve_flowdel(table,
+                self.valve_in_match(in_port=port_num)))
 
         # delete eth_dst rules
         ofmsgs.append(self.valve_flowdel(
