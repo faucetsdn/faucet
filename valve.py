@@ -148,10 +148,45 @@ class OVSStatelessValve(Valve):
             return True
         return False
 
-    def valve_flowmod(self, table_id, match, priority=0,
+    def all_valve_tables(self):
+        return (
+            self.dp.vlan_table,
+            self.dp.acl_table,
+            self.dp.eth_src_table,
+            self.dp.eth_dst_table,
+            self.dp.flood_table)
+
+    def apply_actions(self, actions):
+        return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
+
+    def goto_table(self, table_id):
+        return parser.OFPInstructionGotoTable(table_id)
+
+    def valve_in_match(self, in_port=None, vlan=None,
+                       eth_type=None, eth_src=None, eth_dst=None):
+        match_dict = {}
+        if in_port is not None:
+            match_dict['in_port'] = in_port
+        if vlan is not None:
+            match_dict['vlan_vid'] = vlan.vid|ofp.OFPVID_PRESENT
+        if eth_type is not None:
+            match_dict['eth_type'] = eth_type
+        if eth_src is not None:
+            match_dict['eth_src'] = eth_src
+        if eth_dst is not None:
+            match_dict['eth_dst'] = eth_dst
+        null_dp = namedtuple("null_dp", "ofproto_parser")
+        null_dp.ofproto_parser = parser
+        return ofctl.to_match(null_dp, match_dict)
+
+    def valve_flowmod(self, table_id, match=None, priority=None,
                      inst=[], command=ofp.OFPFC_ADD, out_port=0,
                      out_group=0, hard_timeout=0, idle_timeout=0):
         """Helper function to construct a flow mod message with cookie."""
+        if match is None:
+            match = self.valve_in_match()
+        if priority is None:
+            priority = self.dp.lowest_priority
         return parser.OFPFlowMod(
             datapath=None,
             cookie=self.dp.cookie,
@@ -165,95 +200,68 @@ class OVSStatelessValve(Valve):
             hard_timeout=hard_timeout,
             idle_timeout=idle_timeout)
 
-    def valve_flowdel(self, table_id, match, priority=0, out_port=ofp.OFPP_ANY):
+    def valve_flowdel(self, table_id, match=None, priority=None,
+                      out_port=ofp.OFPP_ANY):
         """Delete matching flows from a table."""
         return self.valve_flowmod(
             table_id,
-            match,
+            match=match,
             priority=priority,
             command=ofp.OFPFC_DELETE,
             out_port=out_port,
             out_group=ofp.OFPG_ANY)
 
-    def valve_flowdrop(self, table_id, match, priority=0):
+    def valve_flowdrop(self, table_id, match=None, priority=None):
         """Add drop matching flow to a table."""
         return self.valve_flowmod(
             table_id,
-            match,
+            match=match,
             priority=priority,
             inst=[])
 
     def delete_all_valve_flows(self):
         """Delete all flows from Valve's tables."""
         ofmsgs = []
-        match_all = parser.OFPMatch()
-        table_ids = (
-            self.dp.vlan_table,
-            self.dp.acl_table,
-            self.dp.eth_src_table,
-            self.dp.eth_dst_table,
-            self.dp.flood_table)
-        for table_id in table_ids:
-            ofmsgs.append(self.valve_flowdel(table_id, match_all))
+        for table_id in self.all_valve_tables():
+            ofmsgs.append(self.valve_flowdel(table_id))
         return ofmsgs
 
     def add_default_drop_flows(self):
         """Add default drop rules."""
         ofmsgs = []
 
+        # default drop on table 0.
+        ofmsgs.append(self.valve_flowdrop(0, priority=self.dp.lowest_priority))
+
         # drop STDP BPDU
         for bpdu_mac in ("01:80:C2:00:00:00", "01:00:0C:CC:CC:CD"):
-            match_stp_bpdu = parser.OFPMatch(eth_dst=bpdu_mac)
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.vlan_table,
-                match_stp_bpdu,
+                self.valve_in_match(eth_dst=bpdu_mac),
                 priority=self.dp.highest_priority))
 
         # drop LLDP
-        match_lldp = parser.OFPMatch(eth_type=ether.ETH_TYPE_LLDP)
         ofmsgs.append(self.valve_flowdrop(
             self.dp.vlan_table,
-            match_lldp,
+            self.valve_in_match(eth_type=ether.ETH_TYPE_LLDP),
             priority=self.dp.highest_priority))
-
-        # drop on vlan_table miss
-        match_all = parser.OFPMatch()
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            match_all,
-            priority=self.dp.lowest_priority))
-
-        # drop on ACL table miss
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.acl_table,
-            match_all,
-            priority=self.dp.lowest_priority))
 
         return ofmsgs
 
     def add_vlan_flood_flow(self):
         """Add a flow to flood packets for unknown destinations."""
-        match_all = parser.OFPMatch()
-        goto_flood_instruction = parser.OFPInstructionGotoTable(
-            self.dp.flood_table)
         return [self.valve_flowmod(
             self.dp.eth_dst_table,
-            match_all,
-            priority=self.dp.lowest_priority,
-            inst=[goto_flood_instruction])]
+            inst=[self.goto_table(self.dp.flood_table)])]
 
     def add_controller_learn_flow(self):
         """Add a flow to allow the controller to learn and add flows for destinations."""
-        match_all = parser.OFPMatch()
-        controller_act = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
-        controller_inst = parser.OFPInstructionActions(
-            ofp.OFPIT_APPLY_ACTIONS, controller_act)
-        goto_dst_inst = parser.OFPInstructionGotoTable(self.dp.eth_dst_table)
+        inst = [
+            self.apply_actions([parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]),
+            self.goto_table(self.dp.eth_dst_table)
+        ]
         return [self.valve_flowmod(
-            self.dp.eth_src_table,
-            match_all,
-            priority=self.dp.lowest_priority,
-            inst=[controller_inst, goto_dst_inst])]
+            self.dp.eth_src_table, priority=self.dp.low_priority, inst=inst)]
 
     def add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -267,24 +275,16 @@ class OVSStatelessValve(Valve):
     def add_ports_and_vlans(self, discovered_port_nums):
         """Add all ports and VLANs from configuration and discovered from switch."""
         ofmsgs = []
-
-        for port_num in discovered_port_nums:
-            if self.ignore_port(port_num):
-                continue
-            if port_num not in self.dp.ports:
-                self.logger.info(
-                    "Autoconfiguring port:%u based on default config", port_num)
-                self.dp.add_port(port_num)
-
-        # all vlan actions
         all_port_nums = set()
+
+        # add vlan ports
         for vlan in self.dp.vlans.itervalues():
             self.logger.info("Configuring VLAN %s", vlan)
             vlan_ports = vlan.tagged + vlan.untagged
             for port in vlan_ports:
                 all_port_nums.add(port.number)
             # install eth_dst_table flood ofmsgs
-            ofmsgs.append(self.build_flood_rule(vlan))
+            ofmsgs.extend(self.build_flood_rules(vlan))
 
         # add mirror ports.
         for port_num in self.dp.mirror_from_port.itervalues():
@@ -294,30 +294,52 @@ class OVSStatelessValve(Valve):
         for port_num in all_port_nums:
             ofmsgs.extend(self.port_add(self.dp.dp_id, port_num))
 
+        # add any ports discovered but not configured
+        for port_num in discovered_port_nums:
+            if self.ignore_port(port_num):
+                continue
+            if port_num not in all_port_nums:
+                all_port_nums.add(port_num)
+
         return ofmsgs
 
-    def build_flood_rule(self, vlan, modify=False):
+    def build_flood_rule_actions(self, vlan):
+        flood_acts = []
+        for port in vlan.tagged:
+            if port.running():
+                flood_acts.append(parser.OFPActionOutput(port.number))
+        if vlan.untagged:
+            flood_acts.append(parser.OFPActionPopVlan())
+            for port in vlan.untagged:
+                if port.running():
+                    flood_acts.append(parser.OFPActionOutput(port.number))
+        return flood_acts
+
+    def build_flood_rules(self, vlan, modify=False):
         """Add a flow to flood packets to unknown destinations on a VLAN."""
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
-        match_vlan = parser.OFPMatch(vlan_vid=vlan.vid|ofp.OFPVID_PRESENT)
-        act = []
-        for port in vlan.tagged:
-            if port.running():
-                act.append(parser.OFPActionOutput(port.number))
-        act.append(parser.OFPActionPopVlan())
-        for port in vlan.untagged:
-            if port.running():
-                act.append(parser.OFPActionOutput(port.number))
-        instructions = [
-            parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, act)]
-        return self.valve_flowmod(
+        flood_priority = self.dp.low_priority
+        flood_acts = self.build_flood_rule_actions(vlan)
+        ofmsgs = []
+        for port in vlan.tagged + vlan.untagged:
+            if port.number in self.dp.mirror_from_port:
+                mirror_port = self.dp.mirror_from_port[port.number]
+                mirror_acts = [parser.OFPActionOutput(mirror_port)] + flood_acts
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.flood_table,
+                    match=self.valve_in_match(in_port=port.number, vlan=vlan),
+                    command=command,
+                    inst=[self.apply_actions(mirror_acts)],
+                    priority=flood_priority+1))
+        ofmsgs.append(self.valve_flowmod(
             self.dp.flood_table,
-            match_vlan,
-            priority=self.dp.lowest_priority,
+            match=self.valve_in_match(vlan=vlan),
             command=command,
-            inst=instructions)
+            inst=[self.apply_actions(flood_acts)],
+            priority=flood_priority))
+        return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_port_nums):
         if self.ignore_dpid(dp_id):
@@ -350,8 +372,7 @@ class OVSStatelessValve(Valve):
             acl_num = self.dp.acl_in[port_num]
             forwarding_table = self.dp.acl_table
             acl_rule_priority = self.dp.highest_priority
-            acl_allow_inst = parser.OFPInstructionGotoTable(
-                self.dp.eth_src_table)
+            acl_allow_inst = self.goto_table(self.dp.eth_src_table)
             for rule_conf in self.dp.acls[acl_num]:
                 # default drop
                 acl_inst = []
@@ -378,37 +399,48 @@ class OVSStatelessValve(Valve):
                 acl_rule_priority = acl_rule_priority - 1
         return ofmsgs, forwarding_table
 
-    def port_add_vlans(self, port, port_num, forwarding_table,
-                       mirror_act, mirror_inst):
-        in_port_match = parser.OFPMatch(in_port=port_num)
+    def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
         ofmsgs = []
-        for vid, vlan in self.dp.vlans.iteritems():
+        vid = vlan.vid
+        in_port_match = self.valve_in_match(in_port=port.number)
+        push_vlan_act = mirror_act + [
+            parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+            parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
+        push_vlan_inst = [
+            self.apply_actions(push_vlan_act),
+            self.goto_table(forwarding_table)
+        ]
+        ofmsgs.append(self.valve_flowmod(
+            self.dp.vlan_table,
+            in_port_match,
+            priority=self.dp.low_priority,
+            inst=push_vlan_inst))
+        ofmsgs.extend(self.build_flood_rules(vlan))
+        return ofmsgs
+
+    def port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
+        ofmsgs = []
+        vlan_inst = [
+            self.apply_actions(mirror_act),
+            self.goto_table(forwarding_table)
+        ]
+        ofmsgs.append(self.valve_flowmod(
+            self.dp.vlan_table,
+            self.valve_in_match(in_port=port.number, vlan=vlan),
+            priority=self.dp.low_priority,
+            inst=vlan_inst))
+        ofmsgs.extend(self.build_flood_rules(vlan))
+        return ofmsgs
+
+    def port_add_vlans(self, port, forwarding_table, mirror_act):
+        ofmsgs = []
+        for vlan in self.dp.vlans.itervalues():
             if port in vlan.untagged:
-                push_vlan_act = mirror_act + [
-                    parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-                    parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
-                push_vlan_inst = [
-                    parser.OFPInstructionActions(
-                        ofp.OFPIT_APPLY_ACTIONS, push_vlan_act),
-                    parser.OFPInstructionGotoTable(forwarding_table)]
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.vlan_table,
-                    in_port_match,
-                    priority=self.dp.low_priority,
-                    inst=push_vlan_inst))
-                ofmsgs.append(self.build_flood_rule(vlan))
+                ofmsgs.extend(self.port_add_vlan_untagged(
+                    port, vlan, forwarding_table, mirror_act))
             elif port in vlan.tagged:
-                vlan_in_port_match = parser.OFPMatch(
-                    in_port=port.number,
-                    vlan_vid=vid|ofp.OFPVID_PRESENT)
-                vlan_inst = mirror_inst + [
-                    parser.OFPInstructionGotoTable(forwarding_table)]
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.vlan_table,
-                    vlan_in_port_match,
-                    priority=self.dp.low_priority,
-                    inst=vlan_inst))
-                ofmsgs.append(self.build_flood_rule(vlan))
+                ofmsgs.extend(self.port_add_vlan_tagged(
+                    port, vlan, forwarding_table, mirror_act))
         return ofmsgs
 
     def port_add(self, dp_id, port_num):
@@ -416,7 +448,6 @@ class OVSStatelessValve(Valve):
             return []
 
         if port_num not in self.dp.ports:
-            # Autoconfigure port
             self.logger.info(
                 "Autoconfiguring port:%u based on default config", port_num)
             self.dp.add_port(port_num)
@@ -428,35 +459,29 @@ class OVSStatelessValve(Valve):
         if not port.running():
             return []
 
-        in_port_match = parser.OFPMatch(in_port=port_num)
+        in_port_match = self.valve_in_match(in_port=port_num)
         ofmsgs = []
         self.logger.info("Sending config for port {0}".format(port))
 
-        # delete eth_src_table and acl rules
-        for table in (self.dp.eth_src_table, self.dp.acl_table):
+        for table in self.all_valve_tables():
             ofmsgs.append(self.valve_flowdel(table, in_port_match))
 
         if port_num in self.dp.mirror_from_port.values():
             # this is a mirror port - drop all input packets
             ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            in_port_match,
-            priority=self.dp.lowest_priority))
+                self.dp.vlan_table,
+                in_port_match))
             return ofmsgs
 
         mirror_act = []
-        mirror_inst = []
         # this port is mirrored to another port
         if port_num in self.dp.mirror_from_port:
             mirror_port_num = self.dp.mirror_from_port[port_num]
             mirror_act = [parser.OFPActionOutput(mirror_port_num)]
-            mirror_inst = [parser.OFPInstructionActions(
-                ofp.OFPIT_APPLY_ACTIONS, mirror_act)]
 
         acl_ofmsgs, forwarding_table = self.port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
-        ofmsgs.extend(self.port_add_vlans(
-            port, port_num, forwarding_table, mirror_act, mirror_inst))
+        ofmsgs.extend(self.port_add_vlans(port, forwarding_table, mirror_act))
         return ofmsgs
 
     def port_delete(self, dp_id, port_num):
@@ -473,26 +498,39 @@ class OVSStatelessValve(Valve):
 
         ofmsgs = []
 
-        # delete vlan_table rules
-        vlan_table_match = parser.OFPMatch(in_port=port_num)
-        ofmsgs.append(self.valve_flowdel(
-            self.dp.vlan_table,
-            vlan_table_match,
-            priority=self.dp.low_priority))
+        # delete all rules matching this port in all tables.
+        for table in self.all_valve_tables():
+            ofmsgs.append(self.valve_flowdel(table,
+                self.valve_in_match(in_port=port_num)))
 
         # delete eth_dst rules
-        match_all = parser.OFPMatch()
         ofmsgs.append(self.valve_flowdel(
             self.dp.eth_dst_table,
-            match_all,
             out_port=port_num))
 
         ofmsgs.append(parser.OFPBarrierRequest(None))
 
         for vlan in self.dp.vlans.values():
             if port_num in vlan.tagged or port_num in vlan.untagged:
-                ofmsgs.append(self.build_flood_rule(vlan), modify=True)
+                ofmsgs.extend(self.build_flood_rules(vlan), modify=True)
 
+        return ofmsgs
+
+    def delete_host_from_vlan(self, eth_src, vlan):
+        ofmsgs = []
+        # delete any existing ofmsgs for this vlan/mac combination on the
+        # src mac table
+        ofmsgs.append(self.valve_flowdel(
+            self.dp.eth_src_table,
+            self.valve_in_match(vlan=vlan, eth_src=eth_src)))
+
+        # delete any existing ofmsgs for this vlan/mac combination on the dst
+        # mac table
+        ofmsgs.append(self.valve_flowdel(
+            self.dp.eth_dst_table,
+            self.valve_in_match(vlan=vlan, eth_dst=eth_src)))
+
+        ofmsgs.append(parser.OFPBarrierRequest(None))
         return ofmsgs
 
     def rcv_packet(self, dp_id, in_port, vlan_vid, eth_src, eth_dst):
@@ -514,30 +552,9 @@ class OVSStatelessValve(Valve):
         self.logger.debug("Packet_in dp_id: %x src:%s in_port:%d vid:%s",
                          dp_id, eth_src, in_port, vlan_vid)
 
-        tagged = self.dp.vlans[vlan_vid].port_is_tagged(in_port)
-
-        # flow_mods to be installed
+        vlan = self.dp.vlans[vlan_vid]
         ofmsgs = []
-
-        # delete any existing ofmsgs for this vlan/mac combination on the
-        # src mac table
-        src_delete_match = parser.OFPMatch(
-            eth_src=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
-        ofmsgs.append(self.valve_flowdel(
-            self.dp.eth_src_table,
-            src_delete_match))
-
-        # delete any existing ofmsgs for this vlan/mac combination on the dst
-        # mac table
-        dst_delete_match = parser.OFPMatch(
-            eth_dst=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
-        ofmsgs.append(self.valve_flowdel(
-            self.dp.eth_dst_table,
-            dst_delete_match))
-
-        ofmsgs.append(parser.OFPBarrierRequest(None))
+        ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         mirror_acts = []
         if in_port in self.dp.mirror_from_port:
@@ -551,23 +568,15 @@ class OVSStatelessValve(Valve):
         # but the src table rule is still being hit intermittantly the switch
         # will flood packets to that dst and not realise it needs to relearn
         # the rule
-        src_match = parser.OFPMatch(
-            in_port=in_port,
-            eth_src=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
-        instructions = [parser.OFPInstructionGotoTable(self.dp.eth_dst_table)]
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_src_table,
-            src_match,
+            self.valve_in_match(in_port=in_port, vlan=vlan, eth_src=eth_src),
             priority=self.dp.high_priority,
-            inst=instructions,
+            inst=[self.goto_table(self.dp.eth_dst_table)],
             hard_timeout=self.dp.timeout))
 
         # update datapath to output packets to this mac via the associated port
-        dst_match = parser.OFPMatch(
-            eth_dst=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
-        if tagged:
+        if vlan.port_is_tagged(in_port):
             dst_act = [parser.OFPActionOutput(in_port)]
         else:
             dst_act = [
@@ -575,13 +584,12 @@ class OVSStatelessValve(Valve):
                 parser.OFPActionOutput(in_port)]
         if mirror_acts:
             dst_act.extend(mirror_acts)
-        instructions = [
-            parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, dst_act)]
+        inst = [self.apply_actions(dst_act)]
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_dst_table,
-            dst_match,
+            self.valve_in_match(vlan=vlan, eth_dst=eth_src),
             priority=self.dp.high_priority,
-            inst=instructions,
+            inst=inst,
             idle_timeout=self.dp.timeout))
 
         return ofmsgs
