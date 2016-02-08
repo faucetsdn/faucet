@@ -230,9 +230,8 @@ class OVSStatelessValve(Valve):
         """Add default drop rules."""
         ofmsgs = []
 
-        # default drop on all tables
-        for table_id in self.all_valve_tables():
-            ofmsgs.append(self.valve_flowdrop(table_id))
+        # default drop on table 0.
+        ofmsgs.append(self.valve_flowdrop(0, priority=self.dp.lowest_priority))
 
         # drop STDP BPDU
         for bpdu_mac in ("01:80:C2:00:00:00", "01:00:0C:CC:CC:CD"):
