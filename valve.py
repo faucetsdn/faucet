@@ -486,7 +486,6 @@ class OVSStatelessValve(Valve):
         ofmsgs.append(self.valve_flowdel(
             self.dp.vlan_table,
             self.valve_in_match(in_port=port_num),
-            vlan_table_match,
             priority=self.dp.low_priority))
 
         # delete eth_dst rules
