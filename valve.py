@@ -320,12 +320,26 @@ class OVSStatelessValve(Valve):
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
+        flood_priority = self.dp.low_priority
         flood_acts = self.build_flood_rule_actions(vlan)
-        return [self.valve_flowmod(
+        ofmsgs = []
+        for port in vlan.tagged + vlan.untagged:
+            if port.number in self.dp.mirror_from_port:
+                mirror_port = self.dp.mirror_from_port[port.number]
+                mirror_acts = [parser.OFPActionOutput(mirror_port)] + flood_acts
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.flood_table,
+                    match=self.valve_in_match(in_port=port.number, vlan=vlan),
+                    command=command,
+                    inst=[self.apply_actions(mirror_acts)],
+                    priority=flood_priority+1))
+        ofmsgs.append(self.valve_flowmod(
             self.dp.flood_table,
             match=self.valve_in_match(vlan=vlan),
             command=command,
-            inst=[self.apply_actions(flood_acts)])]
+            inst=[self.apply_actions(flood_acts)],
+            priority=flood_priority))
+        return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_port_nums):
         if self.ignore_dpid(dp_id):
@@ -449,8 +463,9 @@ class OVSStatelessValve(Valve):
         ofmsgs = []
         self.logger.info("Sending config for port {0}".format(port))
 
-        # delete eth_src_table and acl rules
-        for table in (self.dp.eth_src_table, self.dp.acl_table):
+        # delete eth_src_table, ACL, food rules
+        for table in (self.dp.eth_src_table, self.dp.acl_table,
+                      self.dp.flood_table):
             ofmsgs.append(self.valve_flowdel(table, in_port_match))
 
         if port_num in self.dp.mirror_from_port.values():
