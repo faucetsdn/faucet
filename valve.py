@@ -284,7 +284,7 @@ class OVSStatelessValve(Valve):
             for port in vlan_ports:
                 all_port_nums.add(port.number)
             # install eth_dst_table flood ofmsgs
-            ofmsgs.append(self.build_flood_rule(vlan))
+            ofmsgs.extend(self.build_flood_rules(vlan))
 
         # add mirror ports.
         for port_num in self.dp.mirror_from_port.itervalues():
@@ -315,17 +315,17 @@ class OVSStatelessValve(Valve):
                     flood_acts.append(parser.OFPActionOutput(port.number))
         return flood_acts
 
-    def build_flood_rule(self, vlan, modify=False):
+    def build_flood_rules(self, vlan, modify=False):
         """Add a flow to flood packets to unknown destinations on a VLAN."""
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
         flood_acts = self.build_flood_rule_actions(vlan)
-        return self.valve_flowmod(
+        return [self.valve_flowmod(
             self.dp.flood_table,
             match=self.valve_in_match(vlan=vlan),
             command=command,
-            inst=[self.apply_actions(flood_acts)])
+            inst=[self.apply_actions(flood_acts)])]
 
     def datapath_connect(self, dp_id, discovered_port_nums):
         if self.ignore_dpid(dp_id):
@@ -401,7 +401,7 @@ class OVSStatelessValve(Valve):
             in_port_match,
             priority=self.dp.low_priority,
             inst=push_vlan_inst))
-        ofmsgs.append(self.build_flood_rule(vlan))
+        ofmsgs.extend(self.build_flood_rules(vlan))
         return ofmsgs
 
     def port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
@@ -415,7 +415,7 @@ class OVSStatelessValve(Valve):
             self.valve_in_match(in_port=port.number, vlan=vlan),
             priority=self.dp.low_priority,
             inst=vlan_inst))
-        ofmsgs.append(self.build_flood_rule(vlan))
+        ofmsgs.extend(self.build_flood_rules(vlan))
         return ofmsgs
 
     def port_add_vlans(self, port, forwarding_table, mirror_act):
@@ -500,7 +500,7 @@ class OVSStatelessValve(Valve):
 
         for vlan in self.dp.vlans.values():
             if port_num in vlan.tagged or port_num in vlan.untagged:
-                ofmsgs.append(self.build_flood_rule(vlan), modify=True)
+                ofmsgs.extend(self.build_flood_rules(vlan), modify=True)
 
         return ofmsgs
 
