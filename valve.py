@@ -156,6 +156,9 @@ class OVSStatelessValve(Valve):
             self.dp.eth_dst_table,
             self.dp.flood_table)
 
+    def apply_actions(self, actions):
+        return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
+
     def valve_flowmod(self, table_id, match=None, priority=None,
                      inst=[], command=ofp.OFPFC_ADD, out_port=0,
                      out_group=0, hard_timeout=0, idle_timeout=0):
@@ -242,13 +245,11 @@ class OVSStatelessValve(Valve):
 
     def add_controller_learn_flow(self):
         """Add a flow to allow the controller to learn and add flows for destinations."""
-        controller_act = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
-        controller_inst = parser.OFPInstructionActions(
-            ofp.OFPIT_APPLY_ACTIONS, controller_act)
-        goto_dst_inst = parser.OFPInstructionGotoTable(self.dp.eth_dst_table)
-        return [self.valve_flowmod(
-            self.dp.eth_src_table,
-            inst=[controller_inst, goto_dst_inst])]
+        inst = [
+            self.apply_actions([parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]),
+            parser.OFPInstructionGotoTable(self.dp.eth_dst_table),
+        ]
+        return [self.valve_flowmod(self.dp.eth_src_table, inst=inst)]
 
     def add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -304,13 +305,11 @@ class OVSStatelessValve(Valve):
         for port in vlan.untagged:
             if port.running():
                 act.append(parser.OFPActionOutput(port.number))
-        instructions = [
-            parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, act)]
         return self.valve_flowmod(
             self.dp.flood_table,
             match=match_vlan,
             command=command,
-            inst=instructions)
+            inst=[self.apply_actions(act)])
 
     def datapath_connect(self, dp_id, discovered_port_nums):
         if self.ignore_dpid(dp_id):
@@ -371,8 +370,7 @@ class OVSStatelessValve(Valve):
                 acl_rule_priority = acl_rule_priority - 1
         return ofmsgs, forwarding_table
 
-    def port_add_vlan_untagged(self, port, vlan, forwarding_table,
-                               mirror_act, mirror_inst):
+    def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
         ofmsgs = []
         vid = vlan.vid
         in_port_match = parser.OFPMatch(in_port=port.number)
@@ -380,8 +378,7 @@ class OVSStatelessValve(Valve):
             parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
             parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
         push_vlan_inst = [
-            parser.OFPInstructionActions(
-                ofp.OFPIT_APPLY_ACTIONS, push_vlan_act),
+            self.apply_actions(push_vlan_act),
             parser.OFPInstructionGotoTable(forwarding_table)]
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
@@ -391,14 +388,14 @@ class OVSStatelessValve(Valve):
         ofmsgs.append(self.build_flood_rule(vlan))
         return ofmsgs
 
-    def port_add_vlan_tagged(self, port, vlan, forwarding_table,
-                             mirror_act, mirror_inst):
+    def port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
         ofmsgs = []
         vid = vlan.vid
         vlan_in_port_match = parser.OFPMatch(
             in_port=port.number,
             vlan_vid=vid|ofp.OFPVID_PRESENT)
-        vlan_inst = mirror_inst + [
+        vlan_inst = [
+            self.apply_actions(mirror_act),
             parser.OFPInstructionGotoTable(forwarding_table)]
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
@@ -408,16 +405,15 @@ class OVSStatelessValve(Valve):
         ofmsgs.append(self.build_flood_rule(vlan))
         return ofmsgs
 
-    def port_add_vlans(self, port, forwarding_table,
-                       mirror_act, mirror_inst):
+    def port_add_vlans(self, port, forwarding_table, mirror_act):
         ofmsgs = []
         for vlan in self.dp.vlans.itervalues():
             if port in vlan.untagged:
                 ofmsgs.extend(self.port_add_vlan_untagged(
-                    port, vlan, forwarding_table, mirror_act, mirror_inst))
+                    port, vlan, forwarding_table, mirror_act))
             elif port in vlan.tagged:
                 ofmsgs.extend(self.port_add_vlan_tagged(
-                    port, vlan, forwarding_table, mirror_act, mirror_inst))
+                    port, vlan, forwarding_table, mirror_act))
         return ofmsgs
 
     def port_add(self, dp_id, port_num):
@@ -452,18 +448,14 @@ class OVSStatelessValve(Valve):
             return ofmsgs
 
         mirror_act = []
-        mirror_inst = []
         # this port is mirrored to another port
         if port_num in self.dp.mirror_from_port:
             mirror_port_num = self.dp.mirror_from_port[port_num]
             mirror_act = [parser.OFPActionOutput(mirror_port_num)]
-            mirror_inst = [parser.OFPInstructionActions(
-                ofp.OFPIT_APPLY_ACTIONS, mirror_act)]
 
         acl_ofmsgs, forwarding_table = self.port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
-        ofmsgs.extend(self.port_add_vlans(
-            port, forwarding_table, mirror_act, mirror_inst))
+        ofmsgs.extend(self.port_add_vlans(port, forwarding_table, mirror_act))
         return ofmsgs
 
     def port_delete(self, dp_id, port_num):
@@ -583,13 +575,12 @@ class OVSStatelessValve(Valve):
                 parser.OFPActionOutput(in_port)]
         if mirror_acts:
             dst_act.extend(mirror_acts)
-        instructions = [
-            parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, dst_act)]
+        inst = [self.apply_actions(dst_act)]
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_dst_table,
             dst_match,
             priority=self.dp.high_priority,
-            inst=instructions,
+            inst=inst,
             idle_timeout=self.dp.timeout))
 
         return ofmsgs
