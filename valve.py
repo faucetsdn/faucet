@@ -162,12 +162,29 @@ class OVSStatelessValve(Valve):
     def goto_table(self, table_id):
         return parser.OFPInstructionGotoTable(table_id)
 
+    def valve_in_match(self, in_port=None, vlan=None,
+                       eth_type=None, eth_src=None, eth_dst=None):
+        match_dict = {}
+        if in_port is not None:
+            match_dict['in_port'] = in_port
+        if vlan is not None:
+            match_dict['vlan_vid'] = vlan.vid|ofp.OFPVID_PRESENT
+        if eth_type is not None:
+            match_dict['eth_type'] = eth_type
+        if eth_src is not None:
+            match_dict['eth_src'] = eth_src
+        if eth_dst is not None:
+            match_dict['eth_dst'] = eth_dst
+        null_dp = namedtuple("null_dp", "ofproto_parser")
+        null_dp.ofproto_parser = parser
+        return ofctl.to_match(null_dp, match_dict)
+
     def valve_flowmod(self, table_id, match=None, priority=None,
                      inst=[], command=ofp.OFPFC_ADD, out_port=0,
                      out_group=0, hard_timeout=0, idle_timeout=0):
         """Helper function to construct a flow mod message with cookie."""
         if match is None:
-            match = parser.OFPMatch()
+            match = self.valve_in_match()
         if priority is None:
             priority = self.dp.lowest_priority
         return parser.OFPFlowMod(
@@ -219,17 +236,15 @@ class OVSStatelessValve(Valve):
 
         # drop STDP BPDU
         for bpdu_mac in ("01:80:C2:00:00:00", "01:00:0C:CC:CC:CD"):
-            match_stp_bpdu = parser.OFPMatch(eth_dst=bpdu_mac)
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.vlan_table,
-                match_stp_bpdu,
+                self.valve_in_match(eth_dst=bpdu_mac),
                 priority=self.dp.highest_priority))
 
         # drop LLDP
-        match_lldp = parser.OFPMatch(eth_type=ether.ETH_TYPE_LLDP)
         ofmsgs.append(self.valve_flowdrop(
             self.dp.vlan_table,
-            match_lldp,
+            self.valve_in_match(eth_type=ether.ETH_TYPE_LLDP),
             priority=self.dp.highest_priority))
 
         return ofmsgs
@@ -294,7 +309,7 @@ class OVSStatelessValve(Valve):
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
-        match_vlan = parser.OFPMatch(vlan_vid=vlan.vid|ofp.OFPVID_PRESENT)
+        match_vlan = self.valve_in_match(vlan=vlan)
         act = []
         for port in vlan.tagged:
             if port.running():
@@ -370,7 +385,7 @@ class OVSStatelessValve(Valve):
     def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
         ofmsgs = []
         vid = vlan.vid
-        in_port_match = parser.OFPMatch(in_port=port.number)
+        in_port_match = self.valve_in_match(in_port=port.number)
         push_vlan_act = mirror_act + [
             parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
             parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
@@ -388,17 +403,13 @@ class OVSStatelessValve(Valve):
 
     def port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
         ofmsgs = []
-        vid = vlan.vid
-        vlan_in_port_match = parser.OFPMatch(
-            in_port=port.number,
-            vlan_vid=vid|ofp.OFPVID_PRESENT)
         vlan_inst = [
             self.apply_actions(mirror_act),
             self.goto_table(forwarding_table)
         ]
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
-            vlan_in_port_match,
+            self.valve_in_match(in_port=port.number, vlan=vlan),
             priority=self.dp.low_priority,
             inst=vlan_inst))
         ofmsgs.append(self.build_flood_rule(vlan))
@@ -431,7 +442,7 @@ class OVSStatelessValve(Valve):
         if not port.running():
             return []
 
-        in_port_match = parser.OFPMatch(in_port=port_num)
+        in_port_match = self.valve_in_match(in_port=port_num)
         ofmsgs = []
         self.logger.info("Sending config for port {0}".format(port))
 
@@ -472,9 +483,9 @@ class OVSStatelessValve(Valve):
         ofmsgs = []
 
         # delete vlan_table rules
-        vlan_table_match = parser.OFPMatch(in_port=port_num)
         ofmsgs.append(self.valve_flowdel(
             self.dp.vlan_table,
+            self.valve_in_match(in_port=port_num),
             vlan_table_match,
             priority=self.dp.low_priority))
 
@@ -493,24 +504,17 @@ class OVSStatelessValve(Valve):
 
     def delete_host_from_vlan(self, eth_src, vlan):
         ofmsgs = []
-        vlan_vid = vlan.vid
         # delete any existing ofmsgs for this vlan/mac combination on the
         # src mac table
-        src_delete_match = parser.OFPMatch(
-            eth_src=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
         ofmsgs.append(self.valve_flowdel(
             self.dp.eth_src_table,
-            src_delete_match))
+            self.valve_in_match(vlan=vlan, eth_src=eth_src)))
 
         # delete any existing ofmsgs for this vlan/mac combination on the dst
         # mac table
-        dst_delete_match = parser.OFPMatch(
-            eth_dst=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
         ofmsgs.append(self.valve_flowdel(
             self.dp.eth_dst_table,
-            dst_delete_match))
+            self.valve_in_match(vlan=vlan, eth_dst=eth_src)))
 
         ofmsgs.append(parser.OFPBarrierRequest(None))
         return ofmsgs
@@ -550,22 +554,15 @@ class OVSStatelessValve(Valve):
         # but the src table rule is still being hit intermittantly the switch
         # will flood packets to that dst and not realise it needs to relearn
         # the rule
-        src_match = parser.OFPMatch(
-            in_port=in_port,
-            eth_src=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_src_table,
-            src_match,
+            self.valve_in_match(in_port=in_port, vlan=vlan, eth_src=eth_src),
             priority=self.dp.high_priority,
             inst=[self.goto_table(self.dp.eth_dst_table)],
             hard_timeout=self.dp.timeout))
 
         # update datapath to output packets to this mac via the associated port
-        dst_match = parser.OFPMatch(
-            eth_dst=eth_src,
-            vlan_vid=vlan_vid|ofp.OFPVID_PRESENT)
-        if self.dp.vlans[vlan_vid].port_is_tagged(in_port):
+        if vlan.port_is_tagged(in_port):
             dst_act = [parser.OFPActionOutput(in_port)]
         else:
             dst_act = [
@@ -576,7 +573,7 @@ class OVSStatelessValve(Valve):
         inst = [self.apply_actions(dst_act)]
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_dst_table,
-            dst_match,
+            self.valve_in_match(vlan=vlan, eth_dst=eth_src),
             priority=self.dp.high_priority,
             inst=inst,
             idle_timeout=self.dp.timeout))
