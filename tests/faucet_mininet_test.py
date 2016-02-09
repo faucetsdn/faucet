@@ -115,12 +115,70 @@ vlans:
         self.net.waitConnected()
 
     def test_untagged(self):
-        # no lost packets
         self.assertEquals(0, self.net.pingAll())
 
     def tearDown(self):
-        super(FaucetUntaggedTest, self).tearDown()
         self.net.stop()
+        super(FaucetUntaggedTest, self).tearDown()
+
+
+class FaucetUntaggedACLTest(FaucetUntaggedTest):
+
+    CONFIG = """
+---
+dp_id: 0x1
+name: "untagged-faucet-1"
+hardware: "Allied-Telesis"
+interfaces:
+    1:
+        native_vlan: 100
+        description: "b1"
+        acl_in: 1
+    2:
+        native_vlan: 100
+        description: "b2"
+    3:
+        native_vlan: 100
+        description: "b3"
+    4:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "test"
+acls:
+    1:
+        - rule:
+            dl_type: 0x800
+            nw_proto: 6
+            tp_dst: 5001
+            allow: 0
+
+        - rule:
+            allow: 1
+"""
+
+    def setUp(self):
+        super(FaucetUntaggedACLTest, self).setUp()
+
+    def test_port5001_blocked(self):
+        self.assertEquals(0, self.net.pingAll())
+        first_host = self.net.hosts[0]
+        second_host = self.net.hosts[1]
+        second_host.sendCmd('echo hello | nc -l 5001')
+        self.assertEquals('',
+            first_host.cmd('nc -w 3 %s 5001' % second_host.IP()))
+
+    def test_port5002_unblocked(self):
+        self.assertEquals(0, self.net.pingAll())
+        first_host = self.net.hosts[0]
+        second_host = self.net.hosts[1]
+        second_host.sendCmd('echo hello | nc -l 5002')
+        self.assertEquals('hello\r\n',
+            first_host.cmd('nc -w 3 %s 5002' % second_host.IP()))
+
+    def tearDown(self):
+        super(FaucetUntaggedACLTest, self).tearDown()
 
 
 class FaucetTaggedTest(FaucetTest):
@@ -158,12 +216,11 @@ vlans:
         self.net.waitConnected()
 
     def test_tagged(self):
-        # no lost packets
         self.assertEquals(0, self.net.pingAll())
 
     def tearDown(self):
-        super(FaucetTaggedTest, self).tearDown()
         self.net.stop()
+        super(FaucetTaggedTest, self).tearDown()
 
 
 if __name__ == '__main__':
