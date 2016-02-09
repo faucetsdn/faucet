@@ -1,6 +1,10 @@
 #!/usr/bin/python
 
 import os
+import unittest
+import shutil
+import tempfile
+import time
 from mininet.node import Controller
 from mininet.node import Host
 from mininet.topo import Topo
@@ -35,12 +39,13 @@ class VLANHost(Host):
 class FAUCET(Controller):
 
     def __init__(self, name, cdir=FAUCET_DIR,
-                 command='/usr/local/bin/ryu-manager faucet.py',
+                 command='ryu-manager faucet.py',
                  cargs='--ofp-tcp-listen-port=%s --verbose',
                  **kwargs):
         Controller.__init__(self, name, cdir=cdir,
                             command=command,
                             cargs=cargs, **kwargs)
+
 
 class SingleSwitchUntaggedTopo(Topo):
 
@@ -60,21 +65,24 @@ class SingleSwitchTaggedTopo(Topo):
             self.addLink(host, switch)
 
 
-class FaucetTest(object):
-    pass
-
-
-class FaucetUntaggedTest(FaucetTest):
+class FaucetTest(unittest.TestCase):
 
     def setUp(self):
-        self.tmpdir = '/tmp'
+        self.tmpdir = tempfile.mkdtemp()
         os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir,
              'faucet.yaml')
         os.environ['FAUCET_LOG'] = os.path.join(self.tmpdir,
              'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(self.tmpdir,
             'faucet-exception.log')
-        untagged_config = """
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+
+class FaucetUntaggedTest(FaucetTest):
+
+    CONFIG = """
 ---
 dp_id: 0x1
 name: "untagged-faucet-1"
@@ -96,30 +104,28 @@ vlans:
     100:
         description: "test"
 """
-        open(os.environ['FAUCET_CONFIG'], 'w').write(untagged_config)
+
+    def setUp(self):
+        super(FaucetUntaggedTest, self).setUp()
+        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.topo = SingleSwitchUntaggedTopo(n=4)
         self.net = Mininet(self.topo, controller=FAUCET)
         self.net.start()
         dumpNodeConnections(self.net.hosts)
+        self.net.waitConnected()
 
-    def run(self):
-        self.net.pingAll()
+    def test_untagged(self):
+        # no lost packets
+        self.assertEquals(0, self.net.pingAll())
 
     def tearDown(self):
+        super(FaucetUntaggedTest, self).tearDown()
         self.net.stop()
 
 
 class FaucetTaggedTest(FaucetTest):
 
-    def setUp(self):
-        self.tmpdir = '/tmp'
-        os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir,
-             'faucet.yaml')
-        os.environ['FAUCET_LOG'] = os.path.join(self.tmpdir,
-             'faucet.log')
-        os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(self.tmpdir,
-            'faucet-exception.log')
-        tagged_config = """
+    CONFIG = """
 ---
 dp_id: 0x1
 name: "tagged-faucet-1"
@@ -141,26 +147,25 @@ vlans:
     100:
         description: "test"
 """
-        open(os.environ['FAUCET_CONFIG'], 'w').write(tagged_config)
+
+    def setUp(self):
+        super(FaucetTaggedTest, self).setUp()
+        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.topo = SingleSwitchTaggedTopo(n=4)
         self.net = Mininet(self.topo, controller=FAUCET)
         self.net.start()
         dumpNodeConnections(self.net.hosts)
+        self.net.waitConnected()
 
-    def run(self):
-        self.net.pingAll()
+    def test_tagged(self):
+        # no lost packets
+        self.assertEquals(0, self.net.pingAll())
 
     def tearDown(self):
+        super(FaucetTaggedTest, self).tearDown()
         self.net.stop()
 
 
 if __name__ == '__main__':
     setLogLevel('info')
-    untagged_test = FaucetUntaggedTest()
-    untagged_test.setUp()
-    untagged_test.run()
-    untagged_test.tearDown()
-    tagged_test = FaucetTaggedTest()
-    tagged_test.setUp()
-    tagged_test.run()
-    tagged_test.tearDown()
+    unittest.main()
