@@ -47,37 +47,36 @@ class FAUCET(Controller):
                             cargs=cargs, **kwargs)
 
 
-class SingleSwitchUntaggedTopo(Topo):
+class FaucetSwitchTopo(Topo):
 
-    def build(self, n):
+    def build(self, n_tagged=0, tagged_vid=100, n_untagged=0):
         switch = self.addSwitch('s1')
-        for h in range(n):
-            host = self.addHost('h%s' % (h + 1))
+        for h in range(n_tagged):
+            host = self.addHost('hu_%s' % (h + 1),
+                cls=VLANHost, vlan=tagged_vid)
             self.addLink(host, switch)
-
-
-class SingleSwitchTaggedTopo(Topo):
-
-    def build(self, n):
-        switch = self.addSwitch('s1')
-        for h in range(n):
-            host = self.addHost('h%s' % (h + 1), cls=VLANHost, vlan=100)
+        for h in range(n_untagged):
+            host = self.addHost('ht_%s' % (h + 1))
             self.addLink(host, switch)
 
 
 class FaucetTest(unittest.TestCase):
 
+    CONFIG = ""
+
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
+        self.tmpdir = '/tmp' # tempfile.mkdtemp()
         os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir,
              'faucet.yaml')
         os.environ['FAUCET_LOG'] = os.path.join(self.tmpdir,
              'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(self.tmpdir,
             'faucet-exception.log')
+        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
 
     def tearDown(self):
-        shutil.rmtree(self.tmpdir)
+        #shutil.rmtree(self.tmpdir)
+        pass
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -95,20 +94,19 @@ interfaces:
         native_vlan: 100
         description: "b2"
     3:
+        native_vlan: 100
         description: "b3"
-        native_vlan: 100
     4:
-        description: "b4"
         native_vlan: 100
+        description: "b4"
 vlans:
     100:
-        description: "test"
+        description: "untagged"
 """
 
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
-        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
-        self.topo = SingleSwitchUntaggedTopo(n=4)
+        self.topo = FaucetSwitchTopo(n_untagged=4)
         self.net = Mininet(self.topo, controller=FAUCET)
         self.net.start()
         dumpNodeConnections(self.net.hosts)
@@ -120,6 +118,56 @@ vlans:
     def tearDown(self):
         self.net.stop()
         super(FaucetUntaggedTest, self).tearDown()
+
+
+class FaucetTaggedAndUntaggedTest(FaucetTest):
+
+    CONFIG = """
+---
+dp_id: 0x1
+name: "tagged-and-untagged-faucet-1"
+hardware: "Allied-Telesis"
+interfaces:
+    1:
+        tagged_vlans: [100]
+        description: "b1"
+    2:
+        tagged_vlans: [100]
+        description: "b2"
+    3:
+        native_vlan: 101
+        description: "b3"
+    4:
+        native_vlan: 101
+        description: "b4"
+vlans:
+    100:
+        description: "tagged"
+    101:
+        description: "untagged"
+"""
+
+    def setUp(self):
+        super(FaucetTaggedAndUntaggedTest, self).setUp()
+        self.topo = FaucetSwitchTopo(n_tagged=2, n_untagged=2)
+        self.net = Mininet(self.topo, controller=FAUCET)
+        self.net.start()
+        dumpNodeConnections(self.net.hosts)
+        self.net.waitConnected()
+
+    def test_seperate_untagged_tagged(self):
+        tagged_host_pair = self.net.hosts[0:1]
+        untagged_host_pair = self.net.hosts[2:3]
+        # hosts within VLANs can ping each other
+        self.assertEquals(0, self.net.ping(tagged_host_pair))
+        self.assertEquals(0, self.net.ping(untagged_host_pair))
+        # hosts cannot ping hosts in other VLANs
+        self.assertEquals(100,
+            self.net.ping([tagged_host_pair[0], untagged_host_pair[0]]))
+
+    def tearDown(self):
+        self.net.stop()
+        super(FaucetTaggedAndUntaggedTest, self).tearDown()
 
 
 class FaucetUntaggedACLTest(FaucetUntaggedTest):
@@ -145,7 +193,7 @@ interfaces:
         description: "b4"
 vlans:
     100:
-        description: "test"
+        description: "untagged"
 acls:
     1:
         - rule:
@@ -157,9 +205,6 @@ acls:
         - rule:
             allow: 1
 """
-
-    def setUp(self):
-        super(FaucetUntaggedACLTest, self).setUp()
 
     def test_port5001_blocked(self):
         self.assertEquals(0, self.net.pingAll())
@@ -176,9 +221,6 @@ acls:
         second_host.sendCmd('echo hello | nc -l 5002')
         self.assertEquals('hello\r\n',
             first_host.cmd('nc -w 3 %s 5002' % second_host.IP()))
-
-    def tearDown(self):
-        super(FaucetUntaggedACLTest, self).tearDown()
 
 
 class FaucetTaggedTest(FaucetTest):
@@ -203,13 +245,12 @@ interfaces:
         description: "b4"
 vlans:
     100:
-        description: "test"
+        description: "tagged"
 """
 
     def setUp(self):
         super(FaucetTaggedTest, self).setUp()
-        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
-        self.topo = SingleSwitchTaggedTopo(n=4)
+        self.topo = FaucetSwitchTopo(n_tagged=4)
         self.net = Mininet(self.topo, controller=FAUCET)
         self.net.start()
         dumpNodeConnections(self.net.hosts)
