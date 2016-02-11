@@ -186,7 +186,7 @@ class Faucet(app_manager.RyuApp):
             else:
                 flowmods = self.valve.port_add(dp.id, port_no)
         else:
-            self.logger.info("Unhandled port status %s for port %u",
-                             port_no, reason)
+            self.logger.info('Unhandled port status %s for port %u',
+                             reason, port_no)
 
         self.send_flow_msgs(dp, flowmods)
