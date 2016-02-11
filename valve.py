@@ -38,8 +38,7 @@ def valve_factory(dp):
     Arguments:
     dp -- a DP object with the configuration for this valve.
     """
-    if dp.hardware == 'Open vSwitch'\
-    or dp.hardware == 'Allied-Telesis':
+    if dp.hardware in dp.SUPPORTED_HARDWARE:
         return OVSStatelessValve(dp)
     else:
         return None
