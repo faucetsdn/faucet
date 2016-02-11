@@ -26,6 +26,7 @@ class VLAN:
         self.untagged = []
         self.name = conf.setdefault('name', str(vid))
         self.description = conf.setdefault('description', self.name)
+        self.ip = conf.setdefault('ip', None)
 
     def __str__(self):
         ports = ",".join(map(str, self.get_ports()))
