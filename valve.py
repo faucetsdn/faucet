@@ -29,12 +29,6 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 def valve_factory(dp):
     """Return a Valve object based dp's hardware configuration field.
 
-    Different datapath hardware has different requirements for the valve
-    implementation.
-
-    Currently implemented is the OVSStatelessValve suitable for use with
-    "Open vSwitch" and "Allied-Telesis"
-
     Arguments:
     dp -- a DP object with the configuration for this valve.
     """
@@ -42,6 +36,7 @@ def valve_factory(dp):
         return OVSStatelessValve(dp)
     else:
         return None
+
 
 class Valve(object):
     """Generates the messages to configure a datapath as a l2 learning switch.
