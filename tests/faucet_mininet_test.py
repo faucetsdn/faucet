@@ -2,6 +2,7 @@
 
 import os
 import unittest
+import re
 import shutil
 import tempfile
 import time
@@ -9,7 +10,7 @@ from mininet.node import Controller
 from mininet.node import Host
 from mininet.topo import Topo
 from mininet.net import Mininet
-from mininet.util import dumpNodeConnections
+from mininet.util import dumpNodeConnections, pmonitor
 from mininet.log import setLogLevel
 
 FAUCET_DIR = '../'
@@ -52,11 +53,11 @@ class FaucetSwitchTopo(Topo):
     def build(self, n_tagged=0, tagged_vid=100, n_untagged=0):
         switch = self.addSwitch('s1')
         for h in range(n_tagged):
-            host = self.addHost('hu_%s' % (h + 1),
+            host = self.addHost('ht_%s' % (h + 1),
                 cls=VLANHost, vlan=tagged_vid)
             self.addLink(host, switch)
         for h in range(n_untagged):
-            host = self.addHost('ht_%s' % (h + 1))
+            host = self.addHost('hu_%s' % (h + 1))
             self.addLink(host, switch)
 
 
@@ -65,7 +66,7 @@ class FaucetTest(unittest.TestCase):
     CONFIG = ""
 
     def setUp(self):
-        self.tmpdir = '/tmp' # tempfile.mkdtemp()
+        self.tmpdir = tempfile.mkdtemp()
         os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir,
              'faucet.yaml')
         os.environ['FAUCET_LOG'] = os.path.join(self.tmpdir,
@@ -75,8 +76,7 @@ class FaucetTest(unittest.TestCase):
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
 
     def tearDown(self):
-        #shutil.rmtree(self.tmpdir)
-        pass
+        shutil.rmtree(self.tmpdir)
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -221,6 +221,55 @@ acls:
         second_host.sendCmd('echo hello | nc -l 5002')
         self.assertEquals('hello\r\n',
             first_host.cmd('nc -w 3 %s 5002' % second_host.IP()))
+
+
+class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
+
+    CONFIG = """
+---
+dp_id: 0x1
+name: "untagged-faucet-1"
+hardware: "Allied-Telesis"
+interfaces:
+    1:
+        native_vlan: 100
+        description: "b1"
+    2:
+        native_vlan: 100
+        description: "b2"
+    3:
+        native_vlan: 100
+        description: "b3"
+        mirror: 1
+    4:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+"""
+
+    def test_untagged(self):
+        first_host = self.net.hosts[0]
+        second_host = self.net.hosts[1]
+        mirror_host = self.net.hosts[2]
+        mirror_mac = mirror_host.MAC()
+        tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
+        tcpdump_out = mirror_host.popen(
+            'timeout 10s tcpdump -n -v -c 2 -U %s' % tcpdump_filter)
+        # wait for tcpdump to start
+        time.sleep(1)
+        popens = {mirror_host: tcpdump_out}
+        first_host.cmd('ping -c1  %s' % second_host.IP())
+        tcpdump_txt = ''
+        for host, line in pmonitor(popens):
+            if host == mirror_host:
+                tcpdump_txt += line.strip()
+        self.assertFalse(tcpdump_txt == '')
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt))
 
 
 class FaucetTaggedTest(FaucetTest):
