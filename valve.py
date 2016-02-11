@@ -433,12 +433,19 @@ class OVSStatelessValve(Valve):
 
     def port_add_vlans(self, port, forwarding_table, mirror_act):
         ofmsgs = []
-        for vlan in self.dp.vlans.itervalues():
-            if port in vlan.untagged:
-                ofmsgs.extend(self.port_add_vlan_untagged(
-                    port, vlan, forwarding_table, mirror_act))
-            elif port in vlan.tagged:
+        vlans = self.dp.vlans.values()
+        tagged_vlans_with_port = [
+            vlan for vlan in vlans if port in vlan.tagged]
+        untagged_vlans_with_port = [
+            vlan for vlan in vlans if port in vlan.untagged]
+        # Tagged and untagged VLANs on the same port are not supported
+        if tagged_vlans_with_port:
+            for vlan in tagged_vlans_with_port:
                 ofmsgs.extend(self.port_add_vlan_tagged(
+                    port, vlan, forwarding_table, mirror_act))
+        else:
+            for vlan in untagged_vlans_with_port:
+                ofmsgs.extend(self.port_add_vlan_untagged(
                     port, vlan, forwarding_table, mirror_act))
         return ofmsgs
 
