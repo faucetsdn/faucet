@@ -9,7 +9,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASISo
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -21,6 +21,7 @@ from collections import namedtuple
 from util import mac_addr_is_unicast
 
 from ryu.lib import ofctl_v1_3 as ofctl
+from ryu.lib.packet import arp, ethernet, icmp, ipv4
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
@@ -95,7 +96,7 @@ class Valve(object):
         A list of flow mod messages to be sent to the datapath."""
         raise NotImplementedError
 
-    def rcv_packet(self, dp_id, in_port, vlan_vid, eth_pkt):
+    def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
         """Generate openflow msgs to update datapath upon receipt of packet.
 
         This involves asssociating the ethernet source address of the packet
@@ -111,7 +112,7 @@ class Valve(object):
             int)
         in_port -- the port number of the port that received the packet
         vlan_vid -- the vlan_vid tagged to the packet.
-        eth_pkt -- the packet send to us (Ryu ethernet object).
+        pkt -- the packet send to us (Ryu ethernet object).
 
         Returns
         A list of flow mod messages to be sent to the datpath."""
@@ -563,7 +564,11 @@ class OVSStatelessValve(Valve):
         ofmsgs.append(parser.OFPBarrierRequest(None))
         return ofmsgs
 
-    def rcv_packet(self, dp_id, in_port, vlan_vid, eth_pkt):
+    def control_plane_handler(self, in_port, vlan_vid, arp_pkt, icmp_pkt):
+        ofmsgs = []
+        return ofmsgs
+
+    def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
         if self.ignore_dpid(dp_id) or self.ignore_port(in_port):
             return []
 
@@ -574,17 +579,21 @@ class OVSStatelessValve(Valve):
         if in_port not in self.dp.ports:
             return []
 
+        eth_pkt = pkt.get_protocol(ethernet.ethernet)
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
+        eth_type = eth_pkt.ethertype
+
+        if eth_dst == self.FAUCET_MAC or not mac_addr_is_unicast(eth_dst):
+            arp_pkt = pkt.get_protocol(arp.arp)
+            icmp_pkt = pkt.get_protocol(icmp.icmp)
+            if arp_pkt is not None or icmp_pkt is not None:
+                 return self.control_plane_handler(
+                     in_port, vlan_vid, arp_pkt, icmp_pkt)
 
         if not mac_addr_is_unicast(eth_src):
             self.logger.info(
                 "Packet_in with multicast ethernet source address")
-            return []
-
-        if eth_dst == self.FAUCET_MAC:
-            self.logger.debug(
-                "Unhandled packet_in to FAUCET MAC")
             return []
 
         self.logger.debug("Packet_in dp_id: %x src:%s in_port:%d vid:%s",
