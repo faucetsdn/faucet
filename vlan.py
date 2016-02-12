@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ipaddr
+
+
 class VLAN:
     vid = None
     tagged = None
@@ -27,6 +30,8 @@ class VLAN:
         self.name = conf.setdefault('name', str(vid))
         self.description = conf.setdefault('description', self.name)
         self.ip = conf.setdefault('ip', None)
+        if self.ip is not None:
+            self.ip = ipaddr.IPv4Network(self.ip)
 
     def __str__(self):
         ports = ",".join(map(str, self.get_ports()))
