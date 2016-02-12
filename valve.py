@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ipaddr
 import logging
 
 from collections import namedtuple
@@ -162,29 +163,31 @@ class OVSStatelessValve(Valve):
     def valve_in_match(self, in_port=None, vlan=None,
                        eth_type=None, eth_src=None, eth_dst=None,
                        nw_proto=None, nw_src=None, nw_dst=None):
-        # TODO: clean up use of mixed old/new API
-        if vlan is not None and vlan.vid == ofp.OFPVID_NONE:
-            return parser.OFPMatch(in_port=in_port, vlan_vid=ofp.OFPVID_NONE)
         match_dict = {}
         if in_port is not None:
             match_dict['in_port'] = in_port
         if vlan is not None:
-            match_dict['vlan_vid'] = vlan.vid|ofp.OFPVID_PRESENT
-        if eth_type is not None:
-            match_dict['eth_type'] = eth_type
+            if vlan.vid == ofp.OFPVID_NONE:
+                match_dict['vlan_vid'] = ofp.OFPVID_NONE
+            else:
+                match_dict['vlan_vid'] = vlan.vid|ofp.OFPVID_PRESENT
         if eth_src is not None:
             match_dict['eth_src'] = eth_src
         if eth_dst is not None:
             match_dict['eth_dst'] = eth_dst
         if nw_proto is not None:
-            match_dict['nw_proto'] = nw_proto
+            match_dict['ip_proto'] = nw_proto
         if nw_src is not None:
-            match_dict['nw_src'] = nw_src
+            match_dict['ipv4_src'] = (str(nw_src.ip), str(nw_src.netmask))
         if nw_dst is not None:
-            match_dict['nw_dst'] = nw_dst
-        null_dp = namedtuple("null_dp", "ofproto_parser")
-        null_dp.ofproto_parser = parser
-        match = ofctl.to_match(null_dp, match_dict)
+            nw_dst_masked = (str(nw_dst.ip), str(nw_dst.netmask))
+            if eth_type == ether.ETH_TYPE_ARP:
+                match_dict['arp_tpa'] = nw_dst_masked
+            else:
+                match_dict['ipv4_dst'] = nw_dst_masked
+        if eth_type is not None:
+            match_dict['eth_type'] = eth_type
+        match = parser.OFPMatch(**match_dict)
         return match
 
     def valve_packetout(self, out_port, data):
@@ -247,7 +250,15 @@ class OVSStatelessValve(Valve):
         ofmsgs = []
 
         # default drop on table 0.
-        ofmsgs.append(self.valve_flowdrop(0, priority=self.dp.lowest_priority))
+        ofmsgs.append(self.valve_flowdrop(
+            self.dp.vlan_table,
+            priority=self.dp.lowest_priority))
+
+        # antispoof for FAUCET's MAC address
+        ofmsgs.append(self.valve_flowdrop(
+            self.dp.vlan_table,
+            self.valve_in_match(eth_src=self.FAUCET_MAC),
+            priority=self.dp.high_priority))
 
         # drop STDP BPDU
         for bpdu_mac in ("01:80:C2:00:00:00", "01:00:0C:CC:CC:CD"):
@@ -404,6 +415,8 @@ class OVSStatelessValve(Valve):
                 # override in_port always
                 match_dict["in_port"] = port_num
                 # to_match() needs to access parser via dp
+                # this uses the old API, which is oh so convenient
+                # (transparently handling masks for example).
                 null_dp = namedtuple("null_dp", "ofproto_parser")
                 null_dp.ofproto_parser = parser
                 acl_match = ofctl.to_match(null_dp, match_dict)
@@ -418,21 +431,23 @@ class OVSStatelessValve(Valve):
     def add_controller_ip(self, ip):
         ofmsgs = []
         # TODO: add IPv6
+        host_ip = ipaddr.IPv4Network(
+            '/'.join([str(ip.ip), str(ip.max_prefixlen)]))
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_src_table,
             self.valve_in_match(
                 eth_type=ether.ETH_TYPE_IP,
                 eth_dst=self.FAUCET_MAC,
                 nw_proto=0x1,
-                nw_src=str(ip.with_prefixlen),
-                nw_dst=str(ip.ip)),
+                nw_src=ip,
+                nw_dst=host_ip),
             priority=self.dp.high_priority,
             inst=[self.apply_actions(
                 [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_src_table,
             self.valve_in_match(
-                eth_type=ether.ETH_TYPE_ARP, nw_dst=str(ip.ip)),
+                eth_type=ether.ETH_TYPE_ARP, nw_dst=host_ip),
             priority=self.dp.high_priority,
             inst=[self.apply_actions(
                 [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
