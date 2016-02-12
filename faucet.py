@@ -34,6 +34,7 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
 
+
 class EventFaucetReconfigure(event.EventBase):
     pass
 
@@ -144,10 +145,7 @@ class Faucet(app_manager.RyuApp):
             return
 
         in_port = msg.match['in_port']
-        src = eth_pkt.src
-        dst = eth_pkt.dst
-
-        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, src, dst)
+        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
         self.send_flow_msgs(dp, flowmods)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)

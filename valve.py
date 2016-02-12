@@ -9,7 +9,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an "AS IS" BASISo
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -21,6 +21,7 @@ from collections import namedtuple
 from util import mac_addr_is_unicast
 
 from ryu.lib import ofctl_v1_3 as ofctl
+from ryu.lib.packet import arp, ethernet, icmp, ipv4, packet
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
@@ -95,7 +96,7 @@ class Valve(object):
         A list of flow mod messages to be sent to the datapath."""
         raise NotImplementedError
 
-    def rcv_packet(self, dp_id, in_port, vlan_vid, eth_src, eth_dst):
+    def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
         """Generate openflow msgs to update datapath upon receipt of packet.
 
         This involves asssociating the ethernet source address of the packet
@@ -111,7 +112,7 @@ class Valve(object):
             int)
         in_port -- the port number of the port that received the packet
         vlan_vid -- the vlan_vid tagged to the packet.
-        eth_src -- the ethernet source address of the packet.
+        pkt -- the packet send to us (Ryu ethernet object).
 
         Returns
         A list of flow mod messages to be sent to the datpath."""
@@ -125,6 +126,8 @@ class OVSStatelessValve(Valve):
     Stateless because the controller does not keep track of the mac addresses,
     it just installs the necessary rules directly to the switch with
     timeouts."""
+
+    FAUCET_MAC = '0e:00:00:00:00:01'
 
     def __init__(self, dp, logname='faucet', *args, **kwargs):
         self.dp = dp
@@ -157,7 +160,11 @@ class OVSStatelessValve(Valve):
         return parser.OFPInstructionGotoTable(table_id)
 
     def valve_in_match(self, in_port=None, vlan=None,
-                       eth_type=None, eth_src=None, eth_dst=None):
+                       eth_type=None, eth_src=None, eth_dst=None,
+                       nw_proto=None, nw_src=None, nw_dst=None):
+        # TODO: clean up use of mixed old/new API
+        if vlan is not None and vlan.vid == ofp.OFPVID_NONE:
+            return parser.OFPMatch(in_port=in_port, vlan_vid=ofp.OFPVID_NONE)
         match_dict = {}
         if in_port is not None:
             match_dict['in_port'] = in_port
@@ -169,13 +176,28 @@ class OVSStatelessValve(Valve):
             match_dict['eth_src'] = eth_src
         if eth_dst is not None:
             match_dict['eth_dst'] = eth_dst
+        if nw_proto is not None:
+            match_dict['nw_proto'] = nw_proto
+        if nw_src is not None:
+            match_dict['nw_src'] = nw_src
+        if nw_dst is not None:
+            match_dict['nw_dst'] = nw_dst
         null_dp = namedtuple("null_dp", "ofproto_parser")
         null_dp.ofproto_parser = parser
-        return ofctl.to_match(null_dp, match_dict)
+        match = ofctl.to_match(null_dp, match_dict)
+        return match
+
+    def valve_packetout(self, out_port, data):
+        return parser.OFPPacketOut(
+            datapath=None,
+            buffer_id=ofp.OFP_NO_BUFFER,
+            in_port=ofp.OFPP_CONTROLLER,
+            actions=[parser.OFPActionOutput(out_port, 0)],
+            data=data)
 
     def valve_flowmod(self, table_id, match=None, priority=None,
-                     inst=[], command=ofp.OFPFC_ADD, out_port=0,
-                     out_group=0, hard_timeout=0, idle_timeout=0):
+                      inst=[], command=ofp.OFPFC_ADD, out_port=0,
+                      out_group=0, hard_timeout=0, idle_timeout=0):
         """Helper function to construct a flow mod message with cookie."""
         if match is None:
             match = self.valve_in_match()
@@ -393,10 +415,34 @@ class OVSStatelessValve(Valve):
                 acl_rule_priority = acl_rule_priority - 1
         return ofmsgs, forwarding_table
 
+    def add_controller_ip(self, ip):
+        ofmsgs = []
+        # TODO: add IPv6
+        ofmsgs.append(self.valve_flowmod(
+            self.dp.eth_src_table,
+            self.valve_in_match(
+                eth_type=ether.ETH_TYPE_IP,
+                eth_dst=self.FAUCET_MAC,
+                nw_proto=0x1,
+                nw_src=str(ip.with_prefixlen),
+                nw_dst=str(ip.ip)),
+            priority=self.dp.high_priority,
+            inst=[self.apply_actions(
+                [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
+        ofmsgs.append(self.valve_flowmod(
+            self.dp.eth_src_table,
+            self.valve_in_match(
+                eth_type=ether.ETH_TYPE_ARP, nw_dst=str(ip.ip)),
+            priority=self.dp.high_priority,
+            inst=[self.apply_actions(
+                [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
+        return ofmsgs
+
     def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
         ofmsgs = []
         vid = vlan.vid
-        in_port_match = self.valve_in_match(in_port=port.number)
+        if vlan.ip is not None:
+            ofmsgs.extend(self.add_controller_ip(vlan.ip))
         push_vlan_act = mirror_act + [
             parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
             parser.OFPActionSetField(vlan_vid=vid|ofp.OFPVID_PRESENT)]
@@ -404,9 +450,11 @@ class OVSStatelessValve(Valve):
             self.apply_actions(push_vlan_act),
             self.goto_table(forwarding_table)
         ]
+        null_vlan = namedtuple("null_vlan", "vid")
+        null_vlan.vid = ofp.OFPVID_NONE
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
-            in_port_match,
+            self.valve_in_match(in_port=port.number, vlan=null_vlan),
             priority=self.dp.low_priority,
             inst=push_vlan_inst))
         ofmsgs.extend(self.build_flood_rules(vlan))
@@ -433,15 +481,12 @@ class OVSStatelessValve(Valve):
             vlan for vlan in vlans if port in vlan.tagged]
         untagged_vlans_with_port = [
             vlan for vlan in vlans if port in vlan.untagged]
-        # Tagged and untagged VLANs on the same port are not supported
-        if tagged_vlans_with_port:
-            for vlan in tagged_vlans_with_port:
-                ofmsgs.extend(self.port_add_vlan_tagged(
-                    port, vlan, forwarding_table, mirror_act))
-        else:
-            for vlan in untagged_vlans_with_port:
-                ofmsgs.extend(self.port_add_vlan_untagged(
-                    port, vlan, forwarding_table, mirror_act))
+        for vlan in tagged_vlans_with_port:
+            ofmsgs.extend(self.port_add_vlan_tagged(
+                port, vlan, forwarding_table, mirror_act))
+        for vlan in untagged_vlans_with_port:
+            ofmsgs.extend(self.port_add_vlan_untagged(
+                port, vlan, forwarding_table, mirror_act))
         return ofmsgs
 
     def port_add(self, dp_id, port_num):
@@ -534,7 +579,55 @@ class OVSStatelessValve(Valve):
         ofmsgs.append(parser.OFPBarrierRequest(None))
         return ofmsgs
 
-    def rcv_packet(self, dp_id, in_port, vlan_vid, eth_src, eth_dst):
+    def control_plane_arp_handler(self, in_port, vlan_vid, eth_src, arp_pkt):
+        eth_pkt = ethernet.ethernet(
+            eth_src, self.FAUCET_MAC, ether.ETH_TYPE_ARP)
+        arp_pkt = arp.arp(opcode=2, src_mac=self.FAUCET_MAC, src_ip=arp_pkt.dst_ip,
+            dst_mac=eth_src, dst_ip=arp_pkt.src_ip)
+        pkt = packet.Packet()
+        pkt.add_protocol(eth_pkt)
+        pkt.add_protocol(arp_pkt)
+        pkt.serialize()
+        return [self.valve_packetout(in_port, pkt.data)]
+
+    def control_plane_icmp_handler(self, in_port, vlan_vid, eth_src, ipv4_pkt, icmp_pkt):
+        eth_pkt = ethernet.ethernet(
+            eth_src, self.FAUCET_MAC, ether.ETH_TYPE_IP)
+        ipv4_pkt = ipv4.ipv4(
+            dst=ipv4_pkt.src, src=ipv4_pkt.dst, proto=ipv4_pkt.proto)
+        icmp_pkt = icmp.icmp(
+            type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE,
+            data=icmp_pkt.data)
+        pkt = packet.Packet()
+        pkt.add_protocol(eth_pkt)
+        pkt.add_protocol(ipv4_pkt)
+        pkt.add_protocol(icmp_pkt)
+        pkt.serialize()
+        return [self.valve_packetout(in_port, pkt.data)]
+
+    def control_plane_handler(self, in_port, vlan_vid, eth_src,
+                              ipv4_pkt, arp_pkt, icmp_pkt):
+        if arp_pkt is not None:
+            return self.control_plane_arp_handler(
+                in_port, vlan_vid, eth_src, arp_pkt)
+        if icmp_pkt is not None:
+            return self.control_plane_icmp_handler(
+                in_port, vlan_vid, eth_src, ipv4_pkt, icmp_pkt)
+        return []
+
+    def faucet_ips(self):
+        return [str(vlan.ip.ip) for vlan in self.dp.vlans.values()
+            if vlan.ip is not None]
+
+    def to_faucet_ip(self, src_ip, dst_ip):
+        faucet_ips = self.faucet_ips()
+        if src_ip in faucet_ips:
+            return False
+        if dst_ip in faucet_ips:
+            return True
+        return False
+
+    def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
         if self.ignore_dpid(dp_id) or self.ignore_port(in_port):
             return []
 
@@ -545,13 +638,29 @@ class OVSStatelessValve(Valve):
         if in_port not in self.dp.ports:
             return []
 
+        eth_pkt = pkt.get_protocol(ethernet.ethernet)
+        eth_src = eth_pkt.src
+        eth_dst = eth_pkt.dst
+
+        # Packet may be for our control plane.
+        if eth_dst == self.FAUCET_MAC or not mac_addr_is_unicast(eth_dst):
+            arp_pkt = pkt.get_protocol(arp.arp)
+            icmp_pkt = pkt.get_protocol(icmp.icmp)
+            ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+            if ((arp_pkt is not None and arp_pkt.opcode == 1 and
+                    self.to_faucet_ip(arp_pkt.src_ip, arp_pkt.dst_ip)) or
+                (icmp_pkt is not None and icmp_pkt.code == 0 and
+                    self.to_faucet_ip(ipv4_pkt.src, ipv4_pkt.dst))):
+                return self.control_plane_handler(
+                    in_port, vlan_vid, eth_src, ipv4_pkt, arp_pkt, icmp_pkt)
+
         if not mac_addr_is_unicast(eth_src):
             self.logger.info(
                 "Packet_in with multicast ethernet source address")
             return []
 
         self.logger.debug("Packet_in dp_id: %x src:%s in_port:%d vid:%s",
-                         dp_id, eth_src, in_port, vlan_vid)
+                          dp_id, eth_src, in_port, vlan_vid)
 
         vlan = self.dp.vlans[vlan_vid]
         ofmsgs = []
