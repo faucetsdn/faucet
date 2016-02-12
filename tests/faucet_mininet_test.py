@@ -120,6 +120,38 @@ vlans:
         super(FaucetUntaggedTest, self).tearDown()
 
 
+class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
+
+    CONFIG = """
+---
+dp_id: 0x1
+name: "untagged-faucet-1"
+hardware: "Allied-Telesis"
+interfaces:
+    1:
+        native_vlan: 100
+        description: "b1"
+    2:
+        native_vlan: 100
+        description: "b2"
+    3:
+        native_vlan: 100
+        description: "b3"
+    4:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+        ip: "10.0.0.254/24"
+"""
+
+    def test_ping_controller(self):
+        ping_result = self.net.hosts[0].cmd('ping -c1 10.0.0.254')
+        self.assertTrue(re.search(
+            '1 packets transmitted, 1 received, 0\% packet loss', ping_result))
+
+
 class FaucetTaggedAndUntaggedTest(FaucetTest):
 
     CONFIG = """
