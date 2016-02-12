@@ -162,6 +162,9 @@ class OVSStatelessValve(Valve):
     def valve_in_match(self, in_port=None, vlan=None,
                        eth_type=None, eth_src=None, eth_dst=None,
                        nw_proto=None, nw_src=None, nw_dst=None):
+        # TODO: clean up use of mixed old/new API
+        if vlan is not None and vlan.vid == ofp.OFPVID_NONE:
+            return parser.OFPMatch(in_port=in_port, vlan_vid=ofp.OFPVID_NONE)
         match_dict = {}
         if in_port is not None:
             match_dict['in_port'] = in_port
@@ -181,7 +184,8 @@ class OVSStatelessValve(Valve):
             match_dict['nw_dst'] = nw_dst
         null_dp = namedtuple("null_dp", "ofproto_parser")
         null_dp.ofproto_parser = parser
-        return ofctl.to_match(null_dp, match_dict)
+        match = ofctl.to_match(null_dp, match_dict)
+        return match
 
     def valve_packetout(self, out_port, data):
         return parser.OFPPacketOut(
@@ -446,9 +450,11 @@ class OVSStatelessValve(Valve):
             self.apply_actions(push_vlan_act),
             self.goto_table(forwarding_table)
         ]
+        null_vlan = namedtuple("null_vlan", "vid")
+        null_vlan.vid = ofp.OFPVID_NONE
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
-            self.valve_in_match(in_port=port.number),
+            self.valve_in_match(in_port=port.number, vlan=null_vlan),
             priority=self.dp.low_priority,
             inst=push_vlan_inst))
         ofmsgs.extend(self.build_flood_rules(vlan))
@@ -475,15 +481,12 @@ class OVSStatelessValve(Valve):
             vlan for vlan in vlans if port in vlan.tagged]
         untagged_vlans_with_port = [
             vlan for vlan in vlans if port in vlan.untagged]
-        # Tagged and untagged VLANs on the same port are not supported
-        if tagged_vlans_with_port:
-            for vlan in tagged_vlans_with_port:
-                ofmsgs.extend(self.port_add_vlan_tagged(
-                    port, vlan, forwarding_table, mirror_act))
-        else:
-            for vlan in untagged_vlans_with_port:
-                ofmsgs.extend(self.port_add_vlan_untagged(
-                    port, vlan, forwarding_table, mirror_act))
+        for vlan in tagged_vlans_with_port:
+            ofmsgs.extend(self.port_add_vlan_tagged(
+                port, vlan, forwarding_table, mirror_act))
+        for vlan in untagged_vlans_with_port:
+            ofmsgs.extend(self.port_add_vlan_untagged(
+                port, vlan, forwarding_table, mirror_act))
         return ofmsgs
 
     def port_add(self, dp_id, port_num):
