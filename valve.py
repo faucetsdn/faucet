@@ -415,6 +415,8 @@ class OVSStatelessValve(Valve):
                 # override in_port always
                 match_dict["in_port"] = port_num
                 # to_match() needs to access parser via dp
+                # this uses the old API, which is oh so convenient
+                # (transparently handling masks for example).
                 null_dp = namedtuple("null_dp", "ofproto_parser")
                 null_dp.ofproto_parser = parser
                 acl_match = ofctl.to_match(null_dp, match_dict)
