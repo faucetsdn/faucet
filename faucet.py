@@ -34,6 +34,7 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
 
+
 class EventFaucetReconfigure(event.EventBase):
     pass
 
