@@ -288,7 +288,9 @@ class OVSStatelessValve(Valve):
             self.goto_table(self.dp.eth_dst_table)
         ]
         return [self.valve_flowmod(
-            self.dp.eth_src_table, priority=self.dp.low_priority, inst=inst)]
+            self.dp.eth_src_table,
+            priority=self.dp.low_priority,
+            inst=inst)]
 
     def add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -441,14 +443,14 @@ class OVSStatelessValve(Valve):
                 nw_proto=0x1,
                 nw_src=ip,
                 nw_dst=host_ip),
-            priority=self.dp.high_priority,
+            priority=self.dp.highest_priority,
             inst=[self.apply_actions(
                 [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_src_table,
             self.valve_in_match(
                 eth_type=ether.ETH_TYPE_ARP, nw_dst=host_ip),
-            priority=self.dp.high_priority,
+            priority=self.dp.highest_priority,
             inst=[self.apply_actions(
                 [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
         return ofmsgs
@@ -642,6 +644,60 @@ class OVSStatelessValve(Valve):
             return True
         return False
 
+    def learn_host_on_vlan_port(self, port, vlan, eth_src):
+        ofmsgs = []
+        in_port = port.number
+
+        # hosts learned on this port never relearned
+        if port.permanent_learn:
+            learn_timeout = 0
+
+            # antispoof this host
+            ofmsgs.append(self.valve_flowdrop(
+                self.dp.eth_src_table,
+                self.valve_in_match(vlan=vlan, eth_src=eth_src),
+                priority=(self.dp.highest_priority-1)))
+        else:
+            learn_timeout = self.dp.timeout
+            ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
+
+        mirror_acts = []
+        if in_port in self.dp.mirror_from_port:
+            mirror_port_num = self.dp.mirror_from_port[in_port]
+            mirror_acts = [parser.OFPActionOutput(mirror_port_num)]
+
+        # Update datapath to no longer send packets from this mac to controller
+        # note the use of hard_timeout here and idle_timeout for the dst table
+        # this is to ensure that the source rules will always be deleted before
+        # any rules on the dst table. Otherwise if the dst table rule expires
+        # but the src table rule is still being hit intermittantly the switch
+        # will flood packets to that dst and not realise it needs to relearn
+        # the rule
+        ofmsgs.append(self.valve_flowmod(
+            self.dp.eth_src_table,
+            self.valve_in_match(in_port=in_port, vlan=vlan, eth_src=eth_src),
+            priority=self.dp.highest_priority,
+            inst=[self.goto_table(self.dp.eth_dst_table)],
+            hard_timeout=learn_timeout))
+
+        # update datapath to output packets to this mac via the associated port
+        if vlan.port_is_tagged(in_port):
+            dst_act = [parser.OFPActionOutput(in_port)]
+        else:
+            dst_act = [
+                parser.OFPActionPopVlan(),
+                parser.OFPActionOutput(in_port)]
+        if mirror_acts:
+            dst_act.extend(mirror_acts)
+        inst = [self.apply_actions(dst_act)]
+        ofmsgs.append(self.valve_flowmod(
+            self.dp.eth_dst_table,
+            self.valve_in_match(vlan=vlan, eth_dst=eth_src),
+            priority=self.dp.high_priority,
+            inst=inst,
+            idle_timeout=learn_timeout))
+        return ofmsgs
+
     def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
         if self.ignore_dpid(dp_id) or self.ignore_port(in_port):
             return []
@@ -677,47 +733,9 @@ class OVSStatelessValve(Valve):
         self.logger.debug("Packet_in dp_id: %x src:%s in_port:%d vid:%s",
                           dp_id, eth_src, in_port, vlan_vid)
 
+        port = self.dp.ports[in_port]
         vlan = self.dp.vlans[vlan_vid]
-        ofmsgs = []
-        ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
-
-        mirror_acts = []
-        if in_port in self.dp.mirror_from_port:
-            mirror_port_num = self.dp.mirror_from_port[in_port]
-            mirror_acts = [parser.OFPActionOutput(mirror_port_num)]
-
-        # Update datapath to no longer send packets from this mac to controller
-        # note the use of hard_timeout here and idle_timeout for the dst table
-        # this is to ensure that the source rules will always be deleted before
-        # any rules on the dst table. Otherwise if the dst table rule expires
-        # but the src table rule is still being hit intermittantly the switch
-        # will flood packets to that dst and not realise it needs to relearn
-        # the rule
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.eth_src_table,
-            self.valve_in_match(in_port=in_port, vlan=vlan, eth_src=eth_src),
-            priority=self.dp.high_priority,
-            inst=[self.goto_table(self.dp.eth_dst_table)],
-            hard_timeout=self.dp.timeout))
-
-        # update datapath to output packets to this mac via the associated port
-        if vlan.port_is_tagged(in_port):
-            dst_act = [parser.OFPActionOutput(in_port)]
-        else:
-            dst_act = [
-                parser.OFPActionPopVlan(),
-                parser.OFPActionOutput(in_port)]
-        if mirror_acts:
-            dst_act.extend(mirror_acts)
-        inst = [self.apply_actions(dst_act)]
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.eth_dst_table,
-            self.valve_in_match(vlan=vlan, eth_dst=eth_src),
-            priority=self.dp.high_priority,
-            inst=inst,
-            idle_timeout=self.dp.timeout))
-
-        return ofmsgs
+        return self.learn_host_on_vlan_port(port, vlan, eth_src)
 
     def reload_config(self, new_dp):
         if not self.dp.running:

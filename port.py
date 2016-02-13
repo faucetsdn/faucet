@@ -24,6 +24,7 @@ class Port:
         self.description = conf.setdefault('description', self.name)
         self.enabled = conf.setdefault('enabled', True)
         self.phys_up = False
+        self.permanent_learn = conf.setdefault('permanent_learn', False)
 
     def running(self):
         return self.enabled and self.phys_up

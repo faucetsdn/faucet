@@ -117,14 +117,60 @@ vlans:
 
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
 
-    def test_hosts_move_ports(self):
-        first_host, second_host = self.net.hosts[0:2]
-        self.assertEqual(0, self.net.pingPair())
+    def swap_host_macs(self, first_host, second_host):
         first_host_mac = first_host.MAC()
         second_host_mac = second_host.MAC()
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
-        self.assertEqual(0, self.net.pingPair())
+        first_host.cmd('arp -d %s' % second_host.IP())
+        second_host.cmd('arp -d %s' % first_host.IP())
+
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[0:2]
+        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        for i in range(3):
+            self.swap_host_macs(first_host, second_host)
+            # TODO: sometimes slow to relearn
+            self.assertTrue(self.net.ping((first_host, second_host)) <= 50)
+
+
+class FaucetUntaggedHostPermanentLearnTest(FaucetUntaggedTest):
+
+    CONFIG = """
+---
+dp_id: 0x1
+name: "untagged-faucet-1"
+hardware: "Allied-Telesis"
+interfaces:
+    1:
+        native_vlan: 100
+        description: "b1"
+        permanent_learn: True
+    2:
+        native_vlan: 100
+        description: "b2"
+    3:
+        native_vlan: 100
+        description: "b3"
+    4:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+"""
+
+    def test_untagged(self):
+        first_host, second_host, third_host = self.net.hosts[0:3]
+        self.assertEqual(0, self.net.pingAll())
+        # 3rd host impersonates 1st, 3rd host breaks but 1st host still OK
+        original_third_host_mac = third_host.MAC()
+        third_host.setMAC(first_host.MAC())
+        self.assertEqual(100.0, self.net.ping((second_host, third_host)))
+        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        # 3rd host stops impersonating, now everything fine again.
+        third_host.setMAC(original_third_host_mac)
+        self.assertEqual(0, self.net.pingAll())
 
 
 class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
