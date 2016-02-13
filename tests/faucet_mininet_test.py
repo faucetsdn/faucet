@@ -1,19 +1,20 @@
 #!/usr/bin/python
 
 import os
-import unittest
 import re
 import shutil
 import tempfile
 import time
+import unittest
+from mininet.log import setLogLevel
+from mininet.net import Mininet
 from mininet.node import Controller
 from mininet.node import Host
 from mininet.topo import Topo
-from mininet.net import Mininet
 from mininet.util import dumpNodeConnections, pmonitor
-from mininet.log import setLogLevel
 
 FAUCET_DIR = '../'
+
 
 class VLANHost(Host):
 
@@ -22,17 +23,11 @@ class VLANHost(Host):
            vlan: VLAN ID for default interface"""
         r = super(Host, self).config(**params)
         intf = self.defaultIntf()
-        # remove IP from default, "physical" interface
         self.cmd('ifconfig %s inet 0' % intf)
-        # create VLAN interface
         self.cmd('vconfig add %s %d' % (intf, vlan))
-        # assign the host's IP to the VLAN interface
         self.cmd('ifconfig %s.%d inet %s' % (intf, vlan, params['ip']))
-        # update the intf name and host's intf map
         newName = '%s.%d' % (intf, vlan)
-        # update the (Mininet) interface to refer to VLAN interface name
         intf.name = newName
-        # add VLAN interface to host's name to intf map
         self.nameToIntf[newName] = intf
         return r
 
@@ -118,6 +113,18 @@ vlans:
     def tearDown(self):
         self.net.stop()
         super(FaucetUntaggedTest, self).tearDown()
+
+
+class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
+
+    def test_hosts_move_ports(self):
+        first_host, second_host = self.net.hosts[0:2]
+        self.assertEqual(0, self.net.pingPair())
+        first_host_mac = first_host.MAC()
+        second_host_mac = second_host.MAC()
+        first_host.setMAC(second_host_mac)
+        second_host.setMAC(first_host_mac)
+        self.assertEqual(0, self.net.pingPair())
 
 
 class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
