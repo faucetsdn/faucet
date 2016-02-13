@@ -642,43 +642,9 @@ class OVSStatelessValve(Valve):
             return True
         return False
 
-    def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
-        if self.ignore_dpid(dp_id) or self.ignore_port(in_port):
-            return []
-
-        if not self.dp.running:
-            self.logger.error("Packet_in on unconfigured datapath")
-            return []
-
-        if in_port not in self.dp.ports:
-            return []
-
-        eth_pkt = pkt.get_protocol(ethernet.ethernet)
-        eth_src = eth_pkt.src
-        eth_dst = eth_pkt.dst
-
-        # Packet may be for our control plane.
-        if eth_dst == self.FAUCET_MAC or not mac_addr_is_unicast(eth_dst):
-            arp_pkt = pkt.get_protocol(arp.arp)
-            icmp_pkt = pkt.get_protocol(icmp.icmp)
-            ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
-            if ((arp_pkt is not None and arp_pkt.opcode == 1 and
-                    self.to_faucet_ip(arp_pkt.src_ip, arp_pkt.dst_ip)) or
-                (icmp_pkt is not None and icmp_pkt.code == 0 and
-                    self.to_faucet_ip(ipv4_pkt.src, ipv4_pkt.dst))):
-                return self.control_plane_handler(
-                    in_port, vlan_vid, eth_src, ipv4_pkt, arp_pkt, icmp_pkt)
-
-        if not mac_addr_is_unicast(eth_src):
-            self.logger.info(
-                "Packet_in with multicast ethernet source address")
-            return []
-
-        self.logger.debug("Packet_in dp_id: %x src:%s in_port:%d vid:%s",
-                          dp_id, eth_src, in_port, vlan_vid)
-
-        vlan = self.dp.vlans[vlan_vid]
+    def learn_host_on_vlan_port(self, in_port, vlan_vid, eth_src):
         ofmsgs = []
+        vlan = self.dp.vlans[vlan_vid]
         ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         mirror_acts = []
@@ -716,8 +682,44 @@ class OVSStatelessValve(Valve):
             priority=self.dp.high_priority,
             inst=inst,
             idle_timeout=self.dp.timeout))
-
         return ofmsgs
+
+    def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
+        if self.ignore_dpid(dp_id) or self.ignore_port(in_port):
+            return []
+
+        if not self.dp.running:
+            self.logger.error("Packet_in on unconfigured datapath")
+            return []
+
+        if in_port not in self.dp.ports:
+            return []
+
+        eth_pkt = pkt.get_protocol(ethernet.ethernet)
+        eth_src = eth_pkt.src
+        eth_dst = eth_pkt.dst
+
+        # Packet may be for our control plane.
+        if eth_dst == self.FAUCET_MAC or not mac_addr_is_unicast(eth_dst):
+            arp_pkt = pkt.get_protocol(arp.arp)
+            icmp_pkt = pkt.get_protocol(icmp.icmp)
+            ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+            if ((arp_pkt is not None and arp_pkt.opcode == 1 and
+                    self.to_faucet_ip(arp_pkt.src_ip, arp_pkt.dst_ip)) or
+                (icmp_pkt is not None and icmp_pkt.code == 0 and
+                    self.to_faucet_ip(ipv4_pkt.src, ipv4_pkt.dst))):
+                return self.control_plane_handler(
+                    in_port, vlan_vid, eth_src, ipv4_pkt, arp_pkt, icmp_pkt)
+
+        if not mac_addr_is_unicast(eth_src):
+            self.logger.info(
+                "Packet_in with multicast ethernet source address")
+            return []
+
+        self.logger.debug("Packet_in dp_id: %x src:%s in_port:%d vid:%s",
+                          dp_id, eth_src, in_port, vlan_vid)
+
+        return self.learn_host_on_vlan_port(in_port, vlan_vid, eth_src)
 
     def reload_config(self, new_dp):
         if not self.dp.running:
