@@ -1,4 +1,4 @@
-:version: 0.28a
+:version: 0.29
 :copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
 
 .. meta::
@@ -34,7 +34,7 @@ Installation
 ============
 You have run this as ``root`` or use ``sudo``
 
-``# pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.28a.tar.gz``
+``# pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.29.tar.gz``
 
 ``# pip show ryu-faucet``
 
@@ -73,15 +73,15 @@ To find the location of ``faucet.py``, run
 
 ``# pip show ryu-faucet`` to get Location path.  Then run:
 
-``# ryu-manager --verbose <Location_Path>/ryu_faucet/org/openflowsdn/faucet/faucet.py``
+``# ryu-manager --verbose <Location_Path>/ryu_faucet/org/onfsdn/faucet/faucet.py``
 
   Alternatively, if OF Controller is using a non-default port of 6633, for example 6653, then:
 
-``# ryu-manager --verbose  --ofp-tcp-listen-port 6653 <Location_Path>/ryu_faucet/org/openflowsdn/faucet/faucet.py``
+``# ryu-manager --verbose  --ofp-tcp-listen-port 6653 <Location_Path>/ryu_faucet/org/onfsdn/faucet/faucet.py``
 
 On MacOS X, for example, one would run this as:
 
-``#  ryu-manager --verbose /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/ryu_faucet/org/openflowsdn/faucet/faucet.py``
+``#  ryu-manager --verbose /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/ryu_faucet/org/onfsdn/faucet/faucet.py``
 
 To specify a different configuration file set the ``FAUCET_CONFIG`` environment variable.
 
@@ -147,5 +147,5 @@ Support
 
 If you have any technical questions, problems or suggestions regarding Faucet please send them to `faucet-dev@OpenflowSDN.Org <mailto:faucet-dev@openflowsdn.org>`.  Mailing list archives are available `here <https://groups.google.com/a/openflowsdn.org/forum/#!forum/faucet-dev>`.
 
-To create a issue, use `Github issues <https://github.com/openflowsdn/faucet/issues>`
+To create a issue, use `Github issues <https://github.com/onfsdn/faucet/issues>`
 
