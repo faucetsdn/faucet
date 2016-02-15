@@ -97,7 +97,8 @@ Testing
 
 Before issuing a Pull-Request
 -----------------------------
-Run the tests to make sure everything works!::
+Run the tests to make sure everything works!
+Mininet test actually spins up virtual hosts and a switch, and a test FAUCET controller, and checks connectivity between all the hosts given a test config.  If you send a patch, this mininet test must pass.::
 
     # git clone https://github.com/onfsdn/faucet
     # cd faucet/tests
@@ -107,6 +108,8 @@ Run the tests to make sure everything works!::
 
 Working with Real Hardware
 --------------------------
+
+If you are a hardware vendor wanting to support FAUCET, you need to support all the matches in src/ryu_faucet/org/onfsdn/faucet/valve.py:valve_in_match().
 
 Faucet has been tested against the following switches:
 (Hint: look at src/ryu_faucet/org/onfsdn/faucet/dp.py to add your switch)
