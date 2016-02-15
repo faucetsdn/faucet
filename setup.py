@@ -1,20 +1,46 @@
-from setuptools import setup, find_packages
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+import os
 from os import path
+from setuptools import setup
 
-here = path.abspath(path.dirname(__file__))
+with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
+    README = readme.read()
 
-setup(
-    name='faucet',
-    version='0.1',
+    # allow setup.py to be run from any path
+    os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__),
+                                           os.pardir)))
 
-    description='Ryu app to perform Layer 2 switching with VLANs.',
-
-    author='Christopher Lorier',
-    author_email='chris.lorier@reannz.co.nz',
-
-    license='Apache License 2.0',
-
-    packages=find_packages(exclude=['tests*']),
-
-    install_requires=['ryu', 'pyyaml'],
-)
+    setup(
+        name='ryu-faucet',
+        version='0.29',
+        packages=['ryu_faucet'],
+        package_dir={'ryu_faucet': 'src/ryu_faucet'},
+        data_files=[('/etc/ryu/faucet', ['src/cfg/etc/ryu/faucet/gauge.conf',
+                                         'src/cfg/etc/ryu/faucet/faucet.yaml'])
+                    ],
+        include_package_data=True,
+        install_requires=['ryu', 'pyyaml'],
+        license='Apache License 2.0',
+        description='Ryu application to perform Layer 2 switching with VLANs.',
+        long_description=README,
+        url='http://onfsdn.github.io/faucet',
+        author='Christopher Lorier',
+        author_email='chris.lorier@reannz.co.nz',
+        maintainer='Shivaram Mysore, ONFSDN.Org',
+        maintainer_email='shivaram.mysore@gmail.com, faucet-dev@OpenflowSDN.Org',
+        classifiers=[
+            'Development Status :: 3 - Alpha',
+            'Environment :: Console',
+            'Framework :: Buildout',
+            'Intended Audience :: Developers',
+            'Intended Audience :: Information Technology',
+            'Intended Audience :: System Administrators',
+            'License :: OSI Approved :: Apache Software License',
+            'Operating System :: OS Independent',
+            'Programming Language :: Python',
+            'Programming Language :: Python :: 3',
+            'Programming Language :: Python :: 3.2',
+            'Programming Language :: Python :: 3.3',
+            'Topic :: System :: Networking',
+        ],)

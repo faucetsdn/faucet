@@ -1,5 +1,5 @@
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
-# Copyright (C) 2015 Research and Eduction Advanced Network New Zealand Ltd.
+# Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
