@@ -13,7 +13,7 @@ from mininet.node import Host
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 
-FAUCET_DIR = '../'
+FAUCET_DIR = '../src/ryu_faucet/org/onfsdn/faucet'
 
 
 class VLANHost(Host):
