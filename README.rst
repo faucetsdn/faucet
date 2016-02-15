@@ -116,8 +116,8 @@ Faucet has been tested against the following switches:
 
     1. Open vSwitch v2.1+ - Open Source available at http://www.OpenVSwitch.Org
     2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
-    3. Allied Telesis x510
-    4. NoviFlow   
+    3. Allied Telesis x510 and x930 series
+    4. NoviFlow 1248
 
 
 On the Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.
@@ -131,9 +131,6 @@ Allied Telesis
 
  `Allied Telesis <http://www.alliedtelesis.com/sdn` sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`.  To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`
 
-Pica8
------
- `Pica8 <http://www.pica8.com/products/pre-loaded-switches>` provides white box network switches which work with Ryu/Faucet controller.  To order Pica8 switches, please refer to `buy page <http://www.pica8.com/partners/where-to-buy>`
 
 NoviFlow
 --------
