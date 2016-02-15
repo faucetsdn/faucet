@@ -118,7 +118,7 @@ Faucet has been tested against the following switches:
     2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
     3. Allied Telesis x510
     4. NoviFlow   
-    5. Pica8
+
 
 On the Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.
 
