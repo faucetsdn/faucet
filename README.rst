@@ -97,14 +97,13 @@ Testing
 
 Before issuing a Pull-Request
 -----------------------------
-Run the tests to make sure everything works!
-``bash
-# git clone https://github.com/onfsdn/faucet
-# cd faucet/tests
-(As namespace, etc needs to be setup, run the next command as root)
-# sudo ./faucet_mininet_test.py
-# ./test_config.py
-```
+Run the tests to make sure everything works!::
+
+    # git clone https://github.com/onfsdn/faucet
+    # cd faucet/tests
+    (As namespace, etc needs to be setup, run the next command as root)
+    # sudo ./faucet_mininet_test.py
+    # ./test_config.py
 
 Working with Real Hardware
 --------------------------
