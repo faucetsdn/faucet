@@ -109,11 +109,13 @@ Working with Real Hardware
 --------------------------
 
 Faucet has been tested against the following switches:
+(Hint: look at src/ryu_faucet/org/onfsdn/faucet/dp.py to add your switch)
 
     1. Open vSwitch v2.1+ - Open Source available at http://www.OpenVSwitch.Org
     2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
     3. Allied Telesis x510
-    4. Pica8
+    4. NoviFlow   
+    5. Pica8
 
 On the Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.
 
@@ -130,6 +132,9 @@ Pica8
 -----
  `Pica8 <http://www.pica8.com/products/pre-loaded-switches>` provides white box network switches which work with Ryu/Faucet controller.  To order Pica8 switches, please refer to `buy page <http://www.pica8.com/partners/where-to-buy>`
 
+NoviFlow
+--------
+`NoviFlow <http://noviflow.com/>`
 
 Running with another controller
 -------------------------------
