@@ -17,4 +17,4 @@ install:
   - sudo python setup.py install
 # # command to run tests
 script:
-  - "make sdist uml codeerrors"
+  - "sudo make sdist uml codeerrors"
