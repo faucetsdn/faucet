@@ -10,7 +10,7 @@ python:
 # sudo: required
 # command to install dependencies
 install:
-  - "sudo pip install ryu pyyaml"
+  - "sudo pip install ryu pyyaml pyreverse"
 #  - "pip install -r requirements.txt"
 #
 # install our package into the environment
