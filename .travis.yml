@@ -18,4 +18,4 @@ install:
 # # command to run tests
 # removed uml from make target as python package pyreverse was not found
 script:
-  - "sudo make sdist codeerrors"
+  - "sudo make sdist"
