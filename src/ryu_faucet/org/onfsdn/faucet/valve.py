@@ -349,20 +349,23 @@ class OVSStatelessValve(Valve):
 
         return ofmsgs
 
-    def build_flood_ports_for_vlan(self, vlan_ports):
+    def build_flood_ports_for_vlan(self, vlan_ports, eth_dst):
         ports = []
         for port in vlan_ports:
             if not port.running():
                 continue
+            if eth_dst is None or mac_addr_is_unicast(eth_dst):
+                if not port.unicast_flood:
+                    continue
             ports.append(port)
         return ports
 
-    def build_flood_rule_actions(self, vlan):
+    def build_flood_rule_actions(self, vlan, eth_dst):
         flood_acts = []
-        tagged_ports = self.build_flood_ports_for_vlan(vlan.tagged)
+        tagged_ports = self.build_flood_ports_for_vlan(vlan.tagged, eth_dst)
         for port in tagged_ports:
             flood_acts.append(parser.OFPActionOutput(port.number))
-        untagged_ports = self.build_flood_ports_for_vlan(vlan.untagged)
+        untagged_ports = self.build_flood_ports_for_vlan(vlan.untagged, eth_dst)
         if untagged_ports:
             flood_acts.append(parser.OFPActionPopVlan())
             for port in untagged_ports:
@@ -375,16 +378,18 @@ class OVSStatelessValve(Valve):
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
         flood_priority = self.dp.low_priority
-        flood_acts = self.build_flood_rule_actions(vlan)
-        flood_eth_dst_matches = (
-            (None, None), # TODO: make unicast flooding configurable.
+        flood_eth_dst_matches = []
+        if vlan.unicast_flood:
+            flood_eth_dst_matches.extend([(None, None)])
+        flood_eth_dst_matches.extend([
             ('01:80:C2:00:00:00', '01:80:C2:00:00:00'), # 802.x
             ('01:00:5E:00:00:00', 'ff:ff:ff:00:00:00'), # IPv4 multicast
             ('33:33:00:00:00:00', 'ff:ff:00:00:00:00'), # IPv6 multicast
             (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
-        )
+        ])
         ofmsgs = []
         for eth_dst, eth_dst_mask in flood_eth_dst_matches:
+            flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
             ofmsgs.append(self.valve_flowmod(
                 self.dp.flood_table,
                 match=self.valve_in_match(
@@ -398,6 +403,7 @@ class OVSStatelessValve(Valve):
                 mirror_port = self.dp.mirror_from_port[port.number]
                 mirror_acts = [parser.OFPActionOutput(mirror_port)] + flood_acts
                 for eth_dst, eth_dst_mask in flood_eth_dst_matches:
+                    flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
                     ofmsgs.append(self.valve_flowmod(
                         self.dp.flood_table,
                         match=self.valve_in_match(

@@ -25,6 +25,7 @@ class Port:
         self.enabled = conf.setdefault('enabled', True)
         self.phys_up = False
         self.permanent_learn = conf.setdefault('permanent_learn', False)
+        self.unicast_flood = conf.setdefault('unicast_flood', True)
 
     def running(self):
         return self.enabled and self.phys_up
