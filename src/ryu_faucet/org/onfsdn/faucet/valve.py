@@ -283,6 +283,12 @@ class OVSStatelessValve(Valve):
             self.valve_in_match(eth_type=ether.ETH_TYPE_LLDP),
             priority=self.dp.highest_priority))
 
+        # drop broadcast sources
+        ofmsgs.append(self.valve_flowdrop(
+            self.dp.vlan_table,
+            self.valve_in_match(eth_src=mac.BROADCAST_STR),
+            priority=self.dp.highest_priority))
+
         return ofmsgs
 
     def add_vlan_flood_flow(self):
