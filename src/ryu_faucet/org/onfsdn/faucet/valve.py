@@ -339,18 +339,24 @@ class OVSStatelessValve(Valve):
 
         return ofmsgs
 
+    def build_flood_ports_for_vlan(self, vlan_ports):
+        ports = []
+        for port in vlan_ports:
+            if not port.running():
+                continue
+            ports.append(port)
+        return ports
+
     def build_flood_rule_actions(self, vlan):
         flood_acts = []
-        if vlan.tagged:
-            ports = [port for port in vlan.tagged if port.running()]
-            for port in ports:
+        tagged_ports = self.build_flood_ports_for_vlan(vlan.tagged)
+        for port in tagged_ports:
+            flood_acts.append(parser.OFPActionOutput(port.number))
+        untagged_ports = self.build_flood_ports_for_vlan(vlan.untagged)
+        if untagged_ports:
+            flood_acts.append(parser.OFPActionPopVlan())
+            for port in untagged_ports:
                 flood_acts.append(parser.OFPActionOutput(port.number))
-        if vlan.untagged:
-            ports = [port for port in vlan.untagged if port.running()]
-            if ports:
-                flood_acts.append(parser.OFPActionPopVlan())
-                for port in ports:
-                    flood_acts.append(parser.OFPActionOutput(port.number))
         return flood_acts
 
     def build_flood_rules(self, vlan, modify=False):
@@ -445,7 +451,7 @@ class OVSStatelessValve(Valve):
                     acl_match,
                     priority=acl_rule_priority,
                     inst=acl_inst))
-                acl_rule_priority = acl_rule_priority - 1
+                acl_rule_priority -= 1
         return ofmsgs, forwarding_table
 
     def add_controller_ip(self, ip):
