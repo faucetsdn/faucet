@@ -238,6 +238,14 @@ class OVSStatelessValve(Valve):
             priority=priority,
             inst=[])
 
+    def valve_flowcontroller(self, table_id, match=None, priority=None, inst=[]):
+        return self.valve_flowmod(
+            table_id,
+            match=match,
+            priority=priority,
+            inst=[self.apply_actions([parser.OFPActionOutput(
+                ofp.OFPP_CONTROLLER, max_len=256)])] + inst)
+
     def delete_all_valve_flows(self):
         """Delete all flows from Valve's tables."""
         ofmsgs = []
@@ -284,14 +292,10 @@ class OVSStatelessValve(Valve):
 
     def add_controller_learn_flow(self):
         """Add a flow to allow the controller to learn and add flows for destinations."""
-        inst = [
-            self.apply_actions([parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]),
-            self.goto_table(self.dp.eth_dst_table)
-        ]
-        return [self.valve_flowmod(
+        return [self.valve_flowcontroller(
             self.dp.eth_src_table,
             priority=self.dp.low_priority,
-            inst=inst)]
+            inst=[self.goto_table(self.dp.eth_dst_table)])]
 
     def add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -436,7 +440,7 @@ class OVSStatelessValve(Valve):
         # TODO: add IPv6
         host_ip = ipaddr.IPv4Network(
             '/'.join([str(ip.ip), str(ip.max_prefixlen)]))
-        ofmsgs.append(self.valve_flowmod(
+        ofmsgs.append(self.valve_flowcontroller(
             self.dp.eth_src_table,
             self.valve_in_match(
                 eth_type=ether.ETH_TYPE_IP,
@@ -444,16 +448,12 @@ class OVSStatelessValve(Valve):
                 nw_proto=0x1,
                 nw_src=ip,
                 nw_dst=host_ip),
-            priority=self.dp.highest_priority,
-            inst=[self.apply_actions(
-                [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
-        ofmsgs.append(self.valve_flowmod(
+            priority=self.dp.highest_priority))
+        ofmsgs.append(self.valve_flowcontroller(
             self.dp.eth_src_table,
             self.valve_in_match(
                 eth_type=ether.ETH_TYPE_ARP, nw_dst=host_ip),
-            priority=self.dp.highest_priority,
-            inst=[self.apply_actions(
-                [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
+            priority=self.dp.highest_priority))
         return ofmsgs
 
     def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
