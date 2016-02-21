@@ -22,6 +22,7 @@ from collections import namedtuple
 from util import mac_addr_is_unicast
 
 from ryu.lib import ofctl_v1_3 as ofctl
+from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, ipv4, packet
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -356,23 +357,32 @@ class OVSStatelessValve(Valve):
             command = ofp.OFPFC_MODIFY_STRICT
         flood_priority = self.dp.low_priority
         flood_acts = self.build_flood_rule_actions(vlan)
+        flood_eth_dst_matches = (
+            None, # TODO: make unicast flooding configurable.
+            mac.BROADCAST_STR, # flood on ethernet broadcasts
+        )
         ofmsgs = []
+        for eth_dst in flood_eth_dst_matches:
+            ofmsgs.append(self.valve_flowmod(
+                self.dp.flood_table,
+                match=self.valve_in_match(vlan=vlan, eth_dst=eth_dst),
+                command=command,
+                inst=[self.apply_actions(flood_acts)],
+                priority=flood_priority))
+            flood_priority += 1
         for port in vlan.tagged + vlan.untagged:
             if port.number in self.dp.mirror_from_port:
                 mirror_port = self.dp.mirror_from_port[port.number]
                 mirror_acts = [parser.OFPActionOutput(mirror_port)] + flood_acts
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.flood_table,
-                    match=self.valve_in_match(in_port=port.number, vlan=vlan),
-                    command=command,
-                    inst=[self.apply_actions(mirror_acts)],
-                    priority=flood_priority+1))
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.flood_table,
-            match=self.valve_in_match(vlan=vlan),
-            command=command,
-            inst=[self.apply_actions(flood_acts)],
-            priority=flood_priority))
+                for eth_dst in flood_eth_dst_matches:
+                    ofmsgs.append(self.valve_flowmod(
+                        self.dp.flood_table,
+                        match=self.valve_in_match(
+                            in_port=port.number, vlan=vlan, eth_dst=eth_dst),
+                        command=command,
+                        inst=[self.apply_actions(mirror_acts)],
+                        priority=flood_priority))
+                    flood_priority += 1
         return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_port_nums):
