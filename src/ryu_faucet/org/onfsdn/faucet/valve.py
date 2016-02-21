@@ -162,7 +162,8 @@ class OVSStatelessValve(Valve):
         return parser.OFPInstructionGotoTable(table_id)
 
     def valve_in_match(self, in_port=None, vlan=None,
-                       eth_type=None, eth_src=None, eth_dst=None,
+                       eth_type=None, eth_src=None,
+                       eth_dst=None, eth_dst_mask=None,
                        nw_proto=None, nw_src=None, nw_dst=None):
         match_dict = {}
         if in_port is not None:
@@ -175,7 +176,10 @@ class OVSStatelessValve(Valve):
         if eth_src is not None:
             match_dict['eth_src'] = eth_src
         if eth_dst is not None:
-            match_dict['eth_dst'] = eth_dst
+            if eth_dst_mask is not None:
+                match_dict['eth_dst'] = (eth_dst, eth_dst_mask)
+            else:
+                match_dict['eth_dst'] = eth_dst
         if nw_proto is not None:
             match_dict['ip_proto'] = nw_proto
         if nw_src is not None:
@@ -373,14 +377,18 @@ class OVSStatelessValve(Valve):
         flood_priority = self.dp.low_priority
         flood_acts = self.build_flood_rule_actions(vlan)
         flood_eth_dst_matches = (
-            None, # TODO: make unicast flooding configurable.
-            mac.BROADCAST_STR, # flood on ethernet broadcasts
+            (None, None), # TODO: make unicast flooding configurable.
+            ('01:80:C2:00:00:00', '01:80:C2:00:00:00'), # 802.x
+            ('01:00:5E:00:00:00', 'ff:ff:ff:00:00:00'), # IPv4 multicast
+            ('33:33:00:00:00:00', 'ff:ff:00:00:00:00'), # IPv6 multicast
+            (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
         )
         ofmsgs = []
-        for eth_dst in flood_eth_dst_matches:
+        for eth_dst, eth_dst_mask in flood_eth_dst_matches:
             ofmsgs.append(self.valve_flowmod(
                 self.dp.flood_table,
-                match=self.valve_in_match(vlan=vlan, eth_dst=eth_dst),
+                match=self.valve_in_match(
+                    vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
                 command=command,
                 inst=[self.apply_actions(flood_acts)],
                 priority=flood_priority))
@@ -389,11 +397,12 @@ class OVSStatelessValve(Valve):
             if port.number in self.dp.mirror_from_port:
                 mirror_port = self.dp.mirror_from_port[port.number]
                 mirror_acts = [parser.OFPActionOutput(mirror_port)] + flood_acts
-                for eth_dst in flood_eth_dst_matches:
+                for eth_dst, eth_dst_mask in flood_eth_dst_matches:
                     ofmsgs.append(self.valve_flowmod(
                         self.dp.flood_table,
                         match=self.valve_in_match(
-                            in_port=port.number, vlan=vlan, eth_dst=eth_dst),
+                            in_port=port.number, vlan=vlan,
+                            eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
                         command=command,
                         inst=[self.apply_actions(mirror_acts)],
                         priority=flood_priority))
