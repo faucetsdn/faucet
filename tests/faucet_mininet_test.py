@@ -115,6 +115,36 @@ vlans:
         super(FaucetUntaggedTest, self).tearDown()
 
 
+class FaucetUntaggedNoVLanUnicaseFloodTest(FaucetUntaggedTest):
+
+    CONFIG = """
+---
+dp_id: 0x1
+name: "untagged-faucet-1"
+hardware: "Allied-Telesis"
+interfaces:
+    1:
+        native_vlan: 100
+        description: "b1"
+    2:
+        native_vlan: 100
+        description: "b2"
+    3:
+        native_vlan: 100
+        description: "b3"
+    4:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+"""
+
+    def test_untagged(self):
+        self.assertEquals(0, self.net.pingAll())
+
+
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
 
     def swap_host_macs(self, first_host, second_host):
