@@ -261,7 +261,7 @@ class OVSStatelessValve(Valve):
         # default drop on all tables
         for table in self.all_valve_tables():
             ofmsgs.append(self.valve_flowdrop(
-                self.dp.vlan_table,
+                table,
                 priority=self.dp.lowest_priority))
 
         # antispoof for FAUCET's MAC address
@@ -289,6 +289,7 @@ class OVSStatelessValve(Valve):
         """Add a flow to flood packets for unknown destinations."""
         return [self.valve_flowmod(
             self.dp.eth_dst_table,
+            priority=self.dp.low_priority,
             inst=[self.goto_table(self.dp.flood_table)])]
 
     def add_controller_learn_flow(self):
@@ -340,13 +341,15 @@ class OVSStatelessValve(Valve):
 
     def build_flood_rule_actions(self, vlan):
         flood_acts = []
-        for port in vlan.tagged:
-            if port.running():
+        if vlan.tagged:
+            ports = [port for port in vlan.tagged if port.running()]
+            for port in ports:
                 flood_acts.append(parser.OFPActionOutput(port.number))
         if vlan.untagged:
-            flood_acts.append(parser.OFPActionPopVlan())
-            for port in vlan.untagged:
-                if port.running():
+            ports = [port for port in vlan.untagged if port.running()]
+            if ports:
+                flood_acts.append(parser.OFPActionPopVlan())
+                for port in ports:
                     flood_acts.append(parser.OFPActionOutput(port.number))
         return flood_acts
 
