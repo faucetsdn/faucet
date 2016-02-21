@@ -32,6 +32,7 @@ class VLAN:
         self.ip = conf.setdefault('ip', None)
         if self.ip is not None:
             self.ip = ipaddr.IPv4Network(self.ip)
+        self.unicast_flood = conf.setdefault('unicast_flood', True)
 
     def __str__(self):
         ports = ",".join(map(str, self.get_ports()))

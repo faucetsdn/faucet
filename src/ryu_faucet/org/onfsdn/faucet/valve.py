@@ -22,6 +22,7 @@ from collections import namedtuple
 from util import mac_addr_is_unicast
 
 from ryu.lib import ofctl_v1_3 as ofctl
+from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, ipv4, packet
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -161,7 +162,8 @@ class OVSStatelessValve(Valve):
         return parser.OFPInstructionGotoTable(table_id)
 
     def valve_in_match(self, in_port=None, vlan=None,
-                       eth_type=None, eth_src=None, eth_dst=None,
+                       eth_type=None, eth_src=None,
+                       eth_dst=None, eth_dst_mask=None,
                        nw_proto=None, nw_src=None, nw_dst=None):
         match_dict = {}
         if in_port is not None:
@@ -174,7 +176,10 @@ class OVSStatelessValve(Valve):
         if eth_src is not None:
             match_dict['eth_src'] = eth_src
         if eth_dst is not None:
-            match_dict['eth_dst'] = eth_dst
+            if eth_dst_mask is not None:
+                match_dict['eth_dst'] = (eth_dst, eth_dst_mask)
+            else:
+                match_dict['eth_dst'] = eth_dst
         if nw_proto is not None:
             match_dict['ip_proto'] = nw_proto
         if nw_src is not None:
@@ -238,6 +243,14 @@ class OVSStatelessValve(Valve):
             priority=priority,
             inst=[])
 
+    def valve_flowcontroller(self, table_id, match=None, priority=None, inst=[]):
+        return self.valve_flowmod(
+            table_id,
+            match=match,
+            priority=priority,
+            inst=[self.apply_actions([parser.OFPActionOutput(
+                ofp.OFPP_CONTROLLER, max_len=256)])] + inst)
+
     def delete_all_valve_flows(self):
         """Delete all flows from Valve's tables."""
         ofmsgs = []
@@ -249,10 +262,11 @@ class OVSStatelessValve(Valve):
         """Add default drop rules."""
         ofmsgs = []
 
-        # default drop on table 0.
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            priority=self.dp.lowest_priority))
+        # default drop on all tables
+        for table in self.all_valve_tables():
+            ofmsgs.append(self.valve_flowdrop(
+                table,
+                priority=self.dp.lowest_priority))
 
         # antispoof for FAUCET's MAC address
         ofmsgs.append(self.valve_flowdrop(
@@ -273,24 +287,27 @@ class OVSStatelessValve(Valve):
             self.valve_in_match(eth_type=ether.ETH_TYPE_LLDP),
             priority=self.dp.highest_priority))
 
+        # drop broadcast sources
+        ofmsgs.append(self.valve_flowdrop(
+            self.dp.vlan_table,
+            self.valve_in_match(eth_src=mac.BROADCAST_STR),
+            priority=self.dp.highest_priority))
+
         return ofmsgs
 
     def add_vlan_flood_flow(self):
         """Add a flow to flood packets for unknown destinations."""
         return [self.valve_flowmod(
             self.dp.eth_dst_table,
+            priority=self.dp.low_priority,
             inst=[self.goto_table(self.dp.flood_table)])]
 
     def add_controller_learn_flow(self):
         """Add a flow to allow the controller to learn and add flows for destinations."""
-        inst = [
-            self.apply_actions([parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]),
-            self.goto_table(self.dp.eth_dst_table)
-        ]
-        return [self.valve_flowmod(
+        return [self.valve_flowcontroller(
             self.dp.eth_src_table,
             priority=self.dp.low_priority,
-            inst=inst)]
+            inst=[self.goto_table(self.dp.eth_dst_table)])]
 
     def add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -332,16 +349,27 @@ class OVSStatelessValve(Valve):
 
         return ofmsgs
 
-    def build_flood_rule_actions(self, vlan):
+    def build_flood_ports_for_vlan(self, vlan_ports, eth_dst):
+        ports = []
+        for port in vlan_ports:
+            if not port.running():
+                continue
+            if eth_dst is None or mac_addr_is_unicast(eth_dst):
+                if not port.unicast_flood:
+                    continue
+            ports.append(port)
+        return ports
+
+    def build_flood_rule_actions(self, vlan, eth_dst):
         flood_acts = []
-        for port in vlan.tagged:
-            if port.running():
-                flood_acts.append(parser.OFPActionOutput(port.number))
-        if vlan.untagged:
+        tagged_ports = self.build_flood_ports_for_vlan(vlan.tagged, eth_dst)
+        for port in tagged_ports:
+            flood_acts.append(parser.OFPActionOutput(port.number))
+        untagged_ports = self.build_flood_ports_for_vlan(vlan.untagged, eth_dst)
+        if untagged_ports:
             flood_acts.append(parser.OFPActionPopVlan())
-            for port in vlan.untagged:
-                if port.running():
-                    flood_acts.append(parser.OFPActionOutput(port.number))
+            for port in untagged_ports:
+                flood_acts.append(parser.OFPActionOutput(port.number))
         return flood_acts
 
     def build_flood_rules(self, vlan, modify=False):
@@ -350,24 +378,41 @@ class OVSStatelessValve(Valve):
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
         flood_priority = self.dp.low_priority
-        flood_acts = self.build_flood_rule_actions(vlan)
+        flood_eth_dst_matches = []
+        if vlan.unicast_flood:
+            flood_eth_dst_matches.extend([(None, None)])
+        flood_eth_dst_matches.extend([
+            ('01:80:C2:00:00:00', '01:80:C2:00:00:00'), # 802.x
+            ('01:00:5E:00:00:00', 'ff:ff:ff:00:00:00'), # IPv4 multicast
+            ('33:33:00:00:00:00', 'ff:ff:00:00:00:00'), # IPv6 multicast
+            (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
+        ])
         ofmsgs = []
+        for eth_dst, eth_dst_mask in flood_eth_dst_matches:
+            flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
+            ofmsgs.append(self.valve_flowmod(
+                self.dp.flood_table,
+                match=self.valve_in_match(
+                    vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
+                command=command,
+                inst=[self.apply_actions(flood_acts)],
+                priority=flood_priority))
+            flood_priority += 1
         for port in vlan.tagged + vlan.untagged:
             if port.number in self.dp.mirror_from_port:
                 mirror_port = self.dp.mirror_from_port[port.number]
                 mirror_acts = [parser.OFPActionOutput(mirror_port)] + flood_acts
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.flood_table,
-                    match=self.valve_in_match(in_port=port.number, vlan=vlan),
-                    command=command,
-                    inst=[self.apply_actions(mirror_acts)],
-                    priority=flood_priority+1))
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.flood_table,
-            match=self.valve_in_match(vlan=vlan),
-            command=command,
-            inst=[self.apply_actions(flood_acts)],
-            priority=flood_priority))
+                for eth_dst, eth_dst_mask in flood_eth_dst_matches:
+                    flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
+                    ofmsgs.append(self.valve_flowmod(
+                        self.dp.flood_table,
+                        match=self.valve_in_match(
+                            in_port=port.number, vlan=vlan,
+                            eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
+                        command=command,
+                        inst=[self.apply_actions(mirror_acts)],
+                        priority=flood_priority))
+                    flood_priority += 1
         return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_port_nums):
@@ -427,7 +472,7 @@ class OVSStatelessValve(Valve):
                     acl_match,
                     priority=acl_rule_priority,
                     inst=acl_inst))
-                acl_rule_priority = acl_rule_priority - 1
+                acl_rule_priority -= 1
         return ofmsgs, forwarding_table
 
     def add_controller_ip(self, ip):
@@ -435,7 +480,7 @@ class OVSStatelessValve(Valve):
         # TODO: add IPv6
         host_ip = ipaddr.IPv4Network(
             '/'.join([str(ip.ip), str(ip.max_prefixlen)]))
-        ofmsgs.append(self.valve_flowmod(
+        ofmsgs.append(self.valve_flowcontroller(
             self.dp.eth_src_table,
             self.valve_in_match(
                 eth_type=ether.ETH_TYPE_IP,
@@ -443,16 +488,12 @@ class OVSStatelessValve(Valve):
                 nw_proto=0x1,
                 nw_src=ip,
                 nw_dst=host_ip),
-            priority=self.dp.highest_priority,
-            inst=[self.apply_actions(
-                [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
-        ofmsgs.append(self.valve_flowmod(
+            priority=self.dp.highest_priority))
+        ofmsgs.append(self.valve_flowcontroller(
             self.dp.eth_src_table,
             self.valve_in_match(
                 eth_type=ether.ETH_TYPE_ARP, nw_dst=host_ip),
-            priority=self.dp.highest_priority,
-            inst=[self.apply_actions(
-                [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)])]))
+            priority=self.dp.highest_priority))
         return ofmsgs
 
     def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
