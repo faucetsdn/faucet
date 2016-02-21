@@ -249,10 +249,11 @@ class OVSStatelessValve(Valve):
         """Add default drop rules."""
         ofmsgs = []
 
-        # default drop on table 0.
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            priority=self.dp.lowest_priority))
+        # default drop on all tables
+        for table in self.all_valve_tables():
+            ofmsgs.append(self.valve_flowdrop(
+                self.dp.vlan_table,
+                priority=self.dp.lowest_priority))
 
         # antispoof for FAUCET's MAC address
         ofmsgs.append(self.valve_flowdrop(
