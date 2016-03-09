@@ -33,6 +33,15 @@ class VLAN:
         if self.ip is not None:
             self.ip = ipaddr.IPv4Network(self.ip)
         self.unicast_flood = conf.setdefault('unicast_flood', True)
+        self.routes = conf.setdefault('routes', {})
+        if self.routes:
+           routes = [route['route'] for route in self.routes]
+           self.routes = {}
+           for route in routes:
+               ip_gw = ipaddr.IPv4Address(route['ip_gw'])
+               ip_dst = ipaddr.IPv4Network(route['ip_dst'])
+               self.routes[ip_dst] = ip_gw
+        self.arp_cache = {}
 
     def __str__(self):
         ports = ",".join(map(str, self.get_ports()))
