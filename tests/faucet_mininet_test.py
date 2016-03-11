@@ -327,17 +327,20 @@ acls:
         first_host = self.net.hosts[0]
         second_host = self.net.hosts[1]
         second_host.sendCmd('echo hello | nc -l 5001')
+        second_host.waiting = False
         self.assertEquals('',
             first_host.cmd('nc -w 3 %s 5001' % second_host.IP()))
+        second_host.sendInt()
 
     def test_port5002_unblocked(self):
         self.assertEquals(0, self.net.pingAll())
         first_host = self.net.hosts[0]
         second_host = self.net.hosts[1]
         second_host.sendCmd('echo hello | nc -l 5002')
+        second_host.waiting = False
         self.assertEquals('hello\r\n',
             first_host.cmd('nc -w 3 %s 5002' % second_host.IP()))
-
+        second_host.sendInt()
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 
