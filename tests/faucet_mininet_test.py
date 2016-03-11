@@ -430,6 +430,7 @@ vlans:
     def tearDown(self):
         self.net.stop()
         super(FaucetTaggedTest, self).tearDown()
+        time.sleep(1)
 
 
 if __name__ == '__main__':
