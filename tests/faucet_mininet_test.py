@@ -283,6 +283,7 @@ vlans:
     def tearDown(self):
         self.net.stop()
         super(FaucetTaggedAndUntaggedTest, self).tearDown()
+        time.sleep(1)
 
 
 class FaucetUntaggedACLTest(FaucetUntaggedTest):
