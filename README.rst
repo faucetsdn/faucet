@@ -8,7 +8,7 @@
 Faucet
 ======
 
-Faucet is an Openflow controller for a layer 2 switch based on OpenvApour's Valve. It handles MAC learning and supports VLANs.  It is developed as an application for the `Ryu Open Flow Controller <http://osrg.github.io/ryu/>`_
+Faucet is an Openflow controller for a layer 2 switch based on OpenvApour's Valve. It handles MAC learning and supports VLANs and ACLs.  It is developed as an application for the `Ryu Open Flow Controller <http://osrg.github.io/ryu/>`_
 .
 
 It supports:
@@ -118,18 +118,19 @@ Faucet has been tested against the following switches:
     2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
     3. Allied Telesis x510 and x930 series
     4. NoviFlow 1248
-
-
-On the Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.
+    
+Faucet's design principle is to be as hardware agnostic as possible and not require TTPs. That means that Faucet excepts the hardware OFA to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet excepts the OFA to leverage the right hardware transparently. 
 
 ================================================
-Buying Commerical Switches supporting ryu-faucet
+Buying and running commerical switches supporting ryu-faucet
 ================================================
 
 Allied Telesis
 --------------
 
  `Allied Telesis <http://www.alliedtelesis.com/sdn` sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`.  To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`
+ 
+* On Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.
 
 
 NoviFlow
