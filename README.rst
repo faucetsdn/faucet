@@ -8,7 +8,7 @@
 Faucet
 ======
 
-Faucet is an Openflow controller for a layer 2 switch based on OpenvApour's Valve. It handles MAC learning and supports VLANs.  It is developed as an application for the `Ryu Open Flow Controller <http://osrg.github.io/ryu/>`_
+Faucet is an Openflow controller for a layer 2 switch based on OpenvApour's Valve. It handles MAC learning and supports VLANs and ACLs.  It is developed as an application for the `Ryu Open Flow Controller <http://osrg.github.io/ryu/>`_
 .
 
 It supports:
@@ -48,6 +48,42 @@ To Uninstall the package
 Deployment
 ==========
 .. image:: src/docs/faucet_deployment.png
+
+=================
+OpenFlow Pipeline
+=================
+
+::
+
+    PACKETS IN       +------------------------+  +-------------------------+
+      |              |                        |  |                         |
+      |              |                        V  |                         V
+      |       +------+--+   +---------+   +----------+   +---------+   +---------+
+      |       |0:VLAN   |   |1:ACL    |   |2:ETH_SRC |   |3:ETH_DST|   |4:FLOOD  |
+      +------>|         +-->|         +-->+          +-->+         |-->+         |
+              |         |   |         |   |          |   |         |   |         |
+              |         |   |         |   |          |   |         |   |         |
+              |         |   |         |   |          |   |         |   |         |
+              |         |   |         |   |          |   |         |   |         |
+              |         |   |         |   |          |   |         |   |         |
+              |         |   |         |   |          |   |         |   |         |
+              |         |   |         |   |          |   |         |   |         |
+              +---------+   +---------+   +-----+----+   +---+-----+   +----+----+
+                                                |            |              |
+                                                |            |              |
+                                                V            |              V 
+                                          +----------+       +------->PACKETS OUT
+                                          |CONTROL   |
+                                          |PLANE     |
+                                          |          |
+                                          |          |
+                                          |          |
+                                          |          |
+                                          |          |
+                                          |          |
+                                          |          |
+                                          +----------+
+
 
 =======
 Running
@@ -95,28 +131,47 @@ To tell Faucet to reload its configuration file after you've changed it, simply 
 Testing
 =======
 
+Before issuing a Pull-Request
+-----------------------------
+Run the tests to make sure everything works!
+Mininet test actually spins up virtual hosts and a switch, and a test FAUCET controller, and checks connectivity between all the hosts given a test config.  If you send a patch, this mininet test must pass.::
+
+    # git clone https://github.com/onfsdn/faucet
+    # cd faucet/tests
+    (As namespace, etc needs to be setup, run the next command as root)
+    # sudo ./faucet_mininet_test.py
+    # ./test_config.py
+
+Working with Real Hardware
+--------------------------
+
+If you are a hardware vendor wanting to support FAUCET, you need to support all the matches in src/ryu_faucet/org/onfsdn/faucet/valve.py:valve_in_match().
+
 Faucet has been tested against the following switches:
+(Hint: look at src/ryu_faucet/org/onfsdn/faucet/dp.py to add your switch)
 
     1. Open vSwitch v2.1+ - Open Source available at http://www.OpenVSwitch.Org
     2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
-    3. Allied Telesis x510
-    4. Pica8
-
-On the Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.
+    3. Allied Telesis x510 and x930 series
+    4. NoviFlow 1248
+    
+Faucet's design principle is to be as hardware agnostic as possible and not require TTPs. That means that Faucet excepts the hardware OFA to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet excepts the OFA to leverage the right hardware transparently. 
 
 ================================================
-Buying Commerical Switches supporting ryu-faucet
+Buying and running commerical switches supporting ryu-faucet
 ================================================
 
 Allied Telesis
 --------------
 
  `Allied Telesis <http://www.alliedtelesis.com/sdn` sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`.  To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`
+ 
+* On Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.
 
-Pica8
------
- `Pica8 <http://www.pica8.com/products/pre-loaded-switches>` provides white box network switches which work with Ryu/Faucet controller.  To order Pica8 switches, please refer to `buy page <http://www.pica8.com/partners/where-to-buy>`
 
+NoviFlow
+--------
+`NoviFlow <http://noviflow.com/>`
 
 Running with another controller
 -------------------------------
