@@ -33,9 +33,14 @@ from ryu.ofproto import ofproto_v1_3, ether
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
+from ryu.lib import hub
 
 
 class EventFaucetReconfigure(event.EventBase):
+    pass
+
+
+class EventFaucetResolveGateways(event.EventBase):
     pass
 
 
