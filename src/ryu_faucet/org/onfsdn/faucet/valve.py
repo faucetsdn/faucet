@@ -161,6 +161,12 @@ class OVSStatelessValve(Valve):
     def goto_table(self, table_id):
         return parser.OFPInstructionGotoTable(table_id)
 
+    def set_eth_src(self, eth_src):
+        return parser.OFPActionSetField(eth_src=eth_src)
+
+    def set_eth_dst(self, eth_dst):
+        return parser.OFPActionSetField(eth_dst=eth_dst)
+
     def valve_in_match(self, in_port=None, vlan=None,
                        eth_type=None, eth_src=None,
                        eth_dst=None, eth_dst_mask=None,
