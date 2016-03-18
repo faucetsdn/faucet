@@ -40,7 +40,7 @@ class EventFaucetReconfigure(event.EventBase):
     pass
 
 
-class EventFaucetReconfigure(event.EventBase):
+class EventFaucetResolveGateways(event.EventBase):
     pass
 
 
