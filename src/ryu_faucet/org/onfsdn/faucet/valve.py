@@ -100,7 +100,6 @@ class Valve(object):
 
     def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
         """Generate openflow msgs to update datapath upon receipt of packet.
-
         This involves asssociating the ethernet source address of the packet
         with the given in_port (ethernet switching) ideally so that no packets
         from this address are sent to the controller, and packets to this
@@ -644,15 +643,37 @@ class OVSStatelessValve(Valve):
         return ofmsgs
 
     def control_plane_arp_handler(self, in_port, vlan_vid, eth_src, arp_pkt):
-        eth_pkt = ethernet.ethernet(
-            eth_src, self.FAUCET_MAC, ether.ETH_TYPE_ARP)
-        arp_pkt = arp.arp(opcode=2, src_mac=self.FAUCET_MAC, src_ip=arp_pkt.dst_ip,
-            dst_mac=eth_src, dst_ip=arp_pkt.src_ip)
-        pkt = packet.Packet()
-        pkt.add_protocol(eth_pkt)
-        pkt.add_protocol(arp_pkt)
-        pkt.serialize()
-        return [self.valve_packetout(in_port, pkt.data)]
+        ofmsgs = []
+
+        if arp_pkt.opcode == arp.ARP_REQUEST:
+            eth_pkt = ethernet.ethernet(
+                eth_src, self.FAUCET_MAC, ether.ETH_TYPE_ARP)
+            arp_pkt = arp.arp(
+                opcode=arp.ARP_REPLY, src_mac=self.FAUCET_MAC,
+                src_ip=arp_pkt.dst_ip, dst_mac=eth_src, dst_ip=arp_pkt.src_ip)
+            pkt = packet.Packet()
+            pkt.add_protocol(eth_pkt)
+            pkt.add_protocol(arp_pkt)
+            pkt.serialize()
+            ofmsgs.append(self.valve_packetout(in_port, pkt.data))
+
+        if arp_pkt.opcode == arp.ARP_REPLY:
+            vlan = self.dp.vlans[vlan_vid]
+            resolved_ip_gw = ipaddr.IPv4Address(arp_pkt.src_ip)
+            for ip_dst, ip_gw in vlan.routes.iteritems():
+                if ip_gw == resolved_ip_gw:
+                    vlan.arp_cache[resolved_ip_gw] = eth_src
+                    ofmsgs.append(self.valve_flowmod(
+                        self.dp.eth_src_table,
+                        self.valve_in_match(
+                            vlan=vlan, eth_type=ether.ETH_TYPE_IP,
+                            nw_dst=ip_dst, eth_dst=self.FAUCET_MAC),
+                        priority=self.dp.highest_priority,
+                        inst=[self.apply_actions(
+                            [self.set_eth_src(self.FAUCET_MAC), self.set_eth_dst(eth_src)])] +
+                            [self.goto_table(self.dp.eth_dst_table)]))
+
+        return ofmsgs
 
     def control_plane_icmp_handler(self, in_port, vlan_vid, eth_src, ipv4_pkt, icmp_pkt):
         eth_pkt = ethernet.ethernet(
@@ -668,16 +689,6 @@ class OVSStatelessValve(Valve):
         pkt.add_protocol(icmp_pkt)
         pkt.serialize()
         return [self.valve_packetout(in_port, pkt.data)]
-
-    def control_plane_handler(self, in_port, vlan_vid, eth_src,
-                              ipv4_pkt, arp_pkt, icmp_pkt):
-        if arp_pkt is not None:
-            return self.control_plane_arp_handler(
-                in_port, vlan_vid, eth_src, arp_pkt)
-        if icmp_pkt is not None:
-            return self.control_plane_icmp_handler(
-                in_port, vlan_vid, eth_src, ipv4_pkt, icmp_pkt)
-        return []
 
     def faucet_ips(self):
         return [str(vlan.ip.ip) for vlan in self.dp.vlans.values()
@@ -761,16 +772,25 @@ class OVSStatelessValve(Valve):
         eth_dst = eth_pkt.dst
 
         # Packet may be for our control plane.
+        # TODO: implement stronger ACL checks.
         if eth_dst == self.FAUCET_MAC or not mac_addr_is_unicast(eth_dst):
             arp_pkt = pkt.get_protocol(arp.arp)
-            icmp_pkt = pkt.get_protocol(icmp.icmp)
-            ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
-            if ((arp_pkt is not None and arp_pkt.opcode == 1 and
-                    self.to_faucet_ip(arp_pkt.src_ip, arp_pkt.dst_ip)) or
-                (icmp_pkt is not None and icmp_pkt.code == 0 and
-                    self.to_faucet_ip(ipv4_pkt.src, ipv4_pkt.dst))):
-                return self.control_plane_handler(
-                    in_port, vlan_vid, eth_src, ipv4_pkt, arp_pkt, icmp_pkt)
+            if arp_pkt is not None:
+                if (arp_pkt.opcode == arp.ARP_REQUEST and
+                    self.to_faucet_ip(arp_pkt.src_ip, arp_pkt.dst_ip)):
+                    return self.control_plane_arp_handler(
+                        in_port, vlan_vid, eth_src, arp_pkt)
+                elif (arp_pkt.opcode == arp.ARP_REPLY and
+                      eth_dst == self.FAUCET_MAC):
+                    return self.control_plane_arp_handler(
+                        in_port, vlan_vid, eth_src, arp_pkt)
+            else:
+                icmp_pkt = pkt.get_protocol(icmp.icmp)
+                ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+                if (icmp_pkt is not None and
+                    self.to_faucet_ip(ipv4_pkt.src, ipv4_pkt.dst)):
+                    return self.control_plane_icmp_handler(
+                        in_port, vlan_vid, eth_src, ipv4_pkt, icmp_pkt)
 
         if not mac_addr_is_unicast(eth_src):
             self.logger.info(
@@ -789,3 +809,31 @@ class OVSStatelessValve(Valve):
             return []
         self.dp = new_dp
         return self.datapath_connect(self.dp.dp_id, self.dp.ports.keys())
+
+    def resolve_gateways(self):
+        # TODO: implement for tagged VLANs
+        # TODO: implement ARP refresh
+        if not self.dp.running:
+            return []
+        flowmods = []
+        for vlan in self.dp.vlans.itervalues():
+            untagged_ports = self.build_flood_ports_for_vlan(vlan.untagged, None)
+            if not untagged_ports:
+                continue
+            for ip_dst, ip_gw in vlan.routes.iteritems():
+                if ip_gw not in vlan.arp_cache:
+                    self.logger.info("Resolving %s", ip_gw)
+                    eth_pkt = ethernet.ethernet(
+                        mac.BROADCAST_STR, self.FAUCET_MAC, ether.ETH_TYPE_ARP)
+                    arp_pkt = arp.arp(
+                        opcode=arp.ARP_REQUEST, src_mac=self.FAUCET_MAC,
+                        src_ip=str(vlan.ip.ip), dst_mac=mac.DONTCARE_STR,
+                        dst_ip=str(ip_gw))
+                    pkt = packet.Packet()
+                    pkt.add_protocol(eth_pkt)
+                    pkt.add_protocol(arp_pkt)
+                    pkt.serialize()
+                    for port in untagged_ports:
+                        flowmods.append(
+                            self.valve_packetout(port.number, pkt.data))
+        return flowmods

@@ -104,6 +104,14 @@ class Faucet(app_manager.RyuApp):
         if self.valve is None:
             self.logger.error("Hardware type not supported")
 
+        self.gateway_resolve_request_thread = hub.spawn(
+            self.gateway_resolve_request)
+
+    def gateway_resolve_request(self):
+        while True:
+            self.send_event('Faucet', EventFaucetResolveGateways())
+            hub.sleep(10)
+
     def parse_config(self, config_file, log_name):
         new_dp = DP.parser(config_file, log_name)
         if new_dp:
@@ -131,6 +139,12 @@ class Faucet(app_manager.RyuApp):
             flowmods = self.valve.reload_config(new_dp)
             ryudp = self.dpset.get(new_dp.dp_id)
             self.send_flow_msgs(ryudp, flowmods)
+
+    @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
+    def resolve_gateways(self, ev):
+        flowmods = self.valve.resolve_gateways()
+        ryudp = self.dpset.get(self.valve.dp.dp_id)
+        self.send_flow_msgs(ryudp, flowmods)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
