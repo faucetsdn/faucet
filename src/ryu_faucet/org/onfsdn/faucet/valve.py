@@ -772,6 +772,7 @@ class OVSStatelessValve(Valve):
         eth_dst = eth_pkt.dst
 
         # Packet may be for our control plane.
+        # TODO: implement stronger ACL checks.
         if eth_dst == self.FAUCET_MAC or not mac_addr_is_unicast(eth_dst):
             arp_pkt = pkt.get_protocol(arp.arp)
             if arp_pkt is not None:
@@ -810,6 +811,8 @@ class OVSStatelessValve(Valve):
         return self.datapath_connect(self.dp.dp_id, self.dp.ports.keys())
 
     def resolve_gateways(self):
+        # TODO: implement for tagged VLANs
+        # TODO: implement ARP refresh
         if not self.dp.running:
             return []
         flowmods = []
