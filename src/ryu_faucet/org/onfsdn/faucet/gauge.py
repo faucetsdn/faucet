@@ -126,27 +126,27 @@ class GaugePortStatsPoller(GaugePoller):
                 ref = self.dp.name + "-" + self.dp.ports[stat.port_no].name
 
             with open(self.logfile, 'a') as logfile:
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-packets-out",
-                                                        stat.tx_packets))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-packets-in",
-                                                        stat.rx_packets))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-bytes-out",
-                                                        stat.tx_bytes))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-bytes-in",
-                                                        stat.rx_bytes))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-dropped-out",
-                                                        stat.tx_dropped))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-dropped-in",
-                                                        stat.rx_dropped))
-                logfile.write('{0}\t{1}\t{2}\n'.format( rcv_time,
-                                                        ref + "-errors-in",
-                                                        stat.rx_errors))
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                                                       ref + "-packets-out",
+                                                       stat.tx_packets))
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                                                       ref + "-packets-in",
+                                                       stat.rx_packets))
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                                                       ref + "-bytes-out",
+                                                       stat.tx_bytes))
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                                                       ref + "-bytes-in",
+                                                       stat.rx_bytes))
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                                                       ref + "-dropped-out",
+                                                       stat.tx_dropped))
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                                                       ref + "-dropped-in",
+                                                       stat.rx_dropped))
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                                                       ref + "-errors-in",
+                                                       stat.rx_errors))
 
     def no_response(self):
         self.logger.info(
@@ -168,7 +168,8 @@ class GaugeFlowTablePoller(GaugePoller):
         ofp_parser = self.ryudp.ofproto_parser
         match = ofp_parser.OFPMatch()
         req = ofp_parser.OFPFlowStatsRequest(
-            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY, 0, 0, match)
+            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
+            0, 0, match)
         self.ryudp.send_msg(req)
 
     def update(self, rcv_time, msg):
@@ -233,8 +234,8 @@ class Gauge(app_manager.RyuApp):
         self.dps = {}
         with open(self.config_file, 'r') as config_file:
             for dp_conf_file in config_file:
-                # config_file should be a list of faucet config filenames separated
-                # by linebreaks
+                # config_file should be a list of faucet config filenames
+                # separated by linebreaks
                 dp = DP.parser(dp_conf_file.strip(), self.logname)
                 try:
                     dp.sanity_check()
@@ -303,14 +304,12 @@ class Gauge(app_manager.RyuApp):
             self.logger.info("port added %s", port_no)
         elif reason == ofp.OFPPR_DELETE:
             self.logger.info("port deleted %s", port_no)
-        elif reason == ofp.OFPPR_MODIFY\
-        and (msg.desc.state & ofp.OFPPS_LINK_DOWN):
-            self.logger.info("port deleted %s", port_no)
-        elif reason == ofp.OFPPR_MODIFY\
-        and not (msg.desc.state & ofp.OFPPS_LINK_DOWN):
-            self.logger.info("port added %s", port_no)
         elif reason == ofp.OFPPR_MODIFY:
-            self.logger.info("port modified %s", port_no)
+            link_down = (msg.desc.state & ofp.OFPPS_LINK_DOWN)
+            if link_down:
+                self.logger.info("port deleted %s", port_no)
+            else:
+                self.logger.info("port added %s", port_no)
         else:
             self.logger.info("Illegal port state %s %s", port_no, reason)
 
