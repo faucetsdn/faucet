@@ -209,13 +209,15 @@ class OVSStatelessValve(Valve):
             data=data)
 
     def valve_flowmod(self, table_id, match=None, priority=None,
-                      inst=[], command=ofp.OFPFC_ADD, out_port=0,
+                      inst=None, command=ofp.OFPFC_ADD, out_port=0,
                       out_group=0, hard_timeout=0, idle_timeout=0):
         """Helper function to construct a flow mod message with cookie."""
         if match is None:
             match = self.valve_in_match()
         if priority is None:
             priority = self.dp.lowest_priority
+        if inst is None:
+            inst = []
         return parser.OFPFlowMod(
             datapath=None,
             cookie=self.dp.cookie,
@@ -248,7 +250,10 @@ class OVSStatelessValve(Valve):
             priority=priority,
             inst=[])
 
-    def valve_flowcontroller(self, table_id, match=None, priority=None, inst=[]):
+    def valve_flowcontroller(self, table_id, match=None, priority=None,
+                             inst=None):
+        if inst is None:
+            inst = []
         return self.valve_flowmod(
             table_id,
             match=match,
@@ -308,7 +313,7 @@ class OVSStatelessValve(Valve):
             inst=[self.goto_table(self.dp.flood_table)])]
 
     def add_controller_learn_flow(self):
-        """Add a flow to allow the controller to learn and add flows for destinations."""
+        """Add a flow for controller to learn and add flows for destinations."""
         return [self.valve_flowcontroller(
             self.dp.eth_src_table,
             priority=self.dp.low_priority,
@@ -324,7 +329,7 @@ class OVSStatelessValve(Valve):
         return ofmsgs
 
     def add_ports_and_vlans(self, discovered_port_nums):
-        """Add all ports and VLANs from configuration and discovered from switch."""
+        """Add all configured and discovered ports and VLANs."""
         ofmsgs = []
         all_port_nums = set()
 
@@ -670,12 +675,14 @@ class OVSStatelessValve(Valve):
                             nw_dst=ip_dst, eth_dst=self.FAUCET_MAC),
                         priority=self.dp.highest_priority,
                         inst=[self.apply_actions(
-                            [self.set_eth_src(self.FAUCET_MAC), self.set_eth_dst(eth_src)])] +
+                            [self.set_eth_src(self.FAUCET_MAC), 
+                                self.set_eth_dst(eth_src)])] +
                             [self.goto_table(self.dp.eth_dst_table)]))
 
         return ofmsgs
 
-    def control_plane_icmp_handler(self, in_port, vlan_vid, eth_src, ipv4_pkt, icmp_pkt):
+    def control_plane_icmp_handler(self, in_port, vlan_vid, eth_src,
+                                   ipv4_pkt, icmp_pkt):
         eth_pkt = ethernet.ethernet(
             eth_src, self.FAUCET_MAC, ether.ETH_TYPE_IP)
         ipv4_pkt = ipv4.ipv4(
@@ -817,10 +824,11 @@ class OVSStatelessValve(Valve):
             return []
         flowmods = []
         for vlan in self.dp.vlans.itervalues():
-            untagged_ports = self.build_flood_ports_for_vlan(vlan.untagged, None)
+            untagged_ports = self.build_flood_ports_for_vlan(
+                vlan.untagged, None)
             if not untagged_ports:
                 continue
-            for ip_dst, ip_gw in vlan.routes.iteritems():
+            for ip_gw in vlan.routes.itervalues():
                 if ip_gw not in vlan.arp_cache:
                     self.logger.info("Resolving %s", ip_gw)
                     eth_pkt = ethernet.ethernet(
