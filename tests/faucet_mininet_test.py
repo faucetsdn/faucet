@@ -474,6 +474,34 @@ vlans:
         time.sleep(1)
 
 
+class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
+
+    CONFIG = CONFIG_HEADER + """
+interfaces:
+    1:
+        tagged_vlans: [100]
+        description: "b1"
+    2:
+        tagged_vlans: [100]
+        description: "b2"
+    3:
+        tagged_vlans: [100]
+        description: "b3"
+    4:
+        tagged_vlans: [100]
+        description: "b4"
+vlans:
+    100:
+        description: "tagged"
+        ip: "10.0.0.254/24"
+"""
+
+    def test_ping_controller(self):
+        ping_result = self.net.hosts[0].cmd('ping -c1 10.0.0.254')
+        self.assertTrue(re.search(
+            '1 packets transmitted, 1 received, 0\% packet loss', ping_result))
+
+
 if __name__ == '__main__':
     setLogLevel('info')
     unittest.main()
