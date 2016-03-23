@@ -110,7 +110,7 @@ class Faucet(app_manager.RyuApp):
     def gateway_resolve_request(self):
         while True:
             self.send_event('Faucet', EventFaucetResolveGateways())
-            hub.sleep(10)
+            hub.sleep(2)
 
     def parse_config(self, config_file, log_name):
         new_dp = DP.parser(config_file, log_name)
@@ -142,9 +142,11 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     def resolve_gateways(self, ev):
-        flowmods = self.valve.resolve_gateways()
-        ryudp = self.dpset.get(self.valve.dp.dp_id)
-        self.send_flow_msgs(ryudp, flowmods)
+        if self.valve is not None:
+            flowmods = self.valve.resolve_gateways()
+            if flowmods:
+                ryudp = self.dpset.get(self.valve.dp.dp_id)
+                self.send_flow_msgs(ryudp, flowmods)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
