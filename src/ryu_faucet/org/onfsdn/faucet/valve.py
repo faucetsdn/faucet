@@ -693,7 +693,7 @@ class OVSStatelessValve(Valve):
                         self.valve_in_match(
                             vlan=vlan, eth_type=ether.ETH_TYPE_IP,
                             nw_dst=ip_dst, eth_dst=self.FAUCET_MAC),
-                        priority=self.dp.highest_priority,
+                        priority=self.dp.highest_priority+1,
                         inst=[self.apply_actions(
                             [self.set_eth_src(self.FAUCET_MAC),
                                 self.set_eth_dst(eth_src)])] +

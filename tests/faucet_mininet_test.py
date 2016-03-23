@@ -162,15 +162,15 @@ vlans:
         first_host, second_host = host_pair
         first_host_routed_ip = '10.0.1.1'
         second_host_routed_ip = '10.0.2.1'
-        first_host.setIP('10.0.0.1')
-        first_host.cmd('route add 10.0.2.0/24 gw 10.0.0.254')
+        first_host.setIP('10.0.0.1/24')
         first_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
             (first_host.intf(), first_host_routed_ip)))
-        second_host.setIP('10.0.0.2')
-        second_host.cmd('route add 10.0.1.0/24 gw 10.0.0.254')
+        second_host.setIP('10.0.0.2/24')
         second_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
             (second_host.intf(), second_host_routed_ip)))
         self.assertEquals(0, self.net.pingPair())
+        first_host.cmd('route add -net 10.0.2.0/24 gw 10.0.0.254')
+        second_host.cmd('route add -net 10.0.1.0/24 gw 10.0.0.254')
         first_to_second_result = first_host.cmd(
             'ping -c1 %s' % second_host_routed_ip)
         self.assertTrue(re.search(
@@ -500,6 +500,61 @@ vlans:
         ping_result = self.net.hosts[0].cmd('ping -c1 10.0.0.254')
         self.assertTrue(re.search(
             '1 packets transmitted, 1 received, 0\% packet loss', ping_result))
+
+
+class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
+
+    CONFIG = CONFIG_HEADER + """
+interfaces:
+    1:
+        tagged_vlans: [100]
+        description: "b1"
+    2:
+        tagged_vlans: [100]
+        description: "b2"
+    3:
+        tagged_vlans: [100]
+        description: "b3"
+    4:
+        tagged_vlans: [100]
+        description: "b4"
+vlans:
+    100:
+        description: "tagged"
+        ip: "10.0.0.254/24"
+        routes:
+            - route:
+                ip_dst: "10.0.1.0/24"
+                ip_gw: "10.0.0.1"
+            - route:
+                ip_dst: "10.0.2.0/24"
+                ip_gw: "10.0.0.2"
+"""
+
+    def test_tagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_routed_ip = '10.0.1.1'
+        second_host_routed_ip = '10.0.2.1'
+        first_host.setIP('10.0.0.1/24')
+        first_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
+            (first_host.intf(), first_host_routed_ip)))
+        second_host.setIP('10.0.0.2/24')
+        second_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
+            (second_host.intf(), second_host_routed_ip)))
+        self.assertEquals(0, self.net.pingPair())
+        first_host.cmd('route add -net 10.0.2.0/24 gw 10.0.0.254')
+        second_host.cmd('route add -net 10.0.1.0/24 gw 10.0.0.254')
+        first_to_second_result = first_host.cmd(
+            'ping -c1 %s' % second_host_routed_ip)
+        self.assertTrue(re.search(
+            '1 packets transmitted, 1 received, 0\% packet loss',
+            first_to_second_result))
+        second_to_first_result = second_host.cmd(
+            'ping -c1 %s' % first_host_routed_ip)
+        self.assertTrue(re.search(
+            '1 packets transmitted, 1 received, 0\% packet loss',
+            second_to_first_result))
 
 
 if __name__ == '__main__':
