@@ -36,6 +36,7 @@ class DP(object):
     vlans = None
     ports = None
     running = False
+    influxdb_stats = False
 
     def __init__(self, dp_id, logname):
         self.dp_id = dp_id
@@ -102,6 +103,7 @@ class DP(object):
         assert isinstance(self.monitor_flow_table, bool)
         assert isinstance(self.monitor_flow_table_file, basestring)
         assert isinstance(self.monitor_flow_table_interval, int)
+        assert isinstance(self.influxdb_stats, bool)
 
     def set_defaults(self):
         # Offset for tables used by faucet
@@ -146,6 +148,8 @@ class DP(object):
         self.__dict__.setdefault('description', self.name)
         # The hardware maker (for chosing an openflow driver)
         self.__dict__.setdefault('hardware', 'Open_vSwitch')
+        # Whether to use influxdb for stats
+        self.__dict__.setdefault('influxdb_stats', False)
 
     def add_acl(self, acl_num, acl_conf=None):
         if acl_conf is not None:

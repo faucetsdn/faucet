@@ -29,6 +29,74 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib import hub
 
+from influxdb import InfluxDBClient
+
+
+# TODO: configurable
+INFLUXDB_DB = "faucet"
+INFLUXDB_HOST = "localhost"
+INFLUXDB_PORT = 8086
+INFLUXDB_USER = ""
+INFLUXDB_PASS = ""
+
+
+def ship_points_to_influxdb(points):
+    client = InfluxDBClient(
+        host=INFLUXDB_HOST, port=INFLUXDB_PORT,
+        username=INFLUXDB_USER, password=INFLUXDB_PASS,
+        database=INFLUXDB_DB, timeout=10)
+    return client.write_points(points=points, time_precision='s')
+
+
+class GaugePortStateLogger(object):
+
+    def __init__(self, dp, ryudp, logname):
+        self.dp = dp
+        self.ryudp = ryudp
+        self.logger = logging.getLogger(logname)
+
+    def update(self, rcv_time, msg):
+        reason = msg.reason
+        port_no = msg.desc.port_no
+        ofp = msg.datapath.ofproto
+        if reason == ofp.OFPPR_ADD:
+            self.logger.info("port added %s", port_no)
+        elif reason == ofp.OFPPR_DELETE:
+            self.logger.info("port deleted %s", port_no)
+        elif reason == ofp.OFPPR_MODIFY:
+            link_down = (msg.desc.state & ofp.OFPPS_LINK_DOWN)
+            if link_down:
+                self.logger.info("port deleted %s", port_no)
+            else:
+                self.logger.info("port added %s", port_no)
+        else:
+            self.logger.info("Illegal port state %s %s", port_no, reason)
+
+
+class GaugePortStateInfluxDBLogger(GaugePortStateLogger):
+
+    def ship_points(self, points):
+        return ship_points_to_influxdb(points)
+
+    def update(self, rcv_time, msg):
+        super(GaugePortStateInfluxDBLogger, self).update(rcv_time, msg)
+        reason = msg.reason
+        port_no = msg.desc.port_no
+        if port_no in self.dp.ports:
+            port_name = self.dp.ports[port_no].name
+            port_tags = {
+                "dp_name": self.dp.name,
+                "port_name": port_name,
+            }
+            points = [{
+                "measurement": "port_state_reason",
+                "tags": port_tags,
+                "time": int(rcv_time),
+                "fields": {"value": reason}}]
+            if not self.ship_points(points):
+                self.logger.warning("error shipping port_state_reason points")
+
+
 class GaugePoller(object):
     """A ryu thread object for sending and receiving openflow stats requests.
 
@@ -95,6 +163,13 @@ class GaugePoller(object):
         """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError
 
+
+class GaugeInfluxDBPoller(GaugePoller):
+
+    def ship_points(self, points):
+        return ship_points_to_influxdb(points)
+
+
 class GaugePortStatsPoller(GaugePoller):
     """Periodically sends a port stats request to the datapath and parses and
     outputs the response."""
@@ -113,6 +188,7 @@ class GaugePortStatsPoller(GaugePoller):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
         self.reply_pending = False
+        rcv_time_str = time.strftime('%b %d %H:%M:%S')
 
         for stat in msg.body:
             if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
@@ -126,31 +202,88 @@ class GaugePortStatsPoller(GaugePoller):
                 ref = self.dp.name + "-" + self.dp.ports[stat.port_no].name
 
             with open(self.logfile, 'a') as logfile:
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
                                                        ref + "-packets-out",
                                                        stat.tx_packets))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
                                                        ref + "-packets-in",
                                                        stat.rx_packets))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
                                                        ref + "-bytes-out",
                                                        stat.tx_bytes))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
                                                        ref + "-bytes-in",
                                                        stat.rx_bytes))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
                                                        ref + "-dropped-out",
                                                        stat.tx_dropped))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
                                                        ref + "-dropped-in",
                                                        stat.rx_dropped))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time,
+                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
                                                        ref + "-errors-in",
                                                        stat.rx_errors))
 
     def no_response(self):
         self.logger.info(
             "port stats request timed out for {0}".format(self.dp.name))
+
+
+class GaugePortStatsInfluxDBPoller(GaugeInfluxDBPoller):
+    """Periodically sends a port stats request to the datapath and parses and
+    outputs the response."""
+    def __init__(self, dp, ryudp, logname):
+        super(GaugePortStatsInfluxDBPoller, self).__init__(dp, ryudp, logname)
+        self.interval = self.dp.monitor_ports_interval
+
+    def send_req(self):
+        ofp = self.ryudp.ofproto
+        ofp_parser = self.ryudp.ofproto_parser
+        req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
+        self.ryudp.send_msg(req)
+
+    def update(self, rcv_time, msg):
+        # TODO: it may be worth while verifying this is the correct stats
+        # response before doing this
+        self.reply_pending = False
+        points = []
+
+        for stat in msg.body:
+            if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
+                port_name = "CONTROLLER"
+            elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
+                port_name = "LOCAL"
+            elif stat.port_no not in self.dp.ports:
+                self.logger.info("stats for unknown port %s", stat.port_no)
+                continue
+            else:
+                port_name = self.dp.ports[stat.port_no].name
+
+            port_tags = {
+                "dp_name": self.dp.name,
+                "port_name": port_name,
+            }
+
+            for stat_name, stat_value in (
+                ("packets_out", stat.tx_packets),
+                ("packets_in", stat.rx_packets),
+                ("bytes_out", stat.tx_bytes),
+                ("bytes_in", stat.rx_bytes),
+                ("dropped_out", stat.tx_dropped),
+                ("dropped_in", stat.rx_dropped),
+                ("errors_in", stat.rx_errors)):
+                points.append({
+                    "measurement": stat_name,
+                    "tags": port_tags,
+                    "time": int(rcv_time),
+                    "fields": {"value": stat_value}})
+        if not self.ship_points(points):
+            self.logger.warn("error shipping port_stats points")
+
+    def no_response(self):
+        self.logger.info(
+            "port stats request timed out for {0}".format(self.dp.name))
+
 
 class GaugeFlowTablePoller(GaugePoller):
     """Periodically dumps the current datapath flow table as a yaml object.
@@ -177,15 +310,18 @@ class GaugeFlowTablePoller(GaugePoller):
         # response before doing this
         self.reply_pending = False
         jsondict = msg.to_jsondict()
+        rcv_time_str = time.strftime('%b %d %H:%M:%S')
+
         with open(self.logfile, 'a') as logfile:
             ref = self.dp.name + "-flowtables"
             logfile.write("---\n")
             logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
-                rcv_time, ref, json.dumps(jsondict, indent=4)))
+                rcv_time_str, ref, json.dumps(jsondict, indent=4)))
 
     def no_response(self):
         self.logger.info(
             "flow dump request timed out for {0}".format(self.dp.name))
+
 
 class Gauge(app_manager.RyuApp):
     """Ryu app for polling Faucet controlled datapaths for stats/state.
@@ -252,6 +388,8 @@ class Gauge(app_manager.RyuApp):
         # polling threads are indexed by dp_id and then by name
         # eg: self.pollers[0x1]['port_stats']
         self.pollers = {}
+        # dict of async event handlers
+        self.handlers = {}
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -272,10 +410,23 @@ class Gauge(app_manager.RyuApp):
             dp.running = True
             if dp.dp_id not in self.pollers:
                 self.pollers[dp.dp_id] = {}
+                self.handlers[dp.dp_id] = {}
+
+            if dp.influxdb_stats:
+                port_state_handler = GaugePortStateInfluxDBLogger(
+                    dp, ryudp, self.logname)
+            else:
+                port_state_handler = GaugePortStateLogger(
+                    dp, ryudb, self.logname)
+            self.handlers[dp.dp_id]['port_state'] = port_state_handler
 
             if dp.monitor_ports:
-                port_stats_poller = GaugePortStatsPoller(
-                    dp, ryudp, self.logname)
+                if dp.influxdb_stats:
+                    port_stats_poller = GaugePortStatsInfluxDBPoller(
+                       dp, ryudp, self.logname)
+                else:
+                    port_stats_poller = GaugePortStatsPoller(
+                        dp, ryudp, self.logname)
                 self.pollers[dp.dp_id]['port_stats'] = port_stats_poller
                 port_stats_poller.start()
 
@@ -296,33 +447,20 @@ class Gauge(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ev):
-        msg = ev.msg
-        reason = msg.reason
-        port_no = msg.desc.port_no
-        ofp = msg.datapath.ofproto
-        if reason == ofp.OFPPR_ADD:
-            self.logger.info("port added %s", port_no)
-        elif reason == ofp.OFPPR_DELETE:
-            self.logger.info("port deleted %s", port_no)
-        elif reason == ofp.OFPPR_MODIFY:
-            link_down = (msg.desc.state & ofp.OFPPS_LINK_DOWN)
-            if link_down:
-                self.logger.info("port deleted %s", port_no)
-            else:
-                self.logger.info("port added %s", port_no)
-        else:
-            self.logger.info("Illegal port state %s %s", port_no, reason)
+        rcv_time = time.time()
+        dp = self.dps[ev.msg.datapath.id]
+        self.handlers[dp.dp_id]['port_state'].update(rcv_time, ev.msg)
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def port_stats_reply_handler(self, ev):
-        rcv_time = time.strftime('%b %d %H:%M:%S')
+        rcv_time = time.time()
         dp = self.dps[ev.msg.datapath.id]
         self.pollers[dp.dp_id]['port_stats'].update(rcv_time, ev.msg)
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def flow_stats_reply_handler(self, ev):
-        rcv_time = time.strftime('%b %d %H:%M:%S')
+        rcv_time = time.time()
         dp = self.dps[ev.msg.datapath.id]
         self.pollers[dp.dp_id]['flow_table'].update(rcv_time, ev.msg)
