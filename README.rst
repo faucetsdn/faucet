@@ -18,6 +18,60 @@ It supports:
 - Mixed tagged/untagged ports
 - Port statistics
 - Coexisting with other OpenFlow controllers
+- ACL support: Rules are added in the order specified. The rule language supports anything the Ryu OpenFlow protocol parser supports (q.v. ofctl to_match()).
+- Control unicast flooding by port and by VLAN
+- support for IPv4 static routes on both tagged and untagged VLANs
+- Integrated support for InfluxDB/Grafana
+
+===============
+Feature Details
+===============
+
+ACL Support
+-----------
+Rules are added in the order specified. The rule language supports anything the Ryu OpenFlow protocol parser supports (q.v. ofctl to_match()).
+In this example,configure an ACL on port 1, default deny, that passes an IPv4 subnet and ARP.
+Following config applies an input ACL to port 1.
+``
+``Supports any ACL rule that https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py to_match() supports.
+
+    1:
+        native_vlan: 2040
+        acl_in: 1
+
+vlans:
+    2040:
+        name: "dev VLAN"
+
+acls:
+    1:
+        - rule:
+            nw_dst: "172.0.0.0/8"
+            dl_type: 0x800
+            allow: 1
+
+        - rule:
+            dl_type: 0x0806
+            allow: 1
+
+        - rule:
+            nw_dst: "10.0.0.0/16"
+            dl_type: 0x800
+            allow: 0
+
+        - rule:
+``
+
+
+Unicast Flood
+-------------
+The default is to flood unknown unicast packets (of course). You might not want unicast flooding on a port for security reasons.
+
+If you add unicast_flood: False to a port, then that port will never get unknown destinations flooded to it. So hosts on that port will have to say something to get learned (or someone will need to ND/ARP for it). Broadcasts and Ethernet multicasts are still flooded to that port (so of course ND and ARP work just fine).
+
+You can also add unicast_flood: False to a VLAN, which will override all the ports. On my untrusted VLAN, the default gateway has permanent_learn enabled, and unicast flooding disabled.
+
+
 
 =============
 Configuration
@@ -37,6 +91,11 @@ You have run this as ``root`` or use ``sudo``
 ``# pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.29.tar.gz``
 
 ``# pip show ryu-faucet``
+
+Optional Install for Network Monitoring Dashboard
+-------------------------------------------------
+  - To setup InfluxDB v0.11 - https://docs.influxdata.com/influxdb/v0.10/introduction/getting_started/
+  - To setup Grafana v2.6 - http://docs.grafana.org/installation/
 
 Uninstall
 ---------
@@ -71,7 +130,7 @@ OpenFlow Pipeline
               +---------+   +---------+   +-----+----+   +---+-----+   +----+----+
                                                 |            |              |
                                                 |            |              |
-                                                V            |              V 
+                                                V            |              V
                                           +----------+       +------->PACKETS OUT
                                           |CONTROL   |
                                           |PLANE     |
@@ -95,17 +154,17 @@ Run with ``ryu-manager`` (uses ``/etc/ryu/faucet/faucet.yaml`` as configuration 
 
 
     ``# export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml``
-    
+
     ``# export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf``
-    
+
     ``# export FAUCET_LOG_DIR=/var/log/ryu``
-    
+
     ``# $EDITOR /etc/ryu/faucet/faucet.yaml``
-    
+
     ``# ryu-manager --verbose faucet.py``
 
 
-To find the location of ``faucet.py``, run 
+To find the location of ``faucet.py``, run
 
 ``# pip show ryu-faucet`` to get Location path.  Then run:
 
@@ -154,18 +213,18 @@ Faucet has been tested against the following switches:
     2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
     3. Allied Telesis x510 and x930 series
     4. NoviFlow 1248
-    
-Faucet's design principle is to be as hardware agnostic as possible and not require TTPs. That means that Faucet excepts the hardware OFA to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet excepts the OFA to leverage the right hardware transparently. 
 
-================================================
+Faucet's design principle is to be as hardware agnostic as possible and not require TTPs. That means that Faucet excepts the hardware OFA to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet excepts the OFA to leverage the right hardware transparently.
+
+============================================================
 Buying and running commerical switches supporting ryu-faucet
-================================================
+============================================================
 
 Allied Telesis
 --------------
 
  `Allied Telesis <http://www.alliedtelesis.com/sdn` sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`.  To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`
- 
+
 * On Allied Telesis all vlans must be included in the vlan database config on the switch before they can be used by Openflow.
 
 
@@ -196,6 +255,12 @@ Gauge is run with ``ryu-manager``:
 
 ``$ ryu-manager gauge.py``
 
+Screenshots
+-----------
+.. image:: src/docs/images/faucet-snapshot1.png
+.. image:: src/docs/images/faucet-snapshot2.png
+.. image:: src/docs/images/faucet-snapshot3.png
+
 =======
 Support
 =======
@@ -203,4 +268,3 @@ Support
 If you have any technical questions, problems or suggestions regarding Faucet please send them to `faucet-dev@OpenflowSDN.Org <mailto:faucet-dev@openflowsdn.org>`.  Mailing list archives are available `here <https://groups.google.com/a/openflowsdn.org/forum/#!forum/faucet-dev>`.
 
 To create a issue, use `Github issues <https://github.com/onfsdn/faucet/issues>`
-
