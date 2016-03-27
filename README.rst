@@ -32,35 +32,36 @@ ACL Support
 Rules are added in the order specified. The rule language supports anything the Ryu OpenFlow protocol parser supports (q.v. ofctl to_match()).
 In this example,configure an ACL on port 1, default deny, that passes an IPv4 subnet and ARP.
 Following config applies an input ACL to port 1.
-``
-``Supports any ACL rule that https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py to_match() supports.
 
-    1:
+Supports any ACL rule that https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py to_match() supports.
+::
+
+  1:
         native_vlan: 2040
         acl_in: 1
 
-vlans:
-    2040:
-        name: "dev VLAN"
+  vlans:
+      2040:
+          name: "dev VLAN"
 
-acls:
-    1:
-        - rule:
-            nw_dst: "172.0.0.0/8"
-            dl_type: 0x800
-            allow: 1
+  acls:
+      1:
+          - rule:
+              nw_dst: "172.0.0.0/8"
+              dl_type: 0x800
+              allow: 1
 
-        - rule:
-            dl_type: 0x0806
-            allow: 1
+          - rule:
+              dl_type: 0x0806
+              allow: 1
 
-        - rule:
-            nw_dst: "10.0.0.0/16"
-            dl_type: 0x800
-            allow: 0
+          - rule:
+              nw_dst: "10.0.0.0/16"
+              dl_type: 0x800
+              allow: 0
 
-        - rule:
-``
+          - rule:
+
 
 
 Unicast Flood
@@ -87,10 +88,9 @@ A port not explicitly defined in the YAML configuration file will be set down an
 Installation
 ============
 You have run this as ``root`` or use ``sudo``
-
-``# pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.29.tar.gz``
-
-``# pip show ryu-faucet``
+::
+  # pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.29.tar.gz
+  # pip show ryu-faucet
 
 Optional Install for Network Monitoring Dashboard
 -------------------------------------------------
@@ -151,18 +151,13 @@ Running
 Note: On your system, depending on how Python is installed, you may have to install some additional packages to run faucet.
 
 Run with ``ryu-manager`` (uses ``/etc/ryu/faucet/faucet.yaml`` as configuration by default):
+::
 
-
-    ``# export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml``
-
-    ``# export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf``
-
-    ``# export FAUCET_LOG_DIR=/var/log/ryu``
-
-    ``# $EDITOR /etc/ryu/faucet/faucet.yaml``
-
-    ``# ryu-manager --verbose faucet.py``
-
+    # export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml
+    # export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf
+    # export FAUCET_LOG_DIR=/var/log/ryu
+    # $EDITOR /etc/ryu/faucet/faucet.yaml
+    # ryu-manager --verbose faucet.py
 
 To find the location of ``faucet.py``, run
 
