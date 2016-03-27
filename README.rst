@@ -89,7 +89,7 @@ Installation
 ============
 You have run this as ``root`` or use ``sudo``
 ::
-  # pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.29.tar.gz
+  # pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.30.tar.gz
   # pip show ryu-faucet
 
 Optional Install for Network Monitoring Dashboard
