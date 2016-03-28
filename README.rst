@@ -87,6 +87,8 @@ A port not explicitly defined in the YAML configuration file will be set down an
 ============
 Installation
 ============
+Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively. 
+
 You have run this as ``root`` or use ``sudo``
 ::
   # pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.30.tar.gz
