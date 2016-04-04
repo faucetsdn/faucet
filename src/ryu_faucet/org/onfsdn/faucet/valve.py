@@ -904,7 +904,9 @@ class OVSStatelessValve(Valve):
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
         return format_netflix_flowMod(self, datapath, priority, match, actions)
 
-    def netflix_flows_initation(self, dp, netflix_src):
+    def netflix_flows_initiation(self, dp, netflix_src):
+        self.logger.info("in function neflix initiation")
+        self.logger.info("dp: %s", dp)
         datapath = dp
         src_ip = netflix_src
         match = parser.OFPMatch(ipv4_src = src_ip)
