@@ -165,6 +165,12 @@ class Faucet(app_manager.RyuApp):
             vlan_vid = vlan_proto.vid
         else:
             return
+        
+        in_port = msg.match['in_port']
+        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
+        self.send_flow_msgs(dp, flowmods)
+        
+
 
         ip_hdr = pkt.get_protocols(ipv4.ipv4)
         
@@ -180,9 +186,7 @@ class Faucet(app_manager.RyuApp):
                     dst_port = tcp_hdr[0].dst_port
                     self.logger.info("tcp src_port %s, dst_port %s", src_port,dst_port)
                     self.logger.info("inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
-                    flowmods = self.valve.netflix_flows_insertion(ev)
-            else:
-        
+                    flowmods = self.valve.netflix_flows_insertion(ev)        
 
         # if ip_src in netflix_src_list :
         #     src_ip = msg.match['src_ip']
@@ -191,9 +195,7 @@ class Faucet(app_manager.RyuApp):
         #     flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
 
 
-                in_port = msg.match['in_port']
-                flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
-                self.send_flow_msgs(dp, flowmods)
+
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
