@@ -903,10 +903,9 @@ class OVSStatelessValve(Valve):
         match = parser.OFPMatch(in_port= in_port, ipv4_src = src_ip, ipv4_dst = dst_ip, tcp_src = src_port, tcp_dst = dst_port)
         priority = 20000
         self.logger.info("before actions")
-        actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
+        # actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
-        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                             actions)]
+        inst = [parser.OFPInstructionGotoTable(self.dp.eth_dst_table)]
         self.logger.info("after inst")
         
         mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.vlan_table, 
