@@ -9,6 +9,12 @@
 # TODO:
 #
 # * bridge hardware OF switch for comparison with OVS
+#
+# REQUIRES:
+#
+# mininet 2.2.0 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
+# use the "install from source" option from https://github.com/mininet/mininet/blob/master/INSTALL.
+# suggest ./util/install.sh -n
 
 import os
 import re
