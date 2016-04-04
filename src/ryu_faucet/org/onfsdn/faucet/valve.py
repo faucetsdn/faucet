@@ -904,7 +904,7 @@ class OVSStatelessValve(Valve):
         priority = 100
         actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
-        return format_netflix_flowMod(self, datapath, priority, match, actions)
+        return self.format_netflix_flowMod(self, datapath, priority, match, actions)
 
     def netflix_flows_initiation(self, dp, netflix_src):
         self.logger.info("in function neflix initiation")
@@ -918,7 +918,7 @@ class OVSStatelessValve(Valve):
         actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
         self.logger.info("after actions")
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
-        return format_netflix_flowMod(self, datapath, priority, match, actions)
+        return self.format_netflix_flowMod(self, datapath, priority, match, actions)
 
 
     # def _packet_dropper(self, ev):
