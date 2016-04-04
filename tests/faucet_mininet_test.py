@@ -16,6 +16,7 @@
 #   use the "install from source" option from https://github.com/mininet/mininet/blob/master/INSTALL.
 #   suggest ./util/install.sh -n
 # * OVS 2.3.3 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
+# * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
 
 import os
 import re
