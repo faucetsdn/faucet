@@ -217,7 +217,7 @@ class Faucet(app_manager.RyuApp):
         netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
         
         for netflix_srcc in netflix_src_list:
-            self.logger.info("initiating and inserting netflix src flow entry: %s", netflix_src)
+            self.logger.info("initiating and inserting netflix src flow entry: %s", netflix_srcc)
             netflix_src=netflix_srcc.strip()
 
             flowmods = self.valve.netflix_flows_initiation(dp, netflix_src)
