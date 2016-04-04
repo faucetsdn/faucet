@@ -33,8 +33,8 @@ from influxdb import InfluxDBClient
 
 
 # TODO: configurable
-INFLUXDB_DB = "gauge"
-INFLUXDB_HOST = "faucet-2"
+INFLUXDB_DB = "faucet"
+INFLUXDB_HOST = "localhost"
 INFLUXDB_PORT = 8086
 INFLUXDB_USER = ""
 INFLUXDB_PASS = ""
@@ -316,47 +316,55 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
 
         with open(self.logfile, 'a') as logfile:
             ref = self.dp.name + "-flowtables"
-            
+            logfile.write("---\n")
+            logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
+                rcv_time_str, ref, json.dumps(jsondict, indent=4)))
 
 
-            # TODO: continue port stat to Inlfux DB
-            #jsondict = msg.to_jsondict()
-            #self.logger.info(json.dumps(jsondict, indent=4))
-            
-            body = msg.body
-            #for f in [flow for flow in body if (flow.priority == 34300 and flow.table_id == 1)]:
-            for f in [flow for flow in body]:
+        # TODO: continue port stat to Inlfux DB
+        jsondict = msg.to_jsondict()
+        self.logger.info(json.dumps(jsondict, indent=4))
+        
+        body = msg.body
+        for stat in [flow for flow in body if flow.priority == 3430]:
 
-                dpid  = msg.datapath.id
-                cookie = f.cookie
-                packet_count = f.packet_count
-                byte_count = f.byte_count
+            dpid  = msg.datapath.id
+            cookie = stat.
+            packet_count = stat.packet_count
+            byte_count = stat.byte_count
 
-                '''
-                self.logger.info('%016x %8x %8d %8d',
-                                msg.datapath.id,
-                                f.instructions[0].actions[0].port,
-                                f.packet_count, f.byte_count)
-                '''
-                logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
-                msg.datapath.id, f.cookie, f.byte_count)) 
 
-                
-            
-                if (not hasattr(f.match, 'nw_src') or not hasattr(a, 'nw_dst')):
+            self.logger.info('%016x %8x %8d %8d',
+                            ,
+                            stat.instructions[0].actions[0].port,
+                            stat.packet_count, stat.byte_count) 
 
-                    break
-                
-                ip_src = str(f.match.nw_src) 
-                ip_dst = str(f.match.nw_dst) 
 
-                if ip_dst not in self.usageList:
-                    flowDict = {}
+            if ip_dst not in self.usageList:
+                flowDict = {}
+                #create new
+                entryDict = {}
+                entryDict["Time"] = int(rcv_time)
+                entryDict["cookie"] = f.cookie
+                entryDict["SourceIP"] = 
+                entryDict["tp_dst"] = f.match.tp_dst
+                entryDict["tp_src"] = f.match.tp_src
+                entryDict["Bytes"] = f.byte_count
+                entryDict["Duration"] = f.duration_sec
+                entryDict["RTime"] = 0
+                entryDict["RBytes"] = 0
+                flowDict[f.cookie] = entryDict
+                entryDict = {}
+                usageList[ip_dst] = flowDict
+            else:
+
+                flowDict = usageList[ip_dst] 
+                if f.cookie  not in flowDict:
                     #create new
                     entryDict = {}
                     entryDict["Time"] = int(rcv_time)
                     entryDict["cookie"] = f.cookie
-                    entryDict["SourceIP"] = f.ip_src
+                    entryDict["SourceIP"] = ip_src
                     entryDict["tp_dst"] = f.match.tp_dst
                     entryDict["tp_src"] = f.match.tp_src
                     entryDict["Bytes"] = f.byte_count
@@ -364,107 +372,81 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                     entryDict["RTime"] = 0
                     entryDict["RBytes"] = 0
                     flowDict[f.cookie] = entryDict
-                    entryDict = {}
-                    usageList[ip_dst] = flowDict
-                else:
-                    flowDict = self.usageList[ip_dst] 
-                    if f.cookie  not in flowDict:
-                        #create new
-                        entryDict = {}
-                        entryDict["Time"] = int(rcv_time)
-                        entryDict["cookie"] = f.cookie
-                        entryDict["SourceIP"] = ip_src
-                        entryDict["tp_dst"] = f.match.tp_dst
-                        entryDict["tp_src"] = f.match.tp_src
+                else:    
+                    entryDict = flowDict[f.cookie];
+
+                    #if there is change in byte count
+                    if entryDict["Bytes"] != f.byte_count:
                         entryDict["Bytes"] = f.byte_count
                         entryDict["Duration"] = f.duration_sec
-                        entryDict["RTime"] = 0
-                        entryDict["RBytes"] = 0
-                        flowDict[f.cookie] = entryDict
-                    else:    
-                        entryDict = flowDict[f.cookie];
-                        #if there is change in byte count
-                        if entryDict["Bytes"] != f.byte_count:
-                            entryDict["Bytes"] = f.byte_count
-                            entryDict["Duration"] = f.duration_sec
 
-                            if entryDict["RTime"]  == 0 and f.duration_sec >60:
-                                entryDict["RTime"] = f.duration_sec
-                                entryDict["RBytes"] = f.byte_count
-                            elif entryDict["RTime"]  != 0 and f.duration_sec > 90:
-                                timeSpan = float(f.duration_sec - entryDict["RTime"])
-                                byteCount = float(f.byte_count -entryDict["RBytes"])
-                                Mbps = byteCount * 8 / (timeSpan * 1024000)
-                                entryDict["Mbps"] = Mbps
+                        if entryDict["RTime"]  == 0 and f.duration_sec >60:
+                            entryDict["RTime"] = f.duration_sec
+                            entryDict["RBytes"] = f.byte_count
+                        elif entryDict["RTime"]  != 0 and f.duration_sec > 90:
+                            timeSpan = float(f.duration_sec - entryDict["RTime"])
+                            byteCount = float(f.byte_count -entryDict["RBytes"])
+                            Mbps = byteCount * 8 / (timeSpan * 1024000)
+                            entryDict["Mbps"] = Mbps
 
-                                if Mbps > 15:
-                                    entryDict["Quality"] = "???"
-                                elif Mbps > 10:
-                                    entryDict["Quality"] = "UHD"
-                                elif Mbps > 8:
-                                    entryDict["Quality"] = "UHD/HD"
-                                elif Mbps > 5:
-                                    entryDict["Quality"] = "HD"
-                                elif Mbps > 2:
-                                    entryDict["Quality"] = "HD/SD"
-                                elif Mbps > 0.3:
-                                    entryDict["Quality"] = "SD"
-                                else:
-                                    pass
-                         
-            #process raw info and push to Influx DB
-            #TODO: more processing
-            points = []
+                            if Mbps > 15:
+                                entryDict["Quality"] = "???"
+                            elif Mbps > 10:
+                                entryDict["Quality"] = "UHD"
+                            elif Mbps > 8:
+                                entryDict["Quality"] = "UHD/HD"
+                            elif Mbps > 5:
+                                entryDict["Quality"] = "HD"
+                            elif Mbps > 2:
+                                entryDict["Quality"] = "HD/SD"
+                            elif Mbps > 0.3:
+                                entryDict["Quality"] = "SD"
+                            else:
+                                pass
+                     
+        #process raw info and push to Influx DB
+        #TODO: more processing
+        points = []
 
-            for ip_dst in self.usageList:
+        for ip_dst in usageList:
 
-                flowDict = self.usageList[ip_dst]
-                for cookie in flowDict:
-                    entryDict = flowDict[cookie]
+            flowDict = usageList[ip_dst]
+            for cookie in flowDict:
+                entryDict = flowDict[cookie]
 
-                    #POX Stuffs
-                    newDict = {}
-                    #newDict["Time"] = entryDict["Time"];
-                    newDict["Duration"] = entryDict["Duration"];
-                    newDict["SourceIP"] = entryDict["SourceIP"]
-                    newDict["Bytes"] = entryDict["Bytes"]
-                    newDict["Destination Port"] = entryDict["tp_dst"]
-                    newDict["Source Port"] = entryDict["tp_src"]
+                #POX Stuffs
+                newDict = {}
+                #newDict["Time"] = entryDict["Time"];
+                newDict["Duration"] = entryDict["Duration"];
+                newDict["SourceIP"] = entryDict["SourceIP"]
+                newDict["Bytes"] = entryDict["Bytes"]
+                newDict["Destination Port"] = entryDict["tp_dst"]
+                newDict["Source Port"] = entryDict["tp_src"]
 
-                    if "Mbps" in entryDict:
-                        newDict["Mbps"] = entryDict["Mbps"]
-                    if "Quality" in entryDict:
-                        newDict["Quality"]= entryDict["Quality"]
-                    #mList.append()
+                if "Mbps" in entryDict:
+                    newDict["Mbps"] = entryDict["Mbps"]
+                if "Quality" in entryDict:
+                    newDict["Quality"]= entryDict["Quality"]
+                #mList.append()
 
-                    #Influx DB stuff
-                    tags = {
-                            "dst_ip": ip_dst,
-                            "src_ip":entryDict["SourceIP"],
-                            "src_port":entryDict["tp_dst"],
-                            "dst_port":entryDict["tp_src"],
-                            "group_id":1,
-                            "flow_id":2,
-                            "proto":52
-                            }
+                #Influx DB stuff
+                tags = {
+                        "ip_dst": ip_dst,
+                        "ip_src":entryDict["SourceIP"],
+                        "tp_src":entryDict["tp_dst"],
+                        "tp_dst":entryDict["tp_src"]
+                        "Group_ID":1
+                        }
 
-                    points.append({
-                            "measurement": "volume",
-                            "tags": tags,
-                            "time": int(rcv_time),
-                            "fields": {"value": float(entryDict["Bytes"]/10240000) } })
-                    
-                    if "Mbps" in entryDict:
-                        points.append({
-                                "measurement": "rate",
-                                "tags": tags,
-                                "time": int(rcv_time),
-                                "fields": {"value": entryDict["Mbps"] } }) 
-                    
+                points.append({
+                        "measurement": "Bytes_count",
+                        "tags": tags,
+                        "time": int(rcv_time),
+                        "fields": {"value": stat_value } })
 
-                    self.ship_points(points)
+                self.ship_points(points)
 
-                    
+
     def no_response(self):
         self.logger.info(
             "flow dump request timed out for {0}".format(self.dp.name))
