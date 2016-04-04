@@ -36,7 +36,7 @@ from ryu.lib.packet import vlan
 from ryu.lib.packet import ipv4
 from ryu.lib.packet import tcp
 from ryu.lib import hub
-
+from netaddr import IPNetwork, IPAddress
 
 class EventFaucetReconfigure(event.EventBase):
     pass
@@ -178,25 +178,20 @@ class Faucet(app_manager.RyuApp):
             src_ip = ip_hdr[0].src
             dst_ip = ip_hdr[0].dst
             self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
-            netflix_src_list = []
             netflix_src_list_raw = tuple(open('./Netflix_AS2906', 'r'))
-            for netflix_srcc in netflix_src_list_raw:
-                netflix_src = netflix_srcc.strip()
-                netflix_src_list.append(netflix_src.split("/")[0])
-                self.logger.info("netflix_src %s ", netflix_src.split("/")[0])
-
-            if src_ip in netflix_src_list:
-                self.logger.info("before tcp_hdr")
-                tcp_hdr = pkt.get_protocols(tcp.tcp)
-                if len(tcp_hdr)!=0:
-                    src_port = tcp_hdr[0].src_port
-                    dst_port = tcp_hdr[0].dst_port
-                    self.logger.info("tcp src_port %s, dst_port %s", src_port,dst_port)
-                    self.logger.info("inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
-                    flowmods = self.valve.netflix_flows_insertion(ev) 
-                    dp.send_msg(flowmods)
-                    self.logger.info("this also done wooohoooooo")
-                    return  
+            for netflix_src in netflix_src_list_raw:
+                if IPAddress(src_ip) in IPNetwork(netflix_src):
+                    self.logger.info("before tcp_hdr")
+                    tcp_hdr = pkt.get_protocols(tcp.tcp)
+                    if len(tcp_hdr)!=0:
+                        src_port = tcp_hdr[0].src_port
+                        dst_port = tcp_hdr[0].dst_port
+                        self.logger.info("tcp src_port %s, dst_port %s", src_port,dst_port)
+                        self.logger.info("inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
+                        flowmods = self.valve.netflix_flows_insertion(ev) 
+                        dp.send_msg(flowmods)
+                        self.logger.info("this also done wooohoooooo")
+                        return  
 
         in_port = msg.match['in_port']
         flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
