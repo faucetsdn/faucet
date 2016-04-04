@@ -881,14 +881,14 @@ class OVSStatelessValve(Valve):
         self.logger.info("after ofproto")
         parser = datapath.ofproto_parser
         self.logger.info("after parser")
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                              actions)]
         self.logger.info("after inst")
         
         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                 match=match, instructions=inst, hard_timeout=20,
                                 idle_timeout=10,
-                                flags=ofproto.OFPFF_SEND_FLOW_REM)
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
         self.logger.info("after mod")
         return mod
 
@@ -915,7 +915,7 @@ class OVSStatelessValve(Valve):
         match = parser.OFPMatch(ipv4_src = src_ip)
         self.logger.info("after ofpmatch")
         priority = 10
-        actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
+        actions = [parser.OFPActionOutput(ofp.OFPP_FLOOD)]
         self.logger.info("after actions")
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
         
@@ -927,7 +927,8 @@ class OVSStatelessValve(Valve):
                                 match=match, instructions=inst, hard_timeout=20,
                                 idle_timeout=10,
                                 flags=ofp.OFPFF_SEND_FLOW_REM)
-        self.logger.info("after mod")
+
+        self.logger.info("after mod %s", mod)
         return mod
 
 
