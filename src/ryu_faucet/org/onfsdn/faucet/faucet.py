@@ -107,7 +107,8 @@ class Faucet(app_manager.RyuApp):
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
         self.netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
-
+        self.logger.info("initiating and inserting netflix src flow entry: %s", self.netflix_src_list)
+        
     def gateway_resolve_request(self):
         while True:
             self.send_event('Faucet', EventFaucetResolveGateways())
