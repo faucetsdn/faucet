@@ -937,7 +937,7 @@ class OVSStatelessValve(Valve):
                                              actions)]
         self.logger.info("after inst")
         
-        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = table_id, 
+        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.acl_table, 
                                 match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
                                 idle_timeout=0,
                                 flags=ofp.OFPFF_SEND_FLOW_REM)
