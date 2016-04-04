@@ -900,7 +900,7 @@ class OVSStatelessValve(Valve):
         dst_port = msg.match['tcp_dst']
         match = parser.OFPMatch(in_port= in_port, ipv4_src = src_ip, ipv4_dst = dst_ip, tcp_src = src_port, tcp_dst = dst_port)
         priority = 100
-        actions = [ofp_parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
+        actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
         return format_netflix_flowMod(self, datapath, priority, match, actions)
 
@@ -913,7 +913,7 @@ class OVSStatelessValve(Valve):
         match = parser.OFPMatch(ipv4_src = src_ip)
         self.logger.info("after ofpmatch")
         priority = 10
-        actions = [ofp_parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
+        actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
         self.logger.info("after actions")
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
         return format_netflix_flowMod(self, datapath, priority, match, actions)
