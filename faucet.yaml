@@ -1,0 +1,88 @@
+---
+dp_id: 0x0000000000000001   # The id of the datapath to be controlled
+name: "office-faucet-1" # The name of the datapath for use with logging
+description: "Centie testbed"    # Purely informational
+hardware: "NoviFlow"  # used to determine which valve implementation to use
+monitor_ports: True # whether gauge should monitor stats for ports
+monitor_ports_file: "ports.out" # The file to record ports statistics
+monitor_ports_interval: 10  # the polling interval for port stats in seconds
+monitor_flow_table: True    # whether gauge should take periodic flow table dumps
+monitor_flow_table_file: "ft.out"   # the file to record flow table dumps
+monitor_flow_table_interval: 10 # the polling interval for flow table monitoring
+interfaces:
+#    1:
+#        tagged_vlans: [10]
+#    2:
+#        untagged_vlan: 10
+#    3:
+#        untagged_vlan: 10
+#    4:
+#        untagged_vlan: 10
+#    5:
+#        untagged_vlan: 10
+#    6:
+#        untagged_vlan: 10
+#    7:
+#        untagged_vlan: 10
+#    8:
+#        untagged_vlan: 10
+#    9:
+#        untagged_vlan: 10
+#    10:
+#        untagged_vlan: 10
+    11:
+        native_vlan: 10
+        name: "Spirent 1"
+        description: "Test traffic from Spirent port 1"
+    12:
+        native_vlan: 10
+        name: "Spirent 2"
+        description: "Test traffic from Spirent port 2"
+    13:
+        native_vlan: 10
+        name: "yellow"
+    14:
+        native_vlan: 10
+        name: "white"
+#    15:
+#        untagged_vlan: 10
+#    16:
+#        untagged_vlan: 10
+#    17:
+#        untagged_vlan: 10
+#    18:
+#        untagged_vlan: 10
+#    19:
+#        untagged_vlan: 10
+#    20:
+#        untagged_vlan: 10
+#    21:
+#        untagged_vlan: 10
+#    22:
+#        untagged_vlan: 10
+#    23:
+#        untagged_vlan: 10
+#    24:
+#        untagged_vlan: 10
+#    25:
+#        untagged_vlan: 10
+#    26:
+#        untagged_vlan: 10
+#    27:
+#        untagged_vlan: 10
+#    28:
+#        untagged_vlan: 10
+#    29:
+#        untagged_vlan: 10
+#    30:
+#        untagged_vlan: 10
+#    31:
+#        untagged_vlan: 10
+    32:
+        name: "gateway"
+        native_vlan: 10
+
+vlans:
+    10:
+        description: "Centie test vlan" # informational
+        name: "Centie untagged vlan"  # used for logging/monitoring
