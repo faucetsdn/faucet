@@ -33,6 +33,8 @@ from ryu.ofproto import ofproto_v1_3, ether
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
+from ryu.lib.packet import ipv4
+from ryu.lib.packet import tcp
 from ryu.lib import hub
 
 
@@ -171,10 +173,9 @@ class Faucet(app_manager.RyuApp):
         self.send_flow_msgs(dp, flowmods)
         
 
-
+        self.logger.info("before ip_hdr")
         ip_hdr = pkt.get_protocols(ipv4.ipv4)
         
-
         if len(ip_hdr)!=0:
             src_ip = ip_hdr[0].src
             dst_ip = ip_hdr[0].dst
