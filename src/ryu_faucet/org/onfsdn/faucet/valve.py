@@ -927,7 +927,7 @@ class OVSStatelessValve(Valve):
         mask="255.255.255.0"
         match = parser.OFPMatch(ipv4_src=(ip, mask))
         self.logger.info("after ofpmatch")
-        priority = 10000
+        priority = 8000
         table_id = 1
         actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
         self.logger.info("after actions")
