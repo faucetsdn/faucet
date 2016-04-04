@@ -106,6 +106,7 @@ class Faucet(app_manager.RyuApp):
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
+        self.netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
 
     def gateway_resolve_request(self):
         while True:
@@ -165,28 +166,34 @@ class Faucet(app_manager.RyuApp):
         else:
             return
 
-        ip_addr = pkt.get_protocols(ipv4.ipv4)
-        tcp_pkt = pkt.get_protocols(tcp.tcp)
-        if len(ip_addr)!=0:
-            self.logger.info("ipv4 src %s, dst %s", ip_addr[0].src,ip_addr[0].dst)
-            ip_src = ip_addr.src
-            ip_dst = ip_addr.dst
-        if len(tcp_pkt)!=0:
-            self.logger.info("tcp src_port %s, dst_port %s", tcp_pkt[0].src_port,tcp_pkt[0].dst_port)
-            s_port = tcp_pkt.src_port
+        ip_hdr = pkt.get_protocols(ipv4.ipv4)
+        
 
-        netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
+        if len(ip_hdr)!=0:
+            src_ip = ip_hdr[0].src
+            dst_ip = ip_hdr[0].dst
+            self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
+            if src_ip in self.netflix_src_list:
+                tcp_hdr = pkt.get_protocols(tcp.tcp)
+                if len(tcp_hdr)!=0:
+                    src_port = tcp_hdr[0].src_port
+                    dst_port = tcp_hdr[0].dst_port
+                    self.logger.info("tcp src_port %s, dst_port %s", src_port,dst_port)
+                    self.logger.info("inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
+                    flowmods = self.valve.netflix_flows_insertion(ev)
+            else:
+        
 
-        if ip_src in netflix_src_list :
-            src_ip = msg.match['src_ip']
-            dst_ip = msg.match['dst_ip']
-            in_port = msg.match['in_port']
-            flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
+        # if ip_src in netflix_src_list :
+        #     src_ip = msg.match['src_ip']
+        #     dst_ip = msg.match['dst_ip']
+        #     in_port = msg.match['in_port']
+        #     flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
 
 
-        in_port = msg.match['in_port']
-        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
-        self.send_flow_msgs(dp, flowmods)
+                in_port = msg.match['in_port']
+                flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
+                self.send_flow_msgs(dp, flowmods)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -202,6 +209,11 @@ class Faucet(app_manager.RyuApp):
             p.port_no for p in dp.ports.values() if p.state == 0]
         flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
         self.send_flow_msgs(dp, flowmods)
+
+        for netflix_src in self.netflix_src_list:
+            self.logger.info("initiating and inserting netflix src flow entry: %s", netflix_src)
+            flowmods = self.valve.netflix_flows_initation(dp, netflix_src)
+            self.send_flow_msgs(dp,flowmods)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
