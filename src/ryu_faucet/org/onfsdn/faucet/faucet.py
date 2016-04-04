@@ -186,14 +186,7 @@ class Faucet(app_manager.RyuApp):
                 self.logger.info("netflix_src %s ", netflix_src.split("/")[0])
 
             part = src_ip.split(".")
-            ip_src = part[0] 
-            part1 = part[1].split(".") 
-            part2 = part1[1].split(".") 
-            ip_src.append(".")
-            ip_src.append(part1[0])
-            ip_src.append(".")
-            ip_src.append(part2[0])
-            ip_src.append(".0")
+            ip_src = part[0]+"."+part[1]+"."+part[2]+".0"
 
             self.logger.info("ipsrc %s", ip_src)
 
