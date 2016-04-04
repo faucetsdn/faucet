@@ -893,15 +893,19 @@ class OVSStatelessValve(Valve):
         return mod
 
     def netflix_flows_insertion(self, ev):
+        self.logger.info("before insertion")
         msg = ev.msg
         datapath = msg.datapath
+        self.logger.info("before match")
         in_port = msg.match['in_port']
         src_ip = msg.match['ipv4_src']
         dst_ip = msg.match['ipv4_dst']
         src_port = msg.match['tcp_src']
         dst_port = msg.match['tcp_dst']
+        self.logger.info("before ofpmatch")
         match = parser.OFPMatch(in_port= in_port, ipv4_src = src_ip, ipv4_dst = dst_ip, tcp_src = src_port, tcp_dst = dst_port)
         priority = 20000
+        self.logger.info("before actions")
         actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
         inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
