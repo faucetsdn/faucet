@@ -901,10 +901,20 @@ class OVSStatelessValve(Valve):
         src_port = msg.match['tcp_src']
         dst_port = msg.match['tcp_dst']
         match = parser.OFPMatch(in_port= in_port, ipv4_src = src_ip, ipv4_dst = dst_ip, tcp_src = src_port, tcp_dst = dst_port)
-        priority = 100
+        priority = 20000
         actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
-        return self.format_netflix_flowMod(self, datapath, priority, match, actions)
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        self.logger.info("after inst")
+        
+        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.vlan_table, 
+                                match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
+                                idle_timeout=0,
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
+
+        self.logger.info("after mod %s", mod)
+        return mod
 
     def netflix_flows_initiation(self, dp, netflix_src):
         self.logger.info("in function neflix initiation")
