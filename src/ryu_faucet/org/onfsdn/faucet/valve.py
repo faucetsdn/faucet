@@ -924,8 +924,8 @@ class OVSStatelessValve(Valve):
         self.logger.info("after inst")
         
         mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.vlan_table, 
-                                match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=20,
-                                idle_timeout=10,
+                                match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
+                                idle_timeout=0,
                                 flags=ofp.OFPFF_SEND_FLOW_REM)
 
         self.logger.info("after mod %s", mod)
