@@ -878,16 +878,18 @@ class OVSStatelessValve(Valve):
 
     def format_netflix_flowMod(self, datapath, priority, match, actions ):
         ofproto = datapath.ofproto
+        self.logger.info("after ofproto")
         parser = datapath.ofproto_parser
-
+        self.logger.info("after parser")
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
-            
+        self.logger.info("after inst")
         
         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                 match=match, instructions=inst, hard_timeout=20,
                                 idle_timeout=10,
                                 flags=ofproto.OFPFF_SEND_FLOW_REM)
+        self.logger.info("after mod")
         return mod
 
     def netflix_flows_insertion(self, ev):
