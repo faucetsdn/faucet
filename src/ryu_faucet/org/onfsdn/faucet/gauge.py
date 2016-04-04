@@ -296,7 +296,8 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
         super(GaugeFlowTablePoller, self).__init__(dp, ryudp, logname)
         self.interval = self.dp.monitor_flow_table_interval
         self.logfile = self.dp.monitor_flow_table_file
-        self.usageList = {}
+        self.usageDict = {}
+        self.calDict = {}
 
     def send_req(self):
         ofp = self.ryudp.ofproto
@@ -317,13 +318,12 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
         with open(self.logfile, 'a') as logfile:
             ref = self.dp.name + "-flowtables"
             
-
-
             # TODO: continue port stat to Inlfux DB
             #jsondict = msg.to_jsondict()
             #self.logger.info(json.dumps(jsondict, indent=4))
             
             body = msg.body
+            testPoints = []
             #for f in [flow for flow in body if (flow.priority == 34300 and flow.table_id == 1)]:
             for f in [flow for flow in body]:
 
@@ -338,131 +338,161 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                 f.instructions[0].actions[0].port,
                                 f.packet_count, f.byte_count)
                 '''
+
                 logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
                 msg.datapath.id, f.cookie, f.byte_count)) 
 
                 
-            
-                if (not hasattr(f.match, 'nw_src') or not hasattr(a, 'nw_dst')):
+                #Test Influx DB stuff
+                testTags = {         
+                        "flow_id":cookie,
+                        }
 
+                testPoints.append({
+                            "measurement": "test1",
+                            "tags": testTags,
+                            "time": int(rcv_time),
+                            "fields": {"value": int(f.byte_count + random.randint(1, 1000)) } })
+            
+
+                '''Calculate '''            
+                if (not hasattr(f.match, 'nw_src') or not hasattr(a, 'nw_dst')):
+                    logfile.write("match: {0}\n".format(str(f.match))) 
                     break
                 
                 ip_src = str(f.match.nw_src) 
-                ip_dst = str(f.match.nw_dst) 
+                ip_dst = str(f.match.nw_dst)
 
-                if ip_dst not in self.usageList:
-                    flowDict = {}
-                    #create new
-                    entryDict = {}
-                    entryDict["Time"] = int(rcv_time)
-                    entryDict["cookie"] = f.cookie
-                    entryDict["SourceIP"] = f.ip_src
-                    entryDict["tp_dst"] = f.match.tp_dst
-                    entryDict["tp_src"] = f.match.tp_src
-                    entryDict["Bytes"] = f.byte_count
-                    entryDict["Duration"] = f.duration_sec
-                    entryDict["RTime"] = 0
-                    entryDict["RBytes"] = 0
-                    flowDict[f.cookie] = entryDict
-                    entryDict = {}
-                    usageList[ip_dst] = flowDict
-                else:
-                    flowDict = self.usageList[ip_dst] 
-                    if f.cookie  not in flowDict:
-                        #create new
-                        entryDict = {}
-                        entryDict["Time"] = int(rcv_time)
-                        entryDict["cookie"] = f.cookie
-                        entryDict["SourceIP"] = ip_src
-                        entryDict["tp_dst"] = f.match.tp_dst
-                        entryDict["tp_src"] = f.match.tp_src
-                        entryDict["Bytes"] = f.byte_count
-                        entryDict["Duration"] = f.duration_sec
-                        entryDict["RTime"] = 0
-                        entryDict["RBytes"] = 0
-                        flowDict[f.cookie] = entryDict
-                    else:    
-                        entryDict = flowDict[f.cookie];
-                        #if there is change in byte count
-                        if entryDict["Bytes"] != f.byte_count:
-                            entryDict["Bytes"] = f.byte_count
-                            entryDict["Duration"] = f.duration_sec
+                #process raw info and push to Influx DB
+                #TODO: more processing
+                points = []
 
-                            if entryDict["RTime"]  == 0 and f.duration_sec >60:
-                                entryDict["RTime"] = f.duration_sec
-                                entryDict["RBytes"] = f.byte_count
-                            elif entryDict["RTime"]  != 0 and f.duration_sec > 90:
-                                timeSpan = float(f.duration_sec - entryDict["RTime"])
-                                byteCount = float(f.byte_count -entryDict["RBytes"])
-                                Mbps = byteCount * 8 / (timeSpan * 1024000)
-                                entryDict["Mbps"] = Mbps
 
-                                if Mbps > 15:
-                                    entryDict["Quality"] = "???"
-                                elif Mbps > 10:
-                                    entryDict["Quality"] = "UHD"
-                                elif Mbps > 8:
-                                    entryDict["Quality"] = "UHD/HD"
-                                elif Mbps > 5:
-                                    entryDict["Quality"] = "HD"
-                                elif Mbps > 2:
-                                    entryDict["Quality"] = "HD/SD"
-                                elif Mbps > 0.3:
-                                    entryDict["Quality"] = "SD"
-                                else:
-                                    pass
-                         
-            #process raw info and push to Influx DB
-            #TODO: more processing
-            points = []
+                #Influx DB stuff
+                tags = {
+                        "dst_ip": ip_dst,
+                        "src_ip": ip_src,
+                        "src_port":f.match.tp_src,
+                        "dst_port":f.match.tp_dst,
+                        "group_id":1,
+                        "flow_id":cookie,
+                        "proto":52
+                        }
 
-            for ip_dst in self.usageList:
-
-                flowDict = self.usageList[ip_dst]
-                for cookie in flowDict:
-                    entryDict = flowDict[cookie]
-
-                    #POX Stuffs
-                    newDict = {}
-                    #newDict["Time"] = entryDict["Time"];
-                    newDict["Duration"] = entryDict["Duration"];
-                    newDict["SourceIP"] = entryDict["SourceIP"]
-                    newDict["Bytes"] = entryDict["Bytes"]
-                    newDict["Destination Port"] = entryDict["tp_dst"]
-                    newDict["Source Port"] = entryDict["tp_src"]
-
-                    if "Mbps" in entryDict:
-                        newDict["Mbps"] = entryDict["Mbps"]
-                    if "Quality" in entryDict:
-                        newDict["Quality"]= entryDict["Quality"]
-                    #mList.append()
-
-                    #Influx DB stuff
-                    tags = {
+                MbpsTags = {
                             "dst_ip": ip_dst,
-                            "src_ip":entryDict["SourceIP"],
-                            "src_port":entryDict["tp_dst"],
-                            "dst_port":entryDict["tp_src"],
-                            "group_id":1,
-                            "flow_id":2,
-                            "proto":52
-                            }
+                            "src_ip": ip_src,
+                            "src_port":f.match.tp_src
+                    }
+
+                if cookie not in self.usageDict:
+                    flowDict = {}
+                    
+                    flowDict["Time"] = int(rcv_time)
+                    flowDict["cookie"] = cookie
+                    flowDict["SourceIP"] = ip_src
+                    flowDict["DestinationIP"] = ip_dst 
+                    flowDict["tp_dst"] = f.match.tp_dst
+                    flowDict["tp_src"] = f.match.tp_src
+                    flowDict["Bytes"] = f.byte_count
+                    flowDict["Duration"] = f.duration_sec
+                    flowDict["RTime"] = 0
+                    flowDict["RBytes"] = 0
+
+                    self.usageDict[cookie] = flowDict
 
                     points.append({
                             "measurement": "volume",
                             "tags": tags,
                             "time": int(rcv_time),
-                            "fields": {"value": float(entryDict["Bytes"]/10240000) } })
-                    
-                    if "Mbps" in entryDict:
-                        points.append({
-                                "measurement": "rate",
-                                "tags": tags,
-                                "time": int(rcv_time),
-                                "fields": {"value": entryDict["Mbps"] } }) 
-                    
+                            "fields": {"value": f.byte_count } })
 
-                    self.ship_points(points)
+                else:
+                    flowDict = self.usageDict[cookie]
+
+                    #only update if the count are different
+                    if flowDict["Bytes"] != f.byte_count:
+
+                        byteIncrement = f.byte_count - flowDict["Bytes"]
+                        timeIncrement = int(rcv_time) - flowDict["Time"]
+
+                        flowDict["Time"] = int(rcv_time)
+                        flowDict["Bytes"] = f.byte_count
+                        flowDict["Duration"] = f.duration_sec
+                        flowDict["RTime"] = 0
+                        flowDict["RBytes"] = 0
+
+                        points.append({
+                            "measurement": "volume",
+                            "tags": tags,
+                            "time": int(rcv_time),
+                            "fields": {"value": f.byte_count } })
+
+                        points.append({
+                            "measurement": "rate",
+                            "tags": tags,
+                            "time": int(rcv_time),
+                            "fields": {"value": byteIncrement } })
+
+                        #avoid buffering time, mark byte count at 60s
+                        if f.duration_sec > 60 and flowDict["RTime"] == 0:
+
+                            flowDict["RTime"] = f.duration_sec
+                            flowDict["RBytes"] = f.byte_count
+
+                        self.usageDict[cookie] = flowDict
+
+
+                        '''MBPS calculation'''
+                        if ip_src not in self.calDict:
+                            
+                            entryDict = {}
+                            #first entry
+                            entryDict["Byte"] = byteIncrement;
+                            entryDict["Time"] = int(rcv_time);
+                            entryDict["TimePrevious"] = int(rcv_time);
+                            entryDict["BytePrevious"] = byteIncrement;
+
+                            dstDict = {}
+                            dstDict[ip_dst] = entryDict
+                            self.calDict[ip_src] = dstDict
+                        else:
+                            dstDict = self.calDict[ip_src]
+
+                            if entry[ip_dst] not in dstDict:
+                                entryDict = {}
+                                #first entry
+                                entryDict["Byte"] = byteIncrement;
+                                entryDict["Time"] = int(rcv_time);
+                                entryDict["TimePrevious"] = int(rcv_time);
+                                entryDict["BytePrevious"] = byteIncrement;
+                                dstDict[ip_dst] = entryDict
+                            else:
+                                entryDict = dstDict[ip_dst]
+                                newByteCount = entryDict["Byte"] + byteIncrement;
+                                entryDict["Byte"] = newByteCount 
+                                entryDict["Time"] = int(rcv_time);
+
+                                #if more than 10 sec from previous measurement
+                                timeDiff = int(rcv_time) - entryDict["TimePrevious"]
+                                if  timeDiff > 10:
+                                    totalByteInc = newByteCount  - entryDict["BytePrevious"]
+                                    Mbps = totalByteInc * 8 / (timeDiff * 1024000)
+
+                                    #reset previous record
+                                    entryDict["TimePrevious"] = int(rcv_time);
+                                    entryDict["BytePrevious"] = newByteCount;
+
+                                    #update Mbps
+                                    points.append({
+                                        "measurement": "Mbps",
+                                        "tags": MbpsTags,
+                                        "time": int(rcv_time),
+                                        "fields": {"value": Mbps } })
+
+                self.ship_points(points)
+
+            self.ship_points(testPoints)
 
                     
     def no_response(self):
