@@ -74,7 +74,7 @@ class FAUCET(Controller):
 class FaucetSwitchTopo(Topo):
 
     def build(self, n_tagged=0, tagged_vid=100, n_untagged=0):
-        switch = self.addSwitch('s1')
+        switch = self.addSwitch('s1', protocols='OpenFlow13')
         for h in range(n_tagged):
             host = self.addHost('ht_%s' % (h + 1),
                 cls=VLANHost, vlan=tagged_vid)
@@ -137,7 +137,7 @@ class FaucetTest(unittest.TestCase):
     def wait_until_matching_flow(self, flow, timeout=5):
         s1 = self.net.switches[0]
         for i in range(timeout):
-            dump_flows_cmd = 'ovs-ofctl dump-flows %s' % s1.name
+            dump_flows_cmd = 'ovs-ofctl -Oopenflow13 dump-flows %s' % s1.name
             dump_flows = s1.cmd(dump_flows_cmd)
             for line in dump_flows.split('\n'):
                 if re.search(flow, line):
@@ -164,10 +164,10 @@ class FaucetTest(unittest.TestCase):
                          first_host_routed_ip.masked(), self.CONTROLLER_IPV4)))
         self.net.ping(hosts=(first_host, second_host))
         self.wait_until_matching_flow(
-            'nw_dst=%s.+mod_dl_dst:%s' % (
+            'nw_dst=%s.+%s->eth_dst' % (
                 first_host_routed_ip.masked(), first_host.MAC()))
         self.wait_until_matching_flow(
-            'nw_dst=%s.+mod_dl_dst:%s' % (
+            'nw_dst=%s.+%s->eth_dst' % (
                 second_host_routed_ip.masked(), second_host.MAC()))
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
@@ -185,10 +185,10 @@ class FaucetTest(unittest.TestCase):
         second_host.cmd('ip -6 route add %s via %s' % (
             first_host_routed_ip.masked(), self.CONTROLLER_IPV6))
         self.wait_until_matching_flow(
-            'ipv6_dst=%s.+mod_dl_dst:%s' % (
+            'ipv6_dst=%s.+%s->eth_dst' % (
                 first_host_routed_ip.masked(), first_host.MAC()))
         self.wait_until_matching_flow(
-            'ipv6_dst=%s.+mod_dl_dst:%s' % (
+            'ipv6_dst=%s.+%s->eth_dst' % (
                 second_host_routed_ip.masked(), second_host.MAC()))
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
@@ -536,10 +536,12 @@ acls:
             dl_type: 0x800
             nw_proto: 6
             tp_dst: 5001
-            allow: 0
+            actions:
+                allow: 0
 
         - rule:
-            allow: 1
+            actions:
+                allow: 1
 """
 
     def test_port5001_blocked(self):
@@ -562,6 +564,56 @@ acls:
             first_host.cmd('nc -w 3 %s 5002' % second_host.IP()))
         second_host.sendInt()
 
+class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
+
+    CONFIG = CONFIG_HEADER + """
+interfaces:
+    1:
+        native_vlan: 100
+        description: "b1"
+        acl_in: 1
+    2:
+        native_vlan: 100
+        description: "b2"
+        acl_in: 1
+    3:
+        native_vlan: 100
+        description: "b3"
+    4:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            actions:
+                allow: 1
+                mirror: 3
+"""
+
+    def test_untagged(self):
+        first_host = self.net.hosts[0]
+        second_host = self.net.hosts[1]
+        mirror_host = self.net.hosts[2]
+        mirror_mac = mirror_host.MAC()
+        tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
+        tcpdump_out = mirror_host.popen(
+            'timeout 10s tcpdump -n -v -c 2 -U %s' % tcpdump_filter)
+        # wait for tcpdump to start
+        time.sleep(1)
+        popens = {mirror_host: tcpdump_out}
+        first_host.cmd('ping -c1  %s' % second_host.IP())
+        tcpdump_txt = ''
+        for host, line in pmonitor(popens):
+            if host == mirror_host:
+                tcpdump_txt += line.strip()
+        self.assertFalse(tcpdump_txt == '')
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt))
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 

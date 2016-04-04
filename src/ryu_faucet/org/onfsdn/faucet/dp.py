@@ -150,6 +150,12 @@ class DP(object):
     def add_acl(self, acl_num, acl_conf=None):
         if acl_conf is not None:
             self.acls[acl_num] = [x['rule'] for x in acl_conf]
+            for rule_conf in self.acls[acl_num]:
+                for attrib, attrib_value in rule_conf.iteritems():
+                    if attrib == "actions":
+                        if 'mirror' in attrib_value:
+                            port_no = attrib_value['mirror']
+                            self.mirror_from_port[4294967040 - acl_num] = port_no
 
     def add_port(self, port_num, port_conf=None):
         # add port specific vlans or fall back to defaults

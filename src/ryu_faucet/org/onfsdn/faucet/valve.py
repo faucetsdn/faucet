@@ -548,8 +548,14 @@ class OVSStatelessValve(Valve):
                 acl_inst = []
                 match_dict = {}
                 for attrib, attrib_value in rule_conf.iteritems():
-                    if attrib == 'allow':
-                        if attrib_value == 1:
+                    if attrib == "actions":
+                        if 'mirror' in attrib_value:
+                            port_no = attrib_value['mirror']
+                            acl_inst.append(
+                                    self.apply_actions([
+                                    #parser.OFPActionPopVlan(),
+                                    parser.OFPActionOutput(port_no)]))
+                        if attrib_value['allow'] == 1:
                             acl_inst.append(acl_allow_inst)
                         continue
                     if attrib == 'in_port':
@@ -697,6 +703,9 @@ class OVSStatelessValve(Valve):
         self.logger.info('Sending config for port {0}'.format(port))
 
         for table in self.all_valve_tables():
+            if table == self.dp.acl_table:
+                # Shouldn't delete flows from acl_table
+                continue
             ofmsgs.append(self.valve_flowdel(table, in_port_match))
 
         if port_num in self.dp.mirror_from_port.values():
@@ -733,6 +742,8 @@ class OVSStatelessValve(Valve):
 
         # delete all rules matching this port in all tables.
         for table in self.all_valve_tables():
+            if table == self.dp.acl_table:
+                continue
             ofmsgs.append(self.valve_flowdel(table,
                 self.valve_in_match(in_port=port_num)))
 
