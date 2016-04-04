@@ -173,7 +173,8 @@ class Faucet(app_manager.RyuApp):
 
         self.logger.info("before ip_hdr")
         ip_hdr = pkt.get_protocols(ipv4.ipv4)
-
+        str_ip_hdr = str(ip_hdr).strip('[]')
+        self.logger.info("after ip_hdr %s ", str_ip_hdr)
         if len(ip_hdr)!=0:
             src_ip = ip_hdr[0].src
             dst_ip = ip_hdr[0].dst
