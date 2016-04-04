@@ -359,11 +359,11 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
 
                 '''checking'''  
                 if byte_count == 0:
-                    break
+                    continue
 
                 if (not hasattr(f.match, 'tcp_src') or not hasattr(a, 'tcp_dst')):
                     #logfile.write("match: {0}\n".format(str(f.match))) 
-                    break
+                    continue
 
                 logfile.write("Found Flow of Interest") 
                 
