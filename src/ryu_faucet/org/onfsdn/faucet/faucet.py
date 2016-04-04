@@ -233,19 +233,19 @@ class Faucet(app_manager.RyuApp):
         discovered_ports = [
             p.port_no for p in dp.ports.values() if p.state == 0]
         flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
-        self.logger.info("before send flowmods")
-        self.send_flow_msgs(dp, flowmods)
-        self.logger.info("before opening netflix file")
+        # self.logger.info("before send flowmods")
+        # self.send_flow_msgs(dp, flowmods)
+        # self.logger.info("before opening netflix file")
         netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
         
         for netflix_srcc in netflix_src_list:
-            self.logger.info("initiating and inserting netflix src flow entry: %s", netflix_srcc)
+            # self.logger.info("initiating and inserting netflix src flow entry: %s", netflix_srcc)
             netflix_src=netflix_srcc.strip()
 
             flowmods = self.valve.netflix_flows_initiation(dp, netflix_src)
-            self.logger.info("after creating flowmods")
+            # self.logger.info("after creating flowmods")
             dp.send_msg(flowmods)
-            self.logger.info("done done done")
+            # self.logger.info("done done done")
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)

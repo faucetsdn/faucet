@@ -917,32 +917,32 @@ class OVSStatelessValve(Valve):
         return mod
 
     def netflix_flows_initiation(self, dp, netflix_src):
-        self.logger.info("in function neflix initiation")
-        self.logger.info("dp: %s dpid: %s", dir(dp), dp.id)
+        # self.logger.info("in function neflix initiation")
+        # self.logger.info("dp: %s dpid: %s", dir(dp), dp.id)
         datapath = dp
         src_ip = netflix_src
         part=src_ip.split("/")
         ip=part[0]
-        self.logger.info("before ofpmatch")
+        # self.logger.info("before ofpmatch")
         mask="255.255.255.0"
         match = parser.OFPMatch(ipv4_src=(ip, mask))
-        self.logger.info("after ofpmatch")
+        # self.logger.info("after ofpmatch")
         priority = 10000
         table_id = 1
         actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
-        self.logger.info("after actions")
-        self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
+        # self.logger.info("after actions")
+        # self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
         
         inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                              actions)]
-        self.logger.info("after inst")
+        # self.logger.info("after inst")
         
         mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.vlan_table, 
                                 match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
                                 idle_timeout=0,
                                 flags=ofp.OFPFF_SEND_FLOW_REM)
 
-        self.logger.info("after mod %s", mod)
+        # self.logger.info("after mod %s", mod)
         return mod
 
 
