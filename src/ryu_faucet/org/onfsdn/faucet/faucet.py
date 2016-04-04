@@ -106,9 +106,8 @@ class Faucet(app_manager.RyuApp):
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
-        self.netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
-        self.logger.info("initiating and inserting netflix src flow entry: %s", self.netflix_src_list)
-        
+
+
     def gateway_resolve_request(self):
         while True:
             self.send_event('Faucet', EventFaucetResolveGateways())
@@ -180,7 +179,8 @@ class Faucet(app_manager.RyuApp):
             src_ip = ip_hdr[0].src
             dst_ip = ip_hdr[0].dst
             self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
-            if src_ip in self.netflix_src_list:
+            netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
+            if src_ip in netflix_src_list:
                 tcp_hdr = pkt.get_protocols(tcp.tcp)
                 if len(tcp_hdr)!=0:
                     src_port = tcp_hdr[0].src_port
@@ -212,8 +212,9 @@ class Faucet(app_manager.RyuApp):
             p.port_no for p in dp.ports.values() if p.state == 0]
         flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
         self.send_flow_msgs(dp, flowmods)
-
-        for netflix_src in self.netflix_src_list:
+        netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
+        self.logger.info("netflix_src_list: %s", netflix_src_list)
+        for netflix_src in netflix_src_list:
             self.logger.info("initiating and inserting netflix src flow entry: %s", netflix_src)
             flowmods = self.valve.netflix_flows_initation(dp, netflix_src)
             self.send_flow_msgs(dp,flowmods)
