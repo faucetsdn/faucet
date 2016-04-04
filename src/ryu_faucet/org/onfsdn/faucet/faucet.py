@@ -165,6 +165,25 @@ class Faucet(app_manager.RyuApp):
         else:
             return
 
+        ip_addr = pkt.get_protocols(ipv4.ipv4)
+        tcp_pkt = pkt.get_protocols(tcp.tcp)
+        if len(ip_addr)!=0:
+            self.logger.info("ipv4 src %s, dst %s", ip_addr[0].src,ip_addr[0].dst)
+            ip_src = ip_addr.src
+            ip_dst = ip_addr.dst
+        if len(tcp_pkt)!=0:
+            self.logger.info("tcp src_port %s, dst_port %s", tcp_pkt[0].src_port,tcp_pkt[0].dst_port)
+            s_port = tcp_pkt.src_port
+
+        netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
+
+        if ip_src in netflix_src_list :
+            src_ip = msg.match['src_ip']
+            dst_ip = msg.match['dst_ip']
+            in_port = msg.match['in_port']
+            flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
+
+
         in_port = msg.match['in_port']
         flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
         self.send_flow_msgs(dp, flowmods)
