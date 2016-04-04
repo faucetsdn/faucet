@@ -200,7 +200,7 @@ class Faucet(app_manager.RyuApp):
                     dst_port = tcp_hdr[0].dst_port
                     self.logger.info("dst tcp src_port %s, dst_port %s", src_port,dst_port)
                     self.logger.info("dst inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
-                    flowmods = self.valve.netflix_flows_insertion(ev) 
+                    flowmods = self.valve.netflix_flows_insertion(ev,src_ip,src_port,dst_ip,dst_port) 
                     dp.send_msg(flowmods)
                     self.logger.info("dst this also done wooohoooooo")
                     return  
