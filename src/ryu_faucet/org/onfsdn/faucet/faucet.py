@@ -234,7 +234,7 @@ class Faucet(app_manager.RyuApp):
             p.port_no for p in dp.ports.values() if p.state == 0]
         flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
         # self.logger.info("before send flowmods")
-        # self.send_flow_msgs(dp, flowmods)
+        self.send_flow_msgs(dp, flowmods)
         # self.logger.info("before opening netflix file")
         netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
         
