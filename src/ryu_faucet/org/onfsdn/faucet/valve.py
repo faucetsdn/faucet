@@ -926,7 +926,7 @@ class OVSStatelessValve(Valve):
         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                 match=match, instructions=inst, hard_timeout=20,
                                 idle_timeout=10,
-                                flags=ofproto.OFPFF_SEND_FLOW_REM)
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
         self.logger.info("after mod")
         return mod
 
