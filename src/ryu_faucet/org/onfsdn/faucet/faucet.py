@@ -178,7 +178,10 @@ class Faucet(app_manager.RyuApp):
             src_ip = ip_hdr[0].src
             dst_ip = ip_hdr[0].dst
             self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
-            netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
+            netflix_src_list = []
+            netflix_src_list_raw = tuple(open('./Netflix_AS2906', 'r'))
+            for netflix_src in netflix_src_list_raw:
+                netflix_src_list.append(netflix_src.split("/")[0])
             if src_ip in netflix_src_list:
                 tcp_hdr = pkt.get_protocols(tcp.tcp)
                 if len(tcp_hdr)!=0:
