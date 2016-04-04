@@ -913,7 +913,7 @@ class OVSStatelessValve(Valve):
         src_ip = netflix_src
         self.logger.info("before ofpmatch")
         mask="255.255.255.0"
-        match = parser.OFPMatch(ipv4_src=src_ip, ipv4_src_mask=mask)
+        match = parser.OFPMatch(ipv4_src=(src_ip, mask))
         self.logger.info("after ofpmatch")
         priority = 10000
         actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
