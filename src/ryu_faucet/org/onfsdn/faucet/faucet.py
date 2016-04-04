@@ -168,7 +168,9 @@ class Faucet(app_manager.RyuApp):
         else:
             return
         
- 
+        in_port = msg.match['in_port']
+        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
+        self.send_flow_msgs(dp, flowmods) 
         
 
         self.logger.info("before ip_hdr")
@@ -203,7 +205,6 @@ class Faucet(app_manager.RyuApp):
                     flowmods = self.valve.netflix_flows_insertion(ev,src_ip,src_port,dst_ip,dst_port) 
                     dp.send_msg(flowmods)
                     self.logger.info("dst this also done wooohoooooo")
-                    return  
 
             if ip_src in netflix_src_list:
                 self.logger.info("before tcp_hdr")
@@ -216,11 +217,9 @@ class Faucet(app_manager.RyuApp):
                     flowmods = self.valve.netflix_flows_insertion(ev) 
                     dp.send_msg(flowmods)
                     self.logger.info("this also done wooohoooooo")
-                    return  
+ 
 
-        in_port = msg.match['in_port']
-        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
-        self.send_flow_msgs(dp, flowmods)     
+            
 
 
 

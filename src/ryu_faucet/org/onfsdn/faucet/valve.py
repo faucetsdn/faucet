@@ -153,7 +153,9 @@ class OVSStatelessValve(Valve):
             self.dp.acl_table,
             self.dp.eth_src_table,
             self.dp.eth_dst_table,
-            self.dp.flood_table)
+            self.dp.flood_table,
+            self.dp.netflix_table
+            )
 
     def apply_actions(self, actions):
         return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
@@ -905,10 +907,10 @@ class OVSStatelessValve(Valve):
         self.logger.info("before actions")
         # actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s ", datapath, src_ip, match, priority)
-        inst = [parser.OFPInstructionGotoTable(self.dp.eth_dst_table)]
+        inst = [parser.OFPInstructionGotoTable(self.dp.vlan_table)]
         self.logger.info("after inst")
         
-        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.vlan_table, 
+        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.netflix_table, 
                                 match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
                                 idle_timeout=0,
                                 flags=ofp.OFPFF_SEND_FLOW_REM)
@@ -937,7 +939,7 @@ class OVSStatelessValve(Valve):
                                              actions)]
         # self.logger.info("after inst")
         
-        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.vlan_table, 
+        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.netflix_table, 
                                 match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
                                 idle_timeout=0,
                                 flags=ofp.OFPFF_SEND_FLOW_REM)

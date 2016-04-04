@@ -118,6 +118,9 @@ class DP(object):
         self.__dict__.setdefault('eth_dst_table', self.table_offset + 3)
         # The table for applying broadcast actions
         self.__dict__.setdefault('flood_table', self.table_offset + 4)
+        # The table for applying netflix actions
+        self.__dict__.setdefault('netflix_table', self.table_offset + 5)
+
         # How much to offset default priority by
         self.__dict__.setdefault('priority_offset', 0)
         # Some priority values
