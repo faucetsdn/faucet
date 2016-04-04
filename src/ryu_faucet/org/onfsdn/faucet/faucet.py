@@ -185,6 +185,17 @@ class Faucet(app_manager.RyuApp):
                 netflix_src_list.append(netflix_src.split("/")[0])
                 self.logger.info("netflix_src %s ", netflix_src.split("/")[0])
 
+            part = src_ip.split(".")
+            ip_src = part[0] 
+            part1 = part[1].split(".") 
+            part2 = part1[1].split(".") 
+            ip_src.append(".")
+            ip_src.append(part1[0])
+            ip_src.append(".")
+            ip_src.append(part2[0])
+            ip_src.append(".0")
+
+
             if src_ip in netflix_src_list:
                 self.logger.info("before tcp_hdr")
                 tcp_hdr = pkt.get_protocols(tcp.tcp)
