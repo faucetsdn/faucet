@@ -923,7 +923,7 @@ class OVSStatelessValve(Valve):
                                              actions)]
         self.logger.info("after inst")
         
-        mod = parser.OFPFlowMod(datapath=datapath, priority=priority, table_id = datapath.vlan_table, 
+        mod = parser.OFPFlowMod(datapath=datapath, priority=priority, table_id = self.dp.vlan_table, 
                                 match=match, instructions=inst, hard_timeout=20,
                                 idle_timeout=10,
                                 flags=ofp.OFPFF_SEND_FLOW_REM)
