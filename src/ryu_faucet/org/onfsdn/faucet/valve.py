@@ -875,3 +875,79 @@ class OVSStatelessValve(Valve):
                                 self.valve_packetout(port.number,
                                     tagged_pkt.data))
         return flowmods
+
+    def format_netflix_flowMod(self, datapath, priority, match, actions ):
+        ofproto = datapath.ofproto
+        self.logger.info("after ofproto")
+        parser = datapath.ofproto_parser
+        self.logger.info("after parser")
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        self.logger.info("after inst")
+        
+        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                match=match, instructions=inst, hard_timeout=20,
+                                idle_timeout=10,
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
+        self.logger.info("after mod")
+        return mod
+
+    def netflix_flows_insertion(self, ev):
+        msg = ev.msg
+        datapath = msg.datapath
+        in_port = msg.match['in_port']
+        src_ip = msg.match['ipv4_src']
+        dst_ip = msg.match['ipv4_dst']
+        src_port = msg.match['tcp_src']
+        dst_port = msg.match['tcp_dst']
+        match = parser.OFPMatch(in_port= in_port, ipv4_src = src_ip, ipv4_dst = dst_ip, tcp_src = src_port, tcp_dst = dst_port)
+        priority = 100
+        actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
+        self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
+        return self.format_netflix_flowMod(self, datapath, priority, match, actions)
+
+    def netflix_flows_initiation(self, dp, netflix_src):
+        self.logger.info("in function neflix initiation")
+        self.logger.info("dp: %s dpid: %s", dir(dp), dp.id)
+        datapath = dp
+        src_ip = netflix_src
+        self.logger.info("before ofpmatch")
+        match = parser.OFPMatch(ipv4_src = src_ip)
+        self.logger.info("after ofpmatch")
+        priority = 10
+        actions = [parser.OFPActionOutput(ofp.OFPP_FLOOD)]
+        self.logger.info("after actions")
+        self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
+        
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        self.logger.info("after inst")
+        
+        mod = parser.OFPFlowMod(datapath=datapath, priority=priority, table_id = datapath.vlan_table, 
+                                match=match, instructions=inst, hard_timeout=20,
+                                idle_timeout=10,
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
+
+        self.logger.info("after mod %s", mod)
+        return mod
+
+
+    # def _packet_dropper(self, ev):
+    #     msg = ev.msg
+    #     datapath = msg.datapath
+    #     ofproto = datapath.ofproto
+    #     parser = datapath.ofproto_parser
+    #     in_port = msg.match['in_port']
+    #     pkt = packet.Packet(msg.data)
+    #     eth = pkt.get_protocols(ethernet.ethernet)[0]
+    #     nw = pkt.get_protocol(ipv4.ipv4)
+    # # for simplicity we assume it is a TCP in this example code
+    #     tp = pkt.get_protocol(tcp.tcp
+    #     match = parser.OFPMatch(    ipv4_src=nw.src,
+    #                                     ipv4_dst=nw.dst,
+    #                                     ip_proto=nw.proto,
+    #                                     eth_type=eth.ethertype,
+    #                                     tcp_src=tp.src_port,
+    #                                     tcp_dst=tp.dst_port
+    #                                 )
+    #     self.add_flow(datapath, 2, match, [])

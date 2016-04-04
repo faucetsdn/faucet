@@ -107,6 +107,7 @@ class Faucet(app_manager.RyuApp):
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
 
+
     def gateway_resolve_request(self):
         while True:
             self.send_event('Faucet', EventFaucetResolveGateways())
@@ -164,10 +165,38 @@ class Faucet(app_manager.RyuApp):
             vlan_vid = vlan_proto.vid
         else:
             return
-
+        
         in_port = msg.match['in_port']
         flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
         self.send_flow_msgs(dp, flowmods)
+        
+
+
+        ip_hdr = pkt.get_protocols(ipv4.ipv4)
+        
+
+        if len(ip_hdr)!=0:
+            src_ip = ip_hdr[0].src
+            dst_ip = ip_hdr[0].dst
+            self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
+            netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
+            if src_ip in netflix_src_list:
+                tcp_hdr = pkt.get_protocols(tcp.tcp)
+                if len(tcp_hdr)!=0:
+                    src_port = tcp_hdr[0].src_port
+                    dst_port = tcp_hdr[0].dst_port
+                    self.logger.info("tcp src_port %s, dst_port %s", src_port,dst_port)
+                    self.logger.info("inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
+                    flowmods = self.valve.netflix_flows_insertion(ev)        
+
+        # if ip_src in netflix_src_list :
+        #     src_ip = msg.match['src_ip']
+        #     dst_ip = msg.match['dst_ip']
+        #     in_port = msg.match['in_port']
+        #     flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
+
+
+
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -182,7 +211,17 @@ class Faucet(app_manager.RyuApp):
         discovered_ports = [
             p.port_no for p in dp.ports.values() if p.state == 0]
         flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
+        self.logger.info("before send flowmods")
         self.send_flow_msgs(dp, flowmods)
+        self.logger.info("before opening netflix file")
+        netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
+        
+        for netflix_src in netflix_src_list:
+            self.logger.info("initiating and inserting netflix src flow entry: %s", netflix_src)
+            flowmods = self.valve.netflix_flows_initiation(dp, netflix_src)
+            self.logger.info("after creating flowmods")
+            dp.send_msg(flowmods)
+            self.logger.info("done done done")
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
