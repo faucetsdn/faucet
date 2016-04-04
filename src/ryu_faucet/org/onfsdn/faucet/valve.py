@@ -904,7 +904,7 @@ class OVSStatelessValve(Valve):
         priority = 20000
         self.logger.info("before actions")
         # actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
-        self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
+        self.logger.info("dp: %s, srcIp: %s match: %s priority: %s ", datapath, src_ip, match, priority)
         inst = [parser.OFPInstructionGotoTable(self.dp.eth_dst_table)]
         self.logger.info("after inst")
         
