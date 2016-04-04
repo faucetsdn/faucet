@@ -180,9 +180,13 @@ class Faucet(app_manager.RyuApp):
             self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
             netflix_src_list = []
             netflix_src_list_raw = tuple(open('./Netflix_AS2906', 'r'))
-            for netflix_src in netflix_src_list_raw:
+            for netflix_srcc in netflix_src_list_raw:
+                netflix_src = netflix_srcc.strip()
                 netflix_src_list.append(netflix_src.split("/")[0])
+                self.logger.info("netflix_src %s ", netflix_src.split("/")[0])
+
             if src_ip in netflix_src_list:
+                self.logger.info("before tcp_hdr")
                 tcp_hdr = pkt.get_protocols(tcp.tcp)
                 if len(tcp_hdr)!=0:
                     src_port = tcp_hdr[0].src_port
