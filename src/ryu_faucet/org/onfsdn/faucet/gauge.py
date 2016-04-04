@@ -296,8 +296,10 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
         super(GaugeFlowTablePoller, self).__init__(dp, ryudp, logname)
         self.interval = self.dp.monitor_flow_table_interval
         self.logfile = self.dp.monitor_flow_table_file
-        self.usageDict = {}
-        self.calDict = {}
+
+        #our internal record
+        self.usageDict = {} #raw info with port level stat
+        self.calDict = {} #byte count, IP level
 
     def send_req(self):
         ofp = self.ryudp.ofproto
@@ -324,7 +326,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
             
             body = msg.body
             testPoints = []
-            #for f in [flow for flow in body if (flow.priority == 34300 and flow.table_id == 1)]:
+            #for f in [flow for flow in body if (flow.priority == 34300 and flow.table_id == 0)]:
             for f in [flow for flow in body]:
 
                 dpid  = msg.datapath.id
@@ -355,35 +357,34 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                             "fields": {"value": int(f.byte_count + random.randint(1, 1000)) } })
             
 
-                '''Calculate '''            
-                if (not hasattr(f.match, 'nw_src') or not hasattr(a, 'nw_dst')):
-                    logfile.write("match: {0}\n".format(str(f.match))) 
+                '''checking'''  
+                if byte_count == 0:
                     break
+
+                if (not hasattr(f.match, 'tcp_src') or not hasattr(a, 'tcp_dst')):
+                    #logfile.write("match: {0}\n".format(str(f.match))) 
+                    break
+
+                logfile.write("Found Flow of Interest") 
                 
-                ip_src = str(f.match.nw_src) 
-                ip_dst = str(f.match.nw_dst)
+                ip_src = str(f.match.ipv4_src) 
+                ip_dst = str(f.match.ipv4_dst)
 
                 #process raw info and push to Influx DB
                 #TODO: more processing
                 points = []
 
-
                 #Influx DB stuff
                 tags = {
                         "dst_ip": ip_dst,
                         "src_ip": ip_src,
-                        "src_port":f.match.tp_src,
-                        "dst_port":f.match.tp_dst,
+                        "src_port":f.match.tcp_src,
+                        "dst_port":f.match.tcp_dst,
                         "group_id":1,
                         "flow_id":cookie,
                         "proto":52
                         }
 
-                MbpsTags = {
-                            "dst_ip": ip_dst,
-                            "src_ip": ip_src,
-                            "src_port":f.match.tp_src
-                    }
 
                 if cookie not in self.usageDict:
                     flowDict = {}
@@ -392,8 +393,8 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                     flowDict["cookie"] = cookie
                     flowDict["SourceIP"] = ip_src
                     flowDict["DestinationIP"] = ip_dst 
-                    flowDict["tp_dst"] = f.match.tp_dst
-                    flowDict["tp_src"] = f.match.tp_src
+                    flowDict["tp_dst"] = f.match.tcp_dst
+                    flowDict["tp_src"] = f.match.tcp_src
                     flowDict["Bytes"] = f.byte_count
                     flowDict["Duration"] = f.duration_sec
                     flowDict["RTime"] = 0
@@ -459,7 +460,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                         else:
                             dstDict = self.calDict[ip_src]
 
-                            if entry[ip_dst] not in dstDict:
+                            if ip_dst not in dstDict:
                                 entryDict = {}
                                 #first entry
                                 entryDict["Byte"] = byteIncrement;
@@ -476,14 +477,39 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                 #if more than 10 sec from previous measurement
                                 timeDiff = int(rcv_time) - entryDict["TimePrevious"]
                                 if  timeDiff > 10:
-                                    totalByteInc = newByteCount  - entryDict["BytePrevious"]
-                                    Mbps = totalByteInc * 8 / (timeDiff * 1024000)
+                                    totalByteInc = float(newByteCount  - entryDict["BytePrevious"])
+                                    Mbps = float(totalByteInc) * 8 / (timeDiff * 1024000)
 
                                     #reset previous record
                                     entryDict["TimePrevious"] = int(rcv_time);
                                     entryDict["BytePrevious"] = newByteCount;
 
-                                    #update Mbps
+
+                                    QualityStr = "???"
+                                    if Mbps > 15:
+                                        QualityStr = "???"
+                                    elif Mbps > 10:
+                                        QualityStr = "UHD"
+                                    elif Mbps > 8:
+                                        QualityStr = "UHD/HD"
+                                    elif Mbps > 5:
+                                        QualityStr = "HD"
+                                    elif Mbps > 2:
+                                        QualityStr = "HD/SD"
+                                    elif Mbps > 0.3:
+                                        QualityStr = "SD"
+                                    else:
+                                        QualityStr = "???"
+                                        pass
+
+                                    MbpsTags = {
+                                                "dst_ip": ip_dst,
+                                                "src_ip": ip_src,
+                                                "src_port":f.match.tcp_src
+                                                "Quality" :QualityStr
+                                        }
+
+                                    #update Mbps measurement
                                     points.append({
                                         "measurement": "Mbps",
                                         "tags": MbpsTags,
