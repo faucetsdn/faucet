@@ -915,7 +915,7 @@ class OVSStatelessValve(Valve):
         part= src_ip.split("/")
         ip = part[0]
         mask=part[1]
-        match = parser.OFPMatch(ipv4_src = ip, nw_src_mask = int(mask))
+        match = parser.OFPMatch(ipv4_src = ip, ipv4_src_mask = mask)
         self.logger.info("after ofpmatch")
         priority = 10000
         actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
