@@ -918,7 +918,17 @@ class OVSStatelessValve(Valve):
         actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
         self.logger.info("after actions")
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
-        return self.format_netflix_flowMod(self, datapath, priority, match, actions)
+        
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        self.logger.info("after inst")
+        
+        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                match=match, instructions=inst, hard_timeout=20,
+                                idle_timeout=10,
+                                flags=ofproto.OFPFF_SEND_FLOW_REM)
+        self.logger.info("after mod")
+        return mod
 
 
     # def _packet_dropper(self, ev):
