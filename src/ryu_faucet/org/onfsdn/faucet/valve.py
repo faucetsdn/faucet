@@ -919,7 +919,7 @@ class OVSStatelessValve(Valve):
         self.logger.info("after actions")
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
         
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                              actions)]
         self.logger.info("after inst")
         
