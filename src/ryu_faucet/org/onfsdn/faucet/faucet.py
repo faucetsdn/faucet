@@ -221,6 +221,7 @@ class Faucet(app_manager.RyuApp):
             flowmods = self.valve.netflix_flows_initiation(dp, netflix_src)
             self.logger.info("after creating flowmods")
             dp.send_msg(flowmods)
+            self.logger.info("done done done")
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
