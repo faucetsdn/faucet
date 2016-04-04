@@ -172,24 +172,24 @@ class Faucet(app_manager.RyuApp):
         
 
 
-        ip_hdr = pkt.get_protocols(ipv4.ipv4)
+        # ip_hdr = pkt.get_protocols(ipv4.ipv4)
         
 
-        if len(ip_hdr)!=0:
-            src_ip = ip_hdr[0].src
-            dst_ip = ip_hdr[0].dst
-            self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
-            netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
-            if src_ip in netflix_src_list:
-                tcp_hdr = pkt.get_protocols(tcp.tcp)
-                if len(tcp_hdr)!=0:
-                    src_port = tcp_hdr[0].src_port
-                    dst_port = tcp_hdr[0].dst_port
-                    self.logger.info("tcp src_port %s, dst_port %s", src_port,dst_port)
-                    self.logger.info("inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
-                    flowmods = self.valve.netflix_flows_insertion(ev) 
-                    dp.send_msg(flowmods)
-                    self.logger.info("this also done wooohoooooo")       
+        # if len(ip_hdr)!=0:
+        #     src_ip = ip_hdr[0].src
+        #     dst_ip = ip_hdr[0].dst
+        #     self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
+        #     netflix_src_list = tuple(open('./Netflix_AS2906', 'r'))
+        #     if src_ip in netflix_src_list:
+        #         tcp_hdr = pkt.get_protocols(tcp.tcp)
+        #         if len(tcp_hdr)!=0:
+        #             src_port = tcp_hdr[0].src_port
+        #             dst_port = tcp_hdr[0].dst_port
+        #             self.logger.info("tcp src_port %s, dst_port %s", src_port,dst_port)
+        #             self.logger.info("inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
+        #             flowmods = self.valve.netflix_flows_insertion(ev) 
+        #             dp.send_msg(flowmods)
+        #             self.logger.info("this also done wooohoooooo")       
 
         # if ip_src in netflix_src_list :
         #     src_ip = msg.match['src_ip']
