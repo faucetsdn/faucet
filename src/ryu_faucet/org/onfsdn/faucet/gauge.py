@@ -378,8 +378,8 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                 tags = {
                         "dst_ip": ip_dst,
                         "src_ip": ip_src,
-                        "src_port":f.match.['tcp_src'],
-                        "dst_port":f.match.['tcp_dst'],
+                        "src_port":f.match['tcp_src'],
+                        "dst_port":f.match['tcp_dst'],
                         "group_id":1,
                         "flow_id":cookie,
                         "proto":52
@@ -393,8 +393,8 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                     flowDict["cookie"] = cookie
                     flowDict["SourceIP"] = ip_src
                     flowDict["DestinationIP"] = ip_dst 
-                    flowDict["tp_dst"] = f.match.['tcp_dst']
-                    flowDict["tp_src"] = f.match.['tcp_src']
+                    flowDict["tp_dst"] = f.match['tcp_dst']
+                    flowDict["tp_src"] = f.match['tcp_src']
                     flowDict["Bytes"] = f.byte_count
                     flowDict["Duration"] = f.duration_sec
                     flowDict["RTime"] = 0
@@ -505,7 +505,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                     MbpsTags = {
                                                 "dst_ip": ip_dst,
                                                 "src_ip": ip_src,
-                                                "src_port":f.match.tcp_src,
+                                                "src_port":f.match['tcp_src'],
                                                 "Quality" :QualityStr
                                         }
 
