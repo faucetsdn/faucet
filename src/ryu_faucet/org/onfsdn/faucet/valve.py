@@ -134,6 +134,7 @@ class OVSStatelessValve(Valve):
     def __init__(self, dp, logname='faucet', *args, **kwargs):
         self.dp = dp
         self.logger = logging.getLogger(logname)
+        self.cookie_counter = 50000
 
     def ignore_port(self, port_num):
         """Ignore non-physical ports."""
@@ -910,8 +911,8 @@ class OVSStatelessValve(Valve):
         self.logger.info("dp: %s, srcIp: %s match: %s priority: %s ", datapath, src_ip, match, priority)
         inst = [parser.OFPInstructionGotoTable(self.dp.vlan_table)]
         self.logger.info("after inst")
-        
-        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.netflix_table, 
+        self.cookie_counter = self.cookie_counter + 1
+        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.cookie_counter,  priority=priority, table_id = self.dp.netflix_table, 
                                 match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
                                 idle_timeout=0,
                                 flags=ofp.OFPFF_SEND_FLOW_REM)
