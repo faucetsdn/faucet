@@ -165,8 +165,7 @@ class Faucet(app_manager.RyuApp):
             # tagged packet
             vlan_proto = pkt.get_protocols(vlan.vlan)[0]
             vlan_vid = vlan_proto.vid
-        else:
-            return
+
         
 
         
