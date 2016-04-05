@@ -165,59 +165,60 @@ class Faucet(app_manager.RyuApp):
             # tagged packet
             vlan_proto = pkt.get_protocols(vlan.vlan)[0]
             vlan_vid = vlan_proto.vid
-
+            in_port = msg.match['in_port']
+            flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
+            self.send_flow_msgs(dp, flowmods) 
+        else:
         
 
         
 
-        self.logger.info("before ip_hdr")
-        ip_hdr = pkt.get_protocols(ipv4.ipv4)
-        str_ip_hdr = str(ip_hdr).strip('[]')
-        self.logger.info("after ip_hdr %s ", str_ip_hdr)
-        if len(ip_hdr)!=0:
-            src_ip = ip_hdr[0].src
-            dst_ip = ip_hdr[0].dst
-            self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
-            netflix_src_list = []
-            netflix_src_list_raw = tuple(open('./Netflix_AS2906', 'r'))
-            for netflix_srcc in netflix_src_list_raw:
-                netflix_src = netflix_srcc.strip()
-                netflix_src_list.append(netflix_src.split("/")[0])
-                ## self.logger.info("netflix_src %s ", netflix_src.split("/")[0])
+            self.logger.info("before ip_hdr")
+            ip_hdr = pkt.get_protocols(ipv4.ipv4)
+            str_ip_hdr = str(ip_hdr).strip('[]')
+            self.logger.info("after ip_hdr %s ", str_ip_hdr)
+            if len(ip_hdr)!=0:
+                src_ip = ip_hdr[0].src
+                dst_ip = ip_hdr[0].dst
+                self.logger.info("ipv4 src %s, dst %s", src_ip, dst_ip)
+                netflix_src_list = []
+                netflix_src_list_raw = tuple(open('./Netflix_AS2906', 'r'))
+                for netflix_srcc in netflix_src_list_raw:
+                    netflix_src = netflix_srcc.strip()
+                    netflix_src_list.append(netflix_src.split("/")[0])
+                    ## self.logger.info("netflix_src %s ", netflix_src.split("/")[0])
 
-            part = src_ip.split(".")
-            ip_src = part[0]+"."+part[1]+"."+part[2]+".0"
-            part = dst_ip.split(".")
-            ip_dst = part[0]+"."+part[1]+"."+part[2]+".0"
+                part = src_ip.split(".")
+                ip_src = part[0]+"."+part[1]+"."+part[2]+".0"
+                part = dst_ip.split(".")
+                ip_dst = part[0]+"."+part[1]+"."+part[2]+".0"
 
-            self.logger.info("ipsrc %s", ip_src)
-            # if ip_dst in netflix_src_list:
-            #     self.logger.info("dst before tcp_hdr")
-            #     tcp_hdr = pkt.get_protocols(tcp.tcp)
-            #     if len(tcp_hdr)!=0:
-            #         srcc_port = tcp_hdr[0].src_port
-            #         dst_port = tcp_hdr[0].dst_port
-            #         self.logger.info("dst tcp src_port %s, dst_port %s", src_port,dst_port)
-            #         self.logger.info("dst inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
-            #         flowmods = self.valve.netflix_flows_insertion(ev,src_ip,src_port,dst_ip,dst_port) 
-            #         dp.send_msg(flowmods)
-            #         self.logger.info("dst this also done wooohoooooo")
+                self.logger.info("ipsrc %s", ip_src)
+                # if ip_dst in netflix_src_list:
+                #     self.logger.info("dst before tcp_hdr")
+                #     tcp_hdr = pkt.get_protocols(tcp.tcp)
+                #     if len(tcp_hdr)!=0:
+                #         srcc_port = tcp_hdr[0].src_port
+                #         dst_port = tcp_hdr[0].dst_port
+                #         self.logger.info("dst tcp src_port %s, dst_port %s", src_port,dst_port)
+                #         self.logger.info("dst inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
+                #         flowmods = self.valve.netflix_flows_insertion(ev,src_ip,src_port,dst_ip,dst_port) 
+                #         dp.send_msg(flowmods)
+                #         self.logger.info("dst this also done wooohoooooo")
 
-            if ip_src in netflix_src_list:
-                self.logger.info("before tcp_hdr")
-                tcp_hdr = pkt.get_protocols(tcp.tcp)
-                if len(tcp_hdr)!=0:
-                    src_port = tcp_hdr[0].src_port
-                    dst_port = tcp_hdr[0].dst_port
-                    self.logger.info("tcp src_port %s, dst_port %s", src_port,dst_port)
-                    self.logger.info("inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
-                    flowmods = self.valve.netflix_flows_insertion(ev,src_ip,src_port,dst_ip,dst_port) 
-                    dp.send_msg(flowmods)
-                    self.logger.info("this also done wooohoooooo")
+                if ip_src in netflix_src_list:
+                    self.logger.info("before tcp_hdr")
+                    tcp_hdr = pkt.get_protocols(tcp.tcp)
+                    if len(tcp_hdr)!=0:
+                        src_port = tcp_hdr[0].src_port
+                        dst_port = tcp_hdr[0].dst_port
+                        self.logger.info("tcp src_port %s, dst_port %s", src_port,dst_port)
+                        self.logger.info("inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
+                        flowmods = self.valve.netflix_flows_insertion(ev,src_ip,src_port,dst_ip,dst_port) 
+                        dp.send_msg(flowmods)
+                        self.logger.info("this also done wooohoooooo")
  
-        in_port = msg.match['in_port']
-        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
-        self.send_flow_msgs(dp, flowmods) 
+
             
 
 
