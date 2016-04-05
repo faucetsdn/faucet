@@ -149,12 +149,13 @@ class OVSStatelessValve(Valve):
 
     def all_valve_tables(self):
         return (
+            self.dp.netflix_table,
             self.dp.vlan_table,
             self.dp.acl_table,
             self.dp.eth_src_table,
             self.dp.eth_dst_table,
-            self.dp.flood_table,
-            self.dp.netflix_table
+            self.dp.flood_table
+            
             )
 
     def apply_actions(self, actions):
@@ -930,7 +931,6 @@ class OVSStatelessValve(Valve):
         match = parser.OFPMatch(ipv4_src=(ip, mask))
         # self.logger.info("after ofpmatch")
         priority = 10000
-        table_id = 1
         actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
         # self.logger.info("after actions")
         # self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
