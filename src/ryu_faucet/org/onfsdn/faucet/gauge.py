@@ -427,7 +427,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                             "measurement": "volume",
                             "tags": tags,
                             "time": int(rcv_time),
-                            "fields": {"value": f.byte_count } })
+                            "fields": {"value": float(f.byte_count) } })
 
                         points.append({
                             "measurement": "rate",
