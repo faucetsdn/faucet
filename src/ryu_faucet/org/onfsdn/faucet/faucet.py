@@ -196,7 +196,7 @@ class Faucet(app_manager.RyuApp):
             #     self.logger.info("dst before tcp_hdr")
             #     tcp_hdr = pkt.get_protocols(tcp.tcp)
             #     if len(tcp_hdr)!=0:
-            #         src_port = tcp_hdr[0].src_port
+            #         srcc_port = tcp_hdr[0].src_port
             #         dst_port = tcp_hdr[0].dst_port
             #         self.logger.info("dst tcp src_port %s, dst_port %s", src_port,dst_port)
             #         self.logger.info("dst inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
@@ -257,8 +257,11 @@ class Faucet(app_manager.RyuApp):
             flowmods = self.valve.netflix_flows_initiation(dp, netflix_src)
             # self.logger.info("after creating flowmods")
             dp.send_msg(flowmods)
-            # self.logger.info("done done done")
-
+        self.logger.info("before other flowmods")
+        flowmods = self.valve.other_flows_initiation(dp)
+        self.logger.info("after creating other flowmods")
+        dp.send_msg(flowmods)
+        self.logger.info("after send other flowmods")
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ev):

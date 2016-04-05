@@ -946,7 +946,25 @@ class OVSStatelessValve(Valve):
 
         # self.logger.info("after mod %s", mod)
         return mod
+    def other_flows_initiation(self, dp):
+        self.logger.info("in function other initiation")
+        # self.logger.info("dp: %s dpid: %s", dir(dp), dp.id)
+        datapath = dp
+        self.logger.info("before ofpmatch")
+        match = parser.OFPMatch()
+        self.logger.info("after ofpmatch")
+        priority = 0
+        inst = [parser.OFPInstructionGotoTable(self.dp.vlan_table)]
+        # self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
+        self.logger.info("after inst")
+        
+        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.netflix_table, 
+                                match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
+                                idle_timeout=0,
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
 
+        # self.logger.info("after mod %s", mod)
+        return mod
 
     # def _packet_dropper(self, ev):
     #     msg = ev.msg
