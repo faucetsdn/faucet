@@ -326,8 +326,8 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
             
             body = msg.body
             testPoints = []
-            #for f in [flow for flow in body if (flow.priority == 34300 and flow.table_id == 0)]:
-            for f in [flow for flow in body]:
+            for f in [flow for flow in body if (flow.priority == 20000 and flow.table_id == 0)]:
+            #for f in [flow for flow in body]:
 
                 dpid  = msg.datapath.id
                 cookie = f.cookie
@@ -361,14 +361,14 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                 if byte_count == 0:
                     continue
 
-                if (not hasattr(f.match, 'tcp_src') or not hasattr(a, 'tcp_dst')):
-                    #logfile.write("match: {0}\n".format(str(f.match))) 
-                    continue
+                #if (not hasattr(f.match, 'tcp_src') or not hasattr(a, 'tcp_dst')):
+                 #   logfile.write("match: {0}\n".format(str(f.match))) 
+                  #  continue
 
                 logfile.write("Found Flow of Interest") 
                 
-                ip_src = str(f.match.ipv4_src) 
-                ip_dst = str(f.match.ipv4_dst)
+                ip_src = str(f.match['ipv4_src'])
+                ip_dst = str(f.match['ipv4_dst'])
 
                 #process raw info and push to Influx DB
                 #TODO: more processing
@@ -378,8 +378,8 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                 tags = {
                         "dst_ip": ip_dst,
                         "src_ip": ip_src,
-                        "src_port":f.match.tcp_src,
-                        "dst_port":f.match.tcp_dst,
+                        "src_port":f.match['tcp_src'],
+                        "dst_port":f.match['tcp_dst'],
                         "group_id":1,
                         "flow_id":cookie,
                         "proto":52
@@ -393,8 +393,8 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                     flowDict["cookie"] = cookie
                     flowDict["SourceIP"] = ip_src
                     flowDict["DestinationIP"] = ip_dst 
-                    flowDict["tp_dst"] = f.match.tcp_dst
-                    flowDict["tp_src"] = f.match.tcp_src
+                    flowDict["tp_dst"] = f.match['tcp_dst']
+                    flowDict["tp_src"] = f.match['tcp_src']
                     flowDict["Bytes"] = f.byte_count
                     flowDict["Duration"] = f.duration_sec
                     flowDict["RTime"] = 0
@@ -406,7 +406,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                             "measurement": "volume",
                             "tags": tags,
                             "time": int(rcv_time),
-                            "fields": {"value": f.byte_count } })
+                            "fields": {"value": float(f.byte_count) } })
 
                 else:
                     flowDict = self.usageDict[cookie]
@@ -427,13 +427,13 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                             "measurement": "volume",
                             "tags": tags,
                             "time": int(rcv_time),
-                            "fields": {"value": f.byte_count } })
+                            "fields": {"value": float(f.byte_count) } })
 
                         points.append({
                             "measurement": "rate",
                             "tags": tags,
                             "time": int(rcv_time),
-                            "fields": {"value": byteIncrement } })
+                            "fields": {"value": float(byteIncrement) } })
 
                         #avoid buffering time, mark byte count at 60s
                         if f.duration_sec > 60 and flowDict["RTime"] == 0:
@@ -505,7 +505,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                     MbpsTags = {
                                                 "dst_ip": ip_dst,
                                                 "src_ip": ip_src,
-                                                "src_port":f.match.tcp_src
+                                                "src_port":f.match['tcp_src'],
                                                 "Quality" :QualityStr
                                         }
 
@@ -514,7 +514,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                         "measurement": "Mbps",
                                         "tags": MbpsTags,
                                         "time": int(rcv_time),
-                                        "fields": {"value": Mbps } })
+                                        "fields": {"value": float(Mbps) } })
 
                 self.ship_points(points)
 
@@ -544,7 +544,7 @@ class Gauge(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
         self.config_file = os.getenv(
-            'GAUGE_CONFIG', '/etc/opt/faucet/gauge.conf')
+            'GAUGE_CONFIG', '/etc/ryu/faucet/gauge.conf')
         self.exc_logfile = os.getenv(
             'FAUCET_EXCEPTION_LOG', '/var/log/faucet/faucet_exception.log')
         self.logfile = os.getenv('GAUGE_LOG', '/var/log/faucet/gauge.log')
