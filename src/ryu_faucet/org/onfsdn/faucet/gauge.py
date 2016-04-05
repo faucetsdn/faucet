@@ -326,8 +326,8 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
             
             body = msg.body
             testPoints = []
-            #for f in [flow for flow in body if (flow.priority == 34300 and flow.table_id == 0)]:
-            for f in [flow for flow in body]:
+            for f in [flow for flow in body if (flow.priority == 20000 and flow.table_id == 0)]:
+            #for f in [flow for flow in body]:
 
                 dpid  = msg.datapath.id
                 cookie = f.cookie
