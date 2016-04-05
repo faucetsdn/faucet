@@ -375,14 +375,19 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                 points = []
 
                 #Influx DB stuff
+
+                if(f.match['tcp_src'] = 80):
+                    endPointStr = "Mobile"
+                else:
+                    endPointStr = "Web browser"
+
                 tags = {
                         "dst_ip": ip_dst,
                         "src_ip": ip_src,
                         "src_port":f.match['tcp_src'],
                         "dst_port":f.match['tcp_dst'],
-                        "group_id":1,
                         "flow_id":cookie,
-                        "proto":52
+                        "Endpoint":endPointStr
                         }
 
 
@@ -506,7 +511,8 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                                 "dst_ip": ip_dst,
                                                 "src_ip": ip_src,
                                                 "src_port":f.match['tcp_src'],
-                                                "Quality" :QualityStr
+                                                "Quality" :QualityStr,
+                                                "Endpoint":endPointStr
                                         }
 
                                     #update Mbps measurement
@@ -514,7 +520,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                         "measurement": "Mbps",
                                         "tags": MbpsTags,
                                         "time": int(rcv_time),
-                                        "fields": {"value": float(Mbps) } })
+                                        "fields": {"value": float(Mbps } })
 
                 self.ship_points(points)
 
