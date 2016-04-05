@@ -192,17 +192,17 @@ class Faucet(app_manager.RyuApp):
             ip_dst = part[0]+"."+part[1]+"."+part[2]+".0"
 
             self.logger.info("ipsrc %s", ip_src)
-            if ip_dst in netflix_src_list:
-                self.logger.info("dst before tcp_hdr")
-                tcp_hdr = pkt.get_protocols(tcp.tcp)
-                if len(tcp_hdr)!=0:
-                    src_port = tcp_hdr[0].src_port
-                    dst_port = tcp_hdr[0].dst_port
-                    self.logger.info("dst tcp src_port %s, dst_port %s", src_port,dst_port)
-                    self.logger.info("dst inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
-                    flowmods = self.valve.netflix_flows_insertion(ev,src_ip,src_port,dst_ip,dst_port) 
-                    dp.send_msg(flowmods)
-                    self.logger.info("dst this also done wooohoooooo")
+            # if ip_dst in netflix_src_list:
+            #     self.logger.info("dst before tcp_hdr")
+            #     tcp_hdr = pkt.get_protocols(tcp.tcp)
+            #     if len(tcp_hdr)!=0:
+            #         src_port = tcp_hdr[0].src_port
+            #         dst_port = tcp_hdr[0].dst_port
+            #         self.logger.info("dst tcp src_port %s, dst_port %s", src_port,dst_port)
+            #         self.logger.info("dst inserting this particular flow entry: %s:%s %s:%s", src_ip,src_port,dst_ip,dst_port)
+            #         flowmods = self.valve.netflix_flows_insertion(ev,src_ip,src_port,dst_ip,dst_port) 
+            #         dp.send_msg(flowmods)
+            #         self.logger.info("dst this also done wooohoooooo")
 
             if ip_src in netflix_src_list:
                 self.logger.info("before tcp_hdr")
