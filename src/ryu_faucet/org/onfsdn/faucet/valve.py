@@ -134,6 +134,7 @@ class OVSStatelessValve(Valve):
     def __init__(self, dp, logname='faucet', *args, **kwargs):
         self.dp = dp
         self.logger = logging.getLogger(logname)
+        self.cookie_counter = 50000
 
     def ignore_port(self, port_num):
         """Ignore non-physical ports."""
@@ -149,11 +150,14 @@ class OVSStatelessValve(Valve):
 
     def all_valve_tables(self):
         return (
+            self.dp.netflix_table,
             self.dp.vlan_table,
             self.dp.acl_table,
             self.dp.eth_src_table,
             self.dp.eth_dst_table,
-            self.dp.flood_table)
+            self.dp.flood_table
+            
+            )
 
     def apply_actions(self, actions):
         return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
@@ -875,3 +879,110 @@ class OVSStatelessValve(Valve):
                                 self.valve_packetout(port.number,
                                     tagged_pkt.data))
         return flowmods
+
+    def format_netflix_flowMod(self, datapath, priority, match, actions ):
+        ofproto = datapath.ofproto
+        self.logger.info("after ofproto")
+        parser = datapath.ofproto_parser
+        self.logger.info("after parser")
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        self.logger.info("after inst")
+        
+        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                match=match, instructions=inst, hard_timeout=20,
+                                idle_timeout=10,
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
+        self.logger.info("after mod")
+        return mod
+
+    def netflix_flows_insertion(self, ev,src_ip,src_port,dst_ip,dst_port):
+        self.logger.info("before insertion")
+        msg = ev.msg
+        datapath = msg.datapath
+        self.logger.info("before match")
+        in_port = msg.match['in_port']
+
+        self.logger.info("before ofpmatch")
+        match = parser.OFPMatch(in_port= in_port, ipv4_src = src_ip, ipv4_dst = dst_ip, tcp_src = src_port, tcp_dst = dst_port)
+        priority = 20000
+        self.logger.info("before actions")
+        # actions = [parser.OFPActionOutput(ofp.OFPP_NORMAL)] 
+        self.logger.info("dp: %s, srcIp: %s match: %s priority: %s ", datapath, src_ip, match, priority)
+        inst = [parser.OFPInstructionGotoTable(self.dp.vlan_table)]
+        self.logger.info("after inst")
+        self.cookie_counter = self.cookie_counter + 1
+        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.cookie_counter,  priority=priority, table_id = self.dp.netflix_table, 
+                                match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
+                                idle_timeout=0,
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
+
+        self.logger.info("after mod %s", mod)
+        return mod
+
+    def netflix_flows_initiation(self, dp, netflix_src):
+        # self.logger.info("in function neflix initiation")
+        # self.logger.info("dp: %s dpid: %s", dir(dp), dp.id)
+        datapath = dp
+        src_ip = netflix_src
+        part=src_ip.split("/")
+        ip=part[0]
+        # self.logger.info("before ofpmatch")
+        mask="255.255.255.0"
+        match = parser.OFPMatch(ipv4_src=(ip, mask))
+        # self.logger.info("after ofpmatch")
+        priority = 10000
+        actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER)]
+        # self.logger.info("after actions")
+        # self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
+        
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        # self.logger.info("after inst")
+        
+        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.netflix_table, 
+                                match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
+                                idle_timeout=0,
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
+
+        # self.logger.info("after mod %s", mod)
+        return mod
+    def other_flows_initiation(self, dp):
+        self.logger.info("in function other initiation")
+        # self.logger.info("dp: %s dpid: %s", dir(dp), dp.id)
+        datapath = dp
+        self.logger.info("before ofpmatch")
+        match = parser.OFPMatch()
+        self.logger.info("after ofpmatch")
+        priority = 0
+        inst = [parser.OFPInstructionGotoTable(self.dp.vlan_table)]
+        # self.logger.info("dp: %s, srcIp: %s match: %s priority: %s actions: %s", datapath, src_ip, match, priority, actions)
+        self.logger.info("after inst")
+        
+        mod = parser.OFPFlowMod(datapath=datapath, cookie=self.dp.cookie,  priority=priority, table_id = self.dp.netflix_table, 
+                                match=match, command=ofp.OFPFC_ADD, instructions=inst, hard_timeout=0,
+                                idle_timeout=0,
+                                flags=ofp.OFPFF_SEND_FLOW_REM)
+
+        # self.logger.info("after mod %s", mod)
+        return mod
+
+    # def _packet_dropper(self, ev):
+    #     msg = ev.msg
+    #     datapath = msg.datapath
+    #     ofproto = datapath.ofproto
+    #     parser = datapath.ofproto_parser
+    #     in_port = msg.match['in_port']
+    #     pkt = packet.Packet(msg.data)
+    #     eth = pkt.get_protocols(ethernet.ethernet)[0]
+    #     nw = pkt.get_protocol(ipv4.ipv4)
+    # # for simplicity we assume it is a TCP in this example code
+    #     tp = pkt.get_protocol(tcp.tcp
+    #     match = parser.OFPMatch(    ipv4_src=nw.src,
+    #                                     ipv4_dst=nw.dst,
+    #                                     ip_proto=nw.proto,
+    #                                     eth_type=eth.ethertype,
+    #                                     tcp_src=tp.src_port,
+    #                                     tcp_dst=tp.dst_port
+    #                                 )
+    #     self.add_flow(datapath, 2, match, [])
