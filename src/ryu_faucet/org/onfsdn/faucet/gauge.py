@@ -505,7 +505,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                     MbpsTags = {
                                                 "dst_ip": ip_dst,
                                                 "src_ip": ip_src,
-                                                "src_port":f.match.tcp_src
+                                                "src_port":f.match.tcp_src,
                                                 "Quality" :QualityStr
                                         }
 
