@@ -433,7 +433,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                             "measurement": "rate",
                             "tags": tags,
                             "time": int(rcv_time),
-                            "fields": {"value": byteIncrement } })
+                            "fields": {"value": float(byteIncrement) } })
 
                         #avoid buffering time, mark byte count at 60s
                         if f.duration_sec > 60 and flowDict["RTime"] == 0:
