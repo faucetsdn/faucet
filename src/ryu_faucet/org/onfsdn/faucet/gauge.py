@@ -376,7 +376,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
 
                 #Influx DB stuff
 
-                if(f.match['tcp_src'] = 80):
+                if(f.match['tcp_src'] == 80):
                     endPointStr = "Mobile"
                 else:
                     endPointStr = "Web browser"
