@@ -406,7 +406,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                             "measurement": "volume",
                             "tags": tags,
                             "time": int(rcv_time),
-                            "fields": {"value": f.byte_count } })
+                            "fields": {"value": float(f.byte_count) } })
 
                 else:
                     flowDict = self.usageDict[cookie]
@@ -514,7 +514,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                         "measurement": "Mbps",
                                         "tags": MbpsTags,
                                         "time": int(rcv_time),
-                                        "fields": {"value": Mbps } })
+                                        "fields": {"value": float(Mbps) } })
 
                 self.ship_points(points)
 
