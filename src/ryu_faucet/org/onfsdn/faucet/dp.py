@@ -111,15 +111,15 @@ class DP(object):
         # The table for applying netflix actions
         self.__dict__.setdefault('netflix_table', self.table_offset)
         # The table for internally associating vlans
-        self.__dict__.setdefault('vlan_table', self.table_offset + 1)
+        self.__dict__.setdefault('vlan_table', self.table_offset + 2)
         # Table for applying ACLs.
-        self.__dict__.setdefault('acl_table', self.table_offset + 2)
+        self.__dict__.setdefault('acl_table', self.table_offset + 3)
         # The table for checking eth src addresses are known
-        self.__dict__.setdefault('eth_src_table', self.table_offset + 3)
+        self.__dict__.setdefault('eth_src_table', self.table_offset + 4)
         # The table for matching eth dst and applying unicast actions
-        self.__dict__.setdefault('eth_dst_table', self.table_offset + 4)
+        self.__dict__.setdefault('eth_dst_table', self.table_offset + 5)
         # The table for applying broadcast actions
-        self.__dict__.setdefault('flood_table', self.table_offset + 5)
+        self.__dict__.setdefault('flood_table', self.table_offset + 6)
 
 
         # How much to offset default priority by
