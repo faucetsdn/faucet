@@ -520,7 +520,7 @@ class GaugeFlowTablePoller(GaugeInfluxDBPoller):
                                         "measurement": "Mbps",
                                         "tags": MbpsTags,
                                         "time": int(rcv_time),
-                                        "fields": {"value": float(Mbps } })
+                                        "fields": {"value": float(Mbps) })
 
                 self.ship_points(points)
 
