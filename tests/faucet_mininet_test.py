@@ -61,7 +61,7 @@ class FAUCET(Controller):
 
     def __init__(self, name, cdir=FAUCET_DIR,
                  command='ryu-manager faucet.py',
-                 cargs='--ofp-tcp-listen-port=%s --verbose',
+                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         Controller.__init__(self, name, cdir=cdir,
                             command=command,

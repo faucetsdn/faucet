@@ -33,16 +33,21 @@ class VLAN(object):
         self.controller_ips = conf.setdefault('controller_ips', [])
         if self.controller_ips:
             self.controller_ips = [
-                ipaddr.IPv4Network(controller_ip) for controller_ip in self.controller_ips]
+                ipaddr.IPNetwork(controller_ip) for controller_ip in self.controller_ips]
         self.unicast_flood = conf.setdefault('unicast_flood', True)
         self.routes = conf.setdefault('routes', {})
+        self.ipv4_routes = {}
+        self.ipv6_routes = {}
         if self.routes:
-            routes = [route['route'] for route in self.routes]
-            self.routes = {}
-            for route in routes:
-                ip_gw = ipaddr.IPv4Address(route['ip_gw'])
-                ip_dst = ipaddr.IPv4Network(route['ip_dst'])
-                self.routes[ip_dst] = ip_gw
+            self.routes = [route['route'] for route in self.routes]
+            for route in self.routes:
+                ip_gw = ipaddr.IPAddress(route['ip_gw'])
+                ip_dst = ipaddr.IPNetwork(route['ip_dst'])
+                assert(ip_gw.version == ip_dst.version)
+                if ip_gw.version == 4:
+                    self.ipv4_routes[ip_dst] = ip_gw
+                else:
+                    self.ipv6_routes[ip_dst] = ip_gw
         self.arp_cache = {}
 
     def __str__(self):
