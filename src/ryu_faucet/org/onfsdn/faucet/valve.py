@@ -135,39 +135,39 @@ class OVSStatelessValve(Valve):
         self.dp = dp
         self.logger = logging.getLogger(logname)
 
-    def ignore_port(self, port_num):
+    @staticmethod
+    def ignore_port(port_num):
         """Ignore non-physical ports."""
         # port numbers > 0xF0000000 indicate a logical port
         return port_num > 0xF0000000
 
-    def ignore_dpid(self, dp_id):
-        """Ignore all DPIDs except the DPID configured."""
-        if dp_id != self.dp.dp_id:
-            self.logger.error("Unknown dpid:%s", dp_id)
-            return True
-        return False
-
-    def all_valve_tables(self):
-        return (
-            self.dp.vlan_table,
-            self.dp.acl_table,
-            self.dp.eth_src_table,
-            self.dp.eth_dst_table,
-            self.dp.flood_table)
-
-    def apply_actions(self, actions):
+    @staticmethod
+    def apply_actions(actions):
         return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
 
-    def goto_table(self, table_id):
+    @staticmethod
+    def goto_table(table_id):
         return parser.OFPInstructionGotoTable(table_id)
 
-    def set_eth_src(self, eth_src):
+    @staticmethod
+    def set_eth_src(eth_src):
         return parser.OFPActionSetField(eth_src=eth_src)
 
-    def set_eth_dst(self, eth_dst):
+    @staticmethod
+    def set_eth_dst(eth_dst):
         return parser.OFPActionSetField(eth_dst=eth_dst)
 
-    def valve_in_match(self, in_port=None, vlan=None,
+    @staticmethod
+    def valve_packetout(out_port, data):
+        return parser.OFPPacketOut(
+            datapath=None,
+            buffer_id=ofp.OFP_NO_BUFFER,
+            in_port=ofp.OFPP_CONTROLLER,
+            actions=[parser.OFPActionOutput(out_port, 0)],
+            data=data)
+
+    @staticmethod
+    def valve_in_match(in_port=None, vlan=None,
                        eth_type=None, eth_src=None,
                        eth_dst=None, eth_dst_mask=None,
                        nw_proto=None, nw_src=None, nw_dst=None):
@@ -201,13 +201,20 @@ class OVSStatelessValve(Valve):
         match = parser.OFPMatch(**match_dict)
         return match
 
-    def valve_packetout(self, out_port, data):
-        return parser.OFPPacketOut(
-            datapath=None,
-            buffer_id=ofp.OFP_NO_BUFFER,
-            in_port=ofp.OFPP_CONTROLLER,
-            actions=[parser.OFPActionOutput(out_port, 0)],
-            data=data)
+    def ignore_dpid(self, dp_id):
+        """Ignore all DPIDs except the DPID configured."""
+        if dp_id != self.dp.dp_id:
+            self.logger.error("Unknown dpid:%s", dp_id)
+            return True
+        return False
+
+    def all_valve_tables(self):
+        return (
+            self.dp.vlan_table,
+            self.dp.acl_table,
+            self.dp.eth_src_table,
+            self.dp.eth_dst_table,
+            self.dp.flood_table)
 
     def valve_flowmod(self, table_id, match=None, priority=None,
                       inst=None, command=ofp.OFPFC_ADD, out_port=0,
