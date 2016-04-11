@@ -270,17 +270,17 @@ class OVSStatelessValve(Valve):
                 ofp.OFPP_CONTROLLER, max_len=256)])] + inst)
 
     def delete_all_valve_flows(self):
-        """Delete all flows from Valve's tables."""
+        """Delete all flows from all FAUCET tables."""
         ofmsgs = []
         for table_id in self.all_valve_tables():
             ofmsgs.append(self.valve_flowdel(table_id))
         return ofmsgs
 
     def add_default_drop_flows(self):
-        """Add default drop rules."""
-        ofmsgs = []
+        """Add default drop rules on all FAUCET tables."""
 
-        # default drop on all tables
+        # default drop on all tables.
+        ofmsgs = []
         for table in self.all_valve_tables():
             ofmsgs.append(self.valve_flowdrop(
                 table,
@@ -367,7 +367,8 @@ class OVSStatelessValve(Valve):
 
         return ofmsgs
 
-    def build_flood_ports_for_vlan(self, vlan_ports, eth_dst):
+    @staticmethod
+    def build_flood_ports_for_vlan(vlan_ports, eth_dst):
         ports = []
         for port in vlan_ports:
             if not port.running():
@@ -452,10 +453,10 @@ class OVSStatelessValve(Valve):
         return []
 
     def datapath_down(self, dp_id):
-        if self.ignore_dpid(dp_id):
-            return []
-        self.dp.running = False
-        self.logger.warning("Datapath down {0}".format(dp_id))
+        if not self.ignore_dpid(dp_id):
+            self.dp.running = False
+            self.logger.warning("Datapath down {0}".format(dp_id))
+        return []
 
     def port_add_acl(self, port_num):
         ofmsgs = []
@@ -802,6 +803,11 @@ class OVSStatelessValve(Valve):
         port = self.dp.ports[in_port]
         vlan = self.dp.vlans[vlan_vid]
 
+        if not mac_addr_is_unicast(eth_src):
+            self.logger.info(
+                "Packet_in with multicast ethernet source address")
+            return []
+
         # Packet may be for our control plane.
         # TODO: implement stronger ACL checks.
         if eth_dst == self.FAUCET_MAC or not mac_addr_is_unicast(eth_dst):
@@ -822,11 +828,6 @@ class OVSStatelessValve(Valve):
                     self.to_faucet_ip(vlan, ipv4_pkt.src, ipv4_pkt.dst)):
                     return self.control_plane_icmp_handler(
                         in_port, vlan, eth_src, ipv4_pkt, icmp_pkt)
-
-        if not mac_addr_is_unicast(eth_src):
-            self.logger.info(
-                "Packet_in with multicast ethernet source address")
-            return []
 
         self.logger.debug("Packet_in dp_id: %x src:%s in_port:%d vid:%s",
                           dp_id, eth_src, in_port, vlan_vid)
