@@ -30,9 +30,10 @@ class VLAN(object):
         self.untagged = []
         self.name = conf.setdefault('name', str(vid))
         self.description = conf.setdefault('description', self.name)
-        self.ip = conf.setdefault('ip', None)
-        if self.ip is not None:
-            self.ip = ipaddr.IPv4Network(self.ip)
+        self.controller_ips = conf.setdefault('controller_ips', [])
+        if self.controller_ips:
+            self.controller_ips = [
+                ipaddr.IPv4Network(controller_ip) for controller_ip in self.controller_ips]
         self.unicast_flood = conf.setdefault('unicast_flood', True)
         self.routes = conf.setdefault('routes', {})
         if self.routes:
