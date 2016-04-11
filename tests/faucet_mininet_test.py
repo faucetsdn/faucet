@@ -155,7 +155,7 @@ interfaces:
 vlans:
     100:
         description: "untagged"
-        ip: "10.0.0.254/24"
+        controller_ips: ["10.0.0.254/24"]
         routes:
             - route:
                 ip_dst: "10.0.1.0/24"
@@ -290,7 +290,7 @@ interfaces:
 vlans:
     100:
         description: "untagged"
-        ip: "10.0.0.254/24"
+        controller_ips: ["10.0.0.254/24"]
 """
 
     def test_ping_controller(self):
@@ -501,7 +501,7 @@ interfaces:
 vlans:
     100:
         description: "tagged"
-        ip: "10.0.0.254/24"
+        controller_ips: ["10.0.0.254/24"]
 """
 
     def test_ping_controller(self):
@@ -529,7 +529,7 @@ interfaces:
 vlans:
     100:
         description: "tagged"
-        ip: "10.0.0.254/24"
+        controller_ips: ["10.0.0.254/24"]
         routes:
             - route:
                 ip_dst: "10.0.1.0/24"
