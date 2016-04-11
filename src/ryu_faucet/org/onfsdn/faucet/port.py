@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class Port:
+class Port(object):
+
     number = None
 
     def __init__(self, number, conf=None):
