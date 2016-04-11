@@ -531,7 +531,6 @@ class OVSStatelessValve(Valve):
 
     def port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
         ofmsgs = []
-        vid = vlan.vid
         if vlan.ip is not None:
             ofmsgs.extend(self.add_controller_ip(vlan.ip, vlan))
         vlan_inst = [
