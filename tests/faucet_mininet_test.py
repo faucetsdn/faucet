@@ -17,6 +17,7 @@
 #   suggest ./util/install.sh -n
 # * OVS 2.3.3 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
 # * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
+# * fuser
 
 import os
 import re
@@ -134,6 +135,18 @@ vlans:
     def tearDown(self):
         self.net.stop()
         super(FaucetUntaggedTest, self).tearDown()
+
+
+class FaucetUntaggedHUPTest(FaucetUntaggedTest):
+
+    def test_untagged(self):
+        controller = self.net.controllers[0]
+        switch = self.net.switches[0]
+        for i in range(3):
+            # ryu is a subprocess, so need PID of that.
+            controller.cmd('fuser %s/tcp -k -1')
+            self.assertTrue(switch.connected())
+            self.assertEquals(0, self.net.pingAll())
 
 
 class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
