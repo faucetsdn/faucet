@@ -541,6 +541,15 @@ class OVSStatelessValve(Valve):
                     self.dp.eth_src_table,
                     self.valve_in_match(
                          eth_type=ether.ETH_TYPE_IPV6,
+                         eth_dst=self.FAUCET_MAC,
+                         vlan=vlan,
+                         nw_proto=in_proto.IPPROTO_ICMPV6,
+                         icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
+                    priority=self.dp.highest_priority))
+                ofmsgs.append(self.valve_flowcontroller(
+                    self.dp.eth_src_table,
+                    self.valve_in_match(
+                         eth_type=ether.ETH_TYPE_IPV6,
                          vlan=vlan,
                          nw_proto=in_proto.IPPROTO_ICMPV6,
                          nw_dst=controller_ip_host,
@@ -965,4 +974,8 @@ class OVSStatelessValve(Valve):
                                 flowmods.append(
                                     self.valve_packetout(port.number,
                                         tagged_pkt.data))
+            for ip_gw in vlan.ipv6_routes.itervalues():
+                for controller_ip in vlan.controller_ips:
+                    if ip_gw in controller_ip and ip_gw not in vlan.nd_cache:
+                        self.logger.info('Resolving %s', ip_gw)
         return flowmods
