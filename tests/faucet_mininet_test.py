@@ -17,6 +17,7 @@
 #   suggest ./util/install.sh -n
 # * OVS 2.3.3 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
 # * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
+# * fuser
 
 import os
 import re
@@ -134,6 +135,18 @@ vlans:
     def tearDown(self):
         self.net.stop()
         super(FaucetUntaggedTest, self).tearDown()
+
+
+class FaucetUntaggedHUPTest(FaucetUntaggedTest):
+
+    def test_untagged(self):
+        controller = self.net.controllers[0]
+        switch = self.net.switches[0]
+        for i in range(3):
+            # ryu is a subprocess, so need PID of that.
+            controller.cmd('fuser %s/tcp -k -1')
+            self.assertTrue(switch.connected())
+            self.assertEquals(0, self.net.pingAll())
 
 
 class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
@@ -290,13 +303,26 @@ interfaces:
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["10.0.0.254/24"]
+        controller_ips: ["10.0.0.254/24", "fc00::1:254/112"]
 """
 
+    ONE_GOOD_PING = '1 packets transmitted, 1 received, 0\% packet loss'
+
     def test_ping_controller(self):
-        ping_result = self.net.hosts[0].cmd('ping -c1 10.0.0.254')
-        self.assertTrue(re.search(
-            '1 packets transmitted, 1 received, 0\% packet loss', ping_result))
+        first_host, second_host = self.net.hosts[0:2]
+        first_host.cmd('ip -6 addr add fc00::1:1/112 dev %s' % first_host.intf())
+        second_host.cmd('ip -6 addr add fc00::1:2/112 dev %s' % second_host.intf())
+        # Verify IPv4 and IPv6 connectivity between first two hosts.
+        self.assertTrue(re.search(self.ONE_GOOD_PING,
+            first_host.cmd('ping -c1 %s' % second_host.IP())))
+        self.assertTrue(re.search(self.ONE_GOOD_PING,
+            first_host.cmd('ping6 -c1 %s' % "fc00::1:2")))
+        # Verify first two hosts can ping controller over both IPv4 and IPv6
+        for host in first_host, second_host:
+            self.assertTrue(re.search(self.ONE_GOOD_PING,
+                host.cmd('ping -c1 10.0.0.254')))
+            self.assertTrue(re.search(self.ONE_GOOD_PING,
+                host.cmd('ping6 -c1 fc00::1:254')))
 
 
 class FaucetTaggedAndUntaggedTest(FaucetTest):
@@ -501,13 +527,26 @@ interfaces:
 vlans:
     100:
         description: "tagged"
-        controller_ips: ["10.0.0.254/24"]
+        controller_ips: ["10.0.0.254/24", "fc00::1:254/112"]
 """
 
+    ONE_GOOD_PING = '1 packets transmitted, 1 received, 0\% packet loss'
+
     def test_ping_controller(self):
-        ping_result = self.net.hosts[0].cmd('ping -c1 10.0.0.254')
-        self.assertTrue(re.search(
-            '1 packets transmitted, 1 received, 0\% packet loss', ping_result))
+        first_host, second_host = self.net.hosts[0:2]
+        first_host.cmd('ip -6 addr add fc00::1:1/112 dev %s' % first_host.intf())
+        second_host.cmd('ip -6 addr add fc00::1:2/112 dev %s' % second_host.intf())
+        # Verify IPv4 and IPv6 connectivity between first two hosts.
+        self.assertTrue(re.search(self.ONE_GOOD_PING,
+            first_host.cmd('ping -c1 %s' % second_host.IP())))
+        self.assertTrue(re.search(self.ONE_GOOD_PING,
+            first_host.cmd('ping6 -c1 %s' % "fc00::1:2")))
+        # Verify first two hosts can ping controller over both IPv4 and IPv6
+        for host in first_host, second_host:
+            self.assertTrue(re.search(self.ONE_GOOD_PING,
+                host.cmd('ping -c1 10.0.0.254')))
+            self.assertTrue(re.search(self.ONE_GOOD_PING,
+                host.cmd('ping6 -c1 fc00::1:254')))
 
 
 class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
