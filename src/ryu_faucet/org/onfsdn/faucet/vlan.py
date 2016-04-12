@@ -49,6 +49,7 @@ class VLAN(object):
                 else:
                     self.ipv6_routes[ip_dst] = ip_gw
         self.arp_cache = {}
+        self.nd_cache = {}
 
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
