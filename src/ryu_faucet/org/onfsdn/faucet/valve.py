@@ -952,6 +952,7 @@ class OVSStatelessValve(Valve):
 
     def resolve_gateways(self):
         # TODO: implement ARP refresh
+        # TODO: implement longest prefix match priority
         if not self.dp.running:
             return []
         flowmods = []
@@ -1024,7 +1025,7 @@ class OVSStatelessValve(Valve):
                                     self.valve_packetout(port.number,
                                         untagged_pkt.data))
                         if tagged_ports:
-                            tagged_port_num = untagged_ports[0].number
+                            tagged_port_num = tagged_ports[0].number
                             tagged_pkt = self.build_ethernet_pkt(
                                 nd_mac, tagged_port_num, vlan,
                                 ether.ETH_TYPE_IPV6)
