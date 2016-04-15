@@ -727,10 +727,12 @@ class OVSStatelessValve(Valve):
         return ofmsgs
 
     def add_ipv4_resolved_route(self, vlan, ip_dst, eth_dst):
-        return self.add_resolved_route(ether.ETH_TYPE_IP, vlan, ip_dst, eth_dst)
+        return self.add_resolved_route(
+            ether.ETH_TYPE_IP, vlan, ip_dst, eth_dst)
 
     def add_ipv6_resolved_route(self, vlan, ip_dst, eth_dst):
-        return self.add_resolved_route(ether.ETH_TYPE_IPV6, vlan, ip_dst, eth_dst)
+        return self.add_resolved_route(
+            ether.ETH_TYPE_IPV6, vlan, ip_dst, eth_dst)
 
     def control_plane_arp_handler(self, in_port, vlan, eth_src, arp_pkt):
         ofmsgs = []
