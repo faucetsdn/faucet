@@ -9,7 +9,7 @@ FAUCET_LISTEN_HOST=192.168.1.1
 # TCP port FAUCET controller should listen on for OpenFlow switch
 FAUCET_LISTEN_PORT=6633
 # location of FAUCET's configuration file.
-FAUCET_CONFIG=/etc/opt/faucet/valve.yaml
+FAUCET_CONFIG=/etc/opt/faucet/faucet.yaml
 # where FAUCET should log to (directory must exist and be writable by FAUCET_USER)
 FAUCET_LOG=/var/log/faucet/faucet.log
 # where FAUCET should log exceptions to (directory must exist as above)
