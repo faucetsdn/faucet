@@ -508,7 +508,8 @@ class OVSStatelessValve(Valve):
         ofmsgs = []
         for controller_ip in controller_ips:
             controller_ip_host = ipaddr.IPNetwork(
-                '/'.join([str(controller_ip.ip), str(controller_ip.max_prefixlen)]))
+                '/'.join((str(controller_ip.ip),
+                          str(controller_ip.max_prefixlen))))
             if controller_ip_host.version == 4:
                 ofmsgs.append(self.valve_flowcontroller(
                     self.dp.eth_src_table,
@@ -755,7 +756,8 @@ class OVSStatelessValve(Valve):
                     self.logger.info('ARP response %s for %s',
                         eth_src, resolved_ip_gw)
                     vlan.arp_cache[resolved_ip_gw] = eth_src
-                    ofmsgs.extend(self.add_ipv4_resolved_route(vlan, ip_dst, eth_src))
+                    ofmsgs.extend(
+                        self.add_ipv4_resolved_route(vlan, ip_dst, eth_src))
 
         return ofmsgs
 
@@ -803,7 +805,8 @@ class OVSStatelessValve(Valve):
                     self.logger.info('ND response %s for %s',
                         eth_src, resolved_ip_gw)
                     vlan.nd_cache[resolved_ip_gw] = eth_src
-                    flowmods.extend(self.add_ipv6_resolved_route(vlan, ip_dst, eth_src))
+                    flowmods.extend(
+                        self.add_ipv6_resolved_route(vlan, ip_dst, eth_src))
         elif icmpv6_pkt.type_ == icmpv6.ICMPV6_ECHO_REQUEST:
             dst = ipv6_pkt.dst
             ipv6_reply = ipv6.ipv6(
@@ -824,7 +827,8 @@ class OVSStatelessValve(Valve):
 
         return flowmods
 
-    def to_faucet_ip(self, vlan, src_ip, dst_ip):
+    @staticmethod
+    def to_faucet_ip(vlan, src_ip, dst_ip):
         for controller_ip in vlan.controller_ips:
             if src_ip in controller_ip or dst_ip in controller_ip:
                 return True
@@ -932,7 +936,8 @@ class OVSStatelessValve(Valve):
             port = self.dp.ports[in_port]
 
             if mac_addr_is_unicast(eth_src):
-                self.logger.debug('Packet_in dp_id: %x src:%s in_port:%d vid:%s',
+                self.logger.debug(
+                    'Packet_in dp_id: %x src:%s in_port:%d vid:%s',
                     dp_id, eth_src, in_port, vlan_vid)
 
                 flowmods.extend(self.handle_control_plane(
@@ -965,15 +970,24 @@ class OVSStatelessValve(Valve):
             flowmods.append(self.valve_packetout(port.number, pkt.data))
         return flowmods
 
+    @staticmethod
+    def ipv6_link_eth_mcast(ucast):
+        nd_mac_bytes = ipaddr.Bytes('\x33\x33') + ucast.packed[-4:]
+        nd_mac = ':'.join(['%02X' % ord(x) for x in nd_mac_bytes])
+        return nd_mac
+
+    @staticmethod
+    def ipv6_link_mcast_from_ucast(ucast):
+        link_mcast_prefix = ipaddr.IPv6Network('ff02::1:ff00:0/104')
+        mcast_bytes = ipaddr.Bytes(
+            link_mcast_prefix.packed[:13] + ucast.packed[-3:])
+        link_mcast = ipaddr.IPv6Address(mcast_bytes)
+        return link_mcast
+
     def nd_solicit_ip_gw(self, ip_gw, controller_ip, vlan, ports):
         self.logger.info('Resolving %s', ip_gw)
-        nd_mac_bytes = ipaddr.Bytes('\x33\x33') + ip_gw.packed[-4:]
-        nd_mac = ':'.join(['%02X' % ord(x) for x in nd_mac_bytes])
-        ipv6_link_scope_mcast = ipaddr.IPv6Network('ff02::1:ff00:0/104')
-        ip_gw_mcast_bytes = ipaddr.Bytes(
-            ipv6_link_scope_mcast.packed[:13] +
-            ip_gw.packed[-3:])
-        ip_gw_mcast = ipaddr.IPv6Address(ip_gw_mcast_bytes)
+        nd_mac = self.ipv6_link_eth_mcast(ip_gw)
+        ip_gw_mcast = self.ipv6_link_mcast_from_ucast(ip_gw)
         port_num = ports[0].number
         pkt = self.build_ethernet_pkt(
             nd_mac, port_num, vlan, ether.ETH_TYPE_IPV6)

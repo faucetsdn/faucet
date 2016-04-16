@@ -343,7 +343,7 @@ class Gauge(app_manager.RyuApp):
         self.config_file = os.getenv(
             'GAUGE_CONFIG', '/etc/opt/faucet/gauge.conf')
         self.exc_logfile = os.getenv(
-            'FAUCET_EXCEPTION_LOG', '/var/log/faucet/faucet_exception.log')
+            'GAUCET_EXCEPTION_LOG', '/var/log/faucet/faucet_exception.log')
         self.logfile = os.getenv('GAUGE_LOG', '/var/log/faucet/gauge.log')
 
         # Setup logging
