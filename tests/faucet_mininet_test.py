@@ -135,12 +135,8 @@ class FaucetTest(unittest.TestCase):
     def swap_host_macs(self, first_host, second_host):
         first_host_mac = first_host.MAC()
         second_host_mac = second_host.MAC()
-        for host in first_host, second_host:
-            first_host.cmd('ifconfig %s down' % host.intf())
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
-        for host in first_host, second_host:
-            first_host.cmd('ifconfig %s up' % host.intf())
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip):
