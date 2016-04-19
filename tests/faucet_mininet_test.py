@@ -100,8 +100,11 @@ class FaucetTest(unittest.TestCase):
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(self.tmpdir,
              'faucet-exception.log')
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+        self.net = None
 
     def tearDown(self):
+        if self.net is not None:
+            self.net.stop()
         shutil.rmtree(self.tmpdir)
 
     def add_host_ipv6_address(self, host, ip):
@@ -124,11 +127,12 @@ class FaucetTest(unittest.TestCase):
     def wait_until_matching_flow(self, flow, timeout=5):
         s1 = self.net.switches[0]
         for i in range(timeout):
-          dump_flows_cmd = 'ovs-ofctl dump-flows %s' % s1.name
-          dump_flows = s1.cmd(dump_flows_cmd)
-          if re.search(flow, dump_flows):
-              return
-          time.sleep(1)
+            dump_flows_cmd = 'ovs-ofctl dump-flows %s' % s1.name
+            dump_flows = s1.cmd(dump_flows_cmd)
+            for line in dump_flows.split('\n'):
+                if re.search(flow, line):
+                    return
+            time.sleep(1)
         print flow, dump_flows
         self.assertTrue(re.search(flow, dump_flows))
 
@@ -164,8 +168,6 @@ class FaucetTest(unittest.TestCase):
         self.add_host_ipv6_address(second_host, second_host_ip)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
-        self.one_ipv6_controller_ping(first_host) 
-        self.one_ipv6_controller_ping(second_host)
         self.add_host_ipv6_address(first_host, first_host_routed_ip)
         self.add_host_ipv6_address(second_host, second_host_routed_ip)
         first_host.cmd('ip -6 route add %s via %s' % (
@@ -178,6 +180,8 @@ class FaucetTest(unittest.TestCase):
         self.wait_until_matching_flow(
             'ipv6_dst=%s.+mod_dl_dst:%s' % (
                 second_host_routed_ip.masked(), second_host.MAC()))
+        self.one_ipv6_controller_ping(first_host)
+        self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
 
@@ -213,10 +217,6 @@ vlans:
 
     def test_untagged(self):
         self.assertEquals(0, self.net.pingAll())
-
-    def tearDown(self):
-        self.net.stop()
-        super(FaucetUntaggedTest, self).tearDown()
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
@@ -423,11 +423,6 @@ vlans:
         self.assertEquals(100,
             self.net.ping([tagged_host_pair[0], untagged_host_pair[0]]))
 
-    def tearDown(self):
-        self.net.stop()
-        super(FaucetTaggedAndUntaggedTest, self).tearDown()
-        time.sleep(1)
-
 
 class FaucetUntaggedACLTest(FaucetUntaggedTest):
 
@@ -559,11 +554,6 @@ vlans:
     def test_tagged(self):
         self.assertEquals(0, self.net.pingAll())
 
-    def tearDown(self):
-        self.net.stop()
-        super(FaucetTaggedTest, self).tearDown()
-        time.sleep(1)
-
 
 class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
 
@@ -685,11 +675,6 @@ vlans:
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
-        # TODO: after a MAC swap, the interface doesn't come back up
-        #self.swap_host_macs(first_host, second_host)
-        #self.verify_ipv6_routing(
-        #    first_host, first_host_ip, first_host_routed_ip,
-        #    second_host, second_host_ip, second_host_routed_ip)
 
 
 class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):

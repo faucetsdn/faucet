@@ -972,6 +972,9 @@ class OVSStatelessValve(Valve):
 
                 flowmods.extend(self.handle_control_plane(
                     in_port, vlan, eth_src, eth_dst, pkt))
+                # TODO: implement rate limiting to protect us from
+                # "CAM exhaustion" type attacks (Eg don't try to learn
+                # more than a configured number of hosts).
                 flowmods.extend(self.learn_host_on_vlan_port(
                     port, vlan, eth_src))
         return flowmods
