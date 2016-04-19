@@ -105,6 +105,9 @@ class FaucetTest(unittest.TestCase):
     def tearDown(self):
         if self.net is not None:
             self.net.stop()
+            # Mininet takes a long time to actually shutdown.
+            # TODO: detect and block when Mininet isn't done.
+            time.sleep(5)
         shutil.rmtree(self.tmpdir)
 
     def add_host_ipv6_address(self, host, ip):
@@ -118,7 +121,10 @@ class FaucetTest(unittest.TestCase):
         self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
 
     def one_ipv6_ping(self, host, dst):
-        ping_result = host.cmd('ping6 -c1 %s' % dst)
+        for retry in range(2):
+            ping_result = host.cmd('ping6 -c1 %s' % dst)
+            if re.search(self.ONE_GOOD_PING, ping_result):
+                return
         self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
 
     def one_ipv6_controller_ping(self, host):
@@ -675,6 +681,10 @@ vlans:
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
 
 
 class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
@@ -714,6 +724,10 @@ vlans:
         second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
         first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
         second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.swap_host_macs(first_host, second_host)
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
