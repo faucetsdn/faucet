@@ -121,6 +121,7 @@ class FaucetTest(unittest.TestCase):
         self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
 
     def one_ipv6_ping(self, host, dst):
+        # TODO: retry our one ping. We should not have to retry.
         for retry in range(2):
             ping_result = host.cmd('ping6 -c1 %s' % dst)
             if re.search(self.ONE_GOOD_PING, ping_result):
