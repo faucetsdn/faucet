@@ -721,27 +721,34 @@ class OVSStatelessValve(Valve):
             pkt.add_protocol(eth_pkt)
         return pkt
 
-    def add_resolved_route(self, eth_type, vlan, ip_dst, eth_dst):
+    def add_resolved_route(self, eth_type, vlan, neighbor_cache,
+                           ip_gw, ip_dst, eth_dst):
         ofmsgs = []
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.eth_src_table,
-            self.valve_in_match(
-                vlan=vlan, eth_type=eth_type,
-                nw_dst=ip_dst, eth_dst=self.FAUCET_MAC),
-                priority=self.dp.highest_priority+1,
-                inst=[self.apply_actions(
-                    [self.set_eth_src(self.FAUCET_MAC),
-                    self.set_eth_dst(eth_dst)])] +
-                    [self.goto_table(self.dp.eth_dst_table)]))
+        now = time.time()
+        cached_eth_dst = None
+        if ip_gw in neighbor_cache:
+            cached_eth_dst = neighbor_cache.eth_src
+        link_neighbor = LinkNeighbor(eth_dst, now)
+        neighbor_cache[ip_gw] = link_neighbor
+        if cached_eth_dst != eth_dst:
+            if cached_eth_dst is None:
+                self.logger.info('Adding new route %s via %s (%s)',
+                    ip_dst, ip_gw, eth_dst)
+            else:
+                self.logger.info('Updating next hop for route %s via %s (%s)',
+                    ip_dst, ip_gw, eth_dst)
+                # TODO: delete existing route
+            ofmsgs.append(self.valve_flowmod(
+                self.dp.eth_src_table,
+                self.valve_in_match(
+                    vlan=vlan, eth_type=eth_type,
+                    nw_dst=ip_dst, eth_dst=self.FAUCET_MAC),
+                    priority=self.dp.highest_priority+1,
+                    inst=[self.apply_actions(
+                        [self.set_eth_src(self.FAUCET_MAC),
+                        self.set_eth_dst(eth_dst)])] +
+                        [self.goto_table(self.dp.eth_dst_table)]))
         return ofmsgs
-
-    def add_ipv4_resolved_route(self, vlan, ip_dst, eth_dst):
-        return self.add_resolved_route(
-            ether.ETH_TYPE_IP, vlan, ip_dst, eth_dst)
-
-    def add_ipv6_resolved_route(self, vlan, ip_dst, eth_dst):
-        return self.add_resolved_route(
-            ether.ETH_TYPE_IPV6, vlan, ip_dst, eth_dst)
 
     def control_plane_arp_handler(self, in_port, vlan, eth_src, arp_pkt):
         ofmsgs = []
@@ -763,11 +770,10 @@ class OVSStatelessValve(Valve):
                 if ip_gw == resolved_ip_gw:
                     self.logger.info('ARP response %s for %s',
                         eth_src, resolved_ip_gw)
-                    now = time.time()
-                    link_neighbor = LinkNeighbor(eth_src, now)
-                    vlan.arp_cache[resolved_ip_gw] = link_neighbor
                     ofmsgs.extend(
-                        self.add_ipv4_resolved_route(vlan, ip_dst, eth_src))
+                        self.add_resolved_route(
+                            ether.ETH_TYPE_IP, vlan, vlan.arp_cache,
+                            ip_gw, ip_dst, eth_src))
 
         return ofmsgs
 
@@ -819,11 +825,10 @@ class OVSStatelessValve(Valve):
                 if ip_gw == resolved_ip_gw:
                     self.logger.info('ND response %s for %s',
                         eth_src, resolved_ip_gw)
-                    now = time.time()
-                    link_neighbor = LinkNeighbor(eth_src, now)
-                    vlan.nd_cache[resolved_ip_gw] = link_neighbor
                     flowmods.extend(
-                        self.add_ipv6_resolved_route(vlan, ip_dst, eth_src))
+                        self.add_resolved_route(
+                            ether.ETH_TYPE_IPV6, vlan, vlan.nd_cache,
+                            ip_gw, ip_dst, eth_src))
         elif icmpv6_pkt.type_ == icmpv6.ICMPV6_ECHO_REQUEST:
             dst = ipv6_pkt.dst
             ipv6_reply = ipv6.ipv6(
