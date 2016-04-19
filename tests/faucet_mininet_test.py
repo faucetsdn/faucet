@@ -164,6 +164,8 @@ class FaucetTest(unittest.TestCase):
         self.add_host_ipv6_address(second_host, second_host_ip)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
+        self.one_ipv6_controller_ping(first_host) 
+        self.one_ipv6_controller_ping(second_host)
         self.add_host_ipv6_address(first_host, first_host_routed_ip)
         self.add_host_ipv6_address(second_host, second_host_routed_ip)
         first_host.cmd('ip -6 route add %s via %s' % (
