@@ -19,6 +19,7 @@
 # * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
 # * fuser
 
+import ipaddr
 import os
 import re
 import shutil
@@ -31,6 +32,7 @@ from mininet.node import Controller
 from mininet.node import Host
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
+
 
 FAUCET_DIR = '../src/ryu_faucet/org/onfsdn/faucet'
 
@@ -96,10 +98,16 @@ class FaucetTest(unittest.TestCase):
         os.environ['FAUCET_LOG'] = os.path.join(self.tmpdir,
              'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(self.tmpdir,
-            'faucet-exception.log')
+             'faucet-exception.log')
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+        self.net = None
 
     def tearDown(self):
+        if self.net is not None:
+            self.net.stop()
+            # Mininet takes a long time to actually shutdown.
+            # TODO: detect and block when Mininet isn't done.
+            time.sleep(5)
         shutil.rmtree(self.tmpdir)
 
     def add_host_ipv6_address(self, host, ip):
@@ -113,7 +121,11 @@ class FaucetTest(unittest.TestCase):
         self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
 
     def one_ipv6_ping(self, host, dst):
-        ping_result = host.cmd('ping6 -c1 %s' % dst)
+        # TODO: retry our one ping. We should not have to retry.
+        for retry in range(2):
+            ping_result = host.cmd('ping6 -c1 %s' % dst)
+            if re.search(self.ONE_GOOD_PING, ping_result):
+                return
         self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
 
     def one_ipv6_controller_ping(self, host):
@@ -122,12 +134,63 @@ class FaucetTest(unittest.TestCase):
     def wait_until_matching_flow(self, flow, timeout=5):
         s1 = self.net.switches[0]
         for i in range(timeout):
-          dump_flows_cmd = 'ovs-ofctl dump-flows %s|grep %s' % (s1.name, flow)
-          dump_flows = s1.cmd(dump_flows_cmd)
-          if re.search(flow, dump_flows):
-              return
-          time.sleep(1)
+            dump_flows_cmd = 'ovs-ofctl dump-flows %s' % s1.name
+            dump_flows = s1.cmd(dump_flows_cmd)
+            for line in dump_flows.split('\n'):
+                if re.search(flow, line):
+                    return
+            time.sleep(1)
+        print flow, dump_flows
         self.assertTrue(re.search(flow, dump_flows))
+
+    def swap_host_macs(self, first_host, second_host):
+        first_host_mac = first_host.MAC()
+        second_host_mac = second_host.MAC()
+        first_host.setMAC(second_host_mac)
+        second_host.setMAC(first_host_mac)
+
+    def verify_ipv4_routing(self, first_host, first_host_routed_ip,
+                            second_host, second_host_routed_ip):
+        first_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
+            (first_host.intf(), first_host_routed_ip.ip)))
+        second_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
+            (second_host.intf(), second_host_routed_ip.ip)))
+        first_host.cmd(('route add -net %s gw %s' % (
+                        second_host_routed_ip.masked(), self.CONTROLLER_IPV4)))
+        second_host.cmd(('route add -net %s gw %s' % (
+                         first_host_routed_ip.masked(), self.CONTROLLER_IPV4)))
+        self.net.ping(hosts=(first_host, second_host))
+        self.wait_until_matching_flow(
+            'nw_dst=%s.+mod_dl_dst:%s' % (
+                first_host_routed_ip.masked(), first_host.MAC()))
+        self.wait_until_matching_flow(
+            'nw_dst=%s.+mod_dl_dst:%s' % (
+                second_host_routed_ip.masked(), second_host.MAC()))
+        self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
+        self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
+
+    def verify_ipv6_routing(self, first_host, first_host_ip, first_host_routed_ip,
+                            second_host, second_host_ip, second_host_routed_ip):
+        self.add_host_ipv6_address(first_host, first_host_ip)
+        self.add_host_ipv6_address(second_host, second_host_ip)
+        self.one_ipv6_ping(first_host, second_host_ip.ip)
+        self.one_ipv6_ping(second_host, first_host_ip.ip)
+        self.add_host_ipv6_address(first_host, first_host_routed_ip)
+        self.add_host_ipv6_address(second_host, second_host_routed_ip)
+        first_host.cmd('ip -6 route add %s via %s' % (
+            second_host_routed_ip.masked(), self.CONTROLLER_IPV6))
+        second_host.cmd('ip -6 route add %s via %s' % (
+            first_host_routed_ip.masked(), self.CONTROLLER_IPV6))
+        self.wait_until_matching_flow(
+            'ipv6_dst=%s.+mod_dl_dst:%s' % (
+                first_host_routed_ip.masked(), first_host.MAC()))
+        self.wait_until_matching_flow(
+            'ipv6_dst=%s.+mod_dl_dst:%s' % (
+                second_host_routed_ip.masked(), second_host.MAC()))
+        self.one_ipv6_controller_ping(first_host)
+        self.one_ipv6_controller_ping(second_host)
+        self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
+        self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -162,10 +225,6 @@ vlans:
     def test_untagged(self):
         self.assertEquals(0, self.net.pingAll())
 
-    def tearDown(self):
-        self.net.stop()
-        super(FaucetUntaggedTest, self).tearDown()
-
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 
@@ -182,6 +241,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
+arp_neighbor_timeout: 2
 interfaces:
     1:
         native_vlan: 100
@@ -211,23 +271,15 @@ vlans:
     def test_untagged(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_routed_ip = '10.0.1.1'
-        second_host_routed_ip = '10.0.2.1'
-        first_host.setIP('10.0.0.1/24')
-        first_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
-            (first_host.intf(), first_host_routed_ip)))
-        second_host.setIP('10.0.0.2/24')
-        second_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
-            (second_host.intf(), second_host_routed_ip)))
-        self.assertEquals(0, self.net.pingPair())
-        first_host.cmd(('route add -net 10.0.2.0/24 gw %s' %
-                        self.CONTROLLER_IPV4))
-        second_host.cmd(('route add -net 10.0.1.0/24 gw %s' %
-                         self.CONTROLLER_IPV4))
-        self.wait_until_matching_flow('nw_dst=10.0.1.0/24')
-        self.wait_until_matching_flow('nw_dst=10.0.2.0/24')
-        self.one_ipv4_ping(first_host, second_host_routed_ip)
-        self.one_ipv4_ping(second_host, first_host_routed_ip)
+        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
+        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
 
 
 class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
@@ -257,14 +309,6 @@ vlans:
 
 
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
-
-    def swap_host_macs(self, first_host, second_host):
-        first_host_mac = first_host.MAC()
-        second_host_mac = second_host.MAC()
-        first_host.setMAC(second_host_mac)
-        second_host.setMAC(first_host_mac)
-        first_host.cmd('arp -d %s' % second_host.IP())
-        second_host.cmd('arp -d %s' % first_host.IP())
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
@@ -385,11 +429,6 @@ vlans:
         # hosts cannot ping hosts in other VLANs
         self.assertEquals(100,
             self.net.ping([tagged_host_pair[0], untagged_host_pair[0]]))
-
-    def tearDown(self):
-        self.net.stop()
-        super(FaucetTaggedAndUntaggedTest, self).tearDown()
-        time.sleep(1)
 
 
 class FaucetUntaggedACLTest(FaucetUntaggedTest):
@@ -522,11 +561,6 @@ vlans:
     def test_tagged(self):
         self.assertEquals(0, self.net.pingAll())
 
-    def tearDown(self):
-        self.net.stop()
-        super(FaucetTaggedTest, self).tearDown()
-        time.sleep(1)
-
 
 class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
 
@@ -566,6 +600,7 @@ vlans:
 class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
 
     CONFIG = CONFIG_HEADER + """
+arp_neighbor_timeout: 2
 interfaces:
     1:
         tagged_vlans: [100]
@@ -596,28 +631,21 @@ vlans:
     def test_tagged(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_routed_ip = '10.0.1.1'
-        second_host_routed_ip = '10.0.2.1'
-        first_host.setIP('10.0.0.1/24')
-        first_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
-            (first_host.intf(), first_host_routed_ip)))
-        second_host.setIP('10.0.0.2/24')
-        second_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' %
-            (second_host.intf(), second_host_routed_ip)))
-        self.assertEquals(0, self.net.pingPair())
-        first_host.cmd(('route add -net 10.0.2.0/24 gw %s' %
-                        self.CONTROLLER_IPV4))
-        second_host.cmd(('route add -net 10.0.1.0/24 gw %s' %
-                         self.CONTROLLER_IPV4))
-        self.wait_until_matching_flow('nw_dst=10.0.1.0/24')
-        self.wait_until_matching_flow('nw_dst=10.0.2.0/24')
-        self.one_ipv4_ping(first_host, second_host_routed_ip)
-        self.one_ipv4_ping(second_host, first_host_routed_ip)
+        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
+        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
 
 
 class FaucetUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
+arp_neighbor_timeout: 2
 interfaces:
     1:
         native_vlan: 100
@@ -639,7 +667,6 @@ vlans:
             - route:
                 ip_dst: "fc00::10:0/112"
                 ip_gw: "fc00::1:1"
-
             - route:
                 ip_dst: "fc00::20:0/112"
                 ip_gw: "fc00::1:2"
@@ -648,28 +675,23 @@ vlans:
     def test_untagged(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        controller_ip = 'fc00::1:254'
-        first_host_routed_ip = 'fc00::10:1'
-        second_host_routed_ip = 'fc00::20:1'
-        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
-        self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
-        self.add_host_ipv6_address(first_host, first_host_routed_ip + '/112')
-        self.add_host_ipv6_address(second_host, second_host_routed_ip + '/112')
-        self.one_ipv6_ping(first_host, 'fc00::1:2')
-        self.one_ipv6_ping(second_host, 'fc00::1:1')
-        for host in first_host, second_host:
-            self.one_ipv6_controller_ping(host)
-        first_host.cmd('ip -6 route add fc00::20:0/112 via %s' % controller_ip)
-        second_host.cmd('ip -6 route add fc00::10:0/112 via %s' % controller_ip)
-        self.wait_until_matching_flow('fc00::10:0/112')
-        self.wait_until_matching_flow('fc00::20:0/112')
-        self.one_ipv6_ping(first_host, second_host_routed_ip)
-        self.one_ipv6_ping(second_host, first_host_routed_ip)
+        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
+        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
+        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
+        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
 
 
 class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
 
     CONFIG = CONFIG_HEADER + """
+arp_neighbor_timeout: 2
 interfaces:
     1:
         tagged_vlans: [100]
@@ -691,7 +713,6 @@ vlans:
             - route:
                 ip_dst: "fc00::10:0/112"
                 ip_gw: "fc00::1:1"
-
             - route:
                 ip_dst: "fc00::20:0/112"
                 ip_gw: "fc00::1:2"
@@ -700,23 +721,17 @@ vlans:
     def test_tagged(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        controller_ip = 'fc00::1:254'
-        first_host_routed_ip = 'fc00::10:1'
-        second_host_routed_ip = 'fc00::20:1'
-        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
-        self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
-        self.add_host_ipv6_address(first_host, first_host_routed_ip + '/112')
-        self.add_host_ipv6_address(second_host, second_host_routed_ip + '/112')
-        self.one_ipv6_ping(first_host, 'fc00::1:2')
-        self.one_ipv6_ping(second_host, 'fc00::1:1')
-        for host in first_host, second_host:
-            self.one_ipv6_controller_ping(host)
-        first_host.cmd('ip -6 route add fc00::20:0/112 via %s' % controller_ip)
-        second_host.cmd('ip -6 route add fc00::10:0/112 via %s' % controller_ip)
-        self.wait_until_matching_flow('fc00::10:0/112')
-        self.wait_until_matching_flow('fc00::20:0/112')
-        self.one_ipv6_ping(first_host, second_host_routed_ip)
-        self.one_ipv6_ping(second_host, first_host_routed_ip)
+        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
+        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
+        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
+        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
 
 
 if __name__ == '__main__':
