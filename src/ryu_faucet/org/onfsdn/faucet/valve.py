@@ -724,30 +724,38 @@ class OVSStatelessValve(Valve):
     def add_resolved_route(self, eth_type, vlan, neighbor_cache,
                            ip_gw, ip_dst, eth_dst):
         ofmsgs = []
-        now = time.time()
         cached_eth_dst = None
         if ip_gw in neighbor_cache:
-            cached_eth_dst = neighbor_cache.eth_src
-        link_neighbor = LinkNeighbor(eth_dst, now)
-        neighbor_cache[ip_gw] = link_neighbor
+            cached_eth_dst = neighbor_cache[ip_gw].eth_src
         if cached_eth_dst != eth_dst:
+            in_match = self.valve_in_match(
+                vlan=vlan, eth_type=eth_type,
+                nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+            priority = self.dp.highest_priority + 1
+
             if cached_eth_dst is None:
                 self.logger.info('Adding new route %s via %s (%s)',
                     ip_dst, ip_gw, eth_dst)
             else:
                 self.logger.info('Updating next hop for route %s via %s (%s)',
                     ip_dst, ip_gw, eth_dst)
-                # TODO: delete existing route
+                # Delete existing route.
+                ofmsgs.append(self.valve_flowdel(
+                    self.dp.eth_src_table,
+                    in_match,
+                    priority=priority))
+
             ofmsgs.append(self.valve_flowmod(
                 self.dp.eth_src_table,
-                self.valve_in_match(
-                    vlan=vlan, eth_type=eth_type,
-                    nw_dst=ip_dst, eth_dst=self.FAUCET_MAC),
-                    priority=self.dp.highest_priority+1,
-                    inst=[self.apply_actions(
-                        [self.set_eth_src(self.FAUCET_MAC),
-                        self.set_eth_dst(eth_dst)])] +
-                        [self.goto_table(self.dp.eth_dst_table)]))
+                in_match,
+                priority=priority,
+                inst=[self.apply_actions(
+                    [self.set_eth_src(self.FAUCET_MAC),
+                    self.set_eth_dst(eth_dst)])] +
+                    [self.goto_table(self.dp.eth_dst_table)]))
+        now = time.time()
+        link_neighbor = LinkNeighbor(eth_dst, now)
+        neighbor_cache[ip_gw] = link_neighbor
         return ofmsgs
 
     def control_plane_arp_handler(self, in_port, vlan, eth_src, arp_pkt):
