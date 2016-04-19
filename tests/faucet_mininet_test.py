@@ -221,6 +221,7 @@ vlans:
         self.net.start()
         dumpNodeConnections(self.net.hosts)
         self.net.waitConnected()
+        self.wait_until_matching_flow('actions=CONTROLLER')
 
     def test_untagged(self):
         self.assertEquals(0, self.net.pingAll())
@@ -419,6 +420,7 @@ vlans:
         self.net.start()
         dumpNodeConnections(self.net.hosts)
         self.net.waitConnected()
+        self.wait_until_matching_flow('actions=CONTROLLER')
 
     def test_seperate_untagged_tagged(self):
         tagged_host_pair = self.net.hosts[0:1]
