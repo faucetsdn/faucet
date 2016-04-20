@@ -417,7 +417,7 @@ class Gauge(app_manager.RyuApp):
                     dp, ryudp, self.logname)
             else:
                 port_state_handler = GaugePortStateLogger(
-                    dp, ryudb, self.logname)
+                    dp, ryudp, self.logname)
             self.handlers[dp.dp_id]['port_state'] = port_state_handler
 
             if dp.monitor_ports:
@@ -440,7 +440,7 @@ class Gauge(app_manager.RyuApp):
             if dp.dp_id in self.pollers:
                 for poller in self.pollers[dp.dp_id].values():
                     poller.stop()
-                    del self.pollers[dp.dp_id]
+                del self.pollers[dp.dp_id]
             self.logger.info("datapath down %x", dp.dp_id)
             dp.running = False
 
