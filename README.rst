@@ -157,7 +157,10 @@ Run with ``ryu-manager`` (uses ``/etc/ryu/faucet/faucet.yaml`` as configuration 
 
     # export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml
     # export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf
-    # export FAUCET_LOG_DIR=/var/log/ryu
+    # export FAUCET_LOG=/var/log/faucet/faucet.log
+    # export FAUCET_EXCEPTION_LOG=/var/log/faucet/faucet_exception.log
+    # export GAUGE_LOG=/var/log/faucet/gauge_exception.log
+    # export GAUGE_EXCEPTION_LOG=/var/log/faucet/gauge_exception.log
     # $EDITOR /etc/ryu/faucet/faucet.yaml
     # ryu-manager --verbose faucet.py
 
@@ -177,7 +180,9 @@ On MacOS X, for example, one would run this as:
 
 To specify a different configuration file set the ``FAUCET_CONFIG`` environment variable.
 
-Faucet will log to ``/var/log/ryu/faucet/`` by default, this can be changed with the ``FAUCET_LOG_DIR`` environment variable.
+Faucet will log to ``/var/log/faucet/faucet.log`` and ``/var/log/faucet/faucet_exception.log`` by default, this can be changed with the ``FAUCET_LOG`` and ``FAUCET_EXCEPTION_LOG`` environment variables.
+
+Gauge will log to ``/var/log/faucet/gauge.log`` and ``/var/log/faucet/gauge_exception.log`` by default, this can be changed with the ``GAUGE_LOG`` and ``GAUGE_EXCEPTION_LOG`` environment variables.
 
 To tell Faucet to reload its configuration file after you've changed it, simply send it a ``SIGHUP``:
 
