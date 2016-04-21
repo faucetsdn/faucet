@@ -46,7 +46,7 @@ Then connect to the influxDB, by adding it as a datasource. Use the following se
 Name: Gauge # Or whatever you wish
 Type: InfluxDB 0.9.x
 Url: http://127.0.0.1:8086
-Access: prosy
+Access: proxy
 Http Auth: None
 Database: faucet
 User: faucet # Anything will do
