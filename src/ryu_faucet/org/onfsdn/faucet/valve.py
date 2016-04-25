@@ -1116,7 +1116,7 @@ class OVSStatelessValve(Valve):
                         expired_hosts.append(eth_src)
             if expired_hosts:
                 for eth_src in expired_hosts:
-                    del vlan[eth_src]
+                    del vlan.host_cache[eth_src]
                     self.logger.info('expiring host %s from vlan %u',
                         eth_src, vlan.vid)
                 self.logger.info('%u recently active hosts on vlan %u',

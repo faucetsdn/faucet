@@ -230,6 +230,7 @@ vlans:
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
+timeout: 60
 interfaces:
     1:
         native_vlan: 100
