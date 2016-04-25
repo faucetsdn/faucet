@@ -1120,4 +1120,4 @@ class OVSStatelessValve(Valve):
                     self.logger.info('expiring host %s from vlan %u',
                         eth_src, vlan.vid)
                 self.logger.info('%u recently active hosts on vlan %u',
-                        vlan.vid)
+                        len(vlan.host_cache), vlan.vid)
