@@ -227,6 +227,40 @@ vlans:
         self.assertEquals(0, self.net.pingAll())
 
 
+class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
+
+    CONFIG = CONFIG_HEADER + """
+interfaces:
+    1:
+        native_vlan: 100
+        description: "b1"
+    2:
+        native_vlan: 100
+        description: "b2"
+    3:
+        native_vlan: 100
+        description: "b3"
+    4:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+        max_hosts: 2
+"""
+
+    def test_untagged(self):
+        self.net.pingAll()
+        learned_hosts = set()
+        for host in self.net.hosts:
+            arp_output = host.cmd('arp -an')
+            for arp_line in arp_output.splitlines():
+                arp_match = re.search('at ([\:a-f\d]+)', arp_line)
+                if arp_match:
+                    learned_hosts.add(arp_match.group(1))
+        self.assertEquals(2, len(learned_hosts))
+
+
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 
     def test_untagged(self):
@@ -343,8 +377,8 @@ vlans:
 """
 
     def test_untagged(self):
-        first_host, second_host, third_host = self.net.hosts[0:3]
         self.assertEqual(0, self.net.pingAll())
+        first_host, second_host, third_host = self.net.hosts[0:3]
         # 3rd host impersonates 1st, 3rd host breaks but 1st host still OK
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
