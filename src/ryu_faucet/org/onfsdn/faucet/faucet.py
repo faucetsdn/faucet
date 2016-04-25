@@ -121,7 +121,7 @@ class Faucet(app_manager.RyuApp):
     def host_expire_request(self):
         while True:
             self.send_event('Faucet', EventFaucetHostExpire())
-            hub.sleep(30)
+            hub.sleep(5)
 
     def parse_config(self, config_file, log_name):
         new_dp = DP.parser(config_file, log_name)
