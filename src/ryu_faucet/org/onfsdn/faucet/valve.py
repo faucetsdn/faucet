@@ -167,6 +167,10 @@ class OVSStatelessValve(Valve):
         return parser.OFPActionSetField(eth_dst=eth_dst)
 
     @staticmethod
+    def dec_ip_ttl():
+        return parser.OFPActionDecNwTtl()
+
+    @staticmethod
     def valve_packetout(out_port, data):
         return parser.OFPPacketOut(
             datapath=None,
@@ -751,7 +755,8 @@ class OVSStatelessValve(Valve):
                 priority=priority,
                 inst=[self.apply_actions(
                     [self.set_eth_src(self.FAUCET_MAC),
-                    self.set_eth_dst(eth_dst)])] +
+                     self.set_eth_dst(eth_dst),
+                     self.dec_ip_ttl()])] +
                     [self.goto_table(self.dp.eth_dst_table)]))
         now = time.time()
         link_neighbor = LinkNeighbor(eth_dst, now)
