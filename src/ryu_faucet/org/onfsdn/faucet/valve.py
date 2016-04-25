@@ -39,6 +39,14 @@ class LinkNeighbor(object):
         self.cache_time = now
 
 
+class HostCacheEntry(object):
+
+    def __init__(self, eth_src, permanent, now):
+        self.eth_src = eth_src
+        self.permanent = permanent
+        self.cache_time = now
+
+
 def valve_factory(dp):
     """Return a Valve object based dp's hardware configuration field.
 
@@ -271,12 +279,14 @@ class OVSStatelessValve(Valve):
             out_port=out_port,
             out_group=ofp.OFPG_ANY)
 
-    def valve_flowdrop(self, table_id, match=None, priority=None):
+    def valve_flowdrop(self, table_id, match=None, priority=None,
+                       hard_timeout=0):
         """Add drop matching flow to a table."""
         return self.valve_flowmod(
             table_id,
             match=match,
             priority=priority,
+            hard_timeout=hard_timeout,
             inst=[])
 
     def valve_flowcontroller(self, table_id, match=None, priority=None,
@@ -977,11 +987,30 @@ class OVSStatelessValve(Valve):
 
                 flowmods.extend(self.handle_control_plane(
                     in_port, vlan, eth_src, eth_dst, pkt))
-                # TODO: implement rate limiting to protect us from
-                # "CAM exhaustion" type attacks (Eg don't try to learn
-                # more than a configured number of hosts).
-                flowmods.extend(self.learn_host_on_vlan_port(
-                    port, vlan, eth_src))
+
+                # ban learning new hosts if max_hosts reached on a VLAN.
+                if (vlan.max_hosts is not None and
+                    len(vlan.host_cache) == vlan.max_hosts and
+                    eth_src not in vlan.host_cache):
+                    self.logger.info(
+                        'max hosts %u reached on vlan %u, ' +
+                        'temporarily banning learning on this vlan',
+                        vlan.max_hosts, vlan.vid)
+                    flowmods.extend([self.valve_flowdrop(
+                        self.dp.eth_src_table,
+                        self.valve_in_match(vlan=vlan),
+                        priority=self.dp.low_priority+1,
+                        hard_timeout=self.dp.timeout)])
+                else:
+                    flowmods.extend(self.learn_host_on_vlan_port(
+                        port, vlan, eth_src))
+                    host_cache_entry = HostCacheEntry(
+                        eth_src,
+                        port.permanent_learn,
+                        time.time())
+                    vlan.host_cache[eth_src] = host_cache_entry
+                    self.logger.info('learned %u hosts on vlan %u',
+                        len(vlan.host_cache), vlan.vid)
         return flowmods
 
     def reload_config(self, new_dp):
@@ -1073,3 +1102,22 @@ class OVSStatelessValve(Valve):
                                     flowmods.extend(neighbor_resolver(
                                         ip_gw, controller_ip, vlan, ports))
         return flowmods
+
+    def host_expire(self):
+        if not self.dp.running:
+            return
+        now = time.time()
+        for vlan in self.dp.vlans.itervalues():
+            expired_hosts = []
+            for eth_src, host_cache_entry in vlan.host_cache.iteritems():
+                if not host_cache_entry.permanent:
+                    host_cache_entry_age = now - host_cache_entry.cache_time
+                    if host_cache_entry_age > self.dp.timeout:
+                        expired_hosts.append(eth_src)
+            if expired_hosts:
+                for eth_src in expired_hosts:
+                    del vlan[eth_src]
+                    self.logger.info('expiring host %s from vlan %u',
+                        eth_src, vlan.vid)
+                self.logger.info('%u recently active hosts on vlan %u',
+                        vlan.vid)

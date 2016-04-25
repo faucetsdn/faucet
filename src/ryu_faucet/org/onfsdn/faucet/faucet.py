@@ -44,6 +44,10 @@ class EventFaucetResolveGateways(event.EventBase):
     pass
 
 
+class EventFaucetHostExpire(event.EventBase):
+    pass
+
+
 class Faucet(app_manager.RyuApp):
     """A Ryu app that performs layer 2 switching with VLANs.
 
@@ -106,11 +110,18 @@ class Faucet(app_manager.RyuApp):
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
+        self.host_expire_request_thread = hub.spawn(
+            self.host_expire_request)
 
     def gateway_resolve_request(self):
         while True:
             self.send_event('Faucet', EventFaucetResolveGateways())
             hub.sleep(2)
+
+    def host_expire_request(self):
+        while True:
+            self.send_event('Faucet', EventFaucetHostExpire())
+            hub.sleep(30)
 
     def parse_config(self, config_file, log_name):
         new_dp = DP.parser(config_file, log_name)
@@ -147,6 +158,11 @@ class Faucet(app_manager.RyuApp):
             if flowmods:
                 ryudp = self.dpset.get(self.valve.dp.dp_id)
                 self.send_flow_msgs(ryudp, flowmods)
+
+    @set_ev_cls(EventFaucetHostExpire, MAIN_DISPATCHER)
+    def host_expire(self, ev):
+        if self.valve is not None:
+            self.valve.host_expire()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)

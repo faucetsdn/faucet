@@ -33,7 +33,7 @@ class VLAN(object):
         self.controller_ips = conf.setdefault('controller_ips', [])
         if self.controller_ips:
             self.controller_ips = [
-                ipaddr.IPNetwork(controller_ip) for controller_ip in self.controller_ips]
+                ipaddr.IPNetwork(ip) for ip in self.controller_ips]
         self.unicast_flood = conf.setdefault('unicast_flood', True)
         self.routes = conf.setdefault('routes', {})
         self.ipv4_routes = {}
@@ -50,6 +50,8 @@ class VLAN(object):
                     self.ipv6_routes[ip_dst] = ip_gw
         self.arp_cache = {}
         self.nd_cache = {}
+        self.max_hosts = conf.setdefault('max_hosts', None)
+        self.host_cache = {}
 
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
