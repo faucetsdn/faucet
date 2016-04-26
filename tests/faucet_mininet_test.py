@@ -15,7 +15,7 @@
 # * mininet 2.2.0 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
 #   use the "install from source" option from https://github.com/mininet/mininet/blob/master/INSTALL.
 #   suggest ./util/install.sh -n
-# * OVS 2.3.3 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
+# * OVS 2.4.1 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
 # * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
 # * fuser
 
@@ -225,6 +225,41 @@ vlans:
 
     def test_untagged(self):
         self.assertEquals(0, self.net.pingAll())
+
+
+class FaucetTaggedAndUntaggedVlanTest(FaucetUntaggedTest):
+
+    CONFIG = CONFIG_HEADER + """
+interfaces:
+    1:
+        tagged_vlans: [100]
+        description: "b1"
+    2:
+        native_vlan: 100
+        description: "b2"
+    3:
+        native_vlan: 100
+        description: "b3"
+    4:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "mixed"
+        unicast_flood: False
+"""
+
+    def setUp(self):
+        super(FaucetUntaggedTest, self).setUp()
+        self.topo = FaucetSwitchTopo(n_tagged=1, n_untagged=3)
+        self.net = Mininet(self.topo, controller=FAUCET)
+        self.net.start()
+        dumpNodeConnections(self.net.hosts)
+        self.net.waitConnected()
+        self.wait_until_matching_flow('actions=CONTROLLER')
+
+    def test_untagged(self):
+        self.net.pingAll()
 
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):

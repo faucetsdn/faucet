@@ -604,9 +604,10 @@ class OVSStatelessValve(Valve):
         ofmsgs = []
         ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
         vlan_inst = [
-            self.apply_actions(mirror_act),
             self.goto_table(forwarding_table)
         ]
+        if mirror_act:
+            vlan_inst = [self.apply_actions(mirror_act)] + vlan_inst
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
             self.valve_in_match(in_port=port.number, vlan=vlan),
