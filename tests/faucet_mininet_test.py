@@ -286,14 +286,18 @@ vlans:
 """
 
     def test_untagged(self):
-        self.net.pingAll()
-        learned_hosts = set()
-        for host in self.net.hosts:
-            arp_output = host.cmd('arp -an')
-            for arp_line in arp_output.splitlines():
-                arp_match = re.search('at ([\:a-f\d]+)', arp_line)
-                if arp_match:
-                    learned_hosts.add(arp_match.group(1))
+        for i in range(3):
+            self.net.pingAll()
+            learned_hosts = set()
+            for host in self.net.hosts:
+                arp_output = host.cmd('arp -an')
+                for arp_line in arp_output.splitlines():
+                    arp_match = re.search('at ([\:a-f\d]+)', arp_line)
+                    if arp_match:
+                        learned_hosts.add(arp_match.group(1))
+            if len(learned_hosts) == 2:
+                break
+            time.sleep(1)
         self.assertEquals(2, len(learned_hosts))
 
 
