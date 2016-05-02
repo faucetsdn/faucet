@@ -99,6 +99,9 @@ class FaucetTest(unittest.TestCase):
              'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(self.tmpdir,
              'faucet-exception.log')
+        self.CONFIG = '\n'.join((
+            self.CONFIG,
+            'ofchannel_log: "%s"' % os.path.join(self.tmpdir, 'ofchannel.log')))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.net = None
 

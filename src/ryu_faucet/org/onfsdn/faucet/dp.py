@@ -152,6 +152,8 @@ class DP(object):
         self.__dict__.setdefault('influxdb_stats', False)
         # ARP and neighbor timeout (seconds)
         self.__dict__.setdefault('arp_neighbor_timeout', 500)
+        # OF channel log
+        self.__dict__.setdefault('ofchannel_log', None)
 
     def add_acl(self, acl_num, acl_conf=None):
         if acl_conf is not None:
