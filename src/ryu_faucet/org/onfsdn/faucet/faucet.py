@@ -134,6 +134,7 @@ class Faucet(app_manager.RyuApp):
         return None
 
     def send_flow_msgs(self, dp, flow_msgs):
+        self.valve.ofchannel_log(flow_msgs)
         for flow_msg in flow_msgs:
             flow_msg.datapath = dp
             dp.send_msg(flow_msg)
@@ -169,6 +170,7 @@ class Faucet(app_manager.RyuApp):
     def _packet_in_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath
+        self.valve.ofchannel_log([msg])
 
         pkt = packet.Packet(msg.data)
         eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
@@ -184,6 +186,13 @@ class Faucet(app_manager.RyuApp):
         in_port = msg.match['in_port']
         flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
         self.send_flow_msgs(dp, flowmods)
+
+    @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
+    def _error_handler(self, ev):
+        msg = ev.msg
+        self.valve.ofchannel_log(msg)
+        self.logger.error('Got OFError: %s', msg)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -221,7 +230,7 @@ class Faucet(app_manager.RyuApp):
             else:
                 flowmods = self.valve.port_add(dp.id, port_no)
         else:
-            self.logger.info('Unhandled port status %s for port %u',
-                             reason, port_no)
+            self.logger.warning('Unhandled port status %s for port %u',
+                                reason, port_no)
 
         self.send_flow_msgs(dp, flowmods)

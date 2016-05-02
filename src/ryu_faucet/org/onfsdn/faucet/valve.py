@@ -20,6 +20,8 @@ import time
 
 from collections import namedtuple
 
+from logging.handlers import TimedRotatingFileHandler
+
 from util import mac_addr_is_unicast
 
 from ryu.lib import ofctl_v1_3 as ofctl
@@ -151,6 +153,25 @@ class OVSStatelessValve(Valve):
     def __init__(self, dp, logname='faucet', *args, **kwargs):
         self.dp = dp
         self.logger = logging.getLogger(logname)
+        self.ofchannel_logger = None
+
+    def ofchannel_log(self, flowmods):
+        if self.dp is not None:
+            if self.dp.ofchannel_log is not None:
+                if self.ofchannel_logger is None:
+                    self.ofchannel_logger = logging.getLogger(
+                        self.dp.ofchannel_log)
+                    logger_handler = TimedRotatingFileHandler(
+                        self.dp.ofchannel_log,
+                        when='midnight')
+                    log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
+                    logger_handler.setFormatter(
+                        logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
+                    self.ofchannel_logger.addHandler(logger_handler)
+                    self.ofchannel_logger.propagate = 0
+                    self.ofchannel_logger.setLevel(logging.DEBUG)
+                for flowmod in flowmods:
+                    self.ofchannel_logger.debug(flowmod)
 
     @staticmethod
     def ignore_port(port_num):
