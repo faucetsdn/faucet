@@ -55,8 +55,14 @@ def valve_factory(dp):
     Arguments:
     dp -- a DP object with the configuration for this valve.
     """
-    if dp.hardware in dp.SUPPORTED_HARDWARE:
-        return OVSStatelessValve(dp)
+    SUPPORTED_HARDWARE = {
+        'Allied-Telesis': OVSStatelessValve,
+        'NoviFlow': OVSStatelessValve,
+        'Open vSwitch': OVSStatelessValve,
+    }
+
+    if dp.hardware in SUPPORTED_HARDWARE:
+        return SUPPORTED_HARDWARE[dp.hardware](dp)
     else:
         return None
 
@@ -77,6 +83,17 @@ class Valve(object):
 
         KW Arguments:
         new_dp -- A new DP object containing the updated config."""
+        raise NotImplementedError
+
+    def switch_features(self, dp_id, msg):
+        """Send configuration flows necessary for the switch implementation.
+
+        Arguments:
+        dp_id -- the Datapath unique ID (64bit int)
+        msg -- OFPSwitchFeatures msg sent from switch.
+
+        Vendor specific configuration should be implemented here.
+        """
         raise NotImplementedError
 
     def datapath_connect(self, dp_id, ports):
@@ -486,6 +503,9 @@ class OVSStatelessValve(Valve):
                         priority=flood_priority))
                     flood_priority += 1
         return ofmsgs
+
+    def switch_features(self, dp_id, msg):
+        return []
 
     def datapath_connect(self, dp_id, discovered_port_nums):
         if self.ignore_dpid(dp_id):
