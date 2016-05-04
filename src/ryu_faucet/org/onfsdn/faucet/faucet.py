@@ -26,6 +26,7 @@ from dp import DP
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller import dpset
+from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller import event
@@ -193,6 +194,13 @@ class Faucet(app_manager.RyuApp):
         msg = ev.msg
         self.valve.ofchannel_log(msg)
         self.logger.error('Got OFError: %s', msg)
+
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def handler_features(self, ev):
+        msg = ev.msg
+        dp = msg.datapath
+        flowmods = self.valve.switch_features(dp.id, msg)
+        self.send_flow_msgs(dp, flowmods)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)

@@ -24,13 +24,6 @@ from port import Port
 class DP(object):
     """Object to hold the configuration for a faucet controlled datapath."""
 
-    # Known to run FAUCET
-    SUPPORTED_HARDWARE = (
-        'Allied-Telesis',
-        'NoviFlow',
-        'Open vSwitch',
-    )
-
     dp_id = None
     acls = None
     vlans = None
@@ -89,7 +82,6 @@ class DP(object):
     def sanity_check(self):
         assert 'dp_id' in self.__dict__
         assert isinstance(self.dp_id, int)
-        assert self.hardware in self.SUPPORTED_HARDWARE
         for vid, vlan in self.vlans.iteritems():
             assert isinstance(vid, int)
             assert isinstance(vlan, VLAN)
