@@ -21,7 +21,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
                     ('/etc/ryu/faucet/upstart', ['src/cfg/etc/ryu/faucet/upstart/gauge.conf',
                                          'src/cfg/etc/ryu/faucet/upstart/faucet.conf',
                                          'src/cfg/etc/ryu/faucet/upstart/gauge',
-                                         'src/cfg/etc/ryu/faucet/upstart/gauge.conf'])
+                                         'src/cfg/etc/ryu/faucet/upstart/faucet'])
                     ],
         include_package_data=True,
         install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr'],
