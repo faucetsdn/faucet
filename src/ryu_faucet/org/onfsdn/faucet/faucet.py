@@ -71,11 +71,11 @@ class Faucet(app_manager.RyuApp):
         # FAUCET_CONFIG to allow this to be set, if it is not set it will
         # default to valve.yaml
         self.config_file = os.getenv(
-            'FAUCET_CONFIG', '/etc/opt/faucet/valve.yaml')
+            'FAUCET_CONFIG', '/etc/ryu/faucet/valve.yaml')
         self.logfile = os.getenv(
-            'FAUCET_LOG', '/var/log/faucet/faucet.log')
+            'FAUCET_LOG', '/var/log/ryu/faucet/faucet.log')
         self.exc_logfile = os.getenv(
-            'FAUCET_EXCEPTION_LOG', '/var/log/faucet/faucet_exception.log')
+            'FAUCET_EXCEPTION_LOG', '/var/log/ryu/faucet/faucet_exception.log')
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
