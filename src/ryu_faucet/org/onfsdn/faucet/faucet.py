@@ -192,7 +192,7 @@ class Faucet(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def _error_handler(self, ev):
         msg = ev.msg
-        self.valve.ofchannel_log(msg)
+        self.valve.ofchannel_log([msg])
         self.logger.error('Got OFError: %s', msg)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)

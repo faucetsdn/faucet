@@ -1,76 +1,13 @@
-import os, sys
+import inspect
+import json
+import os
+import sys
 
-from ryu.base import app_manager
-from ryu.controller import ofp_event
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ofproto_v1_3_parser
 
-"""Register ryu handlers to configure the Aruba switches with the FAUCET pipeline"""
-
-class ArubaPipeline(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-
-    def __init__(self, *args, **kwargs):
-        super(ArubaPipeline, self).__init__(*args, **kwargs)
-        ev = kwargs.get('event', None)
-        if (ev.msg.msg_type == 0x06) :
-            ryu_table_loader = LoadRyuTables()
-            ryu_table_loader.load_tables("aruba_pipeline.json", ofproto_v1_3_parser)
-            self.my_tables = ryu_table_loader.ryu_tables
-            self.switch_features_handler(ev)
-        else:
-            self.table_features_stats_reply_handler(ev)
-
-    """
-    this event will be triggered once, it will request the features of the switch
-    like port description, and will send a features request with the desired pipeline
-    """
-    def switch_features_handler(self, ev):
-        datapath = ev.msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        """
-        send feature request with the desired pipeline to change of the pipeline of the switch
-        """
-        self.send_table_features_stats_request(ev.msg.datapath, self.my_tables)
-
-    """
-    this function will send the tables to the switch
-        datapath: id of the switch that we are about to modify
-        body: contains the information of the tables
-    """
-    def send_table_features_stats_request(self, datapath, body):
-        ofp_parser = datapath.ofproto_parser
-        req = ofp_parser.OFPTableFeaturesStatsRequest(datapath=datapath, body=body)
-        datapath.send_msg(req)
-
-    """
-    function called when the table modification was successful
-    """
-    def table_features_stats_reply_handler(self, ev):
-        tables = []
-        for table in ev.msg.body:
-            tables.append('name=%s, ' % (table.name))
-        self.logger.debug(tables)
-
-    """
-    after the initial configuration of the switch, it will keep a continuous communication
-    with the controller (with echo request and echo reply).
-    This function is used to request the pipeline information of the switch in every echo
-    request, then the table_features_stats_reply_handler will print the name of the tables
-    """
-    # todo: is the necessary or just for debug/testing?
-    # @set_ev_cls(ofp_event.EventOFPEchoRequest, MAIN_DISPATCHER)
-    # def echo_reply_handler(self, ev):
-    #     self.logger.debug('ECHO REQUEST')
-    #     self.send_table_features_stats_request(ev.msg.datapath, [])
-
-#
-########
-#
-
-import os.path
-import json
+# TODO: move configuration to separate directory
+CFG_PATH = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
 
 class LoadRyuTables(object):
@@ -166,12 +103,6 @@ class LoadRyuTables(object):
                 break
         return instruction_array
 
-#
-#######
-#
-
-import inspect, os
-import json
 
 """
 This script allows dynamically create a set of tables. Each table has a set of properties that allows take some actions
@@ -190,7 +121,7 @@ class OpenflowToRyuTranslator(object):
         """
         file with the variables in openflow to map them into Ryu variables
         """
-        self.openflow_to_ryu = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))  + "/ofproto_to_ryu.json"
+        self.openflow_to_ryu = CFG_PATH  + "/ofproto_to_ryu.json"
         self.openflow_to_ryu = self.custom_json.read_json_document(self.openflow_to_ryu)
 
         """
@@ -249,12 +180,6 @@ class OpenflowToRyuTranslator(object):
 
         return new_table_feature
 
-#
-########
-#
-
-import json
-import os
 
 class CustomJson(object):
 
