@@ -22,13 +22,11 @@ from logging.handlers import TimedRotatingFileHandler
 from valve import valve_factory
 from util import kill_on_exception
 from dp import DP
-from aruba_pipeline import ArubaPipeline
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller import dpset
 from ryu.controller.handler import MAIN_DISPATCHER
-from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller import event
 from ryu.ofproto import ofproto_v1_3, ether
@@ -166,11 +164,6 @@ class Faucet(app_manager.RyuApp):
     def host_expire(self, ev):
         if self.valve is not None:
             self.valve.host_expire()
-
-    @set_ev_cls(ofp_event.EventOFPTableFeaturesStatsReply, MAIN_DISPATCHER)
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def ArubaPipeline(self, ev):
-        ArubaPipeline(event=ev)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
