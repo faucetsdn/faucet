@@ -71,7 +71,7 @@ class Faucet(app_manager.RyuApp):
         # FAUCET_CONFIG to allow this to be set, if it is not set it will
         # default to valve.yaml
         self.config_file = os.getenv(
-            'FAUCET_CONFIG', '/etc/ryu/faucet/valve.yaml')
+            'FAUCET_CONFIG', '/etc/ryu/faucet/faucet.yaml')
         self.logfile = os.getenv(
             'FAUCET_LOG', '/var/log/ryu/faucet/faucet.log')
         self.exc_logfile = os.getenv(
