@@ -17,6 +17,7 @@
 import ipaddr
 import logging
 import time
+import os
 
 from collections import namedtuple
 
@@ -32,6 +33,8 @@ from ryu.ofproto import ether
 from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+
+import aruba_pipeline
 
 
 class LinkNeighbor(object):
@@ -57,6 +60,7 @@ def valve_factory(dp):
     """
     SUPPORTED_HARDWARE = {
         'Allied-Telesis': OVSStatelessValve,
+        'Aruba': ArubaStatelessValve,
         'NoviFlow': OVSStatelessValve,
         'Open vSwitch': OVSStatelessValve,
     }
@@ -1163,3 +1167,15 @@ class OVSStatelessValve(Valve):
                         eth_src, vlan.vid)
                 self.logger.info('%u recently active hosts on vlan %u',
                         len(vlan.host_cache), vlan.vid)
+
+
+class ArubaStatelessValve(OVSStatelessValve):
+
+    def switch_features(self, dp_id, msg):
+        ryu_table_loader = aruba_pipeline.LoadRyuTables()
+        ryu_table_loader.load_tables(
+            os.path.join(aruba_pipeline.CFG_PATH, 'aruba_pipeline.json'), parser)
+        ofmsgs = [parser.OFPTableFeaturesStatsRequest(
+            datapath=None,
+            body=ryu_table_loader.ryu_tables)]
+        return ofmsgs
