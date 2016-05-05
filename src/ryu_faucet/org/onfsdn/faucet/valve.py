@@ -59,11 +59,11 @@ def valve_factory(dp):
     dp -- a DP object with the configuration for this valve.
     """
     SUPPORTED_HARDWARE = {
-        'Allied-Telesis': OVSStatelessValve,
-        'Aruba': ArubaStatelessValve,
-        'NoviFlow': OVSStatelessValve,
-        'Open vSwitch': OVSStatelessValve,
-        'ZodiacFX': OVSStatelessValve,
+        'Allied-Telesis': Valve,
+        'Aruba': ArubaValve,
+        'NoviFlow': Valve,
+        'Open vSwitch': Valve,
+        'ZodiacFX': Valve,
     }
 
     if dp.hardware in SUPPORTED_HARDWARE:
@@ -75,20 +75,17 @@ def valve_factory(dp):
 class Valve(object):
     """Generates the messages to configure a datapath as a l2 learning switch.
 
-    This is a non functional generic base class. The implementation of datapath
-    entry/exit, port entry/exit and packet in messages are hardware dependant
-    and therefore are unimplemented.
+    Vendor specific implementations may require sending configuration flows.
+    This can be achieved by inheriting from this class and overwriting the
+    function switch_features.
     """
 
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError
+    FAUCET_MAC = '0e:00:00:00:00:01'
 
-    def reload_config(self, new_dp):
-        """Reload the config from new_dp
-
-        KW Arguments:
-        new_dp -- A new DP object containing the updated config."""
-        raise NotImplementedError
+    def __init__(self, dp, logname='faucet', *args, **kwargs):
+        self.dp = dp
+        self.logger = logging.getLogger(logname)
+        self.ofchannel_logger = None
 
     def switch_features(self, dp_id, msg):
         """Send configuration flows necessary for the switch implementation.
@@ -99,83 +96,7 @@ class Valve(object):
 
         Vendor specific configuration should be implemented here.
         """
-        raise NotImplementedError
-
-    def datapath_connect(self, dp_id, ports):
-        """Generate the default openflow msgs for a datapath upon connection.
-
-        Depending on the implementation, a network state database may be
-        updated.
-
-        Arguments:
-        dp_id -- the Datapath unique ID (64bit int)
-        ports -- a list containing the port numbers of each port on the
-            datapath.
-
-        Returns:
-        A list of flow mod messages that will be sent in order to the datapath
-        in order to configure it."""
-
-        raise NotImplementedError
-
-    def datapath_disconnect(self, dp_id):
-        """Update n/w state db upon disconnection of datapath with id dp_id."""
-        raise NotImplementedError
-
-    def port_add(self, dp_id, port_num):
-        """Generate openflow msgs to update the datapath upon addition of port.
-
-        Arguments:
-        dp_id -- the unique id of the datapath
-        port_num -- the port number of the new port
-
-        Returns
-        A list of flow mod messages to be sent to the datapath."""
-        raise NotImplementedError
-
-    def port_delete(self, dp_id, port_num):
-        """Generate openflow msgs to update the datapath upon deletion of port.
-
-        Returns
-        A list of flow mod messages to be sent to the datapath."""
-        raise NotImplementedError
-
-    def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
-        """Generate openflow msgs to update datapath upon receipt of packet.
-        This involves asssociating the ethernet source address of the packet
-        with the given in_port (ethernet switching) ideally so that no packets
-        from this address are sent to the controller, and packets to this
-        address are output to in_port. This may not be fully possible depending
-        on the limitations of the datapath.
-
-        Depending on implementation this may involve updating a nw state db.
-
-        Arguments:
-        dp_id -- the unique id of the datapath that received the packet (64bit
-            int)
-        in_port -- the port number of the port that received the packet
-        vlan_vid -- the vlan_vid tagged to the packet.
-        pkt -- the packet send to us (Ryu ethernet object).
-
-        Returns
-        A list of flow mod messages to be sent to the datpath."""
-
-        raise NotImplementedError
-
-
-class OVSStatelessValve(Valve):
-    """Valve implementation for Open vSwitch.
-
-    Stateless because the controller does not keep track of the mac addresses,
-    it just installs the necessary rules directly to the switch with
-    timeouts."""
-
-    FAUCET_MAC = '0e:00:00:00:00:01'
-
-    def __init__(self, dp, logname='faucet', *args, **kwargs):
-        self.dp = dp
-        self.logger = logging.getLogger(logname)
-        self.ofchannel_logger = None
+        return []
 
     def ofchannel_log(self, flowmods):
         if self.dp is not None:
@@ -509,10 +430,20 @@ class OVSStatelessValve(Valve):
                     flood_priority += 1
         return ofmsgs
 
-    def switch_features(self, dp_id, msg):
-        return []
-
     def datapath_connect(self, dp_id, discovered_port_nums):
+        """Generate the default openflow msgs for a datapath upon connection.
+
+        Depending on the implementation, a network state database may be
+        updated.
+
+        Arguments:
+        dp_id -- the Datapath unique ID (64bit int)
+        ports -- a list containing the port numbers of each port on the
+            datapath.
+
+        Returns:
+        A list of flow mod messages that will be sent in order to the datapath
+        in order to configure it."""
         if self.ignore_dpid(dp_id):
             return []
         if discovered_port_nums is None:
@@ -526,6 +457,7 @@ class OVSStatelessValve(Valve):
         return ofmsgs
 
     def datapath_disconnect(self, dp_id):
+        """Update n/w state db upon disconnection of datapath with id dp_id."""
         if not self.ignore_dpid(dp_id):
             self.logger.critical('Datapath disconnected')
         return []
@@ -682,6 +614,14 @@ class OVSStatelessValve(Valve):
         return ofmsgs
 
     def port_add(self, dp_id, port_num):
+        """Generate openflow msgs to update the datapath upon addition of port.
+
+        Arguments:
+        dp_id -- the unique id of the datapath
+        port_num -- the port number of the new port
+
+        Returns
+        A list of flow mod messages to be sent to the datapath."""
         if self.ignore_dpid(dp_id) or self.ignore_port(port_num):
             return []
 
@@ -734,6 +674,10 @@ class OVSStatelessValve(Valve):
         return ofmsgs
 
     def port_delete(self, dp_id, port_num):
+        """Generate openflow msgs to update the datapath upon deletion of port.
+
+        Returns
+        A list of flow mod messages to be sent to the datapath."""
         if self.ignore_dpid(dp_id) or self.ignore_port(port_num):
             return []
 
@@ -1032,7 +976,25 @@ class OVSStatelessValve(Valve):
 
         return flowmods
 
-    def rcv_packet(self, dp_id, in_port, vlan_vid, match, pkt):
+    def rcv_packet(self, dp_id, in_port, vlan_vid, pkt):
+        """Generate openflow msgs to update datapath upon receipt of packet.
+        This involves asssociating the ethernet source address of the packet
+        with the given in_port (ethernet switching) ideally so that no packets
+        from this address are sent to the controller, and packets to this
+        address are output to in_port. This may not be fully possible depending
+        on the limitations of the datapath.
+
+        Depending on implementation this may involve updating a nw state db.
+
+        Arguments:
+        dp_id -- the unique id of the datapath that received the packet (64bit
+            int)
+        in_port -- the port number of the port that received the packet
+        vlan_vid -- the vlan_vid tagged to the packet.
+        pkt -- the packet send to us (Ryu ethernet object).
+
+        Returns
+        A list of flow mod messages to be sent to the datpath."""
         flowmods = []
         if (not self.ignore_dpid(dp_id) and not self.ignore_port(in_port) and
             self.dp.running and in_port in self.dp.ports):
@@ -1076,6 +1038,10 @@ class OVSStatelessValve(Valve):
         return flowmods
 
     def reload_config(self, new_dp):
+        """Reload the config from new_dp
+
+        KW Arguments:
+        new_dp -- A new DP object containing the updated config."""
         flowmods = []
         if self.dp.running:
             self.dp = new_dp
@@ -1185,7 +1151,7 @@ class OVSStatelessValve(Valve):
                         len(vlan.host_cache), vlan.vid)
 
 
-class ArubaStatelessValve(OVSStatelessValve):
+class ArubaValve(Valve):
 
     def switch_features(self, dp_id, msg):
         ryu_table_loader = aruba.LoadRyuTables()

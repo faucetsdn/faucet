@@ -185,7 +185,7 @@ class Faucet(app_manager.RyuApp):
             return
 
         in_port = msg.match['in_port']
-        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
+        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, pkt)
         self.send_flow_msgs(dp, flowmods)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
