@@ -34,15 +34,9 @@ RUN \
   apt-get install -qy grafana; \
   rm -f /usr/sbin/policy-rc.d
 
-VOLUME ["/config/"]
+VOLUME ["/etc/opt/faucet/", "/var/log/faucet]
 WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
 
-ENV FAUCET_CONFIG=/config/faucet.yaml
-ENV GAUGE_CONFIG=/etc/faucet/gauge.conf
-ENV FAUCET_LOG=/config/faucet.log
-ENV FAUCET_EXCEPTION_LOG=/config/faucet-exception.log
-ENV GAUGE_LOG=/config/gauge.log
-ENV GAUGE_EXCEPTION_LOG=/config/gauge-exception.log
 ADD supervisord.gauge.conf /etc/supervisor/conf.d/supervisord.conf
 ADD gauge.conf /etc/faucet/gauge.conf
 

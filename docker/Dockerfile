@@ -7,11 +7,8 @@ RUN \
 RUN \
   pip install ryu-faucet ipaddr
 
-VOLUME ["/config/"]
+VOLUME ["/etc/opt/faucet/", "/var/log/faucet/"]
 WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
-ENV FAUCET_CONFIG=/config/faucet.yaml
-ENV FAUCET_LOG=/config/faucet.log
-ENV FAUCET_EXCEPTION_LOG=/config/faucet-exception.log
 
 EXPOSE 6633
 
