@@ -6,9 +6,11 @@ author   := Shivaram Mysore (shivaram.mysore@gmail.com)
 
 ## Dependent programs
 PYTHON = python
+#PYTHON = python3
 PYREVERSE = pyreverse
 YAPF = yapf
 PYLINT = pylint
+#PYLINT = pylint3
 RM := rm
 MKDIR := mkdir -p
 MV := mv

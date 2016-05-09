@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ipaddr
+import ipaddress
 
 
 class VLAN(object):
@@ -33,7 +33,7 @@ class VLAN(object):
         self.controller_ips = conf.setdefault('controller_ips', [])
         if self.controller_ips:
             self.controller_ips = [
-                ipaddr.IPNetwork(ip) for ip in self.controller_ips]
+                ipaddress.IPNetwork(ip) for ip in self.controller_ips]
         self.unicast_flood = conf.setdefault('unicast_flood', True)
         self.routes = conf.setdefault('routes', {})
         self.ipv4_routes = {}
@@ -41,8 +41,8 @@ class VLAN(object):
         if self.routes:
             self.routes = [route['route'] for route in self.routes]
             for route in self.routes:
-                ip_gw = ipaddr.IPAddress(route['ip_gw'])
-                ip_dst = ipaddr.IPNetwork(route['ip_dst'])
+                ip_gw = ipaddress.IPAddress(route['ip_gw'])
+                ip_dst = ipaddress.IPNetwork(route['ip_dst'])
                 assert(ip_gw.version == ip_dst.version)
                 if ip_gw.version == 4:
                     self.ipv4_routes[ip_dst] = ip_gw

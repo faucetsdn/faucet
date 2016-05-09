@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ipaddr
+import ipaddress
 import logging
 import time
 import os
@@ -574,7 +574,7 @@ class OVSStatelessValve(Valve):
     def add_controller_ips(self, controller_ips, vlan):
         ofmsgs = []
         for controller_ip in controller_ips:
-            controller_ip_host = ipaddr.IPNetwork(
+            controller_ip_host = ipaddress.IPNetwork(
                 '/'.join((str(controller_ip.ip),
                           str(controller_ip.max_prefixlen))))
             if controller_ip_host.version == 4:
@@ -834,7 +834,7 @@ class OVSStatelessValve(Valve):
             self.logger.info('Responded to ARP request for %s from %s',
                 arp_pkt.src_ip, arp_pkt.dst_ip)
         elif arp_pkt.opcode == arp.ARP_REPLY:
-            resolved_ip_gw = ipaddr.IPv4Address(arp_pkt.src_ip)
+            resolved_ip_gw = ipaddress.IPv4Address(arp_pkt.src_ip)
             for ip_dst, ip_gw in vlan.ipv4_routes.iteritems():
                 if ip_gw == resolved_ip_gw:
                     self.logger.info('ARP response %s for %s',
@@ -889,7 +889,7 @@ class OVSStatelessValve(Valve):
             pkt.serialize()
             flowmods.extend([self.valve_packetout(in_port, pkt.data)])
         elif icmpv6_pkt.type_ == icmpv6.ND_NEIGHBOR_ADVERT:
-            resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
+            resolved_ip_gw = ipaddress.IPv6Address(icmpv6_pkt.data.dst)
             for ip_dst, ip_gw in vlan.ipv6_routes.iteritems():
                 if ip_gw == resolved_ip_gw:
                     self.logger.info('ND response %s for %s',
@@ -987,8 +987,8 @@ class OVSStatelessValve(Valve):
             ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
 
             if arp_pkt is not None:
-                src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
-                dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
+                src_ip = ipaddress.IPv4Address(arp_pkt.src_ip)
+                dst_ip = ipaddress.IPv4Address(arp_pkt.dst_ip)
                 if (arp_pkt.opcode == arp.ARP_REQUEST and
                     self.to_faucet_ip(vlan, src_ip, dst_ip)):
                     flowmods.extend(self.control_plane_arp_handler(
@@ -1000,16 +1000,16 @@ class OVSStatelessValve(Valve):
             elif ipv4_pkt is not None:
                 icmp_pkt = pkt.get_protocol(icmp.icmp)
                 if icmp_pkt is not None:
-                    src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
-                    dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
+                    src_ip = ipaddress.IPv4Address(ipv4_pkt.src)
+                    dst_ip = ipaddress.IPv4Address(ipv4_pkt.dst)
                     if self.to_faucet_ip(vlan, src_ip, dst_ip):
                         flowmods.extend(self.control_plane_icmp_handler(
                             in_port, vlan, eth_src, ipv4_pkt, icmp_pkt))
             elif ipv6_pkt is not None:
                 icmpv6_pkt = pkt.get_protocol(icmpv6.icmpv6)
                 if icmpv6_pkt is not None:
-                    src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
-                    dst_ip = ipaddr.IPv6Address(ipv6_pkt.dst)
+                    src_ip = ipaddress.IPv6Address(ipv6_pkt.src)
+                    dst_ip = ipaddress.IPv6Address(ipv6_pkt.dst)
                     if self.to_faucet_ip(vlan, src_ip, dst_ip):
                         flowmods.extend(self.control_plane_icmpv6_handler(
                             in_port, vlan, eth_src, ipv6_pkt, icmpv6_pkt))
@@ -1086,16 +1086,16 @@ class OVSStatelessValve(Valve):
 
     @staticmethod
     def ipv6_link_eth_mcast(ucast):
-        nd_mac_bytes = ipaddr.Bytes('\x33\x33') + ucast.packed[-4:]
+        nd_mac_bytes = ipaddress.Bytes('\x33\x33') + ucast.packed[-4:]
         nd_mac = ':'.join(['%02X' % ord(x) for x in nd_mac_bytes])
         return nd_mac
 
     @staticmethod
     def ipv6_link_mcast_from_ucast(ucast):
-        link_mcast_prefix = ipaddr.IPv6Network('ff02::1:ff00:0/104')
-        mcast_bytes = ipaddr.Bytes(
+        link_mcast_prefix = ipaddress.IPv6Network('ff02::1:ff00:0/104')
+        mcast_bytes = ipaddress.Bytes(
             link_mcast_prefix.packed[:13] + ucast.packed[-3:])
-        link_mcast = ipaddr.IPv6Address(mcast_bytes)
+        link_mcast = ipaddress.IPv6Address(mcast_bytes)
         return link_mcast
 
     def nd_solicit_ip_gw(self, ip_gw, controller_ip, vlan, ports):
