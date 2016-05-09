@@ -30,7 +30,7 @@ class LoadRyuTables(object):
             self.ryu_table_translator.create_ryu_structure()
             python_object_result = self.ryu_table_translator.tables
         except (ValueError, IOError) as e:
-            print e
+            print (e)
             python_object_result = None
         return python_object_result
 
@@ -193,8 +193,8 @@ class CustomJson(object):
             with open(filename) as data_file:
                 python_object_result = json.load(data_file)
         except (ValueError, IOError) as e:
-            print "Error found:"
-            print e
+            print ("Error found:")
+            print (e)
             python_object_result = []
 
         return python_object_result
