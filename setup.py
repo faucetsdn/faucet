@@ -24,7 +24,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
                                          'src/cfg/etc/ryu/faucet/upstart/faucet'])
                     ],
         include_package_data=True,
-        install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddress'],
+        install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr'],
         license='Apache License 2.0',
         description='Ryu application to perform Layer 2 switching with VLANs.',
         long_description=README,
@@ -43,6 +43,8 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
             'License :: OSI Approved :: Apache Software License',
             'Operating System :: OS Independent',
             'Programming Language :: Python',
-            'Programming Language :: Python :: 3.5',
+            'Programming Language :: Python :: 3',
+            'Programming Language :: Python :: 3.2',
+            'Programming Language :: Python :: 3.3',
             'Topic :: System :: Networking',
         ],)

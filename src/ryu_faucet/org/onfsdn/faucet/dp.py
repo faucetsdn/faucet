@@ -69,11 +69,11 @@ class DP(object):
         dp.__dict__.update(conf)
         dp.set_defaults()
 
-        for vid, vlan_conf in vlans.items():
+        for vid, vlan_conf in vlans.iteritems():
             dp.add_vlan(vid, vlan_conf)
-        for port_num, port_conf in interfaces.items():
+        for port_num, port_conf in interfaces.iteritems():
             dp.add_port(port_num, port_conf)
-        for acl_num, acl_conf in acls.items():
+        for acl_num, acl_conf in acls.iteritems():
             dp.add_acl(acl_num, acl_conf)
 
 
@@ -82,18 +82,18 @@ class DP(object):
     def sanity_check(self):
         assert 'dp_id' in self.__dict__
         assert isinstance(self.dp_id, int)
-        for vid, vlan in self.vlans.items():
+        for vid, vlan in self.vlans.iteritems():
             assert isinstance(vid, int)
             assert isinstance(vlan, VLAN)
             assert all(isinstance(p, Port) for p in vlan.get_ports())
-        for portnum, port in self.ports.items():
+        for portnum, port in self.ports.iteritems():
             assert isinstance(portnum, int)
             assert isinstance(port, Port)
         assert isinstance(self.monitor_ports, bool)
-        assert isinstance(self.monitor_ports_file, str)
+        assert isinstance(self.monitor_ports_file, basestring)
         assert isinstance(self.monitor_ports_interval, int)
         assert isinstance(self.monitor_flow_table, bool)
-        assert isinstance(self.monitor_flow_table_file, str)
+        assert isinstance(self.monitor_flow_table_file, basestring)
         assert isinstance(self.monitor_flow_table_interval, int)
         assert isinstance(self.influxdb_stats, bool)
 
