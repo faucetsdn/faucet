@@ -13,7 +13,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
 
     setup(
         name='ryu-faucet',
-        version='0.31',
+        version='1.0',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
         data_files=[('/etc/ryu/faucet', ['src/cfg/etc/ryu/faucet/gauge.conf',
@@ -34,7 +34,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
         maintainer='Shivaram Mysore, ONFSDN.Org',
         maintainer_email='shivaram.mysore@gmail.com, faucet-dev@OpenflowSDN.Org',
         classifiers=[
-            'Development Status :: 3 - Alpha',
+            'Development Status :: 5 - Production/Stable',
             'Environment :: Console',
             'Framework :: Buildout',
             'Intended Audience :: Developers',
@@ -43,8 +43,8 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
             'License :: OSI Approved :: Apache Software License',
             'Operating System :: OS Independent',
             'Programming Language :: Python',
+            'Programming Language :: Python :: 2.7',
             'Programming Language :: Python :: 3',
             'Programming Language :: Python :: 3.2',
-            'Programming Language :: Python :: 3.3',
             'Topic :: System :: Networking',
         ],)
