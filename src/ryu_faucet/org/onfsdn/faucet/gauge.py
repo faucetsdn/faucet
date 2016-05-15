@@ -341,10 +341,10 @@ class Gauge(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
         self.config_file = os.getenv(
-            'GAUGE_CONFIG', '/etc/opt/faucet/gauge.conf')
+            'GAUGE_CONFIG', '/etc/ryu/faucet/gauge.conf')
         self.exc_logfile = os.getenv(
-            'GAUCET_EXCEPTION_LOG', '/var/log/faucet/faucet_exception.log')
-        self.logfile = os.getenv('GAUGE_LOG', '/var/log/faucet/gauge.log')
+            'GAUGE_EXCEPTION_LOG', '/var/log/ryu/faucet/gauge_exception.log')
+        self.logfile = os.getenv('GAUGE_LOG', '/var/log/ryu/faucet/gauge.log')
 
         # Setup logging
         self.logger = logging.getLogger(__name__)
@@ -417,7 +417,7 @@ class Gauge(app_manager.RyuApp):
                     dp, ryudp, self.logname)
             else:
                 port_state_handler = GaugePortStateLogger(
-                    dp, ryudb, self.logname)
+                    dp, ryudp, self.logname)
             self.handlers[dp.dp_id]['port_state'] = port_state_handler
 
             if dp.monitor_ports:
@@ -440,7 +440,7 @@ class Gauge(app_manager.RyuApp):
             if dp.dp_id in self.pollers:
                 for poller in self.pollers[dp.dp_id].values():
                     poller.stop()
-                    del self.pollers[dp.dp_id]
+                del self.pollers[dp.dp_id]
             self.logger.info("datapath down %x", dp.dp_id)
             dp.running = False
 

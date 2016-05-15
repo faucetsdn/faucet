@@ -1,16 +1,16 @@
 # path to Ryu manager (likely local)
-RYU_MANAGER=/usr/local/bin/ryu-manager
+RYU_MANAGER=/usr/bin/ryu-manager
 # user to run gauge as (must already exist - can be same as FAUCET)
 GAUGE_USER=faucet
 # directory containing gauge application code
-GAUGE_APP_DIR=/home/faucet/faucet/src/ryu_faucet/org/onfsdn/faucet
+GAUGE_APP_DIR=/usr/lib/python2.7/site-packages/ryu_faucet/org/onfsdn/faucet
 # host address gauge controller should listen on for OpenFlow switch
 GAUGE_LISTEN_HOST=192.168.1.1
 # TCP port gauge controller should listen on for OpenFlow switch (must be different to FAUCET)
-GAUGE_LISTEN_PORT=6634
+GAUGE_LISTEN_PORT=6654
 # location of gauge's configuration file.
-GAUGE_CONFIG=/etc/opt/faucet/gauge.conf
+GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf
 # where gauge should log to (directory must exist and be writable by GAUGE_USER)
-GAUGE_LOG=/var/log/faucet/gauge.log
+GAUGE_LOG=/var/log/ryu/faucet/gauge.log
 # where gauge should log exceptions to (directory must exist as above)
-GAUGE_EXCEPTION_LOG=/var/log/faucet/gauge_exception.log
+GAUGE_EXCEPTION_LOG=/var/log/ryu/faucet/gauge_exception.log

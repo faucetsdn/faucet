@@ -2,19 +2,17 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends git python-yaml
+  apt-get install -qy --no-install-recommends python-pip
 
 RUN \
-  git clone https://github.com/openvapour/valve /srv/valve
+  pip install ryu-faucet ipaddr
 
-VOLUME ["/etc/valve/"]
-
-RUN \
-  ln -s /etc/valve/valve.yaml /srv/valve/
-
-WORKDIR /srv/valve
-
-CMD ["ryu-manager", "valve.py"]
+VOLUME ["/config/"]
+WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
+ENV FAUCET_CONFIG=/config/faucet.yaml
+ENV FAUCET_LOG=/config/faucet.log
+ENV FAUCET_EXCEPTION_LOG=/config/faucet-exception.log
 
 EXPOSE 6633
-EXPOSE 8080
+
+CMD ["ryu-manager", "--ofp-tcp-listen-port=6633", "faucet"]
