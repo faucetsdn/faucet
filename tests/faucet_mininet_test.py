@@ -74,7 +74,7 @@ class FAUCET(Controller):
 class FaucetSwitchTopo(Topo):
 
     def build(self, n_tagged=0, tagged_vid=100, n_untagged=0):
-        switch = self.addSwitch('s1', protocols='OpenFlow13')
+        switch = self.addSwitch('s1')
         for h in range(n_tagged):
             host = self.addHost('ht_%s' % (h + 1),
                 cls=VLANHost, vlan=tagged_vid)
@@ -137,7 +137,7 @@ class FaucetTest(unittest.TestCase):
     def wait_until_matching_flow(self, flow, timeout=5):
         s1 = self.net.switches[0]
         for i in range(timeout):
-            dump_flows_cmd = 'ovs-ofctl -Oopenflow13 dump-flows %s' % s1.name
+            dump_flows_cmd = 'ovs-ofctl dump-flows %s' % s1.name
             dump_flows = s1.cmd(dump_flows_cmd)
             for line in dump_flows.split('\n'):
                 if re.search(flow, line):
@@ -164,10 +164,10 @@ class FaucetTest(unittest.TestCase):
                          first_host_routed_ip.masked(), self.CONTROLLER_IPV4)))
         self.net.ping(hosts=(first_host, second_host))
         self.wait_until_matching_flow(
-            'nw_dst=%s.+%s->eth_dst' % (
+            'nw_dst=%s.+mod_dl_dst:%s' % (
                 first_host_routed_ip.masked(), first_host.MAC()))
         self.wait_until_matching_flow(
-            'nw_dst=%s.+%s->eth_dst' % (
+            'nw_dst=%s.+mod_dl_dst:%s' % (
                 second_host_routed_ip.masked(), second_host.MAC()))
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
@@ -185,10 +185,10 @@ class FaucetTest(unittest.TestCase):
         second_host.cmd('ip -6 route add %s via %s' % (
             first_host_routed_ip.masked(), self.CONTROLLER_IPV6))
         self.wait_until_matching_flow(
-            'ipv6_dst=%s.+%s->eth_dst' % (
+            'ipv6_dst=%s.+mod_dl_dst:%s' % (
                 first_host_routed_ip.masked(), first_host.MAC()))
         self.wait_until_matching_flow(
-            'ipv6_dst=%s.+%s->eth_dst' % (
+            'ipv6_dst=%s.+mod_dl_dst:%s' % (
                 second_host_routed_ip.masked(), second_host.MAC()))
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
