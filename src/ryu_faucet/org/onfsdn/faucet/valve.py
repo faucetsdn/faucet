@@ -703,9 +703,6 @@ class OVSStatelessValve(Valve):
         self.logger.info('Sending config for port {0}'.format(port))
 
         for table in self.all_valve_tables():
-            if table == self.dp.acl_table:
-                # Shouldn't delete flows from acl_table
-                continue
             ofmsgs.append(self.valve_flowdel(table, in_port_match))
 
         if port_num in self.dp.mirror_from_port.values():
