@@ -1,0 +1,15 @@
+Restart Networking stack
+# service network restart
+
+Bring up or down an interface
+# /sbin/ifup eth1
+# /sbin/ifdown eth1
+
+List network interfaces
+# ip a
+ or
+# ifconfig -a
+
+Routing info:
+# route -n
+
