@@ -1,10 +1,14 @@
+:copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
+
+.. meta::
+   :keywords: Openflow, Ryu, Faucet, VLAN, SDN
+
+Faucet FAQ
+==
 
 What are the multi-table requirements for Faucet? Should the table number start from Zero (0) or can it start at arbitrary location (say, 100)?  For example, in HP OF switches, you don't have to store anything in table 0.
 --
 The initial table is configurable using a table offset value in the config -- *Which config file?*
-
-Learning Port local:
-==
 
 Some controllers / applications do not learn traffic from / to local. This prevents any inband management from succeeding. What does Faucet do here?
 --
@@ -13,8 +17,6 @@ I would have to double check, but you could set up your in-band management separ
 ## Does Faucet support pushing flow with Eth/VLAN/IP match with ethertype 8100?
 Faucet uses 8100 as the TPID
 
-Packet-in:
-==
 How are packet-ins handled when a message is generated through table-miss flow entry?
 --
 Faucet adds explicit rules for unmatched packets.
