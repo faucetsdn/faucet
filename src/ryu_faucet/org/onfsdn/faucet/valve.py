@@ -544,7 +544,6 @@ class OVSStatelessValve(Valve):
             acl_rule_priority = self.dp.highest_priority
             acl_allow_inst = self.goto_table(self.dp.eth_src_table)
             for rule_conf in self.dp.acls[acl_num]:
-                # default drop
                 acl_inst = []
                 match_dict = {}
                 for attrib, attrib_value in rule_conf.iteritems():
@@ -553,7 +552,6 @@ class OVSStatelessValve(Valve):
                             port_no = attrib_value['mirror']
                             acl_inst.append(
                                     self.apply_actions([
-                                    #parser.OFPActionPopVlan(),
                                     parser.OFPActionOutput(port_no)]))
                         if attrib_value['allow'] == 1:
                             acl_inst.append(acl_allow_inst)
@@ -705,6 +703,17 @@ class OVSStatelessValve(Valve):
         for table in self.all_valve_tables():
             ofmsgs.append(self.valve_flowdel(table, in_port_match))
 
+        # if this port is used as mirror port in any acl - drop input packets
+        for acl in self.dp.acls.values():
+             for rule_conf in acl:
+                 for attrib, attrib_value in rule_conf.iteritems():
+                     if attrib == "actions":
+                         if 'mirror' in attrib_value:
+                             port_no = attrib_value['mirror']
+                             ofmsgs.append(self.valve_flowdrop(
+                                 self.dp.vlan_table,
+                                 self.valve_in_match(in_port=port_no)))
+
         if port_num in self.dp.mirror_from_port.values():
             # this is a mirror port - drop all input packets
             ofmsgs.append(self.valve_flowdrop(
@@ -739,8 +748,6 @@ class OVSStatelessValve(Valve):
 
         # delete all rules matching this port in all tables.
         for table in self.all_valve_tables():
-            if table == self.dp.acl_table:
-                continue
             ofmsgs.append(self.valve_flowdel(table,
                 self.valve_in_match(in_port=port_num)))
 
