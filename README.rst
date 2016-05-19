@@ -14,13 +14,12 @@ Faucet is an Openflow controller for a layer 2 switch based on OpenvApour's Valv
 It supports:
 
 - OpenFlow v1.3
-- Multiple datapaths
+- Multiple datapaths (via multiple processes)
 - Mixed tagged/untagged ports
 - Port statistics
-- Coexisting with other OpenFlow controllers
 - ACL support: Rules are added in the order specified. The rule language supports anything the Ryu OpenFlow protocol parser supports (q.v. ofctl to_match()).
 - Control unicast flooding by port and by VLAN
-- support for IPv4 static routes on both tagged and untagged VLANs
+- support for IPv4 and IPv6 static routes on both tagged and untagged VLANs
 - Integrated support for InfluxDB/Grafana
 
 ===============
@@ -215,6 +214,7 @@ Faucet has been tested against the following switches:
     2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
     3. Allied Telesis x510 and x930 series
     4. NoviFlow 1248
+    5. Zodiac FX
 
 Faucet's design principle is to be as hardware agnostic as possible and not require TTPs. That means that Faucet excepts the hardware OFA to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet excepts the OFA to leverage the right hardware transparently.
 
@@ -234,12 +234,11 @@ NoviFlow
 --------
 `NoviFlow <http://noviflow.com/>`
 
-Running with another controller
--------------------------------
+NorthBound Networks
+-------------------
+`NorthBound Networks <http://northboundnetworks.com/>`
 
-It is possible to use Faucet to add layer 2 features to another OpenFlow controller by running Faucet in parallel with that controller. Faucet will only ever modify/remove OpenFlow rules added by itself (identified by a special OpenFlow cookie unique to Faucet), this means the rules installed by the other controller/application will be left untouched.
-
-Simply add Faucet as a second primary OpenFlow controller to your datapath element. You will also probably need to tweak the OpenFlow priority values Faucet uses by modifying `priority_offset` in the configuration file so that rules installed by the other controller don't override those installed by Faucet.
+FAUCET supports the Zodiac FX as of v0.60 firmware.
 
 =====
 Gauge

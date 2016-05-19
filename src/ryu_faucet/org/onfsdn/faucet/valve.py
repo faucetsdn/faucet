@@ -63,6 +63,7 @@ def valve_factory(dp):
         'Aruba': ArubaStatelessValve,
         'NoviFlow': OVSStatelessValve,
         'Open vSwitch': OVSStatelessValve,
+        'ZodiacFX': OVSStatelessValve,
     }
 
     if dp.hardware in SUPPORTED_HARDWARE:

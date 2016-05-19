@@ -204,14 +204,26 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
-    def handler_datapath(self, ev):
+    def handler_connect_or_disconnect(self, ev):
         dp = ev.dp
 
         if not ev.enter:
             # Datapath down message
+            self.logger.debug('DP %s disconnected' % str(dp.id))
             self.valve.datapath_disconnect(dp.id)
             return
 
+        self.logger.debug('DP %s connected' % str(dp.id))
+        self.handler_datapath(dp)
+
+    @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
+    @kill_on_exception(exc_logname)
+    def handler_reconnect(self, ev):
+        dp = ev.dp
+        self.logger.debug('DP %s reconnected' % str(dp.id))
+        self.handler_datapath(dp)
+
+    def handler_datapath(self, dp):
         discovered_ports = [
             p.port_no for p in dp.ports.values() if p.state == 0]
         flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
