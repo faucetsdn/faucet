@@ -536,10 +536,12 @@ acls:
             dl_type: 0x800
             nw_proto: 6
             tp_dst: 5001
-            allow: 0
+            actions:
+                allow: 0
 
         - rule:
-            allow: 1
+            actions:
+                allow: 1
 """
 
     def test_port5001_blocked(self):
@@ -562,6 +564,56 @@ acls:
             first_host.cmd('nc -w 3 %s 5002' % second_host.IP()))
         second_host.sendInt()
 
+class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
+
+    CONFIG = CONFIG_HEADER + """
+interfaces:
+    1:
+        native_vlan: 100
+        description: "b1"
+        acl_in: 1
+    2:
+        native_vlan: 100
+        description: "b2"
+        acl_in: 1
+    3:
+        native_vlan: 100
+        description: "b3"
+    4:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            actions:
+                allow: 1
+                mirror: 3
+"""
+
+    def test_untagged(self):
+        first_host = self.net.hosts[0]
+        second_host = self.net.hosts[1]
+        mirror_host = self.net.hosts[2]
+        mirror_mac = mirror_host.MAC()
+        tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
+        tcpdump_out = mirror_host.popen(
+            'timeout 10s tcpdump -n -v -c 2 -U %s' % tcpdump_filter)
+        # wait for tcpdump to start
+        time.sleep(1)
+        popens = {mirror_host: tcpdump_out}
+        first_host.cmd('ping -c1  %s' % second_host.IP())
+        tcpdump_txt = ''
+        for host, line in pmonitor(popens):
+            if host == mirror_host:
+                tcpdump_txt += line.strip()
+        self.assertFalse(tcpdump_txt == '')
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt))
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 
