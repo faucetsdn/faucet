@@ -26,7 +26,13 @@ RUN \
   echo "deb https://packagecloud.io/grafana/stable/debian/ jessie main" > /etc/apt/sources.list.d/grafana.list
 
 RUN \
-  apt-get update ; apt-get install -qy grafana
+  apt-get update ; \
+  mkdir -p /usr/sbin/; \
+  echo "#!/bin/sh" > /usr/sbin/policy-rc.d; \
+  echo "exit 101" >> /usr/sbin/policy-rc.d; \
+  chmod 755 /usr/sbin/policy-rc.d; \
+  apt-get install -qy grafana; \
+  rm -f /usr/sbin/policy-rc.d
 
 VOLUME ["/config/"]
 WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
