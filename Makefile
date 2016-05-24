@@ -19,6 +19,9 @@ PROJECT_NAME = ryu_faucet
 DIST_DIR = dist
 SRC_DIR = src
 
+## Used by the development Dockerfile
+DOCKER_DEV_PKG = ryu-faucet-dev.tar.gz
+
 all: clobber sdist uml
 
 uml:
@@ -31,6 +34,11 @@ sdist:
 	@echo Building Python package installable via "pip"
 	$(MKDIR) $(DIST_DIR)
 	$(PYTHON) setup.py sdist
+
+dockerdev: sdist
+	@echo Copying Python package to docker/${DOCKER_DEV_PKG} for use by development Dockerfiles
+	cp ${DIST_DIR}/ryu-faucet-*.tar.gz docker/${DOCKER_DEV_PKG}
+	cp -r tests docker/
 
 codefmt:
 	@echo Run below command manually to inline replace current code with newly formatted code per “pep8” guidelines
