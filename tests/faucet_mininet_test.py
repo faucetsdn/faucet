@@ -34,7 +34,7 @@ from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 
 
-FAUCET_DIR = '../src/ryu_faucet/org/onfsdn/faucet'
+FAUCET_DIR = os.getenv('FAUCET_DIR','../src/ryu_faucet/org/onfsdn/faucet')
 
 CONFIG_HEADER = '''
 ---
