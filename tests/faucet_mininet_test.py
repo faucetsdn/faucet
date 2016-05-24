@@ -18,6 +18,10 @@
 # * OVS 2.4.1 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
 # * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
 # * fuser
+# * net-tools
+# * iputils-ping
+# * netcat-openbsd
+# * tcpdump
 
 import ipaddr
 import os
