@@ -1,6 +1,6 @@
 ## Faucet Dockerfile
 
-This directory contains two docker files **Dockerfile** and **Dockerfile.gauge**.
+This directory contains four docker files: **Dockerfile**, **Dockerfile.dev**, **Dockerfile.tests**, **Dockerfile.gauge**:
 
 ### Dockerfile
 
@@ -18,6 +18,40 @@ docker run -d --name faucet -v <path-to-config-dir>:/config/ reannz/faucet
 By default it listens on port 6633 for an OpenFlow switch to connect. Faucet expects to find the
 configuration file faucet.yaml in the config folder. If needed the -p option can be used with docker run to map ports to the host machine.
 Logs are written to /config/ for easy access from the host.
+
+### Dockerfile.dev
+
+Intended to build a container with the faucet package built using the **dockerdev** make target. To use it, first run in the top-level directory:
+
+```
+make dockerdev
+```
+
+Then, build the dev container:
+
+```
+docker build -t reannz/faucet-dev -f Dockerfile.dev .
+```
+
+Then run it, similar to the **Dockerfile** container:
+
+```
+docker run -d --name faucet-dev -v <path-to-config-dir>:/config/ reannz/faucet
+```
+
+### Dockerfile.tests
+
+Similar to **Dockerfile.dev**, this builds faucet locally, but then runs the mininet tests from the docker entrypoint:
+
+```
+make dockerdev
+cd docker/
+docker build -t reannz/faucet-tests -f Dockerfile.tests .
+apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+sudo docker run --privileged -ti reannz/faucet-tests
+```
+
+The apparmor command is required on the host to allow the use of tcpdump inside the container.
 
 ### Dockerfile.gauge
 
@@ -56,4 +90,3 @@ Check the connection using test connection.
 
 From here you can add a new dashboard with and a graph pulling data from the Gauge datasource.
 See the Grafana's documentation for more on how to do this.
-
