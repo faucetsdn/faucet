@@ -24,13 +24,6 @@ from port import Port
 class DP(object):
     """Object to hold the configuration for a faucet controlled datapath."""
 
-    # Known to run FAUCET
-    SUPPORTED_HARDWARE = (
-        'Allied-Telesis',
-        'NoviFlow',
-        'Open vSwitch',
-    )
-
     dp_id = None
     acls = None
     vlans = None
@@ -89,7 +82,6 @@ class DP(object):
     def sanity_check(self):
         assert 'dp_id' in self.__dict__
         assert isinstance(self.dp_id, int)
-        assert self.hardware in self.SUPPORTED_HARDWARE
         for vid, vlan in self.vlans.iteritems():
             assert isinstance(vid, int)
             assert isinstance(vlan, VLAN)
@@ -150,6 +142,10 @@ class DP(object):
         self.__dict__.setdefault('hardware', 'Open_vSwitch')
         # Whether to use influxdb for stats
         self.__dict__.setdefault('influxdb_stats', False)
+        # ARP and neighbor timeout (seconds)
+        self.__dict__.setdefault('arp_neighbor_timeout', 500)
+        # OF channel log
+        self.__dict__.setdefault('ofchannel_log', None)
 
     def add_acl(self, acl_num, acl_conf=None):
         if acl_conf is not None:

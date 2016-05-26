@@ -16,7 +16,8 @@
 import ipaddr
 
 
-class VLAN:
+class VLAN(object):
+
     vid = None
     tagged = None
     untagged = None
@@ -29,23 +30,33 @@ class VLAN:
         self.untagged = []
         self.name = conf.setdefault('name', str(vid))
         self.description = conf.setdefault('description', self.name)
-        self.ip = conf.setdefault('ip', None)
-        if self.ip is not None:
-            self.ip = ipaddr.IPv4Network(self.ip)
+        self.controller_ips = conf.setdefault('controller_ips', [])
+        if self.controller_ips:
+            self.controller_ips = [
+                ipaddr.IPNetwork(ip) for ip in self.controller_ips]
         self.unicast_flood = conf.setdefault('unicast_flood', True)
         self.routes = conf.setdefault('routes', {})
+        self.ipv4_routes = {}
+        self.ipv6_routes = {}
         if self.routes:
-           routes = [route['route'] for route in self.routes]
-           self.routes = {}
-           for route in routes:
-               ip_gw = ipaddr.IPv4Address(route['ip_gw'])
-               ip_dst = ipaddr.IPv4Network(route['ip_dst'])
-               self.routes[ip_dst] = ip_gw
+            self.routes = [route['route'] for route in self.routes]
+            for route in self.routes:
+                ip_gw = ipaddr.IPAddress(route['ip_gw'])
+                ip_dst = ipaddr.IPNetwork(route['ip_dst'])
+                assert(ip_gw.version == ip_dst.version)
+                if ip_gw.version == 4:
+                    self.ipv4_routes[ip_dst] = ip_gw
+                else:
+                    self.ipv6_routes[ip_dst] = ip_gw
         self.arp_cache = {}
+        self.nd_cache = {}
+        self.max_hosts = conf.setdefault('max_hosts', None)
+        self.host_cache = {}
 
     def __str__(self):
-        ports = ",".join(map(str, self.get_ports()))
-        return "vid:%s ports:%s" % (self.vid, ports)
+        port_list = [str(x) for x in self.get_ports()]
+        ports = ','.join(port_list)
+        return 'vid:%s ports:%s' % (self.vid, ports)
 
     def get_ports(self):
         return self.tagged+self.untagged

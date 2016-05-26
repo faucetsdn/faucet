@@ -1,0 +1,11 @@
+# This file resides as file /etc/sysconfig/network/ifcfg-eth1
+DEVICE=eth1
+TYPE=Ethernet
+NM_CONTROLLED=no
+ONBOOT=yes
+#BOOTPROTO='dhcp'
+BOOTPROTO='static'
+# Comment out IPADDR if using dhcp as BOOTPROTO
+IPADDR='192.168.1.10'
+NETMASK=255.255.255.0
+STARTMODE=auto

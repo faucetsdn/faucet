@@ -26,6 +26,7 @@ from dp import DP
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller import dpset
+from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller import event
@@ -41,6 +42,10 @@ class EventFaucetReconfigure(event.EventBase):
 
 
 class EventFaucetResolveGateways(event.EventBase):
+    pass
+
+
+class EventFaucetHostExpire(event.EventBase):
     pass
 
 
@@ -66,11 +71,11 @@ class Faucet(app_manager.RyuApp):
         # FAUCET_CONFIG to allow this to be set, if it is not set it will
         # default to valve.yaml
         self.config_file = os.getenv(
-            'FAUCET_CONFIG', '/etc/opt/faucet/valve.yaml')
+            'FAUCET_CONFIG', '/etc/ryu/faucet/faucet.yaml')
         self.logfile = os.getenv(
-            'FAUCET_LOG', '/var/log/faucet/faucet.log')
+            'FAUCET_LOG', '/var/log/ryu/faucet/faucet.log')
         self.exc_logfile = os.getenv(
-            'FAUCET_EXCEPTION_LOG', '/var/log/faucet/faucet_exception.log')
+            'FAUCET_EXCEPTION_LOG', '/var/log/ryu/faucet/faucet_exception.log')
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
@@ -106,11 +111,18 @@ class Faucet(app_manager.RyuApp):
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
+        self.host_expire_request_thread = hub.spawn(
+            self.host_expire_request)
 
     def gateway_resolve_request(self):
         while True:
             self.send_event('Faucet', EventFaucetResolveGateways())
             hub.sleep(2)
+
+    def host_expire_request(self):
+        while True:
+            self.send_event('Faucet', EventFaucetHostExpire())
+            hub.sleep(5)
 
     def parse_config(self, config_file, log_name):
         new_dp = DP.parser(config_file, log_name)
@@ -123,6 +135,7 @@ class Faucet(app_manager.RyuApp):
         return None
 
     def send_flow_msgs(self, dp, flow_msgs):
+        self.valve.ofchannel_log(flow_msgs)
         for flow_msg in flow_msgs:
             flow_msg.datapath = dp
             dp.send_msg(flow_msg)
@@ -148,11 +161,17 @@ class Faucet(app_manager.RyuApp):
                 ryudp = self.dpset.get(self.valve.dp.dp_id)
                 self.send_flow_msgs(ryudp, flowmods)
 
+    @set_ev_cls(EventFaucetHostExpire, MAIN_DISPATCHER)
+    def host_expire(self, ev):
+        if self.valve is not None:
+            self.valve.host_expire()
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _packet_in_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath
+        self.valve.ofchannel_log([msg])
 
         pkt = packet.Packet(msg.data)
         eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
@@ -169,16 +188,42 @@ class Faucet(app_manager.RyuApp):
         flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, msg.match, pkt)
         self.send_flow_msgs(dp, flowmods)
 
+    @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
+    def _error_handler(self, ev):
+        msg = ev.msg
+        self.valve.ofchannel_log([msg])
+        self.logger.error('Got OFError: %s', msg)
+
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def handler_features(self, ev):
+        msg = ev.msg
+        dp = msg.datapath
+        flowmods = self.valve.switch_features(dp.id, msg)
+        self.send_flow_msgs(dp, flowmods)
+
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
-    def handler_datapath(self, ev):
+    def handler_connect_or_disconnect(self, ev):
         dp = ev.dp
 
         if not ev.enter:
             # Datapath down message
+            self.logger.debug('DP %s disconnected' % str(dp.id))
             self.valve.datapath_disconnect(dp.id)
             return
 
+        self.logger.debug('DP %s connected' % str(dp.id))
+        self.handler_datapath(dp)
+
+    @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
+    @kill_on_exception(exc_logname)
+    def handler_reconnect(self, ev):
+        dp = ev.dp
+        self.logger.debug('DP %s reconnected' % str(dp.id))
+        self.handler_datapath(dp)
+
+    def handler_datapath(self, dp):
         discovered_ports = [
             p.port_no for p in dp.ports.values() if p.state == 0]
         flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
@@ -205,7 +250,7 @@ class Faucet(app_manager.RyuApp):
             else:
                 flowmods = self.valve.port_add(dp.id, port_no)
         else:
-            self.logger.info('Unhandled port status %s for port %u',
-                             reason, port_no)
+            self.logger.warning('Unhandled port status %s for port %u',
+                                reason, port_no)
 
         self.send_flow_msgs(dp, flowmods)

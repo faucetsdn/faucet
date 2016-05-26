@@ -1,46 +1,50 @@
 ---
 dp_id: 0x0000000000000001   # The id of the datapath to be controlled
 name: "office-faucet-1" # The name of the datapath for use with logging
-description: "The REANNZ Office AT-X510"    # Purely informational
+description: "San Francisco Bay Area Office AT-X930"    # Purely informational
 hardware: "Allied-Telesis"  # used to determine which valve implementation to use
+#hardware: "Aruba"  # used to determine which valve implementation to use
+#hardware: "NoviFlow"  # used to determine which valve implementation to use
+#hardware: "Open vSwitch"  # used to determine which valve implementation to use
 monitor_ports: True # whether gauge should monitor stats for ports
 monitor_ports_file: "ports.out" # The file to record ports statistics
 monitor_ports_interval: 10  # the polling interval for port stats in seconds
 monitor_flow_table: True    # whether gauge should take periodic flow table dumps
 monitor_flow_table_file: "ft.out"   # the file to record flow table dumps
 monitor_flow_table_interval: 10 # the polling interval for flow table monitoring
+influxdb_stats: True
 interfaces:
-    1:
-        tagged_vlans: [2040]
-        name: "port1.0.1"   # name for this port, used for logging/monitoring
-        description: "uplink to office-switch-1"    # informational
+#    1:
+#        tagged_vlans: [4090]
+#        name: "port1.0.1"   # name for this port, used for logging/monitoring
+#        description: "uplink to office-switch-1"    # informational
     2:
-        native_vlan: 2040
+        native_vlan: 4090
         name: "port1.0.2"
         description: "Kit's desk"
     3:
-        native_vlan: 2040
+        native_vlan: 4090
         name: "port1.0.3"
         description: "Sam's desk"
     4:
-        native_vlan: 2040
+        native_vlan: 4090
     5:
-        native_vlan: 2040
+        native_vlan: 4090
     6:
-        native_vlan: 2040
+        native_vlan: 4090
     7:
-        native_vlan: 2040
+        native_vlan: 4090
     8:
-        native_vlan: 2040
+        native_vlan: 4090
     9:
-        native_vlan: 2040
+        native_vlan: 4090
     10:
-        native_vlan: 2040
+        native_vlan: 4090
     11:
-        native_vlan: 2040
+        native_vlan: 4090
     12:
-        native_vlan: 2040
+        native_vlan: 4090
 vlans:
-    2040:
-        description: "REANNZ office vlan" # informational
-        name: "rnz-office"  # used for logging/monitoring
+    4090:
+        description: "San Francisco Bay Area office vlan" # informational
+        name: "sfbay-office"  # used for logging/monitoring
