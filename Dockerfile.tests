@@ -11,9 +11,7 @@ RUN \
   cd ..; \
   mininet/util/install.sh -nfv
 
-COPY ryu-faucet-dev.tar.gz /
-COPY tests/ /tests/
-COPY runtests.sh /
+COPY ./ /faucet-src/
 
 RUN \
   pip install ipaddr; \
@@ -21,4 +19,4 @@ RUN \
 
 ENV FAUCET_DIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
 
-CMD ["/runtests.sh"]
+CMD ["/faucet-src/docker/runtests.sh"]
