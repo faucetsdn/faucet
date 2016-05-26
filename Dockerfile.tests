@@ -18,9 +18,6 @@ COPY ./ /faucet-src/
 RUN \
   pip install ipaddr; \
   cd /faucet-src; \
-
-ENV FAUCET_DIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
-#WORKDIR /faucet-src/tests/
   python setup.py develop
 
 CMD ["/faucet-src/docker/runtests.sh"]
