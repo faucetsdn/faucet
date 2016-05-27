@@ -1117,7 +1117,7 @@ class Valve(object):
             for routes, neighbor_cache, neighbor_resolver in (
                     (vlan.ipv4_routes, vlan.arp_cache, self.arp_for_ip_gw),
                     (vlan.ipv6_routes, vlan.nd_cache, self.nd_solicit_ip_gw)):
-                for ip_gw in routes.itervalues():
+                for ip_gw in set(routes.values()):
                     for controller_ip in vlan.controller_ips:
                         if ip_gw in controller_ip:
                             cache_age = None
