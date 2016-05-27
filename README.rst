@@ -111,7 +111,7 @@ Deployment
 
 Deployment at Open Networking Foundation
 ----------------------------------------
-.. image:: src/docs/images/ONF_Faucet_Deployment-Model1.png
+.. image:: src/docs/images/ONF_Faucet_deploy1.png
 
 =================
 OpenFlow Pipeline
