@@ -16,7 +16,6 @@ RUN \
 COPY ./ /faucet-src/
 
 RUN \
-  pip install ipaddr; \
   cd /faucet-src; \
   python setup.py develop
 
