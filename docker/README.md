@@ -9,7 +9,7 @@ All that is needed to run faucet.
 
 It can be built as following:
 ```
-docker build -t reannz/faucet .
+docker build -t reannz/faucet -f docker/Dockerfile .
 ```
 It can be run as following:
 ```
@@ -59,7 +59,7 @@ Similar to **Dockerfile.dev**, this builds faucet locally, but then runs the min
 ```
 make dockerdev
 cd docker/
-docker build -t reannz/faucet-tests -f Dockerfile.tests .
+docker build -t reannz/faucet-tests -f docker/Dockerfile.tests .
 apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
 sudo docker run --privileged -ti reannz/faucet-tests
 ```
@@ -74,7 +74,7 @@ data in a persitant location.
 
 It can be built as following:
 ```
-docker build -t reannz/faucet-gauge -f Dockerfile.gauge .
+docker build -t reannz/faucet-gauge -f docker/Dockerfile.gauge .
 ```
 It can be run as following:
 ```
