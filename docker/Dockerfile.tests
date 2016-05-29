@@ -16,7 +16,6 @@ RUN \
 COPY ./ /faucet-src/
 
 RUN \
-  cd /faucet-src; \
-  python setup.py develop
+  pip install /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]
