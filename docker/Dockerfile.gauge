@@ -4,8 +4,11 @@ RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends python-pip supervisor apt-transport-https
 
+COPY ./ /faucet-src/
+
 RUN \
-  pip install ryu-faucet influxdb ipaddr
+  pip install influxdb && \
+  pip install /faucet-src
 
 RUN \
   wget -qO- https://repos.influxdata.com/influxdb.key | apt-key add -
