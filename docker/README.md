@@ -36,13 +36,14 @@ apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
 sudo docker run --privileged -ti reannz/faucet-tests
 ```
 
-The apparmor command is required on the host to allow the use of tcpdump inside the container.
+The apparmor command is currently required on Ubuntu hosts to allow the use of
+tcpdump inside the container.
 
 ### Dockerfile.gauge
 
 Includes faucet and gauge, including influxDB and grafana for viewing the
 resulting graphs.  Consider this to be an alpha image, it does not store influx
-data in a persitant location.
+data in a persistent location.
 
 It can be built as following:
 ```
@@ -63,12 +64,12 @@ docker run -d \
 By default faucet listens on port 6633 and gauge on port 6634 for an OpenFlow
 switch. As such your switches should be configured to talk to both.  The faucet
 configuration file faucet.yaml should be placed in the config directory, this
-also should include to configuration for guage.
+also should include to configuration for gauge.
 
-Grafana is exposed on port 3000, and should be accessable over http from a
+Grafana is exposed on port 3000, and should be accessible over http from a
 browser.
 
-#### Configuring Grafana First login to grafana using default credientials of
+#### Configuring Grafana First login to grafana using default credentials of
 User:admin Password:admin.
 
 Then connect to the influxDB, by adding it as a datasource. Use the following
