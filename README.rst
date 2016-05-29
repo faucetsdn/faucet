@@ -109,6 +109,10 @@ Deployment
 ==========
 .. image:: src/docs/faucet_deployment.png
 
+Deployment at Open Networking Foundation
+----------------------------------------
+.. image:: src/docs/images/ONF_Faucet_deploy1.png
+
 =================
 OpenFlow Pipeline
 =================
