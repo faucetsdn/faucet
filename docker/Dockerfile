@@ -2,7 +2,8 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends python-pip
+  apt-get install -qy --no-install-recommends python-pip \
+    libyaml-dev libpython2.7-dev
 
 COPY ./ /faucet-src/
 
