@@ -41,8 +41,8 @@ RUN \
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet]
 WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
 
-ADD supervisord.gauge.conf /etc/supervisor/conf.d/supervisord.conf
-ADD gauge.conf /etc/faucet/gauge.conf
+RUN \
+  cp /faucet-src/docker/supervisord.gauge.conf /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 6633
 EXPOSE 6634
