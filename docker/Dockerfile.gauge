@@ -37,7 +37,7 @@ RUN \
   apt-get install -qy grafana; \
   rm -f /usr/sbin/policy-rc.d
 
-VOLUME ["/etc/opt/faucet/", "/var/log/faucet]
+VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet]
 WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
 
 ADD supervisord.gauge.conf /etc/supervisor/conf.d/supervisord.conf

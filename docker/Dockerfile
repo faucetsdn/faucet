@@ -9,7 +9,7 @@ COPY ./ /faucet-src/
 RUN \
   pip install /faucet-src
 
-VOLUME ["/etc/opt/faucet/", "/var/log/faucet/"]
+VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
 
 EXPOSE 6633
