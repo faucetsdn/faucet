@@ -15,8 +15,8 @@ It can be run as following:
 ```
 docker run -d \
     --name faucet \
-    -v <path-to-config-dir>:/etc/opt/faucet/ \
-    -v <path-to-logging-dir>:/var/log/faucet/ \
+    -v <path-to-config-dir>:/etc/ryu/faucet/ \
+    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
     -p 6633:6633 \
     reannz/faucet
 ```
@@ -80,8 +80,8 @@ It can be run as following:
 ```
 docker run -d \
     --name faucet \
-    -v <path-to-config-dir>:/etc/opt/faucet/ \
-    -v <path-to-logging-dir>:/var/log/faucet/ \
+    -v <path-to-config-dir>:/etc/ryu/faucet/ \
+    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
     -p 6633:6633 \
     -p 6634:6634 \
     -p 3000:3000 \
