@@ -1,7 +1,7 @@
 ## Faucet Dockerfile
 
-This directory contains two docker files **Dockerfile** and
-**Dockerfile.gauge**.
+This directory contains three docker files: **Dockerfile**,
+**Dockerfile.gauge** and **Dockerfile.tests**
 
 ### Dockerfile
 
@@ -25,40 +25,12 @@ By default it listens on port 6633 for an OpenFlow switch to connect. Faucet
 expects to find the configuration file faucet.yaml in the config folder. If
 needed the -e option can be used to specify the names of files with the
 FAUCET\_LOG, FAUCET\_EXCEPTION\_LOG, FAUCET\_CONFIG environment variables.
-Logs are written to /config/ for easy access from the host.
-
-### Dockerfile.dev
-
-Intended to build a container with the faucet package built using the **dockerdev** make target. To use it, first run in the top-level directory:
-
-```
-make dockerdev
-```
-
-Then, build the dev container:
-
-```
-docker build -t reannz/faucet-dev -f Dockerfile.dev .
-```
-
-Then run it, similar to the **Dockerfile** container:
-
-```
-docker run -d \
-    --name faucet-dev \
-    -v <path-to-config-dir>:/etc/opt/faucet/ \
-    -v <path-to-logging-dir>:/var/log/faucet/ \
-    -p 6633:6633 \
-    reannz/faucet-dev
-```
 
 ### Dockerfile.tests
 
-Similar to **Dockerfile.dev**, this builds faucet locally, but then runs the mininet tests from the docker entrypoint:
+This runs the mininet tests from the docker entry-point:
 
 ```
-make dockerdev
-cd docker/
 docker build -t reannz/faucet-tests -f docker/Dockerfile.tests .
 apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
 sudo docker run --privileged -ti reannz/faucet-tests
