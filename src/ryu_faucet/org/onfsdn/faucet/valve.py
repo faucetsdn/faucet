@@ -742,28 +742,23 @@ class Valve(object):
         return pkt
 
     def add_resolved_route(self, eth_type, vlan, neighbor_cache,
-                           ip_gw, ip_dst, eth_dst):
+                           ip_gw, ip_dst, eth_dst, is_updated=None):
         ofmsgs = []
-        cached_eth_dst = None
-        if ip_gw in neighbor_cache:
-            cached_eth_dst = neighbor_cache[ip_gw].eth_src
-        if cached_eth_dst != eth_dst:
+        if is_updated is not None:
             in_match = self.valve_in_match(
                 vlan=vlan, eth_type=eth_type,
                 nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
             priority = self.dp.highest_priority + 1
-
-            if cached_eth_dst is None:
-                self.logger.info('Adding new route %s via %s (%s)',
-                    ip_dst, ip_gw, eth_dst)
-            else:
+            if is_updated:
                 self.logger.info('Updating next hop for route %s via %s (%s)',
-                    ip_dst, ip_gw, eth_dst)
-                # Delete existing route.
+                        ip_dst, ip_gw, eth_dst)
                 ofmsgs.append(self.valve_flowdel(
                     self.dp.eth_src_table,
                     in_match,
                     priority=priority))
+            else:
+                self.logger.info('Adding new route %s via %s (%s)',
+                        ip_dst, ip_gw, eth_dst)
 
             ofmsgs.append(self.valve_flowmod(
                 self.dp.eth_src_table,
@@ -795,14 +790,21 @@ class Valve(object):
                 arp_pkt.src_ip, arp_pkt.dst_ip)
         elif arp_pkt.opcode == arp.ARP_REPLY:
             resolved_ip_gw = ipaddr.IPv4Address(arp_pkt.src_ip)
+            self.logger.info('ARP response %s for %s', eth_src, resolved_ip_gw)
+            is_updated = None
+            if resolved_ip_gw in vlan.arp_cache:
+                cached_eth_dst = vlan.arp_cache[resolved_ip_gw].eth_src
+                if cached_eth_dst != eth_src:
+                    is_updated = True
+            else:
+                is_updated = False
+
             for ip_dst, ip_gw in vlan.ipv4_routes.iteritems():
                 if ip_gw == resolved_ip_gw:
-                    self.logger.info('ARP response %s for %s',
-                        eth_src, resolved_ip_gw)
                     ofmsgs.extend(
                         self.add_resolved_route(
                             ether.ETH_TYPE_IP, vlan, vlan.arp_cache,
-                            ip_gw, ip_dst, eth_src))
+                            ip_gw, ip_dst, eth_src, is_updated))
 
         return ofmsgs
 
@@ -850,14 +852,20 @@ class Valve(object):
             flowmods.extend([self.valve_packetout(in_port, pkt.data)])
         elif icmpv6_pkt.type_ == icmpv6.ND_NEIGHBOR_ADVERT:
             resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
+            self.logger.info('ND response %s for %s', eth_src, resolved_ip_gw)
+            is_updated = None
+            if resolved_ip_gw in vlan.nd_cache:
+                cached_eth_dst = vlan.nd_cache[resolved_ip_gw].eth_src
+                if cached_eth_dst != eth_src:
+                    is_updated = True
+            else:
+                is_updated = False
             for ip_dst, ip_gw in vlan.ipv6_routes.iteritems():
                 if ip_gw == resolved_ip_gw:
-                    self.logger.info('ND response %s for %s',
-                        eth_src, resolved_ip_gw)
                     flowmods.extend(
                         self.add_resolved_route(
                             ether.ETH_TYPE_IPV6, vlan, vlan.nd_cache,
-                            ip_gw, ip_dst, eth_src))
+                            ip_gw, ip_dst, eth_src,is_updated))
         elif icmpv6_pkt.type_ == icmpv6.ICMPV6_ECHO_REQUEST:
             dst = ipv6_pkt.dst
             ipv6_reply = ipv6.ipv6(

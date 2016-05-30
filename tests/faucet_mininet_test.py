@@ -348,6 +348,9 @@ vlans:
             - route:
                 ip_dst: "10.0.2.0/24"
                 ip_gw: "10.0.0.2"
+            - route:
+                ip_dst: "10.0.3.0/24"
+                ip_gw: "10.0.0.2"
 """
 
     def test_untagged(self):
@@ -355,13 +358,20 @@ vlans:
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
         second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        second_host_routed_ip2 = ipaddr.IPv4Network('10.0.3.1/24')
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2)
 
 
 class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
@@ -805,6 +815,9 @@ vlans:
             - route:
                 ip_dst: "fc00::20:0/112"
                 ip_gw: "fc00::1:2"
+            - route:
+                ip_dst: "fc00::30:0/112"
+                ip_gw: "fc00::1:2"
 """
 
     def test_untagged(self):
@@ -814,14 +827,20 @@ vlans:
         second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
         first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
         second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        second_host_routed_ip2 = ipaddr.IPv6Network('fc00::30:1/112')
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
-
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2)
 
 class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
 
