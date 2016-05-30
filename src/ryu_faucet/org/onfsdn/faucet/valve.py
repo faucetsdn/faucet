@@ -905,7 +905,7 @@ class Valve(object):
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.eth_src_table,
                 self.valve_in_match(vlan=vlan, eth_src=eth_src),
-                priority=(self.dp.highest_priority-1)))
+                priority=(self.dp.highest_priority-2)))
         else:
             learn_timeout = self.dp.timeout
             ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
@@ -922,10 +922,11 @@ class Valve(object):
         # but the src table rule is still being hit intermittantly the switch
         # will flood packets to that dst and not realise it needs to relearn
         # the rule
+        # NB: Must be lower than highest priority otherwise it can match flows destined to controller
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_src_table,
             self.valve_in_match(in_port=in_port, vlan=vlan, eth_src=eth_src),
-            priority=self.dp.highest_priority,
+            priority=self.dp.highest_priority-1,
             inst=[self.goto_table(self.dp.eth_dst_table)],
             hard_timeout=learn_timeout))
 
