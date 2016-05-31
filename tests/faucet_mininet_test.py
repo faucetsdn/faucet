@@ -113,6 +113,13 @@ class FaucetTest(unittest.TestCase):
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.net = None
 
+    def start_net(self):
+        self.net = Mininet(self.topo, controller=FAUCET)
+        self.net.start()
+        dumpNodeConnections(self.net.hosts)
+        self.net.waitConnected()
+        self.wait_until_matching_flow('actions=CONTROLLER')
+
     def tearDown(self):
         if self.net is not None:
             self.net.stop()
@@ -229,11 +236,7 @@ vlans:
         self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetUntaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_untagged=4)
-        self.net = Mininet(self.topo, controller=FAUCET)
-        self.net.start()
-        dumpNodeConnections(self.net.hosts)
-        self.net.waitConnected()
-        self.wait_until_matching_flow('actions=CONTROLLER')
+        self.start_net()
 
     def test_untagged(self):
         self.assertEquals(0, self.net.pingAll())
@@ -263,13 +266,9 @@ vlans:
 
     def setUp(self):
         self.CONFIG = self.CONFIG % PORT_MAP
-        super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
+        super(FaucetUntaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=1, n_untagged=3)
-        self.net = Mininet(self.topo, controller=FAUCET)
-        self.net.start()
-        dumpNodeConnections(self.net.hosts)
-        self.net.waitConnected()
-        self.wait_until_matching_flow('actions=CONTROLLER')
+        self.start_net()
 
     def test_untagged(self):
         self.net.pingAll()
@@ -514,11 +513,7 @@ vlans:
         self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetTaggedAndUntaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=2, n_untagged=2)
-        self.net = Mininet(self.topo, controller=FAUCET)
-        self.net.start()
-        dumpNodeConnections(self.net.hosts)
-        self.net.waitConnected()
-        self.wait_until_matching_flow('actions=CONTROLLER')
+        self.start_net()
 
     def test_seperate_untagged_tagged(self):
         tagged_host_pair = self.net.hosts[0:1]
@@ -707,11 +702,7 @@ vlans:
         self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetTaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=4)
-        self.net = Mininet(self.topo, controller=FAUCET)
-        self.net.start()
-        dumpNodeConnections(self.net.hosts)
-        self.net.waitConnected()
-        self.wait_until_matching_flow('actions=CONTROLLER')
+        self.start_net()
 
     def test_tagged(self):
         self.assertEquals(0, self.net.pingAll())
