@@ -4,8 +4,4 @@ dist
 
 ryu_faucet.egg-info
 
-docker/ryu-faucet-dev.tar.gz
-
-docker/tests
-
 *.idea
