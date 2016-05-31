@@ -919,5 +919,6 @@ def import_config():
 
 if __name__ == '__main__':
     config = import_config()
-    setLogLevel(config.get('debug_level', 'info'))
+    if config is not None:
+        setLogLevel(config.get('debug_level', 'info'))
     unittest.main()
