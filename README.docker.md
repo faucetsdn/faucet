@@ -9,7 +9,7 @@ All that is needed to run faucet.
 
 It can be built as following:
 ```
-docker build -t reannz/faucet -f docker/Dockerfile .
+docker build -t reannz/faucet .
 ```
 It can be run as following:
 ```
@@ -31,7 +31,7 @@ FAUCET\_LOG, FAUCET\_EXCEPTION\_LOG, FAUCET\_CONFIG environment variables.
 This runs the mininet tests from the docker entry-point:
 
 ```
-docker build -t reannz/faucet-tests -f docker/Dockerfile.tests .
+docker build -t reannz/faucet-tests -f Dockerfile.tests .
 apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
 sudo docker run --privileged -ti reannz/faucet-tests
 ```
@@ -47,7 +47,7 @@ data in a persistent location.
 
 It can be built as following:
 ```
-docker build -t reannz/faucet-gauge -f docker/Dockerfile.gauge .
+docker build -t reannz/faucet-gauge -f Dockerfile.gauge .
 ```
 It can be run as following:
 ```
