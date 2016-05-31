@@ -25,11 +25,13 @@
 
 import ipaddr
 import os
+import sys
 import re
 import shutil
 import tempfile
 import time
 import unittest
+import yaml
 from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import Controller
@@ -39,6 +41,7 @@ from mininet.util import dumpNodeConnections, pmonitor
 
 
 FAUCET_DIR = os.getenv('FAUCET_DIR','../src/ryu_faucet/org/onfsdn/faucet')
+HW_SWITCH_CONFIG_FILE = "hw_switch_config.yaml"
 
 CONFIG_HEADER = '''
 ---
@@ -46,6 +49,7 @@ dp_id: 0x1
 name: "faucet-1"
 hardware: "Open vSwitch"
 '''
+PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}  # Values used with Mininet, but overwritten for HW switch
 
 
 class VLANHost(Host):
@@ -204,16 +208,16 @@ class FaucetUntaggedTest(FaucetTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
-    2:
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
@@ -222,6 +226,7 @@ vlans:
 """
 
     def setUp(self):
+        self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetUntaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_untagged=4)
         self.net = Mininet(self.topo, controller=FAUCET)
@@ -238,16 +243,16 @@ class FaucetTaggedAndUntaggedVlanTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         tagged_vlans: [100]
         description: "b1"
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
@@ -257,6 +262,7 @@ vlans:
 """
 
     def setUp(self):
+        self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetUntaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=1, n_untagged=3)
         self.net = Mininet(self.topo, controller=FAUCET)
@@ -274,16 +280,16 @@ class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
     CONFIG = CONFIG_HEADER + """
 timeout: 60
 interfaces:
-    1:
+    %(port_1)d
         native_vlan: 100
         description: "b1"
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
@@ -325,16 +331,16 @@ class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
     CONFIG = CONFIG_HEADER + """
 arp_neighbor_timeout: 2
 interfaces:
-    1:
+    %(port_1)d
         native_vlan: 100
         description: "b1"
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
@@ -378,16 +384,16 @@ class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         native_vlan: 100
         description: "b1"
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
@@ -415,17 +421,17 @@ class FaucetUntaggedHostPermanentLearnTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         native_vlan: 100
         description: "b1"
         permanent_learn: True
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
@@ -450,16 +456,16 @@ class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         native_vlan: 100
         description: "b1"
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
@@ -485,16 +491,16 @@ class FaucetTaggedAndUntaggedTest(FaucetTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         tagged_vlans: [100]
         description: "b1"
-    2:
+    %(port_2)d
         tagged_vlans: [100]
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 101
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 101
         description: "b4"
 vlans:
@@ -505,6 +511,7 @@ vlans:
 """
 
     def setUp(self):
+        self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetTaggedAndUntaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=2, n_untagged=2)
         self.net = Mininet(self.topo, controller=FAUCET)
@@ -528,24 +535,24 @@ class FaucetUntaggedACLTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         native_vlan: 100
         description: "b1"
         acl_in: 1
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
     100:
         description: "untagged"
 acls:
-    1:
+    %(port_1)d
         - rule:
             dl_type: 0x800
             nw_proto: 6
@@ -582,29 +589,29 @@ class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         native_vlan: 100
         description: "b1"
         acl_in: 1
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
         acl_in: 1
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
     100:
         description: "untagged"
 acls:
-    1:
+    %(port_1)d
         - rule:
             actions:
                 allow: 1
-                mirror: 3
+                mirror: %(port_3)d
 """
 
     def test_untagged(self):
@@ -633,17 +640,17 @@ class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         native_vlan: 100
         description: "b1"
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-        mirror: 1
-    4:
+        mirror: %(port_1)d
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
@@ -678,16 +685,16 @@ class FaucetTaggedTest(FaucetTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         tagged_vlans: [100]
         description: "b1"
-    2:
+    %(port_2)d
         tagged_vlans: [100]
         description: "b2"
-    3:
+    %(port_3)d
         tagged_vlans: [100]
         description: "b3"
-    4:
+    %(port_4)d
         tagged_vlans: [100]
         description: "b4"
 vlans:
@@ -696,6 +703,7 @@ vlans:
 """
 
     def setUp(self):
+        self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetTaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=4)
         self.net = Mininet(self.topo, controller=FAUCET)
@@ -711,16 +719,16 @@ class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    1:
+    %(port_1)d
         tagged_vlans: [100]
         description: "b1"
-    2:
+    %(port_2)d
         tagged_vlans: [100]
         description: "b2"
-    3:
+    %(port_3)d
         tagged_vlans: [100]
         description: "b3"
-    4:
+    %(port_4)d
         tagged_vlans: [100]
         description: "b4"
 vlans:
@@ -747,16 +755,16 @@ class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
     CONFIG = CONFIG_HEADER + """
 arp_neighbor_timeout: 2
 interfaces:
-    1:
+    %(port_1)d
         tagged_vlans: [100]
         description: "b1"
-    2:
+    %(port_2)d
         tagged_vlans: [100]
         description: "b2"
-    3:
+    %(port_3)d
         tagged_vlans: [100]
         description: "b3"
-    4:
+    %(port_4)d
         tagged_vlans: [100]
         description: "b4"
 vlans:
@@ -792,16 +800,16 @@ class FaucetUntaggedIPv6RouteTest(FaucetUntaggedTest):
     CONFIG = CONFIG_HEADER + """
 arp_neighbor_timeout: 2
 interfaces:
-    1:
+    %(port_1)d
         native_vlan: 100
         description: "b1"
-    2:
+    %(port_2)d
         native_vlan: 100
         description: "b2"
-    3:
+    %(port_3)d
         native_vlan: 100
         description: "b3"
-    4:
+    %(port_4)d
         native_vlan: 100
         description: "b4"
 vlans:
@@ -847,16 +855,16 @@ class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
     CONFIG = CONFIG_HEADER + """
 arp_neighbor_timeout: 2
 interfaces:
-    1:
+    %(port_1)d:
         tagged_vlans: [100]
         description: "b1"
-    2:
+    %(port_2)d:
         tagged_vlans: [100]
         description: "b2"
-    3:
+    %(port_3)d:
         tagged_vlans: [100]
         description: "b3"
-    4:
+    %(port_4)d:
         tagged_vlans: [100]
         description: "b4"
 vlans:
@@ -888,6 +896,28 @@ vlans:
             second_host, second_host_ip, second_host_routed_ip)
 
 
+def import_config():
+    try:
+        with open(HW_SWITCH_CONFIG_FILE, 'r') as config_file:
+            config = yaml.load(config_file)
+    except:
+        print "Could not load YAML config data from %s. Exiting." % HW_SWITCH_CONFIG_FILE
+        sys.exit(-1)
+    if config['hw_switch']:
+        required_config = ['dp_ports', 'switch_ip_addr', 'switch_tcp_port']
+        for _key in required_config:
+            if _key not in config.keys():
+                print "%s must be specified in %s to use HW switch. Exiting" % (_key, HW_SWITCH_CONFIG_FILE)
+                sys.exit(-1)
+        if len(config['dp_ports'].keys()) != 4:
+            print "Exactly 4 dataplane ports are required, %d are provided in %s. Exiting." % \
+                  (len(config['dp_ports'].keys()), HW_SWITCH_CONFIG_FILE)
+        for idx, port_no in enumerate(config['dp_ports']):
+            PORT_MAP['port_%d'%(idx+1)] = port_no
+        return config
+
+
 if __name__ == '__main__':
-    setLogLevel('info')
+    config = import_config()
+    setLogLevel(config.get('debug_level', 'info'))
     unittest.main()
