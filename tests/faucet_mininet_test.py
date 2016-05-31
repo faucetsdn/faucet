@@ -606,7 +606,7 @@ acls:
         - rule:
             actions:
                 allow: 1
-                mirror: %(port_3)d:
+                mirror: %(port_3)d
 """
 
     def test_untagged(self):
