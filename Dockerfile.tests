@@ -1,0 +1,21 @@
+FROM osrg/ryu
+
+RUN \
+  apt-get update && \
+  apt-get install -qy --no-install-recommends python-pip \
+    vlan psmisc git sudo net-tools iputils-ping netcat-openbsd tcpdump \
+    libyaml-dev libpython2.7-dev
+
+RUN \
+  git clone git://github.com/mininet/mininet; \
+  cd mininet; \
+  git checkout -b 2.2.1 2.2.1; \
+  cd ..; \
+  mininet/util/install.sh -nfv
+
+COPY ./ /faucet-src/
+
+RUN \
+  pip install /faucet-src
+
+CMD ["/faucet-src/docker/runtests.sh"]

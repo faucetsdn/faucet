@@ -1,0 +1,12 @@
+hw_switch: False    # If True, don't start OVS and use the following information for the test environment
+debug_level: info  # info or debug
+
+dp_ports:
+  1: eth1   # switch dataplane port_no mapped to the PC interface it's connected to
+  2: eth2
+  3: eth3
+  4: eth4
+# Switch IP and listening TCP port are used by ovs-ofctl commands
+# The switch must support passive OF connection
+switch_ip_addr: 127.0.0.1
+switch_tcp_port: 7777

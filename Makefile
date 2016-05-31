@@ -52,5 +52,3 @@ clobber:
 	@echo Removing $(DIST_DIR)
 	$(RM) -rf $(DIST_DIR)
 	$(RM) -rf ryu_faucet.egg-info
-
-

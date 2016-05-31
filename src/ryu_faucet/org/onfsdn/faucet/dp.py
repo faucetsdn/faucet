@@ -105,11 +105,11 @@ class DP(object):
         # Table for applying ACLs.
         self.__dict__.setdefault('acl_table', self.table_offset + 1)
         # The table for checking eth src addresses are known
-        self.__dict__.setdefault('eth_src_table', self.table_offset + 2)
+        self.__dict__.setdefault('eth_src_table', self.acl_table + 1)
         # The table for matching eth dst and applying unicast actions
-        self.__dict__.setdefault('eth_dst_table', self.table_offset + 3)
+        self.__dict__.setdefault('eth_dst_table', self.eth_src_table + 1)
         # The table for applying broadcast actions
-        self.__dict__.setdefault('flood_table', self.table_offset + 4)
+        self.__dict__.setdefault('flood_table', self.eth_dst_table + 1)
         # How much to offset default priority by
         self.__dict__.setdefault('priority_offset', 0)
         # Some priority values

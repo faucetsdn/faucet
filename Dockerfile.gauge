@@ -2,10 +2,14 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends python-pip supervisor apt-transport-https
+  apt-get install -qy --no-install-recommends python-pip supervisor \
+    apt-transport-https libyaml-dev libpython2.7-dev
+
+COPY ./ /faucet-src/
 
 RUN \
-  pip install ryu-faucet influxdb ipaddr
+  pip install influxdb && \
+  pip install /faucet-src
 
 RUN \
   wget -qO- https://repos.influxdata.com/influxdb.key | apt-key add -
@@ -26,19 +30,19 @@ RUN \
   echo "deb https://packagecloud.io/grafana/stable/debian/ jessie main" > /etc/apt/sources.list.d/grafana.list
 
 RUN \
-  apt-get update ; apt-get install -qy grafana
+  apt-get update ; \
+  mkdir -p /usr/sbin/; \
+  echo "#!/bin/sh" > /usr/sbin/policy-rc.d; \
+  echo "exit 101" >> /usr/sbin/policy-rc.d; \
+  chmod 755 /usr/sbin/policy-rc.d; \
+  apt-get install -qy grafana; \
+  rm -f /usr/sbin/policy-rc.d
 
-VOLUME ["/config/"]
+VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet]
 WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
 
-ENV FAUCET_CONFIG=/config/faucet.yaml
-ENV GAUGE_CONFIG=/etc/faucet/gauge.conf
-ENV FAUCET_LOG=/config/faucet.log
-ENV FAUCET_EXCEPTION_LOG=/config/faucet-exception.log
-ENV GAUGE_LOG=/config/gauge.log
-ENV GAUGE_EXCEPTION_LOG=/config/gauge-exception.log
-ADD supervisord.gauge.conf /etc/supervisor/conf.d/supervisord.conf
-ADD gauge.conf /etc/faucet/gauge.conf
+RUN \
+  cp /faucet-src/docker/supervisord.gauge.conf /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 6633
 EXPOSE 6634
