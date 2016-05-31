@@ -2,16 +2,16 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends python-pip
+  apt-get install -qy --no-install-recommends python-pip \
+    libyaml-dev libpython2.7-dev
+
+COPY ./ /faucet-src/
 
 RUN \
-  pip install ryu-faucet ipaddr
+  pip install /faucet-src
 
-VOLUME ["/config/"]
+VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
-ENV FAUCET_CONFIG=/config/faucet.yaml
-ENV FAUCET_LOG=/config/faucet.log
-ENV FAUCET_EXCEPTION_LOG=/config/faucet-exception.log
 
 EXPOSE 6633
 

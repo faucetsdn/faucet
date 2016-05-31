@@ -2,7 +2,9 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends python-pip vlan psmisc git sudo net-tools iputils-ping netcat-openbsd tcpdump
+  apt-get install -qy --no-install-recommends python-pip \
+    vlan psmisc git sudo net-tools iputils-ping netcat-openbsd tcpdump \
+    libyaml-dev libpython2.7-dev
 
 RUN \
   git clone git://github.com/mininet/mininet; \
@@ -11,14 +13,9 @@ RUN \
   cd ..; \
   mininet/util/install.sh -nfv
 
-COPY ryu-faucet-dev.tar.gz /
-COPY tests/ /tests/
-COPY runtests.sh /
+COPY ./ /faucet-src/
 
 RUN \
-  pip install ipaddr; \
-  pip install /ryu-faucet-dev.tar.gz
+  pip install /faucet-src
 
-ENV FAUCET_DIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
-
-CMD ["/runtests.sh"]
+CMD ["/faucet-src/docker/runtests.sh"]
