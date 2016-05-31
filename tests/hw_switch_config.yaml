@@ -1,4 +1,4 @@
-hw_switch: True    # If True, don't start OVS and use the following information for the test environment
+hw_switch: False    # If True, don't start OVS and use the following information for the test environment
 debug_level: info  # info or debug
 
 dp_ports:
