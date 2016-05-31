@@ -3,13 +3,49 @@
 This directory contains three docker files: **Dockerfile**,
 **Dockerfile.gauge** and **Dockerfile.tests**
 
+### Official builds
+
+We provide official automated builds on Docker Hub so that you can run Faucet
+easily without having to build your own.
+
+We use Docker tags to differentiate between versions of Faucet. The latest
+tag will always point to the latest git commit. All tagged versions of Faucet
+in git are also available to use, for example using the faucet/faucet:v1_0
+Docker will run the stable version 1.0 of Faucet.
+
+To pull and run the latest git version of Faucet:
+
+```
+docker pull faucet/faucet:latest
+docker run -d \
+    --name faucet \
+    -v <path-to-config-dir>:/etc/ryu/faucet/ \
+    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+    -p 6633:6633 \
+    faucet/faucet
+```
+
+To pull and run the latest git version of Faucet + Gauge:
+
+```
+docker pull faucet/faucet-gauge:latest
+docker run -d \
+    --name faucet \
+    -v <path-to-config-dir>:/etc/ryu/faucet/ \
+    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+    -p 6633:6633 \
+    -p 6634:6634 \
+    -p 3000:3000 \
+    faucet/faucet-gauge
+```
+
 ### Dockerfile
 
 All that is needed to run faucet.
 
 It can be built as following:
 ```
-docker build -t reannz/faucet -f docker/Dockerfile .
+docker build -t reannz/faucet .
 ```
 It can be run as following:
 ```
@@ -31,7 +67,7 @@ FAUCET\_LOG, FAUCET\_EXCEPTION\_LOG, FAUCET\_CONFIG environment variables.
 This runs the mininet tests from the docker entry-point:
 
 ```
-docker build -t reannz/faucet-tests -f docker/Dockerfile.tests .
+docker build -t reannz/faucet-tests -f Dockerfile.tests .
 apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
 sudo docker run --privileged -ti reannz/faucet-tests
 ```
@@ -47,7 +83,7 @@ data in a persistent location.
 
 It can be built as following:
 ```
-docker build -t reannz/faucet-gauge -f docker/Dockerfile.gauge .
+docker build -t reannz/faucet-gauge -f Dockerfile.gauge .
 ```
 It can be run as following:
 ```
