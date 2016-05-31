@@ -39,8 +39,7 @@ from mininet.node import Host
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 
-
-FAUCET_DIR = os.getenv('FAUCET_DIR','../src/ryu_faucet/org/onfsdn/faucet')
+FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 HW_SWITCH_CONFIG_FILE = "hw_switch_config.yaml"
 
 CONFIG_HEADER = '''
@@ -49,7 +48,8 @@ dp_id: 0x1
 name: "faucet-1"
 hardware: "Open vSwitch"
 '''
-PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}  # Values used with Mininet, but overwritten for HW switch
+# Values used with Mininet, but overwritten for HW switch
+PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
 
 
 class VLANHost(Host):
@@ -243,16 +243,16 @@ class FaucetTaggedAndUntaggedVlanTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         tagged_vlans: [100]
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
@@ -263,7 +263,7 @@ vlans:
 
     def setUp(self):
         self.CONFIG = self.CONFIG % PORT_MAP
-        super(FaucetUntaggedTest, self).setUp()
+        super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=1, n_untagged=3)
         self.net = Mininet(self.topo, controller=FAUCET)
         self.net.start()
@@ -280,16 +280,16 @@ class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
     CONFIG = CONFIG_HEADER + """
 timeout: 60
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
@@ -331,16 +331,16 @@ class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
     CONFIG = CONFIG_HEADER + """
 arp_neighbor_timeout: 2
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
@@ -384,16 +384,16 @@ class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
@@ -421,17 +421,17 @@ class FaucetUntaggedHostPermanentLearnTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
         permanent_learn: True
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
@@ -456,16 +456,16 @@ class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
@@ -491,16 +491,16 @@ class FaucetTaggedAndUntaggedTest(FaucetTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         tagged_vlans: [100]
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         tagged_vlans: [100]
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 101
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 101
         description: "b4"
 vlans:
@@ -535,31 +535,30 @@ class FaucetUntaggedACLTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
         acl_in: 1
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
     100:
         description: "untagged"
 acls:
-    %(port_1)d
+    %(port_1)d:
         - rule:
             dl_type: 0x800
             nw_proto: 6
             tp_dst: 5001
             actions:
                 allow: 0
-
         - rule:
             actions:
                 allow: 1
@@ -585,33 +584,34 @@ acls:
             first_host.cmd('nc -w 3 %s 5002' % second_host.IP()))
         second_host.sendInt()
 
+
 class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
         acl_in: 1
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
         acl_in: 1
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
     100:
         description: "untagged"
 acls:
-    %(port_1)d
+    %(port_1)d:
         - rule:
             actions:
                 allow: 1
-                mirror: %(port_3)d
+                mirror: %(port_3)d:
 """
 
     def test_untagged(self):
@@ -636,21 +636,22 @@ acls:
         self.assertTrue(re.search(
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt))
 
+
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
         mirror: %(port_1)d
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
@@ -685,16 +686,16 @@ class FaucetTaggedTest(FaucetTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         tagged_vlans: [100]
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         tagged_vlans: [100]
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         tagged_vlans: [100]
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         tagged_vlans: [100]
         description: "b4"
 vlans:
@@ -710,6 +711,7 @@ vlans:
         self.net.start()
         dumpNodeConnections(self.net.hosts)
         self.net.waitConnected()
+        self.wait_until_matching_flow('actions=CONTROLLER')
 
     def test_tagged(self):
         self.assertEquals(0, self.net.pingAll())
@@ -719,16 +721,16 @@ class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         tagged_vlans: [100]
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         tagged_vlans: [100]
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         tagged_vlans: [100]
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         tagged_vlans: [100]
         description: "b4"
 vlans:
@@ -755,16 +757,16 @@ class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
     CONFIG = CONFIG_HEADER + """
 arp_neighbor_timeout: 2
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         tagged_vlans: [100]
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         tagged_vlans: [100]
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         tagged_vlans: [100]
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         tagged_vlans: [100]
         description: "b4"
 vlans:
@@ -800,16 +802,16 @@ class FaucetUntaggedIPv6RouteTest(FaucetUntaggedTest):
     CONFIG = CONFIG_HEADER + """
 arp_neighbor_timeout: 2
 interfaces:
-    %(port_1)d
+    %(port_1)d:
         native_vlan: 100
         description: "b1"
-    %(port_2)d
+    %(port_2)d:
         native_vlan: 100
         description: "b2"
-    %(port_3)d
+    %(port_3)d:
         native_vlan: 100
         description: "b3"
-    %(port_4)d
+    %(port_4)d:
         native_vlan: 100
         description: "b4"
 vlans:
@@ -849,6 +851,7 @@ vlans:
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2)
+
 
 class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
 
