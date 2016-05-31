@@ -3,6 +3,42 @@
 This directory contains three docker files: **Dockerfile**,
 **Dockerfile.gauge** and **Dockerfile.tests**
 
+### Official builds
+
+We provide official automated builds on Docker Hub so that you can run Faucet
+easily without having to build your own.
+
+We use Docker tags to differentiate between versions of Faucet. The latest
+tag will always point to the latest git commit. All tagged versions of Faucet
+in git are also available to use, for example using the faucet/faucet:v1_0
+Docker will run the stable version 1.0 of Faucet.
+
+To pull and run the latest git version of Faucet:
+
+```
+docker pull faucet/faucet:latest
+docker run -d \
+    --name faucet \
+    -v <path-to-config-dir>:/etc/ryu/faucet/ \
+    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+    -p 6633:6633 \
+    faucet/faucet
+```
+
+To pull and run the latest git version of Faucet + Gauge:
+
+```
+docker pull faucet/faucet-gauge:latest
+docker run -d \
+    --name faucet \
+    -v <path-to-config-dir>:/etc/ryu/faucet/ \
+    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+    -p 6633:6633 \
+    -p 6634:6634 \
+    -p 3000:3000 \
+    faucet/faucet-gauge
+```
+
 ### Dockerfile
 
 All that is needed to run faucet.
