@@ -216,9 +216,10 @@ Faucet has been tested against the following switches:
 
     1. Open vSwitch v2.1+ - Open Source available at http://www.OpenVSwitch.Org
     2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
-    3. Allied Telesis x510 and x930 series
-    4. NoviFlow 1248
-    5. Zodiac FX
+    3. Allied Telesis x510 and x930 series - https://www.alliedtelesis.com/products/x930-series
+    4. NoviFlow 1248 - http://noviflow.com/products/noviswitch/
+    5. Northbound Networks - Zodiac FX - http://northboundnetworks.com/collections/zodiac-fx
+    6. HP Enterprise Aruba 3810 - http://www.arubanetworks.com/products/networking/switches/3810-series/
 
 Faucet's design principle is to be as hardware agnostic as possible and not require TTPs. That means that Faucet excepts the hardware OFA to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet excepts the OFA to leverage the right hardware transparently.
 
@@ -243,6 +244,11 @@ NorthBound Networks
 `NorthBound Networks <http://northboundnetworks.com/>`
 
 FAUCET supports the Zodiac FX as of v0.60 firmware.
+
+HP Enterprise
+-------------
+`HP Enterprise <http://www.hp.com>` and its many distributors and resellers.
+
 
 =====
 Gauge
@@ -271,5 +277,9 @@ Support
 =======
 
 If you have any technical questions, problems or suggestions regarding Faucet please send them to `faucet-dev@OpenflowSDN.Org <mailto:faucet-dev@openflowsdn.org>`.  Mailing list archives are available `here <https://groups.google.com/a/openflowsdn.org/forum/#!forum/faucet-dev>`.
+
+Documentation is available under `docs <https://github.com/onfsdn/faucet/tree/master/src/docs>` directory.  
+
+Faucet related blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz/
 
 To create a issue, use `Github issues <https://github.com/onfsdn/faucet/issues>`
