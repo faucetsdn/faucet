@@ -57,7 +57,7 @@ class VLANHost(Host):
     def config(self, vlan=100, **params):
         """Configure VLANHost according to (optional) parameters:
            vlan: VLAN ID for default interface"""
-        r = super(Host, self).config(**params)
+        r = super(VLANHost, self).config(**params)
         intf = self.defaultIntf()
         self.cmd('ifconfig %s inet 0' % intf)
         self.cmd('vconfig add %s %d' % (intf, vlan))
@@ -83,18 +83,18 @@ class FaucetSwitchTopo(Topo):
 
     def build(self, n_tagged=0, tagged_vid=100, n_untagged=0):
         switch = self.addSwitch('s1')
-        for h in range(n_tagged):
-            host = self.addHost('ht_%s' % (h + 1),
+        for host_n in range(n_tagged):
+            host = self.addHost('ht_%s' % (host_n + 1),
                 cls=VLANHost, vlan=tagged_vid)
             self.addLink(host, switch)
-        for h in range(n_untagged):
-            host = self.addHost('hu_%s' % (h + 1))
+        for host_n in range(n_untagged):
+            host = self.addHost('hu_%s' % (host_n + 1))
             self.addLink(host, switch)
 
 
 class FaucetTest(unittest.TestCase):
 
-    ONE_GOOD_PING = '1 packets transmitted, 1 received, 0\% packet loss'
+    ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
     CONFIG = ''
     CONTROLLER_IPV4 = '10.0.0.254'
     CONTROLLER_IPV6 = 'fc00::1:254'
@@ -112,6 +112,7 @@ class FaucetTest(unittest.TestCase):
             'ofchannel_log: "%s"' % os.path.join(self.tmpdir, 'ofchannel.log')))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.net = None
+        self.topo = None
 
     def start_net(self):
         self.net = Mininet(self.topo, controller=FAUCET)
@@ -140,7 +141,7 @@ class FaucetTest(unittest.TestCase):
 
     def one_ipv6_ping(self, host, dst):
         # TODO: retry our one ping. We should not have to retry.
-        for retry in range(2):
+        for _ in range(2):
             ping_result = host.cmd('ping6 -c1 %s' % dst)
             if re.search(self.ONE_GOOD_PING, ping_result):
                 return
@@ -150,10 +151,10 @@ class FaucetTest(unittest.TestCase):
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
 
     def wait_until_matching_flow(self, flow, timeout=5):
-        s1 = self.net.switches[0]
-        for i in range(timeout):
-            dump_flows_cmd = 'ovs-ofctl dump-flows %s' % s1.name
-            dump_flows = s1.cmd(dump_flows_cmd)
+        switch = self.net.switches[0]
+        for _ in range(timeout):
+            dump_flows_cmd = 'ovs-ofctl dump-flows %s' % switch.name
+            dump_flows = switch.cmd(dump_flows_cmd)
             for line in dump_flows.split('\n'):
                 if re.search(flow, line):
                     return
@@ -187,8 +188,9 @@ class FaucetTest(unittest.TestCase):
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
 
-    def verify_ipv6_routing(self, first_host, first_host_ip, first_host_routed_ip,
-                            second_host, second_host_ip, second_host_routed_ip):
+    def verify_ipv6_routing(self, first_host, first_host_ip,
+                            first_host_routed_ip, second_host,
+                            second_host_ip, second_host_routed_ip):
         self.add_host_ipv6_address(first_host, first_host_ip)
         self.add_host_ipv6_address(second_host, second_host_ip)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
@@ -298,13 +300,13 @@ vlans:
 """
 
     def test_untagged(self):
-        for i in range(3):
+        for _ in range(3):
             self.net.pingAll()
             learned_hosts = set()
             for host in self.net.hosts:
                 arp_output = host.cmd('arp -an')
                 for arp_line in arp_output.splitlines():
-                    arp_match = re.search('at ([\:a-f\d]+)', arp_line)
+                    arp_match = re.search(r'at ([\:a-f\d]+)', arp_line)
                     if arp_match:
                         learned_hosts.add(arp_match.group(1))
             if len(learned_hosts) == 2:
@@ -318,7 +320,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def test_untagged(self):
         controller = self.net.controllers[0]
         switch = self.net.switches[0]
-        for i in range(3):
+        for _ in range(3):
             # ryu is a subprocess, so need PID of that.
             controller.cmd('fuser %s/tcp -k -1')
             self.assertTrue(switch.connected())
@@ -410,7 +412,7 @@ class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         self.assertEqual(0, self.net.ping((first_host, second_host)))
-        for i in range(3):
+        for _ in range(3):
             self.swap_host_macs(first_host, second_host)
             # TODO: sometimes slow to relearn
             self.assertTrue(self.net.ping((first_host, second_host)) <= 50)
@@ -895,16 +897,17 @@ def import_config():
         with open(HW_SWITCH_CONFIG_FILE, 'r') as config_file:
             config = yaml.load(config_file)
     except:
-        print "Could not load YAML config data from %s. Exiting." % HW_SWITCH_CONFIG_FILE
+        print 'Could not load YAML config data from %s' % HW_SWITCH_CONFIG_FILE
         sys.exit(-1)
     if config['hw_switch']:
         required_config = ['dp_ports', 'switch_ip_addr', 'switch_tcp_port']
         for _key in required_config:
             if _key not in config.keys():
-                print "%s must be specified in %s to use HW switch. Exiting" % (_key, HW_SWITCH_CONFIG_FILE)
+                print '%s must be specified in %s to use HW switch.' % (
+                    _key, HW_SWITCH_CONFIG_FILE)
                 sys.exit(-1)
         if len(config['dp_ports'].keys()) != 4:
-            print "Exactly 4 dataplane ports are required, %d are provided in %s. Exiting." % \
+            print 'Exactly 4 dataplane ports are required, %d are provided in %s.' % \
                   (len(config['dp_ports'].keys()), HW_SWITCH_CONFIG_FILE)
         for idx, port_no in enumerate(config['dp_ports']):
             PORT_MAP['port_%d'%(idx+1)] = port_no
