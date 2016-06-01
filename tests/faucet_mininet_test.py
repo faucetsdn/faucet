@@ -6,10 +6,6 @@
 # * you can run a specific test case only, by adding the class name of the test
 #   case to the command. Eg ./faucet_mininet_test.py FaucetUntaggedIPv4RouteTest
 #
-# TODO:
-#
-# * bridge hardware OF switch for comparison with OVS
-#
 # REQUIRES:
 #
 # * mininet 2.2.0 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
@@ -40,7 +36,6 @@ from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
-HW_SWITCH_CONFIG_FILE = "hw_switch_config.yaml"
 
 CONFIG_HEADER = '''
 ---
@@ -48,6 +43,9 @@ dp_id: 0x1
 name: "faucet-1"
 hardware: "Open vSwitch"
 '''
+
+# TODO: bridge hardware OF switch for comparison with OVS
+HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 # Values used with Mininet, but overwritten for HW switch
 PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
 
@@ -57,15 +55,15 @@ class VLANHost(Host):
     def config(self, vlan=100, **params):
         """Configure VLANHost according to (optional) parameters:
            vlan: VLAN ID for default interface"""
-        r = super(VLANHost, self).config(**params)
+        super_config = super(VLANHost, self).config(**params)
         intf = self.defaultIntf()
         self.cmd('ifconfig %s inet 0' % intf)
         self.cmd('vconfig add %s %d' % (intf, vlan))
         self.cmd('ifconfig %s.%d inet %s' % (intf, vlan, params['ip']))
-        newName = '%s.%d' % (intf, vlan)
-        intf.name = newName
-        self.nameToIntf[newName] = intf
-        return r
+        vlan_intf_name = '%s.%d' % (intf, vlan)
+        intf.name = vlan_intf_name
+        self.nameToIntf[vlan_intf_name] = intf
+        return super_config
 
 
 class FAUCET(Controller):
@@ -129,8 +127,8 @@ class FaucetTest(unittest.TestCase):
             time.sleep(5)
         shutil.rmtree(self.tmpdir)
 
-    def add_host_ipv6_address(self, host, ip):
-        host.cmd('ip -6 addr add %s dev %s' % (ip, host.intf()))
+    def add_host_ipv6_address(self, host, ip_v6):
+        host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf()))
 
     def one_ipv4_ping(self, host, dst):
         ping_result = host.cmd('ping -c1 %s' % dst)
@@ -244,7 +242,7 @@ vlans:
         self.assertEquals(0, self.net.pingAll())
 
 
-class FaucetTaggedAndUntaggedVlanTest(FaucetUntaggedTest):
+class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
 
     CONFIG = CONFIG_HEADER + """
 interfaces:
@@ -268,7 +266,7 @@ vlans:
 
     def setUp(self):
         self.CONFIG = self.CONFIG % PORT_MAP
-        super(FaucetUntaggedTest, self).setUp()
+        super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=1, n_untagged=3)
         self.start_net()
 
@@ -901,15 +899,17 @@ def import_config():
         sys.exit(-1)
     if config['hw_switch']:
         required_config = ['dp_ports', 'switch_ip_addr', 'switch_tcp_port']
-        for _key in required_config:
-            if _key not in config.keys():
+        for required_key in required_config:
+            if required_key not in config:
                 print '%s must be specified in %s to use HW switch.' % (
-                    _key, HW_SWITCH_CONFIG_FILE)
+                    required_key, HW_SWITCH_CONFIG_FILE)
                 sys.exit(-1)
-        if len(config['dp_ports'].keys()) != 4:
-            print 'Exactly 4 dataplane ports are required, %d are provided in %s.' % \
-                  (len(config['dp_ports'].keys()), HW_SWITCH_CONFIG_FILE)
-        for idx, port_no in enumerate(config['dp_ports']):
+        dp_ports = config['dp_ports']
+        if len(dp_ports) != 4:
+            print ('Exactly 4 dataplane ports are required, '
+                   '%d are provided in %s.' %
+                   (len(dp_ports), HW_SWITCH_CONFIG_FILE))
+        for idx, port_no in enumerate(dp_ports):
             PORT_MAP['port_%d'%(idx+1)] = port_no
         return config
 
