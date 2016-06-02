@@ -37,12 +37,14 @@ from mininet.util import dumpNodeConnections, pmonitor
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 
+DPID = '2'
+HARDWARE = 'Open vSwitch'
 CONFIG_HEADER = '''
 ---
-dp_id: 0x1
+dp_id: 0x%s
 name: "faucet-1"
-hardware: "Open vSwitch"
-'''
+hardware: "%s"
+''' % (DPID, HARDWARE)
 
 # TODO: bridge hardware OF switch for comparison with OVS
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
@@ -80,13 +82,13 @@ class FAUCET(Controller):
 class FaucetSwitchTopo(Topo):
 
     def build(self, n_tagged=0, tagged_vid=100, n_untagged=0):
-        switch = self.addSwitch('s1')
         for host_n in range(n_tagged):
             host = self.addHost('ht_%s' % (host_n + 1),
                 cls=VLANHost, vlan=tagged_vid)
-            self.addLink(host, switch)
         for host_n in range(n_untagged):
             host = self.addHost('hu_%s' % (host_n + 1))
+        switch = self.addSwitch('s1', dpid=DPID)
+        for host in self.hosts():
             self.addLink(host, switch)
 
 
