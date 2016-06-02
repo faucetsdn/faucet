@@ -1,12 +1,11 @@
-hw_switch: False    # If True, don't start OVS and use the following information for the test environment
-debug_level: info  # info or debug
-
+# if set to True, map a hardware OpenFlow switch to ports on this machine.
+# Otherwise, run tests against OVS locally.
+hw_switch: False
+# Map ports on the hardware switch, to physical ports on this machine.
 dp_ports:
-  1: eth1   # switch dataplane port_no mapped to the PC interface it's connected to
-  2: eth2
-  3: eth3
-  4: eth4
-# Switch IP and listening TCP port are used by ovs-ofctl commands
-# The switch must support passive OF connection
-switch_ip_addr: 127.0.0.1
-switch_tcp_port: 7777
+  1: p1p1
+  2: p1p2
+  3: p1p3
+  4: p1p4
+# override test DPID if necessary
+dpid: 0000eccd6d9936ed

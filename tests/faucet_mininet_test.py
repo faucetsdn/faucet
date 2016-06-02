@@ -32,24 +32,20 @@ from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import Controller
 from mininet.node import Host
+from mininet.node import Intf
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 
-DPID = '2'
+DPID = '1'
 HARDWARE = 'Open vSwitch'
-CONFIG_HEADER = '''
----
-dp_id: 0x%s
-name: "faucet-1"
-hardware: "%s"
-''' % (DPID, HARDWARE)
 
-# TODO: bridge hardware OF switch for comparison with OVS
+# see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
-# Values used with Mininet, but overwritten for HW switch
+REQUIRED_TEST_PORTS = 4
 PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
+SWITCH_MAP = {}
 
 
 class VLANHost(Host):
@@ -87,7 +83,11 @@ class FaucetSwitchTopo(Topo):
                 cls=VLANHost, vlan=tagged_vid)
         for host_n in range(n_untagged):
             host = self.addHost('hu_%s' % (host_n + 1))
-        switch = self.addSwitch('s1', dpid=DPID)
+        dpid = DPID
+        if SWITCH_MAP:
+            dpid = hex(int(DPID, 16) + 1)[2:]
+            print 'mapped switch will use DPID %s' % dpid
+        switch = self.addSwitch('s1', dpid=dpid)
         for host in self.hosts():
             self.addLink(host, switch)
 
@@ -108,19 +108,53 @@ class FaucetTest(unittest.TestCase):
              'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(self.tmpdir,
              'faucet-exception.log')
+        self.debug_log_path = os.path.join(self.tmpdir, 'ofchannel.log')
         self.CONFIG = '\n'.join((
-            self.CONFIG,
-            'ofchannel_log: "%s"' % os.path.join(self.tmpdir, 'ofchannel.log')))
+            self.get_config_header(DPID, HARDWARE),
+            self.CONFIG % PORT_MAP,
+            'ofchannel_log: "%s"' % self.debug_log_path))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.net = None
         self.topo = None
 
+    def get_config_header(self, dpid, hardware):
+        return '''
+---
+dp_id: 0x%s
+name: "faucet-1"
+hardware: "%s"
+''' % (dpid, hardware)
+
+    def attach_physical_switch(self):
+        switch = self.net.switches[0]
+        hosts_count = len(self.net.hosts)
+        for i, test_host_port in enumerate(sorted(SWITCH_MAP)):
+            port_i = i + 1
+            mapped_port_i = port_i + hosts_count
+            phys_port = Intf(SWITCH_MAP[test_host_port], node=switch)
+            switch.cmd('ifconfig %s up' % phys_port)
+            switch.cmd('ovs-vsctl add-port %s %s' % (switch.name, phys_port.name))
+            for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
+                port_x, port_y = port_pair
+                switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
+                    self.OFCTL, switch.name, port_x, port_y))
+        for _ in range(20):
+            if (os.path.exists(self.debug_log_path) and
+                os.path.getsize(self.debug_log_path) > 0):
+                return
+            time.sleep(1)
+        print 'physical switch could not connect to controller'
+        sys.exit(-1)
+
     def start_net(self):
         self.net = Mininet(self.topo, controller=FAUCET)
         self.net.start()
+        if SWITCH_MAP:
+            self.attach_physical_switch()
+        else:
+            self.net.waitConnected()
+            self.wait_until_matching_flow('actions=CONTROLLER')
         dumpNodeConnections(self.net.hosts)
-        self.net.waitConnected()
-        self.wait_until_matching_flow('actions=CONTROLLER')
 
     def tearDown(self):
         if self.net is not None:
@@ -152,6 +186,11 @@ class FaucetTest(unittest.TestCase):
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
 
     def wait_until_matching_flow(self, flow, timeout=5):
+        # TODO: actually verify flows were communicated to the physical switch.
+        # Could use size of ofchannel log, though this is not authoritative.
+        if SWITCH_MAP:
+            time.sleep(1)
+            return
         switch = self.net.switches[0]
         for _ in range(timeout):
             dump_flows_cmd = '%s dump-flows %s' % (self.OFCTL, switch.name)
@@ -216,7 +255,7 @@ class FaucetTest(unittest.TestCase):
 
 class FaucetUntaggedTest(FaucetTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         native_vlan: 100
@@ -236,7 +275,6 @@ vlans:
 """
 
     def setUp(self):
-        self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetUntaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_untagged=4)
         self.start_net()
@@ -247,7 +285,7 @@ vlans:
 
 class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         tagged_vlans: [100]
@@ -268,7 +306,6 @@ vlans:
 """
 
     def setUp(self):
-        self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=1, n_untagged=3)
         self.start_net()
@@ -279,7 +316,7 @@ vlans:
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 timeout: 60
 interfaces:
     %(port_1)d:
@@ -330,7 +367,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 
 class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 arp_neighbor_timeout: 2
 interfaces:
     %(port_1)d:
@@ -384,7 +421,7 @@ vlans:
 
 class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         native_vlan: 100
@@ -421,7 +458,7 @@ class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
 
 class FaucetUntaggedHostPermanentLearnTest(FaucetUntaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         native_vlan: 100
@@ -456,7 +493,7 @@ vlans:
 
 class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         native_vlan: 100
@@ -491,7 +528,7 @@ vlans:
 
 class FaucetTaggedAndUntaggedTest(FaucetTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         tagged_vlans: [100]
@@ -513,7 +550,6 @@ vlans:
 """
 
     def setUp(self):
-        self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetTaggedAndUntaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=2, n_untagged=2)
         self.start_net()
@@ -531,7 +567,7 @@ vlans:
 
 class FaucetUntaggedACLTest(FaucetUntaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         native_vlan: 100
@@ -585,7 +621,7 @@ acls:
 
 class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         native_vlan: 100
@@ -637,7 +673,7 @@ acls:
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         native_vlan: 100
@@ -682,7 +718,7 @@ vlans:
 
 class FaucetTaggedTest(FaucetTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         tagged_vlans: [100]
@@ -702,7 +738,6 @@ vlans:
 """
 
     def setUp(self):
-        self.CONFIG = self.CONFIG % PORT_MAP
         super(FaucetTaggedTest, self).setUp()
         self.topo = FaucetSwitchTopo(n_tagged=4)
         self.start_net()
@@ -713,7 +748,7 @@ vlans:
 
 class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 interfaces:
     %(port_1)d:
         tagged_vlans: [100]
@@ -748,7 +783,7 @@ vlans:
 
 class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 arp_neighbor_timeout: 2
 interfaces:
     %(port_1)d:
@@ -793,7 +828,7 @@ vlans:
 
 class FaucetUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 arp_neighbor_timeout: 2
 interfaces:
     %(port_1)d:
@@ -849,7 +884,7 @@ vlans:
 
 class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
 
-    CONFIG = CONFIG_HEADER + """
+    CONFIG = """
 arp_neighbor_timeout: 2
 interfaces:
     %(port_1)d:
@@ -900,25 +935,32 @@ def import_config():
     except:
         print 'Could not load YAML config data from %s' % HW_SWITCH_CONFIG_FILE
         sys.exit(-1)
-    if config['hw_switch']:
-        required_config = ['dp_ports', 'switch_ip_addr', 'switch_tcp_port']
+    if 'hw_switch' in config and config['hw_switch']:
+        required_config = ['dp_ports']
         for required_key in required_config:
             if required_key not in config:
                 print '%s must be specified in %s to use HW switch.' % (
                     required_key, HW_SWITCH_CONFIG_FILE)
                 sys.exit(-1)
         dp_ports = config['dp_ports']
-        if len(dp_ports) != 4:
-            print ('Exactly 4 dataplane ports are required, '
+        if len(dp_ports) != REQUIRED_TEST_PORTS:
+            print ('Exactly %u dataplane ports are required, '
                    '%d are provided in %s.' %
-                   (len(dp_ports), HW_SWITCH_CONFIG_FILE))
-        for idx, port_no in enumerate(dp_ports):
-            PORT_MAP['port_%d'%(idx+1)] = port_no
-        return config
+                   (REQUIRED_TEST_PORTS, len(dp_ports), HW_SWITCH_CONFIG_FILE))
+        for i, switch_port in enumerate(dp_ports):
+            test_port_name = 'port_%u' % (i+1)
+            global PORT_MAP
+            PORT_MAP[test_port_name] = switch_port
+            global SWITCH_MAP
+            SWITCH_MAP[test_port_name] = dp_ports[switch_port]
+        if 'dpid' in config:
+            global DPID
+            DPID = config['dpid']
+        if 'hardware' in config:
+            global HARDWARE
+            HARDWARE = config['hardware']
 
 
 if __name__ == '__main__':
-    config = import_config()
-    if config is not None:
-        setLogLevel(config.get('debug_level', 'info'))
+    import_config()
     unittest.main()
