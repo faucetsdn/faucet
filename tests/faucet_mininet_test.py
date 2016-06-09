@@ -28,6 +28,7 @@ import tempfile
 import time
 import unittest
 import yaml
+import json
 import requests
 from mininet.log import setLogLevel
 from mininet.net import Mininet
@@ -188,23 +189,21 @@ hardware: "%s"
     def one_ipv6_controller_ping(self, host):
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
 
-    def wait_until_matching_flow(self, flow, timeout=5):
+    def wait_until_matching_flow(self, exp_flow, timeout=5):
         # TODO: actually verify flows were communicated to the physical switch.
         # Could use size of ofchannel log, though this is not authoritative.
         if SWITCH_MAP:
             time.sleep(1)
             return
-        switch = self.net.switches[0]
         for _ in range(timeout):
-            dump_flows = requests.get(RYU_ADDR+'/stats/flow/%s' % DPID).text
-            # dump_flows_cmd = '%s dump-flows %s' % (self.OFCTL, switch.name)
-            # dump_flows = switch.cmd(dump_flows_cmd)
-            for line in dump_flows.split('\n'):
-                if re.search(flow, line):
+            dump_flows = json.loads(requests.get(RYU_ADDR+'/stats/flow/%s' % DPID).text)[DPID]
+            for flow in dump_flows:
+                # Re-transform the dictioray into str to re-use the verify_ipv*_routing methods
+                flow_str = json.dumps(flow)
+                if re.search(exp_flow, flow_str):
                     return
             time.sleep(1)
-        print flow, dump_flows
-        self.assertTrue(re.search(flow, dump_flows))
+        self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
 
     def swap_host_macs(self, first_host, second_host):
         first_host_mac = first_host.MAC()
@@ -224,11 +223,11 @@ hardware: "%s"
                          first_host_routed_ip.masked(), self.CONTROLLER_IPV4)))
         self.net.ping(hosts=(first_host, second_host))
         self.wait_until_matching_flow(
-             'nw_dst=%s.+set_field:%s->eth_dst' % (
-                 first_host_routed_ip.masked(), first_host.MAC()))
+            """SET_FIELD: {eth_dst:%s.+"nw_dst": "%s""" % (
+                first_host.MAC(), first_host_routed_ip.masked().with_netmask))
         self.wait_until_matching_flow(
-             'nw_dst=%s.+set_field:%s->eth_dst' % (
-                 second_host_routed_ip.masked(), second_host.MAC()))
+            """SET_FIELD: {eth_dst:%s.+"nw_dst": "%s""" % (
+                second_host.MAC(), second_host_routed_ip.masked().with_netmask))
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
 
@@ -245,12 +244,14 @@ hardware: "%s"
             second_host_routed_ip.masked(), self.CONTROLLER_IPV6))
         second_host.cmd('ip -6 route add %s via %s' % (
             first_host_routed_ip.masked(), self.CONTROLLER_IPV6))
+        exp_ipv6 = "%s/%s" % (first_host_routed_ip.masked().ip, first_host_routed_ip.netmask)
         self.wait_until_matching_flow(
-            'ipv6_dst=%s.+set_field:%s->eth_dst' % (
-                first_host_routed_ip.masked(), first_host.MAC()))
+            """SET_FIELD: {eth_dst:%s.+"ipv6_dst": "%s""" % (
+                first_host.MAC(), exp_ipv6))
+        exp_ipv6 = "%s/%s" % (first_host_routed_ip.masked().ip, first_host_routed_ip.netmask)
         self.wait_until_matching_flow(
-            'ipv6_dst=%s.+set_field:%s->eth_dst' % (
-                second_host_routed_ip.masked(), second_host.MAC()))
+            """SET_FIELD: {eth_dst:%s.+"ipv6_dst": "%s""" % (
+                second_host.MAC(), exp_ipv6))
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
