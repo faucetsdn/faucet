@@ -189,11 +189,6 @@ hardware: "%s"
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
 
     def wait_until_matching_flow(self, exp_flow, timeout=5):
-        # TODO: actually verify flows were communicated to the physical switch.
-        # Could use size of ofchannel log, though this is not authoritative.
-        if SWITCH_MAP:
-            time.sleep(1)
-            return
         for _ in range(timeout):
             dump_flows = json.loads(requests.get(RYU_ADDR+'/stats/flow/%s' % DPID).text)[DPID]
             for flow in dump_flows:
