@@ -28,6 +28,7 @@ import tempfile
 import time
 import unittest
 import yaml
+import requests
 from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import Controller
@@ -40,6 +41,7 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 
 DPID = '1'
 HARDWARE = 'Open vSwitch'
+RYU_ADDR = "http://127.0.0.1:8080"
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
@@ -67,7 +69,7 @@ class VLANHost(Host):
 class FAUCET(Controller):
 
     def __init__(self, name, cdir=FAUCET_DIR,
-                 command='ryu-manager faucet.py',
+                 command='ryu-manager ryu.app.ofctl_rest faucet.py',
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         Controller.__init__(self, name, cdir=cdir,
@@ -153,7 +155,8 @@ hardware: "%s"
             self.attach_physical_switch()
         else:
             self.net.waitConnected()
-            self.wait_until_matching_flow('actions=CONTROLLER')
+            # self.wait_until_matching_flow('actions=CONTROLLER')
+            self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
     def tearDown(self):
@@ -193,8 +196,9 @@ hardware: "%s"
             return
         switch = self.net.switches[0]
         for _ in range(timeout):
-            dump_flows_cmd = '%s dump-flows %s' % (self.OFCTL, switch.name)
-            dump_flows = switch.cmd(dump_flows_cmd)
+            dump_flows = requests.get(RYU_ADDR+'/stats/flow/%s' % DPID).text
+            # dump_flows_cmd = '%s dump-flows %s' % (self.OFCTL, switch.name)
+            # dump_flows = switch.cmd(dump_flows_cmd)
             for line in dump_flows.split('\n'):
                 if re.search(flow, line):
                     return
