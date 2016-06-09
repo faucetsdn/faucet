@@ -156,7 +156,6 @@ hardware: "%s"
             self.attach_physical_switch()
         else:
             self.net.waitConnected()
-            # self.wait_until_matching_flow('actions=CONTROLLER')
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
