@@ -81,7 +81,7 @@ class DP(object):
 
     def sanity_check(self):
         assert 'dp_id' in self.__dict__
-        assert isinstance(self.dp_id, int)
+        assert isinstance(self.dp_id, (int, long))
         for vid, vlan in self.vlans.iteritems():
             assert isinstance(vid, int)
             assert isinstance(vlan, VLAN)
