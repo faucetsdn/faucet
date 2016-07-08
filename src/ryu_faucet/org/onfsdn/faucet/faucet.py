@@ -82,14 +82,15 @@ class Faucet(app_manager.RyuApp):
             'FAUCET_EXCEPTION_LOG', '/var/log/ryu/faucet/faucet_exception.log')
         # Getting faucet_db config file
         self.db_config = os.getenv(
-            'FAUCET_DB_CONFIG', '/etc/ryu/faucet/faucet_db.conf')
+            'FAUCET_DB_CONFIG', '/etc/ryu/faucet/faucet_db.yaml')
 
 
         stream = open(self.db_config, 'r')
         data = yaml.load(stream)
 
-        self.conn_string = 'driver=' + data['driver'] + ';'+'server=' + data['db_ip']+ \
-        +';'+'port=' + data['db_port'] + ','+ 'uid=' + data['db_username'] + ';' +'pwd=' + data['db_password']
+        self.conn_string = 'driver=' + data['driver'] + ';' + 'server=' + data['db_ip'] + \
+         ';' + 'port=' + str(data['db_port']) + ',' + 'uid=' + data['db_username'] + \
+         ';' +'pwd=' + str(data['db_password'])
 
 
         # Set the signal handler for reloading config file
