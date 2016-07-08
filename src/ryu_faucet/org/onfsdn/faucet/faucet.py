@@ -36,6 +36,10 @@ from ryu.lib.packet import ethernet
 from ryu.lib.packet import vlan
 from ryu.lib import hub
 
+from nsodbc import nsodbc_factory
+import yaml
+
+
 
 class EventFaucetReconfigure(event.EventBase):
     pass
@@ -76,6 +80,17 @@ class Faucet(app_manager.RyuApp):
             'FAUCET_LOG', '/var/log/ryu/faucet/faucet.log')
         self.exc_logfile = os.getenv(
             'FAUCET_EXCEPTION_LOG', '/var/log/ryu/faucet/faucet_exception.log')
+        # Getting faucet_db config file
+        self.db_config = os.getenv(
+            'FAUCET_DB_CONFIG', '/etc/ryu/faucet/faucet_db.conf')
+
+
+        stream = open(self.db_config, 'r')
+        data = yaml.load(stream)
+
+        self.conn_string = data['driver'] + ';' + data['db_ip']+ \
+        +';'+data['db_port'] + ','+ data['db_username'] + ';' + data['db_password']
+
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
@@ -110,10 +125,9 @@ class Faucet(app_manager.RyuApp):
             self.logger.error("Hardware type not supported")
 
         self.nsodbc = nsodbc_factory()
-        self.conn = self.nsodbc.connect('driver=couchdb;server=localhost;' + \
-                        'uid=root;pwd=admin')
-        self.switch_database = self.conn.create('switches_bak')
-        self.flow_database = self.conn.create('flows_bak')
+        self.conn = self.nsodbc.connect(self.conn_string)
+        self.switch_database = self.conn.create(data['switches_doc'])
+        self.flow_database = self.conn.create(data['flows_doc'])
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
@@ -144,7 +158,7 @@ class Faucet(app_manager.RyuApp):
         self.valve.ofchannel_log(flow_msgs)
         switch = None
         try:
-            rows = self.switch_database.get_docs('_design/switches/_view/switch', key=str(hex(dp.id)))
+            rows = self.switch_database.get_docs(data['views']['v1'], key=str(hex(dp.id)))
             switch = rows[0]
         except:
             # switch event not triggered yet
@@ -233,7 +247,7 @@ class Faucet(app_manager.RyuApp):
             self.logger.debug('DP %s disconnected' % str(dp.id))
             self.valve.datapath_disconnect(dp.id)
 
-            rows = self.switch_database.get_docs('_design/switches/_view/switch', key=str(hex(dp.id)))
+            rows = self.switch_database.get_docs(data['views']['v1'], key=str(hex(dp.id)))
             switch = rows[0].value
             for flow_id in switch['data']['flows']:
                  self.flow_database.delete_doc(str(flow_id))
