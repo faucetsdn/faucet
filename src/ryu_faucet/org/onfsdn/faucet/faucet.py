@@ -88,8 +88,8 @@ class Faucet(app_manager.RyuApp):
         stream = open(self.db_config, 'r')
         data = yaml.load(stream)
 
-        self.conn_string = data['driver'] + ';' + data['db_ip']+ \
-        +';'+data['db_port'] + ','+ data['db_username'] + ';' + data['db_password']
+        self.conn_string = 'driver=' + data['driver'] + ';'+'server=' + data['db_ip']+ \
+        +';'+'port=' + data['db_port'] + ','+ 'uid=' + data['db_username'] + ';' +'pwd=' + data['db_password']
 
 
         # Set the signal handler for reloading config file
