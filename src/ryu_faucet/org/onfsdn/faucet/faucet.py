@@ -109,6 +109,12 @@ class Faucet(app_manager.RyuApp):
         if self.valve is None:
             self.logger.error("Hardware type not supported")
 
+        self.nsodbc = nsodbc_factory()
+        self.conn = self.nsodbc.connect('driver=couchdb;server=localhost;' + \
+                        'uid=root;pwd=admin')
+        self.switch_database = self.conn.create('switches_bak')
+        self.flow_database = self.conn.create('flows_bak')
+
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
         self.host_expire_request_thread = hub.spawn(
@@ -136,9 +142,21 @@ class Faucet(app_manager.RyuApp):
 
     def send_flow_msgs(self, dp, flow_msgs):
         self.valve.ofchannel_log(flow_msgs)
+        switch = None
+        try:
+            rows = self.switch_database.get_docs('_design/switches/_view/switch', key=str(hex(dp.id)))
+            switch = rows[0]
+        except:
+            # switch event not triggered yet
+            switch = None
         for flow_msg in flow_msgs:
             flow_msg.datapath = dp
             dp.send_msg(flow_msg)
+            flow_object = {'data':flow_msg.to_jsondict(), 'tags': []}
+            flow_id = self.flow_database.insert_update_doc(flow_object, '')
+            if switch:
+                switch.value['data']['flows'].append(flow_id)
+                self.switch_database.insert_update_doc(switch.value, 'data')
 
     def signal_handler(self, sigid, frame):
         if sigid == signal.SIGHUP:
@@ -207,10 +225,21 @@ class Faucet(app_manager.RyuApp):
     def handler_connect_or_disconnect(self, ev):
         dp = ev.dp
 
+        switch_object = {'_id': str(hex(dp.id)), 'data':{'flows':[]}}
+        self.switch_database.insert_update_doc(switch_object, 'data')
+
         if not ev.enter:
             # Datapath down message
             self.logger.debug('DP %s disconnected' % str(dp.id))
             self.valve.datapath_disconnect(dp.id)
+
+            rows = self.switch_database.get_docs('_design/switches/_view/switch', key=str(hex(dp.id)))
+            switch = rows[0].value
+            for flow_id in switch['data']['flows']:
+                 self.flow_database.delete_doc(str(flow_id))
+
+            # Delete switch from database
+            self.switch_database.delete_doc(str(hex(dp.id)))
             return
 
         self.logger.debug('DP %s connected' % str(dp.id))
