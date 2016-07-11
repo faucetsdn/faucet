@@ -84,14 +84,18 @@ class Faucet(app_manager.RyuApp):
         self.db_config = os.getenv(
             'FAUCET_DB_CONFIG', '/etc/ryu/faucet/faucet_db.yaml')
 
+        # Database specific config file read
+        with open(self.db_config, 'r') as stream:
+            data = yaml.load(stream)
 
-        stream = open(self.db_config, 'r')
-        data = yaml.load(stream)
+        self.db_enabled = False
+        if data['database']:
+            self.db_enabled = True
 
-        self.conn_string = 'driver=' + data['driver'] + ';' + 'server=' + data['db_ip'] + \
-         ';' + 'port=' + str(data['db_port']) + ',' + 'uid=' + data['db_username'] + \
-         ';' +'pwd=' + str(data['db_password'])
-
+            self.conn_string = 'driver=' + data['driver'] + ';' + \
+                'server=' + data['db_ip'] + ';' + 'port=' + \
+                str(data['db_port']) + ',' + 'uid=' + \
+                data['db_username'] + ';' + 'pwd=' + str(data['db_password'])
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
@@ -157,21 +161,28 @@ class Faucet(app_manager.RyuApp):
 
     def send_flow_msgs(self, dp, flow_msgs):
         self.valve.ofchannel_log(flow_msgs)
-        switch = None
-        try:
-            rows = self.switch_database.get_docs(data['views']['v1'], key=str(hex(dp.id)))
-            switch = rows[0]
-        except:
-            # switch event not triggered yet
+
+        if self.db_enabled:
             switch = None
+            try:
+                rows = self.switch_database.get_docs(data['views']['v1'],
+                    key=str(hex(dp.id)))
+                switch = rows[0]
+            except:
+                switch = None
+
         for flow_msg in flow_msgs:
             flow_msg.datapath = dp
             dp.send_msg(flow_msg)
-            flow_object = {'data':flow_msg.to_jsondict(), 'tags': []}
-            flow_id = self.flow_database.insert_update_doc(flow_object, '')
-            if switch:
-                switch.value['data']['flows'].append(flow_id)
-                self.switch_database.insert_update_doc(switch.value, 'data')
+            # Dump flows into db only when database flag is set
+            if self.db_enabled:
+                flow_object = {'data':flow_msg.to_jsondict(), 'tags': []}
+                flow_id = self.flow_database.insert_update_doc(flow_object,
+                 '')
+                if switch:
+                    switch.value['data']['flows'].append(flow_id)
+                    self.switch_database.insert_update_doc(switch.value,
+                     'data')
 
     def signal_handler(self, sigid, frame):
         if sigid == signal.SIGHUP:
@@ -240,21 +251,24 @@ class Faucet(app_manager.RyuApp):
     def handler_connect_or_disconnect(self, ev):
         dp = ev.dp
 
-        switch_object = {'_id': str(hex(dp.id)), 'data':{'flows':[]}}
-        self.switch_database.insert_update_doc(switch_object, 'data')
+        if self.db_enabled:
+            switch_object = {'_id': str(hex(dp.id)), 'data':{'flows':[]}}
+            self.switch_database.insert_update_doc(switch_object, 'data')
 
         if not ev.enter:
             # Datapath down message
             self.logger.debug('DP %s disconnected' % str(dp.id))
             self.valve.datapath_disconnect(dp.id)
 
-            rows = self.switch_database.get_docs(data['views']['v1'], key=str(hex(dp.id)))
-            switch = rows[0].value
-            for flow_id in switch['data']['flows']:
-                 self.flow_database.delete_doc(str(flow_id))
-
-            # Delete switch from database
-            self.switch_database.delete_doc(str(hex(dp.id)))
+            if self.db_enabled:
+                rows = self.switch_database.get_docs(data['views']['v1'],
+                    key=str(hex(dp.id)))
+                switch = rows[0].value
+                # Delete flows in the switch
+                for flow_id in switch['data']['flows']:
+                    self.flow_database.delete_doc(str(flow_id))
+                # Delete switch from database
+                self.switch_database.delete_doc(str(hex(dp.id)))
             return
 
         self.logger.debug('DP %s connected' % str(dp.id))
