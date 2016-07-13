@@ -30,6 +30,8 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib import hub
 
 from influxdb import InfluxDBClient
+from nsodbc import nsodbc_factory
+import yaml
 
 
 # TODO: configurable
@@ -345,6 +347,9 @@ class Gauge(app_manager.RyuApp):
         self.exc_logfile = os.getenv(
             'GAUGE_EXCEPTION_LOG', '/var/log/ryu/faucet/gauge_exception.log')
         self.logfile = os.getenv('GAUGE_LOG', '/var/log/ryu/faucet/gauge.log')
+        # Getting faucet_db config file
+        self.db_config = os.getenv(
+            'FAUCET_DB_CONFIG', '/etc/ryu/faucet/faucet_db.conf')
 
         # Setup logging
         self.logger = logging.getLogger(__name__)
@@ -381,6 +386,23 @@ class Gauge(app_manager.RyuApp):
                 else:
                     self.dps[dp.dp_id] = dp
 
+        # Database specific config file read
+        self.db_enabled = False
+        with open(self.db_config, 'r') as stream:
+            data = yaml.load(stream)
+            if data['database']:
+                self.db_enabled = True
+                self.conn_string = 'driver=' + data['driver'] + ';' + \
+                    'server=' + data['db_ip'] + ';' + \
+                    'port=' + str(data['db_port']) + ';' + \
+                    'uid=' + data['db_username'] + ';' + \
+                    'pwd=' + str(data['db_password'])
+                nsodbc = nsodbc_factory()
+                conn = nsodbc.connect(self.conn_string)
+                self.switch_database = conn.create(data['switches_doc'])
+                self.flow_database = conn.create(data['flows_doc'])
+                self.db_conf_data = data
+
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
 
@@ -403,6 +425,10 @@ class Gauge(app_manager.RyuApp):
 
         if ev.enter: # DP is connecting
             self.logger.info("datapath up %x", dp.dp_id)
+            # Update db with switch
+            if self.db_enabled:
+                switch_object = {'_id': str(hex(dp.id)), 'data':{'flows':[]}}
+                self.switch_database.insert_update_doc(switch_object, 'data')
             self.handler_datapath(ev)
         else: # DP is disconnecting
             if dp.dp_id in self.pollers:
@@ -411,6 +437,19 @@ class Gauge(app_manager.RyuApp):
                 del self.pollers[dp.dp_id]
             self.logger.info("datapath down %x", dp.dp_id)
             dp.running = False
+
+            # Remove switch and related flows from db on disconnect
+            if self.db_enabled:
+                rows = self.switch_database.get_docs(
+                        self.db_conf_data['views']['v1'],
+                        key=str(hex(dp.id))
+                        )
+                switch = rows[0].value
+                # Delete flows in the switch
+                for flow_id in switch['data']['flows']:
+                    self.flow_database.delete_doc(str(flow_id))
+                # Delete switch from database
+                self.switch_database.delete_doc(str(hex(dp.id)))
 
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
