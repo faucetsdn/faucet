@@ -83,6 +83,86 @@ The datapath ID may be specified as an integer or hex string (beginning with 0x)
 
 A port not explicitly defined in the YAML configuration file will be set down and will drop all packets.
 
+
+Versions
+--------
+
+The Faucet configuration file format occasionally changes to add functionality or accomodate changes inside Faucet. If the ``version`` field is not specified in ``faucet.yaml``, the current default value is ``1``.
+
+Version 1 of the Faucet configuration file format does not allow multiple datapaths to be defined. The one datapath configured for this Faucet instance is configured using top level values, a sample of which can be found in ``faucet.yaml``. Previous (1.0 and older) versions of Faucet do not support the ``version`` field, so most configuration files in this format should not use it, unless using a newer version of Faucet with an older configuration file is required.
+
+.. code:: yaml
+
+  ---
+  dp_id: 0x000000000001:
+  name: "test-switch-1"
+  
+  interfaces:
+      1:
+          native_vlan: 2040
+          acl_in: 1
+
+  vlans:
+      2040:
+          name: "dev VLAN"
+
+  acls:
+      1:
+          - rule:
+              nw_dst: "172.0.0.0/8"
+              dl_type: 0x800
+              allow: 1
+
+          - rule:
+              dl_type: 0x0806
+              allow: 1
+
+          - rule:
+              nw_dst: "10.0.0.0/16"
+              dl_type: 0x800
+              allow: 0
+
+Version 2 of the Faucet configuration file format adds the ``version`` field, and allows multiple datapaths (switches) to be defined in one configuration file using the ``dps`` object, with each datapath sharing the ``vlans`` and ``acls`` objects defined in that file.
+
+.. code:: yaml
+
+  ---
+  version: 2
+
+  dps:
+      0x000000000001:
+          name: "test-switch-1"
+          interfaces:
+              1:
+                  native_vlan: 2040
+                  acl_in: 1
+      0x000000000002:
+          name: "test-switch-2"
+          interfaces:
+              1:
+                  native_vlan: 2040
+                  acl_in: 1
+
+  vlans:
+      2040:
+          name: "dev VLAN"
+
+  acls:
+      1:
+          - rule:
+              nw_dst: "172.0.0.0/8"
+              dl_type: 0x800
+              allow: 1
+
+          - rule:
+              dl_type: 0x0806
+              allow: 1
+
+          - rule:
+              nw_dst: "10.0.0.0/16"
+              dl_type: 0x800
+              allow: 0
+
 ============
 Installation
 ============

@@ -42,23 +42,11 @@ class DP(object):
         self.set_defaults()
 
     @classmethod
-    def parser(cls, config_file, logname=__name__):
+    def _parser_v1(cls, conf, logname):
         logger = logging.getLogger(logname)
-        try:
-            with open(config_file, 'r') as stream:
-                conf = yaml.load(stream)
-        except yaml.YAMLError as ex:
-            mark = ex.problem_mark
-            errormsg = "Error in file: {0} at ({1}, {2})".format(
-                config_file,
-                mark.line + 1,
-                mark.column + 1)
-            logger.error(errormsg)
-            return None
 
         if 'dp_id' not in conf:
-            errormsg = "dp_id not configured in file: {0}".format(config_file)
-            logger.error(errormsg)
+            logger.error("dp_id not configured in file: {0}".format(config_file))
             return None
 
         dp = DP(conf['dp_id'], logname)
@@ -76,8 +64,64 @@ class DP(object):
         for acl_num, acl_conf in acls.iteritems():
             dp.add_acl(acl_num, acl_conf)
 
-
         return dp
+
+    @classmethod
+    def _parser_v2(cls, conf, logname):
+        logger = logging.getLogger(logname)
+
+        if 'dps' not in conf:
+            logger.error("dps not configured in file: {0}".format(config_file))
+            return None
+
+        vlans = conf.pop('vlans', {})
+        acls = conf.pop('acls', {})
+
+        dps = []
+        for dp_id, cf in conf['dps'].iteritems():
+            dp = DP(dp_id, logname)
+            interfaces = cf.pop('interfaces', {})
+            dp.__dict__.update(cf)
+            dp.set_defaults()
+
+            for vid, vlan_conf in vlans.iteritems():
+                dp.add_vlan(vid, vlan_conf)
+            for port_num, port_conf in interfaces.iteritems():
+                dp.add_port(port_num, port_conf)
+            for acl_num, acl_conf in acls.iteritems():
+                dp.add_acl(acl_num, acl_conf)
+
+            dps.append(dp)
+
+        if dps:
+            return dps[0]
+        else:
+            logger.error("dps configured with no elements in file: {0}".format(config_file))
+            return None
+
+    @classmethod
+    def parser(cls, config_file, logname=__name__):
+        logger = logging.getLogger(logname)
+        try:
+            with open(config_file, 'r') as stream:
+                conf = yaml.load(stream)
+        except yaml.YAMLError as ex:
+            mark = ex.problem_mark
+            logger.error("Error in file: {0} at ({1}, {2})".format(
+                config_file,
+                mark.line + 1,
+                mark.column + 1))
+            return None
+
+        version = conf.pop('version', 1)
+
+        if version == 1:
+            return DP._parser_v1(conf, logname)
+        elif version == 2:
+            return DP._parser_v2(conf, logname)
+        else:
+            logger.error("unsupported config version number: {0}".format(version))
+            return None
 
     def sanity_check(self):
         assert 'dp_id' in self.__dict__
