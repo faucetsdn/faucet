@@ -18,6 +18,7 @@
 # * iputils-ping
 # * netcat-openbsd
 # * tcpdump
+# * exabgp
 
 import ipaddr
 import os
@@ -385,6 +386,11 @@ vlans:
     100:
         description: "untagged"
         controller_ips: ["10.0.0.254/24"]
+        bgp_port: 9179
+        bgp_as: 1
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_address: "127.0.0.1"
+        bgp_neighbor_as: 2
         routes:
             - route:
                 ip_dst: "10.0.1.0/24"
@@ -398,6 +404,30 @@ vlans:
 """
 
     def test_untagged(self):
+        exabgp_conf = """
+group test {
+  process test {
+    encoder json;
+    neighbor-changes;
+    receive-routes;
+    run /bin/cat;
+  }
+  router-id 2.2.2.2;
+  neighbor 127.0.0.1 {
+    passive;
+    local-address 127.0.0.1;
+    peer-as 1;
+    local-as 2;
+  }
+}
+"""
+	exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
+        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
+        open(exabgp_conf_file, 'w').write(exabgp_conf)
+        controller = self.net.controllers[0]
+        controller.cmd(
+            'env exabgp.tcp.bind="127.0.0.1" exabgp.tcp.port=179 exabgp '
+            '%s -d 2> /dev/null > %s &' % (exabgp_conf_file, exabgp_log))
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
@@ -416,6 +446,17 @@ vlans:
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip2)
+        # exabgp should have received our BGP updates
+        for i in range(30):
+            updates = controller.cmd(
+                'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log)
+            if updates:
+                break
+            time.sleep(1)
+        assert re.search('10.0.0.0/24 next-hop 10.0.0.254', updates)
+        assert re.search('10.0.1.0/24 next-hop 10.0.0.1', updates)
+        assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
+        assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
 
 
 class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
@@ -846,6 +887,11 @@ vlans:
     100:
         description: "untagged"
         controller_ips: ["fc00::1:254/112"]
+        bgp_port: 9179
+        bgp_as: 1
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_address: "::1"
+        bgp_neighbor_as: 2
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"
@@ -859,6 +905,30 @@ vlans:
 """
 
     def test_untagged(self):
+        exabgp_conf = """
+group test {
+  process test {
+    encoder json;
+    neighbor-changes;
+    receive-routes;
+    run /bin/cat;
+  }
+  router-id 2.2.2.2;
+  neighbor ::1 {
+    passive;
+    local-address ::1;
+    peer-as 1;
+    local-as 2;
+  }
+}
+"""
+        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
+        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
+        open(exabgp_conf_file, 'w').write(exabgp_conf)
+        controller = self.net.controllers[0]
+        controller.cmd(
+            'env exabgp.tcp.bind="::1" exabgp.tcp.port=179 exabgp '
+            '%s -d 2> /dev/null > %s &' % (exabgp_conf_file, exabgp_log))
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
         first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
@@ -879,6 +949,17 @@ vlans:
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2)
+        # exabgp should have received our BGP updates
+        for i in range(30):
+            updates = controller.cmd(
+                'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log)
+            if updates:
+                break
+            time.sleep(1)
+        assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
+        assert re.search('fc00::10:0/112 next-hop fc00::1:1', updates)
+        assert re.search('fc00::20:0/112 next-hop fc00::1:2', updates)
+        assert re.search('fc00::30:0/112 next-hop fc00::1:2', updates)
 
 
 class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
