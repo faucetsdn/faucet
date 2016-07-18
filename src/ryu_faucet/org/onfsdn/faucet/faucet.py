@@ -107,7 +107,7 @@ class Faucet(app_manager.RyuApp):
         dp = self.parse_config(self.config_file, self.logname)
         self.valve = valve_factory(dp)
         if self.valve is None:
-            self.logger.error("Hardware type not supported")
+            self.logger.error('Hardware type not supported')
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
@@ -131,7 +131,7 @@ class Faucet(app_manager.RyuApp):
                 new_dp.sanity_check()
                 return new_dp
             except AssertionError:
-                self.logger.exception("Error in config file:")
+                self.logger.exception('Error in config file:')
         return None
 
     def send_flow_msgs(self, dp, flow_msgs):
