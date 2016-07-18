@@ -78,6 +78,16 @@ class FAUCET(Controller):
                             command=command,
                             cargs=cargs, **kwargs)
 
+class Gauge(Controller):
+
+    def __init__(self, name, cdir=FAUCET_DIR,
+                 command='ryu-manager gauge.py',
+                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
+                 **kwargs):
+        Controller.__init__(self, name, cdir=cdir,
+                            command=command,
+                            cargs=cargs, **kwargs)
+
 
 class FaucetSwitchTopo(Topo):
 
@@ -108,26 +118,46 @@ class FaucetTest(unittest.TestCase):
         self.tmpdir = tempfile.mkdtemp()
         os.environ['FAUCET_CONFIG'] = os.path.join(self.tmpdir,
              'faucet.yaml')
+        os.environ['GAUGE_CONFIG'] = os.path.join(self.tmpdir,
+             'gauge.conf')
+        open(os.environ['GAUGE_CONFIG'], 'w').write(
+             os.environ['FAUCET_CONFIG'])
         os.environ['FAUCET_LOG'] = os.path.join(self.tmpdir,
              'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(self.tmpdir,
              'faucet-exception.log')
+        os.environ['GAUGE_LOG'] = os.path.join(self.tmpdir,
+             'gauge.log')
+        os.environ['GAUGE_EXCEPTION_LOG'] = os.path.join(self.tmpdir,
+             'gauge-exception.log')
         self.debug_log_path = os.path.join(self.tmpdir, 'ofchannel.log')
+        self.monitor_ports_file = os.path.join(self.tmpdir,
+             'ports.txt')
+        self.monitor_flow_table_file = os.path.join(self.tmpdir,
+             'flow.txt')
         self.CONFIG = '\n'.join((
-            self.get_config_header(DPID, HARDWARE),
+            self.get_config_header(
+                DPID, HARDWARE, self.monitor_ports_file, self.monitor_flow_table_file),
             self.CONFIG % PORT_MAP,
             'ofchannel_log: "%s"' % self.debug_log_path))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.net = None
         self.topo = None
 
-    def get_config_header(self, dpid, hardware):
+    def get_config_header(self, dpid, hardware,
+                          monitor_ports_files, monitor_flow_table_file):
         return '''
 ---
 dp_id: 0x%s
 name: "faucet-1"
 hardware: "%s"
-''' % (dpid, hardware)
+monitor_ports: True
+monitor_ports_interval: 2
+monitor_ports_file: "%s"
+monitor_flow_table: True
+monitor_flow_table_interval: 2
+monitor_flow_table_file: "%s"
+''' % (dpid, hardware, monitor_ports_files, monitor_flow_table_file)
 
     def attach_physical_switch(self):
         switch = self.net.switches[0]
@@ -152,6 +182,11 @@ hardware: "%s"
 
     def start_net(self):
         self.net = Mininet(self.topo, controller=FAUCET)
+        # TODO: when running software only, also test gauge.
+        if not SWITCH_MAP:
+            faucet_port = self.net.controllers[0].port
+            self.net.addController(
+                name='gauge', controller=Gauge, port=faucet_port + 1)
         self.net.start()
         if SWITCH_MAP:
             self.attach_physical_switch()
@@ -178,9 +213,9 @@ hardware: "%s"
     def one_ipv4_controller_ping(self, host):
         self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
 
-    def one_ipv6_ping(self, host, dst):
+    def one_ipv6_ping(self, host, dst, timeout=2):
         # TODO: retry our one ping. We should not have to retry.
-        for _ in range(2):
+        for _ in range(timeout):
             ping_result = host.cmd('ping6 -c1 %s' % dst)
             if re.search(self.ONE_GOOD_PING, ping_result):
                 return
@@ -189,11 +224,13 @@ hardware: "%s"
     def one_ipv6_controller_ping(self, host):
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
 
-    def wait_until_matching_flow(self, exp_flow, timeout=5):
+    def wait_until_matching_flow(self, exp_flow, timeout=10):
         for _ in range(timeout):
-            dump_flows = json.loads(requests.get(RYU_ADDR+'/stats/flow/%s' % DPID).text)[DPID]
+            dump_flows = json.loads(requests.get(
+            RYU_ADDR+'/stats/flow/%s' % DPID).text)[DPID]
             for flow in dump_flows:
-                # Re-transform the dictioray into str to re-use the verify_ipv*_routing methods
+                # Re-transform the dictioray into str to re-use
+                # the verify_ipv*_routing methods
                 flow_str = json.dumps(flow)
                 if re.search(exp_flow, flow_str):
                     return
@@ -281,6 +318,10 @@ vlans:
 
     def test_untagged(self):
         self.assertEquals(0, self.net.pingAll())
+        # TODO: a smoke test only - are flow/port stats accumulating
+        if not SWITCH_MAP:
+           assert os.stat(self.monitor_ports_file).st_size > 0
+           assert os.stat(self.monitor_flow_table_file).st_size > 0
 
 
 class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
