@@ -42,7 +42,7 @@ class DP(object):
         self.set_defaults()
 
     @classmethod
-    def _parser_v1(cls, conf, logname):
+    def _parser_v1(cls, conf, config_file, logname):
         logger = logging.getLogger(logname)
 
         if 'dp_id' not in conf:
@@ -67,7 +67,7 @@ class DP(object):
         return dp
 
     @classmethod
-    def _parser_v2(cls, conf, logname):
+    def _parser_v2(cls, conf, config_file, logname):
         logger = logging.getLogger(logname)
 
         if 'dps' not in conf:
@@ -116,9 +116,9 @@ class DP(object):
         version = conf.pop('version', 1)
 
         if version == 1:
-            return DP._parser_v1(conf, logname)
+            return DP._parser_v1(conf, config_file, logname)
         elif version == 2:
-            return DP._parser_v2(conf, logname)
+            return DP._parser_v2(conf, config_file, logname)
         else:
             logger.error("unsupported config version number: {0}".format(version))
             return None
