@@ -24,17 +24,17 @@ from util import kill_on_exception
 from dp import DP
 
 from ryu.base import app_manager
-from ryu.controller import ofp_event
-from ryu.controller import dpset
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
+from ryu.controller import dpset
 from ryu.controller import event
-from ryu.ofproto import ofproto_v1_3, ether
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
-from ryu.lib.packet import vlan
+from ryu.controller import ofp_event
 from ryu.lib import hub
+from ryu.lib.packet import ethernet
+from ryu.lib.packet import packet
+from ryu.lib.packet import vlan
+from ryu.ofproto import ofproto_v1_3, ether
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -107,7 +107,7 @@ class Faucet(app_manager.RyuApp):
         dp = self.parse_config(self.config_file, self.logname)
         self.valve = valve_factory(dp)
         if self.valve is None:
-            self.logger.error("Hardware type not supported")
+            self.logger.error('Hardware type not supported')
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
@@ -131,7 +131,7 @@ class Faucet(app_manager.RyuApp):
                 new_dp.sanity_check()
                 return new_dp
             except AssertionError:
-                self.logger.exception("Error in config file:")
+                self.logger.exception('Error in config file:')
         return None
 
     def send_flow_msgs(self, dp, flow_msgs):

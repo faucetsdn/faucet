@@ -107,7 +107,8 @@ class Valve(object):
                     logger_handler = TimedRotatingFileHandler(
                         self.dp.ofchannel_log,
                         when='midnight')
-                    log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
+                    log_fmt = ('%(asctime)s %(name)-6s '
+                        '%(levelname)-8s %(message)s')
                     logger_handler.setFormatter(
                         logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
                     self.ofchannel_logger.addHandler(logger_handler)
@@ -197,7 +198,7 @@ class Valve(object):
     def ignore_dpid(self, dp_id):
         """Ignore all DPIDs except the DPID configured."""
         if dp_id != self.dp.dp_id:
-            self.logger.error("Unknown dpid:%s", dp_id)
+            self.logger.error('Unknown dpid:%s', dp_id)
             return True
         return False
 
@@ -480,7 +481,7 @@ class Valve(object):
                 acl_inst = []
                 match_dict = {}
                 for attrib, attrib_value in rule_conf.iteritems():
-                    if attrib == "actions":
+                    if attrib == 'actions':
                         if 'mirror' in attrib_value:
                             port_no = attrib_value['mirror']
                             acl_inst.append(
@@ -646,14 +647,14 @@ class Valve(object):
 
         # if this port is used as mirror port in any acl - drop input packets
         for acl in self.dp.acls.values():
-             for rule_conf in acl:
-                 for attrib, attrib_value in rule_conf.iteritems():
-                     if attrib == "actions":
-                         if 'mirror' in attrib_value:
-                             port_no = attrib_value['mirror']
-                             ofmsgs.append(self.valve_flowdrop(
-                                 self.dp.vlan_table,
-                                 self.valve_in_match(in_port=port_no)))
+            for rule_conf in acl:
+                for attrib, attrib_value in rule_conf.iteritems():
+                    if attrib == 'actions':
+                        if 'mirror' in attrib_value:
+                            port_no = attrib_value['mirror']
+                            ofmsgs.append(self.valve_flowdrop(
+                                self.dp.vlan_table,
+                                self.valve_in_match(in_port=port_no)))
 
         if port_num in self.dp.mirror_from_port.values():
             # this is a mirror port - drop all input packets
@@ -865,7 +866,7 @@ class Valve(object):
                     flowmods.extend(
                         self.add_resolved_route(
                             ether.ETH_TYPE_IPV6, vlan, vlan.nd_cache,
-                            ip_gw, ip_dst, eth_src,is_updated))
+                            ip_gw, ip_dst, eth_src, is_updated))
         elif icmpv6_pkt.type_ == icmpv6.ICMPV6_ECHO_REQUEST:
             dst = ipv6_pkt.dst
             ipv6_reply = ipv6.ipv6(
@@ -922,7 +923,8 @@ class Valve(object):
         # but the src table rule is still being hit intermittantly the switch
         # will flood packets to that dst and not realise it needs to relearn
         # the rule
-        # NB: Must be lower than highest priority otherwise it can match flows destined to controller
+        # NB: Must be lower than highest priority otherwise it can match
+        # flows destined to controller
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_src_table,
             self.valve_in_match(in_port=in_port, vlan=vlan, eth_src=eth_src),
