@@ -35,6 +35,16 @@ class VLAN(object):
             self.controller_ips = [
                 ipaddr.IPNetwork(ip) for ip in self.controller_ips]
         self.unicast_flood = conf.setdefault('unicast_flood', True)
+        self.bgp_as = conf.setdefault('bgp_as', 0)
+        self.bgp_port = conf.setdefault('bgp_port', 9179)
+        self.bgp_routerid = conf.setdefault('bgp_routerid', '')
+        self.bgp_neighbor_address = conf.setdefault('bgp_neighbor_address', '')
+        self.bgp_neighbor_as = conf.setdefault('bgp_neighbor_as', 0)
+        if self.bgp_as:
+            assert self.bgp_port
+            assert ipaddr.IPv4Address(self.bgp_routerid)
+            assert ipaddr.IPAddress(self.bgp_neighbor_address)
+            assert self.bgp_neighbor_as
         self.routes = conf.setdefault('routes', {})
         self.ipv4_routes = {}
         self.ipv6_routes = {}
