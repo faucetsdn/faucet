@@ -24,17 +24,17 @@ from util import kill_on_exception
 from dp import DP
 
 from ryu.base import app_manager
-from ryu.controller import ofp_event
-from ryu.controller import dpset
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
+from ryu.controller import dpset
 from ryu.controller import event
-from ryu.ofproto import ofproto_v1_3, ether
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
-from ryu.lib.packet import vlan
+from ryu.controller import ofp_event
 from ryu.lib import hub
+from ryu.lib.packet import ethernet
+from ryu.lib.packet import packet
+from ryu.lib.packet import vlan
+from ryu.ofproto import ofproto_v1_3, ether
 
 
 class EventFaucetReconfigure(event.EventBase):
