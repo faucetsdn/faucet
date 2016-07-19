@@ -752,6 +752,58 @@ acls:
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt))
 
 
+class FaucetUntaggedOutputTest(FaucetUntaggedTest):
+
+    CONFIG = """
+interfaces:
+    %(port_1)d:
+        native_vlan: 100
+        description: "b1"
+        acl_in: 1
+    %(port_2)d:
+        native_vlan: 100
+        description: "b2"
+    %(port_3)d:
+        native_vlan: 100
+        description: "b3"
+    %(port_4)d:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    %(port_1)d:
+        - rule:
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    dl_dst: "06:06:06:06:06:06"
+                    port: %(port_2)d
+"""
+
+    def test_untagged(self):
+        first_host = self.net.hosts[0]
+        second_host = self.net.hosts[1]
+        # we expected to see the rewritten address.
+        tcpdump_filter = 'ether dst %s and icmp' % '06:06:06:06:06:06'
+        tcpdump_out = second_host.popen(
+            'timeout 10s tcpdump -e -n -v -c 2 -U %s' % tcpdump_filter)
+        # wait for tcpdump to start
+        time.sleep(1)
+        popens = {second_host: tcpdump_out}
+        first_host.cmd('arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06'))
+        first_host.cmd('ping -c1  %s' % second_host.IP())
+        tcpdump_txt = ''
+        for host, line in pmonitor(popens):
+            if host == second_host:
+                tcpdump_txt += line.strip()
+        self.assertFalse(tcpdump_txt == '')
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+
+
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 
     CONFIG = """

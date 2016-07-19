@@ -487,6 +487,21 @@ class Valve(object):
                             acl_inst.append(
                                     self.apply_actions([
                                     parser.OFPActionOutput(port_no)]))
+                        # if output selected, output packet now
+                        # and exit pipeline.
+                        if 'output' in attrib_value:
+                            output_dict = attrib_value['output']
+                            output_actions = []
+                            # if destination rewriting selected, rewrite it.
+                            if 'dl_dst' in output_dict:
+                                output_actions.append(
+                                    parser.OFPActionSetField(
+                                        eth_dst=output_dict['dl_dst']))
+                            # output to port
+                            port_no = output_dict['port']
+                            output_actions.append( parser.OFPActionOutput(port_no))
+                            acl_inst.append(self.apply_actions(output_actions))
+                            continue
                         if attrib_value['allow'] == 1:
                             acl_inst.append(acl_allow_inst)
                         continue
