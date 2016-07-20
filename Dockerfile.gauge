@@ -2,12 +2,13 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends python-pip supervisor \
+  apt-get install -qy --no-install-recommends wget python-pip supervisor \
     apt-transport-https libyaml-dev libpython2.7-dev
 
 COPY ./ /faucet-src/
 
 RUN \
+  pip install wheel && \
   pip install influxdb && \
   pip install /faucet-src
 
