@@ -530,6 +530,7 @@ class Valve(object):
             controller_ip_host = ipaddr.IPNetwork(
                 '/'.join((str(controller_ip.ip),
                           str(controller_ip.max_prefixlen))))
+            max_prefixlen = controller_ip_host.prefixlen
             if controller_ip_host.version == 4:
                 ofmsgs.append(self.valve_flowcontroller(
                     self.dp.eth_src_table,
@@ -537,7 +538,7 @@ class Valve(object):
                          eth_type=ether.ETH_TYPE_ARP,
                          nw_dst=controller_ip_host,
                          vlan=vlan),
-                    priority=self.dp.highest_priority))
+                    priority=self.dp.highest_priority + max_prefixlen))
                 ofmsgs.append(self.valve_flowcontroller(
                     self.dp.eth_src_table,
                     self.valve_in_match(
@@ -547,7 +548,7 @@ class Valve(object):
                         nw_proto=inet.IPPROTO_ICMP,
                         nw_src=controller_ip,
                         nw_dst=controller_ip_host),
-                    priority=self.dp.highest_priority))
+                    priority=self.dp.highest_priority + max_prefixlen))
             else:
                 ofmsgs.append(self.valve_flowcontroller(
                     self.dp.eth_src_table,
@@ -557,7 +558,7 @@ class Valve(object):
                          nw_proto=inet.IPPROTO_ICMPV6,
                          ipv6_nd_target=controller_ip_host,
                          icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
-                    priority=self.dp.highest_priority))
+                    priority=self.dp.highest_priority + max_prefixlen))
                 ofmsgs.append(self.valve_flowcontroller(
                     self.dp.eth_src_table,
                     self.valve_in_match(
@@ -566,7 +567,7 @@ class Valve(object):
                          vlan=vlan,
                          nw_proto=inet.IPPROTO_ICMPV6,
                          icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
-                    priority=self.dp.highest_priority))
+                    priority=self.dp.highest_priority + max_prefixlen))
                 ofmsgs.append(self.valve_flowcontroller(
                     self.dp.eth_src_table,
                     self.valve_in_match(
@@ -575,7 +576,7 @@ class Valve(object):
                          nw_proto=inet.IPPROTO_ICMPV6,
                          nw_dst=controller_ip_host,
                          icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
-                    priority=self.dp.highest_priority))
+                    priority=self.dp.highest_priority + max_prefixlen))
         return ofmsgs
 
     def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
@@ -764,7 +765,7 @@ class Valve(object):
             in_match = self.valve_in_match(
                 vlan=vlan, eth_type=eth_type,
                 nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
-            priority = self.dp.highest_priority + 1
+            priority = self.dp.highest_priority + ipaddr.IPNetwork(ip_dst).prefixlen
             if is_updated:
                 self.logger.info('Updating next hop for route %s via %s (%s)',
                         ip_dst, ip_gw, eth_dst)
@@ -1130,7 +1131,6 @@ class Valve(object):
         return flowmods
 
     def resolve_gateways(self):
-        # TODO: implement longest prefix match priority
         if not self.dp.running:
             return []
         flowmods = []
