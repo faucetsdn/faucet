@@ -759,25 +759,33 @@ class Valve(object):
         return pkt
 
     def add_route(self, vlan, ip_gw, ip_dst):
+        # TODO: retrigger nexthop resolution on every new route
+        # could be optimized.
         if ip_dst.version == 6:
             vlan.ipv6_routes[ip_dst] = ip_gw
+            if ip_gw in vlan.nd_cache:
+                del vlan.nd_cache[ip_gw]
         else:
             vlan.ipv4_routes[ip_dst] = ip_gw
+            if ip_gw in vlan.arp_cache:
+                del vlan.arp_cache[ip_gw]
 
     def del_route(self, vlan, ip_gw, ip_dst):
         ofmsgs = []
         if ip_dst.version == 6:
-            if ip_dst not in vlan.ipv6_routes:
+            if ip_dst in vlan.ipv6_routes:
                 del vlan.ipv6_routes[ip_dst]
                 route_match = self.valve_in_match(
-                    vlan=vlan, nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+                    vlan=vlan, eth_type=ether.ETH_TYPE_IPV6,
+                    nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
                 ofmsgs.append(self.valve_flowdel(
                     self.dp.eth_src_table, route_match))
         else:
-            if ip_dst not in vlan.ipv4_routes:
+            if ip_dst in vlan.ipv4_routes:
                 del vlan.ipv4_routes[ip_dst]
                 route_match = self.valve_in_match(
-                    vlan=vlan, nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+                    vlan=vlan, eth_type=ether.ETH_TYPE_IP,
+                    nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
                 ofmsgs.append(self.valve_flowdel(
                     self.dp.eth_src_table, route_match))
         return ofmsgs
