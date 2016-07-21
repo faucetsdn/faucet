@@ -406,6 +406,79 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self.assertEquals(0, self.net.pingAll())
 
 
+class FaucetUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
+
+    CONFIG = """
+arp_neighbor_timeout: 2
+interfaces:
+    %(port_1)d:
+        native_vlan: 100
+        description: "b1"
+    %(port_2)d:
+        native_vlan: 100
+        description: "b2"
+    %(port_3)d:
+        native_vlan: 100
+        description: "b3"
+    %(port_4)d:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+        controller_ips: ["10.0.0.254/24"]
+        bgp_port: 9179
+        bgp_as: 1
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_address: "127.0.0.1"
+        bgp_neighbor_as: 2
+"""
+
+    def test_untagged(self):
+        exabgp_conf = """
+group test {
+  router-id 2.2.2.2;
+  neighbor 127.0.0.1 {
+    passive;
+    local-address 127.0.0.1;
+    peer-as 1;
+    local-as 2;
+    static {
+      route 10.0.1.0/24 next-hop 10.0.0.1 local-preference 100;
+      route 10.0.2.0/24 next-hop 10.0.0.2 local-preference 100;
+      route 10.0.3.0/24 next-hop 10.0.0.2 local-preference 100;
+   }
+ }
+}
+"""
+        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
+        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
+        open(exabgp_conf_file, 'w').write(exabgp_conf)
+        controller = self.net.controllers[0]
+        controller.cmd(
+            'env exabgp.tcp.bind="127.0.0.1" exabgp.tcp.port=179 exabgp '
+            '%s -d 2> /dev/null > %s &' % (exabgp_conf_file, exabgp_log))
+        # wait until BGP is successful and routes installed
+        self.wait_until_matching_flow('10.0.3.0', timeout=30)
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
+        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        second_host_routed_ip2 = ipaddr.IPv4Network('10.0.3.1/24')
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2)
+
 class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG = """
