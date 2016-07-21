@@ -758,6 +758,30 @@ class Valve(object):
             pkt.add_protocol(eth_pkt)
         return pkt
 
+    def add_route(self, vlan, ip_gw, ip_dst):
+        if ip_dst.version == 6:
+            vlan.ipv6_routes[ip_dst] = ip_gw
+        else:
+            vlan.ipv4_routes[ip_dst] = ip_gw
+
+    def del_route(self, vlan, ip_gw, ip_dst):
+        ofmsgs = []
+        if ip_dst.version == 6:
+            if ip_dst not in vlan.ipv6_routes:
+                del vlan.ipv6_routes[ip_dst]
+                route_match = self.valve_in_match(
+                    vlan=vlan, nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+                ofmsgs.append(self.valve_flowdel(
+                    self.dp.eth_src_table, route_match))
+        else:
+            if ip_dst not in vlan.ipv4_routes:
+                del vlan.ipv4_routes[ip_dst]
+                route_match = self.valve_in_match(
+                    vlan=vlan, nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+                ofmsgs.append(self.valve_flowdel(
+                    self.dp.eth_src_table, route_match))
+        return ofmsgs
+
     def add_resolved_route(self, eth_type, vlan, neighbor_cache,
                            ip_gw, ip_dst, eth_dst, is_updated=None):
         ofmsgs = []

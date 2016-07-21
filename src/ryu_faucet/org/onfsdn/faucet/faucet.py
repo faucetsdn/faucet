@@ -118,18 +118,39 @@ class Faucet(app_manager.RyuApp):
         self.bgp_speakers = {}
         self.reset_bgp()
 
+    def bgp_route_handler(self, event, vlan):
+        prefix = ipaddr.IPNetwork(event.prefix)
+        nexthop = ipaddr.IPAddress(event.nexthop)
+        withdraw = event.is_withdraw
+        for connected_network in vlan.controller_ips:
+             if nexthop in connected_network:
+                 if nexthop == connected_network.ip:
+                     self.logger.error('BGP nexthop %s for prefix %s cannot be us' % (nexthop, prefix))
+                 elif withdraw:
+                     self.logger.info('BGP withdraw %s nexthop %s' % (prefix, nexthop))
+                     ryudp = self.dpset.get(self.dp.dp_id)
+                     flowmods = self.valve.del_route(vlan, prefix, nexthop)
+                     self.send_flow_msgs(ryudp, flowmods)
+                 else:
+                     self.logger.info('BGP add %s nexthop %s' % (prefix, nexthop))
+                     self.valve.add_route(vlan, prefix, nexthop)
+                 return
+        self.logger.error(
+            'BGP nexthop %s for prefix %s is not a connected network' % (
+                nexthop, prefix))
+
     def reset_bgp(self):
-        # TODO: advertise controller IPs and static routes only;
-        # port status changes and receiving routes not yet
-        # implemented.
+        # TODO: port status changes should cause us to withdraw a route.
         for bgp_speaker in self.bgp_speakers.itervalues():
             bgp_speaker.shutdown()
-        for vlan_id, vlan in self.valve.dp.vlans.iteritems():
+        for vlan in self.valve.dp.vlans.itervalues():
             if vlan.bgp_as:
+                 handler = lambda x: self.bgp_route_handler(x, vlan)
                  bgp_speaker = BGPSpeaker(
                      as_number=vlan.bgp_as,
                      router_id=vlan.bgp_routerid,
-                     bgp_server_port=vlan.bgp_port)
+                     bgp_server_port=vlan.bgp_port,
+                     best_path_change_handler=handler)
                  bgp_speaker.neighbor_add(
                      address=vlan.bgp_neighbor_address,
                      remote_as=vlan.bgp_neighbor_as)
@@ -145,7 +166,7 @@ class Faucet(app_manager.RyuApp):
                          bgp_speaker.prefix_add(
                              prefix=str(ip_dst),
                              next_hop=str(ip_gw))
-                 self.bgp_speakers[vlan_id] = bgp_speaker
+                 self.bgp_speakers[vlan] = bgp_speaker
 
     def gateway_resolve_request(self):
         while True:
