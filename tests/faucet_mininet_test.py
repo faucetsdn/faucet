@@ -263,24 +263,52 @@ monitor_flow_table_file: "%s"
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
 
+    def verify_ipv4_routing_mesh(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
+        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        second_host_routed_ip2 = ipaddr.IPv4Network('10.0.3.1/24')
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2)
+
+    def setup_ipv6_hosts_addresses(self, first_host, first_host_ip,
+                                   first_host_routed_ip, second_host,
+                                   second_host_ip, second_host_routed_ip):
+        self.add_host_ipv6_address(first_host, first_host_ip)
+        self.add_host_ipv6_address(second_host, second_host_ip)
+        self.add_host_ipv6_address(first_host, first_host_routed_ip)
+        self.add_host_ipv6_address(second_host, second_host_routed_ip)
+
     def verify_ipv6_routing(self, first_host, first_host_ip,
                             first_host_routed_ip, second_host,
                             second_host_ip, second_host_routed_ip):
-        self.add_host_ipv6_address(first_host, first_host_ip)
-        self.add_host_ipv6_address(second_host, second_host_ip)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
-        self.add_host_ipv6_address(first_host, first_host_routed_ip)
-        self.add_host_ipv6_address(second_host, second_host_routed_ip)
         first_host.cmd('ip -6 route add %s via %s' % (
             second_host_routed_ip.masked(), self.CONTROLLER_IPV6))
         second_host.cmd('ip -6 route add %s via %s' % (
             first_host_routed_ip.masked(), self.CONTROLLER_IPV6))
-        exp_ipv6 = "%s/%s" % (first_host_routed_ip.masked().ip, first_host_routed_ip.netmask)
+        exp_ipv6 = "%s/%s" % (
+            first_host_routed_ip.masked().ip,
+            first_host_routed_ip.netmask)
         self.wait_until_matching_flow(
             """SET_FIELD: {eth_dst:%s.+"ipv6_dst": "%s""" % (
                 first_host.MAC(), exp_ipv6))
-        exp_ipv6 = "%s/%s" % (first_host_routed_ip.masked().ip, first_host_routed_ip.netmask)
+        exp_ipv6 = "%s/%s" % (
+            first_host_routed_ip.masked().ip,
+            first_host_routed_ip.netmask)
         self.wait_until_matching_flow(
             """SET_FIELD: {eth_dst:%s.+"ipv6_dst": "%s""" % (
                 second_host.MAC(), exp_ipv6))
@@ -288,6 +316,41 @@ monitor_flow_table_file: "%s"
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
+
+    def verify_ipv6_routing_mesh(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
+        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
+        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
+        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        second_host_routed_ip2 = ipaddr.IPv6Network('fc00::30:1/112')
+        self.setup_ipv6_hosts_addresses(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.wait_until_matching_flow('fc00::30:', timeout=30)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.setup_ipv6_hosts_addresses(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2)
+        self.swap_host_macs(first_host, second_host)
+        self.setup_ipv6_hosts_addresses(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.setup_ipv6_hosts_addresses(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2)
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -320,8 +383,8 @@ vlans:
         self.assertEquals(0, self.net.pingAll())
         # TODO: a smoke test only - are flow/port stats accumulating
         if not SWITCH_MAP:
-           assert os.stat(self.monitor_ports_file).st_size > 0
-           assert os.stat(self.monitor_flow_table_file).st_size > 0
+            assert os.stat(self.monitor_ports_file).st_size > 0
+            assert os.stat(self.monitor_flow_table_file).st_size > 0
 
 
 class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
@@ -460,24 +523,8 @@ group test {
             '%s -d 2> /dev/null > %s &' % (exabgp_conf_file, exabgp_log))
         # wait until BGP is successful and routes installed
         self.wait_until_matching_flow('10.0.3.0', timeout=30)
-        host_pair = self.net.hosts[:2]
-        first_host, second_host = host_pair
-        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
-        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
-        second_host_routed_ip2 = ipaddr.IPv4Network('10.0.3.1/24')
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2)
+        self.verify_ipv4_routing_mesh()
+
 
 class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
@@ -535,31 +582,14 @@ group test {
   }
 }
 """
-	exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
+        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.net.controllers[0]
         controller.cmd(
             'env exabgp.tcp.bind="127.0.0.1" exabgp.tcp.port=179 exabgp '
             '%s -d 2> /dev/null > %s &' % (exabgp_conf_file, exabgp_log))
-        host_pair = self.net.hosts[:2]
-        first_host, second_host = host_pair
-        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
-        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
-        second_host_routed_ip2 = ipaddr.IPv4Network('10.0.3.1/24')
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2)
+        self.verify_ipv4_routing_mesh()
         # exabgp should have received our BGP updates
         for i in range(30):
             updates = controller.cmd(
@@ -1032,6 +1062,61 @@ vlans:
             second_host, second_host_routed_ip)
 
 
+class FaucetUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
+
+    CONFIG = """
+arp_neighbor_timeout: 2
+interfaces:
+    %(port_1)d:
+        native_vlan: 100
+        description: "b1"
+    %(port_2)d:
+        native_vlan: 100
+        description: "b2"
+    %(port_3)d:
+        native_vlan: 100
+        description: "b3"
+    %(port_4)d:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+        controller_ips: ["fc00::1:254/112"]
+        bgp_port: 9179
+        bgp_as: 1
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_address: "::1"
+        bgp_neighbor_as: 2
+"""
+
+    def test_untagged(self):
+        exabgp_conf = """
+group test {
+  router-id 2.2.2.2;
+  neighbor ::1 {
+    passive;
+    local-address ::1;
+    peer-as 1;
+    local-as 2;
+    static {
+      route fc00::10:1/112 next-hop fc00::1:1 local-preference 100;
+      route fc00::20:1/112 next-hop fc00::1:2 local-preference 100;
+      route fc00::30:1/112 next-hop fc00::1:2 local-preference 100;
+    }
+  }
+}
+"""
+        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
+        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
+        open(exabgp_conf_file, 'w').write(exabgp_conf)
+        controller = self.net.controllers[0]
+        controller.cmd(
+            'env exabgp.tcp.bind="::1" exabgp.tcp.port=179 exabgp '
+            '%s -d 2> /dev/null > %s &' % (exabgp_conf_file, exabgp_log))
+        self.verify_ipv6_routing_mesh()
+
+
 class FaucetUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG = """
@@ -1095,26 +1180,7 @@ group test {
         controller.cmd(
             'env exabgp.tcp.bind="::1" exabgp.tcp.port=179 exabgp '
             '%s -d 2> /dev/null > %s &' % (exabgp_conf_file, exabgp_log))
-        host_pair = self.net.hosts[:2]
-        first_host, second_host = host_pair
-        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
-        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
-        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
-        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
-        second_host_routed_ip2 = ipaddr.IPv6Network('fc00::30:1/112')
-        self.verify_ipv6_routing(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.verify_ipv6_routing(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip2)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv6_routing(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.verify_ipv6_routing(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip2)
+        self.verify_ipv6_routing_mesh()
         # exabgp should have received our BGP updates
         for i in range(30):
             updates = controller.cmd(
@@ -1165,6 +1231,9 @@ vlans:
         second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
         first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
         second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        self.setup_ipv6_hosts_addresses(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
