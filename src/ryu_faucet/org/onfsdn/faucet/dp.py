@@ -150,8 +150,12 @@ class DP(object):
         self.__dict__.setdefault('acl_table', self.table_offset + 1)
         # The table for checking eth src addresses are known
         self.__dict__.setdefault('eth_src_table', self.acl_table + 1)
+        # The table that is the IPv4 FIB for routing
+        self.__dict__.setdefault('ipv4_fib_table', self.eth_src_table + 1)
+        # The table that is the IPv6 FIB for routing
+        self.__dict__.setdefault('ipv6_fib_table', self.ipv4_fib_table + 1)
         # The table for matching eth dst and applying unicast actions
-        self.__dict__.setdefault('eth_dst_table', self.eth_src_table + 1)
+        self.__dict__.setdefault('eth_dst_table', self.ipv6_fib_table + 1)
         # The table for applying broadcast actions
         self.__dict__.setdefault('flood_table', self.eth_dst_table + 1)
         # How much to offset default priority by
