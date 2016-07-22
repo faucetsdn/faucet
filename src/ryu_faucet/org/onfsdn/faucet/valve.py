@@ -708,15 +708,16 @@ class Valve(object):
 
         ofmsgs = []
 
-        # delete all rules matching this port in all tables.
-        for table in self.all_valve_tables():
-            ofmsgs.append(self.valve_flowdel(table,
-                self.valve_in_match(in_port=port_num)))
+        if not port.permanent_learn:
+            # delete all rules matching this port in all tables.
+            for table in self.all_valve_tables():
+                ofmsgs.append(self.valve_flowdel(table,
+                    self.valve_in_match(in_port=port_num)))
 
-        # delete eth_dst rules
-        ofmsgs.append(self.valve_flowdel(
-            self.dp.eth_dst_table,
-            out_port=port_num))
+            # delete eth_dst rules
+            ofmsgs.append(self.valve_flowdel(
+                self.dp.eth_dst_table,
+                out_port=port_num))
 
         ofmsgs.append(parser.OFPBarrierRequest(None))
 
