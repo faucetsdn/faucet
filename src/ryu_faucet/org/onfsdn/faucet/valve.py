@@ -207,6 +207,8 @@ class Valve(object):
             self.dp.vlan_table,
             self.dp.acl_table,
             self.dp.eth_src_table,
+            self.dp.ipv4_fib_table,
+            self.dp.ipv6_fib_table,
             self.dp.eth_dst_table,
             self.dp.flood_table)
 
