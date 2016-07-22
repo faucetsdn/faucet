@@ -501,7 +501,7 @@ class Valve(object):
                                         eth_dst=output_dict['dl_dst']))
                             # output to port
                             port_no = output_dict['port']
-                            output_actions.append( parser.OFPActionOutput(port_no))
+                            output_actions.append(parser.OFPActionOutput(port_no))
                             acl_inst.append(self.apply_actions(output_actions))
                             continue
                         if attrib_value['allow'] == 1:
@@ -551,6 +551,14 @@ class Valve(object):
                         nw_src=controller_ip,
                         nw_dst=controller_ip_host),
                     priority=self.dp.highest_priority + max_prefixlen))
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.eth_src_table,
+                    self.valve_in_match(
+                        eth_type=ether.ETH_TYPE_IP,
+                        eth_dst=self.FAUCET_MAC,
+                        vlan=vlan),
+                    priority=self.dp.highest_priority,
+                    inst=[self.goto_table(self.dp.ipv4_fib_table)]))
             else:
                 ofmsgs.append(self.valve_flowcontroller(
                     self.dp.eth_src_table,
@@ -579,6 +587,14 @@ class Valve(object):
                          nw_dst=controller_ip_host,
                          icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
                     priority=self.dp.highest_priority + max_prefixlen))
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.eth_src_table,
+                    self.valve_in_match(
+                        eth_type=ether.ETH_TYPE_IPV6,
+                        eth_dst=self.FAUCET_MAC,
+                        vlan=vlan),
+                    priority=self.dp.highest_priority,
+                    inst=[self.goto_table(self.dp.ipv6_fib_table)]))
         return ofmsgs
 
     def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
@@ -782,7 +798,7 @@ class Valve(object):
                     vlan=vlan, eth_type=ether.ETH_TYPE_IPV6,
                     nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
                 ofmsgs.append(self.valve_flowdel(
-                    self.dp.eth_src_table, route_match))
+                    self.dp.ipv6_fib_table, route_match))
         else:
             if ip_dst in vlan.ipv4_routes:
                 del vlan.ipv4_routes[ip_dst]
@@ -790,22 +806,21 @@ class Valve(object):
                     vlan=vlan, eth_type=ether.ETH_TYPE_IP,
                     nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
                 ofmsgs.append(self.valve_flowdel(
-                    self.dp.eth_src_table, route_match))
+                    self.dp.ipv4_fib_table, route_match))
         return ofmsgs
 
-    def add_resolved_route(self, eth_type, vlan, neighbor_cache,
+    def add_resolved_route(self, eth_type, fib_table, vlan, neighbor_cache,
                            ip_gw, ip_dst, eth_dst, is_updated=None):
         ofmsgs = []
         if is_updated is not None:
             in_match = self.valve_in_match(
-                vlan=vlan, eth_type=eth_type,
-                nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+                vlan=vlan, eth_type=eth_type, nw_dst=ip_dst)
             priority = self.dp.highest_priority + ipaddr.IPNetwork(ip_dst).prefixlen
             if is_updated:
                 self.logger.info('Updating next hop for route %s via %s (%s)',
                         ip_dst, ip_gw, eth_dst)
                 ofmsgs.append(self.valve_flowdel(
-                    self.dp.eth_src_table,
+                    fib_table,
                     in_match,
                     priority=priority))
             else:
@@ -813,7 +828,7 @@ class Valve(object):
                         ip_dst, ip_gw, eth_dst)
 
             ofmsgs.append(self.valve_flowmod(
-                self.dp.eth_src_table,
+                fib_table,
                 in_match,
                 priority=priority,
                 inst=[self.apply_actions(
@@ -855,7 +870,8 @@ class Valve(object):
                 if ip_gw == resolved_ip_gw:
                     ofmsgs.extend(
                         self.add_resolved_route(
-                            ether.ETH_TYPE_IP, vlan, vlan.arp_cache,
+                            ether.ETH_TYPE_IP, self.dp.ipv4_fib_table,
+                            vlan, vlan.arp_cache,
                             ip_gw, ip_dst, eth_src, is_updated))
 
         return ofmsgs
@@ -916,7 +932,8 @@ class Valve(object):
                 if ip_gw == resolved_ip_gw:
                     flowmods.extend(
                         self.add_resolved_route(
-                            ether.ETH_TYPE_IPV6, vlan, vlan.nd_cache,
+                            ether.ETH_TYPE_IPV6, self.dp.ipv6_fib_table,
+                            vlan, vlan.nd_cache,
                             ip_gw, ip_dst, eth_src, is_updated))
         elif icmpv6_pkt.type_ == icmpv6.ICMPV6_ECHO_REQUEST:
             dst = ipv6_pkt.dst
