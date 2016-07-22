@@ -554,6 +554,7 @@ class Valve(object):
                     self.dp.ipv4_fib_table,
                     self.valve_in_match(
                         vlan=vlan,
+                        eth_type=ether.ETH_TYPE_IP,
                         nw_proto=inet.IPPROTO_ICMP,
                         nw_src=controller_ip,
                         nw_dst=controller_ip_host),
