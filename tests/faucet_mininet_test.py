@@ -11,7 +11,7 @@
 # * mininet 2.2.0 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
 #   use the "install from source" option from https://github.com/mininet/mininet/blob/master/INSTALL.
 #   suggest ./util/install.sh -n
-# * OVS 2.4.1 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
+# * OVS 2.3.1 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
 # * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
 # * fuser
 # * net-tools
@@ -25,6 +25,7 @@ import os
 import sys
 import re
 import shutil
+import subprocess
 import tempfile
 import time
 import unittest
@@ -38,6 +39,28 @@ from mininet.node import Host
 from mininet.node import Intf
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
+
+# list of required external dependencies
+# external binary, argument to get version,
+# RE to check present RE to get version, minimum required version.
+EXTERNAL_DEPENDENCIES = (
+    ('ryu-manager', ['--version'],
+         'ryu-manager', 'ryu-manager (\d+\.\d+)\n', float(4.4)),
+    ('ovs-vsctl', ['--version'], 'Open vSwitch',
+         'ovs-vsctl\s+\(Open vSwitch\)\s+(\d+\.\d+)\.\d+\n', float(2.3)),
+    ('tcpdump', ['-h'], 'tcpdump',
+         'tcpdump\s+version\s+(\d+\.\d+)\.\d+\n', float(4.5)),
+    ('nc', [], 'nc from the netcat-openbsd', '', 0),
+    ('vconfig', [], 'the VLAN you are talking about', '', 0),
+    ('fuser', ['-V'], 'fuser \(PSmisc\)',
+         'fuser \(PSmisc\) (\d+\.\d+)\n', float(22.0)),
+    ('mn', ['--version'], '\d+\.\d+.\d+',
+         '(\d+\.\d+).\d+', float(2.2)),
+    ('exabgp', ['--version'], 'ExaBGP',
+         'ExaBGP : (\d+\.\d+).\d+', float(3.4)),
+    ('pip', ['show', 'influxdb'], 'influxdb',
+         'Version:\s+(\d+\.\d+)\.\d+', float(3.0)),
+)
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 
@@ -1280,6 +1303,56 @@ def import_config():
             HARDWARE = config['hardware']
 
 
+def check_dependencies():
+    for (binary, binary_get_version, binary_present_re,
+         binary_version_re, binary_minversion) in EXTERNAL_DEPENDENCIES:
+        binary_args = [binary] + binary_get_version
+        required_binary = 'required binary/library %s' % (
+            ' '.join(binary_args))
+        try:
+            proc = subprocess.Popen(
+                binary_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            proc_out, proc_err = proc.communicate()
+            binary_output = proc_out
+            if proc_err is not None:
+                binary_output += proc_err
+        except subprocess.CalledProcessError:
+            # Might have run successfully, need to parse output
+            pass
+        except OSError:
+            print 'could not run %s' % required_binary
+            return False
+        present_match = re.search(binary_present_re, binary_output)
+        if not present_match:
+            print '%s not present or did not return expected string %s' % (
+                required_binary, binary_present_re)
+            return False
+        if binary_version_re:
+            version_match = re.search(binary_version_re, binary_output)
+            if version_match is None:
+                print 'could not get version from %s (%s)' % (
+                    required_binary, binary_output)
+                return False
+            try:
+                binary_version = float(version_match.group(1))
+            except ValueError:
+                print 'cannot parse version %s for %s' % (
+                    version_match, required_binary)
+                return False
+            if binary_version < binary_minversion:
+                print '%s version %.1f is less than required version %.1f' % (
+                   required_binary, binary_version, binary_minversion)
+                return False
+            print '%s version is %.1f' % (required_binary, binary_version)
+        else:
+            print '%s present (%s)' % (required_binary, binary_present_re)
+    return True
+
+
 if __name__ == '__main__':
+    if not check_dependencies():
+        print ('dependency check failed. check required library/binary '
+            'list in header of this script')
+        sys.exit(-1)
     import_config()
     unittest.main()
