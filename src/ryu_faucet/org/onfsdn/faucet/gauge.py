@@ -293,10 +293,15 @@ class GaugeFlowTablePoller(GaugePoller):
     Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
     flow table is dumped as an OFFlowStatsReply message (in yaml format) that
     matches all flows."""
-    def __init__(self, dp, ryudp, logname):
+    def __init__(self, dp, ryudp, logname, db_enabled, flow_db, switch_db,
+                db_conf_data):
         super(GaugeFlowTablePoller, self).__init__(dp, ryudp, logname)
         self.interval = self.dp.monitor_flow_table_interval
         self.logfile = self.dp.monitor_flow_table_file
+        self.db_enabled = db_enabled
+        self.flow_database = flow_db
+        self.switch_database = switch_db
+        self.db_conf_data = db_conf_data
 
     def send_req(self):
         ofp = self.ryudp.ofproto
@@ -319,6 +324,25 @@ class GaugeFlowTablePoller(GaugePoller):
             logfile.write("---\n")
             logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
                 rcv_time_str, ref, json.dumps(jsondict, indent=4)))
+
+        if self.db_enabled:
+            switch = None
+            try:
+                rows = self.switch_database.get_docs(
+                    self.db_conf_data['views']['v1'],
+                    key=str(hex(self.dp.dp_id)))
+                switch = rows[0]
+            except:
+                switch = None
+            if switch:
+
+                for msg in jsondict['OFPFlowStatsReply']['body']:
+                    flow_object = {'data':msg, 'tags': []}
+                    flow_id = self.flow_database.insert_update_doc(
+                                flow_object, '')
+                    switch.value['data']['flows'].append(flow_id)
+                    self.switch_database.insert_update_doc(switch.value,
+                                                         'data')
 
     def no_response(self):
         self.logger.info(
@@ -388,6 +412,8 @@ class Gauge(app_manager.RyuApp):
 
         # Database specific config file read
         self.db_enabled = False
+        self.flow_database = None
+        self.switch_database = None
         with open(self.db_config, 'r') as stream:
             data = yaml.load(stream)
             if data['database']:
@@ -399,9 +425,32 @@ class Gauge(app_manager.RyuApp):
                     'pwd=' + str(data['db_password'])
                 nsodbc = nsodbc_factory()
                 conn = nsodbc.connect(self.conn_string)
-                self.switch_database = conn.create(data['switches_doc'])
-                self.flow_database = conn.create(data['flows_doc'])
+                self.switch_database, exists = conn.create(
+                                                data['switches_doc'])
+                # Create database specific views for querying
+                if not exists:
+                    views = {}
+                    views["switch"] = {}
+                    views["switch"]["map"] = "function(doc) " + \
+                                    "{\n  emit(doc._id, doc);\n}"
+                    self.switch_database.create_view("switches", views)
+
+                self.flow_database, exists = conn.create(data['flows_doc'])
+                # Create database specific views for querying
+                if not exists:
+                    views = {}
+                    views["flow"] = {}
+                    views["flow"]["map"] = "function(doc) " + \
+                                    "{\n  emit(doc._id, doc);\n}"
+                    views["match"] = {}
+                    views["match"]["map"] = "function(doc) "+ \
+                                    "{\nif(doc.data.OFPFlowStats.match)" + \
+                                    "{\n  emit(" + \
+                                    "doc.data.OFPFlowStats.match, " + \
+                                    "doc._id );\n}\n}"
+                    self.flow_database.create_view("flows", views)
                 self.db_conf_data = data
+                
 
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
@@ -427,7 +476,7 @@ class Gauge(app_manager.RyuApp):
             self.logger.info("datapath up %x", dp.dp_id)
             # Update db with switch
             if self.db_enabled:
-                switch_object = {'_id': str(hex(dp.id)), 'data':{'flows':[]}}
+                switch_object = {'_id': str(hex(dp.dp_id)), 'data':{'flows':[]}}
                 self.switch_database.insert_update_doc(switch_object, 'data')
             self.handler_datapath(ev)
         else: # DP is disconnecting
@@ -449,7 +498,7 @@ class Gauge(app_manager.RyuApp):
                 for flow_id in switch['data']['flows']:
                     self.flow_database.delete_doc(str(flow_id))
                 # Delete switch from database
-                self.switch_database.delete_doc(str(hex(dp.id)))
+                self.switch_database.delete_doc(str(hex(dp.dp_id)))
 
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -489,7 +538,8 @@ class Gauge(app_manager.RyuApp):
 
         if dp.monitor_flow_table:
             flow_table_poller = GaugeFlowTablePoller(
-                dp, ryudp, self.logname)
+                dp, ryudp, self.logname, self.db_enabled, self.flow_database,
+                self.switch_database, self.db_conf_data)
             self.pollers[dp.dp_id]['flow_table'] = flow_table_poller
             flow_table_poller.start()
 

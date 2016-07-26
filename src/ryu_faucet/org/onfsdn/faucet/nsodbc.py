@@ -5,6 +5,9 @@ Currently couchdb support is included.
 COUCHDB = 'couchdb'
 LOCALHOST = 'localhost'
 
+import urllib
+import json
+
 try:
     import couchdb
 except ImportError, error:
@@ -81,21 +84,15 @@ class ConnectionCouch(object):
 
     def create(self, db_name):
         """Create a database.
-        If the databse exists, return the same.
+        If the databse exists, return the same and send a True flag.
         This way, a connection object will only be created once.
         """
         try:
             self.database[db_name] = DatabaseCouch(self.conn.create(db_name))
-            return self.database[db_name]
+            return self.database[db_name], False
         except couchdb.http.PreconditionFailed:
             self.database[db_name] = DatabaseCouch(self.conn[db_name])
-            return self.database[db_name]
-
-    def _create_views(self):
-        """
-        Initiate a database with default views.
-        """
-        pass
+            return self.database[db_name], True
 
     def connected_databases(self):
         """
@@ -129,6 +126,7 @@ class DatabaseCouch(object):
 
         A view url is used as select query with the key as a where condition
         """
+        key = urllib.quote(json.dumps(key))
         view_results = self.database.view(view_url, key=key)
         return view_results.rows
 
@@ -139,6 +137,17 @@ class DatabaseCouch(object):
         doc = self.database.get(doc_id)
         self.database.delete(doc)
 
+    def create_view(self, design, views):
+        """
+        This is a couchdb functionality. Helps in creating views needed
+        for querying the database.
+        Input: Design name, view definition
+        """
+        doc = {}
+        doc["_id"] = "_design/" + design
+        doc["language"] = "javascript"
+        doc["views"] = views
+        self.database.save(doc)
 
 def nsodbc_factory():
     """factory method to consume the API"""
