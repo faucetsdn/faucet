@@ -792,7 +792,7 @@ class Valve(object):
             if ip_gw in vlan.arp_cache:
                 del vlan.arp_cache[ip_gw]
 
-    def del_route(self, vlan, ip_gw, ip_dst):
+    def del_route(self, vlan, ip_dst):
         ofmsgs = []
         if ip_dst.version == 6:
             if ip_dst in vlan.ipv6_routes:

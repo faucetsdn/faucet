@@ -131,7 +131,7 @@ class Faucet(app_manager.RyuApp):
                 elif withdraw:
                     self.logger.info('BGP withdraw %s nexthop %s' % (
                         prefix, nexthop))
-                    flowmods = self.valve.del_route(vlan, nexthop, prefix)
+                    flowmods = self.valve.del_route(vlan, prefix)
                     ryudp = self.dpset.get(self.valve.dp.dp_id)
                     self.send_flow_msgs(ryudp, flowmods)
                 else:
