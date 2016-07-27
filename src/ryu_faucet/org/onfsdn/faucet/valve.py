@@ -796,16 +796,14 @@ class Valve(object):
             if ip_dst in vlan.ipv6_routes:
                 del vlan.ipv6_routes[ip_dst]
                 route_match = self.valve_in_match(
-                    vlan=vlan, eth_type=ether.ETH_TYPE_IPV6,
-                    nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+                    vlan=vlan, eth_type=ether.ETH_TYPE_IPV6, nw_dst=ip_dst)
                 ofmsgs.append(self.valve_flowdel(
                     self.dp.ipv6_fib_table, route_match))
         else:
             if ip_dst in vlan.ipv4_routes:
                 del vlan.ipv4_routes[ip_dst]
                 route_match = self.valve_in_match(
-                    vlan=vlan, eth_type=ether.ETH_TYPE_IP,
-                    nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+                    vlan=vlan, eth_type=ether.ETH_TYPE_IP, nw_dst=ip_dst)
                 ofmsgs.append(self.valve_flowdel(
                     self.dp.ipv4_fib_table, route_match))
         return ofmsgs
