@@ -781,16 +781,25 @@ class Valve(object):
         return pkt
 
     def add_route(self, vlan, ip_gw, ip_dst):
-        # TODO: retrigger nexthop resolution on every new route
-        # could be optimized.
+        ofmsgs = []
         if ip_dst.version == 6:
-            vlan.ipv6_routes[ip_dst] = ip_gw
-            if ip_gw in vlan.nd_cache:
-                del vlan.nd_cache[ip_gw]
+            routes = vlan.ipv6_routes
+            neighbor_cache = vlan.nd_cache
+            eth_type = ether.ETH_TYPE_IPV6
         else:
-            vlan.ipv4_routes[ip_dst] = ip_gw
-            if ip_gw in vlan.arp_cache:
-                del vlan.arp_cache[ip_gw]
+            routes = vlan.ipv4_routes
+            neighbor_cache = vlan.arp_cache
+            eth_type = ether.ETH_TYPE_IP
+        routes[ip_dst] = ip_gw
+        if ip_gw in neighbor_cache:
+            eth_dst = neighbor_cache[ip_gw].eth_src
+            ofmsgs.extend(
+                    self.add_resolved_route(
+                        eth_type=eth_type,vlan=vlan,
+                        neighbor_cache=neighbor_cache,
+                        ip_gw=ip_gw,ip_dst=ip_dst,
+                        eth_dst=eth_dst,is_updated=False))
+        return ofmsgs
 
     def del_route(self, vlan, ip_gw, ip_dst):
         ofmsgs = []

@@ -122,6 +122,8 @@ class Faucet(app_manager.RyuApp):
         prefix = ipaddr.IPNetwork(path_change.prefix)
         nexthop = ipaddr.IPAddress(path_change.nexthop)
         withdraw = path_change.is_withdraw
+        flowmods = []
+        ryudp = self.dpset.get(self.valve.dp.dp_id)
         for connected_network in vlan.controller_ips:
             if nexthop in connected_network:
                 if nexthop == connected_network.ip:
@@ -132,12 +134,12 @@ class Faucet(app_manager.RyuApp):
                     self.logger.info('BGP withdraw %s nexthop %s' % (
                         prefix, nexthop))
                     flowmods = self.valve.del_route(vlan, nexthop, prefix)
-                    ryudp = self.dpset.get(self.valve.dp.dp_id)
-                    self.send_flow_msgs(ryudp, flowmods)
                 else:
                     self.logger.info('BGP add %s nexthop %s' % (
                         prefix, nexthop))
-                    self.valve.add_route(vlan, nexthop, prefix)
+                    flowmods = self.valve.add_route(vlan, nexthop, prefix)
+                if flowmods:
+                    self.send_flow_msgs(ryudp, flowmods)
                 return
         self.logger.error(
             'BGP nexthop %s for prefix %s is not a connected network' % (
