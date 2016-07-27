@@ -501,8 +501,10 @@ class Valve(object):
                                         eth_dst=output_dict['dl_dst']))
                             # output to port
                             port_no = output_dict['port']
-                            output_actions.append(parser.OFPActionOutput(port_no))
-                            acl_inst.append(self.apply_actions(output_actions))
+                            output_actions.append(
+                                parser.OFPActionOutput(port_no))
+                            acl_inst.append(
+                                self.apply_actions(output_actions))
                             continue
                         if attrib_value['allow'] == 1:
                             acl_inst.append(acl_allow_inst)
@@ -796,16 +798,14 @@ class Valve(object):
             if ip_dst in vlan.ipv6_routes:
                 del vlan.ipv6_routes[ip_dst]
                 route_match = self.valve_in_match(
-                    vlan=vlan, eth_type=ether.ETH_TYPE_IPV6,
-                    nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+                    vlan=vlan, eth_type=ether.ETH_TYPE_IPV6, nw_dst=ip_dst)
                 ofmsgs.append(self.valve_flowdel(
                     self.dp.ipv6_fib_table, route_match))
         else:
             if ip_dst in vlan.ipv4_routes:
                 del vlan.ipv4_routes[ip_dst]
                 route_match = self.valve_in_match(
-                    vlan=vlan, eth_type=ether.ETH_TYPE_IP,
-                    nw_dst=ip_dst, eth_dst=self.FAUCET_MAC)
+                    vlan=vlan, eth_type=ether.ETH_TYPE_IP, nw_dst=ip_dst)
                 ofmsgs.append(self.valve_flowdel(
                     self.dp.ipv4_fib_table, route_match))
         return ofmsgs
@@ -816,7 +816,8 @@ class Valve(object):
         if is_updated is not None:
             in_match = self.valve_in_match(
                 vlan=vlan, eth_type=eth_type, nw_dst=ip_dst)
-            priority = self.dp.highest_priority + ipaddr.IPNetwork(ip_dst).prefixlen
+            prefixlen = ipaddr.IPNetwork(ip_dst).prefixlen
+            priority = self.dp.highest_priority + prefixlen
             if is_updated:
                 self.logger.info('Updating next hop for route %s via %s (%s)',
                         ip_dst, ip_gw, eth_dst)
