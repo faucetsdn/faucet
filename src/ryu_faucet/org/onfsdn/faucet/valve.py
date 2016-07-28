@@ -801,7 +801,7 @@ class Valve(object):
                         eth_dst=eth_dst,is_updated=False))
         return ofmsgs
 
-    def del_route(self, vlan, ip_gw, ip_dst):
+    def del_route(self, vlan, ip_dst):
         ofmsgs = []
         if ip_dst.version == 6:
             if ip_dst in vlan.ipv6_routes:
