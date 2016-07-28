@@ -60,7 +60,7 @@ class NsOdbc(object):
                 cnxn = ConnectionCouch(couchdb.Server(),
                                        (conn_dict['uid'], conn_dict['pwd']))
             else:
-                cnxn = ConnectionCouch(couchdb.Server(),
+                cnxn = ConnectionCouch(couchdb.Server('http://'+conn_dict['server']+':' + conn_dict['port']+'/'),
                                        (conn_dict['uid'], conn_dict['pwd']))
             self.conn = cnxn
             return cnxn
