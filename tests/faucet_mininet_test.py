@@ -19,6 +19,7 @@
 # * netcat-openbsd
 # * tcpdump
 # * exabgp
+# * pylint
 
 import ipaddr
 import os
@@ -60,9 +61,17 @@ EXTERNAL_DEPENDENCIES = (
          'ExaBGP : (\d+\.\d+).\d+', float(3.4)),
     ('pip', ['show', 'influxdb'], 'influxdb',
          'Version:\s+(\d+\.\d+)\.\d+', float(3.0)),
+    ('pylint', ['--version'], 'pylint',
+         'pylint (\d+\.\d+).\d+,', float(1.1)),
 )
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
+
+# Must pass with 0 lint errors
+# TODO: eliminate existing lint errors so all files can be checked.
+FAUCET_LINT_SRCS = (
+  'valve.py',
+)
 
 DPID = '1'
 HARDWARE = 'Open vSwitch'
@@ -1349,10 +1358,23 @@ def check_dependencies():
     return True
 
 
+def lint_check():
+    for faucet_src in FAUCET_LINT_SRCS:
+       faucet_src_path = os.path.join(FAUCET_DIR, faucet_src)
+       ret = subprocess.call(['pylint', '-E', faucet_src_path])
+       if ret:
+          print 'lint of %s returns an error' % faucet_src
+          return False
+    return True
+
+
 if __name__ == '__main__':
     if not check_dependencies():
         print ('dependency check failed. check required library/binary '
             'list in header of this script')
+        sys.exit(-1)
+    if not lint_check():
+        print 'pylint must pass with no errors'
         sys.exit(-1)
     import_config()
     unittest.main()
