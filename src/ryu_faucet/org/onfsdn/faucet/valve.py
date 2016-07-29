@@ -797,10 +797,14 @@ class Valve(object):
             eth_dst = neighbor_cache[ip_gw].eth_src
             ofmsgs.extend(
                     self.add_resolved_route(
-                        eth_type=eth_type,fib_table=fib_table,vlan=vlan,
+                        eth_type=eth_type,
+                        fib_table=fib_table,
+                        vlan=vlan,
                         neighbor_cache=neighbor_cache,
-                        ip_gw=ip_gw,ip_dst=ip_dst,
-                        eth_dst=eth_dst,is_updated=False))
+                        ip_gw=ip_gw,
+                        ip_dst=ip_dst,
+                        eth_dst=eth_dst,
+                        is_updated=False))
         return ofmsgs
 
     def del_route(self, vlan, ip_dst):
