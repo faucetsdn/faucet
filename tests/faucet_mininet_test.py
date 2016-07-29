@@ -62,7 +62,7 @@ EXTERNAL_DEPENDENCIES = (
     ('pip', ['show', 'influxdb'], 'influxdb',
          'Version:\s+(\d+\.\d+)\.\d+', float(3.0)),
     ('pylint', ['--version'], 'pylint',
-         'pylint (\d+\.\d+).\d+,', float(1.1)),
+         'pylint (\d+\.\d+).\d+,', float(1.6)),
 )
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
@@ -70,6 +70,8 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 # Must pass with 0 lint errors
 # TODO: eliminate existing lint errors so all files can be checked.
 FAUCET_LINT_SRCS = (
+  'faucet.py',
+  'gauge.py',
   'valve.py',
 )
 
