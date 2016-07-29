@@ -786,16 +786,18 @@ class Valve(object):
             routes = vlan.ipv6_routes
             neighbor_cache = vlan.nd_cache
             eth_type = ether.ETH_TYPE_IPV6
+            fib_table = self.dp.ipv6_fib_table
         else:
             routes = vlan.ipv4_routes
             neighbor_cache = vlan.arp_cache
             eth_type = ether.ETH_TYPE_IP
+            fib_table = self.dp.ipv4_fib_table
         routes[ip_dst] = ip_gw
         if ip_gw in neighbor_cache:
             eth_dst = neighbor_cache[ip_gw].eth_src
             ofmsgs.extend(
                     self.add_resolved_route(
-                        eth_type=eth_type,vlan=vlan,
+                        eth_type=eth_type,fib_table=fib_table,vlan=vlan,
                         neighbor_cache=neighbor_cache,
                         ip_gw=ip_gw,ip_dst=ip_dst,
                         eth_dst=eth_dst,is_updated=False))
