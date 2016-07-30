@@ -15,10 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, signal, logging
-import ipaddr
-
+import logging
 from logging.handlers import TimedRotatingFileHandler
+import os
+import signal
+
+import ipaddr
 
 from valve import valve_factory
 from util import kill_on_exception
@@ -160,8 +162,9 @@ class Faucet(app_manager.RyuApp):
                     best_path_change_handler=handler)
                 for controller_ip in vlan.controller_ips:
                     prefix = ipaddr.IPNetwork(
-                        '/'.join((str(controller_ip.ip),
-                            str(controller_ip.prefixlen))))
+                        '/'.join(
+                            (str(controller_ip.ip),
+                             str(controller_ip.prefixlen))))
                     bgp_speaker.prefix_add(
                         prefix=str(prefix),
                         next_hop=controller_ip.ip)
