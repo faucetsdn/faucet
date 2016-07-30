@@ -885,7 +885,7 @@ acls:
                 allow: 1
 """
 
-    def xtest_port5001_blocked(self):
+    def test_port5001_blocked(self):
         self.assertEquals(0, self.net.pingAll())
         first_host = self.net.hosts[0]
         second_host = self.net.hosts[1]
