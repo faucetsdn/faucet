@@ -263,13 +263,24 @@ monitor_flow_table_file: "%s"
             dump_flows = json.loads(requests.get(
             RYU_ADDR+'/stats/flow/%s' % DPID).text)[DPID]
             for flow in dump_flows:
-                # Re-transform the dictioray into str to re-use
+                # Re-transform the dictionary into str to re-use
                 # the verify_ipv*_routing methods
                 flow_str = json.dumps(flow)
                 if re.search(exp_flow, flow_str):
                     return
             time.sleep(1)
         self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
+
+    def wait_until_matching_route_as_flow(self, nexthop, prefix):
+        if prefix.version == 6:
+            exp_prefix = '/'.join(
+                (str(prefix.masked().ip), str(prefix.netmask)))
+            nw_dst_match = '"ipv6_dst": "%s"' % exp_prefix
+        else:
+            exp_prefix = prefix.masked().with_netmask
+            nw_dst_match = '"nw_dst": "%s"' % exp_prefix
+        self.wait_until_matching_flow(
+            'SET_FIELD: {eth_dst:%s}.+%s'% (nexthop, nw_dst_match))
 
     def swap_host_macs(self, first_host, second_host):
         first_host_mac = first_host.MAC()
@@ -288,12 +299,10 @@ monitor_flow_table_file: "%s"
         second_host.cmd(('route add -net %s gw %s' % (
                          first_host_routed_ip.masked(), self.CONTROLLER_IPV4)))
         self.net.ping(hosts=(first_host, second_host))
-        self.wait_until_matching_flow(
-            """SET_FIELD: {eth_dst:%s.+"nw_dst": "%s""" % (
-                first_host.MAC(), first_host_routed_ip.masked().with_netmask))
-        self.wait_until_matching_flow(
-            """SET_FIELD: {eth_dst:%s.+"nw_dst": "%s""" % (
-                second_host.MAC(), second_host_routed_ip.masked().with_netmask))
+        self.wait_until_matching_route_as_flow(
+            first_host.MAC(), first_host_routed_ip)
+        self.wait_until_matching_route_as_flow(
+            second_host.MAC(), second_host_routed_ip)
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
 
@@ -334,18 +343,10 @@ monitor_flow_table_file: "%s"
             second_host_routed_ip.masked(), self.CONTROLLER_IPV6))
         second_host.cmd('ip -6 route add %s via %s' % (
             first_host_routed_ip.masked(), self.CONTROLLER_IPV6))
-        exp_ipv6 = "%s/%s" % (
-            first_host_routed_ip.masked().ip,
-            first_host_routed_ip.netmask)
-        self.wait_until_matching_flow(
-            """SET_FIELD: {eth_dst:%s.+"ipv6_dst": "%s""" % (
-                first_host.MAC(), exp_ipv6))
-        exp_ipv6 = "%s/%s" % (
-            first_host_routed_ip.masked().ip,
-            first_host_routed_ip.netmask)
-        self.wait_until_matching_flow(
-            """SET_FIELD: {eth_dst:%s.+"ipv6_dst": "%s""" % (
-                second_host.MAC(), exp_ipv6))
+        self.wait_until_matching_route_as_flow(
+            first_host.MAC(), first_host_routed_ip)
+        self.wait_until_matching_route_as_flow(
+            second_host.MAC(), second_host_routed_ip)
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
@@ -529,6 +530,10 @@ vlans:
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_address: "127.0.0.1"
         bgp_neighbor_as: 2
+        routes:
+            - route:
+                ip_dst: 10.99.99.0/24
+                ip_gw: 10.0.0.1
 """
 
     def test_untagged(self):
@@ -548,6 +553,8 @@ group test {
  }
 }
 """
+        # wait until 10.0.0.1 has been resolved
+        self.wait_until_matching_flow('10.99.99.0', timeout=30)
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         open(exabgp_conf_file, 'w').write(exabgp_conf)
