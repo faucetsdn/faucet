@@ -15,10 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, signal, logging
-import ipaddr
-
+import logging
 from logging.handlers import TimedRotatingFileHandler
+import os
+import signal
+
+import ipaddr
 
 from valve import valve_factory
 from util import kill_on_exception
@@ -133,7 +135,7 @@ class Faucet(app_manager.RyuApp):
                 elif withdraw:
                     self.logger.info('BGP withdraw %s nexthop %s' % (
                         prefix, nexthop))
-                    flowmods = self.valve.del_route(vlan, nexthop, prefix)
+                    flowmods = self.valve.del_route(vlan, prefix)
                 else:
                     self.logger.info('BGP add %s nexthop %s' % (
                         prefix, nexthop))
@@ -160,8 +162,9 @@ class Faucet(app_manager.RyuApp):
                     best_path_change_handler=handler)
                 for controller_ip in vlan.controller_ips:
                     prefix = ipaddr.IPNetwork(
-                        '/'.join((str(controller_ip.ip),
-                            str(controller_ip.prefixlen))))
+                        '/'.join(
+                            (str(controller_ip.ip),
+                             str(controller_ip.prefixlen))))
                     bgp_speaker.prefix_add(
                         prefix=str(prefix),
                         next_hop=controller_ip.ip)
@@ -228,7 +231,7 @@ class Faucet(app_manager.RyuApp):
         if self.valve is not None:
             self.valve.host_expire()
 
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def _packet_in_handler(self, ev):
         msg = ev.msg
@@ -250,14 +253,14 @@ class Faucet(app_manager.RyuApp):
         flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, pkt)
         self.send_flow_msgs(dp, flowmods)
 
-    @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def _error_handler(self, ev):
         msg = ev.msg
         self.valve.ofchannel_log([msg])
         self.logger.error('Got OFError: %s', msg)
 
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # # pylint: disable=no-member
     def handler_features(self, ev):
         msg = ev.msg
         dp = msg.datapath
@@ -291,7 +294,7 @@ class Faucet(app_manager.RyuApp):
         flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
         self.send_flow_msgs(dp, flowmods)
 
-    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ev):
         msg = ev.msg
