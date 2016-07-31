@@ -32,6 +32,11 @@ sdist:
 	$(MKDIR) $(DIST_DIR)
 	$(PYTHON) setup.py sdist
 
+sdistapps:
+	@echo Building Python package installable via "pip" for faucet apps
+	$(MKDIR) $(DIST_DIR)/apps
+	$(PYTHON) setup_apps.py sdist
+
 codefmt:
 	@echo Run below command manually to inline replace current code with newly formatted code per “pep8” guidelines
 	@echo $(YAPF) --style pep8 -i \*py
