@@ -165,7 +165,7 @@ class Valve(object):
             if vlan.vid == ofp.OFPVID_NONE:
                 match_dict['vlan_vid'] = ofp.OFPVID_NONE
             else:
-                match_dict['vlan_vid'] = vlan.vid|ofp.OFPVID_PRESENT
+                match_dict['vlan_vid'] = (vlan.vid | ofp.OFPVID_PRESENT)
         if eth_src is not None:
             match_dict['eth_src'] = eth_src
         if eth_dst is not None:
@@ -319,7 +319,7 @@ class Valve(object):
             inst=[self.goto_table(self.dp.flood_table)])]
 
     def add_controller_learn_flow(self):
-        """Add a flow for controller to learn and add flows for destinations."""
+        """Add a flow for controller to learn/add flows for destinations."""
         return [self.valve_flowcontroller(
             self.dp.eth_src_table,
             priority=self.dp.low_priority,
@@ -382,7 +382,8 @@ class Valve(object):
         tagged_ports = self.build_flood_ports_for_vlan(vlan.tagged, eth_dst)
         for port in tagged_ports:
             flood_acts.append(parser.OFPActionOutput(port.number))
-        untagged_ports = self.build_flood_ports_for_vlan(vlan.untagged, eth_dst)
+        untagged_ports = self.build_flood_ports_for_vlan(
+            vlan.untagged, eth_dst)
         if untagged_ports:
             flood_acts.append(parser.OFPActionPopVlan())
             for port in untagged_ports:
@@ -418,7 +419,8 @@ class Valve(object):
         for port in vlan.tagged + vlan.untagged:
             if port.number in self.dp.mirror_from_port:
                 mirror_port = self.dp.mirror_from_port[port.number]
-                mirror_acts = [parser.OFPActionOutput(mirror_port)] + flood_acts
+                mirror_acts = [
+                    parser.OFPActionOutput(mirror_port)] + flood_acts
                 for eth_dst, eth_dst_mask in flood_eth_dst_matches:
                     flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
                     ofmsgs.append(self.valve_flowmod(
@@ -604,7 +606,7 @@ class Valve(object):
         ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
         push_vlan_act = mirror_act + [
             parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-            parser.OFPActionSetField(vlan_vid=vlan.vid|ofp.OFPVID_PRESENT)]
+            parser.OFPActionSetField(vlan_vid=(vlan.vid | ofp.OFPVID_PRESENT))]
         push_vlan_inst = [
             self.apply_actions(push_vlan_act),
             self.goto_table(forwarding_table)
@@ -933,7 +935,8 @@ class Valve(object):
                 type_=icmpv6.ND_NEIGHBOR_ADVERT,
                 data=icmpv6.nd_neighbor(
                     dst=dst,
-                    option=icmpv6.nd_option_tla(hw_src=self.FAUCET_MAC), res=7))
+                    option=icmpv6.nd_option_tla(
+                        hw_src=self.FAUCET_MAC), res=7))
             pkt.add_protocol(icmpv6_reply)
             pkt.serialize()
             flowmods.extend([self.valve_packetout(in_port, pkt.data)])
@@ -993,7 +996,7 @@ class Valve(object):
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.eth_src_table,
                 self.valve_in_match(vlan=vlan, eth_src=eth_src),
-                priority=(self.dp.highest_priority-2)))
+                priority=(self.dp.highest_priority - 2)))
         else:
             learn_timeout = self.dp.timeout
             ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
@@ -1015,7 +1018,7 @@ class Valve(object):
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_src_table,
             self.valve_in_match(in_port=in_port, vlan=vlan, eth_src=eth_src),
-            priority=self.dp.highest_priority-1,
+            priority=(self.dp.highest_priority - 1),
             inst=[self.goto_table(self.dp.eth_dst_table)],
             hard_timeout=learn_timeout))
 
@@ -1121,7 +1124,7 @@ class Valve(object):
                     flowmods.extend([self.valve_flowdrop(
                         self.dp.eth_src_table,
                         self.valve_in_match(vlan=vlan),
-                        priority=self.dp.low_priority+1,
+                        priority=(self.dp.low_priority + 1),
                         hard_timeout=self.dp.timeout)])
                 else:
                     flowmods.extend(self.learn_host_on_vlan_port(

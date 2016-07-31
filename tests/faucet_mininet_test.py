@@ -330,7 +330,7 @@ monitor_flow_table_file: "%s"
             exp_prefix = prefix.masked().with_netmask
             nw_dst_match = '"nw_dst": "%s"' % exp_prefix
         self.wait_until_matching_flow(
-            'SET_FIELD: {eth_dst:%s}.+%s'% (nexthop, nw_dst_match), timeout)
+            'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
 
     def swap_host_macs(self, first_host, second_host):
         first_host_mac = first_host.MAC()
@@ -594,7 +594,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
         tcp_pattern = '%s/tcp' % controller.port
         for i in range(1, 4):
             configure_count = controller.cmd(
-                'grep -c "Configuring datapath" %s' %os.environ['FAUCET_LOG'])
+                'grep -c "Configuring datapath" %s' % os.environ['FAUCET_LOG'])
             self.assertEquals(i, int(configure_count))
             # ryu is a subprocess, so need PID of that.
             fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
@@ -912,7 +912,7 @@ acls:
             nw_proto: 6
             tp_dst: 5002
             actions:
-                allow: 1 
+                allow: 1
         - rule:
             actions:
                 allow: 1
@@ -1444,7 +1444,7 @@ def import_config():
                    '%d are provided in %s.' %
                    (REQUIRED_TEST_PORTS, len(dp_ports), HW_SWITCH_CONFIG_FILE))
         for i, switch_port in enumerate(dp_ports):
-            test_port_name = 'port_%u' % (i+1)
+            test_port_name = 'port_%u' % (i + 1)
             global PORT_MAP
             PORT_MAP[test_port_name] = switch_port
             global SWITCH_MAP
