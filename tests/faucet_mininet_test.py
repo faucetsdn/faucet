@@ -280,6 +280,9 @@ monitor_flow_table_file: "%s"
     def add_host_ipv6_address(self, host, ip_v6):
         host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf()))
 
+    def add_host_ipv6_route(self, host, ip_dst, ip_gw):
+        host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw))
+
     def one_ipv4_ping(self, host, dst):
         ping_result = host.cmd('ping -c1 %s' % dst)
         self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
@@ -314,7 +317,7 @@ monitor_flow_table_file: "%s"
             time.sleep(1)
         self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
 
-    def wait_until_matching_route_as_flow(self, nexthop, prefix):
+    def wait_until_matching_route_as_flow(self, nexthop, prefix, timeout=5):
         if prefix.version == 6:
             exp_prefix = '/'.join(
                 (str(prefix.masked().ip), str(prefix.netmask)))
@@ -323,7 +326,7 @@ monitor_flow_table_file: "%s"
             exp_prefix = prefix.masked().with_netmask
             nw_dst_match = '"nw_dst": "%s"' % exp_prefix
         self.wait_until_matching_flow(
-            'SET_FIELD: {eth_dst:%s}.+%s'% (nexthop, nw_dst_match))
+            'SET_FIELD: {eth_dst:%s}.+%s'% (nexthop, nw_dst_match), timeout)
 
     def swap_host_macs(self, first_host, second_host):
         first_host_mac = first_host.MAC()
@@ -382,10 +385,10 @@ monitor_flow_table_file: "%s"
                             second_host_ip, second_host_routed_ip):
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
-        first_host.cmd('ip -6 route add %s via %s' % (
-            second_host_routed_ip.masked(), self.CONTROLLER_IPV6))
-        second_host.cmd('ip -6 route add %s via %s' % (
-            first_host_routed_ip.masked(), self.CONTROLLER_IPV6))
+        self.add_host_ipv6_route(
+            first_host, second_host_routed_ip, self.CONTROLLER_IPV6)
+        self.add_host_ipv6_route(
+            second_host, first_host_routed_ip, self.CONTROLLER_IPV6)
         self.wait_until_matching_route_as_flow(
             first_host.MAC(), first_host_routed_ip)
         self.wait_until_matching_route_as_flow(
@@ -406,7 +409,8 @@ monitor_flow_table_file: "%s"
         self.setup_ipv6_hosts_addresses(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
-        self.wait_until_matching_flow('fc00::30:', timeout=30)
+        self.wait_until_matching_route_as_flow(
+            second_host.MAC(), second_host_routed_ip2)
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
@@ -429,6 +433,35 @@ monitor_flow_table_file: "%s"
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2)
+
+    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179):
+        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
+        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
+        exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
+        open(exabgp_conf_file, 'w').write(exabgp_conf)
+        controller = self.net.controllers[0]
+        controller.cmd(
+            'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u exabgp '
+            '%s -d 2> %s > %s &' % (
+                listen_address, port, exabgp_conf_file, exabgp_err, exabgp_log))
+        for _ in range(30):
+            netstat = controller.cmd('netstat -an|grep %s:%s|grep ESTAB' % (
+                listen_address, port))
+            if netstat.find('ESTAB') > -1:
+                return exabgp_log
+            time.sleep(1)
+        self.assertTrue(False)
+
+    def exabgp_updates(self, exabgp_log):
+        controller = self.net.controllers[0]
+        # exabgp should have received our BGP updates
+        for _ in range(30):
+            updates = controller.cmd(
+                r'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log)
+            if updates:
+                return updates
+            time.sleep(1)
+        self.assertTrue(False)
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -528,7 +561,7 @@ vlans:
     def test_untagged(self):
         for host_x in self.net.hosts:
             for host_y in self.net.hosts:
-                    host_x.cmd('arp -d %s' % host_y.IP())
+                host_x.cmd('arp -d %s' % host_y.IP())
         for _ in range(3):
             self.net.pingAll()
             learned_hosts = set()
@@ -605,18 +638,13 @@ group test {
  }
 }
 """
+        first_host, second_host = self.net.hosts[:2]
         # wait until 10.0.0.1 has been resolved
-        self.wait_until_matching_flow('10.99.99.0', timeout=30)
-        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
-        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
-        exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
-        open(exabgp_conf_file, 'w').write(exabgp_conf)
-        controller = self.net.controllers[0]
-        controller.cmd(
-            'env exabgp.tcp.bind="127.0.0.1" exabgp.tcp.port=179 exabgp '
-            '%s -d 2> %s > %s &' % (exabgp_conf_file, exabgp_err, exabgp_log))
-        # wait until BGP is successful and routes installed
-        self.wait_until_matching_flow('10.0.3.0', timeout=30)
+        self.wait_until_matching_route_as_flow(
+            first_host.MAC(), ipaddr.IPv4Network('10.99.99.0/24'))
+        self.start_exabgp(exabgp_conf)
+        self.wait_until_matching_route_as_flow(
+            second_host.MAC(), ipaddr.IPv4Network('10.0.3.0/24'), timeout=30)
         self.verify_ipv4_routing_mesh()
 
 
@@ -676,22 +704,10 @@ group test {
   }
 }
 """
-        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
-        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
-        exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
-        open(exabgp_conf_file, 'w').write(exabgp_conf)
-        controller = self.net.controllers[0]
-        controller.cmd(
-            'env exabgp.tcp.bind="127.0.0.1" exabgp.tcp.port=179 exabgp '
-            '%s -d 2> %s > %s &' % (exabgp_conf_file, exabgp_err, exabgp_log))
+        exabgp_log = self.start_exabgp(exabgp_conf)
         self.verify_ipv4_routing_mesh()
         # exabgp should have received our BGP updates
-        for _ in range(30):
-            updates = controller.cmd(
-                r'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log)
-            if updates:
-                break
-            time.sleep(1)
+        updates = self.exabgp_updates(exabgp_log)
         assert re.search('10.0.0.0/24 next-hop 10.0.0.254', updates)
         assert re.search('10.0.1.0/24 next-hop 10.0.0.1', updates)
         assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
@@ -1213,15 +1229,60 @@ group test {
   }
 }
 """
-        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
-        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
-        exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
-        open(exabgp_conf_file, 'w').write(exabgp_conf)
-        controller = self.net.controllers[0]
-        controller.cmd(
-            'env exabgp.tcp.bind="::1" exabgp.tcp.port=179 exabgp '
-            '%s -d 2> %s > %s &' % (exabgp_conf_file, exabgp_err, exabgp_log))
+        self.start_exabgp(exabgp_conf)
         self.verify_ipv6_routing_mesh()
+
+
+class FaucetSingleUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
+
+    CONFIG = """
+arp_neighbor_timeout: 2
+interfaces:
+    %(port_1)d:
+        native_vlan: 100
+        description: "b1"
+    %(port_2)d:
+        native_vlan: 100
+        description: "b2"
+    %(port_3)d:
+        native_vlan: 100
+        description: "b3"
+    %(port_4)d:
+        native_vlan: 100
+        description: "b4"
+vlans:
+    100:
+        description: "untagged"
+        controller_ips: ["fc00::10:1/112", "fc00::20:1/112"]
+        routes:
+            - route:
+                ip_dst: "fc00::10:0/112"
+                ip_gw: "fc00::10:2"
+            - route:
+                ip_dst: "fc00::20:0/112"
+                ip_gw: "fc00::20:2"
+"""
+
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[:2]
+        first_host_ip = ipaddr.IPv6Network('fc00::10:2/112')
+        first_host_ctrl_ip = ipaddr.IPv6Address('fc00::10:1')
+        second_host_ip = ipaddr.IPv6Network('fc00::20:2/112')
+        second_host_ctrl_ip = ipaddr.IPv6Address('fc00::20:1')
+        self.add_host_ipv6_address(first_host, first_host_ip)
+        self.add_host_ipv6_address(second_host, second_host_ip)
+        self.add_host_ipv6_route(
+            first_host, second_host_ip, first_host_ctrl_ip)
+        self.add_host_ipv6_route(
+            second_host, first_host_ip, second_host_ctrl_ip)
+        self.wait_until_matching_route_as_flow(
+            first_host.MAC(), first_host_ip)
+        self.wait_until_matching_route_as_flow(
+            second_host.MAC(), second_host_ip)
+        self.one_ipv6_ping(first_host, second_host_ip.ip)
+        self.one_ipv6_ping(first_host, second_host_ctrl_ip)
+        self.one_ipv6_ping(second_host, first_host_ip.ip)
+        self.one_ipv6_ping(second_host, first_host_ctrl_ip)
 
 
 class FaucetSingleUntaggedIPv6RouteTest(FaucetUntaggedTest):
@@ -1280,22 +1341,13 @@ group test {
   }
 }
 """
-        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
-        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
-        exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
-        open(exabgp_conf_file, 'w').write(exabgp_conf)
-        controller = self.net.controllers[0]
-        controller.cmd(
-            'env exabgp.tcp.bind="::1" exabgp.tcp.port=179 exabgp '
-            '%s -d 2> %s > %s &' % (exabgp_conf_file, exabgp_err, exabgp_log))
+        exabgp_log = self.start_exabgp(exabgp_conf, '::1')
         self.verify_ipv6_routing_mesh()
+        second_host = self.net.hosts[1]
+        self.wait_until_matching_route_as_flow(
+            second_host.MAC(), ipaddr.IPv6Network('fc00::30:0/112'))
         # exabgp should have received our BGP updates
-        for _ in range(30):
-            updates = controller.cmd(
-                r'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log)
-            if updates:
-                break
-            time.sleep(1)
+        updates = self.exabgp_updates(exabgp_log)
         assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
         assert re.search('fc00::10:0/112 next-hop fc00::1:1', updates)
         assert re.search('fc00::20:0/112 next-hop fc00::1:2', updates)
@@ -1342,7 +1394,6 @@ vlans:
         self.setup_ipv6_hosts_addresses(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
-        self.wait_until_matching_flow('fc00::20:')
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
@@ -1483,8 +1534,8 @@ def run_tests():
         single_runner = unittest.TextTestRunner()
         results.append(single_runner.run(single_tests))
     for result in results:
-       if not result.wasSuccessful():
-           print result.printErrors()
+        if not result.wasSuccessful():
+            print result.printErrors()
 
 
 if __name__ == '__main__':
