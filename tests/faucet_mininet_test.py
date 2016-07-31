@@ -338,16 +338,19 @@ monitor_flow_table_file: "%s"
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
 
+    def add_host_ipv4_route(self, host, ip_dst, ip_gw):
+        host.cmd('route add -net %s gw %s' % (ip_dst.masked(), ip_gw))
+
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip):
         first_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' % (
             first_host.intf(), first_host_routed_ip.ip)))
         second_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' % (
             second_host.intf(), second_host_routed_ip.ip)))
-        first_host.cmd(('route add -net %s gw %s' % (
-            second_host_routed_ip.masked(), self.CONTROLLER_IPV4)))
-        second_host.cmd(('route add -net %s gw %s' % (
-            first_host_routed_ip.masked(), self.CONTROLLER_IPV4)))
+        self.add_host_ipv4_route(
+            first_host,  second_host_routed_ip, self.CONTROLLER_IPV4)
+        self.add_host_ipv4_route(
+            second_host, first_host_routed_ip, self.CONTROLLER_IPV4)
         self.net.ping(hosts=(first_host, second_host))
         self.wait_until_matching_route_as_flow(
             first_host.MAC(), first_host_routed_ip)
