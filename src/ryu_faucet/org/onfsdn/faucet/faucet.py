@@ -40,6 +40,7 @@ from ryu.lib.packet import vlan as ryu_vlan
 from ryu.ofproto import ofproto_v1_3, ether
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
 
+
 class EventFaucetReconfigure(event.EventBase):
     pass
 

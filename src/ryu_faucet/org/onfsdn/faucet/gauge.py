@@ -415,8 +415,8 @@ class Gauge(app_manager.RyuApp):
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
     def handler_reconnect(self, ev):
-		    self.logger.info("datapath reconnected %x", self.dps[ev.dp.id].dp_id)
-		    self.handler_datapath(ev)
+        self.logger.info("datapath reconnected %x", self.dps[ev.dp.id].dp_id)
+        self.handler_datapath(ev)
 
     def handler_datapath(self, ev):
         ryudp = ev.dp
@@ -441,7 +441,7 @@ class Gauge(app_manager.RyuApp):
         if dp.monitor_ports:
             if dp.influxdb_stats:
                 port_stats_poller = GaugePortStatsInfluxDBPoller(
-                   dp, ryudp, self.logname)
+                    dp, ryudp, self.logname)
             else:
                 port_stats_poller = GaugePortStatsPoller(
                     dp, ryudp, self.logname)
