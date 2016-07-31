@@ -102,10 +102,14 @@ def str_int_dpid(hex_dpid):
 
 # TODO: applications should retry if port not really free
 def find_free_port():
-    free_socket = socket.socket()
-    free_socket.bind(('', 0))
-    free_port = free_socket.getsockname()[1]
-    free_socket.close()
+    while True:
+        free_socket = socket.socket()
+        free_socket.bind(('', 0))
+        free_port = free_socket.getsockname()[1]
+        free_socket.close()
+        # ports reserved in tests
+        if free_port not in [5001, 5002]:
+            break
     return free_port
 
 
@@ -595,6 +599,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             # ryu is a subprocess, so need PID of that.
             fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
             self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
+            time.sleep(1)
             self.assertTrue(switch.connected())
             self.assertEquals(0, self.net.pingAll())
 
@@ -935,7 +940,7 @@ acls:
         self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": 5002')
 
 
-class FaucetSingleUntaggedACLMirrorTest(FaucetUntaggedTest):
+class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
 
     CONFIG = """
 interfaces:
@@ -1039,7 +1044,7 @@ acls:
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
 
-class FaucetSingleUntaggedMirrorTest(FaucetUntaggedTest):
+class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 
     CONFIG = """
 interfaces:
@@ -1246,7 +1251,7 @@ group test {
         self.stop_exabgp()
 
 
-class FaucetSingleUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
+class FaucetUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG = """
 arp_neighbor_timeout: 2
