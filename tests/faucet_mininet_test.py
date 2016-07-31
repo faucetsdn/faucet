@@ -444,7 +444,7 @@ monitor_flow_table_file: "%s"
             'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u timeout -s9 180s exabgp '
             '%s -d 2> %s > %s &' % (
                 listen_address, port, exabgp_conf_file, exabgp_err, exabgp_log))
-        for _ in range(30):
+        for _ in range(60):
             netstat = controller.cmd('netstat -an|grep %s:%s|grep ESTAB' % (
                 listen_address, port))
             if netstat.find('ESTAB') > -1:
@@ -455,7 +455,7 @@ monitor_flow_table_file: "%s"
     def exabgp_updates(self, exabgp_log):
         controller = self.net.controllers[0]
         # exabgp should have received our BGP updates
-        for _ in range(30):
+        for _ in range(60):
             updates = controller.cmd(
                 r'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log)
             if updates:
@@ -1229,7 +1229,7 @@ group test {
   }
 }
 """
-        self.start_exabgp(exabgp_conf)
+        self.start_exabgp(exabgp_conf, '::1')
         self.verify_ipv6_routing_mesh()
 
 
