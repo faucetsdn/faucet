@@ -450,8 +450,8 @@ monitor_flow_table_file: "%s"
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.net.controllers[0]
         controller.cmd(
-            'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u timeout -s9 180s exabgp '
-            '%s -d 2> %s > %s &' % (
+            'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u '
+            'timeout -s9 180s stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
                 listen_address, port, exabgp_conf_file, exabgp_err, exabgp_log))
         for _ in range(60):
             netstat = controller.cmd('netstat -an|grep %s:%s|grep ESTAB' % (
