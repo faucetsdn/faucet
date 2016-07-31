@@ -114,7 +114,7 @@ class Valve(object):
                     self.ofchannel_logger.propagate = 0
                     self.ofchannel_logger.setLevel(logging.DEBUG)
                 for ofmsg in ofmsgs:
-                    self.ofchannel_logger.debug(ofmsgs)
+                    self.ofchannel_logger.debug(ofmsg)
 
     @staticmethod
     def ignore_port(port_num):
