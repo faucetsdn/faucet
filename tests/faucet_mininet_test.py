@@ -102,10 +102,14 @@ def str_int_dpid(hex_dpid):
 
 # TODO: applications should retry if port not really free
 def find_free_port():
-    free_socket = socket.socket()
-    free_socket.bind(('', 0))
-    free_port = free_socket.getsockname()[1]
-    free_socket.close()
+    while True:
+        free_socket = socket.socket()
+        free_socket.bind(('', 0))
+        free_port = free_socket.getsockname()[1]
+        free_socket.close()
+        # ports reserved in tests
+        if free_port not in [5001, 5002]:
+            break
     return free_port
 
 
@@ -434,15 +438,20 @@ monitor_flow_table_file: "%s"
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2)
 
+    def stop_exabgp(self, port=179):
+        controller = self.net.controllers[0]
+        controller.cmd('fuser %s/tcp -k -9' % port)
+
     def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179):
+        self.stop_exabgp(port)
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.net.controllers[0]
         controller.cmd(
-            'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u timeout -s9 180s exabgp '
-            '%s -d 2> %s > %s &' % (
+            'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u '
+            'timeout -s9 180s stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
                 listen_address, port, exabgp_conf_file, exabgp_err, exabgp_log))
         for _ in range(60):
             netstat = controller.cmd('netstat -an|grep %s:%s|grep ESTAB' % (
@@ -582,9 +591,15 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def test_untagged(self):
         controller = self.net.controllers[0]
         switch = self.net.switches[0]
-        for _ in range(3):
+        tcp_pattern = '%s/tcp' % controller.port
+        for i in range(1, 4):
+            configure_count = controller.cmd(
+                'grep -c "Configuring datapath" %s' %os.environ['FAUCET_LOG'])
+            self.assertEquals(i, int(configure_count))
             # ryu is a subprocess, so need PID of that.
-            controller.cmd('fuser %s/tcp -k -1')
+            fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
+            self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
+            time.sleep(1)
             self.assertTrue(switch.connected())
             self.assertEquals(0, self.net.pingAll())
 
@@ -646,6 +661,7 @@ group test {
         self.wait_until_matching_route_as_flow(
             second_host.MAC(), ipaddr.IPv4Network('10.0.3.0/24'), timeout=30)
         self.verify_ipv4_routing_mesh()
+        self.stop_exabgp()
 
 
 class FaucetSingleUntaggedIPv4RouteTest(FaucetUntaggedTest):
@@ -708,6 +724,7 @@ group test {
         self.verify_ipv4_routing_mesh()
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(exabgp_log)
+        self.stop_exabgp()
         assert re.search('10.0.0.0/24 next-hop 10.0.0.254', updates)
         assert re.search('10.0.1.0/24 next-hop 10.0.0.1', updates)
         assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
@@ -862,7 +879,7 @@ vlans:
             100, self.net.ping([tagged_host_pair[0], untagged_host_pair[0]]))
 
 
-class FaucetSingleUntaggedACLTest(FaucetUntaggedTest):
+class FaucetUntaggedACLTest(FaucetUntaggedTest):
 
     CONFIG = """
 interfaces:
@@ -923,7 +940,7 @@ acls:
         self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": 5002')
 
 
-class FaucetSingleUntaggedACLMirrorTest(FaucetUntaggedTest):
+class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
 
     CONFIG = """
 interfaces:
@@ -1027,7 +1044,7 @@ acls:
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
 
-class FaucetSingleUntaggedMirrorTest(FaucetUntaggedTest):
+class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 
     CONFIG = """
 interfaces:
@@ -1231,9 +1248,10 @@ group test {
 """
         self.start_exabgp(exabgp_conf, '::1')
         self.verify_ipv6_routing_mesh()
+        self.stop_exabgp()
 
 
-class FaucetSingleUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
+class FaucetUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG = """
 arp_neighbor_timeout: 2
@@ -1346,8 +1364,8 @@ group test {
         second_host = self.net.hosts[1]
         self.wait_until_matching_route_as_flow(
             second_host.MAC(), ipaddr.IPv6Network('fc00::30:0/112'))
-        # exabgp should have received our BGP updates
         updates = self.exabgp_updates(exabgp_log)
+        self.stop_exabgp()
         assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
         assert re.search('fc00::10:0/112 next-hop fc00::1:1', updates)
         assert re.search('fc00::20:0/112 next-hop fc00::1:2', updates)
