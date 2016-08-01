@@ -410,24 +410,25 @@ class Valve(object):
         return ofmsgs
 
     @staticmethod
-    def build_flood_ports_for_vlan(vlan_ports, eth_dst):
+    def build_flood_ports_for_vlan(vlan_ports, exclude_unicast):
         ports = []
         for port in vlan_ports:
             if not port.running():
                 continue
-            if eth_dst is None or mac_addr_is_unicast(eth_dst):
+            if exclude_unicast:
                 if not port.unicast_flood:
                     continue
             ports.append(port)
         return ports
 
-    def build_flood_rule_actions(self, vlan, eth_dst):
+    def build_flood_rule_actions(self, vlan, exclude_unicast):
         flood_acts = []
-        tagged_ports = self.build_flood_ports_for_vlan(vlan.tagged, eth_dst)
+        tagged_ports = self.build_flood_ports_for_vlan(
+            vlan.tagged, exclude_unicast)
         for port in tagged_ports:
             flood_acts.append(parser.OFPActionOutput(port.number))
         untagged_ports = self.build_flood_ports_for_vlan(
-            vlan.untagged, eth_dst)
+            vlan.untagged, exclude_unicast)
         if untagged_ports:
             flood_acts.append(parser.OFPActionPopVlan())
             for port in untagged_ports:
@@ -460,7 +461,8 @@ class Valve(object):
         ofmsgs = []
         mirrored_ports = self.vlan_mirrored_ports(vlan)
         for eth_dst, eth_dst_mask in flood_eth_dst_matches:
-            flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
+            exclude_unicast = eth_dst == None
+            flood_acts = self.build_flood_rule_actions(vlan, exclude_unicast)
             ofmsgs.append(self.valve_flowmod(
                 self.dp.flood_table,
                 match=self.valve_in_match(
@@ -474,7 +476,7 @@ class Valve(object):
                 mirror_port = self.dp.mirror_from_port[port.number]
                 mirror_acts = [
                     parser.OFPActionOutput(mirror_port)] + flood_acts
-                flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
+                flood_acts = self.build_flood_rule_actions(vlan, exclude_unicast)
                 ofmsgs.append(self.valve_flowmod(
                     self.dp.flood_table,
                     match=self.valve_in_match(
@@ -1293,9 +1295,9 @@ class Valve(object):
         now = time.time()
         for vlan in self.dp.vlans.itervalues():
             untagged_ports = self.build_flood_ports_for_vlan(
-                vlan.untagged, None)
+                vlan.untagged, False)
             tagged_ports = self.build_flood_ports_for_vlan(
-                vlan.tagged, None)
+                vlan.tagged, False)
             for routes, neighbor_cache, neighbor_resolver in (
                     (vlan.ipv4_routes, vlan.arp_cache, self.arp_for_ip_gw),
                     (vlan.ipv6_routes, vlan.nd_cache, self.nd_solicit_ip_gw)):
