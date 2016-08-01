@@ -372,14 +372,15 @@ class Gauge(app_manager.RyuApp):
             for dp_conf_file in config_file:
                 # config_file should be a list of faucet config filenames
                 # separated by linebreaks
-                dp = DP.parser(dp_conf_file.strip(), self.logname)
-                try:
-                    dp.sanity_check()
-                except AssertionError:
-                    self.logger.exception(
-                        "Error in config file {0}".format(dp_conf_file))
-                else:
-                    self.dps[dp.dp_id] = dp
+                dps = DP.parser(dp_conf_file.strip(), self.logname)
+                for dp in dps:
+                    try:
+                        dp.sanity_check()
+                    except AssertionError:
+                        self.logger.exception(
+                            "Error in config file {0}".format(dp_conf_file))
+                    else:
+                        self.dps[dp.dp_id] = dp
 
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
