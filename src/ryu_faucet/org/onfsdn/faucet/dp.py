@@ -49,7 +49,8 @@ class DP(object):
             logger.error("dp_id not configured in file: {0}".format(config_file))
             return None
 
-        dp = DP(conf['dp_id'], logname)
+        dp_id = conf['dp_id']
+        dp = DP(dp_id, logname)
 
         interfaces = conf.pop('interfaces', {})
         vlans = conf.pop('vlans', {})
@@ -58,7 +59,7 @@ class DP(object):
         dp.set_defaults()
 
         for vid, vlan_conf in vlans.iteritems():
-            dp.add_vlan(vid, vlan_conf)
+            dp.add_vlan(vid, dp_id, vlan_conf)
         for port_num, port_conf in interfaces.iteritems():
             dp.add_port(port_num, port_conf)
         for acl_num, acl_conf in acls.iteritems():
@@ -85,7 +86,7 @@ class DP(object):
             dp.set_defaults()
 
             for vid, vlan_conf in vlans.iteritems():
-                dp.add_vlan(vid, vlan_conf)
+                dp.add_vlan(vid, dp_id, vlan_conf)
             for port_num, port_conf in interfaces.iteritems():
                 dp.add_port(port_num, port_conf)
             for acl_num, acl_conf in acls.iteritems():
@@ -232,7 +233,7 @@ class DP(object):
         if port_conf['acl_in'] is not None:
             self.acl_in[port_num] = port_conf['acl_in']
 
-    def add_vlan(self, vid, vlan_conf=None):
+    def add_vlan(self, vid, dp_id, vlan_conf=None):
         vlan_conf = copy.copy(vlan_conf) if vlan_conf else {}
 
         self.vlans.setdefault(vid, VLAN(vid, dp_id, vlan_conf))
