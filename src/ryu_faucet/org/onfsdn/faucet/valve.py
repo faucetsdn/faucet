@@ -421,18 +421,20 @@ class Valve(object):
             ports.append(port)
         return ports
 
-    def build_flood_rule_actions(self, vlan, exclude_unicast):
+    def build_flood_rule_actions(self, vlan, exclude_unicast, exclude_ports=[]):
         flood_acts = []
         tagged_ports = self.build_flood_ports_for_vlan(
             vlan.tagged, exclude_unicast)
-        for port in tagged_ports:
-            flood_acts.append(parser.OFPActionOutput(port.number))
         untagged_ports = self.build_flood_ports_for_vlan(
             vlan.untagged, exclude_unicast)
+        for port in tagged_ports:
+            if port not in exclude_ports:
+                flood_acts.append(parser.OFPActionOutput(port.number))
         if untagged_ports:
             flood_acts.append(parser.OFPActionPopVlan())
             for port in untagged_ports:
-                flood_acts.append(parser.OFPActionOutput(port.number))
+                if port not in exclude_ports:
+                    flood_acts.append(parser.OFPActionOutput(port.number))
         return flood_acts
 
     def vlan_mirrored_ports(self, vlan):
@@ -443,8 +445,11 @@ class Valve(object):
         return mirrored_ports
 
     def build_flood_rules(self, vlan, modify=False):
-        mirrored_ports = []
-        """Add a flow to flood packets to unknown destinations on a VLAN."""
+        """Add flows to flood packets to unknown destinations on a VLAN."""
+        # TODO: not all vendors implement groups well.
+        # That means we need flood rules for each input port, outputting
+        # to all ports except the input port. When all vendors implement
+        # groups correctly we can use them.
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
@@ -459,25 +464,32 @@ class Valve(object):
             (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
         ])
         ofmsgs = []
+        vlan_all_ports = self.build_flood_ports_for_vlan(
+            vlan.tagged + vlan.untagged, False)
         mirrored_ports = self.vlan_mirrored_ports(vlan)
-        broadcast_flood_actions = self.build_flood_rule_actions(vlan, True)
-        unicast_flood_actions = self.build_flood_rule_actions(vlan, False)
         for eth_dst, eth_dst_mask in flood_eth_dst_matches:
-            if eth_dst is None:
-                flood_acts = unicast_flood_actions
-            else:
-                flood_acts = broadcast_flood_actions
-            ofmsgs.append(self.valve_flowmod(
-                self.dp.flood_table,
-                match=self.valve_in_match(
-                    self.dp.flood_table, vlan=vlan,
-                    eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
-                command=command,
-                inst=[self.apply_actions(flood_acts)],
-                priority=flood_priority))
+            for port in vlan_all_ports:
+                if eth_dst is None:
+                    flood_acts = self.build_flood_rule_actions(
+                        vlan, False, exclude_ports=[port])
+                else:
+                    flood_acts = self.build_flood_rule_actions(
+                        vlan, True, exclude_ports=[port])
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.flood_table,
+                    match=self.valve_in_match(
+                        self.dp.flood_table, in_port=port.number, vlan=vlan,
+                        eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
+                    command=command,
+                    inst=[self.apply_actions(flood_acts)],
+                    priority=flood_priority))
             flood_priority += 1
             for port in mirrored_ports:
                 mirror_port = self.dp.mirror_from_port[port.number]
+                if eth_dst is None:
+                    flood_acts = self.build_flood_rule_actions(vlan, False)
+                else:
+                    flood_acts = self.build_flood_rule_actions(vlan, True)
                 mirror_acts = [
                     parser.OFPActionOutput(mirror_port)] + flood_acts
                 ofmsgs.append(self.valve_flowmod(
@@ -491,7 +503,7 @@ class Valve(object):
                     command=command,
                     inst=[self.apply_actions(mirror_acts)],
                     priority=flood_priority))
-                flood_priority += 1
+            flood_priority += 1
         return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_port_nums):
