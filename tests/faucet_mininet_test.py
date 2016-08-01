@@ -964,6 +964,7 @@ interfaces:
 vlans:
     100:
         description: "untagged"
+        unicast_flood: False
 acls:
     %(port_1)d:
         - rule:
@@ -1067,6 +1068,7 @@ interfaces:
 vlans:
     100:
         description: "untagged"
+        unicast_flood: False
 """
 
     def test_untagged(self):
