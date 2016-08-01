@@ -59,7 +59,7 @@ class DP(object):
         dp.set_defaults()
 
         for vid, vlan_conf in vlans.iteritems():
-            dp.add_vlan(vid, dp_id, vlan_conf)
+            dp.add_vlan(vid, vlan_conf)
         for port_num, port_conf in interfaces.iteritems():
             dp.add_port(port_num, port_conf)
         for acl_num, acl_conf in acls.iteritems():
@@ -86,7 +86,7 @@ class DP(object):
             dp.set_defaults()
 
             for vid, vlan_conf in vlans.iteritems():
-                dp.add_vlan(vid, dp_id, vlan_conf)
+                dp.add_vlan(vid, vlan_conf)
             for port_num, port_conf in interfaces.iteritems():
                 dp.add_port(port_num, port_conf)
             for acl_num, acl_conf in acls.iteritems():
@@ -218,14 +218,14 @@ class DP(object):
         if port_conf['native_vlan'] is not None:
             vid = port_conf['native_vlan']
             if vid not in self.vlans:
-                self.vlans[vid] = VLAN(vid)
+                self.vlans[vid] = VLAN(vid, self.dp_id)
             self.vlans[vid].untagged.append(self.ports[port_num])
 
         # add vlans
         port_conf.setdefault('tagged_vlans', [])
         for vid in port_conf['tagged_vlans']:
             if vid not in self.vlans:
-                self.vlans[vid] = VLAN(vid)
+                self.vlans[vid] = VLAN(vid, self.dp_id)
             self.vlans[vid].tagged.append(port)
 
         # add ACL
@@ -233,10 +233,10 @@ class DP(object):
         if port_conf['acl_in'] is not None:
             self.acl_in[port_num] = port_conf['acl_in']
 
-    def add_vlan(self, vid, dp_id, vlan_conf=None):
+    def add_vlan(self, vid, vlan_conf=None):
         vlan_conf = copy.copy(vlan_conf) if vlan_conf else {}
 
-        self.vlans.setdefault(vid, VLAN(vid, dp_id, vlan_conf))
+        self.vlans.setdefault(vid, VLAN(vid, self.dp_id, vlan_conf))
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
