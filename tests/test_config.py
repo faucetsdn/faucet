@@ -25,52 +25,56 @@ from dp import DP
 
 class DistConfigTestCase(unittest.TestCase):
     def setUp(self):
-        self.dp = DP.parser('config/testconfig.yaml')
+        self.dps = DP.parser('config/testconfig.yaml')
 
     def test_dps(self):
         # confirm that DPIDs match
-        self.assertEqual(self.dp.dp_id, 0xcafef00d)
+        self.assertEqual(self.dps[0].dp_id, 0xcafef00d)
+        self.assertEqual(self.dps[1].dp_id, 0xcafebeef)
 
     def test_port_numbers(self):
-        # check the port numbers line up
-        self.assertEqual(set(self.dp.ports.keys()), set([1, 2, 3, 4, 5]))
+        for dp in self.dps:
+            # check the port numbers line up
+            self.assertEqual(set(dp.ports.keys()), set([1, 2, 3, 4, 5]))
 
     def test_ports_vlans(self):
-        # load ports for easy reading
-        portcafef00d_1 = self.dp.ports[1]
-        portcafef00d_2 = self.dp.ports[2]
-        portcafef00d_3 = self.dp.ports[3]
-        portcafef00d_4 = self.dp.ports[4]
-        portcafef00d_5 = self.dp.ports[5]
-        # check that the ports are in the right vlans
-        self.assertIn(portcafef00d_1, self.dp.vlans[40].tagged)
-        self.assertIn(portcafef00d_1, self.dp.vlans[41].tagged)
-        self.assertIn(portcafef00d_2, self.dp.vlans[40].untagged)
-        self.assertIn(portcafef00d_3, self.dp.vlans[40].untagged)
-        self.assertIn(portcafef00d_3, self.dp.vlans[41].tagged)
-        self.assertIn(portcafef00d_4, self.dp.vlans[41].untagged)
-        self.assertIn(portcafef00d_5, self.dp.vlans[41].untagged)
-        # check that the ports are not in vlans they should not be
-        self.assertNotIn(portcafef00d_1, self.dp.vlans[40].untagged)
-        self.assertNotIn(portcafef00d_1, self.dp.vlans[41].untagged)
-        self.assertNotIn(portcafef00d_2, self.dp.vlans[40].tagged)
-        self.assertNotIn(portcafef00d_2, self.dp.vlans[41].untagged)
-        self.assertNotIn(portcafef00d_2, self.dp.vlans[41].tagged)
-        self.assertNotIn(portcafef00d_3, self.dp.vlans[40].tagged)
-        self.assertNotIn(portcafef00d_3, self.dp.vlans[41].untagged)
-        self.assertNotIn(portcafef00d_4, self.dp.vlans[40].untagged)
-        self.assertNotIn(portcafef00d_4, self.dp.vlans[40].tagged)
-        self.assertNotIn(portcafef00d_4, self.dp.vlans[41].tagged)
-        self.assertNotIn(portcafef00d_5, self.dp.vlans[40].untagged)
-        self.assertNotIn(portcafef00d_5, self.dp.vlans[40].tagged)
-        self.assertNotIn(portcafef00d_5, self.dp.vlans[41].tagged)
+        for dp in self.dps:
+            # load ports for easy reading
+            port_1 = dp.ports[1]
+            port_2 = dp.ports[2]
+            port_3 = dp.ports[3]
+            port_4 = dp.ports[4]
+            port_5 = dp.ports[5]
+            # check that the ports are in the right vlans
+            self.assertIn(port_1, dp.vlans[40].tagged)
+            self.assertIn(port_1, dp.vlans[41].tagged)
+            self.assertIn(port_2, dp.vlans[40].untagged)
+            self.assertIn(port_3, dp.vlans[40].untagged)
+            self.assertIn(port_3, dp.vlans[41].tagged)
+            self.assertIn(port_4, dp.vlans[41].untagged)
+            self.assertIn(port_5, dp.vlans[41].untagged)
+            # check that the ports are not in vlans they should not be
+            self.assertNotIn(port_1, dp.vlans[40].untagged)
+            self.assertNotIn(port_1, dp.vlans[41].untagged)
+            self.assertNotIn(port_2, dp.vlans[40].tagged)
+            self.assertNotIn(port_2, dp.vlans[41].untagged)
+            self.assertNotIn(port_2, dp.vlans[41].tagged)
+            self.assertNotIn(port_3, dp.vlans[40].tagged)
+            self.assertNotIn(port_3, dp.vlans[41].untagged)
+            self.assertNotIn(port_4, dp.vlans[40].untagged)
+            self.assertNotIn(port_4, dp.vlans[40].tagged)
+            self.assertNotIn(port_4, dp.vlans[41].tagged)
+            self.assertNotIn(port_5, dp.vlans[40].untagged)
+            self.assertNotIn(port_5, dp.vlans[40].tagged)
+            self.assertNotIn(port_5, dp.vlans[41].tagged)
 
     def test_only_one_untagged_vlan_per_port(self):
-        untaggedports = set()
-        for vlan in self.dp.vlans.values():
-            for port in vlan.untagged:
-                self.assertNotIn(port.number, untaggedports)
-                untaggedports.add(port.number)
+        for dp in self.dps:
+            untaggedports = set()
+            for vlan in dp.vlans.values():
+                for port in vlan.untagged:
+                    self.assertNotIn(port.number, untaggedports)
+                    untaggedports.add(port.number)
 
 if __name__ == "__main__":
     unittest.main()

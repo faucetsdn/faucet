@@ -64,7 +64,7 @@ class DP(object):
         for acl_num, acl_conf in acls.iteritems():
             dp.add_acl(acl_num, acl_conf)
 
-        return dp
+        return [dp]
 
     @classmethod
     def _parser_v2(cls, conf, config_file, logname):
@@ -94,7 +94,7 @@ class DP(object):
             dps.append(dp)
 
         if dps:
-            return dps[0]
+            return dps
         else:
             logger.error("dps configured with no elements in file: {0}".format(config_file))
             return None
