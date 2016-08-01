@@ -1,16 +1,34 @@
 ---
-dp_id: 0xcafef00d
-monitoring: True
-hardware: "Open vSwitch"
-interfaces:
- 1:
-  tagged_vlans: [40, 41]
- 2:
-  native_vlan: 40
- 3:
-  native_vlan: 40
-  tagged_vlans: [41]
- 4:
-  native_vlan: 41
- 5:
-  native_vlan: 41
+version: 2
+
+dps:
+    0xcafef00d:
+        monitoring: True
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                tagged_vlans: [40, 41]
+            2:
+                native_vlan: 40
+            3:
+                native_vlan: 40
+                tagged_vlans: [41]
+            4:
+                native_vlan: 41
+            5:
+                native_vlan: 41
+    0xcafebeef:
+        monitoring: True
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                tagged_vlans: [40, 41]
+            2:
+                native_vlan: 40
+            3:
+                native_vlan: 40
+                tagged_vlans: [41]
+            4:
+                native_vlan: 41
+            5:
+                native_vlan: 41
