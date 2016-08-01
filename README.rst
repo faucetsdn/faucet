@@ -190,6 +190,11 @@ To Uninstall the package
 
 ``# pip uninstall ryu-faucet``
 
+============
+Architecture
+============
+.. image:: src/docs/faucet_architecture.png
+
 ==========
 Deployment
 ==========
