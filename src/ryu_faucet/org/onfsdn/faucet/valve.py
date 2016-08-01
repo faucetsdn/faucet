@@ -92,21 +92,23 @@ class Valve(object):
         self.TABLE_MATCH_TYPES = {
             self.dp.vlan_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type'),
+            # TODO: eth_src_table matches too many things. It should
+            # be split further into two tables for IPv4/IPv6 entries.
             self.dp.eth_src_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type',
                 'ip_proto',
                 'icmpv6_type', 'ipv6_nd_target',
                 'arp_tpa', 'ipv4_src'),
             self.dp.ipv4_fib_table: (
-                'in_port', 'vlan_vid', 'eth_type', 'ip_proto',
+                'vlan_vid', 'eth_type', 'ip_proto',
                 'ipv4_src', 'ipv4_dst'),
             self.dp.ipv6_fib_table: (
-                'in_port', 'vlan_vid', 'eth_type', 'ip_proto',
+                'vlan_vid', 'eth_type', 'ip_proto',
                 'icmpv6_type', 'ipv6_dst'),
             self.dp.eth_dst_table: (
-                'in_port', 'vlan_vid', 'eth_dst'),
+                'vlan_vid', 'eth_dst'),
             self.dp.flood_table: (
-                'in_port', 'vlan_vid', 'eth_dst'),
+                'vlan_vid', 'eth_dst'),
         }
 
     def switch_features(self, dp_id, msg):
@@ -463,8 +465,9 @@ class Valve(object):
                         self.dp.flood_table,
                         match=self.valve_in_match(
                             self.dp.flood_table,
-                            in_port=port.number, vlan=vlan,
-                            eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
+                            vlan=vlan,
+                            eth_dst=eth_dst,
+                            eth_dst_mask=eth_dst_mask),
                         command=command,
                         inst=[self.apply_actions(mirror_acts)],
                         priority=flood_priority))
@@ -727,7 +730,7 @@ class Valve(object):
         ofmsgs = []
         self.logger.info('Sending config for port %s', port)
 
-        for table in self.all_valve_tables():
+        for table in (self.dp.vlan_table, self.dp.eth_src_table):
             ofmsgs.append(self.valve_flowdel(table, in_port_match))
 
         # if this port is used as mirror port in any acl - drop input packets
@@ -778,8 +781,7 @@ class Valve(object):
         ofmsgs = []
 
         if not port.permanent_learn:
-            # delete all rules matching this port in all tables.
-            for table in self.all_valve_tables():
+            for table in (self.dp.vlan_table, self.dp.eth_src_table):
                 ofmsgs.append(self.valve_flowdel(
                     table,
                     self.valve_in_match(
