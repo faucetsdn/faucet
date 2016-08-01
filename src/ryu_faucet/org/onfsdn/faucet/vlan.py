@@ -22,10 +22,11 @@ class VLAN(object):
     tagged = None
     untagged = None
 
-    def __init__(self, vid, conf=None):
+    def __init__(self, vid, dp_id, conf=None):
         if conf is None:
             conf = {}
         self.vid = vid
+        self.dp_id = dp_id
         self.tagged = []
         self.untagged = []
         self.name = conf.setdefault('name', str(vid))

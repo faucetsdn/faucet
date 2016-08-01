@@ -235,7 +235,7 @@ class DP(object):
     def add_vlan(self, vid, vlan_conf=None):
         vlan_conf = copy.copy(vlan_conf) if vlan_conf else {}
 
-        self.vlans.setdefault(vid, VLAN(vid, vlan_conf))
+        self.vlans.setdefault(vid, VLAN(vid, dp_id, vlan_conf))
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:

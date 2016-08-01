@@ -130,9 +130,8 @@ class Faucet(app_manager.RyuApp):
         nexthop = ipaddr.IPAddress(path_change.nexthop)
         withdraw = path_change.is_withdraw
         flowmods = []
-        dp_id = event.msg.datapath.id
-        valve = self.valves[dp_id]
-        ryudp = self.dpset.get(dp_id)
+        valve = self.valves[vlan.dp_id]
+        ryudp = self.dpset.get(valve.dp.dp_id)
         for connected_network in vlan.controller_ips:
             if nexthop in connected_network:
                 if nexthop == connected_network.ip:
