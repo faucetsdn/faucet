@@ -108,8 +108,15 @@ class Valve(object):
             self.dp.eth_dst_table: (
                 'vlan_vid', 'eth_dst'),
             self.dp.flood_table: (
-                'vlan_vid', 'eth_dst'),
+                'in_port', 'vlan_vid', 'eth_dst'),
         }
+
+    def in_port_tables(self):
+        in_port_tables = [self.dp.acl_table]
+        for table_id in self.TABLE_MATCH_TYPES:
+            if 'in_port' in self.TABLE_MATCH_TYPES:
+                in_port_tables.append(table_id)
+        return in_port_tables
 
     def switch_features(self, dp_id, msg):
         """Send configuration flows necessary for the switch implementation.
@@ -427,7 +434,15 @@ class Valve(object):
                 flood_acts.append(parser.OFPActionOutput(port.number))
         return flood_acts
 
+    def vlan_mirrored_ports(self, vlan):
+        mirrored_ports = []
+        for port in vlan.tagged + vlan.untagged:
+            if port.number in self.dp.mirror_from_port:
+                mirrored_ports.append(port)
+        return mirrored_ports
+
     def build_flood_rules(self, vlan, modify=False):
+        mirrored_ports = []
         """Add a flow to flood packets to unknown destinations on a VLAN."""
         command = ofp.OFPFC_ADD
         if modify:
@@ -443,6 +458,7 @@ class Valve(object):
             (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
         ])
         ofmsgs = []
+        mirrored_ports = self.vlan_mirrored_ports(vlan)
         for eth_dst, eth_dst_mask in flood_eth_dst_matches:
             flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
             ofmsgs.append(self.valve_flowmod(
@@ -454,24 +470,23 @@ class Valve(object):
                 inst=[self.apply_actions(flood_acts)],
                 priority=flood_priority))
             flood_priority += 1
-        for port in vlan.tagged + vlan.untagged:
-            if port.number in self.dp.mirror_from_port:
+            for port in mirrored_ports:
                 mirror_port = self.dp.mirror_from_port[port.number]
                 mirror_acts = [
                     parser.OFPActionOutput(mirror_port)] + flood_acts
-                for eth_dst, eth_dst_mask in flood_eth_dst_matches:
-                    flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
-                    ofmsgs.append(self.valve_flowmod(
+                flood_acts = self.build_flood_rule_actions(vlan, eth_dst)
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.flood_table,
+                    match=self.valve_in_match(
                         self.dp.flood_table,
-                        match=self.valve_in_match(
-                            self.dp.flood_table,
-                            vlan=vlan,
-                            eth_dst=eth_dst,
-                            eth_dst_mask=eth_dst_mask),
-                        command=command,
-                        inst=[self.apply_actions(mirror_acts)],
-                        priority=flood_priority))
-                    flood_priority += 1
+                        vlan=vlan,
+                        in_port=port.number,
+                        eth_dst=eth_dst,
+                        eth_dst_mask=eth_dst_mask),
+                    command=command,
+                    inst=[self.apply_actions(mirror_acts)],
+                    priority=flood_priority))
+                flood_priority += 1
         return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_port_nums):
@@ -730,7 +745,7 @@ class Valve(object):
         ofmsgs = []
         self.logger.info('Sending config for port %s', port)
 
-        for table in (self.dp.vlan_table, self.dp.eth_src_table):
+        for table in self.in_port_tables():
             ofmsgs.append(self.valve_flowdel(table, in_port_match))
 
         # if this port is used as mirror port in any acl - drop input packets
@@ -781,7 +796,7 @@ class Valve(object):
         ofmsgs = []
 
         if not port.permanent_learn:
-            for table in (self.dp.vlan_table, self.dp.eth_src_table):
+            for table in self.in_port_tables():
                 ofmsgs.append(self.valve_flowdel(
                     table,
                     self.valve_in_match(
