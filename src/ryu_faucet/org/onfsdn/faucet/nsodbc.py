@@ -126,7 +126,6 @@ class DatabaseCouch(object):
 
         A view url is used as select query with the key as a where condition
         """
-        key = urllib.quote(json.dumps(key))
         view_results = self.database.view(view_url, key=key)
         return view_results.rows
 
