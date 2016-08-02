@@ -332,32 +332,32 @@ class GaugeFlowTablePoller(GaugePoller):
                     self.db_conf_data['views']['v1'],
                     key=str(hex(self.dp.dp_id)))
                 switch = rows[0]
-            except:
+            except IndexError:
                 switch = None
             if switch:
-
-                for msg in jsondict['OFPFlowStatsReply']['body']:
-                    flow_object = {'data':msg, 'tags': []}
-                    flow_id = self.flow_database.insert_update_doc(
-                                flow_object, '')
-                    switch.value['data']['flows'].append(flow_id)
-                    self.switch_database.insert_update_doc(switch.value,
-                                                         'data')
-                    if ("table_id" in msg['OFPFlowStats']) and ("match" in msg['OFPFlowStats']):
-                        tab_id = msg['OFPFlowStats']["table_id"]
-                        match_val = msg['OFPFlowStats']["match"]
-                        search_key = []
-                        #print "tab_id: " + str(tab_id)
-                        #print "match_val: " + str(match_val)
-                        search_key.append(tab_id)
-                        search_key.append(match_val)
-                        print 'search_key' + str(search_key)
-                        print 'view_url: ' + str(self.db_conf_data['views']['v2'])
-                        duplicate_rows = self.flow_database.get_docs(
+                for f_msg in jsondict['OFPFlowStatsReply']['body']:
+                    if ("table_id" in f_msg['OFPFlowStats']) and \
+                            ("match" in f_msg['OFPFlowStats']):
+                        tab_id = f_msg['OFPFlowStats']["table_id"]
+                        match_val =f_msg['OFPFlowStats']["match"]
+                        search_key = [tab_id, match_val]
+                        rows = self.flow_database.get_docs(
                                 self.db_conf_data['views']['v2'],
                                 key=search_key)
-                        print 'duplicate_rows : ' + str(duplicate_rows)
-
+                        flow = rows[0].value if rows else None
+                        if not flow:
+                            # Insert the flow object
+                            flow_object = {'data': f_msg, 'tags': []}
+                            flow_id = self.flow_database.insert_update_doc(
+                                flow_object, '')
+                            switch.value['data']['flows'].append(flow_id)
+                            self.switch_database.insert_update_doc(
+                                switch.value, 'data')
+                        else:
+                            # update the flow
+                            flow['data'] = f_msg
+                            self.flow_database.insert_update_doc(
+                                flow, 'data')
 
     def no_response(self):
         self.logger.info(
@@ -463,7 +463,7 @@ class Gauge(app_manager.RyuApp):
                                     "{\n  emit(" + \
                                     "[doc.data.OFPFlowStats.table_id, " + \
                                     "doc.data.OFPFlowStats.match], " + \
-                                    "doc._id );\n}\n}"
+                                    "doc );\n}\n}"
                     self.flow_database.create_view("flows", views)
                 self.db_conf_data = data
                 
