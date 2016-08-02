@@ -20,9 +20,8 @@ It supports:
 - ACL support: Rules are added in the order specified. The rule language supports anything the Ryu OpenFlow protocol parser supports (q.v. ofctl to_match()).
 - Control unicast flooding by port and by VLAN
 - BGP advertisement of controller IPs and static routes and Quagga support
-- Policy based forwarding
-- 802.1x authentication support
-- support for IPv4 and IPv6 static routes on both tagged and untagged VLANs
+- Policy based forwarding to offload processing to external systems (Eg 802.1x via hostapd)
+- Support for IPv4 and IPv6 static routes on both tagged and untagged VLANs
 - Integrated support for InfluxDB/Grafana
 - Comprehensive Test suite - tests for all features that can be run against mininet (development) and on hardware; Most tests run in parallel to reduce time.
 - Code: Python based, easy readability (PEP8 style), documented, Unit tests for all features 
