@@ -343,6 +343,21 @@ class GaugeFlowTablePoller(GaugePoller):
                     switch.value['data']['flows'].append(flow_id)
                     self.switch_database.insert_update_doc(switch.value,
                                                          'data')
+                    if ("table_id" in msg['OFPFlowStats']) and ("match" in msg['OFPFlowStats']):
+                        tab_id = msg['OFPFlowStats']["table_id"]
+                        match_val = msg['OFPFlowStats']["match"]
+                        search_key = []
+                        #print "tab_id: " + str(tab_id)
+                        #print "match_val: " + str(match_val)
+                        search_key.append(tab_id)
+                        search_key.append(match_val)
+                        print 'search_key' + str(search_key)
+                        print 'view_url: ' + str(self.db_conf_data['views']['v2'])
+                        duplicate_rows = self.flow_database.get_docs(
+                                self.db_conf_data['views']['v2'],
+                                key=search_key)
+                        print 'duplicate_rows : ' + str(duplicate_rows)
+
 
     def no_response(self):
         self.logger.info(
@@ -446,7 +461,8 @@ class Gauge(app_manager.RyuApp):
                     views["match"]["map"] = "function(doc) "+ \
                                     "{\nif(doc.data.OFPFlowStats.match)" + \
                                     "{\n  emit(" + \
-                                    "doc.data.OFPFlowStats.match, " + \
+                                    "[doc.data.OFPFlowStats.table_id, " + \
+                                    "doc.data.OFPFlowStats.match], " + \
                                     "doc._id );\n}\n}"
                     self.flow_database.create_view("flows", views)
                 self.db_conf_data = data
@@ -537,6 +553,7 @@ class Gauge(app_manager.RyuApp):
             port_stats_poller.start()
 
         if dp.monitor_flow_table:
+            print 'dp.monitor_flow_table: ' + str(dp.monitor_flow_table)
             flow_table_poller = GaugeFlowTablePoller(
                 dp, ryudp, self.logname, self.db_enabled, self.flow_database,
                 self.switch_database, self.db_conf_data)
