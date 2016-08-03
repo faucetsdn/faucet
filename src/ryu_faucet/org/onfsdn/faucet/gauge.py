@@ -388,7 +388,7 @@ class Gauge(app_manager.RyuApp):
         self.logfile = os.getenv('GAUGE_LOG', '/var/log/ryu/faucet/gauge.log')
         # Getting faucet_db config file
         self.db_config = os.getenv(
-            'FAUCET_DB_CONFIG', '/etc/ryu/faucet/faucet_db.conf')
+            'FAUCET_DB_CONFIG', '/etc/ryu/faucet/gauge_db.yaml')
 
         # Setup logging
         self.logger = logging.getLogger(__name__)
