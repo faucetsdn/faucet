@@ -519,8 +519,8 @@ class Gauge(app_manager.RyuApp):
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
     def handler_reconnect(self, ev):
-		    self.logger.info("datapath reconnected %x", self.dps[ev.dp.id].dp_id)
-		    self.handler_datapath(ev)
+        self.logger.info("datapath reconnected %x", self.dps[ev.dp.id].dp_id)
+        self.handler_datapath(ev)
 
     def handler_datapath(self, ev):
         ryudp = ev.dp
@@ -545,7 +545,7 @@ class Gauge(app_manager.RyuApp):
         if dp.monitor_ports:
             if dp.influxdb_stats:
                 port_stats_poller = GaugePortStatsInfluxDBPoller(
-                   dp, ryudp, self.logname)
+                    dp, ryudp, self.logname)
             else:
                 port_stats_poller = GaugePortStatsPoller(
                     dp, ryudp, self.logname)
@@ -560,21 +560,21 @@ class Gauge(app_manager.RyuApp):
             self.pollers[dp.dp_id]['flow_table'] = flow_table_poller
             flow_table_poller.start()
 
-    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ev):
         rcv_time = time.time()
         dp = self.dps[ev.msg.datapath.id]
         self.handlers[dp.dp_id]['port_state'].update(rcv_time, ev.msg)
 
-    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_stats_reply_handler(self, ev):
         rcv_time = time.time()
         dp = self.dps[ev.msg.datapath.id]
         self.pollers[dp.dp_id]['port_stats'].update(rcv_time, ev.msg)
 
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def flow_stats_reply_handler(self, ev):
         rcv_time = time.time()

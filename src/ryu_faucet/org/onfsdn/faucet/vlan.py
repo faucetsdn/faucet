@@ -35,6 +35,16 @@ class VLAN(object):
             self.controller_ips = [
                 ipaddr.IPNetwork(ip) for ip in self.controller_ips]
         self.unicast_flood = conf.setdefault('unicast_flood', True)
+        self.bgp_as = conf.setdefault('bgp_as', 0)
+        self.bgp_port = conf.setdefault('bgp_port', 9179)
+        self.bgp_routerid = conf.setdefault('bgp_routerid', '')
+        self.bgp_neighbor_address = conf.setdefault('bgp_neighbor_address', '')
+        self.bgp_neighbor_as = conf.setdefault('bgp_neighbor_as', 0)
+        if self.bgp_as:
+            assert self.bgp_port
+            assert ipaddr.IPv4Address(self.bgp_routerid)
+            assert ipaddr.IPAddress(self.bgp_neighbor_address)
+            assert self.bgp_neighbor_as
         self.routes = conf.setdefault('routes', {})
         self.ipv4_routes = {}
         self.ipv6_routes = {}
@@ -43,7 +53,7 @@ class VLAN(object):
             for route in self.routes:
                 ip_gw = ipaddr.IPAddress(route['ip_gw'])
                 ip_dst = ipaddr.IPNetwork(route['ip_dst'])
-                assert(ip_gw.version == ip_dst.version)
+                assert ip_gw.version == ip_dst.version
                 if ip_gw.version == 4:
                     self.ipv4_routes[ip_dst] = ip_gw
                 else:
@@ -59,7 +69,7 @@ class VLAN(object):
         return 'vid:%s ports:%s' % (self.vid, ports)
 
     def get_ports(self):
-        return self.tagged+self.untagged
+        return self.tagged + self.untagged
 
     def contains_port(self, port_number):
         for port in self.get_ports():
