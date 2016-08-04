@@ -226,7 +226,7 @@ class Faucet(app_manager.RyuApp):
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
         new_dps = self.parse_config(new_config_file, self.logname)
         for new_dp in new_dps:
-            flowmods = self.valves[new_dp.id].reload_config(new_dp)
+            flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
             ryudp = self.dpset.get(new_dp.dp_id)
             self.send_flow_msgs(ryudp, flowmods)
             self.reset_bgp()
