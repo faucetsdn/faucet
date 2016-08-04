@@ -1,0 +1,32 @@
+version: '2'
+services:
+    db:
+        image: 'tutum/influxdb:latest'
+        ports:
+            - '8086'
+            - '8083'
+        volumes:
+            - '/opt/influxdb/shared/data/db:/data'
+        environment:
+            PRE_CREATE_DB: 'faucet'
+            ADMIN_USER: 'faucet'
+            INFLUXDB_INIT_PWD: 'faucet'
+
+    grafana:
+        image: 'grafana/grafana:latest'
+        ports:
+            - '3000:3000'
+        links:
+            - db
+
+    gauge:
+        build:
+            context: ./
+            dockerfile: 'Dockerfile.gauge'
+        volumes:
+            - '/var/log/ryu/faucet:/var/log/ryu/faucet'
+            - '/etc/ryu/faucet:/etc/ryu/faucet'
+        ports:
+            - '6634:6633'
+        links:
+            - db
