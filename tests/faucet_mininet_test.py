@@ -1586,6 +1586,8 @@ dps:''')
                     config_fragments.append('''
             %(port)d:
                 description: "b%(port)d"''' % {'port': p})
+
+                # Used as the port number for the current switch.
                 p += 1
 
         if n_untagged:
