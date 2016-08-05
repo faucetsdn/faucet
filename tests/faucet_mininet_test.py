@@ -1457,7 +1457,7 @@ class FaucetMultipleDPSwitchTopo(Topo):
                 hosts.append(host)
 
             switch = self.addSwitch(
-                's%i%x' % ((i+1), pid), cls=FaucetSwitch, listenPort=find_free_port(), dpid=dpid)
+                's%i%x' % (i + 1, pid), cls=FaucetSwitch, listenPort=find_free_port(), dpid=dpid)
 
             for host in hosts:
                 self.addLink(host, switch)
@@ -1465,7 +1465,7 @@ class FaucetMultipleDPSwitchTopo(Topo):
             # Add a switch-to-switch link with the previous switch,
             # if this isn't the first switch in the topology.
             if switches:
-                self.addLink(switches[i-1], switch)
+                self.addLink(switches[i - 1], switch)
 
             switches.append(switch)
 
@@ -1539,14 +1539,14 @@ dps:''')
         ofchannel_log: "%(ofchannel_log)s"
         interfaces:''' % mapping)
 
-            for j in range(n_tagged):
+            for _ in range(n_tagged):
                 config_fragments.append('''
             %(port)d:
                 tagged_vlans: [%(tagged_vid)d]
                 description: "b%(port)d"''' % {'port': p, 'tagged_vid': tagged_vid})
                 p += 1
 
-            for j in range(n_untagged):
+            for _ in range(n_untagged):
                 config_fragments.append('''
             %(port)d:
                 native_vlan: %(untagged_vid)d
