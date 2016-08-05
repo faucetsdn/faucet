@@ -1472,7 +1472,7 @@ class FaucetMultipleDPSwitchTopo(Topo):
 
 class FaucetMultipleDPTest(FaucetTest):
 
-    def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=1, untagged_vid=100):
+    def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100):
         '''
         Set up Mininet and Faucet for the given topology.
         '''
