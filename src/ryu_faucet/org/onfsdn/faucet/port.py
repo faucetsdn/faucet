@@ -13,20 +13,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class Port(object):
+from conf import Conf
 
-    number = None
+class Port(Conf):
 
-    def __init__(self, number, conf=None):
+    defaults = {
+        'number': None,
+        'name': None,
+        'description': None,
+        'enabled': True,
+        'permanent_learn': False,
+        'unicast_flood': True,
+        'mirror': None,
+        'native_vlan': None,
+        'tagged_vlans': None,
+        'acl_in': None,
+        }
+
+    def __init__(self, _id, conf=None):
         if conf is None:
             conf = {}
-        self.number = number
-        self.name = conf.setdefault('name', str(number))
-        self.description = conf.setdefault('description', self.name)
-        self.enabled = conf.setdefault('enabled', True)
+        self._id = _id
+        self.update(conf)
+        self.set_defaults()
         self.phys_up = False
-        self.permanent_learn = conf.setdefault('permanent_learn', False)
-        self.unicast_flood = conf.setdefault('unicast_flood', True)
+
+    def set_defaults(self):
+        for key, value in self.defaults.iteritems():
+            self._set_default(key, value)
+        self._set_default('number', self._id)
+        self._set_default('name', str(self._id))
+        self._set_default('description', self.name)
+        self._set_default('tagged_vlans', [])
 
     def running(self):
         return self.enabled and self.phys_up

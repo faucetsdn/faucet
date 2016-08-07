@@ -2,51 +2,17 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends wget python-pip supervisor \
-    apt-transport-https libyaml-dev libpython2.7-dev
+  apt-get install -qy --no-install-recommends python-pip \
+    libyaml-dev libpython2.7-dev
 
 COPY ./ /faucet-src/
 
 RUN \
-  pip install wheel && \
-  pip install influxdb && \
   pip install /faucet-src
 
-RUN \
-  wget -qO- https://repos.influxdata.com/influxdb.key | apt-key add -
-
-RUN \
-  echo "deb https://repos.influxdata.com/ubuntu vivid stable" >/etc/apt/sources.list.d/influxdb.list
-
-RUN \
-  apt-get update ; apt-get install -qy influxdb
-
-RUN \
-  /usr/bin/influxd -config /etc/influxdb/influxdb.conf & sleep 2 ; influx -execute "CREATE DATABASE faucet" ;
-
-RUN \
-  wget -qO- https://packagecloud.io/gpg.key | apt-key add -
-
-RUN \
-  echo "deb https://packagecloud.io/grafana/stable/debian/ jessie main" > /etc/apt/sources.list.d/grafana.list
-
-RUN \
-  apt-get update ; \
-  mkdir -p /usr/sbin/; \
-  echo "#!/bin/sh" > /usr/sbin/policy-rc.d; \
-  echo "exit 101" >> /usr/sbin/policy-rc.d; \
-  chmod 755 /usr/sbin/policy-rc.d; \
-  apt-get install -qy grafana; \
-  rm -f /usr/sbin/policy-rc.d
-
-VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet]
+VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 WORKDIR /usr/local/lib/python2.7/dist-packages/ryu_faucet/org/onfsdn/faucet/
 
-RUN \
-  cp /faucet-src/docker/supervisord.gauge.conf /etc/supervisor/conf.d/supervisord.conf
-
 EXPOSE 6633
-EXPOSE 6634
-EXPOSE 3000
 
-CMD ["/usr/bin/supervisord"]
+CMD ["ryu-manager", "--ofp-tcp-listen-port=6633", "gauge"]
