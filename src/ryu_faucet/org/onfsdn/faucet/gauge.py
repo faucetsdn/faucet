@@ -138,14 +138,14 @@ class Gauge(app_manager.RyuApp):
                     del self.watchers[dp_id][watcher_type]
                 if watcher.running():
                     watcher.stop()
-                    new_watcher.start(sef.dpset.get(dp_id))
+                    new_watcher.start(self.dpset.get(dp_id))
 
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
     def handler_reconnect(self, ev):
         self.logger.info("datapath reconnected %x", ev.dp.id)
-        for watcher in self.watchers[ryudp.id].values():
-            watcher.start(ryudp)
+        for watcher in self.watchers[ev.dp.id].values():
+            watcher.start(ev.dp)
 
     def update_watcher(self, dp_id, name, msg):
         rcv_time = time.time()
