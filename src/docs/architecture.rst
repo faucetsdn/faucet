@@ -15,6 +15,11 @@ Terminology used in this document
 
 Switch and Dataplane or Data Plane are used interchangeably 
 
+===================
+Faucet Architecture
+===================
+.. image:: faucet_architecture.png
+
 -----------------
 Design Principles
 -----------------

@@ -66,7 +66,7 @@ def valve_factory(dp):
     }
 
     if dp.hardware in SUPPORTED_HARDWARE:
-        return SUPPORTED_HARDWARE[dp.hardware](dp)
+        return SUPPORTED_HARDWARE[dp.hardware]
     else:
         return None
 
@@ -82,9 +82,9 @@ class Valve(object):
     FAUCET_MAC = '0e:00:00:00:00:01'
     TABLE_MATCH_TYPES = {}
 
-    def __init__(self, dp, logname='faucet', *args, **kwargs):
+    def __init__(self, dp, logname, *args, **kwargs):
         self.dp = dp
-        self.logger = logging.getLogger(logname)
+        self.logger = logging.getLogger(logname + '.valve')
         self.ofchannel_logger = None
         self.register_table_match_types()
 
@@ -792,6 +792,7 @@ class Valve(object):
         acl_ofmsgs, forwarding_table = self.port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
         ofmsgs.extend(self.port_add_vlans(port, forwarding_table, mirror_act))
+
         return ofmsgs
 
     def port_delete(self, dp_id, port_num):
