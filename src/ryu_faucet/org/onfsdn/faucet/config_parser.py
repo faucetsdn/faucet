@@ -133,10 +133,16 @@ def _dp_parser_v2(conf, config_file, logname):
         for vid, vlan_conf in vlans_conf.iteritems():
             vlans[vid] = VLAN(vid, dp_id, vlan_conf)
         for port_num, port_conf in ports_conf.iteritems():
-            ports[port_num] = port_parser(dp_id, port_num, port_conf, vlans)
-        for vlan in vlans.itervalues():
-            # add now for vlans configured on ports but not elsewhere
-            dp.add_vlan(vlan)
+            port = port_parser(dp_id, port_num, port_conf, vlans)
+            ports[port_num] = port
+            # Add the VLAN object for the tagged and untagged VLANs on this port
+            # to the DP object.
+            if port.native_vlan is not None and port.native_vlan not in dp.vlans:
+                dp.add_vlan(vlans[port.native_vlan])
+            if port.tagged_vlans is not None:
+                for vid in port.tagged_vlans:
+                    if port.native_vlan not in dp.vlans:
+                        dp.add_vlan(vlans[vid])
         for port in ports.itervalues():
             # now that all ports are created, handle mirroring rewriting
             if port.mirror is not None:
