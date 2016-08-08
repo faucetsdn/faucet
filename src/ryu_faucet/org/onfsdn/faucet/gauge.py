@@ -492,9 +492,10 @@ class Gauge(app_manager.RyuApp):
             self.logger.info("datapath up %x", dp.dp_id)
             # Update db with switch
             if self.db_enabled:
+                import pdb; pdb.set_trace()
                 rows = self.switch_database.get_docs(
                     self.db_conf_data['views']['v1'],
-                    key=str(hex(dp.id))
+                    key=str(hex(dp.dp_id))
                 )
                 if not rows:
                     switch_object = {'_id': str(hex(dp.dp_id)),
