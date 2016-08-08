@@ -388,7 +388,7 @@ class Gauge(app_manager.RyuApp):
         self.logfile = os.getenv('GAUGE_LOG', '/var/log/ryu/faucet/gauge.log')
         # Getting faucet_db config file
         self.db_config = os.getenv(
-            'FAUCET_DB_CONFIG', '/etc/ryu/faucet/gauge_db.yaml')
+            'GAUGE_DB_CONFIG', '/etc/ryu/faucet/gauge_db.yaml')
 
         # Setup logging
         self.logger = logging.getLogger(__name__)
@@ -433,11 +433,11 @@ class Gauge(app_manager.RyuApp):
             data = yaml.load(stream)
             if data['database']:
                 self.db_enabled = True
-                self.conn_string = 'driver=' + data['driver'] + ';' + \
-                    'server=' + data['db_ip'] + ';' + \
-                    'port=' + str(data['db_port']) + ';' + \
-                    'uid=' + data['db_username'] + ';' + \
-                    'pwd=' + str(data['db_password'])
+                self.conn_string = "driver={0};server={1};port={2};" \
+                                   "uid={3};pwd={4}".format(
+                    data['driver'], data['db_ip'], str(data['db_port']),
+                    str(data['db_username']), str(data['db_password'])
+                )
                 nsodbc = nsodbc_factory()
                 conn = nsodbc.connect(self.conn_string)
                 self.switch_database, exists = conn.create(
@@ -466,7 +466,7 @@ class Gauge(app_manager.RyuApp):
                                     "doc );\n}\n}"
                     self.flow_database.create_view("flows", views)
                 self.db_conf_data = data
-                
+
 
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
@@ -492,8 +492,15 @@ class Gauge(app_manager.RyuApp):
             self.logger.info("datapath up %x", dp.dp_id)
             # Update db with switch
             if self.db_enabled:
-                switch_object = {'_id': str(hex(dp.dp_id)), 'data':{'flows':[]}}
-                self.switch_database.insert_update_doc(switch_object, 'data')
+                rows = self.switch_database.get_docs(
+                    self.db_conf_data['views']['v1'],
+                    key=str(hex(dp.id))
+                )
+                if not rows:
+                    switch_object = {'_id': str(hex(dp.dp_id)),
+                                     'data':{'flows':[]}}
+                    self.switch_database.insert_update_doc(switch_object,
+                                                           'data')
             self.handler_datapath(ev)
         else: # DP is disconnecting
             if dp.dp_id in self.pollers:

@@ -5,13 +5,11 @@ Currently couchdb support is included.
 COUCHDB = 'couchdb'
 LOCALHOST = 'localhost'
 
-import urllib
-import json
-
 try:
     import couchdb
 except ImportError, error:
     raise error
+
 
 def todict(conn_string, kwargs):
     """Converts the input connection string into a dictionary.
@@ -30,6 +28,7 @@ def todict(conn_string, kwargs):
     conn_dict = ret.copy()
     conn_dict.update(kwargs)
     return conn_dict
+
 
 class NsOdbc(object):
     """An abstraction layer to make api calls to a non relational database.
@@ -60,8 +59,10 @@ class NsOdbc(object):
                 cnxn = ConnectionCouch(couchdb.Server(),
                                        (conn_dict['uid'], conn_dict['pwd']))
             else:
-                cnxn = ConnectionCouch(couchdb.Server('http://'+conn_dict['server']+':' + conn_dict['port']+'/'),
-                                       (conn_dict['uid'], conn_dict['pwd']))
+                cnxn = ConnectionCouch(couchdb.Server(
+                    "http://{0}:{1}/".format(conn_dict['server'],
+                                             conn_dict['port'])),
+                    (conn_dict['uid'], conn_dict['pwd']))
             self.conn = cnxn
             return cnxn
 
@@ -74,7 +75,7 @@ class ConnectionCouch(object):
     """Connection class.
 
     This class is specific to couchdb operations.
-    For others a new clas will be needed (following same standards)
+    For others a new class will be needed (following same standards)
     """
 
     def __init__(self, conn, credentials):
@@ -104,6 +105,7 @@ class ConnectionCouch(object):
 class DatabaseCouch(object):
     """Database specific class exposing the API.
     """
+
     def __init__(self, database):
         self.database = database
 
@@ -147,6 +149,7 @@ class DatabaseCouch(object):
         doc["language"] = "javascript"
         doc["views"] = views
         self.database.save(doc)
+
 
 def nsodbc_factory():
     """factory method to consume the API"""
