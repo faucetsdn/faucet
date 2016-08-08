@@ -22,9 +22,9 @@ import signal
 
 import ipaddr
 
+from config_parser import dp_parser
 from valve import valve_factory
 from util import kill_on_exception
-from dp import DP
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -67,6 +67,10 @@ class Faucet(app_manager.RyuApp):
     logname = 'faucet'
     exc_logname = logname + '.exception'
 
+    # FIXME: references to 'DP' class members when setting up valve
+    # object map give a no-member error in pylint, but it works fine
+    # in practice
+    #pylint: disable=no-member
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
 
@@ -110,10 +114,10 @@ class Faucet(app_manager.RyuApp):
 
         # Set up a valve object for each datapath
         self.valves = {}
-        for dp in self.parse_config(self.config_file, self.logname):
-            valve = valve_factory(dp)
+        for dp in dp_parser(self.config_file, self.logname):
+            valve = valve_factory(dp)(dp, self.logname)
             if valve is None:
-                self.logger.error('Hardware type not supported')
+                self.logger.error('Hardware type not supported for DP: %s' % dp.name)
             else:
                 self.valves[dp.dp_id] = valve
 
@@ -198,16 +202,6 @@ class Faucet(app_manager.RyuApp):
             self.send_event('Faucet', EventFaucetHostExpire())
             hub.sleep(5)
 
-    def parse_config(self, config_file, log_name):
-        new_dps = []
-        for new_dp in DP.parser(config_file, log_name):
-            try:
-                new_dp.sanity_check()
-                new_dps.append(new_dp)
-            except AssertionError:
-                self.logger.exception('Error in config file:')
-        return new_dps
-
     def send_flow_msgs(self, dp, flow_msgs):
         if dp.id not in self.valves:
             self.logger.error("send_flow_msgs: unknown dp with id: {0}".format(dp.id))
@@ -224,7 +218,7 @@ class Faucet(app_manager.RyuApp):
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     def reload_config(self, ev):
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
-        new_dps = self.parse_config(new_config_file, self.logname)
+        new_dps = dp_parser(new_config_file, self.logname)
         for new_dp in new_dps:
             flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
             ryudp = self.dpset.get(new_dp.dp_id)

@@ -15,40 +15,61 @@
 
 import ipaddr
 
+from conf import Conf
 
-class VLAN(object):
+class VLAN(Conf):
 
-    vid = None
     tagged = None
     untagged = None
+    ipv4_routes = None
+    ipv6_routes = None
+    arp_cache = None
+    nd_cache = None
+    host_cache = None
 
-    def __init__(self, vid, dp_id, conf=None):
+    defaults = {
+        'name': None,
+        'description': None,
+        'controller_ips': None,
+        'unicast_flood': True,
+        'bgp_as': 0,
+        'bgp_port': 9179,
+        'bgp_routerid': '',
+        'bgp_neighbour_address': '',
+        'bgp_neighbor_address': None,
+        'bgp_neighbour_as': 0,
+        'bgp_neighbor_as': None,
+        'routes': None,
+        'max_hosts': None,
+        }
+
+
+    def __init__(self, _id, dp_id, conf=None):
         if conf is None:
             conf = {}
-        self.vid = vid
+        self._id = _id
         self.dp_id = dp_id
+        self.update(conf)
+        self.set_defaults()
+        self._id = _id
         self.tagged = []
         self.untagged = []
-        self.name = conf.setdefault('name', str(vid))
-        self.description = conf.setdefault('description', self.name)
-        self.controller_ips = conf.setdefault('controller_ips', [])
+        self.ipv4_routes = {}
+        self.ipv6_routes = {}
+        self.arp_cache = {}
+        self.nd_cache = {}
+        self.host_cache = {}
+
         if self.controller_ips:
             self.controller_ips = [
                 ipaddr.IPNetwork(ip) for ip in self.controller_ips]
-        self.unicast_flood = conf.setdefault('unicast_flood', True)
-        self.bgp_as = conf.setdefault('bgp_as', 0)
-        self.bgp_port = conf.setdefault('bgp_port', 9179)
-        self.bgp_routerid = conf.setdefault('bgp_routerid', '')
-        self.bgp_neighbor_address = conf.setdefault('bgp_neighbor_address', '')
-        self.bgp_neighbor_as = conf.setdefault('bgp_neighbor_as', 0)
+
         if self.bgp_as:
             assert self.bgp_port
             assert ipaddr.IPv4Address(self.bgp_routerid)
             assert ipaddr.IPAddress(self.bgp_neighbor_address)
             assert self.bgp_neighbor_as
-        self.routes = conf.setdefault('routes', {})
-        self.ipv4_routes = {}
-        self.ipv6_routes = {}
+
         if self.routes:
             self.routes = [route['route'] for route in self.routes]
             for route in self.routes:
@@ -59,10 +80,15 @@ class VLAN(object):
                     self.ipv4_routes[ip_dst] = ip_gw
                 else:
                     self.ipv6_routes[ip_dst] = ip_gw
-        self.arp_cache = {}
-        self.nd_cache = {}
-        self.max_hosts = conf.setdefault('max_hosts', None)
-        self.host_cache = {}
+
+    def set_defaults(self):
+        for key, value in self.defaults.iteritems():
+            self._set_default(key, value)
+        self._set_default('vid', self._id)
+        self._set_default('name', str(self._id))
+        self._set_default('controller_ips', [])
+        self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
+        self._set_default('bgp_neighbor_address', self.bgp_neighbour_address)
 
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
