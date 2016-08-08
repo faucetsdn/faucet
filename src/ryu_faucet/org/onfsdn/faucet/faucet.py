@@ -67,10 +67,6 @@ class Faucet(app_manager.RyuApp):
     logname = 'faucet'
     exc_logname = logname + '.exception'
 
-    # FIXME: references to 'DP' class members when setting up valve
-    # object map give a no-member error in pylint, but it works fine
-    # in practice
-    #pylint: disable=no-member
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
 
@@ -115,6 +111,7 @@ class Faucet(app_manager.RyuApp):
         # Set up a valve object for each datapath
         self.valves = {}
         for dp in dp_parser(self.config_file, self.logname):
+            # pylint: disable=no-member
             valve = valve_factory(dp)(dp, self.logname)
             if valve is None:
                 self.logger.error('Hardware type not supported for DP: %s' % dp.name)
@@ -220,6 +217,7 @@ class Faucet(app_manager.RyuApp):
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
         new_dps = dp_parser(new_config_file, self.logname)
         for new_dp in new_dps:
+            # pylint: disable=no-member
             flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
             ryudp = self.dpset.get(new_dp.dp_id)
             self.send_flow_msgs(ryudp, flowmods)
