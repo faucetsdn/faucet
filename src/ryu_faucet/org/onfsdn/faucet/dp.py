@@ -39,7 +39,7 @@ class DP(Conf):
         'vlan_table': None,
         'acl_table': None,
         'eth_src_table': None,
-        'ipv4_fib_Table': None,
+        'ipv4_fib_table': None,
         'ipv6_fib_table': None,
         'eth_dst_table': None,
         'flood_table': None,
