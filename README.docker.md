@@ -69,6 +69,7 @@ This runs the mininet tests from the docker entry-point:
 ```
 docker build -t reannz/faucet-tests -f Dockerfile.tests .
 apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+modprobe openvswitch
 sudo docker run --privileged -ti reannz/faucet-tests
 ```
 
