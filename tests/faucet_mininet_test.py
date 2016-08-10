@@ -1588,44 +1588,38 @@ dps:''')
                 num_switch_links = 0
 
             for _ in range(num_switch_links):
+                tagged_vlans = None
 
-                if n_tagged and n_untagged and n_tagged != n_untagged:
-                    config_fragments.append('''
-            %(port)d:
-                tagged_vlans: [%(tagged_vid)d, %(untagged_vid)d]
-                description: "b%(port)d"''' % {'port': p,
-                        'tagged_vid': tagged_vid, 'untagged_vid': untagged_vid})
-
-                elif ((n_tagged and not n_untagged) or
-                        (n_tagged and n_untagged and tagged_vid == untagged_vid)):
-                    config_fragments.append('''
-            %(port)d:
-                tagged_vlans: [%(tagged_vid)d]
-                description: "b%(port)d"''' % {'port': p, 'tagged_vid': tagged_vid})
-
-                elif n_untagged and not n_tagged:
-                    config_fragments.append('''
-            %(port)d:
-                tagged_vlans: [%(untagged_vid)d]
-                description: "b%(port)d"''' % {'port': p, 'untagged_vid': untagged_vid})
-
-                else:
-                    config_fragments.append('''
+                config_fragments.append('''
             %(port)d:
                 description: "b%(port)d"''' % {'port': p})
+
+                if n_tagged and n_untagged and n_tagged != n_untagged:
+                    tagged_vlans = "%i, %i" % (tagged_vid, untagged_vid)
+                elif ((n_tagged and not n_untagged) or
+                        (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                    tagged_vlans = str(tagged_vid)
+                elif n_untagged and not n_tagged:
+                    tagged_vlans = str(untagged_vid)
+
+                if tagged_vlans:
+                    config_fragments.append('''
+                tagged_vlans: [%s]''' % tagged_vlans)
 
                 # Used as the port number for the current switch.
                 p += 1
 
+        config_fragments.append('''
+vlans:''')
+
         if n_untagged:
             config_fragments.append('''
-vlans:
     %d:
         description: "untagged"''' % untagged_vid)
 
-        if n_tagged and tagged_vid != untagged_vid:
+        if ((n_tagged and not n_untagged) or
+                (n_tagged and n_untagged and tagged_vid != untagged_vid)):
             config_fragments.append('''
-vlans:
     %d:
         description: "tagged"''' % tagged_vid)
 
