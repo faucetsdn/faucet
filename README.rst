@@ -175,7 +175,7 @@ Installation automatically installs dependent Python packages [ryu, pyaml, influ
 
 You have run this as ``root`` or use ``sudo``
 ::
-  # pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.30.tar.gz
+  # pip install https://pypi.python.org/packages/f5/f3/a8c4e72b4218be5aa84378eb57d89cfc8153efdb4df998cd2a0c544a878a/ryu-faucet-1.0.tar.gz
   # pip show ryu-faucet
 
 Optional Install for Network Monitoring Dashboard
@@ -206,6 +206,8 @@ Deployment at Open Networking Foundation
 
 Faucet Deployment around the World
 ----------------------------------
+   https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
+
 .. raw:: html
    :file: https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
 
