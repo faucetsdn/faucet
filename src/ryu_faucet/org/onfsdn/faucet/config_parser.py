@@ -108,6 +108,23 @@ def _dp_parser_v1(conf, config_file, logname):
 
     return [dp]
 
+def _dp_add_vlan(vid_dp, dp, vlan, logname):
+    logger = get_logger(logname)
+
+    if vlan.vid not in vid_dp:
+        vid_dp[vlan.vid] = set()
+
+    if len(vid_dp[vlan.vid]) > 1:
+        assert not vlan.bgp_routerid, \
+                "DPs {0} sharing a BGP speaker VLAN is unsupported".format(
+                    str.join(", ", vid_dp[vlan.vid]),
+                )
+
+    if vlan not in dp.vlans:
+        dp.add_vlan(vlan)
+
+    vid_dp[vlan.vid].add(dp.name)
+
 def _dp_parser_v2(conf, config_file, logname):
     logger = get_logger(logname)
 
@@ -119,6 +136,8 @@ def _dp_parser_v2(conf, config_file, logname):
     acls_conf = conf.pop('acls', {})
 
     dps = []
+    vid_dp = {}
+
     for identifier, dp_conf in conf['dps'].iteritems():
         ports_conf = dp_conf.pop('interfaces', {})
 
@@ -132,17 +151,18 @@ def _dp_parser_v2(conf, config_file, logname):
 
         for vid, vlan_conf in vlans_conf.iteritems():
             vlans[vid] = VLAN(vid, dp_id, vlan_conf)
-        for port_num, port_conf in ports_conf.iteritems():
-            port = port_parser(dp_id, port_num, port_conf, vlans)
-            ports[port_num] = port
-            # Add the VLAN object for the tagged and untagged VLANs on this port
-            # to the DP object.
-            if port.native_vlan is not None and port.native_vlan not in dp.vlans:
-                dp.add_vlan(vlans[port.native_vlan])
-            if port.tagged_vlans is not None:
-                for vid in port.tagged_vlans:
-                    if port.native_vlan not in dp.vlans:
-                        dp.add_vlan(vlans[vid])
+        try:
+            for port_num, port_conf in ports_conf.iteritems():
+                port = port_parser(dp_id, port_num, port_conf, vlans)
+                ports[port_num] = port
+                if port.native_vlan is not None:
+                    _dp_add_vlan(vid_dp, dp, vlans[port.native_vlan], logname)
+                if port.tagged_vlans is not None:
+                    for vid in port.tagged_vlans:
+                        _dp_add_vlan(vid_dp, dp, vlans[vid], logname)
+        except AssertionError as err:
+            logger.exception("Error in config file: {0}".format(err))
+            return None
         for port in ports.itervalues():
             # now that all ports are created, handle mirroring rewriting
             if port.mirror is not None:
