@@ -25,18 +25,16 @@ docker run -d \
     faucet/faucet
 ```
 
-To pull and run the latest git version of Faucet + Gauge:
+To pull and run the latest git version of Gauge:
 
 ```
-docker pull faucet/faucet-gauge:latest
+docker pull faucet/gauge:latest
 docker run -d \
-    --name faucet \
+    --name gauge \
     -v <path-to-config-dir>:/etc/ryu/faucet/ \
     -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6633:6633 \
-    -p 6634:6634 \
-    -p 3000:3000 \
-    faucet/faucet-gauge
+    -p 6634:6633 \
+    faucet/gauge
 ```
 
 ### Dockerfile
@@ -69,6 +67,7 @@ This runs the mininet tests from the docker entry-point:
 ```
 docker build -t reannz/faucet-tests -f Dockerfile.tests .
 apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+modprobe openvswitch
 sudo docker run --privileged -ti reannz/faucet-tests
 ```
 
@@ -81,7 +80,7 @@ Runs Gauge.
 
 It can be built as following:
 ```
-docker build -t reannz/faucet-gauge -f Dockerfile.gauge .
+docker build -t reannz/gauge -f Dockerfile.gauge .
 ```
 It can be run as following:
 ```
@@ -92,7 +91,7 @@ docker run -d \
     -p 6634:6633 \
     reannz/gauge
 ```
-By defualt listens on port 6633. If you are running this with
+By default listens on port 6633. If you are running this with
 Faucet you will need to modify the port one of the containers listens on and
 configure your switches to talk to both. The faucet
 configuration file faucet.yaml should be placed in the config directory, this

@@ -24,8 +24,8 @@ It supports:
 - Support for IPv4 and IPv6 static routes on both tagged and untagged VLANs
 - Integrated support for InfluxDB/Grafana
 - Comprehensive Test suite - tests for all features that can be run against mininet (development) and on hardware; Most tests run in parallel to reduce time.
-- Code: Python based, easy readability (PEP8 style), documented, Unit tests for all features 
-- Installation: Python pip (pip install ryu_faucet), pre-built VM available - https://susestudio.com/a/ENQFFD/ryu-faucet, Makefiles to build Docker images 
+- Code: Python based, easy readability (PEP8 style), documented, Unit tests for all features
+- Installation: Python pip (pip install ryu_faucet), pre-built VM available - https://susestudio.com/a/ENQFFD/ryu-faucet, Makefiles to build Docker images
 
 ===============
 Feature Details
@@ -101,7 +101,7 @@ Version 1 of the Faucet configuration file format does not allow multiple datapa
   ---
   dp_id: 0x000000000001:
   name: "test-switch-1"
-  
+
   interfaces:
       1:
           native_vlan: 2040
@@ -171,11 +171,11 @@ Version 2 of the Faucet configuration file format adds the ``version`` field, an
 ============
 Installation
 ============
-Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively. 
+Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively.
 
 You have run this as ``root`` or use ``sudo``
 ::
-  # pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.30.tar.gz
+  # pip install https://pypi.python.org/packages/f5/f3/a8c4e72b4218be5aa84378eb57d89cfc8153efdb4df998cd2a0c544a878a/ryu-faucet-1.0.tar.gz
   # pip show ryu-faucet
 
 Optional Install for Network Monitoring Dashboard
@@ -202,6 +202,18 @@ Deployment
 Deployment at Open Networking Foundation
 ----------------------------------------
 .. image:: src/docs/images/ONF_Faucet_deploy1.png
+
+
+Faucet Deployment around the World
+----------------------------------
+   https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
+
+.. raw:: html
+  <div class="figure">
+  <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s" width="640" height="480"></iframe>
+  </div>
+
+.. embed:: file: https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
 
 =================
 OpenFlow Pipeline
@@ -368,7 +380,7 @@ Support
 
 If you have any technical questions, problems or suggestions regarding Faucet please send them to `faucet-dev@OpenflowSDN.Org <mailto:faucet-dev@openflowsdn.org>`.  Mailing list archives are available `here <https://groups.google.com/a/openflowsdn.org/forum/#!forum/faucet-dev>`.
 
-Documentation is available under `docs <https://github.com/onfsdn/faucet/tree/master/src/docs>` directory.  
+Documentation is available under `docs <https://github.com/onfsdn/faucet/tree/master/src/docs>` directory.
 
 Faucet related blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz/
 

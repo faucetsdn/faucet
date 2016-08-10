@@ -103,7 +103,7 @@ def _dp_parser_v1(conf, config_file, logname):
     try:
         dp.sanity_check()
     except AssertionError as err:
-        self.logger.exception("Error in config file: {0}".format(err))
+        logger.exception("Error in config file: {0}".format(err))
         return None
 
     return [dp]
