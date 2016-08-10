@@ -1456,6 +1456,233 @@ vlans:
             second_host, second_host_ip, second_host_routed_ip)
 
 
+class FaucetMultipleDPSwitchTopo(Topo):
+
+    def build(self, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+        '''
+        * s switches
+        * (n_tagged + n_untagged) hosts per switch
+        * (n_tagged + n_untagged + 1) links on switches 0 and s-1, with final link
+          being inter-switch
+        * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1, with final two links
+          being inter-switch
+        '''
+
+        pid = os.getpid()
+        switches = []
+
+        for i, dpid in enumerate(dpids):
+            hosts = []
+
+            for host_n in range(n_tagged):
+                host = self.addHost('t%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1),
+                                    cls=VLANHost, vlan=tagged_vid)
+                hosts.append(host)
+
+            for host_n in range(n_untagged):
+                host = self.addHost('u%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1))
+                hosts.append(host)
+
+            switch = self.addSwitch(
+                's%i%x' % (i + 1, pid), cls=FaucetSwitch, listenPort=find_free_port(), dpid=dpid)
+
+            for host in hosts:
+                self.addLink(host, switch)
+
+            # Add a switch-to-switch link with the previous switch,
+            # if this isn't the first switch in the topology.
+            if switches:
+                self.addLink(switches[i - 1], switch)
+
+            switches.append(switch)
+
+
+class FaucetMultipleDPTest(FaucetTest):
+
+    def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100):
+        '''
+        Set up Mininet and Faucet for the given topology.
+        '''
+
+        self.dpids = [str(random.randint(1, 2**32)) for _ in range(n_dps)]
+
+        self.topo = FaucetMultipleDPSwitchTopo(
+            dpids=self.dpids,
+            n_tagged=n_tagged,
+            tagged_vid=tagged_vid,
+            n_untagged=n_untagged,
+        )
+
+        self.CONFIG = self.get_config(
+            self.dpids,
+            HARDWARE,
+            self.monitor_ports_file,
+            self.monitor_flow_table_file,
+            self.debug_log_path,
+            n_tagged,
+            tagged_vid,
+            n_untagged,
+            untagged_vid,
+        )
+
+        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+
+    def get_config(self, dpids, hardware, monitor_ports_files, monitor_flow_table_file,
+            ofchannel_log, n_tagged, tagged_vid, n_untagged, untagged_vid):
+        '''
+        Build a complete Faucet configuration for each datapath, using the given topology.
+        '''
+
+        config_fragments = []
+
+        config_fragments.append('''
+---
+version: 2
+
+dps:''')
+
+        for i, dpid in enumerate(dpids):
+            p = 1
+
+            mapping = {
+                'dpid': str_int_dpid(dpid),
+                'name': 'faucet-%i' % (i + 1),
+                'hardware': hardware,
+                'monitor_ports_file': monitor_ports_files,
+                'monitor_flow_table_file': monitor_flow_table_file,
+                'ofchannel_log': ofchannel_log,
+            }
+
+            config_fragments.append('''
+    %(name)s:
+        dp_id: %(dpid)s
+        hardware: "%(hardware)s"
+        monitor_ports: True
+        monitor_ports_interval: 5
+        monitor_ports_file: "%(monitor_ports_file)s"
+        monitor_flow_table: True
+        monitor_flow_table_interval: 5
+        monitor_flow_table_file: "%(monitor_flow_table_file)s"
+        ofchannel_log: "%(ofchannel_log)s"
+        interfaces:''' % mapping)
+
+            for _ in range(n_tagged):
+                config_fragments.append('''
+            %(port)d:
+                tagged_vlans: [%(tagged_vid)d]
+                description: "b%(port)d"''' % {'port': p, 'tagged_vid': tagged_vid})
+                p += 1
+
+            for _ in range(n_untagged):
+                config_fragments.append('''
+            %(port)d:
+                native_vlan: %(untagged_vid)d
+                description: "b%(port)d"''' % {'port': p, 'untagged_vid': untagged_vid})
+                p += 1
+
+            # Add configuration for the switch-to-switch links
+            # (0 for a single switch, 1 for an end switch, 2 for middle switches).
+            if len(dpids) > 1:
+                num_switch_links = 2 if i > 0 and i != len(dpids)-1 else 1
+            else:
+                num_switch_links = 0
+
+            for _ in range(num_switch_links):
+
+                if n_tagged and n_untagged and n_tagged != n_untagged:
+                    config_fragments.append('''
+            %(port)d:
+                tagged_vlans: [%(tagged_vid)d, %(untagged_vid)d]
+                description: "b%(port)d"''' % {'port': p,
+                        'tagged_vid': tagged_vid, 'untagged_vid': untagged_vid})
+
+                elif ((n_tagged and not n_untagged) or
+                        (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                    config_fragments.append('''
+            %(port)d:
+                tagged_vlans: [%(tagged_vid)d]
+                description: "b%(port)d"''' % {'port': p, 'tagged_vid': tagged_vid})
+
+                elif n_untagged and not n_tagged:
+                    config_fragments.append('''
+            %(port)d:
+                tagged_vlans: [%(untagged_vid)d]
+                description: "b%(port)d"''' % {'port': p, 'untagged_vid': untagged_vid})
+
+                else:
+                    config_fragments.append('''
+            %(port)d:
+                description: "b%(port)d"''' % {'port': p})
+
+                # Used as the port number for the current switch.
+                p += 1
+
+        if n_untagged:
+            config_fragments.append('''
+vlans:
+    %d:
+        description: "untagged"''' % untagged_vid)
+
+        if n_tagged and tagged_vid != untagged_vid:
+            config_fragments.append('''
+vlans:
+    %d:
+        description: "tagged"''' % tagged_vid)
+
+        return str.join("\n", config_fragments)
+
+    def wait_until_matching_flow(self, exp_flow, timeout=10):
+        '''
+        Reimplementation of wait_until_matching_flow to wait for all DPs to come online.
+        '''
+
+        ofctl_url = 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
+        for dpid in self.dpids:
+            for _ in range(timeout):
+                int_dpid = str_int_dpid(dpid)
+                ofctl_result = json.loads(requests.get(
+                    '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                dump_flows = ofctl_result[int_dpid]
+                for flow in dump_flows:
+                    # Re-transform the dictionary into str to re-use
+                    # the verify_ipv*_routing methods
+                    flow_str = json.dumps(flow)
+                    if re.search(exp_flow, flow_str):
+                        return
+                time.sleep(1)
+            self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
+
+
+class FaucetMultipleDPUntaggedTest(FaucetMultipleDPTest):
+
+    NUM_DPS = 3
+    NUM_HOSTS = 4
+    VID = 100
+
+    def setUp(self):
+        super(FaucetMultipleDPUntaggedTest, self).setUp()
+        self.build_net(n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
+        self.start_net()
+
+    def test_untagged(self):
+        self.assertEquals(0, self.net.pingAll())
+
+
+class FaucetMultipleDPTaggedTest(FaucetMultipleDPTest):
+
+    NUM_DPS = 3
+    NUM_HOSTS = 4
+    VID = 100
+
+    def setUp(self):
+        super(FaucetMultipleDPTaggedTest, self).setUp()
+        self.build_net(n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID)
+        self.start_net()
+
+    def test_tagged(self):
+        self.assertEquals(0, self.net.pingAll())
+
+
 def import_config():
     try:
         with open(HW_SWITCH_CONFIG_FILE, 'r') as config_file:

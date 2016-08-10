@@ -44,10 +44,11 @@ class VLAN(Conf):
         }
 
 
-    def __init__(self, _id, conf=None):
+    def __init__(self, _id, dp_id, conf=None):
         if conf is None:
             conf = {}
         self._id = _id
+        self.dp_id = dp_id
         self.update(conf)
         self.set_defaults()
         self._id = _id

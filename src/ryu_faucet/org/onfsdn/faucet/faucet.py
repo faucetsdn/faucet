@@ -108,17 +108,22 @@ class Faucet(app_manager.RyuApp):
         exc_logger.propagate = 1
         exc_logger.setLevel(logging.CRITICAL)
 
-        dp = dp_parser(self.config_file, self.logname)[0]
-        self.valve = valve_factory(dp)(dp, self.logname)
-        if self.valve is None:
-            self.logger.error('Hardware type not supported')
+        # Set up a valve object for each datapath
+        self.valves = {}
+        for dp in dp_parser(self.config_file, self.logname):
+            # pylint: disable=no-member
+            valve = valve_factory(dp)(dp, self.logname)
+            if valve is None:
+                self.logger.error('Hardware type not supported for DP: %s' % dp.name)
+            else:
+                self.valves[dp.dp_id] = valve
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
         self.host_expire_request_thread = hub.spawn(
             self.host_expire_request)
 
-        self.bgp_speakers = {}
+        self.dp_bgp_speakers = {}
         self.reset_bgp()
 
     def bgp_route_handler(self, path_change, vlan):
@@ -126,7 +131,8 @@ class Faucet(app_manager.RyuApp):
         nexthop = ipaddr.IPAddress(path_change.nexthop)
         withdraw = path_change.is_withdraw
         flowmods = []
-        ryudp = self.dpset.get(self.valve.dp.dp_id)
+        valve = self.valves[vlan.dp_id]
+        ryudp = self.dpset.get(valve.dp.dp_id)
         for connected_network in vlan.controller_ips:
             if nexthop in connected_network:
                 if nexthop == connected_network.ip:
@@ -136,11 +142,11 @@ class Faucet(app_manager.RyuApp):
                 elif withdraw:
                     self.logger.info('BGP withdraw %s nexthop %s' % (
                         prefix, nexthop))
-                    flowmods = self.valve.del_route(vlan, prefix)
+                    flowmods = valve.del_route(vlan, prefix)
                 else:
                     self.logger.info('BGP add %s nexthop %s' % (
                         prefix, nexthop))
-                    flowmods = self.valve.add_route(vlan, nexthop, prefix)
+                    flowmods = valve.add_route(vlan, nexthop, prefix)
                 if flowmods:
                     self.send_flow_msgs(ryudp, flowmods)
                 return
@@ -151,33 +157,37 @@ class Faucet(app_manager.RyuApp):
     def reset_bgp(self):
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: configurable behavior - withdraw routes if peer goes down.
-        for bgp_speaker in self.bgp_speakers.itervalues():
-            bgp_speaker.shutdown()
-        for vlan in self.valve.dp.vlans.itervalues():
-            if vlan.bgp_as:
-                handler = lambda x: self.bgp_route_handler(x, vlan)
-                bgp_speaker = BGPSpeaker(
-                    as_number=vlan.bgp_as,
-                    router_id=vlan.bgp_routerid,
-                    bgp_server_port=vlan.bgp_port,
-                    best_path_change_handler=handler)
-                for controller_ip in vlan.controller_ips:
-                    prefix = ipaddr.IPNetwork(
-                        '/'.join(
-                            (str(controller_ip.ip),
-                             str(controller_ip.prefixlen))))
-                    bgp_speaker.prefix_add(
-                        prefix=str(prefix),
-                        next_hop=controller_ip.ip)
-                for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
-                    for ip_dst, ip_gw in route_table.iteritems():
+        for dp_id, valve in self.valves.iteritems():
+            if dp_id not in self.dp_bgp_speakers:
+                self.dp_bgp_speakers[dp_id] = {}
+            bgp_speakers = self.dp_bgp_speakers[dp_id]
+            for bgp_speaker in bgp_speakers.itervalues():
+                bgp_speaker.shutdown()
+            for vlan in valve.dp.vlans.itervalues():
+                if vlan.bgp_as:
+                    handler = lambda x: self.bgp_route_handler(x, vlan)
+                    bgp_speaker = BGPSpeaker(
+                        as_number=vlan.bgp_as,
+                        router_id=vlan.bgp_routerid,
+                        bgp_server_port=vlan.bgp_port,
+                        best_path_change_handler=handler)
+                    for controller_ip in vlan.controller_ips:
+                        prefix = ipaddr.IPNetwork(
+                            '/'.join(
+                                (str(controller_ip.ip),
+                                 str(controller_ip.prefixlen))))
                         bgp_speaker.prefix_add(
-                            prefix=str(ip_dst),
-                            next_hop=str(ip_gw))
-                bgp_speaker.neighbor_add(
-                    address=vlan.bgp_neighbor_address,
-                    remote_as=vlan.bgp_neighbor_as)
-                self.bgp_speakers[vlan] = bgp_speaker
+                            prefix=str(prefix),
+                            next_hop=controller_ip.ip)
+                    for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
+                        for ip_dst, ip_gw in route_table.iteritems():
+                            bgp_speaker.prefix_add(
+                                prefix=str(ip_dst),
+                                next_hop=str(ip_gw))
+                    bgp_speaker.neighbor_add(
+                        address=vlan.bgp_neighbor_address,
+                        remote_as=vlan.bgp_neighbor_as)
+                    bgp_speakers[vlan] = bgp_speaker
 
     def gateway_resolve_request(self):
         while True:
@@ -190,7 +200,10 @@ class Faucet(app_manager.RyuApp):
             hub.sleep(5)
 
     def send_flow_msgs(self, dp, flow_msgs):
-        self.valve.ofchannel_log(flow_msgs)
+        if dp.id not in self.valves:
+            self.logger.error("send_flow_msgs: unknown dp with id: {0}".format(dp.id))
+            return
+        self.valves[dp.id].ofchannel_log(flow_msgs)
         for flow_msg in flow_msgs:
             flow_msg.datapath = dp
             dp.send_msg(flow_msg)
@@ -202,32 +215,39 @@ class Faucet(app_manager.RyuApp):
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     def reload_config(self, ev):
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
-        new_dp = dp_parser(new_config_file, self.logname)[0]
-        if new_dp:
-            flowmods = self.valve.reload_config(new_dp)
+        new_dps = dp_parser(new_config_file, self.logname)
+        for new_dp in new_dps:
+            # pylint: disable=no-member
+            flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
             ryudp = self.dpset.get(new_dp.dp_id)
             self.send_flow_msgs(ryudp, flowmods)
             self.reset_bgp()
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     def resolve_gateways(self, ev):
-        if self.valve is not None:
-            flowmods = self.valve.resolve_gateways()
+        for dp_id, valve in self.valves.iteritems():
+            flowmods = valve.resolve_gateways()
             if flowmods:
-                ryudp = self.dpset.get(self.valve.dp.dp_id)
+                ryudp = self.dpset.get(dp_id)
                 self.send_flow_msgs(ryudp, flowmods)
 
     @set_ev_cls(EventFaucetHostExpire, MAIN_DISPATCHER)
     def host_expire(self, ev):
-        if self.valve is not None:
-            self.valve.host_expire()
+        for valve in self.valves.values():
+            valve.host_expire()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def _packet_in_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath
-        self.valve.ofchannel_log([msg])
+        valve = self.valves[dp.id] if dp.id in self.valves else None
+
+        if not valve:
+            self.logger.error("_packet_in_handler: unknown dp with id: {0}".format(dp.id))
+            return
+
+        valve.ofchannel_log([msg])
 
         pkt = packet.Packet(msg.data)
         eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
@@ -241,22 +261,29 @@ class Faucet(app_manager.RyuApp):
             return
 
         in_port = msg.match['in_port']
-        flowmods = self.valve.rcv_packet(dp.id, in_port, vlan_vid, pkt)
+        flowmods = valve.rcv_packet(dp.id, in_port, vlan_vid, pkt)
         self.send_flow_msgs(dp, flowmods)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def _error_handler(self, ev):
         msg = ev.msg
-        self.valve.ofchannel_log([msg])
-        self.logger.error('Got OFError: %s', msg)
+        dp = msg.datapath
+        if dp.id in self.valves:
+            self.valves[dp.id].ofchannel_log([msg])
+            self.logger.error('Got OFError: %s', msg)
+        else:
+            self.logger.error("_error_handler: unknown dp with id: {0}".format(dp.id))
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # # pylint: disable=no-member
     def handler_features(self, ev):
         msg = ev.msg
         dp = msg.datapath
-        flowmods = self.valve.switch_features(dp.id, msg)
-        self.send_flow_msgs(dp, flowmods)
+        if dp.id in self.valves:
+            flowmods = self.valves[dp.id].switch_features(dp.id, msg)
+            self.send_flow_msgs(dp, flowmods)
+        else:
+            self.logger.error("handler_features: unknown dp with id: {0}".format(dp.id))
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -264,9 +291,12 @@ class Faucet(app_manager.RyuApp):
         dp = ev.dp
 
         if not ev.enter:
-            # Datapath down message
-            self.logger.debug('DP %s disconnected' % str(dp.id))
-            self.valve.datapath_disconnect(dp.id)
+            if dp.id in self.valves:
+                # Datapath down message
+                self.logger.debug('DP %s disconnected' % str(dp.id))
+                self.valves[dp.id].datapath_disconnect(dp.id)
+            else:
+                self.logger.error("handler_connect_or_disconnect: unknown dp with id: {0}".format(dp.id))
             return
 
         self.logger.debug('DP %s connected' % str(dp.id))
@@ -282,8 +312,11 @@ class Faucet(app_manager.RyuApp):
     def handler_datapath(self, dp):
         discovered_ports = [
             p.port_no for p in dp.ports.values() if p.state == 0]
-        flowmods = self.valve.datapath_connect(dp.id, discovered_ports)
-        self.send_flow_msgs(dp, flowmods)
+        if dp.id in self.valves:
+            flowmods = self.valves[dp.id].datapath_connect(dp.id, discovered_ports)
+            self.send_flow_msgs(dp, flowmods)
+        else:
+            self.logger.error("handler_datapath: unknown dp with id: {0}".format(dp.id))
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -294,17 +327,22 @@ class Faucet(app_manager.RyuApp):
         reason = msg.reason
         port_no = msg.desc.port_no
 
+        if dp.id not in self.valves:
+            self.logger.error("port_status_handler: unknown dp with id: {0}".format(dp.id))
+            return
+
+        valve = self.valves[dp.id]
         flowmods = []
         if reason == ofp.OFPPR_ADD:
-            flowmods = self.valve.port_add(dp.id, port_no)
+            flowmods = valve.port_add(dp.id, port_no)
         elif reason == ofp.OFPPR_DELETE:
-            flowmods = self.valve.port_delete(dp.id, port_no)
+            flowmods = valve.port_delete(dp.id, port_no)
         elif reason == ofp.OFPPR_MODIFY:
             port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN
             if port_down:
-                flowmods = self.valve.port_delete(dp.id, port_no)
+                flowmods = valve.port_delete(dp.id, port_no)
             else:
-                flowmods = self.valve.port_add(dp.id, port_no)
+                flowmods = valve.port_add(dp.id, port_no)
         else:
             self.logger.warning('Unhandled port status %s for port %u',
                                 reason, port_no)

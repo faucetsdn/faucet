@@ -57,7 +57,7 @@ def dp_parser(config_file, logname):
         logger.error("unsupported config version number: {0}".format(version))
         return None
 
-def port_parser(p_identifier, port_conf, vlans):
+def port_parser(dp_id, p_identifier, port_conf, vlans):
     port = Port(p_identifier, port_conf)
 
     if port.mirror is not None:
@@ -65,10 +65,10 @@ def port_parser(p_identifier, port_conf, vlans):
         return port
     if port.native_vlan is not None:
         v_identifier = port.native_vlan
-        vlan = vlans.setdefault(v_identifier,  VLAN(v_identifier))
+        vlan = vlans.setdefault(v_identifier,  VLAN(v_identifier, dp_id))
         vlan.untagged.append(port)
     for v_identifier in port.tagged_vlans:
-        vlan = vlans.setdefault(v_identifier,  VLAN(v_identifier))
+        vlan = vlans.setdefault(v_identifier,  VLAN(v_identifier, dp_id))
         vlan.tagged.append(port)
 
     return port
@@ -93,9 +93,9 @@ def _dp_parser_v1(conf, config_file, logname):
     vlans = {}
     port = {}
     for vid, vlan_conf in vlans_conf.iteritems():
-        vlans[vid] = VLAN(vid, vlan_conf)
+        vlans[vid] = VLAN(vid, dp_id, vlan_conf)
     for port_num, port_conf in interfaces_conf.iteritems():
-        dp.add_port(port_parser(port_num, port_conf, vlans))
+        dp.add_port(port_parser(dp_id, port_num, port_conf, vlans))
     for acl_num, acl_conf in acls_conf.iteritems():
         dp.add_acl(acl_num, acl_conf)
     for vlan in vlans.itervalues():
@@ -108,6 +108,23 @@ def _dp_parser_v1(conf, config_file, logname):
 
     return [dp]
 
+def _dp_add_vlan(vid_dp, dp, vlan, logname):
+    logger = get_logger(logname)
+
+    if vlan.vid not in vid_dp:
+        vid_dp[vlan.vid] = set()
+
+    if len(vid_dp[vlan.vid]) > 1:
+        assert not vlan.bgp_routerid, \
+                "DPs {0} sharing a BGP speaker VLAN is unsupported".format(
+                    str.join(", ", vid_dp[vlan.vid]),
+                )
+
+    if vlan not in dp.vlans:
+        dp.add_vlan(vlan)
+
+    vid_dp[vlan.vid].add(dp.name)
+
 def _dp_parser_v2(conf, config_file, logname):
     logger = get_logger(logname)
 
@@ -119,22 +136,33 @@ def _dp_parser_v2(conf, config_file, logname):
     acls_conf = conf.pop('acls', {})
 
     dps = []
+    vid_dp = {}
+
     for identifier, dp_conf in conf['dps'].iteritems():
         ports_conf = dp_conf.pop('interfaces', {})
 
         dp = DP(identifier, dp_conf)
         dp.sanity_check()
 
+        dp_id = dp.dp_id
+
         vlans = {}
         ports = {}
 
         for vid, vlan_conf in vlans_conf.iteritems():
-            vlans[vid] = VLAN(vid, vlan_conf)
-        for port_num, port_conf in ports_conf.iteritems():
-            ports[port_num] = port_parser(port_num, port_conf, vlans)
-        for vlan in vlans.itervalues():
-            # add now for vlans configured on ports but not elsewhere
-            dp.add_vlan(vlan)
+            vlans[vid] = VLAN(vid, dp_id, vlan_conf)
+        try:
+            for port_num, port_conf in ports_conf.iteritems():
+                port = port_parser(dp_id, port_num, port_conf, vlans)
+                ports[port_num] = port
+                if port.native_vlan is not None:
+                    _dp_add_vlan(vid_dp, dp, vlans[port.native_vlan], logname)
+                if port.tagged_vlans is not None:
+                    for vid in port.tagged_vlans:
+                        _dp_add_vlan(vid_dp, dp, vlans[vid], logname)
+        except AssertionError as err:
+            logger.exception("Error in config file: {0}".format(err))
+            return None
         for port in ports.itervalues():
             # now that all ports are created, handle mirroring rewriting
             if port.mirror is not None:
