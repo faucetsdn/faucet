@@ -747,8 +747,8 @@ class Valve(object):
 
         if port_num not in self.dp.ports:
             self.logger.info(
-                'Autoconfiguring port:%u based on default config', port_num)
-            self.dp.add_port(port_num)
+                'Ignoring port:%u not present in configuration file', port_num)
+            return []
 
         port = self.dp.ports[port_num]
         self.logger.info('Port %s added', port)
