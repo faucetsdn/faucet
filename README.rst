@@ -38,11 +38,18 @@ In this example,configure an ACL on port 1, default deny, that passes an IPv4 su
 Following config applies an input ACL to port 1.
 
 Supports any ACL rule that https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py to_match() supports.
-::
 
-  1:
-        native_vlan: 2040
-        acl_in: 1
+.. code:: yaml
+  ---
+  version: 2
+
+  dps:
+      test-switch-1:
+          dp_id: 0x000000000001
+          interfaces:
+              1:
+                  native_vlan: 2040
+                  acl_in: 1
 
   vlans:
       2040:
@@ -94,12 +101,14 @@ Versions
 
 The Faucet configuration file format occasionally changes to add functionality or accomodate changes inside Faucet. If the ``version`` field is not specified in ``faucet.yaml``, the current default value is ``1``.
 
-Version 1 of the Faucet configuration file format does not allow multiple datapaths to be defined. The one datapath configured for this Faucet instance is configured using top level values, a sample of which can be found in ``faucet.yaml``. Previous (1.0 and older) versions of Faucet do not support the ``version`` field, so most configuration files in this format should not use it, unless using a newer version of Faucet with an older configuration file is required.
+Version 1 of the Faucet configuration file format does not allow multiple datapaths to be defined. The one datapath configured for this Faucet instance is configured using top level values, a sample of which can be found in ``faucet.yaml``. Previous (1.0 and older) versions of Faucet do not support the ``version`` field, so most configuration files in this format should not use it.
+
+This version of the Faucet configuration file format is deprecated and will be removed shortly, so new installations of Faucet should use the version 2 format, documented below.
 
 .. code:: yaml
 
   ---
-  dp_id: 0x000000000001:
+  dp_id: 0x000000000001
   name: "test-switch-1"
 
   interfaces:
@@ -135,14 +144,14 @@ Version 2 of the Faucet configuration file format adds the ``version`` field, an
   version: 2
 
   dps:
-      0x000000000001:
-          name: "test-switch-1"
+      test-switch-1:
+          dp_id: 0x000000000001
           interfaces:
               1:
                   native_vlan: 2040
                   acl_in: 1
-      0x000000000002:
-          name: "test-switch-2"
+      test_switch_2:
+          dp_id: 0x000000000002
           interfaces:
               1:
                   native_vlan: 2040
