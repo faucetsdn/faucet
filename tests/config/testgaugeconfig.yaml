@@ -1,3 +1,4 @@
+---
 faucet_configs:
     - 'config/testconfigv2.yaml'
 watchers:
