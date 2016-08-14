@@ -13,20 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, signal, logging
+import logging
+import os
+import signal
 from functools import wraps
+
 
 def dump(obj, level=0):
     prefix = level*'*'+' ' if level > 0 else ''
 
-    if type(obj) == dict:
+    if isinstance(obj, dict):
         for k, v in obj.items():
             if hasattr(v, '__iter__'):
                 print "%s%s" % (prefix, k)
                 dump(v, level+1)
             else:
                 print "%s%s : %s" % (prefix, k, v)
-    elif type(obj) == list:
+    elif isinstance(obj, list):
         for v in obj:
             if hasattr(v, '__iter__'):
                 dump(v, level+1)
@@ -35,6 +38,7 @@ def dump(obj, level=0):
     else:
         print "%s%s" % (prefix, obj)
 
+
 def mac_addr_is_unicast(mac_addr):
     """Returns True if mac_addr is a unicast ethernet address.
 
@@ -42,6 +46,7 @@ def mac_addr_is_unicast(mac_addr):
     mac_addr - a string representation of a mac address."""
     msb = mac_addr.split(":")[0]
     return msb[-1] in "02468aAcCeE"
+
 
 def kill_on_exception(logname):
     """decorator to ensure functions will kill ryu when an unhandled exception

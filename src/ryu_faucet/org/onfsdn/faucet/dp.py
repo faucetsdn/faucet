@@ -13,11 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
-
 from conf import Conf
 from vlan import VLAN
 from port import Port
+
 
 class DP(Conf):
     """Object to hold the configuration for a faucet controlled datapath."""
