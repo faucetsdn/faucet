@@ -514,7 +514,7 @@ class Gauge(app_manager.RyuApp):
             if self.db_enabled:
                 rows = self.switch_database.get_docs(
                         self.db_conf_data['views']['v1'],
-                        key=str(hex(dp.id))
+                        key=str(hex(dp.dp_id))
                         )
                 switch = rows[0].value
                 # Delete flows in the switch
