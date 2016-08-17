@@ -16,8 +16,8 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
         version='1.0',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
-        data_files=[('/etc/ryu/faucet', ['src/cfg/etc/ryu/faucet/gauge.conf',
-                                         'src/cfg/etc/ryu/faucet/faucet.yaml'])
+        data_files=[('etc/ryu/faucet', ['src/cfg/etc/ryu/faucet/gauge.conf',
+                                        'src/cfg/etc/ryu/faucet/faucet.yaml'])
                     ],
         include_package_data=True,
         install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest'],

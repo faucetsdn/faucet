@@ -19,12 +19,13 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 import os
 import signal
+import sys
 
 import ipaddr
 
 from config_parser import dp_parser
 from valve import valve_factory
-from util import kill_on_exception
+from util import kill_on_exception, get_sys_prefix
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -74,12 +75,14 @@ class Faucet(app_manager.RyuApp):
         # options into ryu apps. Instead I am using the environment variable
         # FAUCET_CONFIG to allow this to be set, if it is not set it will
         # default to valve.yaml
+        sysprefix = get_sys_prefix()
         self.config_file = os.getenv(
-            'FAUCET_CONFIG', '/etc/ryu/faucet/faucet.yaml')
+            'FAUCET_CONFIG', sysprefix + '/etc/ryu/faucet/faucet.yaml')
         self.logfile = os.getenv(
-            'FAUCET_LOG', '/var/log/ryu/faucet/faucet.log')
+            'FAUCET_LOG', sysprefix + '/var/log/ryu/faucet/faucet.log')
         self.exc_logfile = os.getenv(
-            'FAUCET_EXCEPTION_LOG', '/var/log/ryu/faucet/faucet_exception.log')
+            'FAUCET_EXCEPTION_LOG',
+            sysprefix + '/var/log/ryu/faucet/faucet_exception.log')
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
