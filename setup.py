@@ -3,6 +3,7 @@
 import os
 from os import path
 from setuptools import setup
+import sys
 
 with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
     README = readme.read()
@@ -11,14 +12,19 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
     os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__),
                                            os.pardir)))
 
+    data_files_prefix = '/'
+    if (getattr(sys, "real_prefix", sys.prefix) != sys.prefix or
+        getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
+        data_files_prefix = ''
+
     setup(
         name='ryu-faucet',
         version='1.0',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
-        data_files=[('etc/ryu/faucet', ['src/cfg/etc/ryu/faucet/gauge.conf',
-                                        'src/cfg/etc/ryu/faucet/faucet.yaml'])
-                    ],
+        data_files=[(data_files_prefix + 'etc/ryu/faucet',
+                     ['src/cfg/etc/ryu/faucet/gauge.conf',
+                      'src/cfg/etc/ryu/faucet/faucet.yaml'])],
         include_package_data=True,
         install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest'],
         license='Apache License 2.0',
