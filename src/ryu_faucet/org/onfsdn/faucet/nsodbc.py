@@ -85,7 +85,7 @@ class ConnectionCouch(object):
 
     def create(self, db_name):
         """Create a database.
-        If the databse exists, return the same and send a True flag.
+        If the database exists, return the same and send a True flag.
         This way, a connection object will only be created once.
         """
         try:
@@ -100,6 +100,12 @@ class ConnectionCouch(object):
         Return the connected databases of this connection
         """
         return self.database
+
+    def delete(self, db_name):
+        """
+        Delete database specified in the parameter
+        """
+        self.conn.delete(db_name)
 
 
 class DatabaseCouch(object):
