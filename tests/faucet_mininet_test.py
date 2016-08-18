@@ -1051,14 +1051,16 @@ acls:
             actions:
                 output:
                     dl_dst: "06:06:06:06:06:06"
+                    vlan_vid: 123
                     port: %(port_2)d
 """
 
     def test_untagged(self):
         first_host = self.net.hosts[0]
         second_host = self.net.hosts[1]
-        # we expected to see the rewritten address.
-        tcpdump_filter = 'ether dst %s and icmp' % '06:06:06:06:06:06'
+        # we expected to see the rewritten address and VLAN
+        tcpdump_filter = (
+            'icmp and ether dst 06:06:06:06:06:06')
         tcpdump_out = second_host.popen(
             'timeout 10s tcpdump -e -n -v -c 2 -U %s' % tcpdump_filter)
         # wait for tcpdump to start
@@ -1073,6 +1075,8 @@ acls:
         self.assertFalse(tcpdump_txt == '')
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            'vlan 123', tcpdump_txt))
 
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
