@@ -171,6 +171,13 @@ class Valve(object):
         return parser.OFPActionSetField(eth_dst=eth_dst)
 
     @staticmethod
+    def push_vlan_act(vlan_vid):
+        return [
+            parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+            parser.OFPActionSetField(vlan_vid=(vlan_vid | ofp.OFPVID_PRESENT))
+        ]
+
+    @staticmethod
     def dec_ip_ttl():
         return parser.OFPActionDecNwTtl()
 
@@ -570,8 +577,11 @@ class Valve(object):
                             # if destination rewriting selected, rewrite it.
                             if 'dl_dst' in output_dict:
                                 output_actions.append(
-                                    parser.OFPActionSetField(
-                                        eth_dst=output_dict['dl_dst']))
+                                    self.set_eth_dst(output_dict['dl_dst']))
+                            # if vlan tag is specified, push it.
+                            if 'vlan_vid' in output_dict:
+                                output_actions.extend(
+                                    self.push_vlan_act(output_dict['vlan_vid']))
                             # output to port
                             port_no = output_dict['port']
                             output_actions.append(
@@ -683,9 +693,7 @@ class Valve(object):
     def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
         ofmsgs = []
         ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
-        push_vlan_act = mirror_act + [
-            parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-            parser.OFPActionSetField(vlan_vid=(vlan.vid | ofp.OFPVID_PRESENT))]
+        push_vlan_act = mirror_act + self.push_vlan_act(vlan.vid)
         push_vlan_inst = [
             self.apply_actions(push_vlan_act),
             self.goto_table(forwarding_table)
@@ -772,9 +780,11 @@ class Valve(object):
                     if attrib == 'actions':
                         if 'mirror' in attrib_value:
                             port_no = attrib_value['mirror']
+                            mirror_in_port_match = self.valve_in_match(
+                                self.dp.vlan_table, in_port=port_no)
                             ofmsgs.append(self.valve_flowdrop(
                                 self.dp.vlan_table,
-                                in_port_match))
+                                mirror_in_port_match))
 
         if port_num in self.dp.mirror_from_port.values():
             # this is a mirror port - drop all input packets
