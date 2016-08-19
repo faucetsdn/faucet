@@ -34,8 +34,10 @@ In the above ``local.ini`` file, the following modifications are made:
        ``WWW-Authenticate = Basic realm="administrator"``
     3. add line --> ``require_valid_user = true``
 
-Alternatively,
+Alternatively, you can:
+
 .. code:: bash
+
   # curl -X PUT http://localhost:5984/_config/httpd/bind_address -d '"0.0.0.0"'
 
 By doing this, you will be able to access couch db from an external box

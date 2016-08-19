@@ -1,4 +1,5 @@
 :copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
+:Authors: - Shivaram Mysore
 
 .. meta::
    :keywords: Openflow, Ryu, Faucet, VLAN, SDN
@@ -20,57 +21,65 @@ Faucet Openflow Switch Pipeline
 ===============================
 .. image:: Faucet_Openflow_Pipeline.png
 
+-------------
 Table 0: VLAN
 -------------
-* Match fields: in_port, vlan_vid, eth_src, eth_dst, eth_type
-* Operations
-* Drop STP BPDUs
-* Drop LLDP
-* Drop broadcast sourced traffic
-* Drop traffic from sources spoofing Faucet’s magic MAC address
-* For tagged ports
-  * Match VLAN_VID and send to next table
-* For untagged ports
-  * Push VLAN frame onto packet with VLAN_VID representing ports native VLAN and send to next table
-* Unknown traffic is dropped
 
+- Match fields: ``in_port, vlan_vid, eth_src, eth_dst, eth_type``
+- Operations
+- Drop STP BPDUs
+- Drop LLDP
+- Drop broadcast sourced traffic
+- Drop traffic from sources spoofing Faucet’s magic MAC address
+- For tagged ports
+  - Match VLAN_VID and send to next table
+- For untagged ports
+  - Push VLAN frame onto packet with VLAN_VID representing ports native VLAN and send to next table
+- Unknown traffic is dropped
+
+------------
 Table 1: ACL
 ------------
-* Apply user supplied ACLs to packet and send to next table
+- Apply user supplied ACLs to packet and send to next table
 
+----------------
 Table 2: ETH_SRC
 ----------------
-* Match fields: ``in_port, vlan_vid, eth_src, eth_dst, eth_type, ip_proto, icmpv6_type, ipv6_nd_target, arp_tpa, ipv4_src``
-* Operations
-* Handle layer 3 traffic by sending to IPv4 or IPv6 FIB table
-* Send traffic destined for Faucet via packet in message
-* For source MAC addresses we have learned send to ETH_DST
-  * Unknown traffic is
-  * Sent to controller via packet in (for learning)
-  * Sent to ETH_DST table
+- Match fields: ``in_port, vlan_vid, eth_src, eth_dst, eth_type, ip_proto, icmpv6_type, ipv6_nd_target, arp_tpa, ipv4_src``
+- Operations
+- Handle layer 3 traffic by sending to IPv4 or IPv6 FIB table
+- Send traffic destined for Faucet via packet in message
+- For source MAC addresses we have learned send to ETH_DST
+  - Unknown traffic is
+  - Sent to controller via packet in (for learning)
+  - Sent to ETH_DST table
 
+-----------------
 Table 3: IPV4_FIB
 -----------------
+- TBD
 
-
+-----------------
 Table 4: IPV6_FIB
 -----------------
+- TBD
 
-
+----------------
 Table 5: ETH_DST
 ----------------
-* Match fields: ``vlan_vid, eth_dst``
-* Operations
-  * For destination MAC addresses we have learned output packet towards that host (popping VLAN frame if we are outputting on an untagged port)
-  * Unknown traffic is sent to FLOOD table
+- Match fields: ``vlan_vid, eth_dst``
+- Operations
+  - For destination MAC addresses we have learned output packet towards that host (popping VLAN frame if we are outputting on an untagged port)
+  - Unknown traffic is sent to FLOOD table
 
+--------------
 Table 6: FLOOD
 --------------
-* Match fields: ``vlan_vid, eth_dst``
-* Operations
-  * Flood broadcast within VLAN
-  * Flood multicast within VLAN
-  * Unknown traffic is flooded within VLAN
+- Match fields: ``vlan_vid, eth_dst``
+- Operations
+  - Flood broadcast within VLAN
+  - Flood multicast within VLAN
+  - Unknown traffic is flooded within VLAN
 
 ===================
 Faucet Architecture
