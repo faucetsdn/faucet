@@ -32,9 +32,9 @@ Table 0: VLAN
 - Drop broadcast sourced traffic
 - Drop traffic from sources spoofing Faucet’s magic MAC address
 - For tagged ports
-  - Match VLAN_VID and send to next table
+    - Match VLAN_VID and send to next table
 - For untagged ports
-  - Push VLAN frame onto packet with VLAN_VID representing ports native VLAN and send to next table
+    - Push VLAN frame onto packet with VLAN_VID representing ports native VLAN and send to next table
 - Unknown traffic is dropped
 
 ------------
@@ -50,9 +50,9 @@ Table 2: ETH_SRC
 - Handle layer 3 traffic by sending to IPv4 or IPv6 FIB table
 - Send traffic destined for Faucet via packet in message
 - For source MAC addresses we have learned send to ETH_DST
-  - Unknown traffic is
-  - Sent to controller via packet in (for learning)
-  - Sent to ETH_DST table
+    - Unknown traffic is
+    - Sent to controller via packet in (for learning)
+    - Sent to ETH_DST table
 
 -----------------
 Table 3: IPV4_FIB
@@ -69,17 +69,17 @@ Table 5: ETH_DST
 ----------------
 - Match fields: ``vlan_vid, eth_dst``
 - Operations
-  - For destination MAC addresses we have learned output packet towards that host (popping VLAN frame if we are outputting on an untagged port)
-  - Unknown traffic is sent to FLOOD table
+    - For destination MAC addresses we have learned output packet towards that host (popping VLAN frame if we are outputting on an untagged port)
+    - Unknown traffic is sent to FLOOD table
 
 --------------
 Table 6: FLOOD
 --------------
 - Match fields: ``vlan_vid, eth_dst``
 - Operations
-  - Flood broadcast within VLAN
-  - Flood multicast within VLAN
-  - Unknown traffic is flooded within VLAN
+    - Flood broadcast within VLAN
+    - Flood multicast within VLAN
+    - Unknown traffic is flooded within VLAN
 
 ===================
 Faucet Architecture
