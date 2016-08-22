@@ -773,6 +773,7 @@ class Valve(object):
 
         for table in self.in_port_tables():
             ofmsgs.append(self.valve_flowdel(table, in_port_match))
+        ofmsgs.append(parser.OFPBarrierRequest(None))
 
         # if this port is used as mirror port in any acl - drop input packets
         for acl in self.dp.acls.values():
@@ -923,6 +924,7 @@ class Valve(object):
                     eth_type=ether.ETH_TYPE_IP, nw_dst=ip_dst)
                 ofmsgs.append(self.valve_flowdel(
                     self.dp.ipv4_fib_table, route_match))
+        ofmsgs.append(parser.OFPBarrierRequest(None))
         return ofmsgs
 
     def add_resolved_route(self, eth_type, fib_table, vlan, neighbor_cache,
@@ -941,6 +943,7 @@ class Valve(object):
                     fib_table,
                     in_match,
                     priority=priority))
+                ofmsgs.append(parser.OFPBarrierRequest(None))
             else:
                 self.logger.info(
                     'Adding new route %s via %s (%s)',
