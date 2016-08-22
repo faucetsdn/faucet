@@ -318,6 +318,7 @@ class Valve(object):
         ofmsgs = []
         for table_id in self.all_valve_tables():
             ofmsgs.append(self.valve_flowdel(table_id))
+        ofmsgs.append(parser.OFPBarrierRequest(None))
         return ofmsgs
 
     def add_default_drop_flows(self):
