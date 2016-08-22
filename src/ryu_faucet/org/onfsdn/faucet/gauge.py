@@ -361,13 +361,20 @@ class GaugeFlowTablePoller(GaugePoller):
 
         if self.db_enabled:
             self.conn.delete(self.db_conf_data['switches_doc'])
-            self.switch_database = self.conn.create(
+            self.switch_database, _ = self.conn.create(
                     self.db_conf_data['switches_doc'])
             init_switch_db(self.switch_database)
             switch_object = {'_id': str(hex(self.dp.dp_id)),
                             'data':{'flows':[]}}
-            switch = self.switch_database.insert_update_doc(switch_object,
+            self.switch_database.insert_update_doc(switch_object,
                                                    'data')
+            try:
+                rows = self.switch_database.get_docs(
+                    self.db_conf_data['views']['v1'],
+                    key=str(hex(self.dp.dp_id)))
+                switch = rows[0]
+            except IndexError:
+                switch = None
 
             if switch:
                 self.conn.delete(self.db_conf_data['flows_doc'])
