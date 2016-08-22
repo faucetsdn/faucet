@@ -16,11 +16,12 @@
 import time
 import os
 import signal
+import sys
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
-from util import kill_on_exception
+from util import kill_on_exception, get_sys_prefix
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -53,11 +54,14 @@ class Gauge(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
+        sysprefix = get_sys_prefix()
         self.config_file = os.getenv(
-            'GAUGE_CONFIG', '/etc/ryu/faucet/gauge.conf')
+            'GAUGE_CONFIG', sysprefix + '/etc/ryu/faucet/gauge.conf')
         self.exc_logfile = os.getenv(
-            'GAUGE_EXCEPTION_LOG', '/var/log/ryu/faucet/gauge_exception.log')
-        self.logfile = os.getenv('GAUGE_LOG', '/var/log/ryu/faucet/gauge.log')
+            'GAUGE_EXCEPTION_LOG',
+            sysprefix + '/var/log/ryu/faucet/gauge_exception.log')
+        self.logfile = os.getenv(
+            'GAUGE_LOG', sysprefix + '/var/log/ryu/faucet/gauge.log')
 
         # Setup logging
         self.logger = logging.getLogger(self.logname)

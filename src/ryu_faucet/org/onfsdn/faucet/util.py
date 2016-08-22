@@ -16,6 +16,7 @@
 import logging
 import os
 import signal
+import sys
 from functools import wraps
 
 
@@ -63,3 +64,19 @@ def kill_on_exception(logname):
                 os.kill(os.getpid(), signal.SIGKILL)
         return __koe
     return _koe
+
+def get_sys_prefix():
+    """Returns an additional prefix for log and configuration files when used in
+    a virtual environment"""
+
+    # Find the appropriate prefix for config and log file default locations
+    # in case Faucet is run in a virtual environment. virtualenv marks the
+    # original path in sys.real_prefix. If this value exists, and is
+    # different from sys.prefix, then we are most likely running in a
+    # virtualenv. Also check for Py3.3+ pyvenv.
+    sysprefix = ""
+    if (getattr(sys, "real_prefix", sys.prefix) != sys.prefix or
+        getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
+        sysprefix = sys.prefix
+
+    return sysprefix
