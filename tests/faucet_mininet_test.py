@@ -21,6 +21,7 @@
 # * tcpdump
 # * exabgp
 # * pylint
+# * curl
 
 
 import inspect
@@ -48,6 +49,8 @@ from mininet.node import Intf
 from mininet.node import OVSSwitch
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
+from ryu.ofproto import ofproto_v1_3 as ofp
+
 
 # list of required external dependencies
 # external binary, argument to get version,
@@ -71,6 +74,8 @@ EXTERNAL_DEPENDENCIES = (
      r'Version:\s+(\d+\.\d+)\.\d+', float(3.0)),
     ('pylint', ['--version'], 'pylint',
      r'pylint (\d+\.\d+).\d+,', float(1.6)),
+    ('curl', ['--version'], 'libcurl',
+     r'curl (\d+\.\d+).\d+', float(7.3)),
 )
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
@@ -332,12 +337,14 @@ hardware: "%s"
     def one_ipv6_controller_ping(self, host):
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
 
+    def ofctl_rest_url(self):
+        return 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
+
     def wait_until_matching_flow(self, exp_flow, timeout=10):
-        ofctl_url = 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
         for _ in range(timeout):
             int_dpid = str_int_dpid(self.dpid)
             ofctl_result = json.loads(requests.get(
-                '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
             dump_flows = ofctl_result[int_dpid]
             for flow in dump_flows:
                 # Re-transform the dictionary into str to re-use
@@ -358,6 +365,29 @@ hardware: "%s"
             nw_dst_match = '"nw_dst": "%s"' % exp_prefix
         self.wait_until_matching_flow(
             'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
+
+    def curl_portmod(self, int_dpid, port_no, config, mask):
+        # TODO: avoid dependency on varying 'requests' library.
+        curl_format = ' '.join((
+            'curl -X POST -d'
+            '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
+            '%s/stats/portdesc/modify'))
+        return curl_format  % (
+            int_dpid, port_no, config, mask, self.ofctl_rest_url())
+
+    def flap_all_switch_ports(self, flap_time=1):
+        # TODO: for hardware switches also
+        if not SWITCH_MAP:
+            switch = self.net.switches[0]
+            int_dpid = str_int_dpid(self.dpid)
+            for port_no in sorted(switch.ports.itervalues()):
+                if port_no > 0:
+                    os.system(self.curl_portmod(
+                        int_dpid, port_no,
+                        ofp.OFPPC_PORT_DOWN, ofp.OFPPC_PORT_DOWN))
+                    time.sleep(flap_time)
+                    os.system(self.curl_portmod(int_dpid, port_no,
+                        0, ofp.OFPPC_PORT_DOWN))
 
     def swap_host_macs(self, first_host, second_host):
         first_host_mac = first_host.MAC()
@@ -571,6 +601,8 @@ vlans:
 
     def test_untagged(self):
         self.net.pingAll()
+        self.flap_all_switch_ports()
+        self.net.pingAll()
 
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
@@ -691,6 +723,8 @@ group test {
         self.wait_until_matching_route_as_flow(
             second_host.MAC(), ipaddr.IPv4Network('10.0.3.0/24'), timeout=30)
         self.verify_ipv4_routing_mesh()
+        self.flap_all_switch_ports()
+        self.verify_ipv4_routing_mesh()
         self.stop_exabgp()
 
 
@@ -751,6 +785,8 @@ group test {
 }
 """
         exabgp_log = self.start_exabgp(exabgp_conf)
+        self.verify_ipv4_routing_mesh()
+        self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(exabgp_log)
@@ -861,13 +897,15 @@ vlans:
         first_host, second_host = self.net.hosts[0:2]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
-        # Verify IPv4 and IPv6 connectivity between first two hosts.
-        self.one_ipv4_ping(first_host, second_host.IP())
-        self.one_ipv6_ping(first_host, 'fc00::1:2')
-        # Verify first two hosts can ping controller over both IPv4 and IPv6
-        for host in first_host, second_host:
-            self.one_ipv4_controller_ping(host)
-            self.one_ipv6_controller_ping(host)
+        for _ in range(2):
+            # Verify IPv4 and IPv6 connectivity between first two hosts.
+            self.one_ipv4_ping(first_host, second_host.IP())
+            self.one_ipv6_ping(first_host, 'fc00::1:2')
+            # Verify first two hosts can ping controller over both IPv4 and IPv6
+            for host in first_host, second_host:
+                self.one_ipv4_controller_ping(host)
+                self.one_ipv6_controller_ping(host)
+            self.flap_all_switch_ports()
 
 
 class FaucetTaggedAndUntaggedTest(FaucetTest):
@@ -1284,6 +1322,8 @@ group test {
 """
         self.start_exabgp(exabgp_conf, '::1')
         self.verify_ipv6_routing_mesh()
+        self.flap_all_switch_ports()
+        self.verify_ipv6_routing_mesh()
         self.stop_exabgp()
 
 
@@ -1398,8 +1438,10 @@ group test {
         exabgp_log = self.start_exabgp(exabgp_conf, '::1')
         self.verify_ipv6_routing_mesh()
         second_host = self.net.hosts[1]
+        self.flap_all_switch_ports()
         self.wait_until_matching_route_as_flow(
             second_host.MAC(), ipaddr.IPv6Network('fc00::30:0/112'))
+        self.verify_ipv6_routing_mesh()
         updates = self.exabgp_updates(exabgp_log)
         self.stop_exabgp()
         assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
