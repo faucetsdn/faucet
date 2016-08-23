@@ -284,13 +284,15 @@ class Valve(object):
     def valve_flowdel(self, table_id, match=None, priority=None,
                       out_port=ofp.OFPP_ANY):
         """Delete matching flows from a table."""
-        return self.valve_flowmod(
-            table_id,
-            match=match,
-            priority=priority,
-            command=ofp.OFPFC_DELETE,
-            out_port=out_port,
-            out_group=ofp.OFPG_ANY)
+        return [
+            self.valve_flowmod(
+                table_id,
+                match=match,
+                priority=priority,
+                command=ofp.OFPFC_DELETE,
+                out_port=out_port,
+                out_group=ofp.OFPG_ANY),
+            parser.OFPBarrierRequest(None)]
 
     def valve_flowdrop(self, table_id, match=None, priority=None,
                        hard_timeout=0):
@@ -317,8 +319,7 @@ class Valve(object):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []
         for table_id in self.all_valve_tables():
-            ofmsgs.append(self.valve_flowdel(table_id))
-        ofmsgs.append(parser.OFPBarrierRequest(None))
+            ofmsgs.extend(self.valve_flowdel(table_id))
         return ofmsgs
 
     def add_default_drop_flows(self):
@@ -772,8 +773,7 @@ class Valve(object):
         self.logger.info('Sending config for port %s', port)
 
         for table in self.in_port_tables():
-            ofmsgs.append(self.valve_flowdel(table, in_port_match))
-        ofmsgs.append(parser.OFPBarrierRequest(None))
+            ofmsgs.extend(self.valve_flowdel(table, in_port_match))
 
         # if this port is used as mirror port in any acl - drop input packets
         for acl in self.dp.acls.values():
@@ -827,17 +827,15 @@ class Valve(object):
 
         if not port.permanent_learn:
             for table in self.in_port_tables():
-                ofmsgs.append(self.valve_flowdel(
+                ofmsgs.extend(self.valve_flowdel(
                     table,
                     self.valve_in_match(
                         table, in_port=port_num)))
 
             # delete eth_dst rules
-            ofmsgs.append(self.valve_flowdel(
+            ofmsgs.extend(self.valve_flowdel(
                 self.dp.eth_dst_table,
                 out_port=port_num))
-
-        ofmsgs.append(parser.OFPBarrierRequest(None))
 
         for vlan in self.dp.vlans.values():
             if port_num in vlan.tagged or port_num in vlan.untagged:
@@ -849,19 +847,18 @@ class Valve(object):
         ofmsgs = []
         # delete any existing ofmsgs for this vlan/mac combination on the
         # src mac table
-        ofmsgs.append(self.valve_flowdel(
+        ofmsgs.extend(self.valve_flowdel(
             self.dp.eth_src_table,
             self.valve_in_match(
                 self.dp.eth_src_table, vlan=vlan, eth_src=eth_src)))
 
         # delete any existing ofmsgs for this vlan/mac combination on the dst
         # mac table
-        ofmsgs.append(self.valve_flowdel(
+        ofmsgs.extend(self.valve_flowdel(
             self.dp.eth_dst_table,
             self.valve_in_match(
                 self.dp.eth_dst_table, vlan=vlan, eth_dst=eth_src)))
 
-        ofmsgs.append(parser.OFPBarrierRequest(None))
         return ofmsgs
 
     def build_ethernet_pkt(self, eth_dst, in_port, vlan, ethertype):
@@ -914,7 +911,7 @@ class Valve(object):
                 route_match = self.valve_in_match(
                     self.dp.ipv6_fib_table, vlan=vlan,
                     eth_type=ether.ETH_TYPE_IPV6, nw_dst=ip_dst)
-                ofmsgs.append(self.valve_flowdel(
+                ofmsgs.extend(self.valve_flowdel(
                     self.dp.ipv6_fib_table, route_match))
         else:
             if ip_dst in vlan.ipv4_routes:
@@ -922,9 +919,8 @@ class Valve(object):
                 route_match = self.valve_in_match(
                     self.dp.ipv4_fib_table, vlan=vlan,
                     eth_type=ether.ETH_TYPE_IP, nw_dst=ip_dst)
-                ofmsgs.append(self.valve_flowdel(
+                ofmsgs.extend(self.valve_flowdel(
                     self.dp.ipv4_fib_table, route_match))
-        ofmsgs.append(parser.OFPBarrierRequest(None))
         return ofmsgs
 
     def add_resolved_route(self, eth_type, fib_table, vlan, neighbor_cache,
@@ -939,11 +935,10 @@ class Valve(object):
                 self.logger.info(
                     'Updating next hop for route %s via %s (%s)',
                     ip_dst, ip_gw, eth_dst)
-                ofmsgs.append(self.valve_flowdel(
+                ofmsgs.extend(self.valve_flowdel(
                     fib_table,
                     in_match,
                     priority=priority))
-                ofmsgs.append(parser.OFPBarrierRequest(None))
             else:
                 self.logger.info(
                     'Adding new route %s via %s (%s)',
