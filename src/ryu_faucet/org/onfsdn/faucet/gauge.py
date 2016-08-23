@@ -336,6 +336,7 @@ class GaugeFlowTablePoller(GaugePoller):
         self.switch_database = switch_db
         self.db_conf_data = db_conf_data
         self.conn = conn
+        self.db_update_counter = 5
 
     def send_req(self):
         ofp = self.ryudp.ofproto
@@ -359,7 +360,7 @@ class GaugeFlowTablePoller(GaugePoller):
             logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
                 rcv_time_str, ref, json.dumps(jsondict, indent=4)))
 
-        if self.db_enabled:
+        if self.db_enabled and self.db_update_counter == 5:
             self.conn.delete(self.db_conf_data['switches_doc'])
             self.switch_database, _ = self.conn.create(
                     self.db_conf_data['switches_doc'])
@@ -388,6 +389,10 @@ class GaugeFlowTablePoller(GaugePoller):
                     switch.value['data']['flows'].append(flow_id)
                     self.switch_database.insert_update_doc(
                         switch.value, 'data')
+
+        self.db_update_counter -= 1
+        if not self.db_update_counter:
+            self.db_update_counter = 5
 
     def no_response(self):
         self.logger.info(
