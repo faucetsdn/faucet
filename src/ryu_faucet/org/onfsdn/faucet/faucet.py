@@ -115,11 +115,11 @@ class Faucet(app_manager.RyuApp):
         self.valves = {}
         for dp in dp_parser(self.config_file, self.logname):
             # pylint: disable=no-member
-            valve = valve_factory(dp)(dp, self.logname)
+            valve = valve_factory(dp)
             if valve is None:
                 self.logger.error('Hardware type not supported for DP: %s' % dp.name)
             else:
-                self.valves[dp.dp_id] = valve
+                self.valves[dp.dp_id] = valve(dp, self.logname)
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
