@@ -76,7 +76,12 @@ OVS_MATCH_ABBREV = { 'ip' : 'dl_type=0x0800',
                  'mplsm' : 'dl_type=0x8848',
                  # Assume deprecated tp_src/dst are UDP (to avoid complicated parsing)
                  'tp_src' : 'udp_src',
-                 'tp_dst' : 'udp_dst' }
+                 'tp_dst' : 'udp_dst',
+                 # Special case use of vlan_tci to match packets without a VLAN tag,
+                 # to dl_vlan=0. Per OF1.3.3 spec p.117:
+                 #   - Testing for an exact match with 0x0 matches only packets without
+                 #   * an 802.1Q header.
+                 'vlan_tci=0x0000/0x1fff' : 'dl_vlan=0' }
 
 # Conversion from OVS field name to RYU field name. Keys should be identical
 # to the keys in OVS_MATCH_FIELDS.
@@ -159,8 +164,10 @@ for line in input:
    # Verify that we found both table ID and match data
    if table == None:
       debug("Failed to identify table ID in line:\n "+line)
+      continue
    if match == None:
       debug("Failed to identify match data in line:\n "+line)
+      continue
 
    # Handle deprecated tp_src/dst interpretation, which is context-dependent
    if re.match('.*[^c]tp_(src|dst).*', match) != None:
