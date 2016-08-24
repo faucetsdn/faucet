@@ -57,7 +57,7 @@ class DP(Conf):
         # description, strictly informational
         'description': None,
         # The hardware maker (for chosing an openflow driver)
-        'hardware': 'Open_vSwitch',
+        'hardware': 'Open vSwitch',
         # ARP and neighbor timeout (seconds)
         'arp_neighbor_timeout': 500,
         # OF channel log
