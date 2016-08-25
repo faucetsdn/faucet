@@ -336,6 +336,7 @@ class GaugeFlowTablePoller(GaugePoller):
         self.switch_database = switch_db
         self.db_conf_data = db_conf_data
         self.conn = conn
+        #TODO: DB update counter can be made configurable
         self.db_update_counter = 5
 
     def send_req(self):
