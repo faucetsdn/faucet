@@ -80,17 +80,19 @@ Platform: DEBIAN OS
 Commands for installation
 -------------------------
 
-  #sudo apt-get install couchdb
-  #sudo pip install couchdb (installs couchdb python module)
+.. code:: bash 
+  # pip install couchdb (installs couchdb python module)
 
 
 On a Web Browser, go to: http://127.0.0.1:5984/_utils/config.html
 It should display all configuration parameters.
 
-To enable compaction for couchdb we have to enable settings in local.ini
+To enable compaction for couchdb we have to enable settings in local.ini in [compactions] section by uncommenting this:
 
-  #echo "[compactions]" >> /etc/couchdb/local.ini
-  #echo "_default = [{db_fragmentation, "70%"}, {view_fragmentation, "55%"}]" >> /etc/couchdb/local.ini
-  #service couchdb restart
+.. code:: bash 
+  _default = [{db_fragmentation, "70%"}, {view_fragmentation, "60%"}]
+  
 
 After enabling the fragmentation make sure Couchdb has been restarted. Also DB fragmentation value can be configured based on your need.
+.. code:: bash
+  service couchdb restart
