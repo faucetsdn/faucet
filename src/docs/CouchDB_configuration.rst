@@ -81,7 +81,8 @@ Commands for installation
 -------------------------
 
 .. code:: bash 
-  # pip install couchdb (installs couchdb python module)
+
+    pip install couchdb (installs couchdb python module)
 
 
 On a Web Browser, go to: http://127.0.0.1:5984/_utils/config.html
@@ -90,9 +91,12 @@ It should display all configuration parameters.
 To enable compaction for couchdb we have to enable settings in local.ini in [compactions] section by uncommenting this:
 
 .. code:: bash 
-  _default = [{db_fragmentation, "70%"}, {view_fragmentation, "60%"}]
+
+    _default = [{db_fragmentation, "70%"}, {view_fragmentation, "60%"}]
   
 
 After enabling the fragmentation make sure Couchdb has been restarted. Also DB fragmentation value can be configured based on your need.
+
 .. code:: bash
-  service couchdb restart
+
+    service couchdb restart
