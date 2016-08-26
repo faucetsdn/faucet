@@ -109,19 +109,24 @@ def _dp_parser_v1(conf, config_file, logname):
 
     return [dp]
 
-def _dp_include(config_file, dps_conf, vlans_conf, acls_conf, logname):
+def _dp_include(parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
     logger = get_logger(logname)
 
-    if not os.path.isfile(config_file):
+    cf = config_file if os.path.isabs(config_file) else os.path.join(
+        os.path.dirname(parent_file),
+        config_file,
+    )
+
+    if not os.path.isfile(cf):
         logger.warning("not a regular file or does not exist: {0}".format(
-            config_file))
+            cf))
         return False
 
-    conf = read_config(config_file, logname)
+    conf = read_config(cf, logname)
 
     if not conf:
         logger.warning("error loading config from file: {0}".format(
-            config_file))
+            cf))
         return False
 
     dps_conf.update(conf.pop('dps', {}))
@@ -155,12 +160,12 @@ def _dp_parser_v2(conf, config_file, logname):
     acls_conf = conf.pop('acls', {})
 
     for cf in conf.pop('include', []):
-        if not _dp_include(cf, dps_conf, vlans_conf, acls_conf, logname):
+        if not _dp_include(config_file, cf, dps_conf, vlans_conf, acls_conf, logname):
             logger.error("unable to load required include file: {0}".format(cf))
             return None
 
     for cf in conf.pop('include-optional', []):
-        if not _dp_include(cf, dps_conf, vlans_conf, acls_conf, logname):
+        if not _dp_include(config_file, cf, dps_conf, vlans_conf, acls_conf, logname):
             logger.warning("skipping optional include file: {0}".format(cf))
 
     if not dps_conf:
