@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import sys
 import os
 import ipaddr
@@ -28,12 +29,23 @@ from config_parser import dp_parser, watcher_parser
 
 class DistConfigTestCase(unittest.TestCase):
     def setUp(self):
-        self.v1_dp = dp_parser('config/testconfig.yaml', 'test_config')[0]
-        self.v2_dp = dp_parser('config/testconfigv2.yaml', 'test_config')[0]
+        logname = 'test_config'
+
+        logger = logging.getLogger("%s.config" % logname)
+        logger_handler = logging.StreamHandler(stream=sys.stderr)
+        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
+        logger_handler.setFormatter(
+            logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
+        logger.addHandler(logger_handler)
+        logger.propagate = 0
+        logger.setLevel(logging.WARNING)
+
+        self.v1_dp = dp_parser('config/testconfig.yaml', logname)[0]
+        self.v2_dp = dp_parser('config/testconfigv2.yaml', logname)[0]
         self.v1_watchers = watcher_parser(
-            'config/testgaugeconfig.conf', 'test_config')
+            'config/testgaugeconfig.conf', logname)
         self.v2_watchers = watcher_parser(
-            'config/testgaugeconfig.yaml', 'test_config')
+            'config/testgaugeconfig.yaml', logname)
 
     def test_dps(self):
         for dp in (self.v1_dp, self.v2_dp):
