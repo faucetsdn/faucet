@@ -177,6 +177,36 @@ Version 2 of the Faucet configuration file format adds the ``version`` field, an
               dl_type: 0x800
               allow: 0
 
+Extra DP, VLAN or ACL data can also be separated into different files and included into the main configuration file, as shown below. The ``include`` field is used for configuration files which are required to be loaded, and Faucet will log an error if there was a problem while loading a file. Files listed on ``include-optional`` will simply be skipped and a warning will be logged instead.
+
+Files are parsed in order, and both absolute and relative (to the configuration file) paths are allowed. DPs, VLANs or ACLs defined in subsequent files overwrite previously defined ones with the same name.
+
+faucet.yaml:
+
+.. code:: yaml
+
+  ---
+  version: 2
+
+  include:
+      - /etc/ryu/faucet/dps.yaml
+      - /etc/ryu/faucet/vlans.yaml
+
+  include-optional:
+      - acls.yaml
+
+dps.yaml:
+
+.. code:: yaml
+
+  ---
+  dps:
+      test-switch-1:
+          ...
+      test-switch-2:
+          ...
+
+
 ============
 Installation
 ============
