@@ -15,6 +15,7 @@
 
 import copy
 import logging
+import os
 import yaml
 
 from dp import DP
@@ -108,6 +109,27 @@ def _dp_parser_v1(conf, config_file, logname):
 
     return [dp]
 
+def _dp_include(config_file, dps_conf, vlans_conf, acls_conf, logname):
+    logger = get_logger(logname)
+
+    if not os.path.isfile(config_file):
+        logger.warning("not a regular file or does not exist: {0}".format(
+            config_file))
+        return False
+
+    conf = read_config(config_file, logname)
+
+    if not conf:
+        logger.warning("error loading config from file: {0}".format(
+            config_file))
+        return False
+
+    dps_conf.update(conf.pop('dps', {}))
+    vlans_conf.update(conf.pop('vlans', {}))
+    acls_conf.update(conf.pop('acls', {}))
+
+    return True
+
 def _dp_add_vlan(vid_dp, dp, vlan, logname):
     logger = get_logger(logname)
 
@@ -128,17 +150,27 @@ def _dp_add_vlan(vid_dp, dp, vlan, logname):
 def _dp_parser_v2(conf, config_file, logname):
     logger = get_logger(logname)
 
-    if 'dps' not in conf:
-        logger.error("dps not configured in file: {0}".format(config_file))
-        return None
-
+    dps_conf = conf.pop('dps', {})
     vlans_conf = conf.pop('vlans', {})
     acls_conf = conf.pop('acls', {})
+
+    for cf in conf.pop('include', []):
+        if not _dp_include(cf, dps_conf, vlans_conf, acls_conf, logname):
+            logger.error("unable to load required include file: {0}".format(cf))
+            return None
+
+    for cf in conf.pop('include-optional', []):
+        if not _dp_include(cf, dps_conf, vlans_conf, acls_conf, logname):
+            logger.warning("skipping optional include file: {0}".format(cf))
+
+    if not dps_conf:
+        logger.error("dps not configured in file: {0}".format(config_file))
+        return None
 
     dps = []
     vid_dp = {}
 
-    for identifier, dp_conf in conf['dps'].iteritems():
+    for identifier, dp_conf in dps_conf.iteritems():
         ports_conf = dp_conf.pop('interfaces', {})
 
         dp = DP(identifier, dp_conf)
