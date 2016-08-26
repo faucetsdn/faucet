@@ -200,6 +200,11 @@ dps.yaml:
 .. code:: yaml
 
   ---
+  # Recursive include is allowed, if needed.
+  # Again, relative paths are relative to this configuration file.
+  include-optional:
+      - override.yaml
+
   dps:
       test-switch-1:
           ...

@@ -1,4 +1,8 @@
 ---
+# test recursive include
+include:
+    - testconfigv2-vlans.yaml
+
 dps:
     switch1:
         dp_id: 0xcafef00d

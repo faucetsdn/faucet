@@ -1,15 +1,16 @@
 ---
 version: 2
 
+# test include
 include:
     - testconfigv2-dps.yaml
-    - testconfigv2-vlans.yaml
 
+# test include-optional
 include-optional:
     - testconfigv2-acls.yaml
 
+# overwritten in testconfigv2-acls.yaml
 acls:
-    # overwritten in testconfigv2-acls.yaml
     acl1:
         - rule:
             nw_dst: '10.0.0.0/8'
