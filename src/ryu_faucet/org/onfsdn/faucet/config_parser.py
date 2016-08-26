@@ -134,7 +134,7 @@ def _dp_include(parent_file, config_file, dps_conf, vlans_conf, acls_conf, logna
     for cf in conf.pop('include', []):
         if not _dp_include(config, cf, dps_conf, vlans_conf, acls_conf, logname):
             logger.error("unable to load required include file: {0}".format(cf))
-            return None
+            return False
 
     for cf in conf.pop('include-optional', []):
         if not _dp_include(config, cf, dps_conf, vlans_conf, acls_conf, logname):
@@ -166,7 +166,9 @@ def _dp_parser_v2(conf, config_file, logname):
     vlans_conf = {}
     acls_conf = {}
 
-    _dp_include(None, config_file, dps_conf, vlans_conf, acls_conf, logname)
+    if not _dp_include(None, config_file, dps_conf, vlans_conf, acls_conf, logname):
+        logger.error("error found while loading config file: {0}".format(config_file))
+        return None
 
     if not dps_conf:
         logger.error("dps not configured in file: {0}".format(config_file))
