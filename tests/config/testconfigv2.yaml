@@ -1,57 +1,18 @@
 ---
 version: 2
-dps:
-    switch1:
-        dp_id: 0xcafef00d
-        hardware: 'Open vSwitch'
-        interfaces:
-            port1:
-                number: 1
-                tagged_vlans: ['v40', 41]
-                acl_in: 'acl1'
-            2:
-                native_vlan: 'v40'
-            port3:
-                number: 3
-                native_vlan: 'v40'
-                tagged_vlans: [41]
-            port4:
-                number: 4
-                native_vlan: 41
-            port5:
-                number: 5
-                native_vlan: 41
-                permanent_learn: True
-            port6:
-                number: 6
-                mirror: 'port1'
-vlans:
-    v40:
-        vid: 40
-        unicast_flood: False
-        max_hosts: 20
-    41:
-        name: 'v41'
-        controller_ips: ['10.0.0.253/24']
-        bgp_port: 9179
-        bgp_as: 1
-        bgp_routerid: '1.1.1.1'
-        bgp_neighbor_address: '127.0.0.1'
-        bgp_neighbor_as: 2
-        routes:
-            - route:
-                ip_dst: '10.0.1.0/24'
-                ip_gw: '10.0.0.1'
-            - route:
-                ip_dst: '10.0.2.0/24'
-                ip_gw: '10.0.0.2'
-            - route:
-                ip_dst: '10.0.3.0/24'
-                ip_gw: '10.0.0.2'
+
+include:
+    - testconfigv2-dps.yaml
+    - testconfigv2-vlans.yaml
+
+include-optional:
+    - testconfigv2-acls.yaml
+
 acls:
+    # overwritten in testconfigv2-acls.yaml
     acl1:
         - rule:
-            nw_dst: '172.0.0.0/8'
+            nw_dst: '10.0.0.0/8'
             dl_type: 0x800
             actions:
                 allow: 1

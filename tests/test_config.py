@@ -143,6 +143,7 @@ class DistConfigTestCase(unittest.TestCase):
         for dp in (self.v1_dp, self.v2_dp):
             self.assertIn(1, dp.acl_in)
             self.assertIn(dp.ports[1].acl_in, dp.acls)
+            self.assertEquals(dp.acls[dp.ports[1].acl_in][0]['nw_dst'], '172.0.0.0/8')
 
     def test_gauge_port_stats(self):
         for watcher in self.v1_watchers:

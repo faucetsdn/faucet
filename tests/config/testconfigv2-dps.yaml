@@ -1,0 +1,26 @@
+---
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            port1:
+                number: 1
+                tagged_vlans: ['v40', 41]
+                acl_in: 'acl1'
+            2:
+                native_vlan: 'v40'
+            port3:
+                number: 3
+                native_vlan: 'v40'
+                tagged_vlans: [41]
+            port4:
+                number: 4
+                native_vlan: 41
+            port5:
+                number: 5
+                native_vlan: 41
+                permanent_learn: True
+            port6:
+                number: 6
+                mirror: 'port1'
