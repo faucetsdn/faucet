@@ -31,7 +31,7 @@ class DistConfigTestCase(unittest.TestCase):
     def setUp(self):
         logname = 'test_config'
 
-        logger = logging.getLogger("%s.config" % logname)
+        logger = logging.getLogger('%s.config' % logname)
         logger_handler = logging.StreamHandler(stream=sys.stderr)
         log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
         logger_handler.setFormatter(

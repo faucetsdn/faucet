@@ -118,15 +118,13 @@ def _dp_include(parent_file, config_file, dps_conf, vlans_conf, acls_conf, logna
     )
 
     if not os.path.isfile(cf):
-        logger.warning("not a regular file or does not exist: {0}".format(
-            cf))
+        logger.warning("not a regular file or does not exist: {0}".format(cf))
         return False
 
     conf = read_config(cf, logname)
 
     if not conf:
-        logger.warning("error loading config from file: {0}".format(
-            cf))
+        logger.warning("error loading config from file: {0}".format(cf))
         return False
 
     dps_conf.update(conf.pop('dps', {}))
