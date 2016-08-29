@@ -346,7 +346,7 @@ hardware: "%s"
             try:
                 ofctl_result = json.loads(requests.get(
                     '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
-            except ValueError:
+            except (ValueError, requests.exceptions.ConnectionError):
                 # Didn't get valid JSON, try again
                 time.sleep(1)
                 continue
@@ -1685,8 +1685,13 @@ vlans:''')
         for dpid in self.dpids:
             for _ in range(timeout):
                 int_dpid = str_int_dpid(dpid)
-                ofctl_result = json.loads(requests.get(
-                    '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                try:
+                    ofctl_result = json.loads(requests.get(
+                        '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                except (ValueError, requests.exceptions.ConnectionError):
+                    # Didn't get valid JSON, try again
+                    time.sleep(1)
+                    continue
                 dump_flows = ofctl_result[int_dpid]
                 for flow in dump_flows:
                     # Re-transform the dictionary into str to re-use
