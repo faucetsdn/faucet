@@ -22,22 +22,12 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
         version='1.0',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
-<<<<<<< HEAD
-        data_files=[('/etc/ryu/faucet', ['src/cfg/etc/ryu/faucet/gauge.conf',
-                                         'src/cfg/etc/ryu/faucet/faucet.yaml',
-                                         'src/cfg/etc/ryu/faucet/gauge_db.yaml']),
-                    ('/etc/ryu/faucet/upstart', ['src/cfg/etc/ryu/faucet/upstart/gauge.conf',
-                                         'src/cfg/etc/ryu/faucet/upstart/faucet.conf',
-                                         'src/cfg/etc/ryu/faucet/upstart/gauge',
-                                         'src/cfg/etc/ryu/faucet/upstart/faucet'])
-                    ],
-=======
         data_files=[(data_files_prefix + 'etc/ryu/faucet',
                      ['src/cfg/etc/ryu/faucet/gauge.conf',
-                      'src/cfg/etc/ryu/faucet/faucet.yaml'])],
->>>>>>> 377fdd89de6a0737a963af453054c56b5568b4e7
+                      'src/cfg/etc/ryu/faucet/faucet.yaml',
+                      'src/cfg/etc/ryu/faucet/gauge_db.yaml'])],
         include_package_data=True,
-        install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest'],
+        install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest', 'couchdb'],
         license='Apache License 2.0',
         description='Ryu application to perform Layer 2 switching with VLANs.',
         long_description=README,
