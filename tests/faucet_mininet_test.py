@@ -343,8 +343,13 @@ hardware: "%s"
     def wait_until_matching_flow(self, exp_flow, timeout=10):
         for _ in range(timeout):
             int_dpid = str_int_dpid(self.dpid)
-            ofctl_result = json.loads(requests.get(
-                '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
+            try:
+                ofctl_result = json.loads(requests.get(
+                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
+            except ValueError:
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
             dump_flows = ofctl_result[int_dpid]
             for flow in dump_flows:
                 # Re-transform the dictionary into str to re-use
