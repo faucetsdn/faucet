@@ -25,18 +25,16 @@ docker run -d \
     faucet/faucet
 ```
 
-To pull and run the latest git version of Faucet + Gauge:
+To pull and run the latest git version of Gauge:
 
 ```
-docker pull faucet/faucet-gauge:latest
+docker pull faucet/gauge:latest
 docker run -d \
-    --name faucet \
+    --name gauge \
     -v <path-to-config-dir>:/etc/ryu/faucet/ \
     -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6633:6633 \
-    -p 6634:6634 \
-    -p 3000:3000 \
-    faucet/faucet-gauge
+    -p 6634:6633 \
+    faucet/gauge
 ```
 
 ### Dockerfile
@@ -69,6 +67,7 @@ This runs the mininet tests from the docker entry-point:
 ```
 docker build -t reannz/faucet-tests -f Dockerfile.tests .
 apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+modprobe openvswitch
 sudo docker run --privileged -ti reannz/faucet-tests
 ```
 
@@ -77,35 +76,36 @@ tcpdump inside the container.
 
 ### Dockerfile.gauge
 
-Includes faucet and gauge, including influxDB and grafana for viewing the
-resulting graphs.  Consider this to be an alpha image, it does not store influx
-data in a persistent location.
+Runs Gauge.
 
 It can be built as following:
 ```
-docker build -t reannz/faucet-gauge -f Dockerfile.gauge .
+docker build -t reannz/gauge -f Dockerfile.gauge .
 ```
 It can be run as following:
 ```
 docker run -d \
-    --name faucet \
+    --name gauge \
     -v <path-to-config-dir>:/etc/ryu/faucet/ \
     -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6633:6633 \
-    -p 6634:6634 \
-    -p 3000:3000 \
-    reannz/faucet-gauge
+    -p 6634:6633 \
+    reannz/gauge
 ```
-
-By default faucet listens on port 6633 and gauge on port 6634 for an OpenFlow
-switch. As such your switches should be configured to talk to both.  The faucet
+By default listens on port 6633. If you are running this with
+Faucet you will need to modify the port one of the containers listens on and
+configure your switches to talk to both. The faucet
 configuration file faucet.yaml should be placed in the config directory, this
 also should include to configuration for gauge.
 
-Grafana is exposed on port 3000, and should be accessible over http from a
-browser.
+### docker-compose.yaml
+This is an example docker-compose file that can be used to set up gauge to talk
+to influxdb with a grafana front end.
 
-#### Configuring Grafana First login to grafana using default credentials of
+It can be run with ```docker-compose up```
+
+The database will write to ```/opt/influxdb/shared/data/db```
+
+Grafana First login to grafana using default credentials of
 User:admin Password:admin.
 
 Then connect to the influxDB, by adding it as a datasource. Use the following

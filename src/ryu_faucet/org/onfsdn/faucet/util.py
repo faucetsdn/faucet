@@ -13,20 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, signal, logging
+import logging
+import os
+import signal
+import sys
 from functools import wraps
+
 
 def dump(obj, level=0):
     prefix = level*'*'+' ' if level > 0 else ''
 
-    if type(obj) == dict:
+    if isinstance(obj, dict):
         for k, v in obj.items():
             if hasattr(v, '__iter__'):
                 print "%s%s" % (prefix, k)
                 dump(v, level+1)
             else:
                 print "%s%s : %s" % (prefix, k, v)
-    elif type(obj) == list:
+    elif isinstance(obj, list):
         for v in obj:
             if hasattr(v, '__iter__'):
                 dump(v, level+1)
@@ -35,6 +39,7 @@ def dump(obj, level=0):
     else:
         print "%s%s" % (prefix, obj)
 
+
 def mac_addr_is_unicast(mac_addr):
     """Returns True if mac_addr is a unicast ethernet address.
 
@@ -42,6 +47,7 @@ def mac_addr_is_unicast(mac_addr):
     mac_addr - a string representation of a mac address."""
     msb = mac_addr.split(":")[0]
     return msb[-1] in "02468aAcCeE"
+
 
 def kill_on_exception(logname):
     """decorator to ensure functions will kill ryu when an unhandled exception
@@ -58,3 +64,19 @@ def kill_on_exception(logname):
                 os.kill(os.getpid(), signal.SIGKILL)
         return __koe
     return _koe
+
+def get_sys_prefix():
+    """Returns an additional prefix for log and configuration files when used in
+    a virtual environment"""
+
+    # Find the appropriate prefix for config and log file default locations
+    # in case Faucet is run in a virtual environment. virtualenv marks the
+    # original path in sys.real_prefix. If this value exists, and is
+    # different from sys.prefix, then we are most likely running in a
+    # virtualenv. Also check for Py3.3+ pyvenv.
+    sysprefix = ""
+    if (getattr(sys, "real_prefix", sys.prefix) != sys.prefix or
+        getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
+        sysprefix = sys.prefix
+
+    return sysprefix

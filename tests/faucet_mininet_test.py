@@ -21,6 +21,7 @@
 # * tcpdump
 # * exabgp
 # * pylint
+# * curl
 
 
 import inspect
@@ -48,6 +49,8 @@ from mininet.node import Intf
 from mininet.node import OVSSwitch
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
+from ryu.ofproto import ofproto_v1_3 as ofp
+
 
 # list of required external dependencies
 # external binary, argument to get version,
@@ -71,6 +74,8 @@ EXTERNAL_DEPENDENCIES = (
      r'Version:\s+(\d+\.\d+)\.\d+', float(3.0)),
     ('pylint', ['--version'], 'pylint',
      r'pylint (\d+\.\d+).\d+,', float(1.6)),
+    ('curl', ['--version'], 'libcurl',
+     r'curl (\d+\.\d+).\d+', float(7.3)),
 )
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
@@ -193,8 +198,6 @@ class FaucetTest(unittest.TestCase):
             self.tmpdir, 'faucet.yaml')
         os.environ['GAUGE_CONFIG'] = os.path.join(
             self.tmpdir, 'gauge.conf')
-        open(os.environ['GAUGE_CONFIG'], 'w').write(
-            os.environ['FAUCET_CONFIG'])
         os.environ['FAUCET_LOG'] = os.path.join(
             self.tmpdir, 'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
@@ -214,28 +217,57 @@ class FaucetTest(unittest.TestCase):
         else:
             self.dpid = str(random.randint(1, 2**32))
         self.CONFIG = '\n'.join((
-            self.get_config_header(
-                self.dpid, HARDWARE, self.monitor_ports_file, self.monitor_flow_table_file),
+            self.get_config_header(self.dpid, HARDWARE),
             self.CONFIG % PORT_MAP,
             'ofchannel_log: "%s"' % self.debug_log_path))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+        self.GAUGE_CONFIG = self.get_gauge_config(
+            self.dpid,
+            os.environ['FAUCET_CONFIG'],
+            self.monitor_ports_file,
+            self.monitor_flow_table_file
+            )
+        open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
         self.net = None
         self.topo = None
 
-    def get_config_header(self, dpid, hardware,
-                          monitor_ports_files, monitor_flow_table_file):
+    def get_gauge_config(self, dp_id, faucet_config_file,
+            monitor_ports_file, monitor_flow_table_file):
+        return '''
+faucet_configs:
+    - {0}
+watchers:
+    port_stats:
+        dps: ['faucet-1']
+        type: 'port_stats'
+        interval: 5
+        db: 'ps_file'
+    flow_table:
+        dps: ['faucet-1']
+        type: 'flow_table'
+        interval: 5
+        db: 'ft_file'
+dbs:
+    ps_file:
+        type: 'text'
+        file: {2}
+    ft_file:
+        type: 'text'
+        file: {3}
+'''.format(
+    faucet_config_file,
+    dp_id,
+    monitor_ports_file,
+    monitor_flow_table_file
+    )
+
+    def get_config_header(self, dpid, hardware):
         return '''
 ---
 dp_id: %s
 name: "faucet-1"
 hardware: "%s"
-monitor_ports: True
-monitor_ports_interval: 5
-monitor_ports_file: "%s"
-monitor_flow_table: True
-monitor_flow_table_interval: 5
-monitor_flow_table_file: "%s"
-''' % (str_int_dpid(dpid), hardware, monitor_ports_files, monitor_flow_table_file)
+''' % (str_int_dpid(dpid), hardware)
 
     def attach_physical_switch(self):
         switch = self.net.switches[0]
@@ -305,12 +337,14 @@ monitor_flow_table_file: "%s"
     def one_ipv6_controller_ping(self, host):
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
 
+    def ofctl_rest_url(self):
+        return 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
+
     def wait_until_matching_flow(self, exp_flow, timeout=10):
-        ofctl_url = 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
         for _ in range(timeout):
             int_dpid = str_int_dpid(self.dpid)
             ofctl_result = json.loads(requests.get(
-                '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
             dump_flows = ofctl_result[int_dpid]
             for flow in dump_flows:
                 # Re-transform the dictionary into str to re-use
@@ -331,6 +365,29 @@ monitor_flow_table_file: "%s"
             nw_dst_match = '"nw_dst": "%s"' % exp_prefix
         self.wait_until_matching_flow(
             'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
+
+    def curl_portmod(self, int_dpid, port_no, config, mask):
+        # TODO: avoid dependency on varying 'requests' library.
+        curl_format = ' '.join((
+            'curl -X POST -d'
+            '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
+            '%s/stats/portdesc/modify'))
+        return curl_format  % (
+            int_dpid, port_no, config, mask, self.ofctl_rest_url())
+
+    def flap_all_switch_ports(self, flap_time=1):
+        # TODO: for hardware switches also
+        if not SWITCH_MAP:
+            switch = self.net.switches[0]
+            int_dpid = str_int_dpid(self.dpid)
+            for port_no in sorted(switch.ports.itervalues()):
+                if port_no > 0:
+                    os.system(self.curl_portmod(
+                        int_dpid, port_no,
+                        ofp.OFPPC_PORT_DOWN, ofp.OFPPC_PORT_DOWN))
+                    time.sleep(flap_time)
+                    os.system(self.curl_portmod(int_dpid, port_no,
+                        0, ofp.OFPPC_PORT_DOWN))
 
     def swap_host_macs(self, first_host, second_host):
         first_host_mac = first_host.MAC()
@@ -544,6 +601,8 @@ vlans:
 
     def test_untagged(self):
         self.net.pingAll()
+        self.flap_all_switch_ports()
+        self.net.pingAll()
 
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
@@ -664,6 +723,8 @@ group test {
         self.wait_until_matching_route_as_flow(
             second_host.MAC(), ipaddr.IPv4Network('10.0.3.0/24'), timeout=30)
         self.verify_ipv4_routing_mesh()
+        self.flap_all_switch_ports()
+        self.verify_ipv4_routing_mesh()
         self.stop_exabgp()
 
 
@@ -724,6 +785,8 @@ group test {
 }
 """
         exabgp_log = self.start_exabgp(exabgp_conf)
+        self.verify_ipv4_routing_mesh()
+        self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(exabgp_log)
@@ -834,13 +897,15 @@ vlans:
         first_host, second_host = self.net.hosts[0:2]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
-        # Verify IPv4 and IPv6 connectivity between first two hosts.
-        self.one_ipv4_ping(first_host, second_host.IP())
-        self.one_ipv6_ping(first_host, 'fc00::1:2')
-        # Verify first two hosts can ping controller over both IPv4 and IPv6
-        for host in first_host, second_host:
-            self.one_ipv4_controller_ping(host)
-            self.one_ipv6_controller_ping(host)
+        for _ in range(2):
+            # Verify IPv4 and IPv6 connectivity between first two hosts.
+            self.one_ipv4_ping(first_host, second_host.IP())
+            self.one_ipv6_ping(first_host, 'fc00::1:2')
+            # Verify first two hosts can ping controller over both IPv4 and IPv6
+            for host in first_host, second_host:
+                self.one_ipv4_controller_ping(host)
+                self.one_ipv6_controller_ping(host)
+            self.flap_all_switch_ports()
 
 
 class FaucetTaggedAndUntaggedTest(FaucetTest):
@@ -1024,14 +1089,16 @@ acls:
             actions:
                 output:
                     dl_dst: "06:06:06:06:06:06"
+                    vlan_vid: 123
                     port: %(port_2)d
 """
 
     def test_untagged(self):
         first_host = self.net.hosts[0]
         second_host = self.net.hosts[1]
-        # we expected to see the rewritten address.
-        tcpdump_filter = 'ether dst %s and icmp' % '06:06:06:06:06:06'
+        # we expected to see the rewritten address and VLAN
+        tcpdump_filter = (
+            'icmp and ether dst 06:06:06:06:06:06')
         tcpdump_out = second_host.popen(
             'timeout 10s tcpdump -e -n -v -c 2 -U %s' % tcpdump_filter)
         # wait for tcpdump to start
@@ -1046,6 +1113,8 @@ acls:
         self.assertFalse(tcpdump_txt == '')
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            'vlan 123', tcpdump_txt))
 
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
@@ -1253,6 +1322,8 @@ group test {
 """
         self.start_exabgp(exabgp_conf, '::1')
         self.verify_ipv6_routing_mesh()
+        self.flap_all_switch_ports()
+        self.verify_ipv6_routing_mesh()
         self.stop_exabgp()
 
 
@@ -1367,8 +1438,10 @@ group test {
         exabgp_log = self.start_exabgp(exabgp_conf, '::1')
         self.verify_ipv6_routing_mesh()
         second_host = self.net.hosts[1]
+        self.flap_all_switch_ports()
         self.wait_until_matching_route_as_flow(
             second_host.MAC(), ipaddr.IPv6Network('fc00::30:0/112'))
+        self.verify_ipv6_routing_mesh()
         updates = self.exabgp_updates(exabgp_log)
         self.stop_exabgp()
         assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
@@ -1427,6 +1500,227 @@ vlans:
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
+
+
+class FaucetMultipleDPSwitchTopo(Topo):
+
+    def build(self, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+        '''
+        * s switches
+        * (n_tagged + n_untagged) hosts per switch
+        * (n_tagged + n_untagged + 1) links on switches 0 and s-1, with final link
+          being inter-switch
+        * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1, with final two links
+          being inter-switch
+        '''
+
+        pid = os.getpid()
+        switches = []
+
+        for i, dpid in enumerate(dpids):
+            hosts = []
+
+            for host_n in range(n_tagged):
+                host = self.addHost('t%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1),
+                                    cls=VLANHost, vlan=tagged_vid)
+                hosts.append(host)
+
+            for host_n in range(n_untagged):
+                host = self.addHost('u%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1))
+                hosts.append(host)
+
+            switch = self.addSwitch(
+                's%i%x' % (i + 1, pid), cls=FaucetSwitch, listenPort=find_free_port(), dpid=dpid)
+
+            for host in hosts:
+                self.addLink(host, switch)
+
+            # Add a switch-to-switch link with the previous switch,
+            # if this isn't the first switch in the topology.
+            if switches:
+                self.addLink(switches[i - 1], switch)
+
+            switches.append(switch)
+
+
+class FaucetMultipleDPTest(FaucetTest):
+
+    def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100):
+        '''
+        Set up Mininet and Faucet for the given topology.
+        '''
+
+        self.dpids = [str(random.randint(1, 2**32)) for _ in range(n_dps)]
+
+        self.topo = FaucetMultipleDPSwitchTopo(
+            dpids=self.dpids,
+            n_tagged=n_tagged,
+            tagged_vid=tagged_vid,
+            n_untagged=n_untagged,
+        )
+
+        self.CONFIG = self.get_config(
+            self.dpids,
+            HARDWARE,
+            self.monitor_ports_file,
+            self.monitor_flow_table_file,
+            self.debug_log_path,
+            n_tagged,
+            tagged_vid,
+            n_untagged,
+            untagged_vid,
+        )
+
+        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+
+    def get_config(self, dpids, hardware, monitor_ports_files, monitor_flow_table_file,
+            ofchannel_log, n_tagged, tagged_vid, n_untagged, untagged_vid):
+        '''
+        Build a complete Faucet configuration for each datapath, using the given topology.
+        '''
+
+        config_fragments = []
+
+        config_fragments.append('''
+---
+version: 2
+
+dps:''')
+
+        for i, dpid in enumerate(dpids):
+            p = 1
+
+            mapping = {
+                'dpid': str_int_dpid(dpid),
+                'name': 'faucet-%i' % (i + 1),
+                'hardware': hardware,
+                'monitor_ports_file': monitor_ports_files,
+                'monitor_flow_table_file': monitor_flow_table_file,
+                'ofchannel_log': ofchannel_log,
+            }
+
+            config_fragments.append('''
+    %(name)s:
+        dp_id: %(dpid)s
+        hardware: "%(hardware)s"
+        monitor_ports: True
+        monitor_ports_interval: 5
+        monitor_ports_file: "%(monitor_ports_file)s"
+        monitor_flow_table: True
+        monitor_flow_table_interval: 5
+        monitor_flow_table_file: "%(monitor_flow_table_file)s"
+        ofchannel_log: "%(ofchannel_log)s"
+        interfaces:''' % mapping)
+
+            for _ in range(n_tagged):
+                config_fragments.append('''
+            %(port)d:
+                tagged_vlans: [%(tagged_vid)d]
+                description: "b%(port)d"''' % {'port': p, 'tagged_vid': tagged_vid})
+                p += 1
+
+            for _ in range(n_untagged):
+                config_fragments.append('''
+            %(port)d:
+                native_vlan: %(untagged_vid)d
+                description: "b%(port)d"''' % {'port': p, 'untagged_vid': untagged_vid})
+                p += 1
+
+            # Add configuration for the switch-to-switch links
+            # (0 for a single switch, 1 for an end switch, 2 for middle switches).
+            if len(dpids) > 1:
+                num_switch_links = 2 if i > 0 and i != len(dpids)-1 else 1
+            else:
+                num_switch_links = 0
+
+            for _ in range(num_switch_links):
+                tagged_vlans = None
+
+                config_fragments.append('''
+            %(port)d:
+                description: "b%(port)d"''' % {'port': p})
+
+                if n_tagged and n_untagged and n_tagged != n_untagged:
+                    tagged_vlans = "%i, %i" % (tagged_vid, untagged_vid)
+                elif ((n_tagged and not n_untagged) or
+                        (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                    tagged_vlans = str(tagged_vid)
+                elif n_untagged and not n_tagged:
+                    tagged_vlans = str(untagged_vid)
+
+                if tagged_vlans:
+                    config_fragments.append('''
+                tagged_vlans: [%s]''' % tagged_vlans)
+
+                # Used as the port number for the current switch.
+                p += 1
+
+        config_fragments.append('''
+vlans:''')
+
+        if n_untagged:
+            config_fragments.append('''
+    %d:
+        description: "untagged"''' % untagged_vid)
+
+        if ((n_tagged and not n_untagged) or
+                (n_tagged and n_untagged and tagged_vid != untagged_vid)):
+            config_fragments.append('''
+    %d:
+        description: "tagged"''' % tagged_vid)
+
+        return str.join("\n", config_fragments)
+
+    def wait_until_matching_flow(self, exp_flow, timeout=10):
+        '''
+        Reimplementation of wait_until_matching_flow to wait for all DPs to come online.
+        '''
+
+        ofctl_url = 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
+        for dpid in self.dpids:
+            for _ in range(timeout):
+                int_dpid = str_int_dpid(dpid)
+                ofctl_result = json.loads(requests.get(
+                    '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                dump_flows = ofctl_result[int_dpid]
+                for flow in dump_flows:
+                    # Re-transform the dictionary into str to re-use
+                    # the verify_ipv*_routing methods
+                    flow_str = json.dumps(flow)
+                    if re.search(exp_flow, flow_str):
+                        return
+                time.sleep(1)
+            self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
+
+
+class FaucetMultipleDPUntaggedTest(FaucetMultipleDPTest):
+
+    NUM_DPS = 3
+    NUM_HOSTS = 4
+    VID = 100
+
+    def setUp(self):
+        super(FaucetMultipleDPUntaggedTest, self).setUp()
+        self.build_net(n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
+        self.start_net()
+
+    def test_untagged(self):
+        self.assertEquals(0, self.net.pingAll())
+
+
+class FaucetMultipleDPTaggedTest(FaucetMultipleDPTest):
+
+    NUM_DPS = 3
+    NUM_HOSTS = 4
+    VID = 100
+
+    def setUp(self):
+        super(FaucetMultipleDPTaggedTest, self).setUp()
+        self.build_net(n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID)
+        self.start_net()
+
+    def test_tagged(self):
+        self.assertEquals(0, self.net.pingAll())
 
 
 def import_config():

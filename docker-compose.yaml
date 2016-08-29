@@ -1,0 +1,47 @@
+version: '2'
+services:
+    db:
+        restart: always
+        image: 'tutum/influxdb:latest'
+        ports:
+            - '8086'
+            - '8083'
+        volumes:
+            - '/opt/influxdb/shared/data/db:/data'
+        environment:
+            PRE_CREATE_DB: 'faucet'
+            ADMIN_USER: 'faucet'
+            INFLUXDB_INIT_PWD: 'faucet'
+
+    grafana:
+        restart: always
+        image: 'grafana/grafana:latest'
+        ports:
+            - '3000:3000'
+        volumes:
+            - '/opt/grafana:/var/lib/grafana'
+        links:
+            - db
+
+    gauge:
+        restart: always
+        image: 'faucet/gauge:latest'
+        environment:
+           - GAUGE_CONFIG=/etc/ryu/faucet/gauge.yaml
+        volumes:
+            - '/var/log/ryu/faucet:/var/log/ryu/faucet'
+            - '/etc/ryu/faucet:/etc/ryu/faucet'
+        ports:
+            - '6634:6633'
+        links:
+            - db
+
+    faucet:
+        restart: always
+        image: 'faucet/faucet:latest'
+        volumes:
+            - '/var/log/ryu/faucet:/var/log/ryu/faucet'
+            - '/etc/ryu/faucet:/etc/ryu/faucet'
+        ports:
+            - '6633:6633'
+

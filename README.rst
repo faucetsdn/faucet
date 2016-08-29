@@ -24,8 +24,8 @@ It supports:
 - Support for IPv4 and IPv6 static routes on both tagged and untagged VLANs
 - Integrated support for InfluxDB/Grafana
 - Comprehensive Test suite - tests for all features that can be run against mininet (development) and on hardware; Most tests run in parallel to reduce time.
-- Code: Python based, easy readability (PEP8 style), documented, Unit tests for all features 
-- Installation: Python pip (pip install ryu_faucet), pre-built VM available - https://susestudio.com/a/ENQFFD/ryu-faucet, Makefiles to build Docker images 
+- Code: Python based, easy readability (PEP8 style), documented, Unit tests for all features
+- Installation: Python pip (pip install ryu_faucet), pre-built VM available - https://susestudio.com/a/ENQFFD/ryu-faucet, Makefiles to build Docker images
 
 ===============
 Feature Details
@@ -38,11 +38,18 @@ In this example,configure an ACL on port 1, default deny, that passes an IPv4 su
 Following config applies an input ACL to port 1.
 
 Supports any ACL rule that https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py to_match() supports.
-::
 
-  1:
-        native_vlan: 2040
-        acl_in: 1
+.. code:: yaml
+  ---
+  version: 2
+
+  dps:
+      test-switch-1:
+          dp_id: 0x000000000001
+          interfaces:
+              1:
+                  native_vlan: 2040
+                  acl_in: 1
 
   vlans:
       2040:
@@ -94,14 +101,16 @@ Versions
 
 The Faucet configuration file format occasionally changes to add functionality or accomodate changes inside Faucet. If the ``version`` field is not specified in ``faucet.yaml``, the current default value is ``1``.
 
-Version 1 of the Faucet configuration file format does not allow multiple datapaths to be defined. The one datapath configured for this Faucet instance is configured using top level values, a sample of which can be found in ``faucet.yaml``. Previous (1.0 and older) versions of Faucet do not support the ``version`` field, so most configuration files in this format should not use it, unless using a newer version of Faucet with an older configuration file is required.
+Version 1 of the Faucet configuration file format does not allow multiple datapaths to be defined. The one datapath configured for this Faucet instance is configured using top level values, a sample of which can be found in ``faucet.yaml``. Previous (1.0 and older) versions of Faucet do not support the ``version`` field, so most configuration files in this format should not use it.
+
+This version of the Faucet configuration file format is deprecated and will be removed shortly, so new installations of Faucet should use the version 2 format, documented below.
 
 .. code:: yaml
 
   ---
-  dp_id: 0x000000000001:
+  dp_id: 0x000000000001
   name: "test-switch-1"
-  
+
   interfaces:
       1:
           native_vlan: 2040
@@ -135,14 +144,14 @@ Version 2 of the Faucet configuration file format adds the ``version`` field, an
   version: 2
 
   dps:
-      0x000000000001:
-          name: "test-switch-1"
+      test-switch-1:
+          dp_id: 0x000000000001
           interfaces:
               1:
                   native_vlan: 2040
                   acl_in: 1
-      0x000000000002:
-          name: "test-switch-2"
+      test_switch_2:
+          dp_id: 0x000000000002
           interfaces:
               1:
                   native_vlan: 2040
@@ -171,11 +180,11 @@ Version 2 of the Faucet configuration file format adds the ``version`` field, an
 ============
 Installation
 ============
-Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively. 
+Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively.
 
 You have run this as ``root`` or use ``sudo``
 ::
-  # pip install https://pypi.python.org/packages/source/r/ryu-faucet/ryu-faucet-0.30.tar.gz
+  # pip install https://pypi.python.org/packages/f5/f3/a8c4e72b4218be5aa84378eb57d89cfc8153efdb4df998cd2a0c544a878a/ryu-faucet-1.0.tar.gz
   # pip show ryu-faucet
 
 Optional Install for Network Monitoring Dashboard
@@ -203,41 +212,43 @@ Deployment at Open Networking Foundation
 ----------------------------------------
 .. image:: src/docs/images/ONF_Faucet_deploy1.png
 
+
+Faucet Deployment around the World
+----------------------------------
+   https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
+
+.. raw:: html
+  <div class="figure">
+  <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s" width="640" height="480"></iframe>
+  </div>
+
+.. embed:: file: https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
+
 =================
 OpenFlow Pipeline
 =================
 
 ::
 
-    PACKETS IN       +------------------------+  +-------------------------+
-      |              |                        |  |                         |
-      |              |                        V  |                         V
-      |       +------+--+   +---------+   +----------+   +---------+   +---------+
-      |       |0:VLAN   |   |1:ACL    |   |2:ETH_SRC |   |3:ETH_DST|   |4:FLOOD  |
-      +------>|         +-->|         +-->+          +-->+         |-->+         |
-              |         |   |         |   |          |   |         |   |         |
-              |         |   |         |   |          |   |         |   |         |
-              |         |   |         |   |          |   |         |   |         |
-              |         |   |         |   |          |   |         |   |         |
-              |         |   |         |   |          |   |         |   |         |
-              |         |   |         |   |          |   |         |   |         |
-              |         |   |         |   |          |   |         |   |         |
-              +---------+   +---------+   +-----+----+   +---+-----+   +----+----+
-                                                |            |              |
-                                                |            |              |
-                                                V            |              V
-                                          +----------+       +------->PACKETS OUT
-                                          |CONTROL   |
-                                          |PLANE     |
-                                          |          |
-                                          |          |
-                                          |          |
-                                          |          |
-                                          |          |
-                                          |          |
-                                          |          |
-                                          +----------+
-
+    PACKETS IN      +-------------------------+ +-------------------------+
+      +             |                         | |                         |
+      |             |                         | |        CONTROLLER       |
+      |             |                         | |            ^            |
+      |             |                         | |       +----+-----+      v
+      |       +-----+----+  +----------+  +---+-+----+  |3:IPv4_FIB|  +---+------+  +----------+
+      |       |0:VLAN    |  |1:ACL     |  |2:ETH_SRC +->+          +->+5:ETH_DST |  |6:FLOOD   |
+      +------>+          |  |          |  |          |  |          |  |          |  |          |
+              |          |  |          |  |          |  +----------+  |          |  |          |
+              |          |  |          |  |          |                |          |  |          |
+              |          +->+          +->+          +--------------->+          +->+          |
+              |          |  |          |  |          |                |          |  |          |
+              |          |  |          |  |          |  +----------+  |          |  |          |
+              |          |  |          |  |          |  |4:IPv6_FIB|  |          |  |          |
+              |          |  |          |  |          +->+          +->+          |  |          |
+              +----------+  +----------+  +----+-----+  |          |  +------+---+  +--+-------+
+                                               |        +----+-----+         |         |
+                                               v             v               v         v
+                                           CONTROLLER    CONTROLLER          PACKETS OUT
 
 =======
 Running
@@ -276,6 +287,8 @@ To specify a different configuration file set the ``FAUCET_CONFIG`` environment 
 Faucet will log to ``/var/log/faucet/faucet.log`` and ``/var/log/faucet/faucet_exception.log`` by default, this can be changed with the ``FAUCET_LOG`` and ``FAUCET_EXCEPTION_LOG`` environment variables.
 
 Gauge will log to ``/var/log/faucet/gauge.log`` and ``/var/log/faucet/gauge_exception.log`` by default, this can be changed with the ``GAUGE_LOG`` and ``GAUGE_EXCEPTION_LOG`` environment variables.
+
+If running Faucet in ``virtualenv`` and without specifying the environment variables above, the default log and configuration locations will change to reflect the virtual environment's prefix path. For example, the default Faucet log location will be ``<venv prefix>/var/log/faucet/faucet.log``. The Gauge configuration must still be updated in this case by modifying ``<venv prefix>/etc/ryu/faucet/gauge.conf`` to reflect the location of the configuration file used by Faucet (``<venv prefix>/etc/ryu/faucet/faucet.conf``). When using ``virtualenv``, also create the log directory at its new location, ``<venv prefix>/var/log/ryu/faucet``, rather than the global ``/var/log/ryu/faucet``.
 
 To tell Faucet to reload its configuration file after you've changed it, simply send it a ``SIGHUP``:
 
@@ -368,7 +381,7 @@ Support
 
 If you have any technical questions, problems or suggestions regarding Faucet please send them to `faucet-dev@OpenflowSDN.Org <mailto:faucet-dev@openflowsdn.org>`.  Mailing list archives are available `here <https://groups.google.com/a/openflowsdn.org/forum/#!forum/faucet-dev>`.
 
-Documentation is available under `docs <https://github.com/onfsdn/faucet/tree/master/src/docs>` directory.  
+Documentation is available under `docs <https://github.com/onfsdn/faucet/tree/master/src/docs>` directory.
 
 Faucet related blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz/
 

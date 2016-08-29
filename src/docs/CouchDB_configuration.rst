@@ -69,6 +69,7 @@ Cookie Authentication
 Performance Tuning
 ==================
 Additional changes to ``default.ini`` - TBD
+<<<<<<< HEAD
 
 
 
@@ -100,3 +101,5 @@ After enabling the fragmentation make sure Couchdb has been restarted. Also DB f
 .. code:: bash
 
     service couchdb restart
+=======
+>>>>>>> 377fdd89de6a0737a963af453054c56b5568b4e7

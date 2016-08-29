@@ -1,0 +1,30 @@
+---
+faucet_configs:
+    - 'config/testconfigv2.yaml'
+watchers:
+    flow_table_poller:
+        type: 'flow_table'
+        dps: ['switch1']
+        interval: 40
+        db: 'ft_file'
+    port_state_logger:
+        type: 'port_state'
+        dps: ['switch1']
+        db: 'influx'
+    port_stats_poller:
+        type: 'port_stats'
+        dps: ['switch1']
+        interval: 40
+        db: 'influx'
+dbs:
+    ft_file:
+        type: 'text'
+        file: 'flow_table.JSON'
+    influx:
+        type: 'influx'
+        influx_db: 'faucet'
+        influx_host: 'localhost'
+        influx_port: 8086
+        influx_user: 'kit'
+        influx_pwd: 'password'
+        influx_timeout: 10
