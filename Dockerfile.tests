@@ -18,6 +18,15 @@ RUN \
   tar -zxf 3.4.10.tar.gz; \
   cd exabgp-3.4.10 && python setup.py install
 
+RUN \
+  apt-get remove -qy python-pip && \
+  wget https://bootstrap.pypa.io/get-pip.py && \
+  python get-pip.py
+
+RUN \
+  apt-get remove -qy pylint; \
+  pip install --upgrade pylint>=1.6
+
 COPY ./ /faucet-src/
 
 RUN \
