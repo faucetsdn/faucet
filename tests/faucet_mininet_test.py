@@ -360,6 +360,15 @@ hardware: "%s"
             time.sleep(1)
         self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
 
+    def wait_until_host_learned(self, host):
+        self.wait_until_matching_flow(
+            '"table_id": 2,.+"dl_src": "%s"' % host.MAC())
+
+    def ping_all_when_learned(self):
+        for host in self.net.hosts:
+            self.wait_until_host_learned(host)
+        self.assertEquals(0, self.net.pingAll())
+
     def wait_until_matching_route_as_flow(self, nexthop, prefix, timeout=5):
         if prefix.version == 6:
             exp_prefix = '/'.join(
@@ -565,7 +574,7 @@ vlans:
         self.start_net()
 
     def test_untagged(self):
-        self.assertEquals(0, self.net.pingAll())
+        self.ping_all_when_learned()
         # TODO: a smoke test only - are flow/port stats accumulating
         if not SWITCH_MAP:
             for _ in range(5):
@@ -605,9 +614,9 @@ vlans:
         self.start_net()
 
     def test_untagged(self):
-        self.net.pingAll()
+        self.ping_all_when_learned()
         self.flap_all_switch_ports()
-        self.net.pingAll()
+        self.ping_all_when_learned()
 
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
@@ -668,7 +677,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
             time.sleep(1)
             self.assertTrue(switch.connected())
-            self.assertEquals(0, self.net.pingAll())
+            self.ping_all_when_learned()
 
 
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
@@ -827,7 +836,7 @@ vlans:
     def test_untagged(self):
         self.net.pingAll()
         # Can be slow to learn, but everyone must have connectivity.
-        self.assertEqual(0, self.net.pingAll())
+        self.ping_all_when_learned()
 
 
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
@@ -864,7 +873,7 @@ vlans:
 """
 
     def test_untagged(self):
-        self.assertEqual(0, self.net.pingAll())
+        self.ping_all_when_learned()
         first_host, second_host, third_host = self.net.hosts[0:3]
         # 3rd host impersonates 1st, 3rd host breaks but 1st host still OK
         original_third_host_mac = third_host.MAC()
@@ -873,7 +882,7 @@ vlans:
         self.assertEqual(0, self.net.ping((first_host, second_host)))
         # 3rd host stops impersonating, now everything fine again.
         third_host.setMAC(original_third_host_mac)
-        self.assertEqual(0, self.net.pingAll())
+        self.ping_all_when_learned()
 
 
 class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
@@ -992,7 +1001,7 @@ acls:
 """
 
     def test_port5001_blocked(self):
-        self.assertEquals(0, self.net.pingAll())
+        self.ping_all_when_learned()
         first_host = self.net.hosts[0]
         second_host = self.net.hosts[1]
         second_host.cmd('timeout 10s echo hello | nc -l 5001 &')
@@ -1001,7 +1010,7 @@ acls:
         self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": 5001')
 
     def test_port5002_unblocked(self):
-        self.assertEquals(0, self.net.pingAll())
+        self.ping_all_when_learned()
         first_host = self.net.hosts[0]
         second_host = self.net.hosts[1]
         second_host.cmd('timeout 10s echo hello | nc -l %s 5002 &' % second_host.IP())
@@ -1189,7 +1198,7 @@ vlans:
         self.start_net()
 
     def test_tagged(self):
-        self.assertEquals(0, self.net.pingAll())
+        self.ping_all_when_learned()
 
 
 class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
