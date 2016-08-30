@@ -2,10 +2,12 @@ import logging
 import random
 import json
 import time
+import yaml
+import os
 
 from ryu.lib import hub
 from influxdb import InfluxDBClient
-
+from nsodbc import nsodbc_factory
 
 def watcher_factory(conf):
     """Return a Gauge object based on type.
@@ -34,6 +36,38 @@ def watcher_factory(conf):
         return WATCHER_TYPES[w_type][db_type]
     else:
         return None
+
+def init_flow_db(flow_database):
+    """
+    Initialize/Refresh flow database
+    Args:
+        flow_database
+    """
+    views = {}
+    views["flow"] = {}
+    views["flow"]["map"] = "function(doc) " + \
+                           "{\n  emit(doc._id, doc);\n}"
+    views["match"] = {}
+    views["match"]["map"] = "function(doc) " + \
+                            "{\nif(doc.data.OFPFlowStats.match)" + \
+                            "{\n  emit(" + \
+                            "[doc.data.OFPFlowStats.table_id, " + \
+                            "doc.data.OFPFlowStats.match], " + \
+                            "doc );\n}\n}"
+    flow_database.create_view("flows", views)
+
+
+def init_switch_db(switch_database):
+    """
+    Initialize/refresh switch database
+    Args:
+        switch_database
+    """
+    views = {}
+    views["switch"] = {}
+    views["switch"]["map"] = "function(doc) " + \
+                             "{\n  emit(doc._id, doc);\n}"
+    switch_database.create_view("switches", views)
 
 class InfluxShipper(object):
     """Convenience class for shipping values to influx db.
@@ -301,6 +335,38 @@ class GaugeFlowTablePoller(GaugePoller):
 
     def __init__(self, conf, logname):
         super(GaugeFlowTablePoller, self).__init__(conf, logname)
+        # Database specific config file read
+        self.db_config = os.getenv(
+            'GAUGE_DB_CONFIG', '/etc/ryu/faucet/gauge_db.yaml')
+        self.db_enabled = False
+        self.flow_database = None
+        self.switch_database = None
+        self.conn = None
+        with open(self.db_config, 'r') as stream:
+            data = yaml.load(stream)
+            if data['database']:
+                self.db_enabled = True
+                self.conn_string = "driver={0};server={1};port={2};" \
+                                   "uid={3};pwd={4}".format(
+                    data['driver'], data['db_ip'], str(data['db_port']),
+                    str(data['db_username']), str(data['db_password'])
+                )
+                nsodbc = nsodbc_factory()
+                self.conn = nsodbc.connect(self.conn_string)
+                self.switch_database, exists = self.conn.create(
+                    data['switches_doc'])
+                # Create database specific views for querying
+                if not exists:
+                    init_switch_db(self.switch_database)
+
+                self.flow_database, exists = self.conn.create(
+                    data['flows_doc'])
+                # Create database specific views for querying
+                if not exists:
+                    init_flow_db(self.flow_database)
+                self.db_conf_data = data
+        # TODO: DB update counter can be made configurable
+        self.db_update_counter = 5
 
     def send_req(self):
         ofp = self.ryudp.ofproto
@@ -323,6 +389,40 @@ class GaugeFlowTablePoller(GaugePoller):
             logfile.write("---\n")
             logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
                 rcv_time_str, ref, json.dumps(jsondict, indent=4)))
+
+        if self.db_enabled and self.db_update_counter == 5:
+            self.conn.delete(self.db_conf_data['switches_doc'])
+            self.switch_database, _ = self.conn.create(
+                    self.db_conf_data['switches_doc'])
+            init_switch_db(self.switch_database)
+            switch_object = {'_id': str(hex(self.dp.dp_id)),
+                            'data':{'flows':[]}}
+            self.switch_database.insert_update_doc(switch_object,
+                                                   'data')
+            try:
+                rows = self.switch_database.get_docs(
+                    self.db_conf_data['views']['v1'],
+                    key=str(hex(self.dp.dp_id)))
+                switch = rows[0]
+            except IndexError:
+                switch = None
+
+            if switch:
+                self.conn.delete(self.db_conf_data['flows_doc'])
+                self.flow_database, _ = self.conn.create(
+                    self.db_conf_data['flows_doc'])
+                init_flow_db(self.flow_database)
+                for f_msg in jsondict['OFPFlowStatsReply']['body']:
+                    flow_object = {'data': f_msg, 'tags': []}
+                    flow_id = self.flow_database.insert_update_doc(
+                        flow_object, '')
+                    switch.value['data']['flows'].append(flow_id)
+                    self.switch_database.insert_update_doc(
+                        switch.value, 'data')
+
+        self.db_update_counter -= 1
+        if not self.db_update_counter:
+            self.db_update_counter = 5
 
     def no_response(self):
         self.logger.info(

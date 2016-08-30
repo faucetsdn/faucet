@@ -265,6 +265,7 @@ Run with ``ryu-manager`` (uses ``/etc/ryu/faucet/faucet.yaml`` as configuration 
     # export FAUCET_EXCEPTION_LOG=/var/log/faucet/faucet_exception.log
     # export GAUGE_LOG=/var/log/faucet/gauge_exception.log
     # export GAUGE_EXCEPTION_LOG=/var/log/faucet/gauge_exception.log
+    # export GAUGE_DB_CONFIG=/etc/ryu/faucet/gauge_db.yaml
     # $EDITOR /etc/ryu/faucet/faucet.yaml
     # ryu-manager --verbose faucet.py
 

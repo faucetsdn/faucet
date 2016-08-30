@@ -216,6 +216,8 @@ def _watcher_parser_v1(config_file, logname):
                 port_state_conf[key] = dp.__dict__.get(key, None)
             name = dp.name + '-' + w_type
             watcher = WatcherConf(name, port_state_conf)
+            # add dp to watcher. prevents the dp_id attribute error in gauge.
+            watcher.add_dp(dp)
             result.append(watcher)
 
         if dp.monitor_ports:
@@ -231,6 +233,8 @@ def _watcher_parser_v1(config_file, logname):
                 port_stats_conf['file'] = dp.monitor_ports_file
             name = dp.name + '-' + w_type
             watcher = WatcherConf(name, port_stats_conf)
+            # add dp to watcher. prevents the dp_id attribute error in gauge.
+            watcher.add_dp(dp)
             result.append(watcher)
 
         if dp.monitor_flow_table:
@@ -240,6 +244,8 @@ def _watcher_parser_v1(config_file, logname):
             flow_table_conf['file'] = dp.monitor_flow_table_file
             name = dp.name + '-' + w_type
             watcher = WatcherConf(name, flow_table_conf)
+            # add dp to watcher. prevents the dp_id attribute error in gauge.
+            watcher.add_dp(dp)
             result.append(watcher)
 
     return result
