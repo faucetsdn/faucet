@@ -343,8 +343,13 @@ hardware: "%s"
     def wait_until_matching_flow(self, exp_flow, timeout=10):
         for _ in range(timeout):
             int_dpid = str_int_dpid(self.dpid)
-            ofctl_result = json.loads(requests.get(
-                '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
+            try:
+                ofctl_result = json.loads(requests.get(
+                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
+            except (ValueError, requests.exceptions.ConnectionError):
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
             dump_flows = ofctl_result[int_dpid]
             for flow in dump_flows:
                 # Re-transform the dictionary into str to re-use
@@ -1046,14 +1051,12 @@ acls:
         tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
         tcpdump_out = mirror_host.popen(
             'timeout 10s tcpdump -n -v -c 2 -U %s' % tcpdump_filter)
-        # wait for tcpdump to start
-        time.sleep(1)
         popens = {mirror_host: tcpdump_out}
-        first_host.cmd('ping -c1  %s' % second_host.IP())
         tcpdump_txt = ''
         for host, line in pmonitor(popens):
             if host == mirror_host:
                 tcpdump_txt += line.strip()
+            first_host.cmd('ping -c1  %s' % second_host.IP())
         self.assertFalse(tcpdump_txt == '')
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
@@ -1101,15 +1104,13 @@ acls:
             'icmp and ether dst 06:06:06:06:06:06')
         tcpdump_out = second_host.popen(
             'timeout 10s tcpdump -e -n -v -c 2 -U %s' % tcpdump_filter)
-        # wait for tcpdump to start
-        time.sleep(1)
         popens = {second_host: tcpdump_out}
-        first_host.cmd('arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06'))
-        first_host.cmd('ping -c1  %s' % second_host.IP())
         tcpdump_txt = ''
         for host, line in pmonitor(popens):
             if host == second_host:
                 tcpdump_txt += line.strip()
+            first_host.cmd('arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06'))
+            first_host.cmd('ping -c1  %s' % second_host.IP())
         self.assertFalse(tcpdump_txt == '')
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
@@ -1148,14 +1149,12 @@ vlans:
         tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
         tcpdump_out = mirror_host.popen(
             'timeout 10s tcpdump -n -v -c 2 -U %s' % tcpdump_filter)
-        # wait for tcpdump to start
-        time.sleep(1)
         popens = {mirror_host: tcpdump_out}
-        first_host.cmd('ping -c1  %s' % second_host.IP())
         tcpdump_txt = ''
         for host, line in pmonitor(popens):
             if host == mirror_host:
                 tcpdump_txt += line.strip()
+            first_host.cmd('ping -c1  %s' % second_host.IP())
         self.assertFalse(tcpdump_txt == '')
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
@@ -1680,8 +1679,13 @@ vlans:''')
         for dpid in self.dpids:
             for _ in range(timeout):
                 int_dpid = str_int_dpid(dpid)
-                ofctl_result = json.loads(requests.get(
-                    '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                try:
+                    ofctl_result = json.loads(requests.get(
+                        '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                except (ValueError, requests.exceptions.ConnectionError):
+                    # Didn't get valid JSON, try again
+                    time.sleep(1)
+                    continue
                 dump_flows = ofctl_result[int_dpid]
                 for flow in dump_flows:
                     # Re-transform the dictionary into str to re-use
