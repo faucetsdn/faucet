@@ -365,6 +365,9 @@ hardware: "%s"
             '"table_id": 2,.+"dl_src": "%s"' % host.MAC())
 
     def ping_all_when_learned(self):
+        # Cause hosts to send traffic that FAUCET can use to learn them.
+        self.net.pingAll()
+        # we should have learned all hosts now, so should have no loss.
         for host in self.net.hosts:
             self.wait_until_host_learned(host)
         self.assertEquals(0, self.net.pingAll())
@@ -605,7 +608,6 @@ interfaces:
 vlans:
     100:
         description: "mixed"
-        unicast_flood: False
 """
 
     def setUp(self):
