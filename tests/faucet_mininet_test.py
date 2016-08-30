@@ -49,6 +49,7 @@ from mininet.node import Intf
 from mininet.node import OVSSwitch
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
+from mininet.clean import Cleanup
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 
@@ -1860,6 +1861,10 @@ def run_tests():
 
 
 if __name__ == '__main__':
+    if '-c' in sys.argv[1:] or '--clean' in sys.argv[1:]:
+        print 'Cleaning up test interfaces, processes and openvswitch configuration from previous test runs'
+        Cleanup.cleanup()
+        sys.exit(0)
     if not check_dependencies():
         print ('dependency check failed. check required library/binary '
                'list in header of this script')
