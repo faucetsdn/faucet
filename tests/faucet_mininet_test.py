@@ -1674,8 +1674,7 @@ vlans:''')
         '''
         Reimplementation of wait_until_matching_flow to wait for all DPs to come online.
         '''
-
-        ofctl_url = 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
+        ofctl_url = self.ofctl_rest_url()
         for dpid in self.dpids:
             for _ in range(timeout):
                 int_dpid = str_int_dpid(dpid)
