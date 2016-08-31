@@ -5,7 +5,7 @@ vlans:
 dps:
     zodiac-fx-1:
         dp_id: 0x70b3d56cd0c0
-        hardware: "Open vSwitch"
+        hardware: "ZodiacFX"
         interfaces:
             1:
                 name: "b1"
