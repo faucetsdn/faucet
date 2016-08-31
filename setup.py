@@ -19,7 +19,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
 
     setup(
         name='ryu-faucet',
-        version='1.0',
+        version='1.1',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
         data_files=[(data_files_prefix + 'etc/ryu/faucet',
@@ -28,7 +28,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
         include_package_data=True,
         install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest'],
         license='Apache License 2.0',
-        description='Ryu application to perform Layer 2 switching with VLANs.',
+        description='Faucet is an Application for Ryu Openflow Controller to enable drop-in replacement for standard or legacy L2/L3 switch with extra SDN based functionality',
         long_description=README,
         url='http://onfsdn.github.io/faucet',
         author='Christopher Lorier',
