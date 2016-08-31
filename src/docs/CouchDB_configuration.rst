@@ -43,6 +43,7 @@ Alternatively, you can:
 By doing this, you will be able to access couch db from an external box
 
 .. code:: bash
+
     # curl http://10.0.0.141:5984/
     {"couchdb":"Welcome","uuid":"b08ca21a473a68cf133e95d4ce926044","version":"1.6.1","vendor":{"name":"The Apache Software Foundation","version":"1.6.1"}}
 
@@ -54,11 +55,10 @@ I created a user ``"couch"`` with password ``"123"`` with *Admin* role & then re
 Test User Auth - Basic Auth
 ---------------------------
 .. code:: bash
+
     # curl -X PUT http://10.0.0.141:5984/somedatabase
     {"error":"unauthorized","reason":"You are not a server admin."}
 
-*Correct way*:
-    ``# curl -X PUT http://couch:123@10.0.0.141:5984/somedatabase``
 
 Cookie Authentication
 ---------------------
@@ -69,9 +69,6 @@ Cookie Authentication
 Performance Tuning
 ==================
 Additional changes to ``default.ini`` - TBD
-<<<<<<< HEAD
-
-
 
 ============================
 Platform: DEBIAN OS
@@ -101,5 +98,3 @@ After enabling the fragmentation make sure Couchdb has been restarted. Also DB f
 .. code:: bash
 
     service couchdb restart
-=======
->>>>>>> 377fdd89de6a0737a963af453054c56b5568b4e7
