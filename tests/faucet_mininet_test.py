@@ -1026,7 +1026,7 @@ acls:
 
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:1]
+        first_host, second_host = self.net.hosts[0:2]
         second_host.cmd('timeout 10s echo hello | nc -l 5001 &')
         self.assertEquals(
             '', first_host.cmd('timeout 10s nc %s 5001' % second_host.IP()))
@@ -1034,7 +1034,7 @@ acls:
 
     def test_port5002_unblocked(self):
         self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:1]
+        first_host, second_host = self.net.hosts[0:2]
         second_host.cmd('timeout 10s echo hello | nc -l %s 5002 &' % second_host.IP())
         time.sleep(1)
         self.assertEquals(
