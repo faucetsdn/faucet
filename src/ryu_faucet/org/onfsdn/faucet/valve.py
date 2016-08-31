@@ -1226,8 +1226,9 @@ class Valve(object):
                 eth_src not in vlan.host_cache):
             self.logger.info(
                 'max hosts %u reached on vlan %u, ' +
-                'temporarily banning learning on this vlan',
-                vlan.max_hosts, vlan.vid)
+                'temporarily banning learning on this vlan, ' +
+                'and not learning %s',
+                vlan.max_hosts, vlan.vid, eth_src)
             ofmsgs.extend([self.valve_flowdrop(
                 self.dp.eth_src_table,
                 self.valve_in_match(
