@@ -1,0 +1,17 @@
+faucet_configs:
+    - '/etc/ryu/faucet/faucet.yaml'
+watchers:
+    port_stats_poller:
+        type: 'port_stats'
+        dps: ['windscale-faucet-1']
+        interval: 10
+        db: 'influx'
+dbs:
+    influx:
+        type: 'influx'
+        influx_db: 'faucet'
+        influx_host: 'localhost'
+        influx_port: 8086
+        influx_user: 'faucet'
+        influx_pwd: ''
+        influx_timeout: 10
