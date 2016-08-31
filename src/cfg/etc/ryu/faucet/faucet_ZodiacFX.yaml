@@ -1,13 +1,18 @@
-dp_id: 0x70b3d56cd399 
-name: "zodiac-fx-1" 
-hardware: "ZodiacFX"
-interfaces:
-    1:
-        native_vlan: 100 
-    2:
-        native_vlan: 100
-    3:
-        native_vlan: 100
+version: 2
 vlans:
     100:
-        name: "100"
+        name: "avlan"
+dps:
+    zodiac-fx-1:
+        dp_id: 0x70b3d56cd0c0
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                name: "b1"
+                native_vlan: 100
+            2:
+                name: "b2"
+                native_vlan: 100
+            3:
+                name: "b2"
+                native_vlan: 100
