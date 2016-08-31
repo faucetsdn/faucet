@@ -1016,7 +1016,6 @@ acls:
         second_host = self.net.hosts[1]
         second_host.cmd('timeout 10s echo hello | nc -l %s 5002 &' % second_host.IP())
         time.sleep(1)
-        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": 5002')
         self.assertEquals(
             'hello\r\n',
             first_host.cmd('nc -w 5 %s 5002' % second_host.IP()))
