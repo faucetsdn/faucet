@@ -344,6 +344,28 @@ hardware: "%s"
         fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
         self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
 
+    def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
+                       timeout=10, packets=2):
+        tcpdump_out = tcpdump_host.popen(
+            'timeout %us tcpdump -e -n -U -v -c %u %s' % (
+                timeout, packets, tcpdump_filter),
+             stderr=subprocess.STDOUT)
+        popens = {tcpdump_host: tcpdump_out}
+        tcpdump_started = False
+        tcpdump_txt = ''
+        for host, line in pmonitor(popens):
+            if host == tcpdump_host:
+                if tcpdump_started:
+                   tcpdump_txt += line.strip()
+                else:
+                    # when we see tcpdump start, then call provided functions.
+                    if re.search('tcpdump: listening on ', line):
+                        tcpdump_started = True
+                        for func in funcs:
+                            func()
+        self.assertFalse(tcpdump_txt == '')
+        return tcpdump_txt
+
     def ofctl_rest_url(self):
         return 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
 
@@ -1004,8 +1026,7 @@ acls:
 
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
+        first_host, second_host = self.net.hosts[0:1]
         second_host.cmd('timeout 10s echo hello | nc -l 5001 &')
         self.assertEquals(
             '', first_host.cmd('timeout 10s nc %s 5001' % second_host.IP()))
@@ -1013,8 +1034,7 @@ acls:
 
     def test_port5002_unblocked(self):
         self.ping_all_when_learned()
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
+        first_host, second_host = self.net.hosts[0:1]
         second_host.cmd('timeout 10s echo hello | nc -l %s 5002 &' % second_host.IP())
         time.sleep(1)
         self.assertEquals(
@@ -1054,20 +1074,12 @@ acls:
 """
 
     def test_untagged(self):
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
-        mirror_host = self.net.hosts[2]
+        first_host, second_host, mirror_host = self.net.hosts[0:3]
         mirror_mac = mirror_host.MAC()
         tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
-        tcpdump_out = mirror_host.popen(
-            'timeout 10s tcpdump -n -v -c 2 -U %s' % tcpdump_filter)
-        popens = {mirror_host: tcpdump_out}
-        tcpdump_txt = ''
-        for host, line in pmonitor(popens):
-            if host == mirror_host:
-                tcpdump_txt += line.strip()
-            first_host.cmd('ping -c1  %s' % second_host.IP())
-        self.assertFalse(tcpdump_txt == '')
+        tcpdump_txt = self.tcpdump_helper(
+            mirror_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
@@ -1107,21 +1119,14 @@ acls:
 """
 
     def test_untagged(self):
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
+        first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
-        tcpdump_filter = (
-            'icmp and ether dst 06:06:06:06:06:06')
-        tcpdump_out = second_host.popen(
-            'timeout 10s tcpdump -e -n -v -c 2 -U %s' % tcpdump_filter)
-        popens = {second_host: tcpdump_out}
-        tcpdump_txt = ''
-        for host, line in pmonitor(popens):
-            if host == second_host:
-                tcpdump_txt += line.strip()
-            first_host.cmd('arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06'))
-            first_host.cmd('ping -c1  %s' % second_host.IP())
-        self.assertFalse(tcpdump_txt == '')
+        tcpdump_filter = ('icmp and ether dst 06:06:06:06:06:06')
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd('ping -c1  %s' % second_host.IP())])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
@@ -1151,21 +1156,14 @@ vlans:
         unicast_flood: False
 """
 
+
     def test_untagged(self):
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
-        mirror_host = self.net.hosts[2]
+        first_host, second_host, mirror_host = self.net.hosts[0:3]
         mirror_mac = mirror_host.MAC()
         tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
-        tcpdump_out = mirror_host.popen(
-            'timeout 10s tcpdump -n -v -c 2 -U %s' % tcpdump_filter)
-        popens = {mirror_host: tcpdump_out}
-        tcpdump_txt = ''
-        for host, line in pmonitor(popens):
-            if host == mirror_host:
-                tcpdump_txt += line.strip()
-            first_host.cmd('ping -c1  %s' % second_host.IP())
-        self.assertFalse(tcpdump_txt == '')
+        tcpdump_txt = self.tcpdump_helper(
+            mirror_host, tcpdump_filter, [
+                 lambda: first_host.cmd('ping -c1  %s' % second_host.IP())])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
