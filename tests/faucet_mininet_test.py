@@ -1552,7 +1552,8 @@ class FaucetMultipleDPSwitchTopo(Topo):
 
 class FaucetMultipleDPTest(FaucetTest):
 
-    def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100):
+    def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100,
+            include=(), include_optional=(), acls={}):
         '''
         Set up Mininet and Faucet for the given topology.
         '''
@@ -1576,112 +1577,119 @@ class FaucetMultipleDPTest(FaucetTest):
             tagged_vid,
             n_untagged,
             untagged_vid,
+            include=include,
+            include_optional=include,
+            acls=acls,
         )
 
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
 
     def get_config(self, dpids, hardware, monitor_ports_files, monitor_flow_table_file,
-                   ofchannel_log, n_tagged, tagged_vid, n_untagged, untagged_vid):
+                   ofchannel_log, n_tagged, tagged_vid, n_untagged, untagged_vid,
+                   include=[], include_optional=[], acls={}):
         '''
         Build a complete Faucet configuration for each datapath, using the given topology.
         '''
 
-        config_fragments = []
+        config = {'version': 2}
 
-        config_fragments.append('''
----
-version: 2
+        # Includes.
+        if include:
+            config['include'] = list(include)
 
-dps:''')
+        if include_optional:
+            config['include-optional'] = list(include_optional)
 
-        for i, dpid in enumerate(dpids):
-            p = 1
+        # Datapaths.
+        if dpids:
+            num_switch_links = None
 
-            mapping = {
-                'dpid': str_int_dpid(dpid),
-                'name': 'faucet-%i' % (i + 1),
-                'hardware': hardware,
-                'monitor_ports_file': monitor_ports_files,
-                'monitor_flow_table_file': monitor_flow_table_file,
-                'ofchannel_log': ofchannel_log,
-            }
+            config['dps'] = {}
 
-            config_fragments.append('''
-    %(name)s:
-        dp_id: %(dpid)s
-        hardware: "%(hardware)s"
-        monitor_ports: True
-        monitor_ports_interval: 5
-        monitor_ports_file: "%(monitor_ports_file)s"
-        monitor_flow_table: True
-        monitor_flow_table_interval: 5
-        monitor_flow_table_file: "%(monitor_flow_table_file)s"
-        ofchannel_log: "%(ofchannel_log)s"
-        interfaces:''' % mapping)
+            for i, dpid in enumerate(dpids):
+                p = 1
+                name = 'faucet-%i' % (i + 1)
 
-            for _ in range(n_tagged):
-                config_fragments.append('''
-            %(port)d:
-                tagged_vlans: [%(tagged_vid)d]
-                description: "b%(port)d"''' % {'port': p, 'tagged_vid': tagged_vid})
-                p += 1
+                config['dps'][name] = {
+                    'dp_id': int(str_int_dpid(dpid)),
+                    'hardware': hardware,
+                    'monitor_ports': True,
+                    'monitor_ports_interval': 5,
+                    'monitor_ports_file': monitor_ports_files,
+                    'monitor_flow_table': True,
+                    'monitor_flow_tablet_interval': 5,
+                    'monitor_flow_table_file': monitor_flow_table_file,
+                    'ofchannel_log': ofchannel_log,
+                    'interfaces': {},
+                }
 
-            for _ in range(n_untagged):
-                config_fragments.append('''
-            %(port)d:
-                native_vlan: %(untagged_vid)d
-                description: "b%(port)d"''' % {'port': p, 'untagged_vid': untagged_vid})
-                p += 1
+                for _ in range(n_tagged):
+                    config['dps'][name]['interfaces'][p] = {
+                        'tagged_vlans': [tagged_vid],
+                        'description': 'b%i' % p,
+                    }
+                    p += 1
 
-            # Add configuration for the switch-to-switch links
-            # (0 for a single switch, 1 for an end switch, 2 for middle switches).
-            if len(dpids) > 1:
-                num_switch_links = 2 if i > 0 and i != len(dpids)-1 else 1
-            else:
-                num_switch_links = 0
+                for _ in range(n_untagged):
+                    config['dps'][name]['interfaces'][p] = {
+                        'native_vlan': untagged_vid,
+                        'description': 'b%i' % p,
+                    }
+                    p += 1
 
-            for _ in range(num_switch_links):
-                tagged_vlans = None
+                # Add configuration for the switch-to-switch links
+                # (0 for a single switch, 1 for an end switch, 2 for middle switches).
+                if len(dpids) > 1:
+                    num_switch_links = 2 if i > 0 and i != len(dpids)-1 else 1
+                else:
+                    num_switch_links = 0
 
-                config_fragments.append('''
-            %(port)d:
-                description: "b%(port)d"''' % {'port': p})
+                for _ in range(num_switch_links):
+                    tagged_vlans = None
 
-                if n_tagged and n_untagged and n_tagged != n_untagged:
-                    tagged_vlans = "%i, %i" % (tagged_vid, untagged_vid)
-                elif ((n_tagged and not n_untagged) or
-                      (n_tagged and n_untagged and tagged_vid == untagged_vid)):
-                    tagged_vlans = str(tagged_vid)
-                elif n_untagged and not n_tagged:
-                    tagged_vlans = str(untagged_vid)
+                    config['dps'][name]['interfaces'][p] = {
+                        'description': 'b%i' % p,
+                    }
 
-                if tagged_vlans:
-                    config_fragments.append('''
-                tagged_vlans: [%s]''' % tagged_vlans)
+                    if n_tagged and n_untagged and n_tagged != n_untagged:
+                        tagged_vlans = [tagged_vid, untagged_vid]
+                    elif ((n_tagged and not n_untagged) or
+                          (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                        tagged_vlans = [tagged_vid]
+                    elif n_untagged and not n_tagged:
+                        tagged_vlans = [untagged_vid]
 
-                # Used as the port number for the current switch.
-                p += 1
+                    if tagged_vlans:
+                        config['dps'][name]['interfaces'][p]['tagged_vlans'] = tagged_vlans
 
-        config_fragments.append('''
-vlans:''')
+                    # Used as the port number for the current switch.
+                    p += 1
 
-        if n_untagged:
-            config_fragments.append('''
-    %d:
-        description: "untagged"''' % untagged_vid)
+            # VLANs.
+            config['vlans'] = {}
 
-        if ((n_tagged and not n_untagged) or
-                (n_tagged and n_untagged and tagged_vid != untagged_vid)):
-            config_fragments.append('''
-    %d:
-        description: "tagged"''' % tagged_vid)
+            if n_untagged:
+                config['vlans'][untagged_vid] = {
+                    'description': 'untagged',
+                }
 
-        return str.join("\n", config_fragments)
+            if ((n_tagged and not n_untagged) or
+                    (n_tagged and n_untagged and tagged_vid != untagged_vid)):
+                config['vlans'][tagged_vid] = {
+                    'description': 'tagged',
+                }
+
+        # ACLs.
+        if acls:
+            config['acls'] = acls.copy()
+
+        return yaml.dump(config, default_flow_style=False)
 
     def wait_until_matching_flow(self, exp_flow, timeout=10):
         '''
         Reimplementation of wait_until_matching_flow to wait for all DPs to come online.
         '''
+
         ofctl_url = self.ofctl_rest_url()
         for dpid in self.dpids:
             for _ in range(timeout):
