@@ -33,8 +33,7 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 
 from config_parser import watcher_parser
-from watcher import watcher_factory, init_switch_db, init_flow_db
-from nsodbc import nsodbc_factory
+from watcher import watcher_factory
 
 
 class EventGaugeReconfigure(event.EventBase):
@@ -65,8 +64,6 @@ class Gauge(app_manager.RyuApp):
             sysprefix + '/var/log/ryu/faucet/gauge_exception.log')
         self.logfile = os.getenv(
             'GAUGE_LOG', sysprefix + '/var/log/ryu/faucet/gauge.log')
-        self.db_config = os.getenv(
-            'GAUGE_DB_CONFIG', '/etc/ryu/faucet/gauge_db.yaml')
 
         # Setup logging
         self.logger = logging.getLogger(self.logname)
@@ -100,37 +97,6 @@ class Gauge(app_manager.RyuApp):
             watcher = watcher_factory(conf)(conf, self.logname)
             self.watchers.setdefault(watcher.dp.dp_id, {})
             self.watchers[watcher.dp.dp_id][watcher.conf.type] = watcher
-
-        # Database specific config file read
-        self.db_enabled = False
-        self.flow_database = None
-        self.switch_database = None
-        self.conn = None
-        with open(self.db_config, 'r') as stream:
-            data = yaml.load(stream)
-            if data['database']:
-                self.db_enabled = True
-                self.conn_string = "driver={0};server={1};port={2};" \
-                                   "uid={3};pwd={4}".format(
-                    data['driver'], data['db_ip'], str(data['db_port']),
-                    str(data['db_username']), str(data['db_password'])
-                )
-                nsodbc = nsodbc_factory()
-                self.conn = nsodbc.connect(self.conn_string)
-                self.switch_database, exists = self.conn.create(
-                                                data['switches_doc'])
-                # Create database specific views for querying
-                if not exists:
-                    init_switch_db(self.switch_database)
-
-                self.flow_database, exists = self.conn.create(
-                                                data['flows_doc'])
-                # Create database specific views for querying
-                if not exists:
-                    init_flow_db(self.flow_database)
-                self.db_conf_data = data
-
-
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
 
@@ -143,17 +109,6 @@ class Gauge(app_manager.RyuApp):
             return
 
         if ev.enter: # DP is connecting
-            # Update db with switch
-            if self.db_enabled:
-                rows = self.switch_database.get_docs(
-                    self.db_conf_data['views']['v1'],
-                    key=str(hex(ryudp.id))
-                )
-                if not rows:
-                    switch_object = {'_id': str(hex(ryudp.id)),
-                                     'data':{'flows':[]}}
-                    self.switch_database.insert_update_doc(switch_object,
-                                                           'data')
             self.logger.info("datapath up %x", ryudp.id)
             for watcher in self.watchers[ryudp.id].values():
                 watcher.start(ryudp)
@@ -162,19 +117,6 @@ class Gauge(app_manager.RyuApp):
                 for watcher in self.watchers[ryudp.id].values():
                     watcher.stop()
                 del self.watchers[ryudp.id]
-
-            # Remove switch and related flows from db on disconnect
-            if self.db_enabled:
-                rows = self.switch_database.get_docs(
-                    self.db_conf_data['views']['v1'],
-                    key=str(hex(ryudp.id))
-                )
-                switch = rows[0].value
-                # Delete flows in the switch
-                for flow_id in switch['data']['flows']:
-                    self.flow_database.delete_doc(str(flow_id))
-                # Delete switch from database
-                self.switch_database.delete_doc(str(hex(ryudp.id)))
             self.logger.info("datapath down %x", ryudp.id)
 
     def signal_handler(self, sigid, frame):
