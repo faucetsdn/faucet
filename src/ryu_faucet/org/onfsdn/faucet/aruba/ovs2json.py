@@ -22,6 +22,7 @@
 import sys
 import re
 import os
+import json
 
 # =========================== Match Field Data ================================
 
@@ -256,15 +257,30 @@ if len(TABLE_SIZE.keys()) > MAX_SUPPORTED_TABLES:
 if not '0' in TABLE_SIZE:
    error("Table 0 was not used, but is required by the OpenFlow specification")
 
+# Get a numerically-sorted list of table IDs
+tables=TABLE_SIZE.keys()
+tables.sort(key=int)
+
 # Display and analyze gathered data to check for unsupported conditions
 tcam_tiles = 0
 hash_tiles = 0
-for table in sorted(TABLE_SIZE.keys()):
+for table in tables:
+   # Get all fields being matched
    size = TABLE_SIZE[table]
    exact = TABLE_MATCH[table] 
    wildcard = TABLE_WILDCARDS[table]
    mask = TABLE_MASKS[table]
    all_matches = exact.union(wildcard).union(mask)
+
+   # Special-case: If a table had flows but none of the flows specified
+   # match criteria, we'll specify at least one wildcard (ETH_TYPE) so that
+   # the table is considered a TCAM. A hash must have all match fields specified,
+   # but since no flows specified match criteria we know a TCAM is expected.
+   # Wildcard ETH_TYPE since it is a dependency of many other fields.
+   if len(all_matches) == 0:
+      TABLE_WILDCARDS[table].add('dl_type')
+      wildcard = TABLE_WILDCARDS[table]
+      all_matches = exact.union(wildcard).union(mask)
 
    # Display table data
    debug("TABLE #"+table+" has "+str(size)+" entries")
@@ -337,7 +353,8 @@ if not GENERATE_JSON:
 debug("\n=== Auto-generated pipeline JSON ===")
 prev_tables = set([])
 JSON = '['
-for table in sorted(TABLE_SIZE.keys()):
+for table in tables:
+   # Get all fields being matched
    size = str(TABLE_SIZE[table])
    exact = TABLE_MATCH[table] 
    wildcard = TABLE_WILDCARDS[table]
@@ -419,8 +436,7 @@ for table in sorted(TABLE_SIZE.keys()):
 
 # Wrap things up and print ...
 JSON += ']'
-print JSON
 
-# NOTE: The output of this script can be sent to 'python -m json.tool'
-# to standardize and format the JSON output ...
-
+# Pretty-print the condensed JSON string, for easier diffs
+jsonobj = json.loads(JSON)
+json.dump(jsonobj, sys.stdout, sort_keys=True, indent=4, separators=(',', ': '))
