@@ -1693,18 +1693,17 @@ class FaucetMultipleDPTest(FaucetTest):
 
         return yaml.dump(config, default_flow_style=False)
 
-    def wait_until_matching_flow(self, exp_flow, timeout=10):
+    def matching_flow_present(self, exp_flow, timeout=10):
         '''
-        Reimplementation of wait_until_matching_flow to wait for all DPs to come online.
+        Override matching_flow_present with a version that (kind of) supports multiple DPs.
         '''
 
-        ofctl_url = self.ofctl_rest_url()
         for dpid in self.dpids:
+            int_dpid = str_int_dpid(dpid)
             for _ in range(timeout):
-                int_dpid = str_int_dpid(dpid)
                 try:
                     ofctl_result = json.loads(requests.get(
-                        '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                        '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
                 except (ValueError, requests.exceptions.ConnectionError):
                     # Didn't get valid JSON, try again
                     time.sleep(1)
@@ -1715,9 +1714,9 @@ class FaucetMultipleDPTest(FaucetTest):
                     # the verify_ipv*_routing methods
                     flow_str = json.dumps(flow)
                     if re.search(exp_flow, flow_str):
-                        return
+                        return True
                 time.sleep(1)
-                self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
+            return False
 
 
 class FaucetMultipleDPUntaggedTest(FaucetMultipleDPTest):
