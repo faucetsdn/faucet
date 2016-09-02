@@ -1749,6 +1749,121 @@ class FaucetMultipleDPTaggedTest(FaucetMultipleDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
+class FaucetACLOverrideTest(FaucetMultipleDPTest):
+
+    NUM_DPS = 1
+    NUM_HOSTS = 2
+    VID = 100
+
+    # ACL rules which will get overridden.
+    ACLS = {
+        1: [
+            {'rule': {
+                'dl_type': int('0x800', 16),
+                'nw_proto': 6,
+                'tp_dst': 5001,
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+            {'rule': {
+                'dl_type': int('0x800', 16),
+                'nw_proto': 6,
+                'tp_dst': 5002,
+                'actions': {
+                    'allow': 0,
+                },
+            }},
+            {'rule': {
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+        ],
+    }
+
+    # ACL rules which get put into an include-optional
+    # file, then reloaded into FAUCET.
+    ACLS_OVERRIDE = {
+        1: [
+            {'rule': {
+                'dl_type': int('0x800', 16),
+                'nw_proto': 6,
+                'tp_dst': 5001,
+                'actions': {
+                    'allow': 0,
+                },
+            }},
+            {'rule': {
+                'dl_type': int('0x800', 16),
+                'nw_proto': 6,
+                'tp_dst': 5002,
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+            {'rule': {
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+        ],
+    }
+
+    # DP-to-acl_in port mapping.
+    ACL_IN_DP = {
+        'faucet-1': {
+            # Port 1, acl_in = 1
+            1: 1,
+        },
+    }
+
+    def setUp(self):
+        super(FaucetACLOverrideTest, self).setUp()
+        self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
+        self.build_net(
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID,
+            include_optional=[self.acls_config],
+            acls=self.ACLS,
+            acl_in_dp=self.ACL_IN_DP,
+        )
+        self.start_net()
+
+    def assert_blocked(self, port):
+        first_host, second_host = self.net.hosts[0:2]
+        second_host.cmd('timeout 10s echo hello | nc -l %i &' % port)
+        self.assertEquals(
+            '', first_host.cmd('timeout 10s nc %s %i' % (second_host.IP(), port)))
+        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": %i' % port)
+
+    def assert_unblocked(self, port):
+        first_host, second_host = self.net.hosts[0:2]
+        second_host.cmd('timeout 10s echo hello | nc -l %s %i &' % (second_host.IP(), port))
+        time.sleep(1)
+        self.assertEquals(
+            'hello\r\n',
+            first_host.cmd('nc -w 5 %s %i' % (second_host.IP(), port)))
+        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": %i' % port)
+
+    def test_port5001_blocked(self):
+        self.ping_all_when_learned()
+        self.assert_unblocked(5001)
+        open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
+        self.hup_faucet()
+        time.sleep(1)
+        self.assert_blocked(5001)
+
+    def test_port5002_unblocked(self):
+        self.ping_all_when_learned()
+        self.assert_blocked(5002)
+        open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
+        self.hup_faucet()
+        time.sleep(1)
+        self.assert_unblocked(5002)
+
+
 def import_config():
     try:
         with open(HW_SWITCH_CONFIG_FILE, 'r') as config_file:
