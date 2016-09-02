@@ -1553,7 +1553,7 @@ class FaucetMultipleDPSwitchTopo(Topo):
 class FaucetMultipleDPTest(FaucetTest):
 
     def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100,
-            include=(), include_optional=(), acls={}):
+            include=[], include_optional=[], acls={}, acl_in_dp={}):
         '''
         Set up Mininet and Faucet for the given topology.
         '''
@@ -1577,16 +1577,17 @@ class FaucetMultipleDPTest(FaucetTest):
             tagged_vid,
             n_untagged,
             untagged_vid,
-            include=include,
-            include_optional=include,
-            acls=acls,
+            include,
+            include_optional,
+            acls,
+            acl_in_dp,
         )
 
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
 
-    def get_config(self, dpids, hardware, monitor_ports_files, monitor_flow_table_file,
-                   ofchannel_log, n_tagged, tagged_vid, n_untagged, untagged_vid,
-                   include=[], include_optional=[], acls={}):
+    def get_config(self, dpids=[], hardware=None, monitor_ports_files=None, monitor_flow_table_file=None,
+                   ofchannel_log=None, n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
+                   include=[], include_optional=[], acls={}, acl_in_dp={}):
         '''
         Build a complete Faucet configuration for each datapath, using the given topology.
         '''
@@ -1628,6 +1629,8 @@ class FaucetMultipleDPTest(FaucetTest):
                         'tagged_vlans': [tagged_vid],
                         'description': 'b%i' % p,
                     }
+                    if name in acl_in_dp and p in acl_in_dp[name]:
+                        config['dps'][name]['interfaces'][p]['acl_in'] = acl_in_dp[name][p]
                     p += 1
 
                 for _ in range(n_untagged):
@@ -1635,6 +1638,8 @@ class FaucetMultipleDPTest(FaucetTest):
                         'native_vlan': untagged_vid,
                         'description': 'b%i' % p,
                     }
+                    if name in acl_in_dp and p in acl_in_dp[name]:
+                        config['dps'][name]['interfaces'][p]['acl_in'] = acl_in_dp[name][p]
                     p += 1
 
                 # Add configuration for the switch-to-switch links
@@ -1661,6 +1666,9 @@ class FaucetMultipleDPTest(FaucetTest):
 
                     if tagged_vlans:
                         config['dps'][name]['interfaces'][p]['tagged_vlans'] = tagged_vlans
+
+                    if name in acl_in_dp and p in acl_in_dp[name]:
+                        config['dps'][name]['interfaces'][p]['acl_in'] = acl_in_dp[name][p]
 
                     # Used as the port number for the current switch.
                     p += 1
@@ -1709,7 +1717,7 @@ class FaucetMultipleDPTest(FaucetTest):
                     if re.search(exp_flow, flow_str):
                         return
                 time.sleep(1)
-            self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
+                self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
 
 
 class FaucetMultipleDPUntaggedTest(FaucetMultipleDPTest):
