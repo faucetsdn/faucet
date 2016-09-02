@@ -43,6 +43,7 @@ Alternatively, you can:
 By doing this, you will be able to access couch db from an external box
 
 .. code:: bash
+
     # curl http://10.0.0.141:5984/
     {"couchdb":"Welcome","uuid":"b08ca21a473a68cf133e95d4ce926044","version":"1.6.1","vendor":{"name":"The Apache Software Foundation","version":"1.6.1"}}
 
@@ -54,11 +55,10 @@ I created a user ``"couch"`` with password ``"123"`` with *Admin* role & then re
 Test User Auth - Basic Auth
 ---------------------------
 .. code:: bash
+
     # curl -X PUT http://10.0.0.141:5984/somedatabase
     {"error":"unauthorized","reason":"You are not a server admin."}
 
-*Correct way*:
-    ``# curl -X PUT http://couch:123@10.0.0.141:5984/somedatabase``
 
 Cookie Authentication
 ---------------------
@@ -69,3 +69,31 @@ Cookie Authentication
 Performance Tuning
 ==================
 Additional changes to ``default.ini`` - TBD
+
+============================
+Platform: DEBIAN OS
+============================
+
+
+Commands for installation
+-------------------------
+
+.. code:: bash
+
+    pip install couchdb (installs couchdb python module)
+
+
+On a Web Browser, go to: http://127.0.0.1:5984/_utils/config.html
+It should display all configuration parameters.
+
+To enable compaction for couchdb we have to enable settings in local.ini in [compactions] section by uncommenting this:
+
+.. code:: bash
+
+    _default = [{db_fragmentation, "70%"}, {view_fragmentation, "60%"}]
+
+After enabling the fragmentation make sure Couchdb has been restarted. Also DB fragmentation value can be configured based on your need.
+
+.. code:: bash
+
+    service couchdb restart

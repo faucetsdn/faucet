@@ -49,6 +49,7 @@ from mininet.node import Intf
 from mininet.node import OVSSwitch
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
+from mininet.clean import Cleanup
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 
@@ -232,7 +233,7 @@ class FaucetTest(unittest.TestCase):
         self.topo = None
 
     def get_gauge_config(self, dp_id, faucet_config_file,
-            monitor_ports_file, monitor_flow_table_file):
+                         monitor_ports_file, monitor_flow_table_file):
         return '''
 faucet_configs:
     - {0}
@@ -337,23 +338,76 @@ hardware: "%s"
     def one_ipv6_controller_ping(self, host):
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
 
+    def hup_faucet(self):
+        controller = self.net.controllers[0]
+        tcp_pattern = '%s/tcp' % controller.port
+        fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
+        self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
+
+    def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
+                       timeout=10, packets=2):
+        tcpdump_out = tcpdump_host.popen(
+            'timeout %us tcpdump -e -n -U -v -c %u %s' % (
+                timeout, packets, tcpdump_filter),
+             stderr=subprocess.STDOUT)
+        popens = {tcpdump_host: tcpdump_out}
+        tcpdump_started = False
+        tcpdump_txt = ''
+        for host, line in pmonitor(popens):
+            if host == tcpdump_host:
+                if tcpdump_started:
+                   tcpdump_txt += line.strip()
+                else:
+                    # when we see tcpdump start, then call provided functions.
+                    if re.search('tcpdump: listening on ', line):
+                        tcpdump_started = True
+                        for func in funcs:
+                            func()
+        self.assertFalse(tcpdump_txt == '')
+        return tcpdump_txt
+
     def ofctl_rest_url(self):
         return 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
 
-    def wait_until_matching_flow(self, exp_flow, timeout=10):
+    def matching_flow_present(self, exp_flow, timeout=10):
+        int_dpid = str_int_dpid(self.dpid)
         for _ in range(timeout):
-            int_dpid = str_int_dpid(self.dpid)
-            ofctl_result = json.loads(requests.get(
-                '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
+            try:
+                ofctl_result = json.loads(requests.get(
+                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
+            except (ValueError, requests.exceptions.ConnectionError):
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
             dump_flows = ofctl_result[int_dpid]
             for flow in dump_flows:
                 # Re-transform the dictionary into str to re-use
                 # the verify_ipv*_routing methods
                 flow_str = json.dumps(flow)
                 if re.search(exp_flow, flow_str):
-                    return
+                    return True
             time.sleep(1)
-        self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
+        return False
+
+    def wait_until_matching_flow(self, exp_flow, timeout=10):
+        if not self.matching_flow_present(exp_flow, timeout):
+            self.assertTrue(False), exp_flow
+
+    def host_learned(self, host):
+        return self.matching_flow_present(
+            '"table_id": 2,.+"dl_src": "%s"' % host.MAC())
+
+    def require_host_learned(self, host):
+        if not self.host_learned(host):
+            self.assertTrue(False), host
+
+    def ping_all_when_learned(self):
+        # Cause hosts to send traffic that FAUCET can use to learn them.
+        self.net.pingAll()
+        # we should have learned all hosts now, so should have no loss.
+        for host in self.net.hosts:
+            self.require_host_learned(host)
+        self.assertEquals(0, self.net.pingAll())
 
     def wait_until_matching_route_as_flow(self, nexthop, prefix, timeout=5):
         if prefix.version == 6:
@@ -386,7 +440,8 @@ hardware: "%s"
                         int_dpid, port_no,
                         ofp.OFPPC_PORT_DOWN, ofp.OFPPC_PORT_DOWN))
                     time.sleep(flap_time)
-                    os.system(self.curl_portmod(int_dpid, port_no,
+                    os.system(self.curl_portmod(
+                        int_dpid, port_no,
                         0, ofp.OFPPC_PORT_DOWN))
 
     def swap_host_macs(self, first_host, second_host):
@@ -405,7 +460,7 @@ hardware: "%s"
         second_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' % (
             second_host.intf(), second_host_routed_ip.ip)))
         self.add_host_ipv4_route(
-            first_host,  second_host_routed_ip, self.CONTROLLER_IPV4)
+            first_host, second_host_routed_ip, self.CONTROLLER_IPV4)
         self.add_host_ipv4_route(
             second_host, first_host_routed_ip, self.CONTROLLER_IPV4)
         self.net.ping(hosts=(first_host, second_host))
@@ -560,7 +615,7 @@ vlans:
         self.start_net()
 
     def test_untagged(self):
-        self.assertEquals(0, self.net.pingAll())
+        self.ping_all_when_learned()
         # TODO: a smoke test only - are flow/port stats accumulating
         if not SWITCH_MAP:
             for _ in range(5):
@@ -591,7 +646,6 @@ interfaces:
 vlans:
     100:
         description: "mixed"
-        unicast_flood: False
 """
 
     def setUp(self):
@@ -600,9 +654,9 @@ vlans:
         self.start_net()
 
     def test_untagged(self):
-        self.net.pingAll()
+        self.ping_all_when_learned()
         self.flap_all_switch_ports()
-        self.net.pingAll()
+        self.ping_all_when_learned()
 
 
 class FaucetUntaggedMaxHostsTest(FaucetUntaggedTest):
@@ -626,25 +680,13 @@ vlans:
     100:
         description: "untagged"
         max_hosts: 2
-        unicast_flood: False
 """
 
     def test_untagged(self):
-        for host_x in self.net.hosts:
-            for host_y in self.net.hosts:
-                host_x.cmd('arp -d %s' % host_y.IP())
-        for _ in range(3):
-            self.net.pingAll()
-            learned_hosts = set()
-            for host in self.net.hosts:
-                arp_output = host.cmd('arp -an')
-                for arp_line in arp_output.splitlines():
-                    arp_match = re.search(r'at ([\:a-f\d]+)', arp_line)
-                    if arp_match:
-                        learned_hosts.add(arp_match.group(1))
-            if len(learned_hosts) == 2:
-                break
-            time.sleep(1)
+        self.hup_faucet()
+        self.net.pingAll()
+        learned_hosts = [
+            host for host in self.net.hosts if self.host_learned(host)]
         self.assertEquals(2, len(learned_hosts))
 
 
@@ -653,17 +695,14 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def test_untagged(self):
         controller = self.net.controllers[0]
         switch = self.net.switches[0]
-        tcp_pattern = '%s/tcp' % controller.port
         for i in range(1, 4):
             configure_count = controller.cmd(
                 'grep -c "Configuring datapath" %s' % os.environ['FAUCET_LOG'])
             self.assertEquals(i, int(configure_count))
-            # ryu is a subprocess, so need PID of that.
-            fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
-            self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
+            self.hup_faucet()
             time.sleep(1)
             self.assertTrue(switch.connected())
-            self.assertEquals(0, self.net.pingAll())
+            self.ping_all_when_learned()
 
 
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
@@ -820,9 +859,7 @@ vlans:
 """
 
     def test_untagged(self):
-        self.net.pingAll()
-        # Can be slow to learn, but everyone must have connectivity.
-        self.assertEqual(0, self.net.pingAll())
+        self.ping_all_when_learned()
 
 
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
@@ -830,10 +867,11 @@ class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         self.assertEqual(0, self.net.ping((first_host, second_host)))
-        for _ in range(3):
-            self.swap_host_macs(first_host, second_host)
-            # TODO: sometimes slow to relearn
-            self.assertTrue(self.net.ping((first_host, second_host)) <= 50)
+        self.swap_host_macs(first_host, second_host)
+        self.net.ping((first_host, second_host))
+        for host in (first_host, second_host):
+            self.require_host_learned(host)
+        self.assertEquals(0, self.net.ping((first_host, second_host)))
 
 
 class FaucetUntaggedHostPermanentLearnTest(FaucetUntaggedTest):
@@ -859,7 +897,7 @@ vlans:
 """
 
     def test_untagged(self):
-        self.assertEqual(0, self.net.pingAll())
+        self.ping_all_when_learned()
         first_host, second_host, third_host = self.net.hosts[0:3]
         # 3rd host impersonates 1st, 3rd host breaks but 1st host still OK
         original_third_host_mac = third_host.MAC()
@@ -868,7 +906,7 @@ vlans:
         self.assertEqual(0, self.net.ping((first_host, second_host)))
         # 3rd host stops impersonating, now everything fine again.
         third_host.setMAC(original_third_host_mac)
-        self.assertEqual(0, self.net.pingAll())
+        self.ping_all_when_learned()
 
 
 class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
@@ -987,21 +1025,18 @@ acls:
 """
 
     def test_port5001_blocked(self):
-        self.assertEquals(0, self.net.pingAll())
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
+        self.ping_all_when_learned()
+        first_host, second_host = self.net.hosts[0:2]
         second_host.cmd('timeout 10s echo hello | nc -l 5001 &')
         self.assertEquals(
             '', first_host.cmd('timeout 10s nc %s 5001' % second_host.IP()))
         self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": 5001')
 
     def test_port5002_unblocked(self):
-        self.assertEquals(0, self.net.pingAll())
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
+        self.ping_all_when_learned()
+        first_host, second_host = self.net.hosts[0:2]
         second_host.cmd('timeout 10s echo hello | nc -l %s 5002 &' % second_host.IP())
         time.sleep(1)
-        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": 5002')
         self.assertEquals(
             'hello\r\n',
             first_host.cmd('nc -w 5 %s 5002' % second_host.IP()))
@@ -1039,22 +1074,12 @@ acls:
 """
 
     def test_untagged(self):
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
-        mirror_host = self.net.hosts[2]
+        first_host, second_host, mirror_host = self.net.hosts[0:3]
         mirror_mac = mirror_host.MAC()
         tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
-        tcpdump_out = mirror_host.popen(
-            'timeout 10s tcpdump -n -v -c 2 -U %s' % tcpdump_filter)
-        # wait for tcpdump to start
-        time.sleep(1)
-        popens = {mirror_host: tcpdump_out}
-        first_host.cmd('ping -c1  %s' % second_host.IP())
-        tcpdump_txt = ''
-        for host, line in pmonitor(popens):
-            if host == mirror_host:
-                tcpdump_txt += line.strip()
-        self.assertFalse(tcpdump_txt == '')
+        tcpdump_txt = self.tcpdump_helper(
+            mirror_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
@@ -1094,23 +1119,14 @@ acls:
 """
 
     def test_untagged(self):
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
+        first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
-        tcpdump_filter = (
-            'icmp and ether dst 06:06:06:06:06:06')
-        tcpdump_out = second_host.popen(
-            'timeout 10s tcpdump -e -n -v -c 2 -U %s' % tcpdump_filter)
-        # wait for tcpdump to start
-        time.sleep(1)
-        popens = {second_host: tcpdump_out}
-        first_host.cmd('arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06'))
-        first_host.cmd('ping -c1  %s' % second_host.IP())
-        tcpdump_txt = ''
-        for host, line in pmonitor(popens):
-            if host == second_host:
-                tcpdump_txt += line.strip()
-        self.assertFalse(tcpdump_txt == '')
+        tcpdump_filter = ('icmp and ether dst 06:06:06:06:06:06')
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd('ping -c1  %s' % second_host.IP())])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
@@ -1140,23 +1156,14 @@ vlans:
         unicast_flood: False
 """
 
+
     def test_untagged(self):
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
-        mirror_host = self.net.hosts[2]
+        first_host, second_host, mirror_host = self.net.hosts[0:3]
         mirror_mac = mirror_host.MAC()
         tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
-        tcpdump_out = mirror_host.popen(
-            'timeout 10s tcpdump -n -v -c 2 -U %s' % tcpdump_filter)
-        # wait for tcpdump to start
-        time.sleep(1)
-        popens = {mirror_host: tcpdump_out}
-        first_host.cmd('ping -c1  %s' % second_host.IP())
-        tcpdump_txt = ''
-        for host, line in pmonitor(popens):
-            if host == mirror_host:
-                tcpdump_txt += line.strip()
-        self.assertFalse(tcpdump_txt == '')
+        tcpdump_txt = self.tcpdump_helper(
+            mirror_host, tcpdump_filter, [
+                 lambda: first_host.cmd('ping -c1  %s' % second_host.IP())])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
@@ -1190,7 +1197,7 @@ vlans:
         self.start_net()
 
     def test_tagged(self):
-        self.assertEquals(0, self.net.pingAll())
+        self.ping_all_when_learned()
 
 
 class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
@@ -1574,7 +1581,7 @@ class FaucetMultipleDPTest(FaucetTest):
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
 
     def get_config(self, dpids, hardware, monitor_ports_files, monitor_flow_table_file,
-            ofchannel_log, n_tagged, tagged_vid, n_untagged, untagged_vid):
+                   ofchannel_log, n_tagged, tagged_vid, n_untagged, untagged_vid):
         '''
         Build a complete Faucet configuration for each datapath, using the given topology.
         '''
@@ -1643,7 +1650,7 @@ dps:''')
                 if n_tagged and n_untagged and n_tagged != n_untagged:
                     tagged_vlans = "%i, %i" % (tagged_vid, untagged_vid)
                 elif ((n_tagged and not n_untagged) or
-                        (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                      (n_tagged and n_untagged and tagged_vid == untagged_vid)):
                     tagged_vlans = str(tagged_vid)
                 elif n_untagged and not n_tagged:
                     tagged_vlans = str(untagged_vid)
@@ -1675,13 +1682,17 @@ vlans:''')
         '''
         Reimplementation of wait_until_matching_flow to wait for all DPs to come online.
         '''
-
-        ofctl_url = 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
+        ofctl_url = self.ofctl_rest_url()
         for dpid in self.dpids:
             for _ in range(timeout):
                 int_dpid = str_int_dpid(dpid)
-                ofctl_result = json.loads(requests.get(
-                    '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                try:
+                    ofctl_result = json.loads(requests.get(
+                        '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                except (ValueError, requests.exceptions.ConnectionError):
+                    # Didn't get valid JSON, try again
+                    time.sleep(1)
+                    continue
                 dump_flows = ofctl_result[int_dpid]
                 for flow in dump_flows:
                     # Re-transform the dictionary into str to re-use
@@ -1856,6 +1867,10 @@ def run_tests():
 
 
 if __name__ == '__main__':
+    if '-c' in sys.argv[1:] or '--clean' in sys.argv[1:]:
+        print 'Cleaning up test interfaces, processes and openvswitch configuration from previous test runs'
+        Cleanup.cleanup()
+        sys.exit(0)
     if not check_dependencies():
         print ('dependency check failed. check required library/binary '
                'list in header of this script')
