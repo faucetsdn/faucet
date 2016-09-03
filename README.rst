@@ -1,4 +1,4 @@
-:version: 1.0
+:version: 1.1
 :copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
 
 .. meta::
@@ -40,6 +40,7 @@ Following config applies an input ACL to port 1.
 Supports any ACL rule that https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py to_match() supports.
 
 .. code:: yaml
+
   ---
   version: 2
 
@@ -183,14 +184,15 @@ Installation
 Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively.
 
 You have run this as ``root`` or use ``sudo``
-::
-  # pip install https://pypi.python.org/packages/f5/f3/a8c4e72b4218be5aa84378eb57d89cfc8153efdb4df998cd2a0c544a878a/ryu-faucet-1.0.tar.gz
-  # pip show ryu-faucet
+.. code:: bash
+
+  # pip install https://pypi.python.org/packages/a3/5a/197046b6fbad2f129e108358d7ba9674ebae638a227e6a1680cd77c7bd13/ryu-faucet-1.1.tar.gz
+  # pip show -f ryu-faucet
 
 Optional Install for Network Monitoring Dashboard
 -------------------------------------------------
-  - To setup InfluxDB v0.11 - https://docs.influxdata.com/influxdb/v0.10/introduction/getting_started/
-  - To setup Grafana v2.6 - http://docs.grafana.org/installation/
+  - To setup InfluxDB v0.11+ - https://docs.influxdata.com/influxdb/v0.10/introduction/getting_started/
+  - To setup Grafana v3.x - http://docs.grafana.org/installation/
 
 Uninstall
 ---------
@@ -218,11 +220,13 @@ Faucet Deployment around the World
    https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
 
 .. raw:: html
+
   <div class="figure">
   <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s" width="640" height="480"></iframe>
   </div>
 
-.. embed:: file: https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
+
+.. Comment- TBD Code not working - embed:: https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
 
 =================
 OpenFlow Pipeline
