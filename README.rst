@@ -8,7 +8,7 @@
 Faucet
 ======
 
-Faucet is an Openflow controller for a layer 2 switch based on OpenvApour's Valve. It handles MAC learning and supports VLANs and ACLs.  It is developed as an application for the `Ryu Open Flow Controller <http://osrg.github.io/ryu/>`_
+Faucet is an Openflow controller for a layer 2 switch based on Waikato University's `Valve <https://github.com/wandsdn/valve>`_. It handles MAC learning and supports VLANs and ACLs.  It is developed as an application for the `Ryu Open Flow Controller <http://osrg.github.io/ryu/>`_
 .
 
 It supports:
@@ -100,7 +100,7 @@ A port not explicitly defined in the YAML configuration file will be set down an
 Versions
 --------
 
-The Faucet configuration file format occasionally changes to add functionality or accomodate changes inside Faucet. If the ``version`` field is not specified in ``faucet.yaml``, the current default value is ``1``.
+The Faucet configuration file format occasionally changes to add functionality or accommodate changes inside Faucet. If the ``version`` field is not specified in ``faucet.yaml``, the current default value is ``1``.
 
 Version 1 of the Faucet configuration file format does not allow multiple datapaths to be defined. The one datapath configured for this Faucet instance is configured using top level values, a sample of which can be found in ``faucet.yaml``. Previous (1.0 and older) versions of Faucet do not support the ``version`` field, so most configuration files in this format should not use it.
 
@@ -378,7 +378,7 @@ If you are a hardware vendor wanting to support FAUCET, you need to support all 
 Faucet has been tested against the following switches:
 (Hint: look at src/ryu_faucet/org/onfsdn/faucet/dp.py to add your switch)
 
-    1. Open vSwitch v2.1+ - Open Source available at http://www.OpenVSwitch.Org
+    1. Open vSwitch v2.1+ - Open Source available at http://www.openvswitch.org
     2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io/
     3. Allied Telesis x510 and x930 series - https://www.alliedtelesis.com/products/x930-series
     4. NoviFlow 1248 - http://noviflow.com/products/noviswitch/
@@ -388,7 +388,7 @@ Faucet has been tested against the following switches:
 Faucet's design principle is to be as hardware agnostic as possible and not require TTPs. That means that Faucet excepts the hardware OFA to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet excepts the OFA to leverage the right hardware transparently.
 
 ============================================================
-Buying and running commerical switches supporting ryu-faucet
+Buying and running commercial switches supporting ryu-faucet
 ============================================================
 
 Allied Telesis
