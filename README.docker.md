@@ -10,8 +10,8 @@ easily without having to build your own.
 
 We use Docker tags to differentiate between versions of Faucet. The latest
 tag will always point to the latest git commit. All tagged versions of Faucet
-in git are also available to use, for example using the faucet/faucet:v1_0
-Docker will run the stable version 1.0 of Faucet.
+in git are also available to use, for example using the faucet/faucet:v1_1
+Docker will run the stable version 1.1 of Faucet.
 
 To pull and run the latest git version of Faucet:
 

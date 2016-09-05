@@ -213,9 +213,10 @@ dps.yaml:
           ...
 
 
-============
-Installation
-============
+=====================
+Installation with pip
+=====================
+
 Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively.
 
 You have run this as ``root`` or use ``sudo``
@@ -234,6 +235,27 @@ Uninstall
 To Uninstall the package
 
 ``# pip uninstall ryu-faucet``
+
+========================
+Installation with docker
+========================
+
+We provide official automated builds on `Docker Hub <https://hub.docker.com/r/faucet/>`_ so that you can easily run Faucet and it's components in a self-contained environment without installing on the main host system.
+
+Provided are two Docker containers, one for running Faucet and one for running Gauge. The Gauge container needs to be linked to a database container as well as a Grafana container. We also supply a ``docker-compose.yaml`` that can be used to start all the components together.
+
+Docker tags are used to differentiate versions of Faucet, ``latest`` will always point to ``master`` branch on github and stable versions are also tagged e.g ``v1_0`` and ``v1_1``.
+
+Running Faucet and Gauge with docker-compose
+----------------------------------------
+
+1. Follow the `Docker Installation Guide <https://docs.docker.com/engine/installation/>`_ and install `Docker Compose <https://docs.docker.com/compose/install/>`_.
+
+2. Tweak environment variables, exposed ports, volumes and tags in ``docker-compose.yaml`` to match your environment.
+
+3. Run ``docker-compose up`` which will pull all the correct images and start them.
+
+For more advanced documentation on running Faucet with docker please read ``README.docker.md``.
 
 ============
 Architecture
