@@ -1,0 +1,11 @@
+---
+acls:
+    acl1:
+        - rule:
+            nw_dst: '172.0.0.0/8'
+            dl_type: 0x800
+            actions:
+                allow: 1
+        - rule:
+            actions:
+                allow: 0
