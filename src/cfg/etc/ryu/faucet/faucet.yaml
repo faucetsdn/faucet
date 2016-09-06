@@ -14,7 +14,7 @@ monitor_flow_table_file: "ft.out"   # the file to record flow table dumps
 monitor_flow_table_interval: 10 # the polling interval for flow table monitoring
 influxdb_stats: True
 gaugedb_updates: True
-gaugedb_update_interval: 60
+gaugedb_update_counter: 5
 gaugedb:
     gdb_type: nosql
     #gdb_type: pyodbc
