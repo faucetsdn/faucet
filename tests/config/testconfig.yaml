@@ -7,6 +7,25 @@ influxdb_stats: True
 monitor_flow_table: True
 monitor_flow_table_interval: 40
 monitor_flow_table_file: "flow_table.JSON"
+gaugedb_updates: False
+gaugedb_update_counter: 5
+gaugedb:
+    gdb_type: nosql
+    #gdb_type: pyodbc
+    nosql_db: couch
+    db_username: couch
+    db_password: 123
+    db_ip: 'localhost'
+    #db_ip: 10.10.10.10
+    #db_fqdn: couch.int.example.com
+    db_port: 5984
+    driver: 'couchdb' # driver type
+    views:
+        switch_view: '_design/switches/_view/switch'
+        match_view: '_design/flows/_view/match'
+        tag_view: '_design/tags/_view/tags'
+    switches_doc: 'switches' # switches entry name in database
+    flows_doc: 'flows' # flows entry name in database
 interfaces:
     1:
         tagged_vlans: [40, 41]

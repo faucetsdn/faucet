@@ -160,3 +160,36 @@ class DatabaseCouch(object):
 def nsodbc_factory():
     """factory method to consume the API"""
     return NsOdbc()
+
+
+def init_flow_db(flow_database):
+    """
+    Initialize/Refresh flow database
+    Args:
+        flow_database
+    """
+    views = {}
+    views["flow"] = {}
+    views["flow"]["map"] = "function(doc) " + \
+                           "{\n  emit(doc._id, doc);\n}"
+    views["match"] = {}
+    views["match"]["map"] = "function(doc) " + \
+                            "{\nif(doc.data.OFPFlowStats.match)" + \
+                            "{\n  emit(" + \
+                            "[doc.data.OFPFlowStats.table_id, " + \
+                            "doc.data.OFPFlowStats.match], " + \
+                            "doc );\n}\n}"
+    flow_database.create_view("flows", views)
+
+
+def init_switch_db(switch_database):
+    """
+    Initialize/refresh switch database
+    Args:
+        switch_database
+    """
+    views = {}
+    views["switch"] = {}
+    views["switch"]["map"] = "function(doc) " + \
+                             "{\n  emit(doc._id, doc);\n}"
+    switch_database.create_view("switches", views)
