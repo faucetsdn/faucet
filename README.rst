@@ -324,32 +324,33 @@ Run with ``ryu-manager`` (uses ``/etc/ryu/faucet/faucet.yaml`` as configuration 
 
 .. code:: bash
 
-  export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml
-  export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf
-  export FAUCET_LOG=/var/log/faucet/faucet.log
-  export FAUCET_EXCEPTION_LOG=/var/log/faucet/faucet_exception.log
-  export GAUGE_LOG=/var/log/faucet/gauge_exception.log
-  export GAUGE_EXCEPTION_LOG=/var/log/faucet/gauge_exception.log
-  $EDITOR /etc/ryu/faucet/faucet.yaml
-  ryu-manager --verbose faucet.py
+    # export FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml
+    # export GAUGE_CONFIG=/etc/ryu/faucet/gauge.conf
+    # export FAUCET_LOG=/var/log/faucet/faucet.log
+    # export FAUCET_EXCEPTION_LOG=/var/log/faucet/faucet_exception.log
+    # export GAUGE_LOG=/var/log/faucet/gauge_exception.log
+    # export GAUGE_EXCEPTION_LOG=/var/log/faucet/gauge_exception.log
+    # export GAUGE_DB_CONFIG=/etc/ryu/faucet/gauge_db.yaml
+    # $EDITOR /etc/ryu/faucet/faucet.yaml
+    # ryu-manager --verbose faucet.py
 
 To find the location of ``faucet.py``, run ``pip show ryu-faucet`` to get the Location Path.  Then run:
 
 .. code:: bash
 
-  ryu-manager --verbose <Location_Path>/ryu_faucet/org/onfsdn/faucet/faucet.py
+    # ryu-manager --verbose <Location_Path>/ryu_faucet/org/onfsdn/faucet/faucet.py
 
 Alternatively, if OF Controller is using a non-default port of 6633, for example 6653, then:
 
 .. code:: bash
 
-  ryu-manager --verbose  --ofp-tcp-listen-port 6653 <Location_Path>/ryu_faucet/org/onfsdn/faucet/faucet.py
+    # ryu-manager --verbose  --ofp-tcp-listen-port 6653 <Location_Path>/ryu_faucet/org/onfsdn/faucet/faucet.py
 
 On Mac OS X, for example, one would run this as:
 
 .. code:: bash
 
-  ryu-manager --verbose /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/ryu_faucet/org/onfsdn/faucet/faucet.py
+    # ryu-manager --verbose /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/ryu_faucet/org/onfsdn/faucet/faucet.py
 
 To specify a different configuration file set the ``FAUCET_CONFIG`` environment variable.
 
