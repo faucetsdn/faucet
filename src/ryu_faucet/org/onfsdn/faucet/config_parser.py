@@ -15,6 +15,7 @@
 
 import copy
 import logging
+import os
 import yaml
 
 from dp import DP
@@ -108,6 +109,39 @@ def _dp_parser_v1(conf, config_file, logname):
 
     return [dp]
 
+def _dp_include(parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
+    logger = get_logger(logname)
+
+    config = os.path.join(
+        os.path.dirname(parent_file),
+        config_file,
+    ) if parent_file and not os.path.isabs(config_file) else config_file
+
+    if not os.path.isfile(config):
+        logger.warning("not a regular file or does not exist: {0}".format(config))
+        return False
+
+    conf = read_config(config, logname)
+
+    if not conf:
+        logger.warning("error loading config from file: {0}".format(config))
+        return False
+
+    dps_conf.update(conf.pop('dps', {}))
+    vlans_conf.update(conf.pop('vlans', {}))
+    acls_conf.update(conf.pop('acls', {}))
+
+    for cf in conf.pop('include', []):
+        if not _dp_include(config, cf, dps_conf, vlans_conf, acls_conf, logname):
+            logger.error("unable to load required include file: {0}".format(cf))
+            return False
+
+    for cf in conf.pop('include-optional', []):
+        if not _dp_include(config, cf, dps_conf, vlans_conf, acls_conf, logname):
+            logger.warning("skipping optional include file: {0}".format(cf))
+
+    return True
+
 def _dp_add_vlan(vid_dp, dp, vlan, logname):
     logger = get_logger(logname)
 
@@ -128,17 +162,22 @@ def _dp_add_vlan(vid_dp, dp, vlan, logname):
 def _dp_parser_v2(conf, config_file, logname):
     logger = get_logger(logname)
 
-    if 'dps' not in conf:
-        logger.error("dps not configured in file: {0}".format(config_file))
+    dps_conf = {}
+    vlans_conf = {}
+    acls_conf = {}
+
+    if not _dp_include(None, config_file, dps_conf, vlans_conf, acls_conf, logname):
+        logger.error("error found while loading config file: {0}".format(config_file))
         return None
 
-    vlans_conf = conf.pop('vlans', {})
-    acls_conf = conf.pop('acls', {})
+    if not dps_conf:
+        logger.error("dps not configured in file: {0}".format(config_file))
+        return None
 
     dps = []
     vid_dp = {}
 
-    for identifier, dp_conf in conf['dps'].iteritems():
+    for identifier, dp_conf in dps_conf.iteritems():
         ports_conf = dp_conf.pop('interfaces', {})
 
         dp = DP(identifier, dp_conf)

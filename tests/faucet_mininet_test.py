@@ -1552,7 +1552,8 @@ class FaucetMultipleDPSwitchTopo(Topo):
 
 class FaucetMultipleDPTest(FaucetTest):
 
-    def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100):
+    def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100,
+            include=[], include_optional=[], acls={}, acl_in_dp={}):
         '''
         Set up Mininet and Faucet for the given topology.
         '''
@@ -1576,119 +1577,133 @@ class FaucetMultipleDPTest(FaucetTest):
             tagged_vid,
             n_untagged,
             untagged_vid,
+            include,
+            include_optional,
+            acls,
+            acl_in_dp,
         )
 
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
 
-    def get_config(self, dpids, hardware, monitor_ports_files, monitor_flow_table_file,
-                   ofchannel_log, n_tagged, tagged_vid, n_untagged, untagged_vid):
+    def get_config(self, dpids=[], hardware=None, monitor_ports_files=None, monitor_flow_table_file=None,
+                   ofchannel_log=None, n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
+                   include=[], include_optional=[], acls={}, acl_in_dp={}):
         '''
         Build a complete Faucet configuration for each datapath, using the given topology.
         '''
 
-        config_fragments = []
+        config = {'version': 2}
 
-        config_fragments.append('''
----
-version: 2
+        # Includes.
+        if include:
+            config['include'] = list(include)
 
-dps:''')
+        if include_optional:
+            config['include-optional'] = list(include_optional)
 
-        for i, dpid in enumerate(dpids):
-            p = 1
+        # Datapaths.
+        if dpids:
+            num_switch_links = None
 
-            mapping = {
-                'dpid': str_int_dpid(dpid),
-                'name': 'faucet-%i' % (i + 1),
-                'hardware': hardware,
-                'monitor_ports_file': monitor_ports_files,
-                'monitor_flow_table_file': monitor_flow_table_file,
-                'ofchannel_log': ofchannel_log,
-            }
+            config['dps'] = {}
 
-            config_fragments.append('''
-    %(name)s:
-        dp_id: %(dpid)s
-        hardware: "%(hardware)s"
-        monitor_ports: True
-        monitor_ports_interval: 5
-        monitor_ports_file: "%(monitor_ports_file)s"
-        monitor_flow_table: True
-        monitor_flow_table_interval: 5
-        monitor_flow_table_file: "%(monitor_flow_table_file)s"
-        ofchannel_log: "%(ofchannel_log)s"
-        interfaces:''' % mapping)
+            for i, dpid in enumerate(dpids):
+                p = 1
+                name = 'faucet-%i' % (i + 1)
 
-            for _ in range(n_tagged):
-                config_fragments.append('''
-            %(port)d:
-                tagged_vlans: [%(tagged_vid)d]
-                description: "b%(port)d"''' % {'port': p, 'tagged_vid': tagged_vid})
-                p += 1
+                config['dps'][name] = {
+                    'dp_id': int(str_int_dpid(dpid)),
+                    'hardware': hardware,
+                    'monitor_ports': True,
+                    'monitor_ports_interval': 5,
+                    'monitor_ports_file': monitor_ports_files,
+                    'monitor_flow_table': True,
+                    'monitor_flow_tablet_interval': 5,
+                    'monitor_flow_table_file': monitor_flow_table_file,
+                    'ofchannel_log': ofchannel_log,
+                    'interfaces': {},
+                }
 
-            for _ in range(n_untagged):
-                config_fragments.append('''
-            %(port)d:
-                native_vlan: %(untagged_vid)d
-                description: "b%(port)d"''' % {'port': p, 'untagged_vid': untagged_vid})
-                p += 1
+                for _ in range(n_tagged):
+                    config['dps'][name]['interfaces'][p] = {
+                        'tagged_vlans': [tagged_vid],
+                        'description': 'b%i' % p,
+                    }
+                    if name in acl_in_dp and p in acl_in_dp[name]:
+                        config['dps'][name]['interfaces'][p]['acl_in'] = acl_in_dp[name][p]
+                    p += 1
 
-            # Add configuration for the switch-to-switch links
-            # (0 for a single switch, 1 for an end switch, 2 for middle switches).
-            if len(dpids) > 1:
-                num_switch_links = 2 if i > 0 and i != len(dpids)-1 else 1
-            else:
-                num_switch_links = 0
+                for _ in range(n_untagged):
+                    config['dps'][name]['interfaces'][p] = {
+                        'native_vlan': untagged_vid,
+                        'description': 'b%i' % p,
+                    }
+                    if name in acl_in_dp and p in acl_in_dp[name]:
+                        config['dps'][name]['interfaces'][p]['acl_in'] = acl_in_dp[name][p]
+                    p += 1
 
-            for _ in range(num_switch_links):
-                tagged_vlans = None
+                # Add configuration for the switch-to-switch links
+                # (0 for a single switch, 1 for an end switch, 2 for middle switches).
+                if len(dpids) > 1:
+                    num_switch_links = 2 if i > 0 and i != len(dpids)-1 else 1
+                else:
+                    num_switch_links = 0
 
-                config_fragments.append('''
-            %(port)d:
-                description: "b%(port)d"''' % {'port': p})
+                for _ in range(num_switch_links):
+                    tagged_vlans = None
 
-                if n_tagged and n_untagged and n_tagged != n_untagged:
-                    tagged_vlans = "%i, %i" % (tagged_vid, untagged_vid)
-                elif ((n_tagged and not n_untagged) or
-                      (n_tagged and n_untagged and tagged_vid == untagged_vid)):
-                    tagged_vlans = str(tagged_vid)
-                elif n_untagged and not n_tagged:
-                    tagged_vlans = str(untagged_vid)
+                    config['dps'][name]['interfaces'][p] = {
+                        'description': 'b%i' % p,
+                    }
 
-                if tagged_vlans:
-                    config_fragments.append('''
-                tagged_vlans: [%s]''' % tagged_vlans)
+                    if n_tagged and n_untagged and n_tagged != n_untagged:
+                        tagged_vlans = [tagged_vid, untagged_vid]
+                    elif ((n_tagged and not n_untagged) or
+                          (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                        tagged_vlans = [tagged_vid]
+                    elif n_untagged and not n_tagged:
+                        tagged_vlans = [untagged_vid]
 
-                # Used as the port number for the current switch.
-                p += 1
+                    if tagged_vlans:
+                        config['dps'][name]['interfaces'][p]['tagged_vlans'] = tagged_vlans
 
-        config_fragments.append('''
-vlans:''')
+                    if name in acl_in_dp and p in acl_in_dp[name]:
+                        config['dps'][name]['interfaces'][p]['acl_in'] = acl_in_dp[name][p]
 
-        if n_untagged:
-            config_fragments.append('''
-    %d:
-        description: "untagged"''' % untagged_vid)
+                    # Used as the port number for the current switch.
+                    p += 1
 
-        if ((n_tagged and not n_untagged) or
-                (n_tagged and n_untagged and tagged_vid != untagged_vid)):
-            config_fragments.append('''
-    %d:
-        description: "tagged"''' % tagged_vid)
+            # VLANs.
+            config['vlans'] = {}
 
-        return str.join("\n", config_fragments)
+            if n_untagged:
+                config['vlans'][untagged_vid] = {
+                    'description': 'untagged',
+                }
 
-    def wait_until_matching_flow(self, exp_flow, timeout=10):
+            if ((n_tagged and not n_untagged) or
+                    (n_tagged and n_untagged and tagged_vid != untagged_vid)):
+                config['vlans'][tagged_vid] = {
+                    'description': 'tagged',
+                }
+
+        # ACLs.
+        if acls:
+            config['acls'] = acls.copy()
+
+        return yaml.dump(config, default_flow_style=False)
+
+    def matching_flow_present(self, exp_flow, timeout=10):
         '''
-        Reimplementation of wait_until_matching_flow to wait for all DPs to come online.
+        Override matching_flow_present with a version that (kind of) supports multiple DPs.
         '''
-        ofctl_url = self.ofctl_rest_url()
+
         for dpid in self.dpids:
+            int_dpid = str_int_dpid(dpid)
             for _ in range(timeout):
-                int_dpid = str_int_dpid(dpid)
                 try:
                     ofctl_result = json.loads(requests.get(
-                        '%s/stats/flow/%s' % (ofctl_url, int_dpid)).text)
+                        '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
                 except (ValueError, requests.exceptions.ConnectionError):
                     # Didn't get valid JSON, try again
                     time.sleep(1)
@@ -1699,9 +1714,9 @@ vlans:''')
                     # the verify_ipv*_routing methods
                     flow_str = json.dumps(flow)
                     if re.search(exp_flow, flow_str):
-                        return
+                        return True
                 time.sleep(1)
-            self.assertTrue(re.search(exp_flow, json.dumps(dump_flows)))
+            return False
 
 
 class FaucetMultipleDPUntaggedTest(FaucetMultipleDPTest):
@@ -1732,6 +1747,121 @@ class FaucetMultipleDPTaggedTest(FaucetMultipleDPTest):
 
     def test_tagged(self):
         self.assertEquals(0, self.net.pingAll())
+
+
+class FaucetACLOverrideTest(FaucetMultipleDPTest):
+
+    NUM_DPS = 1
+    NUM_HOSTS = 2
+    VID = 100
+
+    # ACL rules which will get overridden.
+    ACLS = {
+        1: [
+            {'rule': {
+                'dl_type': int('0x800', 16),
+                'nw_proto': 6,
+                'tp_dst': 5001,
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+            {'rule': {
+                'dl_type': int('0x800', 16),
+                'nw_proto': 6,
+                'tp_dst': 5002,
+                'actions': {
+                    'allow': 0,
+                },
+            }},
+            {'rule': {
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+        ],
+    }
+
+    # ACL rules which get put into an include-optional
+    # file, then reloaded into FAUCET.
+    ACLS_OVERRIDE = {
+        1: [
+            {'rule': {
+                'dl_type': int('0x800', 16),
+                'nw_proto': 6,
+                'tp_dst': 5001,
+                'actions': {
+                    'allow': 0,
+                },
+            }},
+            {'rule': {
+                'dl_type': int('0x800', 16),
+                'nw_proto': 6,
+                'tp_dst': 5002,
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+            {'rule': {
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+        ],
+    }
+
+    # DP-to-acl_in port mapping.
+    ACL_IN_DP = {
+        'faucet-1': {
+            # Port 1, acl_in = 1
+            1: 1,
+        },
+    }
+
+    def setUp(self):
+        super(FaucetACLOverrideTest, self).setUp()
+        self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
+        self.build_net(
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID,
+            include_optional=[self.acls_config],
+            acls=self.ACLS,
+            acl_in_dp=self.ACL_IN_DP,
+        )
+        self.start_net()
+
+    def assert_blocked(self, port):
+        first_host, second_host = self.net.hosts[0:2]
+        second_host.cmd('timeout 10s echo hello | nc -l %i &' % port)
+        self.assertEquals(
+            '', first_host.cmd('timeout 10s nc %s %i' % (second_host.IP(), port)))
+        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": %i' % port)
+
+    def assert_unblocked(self, port):
+        first_host, second_host = self.net.hosts[0:2]
+        second_host.cmd('timeout 10s echo hello | nc -l %s %i &' % (second_host.IP(), port))
+        time.sleep(1)
+        self.assertEquals(
+            'hello\r\n',
+            first_host.cmd('nc -w 5 %s %i' % (second_host.IP(), port)))
+        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": %i' % port)
+
+    def test_port5001_blocked(self):
+        self.ping_all_when_learned()
+        self.assert_unblocked(5001)
+        open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
+        self.hup_faucet()
+        time.sleep(1)
+        self.assert_blocked(5001)
+
+    def test_port5002_unblocked(self):
+        self.ping_all_when_learned()
+        self.assert_blocked(5002)
+        open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
+        self.hup_faucet()
+        time.sleep(1)
+        self.assert_unblocked(5002)
 
 
 def import_config():
