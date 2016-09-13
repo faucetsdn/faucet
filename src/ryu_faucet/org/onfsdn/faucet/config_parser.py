@@ -239,6 +239,20 @@ def _watcher_parser_v1(config_file, logname):
         'influx_timeout',
         ]
 
+    GAUGEDB_KEYS =[
+        'gdb_type',
+        'nosql_db',
+        'db_username',
+        'db_password',
+        'db_ip',
+        'db_fqdn',
+        'db_port',
+        'driver',
+        'views',
+        'switches_doc',
+        'flows_doc',
+        ]
+
     dps = []
     with open(config_file, 'r') as conf:
         for line in conf:
@@ -255,6 +269,8 @@ def _watcher_parser_v1(config_file, logname):
                 port_state_conf[key] = dp.__dict__.get(key, None)
             name = dp.name + '-' + w_type
             watcher = WatcherConf(name, port_state_conf)
+            # add dp to watcher. prevents the dp_id attribute error in gauge.
+            watcher.add_dp(dp)
             result.append(watcher)
 
         if dp.monitor_ports:
@@ -270,6 +286,8 @@ def _watcher_parser_v1(config_file, logname):
                 port_stats_conf['file'] = dp.monitor_ports_file
             name = dp.name + '-' + w_type
             watcher = WatcherConf(name, port_stats_conf)
+            # add dp to watcher. prevents the dp_id attribute error in gauge.
+            watcher.add_dp(dp)
             result.append(watcher)
 
         if dp.monitor_flow_table:
@@ -279,6 +297,22 @@ def _watcher_parser_v1(config_file, logname):
             flow_table_conf['file'] = dp.monitor_flow_table_file
             name = dp.name + '-' + w_type
             watcher = WatcherConf(name, flow_table_conf)
+            # add dp to watcher. prevents the dp_id attribute error in gauge.
+            watcher.add_dp(dp)
+            result.append(watcher)
+
+        if dp.gaugedb_updates:
+            w_type = 'flow_table'
+            flow_table_conf = {'type': w_type}
+            flow_table_conf['db_type'] = 'gaugedb'
+            flow_table_conf['interval'] = dp.monitor_flow_table_interval
+            flow_table_conf['db_update_counter'] = dp.gaugedb_update_counter
+            name = dp.name + '-' + w_type
+            for key in GAUGEDB_KEYS:
+                flow_table_conf[key] = dp.__dict__.get('gaugedb').get(
+                                        key, None)
+            watcher = WatcherConf(name, flow_table_conf)
+            watcher.add_dp(dp)
             result.append(watcher)
 
     return result

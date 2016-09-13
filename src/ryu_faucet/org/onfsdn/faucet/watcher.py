@@ -2,10 +2,12 @@ import logging
 import random
 import json
 import time
+import yaml
+import os
 
 from ryu.lib import hub
 from influxdb import InfluxDBClient
-
+from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
 
 def watcher_factory(conf):
     """Return a Gauge object based on type.
@@ -25,7 +27,8 @@ def watcher_factory(conf):
             },
         'flow_table': {
             'text': GaugeFlowTablePoller,
-            }
+            'gaugedb': GaugeFlowTableDBLogger,
+            },
     }
 
     w_type = conf.type
@@ -49,6 +52,37 @@ class InfluxShipper(object):
             database=self.conf.influx_db,
             timeout=self.conf.influx_timeout)
         return client.write_points(points=points, time_precision='s')
+
+class GaugeDBHelper(object):
+    """
+    Helper class for gaugedb operations
+
+    Inheritors must have a WatcherConf object as conf.
+    """
+    def setup(self):
+        self.conn_string = "driver={0};server={1};port={2};" \
+                           "uid={3};pwd={4}".format(
+                           self.conf.driver, self.conf.db_ip, self.conf.db_port,
+                           self.conf.db_username, self.conf.db_password)
+        nsodbc = nsodbc_factory()
+        self.conn = nsodbc.connect(self.conn_string)
+        self.switch_database, exists = self.conn.create(self.conf.switches_doc)
+        if not exists:
+            init_switch_db(self.switch_database)
+        self.flow_database, exists = self.conn.create(self.conf.flows_doc)
+        if not exists:
+            init_flow_db(self.flow_database)
+        self.db_update_counter = int(self.conf.db_update_counter)
+
+    def refresh_switchdb(self):
+        self.conn.delete(self.conf.switches_doc)
+        self.switch_database, _ = self.conn.create(self.conf.switches_doc)
+        init_switch_db(self.switch_database)
+
+    def refresh_flowdb(self):
+        self.conn.delete(self.conf.flows_doc)
+        self.flow_database, _ = self.conn.create(self.conf.flows_doc)
+        init_flow_db(self.flow_database)
 
 class GaugePortStateLogger(object):
 
@@ -323,6 +357,64 @@ class GaugeFlowTablePoller(GaugePoller):
             logfile.write("---\n")
             logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
                 rcv_time_str, ref, json.dumps(jsondict, indent=4)))
+
+    def no_response(self):
+        self.logger.info(
+            "flow dump request timed out for {0}".format(self.dp.name))
+
+
+class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
+    """Periodically dumps the current datapath flow table as a yaml object.
+
+    Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
+    flow table is dumped as an OFFlowStatsReply message (in yaml format) that
+    matches all flows."""
+
+    def __init__(self, conf, logname):
+        super(GaugeFlowTableDBLogger, self).__init__(conf, logname)
+        self.setup()
+
+    def send_req(self):
+        ofp = self.ryudp.ofproto
+        ofp_parser = self.ryudp.ofproto_parser
+        match = ofp_parser.OFPMatch()
+        req = ofp_parser.OFPFlowStatsRequest(
+            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
+            0, 0, match)
+        self.ryudp.send_msg(req)
+
+    def update(self, rcv_time, msg):
+        # TODO: it may be worth while verifying this is the correct stats
+        # response before doing this
+        self.reply_pending = False
+        jsondict = msg.to_jsondict()
+
+        if self.db_update_counter == self.conf.db_update_counter:
+            self.refresh_switchdb()
+            switch_object = {'_id': str(hex(self.dp.dp_id)),
+                             'data': {'flows': []}}
+            self.switch_database.insert_update_doc(switch_object,
+                                                   'data')
+            try:
+                rows = self.switch_database.get_docs(
+                    self.conf.views['switch_view'],
+                    key=str(hex(self.dp.dp_id)))
+                switch = rows[0]
+            except IndexError:
+                switch = None
+
+            if switch:
+                self.refresh_flowdb()
+                for f_msg in jsondict['OFPFlowStatsReply']['body']:
+                    flow_object = {'data': f_msg, 'tags': []}
+                    flow_id = self.flow_database.insert_update_doc(
+                        flow_object, '')
+                    switch.value['data']['flows'].append(flow_id)
+                    self.switch_database.insert_update_doc(
+                        switch.value, 'data')
+        self.db_update_counter -= 1
+        if not self.db_update_counter:
+            self.db_update_counter = self.conf.db_update_counter
 
     def no_response(self):
         self.logger.info(

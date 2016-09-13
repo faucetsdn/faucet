@@ -19,6 +19,7 @@ import signal
 import sys
 
 import logging
+import yaml
 from logging.handlers import TimedRotatingFileHandler
 
 from util import kill_on_exception, get_sys_prefix
@@ -33,6 +34,7 @@ from ryu.ofproto import ofproto_v1_3
 
 from config_parser import watcher_parser
 from watcher import watcher_factory
+
 
 class EventGaugeReconfigure(event.EventBase):
     pass
@@ -95,7 +97,6 @@ class Gauge(app_manager.RyuApp):
             watcher = watcher_factory(conf)(conf, self.logname)
             self.watchers.setdefault(watcher.dp.dp_id, {})
             self.watchers[watcher.dp.dp_id][watcher.conf.type] = watcher
-
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
 

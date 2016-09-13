@@ -28,7 +28,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
                      ['src/cfg/etc/ryu/faucet/gauge.conf',
                       'src/cfg/etc/ryu/faucet/faucet.yaml'])],
         include_package_data=True,
-        install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest'],
+        install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest', 'couchdb'],
         license='Apache License 2.0',
         description='Faucet is an Application for Ryu Openflow Controller to enable drop-in replacement for standard or legacy L2/L3 switch with extra SDN based functionality',
         long_description=README,
