@@ -25,7 +25,7 @@ import ipaddr
 
 import aruba.aruba_pipeline as aruba
 import valve_of
-from util import mac_addr_is_unicast
+import util
 
 from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.lib import mac
@@ -148,12 +148,6 @@ class Valve(object):
                     self.ofchannel_logger.setLevel(logging.DEBUG)
                 for ofmsg in ofmsgs:
                     self.ofchannel_logger.debug(ofmsg)
-
-    @staticmethod
-    def ignore_port(port_num):
-        """Ignore non-physical ports."""
-        # port numbers > 0xF0000000 indicate a logical port
-        return port_num > 0xF0000000
 
     def valve_in_match(self, table_id, in_port=None, vlan=None,
                        eth_type=None, eth_src=None,
@@ -372,7 +366,7 @@ class Valve(object):
 
         # add any ports discovered but not configured
         for port_num in discovered_port_nums:
-            if self.ignore_port(port_num):
+            if valve_of.ignore_port(port_num):
                 continue
             if port_num not in all_port_nums:
                 all_port_nums.add(port_num)
@@ -717,7 +711,7 @@ class Valve(object):
 
         Returns
         A list of flow mod messages to be sent to the datapath."""
-        if self.ignore_dpid(dp_id) or self.ignore_port(port_num):
+        if self.ignore_dpid(dp_id) or valve_of.ignore_port(port_num):
             return []
 
         if port_num not in self.dp.ports:
@@ -777,7 +771,7 @@ class Valve(object):
 
         Returns
         A list of flow mod messages to be sent to the datapath."""
-        if self.ignore_dpid(dp_id) or self.ignore_port(port_num):
+        if self.ignore_dpid(dp_id) or valve_of.ignore_port(port_num):
             return []
 
         if port_num not in self.dp.ports:
@@ -1107,7 +1101,7 @@ class Valve(object):
 
     def handle_control_plane(self, in_port, vlan, eth_src, eth_dst, pkt):
         ofmsgs = []
-        if eth_dst == self.FAUCET_MAC or not mac_addr_is_unicast(eth_dst):
+        if eth_dst == self.FAUCET_MAC or not util.mac_addr_is_unicast(eth_dst):
             arp_pkt = pkt.get_protocol(arp.arp)
             ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
             ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
@@ -1143,7 +1137,7 @@ class Valve(object):
         return ofmsgs
 
     def known_up_dpid_and_port(self, dp_id, in_port):
-        if (not self.ignore_dpid(dp_id) and not self.ignore_port(in_port) and
+        if (not self.ignore_dpid(dp_id) and not valve_of.ignore_port(in_port) and
                 self.dp.running and in_port in self.dp.ports):
             return True
         return False
@@ -1177,7 +1171,7 @@ class Valve(object):
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
 
-        if mac_addr_is_unicast(eth_src):
+        if util.mac_addr_is_unicast(eth_src):
             self.logger.debug(
                 'Packet_in dp_id: %x src:%s in_port:%d vid:%s',
                 dp_id, eth_src, in_port, vlan_vid)
@@ -1242,26 +1236,12 @@ class Valve(object):
                 ofmsgs.append(valve_of.packetout(port.number, pkt.data))
         return ofmsgs
 
-    @staticmethod
-    def ipv6_link_eth_mcast(ucast):
-        nd_mac_bytes = ipaddr.Bytes('\x33\x33') + ucast.packed[-4:]
-        nd_mac = ':'.join(['%02X' % ord(x) for x in nd_mac_bytes])
-        return nd_mac
-
-    @staticmethod
-    def ipv6_link_mcast_from_ucast(ucast):
-        link_mcast_prefix = ipaddr.IPv6Network('ff02::1:ff00:0/104')
-        mcast_bytes = ipaddr.Bytes(
-            link_mcast_prefix.packed[:13] + ucast.packed[-3:])
-        link_mcast = ipaddr.IPv6Address(mcast_bytes)
-        return link_mcast
-
     def nd_solicit_ip_gw(self, ip_gw, controller_ip, vlan, ports):
         ofmsgs = []
         if ports:
             self.logger.info('Resolving %s', ip_gw)
-            nd_mac = self.ipv6_link_eth_mcast(ip_gw)
-            ip_gw_mcast = self.ipv6_link_mcast_from_ucast(ip_gw)
+            nd_mac = util.ipv6_link_eth_mcast(ip_gw)
+            ip_gw_mcast = util.ipv6_link_mcast_from_ucast(ip_gw)
             port_num = ports[0].number
             pkt = self.build_ethernet_pkt(
                 nd_mac, port_num, vlan, ether.ETH_TYPE_IPV6)

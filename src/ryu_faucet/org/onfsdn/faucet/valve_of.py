@@ -19,6 +19,11 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
 
+def ignore_port(port_num):
+    """Ignore non-physical ports."""
+    # port numbers > 0xF0000000 indicate a logical port
+    return port_num > 0xF0000000
+
 def apply_actions(actions):
     return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
 
