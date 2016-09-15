@@ -277,8 +277,8 @@ class Valve(object):
             table_id,
             match=match,
             priority=priority,
-            inst=[valve_of.apply_actions([parser.OFPActionOutput(
-                ofp.OFPP_CONTROLLER, max_len=256)])] + inst)
+            inst=[valve_of.apply_actions(
+                [valve_of.output_controller()])] + inst)
 
     def delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
@@ -403,12 +403,12 @@ class Valve(object):
             vlan.untagged, exclude_unicast)
         for port in tagged_ports:
             if port not in exclude_ports:
-                flood_acts.append(parser.OFPActionOutput(port.number))
+                flood_acts.append(valve_of.output_port(port.number))
         if untagged_ports:
-            flood_acts.append(parser.OFPActionPopVlan())
+            flood_acts.append(valve_of.pop_vlan())
             for port in untagged_ports:
                 if port not in exclude_ports:
-                    flood_acts.append(parser.OFPActionOutput(port.number))
+                    flood_acts.append(valve_of.output_port(port.number))
         return flood_acts
 
     def vlan_mirrored_ports(self, vlan):
@@ -465,7 +465,7 @@ class Valve(object):
                 else:
                     flood_acts = self.build_flood_rule_actions(vlan, True)
                 mirror_acts = [
-                    parser.OFPActionOutput(mirror_port)] + flood_acts
+                    valve_of.output_port(mirror_port)] + flood_acts
                 ofmsgs.append(self.valve_flowmod(
                     self.dp.flood_table,
                     match=self.valve_in_match(
@@ -535,7 +535,7 @@ class Valve(object):
                             port_no = attrib_value['mirror']
                             acl_inst.append(
                                 valve_of.apply_actions([
-                                    parser.OFPActionOutput(port_no)]))
+                                    valve_of.output_port(port_no)]))
                         # if output selected, output packet now
                         # and exit pipeline.
                         if 'output' in attrib_value:
@@ -552,7 +552,7 @@ class Valve(object):
                             # output to port
                             port_no = output_dict['port']
                             output_actions.append(
-                                parser.OFPActionOutput(port_no))
+                                valve_of.output_port(port_no))
                             acl_inst.append(
                                 valve_of.apply_actions(output_actions))
                             continue
@@ -764,7 +764,7 @@ class Valve(object):
         # this port is mirrored to another port
         if port_num in self.dp.mirror_from_port:
             mirror_port_num = self.dp.mirror_from_port[port_num]
-            mirror_act = [parser.OFPActionOutput(mirror_port_num)]
+            mirror_act = [valve_of.output_port(mirror_port_num)]
 
         acl_ofmsgs, forwarding_table = self.port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
@@ -1066,7 +1066,7 @@ class Valve(object):
         mirror_acts = []
         if in_port in self.dp.mirror_from_port:
             mirror_port_num = self.dp.mirror_from_port[in_port]
-            mirror_acts = [parser.OFPActionOutput(mirror_port_num)]
+            mirror_acts = [valve_of.output_port(mirror_port_num)]
 
         # Update datapath to no longer send packets from this mac to controller
         # note the use of hard_timeout here and idle_timeout for the dst table
@@ -1088,11 +1088,11 @@ class Valve(object):
 
         # update datapath to output packets to this mac via the associated port
         if vlan.port_is_tagged(in_port):
-            dst_act = [parser.OFPActionOutput(in_port)]
+            dst_act = [valve_of.output_port(in_port)]
         else:
             dst_act = [
-                parser.OFPActionPopVlan(),
-                parser.OFPActionOutput(in_port)]
+                valve_of.pop_vlan(),
+                valve_of.output_port(in_port)]
         if mirror_acts:
             dst_act.extend(mirror_acts)
         inst = [valve_of.apply_actions(dst_act)]
