@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import copy
+import hashlib
 import logging
 import os
 import yaml
@@ -107,9 +108,10 @@ def _dp_parser_v1(conf, config_file, logname):
         logger.exception("Error in config file: {0}".format(err))
         return None
 
-    return [dp]
+    with open(config_file, 'r') as f:
+        return ({config_file: hashlib.sha256(f.read()).hexdigest()}, [dp])
 
-def _dp_include(parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
+def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
     logger = get_logger(logname)
 
     config = os.path.join(
@@ -140,6 +142,9 @@ def _dp_include(parent_file, config_file, dps_conf, vlans_conf, acls_conf, logna
         if not _dp_include(config, cf, dps_conf, vlans_conf, acls_conf, logname):
             logger.warning("skipping optional include file: {0}".format(cf))
 
+    with open(config_file, 'r') as f:
+        config_hashes[config_file] = hashlib.sha256(f.read()).hexdigest()
+
     return True
 
 def _dp_add_vlan(vid_dp, dp, vlan, logname):
@@ -162,11 +167,13 @@ def _dp_add_vlan(vid_dp, dp, vlan, logname):
 def _dp_parser_v2(conf, config_file, logname):
     logger = get_logger(logname)
 
+    config_hashes = {}
+
     dps_conf = {}
     vlans_conf = {}
     acls_conf = {}
 
-    if not _dp_include(None, config_file, dps_conf, vlans_conf, acls_conf, logname):
+    if not _dp_include(config_hashes, None, config_file, dps_conf, vlans_conf, acls_conf, logname):
         logger.error("error found while loading config file: {0}".format(config_file))
         return None
 
@@ -213,7 +220,7 @@ def _dp_parser_v2(conf, config_file, logname):
 
         dps.append(dp)
 
-    return dps
+    return (config_hashes, dps)
 
 def watcher_parser(config_file, logname):
     logger = get_logger(logname)

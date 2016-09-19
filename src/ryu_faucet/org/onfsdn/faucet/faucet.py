@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import os
@@ -113,7 +114,8 @@ class Faucet(app_manager.RyuApp):
 
         # Set up a valve object for each datapath
         self.valves = {}
-        for dp in dp_parser(self.config_file, self.logname):
+        self.config_hashes, dps = dp_parser(self.config_file, self.logname)
+        for dp in dps:
             # pylint: disable=no-member
             valve = valve_factory(dp)
             if valve is None:
@@ -217,8 +219,21 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     def reload_config(self, ev):
+        changed = False
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
-        new_dps = dp_parser(new_config_file, self.logname)
+        if new_config_file == self.config_file:
+            for config_file, config_hash in self.config_hashes.iteritems():
+                with open(config_file, 'r') as f:
+                    if config_hash != hashlib.sha256(f.read()).hexdigest():
+                        changed = True
+                        break
+        else:
+            self.config_file = new_config_file
+            changed = True
+        if not changed:
+            self.logger.info('configuration is unchanged, not reloading')
+            return
+        self.config_hashes, new_dps = dp_parser(new_config_file, self.logname)
         for new_dp in new_dps:
             # pylint: disable=no-member
             flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
