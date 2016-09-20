@@ -17,6 +17,17 @@ from conf import Conf
 
 class Port(Conf):
 
+    name = None
+    number = None
+    enabled = None
+    permanent_learn = None
+    unicast_flood = None
+    mirror = None
+    mirror_destination = None
+    native_vlan = None
+    tagged_vlans = []
+    acl_in = None
+
     defaults = {
         'number': None,
         'name': None,

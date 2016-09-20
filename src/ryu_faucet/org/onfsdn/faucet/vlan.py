@@ -21,11 +21,22 @@ class VLAN(Conf):
 
     tagged = None
     untagged = None
+    vid = None
+    controller_ips = None
     ipv4_routes = None
     ipv6_routes = None
     arp_cache = None
     nd_cache = None
     host_cache = None
+    bgp_as = None
+    bgp_port = None
+    bgp_routerid = None
+    bgp_neighbor_address = None
+    bgp_neighbour_address = None
+    bgp_neighbor_as = None
+    bgp_neighbour_as = None
+    routes = None
+    max_hosts = None
 
     defaults = {
         'name': None,
@@ -98,11 +109,25 @@ class VLAN(Conf):
     def get_ports(self):
         return self.tagged + self.untagged
 
-    def contains_port(self, port_number):
-        for port in self.get_ports():
-            if port.number == port_number:
-                return True
-        return False
+    def mirrored_ports(self):
+        return [port for port in self.get_ports() if port.mirror]
+
+    def flood_ports(self, configured_ports, exclude_unicast):
+        ports = []
+        for port in configured_ports:
+            if not port.running:
+                continue
+            if exclude_unicast:
+                if not port.unicast_flood:
+                    continue
+            ports.append(port)
+        return ports
+
+    def tagged_flood_ports(self, exclude_unicast):
+        return self.flood_ports(self.tagged, exclude_unicast)
+
+    def untagged_flood_ports(self, exclude_unicast):
+        return self.flood_ports(self.untagged, exclude_unicast)
 
     def port_is_tagged(self, port_number):
         for port in self.tagged:
