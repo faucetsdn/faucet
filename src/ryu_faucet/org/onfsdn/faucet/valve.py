@@ -820,12 +820,6 @@ class Valve(object):
             vid = vlan.vid
         return vid
 
-    def build_ethernet_pkt(self, eth_dst, in_port, vlan, ethertype):
-        vid = self.vlan_vid(vlan, in_port)
-        pkt_header = valve_packet.build_pkt_header(
-            self.FAUCET_MAC, eth_dst, vid, ethertype)
-        return pkt_header
-
     def add_route(self, vlan, ip_gw, ip_dst):
         ofmsgs = []
         if ip_dst.version == 6:
@@ -943,20 +937,12 @@ class Valve(object):
     def control_plane_icmp_handler(self, in_port, vlan, eth_src,
                                    ipv4_pkt, icmp_pkt):
         ofmsgs = []
-
         if icmp_pkt is not None:
-            pkt = self.build_ethernet_pkt(
-                eth_src, in_port, vlan, ether.ETH_TYPE_IP)
-            ipv4_pkt = ipv4.ipv4(
-                dst=ipv4_pkt.src, src=ipv4_pkt.dst, proto=ipv4_pkt.proto)
-            icmp_pkt = icmp.icmp(
-                type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE,
-                data=icmp_pkt.data)
-            pkt.add_protocol(ipv4_pkt)
-            pkt.add_protocol(icmp_pkt)
-            pkt.serialize()
-            ofmsgs.append(valve_of.packetout(in_port, pkt.data))
-
+            vid = self.vlan_vid(vlan, in_port)
+            echo_reply = valve_packet.echo_reply(
+                self.FAUCET_MAC, eth_src, vid, ipv4_pkt.dst, ipv4_pkt.src,
+                ipv4_pkt.proto, icmp_pkt.data)
+            ofmsgs.append(valve_of.packetout(in_port, echo_reply.data))
         return ofmsgs
 
     def control_plane_icmpv6_handler(self, in_port, vlan, eth_src,
@@ -1198,23 +1184,11 @@ class Valve(object):
         ofmsgs = []
         if ports:
             self.logger.info('Resolving %s', ip_gw)
-            nd_mac = util.ipv6_link_eth_mcast(ip_gw)
-            ip_gw_mcast = util.ipv6_link_mcast_from_ucast(ip_gw)
-            port_num = ports[0].number
-            pkt = self.build_ethernet_pkt(
-                nd_mac, port_num, vlan, ether.ETH_TYPE_IPV6)
-            ipv6_pkt = ipv6.ipv6(
-                src=controller_ip.ip, dst=ip_gw_mcast, nxt=inet.IPPROTO_ICMPV6)
-            icmpv6_pkt = icmpv6.icmpv6(
-                type_=icmpv6.ND_NEIGHBOR_SOLICIT,
-                data=icmpv6.nd_neighbor(
-                    dst=ip_gw,
-                    option=icmpv6.nd_option_sla(hw_src=self.FAUCET_MAC)))
-            pkt.add_protocol(ipv6_pkt)
-            pkt.add_protocol(icmpv6_pkt)
-            pkt.serialize()
+            vid = self.vlan_vid(vlan, ports[0].number)
+            nd_request = valve_packet.nd_request(
+                self.FAUCET_MAC, vid, controller_ip.ip, ip_gw)
             for port in ports:
-                ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+                ofmsgs.append(valve_of.packetout(port.number, nd_request.data))
         return ofmsgs
 
     def resolve_gateways(self):
