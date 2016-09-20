@@ -56,10 +56,10 @@ def arp_reply(eth_src, eth_dst, vid, src_ip, dst_ip):
     pkt.serialize()
     return pkt
 
-def echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, proto, data):
+def echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, data):
     pkt = build_pkt_header(eth_src, eth_dst, vid, ether.ETH_TYPE_IP)
     ipv4_pkt = ipv4.ipv4(
-        dst=dst_ip, src=src_ip, proto=proto)
+        dst=dst_ip, src=src_ip, proto=inet.IPPROTO_ICMP)
     pkt.add_protocol(ipv4_pkt)
     icmp_pkt = icmp.icmp(
         type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE,

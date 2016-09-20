@@ -941,7 +941,7 @@ class Valve(object):
             vid = self.vlan_vid(vlan, in_port)
             echo_reply = valve_packet.echo_reply(
                 self.FAUCET_MAC, eth_src, vid, ipv4_pkt.dst, ipv4_pkt.src,
-                ipv4_pkt.proto, icmp_pkt.data)
+                icmp_pkt.data)
             ofmsgs.append(valve_of.packetout(in_port, echo_reply.data))
         return ofmsgs
 
