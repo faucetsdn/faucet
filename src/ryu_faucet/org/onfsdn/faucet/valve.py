@@ -27,14 +27,12 @@ import aruba.aruba_pipeline as aruba
 import valve_of
 import util
 
-from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet
 from ryu.lib.packet import vlan as packet_vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.ofproto import ofproto_v1_3_parser as parser
 
 
 class LinkNeighbor(object):
@@ -197,7 +195,7 @@ class Valve(object):
                     '%s match not registered for table %u' % (
                         match_type, table_id)
 
-        match = parser.OFPMatch(**match_dict)
+        match = valve_of.match(match_dict)
         return match
 
     def ignore_dpid(self, dp_id):
@@ -227,18 +225,17 @@ class Valve(object):
             priority = self.dp.lowest_priority
         if inst is None:
             inst = []
-        return parser.OFPFlowMod(
-            datapath=None,
-            cookie=self.dp.cookie,
-            command=command,
-            table_id=table_id,
-            priority=priority,
-            out_port=out_port,
-            out_group=out_group,
-            match=match,
-            instructions=inst,
-            hard_timeout=hard_timeout,
-            idle_timeout=idle_timeout)
+        return valve_of.flowmod(
+            self.dp.cookie,
+            command,
+            table_id,
+            priority,
+            out_port,
+            out_group,
+            match,
+            inst,
+            hard_timeout,
+            idle_timeout)
 
     def valve_flowdel(self, table_id, match=None, priority=None,
                       out_port=ofp.OFPP_ANY):
@@ -251,7 +248,7 @@ class Valve(object):
                 command=ofp.OFPFC_DELETE,
                 out_port=out_port,
                 out_group=ofp.OFPG_ANY),
-            parser.OFPBarrierRequest(None)]
+            valve_of.barrier()]
 
     def valve_flowdrop(self, table_id, match=None, priority=None,
                        hard_timeout=0):
@@ -558,12 +555,7 @@ class Valve(object):
                     match_dict[attrib] = attrib_value
                 # override in_port always
                 match_dict['in_port'] = port_num
-                # to_match() needs to access parser via dp
-                # this uses the old API, which is oh so convenient
-                # (transparently handling masks for example).
-                null_dp = namedtuple('null_dp', 'ofproto_parser')
-                null_dp.ofproto_parser = parser
-                acl_match = ofctl.to_match(null_dp, match_dict)
+                acl_match = valve_of.match_from_dict(match_dict)
                 ofmsgs.append(self.valve_flowmod(
                     self.dp.acl_table,
                     acl_match,
@@ -1314,7 +1306,5 @@ class ArubaValve(Valve):
         ryu_table_loader = aruba.LoadRyuTables()
         ryu_table_loader.load_tables(
             os.path.join(aruba.CFG_PATH, 'aruba_pipeline.json'), parser)
-        ofmsgs = [parser.OFPTableFeaturesStatsRequest(
-            datapath=None,
-            body=ryu_table_loader.ryu_tables)]
+        ofmsgs = [valve_of.table_features(ryu_table_loader.ryu_tables)]
         return ofmsgs

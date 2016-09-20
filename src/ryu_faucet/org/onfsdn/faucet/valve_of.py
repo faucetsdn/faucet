@@ -14,6 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
+
+from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
@@ -61,3 +64,35 @@ def packetout(out_port, data):
         in_port=ofp.OFPP_CONTROLLER,
         actions=[output_port(out_port)],
         data=data)
+
+def barrier():
+    return parser.OFPBarrierRequest(None)
+
+def table_features(body):
+    return parser.OFPTableFeaturesStatsRequest(
+        datapath=None,
+        body=ryu_table_loader.ryu_tables)]
+
+def match(match_dict):
+    return parser.OFPMatch(**match_dict)
+
+def match_from_dict(match_dict):
+    null_dp = namedtuple('null_dp', 'ofproto_parser')
+    null_dp.ofproto_parser = parser
+    acl_match = ofctl.to_match(null_dp, match_dict)
+    return acl_match
+
+def flowmod(cookie, command, table_id, priority, out_port, out_group,
+            match, inst, hard_timeout, idle_timeout):
+    return parser.OFPFlowMod(
+        datapath=None,
+        cookie=cookie,
+        command=command,
+        table_id=table_id,
+        priority=priority,
+        out_port=out_port,
+        out_group=out_group,
+        match=match,
+        instructions=inst,
+        hard_timeout=hard_timeout,
+        idle_timeout=idle_timeout)
