@@ -909,13 +909,6 @@ class Valve(object):
 
         return ofmsgs
 
-    @staticmethod
-    def to_faucet_ip(vlan, src_ip, dst_ip):
-        for controller_ip in vlan.controller_ips:
-            if src_ip in controller_ip or dst_ip in controller_ip:
-                return True
-        return False
-
     def learn_host_on_vlan_port(self, port, vlan, eth_src):
         ofmsgs = []
         in_port = port.number
@@ -987,7 +980,8 @@ class Valve(object):
                 src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
                 dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
                 if (arp_pkt.opcode == arp.ARP_REQUEST and
-                        self.to_faucet_ip(vlan, src_ip, dst_ip)):
+                        (vlan.ip_in_controller_subnet(src_ip) or
+                         vlan.ip_in_controller_subnet(dst_ip))):
                     ofmsgs.extend(self.control_plane_arp_handler(
                         in_port, vlan, eth_src, arp_pkt))
                 elif (arp_pkt.opcode == arp.ARP_REPLY and
@@ -999,7 +993,8 @@ class Valve(object):
                 if icmp_pkt is not None:
                     src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
                     dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
-                    if self.to_faucet_ip(vlan, src_ip, dst_ip):
+                    if (vlan.ip_in_controller_subnet(src_ip) or
+                        vlan.ip_in_controller_subnet(dst_ip)):
                         ofmsgs.extend(self.control_plane_icmp_handler(
                             in_port, vlan, eth_src, ipv4_pkt, icmp_pkt))
             elif ipv6_pkt is not None:
@@ -1007,7 +1002,8 @@ class Valve(object):
                 if icmpv6_pkt is not None:
                     src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
                     dst_ip = ipaddr.IPv6Address(ipv6_pkt.dst)
-                    if self.to_faucet_ip(vlan, src_ip, dst_ip):
+                    if (vlan.ip_in_controller_subnet(src_ip) or
+                        vlan.ip_in_controller_subnet(dst_ip)):
                         ofmsgs.extend(self.control_plane_icmpv6_handler(
                             in_port, vlan, eth_src, ipv6_pkt, icmpv6_pkt))
 

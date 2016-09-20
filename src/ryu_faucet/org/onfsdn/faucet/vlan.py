@@ -140,3 +140,9 @@ class VLAN(Conf):
             if port.number == port_number:
                 return True
         return False
+
+    def ip_in_controller_subnet(self, ip):
+        for controller_ip in self.controller_ips:
+            if ip in controller_ip:
+                return True
+        return False
