@@ -33,6 +33,7 @@ from ryu.lib.packet import vlan as packet_vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
+from ryu.ofproto import ofproto_v1_3_parser as parser
 
 
 class LinkNeighbor(object):
