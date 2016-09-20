@@ -21,6 +21,8 @@ from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
+def parse_pkt(pkt):
+    return pkt.get_protocol(ethernet.ethernet)
 
 def build_pkt_header(eth_src, eth_dst, vid, dl_type):
     pkt_header = packet.Packet()

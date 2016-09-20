@@ -29,7 +29,7 @@ import valve_packet
 import util
 
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6
+from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -1114,7 +1114,7 @@ class Valve(object):
             return []
 
         ofmsgs = []
-        eth_pkt = pkt.get_protocol(ethernet.ethernet)
+        eth_pkt = valve_packet.parse_pkt(pkt)
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
         vlan = self.dp.vlans[vlan_vid]
