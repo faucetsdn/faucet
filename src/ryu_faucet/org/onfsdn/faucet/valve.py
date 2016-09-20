@@ -321,8 +321,7 @@ class Valve(object):
         # add vlan ports
         for vlan in self.dp.vlans.itervalues():
             self.logger.info('Configuring VLAN %s', vlan)
-            vlan_ports = vlan.tagged + vlan.untagged
-            for port in vlan_ports:
+            for port in vlan.get_ports():
                 all_port_nums.add(port.number)
             # install eth_dst_table flood ofmsgs
             ofmsgs.extend(self.build_flood_rules(vlan))
@@ -344,24 +343,10 @@ class Valve(object):
 
         return ofmsgs
 
-    @staticmethod
-    def build_flood_ports_for_vlan(vlan_ports, exclude_unicast):
-        ports = []
-        for port in vlan_ports:
-            if not port.running():
-                continue
-            if exclude_unicast:
-                if not port.unicast_flood:
-                    continue
-            ports.append(port)
-        return ports
-
     def build_flood_rule_actions(self, vlan, exclude_unicast, exclude_ports=[]):
         flood_acts = []
-        tagged_ports = self.build_flood_ports_for_vlan(
-            vlan.tagged, exclude_unicast)
-        untagged_ports = self.build_flood_ports_for_vlan(
-            vlan.untagged, exclude_unicast)
+        tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
+        untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
         for port in tagged_ports:
             if port not in exclude_ports:
                 flood_acts.append(valve_of.output_port(port.number))
@@ -371,13 +356,6 @@ class Valve(object):
                 if port not in exclude_ports:
                     flood_acts.append(valve_of.output_port(port.number))
         return flood_acts
-
-    def vlan_mirrored_ports(self, vlan):
-        mirrored_ports = []
-        for port in vlan.tagged + vlan.untagged:
-            if port.number in self.dp.mirror_from_port:
-                mirrored_ports.append(port)
-        return mirrored_ports
 
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
@@ -399,9 +377,8 @@ class Valve(object):
             (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
         ])
         ofmsgs = []
-        vlan_all_ports = self.build_flood_ports_for_vlan(
-            vlan.tagged + vlan.untagged, False)
-        mirrored_ports = self.vlan_mirrored_ports(vlan)
+        vlan_all_ports = vlan.flood_ports(vlan.get_ports(), False)
+        mirrored_ports = vlan.mirrored_ports()
         for eth_dst, eth_dst_mask in flood_eth_dst_matches:
             for port in vlan_all_ports:
                 if eth_dst is None:
@@ -747,8 +724,8 @@ class Valve(object):
                 out_port=port_num))
 
         for vlan in self.dp.vlans.values():
-            if port_num in vlan.tagged or port_num in vlan.untagged:
-                ofmsgs.extend(self.build_flood_rules(vlan), modify=True)
+            if port in vlan.get_ports():
+                ofmsgs.extend(self.build_flood_rules(vlan, modify=True))
 
         return ofmsgs
 
@@ -1154,10 +1131,8 @@ class Valve(object):
         ofmsgs = []
         now = time.time()
         for vlan in self.dp.vlans.itervalues():
-            untagged_ports = self.build_flood_ports_for_vlan(
-                vlan.untagged, False)
-            tagged_ports = self.build_flood_ports_for_vlan(
-                vlan.tagged, False)
+            untagged_ports = vlan.untagged_flood_ports(False)
+            tagged_ports = vlan.tagged_flood_ports(False)
             for routes, neighbor_cache, neighbor_resolver in (
                     (vlan.ipv4_routes, vlan.arp_cache, self.arp_for_ip_gw),
                     (vlan.ipv6_routes, vlan.nd_cache, self.nd_solicit_ip_gw)):

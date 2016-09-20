@@ -86,9 +86,11 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 FAUCET_LINT_SRCS = (
     'faucet.py',
     'gauge.py',
+    'port.py',
     'valve.py',
     'valve_of.py',
     'valve_packet.py',
+    'vlan.py',
 )
 
 # Maximum number of parallel tests to run at once

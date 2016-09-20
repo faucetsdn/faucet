@@ -17,6 +17,10 @@ from conf import Conf
 
 class Port(Conf):
 
+    name = None
+    number = None
+    enabled = None
+
     defaults = {
         'number': None,
         'name': None,
