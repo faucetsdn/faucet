@@ -31,12 +31,7 @@ def read_config(config_file, logname):
         with open(config_file, 'r') as stream:
             conf = yaml.safe_load(stream)
     except yaml.YAMLError as ex:
-        mark = ex.problem_mark
-        errormsg = "Error in file: {0} at ({1}, {2})".format(
-            config_file,
-            mark.line + 1,
-            mark.column + 1)
-        logger.error(errormsg)
+        logger.error('Error in file %s (%s)', config_file, str(ex))
         return None
     return conf
 
@@ -54,7 +49,7 @@ def dp_parser(config_file, logname):
     elif version == 2:
         return _dp_parser_v2(conf, config_file, logname)
     else:
-        logger.error("unsupported config version number: {0}".format(version))
+        logger.error('unsupported config version number %s', version)
         return None
 
 def port_parser(dp_id, p_identifier, port_conf, vlans):
@@ -90,7 +85,7 @@ def _dp_parser_v1(conf, config_file, logname):
     # TODO: warn when the configuration contains meaningless elements
     # they are probably typos
     if 'dp_id' not in conf:
-        logger.error('dp_id not configured in file {0}'.format(config_file))
+        logger.error('dp_id not configured in file %s', config_file)
 
     dp_id = conf['dp_id']
     dp = DP(dp_id, conf)
@@ -113,7 +108,7 @@ def _dp_parser_v1(conf, config_file, logname):
     try:
         dp.sanity_check()
     except AssertionError as err:
-        logger.exception("Error in config file: {0}".format(err))
+        logger.exception('Error in config file: %s', err)
         return None
 
     return [dp]
@@ -127,33 +122,31 @@ def _dp_include(parent_file, config_file, dps_conf, vlans_conf, acls_conf, logna
     ) if parent_file and not os.path.isabs(config_file) else config_file
 
     if not os.path.isfile(config):
-        logger.warning("not a regular file or does not exist: {0}".format(config))
+        logger.warning('not a regular file or does not exist: %s', config)
         return False
 
     conf = read_config(config, logname)
 
     if not conf:
-        logger.warning("error loading config from file: {0}".format(config))
+        logger.warning('error loading config from file: %s', config)
         return False
 
     dps_conf.update(conf.pop('dps', {}))
     vlans_conf.update(conf.pop('vlans', {}))
     acls_conf.update(conf.pop('acls', {}))
 
-    for cf in conf.pop('include', []):
-        if not _dp_include(config, cf, dps_conf, vlans_conf, acls_conf, logname):
-            logger.error("unable to load required include file: {0}".format(cf))
+    for include_file in conf.pop('include', []):
+        if not _dp_include(config, include_file, dps_conf, vlans_conf, acls_conf, logname):
+            logger.error('unable to load required include file: %s', include_file)
             return False
 
-    for cf in conf.pop('include-optional', []):
-        if not _dp_include(config, cf, dps_conf, vlans_conf, acls_conf, logname):
-            logger.warning("skipping optional include file: {0}".format(cf))
+    for include_file in conf.pop('include-optional', []):
+        if not _dp_include(config, include_file, dps_conf, vlans_conf, acls_conf, logname):
+            logger.warning('skipping optional include file: %s', include_file)
 
     return True
 
 def _dp_add_vlan(vid_dp, dp, vlan, logname):
-    logger = get_logger(logname)
-
     if vlan.vid not in vid_dp:
         vid_dp[vlan.vid] = set()
 
@@ -176,11 +169,11 @@ def _dp_parser_v2(conf, config_file, logname):
     acls_conf = {}
 
     if not _dp_include(None, config_file, dps_conf, vlans_conf, acls_conf, logname):
-        logger.error("error found while loading config file: {0}".format(config_file))
+        logger.error('error found while loading config file: %s', config_file)
         return None
 
     if not dps_conf:
-        logger.error("dps not configured in file: {0}".format(config_file))
+        logger.error('dps not configured in file: %s', config_file)
         return None
 
     dps = []
@@ -209,7 +202,7 @@ def _dp_parser_v2(conf, config_file, logname):
                     for vid in port.tagged_vlans:
                         _dp_add_vlan(vid_dp, dp, vlans[vid], logname)
         except AssertionError as err:
-            logger.exception("Error in config file: {0}".format(err))
+            logger.exception('Error in config file: %s', err)
             return None
         for port in ports.itervalues():
             # now that all ports are created, handle mirroring rewriting
@@ -226,7 +219,6 @@ def _dp_parser_v2(conf, config_file, logname):
     return dps
 
 def watcher_parser(config_file, logname):
-    logger = get_logger(logname)
     #TODO: make this backwards compatible
 
     conf = read_config(config_file, logname)
@@ -237,7 +229,6 @@ def watcher_parser(config_file, logname):
         return _watcher_parser_v1(config_file, logname)
 
 def _watcher_parser_v1(config_file, logname):
-    logger = get_logger(logname)
     result = []
 
     INFLUX_KEYS = [

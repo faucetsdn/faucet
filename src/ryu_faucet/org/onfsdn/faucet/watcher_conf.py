@@ -3,6 +3,8 @@ from conf import Conf
 
 class WatcherConf(Conf):
 
+    db = None
+
     defaults = {
         'name': None,
         'type': None,

@@ -84,9 +84,11 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 # Must pass with 0 lint errors
 # TODO: eliminate existing lint errors so all files can be checked.
 FAUCET_LINT_SRCS = (
+    'config_parser.py',
     'faucet.py',
     'gauge.py',
     'port.py',
+    'util.py',
     'valve.py',
     'valve_of.py',
     'valve_packet.py',
