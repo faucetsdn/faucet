@@ -87,6 +87,8 @@ FAUCET_LINT_SRCS = (
     'faucet.py',
     'gauge.py',
     'valve.py',
+    'valve_of.py',
+    'valve_packet.py',
 )
 
 # Maximum number of parallel tests to run at once

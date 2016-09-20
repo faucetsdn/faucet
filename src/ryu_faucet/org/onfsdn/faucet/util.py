@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ipaddr
 import logging
 import os
 import signal
@@ -48,21 +47,6 @@ def mac_addr_is_unicast(mac_addr):
     mac_addr - a string representation of a mac address."""
     msb = mac_addr.split(":")[0]
     return msb[-1] in "02468aAcCeE"
-
-
-def ipv6_link_eth_mcast(ucast):
-    nd_mac_bytes = ipaddr.Bytes('\x33\x33') + ucast.packed[-4:]
-    nd_mac = ':'.join(['%02X' % ord(x) for x in nd_mac_bytes])
-    return nd_mac
-
-
-def ipv6_link_mcast_from_ucast(ucast):
-    link_mcast_prefix = ipaddr.IPv6Network('ff02::1:ff00:0/104')
-    mcast_bytes = ipaddr.Bytes(
-        link_mcast_prefix.packed[:13] + ucast.packed[-3:])
-    link_mcast = ipaddr.IPv6Address(mcast_bytes)
-    return link_mcast
-
 
 def kill_on_exception(logname):
     """decorator to ensure functions will kill ryu when an unhandled exception

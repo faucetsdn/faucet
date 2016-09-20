@@ -70,8 +70,7 @@ def barrier():
 
 def table_features(body):
     return parser.OFPTableFeaturesStatsRequest(
-        datapath=None,
-        body=ryu_table_loader.ryu_tables)
+        datapath=None, body=body)
 
 def match(match_dict):
     return parser.OFPMatch(**match_dict)
