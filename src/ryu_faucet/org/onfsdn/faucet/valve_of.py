@@ -81,6 +81,47 @@ def match_from_dict(match_dict):
     acl_match = ofctl.to_match(null_dp, match_dict)
     return acl_match
 
+def build_match_dict(in_port=None, vlan=None,
+                     eth_type=None, eth_src=None,
+                     eth_dst=None, eth_dst_mask=None,
+                     ipv6_nd_target=None, icmpv6_type=None,
+                     nw_proto=None,
+                     nw_src=None, nw_dst=None):
+    match_dict = {}
+    if in_port is not None:
+        match_dict['in_port'] = in_port
+    if vlan is not None:
+        if vlan.vid == ofp.OFPVID_NONE:
+            match_dict['vlan_vid'] = ofp.OFPVID_NONE
+        else:
+            match_dict['vlan_vid'] = (vlan.vid | ofp.OFPVID_PRESENT)
+    if eth_src is not None:
+        match_dict['eth_src'] = eth_src
+    if eth_dst is not None:
+        if eth_dst_mask is not None:
+            match_dict['eth_dst'] = (eth_dst, eth_dst_mask)
+        else:
+            match_dict['eth_dst'] = eth_dst
+    if nw_proto is not None:
+        match_dict['ip_proto'] = nw_proto
+    if nw_src is not None:
+        match_dict['ipv4_src'] = (str(nw_src.ip), str(nw_src.netmask))
+    if icmpv6_type is not None:
+        match_dict['icmpv6_type'] = icmpv6_type
+    if ipv6_nd_target is not None:
+        match_dict['ipv6_nd_target'] = str(ipv6_nd_target.ip)
+    if nw_dst is not None:
+        nw_dst_masked = (str(nw_dst.ip), str(nw_dst.netmask))
+        if eth_type == ether.ETH_TYPE_ARP:
+            match_dict['arp_tpa'] = nw_dst_masked
+        elif eth_type == ether.ETH_TYPE_IP:
+            match_dict['ipv4_dst'] = nw_dst_masked
+        else:
+            match_dict['ipv6_dst'] = nw_dst_masked
+    if eth_type is not None:
+        match_dict['eth_type'] = eth_type
+    return match_dict
+
 def flowmod(cookie, command, table_id, priority, out_port, out_group,
             match, inst, hard_timeout, idle_timeout):
     return parser.OFPFlowMod(

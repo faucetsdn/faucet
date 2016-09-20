@@ -154,40 +154,10 @@ class Valve(object):
                        ipv6_nd_target=None, icmpv6_type=None,
                        nw_proto=None,
                        nw_src=None, nw_dst=None):
-        match_dict = {}
-        if in_port is not None:
-            match_dict['in_port'] = in_port
-        if vlan is not None:
-            if vlan.vid == ofp.OFPVID_NONE:
-                match_dict['vlan_vid'] = ofp.OFPVID_NONE
-            else:
-                match_dict['vlan_vid'] = (vlan.vid | ofp.OFPVID_PRESENT)
-        if eth_src is not None:
-            match_dict['eth_src'] = eth_src
-        if eth_dst is not None:
-            if eth_dst_mask is not None:
-                match_dict['eth_dst'] = (eth_dst, eth_dst_mask)
-            else:
-                match_dict['eth_dst'] = eth_dst
-        if nw_proto is not None:
-            match_dict['ip_proto'] = nw_proto
-        if nw_src is not None:
-            match_dict['ipv4_src'] = (str(nw_src.ip), str(nw_src.netmask))
-        if icmpv6_type is not None:
-            match_dict['icmpv6_type'] = icmpv6_type
-        if ipv6_nd_target is not None:
-            match_dict['ipv6_nd_target'] = str(ipv6_nd_target.ip)
-        if nw_dst is not None:
-            nw_dst_masked = (str(nw_dst.ip), str(nw_dst.netmask))
-            if eth_type == ether.ETH_TYPE_ARP:
-                match_dict['arp_tpa'] = nw_dst_masked
-            elif eth_type == ether.ETH_TYPE_IP:
-                match_dict['ipv4_dst'] = nw_dst_masked
-            else:
-                match_dict['ipv6_dst'] = nw_dst_masked
-        if eth_type is not None:
-            match_dict['eth_type'] = eth_type
-
+        match_dict = valve_of.build_match_dict(
+            in_port, vlan, eth_type, eth_src,
+            eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
+            nw_proto, nw_src, nw_dst)
         if table_id != self.dp.acl_table:
             assert table_id in self.TABLE_MATCH_TYPES,\
                 '%u table not registered' % table_id
@@ -195,7 +165,6 @@ class Valve(object):
                 assert match_type in self.TABLE_MATCH_TYPES[table_id],\
                     '%s match not registered for table %u' % (
                         match_type, table_id)
-
         match = valve_of.match(match_dict)
         return match
 
@@ -510,6 +479,43 @@ class Valve(object):
             self.logger.warning('Datapath %s down', dp_id)
         return []
 
+    def build_acl_entry(self, rule_conf, acl_allow_inst, port_num):
+        acl_inst = []
+        match_dict = {}
+        for attrib, attrib_value in rule_conf.iteritems():
+            if attrib == 'in_port':
+                continue
+            if attrib == 'actions':
+                if 'mirror' in attrib_value:
+                    port_no = attrib_value['mirror']
+                    acl_inst.append(
+                        valve_of.apply_actions([valve_of.output_port(port_no)]))
+                # if output selected, output packet now and exit pipeline.
+                if 'output' in attrib_value:
+                    output_dict = attrib_value['output']
+                    output_actions = []
+                    # if destination rewriting selected, rewrite it.
+                    if 'dl_dst' in output_dict:
+                        output_actions.append(
+                            valve_of.set_eth_dst(output_dict['dl_dst']))
+                    # if vlan tag is specified, push it.
+                    if 'vlan_vid' in output_dict:
+                        output_actions.extend(
+                            valve_of.push_vlan_act(output_dict['vlan_vid']))
+                    # output to port
+                    port_no = output_dict['port']
+                    output_actions.append(valve_of.output_port(port_no))
+                    acl_inst.append(valve_of.apply_actions(output_actions))
+                    continue
+                if attrib_value['allow'] == 1:
+                    acl_inst.append(acl_allow_inst)
+            else:
+                match_dict[attrib] = attrib_value
+        # override in_port always
+        match_dict['in_port'] = port_num
+        acl_match = valve_of.match_from_dict(match_dict)
+        return acl_match, acl_inst
+
     def port_add_acl(self, port_num):
         ofmsgs = []
         forwarding_table = self.dp.eth_src_table
@@ -519,44 +525,8 @@ class Valve(object):
             acl_rule_priority = self.dp.highest_priority
             acl_allow_inst = valve_of.goto_table(self.dp.eth_src_table)
             for rule_conf in self.dp.acls[acl_num]:
-                acl_inst = []
-                match_dict = {}
-                for attrib, attrib_value in rule_conf.iteritems():
-                    if attrib == 'actions':
-                        if 'mirror' in attrib_value:
-                            port_no = attrib_value['mirror']
-                            acl_inst.append(
-                                valve_of.apply_actions([
-                                    valve_of.output_port(port_no)]))
-                        # if output selected, output packet now
-                        # and exit pipeline.
-                        if 'output' in attrib_value:
-                            output_dict = attrib_value['output']
-                            output_actions = []
-                            # if destination rewriting selected, rewrite it.
-                            if 'dl_dst' in output_dict:
-                                output_actions.append(
-                                    valve_of.set_eth_dst(output_dict['dl_dst']))
-                            # if vlan tag is specified, push it.
-                            if 'vlan_vid' in output_dict:
-                                output_actions.extend(
-                                    valve_of.push_vlan_act(output_dict['vlan_vid']))
-                            # output to port
-                            port_no = output_dict['port']
-                            output_actions.append(
-                                valve_of.output_port(port_no))
-                            acl_inst.append(
-                                valve_of.apply_actions(output_actions))
-                            continue
-                        if attrib_value['allow'] == 1:
-                            acl_inst.append(acl_allow_inst)
-                        continue
-                    if attrib == 'in_port':
-                        continue
-                    match_dict[attrib] = attrib_value
-                # override in_port always
-                match_dict['in_port'] = port_num
-                acl_match = valve_of.match_from_dict(match_dict)
+                acl_match, acl_inst = self.build_acl_entry(
+                    rule_conf, acl_allow_inst, port_num)
                 ofmsgs.append(self.valve_flowmod(
                     self.dp.acl_table,
                     acl_match,
