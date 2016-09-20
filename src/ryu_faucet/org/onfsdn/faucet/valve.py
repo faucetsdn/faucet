@@ -962,26 +962,13 @@ class Valve(object):
     def control_plane_icmpv6_handler(self, in_port, vlan, eth_src,
                                      ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
-        pkt = self.build_ethernet_pkt(
-            eth_src, in_port, vlan, ether.ETH_TYPE_IPV6)
+        vid = self.vlan_vid(vlan, in_port)
 
         if icmpv6_pkt.type_ == icmpv6.ND_NEIGHBOR_SOLICIT:
-            dst = icmpv6_pkt.data.dst
-            ipv6_reply = ipv6.ipv6(
-                src=dst,
-                dst=ipv6_pkt.src,
-                nxt=inet.IPPROTO_ICMPV6,
-                hop_limit=ipv6_pkt.hop_limit)
-            pkt.add_protocol(ipv6_reply)
-            icmpv6_reply = icmpv6.icmpv6(
-                type_=icmpv6.ND_NEIGHBOR_ADVERT,
-                data=icmpv6.nd_neighbor(
-                    dst=dst,
-                    option=icmpv6.nd_option_tla(
-                        hw_src=self.FAUCET_MAC), res=7))
-            pkt.add_protocol(icmpv6_reply)
-            pkt.serialize()
-            ofmsgs.extend([valve_of.packetout(in_port, pkt.data)])
+            nd_reply = valve_packet.nd_reply(
+                self.FAUCET_MAC, eth_src, vid,
+                icmpv6_pkt.data.dst, ipv6_pkt.src, ipv6_pkt.hop_limit)
+            ofmsgs.extend([valve_of.packetout(in_port, nd_reply.data)])
         elif icmpv6_pkt.type_ == icmpv6.ND_NEIGHBOR_ADVERT:
             resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
             self.logger.info('ND response %s for %s', eth_src, resolved_ip_gw)
@@ -1000,22 +987,11 @@ class Valve(object):
                             vlan, vlan.nd_cache,
                             ip_gw, ip_dst, eth_src, is_updated))
         elif icmpv6_pkt.type_ == icmpv6.ICMPV6_ECHO_REQUEST:
-            dst = ipv6_pkt.dst
-            ipv6_reply = ipv6.ipv6(
-                src=dst,
-                dst=ipv6_pkt.src,
-                nxt=inet.IPPROTO_ICMPV6,
-                hop_limit=ipv6_pkt.hop_limit)
-            pkt.add_protocol(ipv6_reply)
-            icmpv6_reply = icmpv6.icmpv6(
-                type_=icmpv6.ICMPV6_ECHO_REPLY,
-                data=icmpv6.echo(
-                    id_=icmpv6_pkt.data.id,
-                    seq=icmpv6_pkt.data.seq,
-                    data=icmpv6_pkt.data.data))
-            pkt.add_protocol(icmpv6_reply)
-            pkt.serialize()
-            ofmsgs.extend([valve_of.packetout(in_port, pkt.data)])
+            icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
+                self.FAUCET_MAC, eth_src, vid,
+                ipv6_pkt.dst, ipv6_pkt.src, ipv6_pkt.hop_limit,
+                icmpv6_pkt.data.id, icmpv6_pkt.data.seq, icmpv6_pkt.data.data)
+            ofmsgs.extend([valve_of.packetout(in_port, icmpv6_echo_reply.data)])
 
         return ofmsgs
 
