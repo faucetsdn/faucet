@@ -591,9 +591,19 @@ class Valve(object):
                     priority=self.dp.highest_priority + max_prefixlen))
         return ofmsgs
 
-    def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
+    def port_add_vlan_rules(self, port, vlan, vlan_vid, vlan_inst):
         ofmsgs = []
         ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
+        ofmsgs.append(self.valve_flowmod(
+            self.dp.vlan_table,
+            self.valve_in_match(
+                self.dp.vlan_table, in_port=port.number, vlan=vlan_vid),
+            priority=self.dp.low_priority,
+            inst=vlan_inst))
+        ofmsgs.extend(self.build_flood_rules(vlan))
+        return ofmsgs
+
+    def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
         push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan.vid)
         push_vlan_inst = [
             valve_of.apply_actions(push_vlan_act),
@@ -601,31 +611,15 @@ class Valve(object):
         ]
         null_vlan = namedtuple('null_vlan', 'vid')
         null_vlan.vid = ofp.OFPVID_NONE
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, in_port=port.number, vlan=null_vlan),
-            priority=self.dp.low_priority,
-            inst=push_vlan_inst))
-        ofmsgs.extend(self.build_flood_rules(vlan))
-        return ofmsgs
+        return self.port_add_vlan_rules(port, vlan, null_vlan, push_vlan_inst)
 
     def port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
-        ofmsgs = []
-        ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
         vlan_inst = [
             valve_of.goto_table(forwarding_table)
         ]
         if mirror_act:
             vlan_inst = [valve_of.apply_actions(mirror_act)] + vlan_inst
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, in_port=port.number, vlan=vlan),
-            priority=self.dp.low_priority,
-            inst=vlan_inst))
-        ofmsgs.extend(self.build_flood_rules(vlan))
-        return ofmsgs
+        return self.port_add_vlan_rules(port, vlan, vlan, vlan_inst)
 
     def port_add_vlans(self, port, forwarding_table, mirror_act):
         ofmsgs = []
