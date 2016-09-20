@@ -25,11 +25,11 @@ import ipaddr
 
 import aruba.aruba_pipeline as aruba
 import valve_of
+import valve_packet
 import util
 
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet
-from ryu.lib.packet import vlan as packet_vlan
+from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -814,19 +814,12 @@ class Valve(object):
         return ofmsgs
 
     def build_ethernet_pkt(self, eth_dst, in_port, vlan, ethertype):
-        pkt = packet.Packet()
+        vid = None
         if vlan.port_is_tagged(in_port):
-            eth_pkt = ethernet.ethernet(
-                eth_dst, self.FAUCET_MAC, ether.ETH_TYPE_8021Q)
-            vlan_pkt = packet_vlan.vlan(
-                vid=vlan.vid, ethertype=ethertype)
-            pkt.add_protocol(eth_pkt)
-            pkt.add_protocol(vlan_pkt)
-        else:
-            eth_pkt = ethernet.ethernet(
-                eth_dst, self.FAUCET_MAC, ethertype)
-            pkt.add_protocol(eth_pkt)
-        return pkt
+            vid = vlan.vid
+        pkt_header = valve_packet.build_pkt_header(
+            self.FAUCET_MAC, eth_dst, vid, ethertype)
+        return pkt_header
 
     def add_route(self, vlan, ip_gw, ip_dst):
         ofmsgs = []
