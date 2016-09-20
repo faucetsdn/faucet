@@ -813,10 +813,15 @@ class Valve(object):
 
         return ofmsgs
 
-    def build_ethernet_pkt(self, eth_dst, in_port, vlan, ethertype):
+    @staticmethod
+    def vlan_vid(vlan, in_port):
         vid = None
         if vlan.port_is_tagged(in_port):
             vid = vlan.vid
+        return vid
+
+    def build_ethernet_pkt(self, eth_dst, in_port, vlan, ethertype):
+        vid = self.vlan_vid(vlan, in_port)
         pkt_header = valve_packet.build_pkt_header(
             self.FAUCET_MAC, eth_dst, vid, ethertype)
         return pkt_header
@@ -907,14 +912,10 @@ class Valve(object):
         ofmsgs = []
 
         if arp_pkt.opcode == arp.ARP_REQUEST:
-            pkt = self.build_ethernet_pkt(
-                eth_src, in_port, vlan, ether.ETH_TYPE_ARP)
-            arp_pkt = arp.arp(
-                opcode=arp.ARP_REPLY, src_mac=self.FAUCET_MAC,
-                src_ip=arp_pkt.dst_ip, dst_mac=eth_src, dst_ip=arp_pkt.src_ip)
-            pkt.add_protocol(arp_pkt)
-            pkt.serialize()
-            ofmsgs.append(valve_of.packetout(in_port, pkt.data))
+            vid = self.vlan_vid(vlan, in_port)
+            arp_reply = valve_packet.arp_reply(
+                self.FAUCET_MAC, eth_src, vid, arp_pkt.dst_ip, arp_pkt.src_ip)
+            ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
             self.logger.info(
                 'Responded to ARP request for %s from %s',
                 arp_pkt.src_ip, arp_pkt.dst_ip)
@@ -1209,17 +1210,12 @@ class Valve(object):
         ofmsgs = []
         if ports:
             self.logger.info('Resolving %s', ip_gw)
-            arp_pkt = arp.arp(
-                opcode=arp.ARP_REQUEST, src_mac=self.FAUCET_MAC,
-                src_ip=str(controller_ip.ip), dst_mac=mac.DONTCARE_STR,
-                dst_ip=str(ip_gw))
             port_num = ports[0].number
-            pkt = self.build_ethernet_pkt(
-                mac.BROADCAST_STR, port_num, vlan, ether.ETH_TYPE_ARP)
-            pkt.add_protocol(arp_pkt)
-            pkt.serialize()
+            vid = self.vlan_vid(vlan, port_num)
+            arp_request = valve_packet.arp_request(
+                self.FAUCET_MAC, vid, controller_ip.ip, ip_gw)
             for port in ports:
-                ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+                ofmsgs.append(valve_of.packetout(port.number, arp_request.data))
         return ofmsgs
 
     def nd_solicit_ip_gw(self, ip_gw, controller_ip, vlan, ports):

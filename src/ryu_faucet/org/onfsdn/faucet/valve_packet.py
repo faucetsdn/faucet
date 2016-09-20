@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from ryu.ofproto import ether
-from ryu.lib.packet import ethernet, packet, vlan
+from ryu.lib import mac
+from ryu.lib.packet import arp, ethernet, packet, vlan
 
 
 def build_pkt_header(eth_src, eth_dst, vid, dl_type):
@@ -32,3 +32,21 @@ def build_pkt_header(eth_src, eth_dst, vid, dl_type):
         vlan_header = vlan.vlan(vid=vid, ethertype=dl_type)
         pkt_header.add_protocol(vlan_header)
     return pkt_header
+
+def arp_request(eth_src, vid, src_ip, dst_ip):
+    pkt = build_pkt_header(eth_src, mac.BROADCAST_STR, vid, ether.ETH_TYPE_ARP)
+    arp_pkt = arp.arp(
+        opcode=arp.ARP_REQUEST, src_mac=eth_src,
+        src_ip=str(src_ip), dst_mac=mac.DONTCARE_STR, dst_ip=str(dst_ip))
+    pkt.add_protocol(arp_pkt)
+    pkt.serialize()
+    return pkt
+
+def arp_reply(eth_src, eth_dst, vid, src_ip, dst_ip):
+    pkt = build_pkt_header(eth_src, eth_dst, vid, ether.ETH_TYPE_ARP)
+    arp_pkt = arp.arp(
+        opcode=arp.ARP_REPLY, src_mac=eth_src,
+        src_ip=src_ip, dst_mac=eth_dst, dst_ip=dst_ip)
+    pkt.add_protocol(arp_pkt)
+    pkt.serialize()
+    return pkt
