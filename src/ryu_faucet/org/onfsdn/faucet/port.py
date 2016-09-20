@@ -25,6 +25,7 @@ class Port(Conf):
         'permanent_learn': False,
         'unicast_flood': True,
         'mirror': None,
+        'mirror_destination': False,
         'native_vlan': None,
         'tagged_vlans': None,
         'acl_in': None,

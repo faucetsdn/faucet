@@ -697,20 +697,7 @@ class Valve(object):
         for table in self.in_port_tables():
             ofmsgs.extend(self.valve_flowdel(table, in_port_match))
 
-        # if this port is used as mirror port in any acl - drop input packets
-        for acl in self.dp.acls.values():
-            for rule_conf in acl:
-                for attrib, attrib_value in rule_conf.iteritems():
-                    if attrib == 'actions':
-                        if 'mirror' in attrib_value:
-                            port_no = attrib_value['mirror']
-                            mirror_in_port_match = self.valve_in_match(
-                                self.dp.vlan_table, in_port=port_no)
-                            ofmsgs.append(self.valve_flowdrop(
-                                self.dp.vlan_table,
-                                mirror_in_port_match))
-
-        if port_num in self.dp.mirror_from_port.values():
+        if port.mirror_destination:
             # this is a mirror port - drop all input packets
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.vlan_table,

@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import logging
 import os
 import yaml
@@ -66,14 +65,24 @@ def port_parser(dp_id, p_identifier, port_conf, vlans):
         return port
     if port.native_vlan is not None:
         v_identifier = port.native_vlan
-        vlan = vlans.setdefault(v_identifier,  VLAN(v_identifier, dp_id))
+        vlan = vlans.setdefault(v_identifier, VLAN(v_identifier, dp_id))
         vlan.untagged.append(port)
     for v_identifier in port.tagged_vlans:
-        vlan = vlans.setdefault(v_identifier,  VLAN(v_identifier, dp_id))
+        vlan = vlans.setdefault(v_identifier, VLAN(v_identifier, dp_id))
         vlan.tagged.append(port)
 
     return port
 
+def set_mirror_destinations(dp):
+    for acl in dp.acls.itervalues():
+        for rule_conf in acl:
+            for attrib, attrib_value in rule_conf.iteritems():
+                if attrib == 'actions':
+                    if 'mirror' in attrib_value:
+                        port_no = attrib_value['mirror']
+                        dp.ports[port_no].mirror_destination = True
+    for port_no in dp.mirror_from_port.itervalues():
+        dp.ports[port_no].mirror_destination = True
 
 def _dp_parser_v1(conf, config_file, logname):
     logger = get_logger(logname)
@@ -92,7 +101,6 @@ def _dp_parser_v1(conf, config_file, logname):
 
     logger.info(str(dp))
     vlans = {}
-    port = {}
     for vid, vlan_conf in vlans_conf.iteritems():
         vlans[vid] = VLAN(vid, dp_id, vlan_conf)
     for port_num, port_conf in interfaces_conf.iteritems():
@@ -101,6 +109,7 @@ def _dp_parser_v1(conf, config_file, logname):
         dp.add_acl(acl_num, acl_conf)
     for vlan in vlans.itervalues():
         dp.add_vlan(vlan)
+    set_mirror_destinations(dp)
     try:
         dp.sanity_check()
     except AssertionError as err:
@@ -210,6 +219,7 @@ def _dp_parser_v2(conf, config_file, logname):
         for a_identifier, acl_conf in acls_conf.iteritems():
             # TODO: turn this into an object
             dp.add_acl(a_identifier, acl_conf)
+        set_mirror_destinations(dp)
 
         dps.append(dp)
 
@@ -239,7 +249,7 @@ def _watcher_parser_v1(config_file, logname):
         'influx_timeout',
         ]
 
-    GAUGEDB_KEYS =[
+    GAUGEDB_KEYS = [
         'gdb_type',
         'nosql_db',
         'db_username',
@@ -310,7 +320,7 @@ def _watcher_parser_v1(config_file, logname):
             name = dp.name + '-' + w_type
             for key in GAUGEDB_KEYS:
                 flow_table_conf[key] = dp.__dict__.get('gaugedb').get(
-                                        key, None)
+                    key, None)
             watcher = WatcherConf(name, flow_table_conf)
             watcher.add_dp(dp)
             result.append(watcher)
