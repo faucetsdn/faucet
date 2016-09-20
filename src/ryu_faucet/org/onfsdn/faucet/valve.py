@@ -154,40 +154,10 @@ class Valve(object):
                        ipv6_nd_target=None, icmpv6_type=None,
                        nw_proto=None,
                        nw_src=None, nw_dst=None):
-        match_dict = {}
-        if in_port is not None:
-            match_dict['in_port'] = in_port
-        if vlan is not None:
-            if vlan.vid == ofp.OFPVID_NONE:
-                match_dict['vlan_vid'] = ofp.OFPVID_NONE
-            else:
-                match_dict['vlan_vid'] = (vlan.vid | ofp.OFPVID_PRESENT)
-        if eth_src is not None:
-            match_dict['eth_src'] = eth_src
-        if eth_dst is not None:
-            if eth_dst_mask is not None:
-                match_dict['eth_dst'] = (eth_dst, eth_dst_mask)
-            else:
-                match_dict['eth_dst'] = eth_dst
-        if nw_proto is not None:
-            match_dict['ip_proto'] = nw_proto
-        if nw_src is not None:
-            match_dict['ipv4_src'] = (str(nw_src.ip), str(nw_src.netmask))
-        if icmpv6_type is not None:
-            match_dict['icmpv6_type'] = icmpv6_type
-        if ipv6_nd_target is not None:
-            match_dict['ipv6_nd_target'] = str(ipv6_nd_target.ip)
-        if nw_dst is not None:
-            nw_dst_masked = (str(nw_dst.ip), str(nw_dst.netmask))
-            if eth_type == ether.ETH_TYPE_ARP:
-                match_dict['arp_tpa'] = nw_dst_masked
-            elif eth_type == ether.ETH_TYPE_IP:
-                match_dict['ipv4_dst'] = nw_dst_masked
-            else:
-                match_dict['ipv6_dst'] = nw_dst_masked
-        if eth_type is not None:
-            match_dict['eth_type'] = eth_type
-
+        match_dict = valve_of.build_match_dict(
+            in_port, vlan, eth_type, eth_src,
+            eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
+            nw_proto, nw_src, nw_dst)
         if table_id != self.dp.acl_table:
             assert table_id in self.TABLE_MATCH_TYPES,\
                 '%u table not registered' % table_id
@@ -195,7 +165,6 @@ class Valve(object):
                 assert match_type in self.TABLE_MATCH_TYPES[table_id],\
                     '%s match not registered for table %u' % (
                         match_type, table_id)
-
         match = valve_of.match(match_dict)
         return match
 
