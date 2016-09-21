@@ -325,6 +325,8 @@ class Valve(object):
                 all_port_nums.add(port.number)
             # install eth_dst_table flood ofmsgs
             ofmsgs.extend(self.build_flood_rules(vlan))
+            # add controller IPs if configured.
+            ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
 
         # add mirror ports.
         for port_num in self.dp.mirror_from_port.itervalues():
@@ -593,7 +595,6 @@ class Valve(object):
 
     def port_add_vlan_rules(self, port, vlan, vlan_vid, vlan_inst):
         ofmsgs = []
-        ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
             self.valve_in_match(
