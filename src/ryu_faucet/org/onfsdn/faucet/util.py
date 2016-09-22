@@ -48,7 +48,6 @@ def mac_addr_is_unicast(mac_addr):
     msb = mac_addr.split(":")[0]
     return msb[-1] in "02468aAcCeE"
 
-
 def kill_on_exception(logname):
     """decorator to ensure functions will kill ryu when an unhandled exception
     occurs"""
@@ -76,7 +75,7 @@ def get_sys_prefix():
     # virtualenv. Also check for Py3.3+ pyvenv.
     sysprefix = ""
     if (getattr(sys, "real_prefix", sys.prefix) != sys.prefix or
-        getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
+            getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
         sysprefix = sys.prefix
 
     return sysprefix

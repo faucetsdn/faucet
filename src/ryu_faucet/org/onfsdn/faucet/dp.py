@@ -26,6 +26,8 @@ class DP(Conf):
     ports = None
     running = False
     influxdb_stats = False
+    name = None
+    dp_id = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes

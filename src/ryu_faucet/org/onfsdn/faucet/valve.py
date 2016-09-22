@@ -24,12 +24,12 @@ from collections import namedtuple
 import ipaddr
 
 import aruba.aruba_pipeline as aruba
-from util import mac_addr_is_unicast
+import valve_of
+import valve_packet
+import util
 
-from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet
-from ryu.lib.packet import vlan as packet_vlan
+from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -148,88 +148,16 @@ class Valve(object):
                 for ofmsg in ofmsgs:
                     self.ofchannel_logger.debug(ofmsg)
 
-    @staticmethod
-    def ignore_port(port_num):
-        """Ignore non-physical ports."""
-        # port numbers > 0xF0000000 indicate a logical port
-        return port_num > 0xF0000000
-
-    @staticmethod
-    def apply_actions(actions):
-        return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
-
-    @staticmethod
-    def goto_table(table_id):
-        return parser.OFPInstructionGotoTable(table_id)
-
-    @staticmethod
-    def set_eth_src(eth_src):
-        return parser.OFPActionSetField(eth_src=eth_src)
-
-    @staticmethod
-    def set_eth_dst(eth_dst):
-        return parser.OFPActionSetField(eth_dst=eth_dst)
-
-    @staticmethod
-    def push_vlan_act(vlan_vid):
-        return [
-            parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-            parser.OFPActionSetField(vlan_vid=(vlan_vid | ofp.OFPVID_PRESENT))
-        ]
-
-    @staticmethod
-    def dec_ip_ttl():
-        return parser.OFPActionDecNwTtl()
-
-    @staticmethod
-    def valve_packetout(out_port, data):
-        return parser.OFPPacketOut(
-            datapath=None,
-            buffer_id=ofp.OFP_NO_BUFFER,
-            in_port=ofp.OFPP_CONTROLLER,
-            actions=[parser.OFPActionOutput(out_port, 0)],
-            data=data)
-
     def valve_in_match(self, table_id, in_port=None, vlan=None,
                        eth_type=None, eth_src=None,
                        eth_dst=None, eth_dst_mask=None,
                        ipv6_nd_target=None, icmpv6_type=None,
                        nw_proto=None,
                        nw_src=None, nw_dst=None):
-        match_dict = {}
-        if in_port is not None:
-            match_dict['in_port'] = in_port
-        if vlan is not None:
-            if vlan.vid == ofp.OFPVID_NONE:
-                match_dict['vlan_vid'] = ofp.OFPVID_NONE
-            else:
-                match_dict['vlan_vid'] = (vlan.vid | ofp.OFPVID_PRESENT)
-        if eth_src is not None:
-            match_dict['eth_src'] = eth_src
-        if eth_dst is not None:
-            if eth_dst_mask is not None:
-                match_dict['eth_dst'] = (eth_dst, eth_dst_mask)
-            else:
-                match_dict['eth_dst'] = eth_dst
-        if nw_proto is not None:
-            match_dict['ip_proto'] = nw_proto
-        if nw_src is not None:
-            match_dict['ipv4_src'] = (str(nw_src.ip), str(nw_src.netmask))
-        if icmpv6_type is not None:
-            match_dict['icmpv6_type'] = icmpv6_type
-        if ipv6_nd_target is not None:
-            match_dict['ipv6_nd_target'] = str(ipv6_nd_target.ip)
-        if nw_dst is not None:
-            nw_dst_masked = (str(nw_dst.ip), str(nw_dst.netmask))
-            if eth_type == ether.ETH_TYPE_ARP:
-                match_dict['arp_tpa'] = nw_dst_masked
-            elif eth_type == ether.ETH_TYPE_IP:
-                match_dict['ipv4_dst'] = nw_dst_masked
-            else:
-                match_dict['ipv6_dst'] = nw_dst_masked
-        if eth_type is not None:
-            match_dict['eth_type'] = eth_type
-
+        match_dict = valve_of.build_match_dict(
+            in_port, vlan, eth_type, eth_src,
+            eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
+            nw_proto, nw_src, nw_dst)
         if table_id != self.dp.acl_table:
             assert table_id in self.TABLE_MATCH_TYPES,\
                 '%u table not registered' % table_id
@@ -237,8 +165,7 @@ class Valve(object):
                 assert match_type in self.TABLE_MATCH_TYPES[table_id],\
                     '%s match not registered for table %u' % (
                         match_type, table_id)
-
-        match = parser.OFPMatch(**match_dict)
+        match = valve_of.match(match_dict)
         return match
 
     def ignore_dpid(self, dp_id):
@@ -268,18 +195,17 @@ class Valve(object):
             priority = self.dp.lowest_priority
         if inst is None:
             inst = []
-        return parser.OFPFlowMod(
-            datapath=None,
-            cookie=self.dp.cookie,
-            command=command,
-            table_id=table_id,
-            priority=priority,
-            out_port=out_port,
-            out_group=out_group,
-            match=match,
-            instructions=inst,
-            hard_timeout=hard_timeout,
-            idle_timeout=idle_timeout)
+        return valve_of.flowmod(
+            self.dp.cookie,
+            command,
+            table_id,
+            priority,
+            out_port,
+            out_group,
+            match,
+            inst,
+            hard_timeout,
+            idle_timeout)
 
     def valve_flowdel(self, table_id, match=None, priority=None,
                       out_port=ofp.OFPP_ANY):
@@ -292,7 +218,7 @@ class Valve(object):
                 command=ofp.OFPFC_DELETE,
                 out_port=out_port,
                 out_group=ofp.OFPG_ANY),
-            parser.OFPBarrierRequest(None)]
+            valve_of.barrier()]
 
     def valve_flowdrop(self, table_id, match=None, priority=None,
                        hard_timeout=0):
@@ -312,8 +238,8 @@ class Valve(object):
             table_id,
             match=match,
             priority=priority,
-            inst=[self.apply_actions([parser.OFPActionOutput(
-                ofp.OFPP_CONTROLLER, max_len=256)])] + inst)
+            inst=[valve_of.apply_actions(
+                [valve_of.output_controller()])] + inst)
 
     def delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
@@ -369,14 +295,14 @@ class Valve(object):
         return [self.valve_flowmod(
             self.dp.eth_dst_table,
             priority=self.dp.low_priority,
-            inst=[self.goto_table(self.dp.flood_table)])]
+            inst=[valve_of.goto_table(self.dp.flood_table)])]
 
     def add_controller_learn_flow(self):
         """Add a flow for controller to learn/add flows for destinations."""
         return [self.valve_flowcontroller(
             self.dp.eth_src_table,
             priority=self.dp.low_priority,
-            inst=[self.goto_table(self.dp.eth_dst_table)])]
+            inst=[valve_of.goto_table(self.dp.eth_dst_table)])]
 
     def add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -395,11 +321,12 @@ class Valve(object):
         # add vlan ports
         for vlan in self.dp.vlans.itervalues():
             self.logger.info('Configuring VLAN %s', vlan)
-            vlan_ports = vlan.tagged + vlan.untagged
-            for port in vlan_ports:
+            for port in vlan.get_ports():
                 all_port_nums.add(port.number)
             # install eth_dst_table flood ofmsgs
             ofmsgs.extend(self.build_flood_rules(vlan))
+            # add controller IPs if configured.
+            ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
 
         # add mirror ports.
         for port_num in self.dp.mirror_from_port.itervalues():
@@ -407,7 +334,7 @@ class Valve(object):
 
         # add any ports discovered but not configured
         for port_num in discovered_port_nums:
-            if self.ignore_port(port_num):
+            if valve_of.ignore_port(port_num):
                 continue
             if port_num not in all_port_nums:
                 all_port_nums.add(port_num)
@@ -418,40 +345,19 @@ class Valve(object):
 
         return ofmsgs
 
-    @staticmethod
-    def build_flood_ports_for_vlan(vlan_ports, exclude_unicast):
-        ports = []
-        for port in vlan_ports:
-            if not port.running():
-                continue
-            if exclude_unicast:
-                if not port.unicast_flood:
-                    continue
-            ports.append(port)
-        return ports
-
     def build_flood_rule_actions(self, vlan, exclude_unicast, exclude_ports=[]):
         flood_acts = []
-        tagged_ports = self.build_flood_ports_for_vlan(
-            vlan.tagged, exclude_unicast)
-        untagged_ports = self.build_flood_ports_for_vlan(
-            vlan.untagged, exclude_unicast)
+        tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
+        untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
         for port in tagged_ports:
             if port not in exclude_ports:
-                flood_acts.append(parser.OFPActionOutput(port.number))
+                flood_acts.append(valve_of.output_port(port.number))
         if untagged_ports:
-            flood_acts.append(parser.OFPActionPopVlan())
+            flood_acts.append(valve_of.pop_vlan())
             for port in untagged_ports:
                 if port not in exclude_ports:
-                    flood_acts.append(parser.OFPActionOutput(port.number))
+                    flood_acts.append(valve_of.output_port(port.number))
         return flood_acts
-
-    def vlan_mirrored_ports(self, vlan):
-        mirrored_ports = []
-        for port in vlan.tagged + vlan.untagged:
-            if port.number in self.dp.mirror_from_port:
-                mirrored_ports.append(port)
-        return mirrored_ports
 
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
@@ -473,9 +379,8 @@ class Valve(object):
             (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
         ])
         ofmsgs = []
-        vlan_all_ports = self.build_flood_ports_for_vlan(
-            vlan.tagged + vlan.untagged, False)
-        mirrored_ports = self.vlan_mirrored_ports(vlan)
+        vlan_all_ports = vlan.flood_ports(vlan.get_ports(), False)
+        mirrored_ports = vlan.mirrored_ports()
         for eth_dst, eth_dst_mask in flood_eth_dst_matches:
             for port in vlan_all_ports:
                 if eth_dst is None:
@@ -490,7 +395,7 @@ class Valve(object):
                         self.dp.flood_table, in_port=port.number, vlan=vlan,
                         eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
                     command=command,
-                    inst=[self.apply_actions(flood_acts)],
+                    inst=[valve_of.apply_actions(flood_acts)],
                     priority=flood_priority))
             flood_priority += 1
             for port in mirrored_ports:
@@ -500,7 +405,7 @@ class Valve(object):
                 else:
                     flood_acts = self.build_flood_rule_actions(vlan, True)
                 mirror_acts = [
-                    parser.OFPActionOutput(mirror_port)] + flood_acts
+                    valve_of.output_port(mirror_port)] + flood_acts
                 ofmsgs.append(self.valve_flowmod(
                     self.dp.flood_table,
                     match=self.valve_in_match(
@@ -510,7 +415,7 @@ class Valve(object):
                         eth_dst=eth_dst,
                         eth_dst_mask=eth_dst_mask),
                     command=command,
-                    inst=[self.apply_actions(mirror_acts)],
+                    inst=[valve_of.apply_actions(mirror_acts)],
                     priority=flood_priority))
             flood_priority += 1
         return ofmsgs
@@ -553,6 +458,43 @@ class Valve(object):
             self.logger.warning('Datapath %s down', dp_id)
         return []
 
+    def build_acl_entry(self, rule_conf, acl_allow_inst, port_num):
+        acl_inst = []
+        match_dict = {}
+        for attrib, attrib_value in rule_conf.iteritems():
+            if attrib == 'in_port':
+                continue
+            if attrib == 'actions':
+                if 'mirror' in attrib_value:
+                    port_no = attrib_value['mirror']
+                    acl_inst.append(
+                        valve_of.apply_actions([valve_of.output_port(port_no)]))
+                # if output selected, output packet now and exit pipeline.
+                if 'output' in attrib_value:
+                    output_dict = attrib_value['output']
+                    output_actions = []
+                    # if destination rewriting selected, rewrite it.
+                    if 'dl_dst' in output_dict:
+                        output_actions.append(
+                            valve_of.set_eth_dst(output_dict['dl_dst']))
+                    # if vlan tag is specified, push it.
+                    if 'vlan_vid' in output_dict:
+                        output_actions.extend(
+                            valve_of.push_vlan_act(output_dict['vlan_vid']))
+                    # output to port
+                    port_no = output_dict['port']
+                    output_actions.append(valve_of.output_port(port_no))
+                    acl_inst.append(valve_of.apply_actions(output_actions))
+                    continue
+                if attrib_value['allow'] == 1:
+                    acl_inst.append(acl_allow_inst)
+            else:
+                match_dict[attrib] = attrib_value
+        # override in_port always
+        match_dict['in_port'] = port_num
+        acl_match = valve_of.match_from_dict(match_dict)
+        return acl_match, acl_inst
+
     def port_add_acl(self, port_num):
         ofmsgs = []
         forwarding_table = self.dp.eth_src_table
@@ -560,51 +502,10 @@ class Valve(object):
             acl_num = self.dp.acl_in[port_num]
             forwarding_table = self.dp.acl_table
             acl_rule_priority = self.dp.highest_priority
-            acl_allow_inst = self.goto_table(self.dp.eth_src_table)
+            acl_allow_inst = valve_of.goto_table(self.dp.eth_src_table)
             for rule_conf in self.dp.acls[acl_num]:
-                acl_inst = []
-                match_dict = {}
-                for attrib, attrib_value in rule_conf.iteritems():
-                    if attrib == 'actions':
-                        if 'mirror' in attrib_value:
-                            port_no = attrib_value['mirror']
-                            acl_inst.append(
-                                self.apply_actions([
-                                    parser.OFPActionOutput(port_no)]))
-                        # if output selected, output packet now
-                        # and exit pipeline.
-                        if 'output' in attrib_value:
-                            output_dict = attrib_value['output']
-                            output_actions = []
-                            # if destination rewriting selected, rewrite it.
-                            if 'dl_dst' in output_dict:
-                                output_actions.append(
-                                    self.set_eth_dst(output_dict['dl_dst']))
-                            # if vlan tag is specified, push it.
-                            if 'vlan_vid' in output_dict:
-                                output_actions.extend(
-                                    self.push_vlan_act(output_dict['vlan_vid']))
-                            # output to port
-                            port_no = output_dict['port']
-                            output_actions.append(
-                                parser.OFPActionOutput(port_no))
-                            acl_inst.append(
-                                self.apply_actions(output_actions))
-                            continue
-                        if attrib_value['allow'] == 1:
-                            acl_inst.append(acl_allow_inst)
-                        continue
-                    if attrib == 'in_port':
-                        continue
-                    match_dict[attrib] = attrib_value
-                # override in_port always
-                match_dict['in_port'] = port_num
-                # to_match() needs to access parser via dp
-                # this uses the old API, which is oh so convenient
-                # (transparently handling masks for example).
-                null_dp = namedtuple('null_dp', 'ofproto_parser')
-                null_dp.ofproto_parser = parser
-                acl_match = ofctl.to_match(null_dp, match_dict)
+                acl_match, acl_inst = self.build_acl_entry(
+                    rule_conf, acl_allow_inst, port_num)
                 ofmsgs.append(self.valve_flowmod(
                     self.dp.acl_table,
                     acl_match,
@@ -638,7 +539,7 @@ class Valve(object):
                         eth_dst=self.FAUCET_MAC,
                         vlan=vlan),
                     priority=self.dp.highest_priority,
-                    inst=[self.goto_table(self.dp.ipv4_fib_table)]))
+                    inst=[valve_of.goto_table(self.dp.ipv4_fib_table)]))
                 ofmsgs.append(self.valve_flowcontroller(
                     self.dp.ipv4_fib_table,
                     self.valve_in_match(
@@ -679,7 +580,7 @@ class Valve(object):
                         eth_dst=self.FAUCET_MAC,
                         vlan=vlan),
                     priority=self.dp.highest_priority,
-                    inst=[self.goto_table(self.dp.ipv6_fib_table)]))
+                    inst=[valve_of.goto_table(self.dp.ipv6_fib_table)]))
                 ofmsgs.append(self.valve_flowcontroller(
                     self.dp.ipv6_fib_table,
                     self.valve_in_match(
@@ -692,41 +593,34 @@ class Valve(object):
                     priority=self.dp.highest_priority + max_prefixlen))
         return ofmsgs
 
-    def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
+    def port_add_vlan_rules(self, port, vlan, vlan_vid, vlan_inst):
         ofmsgs = []
-        ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
-        push_vlan_act = mirror_act + self.push_vlan_act(vlan.vid)
-        push_vlan_inst = [
-            self.apply_actions(push_vlan_act),
-            self.goto_table(forwarding_table)
-        ]
-        null_vlan = namedtuple('null_vlan', 'vid')
-        null_vlan.vid = ofp.OFPVID_NONE
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
             self.valve_in_match(
-                self.dp.vlan_table, in_port=port.number, vlan=null_vlan),
-            priority=self.dp.low_priority,
-            inst=push_vlan_inst))
-        ofmsgs.extend(self.build_flood_rules(vlan))
-        return ofmsgs
-
-    def port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
-        ofmsgs = []
-        ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
-        vlan_inst = [
-            self.goto_table(forwarding_table)
-        ]
-        if mirror_act:
-            vlan_inst = [self.apply_actions(mirror_act)] + vlan_inst
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, in_port=port.number, vlan=vlan),
+                self.dp.vlan_table, in_port=port.number, vlan=vlan_vid),
             priority=self.dp.low_priority,
             inst=vlan_inst))
         ofmsgs.extend(self.build_flood_rules(vlan))
         return ofmsgs
+
+    def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
+        push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan.vid)
+        push_vlan_inst = [
+            valve_of.apply_actions(push_vlan_act),
+            valve_of.goto_table(forwarding_table)
+        ]
+        null_vlan = namedtuple('null_vlan', 'vid')
+        null_vlan.vid = ofp.OFPVID_NONE
+        return self.port_add_vlan_rules(port, vlan, null_vlan, push_vlan_inst)
+
+    def port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
+        vlan_inst = [
+            valve_of.goto_table(forwarding_table)
+        ]
+        if mirror_act:
+            vlan_inst = [valve_of.apply_actions(mirror_act)] + vlan_inst
+        return self.port_add_vlan_rules(port, vlan, vlan, vlan_inst)
 
     def port_add_vlans(self, port, forwarding_table, mirror_act):
         ofmsgs = []
@@ -752,7 +646,7 @@ class Valve(object):
 
         Returns
         A list of flow mod messages to be sent to the datapath."""
-        if self.ignore_dpid(dp_id) or self.ignore_port(port_num):
+        if self.ignore_dpid(dp_id) or valve_of.ignore_port(port_num):
             return []
 
         if port_num not in self.dp.ports:
@@ -775,20 +669,7 @@ class Valve(object):
         for table in self.in_port_tables():
             ofmsgs.extend(self.valve_flowdel(table, in_port_match))
 
-        # if this port is used as mirror port in any acl - drop input packets
-        for acl in self.dp.acls.values():
-            for rule_conf in acl:
-                for attrib, attrib_value in rule_conf.iteritems():
-                    if attrib == 'actions':
-                        if 'mirror' in attrib_value:
-                            port_no = attrib_value['mirror']
-                            mirror_in_port_match = self.valve_in_match(
-                                self.dp.vlan_table, in_port=port_no)
-                            ofmsgs.append(self.valve_flowdrop(
-                                self.dp.vlan_table,
-                                mirror_in_port_match))
-
-        if port_num in self.dp.mirror_from_port.values():
+        if port.mirror_destination:
             # this is a mirror port - drop all input packets
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.vlan_table,
@@ -799,7 +680,7 @@ class Valve(object):
         # this port is mirrored to another port
         if port_num in self.dp.mirror_from_port:
             mirror_port_num = self.dp.mirror_from_port[port_num]
-            mirror_act = [parser.OFPActionOutput(mirror_port_num)]
+            mirror_act = [valve_of.output_port(mirror_port_num)]
 
         acl_ofmsgs, forwarding_table = self.port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
@@ -812,7 +693,7 @@ class Valve(object):
 
         Returns
         A list of flow mod messages to be sent to the datapath."""
-        if self.ignore_dpid(dp_id) or self.ignore_port(port_num):
+        if self.ignore_dpid(dp_id) or valve_of.ignore_port(port_num):
             return []
 
         if port_num not in self.dp.ports:
@@ -838,8 +719,8 @@ class Valve(object):
                 out_port=port_num))
 
         for vlan in self.dp.vlans.values():
-            if port_num in vlan.tagged or port_num in vlan.untagged:
-                ofmsgs.extend(self.build_flood_rules(vlan), modify=True)
+            if port in vlan.get_ports():
+                ofmsgs.extend(self.build_flood_rules(vlan, modify=True))
 
         return ofmsgs
 
@@ -861,20 +742,12 @@ class Valve(object):
 
         return ofmsgs
 
-    def build_ethernet_pkt(self, eth_dst, in_port, vlan, ethertype):
-        pkt = packet.Packet()
+    @staticmethod
+    def vlan_vid(vlan, in_port):
+        vid = None
         if vlan.port_is_tagged(in_port):
-            eth_pkt = ethernet.ethernet(
-                eth_dst, self.FAUCET_MAC, ether.ETH_TYPE_8021Q)
-            vlan_pkt = packet_vlan.vlan(
-                vid=vlan.vid, ethertype=ethertype)
-            pkt.add_protocol(eth_pkt)
-            pkt.add_protocol(vlan_pkt)
-        else:
-            eth_pkt = ethernet.ethernet(
-                eth_dst, self.FAUCET_MAC, ethertype)
-            pkt.add_protocol(eth_pkt)
-        return pkt
+            vid = vlan.vid
+        return vid
 
     def add_route(self, vlan, ip_gw, ip_dst):
         ofmsgs = []
@@ -948,11 +821,11 @@ class Valve(object):
                 fib_table,
                 in_match,
                 priority=priority,
-                inst=[self.apply_actions(
-                    [self.set_eth_src(self.FAUCET_MAC),
-                     self.set_eth_dst(eth_dst),
-                     self.dec_ip_ttl()])] +
-                [self.goto_table(self.dp.eth_dst_table)]))
+                inst=[valve_of.apply_actions(
+                    [valve_of.set_eth_src(self.FAUCET_MAC),
+                     valve_of.set_eth_dst(eth_dst),
+                     valve_of.dec_ip_ttl()])] +
+                [valve_of.goto_table(self.dp.eth_dst_table)]))
         now = time.time()
         link_neighbor = LinkNeighbor(eth_dst, now)
         neighbor_cache[ip_gw] = link_neighbor
@@ -962,14 +835,10 @@ class Valve(object):
         ofmsgs = []
 
         if arp_pkt.opcode == arp.ARP_REQUEST:
-            pkt = self.build_ethernet_pkt(
-                eth_src, in_port, vlan, ether.ETH_TYPE_ARP)
-            arp_pkt = arp.arp(
-                opcode=arp.ARP_REPLY, src_mac=self.FAUCET_MAC,
-                src_ip=arp_pkt.dst_ip, dst_mac=eth_src, dst_ip=arp_pkt.src_ip)
-            pkt.add_protocol(arp_pkt)
-            pkt.serialize()
-            ofmsgs.append(self.valve_packetout(in_port, pkt.data))
+            vid = self.vlan_vid(vlan, in_port)
+            arp_reply = valve_packet.arp_reply(
+                self.FAUCET_MAC, eth_src, vid, arp_pkt.dst_ip, arp_pkt.src_ip)
+            ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
             self.logger.info(
                 'Responded to ARP request for %s from %s',
                 arp_pkt.src_ip, arp_pkt.dst_ip)
@@ -997,45 +866,24 @@ class Valve(object):
     def control_plane_icmp_handler(self, in_port, vlan, eth_src,
                                    ipv4_pkt, icmp_pkt):
         ofmsgs = []
-
         if icmp_pkt is not None:
-            pkt = self.build_ethernet_pkt(
-                eth_src, in_port, vlan, ether.ETH_TYPE_IP)
-            ipv4_pkt = ipv4.ipv4(
-                dst=ipv4_pkt.src, src=ipv4_pkt.dst, proto=ipv4_pkt.proto)
-            icmp_pkt = icmp.icmp(
-                type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE,
-                data=icmp_pkt.data)
-            pkt.add_protocol(ipv4_pkt)
-            pkt.add_protocol(icmp_pkt)
-            pkt.serialize()
-            ofmsgs.append(self.valve_packetout(in_port, pkt.data))
-
+            vid = self.vlan_vid(vlan, in_port)
+            echo_reply = valve_packet.echo_reply(
+                self.FAUCET_MAC, eth_src, vid, ipv4_pkt.dst, ipv4_pkt.src,
+                icmp_pkt.data)
+            ofmsgs.append(valve_of.packetout(in_port, echo_reply.data))
         return ofmsgs
 
     def control_plane_icmpv6_handler(self, in_port, vlan, eth_src,
                                      ipv6_pkt, icmpv6_pkt):
         ofmsgs = []
-        pkt = self.build_ethernet_pkt(
-            eth_src, in_port, vlan, ether.ETH_TYPE_IPV6)
+        vid = self.vlan_vid(vlan, in_port)
 
         if icmpv6_pkt.type_ == icmpv6.ND_NEIGHBOR_SOLICIT:
-            dst = icmpv6_pkt.data.dst
-            ipv6_reply = ipv6.ipv6(
-                src=dst,
-                dst=ipv6_pkt.src,
-                nxt=inet.IPPROTO_ICMPV6,
-                hop_limit=ipv6_pkt.hop_limit)
-            pkt.add_protocol(ipv6_reply)
-            icmpv6_reply = icmpv6.icmpv6(
-                type_=icmpv6.ND_NEIGHBOR_ADVERT,
-                data=icmpv6.nd_neighbor(
-                    dst=dst,
-                    option=icmpv6.nd_option_tla(
-                        hw_src=self.FAUCET_MAC), res=7))
-            pkt.add_protocol(icmpv6_reply)
-            pkt.serialize()
-            ofmsgs.extend([self.valve_packetout(in_port, pkt.data)])
+            nd_reply = valve_packet.nd_reply(
+                self.FAUCET_MAC, eth_src, vid,
+                icmpv6_pkt.data.dst, ipv6_pkt.src, ipv6_pkt.hop_limit)
+            ofmsgs.extend([valve_of.packetout(in_port, nd_reply.data)])
         elif icmpv6_pkt.type_ == icmpv6.ND_NEIGHBOR_ADVERT:
             resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
             self.logger.info('ND response %s for %s', eth_src, resolved_ip_gw)
@@ -1054,31 +902,13 @@ class Valve(object):
                             vlan, vlan.nd_cache,
                             ip_gw, ip_dst, eth_src, is_updated))
         elif icmpv6_pkt.type_ == icmpv6.ICMPV6_ECHO_REQUEST:
-            dst = ipv6_pkt.dst
-            ipv6_reply = ipv6.ipv6(
-                src=dst,
-                dst=ipv6_pkt.src,
-                nxt=inet.IPPROTO_ICMPV6,
-                hop_limit=ipv6_pkt.hop_limit)
-            pkt.add_protocol(ipv6_reply)
-            icmpv6_reply = icmpv6.icmpv6(
-                type_=icmpv6.ICMPV6_ECHO_REPLY,
-                data=icmpv6.echo(
-                    id_=icmpv6_pkt.data.id,
-                    seq=icmpv6_pkt.data.seq,
-                    data=icmpv6_pkt.data.data))
-            pkt.add_protocol(icmpv6_reply)
-            pkt.serialize()
-            ofmsgs.extend([self.valve_packetout(in_port, pkt.data)])
+            icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
+                self.FAUCET_MAC, eth_src, vid,
+                ipv6_pkt.dst, ipv6_pkt.src, ipv6_pkt.hop_limit,
+                icmpv6_pkt.data.id, icmpv6_pkt.data.seq, icmpv6_pkt.data.data)
+            ofmsgs.extend([valve_of.packetout(in_port, icmpv6_echo_reply.data)])
 
         return ofmsgs
-
-    @staticmethod
-    def to_faucet_ip(vlan, src_ip, dst_ip):
-        for controller_ip in vlan.controller_ips:
-            if src_ip in controller_ip or dst_ip in controller_ip:
-                return True
-        return False
 
     def learn_host_on_vlan_port(self, port, vlan, eth_src):
         ofmsgs = []
@@ -1101,7 +931,7 @@ class Valve(object):
         mirror_acts = []
         if in_port in self.dp.mirror_from_port:
             mirror_port_num = self.dp.mirror_from_port[in_port]
-            mirror_acts = [parser.OFPActionOutput(mirror_port_num)]
+            mirror_acts = [valve_of.output_port(mirror_port_num)]
 
         # Update datapath to no longer send packets from this mac to controller
         # note the use of hard_timeout here and idle_timeout for the dst table
@@ -1118,19 +948,19 @@ class Valve(object):
                 self.dp.eth_src_table, in_port=in_port,
                 vlan=vlan, eth_src=eth_src),
             priority=(self.dp.highest_priority - 1),
-            inst=[self.goto_table(self.dp.eth_dst_table)],
+            inst=[valve_of.goto_table(self.dp.eth_dst_table)],
             hard_timeout=learn_timeout))
 
         # update datapath to output packets to this mac via the associated port
         if vlan.port_is_tagged(in_port):
-            dst_act = [parser.OFPActionOutput(in_port)]
+            dst_act = [valve_of.output_port(in_port)]
         else:
             dst_act = [
-                parser.OFPActionPopVlan(),
-                parser.OFPActionOutput(in_port)]
+                valve_of.pop_vlan(),
+                valve_of.output_port(in_port)]
         if mirror_acts:
             dst_act.extend(mirror_acts)
-        inst = [self.apply_actions(dst_act)]
+        inst = [valve_of.apply_actions(dst_act)]
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_dst_table,
             self.valve_in_match(
@@ -1142,7 +972,7 @@ class Valve(object):
 
     def handle_control_plane(self, in_port, vlan, eth_src, eth_dst, pkt):
         ofmsgs = []
-        if eth_dst == self.FAUCET_MAC or not mac_addr_is_unicast(eth_dst):
+        if eth_dst == self.FAUCET_MAC or not util.mac_addr_is_unicast(eth_dst):
             arp_pkt = pkt.get_protocol(arp.arp)
             ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
             ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
@@ -1151,7 +981,8 @@ class Valve(object):
                 src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
                 dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
                 if (arp_pkt.opcode == arp.ARP_REQUEST and
-                        self.to_faucet_ip(vlan, src_ip, dst_ip)):
+                        (vlan.ip_in_controller_subnet(src_ip) or
+                         vlan.ip_in_controller_subnet(dst_ip))):
                     ofmsgs.extend(self.control_plane_arp_handler(
                         in_port, vlan, eth_src, arp_pkt))
                 elif (arp_pkt.opcode == arp.ARP_REPLY and
@@ -1163,7 +994,8 @@ class Valve(object):
                 if icmp_pkt is not None:
                     src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
                     dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
-                    if self.to_faucet_ip(vlan, src_ip, dst_ip):
+                    if (vlan.ip_in_controller_subnet(src_ip) or
+                        vlan.ip_in_controller_subnet(dst_ip)):
                         ofmsgs.extend(self.control_plane_icmp_handler(
                             in_port, vlan, eth_src, ipv4_pkt, icmp_pkt))
             elif ipv6_pkt is not None:
@@ -1171,14 +1003,15 @@ class Valve(object):
                 if icmpv6_pkt is not None:
                     src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
                     dst_ip = ipaddr.IPv6Address(ipv6_pkt.dst)
-                    if self.to_faucet_ip(vlan, src_ip, dst_ip):
+                    if (vlan.ip_in_controller_subnet(src_ip) or
+                        vlan.ip_in_controller_subnet(dst_ip)):
                         ofmsgs.extend(self.control_plane_icmpv6_handler(
                             in_port, vlan, eth_src, ipv6_pkt, icmpv6_pkt))
 
         return ofmsgs
 
     def known_up_dpid_and_port(self, dp_id, in_port):
-        if (not self.ignore_dpid(dp_id) and not self.ignore_port(in_port) and
+        if (not self.ignore_dpid(dp_id) and not valve_of.ignore_port(in_port) and
                 self.dp.running and in_port in self.dp.ports):
             return True
         return False
@@ -1206,13 +1039,13 @@ class Valve(object):
             return []
 
         ofmsgs = []
-        eth_pkt = pkt.get_protocol(ethernet.ethernet)
+        eth_pkt = valve_packet.parse_pkt(pkt)
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
 
-        if mac_addr_is_unicast(eth_src):
+        if util.mac_addr_is_unicast(eth_src):
             self.logger.debug(
                 'Packet_in dp_id: %x src:%s in_port:%d vid:%s',
                 dp_id, eth_src, in_port, vlan_vid)
@@ -1264,54 +1097,23 @@ class Valve(object):
         ofmsgs = []
         if ports:
             self.logger.info('Resolving %s', ip_gw)
-            arp_pkt = arp.arp(
-                opcode=arp.ARP_REQUEST, src_mac=self.FAUCET_MAC,
-                src_ip=str(controller_ip.ip), dst_mac=mac.DONTCARE_STR,
-                dst_ip=str(ip_gw))
             port_num = ports[0].number
-            pkt = self.build_ethernet_pkt(
-                mac.BROADCAST_STR, port_num, vlan, ether.ETH_TYPE_ARP)
-            pkt.add_protocol(arp_pkt)
-            pkt.serialize()
+            vid = self.vlan_vid(vlan, port_num)
+            arp_request = valve_packet.arp_request(
+                self.FAUCET_MAC, vid, controller_ip.ip, ip_gw)
             for port in ports:
-                ofmsgs.append(self.valve_packetout(port.number, pkt.data))
+                ofmsgs.append(valve_of.packetout(port.number, arp_request.data))
         return ofmsgs
-
-    @staticmethod
-    def ipv6_link_eth_mcast(ucast):
-        nd_mac_bytes = ipaddr.Bytes('\x33\x33') + ucast.packed[-4:]
-        nd_mac = ':'.join(['%02X' % ord(x) for x in nd_mac_bytes])
-        return nd_mac
-
-    @staticmethod
-    def ipv6_link_mcast_from_ucast(ucast):
-        link_mcast_prefix = ipaddr.IPv6Network('ff02::1:ff00:0/104')
-        mcast_bytes = ipaddr.Bytes(
-            link_mcast_prefix.packed[:13] + ucast.packed[-3:])
-        link_mcast = ipaddr.IPv6Address(mcast_bytes)
-        return link_mcast
 
     def nd_solicit_ip_gw(self, ip_gw, controller_ip, vlan, ports):
         ofmsgs = []
         if ports:
             self.logger.info('Resolving %s', ip_gw)
-            nd_mac = self.ipv6_link_eth_mcast(ip_gw)
-            ip_gw_mcast = self.ipv6_link_mcast_from_ucast(ip_gw)
-            port_num = ports[0].number
-            pkt = self.build_ethernet_pkt(
-                nd_mac, port_num, vlan, ether.ETH_TYPE_IPV6)
-            ipv6_pkt = ipv6.ipv6(
-                src=controller_ip.ip, dst=ip_gw_mcast, nxt=inet.IPPROTO_ICMPV6)
-            icmpv6_pkt = icmpv6.icmpv6(
-                type_=icmpv6.ND_NEIGHBOR_SOLICIT,
-                data=icmpv6.nd_neighbor(
-                    dst=ip_gw,
-                    option=icmpv6.nd_option_sla(hw_src=self.FAUCET_MAC)))
-            pkt.add_protocol(ipv6_pkt)
-            pkt.add_protocol(icmpv6_pkt)
-            pkt.serialize()
+            vid = self.vlan_vid(vlan, ports[0].number)
+            nd_request = valve_packet.nd_request(
+                self.FAUCET_MAC, vid, controller_ip.ip, ip_gw)
             for port in ports:
-                ofmsgs.append(self.valve_packetout(port.number, pkt.data))
+                ofmsgs.append(valve_of.packetout(port.number, nd_request.data))
         return ofmsgs
 
     def resolve_gateways(self):
@@ -1320,10 +1122,8 @@ class Valve(object):
         ofmsgs = []
         now = time.time()
         for vlan in self.dp.vlans.itervalues():
-            untagged_ports = self.build_flood_ports_for_vlan(
-                vlan.untagged, False)
-            tagged_ports = self.build_flood_ports_for_vlan(
-                vlan.tagged, False)
+            untagged_ports = vlan.untagged_flood_ports(False)
+            tagged_ports = vlan.tagged_flood_ports(False)
             for routes, neighbor_cache, neighbor_resolver in (
                     (vlan.ipv4_routes, vlan.arp_cache, self.arp_for_ip_gw),
                     (vlan.ipv6_routes, vlan.nd_cache, self.nd_solicit_ip_gw)):
@@ -1369,7 +1169,5 @@ class ArubaValve(Valve):
         ryu_table_loader = aruba.LoadRyuTables()
         ryu_table_loader.load_tables(
             os.path.join(aruba.CFG_PATH, 'aruba_pipeline.json'), parser)
-        ofmsgs = [parser.OFPTableFeaturesStatsRequest(
-            datapath=None,
-            body=ryu_table_loader.ryu_tables)]
+        ofmsgs = [valve_of.table_features(ryu_table_loader.ryu_tables)]
         return ofmsgs
