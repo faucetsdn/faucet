@@ -80,6 +80,12 @@ def set_mirror_destinations(dp):
     for port_no in dp.mirror_from_port.itervalues():
         dp.ports[port_no].mirror_destination = True
 
+def _dp_config_path(config_file, parent_file=None):
+    if parent_file and not os.path.isabs(config_file):
+        return os.path.realpath(os.path.join(os.path.dirname(parent_file), config_file))
+    else:
+        return os.path.realpath(config_file)
+
 def _dp_parser_v1(conf, config_file, logname):
     logger = get_logger(logname)
 
@@ -118,36 +124,47 @@ def _dp_parser_v1(conf, config_file, logname):
 def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
     logger = get_logger(logname)
 
-    config_path = os.path.join(
-        os.path.dirname(parent_file),
-        config_file,
-    ) if parent_file and not os.path.isabs(config_file) else config_file
-
-    if not os.path.isfile(config_path):
-        logger.warning('not a regular file or does not exist: %s', config_path)
+    if not os.path.isfile(config_file):
+        logger.warning('not a regular file or does not exist: %s', config_file)
         return False
 
-    conf = read_config(config_path, logname)
+    conf = read_config(config_file, logname)
 
     if not conf:
-        logger.warning('error loading config from file: %s', config_path)
+        logger.warning('error loading config from file: %s', config_file)
         return False
+
+    with open(config_file, 'r') as f:
+        config_hashes[config_file] = hashlib.sha256(f.read()).hexdigest()
 
     dps_conf.update(conf.pop('dps', {}))
     vlans_conf.update(conf.pop('vlans', {}))
     acls_conf.update(conf.pop('acls', {}))
 
     for include_file in conf.pop('include', []):
-        if not _dp_include(config_hashes, config_path, include_file, dps_conf, vlans_conf, acls_conf, logname):
-            logger.error('unable to load required include file: %s', include_file)
+        include_path = _dp_config_path(include_file, parent_file=config_file)
+        if include_path in config_hashes:
+            logger.error(
+                'include file %s already loaded, include loop found in file: %s',
+                include_path,
+                config_file,
+            )
+            return False
+        if not _dp_include(config_hashes, config_file, include_path, dps_conf, vlans_conf, acls_conf, logname):
+            logger.error('unable to load required include file: %s', include_path)
             return False
 
     for include_file in conf.pop('include-optional', []):
-        if not _dp_include(config_hashes, config_path, include_file, dps_conf, vlans_conf, acls_conf, logname):
-            logger.warning('skipping optional include file: %s', include_file)
-
-    with open(config_path, 'r') as f:
-        config_hashes[config_path] = hashlib.sha256(f.read()).hexdigest()
+        include_path = _dp_config_path(include_file, parent_file=config_file)
+        if include_path in config_hashes:
+            logger.error(
+                'include file %s already loaded, include loop found in file: %s',
+                include_path,
+                config_file,
+            )
+            return False
+        if not _dp_include(config_hashes, config_file, include_path, dps_conf, vlans_conf, acls_conf, logname):
+            logger.warning('skipping optional include file: %s', include_path)
 
     return True
 
@@ -169,18 +186,20 @@ def _dp_add_vlan(vid_dp, dp, vlan, logname):
 def _dp_parser_v2(conf, config_file, logname):
     logger = get_logger(logname)
 
+    config_path = _dp_config_path(config_file)
+
     config_hashes = {}
 
     dps_conf = {}
     vlans_conf = {}
     acls_conf = {}
 
-    if not _dp_include(config_hashes, None, config_file, dps_conf, vlans_conf, acls_conf, logname):
-        logger.error('error found while loading config file: %s', config_file)
+    if not _dp_include(config_hashes, None, config_path, dps_conf, vlans_conf, acls_conf, logname):
+        logger.error('error found while loading config file: %s', config_path)
         return None
 
     if not dps_conf:
-        logger.error('dps not configured in file: %s', config_file)
+        logger.error('dps not configured in file: %s', config_path)
         return None
 
     dps = []
