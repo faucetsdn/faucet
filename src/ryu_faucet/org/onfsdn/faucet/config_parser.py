@@ -118,19 +118,19 @@ def _dp_parser_v1(conf, config_file, logname):
 def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
     logger = get_logger(logname)
 
-    config = os.path.join(
+    config_path = os.path.join(
         os.path.dirname(parent_file),
         config_file,
     ) if parent_file and not os.path.isabs(config_file) else config_file
 
-    if not os.path.isfile(config):
-        logger.warning('not a regular file or does not exist: %s', config)
+    if not os.path.isfile(config_path):
+        logger.warning('not a regular file or does not exist: %s', config_path)
         return False
 
-    conf = read_config(config, logname)
+    conf = read_config(config_path, logname)
 
     if not conf:
-        logger.warning('error loading config from file: %s', config)
+        logger.warning('error loading config from file: %s', config_path)
         return False
 
     dps_conf.update(conf.pop('dps', {}))
@@ -138,16 +138,16 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
     acls_conf.update(conf.pop('acls', {}))
 
     for include_file in conf.pop('include', []):
-        if not _dp_include(config, include_file, dps_conf, vlans_conf, acls_conf, logname):
+        if not _dp_include(config_hashes, config_path, include_file, dps_conf, vlans_conf, acls_conf, logname):
             logger.error('unable to load required include file: %s', include_file)
             return False
 
     for include_file in conf.pop('include-optional', []):
-        if not _dp_include(config, include_file, dps_conf, vlans_conf, acls_conf, logname):
+        if not _dp_include(config_hashes, config_path, include_file, dps_conf, vlans_conf, acls_conf, logname):
             logger.warning('skipping optional include file: %s', include_file)
 
-    with open(config_file, 'r') as f:
-        config_hashes[config_file] = hashlib.sha256(f.read()).hexdigest()
+    with open(config_path, 'r') as f:
+        config_hashes[config_path] = hashlib.sha256(f.read()).hexdigest()
 
     return True
 
