@@ -514,83 +514,98 @@ class Valve(object):
                 acl_rule_priority -= 1
         return ofmsgs, forwarding_table
 
+    def add_controller_ipv6(self, vlan, controller_ip, controller_ip_host):
+        ofmsgs = []
+        max_prefixlen = controller_ip_host.prefixlen
+        priority = self.dp.highest_priority + max_prefixlen
+        ofmsgs.append(self.valve_flowcontroller(
+            self.dp.eth_src_table,
+            self.valve_in_match(
+                self.dp.eth_src_table,
+                eth_type=ether.ETH_TYPE_IPV6,
+                vlan=vlan,
+                nw_proto=inet.IPPROTO_ICMPV6,
+                ipv6_nd_target=controller_ip_host,
+                icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
+            priority=priority))
+        ofmsgs.append(self.valve_flowcontroller(
+            self.dp.eth_src_table,
+            self.valve_in_match(
+                self.dp.eth_src_table,
+                eth_type=ether.ETH_TYPE_IPV6,
+                eth_dst=self.FAUCET_MAC,
+                vlan=vlan,
+                nw_proto=inet.IPPROTO_ICMPV6,
+                icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
+            priority=priority))
+        # Initialize IPv6 FIB
+        ofmsgs.append(self.valve_flowmod(
+            self.dp.eth_src_table,
+            self.valve_in_match(
+                self.dp.eth_src_table,
+                eth_type=ether.ETH_TYPE_IPV6,
+                eth_dst=self.FAUCET_MAC,
+                vlan=vlan),
+            priority=self.dp.highest_priority,
+            inst=[valve_of.goto_table(self.dp.ipv6_fib_table)]))
+        ofmsgs.append(self.valve_flowcontroller(
+            self.dp.ipv6_fib_table,
+            self.valve_in_match(
+                self.dp.ipv6_fib_table,
+                eth_type=ether.ETH_TYPE_IPV6,
+                vlan=vlan,
+                nw_proto=inet.IPPROTO_ICMPV6,
+                nw_dst=controller_ip_host,
+                icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
+            priority=priority))
+        return ofmsgs
+
+    def add_controller_ipv4(self, vlan, controller_ip, controller_ip_host):
+        ofmsgs = []
+        max_prefixlen = controller_ip_host.prefixlen
+        priority = self.dp.highest_priority + max_prefixlen
+        ofmsgs.append(self.valve_flowcontroller(
+            self.dp.eth_src_table,
+            self.valve_in_match(
+                self.dp.eth_src_table,
+                eth_type=ether.ETH_TYPE_ARP,
+                nw_dst=controller_ip_host,
+                vlan=vlan),
+            priority=priority))
+        # Initialize IPv4 FIB
+        ofmsgs.append(self.valve_flowmod(
+            self.dp.eth_src_table,
+            self.valve_in_match(
+                self.dp.eth_src_table,
+                eth_type=ether.ETH_TYPE_IP,
+                eth_dst=self.FAUCET_MAC,
+                vlan=vlan),
+            priority=self.dp.highest_priority,
+            inst=[valve_of.goto_table(self.dp.ipv4_fib_table)]))
+        ofmsgs.append(self.valve_flowcontroller(
+            self.dp.ipv4_fib_table,
+            self.valve_in_match(
+                self.dp.ipv4_fib_table,
+                vlan=vlan,
+                eth_type=ether.ETH_TYPE_IP,
+                nw_proto=inet.IPPROTO_ICMP,
+                nw_src=controller_ip,
+                nw_dst=controller_ip_host),
+            priority=priority))
+        return ofmsgs
+
     def add_controller_ips(self, controller_ips, vlan):
         ofmsgs = []
         for controller_ip in controller_ips:
             controller_ip_host = ipaddr.IPNetwork(
                 '/'.join((str(controller_ip.ip),
                           str(controller_ip.max_prefixlen))))
-            max_prefixlen = controller_ip_host.prefixlen
-            if controller_ip_host.version == 4:
-                ofmsgs.append(self.valve_flowcontroller(
-                    self.dp.eth_src_table,
-                    self.valve_in_match(
-                        self.dp.eth_src_table,
-                        eth_type=ether.ETH_TYPE_ARP,
-                        nw_dst=controller_ip_host,
-                        vlan=vlan),
-                    priority=self.dp.highest_priority + max_prefixlen))
-                # Initialize IPv4 FIB
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.eth_src_table,
-                    self.valve_in_match(
-                        self.dp.eth_src_table,
-                        eth_type=ether.ETH_TYPE_IP,
-                        eth_dst=self.FAUCET_MAC,
-                        vlan=vlan),
-                    priority=self.dp.highest_priority,
-                    inst=[valve_of.goto_table(self.dp.ipv4_fib_table)]))
-                ofmsgs.append(self.valve_flowcontroller(
-                    self.dp.ipv4_fib_table,
-                    self.valve_in_match(
-                        self.dp.ipv4_fib_table,
-                        vlan=vlan,
-                        eth_type=ether.ETH_TYPE_IP,
-                        nw_proto=inet.IPPROTO_ICMP,
-                        nw_src=controller_ip,
-                        nw_dst=controller_ip_host),
-                    priority=self.dp.highest_priority + max_prefixlen))
-            else:
-                ofmsgs.append(self.valve_flowcontroller(
-                    self.dp.eth_src_table,
-                    self.valve_in_match(
-                        self.dp.eth_src_table,
-                        eth_type=ether.ETH_TYPE_IPV6,
-                        vlan=vlan,
-                        nw_proto=inet.IPPROTO_ICMPV6,
-                        ipv6_nd_target=controller_ip_host,
-                        icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
-                    priority=self.dp.highest_priority + max_prefixlen))
-                ofmsgs.append(self.valve_flowcontroller(
-                    self.dp.eth_src_table,
-                    self.valve_in_match(
-                        self.dp.eth_src_table,
-                        eth_type=ether.ETH_TYPE_IPV6,
-                        eth_dst=self.FAUCET_MAC,
-                        vlan=vlan,
-                        nw_proto=inet.IPPROTO_ICMPV6,
-                        icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
-                    priority=self.dp.highest_priority + max_prefixlen))
-                # Initialize IPv6 FIB
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.eth_src_table,
-                    self.valve_in_match(
-                        self.dp.eth_src_table,
-                        eth_type=ether.ETH_TYPE_IPV6,
-                        eth_dst=self.FAUCET_MAC,
-                        vlan=vlan),
-                    priority=self.dp.highest_priority,
-                    inst=[valve_of.goto_table(self.dp.ipv6_fib_table)]))
-                ofmsgs.append(self.valve_flowcontroller(
-                    self.dp.ipv6_fib_table,
-                    self.valve_in_match(
-                        self.dp.ipv6_fib_table,
-                        eth_type=ether.ETH_TYPE_IPV6,
-                        vlan=vlan,
-                        nw_proto=inet.IPPROTO_ICMPV6,
-                        nw_dst=controller_ip_host,
-                        icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
-                    priority=self.dp.highest_priority + max_prefixlen))
+            if controller_ip_host.version == 6:
+                ofmsgs.extend(self.add_controller_ipv6(
+                    vlan, controller_ip, controller_ip_host))
+            elif controller_ip_host.version == 4:
+                ofmsgs.extend(self.add_controller_ipv4(
+                    vlan, controller_ip, controller_ip_host))
         return ofmsgs
 
     def port_add_vlan_rules(self, port, vlan, vlan_vid, vlan_inst):
@@ -995,7 +1010,7 @@ class Valve(object):
                     src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
                     dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
                     if (vlan.ip_in_controller_subnet(src_ip) or
-                        vlan.ip_in_controller_subnet(dst_ip)):
+                            vlan.ip_in_controller_subnet(dst_ip)):
                         ofmsgs.extend(self.control_plane_icmp_handler(
                             in_port, vlan, eth_src, ipv4_pkt, icmp_pkt))
             elif ipv6_pkt is not None:
@@ -1004,7 +1019,7 @@ class Valve(object):
                     src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
                     dst_ip = ipaddr.IPv6Address(ipv6_pkt.dst)
                     if (vlan.ip_in_controller_subnet(src_ip) or
-                        vlan.ip_in_controller_subnet(dst_ip)):
+                            vlan.ip_in_controller_subnet(dst_ip)):
                         ofmsgs.extend(self.control_plane_icmpv6_handler(
                             in_port, vlan, eth_src, ipv6_pkt, icmpv6_pkt))
 
