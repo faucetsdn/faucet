@@ -25,9 +25,10 @@ import ipaddr
 
 import aruba.aruba_pipeline as aruba
 import valve_acl
-import valve_route
+import valve_flood
 import valve_of
 import valve_packet
+import valve_route
 import util
 
 from ryu.lib import mac
@@ -92,6 +93,9 @@ class Valve(object):
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller)
+        self.flood_manager = valve_flood.ValveFloodManager(
+            self.dp.flood_table, self.dp.low_priority, self.dp.mirror_from_port,
+            self.valve_in_match, self.valve_flowmod)
 
     def register_table_match_types(self):
         self.TABLE_MATCH_TYPES = {
@@ -328,7 +332,7 @@ class Valve(object):
             for port in vlan.get_ports():
                 all_port_nums.add(port.number)
             # install eth_dst_table flood ofmsgs
-            ofmsgs.extend(self.build_flood_rules(vlan))
+            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             # add controller IPs if configured.
             ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
 
@@ -347,81 +351,6 @@ class Valve(object):
         for port_num in all_port_nums:
             ofmsgs.extend(self.port_add(self.dp.dp_id, port_num))
 
-        return ofmsgs
-
-    def build_flood_rule_actions(self, vlan, exclude_unicast, exclude_ports=[]):
-        flood_acts = []
-        tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
-        untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
-        for port in tagged_ports:
-            if port not in exclude_ports:
-                flood_acts.append(valve_of.output_port(port.number))
-        if untagged_ports:
-            flood_acts.append(valve_of.pop_vlan())
-            for port in untagged_ports:
-                if port not in exclude_ports:
-                    flood_acts.append(valve_of.output_port(port.number))
-        return flood_acts
-
-    def build_flood_rules(self, vlan, modify=False):
-        """Add flows to flood packets to unknown destinations on a VLAN."""
-        # TODO: not all vendors implement groups well.
-        # That means we need flood rules for each input port, outputting
-        # to all ports except the input port. When all vendors implement
-        # groups correctly we can use them.
-        command = ofp.OFPFC_ADD
-        if modify:
-            command = ofp.OFPFC_MODIFY_STRICT
-        flood_priority = self.dp.low_priority
-        flood_eth_dst_matches = []
-        if vlan.unicast_flood:
-            flood_eth_dst_matches.extend([(None, None)])
-        flood_eth_dst_matches.extend([
-            ('01:80:C2:00:00:00', '01:80:C2:00:00:00'), # 802.x
-            ('01:00:5E:00:00:00', 'ff:ff:ff:00:00:00'), # IPv4 multicast
-            ('33:33:00:00:00:00', 'ff:ff:00:00:00:00'), # IPv6 multicast
-            (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
-        ])
-        ofmsgs = []
-        vlan_all_ports = vlan.flood_ports(vlan.get_ports(), False)
-        mirrored_ports = vlan.mirrored_ports()
-        for eth_dst, eth_dst_mask in flood_eth_dst_matches:
-            for port in vlan_all_ports:
-                if eth_dst is None:
-                    flood_acts = self.build_flood_rule_actions(
-                        vlan, False, exclude_ports=[port])
-                else:
-                    flood_acts = self.build_flood_rule_actions(
-                        vlan, True, exclude_ports=[port])
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.flood_table,
-                    match=self.valve_in_match(
-                        self.dp.flood_table, in_port=port.number, vlan=vlan,
-                        eth_dst=eth_dst, eth_dst_mask=eth_dst_mask),
-                    command=command,
-                    inst=[valve_of.apply_actions(flood_acts)],
-                    priority=flood_priority))
-            flood_priority += 1
-            for port in mirrored_ports:
-                mirror_port = self.dp.mirror_from_port[port.number]
-                if eth_dst is None:
-                    flood_acts = self.build_flood_rule_actions(vlan, False)
-                else:
-                    flood_acts = self.build_flood_rule_actions(vlan, True)
-                mirror_acts = [
-                    valve_of.output_port(mirror_port)] + flood_acts
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.flood_table,
-                    match=self.valve_in_match(
-                        self.dp.flood_table,
-                        vlan=vlan,
-                        in_port=port.number,
-                        eth_dst=eth_dst,
-                        eth_dst_mask=eth_dst_mask),
-                    command=command,
-                    inst=[valve_of.apply_actions(mirror_acts)],
-                    priority=flood_priority))
-            flood_priority += 1
         return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_port_nums):
@@ -489,7 +418,7 @@ class Valve(object):
                 self.dp.vlan_table, in_port=port.number, vlan=vlan_vid),
             priority=self.dp.low_priority,
             inst=vlan_inst))
-        ofmsgs.extend(self.build_flood_rules(vlan))
+        ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         return ofmsgs
 
     def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
@@ -608,7 +537,8 @@ class Valve(object):
 
         for vlan in self.dp.vlans.values():
             if port in vlan.get_ports():
-                ofmsgs.extend(self.build_flood_rules(vlan, modify=True))
+                ofmsgs.extend(self.flood_manager.build_flood_rules(
+                    vlan, modify=True))
 
         return ofmsgs
 
