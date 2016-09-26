@@ -39,10 +39,13 @@ def set_eth_src(eth_src):
 def set_eth_dst(eth_dst):
     return parser.OFPActionSetField(eth_dst=eth_dst)
 
+def vid_present(vid):
+    return vid | ofp.OFPVID_PRESENT
+
 def push_vlan_act(vlan_vid):
     return [
         parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-        parser.OFPActionSetField(vlan_vid=(vlan_vid | ofp.OFPVID_PRESENT))
+        parser.OFPActionSetField(vlan_vid=vid_present(vlan_vid))
     ]
 
 def dec_ip_ttl():
@@ -94,7 +97,7 @@ def build_match_dict(in_port=None, vlan=None,
         if vlan.vid == ofp.OFPVID_NONE:
             match_dict['vlan_vid'] = ofp.OFPVID_NONE
         else:
-            match_dict['vlan_vid'] = (vlan.vid | ofp.OFPVID_PRESENT)
+            match_dict['vlan_vid'] = vid_present(vlan.vid)
     if eth_src is not None:
         match_dict['eth_src'] = eth_src
     if eth_dst is not None:
