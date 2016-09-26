@@ -24,6 +24,7 @@ from collections import namedtuple
 import ipaddr
 
 import aruba.aruba_pipeline as aruba
+import valve_acl
 import valve_route
 import valve_of
 import valve_packet
@@ -461,43 +462,6 @@ class Valve(object):
             self.logger.warning('Datapath %s down', dp_id)
         return []
 
-    def build_acl_entry(self, rule_conf, acl_allow_inst, port_num):
-        acl_inst = []
-        match_dict = {}
-        for attrib, attrib_value in rule_conf.iteritems():
-            if attrib == 'in_port':
-                continue
-            if attrib == 'actions':
-                if 'mirror' in attrib_value:
-                    port_no = attrib_value['mirror']
-                    acl_inst.append(
-                        valve_of.apply_actions([valve_of.output_port(port_no)]))
-                # if output selected, output packet now and exit pipeline.
-                if 'output' in attrib_value:
-                    output_dict = attrib_value['output']
-                    output_actions = []
-                    # if destination rewriting selected, rewrite it.
-                    if 'dl_dst' in output_dict:
-                        output_actions.append(
-                            valve_of.set_eth_dst(output_dict['dl_dst']))
-                    # if vlan tag is specified, push it.
-                    if 'vlan_vid' in output_dict:
-                        output_actions.extend(
-                            valve_of.push_vlan_act(output_dict['vlan_vid']))
-                    # output to port
-                    port_no = output_dict['port']
-                    output_actions.append(valve_of.output_port(port_no))
-                    acl_inst.append(valve_of.apply_actions(output_actions))
-                    continue
-                if attrib_value['allow'] == 1:
-                    acl_inst.append(acl_allow_inst)
-            else:
-                match_dict[attrib] = attrib_value
-        # override in_port always
-        match_dict['in_port'] = port_num
-        acl_match = valve_of.match_from_dict(match_dict)
-        return acl_match, acl_inst
-
     def port_add_acl(self, port_num):
         ofmsgs = []
         forwarding_table = self.dp.eth_src_table
@@ -507,7 +471,7 @@ class Valve(object):
             acl_rule_priority = self.dp.highest_priority
             acl_allow_inst = valve_of.goto_table(self.dp.eth_src_table)
             for rule_conf in self.dp.acls[acl_num]:
-                acl_match, acl_inst = self.build_acl_entry(
+                acl_match, acl_inst = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, port_num)
                 ofmsgs.append(self.valve_flowmod(
                     self.dp.acl_table,
