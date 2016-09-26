@@ -240,7 +240,7 @@ class Faucet(app_manager.RyuApp):
             valve.host_expire()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
-    @kill_on_exception(exc_logname)
+    #@kill_on_exception(exc_logname)
     def _packet_in_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath
@@ -268,7 +268,7 @@ class Faucet(app_manager.RyuApp):
         self.send_flow_msgs(dp, flowmods)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
-    @kill_on_exception(exc_logname)
+    #@kill_on_exception(exc_logname)
     def _error_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath
@@ -289,7 +289,7 @@ class Faucet(app_manager.RyuApp):
             self.logger.error("handler_features: unknown dp with id: {0}".format(dp.id))
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
-    @kill_on_exception(exc_logname)
+    #@kill_on_exception(exc_logname)
     def handler_connect_or_disconnect(self, ev):
         dp = ev.dp
 
@@ -306,7 +306,7 @@ class Faucet(app_manager.RyuApp):
         self.handler_datapath(dp)
 
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
-    @kill_on_exception(exc_logname)
+    #@kill_on_exception(exc_logname)
     def handler_reconnect(self, ev):
         dp = ev.dp
         self.logger.debug('DP %s reconnected' % str(dp.id))
@@ -322,7 +322,7 @@ class Faucet(app_manager.RyuApp):
             self.logger.error("handler_datapath: unknown dp with id: {0}".format(dp.id))
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
-    @kill_on_exception(exc_logname)
+    #@kill_on_exception(exc_logname)
     def port_status_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath

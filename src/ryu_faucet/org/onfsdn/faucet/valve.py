@@ -89,9 +89,9 @@ class Valve(object):
         self.ofchannel_logger = None
         self.register_table_match_types()
         self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
-            self.dp.ipv4_fib_table)
-        self.ipv6_route_manager = valve_route.ValveIPv4RouteManager(
-            self.dp.ipv6_fib_table)
+            self.logger, self.FAUCET_MAC, self.dp.ipv4_fib_table)
+        self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
+            self.logger, self.FAUCET_MAC, self.dp.ipv6_fib_table)
 
     def register_table_match_types(self):
         self.TABLE_MATCH_TYPES = {
@@ -1107,29 +1107,6 @@ class Valve(object):
                 self.dp.dp_id, self.dp.ports.keys())
         return ofmsgs
 
-    def arp_for_ip_gw(self, ip_gw, controller_ip, vlan, ports):
-        ofmsgs = []
-        if ports:
-            self.logger.info('Resolving %s', ip_gw)
-            port_num = ports[0].number
-            vid = self.vlan_vid(vlan, port_num)
-            arp_request = valve_packet.arp_request(
-                self.FAUCET_MAC, vid, controller_ip.ip, ip_gw)
-            for port in ports:
-                ofmsgs.append(valve_of.packetout(port.number, arp_request.data))
-        return ofmsgs
-
-    def nd_solicit_ip_gw(self, ip_gw, controller_ip, vlan, ports):
-        ofmsgs = []
-        if ports:
-            self.logger.info('Resolving %s', ip_gw)
-            vid = self.vlan_vid(vlan, ports[0].number)
-            nd_request = valve_packet.nd_request(
-                self.FAUCET_MAC, vid, controller_ip.ip, ip_gw)
-            for port in ports:
-                ofmsgs.append(valve_of.packetout(port.number, nd_request.data))
-        return ofmsgs
-
     def resolve_gateways(self):
         if not self.dp.running:
             return []
@@ -1139,8 +1116,8 @@ class Valve(object):
             untagged_ports = vlan.untagged_flood_ports(False)
             tagged_ports = vlan.tagged_flood_ports(False)
             for routes, neighbor_cache, neighbor_resolver in (
-                    (vlan.ipv4_routes, vlan.arp_cache, self.arp_for_ip_gw),
-                    (vlan.ipv6_routes, vlan.nd_cache, self.nd_solicit_ip_gw)):
+                    (vlan.ipv4_routes, vlan.arp_cache, self.ipv4_route_manager.neighbor_resolver),
+                    (vlan.ipv6_routes, vlan.nd_cache, self.ipv6_route_manager.neighbor_resolver)):
                 for ip_gw in set(routes.values()):
                     for controller_ip in vlan.controller_ips:
                         if ip_gw in controller_ip:
