@@ -567,6 +567,19 @@ class Valve(object):
             vid = vlan.vid
         return vid
 
+    def build_port_out_inst(self, vlan, in_port):
+        dst_act = []
+        if not vlan.port_is_tagged(in_port):
+            dst_act.append(valve_of.pop_vlan())
+        dst_act.append(valve_of.output_port(in_port))
+
+        if in_port in self.dp.mirror_from_port:
+            mirror_port_num = self.dp.mirror_from_port[in_port]
+            mirror_acts = [valve_of.output_port(mirror_port_num)]
+            dst_act.extend(mirror_acts)
+
+        return [valve_of.apply_actions(dst_act)]
+
     def learn_host_on_vlan_port(self, port, vlan, eth_src):
         ofmsgs = []
         in_port = port.number
@@ -584,11 +597,6 @@ class Valve(object):
         else:
             learn_timeout = self.dp.timeout
             ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
-
-        mirror_acts = []
-        if in_port in self.dp.mirror_from_port:
-            mirror_port_num = self.dp.mirror_from_port[in_port]
-            mirror_acts = [valve_of.output_port(mirror_port_num)]
 
         # Update datapath to no longer send packets from this mac to controller
         # note the use of hard_timeout here and idle_timeout for the dst table
@@ -609,21 +617,12 @@ class Valve(object):
             hard_timeout=learn_timeout))
 
         # update datapath to output packets to this mac via the associated port
-        if vlan.port_is_tagged(in_port):
-            dst_act = [valve_of.output_port(in_port)]
-        else:
-            dst_act = [
-                valve_of.pop_vlan(),
-                valve_of.output_port(in_port)]
-        if mirror_acts:
-            dst_act.extend(mirror_acts)
-        inst = [valve_of.apply_actions(dst_act)]
         ofmsgs.append(self.valve_flowmod(
             self.dp.eth_dst_table,
             self.valve_in_match(
                 self.dp.eth_dst_table, vlan=vlan, eth_dst=eth_src),
             priority=self.dp.high_priority,
-            inst=inst,
+            inst=self.build_port_out_inst(vlan, in_port),
             idle_timeout=learn_timeout))
         return ofmsgs
 
