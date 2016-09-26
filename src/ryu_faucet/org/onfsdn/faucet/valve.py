@@ -89,9 +89,11 @@ class Valve(object):
         self.ofchannel_logger = None
         self.register_table_match_types()
         self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
-            self.logger, self.FAUCET_MAC, self.dp.ipv4_fib_table)
+            self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
+            self.dp.ipv4_fib_table)
         self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
-            self.logger, self.FAUCET_MAC, self.dp.ipv6_fib_table)
+            self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
+            self.dp.ipv6_fib_table)
 
     def register_table_match_types(self):
         self.TABLE_MATCH_TYPES = {
@@ -1113,23 +1115,8 @@ class Valve(object):
         ofmsgs = []
         now = time.time()
         for vlan in self.dp.vlans.itervalues():
-            untagged_ports = vlan.untagged_flood_ports(False)
-            tagged_ports = vlan.tagged_flood_ports(False)
-            for routes, neighbor_cache, neighbor_resolver in (
-                    (vlan.ipv4_routes, vlan.arp_cache, self.ipv4_route_manager.neighbor_resolver),
-                    (vlan.ipv6_routes, vlan.nd_cache, self.ipv6_route_manager.neighbor_resolver)):
-                for ip_gw in set(routes.values()):
-                    for controller_ip in vlan.controller_ips:
-                        if ip_gw in controller_ip:
-                            cache_age = None
-                            if ip_gw in neighbor_cache:
-                                cache_time = neighbor_cache[ip_gw].cache_time
-                                cache_age = now - cache_time
-                            if (cache_age is None or
-                                    cache_age > self.dp.arp_neighbor_timeout):
-                                for ports in untagged_ports, tagged_ports:
-                                    ofmsgs.extend(neighbor_resolver(
-                                        ip_gw, controller_ip, vlan, ports))
+            ofmsgs.extend(self.ipv4_route_manager.resolve_gateways(vlan, now))
+            ofmsgs.extend(self.ipv6_route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
     def host_expire(self):
