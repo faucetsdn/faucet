@@ -37,13 +37,6 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
 
-class LinkNeighbor(object):
-
-    def __init__(self, eth_src, now):
-        self.eth_src = eth_src
-        self.cache_time = now
-
-
 class HostCacheEntry(object):
 
     def __init__(self, eth_src, permanent, now):
@@ -90,10 +83,14 @@ class Valve(object):
         self.register_table_match_types()
         self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
-            self.dp.ipv4_fib_table)
+            self.dp.ipv4_fib_table, self.dp.eth_dst_table,
+            self.dp.highest_priority,
+            self.valve_in_match, self.valve_flowdel, self.valve_flowmod)
         self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
-            self.dp.ipv6_fib_table)
+            self.dp.ipv6_fib_table, self.dp.eth_dst_table,
+            self.dp.highest_priority,
+            self.valve_in_match, self.valve_flowdel, self.valve_flowmod)
 
     def register_table_match_types(self):
         self.TABLE_MATCH_TYPES = {
@@ -770,117 +767,6 @@ class Valve(object):
             vid = vlan.vid
         return vid
 
-    def add_route(self, vlan, ip_gw, ip_dst):
-        ofmsgs = []
-        if ip_dst.version == 6:
-            routes = vlan.ipv6_routes
-            neighbor_cache = vlan.nd_cache
-            eth_type = ether.ETH_TYPE_IPV6
-            fib_table = self.dp.ipv6_fib_table
-        else:
-            routes = vlan.ipv4_routes
-            neighbor_cache = vlan.arp_cache
-            eth_type = ether.ETH_TYPE_IP
-            fib_table = self.dp.ipv4_fib_table
-        routes[ip_dst] = ip_gw
-        if ip_gw in neighbor_cache:
-            eth_dst = neighbor_cache[ip_gw].eth_src
-            ofmsgs.extend(
-                self.add_resolved_route(
-                    eth_type=eth_type,
-                    fib_table=fib_table,
-                    vlan=vlan,
-                    neighbor_cache=neighbor_cache,
-                    ip_gw=ip_gw,
-                    ip_dst=ip_dst,
-                    eth_dst=eth_dst,
-                    is_updated=False))
-        return ofmsgs
-
-    def del_route(self, vlan, ip_dst):
-        ofmsgs = []
-        if ip_dst.version == 6:
-            if ip_dst in vlan.ipv6_routes:
-                del vlan.ipv6_routes[ip_dst]
-                route_match = self.valve_in_match(
-                    self.dp.ipv6_fib_table, vlan=vlan,
-                    eth_type=ether.ETH_TYPE_IPV6, nw_dst=ip_dst)
-                ofmsgs.extend(self.valve_flowdel(
-                    self.dp.ipv6_fib_table, route_match))
-        else:
-            if ip_dst in vlan.ipv4_routes:
-                del vlan.ipv4_routes[ip_dst]
-                route_match = self.valve_in_match(
-                    self.dp.ipv4_fib_table, vlan=vlan,
-                    eth_type=ether.ETH_TYPE_IP, nw_dst=ip_dst)
-                ofmsgs.extend(self.valve_flowdel(
-                    self.dp.ipv4_fib_table, route_match))
-        return ofmsgs
-
-    def add_resolved_route(self, eth_type, fib_table, vlan, neighbor_cache,
-                           ip_gw, ip_dst, eth_dst, is_updated=None):
-        ofmsgs = []
-        if is_updated is not None:
-            in_match = self.valve_in_match(
-                fib_table, vlan=vlan, eth_type=eth_type, nw_dst=ip_dst)
-            prefixlen = ipaddr.IPNetwork(ip_dst).prefixlen
-            priority = self.dp.highest_priority + prefixlen
-            if is_updated:
-                self.logger.info(
-                    'Updating next hop for route %s via %s (%s)',
-                    ip_dst, ip_gw, eth_dst)
-                ofmsgs.extend(self.valve_flowdel(
-                    fib_table,
-                    in_match,
-                    priority=priority))
-            else:
-                self.logger.info(
-                    'Adding new route %s via %s (%s)',
-                    ip_dst, ip_gw, eth_dst)
-
-            ofmsgs.append(self.valve_flowmod(
-                fib_table,
-                in_match,
-                priority=priority,
-                inst=[valve_of.apply_actions(
-                    [valve_of.set_eth_src(self.FAUCET_MAC),
-                     valve_of.set_eth_dst(eth_dst),
-                     valve_of.dec_ip_ttl()])] +
-                [valve_of.goto_table(self.dp.eth_dst_table)]))
-        now = time.time()
-        link_neighbor = LinkNeighbor(eth_dst, now)
-        neighbor_cache[ip_gw] = link_neighbor
-        return ofmsgs
-
-    def update_nexthop(self, vlan, eth_src, ip):
-        if ip.version == 6:
-            route_table = vlan.ipv6_routes
-            fib_table = self.dp.ipv6_fib_table
-            eth_type = ether.ETH_TYPE_IPV6
-            neighbor_cache = vlan.nd_cache
-        else:
-            route_table = vlan.ipv4_routes
-            fib_table = self.dp.ipv4_fib_table
-            eth_type = ether.ETH_TYPE_IP
-            neighbor_cache = vlan.arp_cache
-        ofmsgs = []
-        is_updated = None
-        if ip in neighbor_cache:
-            cached_eth_dst = neighbor_cache[ip].eth_src
-            if cached_eth_dst != eth_src:
-                is_updated = True
-        else:
-            is_updated = False
-
-        for ip_dst, ip_gw in route_table.iteritems():
-            if ip_gw == ip:
-                ofmsgs.extend(
-                    self.add_resolved_route(
-                        eth_type, fib_table,
-                        vlan, neighbor_cache,
-                        ip_gw, ip_dst, eth_src, is_updated))
-        return ofmsgs
-
     def control_plane_arp_handler(self, in_port, vlan, eth_src, eth_dst, arp_pkt):
         ofmsgs = []
         opcode = arp_pkt.opcode
@@ -926,7 +812,7 @@ class Valve(object):
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
         if (icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT and
-            vlan.ip_in_controller_subnet(src_ip)):
+                vlan.ip_in_controller_subnet(src_ip)):
             nd_reply = valve_packet.nd_reply(
                 self.FAUCET_MAC, eth_src, vid,
                 icmpv6_pkt.data.dst, src_ip, ipv6_pkt.hop_limit)
@@ -1097,28 +983,6 @@ class Valve(object):
                 len(vlan.host_cache), vlan.vid)
         return ofmsgs
 
-    def reload_config(self, new_dp):
-        """Reload the config from new_dp
-
-        KW Arguments:
-        new_dp -- A new DP object containing the updated config."""
-        ofmsgs = []
-        if self.dp.running:
-            self.dp = new_dp
-            ofmsgs = self.datapath_connect(
-                self.dp.dp_id, self.dp.ports.keys())
-        return ofmsgs
-
-    def resolve_gateways(self):
-        if not self.dp.running:
-            return []
-        ofmsgs = []
-        now = time.time()
-        for vlan in self.dp.vlans.itervalues():
-            ofmsgs.extend(self.ipv4_route_manager.resolve_gateways(vlan, now))
-            ofmsgs.extend(self.ipv6_route_manager.resolve_gateways(vlan, now))
-        return ofmsgs
-
     def host_expire(self):
         if not self.dp.running:
             return
@@ -1140,6 +1004,45 @@ class Valve(object):
                     '%u recently active hosts on vlan %u',
                     len(vlan.host_cache), vlan.vid)
 
+    def reload_config(self, new_dp):
+        """Reload the config from new_dp
+
+        KW Arguments:
+        new_dp -- A new DP object containing the updated config."""
+        ofmsgs = []
+        if self.dp.running:
+            self.dp = new_dp
+            ofmsgs = self.datapath_connect(
+                self.dp.dp_id, self.dp.ports.keys())
+        return ofmsgs
+
+    def add_route(self, vlan, ip_gw, ip_dst):
+        if ip_dst.version == 6:
+            return self.ipv6_route_manager.add_route(vlan, ip_gw, ip_dst)
+        else:
+            return self.ipv4_route_manager.add_route(vlan, ip_gw, ip_dst)
+
+    def del_route(self, vlan, ip_dst):
+        if ip_dst.version == 6:
+            return self.ipv6_route_manager.del_route(vlan, ip_dst)
+        else:
+            return self.ipv4_route_manager.del_route(vlan, ip_dst)
+
+    def update_nexthop(self, vlan, eth_src, ip):
+        if ip.version == 6:
+            return self.ipv6_route_manager.update_nexthop(vlan, eth_src, ip)
+        else:
+            return self.ipv4_route_manager.update_nexthop(vlan, eth_src, ip)
+
+    def resolve_gateways(self):
+        if not self.dp.running:
+            return []
+        ofmsgs = []
+        now = time.time()
+        for vlan in self.dp.vlans.itervalues():
+            ofmsgs.extend(self.ipv4_route_manager.resolve_gateways(vlan, now))
+            ofmsgs.extend(self.ipv6_route_manager.resolve_gateways(vlan, now))
+        return ofmsgs
 
 class ArubaValve(Valve):
 
