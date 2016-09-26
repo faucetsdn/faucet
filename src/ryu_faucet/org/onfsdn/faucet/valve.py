@@ -30,7 +30,6 @@ import valve_packet
 import util
 
 from ryu.lib import mac
-from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
@@ -674,69 +673,6 @@ class Valve(object):
             vid = vlan.vid
         return vid
 
-    def control_plane_arp_handler(self, in_port, vlan, eth_src, eth_dst, arp_pkt):
-        ofmsgs = []
-        opcode = arp_pkt.opcode
-        src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
-        dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
-
-        if (opcode == arp.ARP_REQUEST and
-                vlan.ip_in_controller_subnet(src_ip) and
-                vlan.ip_in_controller_subnet(dst_ip)):
-            vid = self.vlan_vid(vlan, in_port)
-            arp_reply = valve_packet.arp_reply(
-                self.FAUCET_MAC, eth_src, vid, dst_ip, src_ip)
-            ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
-            self.logger.info(
-                'Responded to ARP request for %s from %s', src_ip, dst_ip)
-        elif (opcode == arp.ARP_REPLY and
-              eth_dst == self.FAUCET_MAC and
-              vlan.ip_in_controller_subnet(src_ip) and
-              vlan.ip_in_controller_subnet(dst_ip)):
-            self.logger.info('ARP response %s for %s', eth_src, src_ip)
-            ofmsgs.extend(self.update_nexthop(vlan, eth_src, src_ip))
-        return ofmsgs
-
-    def control_plane_icmp_handler(self, in_port, vlan, eth_src,
-                                   ipv4_pkt, icmp_pkt):
-        ofmsgs = []
-        src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
-        dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
-        if (icmp_pkt is not None and
-                vlan.ip_in_controller_subnet(src_ip) and
-                vlan.ip_in_controller_subnet(dst_ip)):
-            vid = self.vlan_vid(vlan, in_port)
-            echo_reply = valve_packet.echo_reply(
-                self.FAUCET_MAC, eth_src, vid, dst_ip, src_ip, icmp_pkt.data)
-            ofmsgs.append(valve_of.packetout(in_port, echo_reply.data))
-        return ofmsgs
-
-    def control_plane_icmpv6_handler(self, in_port, vlan, eth_src,
-                                     ipv6_pkt, icmpv6_pkt):
-        vid = self.vlan_vid(vlan, in_port)
-        src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
-        dst_ip = ipaddr.IPv6Address(ipv6_pkt.dst)
-        icmpv6_type = icmpv6_pkt.type_
-        ofmsgs = []
-        if (icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT and
-                vlan.ip_in_controller_subnet(src_ip)):
-            nd_reply = valve_packet.nd_reply(
-                self.FAUCET_MAC, eth_src, vid,
-                icmpv6_pkt.data.dst, src_ip, ipv6_pkt.hop_limit)
-            ofmsgs.extend([valve_of.packetout(in_port, nd_reply.data)])
-        elif (icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT and
-              vlan.ip_in_controller_subnet(src_ip)):
-            resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
-            self.logger.info('ND response %s for %s', eth_src, resolved_ip_gw)
-            ofmsgs.extend(self.update_nexthop(vlan, eth_src, resolved_ip_gw))
-        elif icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST:
-            icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
-                self.FAUCET_MAC, eth_src, vid,
-                dst_ip, src_ip, ipv6_pkt.hop_limit,
-                icmpv6_pkt.data.id, icmpv6_pkt.data.seq, icmpv6_pkt.data.data)
-            ofmsgs.extend([valve_of.packetout(in_port, icmpv6_echo_reply.data)])
-        return ofmsgs
-
     def learn_host_on_vlan_port(self, port, vlan, eth_src):
         ofmsgs = []
         in_port = port.number
@@ -797,26 +733,13 @@ class Valve(object):
             idle_timeout=learn_timeout))
         return ofmsgs
 
-    def handle_control_plane(self, in_port, vlan, eth_src, eth_dst, pkt):
+    def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
         if eth_dst == self.FAUCET_MAC or not util.mac_addr_is_unicast(eth_dst):
-            arp_pkt = pkt.get_protocol(arp.arp)
-            if arp_pkt is not None:
-                return self.control_plane_arp_handler(
-                    in_port, vlan, eth_src, eth_dst, arp_pkt)
-
-            ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
-            if ipv4_pkt is not None:
-                icmp_pkt = pkt.get_protocol(icmp.icmp)
-                if icmp_pkt is not None:
-                    return self.control_plane_icmp_handler(
-                        in_port, vlan, eth_src, ipv4_pkt, icmp_pkt)
-
-            ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
-            if ipv6_pkt is not None:
-                icmpv6_pkt = pkt.get_protocol(icmpv6.icmpv6)
-                if icmpv6_pkt is not None:
-                    return self.control_plane_icmpv6_handler(
-                        in_port, vlan, eth_src, ipv6_pkt, icmpv6_pkt)
+            for handler in (self.ipv4_route_manager.control_plane_handler,
+                            self.ipv6_route_manager.control_plane_handler):
+                ofmsgs = handler(in_port, vlan, eth_src, eth_dst, pkt)
+                if ofmsgs:
+                    return ofmsgs
         return []
 
     def known_up_dpid_and_port(self, dp_id, in_port):
@@ -859,7 +782,7 @@ class Valve(object):
                 'Packet_in dp_id: %x src:%s in_port:%d vid:%s',
                 dp_id, eth_src, in_port, vlan_vid)
 
-            ofmsgs.extend(self.handle_control_plane(
+            ofmsgs.extend(self.control_plane_handler(
                 in_port, vlan, eth_src, eth_dst, pkt))
 
         # ban learning new hosts if max_hosts reached on a VLAN.
@@ -948,12 +871,6 @@ class Valve(object):
             return self.ipv6_route_manager.del_route(vlan, ip_dst)
         else:
             return self.ipv4_route_manager.del_route(vlan, ip_dst)
-
-    def update_nexthop(self, vlan, eth_src, ip_gw):
-        if ip_gw.version == 6:
-            return self.ipv6_route_manager.update_nexthop(vlan, eth_src, ip_gw)
-        else:
-            return self.ipv4_route_manager.update_nexthop(vlan, eth_src, ip_gw)
 
     def resolve_gateways(self):
         if not self.dp.running:
