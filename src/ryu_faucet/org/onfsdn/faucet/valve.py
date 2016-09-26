@@ -26,9 +26,9 @@ import ipaddr
 import aruba.aruba_pipeline as aruba
 import valve_acl
 import valve_flood
-import valve_route
 import valve_of
 import valve_packet
+import valve_route
 import util
 
 from ryu.lib import mac
@@ -332,7 +332,7 @@ class Valve(object):
             for port in vlan.get_ports():
                 all_port_nums.add(port.number)
             # install eth_dst_table flood ofmsgs
-            ofmsgs.extend(self.valve_flood.build_flood_rules(vlan))
+            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             # add controller IPs if configured.
             ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
 
@@ -418,7 +418,7 @@ class Valve(object):
                 self.dp.vlan_table, in_port=port.number, vlan=vlan_vid),
             priority=self.dp.low_priority,
             inst=vlan_inst))
-        ofmsgs.extend(self.valve_flood.build_flood_rules(vlan))
+        ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         return ofmsgs
 
     def port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
@@ -537,7 +537,7 @@ class Valve(object):
 
         for vlan in self.dp.vlans.values():
             if port in vlan.get_ports():
-                ofmsgs.extend(self.valve_flood.build_flood_rules(
+                ofmsgs.extend(self.flood_manager.build_flood_rules(
                     vlan, modify=True))
 
         return ofmsgs
