@@ -24,6 +24,7 @@ from collections import namedtuple
 import ipaddr
 
 import aruba.aruba_pipeline as aruba
+import valve_route
 import valve_of
 import valve_packet
 import util
@@ -87,6 +88,10 @@ class Valve(object):
         self.logger = logging.getLogger(logname + '.valve')
         self.ofchannel_logger = None
         self.register_table_match_types()
+        self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
+            self.dp.ipv4_fib_table)
+        self.ipv6_route_manager = valve_route.ValveIPv4RouteManager(
+            self.dp.ipv6_fib_table)
 
     def register_table_match_types(self):
         self.TABLE_MATCH_TYPES = {
@@ -152,8 +157,7 @@ class Valve(object):
                        eth_type=None, eth_src=None,
                        eth_dst=None, eth_dst_mask=None,
                        ipv6_nd_target=None, icmpv6_type=None,
-                       nw_proto=None,
-                       nw_src=None, nw_dst=None):
+                       nw_proto=None, nw_src=None, nw_dst=None):
         match_dict = valve_of.build_match_dict(
             in_port, vlan, eth_type, eth_src,
             eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
