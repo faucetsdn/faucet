@@ -20,9 +20,8 @@ import sys
 
 import logging
 import yaml
-from logging.handlers import TimedRotatingFileHandler
 
-from util import kill_on_exception, get_sys_prefix
+from util import kill_on_exception, get_sys_prefix, get_logger
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -66,25 +65,11 @@ class Gauge(app_manager.RyuApp):
             'GAUGE_LOG', sysprefix + '/var/log/ryu/faucet/gauge.log')
 
         # Setup logging
-        self.logger = logging.getLogger(self.logname)
-        logger_handler = TimedRotatingFileHandler(
-            self.logfile,
-            when='midnight')
-        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
-        date_fmt = '%b %d %H:%M:%S'
-        default_formatter = logging.Formatter(log_fmt, date_fmt)
-        logger_handler.setFormatter(default_formatter)
-        self.logger.addHandler(logger_handler)
-        self.logger.propagate = 0
-
+        self.logger = get_logger(
+            self.logname, self.logfile, logging.DEBUG, 0)
         # Set up separate logging for exceptions
-        exc_logger = logging.getLogger(self.exc_logname)
-        exc_logger_handler = logging.FileHandler(self.exc_logfile)
-        exc_logger_handler.setFormatter(
-            logging.Formatter(log_fmt, date_fmt))
-        exc_logger.addHandler(exc_logger_handler)
-        exc_logger.propagate = 1
-        exc_logger.setLevel(logging.ERROR)
+        self.exc_logger = get_logger(
+            self.exc_logname, self.exc_logfile, logging.CRITICAL, 1)
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)

@@ -16,16 +16,14 @@
 # limitations under the License.
 
 import logging
-from logging.handlers import TimedRotatingFileHandler
 import os
 import signal
-import sys
 
 import ipaddr
 
 from config_parser import dp_parser
 from valve import valve_factory
-from util import kill_on_exception, get_sys_prefix
+from util import kill_on_exception, get_sys_prefix, get_logger
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -91,25 +89,11 @@ class Faucet(app_manager.RyuApp):
         self.dpset = kwargs['dpset']
 
         # Setup logging
-        self.logger = logging.getLogger(self.logname)
-        logger_handler = TimedRotatingFileHandler(
-            self.logfile,
-            when='midnight')
-        log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
-        logger_handler.setFormatter(
-            logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
-        self.logger.addHandler(logger_handler)
-        self.logger.propagate = 0
-        self.logger.setLevel(logging.DEBUG)
-
+        self.logger = get_logger(
+            self.logname, self.logfile, logging.DEBUG, 0)
         # Set up separate logging for exceptions
-        exc_logger = logging.getLogger(self.exc_logname)
-        exc_logger_handler = logging.FileHandler(self.exc_logfile)
-        exc_logger_handler.setFormatter(
-            logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
-        exc_logger.addHandler(exc_logger_handler)
-        exc_logger.propagate = 1
-        exc_logger.setLevel(logging.CRITICAL)
+        self.exc_logger = get_logger(
+            self.exc_logname, self.exc_logfile, logging.CRITICAL, 1)
 
         # Set up a valve object for each datapath
         self.valves = {}

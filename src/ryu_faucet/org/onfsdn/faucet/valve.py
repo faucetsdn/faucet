@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import logging
-from logging.handlers import TimedRotatingFileHandler
 import time
 import os
 
@@ -143,19 +142,11 @@ class Valve(object):
     def ofchannel_log(self, ofmsgs):
         if self.dp is not None:
             if self.dp.ofchannel_log is not None:
-                if self.ofchannel_logger is None:
-                    self.ofchannel_logger = logging.getLogger(
-                        self.dp.ofchannel_log)
-                    logger_handler = TimedRotatingFileHandler(
-                        self.dp.ofchannel_log,
-                        when='midnight')
-                    log_fmt = ('%(asctime)s %(name)-6s '
-                               '%(levelname)-8s %(message)s')
-                    logger_handler.setFormatter(
-                        logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
-                    self.ofchannel_logger.addHandler(logger_handler)
-                    self.ofchannel_logger.propagate = 0
-                    self.ofchannel_logger.setLevel(logging.DEBUG)
+                self.ofchannel_logger = util.get_logger(
+                    self.dp.ofchannel_log,
+                    self.dp.ofchannel_log,
+                    logging.DEBUG,
+                    0)
                 for ofmsg in ofmsgs:
                     self.ofchannel_logger.debug(ofmsg)
 
