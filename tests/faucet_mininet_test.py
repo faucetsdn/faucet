@@ -699,16 +699,28 @@ vlans:
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 
+    def get_configure_count(self):
+        controller = self.net.controllers[0]
+        configure_count = controller.cmd(
+                'grep -c "Configuring datapath" %s' % os.environ['FAUCET_LOG'])
+        return configure_count
+
     def test_untagged(self):
         controller = self.net.controllers[0]
         switch = self.net.switches[0]
         for i in range(1, 4):
-            configure_count = controller.cmd(
-                'grep -c "Configuring datapath" %s' % os.environ['FAUCET_LOG'])
+            configure_count = self.get_configure_count()
             self.assertEquals(i, int(configure_count))
             self.hup_faucet()
             time.sleep(1)
+            for retry in range(3):
+                configure_count = self.get_configure_count()
+                if configure_count == i + 1:
+                    break
+                time.sleep(1)
+            self.assertTrue(i + 1, configure_count)
             self.assertTrue(switch.connected())
+            self.wait_until_matching_flow('OUTPUT:CONTROLLER')
             self.ping_all_when_learned()
 
 
