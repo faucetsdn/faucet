@@ -92,7 +92,7 @@ class Valve(object):
             self.dp.flood_table, self.dp.low_priority, self.dp.mirror_from_port,
             self.valve_in_match, self.valve_flowmod)
         self.host_manager = valve_host.ValveHostManager(
-            self.dp.eth_src_table, self.dp.eth_dst_table,
+            self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.timeout, self.dp.highest_priority, self.dp.mirror_from_port,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
             self.valve_flowdrop)
@@ -631,21 +631,7 @@ class Valve(object):
             return
         now = time.time()
         for vlan in self.dp.vlans.itervalues():
-            expired_hosts = []
-            for eth_src, host_cache_entry in vlan.host_cache.iteritems():
-                if not host_cache_entry.permanent:
-                    host_cache_entry_age = now - host_cache_entry.cache_time
-                    if host_cache_entry_age > self.dp.timeout:
-                        expired_hosts.append(eth_src)
-            if expired_hosts:
-                for eth_src in expired_hosts:
-                    del vlan.host_cache[eth_src]
-                    self.logger.info(
-                        'expiring host %s from vlan %u',
-                        eth_src, vlan.vid)
-                self.logger.info(
-                    '%u recently active hosts on vlan %u',
-                    len(vlan.host_cache), vlan.vid)
+            self.host_manager.expire_hosts_from_vlan(vlan, now)
 
     def reload_config(self, new_dp):
         """Reload the config from new_dp

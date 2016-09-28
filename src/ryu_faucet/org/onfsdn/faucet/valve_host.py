@@ -29,9 +29,10 @@ class HostCacheEntry(object):
 
 class ValveHostManager(object):
 
-    def __init__(self, eth_src_table, eth_dst_table,
+    def __init__(self, logger, eth_src_table, eth_dst_table,
                  learn_timeout, host_priority, mirror_from_port,
                  valve_in_match, valve_flowmod, valve_flowdel, valve_flowdrop):
+        self.logger = logger
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
         self.learn_timeout = learn_timeout
@@ -72,6 +73,22 @@ class ValveHostManager(object):
                 self.eth_dst_table, vlan=vlan, eth_dst=eth_src)))
 
         return ofmsgs
+
+    def expire_hosts_from_vlan(self, vlan, now):
+        expired_hosts = []
+        for eth_src, host_cache_entry in vlan.host_cache.iteritems():
+            if not host_cache_entry.permanent:
+                host_cache_entry_age = now - host_cache_entry.cache_time
+                if host_cache_entry_age > self.learn_timeout:
+                    expired_hosts.append(eth_src)
+        if expired_hosts:
+            for eth_src in expired_hosts:
+                del vlan.host_cache[eth_src]
+                self.logger.info(
+                    'expiring host %s from vlan %u', eth_src, vlan.vid)
+            self.logger.info(
+                '%u recently active hosts on vlan %u',
+                len(vlan.host_cache), vlan.vid)
 
     def learn_host_on_vlan_port(self, port, vlan, eth_src):
         ofmsgs = []
