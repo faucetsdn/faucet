@@ -592,7 +592,7 @@ class Valve(object):
         if (vlan.max_hosts is not None and
                 len(vlan.host_cache) == vlan.max_hosts and
                 eth_src not in vlan.host_cache):
-            ofmsgs.extend(self.host_manager.temp_ban_host_learning_on_vlan(
+            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
                 vlan))
             self.logger.info(
                 'max hosts %u reached on vlan %u, ' +
