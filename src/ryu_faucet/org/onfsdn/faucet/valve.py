@@ -24,8 +24,8 @@ import ipaddr
 
 import aruba.aruba_pipeline as aruba
 import valve_acl
-import valve_host
 import valve_flood
+import valve_host
 import valve_of
 import valve_packet
 import valve_route

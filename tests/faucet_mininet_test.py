@@ -92,6 +92,7 @@ FAUCET_LINT_SRCS = (
     'valve.py',
     'valve_acl.py',
     'valve_flood.py',
+    'valve_host.py',
     'valve_of.py',
     'valve_packet.py',
     'valve_route.py',
