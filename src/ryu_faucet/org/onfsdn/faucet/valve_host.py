@@ -30,18 +30,26 @@ class HostCacheEntry(object):
 class ValveHostManager(object):
 
     def __init__(self, logger, eth_src_table, eth_dst_table,
-                 learn_timeout, host_priority, mirror_from_port,
+                 learn_timeout, low_priority, host_priority, mirror_from_port,
                  valve_in_match, valve_flowmod, valve_flowdel, valve_flowdrop):
         self.logger = logger
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
         self.learn_timeout = learn_timeout
+        self.low_priority = low_priority
         self.host_priority = host_priority
         self.mirror_from_port = mirror_from_port
         self.valve_in_match = valve_in_match
         self.valve_flowmod = valve_flowmod
         self.valve_flowdel = valve_flowdel
         self.valve_flowdrop = valve_flowdrop
+
+    def temp_ban_host_learning_on_vlan(self, vlan):
+        return self.valve_flowdrop(
+            self.eth_src_table,
+            self.valve_in_match(self.eth_src_table, vlan=vlan),
+            priority=(self.low_priority + 1),
+            hard_timeout=self.host_priority)
 
     def build_port_out_inst(self, vlan, in_port):
         dst_act = []
