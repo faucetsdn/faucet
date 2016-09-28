@@ -30,7 +30,7 @@ class HostCacheEntry(object):
 class ValveHostManager(object):
 
     def __init__(self, logger, eth_src_table, eth_dst_table,
-                 learn_timeout, low_priority, host_priority, mirror_from_port,
+                 learn_timeout, low_priority, host_priority,
                  valve_in_match, valve_flowmod, valve_flowdel, valve_flowdrop):
         self.logger = logger
         self.eth_src_table = eth_src_table
@@ -38,7 +38,6 @@ class ValveHostManager(object):
         self.learn_timeout = learn_timeout
         self.low_priority = low_priority
         self.host_priority = host_priority
-        self.mirror_from_port = mirror_from_port
         self.valve_in_match = valve_in_match
         self.valve_flowmod = valve_flowmod
         self.valve_flowdel = valve_flowdel
@@ -51,15 +50,14 @@ class ValveHostManager(object):
             priority=(self.low_priority + 1),
             hard_timeout=self.host_priority)
 
-    def build_port_out_inst(self, vlan, in_port):
+    def build_port_out_inst(self, vlan, port):
         dst_act = []
-        if not vlan.port_is_tagged(in_port):
+        if not vlan.port_is_tagged(port.number):
             dst_act.append(valve_of.pop_vlan())
-        dst_act.append(valve_of.output_port(in_port))
+        dst_act.append(valve_of.output_port(port.number))
 
-        if in_port in self.mirror_from_port:
-            mirror_port_num = self.mirror_from_port[in_port]
-            mirror_acts = [valve_of.output_port(mirror_port_num)]
+        if port.mirror is not None:
+            mirror_acts = [valve_of.output_port(port.mirror)]
             dst_act.extend(mirror_acts)
 
         return [valve_of.apply_actions(dst_act)]
@@ -140,7 +138,7 @@ class ValveHostManager(object):
             self.valve_in_match(
                 self.eth_dst_table, vlan=vlan, eth_dst=eth_src),
             priority=self.host_priority,
-            inst=self.build_port_out_inst(vlan, in_port),
+            inst=self.build_port_out_inst(vlan, port),
             idle_timeout=learn_timeout))
 
         host_cache_entry = HostCacheEntry(

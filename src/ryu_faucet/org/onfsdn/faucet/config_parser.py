@@ -76,8 +76,9 @@ def set_mirror_destinations(dp):
                     if 'mirror' in attrib_value:
                         port_no = attrib_value['mirror']
                         dp.ports[port_no].mirror_destination = True
-    for port_no in dp.mirror_from_port.itervalues():
-        dp.ports[port_no].mirror_destination = True
+    for port_no, mirror_destination_port in dp.mirror_from_port.iteritems():
+        dp.ports[port_no].mirror = mirror_destination_port
+        dp.ports[mirror_destination_port].mirror_destination = True
 
 def _dp_parser_v1(conf, config_file, logname):
     logger = get_logger(logname)

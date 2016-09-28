@@ -22,11 +22,10 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 
 class ValveFloodManager(object):
 
-    def __init__(self, flood_table, flood_priority, mirror_from_port,
+    def __init__(self, flood_table, flood_priority,
                  valve_in_match, valve_flowmod):
         self.flood_table = flood_table
         self.flood_priority = flood_priority
-        self.mirror_from_port = mirror_from_port
         self.valve_in_match = valve_in_match
         self.valve_flowmod = valve_flowmod
 
@@ -84,13 +83,12 @@ class ValveFloodManager(object):
                     priority=flood_priority))
             flood_priority += 1
             for port in mirrored_ports:
-                mirror_port = self.mirror_from_port[port.number]
                 if eth_dst is None:
                     flood_acts = self.build_flood_rule_actions(vlan, False)
                 else:
                     flood_acts = self.build_flood_rule_actions(vlan, True)
                 mirror_acts = [
-                    valve_of.output_port(mirror_port)] + flood_acts
+                    valve_of.output_port(port.mirror)] + flood_acts
                 ofmsgs.append(self.valve_flowmod(
                     self.flood_table,
                     match=self.valve_in_match(
