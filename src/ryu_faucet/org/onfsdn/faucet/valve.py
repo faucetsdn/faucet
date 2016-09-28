@@ -93,7 +93,9 @@ class Valve(object):
             self.valve_in_match, self.valve_flowmod)
         self.host_manager = valve_host.ValveHostManager(
             self.dp.eth_src_table, self.dp.eth_dst_table,
-            self.valve_in_match, self.valve_flowmod, self.valve_flowdel)
+            self.dp.timeout, self.dp.highest_priority, self.dp.mirror_from_port,
+            self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
+            self.valve_flowdrop)
 
     def register_table_match_types(self):
         # TODO: functional flow managers should be able to register
@@ -549,66 +551,6 @@ class Valve(object):
             vid = vlan.vid
         return vid
 
-    def build_port_out_inst(self, vlan, in_port):
-        dst_act = []
-        if not vlan.port_is_tagged(in_port):
-            dst_act.append(valve_of.pop_vlan())
-        dst_act.append(valve_of.output_port(in_port))
-
-        if in_port in self.dp.mirror_from_port:
-            mirror_port_num = self.dp.mirror_from_port[in_port]
-            mirror_acts = [valve_of.output_port(mirror_port_num)]
-            dst_act.extend(mirror_acts)
-
-        return [valve_of.apply_actions(dst_act)]
-
-    def learn_host_on_vlan_port(self, port, vlan, eth_src):
-        ofmsgs = []
-        in_port = port.number
-
-        # hosts learned on this port never relearned
-        if port.permanent_learn:
-            learn_timeout = 0
-
-            # antispoof this host
-            ofmsgs.append(self.valve_flowdrop(
-                self.dp.eth_src_table,
-                self.valve_in_match(
-                    self.dp.eth_src_table, vlan=vlan, eth_src=eth_src),
-                priority=(self.dp.highest_priority - 2)))
-        else:
-            learn_timeout = self.dp.timeout
-            ofmsgs.extend(self.host_manager.delete_host_from_vlan(
-                eth_src, vlan))
-
-        # Update datapath to no longer send packets from this mac to controller
-        # note the use of hard_timeout here and idle_timeout for the dst table
-        # this is to ensure that the source rules will always be deleted before
-        # any rules on the dst table. Otherwise if the dst table rule expires
-        # but the src table rule is still being hit intermittantly the switch
-        # will flood packets to that dst and not realise it needs to relearn
-        # the rule
-        # NB: Must be lower than highest priority otherwise it can match
-        # flows destined to controller
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.eth_src_table,
-            self.valve_in_match(
-                self.dp.eth_src_table, in_port=in_port,
-                vlan=vlan, eth_src=eth_src),
-            priority=(self.dp.highest_priority - 1),
-            inst=[valve_of.goto_table(self.dp.eth_dst_table)],
-            hard_timeout=learn_timeout))
-
-        # update datapath to output packets to this mac via the associated port
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.eth_dst_table,
-            self.valve_in_match(
-                self.dp.eth_dst_table, vlan=vlan, eth_dst=eth_src),
-            priority=self.dp.high_priority,
-            inst=self.build_port_out_inst(vlan, in_port),
-            idle_timeout=learn_timeout))
-        return ofmsgs
-
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
         if eth_dst == self.FAUCET_MAC or not util.mac_addr_is_unicast(eth_dst):
             for handler in (self.ipv4_route_manager.control_plane_handler,
@@ -677,7 +619,7 @@ class Valve(object):
                 priority=(self.dp.low_priority + 1),
                 hard_timeout=self.dp.timeout)])
         else:
-            ofmsgs.extend(self.learn_host_on_vlan_port(
+            ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
                 port, vlan, eth_src))
             host_cache_entry = valve_host.HostCacheEntry(
                 eth_src,
