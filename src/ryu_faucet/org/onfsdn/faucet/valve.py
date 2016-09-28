@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import logging
-from logging.handlers import TimedRotatingFileHandler
 import time
 import os
 
@@ -26,6 +25,7 @@ import ipaddr
 import aruba.aruba_pipeline as aruba
 import valve_acl
 import valve_flood
+import valve_host
 import valve_of
 import valve_packet
 import valve_route
@@ -35,14 +35,6 @@ from ryu.lib import mac
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
-
-
-class HostCacheEntry(object):
-
-    def __init__(self, eth_src, permanent, now):
-        self.eth_src = eth_src
-        self.permanent = permanent
-        self.cache_time = now
 
 
 def valve_factory(dp):
@@ -81,6 +73,8 @@ class Valve(object):
         self.logger = logging.getLogger(logname + '.valve')
         self.ofchannel_logger = None
         self.register_table_match_types()
+        # TODO: functional flow managers require too much state.
+        # Should interface with a common composer class.
         self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.ipv4_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table,
@@ -96,8 +90,15 @@ class Valve(object):
         self.flood_manager = valve_flood.ValveFloodManager(
             self.dp.flood_table, self.dp.low_priority, self.dp.mirror_from_port,
             self.valve_in_match, self.valve_flowmod)
+        self.host_manager = valve_host.ValveHostManager(
+            self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
+            self.dp.timeout, self.dp.highest_priority, self.dp.mirror_from_port,
+            self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
+            self.valve_flowdrop)
 
     def register_table_match_types(self):
+        # TODO: functional flow managers should be able to register
+        # the flows they need, themselves.
         self.TABLE_MATCH_TYPES = {
             self.dp.vlan_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type'),
@@ -141,19 +142,11 @@ class Valve(object):
     def ofchannel_log(self, ofmsgs):
         if self.dp is not None:
             if self.dp.ofchannel_log is not None:
-                if self.ofchannel_logger is None:
-                    self.ofchannel_logger = logging.getLogger(
-                        self.dp.ofchannel_log)
-                    logger_handler = TimedRotatingFileHandler(
-                        self.dp.ofchannel_log,
-                        when='midnight')
-                    log_fmt = ('%(asctime)s %(name)-6s '
-                               '%(levelname)-8s %(message)s')
-                    logger_handler.setFormatter(
-                        logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
-                    self.ofchannel_logger.addHandler(logger_handler)
-                    self.ofchannel_logger.propagate = 0
-                    self.ofchannel_logger.setLevel(logging.DEBUG)
+                self.ofchannel_logger = util.get_logger(
+                    self.dp.ofchannel_log,
+                    self.dp.ofchannel_log,
+                    logging.DEBUG,
+                    0)
                 for ofmsg in ofmsgs:
                     self.ofchannel_logger.debug(ofmsg)
 
@@ -542,92 +535,8 @@ class Valve(object):
 
         return ofmsgs
 
-    def delete_host_from_vlan(self, eth_src, vlan):
-        ofmsgs = []
-        # delete any existing ofmsgs for this vlan/mac combination on the
-        # src mac table
-        ofmsgs.extend(self.valve_flowdel(
-            self.dp.eth_src_table,
-            self.valve_in_match(
-                self.dp.eth_src_table, vlan=vlan, eth_src=eth_src)))
-
-        # delete any existing ofmsgs for this vlan/mac combination on the dst
-        # mac table
-        ofmsgs.extend(self.valve_flowdel(
-            self.dp.eth_dst_table,
-            self.valve_in_match(
-                self.dp.eth_dst_table, vlan=vlan, eth_dst=eth_src)))
-
-        return ofmsgs
-
-    @staticmethod
-    def vlan_vid(vlan, in_port):
-        vid = None
-        if vlan.port_is_tagged(in_port):
-            vid = vlan.vid
-        return vid
-
-    def build_port_out_inst(self, vlan, in_port):
-        dst_act = []
-        if not vlan.port_is_tagged(in_port):
-            dst_act.append(valve_of.pop_vlan())
-        dst_act.append(valve_of.output_port(in_port))
-
-        if in_port in self.dp.mirror_from_port:
-            mirror_port_num = self.dp.mirror_from_port[in_port]
-            mirror_acts = [valve_of.output_port(mirror_port_num)]
-            dst_act.extend(mirror_acts)
-
-        return [valve_of.apply_actions(dst_act)]
-
-    def learn_host_on_vlan_port(self, port, vlan, eth_src):
-        ofmsgs = []
-        in_port = port.number
-
-        # hosts learned on this port never relearned
-        if port.permanent_learn:
-            learn_timeout = 0
-
-            # antispoof this host
-            ofmsgs.append(self.valve_flowdrop(
-                self.dp.eth_src_table,
-                self.valve_in_match(
-                    self.dp.eth_src_table, vlan=vlan, eth_src=eth_src),
-                priority=(self.dp.highest_priority - 2)))
-        else:
-            learn_timeout = self.dp.timeout
-            ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
-
-        # Update datapath to no longer send packets from this mac to controller
-        # note the use of hard_timeout here and idle_timeout for the dst table
-        # this is to ensure that the source rules will always be deleted before
-        # any rules on the dst table. Otherwise if the dst table rule expires
-        # but the src table rule is still being hit intermittantly the switch
-        # will flood packets to that dst and not realise it needs to relearn
-        # the rule
-        # NB: Must be lower than highest priority otherwise it can match
-        # flows destined to controller
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.eth_src_table,
-            self.valve_in_match(
-                self.dp.eth_src_table, in_port=in_port,
-                vlan=vlan, eth_src=eth_src),
-            priority=(self.dp.highest_priority - 1),
-            inst=[valve_of.goto_table(self.dp.eth_dst_table)],
-            hard_timeout=learn_timeout))
-
-        # update datapath to output packets to this mac via the associated port
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.eth_dst_table,
-            self.valve_in_match(
-                self.dp.eth_dst_table, vlan=vlan, eth_dst=eth_src),
-            priority=self.dp.high_priority,
-            inst=self.build_port_out_inst(vlan, in_port),
-            idle_timeout=learn_timeout))
-        return ofmsgs
-
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
-        if eth_dst == self.FAUCET_MAC or not util.mac_addr_is_unicast(eth_dst):
+        if eth_dst == self.FAUCET_MAC or not valve_packet.mac_addr_is_unicast(eth_dst):
             for handler in (self.ipv4_route_manager.control_plane_handler,
                             self.ipv6_route_manager.control_plane_handler):
                 ofmsgs = handler(in_port, vlan, eth_src, eth_dst, pkt)
@@ -670,7 +579,7 @@ class Valve(object):
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
 
-        if util.mac_addr_is_unicast(eth_src):
+        if valve_packet.mac_addr_is_unicast(eth_src):
             self.logger.debug(
                 'Packet_in dp_id: %x src:%s in_port:%d vid:%s',
                 dp_id, eth_src, in_port, vlan_vid)
@@ -694,13 +603,8 @@ class Valve(object):
                 priority=(self.dp.low_priority + 1),
                 hard_timeout=self.dp.timeout)])
         else:
-            ofmsgs.extend(self.learn_host_on_vlan_port(
+            ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
                 port, vlan, eth_src))
-            host_cache_entry = HostCacheEntry(
-                eth_src,
-                port.permanent_learn,
-                time.time())
-            vlan.host_cache[eth_src] = host_cache_entry
             self.logger.info(
                 'learned %u hosts on vlan %u',
                 len(vlan.host_cache), vlan.vid)
@@ -711,21 +615,7 @@ class Valve(object):
             return
         now = time.time()
         for vlan in self.dp.vlans.itervalues():
-            expired_hosts = []
-            for eth_src, host_cache_entry in vlan.host_cache.iteritems():
-                if not host_cache_entry.permanent:
-                    host_cache_entry_age = now - host_cache_entry.cache_time
-                    if host_cache_entry_age > self.dp.timeout:
-                        expired_hosts.append(eth_src)
-            if expired_hosts:
-                for eth_src in expired_hosts:
-                    del vlan.host_cache[eth_src]
-                    self.logger.info(
-                        'expiring host %s from vlan %u',
-                        eth_src, vlan.vid)
-                self.logger.info(
-                    '%u recently active hosts on vlan %u',
-                    len(vlan.host_cache), vlan.vid)
+            self.host_manager.expire_hosts_from_vlan(vlan, now)
 
     def reload_config(self, new_dp):
         """Reload the config from new_dp

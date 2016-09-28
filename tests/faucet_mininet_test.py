@@ -92,6 +92,7 @@ FAUCET_LINT_SRCS = (
     'valve.py',
     'valve_acl.py',
     'valve_flood.py',
+    'valve_host.py',
     'valve_of.py',
     'valve_packet.py',
     'valve_route.py',
@@ -330,6 +331,7 @@ hardware: "%s"
         host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw))
 
     def one_ipv4_ping(self, host, dst):
+        self.require_host_learned(host)
         ping_result = host.cmd('ping -c1 %s' % dst)
         self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
 
@@ -337,6 +339,7 @@ hardware: "%s"
         self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
 
     def one_ipv6_ping(self, host, dst, timeout=2):
+        self.require_host_learned(host)
         # TODO: retry our one ping. We should not have to retry.
         for _ in range(timeout):
             ping_result = host.cmd('ping6 -c1 %s' % dst)
@@ -699,16 +702,28 @@ vlans:
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 
+    def get_configure_count(self):
+        controller = self.net.controllers[0]
+        configure_count = controller.cmd(
+                'grep -c "Configuring datapath" %s' % os.environ['FAUCET_LOG'])
+        return configure_count
+
     def test_untagged(self):
         controller = self.net.controllers[0]
         switch = self.net.switches[0]
         for i in range(1, 4):
-            configure_count = controller.cmd(
-                'grep -c "Configuring datapath" %s' % os.environ['FAUCET_LOG'])
+            configure_count = self.get_configure_count()
             self.assertEquals(i, int(configure_count))
             self.hup_faucet()
             time.sleep(1)
+            for retry in range(3):
+                configure_count = self.get_configure_count()
+                if configure_count == i + 1:
+                    break
+                time.sleep(1)
+            self.assertTrue(i + 1, configure_count)
             self.assertTrue(switch.connected())
+            self.wait_until_matching_flow('OUTPUT:CONTROLLER')
             self.ping_all_when_learned()
 
 
