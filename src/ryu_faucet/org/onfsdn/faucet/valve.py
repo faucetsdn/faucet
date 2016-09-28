@@ -544,13 +544,6 @@ class Valve(object):
 
         return ofmsgs
 
-    @staticmethod
-    def vlan_vid(vlan, in_port):
-        vid = None
-        if vlan.port_is_tagged(in_port):
-            vid = vlan.vid
-        return vid
-
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
         if eth_dst == self.FAUCET_MAC or not util.mac_addr_is_unicast(eth_dst):
             for handler in (self.ipv4_route_manager.control_plane_handler,
