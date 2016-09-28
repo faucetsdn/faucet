@@ -25,6 +25,7 @@ import ipaddr
 
 import aruba.aruba_pipeline as aruba
 import valve_acl
+import valve_host
 import valve_flood
 import valve_of
 import valve_packet
@@ -35,14 +36,6 @@ from ryu.lib import mac
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
-
-
-class HostCacheEntry(object):
-
-    def __init__(self, eth_src, permanent, now):
-        self.eth_src = eth_src
-        self.permanent = permanent
-        self.cache_time = now
 
 
 def valve_factory(dp):
@@ -81,6 +74,8 @@ class Valve(object):
         self.logger = logging.getLogger(logname + '.valve')
         self.ofchannel_logger = None
         self.register_table_match_types()
+        # TODO: functional flow managers require too much state.
+        # Should interface with a common composer class.
         self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.ipv4_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table,
@@ -98,6 +93,8 @@ class Valve(object):
             self.valve_in_match, self.valve_flowmod)
 
     def register_table_match_types(self):
+        # TODO: functional flow managers should be able to register
+        # the flows they need, themselves.
         self.TABLE_MATCH_TYPES = {
             self.dp.vlan_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type'),
@@ -696,7 +693,7 @@ class Valve(object):
         else:
             ofmsgs.extend(self.learn_host_on_vlan_port(
                 port, vlan, eth_src))
-            host_cache_entry = HostCacheEntry(
+            host_cache_entry = valve_host.HostCacheEntry(
                 eth_src,
                 port.permanent_learn,
                 time.time())
