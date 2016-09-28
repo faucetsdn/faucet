@@ -91,6 +91,9 @@ class Valve(object):
         self.flood_manager = valve_flood.ValveFloodManager(
             self.dp.flood_table, self.dp.low_priority, self.dp.mirror_from_port,
             self.valve_in_match, self.valve_flowmod)
+        self.host_manager = valve_host.ValveHostManager(
+            self.dp.eth_src_table, self.dp.eth_dst_table,
+            self.valve_in_match, self.valve_flowmod, self.valve_flowdel)
 
     def register_table_match_types(self):
         # TODO: functional flow managers should be able to register
@@ -539,24 +542,6 @@ class Valve(object):
 
         return ofmsgs
 
-    def delete_host_from_vlan(self, eth_src, vlan):
-        ofmsgs = []
-        # delete any existing ofmsgs for this vlan/mac combination on the
-        # src mac table
-        ofmsgs.extend(self.valve_flowdel(
-            self.dp.eth_src_table,
-            self.valve_in_match(
-                self.dp.eth_src_table, vlan=vlan, eth_src=eth_src)))
-
-        # delete any existing ofmsgs for this vlan/mac combination on the dst
-        # mac table
-        ofmsgs.extend(self.valve_flowdel(
-            self.dp.eth_dst_table,
-            self.valve_in_match(
-                self.dp.eth_dst_table, vlan=vlan, eth_dst=eth_src)))
-
-        return ofmsgs
-
     @staticmethod
     def vlan_vid(vlan, in_port):
         vid = None
@@ -593,7 +578,8 @@ class Valve(object):
                 priority=(self.dp.highest_priority - 2)))
         else:
             learn_timeout = self.dp.timeout
-            ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
+            ofmsgs.extend(self.host_manager.delete_host_from_vlan(
+                eth_src, vlan))
 
         # Update datapath to no longer send packets from this mac to controller
         # note the use of hard_timeout here and idle_timeout for the dst table
