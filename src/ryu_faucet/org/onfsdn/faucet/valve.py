@@ -88,12 +88,11 @@ class Valve(object):
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller)
         self.flood_manager = valve_flood.ValveFloodManager(
-            self.dp.flood_table, self.dp.low_priority, self.dp.mirror_from_port,
+            self.dp.flood_table, self.dp.low_priority,
             self.valve_in_match, self.valve_flowmod)
         self.host_manager = valve_host.ValveHostManager(
             self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.timeout, self.dp.low_priority, self.dp.highest_priority,
-            self.dp.mirror_from_port,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
             self.valve_flowdrop)
 
@@ -489,9 +488,8 @@ class Valve(object):
 
         mirror_act = []
         # this port is mirrored to another port
-        if port_num in self.dp.mirror_from_port:
-            mirror_port_num = self.dp.mirror_from_port[port_num]
-            mirror_act = [valve_of.output_port(mirror_port_num)]
+        if port.mirror:
+            mirror_act = [valve_of.output_port(port.mirror)]
 
         acl_ofmsgs, forwarding_table = self.port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
