@@ -621,11 +621,6 @@ class Valve(object):
         else:
             ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
                 port, vlan, eth_src))
-            host_cache_entry = valve_host.HostCacheEntry(
-                eth_src,
-                port.permanent_learn,
-                time.time())
-            vlan.host_cache[eth_src] = host_cache_entry
             self.logger.info(
                 'learned %u hosts on vlan %u',
                 len(vlan.host_cache), vlan.vid)

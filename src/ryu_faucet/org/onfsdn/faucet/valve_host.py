@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 import valve_of
 
 
@@ -115,4 +117,10 @@ class ValveHostManager(object):
             priority=self.host_priority,
             inst=self.build_port_out_inst(vlan, in_port),
             idle_timeout=learn_timeout))
+
+        host_cache_entry = HostCacheEntry(
+            eth_src,
+            port.permanent_learn,
+            time.time())
+        vlan.host_cache[eth_src] = host_cache_entry
         return ofmsgs
