@@ -600,6 +600,8 @@ class Valve(object):
                 'and not learning %s',
                 vlan.max_hosts, vlan.vid, eth_src)
         else:
+            # TODO: it would be good to be able to notify an external
+            # system upon re/learning a host.
             ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
                 port, vlan, eth_src))
             self.logger.info(
@@ -619,6 +621,9 @@ class Valve(object):
 
         KW Arguments:
         new_dp -- A new DP object containing the updated config."""
+        # TODO: a reload currently causes a full pipeline restart.
+        # We could special case reloads if we need to change only
+        # (for example) an ACL on a port.
         ofmsgs = []
         if self.dp.running:
             self.dp = new_dp
