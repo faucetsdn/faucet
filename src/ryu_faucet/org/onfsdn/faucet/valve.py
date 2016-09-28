@@ -92,7 +92,8 @@ class Valve(object):
             self.valve_in_match, self.valve_flowmod)
         self.host_manager = valve_host.ValveHostManager(
             self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
-            self.dp.timeout, self.dp.highest_priority, self.dp.mirror_from_port,
+            self.dp.timeout, self.dp.low_priority, self.dp.highest_priority,
+            self.dp.mirror_from_port,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
             self.valve_flowdrop)
 
@@ -591,18 +592,16 @@ class Valve(object):
         if (vlan.max_hosts is not None and
                 len(vlan.host_cache) == vlan.max_hosts and
                 eth_src not in vlan.host_cache):
+            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
+                vlan))
             self.logger.info(
                 'max hosts %u reached on vlan %u, ' +
                 'temporarily banning learning on this vlan, ' +
                 'and not learning %s',
                 vlan.max_hosts, vlan.vid, eth_src)
-            ofmsgs.extend([self.valve_flowdrop(
-                self.dp.eth_src_table,
-                self.valve_in_match(
-                    self.dp.eth_src_table, vlan=vlan),
-                priority=(self.dp.low_priority + 1),
-                hard_timeout=self.dp.timeout)])
         else:
+            # TODO: it would be good to be able to notify an external
+            # system upon re/learning a host.
             ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
                 port, vlan, eth_src))
             self.logger.info(
@@ -622,6 +621,9 @@ class Valve(object):
 
         KW Arguments:
         new_dp -- A new DP object containing the updated config."""
+        # TODO: a reload currently causes a full pipeline restart.
+        # We could special case reloads if we need to change only
+        # (for example) an ACL on a port.
         ofmsgs = []
         if self.dp.running:
             self.dp = new_dp
