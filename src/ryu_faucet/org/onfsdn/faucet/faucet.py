@@ -101,7 +101,7 @@ class Faucet(app_manager.RyuApp):
             # pylint: disable=no-member
             valve = valve_factory(dp)
             if valve is None:
-                self.logger.error('Hardware type not supported for DP: %s' % dp.name)
+                self.logger.error('Hardware type not supported for DP: %s', dp.name)
             else:
                 self.valves[dp.dp_id] = valve(dp, self.logname)
 
@@ -124,22 +124,23 @@ class Faucet(app_manager.RyuApp):
             if nexthop in connected_network:
                 if nexthop == connected_network.ip:
                     self.logger.error(
-                        'BGP nexthop %s for prefix %s cannot be us' % (
-                            nexthop, prefix))
+                        'BGP nexthop %s for prefix %s cannot be us',
+                        nexthop, prefix)
                 elif withdraw:
-                    self.logger.info('BGP withdraw %s nexthop %s' % (
-                        prefix, nexthop))
+                    self.logger.info(
+                        'BGP withdraw %s nexthop %s',
+                        prefix, nexthop)
                     flowmods = valve.del_route(vlan, prefix)
                 else:
-                    self.logger.info('BGP add %s nexthop %s' % (
-                        prefix, nexthop))
+                    self.logger.info(
+                        'BGP add %s nexthop %s', prefix, nexthop)
                     flowmods = valve.add_route(vlan, nexthop, prefix)
                 if flowmods:
                     self.send_flow_msgs(ryudp, flowmods)
                 return
         self.logger.error(
-            'BGP nexthop %s for prefix %s is not a connected network' % (
-                nexthop, prefix))
+            'BGP nexthop %s for prefix %s is not a connected network',
+            nexthop, prefix)
 
     def reset_bgp(self):
         # TODO: port status changes should cause us to withdraw a route.
@@ -188,7 +189,7 @@ class Faucet(app_manager.RyuApp):
 
     def send_flow_msgs(self, dp, flow_msgs):
         if dp.id not in self.valves:
-            self.logger.error("send_flow_msgs: unknown dp with id: {0}".format(dp.id))
+            self.logger.error('send_flow_msgs: unknown dp with id %u', dp.id)
             return
         self.valves[dp.id].ofchannel_log(flow_msgs)
         for flow_msg in flow_msgs:
@@ -231,7 +232,7 @@ class Faucet(app_manager.RyuApp):
         valve = self.valves[dp.id] if dp.id in self.valves else None
 
         if not valve:
-            self.logger.error("_packet_in_handler: unknown dp with id: {0}".format(dp.id))
+            self.logger.error('_packet_in_handler: unknown dp with id: %u', dp.id)
             return
 
         valve.ofchannel_log([msg])
@@ -260,7 +261,7 @@ class Faucet(app_manager.RyuApp):
             self.valves[dp.id].ofchannel_log([msg])
             self.logger.error('Got OFError: %s', msg)
         else:
-            self.logger.error("_error_handler: unknown dp with id: {0}".format(dp.id))
+            self.logger.error('_error_handler: unknown dp with id: %u', dp.id)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # # pylint: disable=no-member
     def handler_features(self, ev):
@@ -270,7 +271,7 @@ class Faucet(app_manager.RyuApp):
             flowmods = self.valves[dp.id].switch_features(dp.id, msg)
             self.send_flow_msgs(dp, flowmods)
         else:
-            self.logger.error("handler_features: unknown dp with id: {0}".format(dp.id))
+            self.logger.error('handler_features: unknown dp with id: %u', dp.id)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -280,20 +281,21 @@ class Faucet(app_manager.RyuApp):
         if not ev.enter:
             if dp.id in self.valves:
                 # Datapath down message
-                self.logger.debug('DP %s disconnected' % str(dp.id))
+                self.logger.debug('DP %u disconnected', dp.id)
                 self.valves[dp.id].datapath_disconnect(dp.id)
             else:
-                self.logger.error("handler_connect_or_disconnect: unknown dp with id: {0}".format(dp.id))
+                self.logger.error(
+                    'handler_connect_or_disconnect: unknown dp with id: %u', dp.id)
             return
 
-        self.logger.debug('DP %s connected' % str(dp.id))
+        self.logger.debug('DP %u connected', dp.id)
         self.handler_datapath(dp)
 
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
     def handler_reconnect(self, ev):
         dp = ev.dp
-        self.logger.debug('DP %s reconnected' % str(dp.id))
+        self.logger.debug('DP %u reconnected', dp.id)
         self.handler_datapath(dp)
 
     def handler_datapath(self, dp):
@@ -303,7 +305,7 @@ class Faucet(app_manager.RyuApp):
             flowmods = self.valves[dp.id].datapath_connect(dp.id, discovered_ports)
             self.send_flow_msgs(dp, flowmods)
         else:
-            self.logger.error("handler_datapath: unknown dp with id: {0}".format(dp.id))
+            self.logger.error('handler_datapath: unknown dp with id: %u', dp.id)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -315,7 +317,8 @@ class Faucet(app_manager.RyuApp):
         port_no = msg.desc.port_no
 
         if dp.id not in self.valves:
-            self.logger.error("port_status_handler: unknown dp with id: {0}".format(dp.id))
+            self.logger.error(
+                'port_status_handler: unknown dp with id: %u', dp.id)
             return
 
         valve = self.valves[dp.id]
