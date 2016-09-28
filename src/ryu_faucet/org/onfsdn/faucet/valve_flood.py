@@ -58,7 +58,7 @@ class ValveFloodManager(object):
         if vlan.unicast_flood:
             flood_eth_dst_matches.extend([(None, None)])
         flood_eth_dst_matches.extend([
-            ('01:80:C2:00:00:00', '01:80:C2:00:00:00'), # 802.x
+            ('01:80:C2:00:00:00', 'ff:ff:ff:00:00:00'), # 802.x
             ('01:00:5E:00:00:00', 'ff:ff:ff:00:00:00'), # IPv4 multicast
             ('33:33:00:00:00:00', 'ff:ff:00:00:00:00'), # IPv6 multicast
             (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
