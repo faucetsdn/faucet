@@ -41,15 +41,6 @@ def dump(obj, level=0):
         print "%s%s" % (prefix, obj)
 
 
-def mac_addr_is_unicast(mac_addr):
-    """Returns True if mac_addr is a unicast ethernet address.
-
-    arguments:
-    mac_addr - a string representation of a mac address."""
-    msb = mac_addr.split(":")[0]
-    return msb[-1] in "02468aAcCeE"
-
-
 def kill_on_exception(logname):
     """decorator to ensure functions will kill ryu when an unhandled exception
     occurs"""

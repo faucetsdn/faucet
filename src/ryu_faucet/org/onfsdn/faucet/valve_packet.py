@@ -21,6 +21,15 @@ from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
+
+def mac_addr_is_unicast(mac_addr):
+    """Returns True if mac_addr is a unicast ethernet address.
+
+    arguments:
+    mac_addr - a string representation of a mac address."""
+    msb = mac_addr.split(':')[0]
+    return msb[-1] in '02468aAcCeE'
+
 def parse_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 

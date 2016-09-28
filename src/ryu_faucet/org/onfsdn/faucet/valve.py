@@ -536,7 +536,7 @@ class Valve(object):
         return ofmsgs
 
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
-        if eth_dst == self.FAUCET_MAC or not util.mac_addr_is_unicast(eth_dst):
+        if eth_dst == self.FAUCET_MAC or not valve_packet.mac_addr_is_unicast(eth_dst):
             for handler in (self.ipv4_route_manager.control_plane_handler,
                             self.ipv6_route_manager.control_plane_handler):
                 ofmsgs = handler(in_port, vlan, eth_src, eth_dst, pkt)
@@ -579,7 +579,7 @@ class Valve(object):
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
 
-        if util.mac_addr_is_unicast(eth_src):
+        if valve_packet.mac_addr_is_unicast(eth_src):
             self.logger.debug(
                 'Packet_in dp_id: %x src:%s in_port:%d vid:%s',
                 dp_id, eth_src, in_port, vlan_vid)
