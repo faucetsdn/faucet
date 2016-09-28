@@ -330,6 +330,7 @@ hardware: "%s"
         host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw))
 
     def one_ipv4_ping(self, host, dst):
+        self.require_host_learned(host)
         ping_result = host.cmd('ping -c1 %s' % dst)
         self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
 
@@ -337,6 +338,7 @@ hardware: "%s"
         self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
 
     def one_ipv6_ping(self, host, dst, timeout=2):
+        self.require_host_learned(host)
         # TODO: retry our one ping. We should not have to retry.
         for _ in range(timeout):
             ping_result = host.cmd('ping6 -c1 %s' % dst)
