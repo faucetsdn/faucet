@@ -1,4 +1,10 @@
 ---
+# The file included below has an include loop.
+# In this case, the parser should skip the below
+# file, and not infinite loop.
+include-optional:
+    - testconfigv2-includeloop.yaml
+
 acls:
     acl1:
         - rule:

@@ -125,6 +125,13 @@ def _dp_parser_v1(conf, config_file, logname):
 def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
     logger = get_logger(logname)
 
+    # Save the updated configuration state in separate dicts,
+    # so if an error is found, the changes can simply be thrown away.
+    new_config_hashes = config_hashes.copy()
+    new_dps_conf = dps_conf.copy()
+    new_vlans_conf = vlans_conf.copy()
+    new_acls_conf = acls_conf.copy()
+
     if not os.path.isfile(config_file):
         logger.warning('not a regular file or does not exist: %s', config_file)
         return False
@@ -135,12 +142,15 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
         logger.warning('error loading config from file: %s', config_file)
         return False
 
+    # Add the SHA256 hash for this configuration file, so FAUCET can determine
+    # whether or not this configuration file should be reloaded upon receiving
+    # a HUP signal.
     with open(config_file, 'r') as f:
-        config_hashes[config_file] = hashlib.sha256(f.read()).hexdigest()
+        new_config_hashes[config_file] = hashlib.sha256(f.read()).hexdigest()
 
-    dps_conf.update(conf.pop('dps', {}))
-    vlans_conf.update(conf.pop('vlans', {}))
-    acls_conf.update(conf.pop('acls', {}))
+    new_dps_conf.update(conf.pop('dps', {}))
+    new_vlans_conf.update(conf.pop('vlans', {}))
+    new_acls_conf.update(conf.pop('acls', {}))
 
     for include_file in conf.pop('include', []):
         include_path = _dp_config_path(include_file, parent_file=config_file)
@@ -151,7 +161,10 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
                 config_file,
             )
             return False
-        if not _dp_include(config_hashes, config_file, include_path, dps_conf, vlans_conf, acls_conf, logname):
+        if not _dp_include(new_config_hashes,
+                config_file, include_path,
+                new_dps_conf, new_vlans_conf, new_acls_conf,
+                logname):
             logger.error('unable to load required include file: %s', include_path)
             return False
 
@@ -164,8 +177,18 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
                 config_file,
             )
             return False
-        if not _dp_include(config_hashes, config_file, include_path, dps_conf, vlans_conf, acls_conf, logname):
+        if not _dp_include(new_config_hashes,
+                config_file, include_path,
+                new_dps_conf, new_vlans_conf, new_acls_conf,
+                logname):
             logger.warning('skipping optional include file: %s', include_path)
+
+    # Actually update the configuration data structures,
+    # now that this file has been successfully loaded.
+    config_hashes.update(new_config_hashes)
+    dps_conf.update(new_dps_conf)
+    vlans_conf.update(new_vlans_conf)
+    acls_conf.update(new_acls_conf)
 
     return True
 
@@ -196,11 +219,11 @@ def _dp_parser_v2(conf, config_file, logname):
     acls_conf = {}
 
     if not _dp_include(config_hashes, None, config_path, dps_conf, vlans_conf, acls_conf, logname):
-        logger.error('error found while loading config file: %s', config_path)
+        logger.critical('error found while loading config file: %s', config_path)
         return None
 
     if not dps_conf:
-        logger.error('dps not configured in file: %s', config_path)
+        logger.critical('dps not configured in file: %s', config_path)
         return None
 
     dps = []
@@ -284,7 +307,7 @@ def _watcher_parser_v1(config_file, logname):
     dps = []
     with open(config_file, 'r') as conf:
         for line in conf:
-            dps.append(dp_parser(line.strip(), logname)[0])
+            dps.append(dp_parser(line.strip(), logname)[1][0])
 
     for dp in dps:
         if dp.influxdb_stats:
@@ -352,7 +375,7 @@ def _watcher_parser_v2(conf, logname):
 
     dps = {}
     for faucet_file in conf['faucet_configs']:
-        dp_list = dp_parser(faucet_file, logname)
+        __, dp_list = dp_parser(faucet_file, logname)
         for dp in dp_list:
             dps[dp.name] = dp
 

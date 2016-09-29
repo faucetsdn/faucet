@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import logging
 import sys
 import os
@@ -38,14 +39,22 @@ class DistConfigTestCase(unittest.TestCase):
             logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
         logger.addHandler(logger_handler)
         logger.propagate = 0
-        logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.CRITICAL)
 
-        self.v1_dp = dp_parser('config/testconfig.yaml', logname)[0]
-        self.v2_dp = dp_parser('config/testconfigv2.yaml', logname)[0]
+        self.v1_config_hashes, self.v1_dps = dp_parser('config/testconfig.yaml', logname)
+        self.v1_dp = self.v1_dps[0]
+        self.v2_config_hashes, self.v2_dps = dp_parser('config/testconfigv2.yaml', logname)
+        self.v2_dp = self.v2_dps[0]
         self.v1_watchers = watcher_parser(
             'config/testgaugeconfig.conf', logname)
         self.v2_watchers = watcher_parser(
             'config/testgaugeconfig.yaml', logname)
+
+    def test_hashes(self):
+        for config_hashes in (self.v1_config_hashes, self.v2_config_hashes):
+            for config_file, config_hash in config_hashes.iteritems():
+                with open(config_file, 'r') as f:
+                    self.assertEquals(config_hash, hashlib.sha256(f.read()).hexdigest())
 
     def test_dps(self):
         for dp in (self.v1_dp, self.v2_dp):
