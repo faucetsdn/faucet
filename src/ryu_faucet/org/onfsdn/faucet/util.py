@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import os
 import signal
 import sys
@@ -40,14 +41,6 @@ def dump(obj, level=0):
         print "%s%s" % (prefix, obj)
 
 
-def mac_addr_is_unicast(mac_addr):
-    """Returns True if mac_addr is a unicast ethernet address.
-
-    arguments:
-    mac_addr - a string representation of a mac address."""
-    msb = mac_addr.split(":")[0]
-    return msb[-1] in "02468aAcCeE"
-
 def kill_on_exception(logname):
     """decorator to ensure functions will kill ryu when an unhandled exception
     occurs"""
@@ -64,6 +57,7 @@ def kill_on_exception(logname):
         return __koe
     return _koe
 
+
 def get_sys_prefix():
     """Returns an additional prefix for log and configuration files when used in
     a virtual environment"""
@@ -79,3 +73,16 @@ def get_sys_prefix():
         sysprefix = sys.prefix
 
     return sysprefix
+
+
+def get_logger(logname, logfile, loglevel, propagate):
+    logger = logging.getLogger(logname)
+    logger_handler = TimedRotatingFileHandler(
+        logfile, when='midnight')
+    log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
+    logger_handler.setFormatter(
+        logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
+    logger.addHandler(logger_handler)
+    logger.propagate = propagate
+    logger.setLevel(loglevel)
+    return logger

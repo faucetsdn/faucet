@@ -90,8 +90,12 @@ FAUCET_LINT_SRCS = (
     'port.py',
     'util.py',
     'valve.py',
+    'valve_acl.py',
+    'valve_flood.py',
+    'valve_host.py',
     'valve_of.py',
     'valve_packet.py',
+    'valve_route.py',
     'vlan.py',
 )
 
@@ -327,6 +331,7 @@ hardware: "%s"
         host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw))
 
     def one_ipv4_ping(self, host, dst):
+        self.require_host_learned(host)
         ping_result = host.cmd('ping -c1 %s' % dst)
         self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
 
@@ -334,6 +339,7 @@ hardware: "%s"
         self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
 
     def one_ipv6_ping(self, host, dst, timeout=2):
+        self.require_host_learned(host)
         # TODO: retry our one ping. We should not have to retry.
         for _ in range(timeout):
             ping_result = host.cmd('ping6 -c1 %s' % dst)
@@ -500,6 +506,8 @@ hardware: "%s"
     def setup_ipv6_hosts_addresses(self, first_host, first_host_ip,
                                    first_host_routed_ip, second_host,
                                    second_host_ip, second_host_routed_ip):
+        for host in first_host, second_host:
+            host.cmd('ip addr flush dev %s' % host.intf())
         self.add_host_ipv6_address(first_host, first_host_ip)
         self.add_host_ipv6_address(second_host, second_host_ip)
         self.add_host_ipv6_address(first_host, first_host_routed_ip)
@@ -523,6 +531,16 @@ hardware: "%s"
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
 
+    def verify_ipv6_routing_pair(self, first_host, first_host_ip,
+                                 first_host_routed_ip, second_host,
+                                 second_host_ip, second_host_routed_ip):
+        self.setup_ipv6_hosts_addresses(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+
     def verify_ipv6_routing_mesh(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
@@ -531,31 +549,17 @@ hardware: "%s"
         first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
         second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
         second_host_routed_ip2 = ipaddr.IPv6Network('fc00::30:1/112')
-        self.setup_ipv6_hosts_addresses(
+        self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
-        self.wait_until_matching_route_as_flow(
-            second_host.MAC(), second_host_routed_ip2)
-        self.verify_ipv6_routing(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.setup_ipv6_hosts_addresses(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip2)
-        self.verify_ipv6_routing(
+        self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2)
         self.swap_host_macs(first_host, second_host)
-        self.setup_ipv6_hosts_addresses(
+        self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
-        self.verify_ipv6_routing(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.setup_ipv6_hosts_addresses(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip2)
-        self.verify_ipv6_routing(
+        self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2)
 
@@ -698,16 +702,28 @@ vlans:
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 
+    def get_configure_count(self):
+        controller = self.net.controllers[0]
+        configure_count = controller.cmd(
+                'grep -c "Configuring datapath" %s' % os.environ['FAUCET_LOG'])
+        return configure_count
+
     def test_untagged(self):
         controller = self.net.controllers[0]
         switch = self.net.switches[0]
         for i in range(1, 4):
-            configure_count = controller.cmd(
-                'grep -c "Configuring datapath" %s' % os.environ['FAUCET_LOG'])
+            configure_count = self.get_configure_count()
             self.assertEquals(i, int(configure_count))
             self.hup_faucet()
             time.sleep(1)
+            for retry in range(3):
+                configure_count = self.get_configure_count()
+                if configure_count == i + 1:
+                    break
+                time.sleep(1)
+            self.assertTrue(i + 1, configure_count)
             self.assertTrue(switch.connected())
+            self.wait_until_matching_flow('OUTPUT:CONTROLLER')
             self.ping_all_when_learned()
 
 
@@ -1500,17 +1516,11 @@ vlans:
         second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
         first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
         second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
-        self.setup_ipv6_hosts_addresses(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.verify_ipv6_routing(
+        self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
         self.swap_host_macs(first_host, second_host)
-        self.setup_ipv6_hosts_addresses(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.verify_ipv6_routing(
+        self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
 

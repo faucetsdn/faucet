@@ -77,8 +77,9 @@ def set_mirror_destinations(dp):
                     if 'mirror' in attrib_value:
                         port_no = attrib_value['mirror']
                         dp.ports[port_no].mirror_destination = True
-    for port_no in dp.mirror_from_port.itervalues():
-        dp.ports[port_no].mirror_destination = True
+    for port_no, mirror_destination_port in dp.mirror_from_port.iteritems():
+        dp.ports[port_no].mirror = mirror_destination_port
+        dp.ports[mirror_destination_port].mirror_destination = True
 
 def _dp_config_path(config_file, parent_file=None):
     if parent_file and not os.path.isabs(config_file):
