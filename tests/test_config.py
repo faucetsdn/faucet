@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import logging
 import sys
 import os
@@ -38,14 +39,38 @@ class DistConfigTestCase(unittest.TestCase):
             logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
         logger.addHandler(logger_handler)
         logger.propagate = 0
-        logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.CRITICAL)
 
-        self.v1_dp = dp_parser('config/testconfig.yaml', logname)[0]
-        self.v2_dp = dp_parser('config/testconfigv2.yaml', logname)[0]
+        self.v1_config_hashes, self.v1_dps = dp_parser('config/testconfig.yaml', logname)
+        self.v1_dp = self.v1_dps[0]
+        self.v2_config_hashes, self.v2_dps = dp_parser('config/testconfigv2.yaml', logname)
+        self.v2_dp = self.v2_dps[0]
         self.v1_watchers = watcher_parser(
             'config/testgaugeconfig.conf', logname)
         self.v2_watchers = watcher_parser(
             'config/testgaugeconfig.yaml', logname)
+
+    def test_hashes(self):
+        testconfig_yaml = os.path.realpath('config/testconfig.yaml')
+        testconfigv2_yaml = os.path.realpath('config/testconfigv2.yaml')
+        testconfigv2_dps_yaml = os.path.realpath('config/testconfigv2-dps.yaml')
+        testconfigv2_vlans_yaml = os.path.realpath('config/testconfigv2-vlans.yaml')
+        testconfigv2_acls_yaml = os.path.realpath('config/testconfigv2-acls.yaml')
+        testconfigv2_includeloop_yaml = os.path.realpath('config/testconfigv2-includeloop.yaml')
+
+        with open(testconfig_yaml, 'r') as f:
+            self.assertEquals(self.v1_config_hashes[testconfig_yaml], hashlib.sha256(f.read()).hexdigest())
+
+        with open(testconfigv2_yaml, 'r') as f:
+            self.assertEquals(self.v2_config_hashes[testconfigv2_yaml], hashlib.sha256(f.read()).hexdigest())
+        with open(testconfigv2_dps_yaml, 'r') as f:
+            self.assertEquals(self.v2_config_hashes[testconfigv2_dps_yaml], hashlib.sha256(f.read()).hexdigest())
+        with open(testconfigv2_vlans_yaml, 'r') as f:
+            self.assertEquals(self.v2_config_hashes[testconfigv2_vlans_yaml], hashlib.sha256(f.read()).hexdigest())
+        with open(testconfigv2_acls_yaml, 'r') as f:
+            self.assertEquals(self.v2_config_hashes[testconfigv2_acls_yaml], hashlib.sha256(f.read()).hexdigest())
+        # Not loaded due to the include loop.
+        self.assertIsNone(self.v2_config_hashes[testconfigv2_includeloop_yaml])
 
     def test_dps(self):
         for dp in (self.v1_dp, self.v2_dp):
