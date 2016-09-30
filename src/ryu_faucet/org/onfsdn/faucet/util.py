@@ -86,3 +86,6 @@ def get_logger(logname, logfile, loglevel, propagate):
     logger.propagate = propagate
     logger.setLevel(loglevel)
     return logger
+
+def dpid_log(dpid):
+    return 'DPID %u (%x)' % (dpid, dpid)

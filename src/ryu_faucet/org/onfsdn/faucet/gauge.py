@@ -27,7 +27,7 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 
 from config_parser import watcher_parser
-from util import kill_on_exception, get_sys_prefix, get_logger
+from util import kill_on_exception, get_sys_prefix, get_logger, dpid_log
 from watcher import watcher_factory
 
 
@@ -86,11 +86,11 @@ class Gauge(app_manager.RyuApp):
     def handler_connect_or_disconnect(self, ev):
         ryudp = ev.dp
         if ryudp.id not in self.watchers:
-            self.logger.info('no watcher configured for %u', ryudp.id)
+            self.logger.info('no watcher configured for %s', dpid_log(ryudp.id))
             return
 
         if ev.enter: # DP is connecting
-            self.logger.info('datapath up %x', ryudp.id)
+            self.logger.info('%s up', dpid_log(ryudp.id))
             for watcher in self.watchers[ryudp.id].values():
                 watcher.start(ryudp)
         else: # DP is disconnecting
@@ -98,7 +98,7 @@ class Gauge(app_manager.RyuApp):
                 for watcher in self.watchers[ryudp.id].values():
                     watcher.stop()
                 del self.watchers[ryudp.id]
-            self.logger.info('datapath down %x', ryudp.id)
+            self.logger.info('%s down', dpid_log(ryudp.id))
 
     def signal_handler(self, sigid, frame):
         if sigid == signal.SIGHUP:
@@ -129,7 +129,7 @@ class Gauge(app_manager.RyuApp):
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
     def handler_reconnect(self, ev):
-        self.logger.info('datapath reconnected %x', ev.dp.id)
+        self.logger.info('%s reconnected', dpid_log(ev.dp.id))
         for watcher in self.watchers[ev.dp.id].values():
             watcher.start(ev.dp)
 
