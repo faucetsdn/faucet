@@ -249,6 +249,13 @@ class Valve(object):
             ofmsgs.extend(self.valve_flowdel(table_id))
         return ofmsgs
 
+    def delete_all_port_match_flows(self, port):
+        ofmsgs = []
+        for table in self.in_port_tables():
+            in_port_match = self.valve_in_match(table, in_port=port.number)
+            ofmsgs.extend(self.valve_flowdel(table, in_port_match))
+        return ofmsgs
+
     def add_default_drop_flows(self):
         """Add default drop rules on all FAUCET tables."""
 
@@ -324,13 +331,13 @@ class Valve(object):
             self.logger.info('Configuring VLAN %s', vlan)
             for port in vlan.get_ports():
                 all_port_nums.add(port.number)
+            # add mirror destination ports.
+            for port in vlan.mirror_destination_ports():
+                all_port_nums.add(port.number)
             # install eth_dst_table flood ofmsgs
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             # add controller IPs if configured.
             ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
-            # add mirror destination ports.
-            for port in vlan.mirror_destination_ports():
-                all_port_nums.add(port.number)
 
         # add any ports discovered but not configured
         for port_num in discovered_port_nums:
@@ -470,28 +477,29 @@ class Valve(object):
         if not port.running():
             return []
 
-        in_port_match = self.valve_in_match(
-            self.dp.vlan_table, in_port=port_num)
         ofmsgs = []
         self.logger.info('Sending config for port %s', port)
 
-        for table in self.in_port_tables():
-            ofmsgs.extend(self.valve_flowdel(table, in_port_match))
+        # Delete all flows previously matching this port
+        ofmsgs.extend(self.delete_all_port_match_flows(port))
 
+        # Port is a mirror destination; drop all input packets
         if port.mirror_destination:
-            # this is a mirror port - drop all input packets
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.vlan_table,
-                in_port_match))
+                self.valve_in_match(self.dp.vlan_table, in_port=port_num)))
             return ofmsgs
 
+        # Add ACL if any
+        acl_ofmsgs, forwarding_table = self.port_add_acl(port_num)
+        ofmsgs.extend(acl_ofmsgs)
+
+        # Add mirroring if any
         mirror_act = []
-        # this port is mirrored to another port
         if port.mirror:
             mirror_act = [valve_of.output_port(port.mirror)]
 
-        acl_ofmsgs, forwarding_table = self.port_add_acl(port_num)
-        ofmsgs.extend(acl_ofmsgs)
+        # Add port/to VLAN rules.
         ofmsgs.extend(self.port_add_vlans(port, forwarding_table, mirror_act))
 
         return ofmsgs
@@ -515,11 +523,7 @@ class Valve(object):
         ofmsgs = []
 
         if not port.permanent_learn:
-            for table in self.in_port_tables():
-                ofmsgs.extend(self.valve_flowdel(
-                    table,
-                    self.valve_in_match(
-                        table, in_port=port_num)))
+            ofmsgs.extend(self.delete_all_port_match_flows(port))
 
             # delete eth_dst rules
             ofmsgs.extend(self.valve_flowdel(
