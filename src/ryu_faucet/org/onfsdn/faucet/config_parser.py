@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import logging
 import os
 import yaml
@@ -68,8 +69,16 @@ def port_parser(dp_id, p_identifier, port_conf, vlans):
 
     return port
 
+def _dp_config_path(config_file, parent_file=None):
+    if parent_file and not os.path.isabs(config_file):
+        return os.path.realpath(os.path.join(os.path.dirname(parent_file), config_file))
+    else:
+        return os.path.realpath(config_file)
+
 def _dp_parser_v1(conf, config_file, logname):
     logger = get_logger(logname)
+
+    config_path = _dp_config_path(config_file)
 
     # TODO: warn when the configuration contains meaningless elements
     # they are probably typos
@@ -100,38 +109,77 @@ def _dp_parser_v1(conf, config_file, logname):
         logger.exception('Error in config file: %s', err)
         return None
 
-    return [dp]
+    with open(config_path, 'r') as f:
+        return ({config_path: hashlib.sha256(f.read()).hexdigest()}, [dp])
 
-def _dp_include(parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
+def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
     logger = get_logger(logname)
 
-    config = os.path.join(
-        os.path.dirname(parent_file),
-        config_file,
-    ) if parent_file and not os.path.isabs(config_file) else config_file
+    # Save the updated configuration state in separate dicts,
+    # so if an error is found, the changes can simply be thrown away.
+    new_config_hashes = config_hashes.copy()
+    new_dps_conf = dps_conf.copy()
+    new_vlans_conf = vlans_conf.copy()
+    new_acls_conf = acls_conf.copy()
 
-    if not os.path.isfile(config):
-        logger.warning('not a regular file or does not exist: %s', config)
+    if not os.path.isfile(config_file):
+        logger.warning('not a regular file or does not exist: %s', config_file)
         return False
 
-    conf = read_config(config, logname)
+    conf = read_config(config_file, logname)
 
     if not conf:
-        logger.warning('error loading config from file: %s', config)
+        logger.warning('error loading config from file: %s', config_file)
         return False
 
-    dps_conf.update(conf.pop('dps', {}))
-    vlans_conf.update(conf.pop('vlans', {}))
-    acls_conf.update(conf.pop('acls', {}))
+    # Add the SHA256 hash for this configuration file, so FAUCET can determine
+    # whether or not this configuration file should be reloaded upon receiving
+    # a HUP signal.
+    with open(config_file, 'r') as f:
+        new_config_hashes[config_file] = hashlib.sha256(f.read()).hexdigest()
+
+    new_dps_conf.update(conf.pop('dps', {}))
+    new_vlans_conf.update(conf.pop('vlans', {}))
+    new_acls_conf.update(conf.pop('acls', {}))
 
     for include_file in conf.pop('include', []):
-        if not _dp_include(config, include_file, dps_conf, vlans_conf, acls_conf, logname):
-            logger.error('unable to load required include file: %s', include_file)
+        include_path = _dp_config_path(include_file, parent_file=config_file)
+        if include_path in config_hashes:
+            logger.error(
+                'include file %s already loaded, include loop found in file: %s',
+                include_path,
+                config_file,
+            )
+            return False
+        if not _dp_include(new_config_hashes,
+                config_file, include_path,
+                new_dps_conf, new_vlans_conf, new_acls_conf,
+                logname):
+            logger.error('unable to load required include file: %s', include_path)
             return False
 
     for include_file in conf.pop('include-optional', []):
-        if not _dp_include(config, include_file, dps_conf, vlans_conf, acls_conf, logname):
-            logger.warning('skipping optional include file: %s', include_file)
+        include_path = _dp_config_path(include_file, parent_file=config_file)
+        if include_path in config_hashes:
+            logger.error(
+                'include file %s already loaded, include loop found in file: %s',
+                include_path,
+                config_file,
+            )
+            return False
+        if not _dp_include(new_config_hashes,
+                config_file, include_path,
+                new_dps_conf, new_vlans_conf, new_acls_conf,
+                logname):
+            new_config_hashes[include_path] = None
+            logger.warning('skipping optional include file: %s', include_path)
+
+    # Actually update the configuration data structures,
+    # now that this file has been successfully loaded.
+    config_hashes.update(new_config_hashes)
+    dps_conf.update(new_dps_conf)
+    vlans_conf.update(new_vlans_conf)
+    acls_conf.update(new_acls_conf)
 
     return True
 
@@ -153,16 +201,20 @@ def _dp_add_vlan(vid_dp, dp, vlan, logname):
 def _dp_parser_v2(conf, config_file, logname):
     logger = get_logger(logname)
 
+    config_path = _dp_config_path(config_file)
+
+    config_hashes = {}
+
     dps_conf = {}
     vlans_conf = {}
     acls_conf = {}
 
-    if not _dp_include(None, config_file, dps_conf, vlans_conf, acls_conf, logname):
-        logger.error('error found while loading config file: %s', config_file)
+    if not _dp_include(config_hashes, None, config_path, dps_conf, vlans_conf, acls_conf, logname):
+        logger.critical('error found while loading config file: %s', config_path)
         return None
 
     if not dps_conf:
-        logger.error('dps not configured in file: %s', config_file)
+        logger.critical('dps not configured in file: %s', config_path)
         return None
 
     dps = []
@@ -202,7 +254,7 @@ def _dp_parser_v2(conf, config_file, logname):
 
         dps.append(dp)
 
-    return dps
+    return (config_hashes, dps)
 
 def watcher_parser(config_file, logname):
     #TODO: make this backwards compatible
@@ -243,7 +295,7 @@ def _watcher_parser_v1(config_file, logname):
     dps = []
     with open(config_file, 'r') as conf:
         for line in conf:
-            dps.append(dp_parser(line.strip(), logname)[0])
+            dps.append(dp_parser(line.strip(), logname)[1][0])
 
     for dp in dps:
         if dp.influxdb_stats:
@@ -311,7 +363,7 @@ def _watcher_parser_v2(conf, logname):
 
     dps = {}
     for faucet_file in conf['faucet_configs']:
-        dp_list = dp_parser(faucet_file, logname)
+        __, dp_list = dp_parser(faucet_file, logname)
         for dp in dp_list:
             dps[dp.name] = dp
 

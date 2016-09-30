@@ -1,0 +1,14 @@
+---
+include:
+- testconfigv2-acls.yaml
+
+acls:
+    acl1:
+        - rule:
+            nw_dst: '192.168.0.0/16'
+            dl_type: 0x800
+            actions:
+                allow: 1
+        - rule:
+            actions:
+                allow: 0
