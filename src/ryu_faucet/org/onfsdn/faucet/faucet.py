@@ -208,10 +208,20 @@ class Faucet(app_manager.RyuApp):
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
         if new_config_file == self.config_file:
             for config_file, config_hash in self.config_hashes.iteritems():
+                # Config file not loaded but exists = reload.
+                if config_hash is None and os.path.isfile(config_file):
+                    changed = True
+                    break
+                # Config file loaded but no longer exists = reload.
+                if config_hash and not os.path.isfile(config_file):
+                    changed = True
+                    break
+                # Config file hash has changed = reload.
                 with open(config_file, 'r') as f:
                     if config_hash != hashlib.sha256(f.read()).hexdigest():
                         changed = True
                         break
+        # FAUCET_CONFIG has changed = reload.
         else:
             self.config_file = new_config_file
             changed = True

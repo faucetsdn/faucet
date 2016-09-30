@@ -90,6 +90,8 @@ def _dp_config_path(config_file, parent_file=None):
 def _dp_parser_v1(conf, config_file, logname):
     logger = get_logger(logname)
 
+    config_path = _dp_config_path(config_file)
+
     # TODO: warn when the configuration contains meaningless elements
     # they are probably typos
     if 'dp_id' not in conf:
@@ -119,8 +121,8 @@ def _dp_parser_v1(conf, config_file, logname):
         logger.exception('Error in config file: %s', err)
         return None
 
-    with open(config_file, 'r') as f:
-        return ({config_file: hashlib.sha256(f.read()).hexdigest()}, [dp])
+    with open(config_path, 'r') as f:
+        return ({config_path: hashlib.sha256(f.read()).hexdigest()}, [dp])
 
 def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
     logger = get_logger(logname)
@@ -181,6 +183,7 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
                 config_file, include_path,
                 new_dps_conf, new_vlans_conf, new_acls_conf,
                 logname):
+            new_config_hashes[include_path] = None
             logger.warning('skipping optional include file: %s', include_path)
 
     # Actually update the configuration data structures,
