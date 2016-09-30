@@ -74,7 +74,6 @@ class DP(Conf):
         self.acls = {}
         self.vlans = {}
         self.ports = {}
-        self.mirror_from_port = {}
         self.acl_in = {}
 
     def sanity_check(self):
@@ -116,7 +115,6 @@ class DP(Conf):
         port_num = port.number
         self.ports[port_num] = port
         if port.mirror is not None:
-            self.mirror_from_port[port.mirror] = port.number
             # other configuration entries ignored
             return
         if port.acl_in is not None:
@@ -126,6 +124,13 @@ class DP(Conf):
         self.vlans[vlan.vid] = vlan
 
     def finalize_config(self):
+        mirror_from_port = {}
+        for port in self.ports.itervalues():
+            if port.mirror is not None:
+                mirror_from_port[port.mirror] = port.number
+        for port_no, mirror_destination_port in mirror_from_port.iteritems():
+            self.ports[port_no].mirror = mirror_destination_port
+            self.ports[mirror_destination_port].mirror_destination = True
         for acl in self.acls.itervalues():
             for rule_conf in acl:
                 for attrib, attrib_value in rule_conf.iteritems():
@@ -133,9 +138,6 @@ class DP(Conf):
                         if 'mirror' in attrib_value:
                             port_no = attrib_value['mirror']
                             self.ports[port_no].mirror_destination = True
-        for port_no, mirror_destination_port in self.mirror_from_port.iteritems():
-            self.ports[port_no].mirror = mirror_destination_port
-            self.ports[mirror_destination_port].mirror_destination = True
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
