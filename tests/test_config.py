@@ -70,7 +70,7 @@ class DistConfigTestCase(unittest.TestCase):
         with open(testconfigv2_acls_yaml, 'r') as f:
             self.assertEquals(self.v2_config_hashes[testconfigv2_acls_yaml], hashlib.sha256(f.read()).hexdigest())
         # Not loaded due to the include loop.
-        self.assertEquals(self.v2_config_hashes[testconfigv2_includeloop_yaml], None)
+        self.assertIsNone(self.v2_config_hashes[testconfigv2_includeloop_yaml])
 
     def test_dps(self):
         for dp in (self.v1_dp, self.v2_dp):
