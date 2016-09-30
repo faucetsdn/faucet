@@ -88,4 +88,4 @@ def get_logger(logname, logfile, loglevel, propagate):
     return logger
 
 def dpid_log(dpid):
-    return 'DPID %u (%x)' % (dpid, dpid)
+    return 'DPID %u (0x%x)' % (dpid, dpid)
