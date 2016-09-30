@@ -28,6 +28,18 @@ class DP(Conf):
     influxdb_stats = False
     name = None
     dp_id = None
+    configured = False
+    table_offset = None
+    vlan_table = None
+    acl_table = None
+    eth_src_table = None
+    ipv4_fib_table = None
+    ipv6_fib_table = None
+    eth_dst_table = None
+    flood_table = None
+    priority_offset = None
+    low_priority = None
+    high_priority = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -73,7 +85,6 @@ class DP(Conf):
         self.acls = {}
         self.vlans = {}
         self.ports = {}
-        self.mirror_from_port = {}
         self.acl_in = {}
 
     def sanity_check(self):
@@ -115,7 +126,6 @@ class DP(Conf):
         port_num = port.number
         self.ports[port_num] = port
         if port.mirror is not None:
-            self.mirror_from_port[port.mirror] = port.number
             # other configuration entries ignored
             return
         if port.acl_in is not None:
@@ -123,6 +133,22 @@ class DP(Conf):
 
     def add_vlan(self, vlan):
         self.vlans[vlan.vid] = vlan
+
+    def finalize_config(self):
+        mirror_from_port = {}
+        for port in self.ports.itervalues():
+            if port.mirror is not None:
+                mirror_from_port[port.mirror] = port.number
+        for port_no, mirror_destination_port in mirror_from_port.iteritems():
+            self.ports[port_no].mirror = mirror_destination_port
+            self.ports[mirror_destination_port].mirror_destination = True
+        for acl in self.acls.itervalues():
+            for rule_conf in acl:
+                for attrib, attrib_value in rule_conf.iteritems():
+                    if attrib == 'actions':
+                        if 'mirror' in attrib_value:
+                            port_no = attrib_value['mirror']
+                            self.ports[port_no].mirror_destination = True
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
@@ -135,6 +161,7 @@ class DP(Conf):
                 return vlan
 
         return None
+
 
     def __str__(self):
         return self.name
