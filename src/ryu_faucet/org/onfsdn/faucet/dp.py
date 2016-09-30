@@ -29,6 +29,17 @@ class DP(Conf):
     name = None
     dp_id = None
     configured = False
+    table_offset = None
+    vlan_table = None
+    acl_table = None
+    eth_src_table = None
+    ipv4_fib_table = None
+    ipv6_fib_table = None
+    eth_dst_table = None
+    flood_table = None
+    priority_offset = None
+    low_priority = None
+    high_priority = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
