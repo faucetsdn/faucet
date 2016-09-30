@@ -252,7 +252,7 @@ class Valve(object):
     def delete_all_port_match_flows(self, port):
         ofmsgs = []
         for table in self.in_port_tables():
-            in_port_match = self.valve_in_match( table, in_port=port.number)
+            in_port_match = self.valve_in_match(table, in_port=port.number)
             ofmsgs.extend(self.valve_flowdel(table, in_port_match))
         return ofmsgs
 
