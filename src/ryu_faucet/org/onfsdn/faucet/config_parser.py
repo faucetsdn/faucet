@@ -68,18 +68,6 @@ def port_parser(dp_id, p_identifier, port_conf, vlans):
 
     return port
 
-def set_mirror_destinations(dp):
-    for acl in dp.acls.itervalues():
-        for rule_conf in acl:
-            for attrib, attrib_value in rule_conf.iteritems():
-                if attrib == 'actions':
-                    if 'mirror' in attrib_value:
-                        port_no = attrib_value['mirror']
-                        dp.ports[port_no].mirror_destination = True
-    for port_no, mirror_destination_port in dp.mirror_from_port.iteritems():
-        dp.ports[port_no].mirror = mirror_destination_port
-        dp.ports[mirror_destination_port].mirror_destination = True
-
 def _dp_parser_v1(conf, config_file, logname):
     logger = get_logger(logname)
 
@@ -105,7 +93,7 @@ def _dp_parser_v1(conf, config_file, logname):
         dp.add_acl(acl_num, acl_conf)
     for vlan in vlans.itervalues():
         dp.add_vlan(vlan)
-    set_mirror_destinations(dp)
+    dp.finalize_config()
     try:
         dp.sanity_check()
     except AssertionError as err:
@@ -206,14 +194,11 @@ def _dp_parser_v2(conf, config_file, logname):
             logger.exception('Error in config file: %s', err)
             return None
         for port in ports.itervalues():
-            # now that all ports are created, handle mirroring rewriting
-            if port.mirror is not None:
-                port.mirror = ports[port.mirror].number
             dp.add_port(port)
         for a_identifier, acl_conf in acls_conf.iteritems():
             # TODO: turn this into an object
             dp.add_acl(a_identifier, acl_conf)
-        set_mirror_destinations(dp)
+        dp.finalize_config()
 
         dps.append(dp)
 

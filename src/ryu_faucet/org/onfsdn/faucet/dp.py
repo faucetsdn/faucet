@@ -28,6 +28,7 @@ class DP(Conf):
     influxdb_stats = False
     name = None
     dp_id = None
+    configured = False
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -124,6 +125,18 @@ class DP(Conf):
     def add_vlan(self, vlan):
         self.vlans[vlan.vid] = vlan
 
+    def finalize_config(self):
+        for acl in self.acls.itervalues():
+            for rule_conf in acl:
+                for attrib, attrib_value in rule_conf.iteritems():
+                    if attrib == 'actions':
+                        if 'mirror' in attrib_value:
+                            port_no = attrib_value['mirror']
+                            self.ports[port_no].mirror_destination = True
+        for port_no, mirror_destination_port in self.mirror_from_port.iteritems():
+            self.ports[port_no].mirror = mirror_destination_port
+            self.ports[mirror_destination_port].mirror_destination = True
+
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
             return None
@@ -135,6 +148,7 @@ class DP(Conf):
                 return vlan
 
         return None
+
 
     def __str__(self):
         return self.name
