@@ -112,6 +112,9 @@ class VLAN(Conf):
     def mirrored_ports(self):
         return [port for port in self.get_ports() if port.mirror]
 
+    def mirror_destination_ports(self):
+        return [port for port in self.get_ports() if port.mirror_destination]
+
     def flood_ports(self, configured_ports, exclude_unicast):
         ports = []
         for port in configured_ports:
