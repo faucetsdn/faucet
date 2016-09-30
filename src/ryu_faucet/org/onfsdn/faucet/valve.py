@@ -328,10 +328,9 @@ class Valve(object):
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             # add controller IPs if configured.
             ofmsgs.extend(self.add_controller_ips(vlan.controller_ips, vlan))
-
-        # add mirror ports.
-        for port_num in self.dp.mirror_from_port.itervalues():
-            all_port_nums.add(port_num)
+            # add mirror destination ports.
+            for port in vlan.mirror_destination_ports():
+                all_port_nums.add(port.number)
 
         # add any ports discovered but not configured
         for port_num in discovered_port_nums:

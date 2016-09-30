@@ -143,7 +143,6 @@ class DistConfigTestCase(unittest.TestCase):
 
     def test_mirror(self):
         for dp in (self.v1_dp, self.v2_dp):
-            self.assertEqual(dp.mirror_from_port[1], 6)
             self.assertEqual(dp.ports[6].mirror, 1)
 
     def test_unicast_flood(self):
