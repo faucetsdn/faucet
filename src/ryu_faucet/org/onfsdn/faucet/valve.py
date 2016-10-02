@@ -172,7 +172,7 @@ class Valve(object):
     def ignore_dpid(self, dp_id):
         """Ignore all DPIDs except the DPID configured."""
         if dp_id != self.dp.dp_id:
-            self.logger.error('Unknown dpid:%s', dp_id)
+            self.logger.error('Unknown %s', util.dpid_log(dp_id))
             return True
         return False
 
@@ -371,7 +371,7 @@ class Valve(object):
         if discovered_port_nums is None:
             discovered_port_nums = []
 
-        self.logger.info('Configuring datapath')
+        self.logger.info('Configuring %s', util.dpid_log(dp_id))
         ofmsgs = []
         ofmsgs.extend(self.add_default_flows())
         ofmsgs.extend(self.add_ports_and_vlans(discovered_port_nums))
@@ -381,13 +381,13 @@ class Valve(object):
     def datapath_disconnect(self, dp_id):
         """Update n/w state db upon disconnection of datapath with id dp_id."""
         if not self.ignore_dpid(dp_id):
-            self.logger.critical('Datapath disconnected')
+            self.logger.critical('%s disconnected', util.dpid_log(dp_id))
         return []
 
     def datapath_down(self, dp_id):
         if not self.ignore_dpid(dp_id):
             self.dp.running = False
-            self.logger.warning('Datapath %s down', dp_id)
+            self.logger.warning('%s down', util.dpid_log(dp_id))
         return []
 
     def port_add_acl(self, port_num):
@@ -583,8 +583,8 @@ class Valve(object):
 
         if valve_packet.mac_addr_is_unicast(eth_src):
             self.logger.debug(
-                'Packet_in dp_id: %x src:%s in_port:%d vid:%s',
-                dp_id, eth_src, in_port, vlan_vid)
+                'Packet_in %s src:%s in_port:%d vid:%s',
+                util.dpid_log(dp_id), eth_src, in_port, vlan_vid)
 
             ofmsgs.extend(self.control_plane_handler(
                 in_port, vlan, eth_src, eth_dst, pkt))
