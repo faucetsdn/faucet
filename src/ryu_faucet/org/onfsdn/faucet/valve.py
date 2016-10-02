@@ -1,3 +1,5 @@
+"""Implementation of Valve learning layer 2/3 switch."""
+
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -170,13 +172,24 @@ class Valve(object):
         return match
 
     def ignore_dpid(self, dp_id):
-        """Ignore all DPIDs except the DPID configured."""
+        """Return True if this datapath ID is not ours.
+
+        Args:
+            dp_id (int): datapath ID
+        Returns:
+            bool: True if this datapath ID is not ours.
+        """
         if dp_id != self.dp.dp_id:
             self.logger.error('Unknown %s', util.dpid_log(dp_id))
             return True
         return False
 
     def all_valve_tables(self):
+        """Return all Valve tables.
+
+        Returns:
+            tuple: all Valve tables as ints.
+        """
         return (
             self.dp.vlan_table,
             self.dp.acl_table,
@@ -353,19 +366,14 @@ class Valve(object):
         return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_port_nums):
-        """Generate the default openflow msgs for a datapath upon connection.
+        """Handle Ryu datapath connection event and provision pipeline.
 
-        Depending on the implementation, a network state database may be
-        updated.
-
-        Arguments:
-        dp_id -- the Datapath unique ID (64bit int)
-        ports -- a list containing the port numbers of each port on the
-            datapath.
-
+        Args:
+            dp_id (int): datapath ID.
+            discovered_port_nums (list): known datapath ports as ints.
         Returns:
-        A list of flow mod messages that will be sent in order to the datapath
-        in order to configure it."""
+            list: OpenFlow messages to send to datapath.
+        """
         if self.ignore_dpid(dp_id):
             return []
         if discovered_port_nums is None:
@@ -379,16 +387,14 @@ class Valve(object):
         return ofmsgs
 
     def datapath_disconnect(self, dp_id):
-        """Update n/w state db upon disconnection of datapath with id dp_id."""
-        if not self.ignore_dpid(dp_id):
-            self.logger.critical('%s disconnected', util.dpid_log(dp_id))
-        return []
+        """Handle Ryu datapath disconnection event.
 
-    def datapath_down(self, dp_id):
+        Args:
+            dp_id (int): datapath ID.
+        """
         if not self.ignore_dpid(dp_id):
             self.dp.running = False
             self.logger.warning('%s down', util.dpid_log(dp_id))
-        return []
 
     def port_add_acl(self, port_num):
         ofmsgs = []
