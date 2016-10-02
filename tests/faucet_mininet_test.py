@@ -356,6 +356,11 @@ hardware: "%s"
         fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
         self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
 
+    def force_faucet_reload(self):
+        # Force FAUCET to reload by adding new line to config file.
+        open(os.environ['FAUCET_CONFIG'], 'a').write('\n')
+        self.hup_faucet()
+
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
                        timeout=10, packets=2):
         tcpdump_out = tcpdump_host.popen(
@@ -693,7 +698,7 @@ vlans:
 """
 
     def test_untagged(self):
-        self.hup_faucet()
+        self.force_faucet_reload()
         self.net.pingAll()
         learned_hosts = [
             host for host in self.net.hosts if self.host_learned(host)]
