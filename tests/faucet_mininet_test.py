@@ -705,13 +705,13 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def get_configure_count(self):
         controller = self.net.controllers[0]
         configure_count = controller.cmd(
-                'grep -c "Configuring datapath" %s' % os.environ['FAUCET_LOG'])
+            'grep -c "configuration is unchanged" %s' % os.environ['FAUCET_LOG'])
         return configure_count
 
     def test_untagged(self):
         controller = self.net.controllers[0]
         switch = self.net.switches[0]
-        for i in range(1, 4):
+        for i in range(0, 3):
             configure_count = self.get_configure_count()
             self.assertEquals(i, int(configure_count))
             self.hup_faucet()
