@@ -155,6 +155,34 @@ class Faucet(app_manager.RyuApp):
             'BGP nexthop %s for prefix %s is not a connected network',
             nexthop, prefix)
 
+    def _create_bgp_speaker_for_vlan(self, vlan):
+        """Set up BGP speaker for an individual VLAN if required.
+
+        Args:
+            vlan (vlan): VLAN associated with this speaker.
+        Returns:
+            ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
+        """
+        handler = lambda x: self._bgp_route_handler(x, vlan)
+        bgp_speaker = BGPSpeaker(
+            as_number=vlan.bgp_as,
+            router_id=vlan.bgp_routerid,
+            bgp_server_port=vlan.bgp_port,
+            best_path_change_handler=handler)
+        for controller_ip in vlan.controller_ips:
+            prefix = ipaddr.IPNetwork(
+                '/'.join((str(controller_ip.ip), str(controller_ip.prefixlen))))
+            bgp_speaker.prefix_add(
+                prefix=str(prefix), next_hop=controller_ip.ip)
+        for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
+            for ip_dst, ip_gw in route_table.iteritems():
+                bgp_speaker.prefix_add(
+                    prefix=str(ip_dst), next_hop=str(ip_gw))
+        bgp_speaker.neighbor_add(
+            address=vlan.bgp_neighbor_address,
+            remote_as=vlan.bgp_neighbor_as)
+        return bgp_speaker
+
     def _reset_bgp(self):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
@@ -167,29 +195,7 @@ class Faucet(app_manager.RyuApp):
                 bgp_speaker.shutdown()
             for vlan in valve.dp.vlans.itervalues():
                 if vlan.bgp_as:
-                    handler = lambda x: self._bgp_route_handler(x, vlan)
-                    bgp_speaker = BGPSpeaker(
-                        as_number=vlan.bgp_as,
-                        router_id=vlan.bgp_routerid,
-                        bgp_server_port=vlan.bgp_port,
-                        best_path_change_handler=handler)
-                    for controller_ip in vlan.controller_ips:
-                        prefix = ipaddr.IPNetwork(
-                            '/'.join(
-                                (str(controller_ip.ip),
-                                 str(controller_ip.prefixlen))))
-                        bgp_speaker.prefix_add(
-                            prefix=str(prefix),
-                            next_hop=controller_ip.ip)
-                    for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
-                        for ip_dst, ip_gw in route_table.iteritems():
-                            bgp_speaker.prefix_add(
-                                prefix=str(ip_dst),
-                                next_hop=str(ip_gw))
-                    bgp_speaker.neighbor_add(
-                        address=vlan.bgp_neighbor_address,
-                        remote_as=vlan.bgp_neighbor_as)
-                    bgp_speakers[vlan] = bgp_speaker
+                    bgp_speakers[vlan] = self._create_bgp_speaker_for_vlan(vlan)
 
     def gateway_resolve_request(self):
         """Trigger gateway/nexthop re/resolution."""
