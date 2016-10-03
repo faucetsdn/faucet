@@ -5,6 +5,7 @@ This file contains an overview of architecture, coding design/practices, testing
 ### Before submitting a PR
 
 * All unit tests must pass (please use the docker based tests; see README.docker.md).
+* You must add a test if FAUCET's functionality changes (ie. a new feature, or correcting a bug).
 * pylint must show no new errors or warnings.
 * Code must conform to the style guide (see below).
 
