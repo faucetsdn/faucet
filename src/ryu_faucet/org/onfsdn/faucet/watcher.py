@@ -62,6 +62,11 @@ class GaugeDBHelper(object):
     Inheritors must have a WatcherConf object as conf.
     """
     conf = None
+    db_update_counter = None
+    conn_string = None
+    switch_database = None
+    flow_database = None
+    conn = None
 
     def setup(self):
         self.conn_string = (
@@ -164,6 +169,7 @@ class GaugePoller(object):
         self.logger = logging.getLogger(
             logname + '.{0}'.format(self.conf.type)
             )
+        self.ryudp = None
 
     def start(self, ryudp):
         self.ryudp = ryudp
@@ -273,7 +279,7 @@ class GaugePortStatsPoller(GaugePoller):
 
     def no_response(self):
         self.logger.info(
-            "port stats request timed out for {0}".format(self.dp.name))
+            'port stats request timed out for %s', self.dp.name)
 
 
 class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
@@ -329,7 +335,7 @@ class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
 
     def no_response(self):
         self.logger.info(
-            "port stats request timed out for {0}".format(self.dp.name))
+            'port stats request timed out for %s', self.dp.name)
 
 
 class GaugeFlowTablePoller(GaugePoller):
@@ -366,7 +372,7 @@ class GaugeFlowTablePoller(GaugePoller):
 
     def no_response(self):
         self.logger.info(
-            "flow dump request timed out for {0}".format(self.dp.name))
+            'flow dump request timed out for %s', self.dp.name)
 
 
 class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
@@ -424,4 +430,4 @@ class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
 
     def no_response(self):
         self.logger.info(
-            "flow dump request timed out for {0}".format(self.dp.name))
+            'flow dump request timed out for %s', self.dp.name)
