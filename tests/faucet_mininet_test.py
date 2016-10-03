@@ -23,7 +23,7 @@
 # * pylint
 # * curl
 
-
+import glob
 import inspect
 import os
 import sys
@@ -82,22 +82,7 @@ EXTERNAL_DEPENDENCIES = (
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 
 # Must pass with 0 lint errors
-# TODO: eliminate existing lint errors so all files can be checked.
-FAUCET_LINT_SRCS = (
-    'config_parser.py',
-    'faucet.py',
-    'gauge.py',
-    'port.py',
-    'util.py',
-    'valve.py',
-    'valve_acl.py',
-    'valve_flood.py',
-    'valve_host.py',
-    'valve_of.py',
-    'valve_packet.py',
-    'valve_route.py',
-    'vlan.py',
-)
+FAUCET_LINT_SRCS = glob.glob(os.path.join(FAUCET_DIR, '*py'))
 
 # Maximum number of parallel tests to run at once
 MAX_PARALLEL_TESTS = 20
@@ -1966,8 +1951,7 @@ def check_dependencies():
 
 def lint_check():
     for faucet_src in FAUCET_LINT_SRCS:
-        faucet_src_path = os.path.join(FAUCET_DIR, faucet_src)
-        ret = subprocess.call(['pylint', '-E', faucet_src_path])
+        ret = subprocess.call(['pylint', '-E', faucet_src])
         if ret:
             print 'lint of %s returns an error' % faucet_src
             return False
