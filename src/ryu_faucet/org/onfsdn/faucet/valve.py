@@ -569,7 +569,7 @@ class Valve(object):
                     return ofmsgs
         return []
 
-    def known_up_dpid_and_port(self, dp_id, in_port):
+    def _known_up_dpid_and_port(self, dp_id, in_port):
         """Returns True if datapath and port are known and running.
 
         Args:
@@ -598,7 +598,7 @@ class Valve(object):
         Return:
             list: OpenFlow messages, if any.
         """
-        if not self.known_up_dpid_and_port(dp_id, in_port):
+        if not self._known_up_dpid_and_port(dp_id, in_port):
             return []
 
         ofmsgs = []
