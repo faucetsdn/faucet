@@ -41,14 +41,17 @@ from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
 
 
 class EventFaucetReconfigure(event.EventBase):
+    """Event used to trigger FAUCET reconfiguration."""
     pass
 
 
 class EventFaucetResolveGateways(event.EventBase):
+    """Event used to trigger gateway re/resolution."""
     pass
 
 
 class EventFaucetHostExpire(event.EventBase):
+    """Event used to trigger expiration of host state in controller."""
     pass
 
 
@@ -208,6 +211,7 @@ class Faucet(app_manager.RyuApp):
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
 
+    # pylint: disable=unused-argument
     def signal_handler(self, sigid, frame):
         """Handle any received signals.
 
@@ -331,7 +335,7 @@ class Faucet(app_manager.RyuApp):
         else:
             self.logger.error('_error_handler: unknown %s', dpid_log(dp_id))
 
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
     def handler_features(self, ryu_event):
         msg = ryu_event.msg
         ryu_dp = msg.datapath
@@ -381,6 +385,11 @@ class Faucet(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ryu_event):
+        """Handle a port status change event.
+
+        Args:
+            ryu_event (ryu.controller.ofp_event.EventOFPPortStateChange): trigger
+        """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
