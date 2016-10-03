@@ -181,16 +181,24 @@ class Faucet(app_manager.RyuApp):
                     bgp_speakers[vlan] = bgp_speaker
 
     def gateway_resolve_request(self):
+        """Trigger gateway/nexthop re/resolution."""
         while True:
             self.send_event('Faucet', EventFaucetResolveGateways())
             hub.sleep(2)
 
     def host_expire_request(self):
+        """Trigger expiration of host state in controller."""
         while True:
             self.send_event('Faucet', EventFaucetHostExpire())
             hub.sleep(5)
 
     def send_flow_msgs(self, ryu_dp, flow_msgs):
+        """Send OpenFlow messages to a connected datapath.
+
+        Args:
+            ryu_db (ryu.controller.controller.Datapath): datapath.
+            flow_msgs (list): OpenFlow messages to send.
+        """
         dp_id = ryu_dp.id
         if dp_id not in self.valves:
             self.logger.error('send_flow_msgs: unknown %s', dpid_log(dp_id))
@@ -201,10 +209,23 @@ class Faucet(app_manager.RyuApp):
             ryu_dp.send_msg(flow_msg)
 
     def signal_handler(self, sigid, frame):
+        """Handle any received signals.
+
+        Args:
+            sigid (int): signal to handle.
+            frame (frame): stack frame.
+        """
         if sigid == signal.SIGHUP:
             self.send_event('Faucet', EventFaucetReconfigure())
 
     def config_changed(self, new_config_file):
+        """Return True if configuration has changed.
+
+        Args:
+            new_config_file (str): name, possibly new, of FAUCET config file.
+        Returns:
+            bool: True if the file, or any file it includes, has changed.
+        """
         if new_config_file != self.config_file:
             return True
         for config_file, config_hash in self.config_hashes.iteritems():
@@ -223,6 +244,11 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     def reload_config(self, ryu_event):
+        """Handle a request to reload configuration.
+
+        Args:
+            ryu_event (ryu.controller.event.EventReplyBase): triggering event.
+        """
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
         if not self.config_changed(new_config_file):
             self.logger.info('configuration is unchanged, not reloading')
@@ -238,6 +264,11 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     def resolve_gateways(self, ryu_event):
+        """Handle a request to re/resolve gateways.
+
+        Args:
+            ryu_event (ryu.controller.event.EventReplyBase): triggering event.
+        """
         for dp_id, valve in self.valves.iteritems():
             flowmods = valve.resolve_gateways()
             if flowmods:
@@ -246,12 +277,22 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(EventFaucetHostExpire, MAIN_DISPATCHER)
     def host_expire(self, ryu_event):
+        """Handle a request expire host state in the controller.
+
+        Args:
+            ryu_event (ryu.controller.event.EventReplyBase): triggering event.
+        """
         for valve in self.valves.values():
             valve.host_expire()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def _packet_in_handler(self, ryu_event):
+        """Handle a packet in event from the dataplane.
+
+        Args:
+            ryu_event (ryu.controller.event.EventReplyBase): packet in message.
+        """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
