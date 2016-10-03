@@ -15,14 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import hashlib
 import logging
 import os
 import signal
 
 import ipaddr
 
-from config_parser import dp_parser
+from config_parser import config_file_hash, dp_parser
 from valve import valve_factory
 from util import kill_on_exception, get_sys_prefix, get_logger, dpid_log
 
@@ -205,32 +204,30 @@ class Faucet(app_manager.RyuApp):
         if sigid == signal.SIGHUP:
             self.send_event('Faucet', EventFaucetReconfigure())
 
+    def config_changed(self, new_config_file):
+        if new_config_file != self.config_file:
+            return True
+        for config_file, config_hash in self.config_hashes.iteritems():
+            config_file_exists = os.path.isfile(config_file)
+            # Config file not loaded but exists = reload.
+            if config_hash is None and config_file_exists:
+                return True
+            # Config file loaded but no longer exists = reload.
+            if config_hash and not config_file_exists:
+                return True
+            # Config file hash has changed = reload.
+            new_config_hash = config_file_hash(config_file)
+            if new_config_hash != config_hash:
+                return True
+        return False
+
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     def reload_config(self, ryu_event):
-        changed = False
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
-        if new_config_file == self.config_file:
-            for config_file, config_hash in self.config_hashes.iteritems():
-                # Config file not loaded but exists = reload.
-                if config_hash is None and os.path.isfile(config_file):
-                    changed = True
-                    break
-                # Config file loaded but no longer exists = reload.
-                if config_hash and not os.path.isfile(config_file):
-                    changed = True
-                    break
-                # Config file hash has changed = reload.
-                with open(config_file, 'r') as f:
-                    if config_hash != hashlib.sha256(f.read()).hexdigest():
-                        changed = True
-                        break
-        # FAUCET_CONFIG has changed = reload.
-        else:
-            self.config_file = new_config_file
-            changed = True
-        if not changed:
+        if not self.config_changed(new_config_file):
             self.logger.info('configuration is unchanged, not reloading')
             return
+        self.config_file = new_config_file
         self.config_hashes, new_dps = dp_parser(new_config_file, self.logname)
         for new_dp in new_dps:
             # pylint: disable=no-member
