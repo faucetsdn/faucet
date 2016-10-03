@@ -29,7 +29,7 @@ class ValveFloodManager(object):
         self.valve_in_match = valve_in_match
         self.valve_flowmod = valve_flowmod
 
-    def build_flood_rule_actions(self, vlan, exclude_unicast, exclude_ports=[]):
+    def _build_flood_rule_actions(self, vlan, exclude_unicast, exclude_ports=[]):
         flood_acts = []
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
         untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
@@ -68,10 +68,10 @@ class ValveFloodManager(object):
         for eth_dst, eth_dst_mask in flood_eth_dst_matches:
             for port in vlan_all_ports:
                 if eth_dst is None:
-                    flood_acts = self.build_flood_rule_actions(
+                    flood_acts = self._build_flood_rule_actions(
                         vlan, False, exclude_ports=[port])
                 else:
-                    flood_acts = self.build_flood_rule_actions(
+                    flood_acts = self._build_flood_rule_actions(
                         vlan, True, exclude_ports=[port])
                 ofmsgs.append(self.valve_flowmod(
                     self.flood_table,
@@ -84,9 +84,9 @@ class ValveFloodManager(object):
             flood_priority += 1
             for port in mirrored_ports:
                 if eth_dst is None:
-                    flood_acts = self.build_flood_rule_actions(vlan, False)
+                    flood_acts = self._build_flood_rule_actions(vlan, False)
                 else:
-                    flood_acts = self.build_flood_rule_actions(vlan, True)
+                    flood_acts = self._build_flood_rule_actions(vlan, True)
                 mirror_acts = [
                     valve_of.output_port(port.mirror)] + flood_acts
                 ofmsgs.append(self.valve_flowmod(
