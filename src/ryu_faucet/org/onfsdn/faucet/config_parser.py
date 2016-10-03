@@ -36,6 +36,9 @@ def read_config(config_file, logname):
         return None
     return conf
 
+def config_file_hash(config_file_name):
+    config_file = open(config_file_name)
+    return hashlib.sha256(config_file.read()).hexdigest()
 
 def dp_parser(config_file, logname):
     logger = get_logger(logname)
@@ -109,8 +112,7 @@ def _dp_parser_v1(conf, config_file, logname):
         logger.exception('Error in config file: %s', err)
         return None
 
-    with open(config_path, 'r') as f:
-        return ({config_path: hashlib.sha256(f.read()).hexdigest()}, [dp])
+    return ({config_path: config_file_hash(config_path)}, [dp])
 
 def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
     logger = get_logger(logname)
@@ -135,8 +137,7 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
     # Add the SHA256 hash for this configuration file, so FAUCET can determine
     # whether or not this configuration file should be reloaded upon receiving
     # a HUP signal.
-    with open(config_file, 'r') as f:
-        new_config_hashes[config_file] = hashlib.sha256(f.read()).hexdigest()
+    new_config_hashes[config_file] = config_file_hash(config_file)
 
     new_dps_conf.update(conf.pop('dps', {}))
     new_vlans_conf.update(conf.pop('vlans', {}))
