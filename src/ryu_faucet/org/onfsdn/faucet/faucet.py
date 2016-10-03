@@ -118,9 +118,9 @@ class Faucet(app_manager.RyuApp):
             self.host_expire_request)
 
         self.dp_bgp_speakers = {}
-        self.reset_bgp()
+        self._reset_bgp()
 
-    def bgp_route_handler(self, path_change, vlan):
+    def _bgp_route_handler(self, path_change, vlan):
         """Handle a BGP change event.
 
         Args:
@@ -149,13 +149,13 @@ class Faucet(app_manager.RyuApp):
                         'BGP add %s nexthop %s', prefix, nexthop)
                     flowmods = valve.add_route(vlan, nexthop, prefix)
                 if flowmods:
-                    self.send_flow_msgs(ryudp, flowmods)
+                    self._send_flow_msgs(ryudp, flowmods)
                 return
         self.logger.error(
             'BGP nexthop %s for prefix %s is not a connected network',
             nexthop, prefix)
 
-    def reset_bgp(self):
+    def _reset_bgp(self):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: configurable behavior - withdraw routes if peer goes down.
@@ -167,7 +167,7 @@ class Faucet(app_manager.RyuApp):
                 bgp_speaker.shutdown()
             for vlan in valve.dp.vlans.itervalues():
                 if vlan.bgp_as:
-                    handler = lambda x: self.bgp_route_handler(x, vlan)
+                    handler = lambda x: self._bgp_route_handler(x, vlan)
                     bgp_speaker = BGPSpeaker(
                         as_number=vlan.bgp_as,
                         router_id=vlan.bgp_routerid,
@@ -203,7 +203,7 @@ class Faucet(app_manager.RyuApp):
             self.send_event('Faucet', EventFaucetHostExpire())
             hub.sleep(5)
 
-    def send_flow_msgs(self, ryu_dp, flow_msgs):
+    def _send_flow_msgs(self, ryu_dp, flow_msgs):
         """Send OpenFlow messages to a connected datapath.
 
         Args:
@@ -230,7 +230,7 @@ class Faucet(app_manager.RyuApp):
         if sigid == signal.SIGHUP:
             self.send_event('Faucet', EventFaucetReconfigure())
 
-    def config_changed(self, new_config_file):
+    def _config_changed(self, new_config_file):
         """Return True if configuration has changed.
 
         Args:
@@ -262,7 +262,7 @@ class Faucet(app_manager.RyuApp):
             ryu_event (ryu.controller.event.EventReplyBase): triggering event.
         """
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
-        if not self.config_changed(new_config_file):
+        if not self._config_changed(new_config_file):
             self.logger.info('configuration is unchanged, not reloading')
             return
         self.config_file = new_config_file
@@ -271,8 +271,8 @@ class Faucet(app_manager.RyuApp):
             # pylint: disable=no-member
             flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
             ryudp = self.dpset.get(new_dp.dp_id)
-            self.send_flow_msgs(ryudp, flowmods)
-            self.reset_bgp()
+            self._send_flow_msgs(ryudp, flowmods)
+            self._reset_bgp()
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     def resolve_gateways(self, ryu_event):
@@ -285,7 +285,7 @@ class Faucet(app_manager.RyuApp):
             flowmods = valve.resolve_gateways()
             if flowmods:
                 ryudp = self.dpset.get(dp_id)
-                self.send_flow_msgs(ryudp, flowmods)
+                self._send_flow_msgs(ryudp, flowmods)
 
     @set_ev_cls(EventFaucetHostExpire, MAIN_DISPATCHER)
     def host_expire(self, ryu_event):
@@ -320,6 +320,10 @@ class Faucet(app_manager.RyuApp):
         eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
         eth_type = eth_pkt.ethertype
 
+        # Packet ins, can only come when a VLAN header has already been pushed
+        # (ie. when we have progressed past the VLAN table). This gaurantees
+        # a VLAN header will always be present, so we know which VLAN the packet
+        # belongs to.
         if eth_type == ether.ETH_TYPE_8021Q:
             # tagged packet
             vlan_proto = pkt.get_protocols(ryu_vlan.vlan)[0]
@@ -329,7 +333,7 @@ class Faucet(app_manager.RyuApp):
 
         in_port = msg.match['in_port']
         flowmods = valve.rcv_packet(dp_id, in_port, vlan_vid, pkt)
-        self.send_flow_msgs(ryu_dp, flowmods)
+        self._send_flow_msgs(ryu_dp, flowmods)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -360,7 +364,7 @@ class Faucet(app_manager.RyuApp):
         dp_id = ryu_dp.id
         if dp_id in self.valves:
             flowmods = self.valves[dp_id].switch_features(dp_id, msg)
-            self.send_flow_msgs(ryu_dp, flowmods)
+            self._send_flow_msgs(ryu_dp, flowmods)
         else:
             self.logger.error('handler_features: unknown %s', dpid_log(dp_id))
 
@@ -411,7 +415,7 @@ class Faucet(app_manager.RyuApp):
             discovered_ports = [
                 p.port_no for p in ryu_dp.ports.values() if p.state == 0]
             flowmods = self.valves[dp_id].datapath_connect(dp_id, discovered_ports)
-            self.send_flow_msgs(ryu_dp, flowmods)
+            self._send_flow_msgs(ryu_dp, flowmods)
         else:
             self.logger.error('handler_datapath: unknown %s', dpid_log(dp_id))
 
@@ -451,4 +455,4 @@ class Faucet(app_manager.RyuApp):
             self.logger.warning('Unhandled port status %s for port %u',
                                 reason, port_no)
 
-        self.send_flow_msgs(ryu_dp, flowmods)
+        self._send_flow_msgs(ryu_dp, flowmods)
