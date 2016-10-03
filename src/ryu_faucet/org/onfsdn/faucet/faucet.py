@@ -1,3 +1,5 @@
+"""RyuApp shim between Ryu and Valve."""
+
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -56,11 +58,10 @@ class EventFaucetHostExpire(event.EventBase):
 
 
 class Faucet(app_manager.RyuApp):
-    """A Ryu app that performs layer 2 switching with VLANs.
+    """A RyuApp that implements an L2/L3 learning VLAN switch.
 
-    The intelligence is largely provided by a Valve class. Faucet's role is
-    mainly to perform set up and to provide a communication layer between ryu
-    and valve.
+    Valve provides the switch implementation; this is a shim for the Ryu
+    event handling framework to interface with Valve.
     """
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -120,6 +121,12 @@ class Faucet(app_manager.RyuApp):
         self.reset_bgp()
 
     def bgp_route_handler(self, path_change, vlan):
+        """Handle a BGP change event.
+
+        Args:
+            path_change (ryu.services.protocols.bgp.bgpspeaker.EventPrefix): path change
+            vlan (vlan): Valve VLAN this path change was received for.
+        """
         prefix = ipaddr.IPNetwork(path_change.prefix)
         nexthop = ipaddr.IPAddress(path_change.nexthop)
         withdraw = path_change.is_withdraw
@@ -149,6 +156,7 @@ class Faucet(app_manager.RyuApp):
             nexthop, prefix)
 
     def reset_bgp(self):
+        """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: configurable behavior - withdraw routes if peer goes down.
         for dp_id, valve in self.valves.iteritems():
@@ -326,6 +334,11 @@ class Faucet(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def _error_handler(self, ryu_event):
+        """Handle an OFPError from a datapath.
+
+        Args:
+            ryu_event (ryu.controller.ofp_event.EventOFPErrorMsg): trigger
+        """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
@@ -337,6 +350,11 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
     def handler_features(self, ryu_event):
+        """Handle receiving a switch features message from a datapath.
+
+        Args:
+            ryu_event (ryu.controller.ofp_event.EventOFPStateChange): trigger.
+        """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
@@ -349,6 +367,11 @@ class Faucet(app_manager.RyuApp):
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
     def handler_connect_or_disconnect(self, ryu_event):
+        """Handle connection or disconnection of a datapath.
+
+        Args:
+            ryu_event (ryu.controller.dpset.EventDP): trigger.
+        """
         ryu_dp = ryu_event.dp
         dp_id = ryu_dp.id
 
@@ -368,11 +391,21 @@ class Faucet(app_manager.RyuApp):
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
     def handler_reconnect(self, ryu_event):
+        """Handle reconnection of a datapath.
+
+        Args:
+            ryu_event (ryu.controller.dpset.EventDPReconnected): trigger.
+        """
         ryu_dp = ryu_event.dp
         self.logger.debug('%s reconnected', dpid_log(ryu_dp.id))
         self.handler_datapath(ryu_dp)
 
     def handler_datapath(self, ryu_dp):
+        """Handle any/all re/dis/connection of a datapath.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+        """
         dp_id = ryu_dp.id
         if dp_id in self.valves:
             discovered_ports = [
@@ -388,7 +421,7 @@ class Faucet(app_manager.RyuApp):
         """Handle a port status change event.
 
         Args:
-            ryu_event (ryu.controller.ofp_event.EventOFPPortStateChange): trigger
+            ryu_event (ryu.controller.ofp_event.EventOFPPortStatus): trigger.
         """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
