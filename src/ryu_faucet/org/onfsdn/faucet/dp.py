@@ -135,13 +135,21 @@ class DP(Conf):
         self.vlans[vlan.vid] = vlan
 
     def finalize_config(self):
+        port_by_name = {}
+        for port in self.ports.itervalues():
+            port_by_name[port.name] = port
         mirror_from_port = {}
         for port in self.ports.itervalues():
             if port.mirror is not None:
-                mirror_from_port[port.mirror] = port.number
-        for port_no, mirror_destination_port in mirror_from_port.iteritems():
-            self.ports[port_no].mirror = mirror_destination_port
-            self.ports[mirror_destination_port].mirror_destination = True
+                if port.mirror in port_by_name:
+                    mirror_from_port[port] = port_by_name[port.mirror]
+                else:
+                    mirror_from_port[self.ports[port.mirror]] = port
+        for port, mirror_destination_port in mirror_from_port.iteritems():
+            port.mirror = mirror_destination_port.number
+            self.ports[port.number] = port
+            mirror_destination_port.mirror_destination = True
+            self.ports[mirror_destination_port.number] = mirror_destination_port
         for acl in self.acls.itervalues():
             for rule_conf in acl:
                 for attrib, attrib_value in rule_conf.iteritems():
