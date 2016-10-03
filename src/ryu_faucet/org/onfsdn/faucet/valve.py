@@ -460,14 +460,14 @@ class Valve(object):
         return ofmsgs
 
     def port_add(self, dp_id, port_num):
-        """Generate openflow msgs to update the datapath upon addition of port.
+        """Handle the addition of a port.
 
-        Arguments:
-        dp_id -- the unique id of the datapath
-        port_num -- the port number of the new port
-
-        Returns
-        A list of flow mod messages to be sent to the datapath."""
+        Args:
+            dp_id (int): datapath ID.
+            port_num (int): port number.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
         if self.ignore_dpid(dp_id) or valve_of.ignore_port(port_num):
             return []
 
@@ -511,10 +511,14 @@ class Valve(object):
         return ofmsgs
 
     def port_delete(self, dp_id, port_num):
-        """Generate openflow msgs to update the datapath upon deletion of port.
+        """Handle the deletion of a port.
 
-        Returns
-        A list of flow mod messages to be sent to the datapath."""
+        Args:
+            dp_id (int): datapath ID.
+            port_num (int): port number.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
         if self.ignore_dpid(dp_id) or valve_of.ignore_port(port_num):
             return []
 
@@ -544,6 +548,19 @@ class Valve(object):
         return ofmsgs
 
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
+        """Handle a packet probably destined to FAUCET's route managers.
+
+        For example, next hop resolution or ICMP echo requests.
+
+        Args:
+            in_port (int): port the packet was received on.
+            vlan (vlan): vlan of the port the packet was received on.
+            eth_src (str): source Ethernet MAC address.
+            eth_dst (str): destination Ethernet MAC address.
+            pkt (ryu.lib.packet.ethernet): packet received.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
         if eth_dst == self.FAUCET_MAC or not valve_packet.mac_addr_is_unicast(eth_dst):
             for handler in (self.ipv4_route_manager.control_plane_handler,
                             self.ipv6_route_manager.control_plane_handler):
@@ -553,30 +570,34 @@ class Valve(object):
         return []
 
     def known_up_dpid_and_port(self, dp_id, in_port):
+        """Returns True if datapath and port are known and running.
+
+        Args:
+            dp_id (int): datapath ID.
+            in_port (int): port number.
+        Returns:
+            bool: True if datapath and port are known and running.
+        """
         if (not self.ignore_dpid(dp_id) and not valve_of.ignore_port(in_port) and
                 self.dp.running and in_port in self.dp.ports):
             return True
         return False
 
     def rcv_packet(self, dp_id, in_port, vlan_vid, pkt):
-        """Generate openflow msgs to update datapath upon receipt of packet.
-        This involves asssociating the ethernet source address of the packet
-        with the given in_port (ethernet switching) ideally so that no packets
-        from this address are sent to the controller, and packets to this
-        address are output to in_port. This may not be fully possible depending
-        on the limitations of the datapath.
+        """Handle a packet from the dataplane (eg to re/learn a host).
 
-        Depending on implementation this may involve updating a nw state db.
+        The packet may be sent to us also in response to FAUCET
+        initiating IPv6 neighbor discovery, or ARP, to resolve
+        a nexthop.
 
-        Arguments:
-        dp_id -- the unique id of the datapath that received the packet (64bit
-            int)
-        in_port -- the port number of the port that received the packet
-        vlan_vid -- the vlan_vid tagged to the packet.
-        pkt -- the packet send to us (Ryu ethernet object).
-
-        Returns
-        A list of flow mod messages to be sent to the datpath."""
+        Args:
+            dp_id (int): datapath ID.
+            in_port (int): port packet was received on.
+            vlan_vid (int): VLAN VID of port packet was received on.
+            pkt (ryu.lib.packet.packet): packet received.
+        Return:
+            list: OpenFlow messages, if any.
+        """
         if not self.known_up_dpid_and_port(dp_id, in_port):
             return []
 
@@ -617,6 +638,11 @@ class Valve(object):
         return ofmsgs
 
     def host_expire(self):
+        """Expire hosts not recently re/learned.
+
+        Expire state from the host manager only; the switch does its own flow
+        expiry.
+        """
         if not self.dp.running:
             return
         now = time.time()
@@ -624,10 +650,13 @@ class Valve(object):
             self.host_manager.expire_hosts_from_vlan(vlan, now)
 
     def reload_config(self, new_dp):
-        """Reload the config from new_dp
+        """Reload configuration new_dp
 
-        KW Arguments:
-        new_dp -- A new DP object containing the updated config."""
+        Args:
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            list: OpenFlow messages.
+        """
         # TODO: a reload currently causes a full pipeline restart.
         # We could special case reloads if we need to change only
         # (for example) an ACL on a port.
@@ -665,6 +694,11 @@ class Valve(object):
             return self.ipv4_route_manager.del_route(vlan, ip_dst)
 
     def resolve_gateways(self):
+        """Call route managers to re/resolve gateways.
+
+        Returns:
+            list: OpenFlow messages, if any.
+        """
         if not self.dp.running:
             return []
         ofmsgs = []
@@ -673,6 +707,7 @@ class Valve(object):
             ofmsgs.extend(self.ipv4_route_manager.resolve_gateways(vlan, now))
             ofmsgs.extend(self.ipv6_route_manager.resolve_gateways(vlan, now))
         return ofmsgs
+
 
 class ArubaValve(Valve):
 

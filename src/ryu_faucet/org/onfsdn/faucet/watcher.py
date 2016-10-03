@@ -2,8 +2,6 @@ import logging
 import random
 import json
 import time
-import yaml
-import os
 
 from ryu.lib import hub
 from influxdb import InfluxDBClient
@@ -38,11 +36,14 @@ def watcher_factory(conf):
     else:
         return None
 
+
 class InfluxShipper(object):
     """Convenience class for shipping values to influx db.
 
     Inheritors must have a WatcherConf object as conf.
     """
+    conf = None
+
     def ship_points(self, points):
         client = InfluxDBClient(
             host=self.conf.influx_host,
@@ -53,17 +54,25 @@ class InfluxShipper(object):
             timeout=self.conf.influx_timeout)
         return client.write_points(points=points, time_precision='s')
 
+
 class GaugeDBHelper(object):
     """
     Helper class for gaugedb operations
 
     Inheritors must have a WatcherConf object as conf.
     """
+    conf = None
+    db_update_counter = None
+    conn_string = None
+    switch_database = None
+    flow_database = None
+    conn = None
+
     def setup(self):
-        self.conn_string = "driver={0};server={1};port={2};" \
-                           "uid={3};pwd={4}".format(
-                           self.conf.driver, self.conf.db_ip, self.conf.db_port,
-                           self.conf.db_username, self.conf.db_password)
+        self.conn_string = (
+            "driver={0};server={1};port={2};uid={3};pwd={4}".format(
+                self.conf.driver, self.conf.db_ip, self.conf.db_port,
+                self.conf.db_username, self.conf.db_password))
         nsodbc = nsodbc_factory()
         self.conn = nsodbc.connect(self.conn_string)
         self.switch_database, exists = self.conn.create(self.conf.switches_doc)
@@ -83,6 +92,7 @@ class GaugeDBHelper(object):
         self.conn.delete(self.conf.flows_doc)
         self.flow_database, _ = self.conn.create(self.conf.flows_doc)
         init_flow_db(self.flow_database)
+
 
 class GaugePortStateLogger(object):
 
@@ -115,6 +125,7 @@ class GaugePortStateLogger(object):
 
     def stop(self, ryudp):
         pass
+
 
 class GaugePortStateInfluxDBLogger(GaugePortStateLogger, InfluxShipper):
 
@@ -158,6 +169,7 @@ class GaugePoller(object):
         self.logger = logging.getLogger(
             logname + '.{0}'.format(self.conf.type)
             )
+        self.ryudp = None
 
     def start(self, ryudp):
         self.ryudp = ryudp
@@ -267,7 +279,7 @@ class GaugePortStatsPoller(GaugePoller):
 
     def no_response(self):
         self.logger.info(
-            "port stats request timed out for {0}".format(self.dp.name))
+            'port stats request timed out for %s', self.dp.name)
 
 
 class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
@@ -306,13 +318,13 @@ class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
             }
 
             for stat_name, stat_value in (
-                ("packets_out", stat.tx_packets),
-                ("packets_in", stat.rx_packets),
-                ("bytes_out", stat.tx_bytes),
-                ("bytes_in", stat.rx_bytes),
-                ("dropped_out", stat.tx_dropped),
-                ("dropped_in", stat.rx_dropped),
-                ("errors_in", stat.rx_errors)):
+                    ("packets_out", stat.tx_packets),
+                    ("packets_in", stat.rx_packets),
+                    ("bytes_out", stat.tx_bytes),
+                    ("bytes_in", stat.rx_bytes),
+                    ("dropped_out", stat.tx_dropped),
+                    ("dropped_in", stat.rx_dropped),
+                    ("errors_in", stat.rx_errors)):
                 points.append({
                     "measurement": stat_name,
                     "tags": port_tags,
@@ -323,7 +335,7 @@ class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
 
     def no_response(self):
         self.logger.info(
-            "port stats request timed out for {0}".format(self.dp.name))
+            'port stats request timed out for %s', self.dp.name)
 
 
 class GaugeFlowTablePoller(GaugePoller):
@@ -360,7 +372,7 @@ class GaugeFlowTablePoller(GaugePoller):
 
     def no_response(self):
         self.logger.info(
-            "flow dump request timed out for {0}".format(self.dp.name))
+            'flow dump request timed out for %s', self.dp.name)
 
 
 class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
@@ -418,6 +430,4 @@ class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
 
     def no_response(self):
         self.logger.info(
-            "flow dump request timed out for {0}".format(self.dp.name))
-
-
+            'flow dump request timed out for %s', self.dp.name)
