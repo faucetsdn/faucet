@@ -156,7 +156,10 @@ class DP(Conf):
                     if attrib == 'actions':
                         if 'mirror' in attrib_value:
                             port_no = attrib_value['mirror']
-                            self.ports[port_no].mirror_destination = True
+                            # in V2 config, we might have an ACL that does not
+                            # apply to a DP.
+                            if port_no in self.ports:
+                                self.ports[port_no].mirror_destination = True
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
