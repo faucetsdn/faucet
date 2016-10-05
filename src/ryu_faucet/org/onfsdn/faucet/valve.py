@@ -493,10 +493,8 @@ class Valve(object):
         if port.mirror_destination:
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.vlan_table,
-                self.valve_in_match(
-                    self.dp.vlan_table,
-                    priority=self.dp.highest_priority,
-                    in_port=port_num)))
+                match=self.valve_in_match(self.dp.vlan_table, in_port=port_num),
+                priority=self.dp.highest_priority))
             return ofmsgs
 
         # Add ACL if any
