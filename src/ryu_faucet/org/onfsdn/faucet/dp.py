@@ -135,9 +135,18 @@ class DP(Conf):
         self.vlans[vlan.vid] = vlan
 
     def finalize_config(self):
+
+        def resolve_port_no(port_name):
+            if port_name in port_by_name:
+                return port_by_name[port_name].number
+            elif port_name in self.ports:
+                return port_name
+            return None
+
         port_by_name = {}
         for port in self.ports.itervalues():
             port_by_name[port.name] = port
+        # Associate mirrored ports, with their destinations.
         mirror_from_port = {}
         for port in self.ports.itervalues():
             if port.mirror is not None:
@@ -150,16 +159,25 @@ class DP(Conf):
             self.ports[port.number] = port
             mirror_destination_port.mirror_destination = True
             self.ports[mirror_destination_port.number] = mirror_destination_port
+        # Resolve symbolic port names in ACLs
         for acl in self.acls.itervalues():
             for rule_conf in acl:
                 for attrib, attrib_value in rule_conf.iteritems():
                     if attrib == 'actions':
                         if 'mirror' in attrib_value:
-                            port_no = attrib_value['mirror']
+                            port_name = attrib_value['mirror']
+                            port_no = resolve_port_no(port_name)
                             # in V2 config, we might have an ACL that does not
                             # apply to a DP.
-                            if port_no in self.ports:
+                            if port_no is not None:
+                                attrib_value['mirror'] = port_no
                                 self.ports[port_no].mirror_destination = True
+                        if 'output' in attrib_value:
+                            port_name = attrib_value['output']['port']
+                            port_no = resolve_port_no(port_name)
+                            if port_no is not None:
+                                attrib_value['output']['port'] = port_no
+
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
