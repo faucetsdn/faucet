@@ -3,9 +3,13 @@ vlans:
     100:
         name: "clock"
         max_hosts: 3 # Maxium of 3 hosts can go on this VLAN
-        # For unicast_flood: FALSE, learn only for Ethernet broadcast,
-        # ARP, and IPv6 neighbor discovery; TRUE can have security and
-        # performance impacts
+        # L2 Learning
+        # - unicast_flood: FALSE, learn only for Ethernet broadcast,
+        # ARP, and IPv6 neighbor discovery; 
+        # - unicast_flood: TRUE can have security and performance
+        # impacts.  In this mode, if you don’t know destination, you 
+        # flood all ports - this is equivalent to every switch in the
+        # world today.
         unicast_flood: True
     4090:
         name: "trusted network"
