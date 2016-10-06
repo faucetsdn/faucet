@@ -49,6 +49,8 @@ def dp_parser(config_file, logname):
     version = conf.pop('version', 1)
 
     if version == 1:
+        logger.warning(
+            'Version 1 config is UNSUPPORTED. Please move to version 2')
         return _dp_parser_v1(conf, config_file, logname)
     elif version == 2:
         return _dp_parser_v2(conf, config_file, logname)
