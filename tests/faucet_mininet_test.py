@@ -194,7 +194,7 @@ class FaucetTest(unittest.TestCase):
         os.environ['FAUCET_CONFIG'] = os.path.join(
             self.tmpdir, 'faucet.yaml')
         os.environ['GAUGE_CONFIG'] = os.path.join(
-            self.tmpdir, 'gauge.conf')
+            self.tmpdir, 'gauge.yaml')
         os.environ['FAUCET_LOG'] = os.path.join(
             self.tmpdir, 'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
