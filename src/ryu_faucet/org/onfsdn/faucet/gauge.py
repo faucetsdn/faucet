@@ -53,7 +53,7 @@ class Gauge(app_manager.RyuApp):
         super(Gauge, self).__init__(*args, **kwargs)
         sysprefix = get_sys_prefix()
         self.config_file = os.getenv(
-            'GAUGE_CONFIG', sysprefix + '/etc/ryu/faucet/gauge.conf')
+            'GAUGE_CONFIG', sysprefix + '/etc/ryu/faucet/gauge.yaml')
         self.exc_logfile = os.getenv(
             'GAUGE_EXCEPTION_LOG',
             sysprefix + '/var/log/ryu/faucet/gauge_exception.log')

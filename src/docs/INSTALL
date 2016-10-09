@@ -22,11 +22,11 @@ INSTALLING GAUGE (MONITORING)
 
 Assumes FAUCET has been installed.
 
-    sudo cp gauge.conf-dist /etc/opt/faucet/gauge.conf
+    sudo cp gauge.yaml-dist /etc/opt/faucet/gauge.yaml
     sudo cp upstart/gauge /etc/default/
-    sudo cp upstart/gauge.conf /etc/init/
+    sudo cp upstart/gauge.yaml /etc/init/
 
-Then edit /etc/opt/faucet/gauge.conf to point to FAUCET's YAML config,
+Then edit /etc/opt/faucet/gauge.yaml to point to FAUCET's YAML config,
 and /etc/default/gauge to point to where FAUCET/gauge have been installed.
 
 To start gauge:
