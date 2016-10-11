@@ -376,8 +376,8 @@ dps:
     def ofctl_rest_url(self):
         return 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
 
-    def matching_flow_present(self, exp_flow, timeout=10):
-        int_dpid = str_int_dpid(self.dpid)
+    def matching_flow_present_on_dpid(self, dpid, exp_flow, timeout=10):
+        int_dpid = str_int_dpid(dpid)
         for _ in range(timeout):
             try:
                 ofctl_result = json.loads(requests.get(
@@ -395,6 +395,9 @@ dps:
                     return True
             time.sleep(1)
         return False
+
+    def matching_flow_present(self, exp_flow, timeout=10):
+        return self.matching_flow_present_on_dpid(self.dpid, exp_flow, timeout)
 
     def wait_until_matching_flow(self, exp_flow, timeout=10):
         if not self.matching_flow_present(exp_flow, timeout):
@@ -1771,24 +1774,9 @@ class FaucetMultipleDPTest(FaucetTest):
         '''
 
         for dpid in self.dpids:
-            int_dpid = str_int_dpid(dpid)
-            for _ in range(timeout):
-                try:
-                    ofctl_result = json.loads(requests.get(
-                        '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
-                except (ValueError, requests.exceptions.ConnectionError):
-                    # Didn't get valid JSON, try again
-                    time.sleep(1)
-                    continue
-                dump_flows = ofctl_result[int_dpid]
-                for flow in dump_flows:
-                    # Re-transform the dictionary into str to re-use
-                    # the verify_ipv*_routing methods
-                    flow_str = json.dumps(flow)
-                    if re.search(exp_flow, flow_str):
-                        return True
-                time.sleep(1)
-            return False
+            if self.matching_flow_present_on_dpid(dpid, exp_flow, timeout):
+                return True
+        return False
 
 
 class FaucetMultipleDPUntaggedTest(FaucetMultipleDPTest):
