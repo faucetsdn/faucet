@@ -4,8 +4,9 @@ mkdir -p /var/opt/influxdb
 chmod -R 777 /var/opt/influxdb
 
 zypper install grafana
+pip install networkx
 pip install ovs ryu
-pip install https://pypi.python.org/packages/f5/f3/a8c4e72b4218be5aa84378eb57d89cfc8153efdb4df998cd2a0c544a878a/ryu-faucet-1.0.tar.gz
+pip install https://pypi.python.org/packages/f5/f3/a8c4e72b4218be5aa84378eb57d89cfc8153efdb4df998cd2a0c544a878a/ryu-faucet-1.1.tar.gz
 pip show ryu_faucet
 
 echo" Checking InfluxDB service status ..."

@@ -33,7 +33,7 @@ dps:
             port7:
                 number: 7
                 stack:
-                     switch: switch2
+                     dp: switch2
                      port: 1
     switch2:
         dp_id: 0xdeadbeef
@@ -42,5 +42,5 @@ dps:
             port1:
                 number: 1
                 stack:
-                     switch: switch1
+                     dp: switch1
                      port: 7

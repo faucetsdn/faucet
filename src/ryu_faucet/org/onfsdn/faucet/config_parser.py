@@ -65,6 +65,8 @@ def dp_parser(config_file, logname):
                 dp.finalize_config(dps)
             except AssertionError as err:
                 logger.exception('Error finalizing datapath configs: %s', err)
+        for dp in dps:
+            dp.resolve_stack_topology(dps)
 
     return config_hashes, dps
 

@@ -17,6 +17,8 @@ from conf import Conf
 from vlan import VLAN
 from port import Port
 
+import networkx
+
 
 class DP(Conf):
     """Object to hold the configuration for a faucet controlled datapath."""
@@ -137,6 +139,62 @@ class DP(Conf):
     def add_vlan(self, vlan):
         self.vlans[vlan.vid] = vlan
 
+    def resolve_stack_topology(self, dps):
+
+        def canonical_edge(dp, port):
+            peer_dp = port.stack['dp']
+            peer_port = port.stack['port']
+            sort_edge_a = (
+                dp.name, port.name, dp, port)
+            sort_edge_z = (
+                peer_dp.name, peer_port.name, peer_dp, peer_port)
+            sorted_edge = sorted((sort_edge_a, sort_edge_z))
+            edge_a, edge_b = sorted_edge[0][2:], sorted_edge[1][2:]
+            return edge_a, edge_b
+
+        def make_edge_name(edge_a, edge_z):
+            edge_a_dp, edge_a_port = edge_a
+            edge_z_dp, edge_z_port = edge_z
+            return '%s:%s-%s:%s' % (
+                edge_a_dp.name, edge_a_port.name,
+                edge_z_dp.name, edge_z_port.name)
+
+        def make_edge_attr(edge_a, edge_z):
+            edge_a_dp, edge_a_port = edge_a
+            edge_z_dp, edge_z_port = edge_z
+            return {
+                'dp_a': edge_a_dp, 'port_a': edge_a_port,
+                'dp_z': edge_z_dp, 'port_z': edge_z_port}
+
+        root_dp = None
+        for dp in dps:
+            if dp.stack is not None:
+                if 'priority' in dp.stack:
+                    assert root_dp is None, 'multiple stack roots'
+                    root_dp = dp
+
+        if root_dp is None:
+            return
+
+        graph = networkx.MultiGraph()
+        for dp in dps:
+            graph.add_node(dp.name)
+            for port in dp.ports.itervalues():
+                if port.stack is not None:
+                    edge = canonical_edge(dp, port)
+                    edge_a, edge_z = edge
+                    edge_name = make_edge_name(edge_a, edge_z)
+                    edge_attr = make_edge_attr(edge_a, edge_z)
+                    edge_a_dp, _ = edge_a
+                    edge_z_dp, _ = edge_z
+                    graph.add_edge(
+                        edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
+        if len(graph.edges()):
+            if self.stack is None:
+                self.stack = {}
+            self.stack['root_dp'] = root_dp
+            self.stack['graph'] = graph
+
     def finalize_config(self, dps):
 
         def resolve_port_no(port_name):
@@ -146,16 +204,16 @@ class DP(Conf):
                 return port_name
             return None
 
-        def resolve_stack_switches():
-            port_stack_switch = {}
+        def resolve_stack_dps():
+            port_stack_dp = {}
             for port in self.ports.itervalues():
                 if port.stack is not None:
-                    stack_switch = port.stack['switch']
-                    port_stack_switch[port] = dp_by_name[stack_switch]
-            for port, switch in port_stack_switch.iteritems():
-                port.stack['switch'] = switch
+                    stack_dp = port.stack['dp']
+                    port_stack_dp[port] = dp_by_name[stack_dp]
+            for port, dp in port_stack_dp.iteritems():
+                port.stack['dp'] = dp
                 stack_port_name = port.stack['port']
-                port.stack['port'] = switch.ports[stack_port_name]
+                port.stack['port'] = dp.ports[stack_port_name]
 
         def resolve_mirror_destinations():
             # Associate mirrored ports, with their destinations.
@@ -197,7 +255,7 @@ class DP(Conf):
         for dp in dps:
             dp_by_name[dp.name] = dp
 
-        resolve_stack_switches()
+        resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_port_names_in_acls()
 

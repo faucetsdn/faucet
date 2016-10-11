@@ -85,13 +85,25 @@ class DistConfigTestCase(unittest.TestCase):
         switch2 = self.v2_dps_by_id[0xdeadbeef]
         self.assertEqual(switch1.stack['priority'], 1)
         self.assertEqual(
-             switch1.ports[7].stack['switch'], switch2)
+             switch1.ports[7].stack['dp'], switch2)
         self.assertEqual(
              switch1.ports[7].stack['port'], switch2.ports[1])
         self.assertEqual(
-             switch2.ports[1].stack['switch'], switch1)
+             switch2.ports[1].stack['dp'], switch1)
         self.assertEqual(
              switch2.ports[1].stack['port'], switch1.ports[7])
+        self.assertEqual(
+             switch1.stack['root_dp'], switch1)
+        self.assertEqual(
+             switch2.stack['root_dp'], switch1)
+        edges = [edge for edge in switch1.stack['graph'].adjacency_iter()]
+        self.assertEqual(
+             2, len(edges))
+        edge_from_switch_a, edge_from_switch_z = edges
+        _, edge_data_a = edge_from_switch_a
+        _, edge_data_b = edge_from_switch_z
+        self.assertEqual(
+            edge_data_a.values(), edge_data_b.values())
 
     def test_port_numbers(self):
         self.assertEqual(set(self.v1_dp.ports.keys()), set([1, 2, 3, 4, 5, 6]))
