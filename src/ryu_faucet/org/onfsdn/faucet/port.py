@@ -27,6 +27,7 @@ class Port(Conf):
     native_vlan = None
     tagged_vlans = []
     acl_in = None
+    stack = None
 
     defaults = {
         'number': None,
@@ -40,6 +41,7 @@ class Port(Conf):
         'native_vlan': None,
         'tagged_vlans': None,
         'acl_in': None,
+        'stack': None,
         }
 
     def __init__(self, _id, conf=None):
