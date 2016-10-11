@@ -142,7 +142,7 @@ class DP(Conf):
     def resolve_stack_topology(self, dps):
 
         def canonical_edge(dp, port):
-            peer_dp = port.stack['switch']
+            peer_dp = port.stack['dp']
             peer_port = port.stack['port']
             sort_edge_a = (
                 dp.name, port.name, dp, port)
@@ -204,16 +204,16 @@ class DP(Conf):
                 return port_name
             return None
 
-        def resolve_stack_switches():
-            port_stack_switch = {}
+        def resolve_stack_dps():
+            port_stack_dp = {}
             for port in self.ports.itervalues():
                 if port.stack is not None:
-                    stack_switch = port.stack['switch']
-                    port_stack_switch[port] = dp_by_name[stack_switch]
-            for port, switch in port_stack_switch.iteritems():
-                port.stack['switch'] = switch
+                    stack_dp = port.stack['dp']
+                    port_stack_dp[port] = dp_by_name[stack_dp]
+            for port, dp in port_stack_dp.iteritems():
+                port.stack['dp'] = dp
                 stack_port_name = port.stack['port']
-                port.stack['port'] = switch.ports[stack_port_name]
+                port.stack['port'] = dp.ports[stack_port_name]
 
         def resolve_mirror_destinations():
             # Associate mirrored ports, with their destinations.
@@ -255,7 +255,7 @@ class DP(Conf):
         for dp in dps:
             dp_by_name[dp.name] = dp
 
-        resolve_stack_switches()
+        resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_port_names_in_acls()
 

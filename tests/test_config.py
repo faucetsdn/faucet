@@ -85,11 +85,11 @@ class DistConfigTestCase(unittest.TestCase):
         switch2 = self.v2_dps_by_id[0xdeadbeef]
         self.assertEqual(switch1.stack['priority'], 1)
         self.assertEqual(
-             switch1.ports[7].stack['switch'], switch2)
+             switch1.ports[7].stack['dp'], switch2)
         self.assertEqual(
              switch1.ports[7].stack['port'], switch2.ports[1])
         self.assertEqual(
-             switch2.ports[1].stack['switch'], switch1)
+             switch2.ports[1].stack['dp'], switch1)
         self.assertEqual(
              switch2.ports[1].stack['port'], switch1.ports[7])
         self.assertEqual(
