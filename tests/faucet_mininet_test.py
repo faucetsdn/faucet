@@ -400,16 +400,14 @@ dps:
         return self.matching_flow_present_on_dpid(self.dpid, exp_flow, timeout)
 
     def wait_until_matching_flow(self, exp_flow, timeout=10):
-        if not self.matching_flow_present(exp_flow, timeout):
-            self.assertTrue(False), exp_flow
+        self.assertTrue(self.matching_flow_present(exp_flow, timeout)), exp_flow
 
     def host_learned(self, host):
         return self.matching_flow_present(
             '"table_id": 2,.+"dl_src": "%s"' % host.MAC())
 
     def require_host_learned(self, host):
-        if not self.host_learned(host):
-            self.assertTrue(False), host
+        self.assertTrue(self.host_learned(host)), host
 
     def ping_all_when_learned(self):
         # Cause hosts to send traffic that FAUCET can use to learn them.
@@ -460,15 +458,36 @@ dps:
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
 
+    def verify_tp_dst_blocked(self, port, first_host, second_host):
+        second_host.cmd('timeout 10s echo hello | nc -l %u &' % port)
+        self.assertEquals(
+            '', first_host.cmd('timeout 10s nc %s %u' % (second_host.IP(), port)))
+        self.wait_until_matching_flow(
+            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
+
+    def verify_tp_dst_notblocked(self, port, first_host, second_host):
+        second_host.cmd(
+            'timeout 10s echo hello | nc -l %s %u &' % (second_host.IP(), port))
+        time.sleep(1)
+        self.assertEquals(
+            'hello\r\n',
+            first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
+        self.wait_until_matching_flow(
+            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
+
     def add_host_ipv4_route(self, host, ip_dst, ip_gw):
         host.cmd('route add -net %s gw %s' % (ip_dst.masked(), ip_gw))
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip):
-        first_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' % (
-            first_host.intf(), first_host_routed_ip.ip)))
-        second_host.cmd(('ifconfig %s:0 %s netmask 255.255.255.0 up' % (
-            second_host.intf(), second_host_routed_ip.ip)))
+        first_host.cmd(('ifconfig %s:0 %s netmask %s up' % (
+            first_host.intf(),
+            first_host_routed_ip.ip,
+            first_host_routed_ip.netmask)))
+        second_host.cmd(('ifconfig %s:0 %s netmask %s up' % (
+            second_host.intf(),
+            second_host_routed_ip.ip,
+            second_host_routed_ip.netmask)))
         self.add_host_ipv4_route(
             first_host, second_host_routed_ip, self.CONTROLLER_IPV4)
         self.add_host_ipv4_route(
@@ -1076,20 +1095,12 @@ acls:
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
-        second_host.cmd('timeout 10s echo hello | nc -l 5001 &')
-        self.assertEquals(
-            '', first_host.cmd('timeout 10s nc %s 5001' % second_host.IP()))
-        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": 5001')
+        self.verify_tp_dst_blocked(5001, first_host, second_host)
 
-    def test_port5002_unblocked(self):
+    def test_port5002_notblocked(self):
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
-        second_host.cmd('timeout 10s echo hello | nc -l %s 5002 &' % second_host.IP())
-        time.sleep(1)
-        self.assertEquals(
-            'hello\r\n',
-            first_host.cmd('nc -w 5 %s 5002' % second_host.IP()))
-        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": 5002')
+        self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
 class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
@@ -1891,37 +1902,23 @@ class FaucetACLOverrideTest(FaucetMultipleDPTest):
         )
         self.start_net()
 
-    def assert_blocked(self, port):
-        first_host, second_host = self.net.hosts[0:2]
-        second_host.cmd('timeout 10s echo hello | nc -l %i &' % port)
-        self.assertEquals(
-            '', first_host.cmd('timeout 10s nc %s %i' % (second_host.IP(), port)))
-        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": %i' % port)
-
-    def assert_unblocked(self, port):
-        first_host, second_host = self.net.hosts[0:2]
-        second_host.cmd('timeout 10s echo hello | nc -l %s %i &' % (second_host.IP(), port))
-        time.sleep(1)
-        self.assertEquals(
-            'hello\r\n',
-            first_host.cmd('nc -w 5 %s %i' % (second_host.IP(), port)))
-        self.wait_until_matching_flow(r'"packet_count": [1-9]+.+"tp_dst": %i' % port)
-
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
-        self.assert_unblocked(5001)
+        first_host, second_host = self.net.hosts[0:2]
+        self.verify_tp_dst_notblocked(5001, first_host, second_host)
         open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
         self.hup_faucet()
         time.sleep(1)
-        self.assert_blocked(5001)
+        self.verify_tp_dst_blocked(5001, first_host, second_host)
 
-    def test_port5002_unblocked(self):
+    def test_port5002_notblocked(self):
         self.ping_all_when_learned()
-        self.assert_blocked(5002)
+        first_host, second_host = self.net.hosts[0:2]
+        self.verify_tp_dst_blocked(5002, first_host, second_host)
         open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
         self.hup_faucet()
         time.sleep(1)
-        self.assert_unblocked(5002)
+        self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
 def import_config():
