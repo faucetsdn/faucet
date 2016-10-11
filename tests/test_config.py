@@ -43,8 +43,11 @@ class DistConfigTestCase(unittest.TestCase):
 
         self.v1_config_hashes, self.v1_dps = dp_parser('config/testconfig.yaml', logname)
         self.v1_dp = self.v1_dps[0]
-        self.v2_config_hashes, self.v2_dps = dp_parser('config/testconfigv2.yaml', logname)
-        self.v2_dp = self.v2_dps[0]
+        self.v2_config_hashes, v2_dps = dp_parser('config/testconfigv2.yaml', logname)
+        self.v2_dps_by_id = {}
+        for dp in v2_dps:
+            self.v2_dps_by_id[dp.dp_id] = dp
+        self.v2_dp = self.v2_dps_by_id[0xcafef00d]
         self.v1_watchers = watcher_parser(
             'config/testgaugeconfig.conf', logname)
         self.v2_watchers = watcher_parser(
@@ -77,10 +80,22 @@ class DistConfigTestCase(unittest.TestCase):
             # confirm that DPIDs match
             self.assertEqual(dp.dp_id, 0xcafef00d)
 
+    def test_stacking(self):
+        switch1 = self.v2_dps_by_id[0xcafef00d]
+        switch2 = self.v2_dps_by_id[0xdeadbeef]
+        self.assertEqual(switch1.stack['priority'], 1)
+        self.assertEqual(
+             switch1.ports[7].stack['switch'], switch2)
+        self.assertEqual(
+             switch1.ports[7].stack['port'], switch2.ports[1])
+        self.assertEqual(
+             switch2.ports[1].stack['switch'], switch1)
+        self.assertEqual(
+             switch2.ports[1].stack['port'], switch1.ports[7])
+
     def test_port_numbers(self):
-        for dp in (self.v1_dp, self.v2_dp):
-            # check the port numbers line up
-            self.assertEqual(set(dp.ports.keys()), set([1, 2, 3, 4, 5, 6]))
+        self.assertEqual(set(self.v1_dp.ports.keys()), set([1, 2, 3, 4, 5, 6]))
+        self.assertEqual(set(self.v2_dp.ports.keys()), set([1, 2, 3, 4, 5, 6, 7]))
 
     def test_ports_vlans(self):
         for dp in (self.v1_dp, self.v2_dp):

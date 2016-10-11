@@ -7,6 +7,8 @@ dps:
     switch1:
         dp_id: 0xcafef00d
         hardware: 'Open vSwitch'
+        stack:
+            priority: 1
         interfaces:
             port1:
                 number: 1
@@ -28,3 +30,17 @@ dps:
             port6:
                 number: 6
                 mirror: 'port1'
+            port7:
+                number: 7
+                stack:
+                     switch: switch2
+                     port: 1
+    switch2:
+        dp_id: 0xdeadbeef
+        hardware: 'Open vSwitch'
+        interfaces:
+            port1:
+                number: 1
+                stack:
+                     switch: switch1
+                     port: 7

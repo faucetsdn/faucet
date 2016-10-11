@@ -47,16 +47,26 @@ def dp_parser(config_file, logname):
         return None
 
     version = conf.pop('version', 1)
+    config_hashes = None
+    dps = None
 
     if version == 1:
         logger.warning(
             'Version 1 config is UNSUPPORTED. Please move to version 2')
-        return _dp_parser_v1(conf, config_file, logname)
+        config_hashes, dps = _dp_parser_v1(conf, config_file, logname)
     elif version == 2:
-        return _dp_parser_v2(conf, config_file, logname)
+        config_hashes, dps = _dp_parser_v2(conf, config_file, logname)
     else:
         logger.error('unsupported config version number %s', version)
-        return None
+
+    if dps is not None:
+        for dp in dps:
+            try:
+                dp.finalize_config(dps)
+            except AssertionError as err:
+                logger.exception('Error finalizing datapath configs: %s', err)
+
+    return config_hashes, dps
 
 def port_parser(dp_id, p_identifier, port_conf, vlans):
     port = Port(p_identifier, port_conf)
@@ -107,7 +117,6 @@ def _dp_parser_v1(conf, config_file, logname):
         dp.add_acl(acl_num, acl_conf)
     for vlan in vlans.itervalues():
         dp.add_vlan(vlan)
-    dp.finalize_config()
     try:
         dp.sanity_check()
     except AssertionError as err:
@@ -154,7 +163,8 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
                 config_file,
             )
             return False
-        if not _dp_include(new_config_hashes,
+        if not _dp_include(
+                new_config_hashes,
                 config_file, include_path,
                 new_dps_conf, new_vlans_conf, new_acls_conf,
                 logname):
@@ -170,7 +180,8 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
                 config_file,
             )
             return False
-        if not _dp_include(new_config_hashes,
+        if not _dp_include(
+                new_config_hashes,
                 config_file, include_path,
                 new_dps_conf, new_vlans_conf, new_acls_conf,
                 logname):
@@ -253,8 +264,6 @@ def _dp_parser_v2(conf, config_file, logname):
         for a_identifier, acl_conf in acls_conf.iteritems():
             # TODO: turn this into an object
             dp.add_acl(a_identifier, acl_conf)
-        dp.finalize_config()
-
         dps.append(dp)
 
     return (config_hashes, dps)
@@ -366,7 +375,7 @@ def _watcher_parser_v2(conf, logname):
 
     dps = {}
     for faucet_file in conf['faucet_configs']:
-        __, dp_list = dp_parser(faucet_file, logname)
+        _, dp_list = dp_parser(faucet_file, logname)
         for dp in dp_list:
             dps[dp.name] = dp
 

@@ -40,6 +40,7 @@ class DP(Conf):
     priority_offset = None
     low_priority = None
     high_priority = None
+    stack = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -76,6 +77,8 @@ class DP(Conf):
         'arp_neighbor_timeout': 500,
         # OF channel log
         'ofchannel_log': None,
+        # stacking config, when cross connecting multiple DPs
+        'stack': None,
         }
 
     def __init__(self, _id, conf):
@@ -134,7 +137,7 @@ class DP(Conf):
     def add_vlan(self, vlan):
         self.vlans[vlan.vid] = vlan
 
-    def finalize_config(self):
+    def finalize_config(self, dps):
 
         def resolve_port_no(port_name):
             if port_name in port_by_name:
@@ -143,40 +146,60 @@ class DP(Conf):
                 return port_name
             return None
 
+        def resolve_stack_switches():
+            port_stack_switch = {}
+            for port in self.ports.itervalues():
+                if port.stack is not None:
+                    stack_switch = port.stack['switch']
+                    port_stack_switch[port] = dp_by_name[stack_switch]
+            for port, switch in port_stack_switch.iteritems():
+                port.stack['switch'] = switch
+                stack_port_name = port.stack['port']
+                port.stack['port'] = switch.ports[stack_port_name]
+
+        def resolve_mirror_destinations():
+            # Associate mirrored ports, with their destinations.
+            mirror_from_port = {}
+            for port in self.ports.itervalues():
+                if port.mirror is not None:
+                    if port.mirror in port_by_name:
+                        mirror_from_port[port] = port_by_name[port.mirror]
+                    else:
+                        mirror_from_port[self.ports[port.mirror]] = port
+            for port, mirror_destination_port in mirror_from_port.iteritems():
+                port.mirror = mirror_destination_port.number
+                mirror_destination_port.mirror_destination = True
+
+        def resolve_port_names_in_acls():
+            for acl in self.acls.itervalues():
+                for rule_conf in acl:
+                    for attrib, attrib_value in rule_conf.iteritems():
+                        if attrib == 'actions':
+                            if 'mirror' in attrib_value:
+                                port_name = attrib_value['mirror']
+                                port_no = resolve_port_no(port_name)
+                                # in V2 config, we might have an ACL that does
+                                # not apply to a DP.
+                                if port_no is not None:
+                                    attrib_value['mirror'] = port_no
+                                    port = self.ports[port_no]
+                                    port.mirror_destination = True
+                            if 'output' in attrib_value:
+                                port_name = attrib_value['output']['port']
+                                port_no = resolve_port_no(port_name)
+                                if port_no is not None:
+                                    attrib_value['output']['port'] = port_no
+
         port_by_name = {}
         for port in self.ports.itervalues():
             port_by_name[port.name] = port
-        # Associate mirrored ports, with their destinations.
-        mirror_from_port = {}
-        for port in self.ports.itervalues():
-            if port.mirror is not None:
-                if port.mirror in port_by_name:
-                    mirror_from_port[port] = port_by_name[port.mirror]
-                else:
-                    mirror_from_port[self.ports[port.mirror]] = port
-        for port, mirror_destination_port in mirror_from_port.iteritems():
-            port.mirror = mirror_destination_port.number
-            self.ports[port.number] = port
-            mirror_destination_port.mirror_destination = True
-            self.ports[mirror_destination_port.number] = mirror_destination_port
-        # Resolve symbolic port names in ACLs
-        for acl in self.acls.itervalues():
-            for rule_conf in acl:
-                for attrib, attrib_value in rule_conf.iteritems():
-                    if attrib == 'actions':
-                        if 'mirror' in attrib_value:
-                            port_name = attrib_value['mirror']
-                            port_no = resolve_port_no(port_name)
-                            # in V2 config, we might have an ACL that does not
-                            # apply to a DP.
-                            if port_no is not None:
-                                attrib_value['mirror'] = port_no
-                                self.ports[port_no].mirror_destination = True
-                        if 'output' in attrib_value:
-                            port_name = attrib_value['output']['port']
-                            port_no = resolve_port_no(port_name)
-                            if port_no is not None:
-                                attrib_value['output']['port'] = port_no
+        dp_by_name = {}
+        for dp in dps:
+            dp_by_name[dp.name] = dp
+
+        resolve_stack_switches()
+        resolve_mirror_destinations()
+        resolve_port_names_in_acls()
 
 
     def get_native_vlan(self, port_num):
