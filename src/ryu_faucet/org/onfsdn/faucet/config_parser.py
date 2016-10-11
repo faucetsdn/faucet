@@ -154,7 +154,8 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
                 config_file,
             )
             return False
-        if not _dp_include(new_config_hashes,
+        if not _dp_include(
+                new_config_hashes,
                 config_file, include_path,
                 new_dps_conf, new_vlans_conf, new_acls_conf,
                 logname):
@@ -170,7 +171,8 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
                 config_file,
             )
             return False
-        if not _dp_include(new_config_hashes,
+        if not _dp_include(
+                new_config_hashes,
                 config_file, include_path,
                 new_dps_conf, new_vlans_conf, new_acls_conf,
                 logname):
@@ -366,7 +368,7 @@ def _watcher_parser_v2(conf, logname):
 
     dps = {}
     for faucet_file in conf['faucet_configs']:
-        __, dp_list = dp_parser(faucet_file, logname)
+        _, dp_list = dp_parser(faucet_file, logname)
         for dp in dp_list:
             dps[dp.name] = dp
 
