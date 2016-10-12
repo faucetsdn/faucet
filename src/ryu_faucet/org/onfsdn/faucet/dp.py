@@ -176,6 +176,8 @@ class DP(Conf):
         if root_dp is None:
             return
 
+        edge_count = {}
+
         graph = networkx.MultiGraph()
         for dp in dps:
             graph.add_node(dp.name)
@@ -187,9 +189,14 @@ class DP(Conf):
                     edge_attr = make_edge_attr(edge_a, edge_z)
                     edge_a_dp, _ = edge_a
                     edge_z_dp, _ = edge_z
+                    if edge_name not in edge_count:
+                        edge_count[edge_name] = 0
+                    edge_count[edge_name] += 1
                     graph.add_edge(
                         edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
         if len(graph.edges()):
+            for edge_name, count in edge_count.iteritems():
+                assert count == 2, '%s defined only in one direction' % edge_name
             if self.stack is None:
                 self.stack = {}
             self.stack['root_dp'] = root_dp
