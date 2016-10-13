@@ -1594,17 +1594,34 @@ vlans:
             second_host, second_host_ip, second_host_routed_ip)
 
 
-class FaucetMultipleDPSwitchTopo(Topo):
+class FaucetStringOfDPSwitchTopo(Topo):
 
     def build(self, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
-        '''
-        * s switches
+        """String of datapaths each with hosts with a single FAUCET controller.
+
+                               Hosts
+                               ||||
+                               ||||
+                 +----+       +----+       +----+
+              ---+1   |       |1234|       |   1+---
+        Hosts ---+2   |       |    |       |   2+--- Hosts
+              ---+3   |       |    |       |   3+---
+              ---+4  5+-------+5  6+-------+5  4+---
+                 +----+       +----+       +----+
+
+                 Faucet-1     Faucet-2     Faucet-3
+
+                   |            |            |
+                   |            |            |
+                   +-------- controller -----+
+
+        * s switches (above S = 3; for S > 3, switches are added to the chain)
         * (n_tagged + n_untagged) hosts per switch
-        * (n_tagged + n_untagged + 1) links on switches 0 and s-1, with final link
-          being inter-switch
-        * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1, with final two links
-          being inter-switch
-        '''
+        * (n_tagged + n_untagged + 1) links on switches 0 and s-1,
+          with final link being inter-switch
+        * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
+          with final two links being inter-switch
+        """
 
         pid = os.getpid()
         switches = []
@@ -1635,17 +1652,15 @@ class FaucetMultipleDPSwitchTopo(Topo):
             switches.append(switch)
 
 
-class FaucetMultipleDPTest(FaucetTest):
+class FaucetStringOfDPTest(FaucetTest):
 
     def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100,
                   include=[], include_optional=[], acls={}, acl_in_dp={}):
-        '''
-        Set up Mininet and Faucet for the given topology.
-        '''
+        """Set up Mininet and Faucet for the given topology."""
 
         self.dpids = [str(random.randint(1, 2**32)) for _ in range(n_dps)]
 
-        self.topo = FaucetMultipleDPSwitchTopo(
+        self.topo = FaucetStringOfDPSwitchTopo(
             dpids=self.dpids,
             n_tagged=n_tagged,
             tagged_vid=tagged_vid,
@@ -1671,9 +1686,7 @@ class FaucetMultipleDPTest(FaucetTest):
     def get_config(self, dpids=[], hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
                    include=[], include_optional=[], acls={}, acl_in_dp={}):
-        '''
-        Build a complete Faucet configuration for each datapath, using the given topology.
-        '''
+        """Build a complete Faucet configuration for each datapath, using the given topology."""
 
         def dp_name(i):
             return 'faucet-%i' % (i + 1)
@@ -1791,9 +1804,7 @@ class FaucetMultipleDPTest(FaucetTest):
         return yaml.dump(config, default_flow_style=False)
 
     def matching_flow_present(self, exp_flow, timeout=10):
-        '''
-        Override matching_flow_present with a version that (kind of) supports multiple DPs.
-        '''
+        """Find the first DP that has a flow that matches exp_flow."""
 
         for dpid in self.dpids:
             if self.matching_flow_present_on_dpid(dpid, exp_flow, timeout):
@@ -1801,14 +1812,14 @@ class FaucetMultipleDPTest(FaucetTest):
         return False
 
 
-class FaucetMultipleDPUntaggedTest(FaucetMultipleDPTest):
+class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
     NUM_HOSTS = 4
     VID = 100
 
     def setUp(self):
-        super(FaucetMultipleDPUntaggedTest, self).setUp()
+        super(FaucetStringOfDPUntaggedTest, self).setUp()
         self.build_net(n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
         self.start_net()
 
@@ -1816,14 +1827,14 @@ class FaucetMultipleDPUntaggedTest(FaucetMultipleDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FaucetMultipleDPTaggedTest(FaucetMultipleDPTest):
+class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
     NUM_HOSTS = 4
     VID = 100
 
     def setUp(self):
-        super(FaucetMultipleDPTaggedTest, self).setUp()
+        super(FaucetStringOfDPTaggedTest, self).setUp()
         self.build_net(n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID)
         self.start_net()
 
@@ -1831,7 +1842,7 @@ class FaucetMultipleDPTaggedTest(FaucetMultipleDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FaucetACLOverrideTest(FaucetMultipleDPTest):
+class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
     NUM_DPS = 1
     NUM_HOSTS = 2
@@ -1901,7 +1912,7 @@ class FaucetACLOverrideTest(FaucetMultipleDPTest):
     }
 
     def setUp(self):
-        super(FaucetACLOverrideTest, self).setUp()
+        super(FaucetStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
         self.build_net(
             n_dps=self.NUM_DPS,
