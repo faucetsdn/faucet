@@ -1655,8 +1655,6 @@ class FaucetMultipleDPTest(FaucetTest):
         self.CONFIG = self.get_config(
             self.dpids,
             HARDWARE,
-            self.monitor_ports_file,
-            self.monitor_flow_table_file,
             self.debug_log_path,
             n_tagged,
             tagged_vid,
@@ -1670,13 +1668,15 @@ class FaucetMultipleDPTest(FaucetTest):
 
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
 
-    def get_config(self, dpids=[], hardware=None, monitor_ports_files=None,
-                   monitor_flow_table_file=None, ofchannel_log=None,
+    def get_config(self, dpids=[], hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
                    include=[], include_optional=[], acls={}, acl_in_dp={}):
         '''
         Build a complete Faucet configuration for each datapath, using the given topology.
         '''
+
+        def dp_name(i):
+            return 'faucet-%i' % (i + 1)
 
         config = {'version': 2}
 
@@ -1689,23 +1689,18 @@ class FaucetMultipleDPTest(FaucetTest):
 
         # Datapaths.
         if dpids:
+            dpid_count = len(dpids)
             num_switch_links = None
 
             config['dps'] = {}
 
             for i, dpid in enumerate(dpids):
                 p = 1
-                name = 'faucet-%i' % (i + 1)
+                name = dp_name(i)
 
                 config['dps'][name] = {
                     'dp_id': int(str_int_dpid(dpid)),
                     'hardware': hardware,
-                    'monitor_ports': True,
-                    'monitor_ports_interval': 5,
-                    'monitor_ports_file': monitor_ports_files,
-                    'monitor_flow_table': True,
-                    'monitor_flow_tablet_interval': 5,
-                    'monitor_flow_table_file': monitor_flow_table_file,
                     'ofchannel_log': ofchannel_log,
                     'interfaces': {},
                 }
@@ -1730,16 +1725,32 @@ class FaucetMultipleDPTest(FaucetTest):
 
                 # Add configuration for the switch-to-switch links
                 # (0 for a single switch, 1 for an end switch, 2 for middle switches).
-                if len(dpids) > 1:
-                    num_switch_links = 2 if i > 0 and i != len(dpids)-1 else 1
-                else:
-                    num_switch_links = 0
+                first_dp = i == 0
+                last_dp = i == dpid_count - 1
+                end_dp = first_dp or last_dp
+                num_switch_links = 0
+                if dpid_count > 1:
+                    if end_dp:
+                        num_switch_links = 1
+                    else:
+                        num_switch_links = 2
 
-                for _ in range(num_switch_links):
+                for peer_dp_port in range(num_switch_links):
                     tagged_vlans = None
 
+                    peer_dp = None
+                    if peer_dp_port == 0:
+                        if first_dp:
+                            peer_dp = i + 1
+                        else:
+                            peer_dp = i - 1
+                    else:
+                        peer_dp = i + 1
+
+                    description = 'to %s' % dp_name(peer_dp)
+
                     config['dps'][name]['interfaces'][p] = {
-                        'description': 'b%i' % p,
+                        'description': description,
                     }
 
                     if n_tagged and n_untagged and n_tagged != n_untagged:
