@@ -1630,16 +1630,19 @@ class FaucetStringOfDPSwitchTopo(Topo):
             hosts = []
 
             for host_n in range(n_tagged):
-                host = self.addHost('t%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1),
-                                    cls=VLANHost, vlan=tagged_vid)
+                host_name = 't%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1)
+                host = self.addHost(host_name, cls=VLANHost, vlan=tagged_vid)
                 hosts.append(host)
 
             for host_n in range(n_untagged):
-                host = self.addHost('u%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1))
+                host_name = 'u%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1)
+                host = self.addHost(host_name)
                 hosts.append(host)
 
+            switch_name = 's%i%x' % (i + 1, pid)
             switch = self.addSwitch(
-                's%i%x' % (i + 1, pid), cls=FaucetSwitch, listenPort=find_free_port(), dpid=dpid)
+                switch_name, cls=FaucetSwitch, listenPort=find_free_port(),
+                dpid=dpid)
 
             for host in hosts:
                 self.addLink(host, switch)
@@ -1748,6 +1751,8 @@ class FaucetStringOfDPTest(FaucetTest):
                     else:
                         num_switch_links = 2
 
+                interfaces_config = config['dps'][name]['interfaces']
+
                 for peer_dp_port in range(num_switch_links):
                     tagged_vlans = None
 
@@ -1762,7 +1767,7 @@ class FaucetStringOfDPTest(FaucetTest):
 
                     description = 'to %s' % dp_name(peer_dp)
 
-                    config['dps'][name]['interfaces'][p] = {
+                    interfaces_config[p] = {
                         'description': description,
                     }
 
@@ -1775,10 +1780,10 @@ class FaucetStringOfDPTest(FaucetTest):
                         tagged_vlans = [untagged_vid]
 
                     if tagged_vlans:
-                        config['dps'][name]['interfaces'][p]['tagged_vlans'] = tagged_vlans
+                        interfaces_config[p]['tagged_vlans'] = tagged_vlans
 
                     if name in acl_in_dp and p in acl_in_dp[name]:
-                        config['dps'][name]['interfaces'][p]['acl_in'] = acl_in_dp[name][p]
+                        interfaces_config[p]['acl_in'] = acl_in_dp[name][p]
 
                     # Used as the port number for the current switch.
                     p += 1
