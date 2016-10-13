@@ -1657,7 +1657,8 @@ class FaucetStringOfDPSwitchTopo(Topo):
 
 class FaucetStringOfDPTest(FaucetTest):
 
-    def build_net(self, n_dps=1, n_tagged=0, tagged_vid=100, n_untagged=0, untagged_vid=100,
+    def build_net(self, n_dps=1, stack=False, n_tagged=0, tagged_vid=100,
+                  n_untagged=0, untagged_vid=100,
                   include=[], include_optional=[], acls={}, acl_in_dp={}):
         """Set up Mininet and Faucet for the given topology."""
 
@@ -1672,6 +1673,7 @@ class FaucetStringOfDPTest(FaucetTest):
 
         self.CONFIG = self.get_config(
             self.dpids,
+            stack,
             HARDWARE,
             self.debug_log_path,
             n_tagged,
@@ -1686,13 +1688,17 @@ class FaucetStringOfDPTest(FaucetTest):
 
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
 
-    def get_config(self, dpids=[], hardware=None, ofchannel_log=None,
+    def get_config(self, dpids=[], stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
                    include=[], include_optional=[], acls={}, acl_in_dp={}):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
 
         def dp_name(i):
             return 'faucet-%i' % (i + 1)
+
+        def add_acl_to_port(name, p, interfaces_config):
+            if name in acl_in_dp and p in acl_in_dp[name]:
+                interfaces_config[p]['acl_in'] = acl_in_dp[name][p]
 
         config = {'version': 2}
 
@@ -1713,35 +1719,35 @@ class FaucetStringOfDPTest(FaucetTest):
             for i, dpid in enumerate(dpids):
                 p = 1
                 name = dp_name(i)
-
                 config['dps'][name] = {
                     'dp_id': int(str_int_dpid(dpid)),
                     'hardware': hardware,
                     'ofchannel_log': ofchannel_log,
                     'interfaces': {},
                 }
+                dp_config = config['dps'][name]
+                interfaces_config = dp_config['interfaces']
 
                 for _ in range(n_tagged):
-                    config['dps'][name]['interfaces'][p] = {
+                    interfaces_config[p] = {
                         'tagged_vlans': [tagged_vid],
                         'description': 'b%i' % p,
                     }
-                    if name in acl_in_dp and p in acl_in_dp[name]:
-                        config['dps'][name]['interfaces'][p]['acl_in'] = acl_in_dp[name][p]
+                    add_acl_to_port(name, p, interfaces_config)
                     p += 1
 
                 for _ in range(n_untagged):
-                    config['dps'][name]['interfaces'][p] = {
+                    interfaces_config[p] = {
                         'native_vlan': untagged_vid,
                         'description': 'b%i' % p,
                     }
-                    if name in acl_in_dp and p in acl_in_dp[name]:
-                        config['dps'][name]['interfaces'][p]['acl_in'] = acl_in_dp[name][p]
+                    add_acl_to_port(name, p, interfaces_config)
                     p += 1
 
                 # Add configuration for the switch-to-switch links
                 # (0 for a single switch, 1 for an end switch, 2 for middle switches).
                 first_dp = i == 0
+                second_dp = i == 1
                 last_dp = i == dpid_count - 1
                 end_dp = first_dp or last_dp
                 num_switch_links = 0
@@ -1751,24 +1757,38 @@ class FaucetStringOfDPTest(FaucetTest):
                     else:
                         num_switch_links = 2
 
-                interfaces_config = config['dps'][name]['interfaces']
+                if stack and first_dp:
+                    dp_config['stack'] = {
+                        'priority': 1
+                    }
 
-                for peer_dp_port in range(num_switch_links):
+                first_stack_port = p
+
+                for stack_dp_port in range(num_switch_links):
                     tagged_vlans = None
 
                     peer_dp = None
-                    if peer_dp_port == 0:
+                    if stack_dp_port == 0:
                         if first_dp:
                             peer_dp = i + 1
                         else:
                             peer_dp = i - 1
+                        if first_dp or second_dp:
+                            peer_port = first_stack_port
+                        else:
+                            peer_port = first_stack_port + 1
                     else:
                         peer_dp = i + 1
+                        peer_port = first_stack_port
 
                     description = 'to %s' % dp_name(peer_dp)
 
                     interfaces_config[p] = {
                         'description': description,
+                        'stack': {
+                            'dp': dp_name(peer_dp),
+                            'port': peer_port,
+                        }
                     }
 
                     if n_tagged and n_untagged and n_tagged != n_untagged:
@@ -1782,9 +1802,7 @@ class FaucetStringOfDPTest(FaucetTest):
                     if tagged_vlans:
                         interfaces_config[p]['tagged_vlans'] = tagged_vlans
 
-                    if name in acl_in_dp and p in acl_in_dp[name]:
-                        interfaces_config[p]['acl_in'] = acl_in_dp[name][p]
-
+                    add_acl_to_port(name, p, interfaces_config)
                     # Used as the port number for the current switch.
                     p += 1
 
@@ -1825,7 +1843,8 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     def setUp(self):
         super(FaucetStringOfDPUntaggedTest, self).setUp()
-        self.build_net(n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
+        self.build_net(
+            n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
         self.start_net()
 
     def test_untagged(self):
@@ -1840,7 +1859,25 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def setUp(self):
         super(FaucetStringOfDPTaggedTest, self).setUp()
-        self.build_net(n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID)
+        self.build_net(
+            n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID)
+        self.start_net()
+
+    def test_tagged(self):
+        self.assertEquals(0, self.net.pingAll())
+
+
+class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
+
+    NUM_DPS = 3
+    NUM_HOSTS = 4
+    VID = 100
+
+    def setUp(self):
+        super(FaucetStackStringOfDPTaggedTest, self).setUp()
+        self.build_net(
+            n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID,
+            stack=True)
         self.start_net()
 
     def test_tagged(self):
