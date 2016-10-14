@@ -202,6 +202,19 @@ class DP(Conf):
             self.stack['root_dp'] = root_dp
             self.stack['graph'] = graph
 
+    def shortest_path(self, dest_dp):
+        if self.stack is None:
+            return None
+        else:
+            return networkx.shortest_path(
+                self.stack['graph'], self.name, dest_dp)
+
+    def shortest_path_to_root(self):
+        root_dp = self.stack['root_dp']
+        if root_dp == self:
+            return []
+        return self.shortest_path(root_dp.name)
+
     def finalize_config(self, dps):
 
         def resolve_port_no(port_name):
