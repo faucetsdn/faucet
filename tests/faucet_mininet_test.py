@@ -188,6 +188,7 @@ class FaucetTest(unittest.TestCase):
     CONTROLLER_IPV6 = 'fc00::1:254'
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     CONFIG_GLOBAL = ''
+    BOGUS_MAC = '01:02:03:04:05:06'
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -370,8 +371,20 @@ dps:
                         tcpdump_started = True
                         for func in funcs:
                             func()
-        self.assertFalse(tcpdump_txt == '')
         return tcpdump_txt
+
+    def bogus_mac_flooded_to_port1(self):
+        first_host, second_host, third_host = self.net.hosts[0:3]
+        first_host_mac = first_host.MAC()
+        unicast_flood_filter = 'ether host %s' % self.BOGUS_MAC
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, unicast_flood_filter,
+                [lambda: second_host.cmd(
+                     'arp -s %s %s' % (first_host.IP(), self.BOGUS_MAC)),
+                 lambda: second_host.cmd(
+                     'curl -m 5 http://%s' % first_host.IP()),
+                 lambda: self.net.ping(hosts=(second_host, third_host))])
+        return not re.search('0 packets captured', tcpdump_txt)
 
     def ofctl_rest_url(self):
         return 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
@@ -890,6 +903,35 @@ group test {
         assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
 
 
+class FaucetUntaggedVLanUnicastFloodTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: True
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        self.assertTrue(self.bogus_mac_flooded_to_port1())
+
+
 class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -916,7 +958,69 @@ vlans:
 """
 
     def test_untagged(self):
-        self.ping_all_when_learned()
+        self.assertFalse(self.bogus_mac_flooded_to_port1())
+
+
+class FaucetUntaggedPortUnicastFloodTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                unicast_flood: True
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        # VLAN level config to disable flooding takes precedence,
+        # cannot enable port-only flooding.
+        self.assertFalse(self.bogus_mac_flooded_to_port1())
+
+
+class FaucetUntaggedNoPortUnicastFloodTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: True
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                unicast_flood: False
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        self.assertFalse(self.bogus_mac_flooded_to_port1())
 
 
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
