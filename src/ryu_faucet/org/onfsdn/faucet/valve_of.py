@@ -147,7 +147,7 @@ def output_ports(ports, ingress_port=False, exclude_ports=None):
     """
     acts = []
     for port in ports:
-        if exclude_ports is not None and port not in exclude_ports:
+        if exclude_ports is None or port not in exclude_ports:
             acts.append(output_port(port.number))
     if ingress_port:
         acts.append(output_port(ofp.OFPP_IN_PORT))
