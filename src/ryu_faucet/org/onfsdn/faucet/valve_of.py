@@ -135,6 +135,15 @@ def output_port(port_num, max_len=0):
     return parser.OFPActionOutput(port_num, max_len=max_len)
 
 
+def output_in_port():
+    """Return OpenFlow action to output out input port.
+
+    Returns:
+       ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput.
+    """
+    return output_port(ofp.OFPP_IN_PORT)
+
+
 def output_controller():
     """Return OpenFlow action to packet in to the controller (max 256 bytes).
 
