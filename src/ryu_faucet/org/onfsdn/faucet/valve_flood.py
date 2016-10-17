@@ -52,61 +52,64 @@ class ValveFloodManager(object):
             elif peer_root_distance < my_root_distance:
                 self.towards_root_stack_ports.append(port)
 
-    def _build_flood_port_outputs(self, ports, exclude_ports):
+    def _build_flood_port_outputs(self, ports, exclude_port):
         flood_acts = []
         for port in ports:
-            if port not in exclude_ports:
-                flood_acts.append(valve_of.output_port(port.number))
+            if port == exclude_port:
+                continue
+            flood_acts.append(valve_of.output_port(port.number))
         return flood_acts
 
-    def _build_flood_rule_actions(self, vlan, exclude_unicast, exclude_ports=[]):
+    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
         flood_acts = []
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
         flood_acts.extend(self._build_flood_port_outputs(
-            tagged_ports, exclude_ports))
+            tagged_ports, in_port))
         untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
         if untagged_ports:
             flood_acts.append(valve_of.pop_vlan())
             flood_acts.extend(self._build_flood_port_outputs(
-                untagged_ports, exclude_ports))
+                untagged_ports, in_port))
         return flood_acts
+
+    def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask,
+                                   exclude_unicast, command, flood_priority,
+                                   port, preflood_acts):
+        ofmsgs = []
+        match = self.valve_in_match(
+            self.flood_table, vlan=vlan, in_port=port.number,
+            eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
+        flood_acts = self._build_flood_rule_actions(
+            vlan, exclude_unicast, port)
+        ofmsgs.append(self.valve_flowmod(
+            self.flood_table,
+            match=match,
+            command=command,
+            inst=[valve_of.apply_actions(preflood_acts + flood_acts)],
+            priority=flood_priority))
+        return ofmsgs
 
     def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
                                       exclude_unicast, command, flood_priority):
         ofmsgs = []
         vlan_all_ports = vlan.flood_ports(vlan.get_ports(), False)
         for port in vlan_all_ports:
-            match = self.valve_in_match(
-                self.flood_table, vlan=vlan, in_port=port.number,
-                eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
-            flood_acts = self._build_flood_rule_actions(
-                vlan, exclude_unicast, exclude_ports=[port])
-            ofmsgs.append(self.valve_flowmod(
-                self.flood_table,
-                match=match,
-                command=command,
-                inst=[valve_of.apply_actions(flood_acts)],
-                priority=flood_priority))
+            ofmsgs.extend(self._build_flood_rule_for_port(
+                vlan, eth_dst, eth_dst_mask,
+                exclude_unicast, command, flood_priority,
+                port, []))
         return ofmsgs
 
     def _build_mirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
                                     exclude_unicast, command, flood_priority):
-        mirrored_ports = vlan.mirrored_ports()
         ofmsgs = []
+        mirrored_ports = vlan.mirrored_ports()
         for port in mirrored_ports:
-            match = self.valve_in_match(
-                self.flood_table, vlan=vlan, in_port=port.number,
-                eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
-            flood_acts = self._build_flood_rule_actions(
-                vlan, exclude_unicast)
-            mirror_acts = [
-                valve_of.output_port(port.mirror)] + flood_acts
-            ofmsgs.append(self.valve_flowmod(
-                self.flood_table,
-                match=match,
-                command=command,
-                inst=[valve_of.apply_actions(mirror_acts)],
-                priority=flood_priority))
+            mirror_acts = [valve_of.output_port(port.mirror)]
+            ofmsgs.extend(self._build_flood_rule_for_port(
+                vlan, eth_dst, eth_dst_mask,
+                exclude_unicast, command, flood_priority,
+                port, mirror_acts))
         return ofmsgs
 
     def build_flood_rules(self, vlan, modify=False):
