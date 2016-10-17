@@ -498,9 +498,18 @@ class Valve(object):
                 priority=self.dp.highest_priority))
             return ofmsgs
 
-        # Add ACL if any
+        # Add ACL if any.
         acl_ofmsgs, forwarding_table = self._port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
+
+        # If this is a stacking port, accept all VLANs (came from another FAUCET)
+        if port.stack is not None:
+            ofmsgs.append(self.valve_flowmod(
+                self.dp.vlan_table,
+                match=self.valve_in_match(self.dp.vlan_table, in_port=port_num),
+                priority=self.dp.low_priority,
+                inst=[valve_of.goto_table(forwarding_table)]))
+            return ofmsgs
 
         # Add mirroring if any
         mirror_act = []
@@ -630,6 +639,10 @@ class Valve(object):
                 'and not learning %s',
                 vlan.max_hosts, vlan.vid, eth_src)
         else:
+            # TODO: partial stacking implementation - unicast learning
+            # not yet implemented.
+            if port.stack is not None:
+                return ofmsgs
             # TODO: it would be good to be able to notify an external
             # system upon re/learning a host.
             ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(

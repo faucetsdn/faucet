@@ -42,13 +42,13 @@ class ValveFloodManager(object):
         self.stack_ports = [
             port for port in dp_ports.itervalues() if port.stack is not None]
         self.towards_root_stack_ports = []
-        self.away_root_stack_ports = []
+        self.away_from_root_stack_ports = []
         my_root_distance = dp_shortest_path_to_root()
         for port in self.stack_ports:
             peer_dp = port.stack['dp']
             peer_root_distance = peer_dp.shortest_path_to_root()
             if peer_root_distance > my_root_distance:
-                self.away_root_stack_ports.append(port)
+                self.away_from_root_stack_ports.append(port)
             elif peer_root_distance < my_root_distance:
                 self.towards_root_stack_ports.append(port)
 
@@ -60,7 +60,7 @@ class ValveFloodManager(object):
             flood_acts.append(valve_of.output_port(port.number))
         return flood_acts
 
-    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
+    def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port):
         flood_acts = []
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
         flood_acts.extend(self._build_flood_port_outputs(
@@ -71,6 +71,94 @@ class ValveFloodManager(object):
             flood_acts.extend(self._build_flood_port_outputs(
                 untagged_ports, in_port))
         return flood_acts
+
+    def _port_is_dp_local(self, port):
+        if (port in self.away_from_root_stack_ports or
+            port in self.towards_root_stack_ports):
+            return False
+        return True
+
+    def _dp_is_root(self):
+        return self.stack is not None and 'priority' in self.stack
+
+    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
+        """Calculate flooding destinations based on this DP's position.
+
+        If a standalone switch, then flood to local VLAN ports.
+
+        If a distributed switch, see the following example.
+
+                               Hosts
+                               ||||
+                               ||||
+                 +----+       +----+       +----+
+              ---+1   |       |1234|       |   1+---
+        Hosts ---+2   |       |    |       |   2+--- Hosts
+              ---+3   |       |    |       |   3+---
+              ---+4  5+-------+5  6+-------+5  4+---
+                 +----+       +----+       +----+
+
+                 Root DP
+
+        The basic strategy is flood-towards-root. The root
+        reflects the flood back out. There are no loops and flooding
+        is done entirely in the dataplane.
+
+        On the root switch (left), flood destinations are:
+
+        1: 2 3 4 5(s)
+        2: 1 3 4 5(s)
+        3: 1 2 4 5(s)
+        4: 1 2 3 5(s)
+        5: 1 2 3 4 5(s, note reflection)
+
+        On the middle switch:
+
+        1: 5(s)
+        2: 5(s)
+        3: 5(s)
+        4: 5(s)
+        5: 1 2 3 4 6(s)
+        6: 5(s)
+
+        On the rightmost switch:
+
+        1: 5(s)
+        2: 5(s)
+        3: 5(s)
+        4: 5(s)
+        5: 1 2 3 4
+        """
+        local_flood_actions = self._build_flood_local_rule_actions(
+            vlan, exclude_unicast, in_port)
+        # If we're a standalone switch, then flood local VLAN
+        if self.stack is None:
+            return local_flood_actions
+
+        away_flood_actions = self._build_flood_port_outputs(
+            self.away_from_root_stack_ports, in_port)
+        toward_flood_actions = self._build_flood_port_outputs(
+            self.towards_root_stack_ports, in_port)
+        flood_all_except_self = local_flood_actions + away_flood_actions
+
+        # If we're the root of a distributed switch..
+        if self._dp_is_root():
+            # If the input port was local, then flood local VLAN and stacks.
+            if self._port_is_dp_local(in_port):
+                return flood_all_except_self
+            # If input port non-local, then flood outward again
+            else:
+                return [valve_of.output_in_port()] + flood_all_except_self
+        # We are not the root of the distributed switch
+        else:
+            # If input port was connected to a switch closer to the root,
+            # then flood outwards (local VLAN and stacks further than us)
+            if in_port in self.towards_root_stack_ports:
+                return flood_all_except_self
+            # If input port local or from a further away switch, flood
+            # towards the root.
+            else:
+                return toward_flood_actions
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask,
                                    exclude_unicast, command, flood_priority,
@@ -92,7 +180,10 @@ class ValveFloodManager(object):
     def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
                                       exclude_unicast, command, flood_priority):
         ofmsgs = []
-        vlan_all_ports = vlan.flood_ports(vlan.get_ports(), False)
+        vlan_all_ports = []
+        vlan_all_ports.extend(vlan.flood_ports(vlan.get_ports(), False))
+        vlan_all_ports.extend(self.away_from_root_stack_ports)
+        vlan_all_ports.extend(self.towards_root_stack_ports)
         for port in vlan_all_ports:
             ofmsgs.extend(self._build_flood_rule_for_port(
                 vlan, eth_dst, eth_dst_mask,
