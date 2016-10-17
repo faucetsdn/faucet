@@ -32,36 +32,29 @@ class ValveFloodManager(object):
     )
 
     def __init__(self, flood_table, flood_priority,
-                 valve_in_match, valve_flowmod,
-                 dp_stack, dp_ports, dp_shortest_path_to_root):
+                 valve_in_match, valve_flowmod):
         self.flood_table = flood_table
         self.flood_priority = flood_priority
         self.valve_in_match = valve_in_match
         self.valve_flowmod = valve_flowmod
-        self.stack = dp_stack
-        self.stack_ports = [
-            port for port in dp_ports.itervalues() if port.stack is not None]
-        self.towards_root_stack_ports = []
-        self.away_root_stack_ports = []
-        my_root_distance = dp_shortest_path_to_root()
-        for port in self.stack_ports:
-            peer_dp = port.stack['dp']
-            peer_root_distance = peer_dp.shortest_path_to_root()
-            if peer_root_distance > my_root_distance:
-                self.away_root_stack_ports.append(port)
-            elif peer_root_distance < my_root_distance:
-                self.towards_root_stack_ports.append(port)
+
+    def _build_flood_port_outputs(self, ports, exclude_ports):
+        flood_acts = []
+        for port in ports:
+            if port not in exclude_ports:
+                flood_acts.append(valve_of.output_port(port.number))
+        return flood_acts
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, exclude_ports=[]):
         flood_acts = []
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
-        flood_acts.extend(valve_of.output_ports(
+        flood_acts.extend(self._build_flood_port_outputs(
             tagged_ports, exclude_ports))
         untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
         if untagged_ports:
             flood_acts.append(valve_of.pop_vlan())
-            flood_acts.extend(valve_of.output_ports(
-                untagged_ports, exclude_ports=exclude_ports))
+            flood_acts.extend(self._build_flood_port_outputs(
+                untagged_ports, exclude_ports))
         return flood_acts
 
     def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,

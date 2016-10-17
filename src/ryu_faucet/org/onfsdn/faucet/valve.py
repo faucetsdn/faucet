@@ -91,8 +91,7 @@ class Valve(object):
             self.valve_flowcontroller)
         self.flood_manager = valve_flood.ValveFloodManager(
             self.dp.flood_table, self.dp.low_priority,
-            self.valve_in_match, self.valve_flowmod,
-            self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root)
+            self.valve_in_match, self.valve_flowmod)
         self.host_manager = valve_host.ValveHostManager(
             self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.timeout, self.dp.low_priority, self.dp.highest_priority,

@@ -135,25 +135,6 @@ def output_port(port_num, max_len=0):
     return parser.OFPActionOutput(port_num, max_len=max_len)
 
 
-def output_ports(ports, ingress_port=False, exclude_ports=None):
-    """Return a list of output to port actions.
-
-    Args:
-        ports (list): Valve Port objects.
-        ingress_port (bool): if True, output packet out its ingress port.
-        exclude_ports (list or None): Ports not to output to.
-    Returns:
-        list of ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput.
-    """
-    acts = []
-    for port in ports:
-        if exclude_ports is None or port not in exclude_ports:
-            acts.append(output_port(port.number))
-    if ingress_port:
-        acts.append(output_port(ofp.OFPP_IN_PORT))
-    return acts
-
-
 def output_controller():
     """Return OpenFlow action to packet in to the controller (max 256 bytes).
 
