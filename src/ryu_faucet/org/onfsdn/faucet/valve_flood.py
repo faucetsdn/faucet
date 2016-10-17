@@ -52,23 +52,16 @@ class ValveFloodManager(object):
             elif peer_root_distance < my_root_distance:
                 self.towards_root_stack_ports.append(port)
 
-    def _build_flood_port_outputs(self, ports, exclude_ports):
-        flood_acts = []
-        for port in ports:
-            if port not in exclude_ports:
-                flood_acts.append(valve_of.output_port(port.number))
-        return flood_acts
-
     def _build_flood_rule_actions(self, vlan, exclude_unicast, exclude_ports=[]):
         flood_acts = []
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
-        flood_acts.extend(self._build_flood_port_outputs(
+        flood_acts.extend(valve_of.output_ports(
             tagged_ports, exclude_ports))
         untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
         if untagged_ports:
             flood_acts.append(valve_of.pop_vlan())
-            flood_acts.extend(self._build_flood_port_outputs(
-                untagged_ports, exclude_ports))
+            flood_acts.extend(valve_of.output_ports(
+                untagged_ports, exclude_ports=exclude_ports))
         return flood_acts
 
     def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
