@@ -313,7 +313,7 @@ dps:
             # Mininet takes a long time to actually shutdown.
             # TODO: detect and block when Mininet isn't done.
             time.sleep(5)
-        shutil.rmtree(self.tmpdir)
+        #shutil.rmtree(self.tmpdir)
 
     def add_host_ipv6_address(self, host, ip_v6):
         host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf()))
@@ -389,7 +389,7 @@ dps:
     def ofctl_rest_url(self):
         return 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
 
-    def matching_flow_present_on_dpid(self, dpid, exp_flow, timeout=10):
+    def get_all_flows_from_dpid(self, dpid, timeout=10):
         int_dpid = str_int_dpid(dpid)
         for _ in range(timeout):
             try:
@@ -399,12 +399,15 @@ dps:
                 # Didn't get valid JSON, try again
                 time.sleep(1)
                 continue
-            dump_flows = ofctl_result[int_dpid]
-            for flow in dump_flows:
-                # Re-transform the dictionary into str to re-use
-                # the verify_ipv*_routing methods
-                flow_str = json.dumps(flow)
-                if re.search(exp_flow, flow_str):
+            flow_dump = ofctl_result[int_dpid]
+            return [json.dumps(flow) for flow in flow_dump]
+        return []
+
+    def matching_flow_present_on_dpid(self, dpid, exp_flow, timeout=10):
+        for _ in range(timeout):
+            flow_dump = self.get_all_flows_from_dpid(dpid, timeout)
+            for flow in flow_dump:
+                if re.search(exp_flow, flow):
                     return True
             time.sleep(1)
         return False
@@ -1889,22 +1892,24 @@ class FaucetStringOfDPTest(FaucetTest):
 
                     interfaces_config[p] = {
                         'description': description,
-                        'stack': {
+                    }
+
+                    if stack:
+                        interfaces_config[p]['stack'] = {
                             'dp': dp_name(peer_dp),
                             'port': peer_port,
                         }
-                    }
+                    else:
+                        if n_tagged and n_untagged and n_tagged != n_untagged:
+                            tagged_vlans = [tagged_vid, untagged_vid]
+                        elif ((n_tagged and not n_untagged) or
+                              (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                            tagged_vlans = [tagged_vid]
+                        elif n_untagged and not n_tagged:
+                            tagged_vlans = [untagged_vid]
 
-                    if n_tagged and n_untagged and n_tagged != n_untagged:
-                        tagged_vlans = [tagged_vid, untagged_vid]
-                    elif ((n_tagged and not n_untagged) or
-                          (n_tagged and n_untagged and tagged_vid == untagged_vid)):
-                        tagged_vlans = [tagged_vid]
-                    elif n_untagged and not n_tagged:
-                        tagged_vlans = [untagged_vid]
-
-                    if tagged_vlans:
-                        interfaces_config[p]['tagged_vlans'] = tagged_vlans
+                        if tagged_vlans:
+                            interfaces_config[p]['tagged_vlans'] = tagged_vlans
 
                     add_acl_to_port(name, p, interfaces_config)
                     # Used as the port number for the current switch.
