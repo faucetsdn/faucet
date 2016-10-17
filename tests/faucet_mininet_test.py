@@ -313,7 +313,7 @@ dps:
             # Mininet takes a long time to actually shutdown.
             # TODO: detect and block when Mininet isn't done.
             time.sleep(5)
-        #shutil.rmtree(self.tmpdir)
+        shutil.rmtree(self.tmpdir)
 
     def add_host_ipv6_address(self, host, ip_v6):
         host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf()))
