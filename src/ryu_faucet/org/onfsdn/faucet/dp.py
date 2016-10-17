@@ -210,10 +210,11 @@ class DP(Conf):
                 self.stack['graph'], self.name, dest_dp)
 
     def shortest_path_to_root(self):
-        root_dp = self.stack['root_dp']
-        if root_dp == self:
-            return []
-        return self.shortest_path(root_dp.name)
+        if self.stack is not None:
+            root_dp = self.stack['root_dp']
+            if root_dp != self:
+                return self.shortest_path(root_dp.name)
+        return []
 
     def finalize_config(self, dps):
 
