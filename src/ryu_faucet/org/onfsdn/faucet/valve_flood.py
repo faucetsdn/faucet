@@ -60,7 +60,7 @@ class ValveFloodManager(object):
             flood_acts.append(valve_of.output_port(port.number))
         return flood_acts
 
-    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
+    def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port):
         flood_acts = []
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
         flood_acts.extend(self._build_flood_port_outputs(
@@ -71,6 +71,19 @@ class ValveFloodManager(object):
             flood_acts.extend(self._build_flood_port_outputs(
                 untagged_ports, in_port))
         return flood_acts
+
+    def _port_is_dp_local(self, port):
+        if (port in self.away_root_stack_ports or
+            port in self.towards_root_stack_ports):
+            return False
+        return True
+
+    def _dp_is_root(self):
+        return self.stack is not None and 'priority' in self.stack
+
+    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
+        return self._build_flood_local_rule_actions(
+            vlan, exclude_unicast, in_port)
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask,
                                    exclude_unicast, command, flood_priority,
