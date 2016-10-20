@@ -19,10 +19,10 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
 
     setup(
         name='ryu-faucet',
-        version='1.1',
+        version='1.2',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
-        ## Temp Fix for v1.1 to not use data_files_prefix as we have package install issues.
+        ## Temp Fix for v1.2 to not use data_files_prefix as we have package install issues.
         #data_files=[(data_files_prefix + 'etc/ryu/faucet',
         data_files=[('/etc/ryu', ['src/cfg/etc/ryu/ryu.conf']),
                      ('/etc/ryu/faucet',

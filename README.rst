@@ -1,4 +1,4 @@
-:version: 1.1
+:version: 1.2
 :copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
 
 .. meta::
@@ -223,7 +223,7 @@ You have run this as ``root`` or use ``sudo``
 
 .. code:: bash
 
-  pip install https://pypi.python.org/packages/a3/5a/197046b6fbad2f129e108358d7ba9674ebae638a227e6a1680cd77c7bd13/ryu-faucet-1.1.tar.gz
+  pip install https://pypi.python.org/packages/a3/5a/197046b6fbad2f129e108358d7ba9674ebae638a227e6a1680cd77c7bd13/ryu-faucet-1.2.tar.gz
   pip show -f ryu-faucet
 
 Optional Install for Network Monitoring Dashboard
