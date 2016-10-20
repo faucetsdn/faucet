@@ -22,13 +22,16 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 
 class ValveFloodManager(object):
 
-    # If unicast flooding is disabled, then we flood only these
-    # destinations (neighbor/ARP resolution and actual broadcasts).
-    NON_UNICAST_FLOOD_DST = (
-        ('01:80:C2:00:00:00', 'ff:ff:ff:00:00:00'), # 802.x
-        ('01:00:5E:00:00:00', 'ff:ff:ff:00:00:00'), # IPv4 multicast
-        ('33:33:00:00:00:00', 'ff:ff:00:00:00:00'), # IPv6 multicast
-        (mac.BROADCAST_STR, None), # flood on ethernet broadcasts
+    # Enumerate possible eth_dst flood destinations.
+    # First bool says whether to flood this destination, if the VLAN
+    # has unicast flooding enabled (if unicast flooding is enabled,
+    # then we flood all destination eth_dsts).
+    FLOOD_DSTS = (
+        (True, None, None),
+        (False, '01:80:C2:00:00:00', 'ff:ff:ff:00:00:00'), # 802.x
+        (False, '01:00:5E:00:00:00', 'ff:ff:ff:00:00:00'), # IPv4 multicast
+        (False, '33:33:00:00:00:00', 'ff:ff:00:00:00:00'), # IPv6 multicast
+        (False, mac.BROADCAST_STR, None), # flood on ethernet broadcasts
     )
 
     def __init__(self, flood_table, flood_priority,
@@ -181,7 +184,7 @@ class ValveFloodManager(object):
                                       exclude_unicast, command, flood_priority):
         ofmsgs = []
         vlan_all_ports = []
-        vlan_all_ports.extend(vlan.flood_ports(vlan.get_ports(), False))
+        vlan_all_ports.extend(vlan.flood_ports(vlan.get_ports(), exclude_unicast))
         vlan_all_ports.extend(self.away_from_root_stack_ports)
         vlan_all_ports.extend(self.towards_root_stack_ports)
         for port in vlan_all_ports:
@@ -213,19 +216,16 @@ class ValveFloodManager(object):
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
         flood_priority = self.flood_priority
-        flood_eth_dst_matches = []
-        if vlan.unicast_flood:
-            flood_eth_dst_matches.extend([(None, None)])
-        flood_eth_dst_matches.extend(self.NON_UNICAST_FLOOD_DST)
         ofmsgs = []
-        for eth_dst, eth_dst_mask in flood_eth_dst_matches:
-            exclude_unicast = eth_dst is None
+        for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
+            if unicast_eth_dst and not vlan.unicast_flood:
+                continue
             ofmsgs.extend(self._build_unmirrored_flood_rules(
                 vlan, eth_dst, eth_dst_mask,
-                exclude_unicast, command, flood_priority))
+                unicast_eth_dst, command, flood_priority))
             flood_priority += 1
             ofmsgs.extend(self._build_mirrored_flood_rules(
                 vlan, eth_dst, eth_dst_mask,
-                exclude_unicast, command, flood_priority))
+                unicast_eth_dst, command, flood_priority))
             flood_priority += 1
         return ofmsgs

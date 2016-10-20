@@ -933,6 +933,12 @@ vlans:
 
     def test_untagged(self):
         self.assertTrue(self.bogus_mac_flooded_to_port1())
+        # Unicast flooding rule for from port 1
+        self.assertTrue(self.matching_flow_present(
+            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 1}'))
+        # Unicast flood rule exists that output to port 1
+        self.assertTrue(self.matching_flow_present(
+            '"OUTPUT:1".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
 
 
 class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
@@ -962,6 +968,12 @@ vlans:
 
     def test_untagged(self):
         self.assertFalse(self.bogus_mac_flooded_to_port1())
+        # No unicast flooding rule for from port 1
+        self.assertFalse(self.matching_flow_present(
+            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 1}'))
+        # No unicast flood rule exists that output to port 1
+        self.assertFalse(self.matching_flow_present(
+            '"OUTPUT:1".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
 
 
 class FaucetUntaggedPortUnicastFloodTest(FaucetUntaggedTest):
@@ -994,6 +1006,12 @@ vlans:
         # VLAN level config to disable flooding takes precedence,
         # cannot enable port-only flooding.
         self.assertFalse(self.bogus_mac_flooded_to_port1())
+        # No unicast flooding rule for from port 1
+        self.assertFalse(self.matching_flow_present(
+            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 1}'))
+        # No unicast flood rule exists that output to port 1
+        self.assertFalse(self.matching_flow_present(
+            '"OUTPUT:1".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
 
 
 class FaucetUntaggedNoPortUnicastFloodTest(FaucetUntaggedTest):
@@ -1024,6 +1042,16 @@ vlans:
 
     def test_untagged(self):
         self.assertFalse(self.bogus_mac_flooded_to_port1())
+        # Unicast flood rule present for port 2, but NOT for port 1
+        self.assertTrue(self.matching_flow_present(
+            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 2}'))
+        self.assertFalse(self.matching_flow_present(
+            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 1}'))
+        # Unicast flood rules present that output to port 2, but NOT to port 1
+        self.assertTrue(self.matching_flow_present(
+            '"OUTPUT:2".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
+        self.assertFalse(self.matching_flow_present(
+            '"OUTPUT:1".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
 
 
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
