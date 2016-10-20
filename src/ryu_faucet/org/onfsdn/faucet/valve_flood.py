@@ -74,7 +74,7 @@ class ValveFloodManager(object):
 
     def _port_is_dp_local(self, port):
         if (port in self.away_from_root_stack_ports or
-            port in self.towards_root_stack_ports):
+                port in self.towards_root_stack_ports):
             return False
         return True
 
