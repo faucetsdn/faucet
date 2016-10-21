@@ -43,6 +43,7 @@ class DP(Conf):
     low_priority = None
     high_priority = None
     stack = None
+    ignore_learn_ins = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -81,6 +82,12 @@ class DP(Conf):
         'ofchannel_log': None,
         # stacking config, when cross connecting multiple DPs
         'stack': None,
+        # Ignore every approx nth packet for learning.
+        # 2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
+        # This limits control plane activity when learning new hosts rapidly.
+        # Flooding will still be done by the dataplane even with a packet
+        # is ignored for learning purposes.
+        'ignore_learn_ins': 3,
         }
 
     def __init__(self, _id, conf):
