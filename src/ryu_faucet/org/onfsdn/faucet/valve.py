@@ -644,14 +644,45 @@ class Valve(object):
                 'and not learning %s',
                 vlan.max_hosts, vlan.vid, eth_src)
         else:
-            # TODO: partial stacking implementation - unicast learning
-            # not yet implemented.
-            if port.stack is not None:
-                return ofmsgs
+            if port.stack is None:
+                learn_port = port
+            else:
+                # TODO: simplest possible unicast learning.
+                # We find just one port that is the shortest unicast path to
+                # the destination. We could use other factors (eg we could
+                # load balance over multiple ports based on destination MAC).
+                # TODO: each DP learns independently. An edge DP could
+                # call other valves so they learn immediately without waiting
+                # for packet in.
+                # TODO: edge DPs could use a different forwarding algorithm
+                # (for example, just default switch to a neighbor).
+                host_learned_other_dp = None
+                # Find port that forwards closer to destination DP that
+                # has already learned this host (if any).
+                for other_dpid, other_valve in valves.iteritems():
+                    if other_dpid == dp_id:
+                        continue
+                    other_dp = other_valve.dp
+                    other_dp_host_cache = other_dp.vlans[vlan_vid].host_cache
+                    if eth_src in other_dp_host_cache:
+                        host = other_dp_host_cache[eth_src]
+                        if host.edge:
+                            host_learned_other_dp = other_dp
+                            break
+                # No edge DP may have learned this host yet.
+                if host_learned_other_dp is None:
+                    return ofmsgs
+
+                learn_port = self.dp.shortest_path_port(
+                    host_learned_other_dp.name)
+                self.logger.info(
+                    'host learned via stack port to %s',
+                    host_learned_other_dp.name)
+
             # TODO: it would be good to be able to notify an external
             # system upon re/learning a host.
             ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
-                port, vlan, eth_src))
+                learn_port, vlan, eth_src))
             self.logger.info(
                 'learned %u hosts on vlan %u',
                 len(vlan.host_cache), vlan.vid)
