@@ -594,7 +594,7 @@ class Valve(object):
             return True
         return False
 
-    def rcv_packet(self, dp_id, in_port, vlan_vid, pkt):
+    def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
         The packet may be sent to us also in response to FAUCET
@@ -603,6 +603,7 @@ class Valve(object):
 
         Args:
             dp_id (int): datapath ID.
+            valves (dict): all datapaths, indexed by datapath ID.
             in_port (int): port packet was received on.
             vlan_vid (int): VLAN VID of port packet was received on.
             pkt (ryu.lib.packet.packet): packet received.
