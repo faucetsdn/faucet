@@ -209,6 +209,19 @@ class DP(Conf):
             return networkx.shortest_path(
                 self.stack['graph'], self.name, dest_dp)
 
+    def shortest_path_port(self, dest_dp):
+        """Return port on our DP, that is the shortest path towards dest DP."""
+        shortest_path = self.shortest_path(dest_dp)
+        if shortest_path is not None:
+            peer_dp = shortest_path[1]
+            peer_dp_ports = []
+            for port in self.ports.itervalues():
+                if port.stack is not None:
+                    if port.stack['dp'].name == peer_dp:
+                        peer_dp_ports.append(port)
+            return peer_dp_ports[0]
+        return None
+
     def shortest_path_to_root(self):
         if self.stack is not None:
             root_dp = self.stack['root_dp']
