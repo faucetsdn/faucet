@@ -2018,6 +2018,8 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_tagged(self):
+        self.net.pingAll()
+        # Distributed learning has had a chance to happen.
         self.assertEquals(0, self.net.pingAll())
 
 
