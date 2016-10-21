@@ -102,6 +102,8 @@ class DistConfigTestCase(unittest.TestCase):
              [], switch1.shortest_path_to_root())
         self.assertEqual(
              ['switch2', 'switch1'], switch2.shortest_path_to_root())
+        self.assertEqual(
+             switch1.ports[7], switch1.shortest_path_port('switch2'))
         edges = [edge for edge in switch1.stack['graph'].adjacency_iter()]
         self.assertEqual(
              2, len(edges))

@@ -21,8 +21,9 @@ import valve_of
 
 class HostCacheEntry(object):
 
-    def __init__(self, eth_src, permanent, now):
+    def __init__(self, eth_src, edge, permanent, now):
         self.eth_src = eth_src
+        self.edge = edge
         self.permanent = permanent
         self.cache_time = now
 
@@ -52,7 +53,7 @@ class ValveHostManager(object):
 
     def build_port_out_inst(self, vlan, port):
         dst_act = []
-        if not vlan.port_is_tagged(port.number):
+        if not vlan.port_is_tagged(port.number) and port.stack is None:
             dst_act.append(valve_of.pop_vlan())
         dst_act.append(valve_of.output_port(port.number))
 
@@ -143,6 +144,7 @@ class ValveHostManager(object):
 
         host_cache_entry = HostCacheEntry(
             eth_src,
+            port.stack is None,
             port.permanent_learn,
             time.time())
         vlan.host_cache[eth_src] = host_cache_entry
