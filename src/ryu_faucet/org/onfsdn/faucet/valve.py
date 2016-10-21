@@ -721,6 +721,7 @@ class Valve(object):
     def _add_controller_ips(self, controller_ips, vlan):
         ofmsgs = []
         for controller_ip in controller_ips:
+            assert self.stack is None, 'stacking + routing not yet supported'
             controller_ip_host = ipaddr.IPNetwork(
                 '/'.join((str(controller_ip.ip),
                           str(controller_ip.max_prefixlen))))
