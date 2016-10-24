@@ -14,7 +14,7 @@ echo "systemctl start grafana-server"
 
 echo "Showing all network interfaces that are up ..."
 ip link ls up
-echo "Modify IP address and hostname in files accordingly:"
+echo "Modify dpid, IP address and hostname in files accordingly:"
 echo "1.  /etc/ryu/faucet/faucet.yaml"
 echo "2.  /etc/ryu/faucet/gauge.yaml"
 

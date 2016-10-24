@@ -3,7 +3,7 @@
 
 pip install networkx
 pip install ovs ryu
-pip install https://pypi.python.org/packages/f5/f3/a8c4e72b4218be5aa84378eb57d89cfc8153efdb4df998cd2a0c544a878a/ryu-faucet-1.2.tar.gz
+pip install https://pypi.python.org/packages/77/ba/1bf4547a58dfc41f502c0ad640d282c44d63be26f7d852dae5bc04904a51/ryu-faucet-1.2.tar.gz
 pip show ryu_faucet
 
 echo "Showing all network interfaces that are up ..."
