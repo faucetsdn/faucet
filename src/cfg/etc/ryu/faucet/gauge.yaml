@@ -1,3 +1,4 @@
+version: 2
 faucet_configs:
     - '/etc/ryu/faucet/faucet.yaml'
 watchers:
