@@ -24,10 +24,18 @@ def build_acl_entry(rule_conf, acl_allow_inst, port_num):
         if attrib == 'in_port':
             continue
         if attrib == 'actions':
+            allow = False
+            allow_specified = False
+            if 'allow' in attrib_value:
+                allow_specified = True
+                if attrib_value['allow'] == 1:
+                    allow = True
             if 'mirror' in attrib_value:
                 port_no = attrib_value['mirror']
                 acl_inst.append(
                     valve_of.apply_actions([valve_of.output_port(port_no)]))
+                if not allow_specified:
+                    allow = True
             # if output selected, output packet now and exit pipeline.
             if 'output' in attrib_value:
                 output_dict = attrib_value['output']
@@ -45,7 +53,7 @@ def build_acl_entry(rule_conf, acl_allow_inst, port_num):
                 output_actions.append(valve_of.output_port(port_no))
                 acl_inst.append(valve_of.apply_actions(output_actions))
                 continue
-            if attrib_value['allow'] == 1:
+            if allow:
                 acl_inst.append(acl_allow_inst)
         else:
             match_dict[attrib] = attrib_value

@@ -1274,6 +1274,7 @@ acls:
 
     def test_untagged(self):
         first_host, second_host, mirror_host = self.net.hosts[0:3]
+        first_host.cmd('ping -c1 %s' % second_host.IP())
         mirror_mac = mirror_host.MAC()
         tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
         tcpdump_txt = self.tcpdump_helper(
@@ -1283,6 +1284,40 @@ acls:
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt))
+
+
+class FaucetUntaggedACLMirrorDefaultAllowTest(FaucetUntaggedACLMirrorTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            actions:
+                mirror: mirrorport
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+                acl_in: 1
+            mirrorport:
+                number: %(port_3)d
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
 
 
 class FaucetUntaggedOutputTest(FaucetUntaggedTest):
@@ -1364,6 +1399,7 @@ vlans:
 
     def test_untagged(self):
         first_host, second_host, mirror_host = self.net.hosts[0:3]
+        first_host.cmd('ping -c1 %s' % second_host.IP())
         mirror_mac = mirror_host.MAC()
         tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
         tcpdump_txt = self.tcpdump_helper(

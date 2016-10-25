@@ -629,8 +629,9 @@ class Valve(object):
                 in_port, vlan, eth_src, eth_dst, pkt))
 
         # Apply learning packet in rate limit.
-        if int(time.time() * 1e3) % self.dp.ignore_learn_ins == 0:
-            return ofmsgs
+        if self.dp.ignore_learn_ins:
+            if int(time.time() * 1e3) % self.dp.ignore_learn_ins == 0:
+                return ofmsgs
 
         # ban learning new hosts if max_hosts reached on a VLAN.
         if (vlan.max_hosts is not None and
