@@ -28,6 +28,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
                      ('/etc/ryu/faucet',
                      ['src/cfg/etc/ryu/faucet/gauge.yaml',
                       'src/cfg/etc/ryu/faucet/faucet_ZodiacFX.yaml',
+                      'src/cfg/etc/ryu/faucet/faucet_ovs.yaml',
                       'src/cfg/etc/ryu/faucet/faucet_demo_step1.yaml',
                       'src/cfg/etc/ryu/faucet/faucet_demo_step2.yaml',
                       'src/cfg/etc/ryu/faucet/faucet_demo_step3.yaml',

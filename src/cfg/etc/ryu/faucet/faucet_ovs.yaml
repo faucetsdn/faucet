@@ -1,0 +1,22 @@
+version: 2
+vlans:
+    500:
+        name: "clock"
+        unicast_flood: True
+    600:
+        name: "foobar"
+        unicast_flood: True
+dps:
+    ovs-qotom-1:
+        dp_id: 0x0000000ec4ce7e31
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: 500
+                name: "enp2s0"
+            2:
+                native_vlan: 500
+                name: "enp3s0"
+            3:
+                native_vlan: 500
+                name: "enp5s0"
