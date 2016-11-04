@@ -217,12 +217,13 @@ dps.yaml:
 Installation with pip
 =====================
 
-Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively.
+Installation automatically installs dependent Python packages [ryu, pyaml, influxdb client] recursively. You may have to install some Python support packages as well.
 
 You have run this as ``root`` or use ``sudo``
 
 .. code:: bash
 
+  apt-get install python-dev # Required for Ubuntu
   pip install ryu-faucet
   pip show -f ryu-faucet
 
