@@ -398,7 +398,7 @@ Faucet has been tested against the following switches:
 5. Northbound Networks - Zodiac FX - http://northboundnetworks.com/collections/zodiac-fx
 6. HP Enterprise Aruba 3810 - http://www.arubanetworks.com/products/networking/switches/3810-series
 
-Faucet's design principle is to be as hardware agnostic as possible and not require TTPs. That means that Faucet excepts the hardware OFA to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet excepts the OFA to leverage the right hardware transparently.
+Faucet's design principle is to be as hardware agnostic as possible and not require Table Type Patterns. This means that Faucet expects the hardware Open Flow Agent (OFA) to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet expects the OFA to leverage the right hardware transparently.
 
 ============================================================
 Buying and running commercial switches supporting ryu-faucet
