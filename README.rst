@@ -223,7 +223,7 @@ You have run this as ``root`` or use ``sudo``
 
 .. code:: bash
 
-  pip install https://pypi.python.org/packages/a3/5a/197046b6fbad2f129e108358d7ba9674ebae638a227e6a1680cd77c7bd13/ryu-faucet-1.2.tar.gz
+  pip install https://pypi.python.org/packages/77/ba/1bf4547a58dfc41f502c0ad640d282c44d63be26f7d852dae5bc04904a51/ryu-faucet-1.2.tar.gz
   pip show -f ryu-faucet
 
 Optional Install for Network Monitoring Dashboard
