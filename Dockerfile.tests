@@ -10,6 +10,7 @@ RUN \
     net-tools \
     netcat-openbsd \
     psmisc \
+    python-paramiko \
     python-pip \
     sudo \
     tcpdump \
@@ -39,6 +40,7 @@ RUN \
 COPY ./ /faucet-src/
 
 RUN \
+  pip install -r /faucet-src/requirements.txt && \
   pip install /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]
