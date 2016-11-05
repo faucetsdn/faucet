@@ -13,6 +13,15 @@ services:
             ADMIN_USER: 'faucet'
             INFLUXDB_INIT_PWD: 'faucet'
 
+    couchdb:
+        restart: always
+        image: 'couchdb:1.6'
+        volumes:
+            - './vol/opt/couchdb:/usr/local/var/lib/couchdb'
+        environment:
+            COUCHDB_USER: 'couch'
+            COUCHDB_PASSWORD: '123'
+
     grafana:
         restart: always
         image: 'grafana/grafana:3.1.1'
@@ -37,6 +46,7 @@ services:
         ports:
             - '6634:6633'
         links:
+            - couchdb
             - db
 
     faucet:
