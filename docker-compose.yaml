@@ -25,6 +25,9 @@ services:
 
     gauge:
         restart: always
+        build:
+            context: .
+            dockerfile: Dockerfile.gauge
         image: 'faucet/gauge:latest'
         environment:
            - GAUGE_CONFIG=/etc/ryu/faucet/gauge.yaml
@@ -38,6 +41,9 @@ services:
 
     faucet:
         restart: always
+        build:
+            context: .
+            dockerfile: Dockerfile
         image: 'faucet/faucet:latest'
         volumes:
             - '/var/log/ryu/faucet:/var/log/ryu/faucet'
