@@ -2,7 +2,7 @@ version: '2'
 services:
     db:
         restart: always
-        image: 'tutum/influxdb:latest'
+        image: 'tutum/influxdb:0.13'
         ports:
             - '8086'
             - '8083'
@@ -13,9 +13,18 @@ services:
             ADMIN_USER: 'faucet'
             INFLUXDB_INIT_PWD: 'faucet'
 
+    couchdb:
+        restart: always
+        image: 'couchdb:1.6'
+        volumes:
+            - './vol/opt/couchdb:/usr/local/var/lib/couchdb'
+        environment:
+            COUCHDB_USER: 'couch'
+            COUCHDB_PASSWORD: '123'
+
     grafana:
         restart: always
-        image: 'grafana/grafana:latest'
+        image: 'grafana/grafana:3.1.1'
         ports:
             - '3000:3000'
         volumes:
@@ -25,6 +34,9 @@ services:
 
     gauge:
         restart: always
+        build:
+            context: .
+            dockerfile: Dockerfile.gauge
         image: 'faucet/gauge:latest'
         environment:
            - GAUGE_CONFIG=/etc/ryu/faucet/gauge.yaml
@@ -34,10 +46,14 @@ services:
         ports:
             - '6634:6633'
         links:
+            - couchdb
             - db
 
     faucet:
         restart: always
+        build:
+            context: .
+            dockerfile: Dockerfile
         image: 'faucet/faucet:latest'
         volumes:
             - '/var/log/ryu/faucet:/var/log/ryu/faucet'
