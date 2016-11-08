@@ -17,7 +17,7 @@ services:
         restart: always
         image: 'couchdb:1.6'
         volumes:
-            - './vol/opt/couchdb:/usr/local/var/lib/couchdb'
+            - '/opt/couchdb:/usr/local/var/lib/couchdb'
         environment:
             COUCHDB_USER: 'couch'
             COUCHDB_PASSWORD: '123'

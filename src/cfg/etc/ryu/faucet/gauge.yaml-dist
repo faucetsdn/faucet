@@ -27,8 +27,7 @@ dbs:
         nosql_db: couch
         db_username: couch
         db_password: 123
-        #db_ip: 'localhost'
-        db_ip: '10.10.22.7'
+        db_ip: 'couchdb'
         db_port: 5984
         driver: 'couchdb'
         views:
