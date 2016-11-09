@@ -2,12 +2,17 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends python-pip \
-    libyaml-dev libpython2.7-dev
+  apt-get install -qy --no-install-recommends \
+    libpython2.7-dev \
+    libyaml-dev \
+    python-paramiko \
+    python-pip
 
 COPY ./ /faucet-src/
 
 RUN \
+  pip install --upgrade pip && \
+  pip install -r /faucet-src/requirements.txt && \
   pip install /faucet-src
 
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
