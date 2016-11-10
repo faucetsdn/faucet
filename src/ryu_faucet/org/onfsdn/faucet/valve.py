@@ -792,8 +792,8 @@ class Valve(object):
                     if vid not in new_dp.vlans or vid in changed_vlans:
                         ofmsgs.extend(self._del_vlan(vlan))
 
-            for vlan in changed_vlans.iteritems():
-                ofmsgs.extend(self._add_vlan(new_vlan, set()))
+            for vlan in changed_vlans.itervalues():
+                ofmsgs.extend(self._add_vlan(vlan, set()))
 
             self.dp = new_dp
             self.dp.running = True
