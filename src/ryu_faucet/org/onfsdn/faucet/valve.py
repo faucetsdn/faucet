@@ -335,6 +335,35 @@ class Valve(object):
         ofmsgs.extend(self._add_controller_learn_flow())
         return ofmsgs
 
+    def _add_vlan(self, vlan, all_port_nums):
+        """Configure a VLAN
+        """
+        ofmsgs = []
+        self.logger.info('Configuring VLAN %s', vlan)
+        for port in vlan.get_ports():
+            all_port_nums.add(port.number)
+        # add mirror destination ports.
+        for port in vlan.mirror_destination_ports():
+            all_port_nums.add(port.number)
+        # install eth_dst_table flood ofmsgs
+        ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+        # add controller IPs if configured.
+        ofmsgs.extend(self._add_controller_ips(vlan.controller_ips, vlan))
+        return ofmsgs
+
+    def _del_vlan(self, vlan):
+        """Delete a configured VLAN
+        """
+        ofmsgs = []
+        tables = [self.dp.eth_src_table, self.dp.ipv4_fib_table,
+                  self.dp.ipv6_fib_table, self.dp.flood_table]
+
+        for table_id in tables:
+            ofmsgs.extend(self.valve_flowdel(table_id,
+                               match=self.valve_in_match(table_id, vlan=vlan)))
+        self.logger.info("Delete VLAN %s", vlan)
+        return ofmsgs
+
     def _add_ports_and_vlans(self, discovered_port_nums):
         """Add all configured and discovered ports and VLANs."""
         ofmsgs = []
@@ -342,16 +371,7 @@ class Valve(object):
 
         # add vlan ports
         for vlan in self.dp.vlans.itervalues():
-            self.logger.info('Configuring VLAN %s', vlan)
-            for port in vlan.get_ports():
-                all_port_nums.add(port.number)
-            # add mirror destination ports.
-            for port in vlan.mirror_destination_ports():
-                all_port_nums.add(port.number)
-            # install eth_dst_table flood ofmsgs
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
-            # add controller IPs if configured.
-            ofmsgs.extend(self._add_controller_ips(vlan.controller_ips, vlan))
+            ofmsgs.extend(self._add_vlan(vlan, all_port_nums))
 
         # add any ports discovered but not configured
         for port_num in discovered_port_nums:
@@ -405,7 +425,7 @@ class Valve(object):
             forwarding_table = self.dp.acl_table
             acl_rule_priority = self.dp.highest_priority
             acl_allow_inst = valve_of.goto_table(self.dp.eth_src_table)
-            for rule_conf in self.dp.acls[acl_num]:
+            for rule_conf in self.dp.acls[acl_num].rules:
                 acl_match, acl_inst = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, port_num)
                 ofmsgs.append(self.valve_flowmod(
@@ -460,7 +480,7 @@ class Valve(object):
                 port, vlan, forwarding_table, mirror_act))
         return ofmsgs
 
-    def port_add(self, dp_id, port_num):
+    def port_add(self, dp_id, port_num, modify=False):
         """Handle the addition of a port.
 
         Args:
@@ -478,13 +498,30 @@ class Valve(object):
             return []
 
         port = self.dp.ports[port_num]
-        self.logger.info('Port %s added', port)
         port.phys_up = True
 
-        if not port.running():
-            return []
-
         ofmsgs = []
+        if modify:
+            # delete all rules related to this port
+            tables = [self.dp.vlan_table, self.dp.acl_table,
+                      self.dp.eth_src_table, self.dp.flood_table]
+            for table_id in tables:
+                ofmsgs.extend(self.valve_flowdel(
+                    table_id,
+                    self.valve_in_match(table_id, in_port=port_num)))
+
+            if not port.permanent_learn:
+                # delete eth_dst rules
+                ofmsgs.extend(self.valve_flowdel(
+                    self.dp.eth_dst_table,
+                    out_port=port_num))
+            self.logger.info('Port %s modified', port)
+        else:
+            self.logger.info('Port %s added', port)
+
+        if not port.running():
+            return ofmsgs
+
         self.logger.info('Sending config for port %s', port)
 
         # Delete all flows previously matching this port
@@ -702,21 +739,68 @@ class Valve(object):
             self.host_manager.expire_hosts_from_vlan(vlan, now)
 
     def reload_config(self, new_dp):
-        """Reload configuration new_dp
+        """Reload configuration new_dp.
+        Following config changes are currently supported:
+            - Port config: support all available configs (e.g. native_vlan, acl_in)
+                & change operations (add, delete, modify) a port
+            - ACL config:support any modification, currently reload all rules
+                belonging to an ACL
+            - VLAN config: enable, disable routing, etc...
 
         Args:
             new_dp (DP): new dataplane configuration.
         Returns:
             list: OpenFlow messages.
         """
-        # TODO: a reload currently causes a full pipeline restart.
-        # We could special case reloads if we need to change only
-        # (for example) an ACL on a port.
         ofmsgs = []
         if self.dp.running:
+            """Reload what has been changed
+            """
+            changed_acls = {}
+            for acl_id, new_acl in new_dp.acls.iteritems():
+                if acl_id not in self.dp.acls:
+                    changed_acls[acl_id] = new_acl
+                else:
+                    if new_acl != self.dp.acls[acl_id]:
+                        changed_acls[acl_id] = new_acl
+
+            changed_ports = {}
+            for port_no, new_port in new_dp.ports.iteritems():
+                if port_no not in self.dp.ports:
+                    # Detected a newly configured port
+                    changed_ports[port_no] = new_port
+                else:
+                    # An existing port has configs changed
+                    if new_port != self.dp.ports[port_no]:
+                        changed_ports[port_no] = new_port
+                    else:
+                        # If the port has its ACL changed
+                        if new_port.acl_in in changed_acls:
+                            changed_ports[port_no] = new_port
+
+            for port_no in self.dp.ports.iterkeys():
+                if port_no not in new_dp.ports:
+                    ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no))
+
+            changed_vlans = {}
+            for vid, new_vlan in new_dp.vlans.iteritems():
+                if vid not in self.dp.vlans or new_vlan != self.dp.vlans[vid]:
+                    changed_vlans[vid] = new_vlan
+
+            if changed_vlans:
+                for vid, vlan in self.dp.vlans.iteritems():
+                    if vid not in new_dp.vlans or vid in changed_vlans:
+                        ofmsgs.extend(self._del_vlan(vlan))
+
+            for vlan in changed_vlans.iteritems():
+                ofmsgs.extend(self._add_vlan(new_vlan, set()))
+
             self.dp = new_dp
-            ofmsgs = self.datapath_connect(
-                self.dp.dp_id, self.dp.ports.keys())
+            self.dp.running = True
+
+            for port_no, port in changed_ports.iteritems():
+                ofmsgs.extend(self.port_add(self.dp.dp_id, port_no, True))
+
         return ofmsgs
 
     def _add_controller_ips(self, controller_ips, vlan):

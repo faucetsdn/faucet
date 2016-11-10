@@ -50,7 +50,7 @@ class Port(Conf):
         self._id = _id
         self.update(conf)
         self.set_defaults()
-        self.phys_up = False
+        self.dyn_phys_up = False
 
     def set_defaults(self):
         for key, value in self.defaults.iteritems():
@@ -60,6 +60,14 @@ class Port(Conf):
         self._set_default('description', self.name)
         self._set_default('tagged_vlans', [])
 
+    @property
+    def phys_up(self):
+        return self.dyn_phys_up
+
+    @phys_up.setter
+    def phys_up(self, status):
+        self.dyn_phys_up = status
+
     def running(self):
         return self.enabled and self.phys_up
 
@@ -67,10 +75,14 @@ class Port(Conf):
         return hash(self) == hash(other)
 
     def __hash__(self):
-        return hash(('Port', self.number))
+        items = [(k,v) for k, v in self.__dict__.iteritems() if 'dyn' not in k]
+        return hash(frozenset(map(str, items)))
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __str__(self):
         return self.name
+
+    def __repr__(self):
+        return "Port %s" % self.number
