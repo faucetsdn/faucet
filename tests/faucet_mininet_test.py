@@ -769,6 +769,107 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self.ping_all_when_learned()
 
 
+class FaucetUntaggedHUPConfigChangeTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            dl_type: 0x800
+            nw_proto: 6
+            tp_dst: 53
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def get_flow(self, exp_flow, timeout=10):
+        for _ in range(timeout):
+            flow_dump = self.get_all_flows_from_dpid(self.dpid)
+            for flow in flow_dump:
+                if re.search(exp_flow, flow):
+                    return json.loads(flow)
+            time.sleep(1)
+        return {}
+
+    def ntest_change_port_vlan(self):
+        self.ping_all_when_learned()
+        conf = yaml.load(self.CONFIG)
+        vid = 100
+        for _ in range(1, 2):
+            time.sleep(2)
+            flow_p1 = self.get_flow(
+                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 1}')
+            flow_p3 = self.get_flow(
+                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 3}')
+            prev_dur_p1 = flow_p1['duration_sec']
+            prev_dur_p3 = flow_p3['duration_sec']
+            if vid == 200:
+                vid = 100
+                ping_test = self.ping_all_when_learned
+            else:
+                vid = 200
+                ping_test = self.ping_cross_vlans
+            conf['dps']['faucet-1']['interfaces'][1]['native_vlan'] = vid
+            conf['dps']['faucet-1']['interfaces'][2]['native_vlan'] = vid
+            open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
+            self.hup_faucet()
+            flow_p1 = self.get_flow(
+                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 1}')
+            flow_p3 = self.get_flow(
+                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 3}')
+            actions = flow_p1.get('actions', '')
+            actions = [act for act in actions if 'vlan_vid' in act]
+            vid_ = re.findall(r'\d+', str(actions))
+            self.assertEqual(vid+4096, int(vid_[0]))
+            dur_p1 = flow_p1['duration_sec']
+            dur_p3 = flow_p3['duration_sec']
+            self.assertGreater(prev_dur_p1, dur_p1)
+            self.assertLess(prev_dur_p3, dur_p3)
+            ping_test()
+
+    def test_change_port_acl(self):
+        self.ping_all_when_learned()
+        conf = yaml.load(self.CONFIG)
+        for i in range(1, 2):
+            time.sleep(2)
+            conf['acls'][1].insert(0,
+                    {'rule': {'dl_type': 0x800,
+                              'nw_proto': 17,
+                              'tp_dst': 8000+i,
+                              'actions': {'allow': 1}}})
+            open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
+            self.hup_faucet()
+            self.wait_until_matching_flow(
+                    '{"dl_type": 2048, "nw_proto": 17, "in_port": 1, "tp_dst": %d}' % \
+                            (8000+i))
+
+    def ping_cross_vlans(self):
+        self.assertEqual(0, self.net.ping((self.net.hosts[0], self.net.hosts[1])))
+        self.assertEqual(0, self.net.ping((self.net.hosts[2], self.net.hosts[3])))
+        self.assertEqual(100, self.net.ping((self.net.hosts[0], self.net.hosts[3])))
+
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -1856,7 +1957,6 @@ class FaucetStringOfDPTest(FaucetTest):
             acls,
             acl_in_dp,
         )
-
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
 
     def get_config(self, dpids=[], stack=False, hardware=None, ofchannel_log=None,
