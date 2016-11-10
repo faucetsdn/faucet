@@ -428,6 +428,7 @@ HP Enterprise
 `HP Enterprise <http://www.hp.com>` and its many distributors and resellers.
 
 All the HPE Aruba’s v3 based product line (5400R, 3810 and 2930F) work with Faucet.
+
 1. 5400R is a chassis based product.
 2. 3810 can be used as a standalone or as a backplane stack.
 3. 2930F is a low cost standalone device.
