@@ -23,11 +23,6 @@ class VLAN(Conf):
     untagged = None
     vid = None
     controller_ips = None
-    ipv4_routes = None
-    ipv6_routes = None
-    arp_cache = None
-    nd_cache = None
-    host_cache = None
     bgp_as = None
     bgp_port = None
     bgp_routerid = None
@@ -37,6 +32,14 @@ class VLAN(Conf):
     bgp_neighbour_as = None
     routes = None
     max_hosts = None
+    unicast_flood = None
+    # Define dynamic variables with prefix dyn_ to distinguish from variables set
+    # configuration
+    dyn_ipv4_routes = None
+    dyn_ipv6_routes = None
+    dyn_arp_cache = None
+    dyn_nd_cache = None
+    dyn_host_cache = None
 
     defaults = {
         'name': None,
@@ -65,11 +68,11 @@ class VLAN(Conf):
         self._id = _id
         self.tagged = []
         self.untagged = []
-        self.ipv4_routes = {}
-        self.ipv6_routes = {}
-        self.arp_cache = {}
-        self.nd_cache = {}
-        self.host_cache = {}
+        self.dyn_ipv4_routes = {}
+        self.dyn_ipv6_routes = {}
+        self.dyn_arp_cache = {}
+        self.dyn_nd_cache = {}
+        self.dyn_host_cache = {}
 
         if self.controller_ips:
             self.controller_ips = [
@@ -91,6 +94,46 @@ class VLAN(Conf):
                     self.ipv4_routes[ip_dst] = ip_gw
                 else:
                     self.ipv6_routes[ip_dst] = ip_gw
+
+    @property
+    def ipv4_routes(self):
+        return self.dyn_ipv4_routes
+
+    @ipv4_routes.setter
+    def ipv4_routes(self, value):
+        self.dyn_ipv4_routes = value
+
+    @property
+    def ipv6_routes(self):
+        return self.dyn_ipv6_routes
+
+    @ipv6_routes.setter
+    def ipv6_routes(self, value):
+        self.dyn_ipv6_routes = value
+
+    @property
+    def arp_cache(self):
+        return self.dyn_arp_cache
+
+    @arp_cache.setter
+    def arp_cache(self, value):
+        self.dyn_arp_cache = value
+
+    @property
+    def nd_cache(self):
+        return self.dyn_nd_cache
+
+    @nd_cache.setter
+    def nd_cache(self, value):
+        self.dyn_nd_cache = value
+
+    @property
+    def host_cache(self):
+        return self.dyn_host_cache
+
+    @host_cache.setter
+    def host_cache(self, value):
+        self.dyn_host_cache = value
 
     def set_defaults(self):
         for key, value in self.defaults.iteritems():
@@ -149,3 +192,13 @@ class VLAN(Conf):
             if ip in controller_ip:
                 return True
         return False
+
+    def __hash__(self):
+        items = [(k,v) for k,v in self.__dict__.iteritems() if 'dyn' not in k]
+        return hash(frozenset(map(str, items)))
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
