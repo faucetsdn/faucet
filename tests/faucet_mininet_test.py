@@ -172,7 +172,11 @@ class FaucetSwitchTopo(Topo):
         for host_n in range(n_untagged):
             host = self.addHost('u%x%s' % (pid % 0xff, host_n + 1))
         if SWITCH_MAP:
-            dpid = int(dpid, 16) + 1
+            if dpid.startswith('0x'):
+                dpid = int(dpid, 16)
+            else:
+                dpid = int(dpid)
+            dpid = str(dpid + 1)
             print 'mapped switch will use DPID %s' % dpid
         switch = self.addSwitch(
             's1%x' % pid, cls=FaucetSwitch, listenPort=find_free_port(), dpid=dpid)
@@ -211,7 +215,7 @@ class FaucetTest(unittest.TestCase):
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
         if SWITCH_MAP:
-            self.dpid = DPID
+            self.dpid = str(DPID)
         else:
             self.dpid = str(random.randint(1, 2**32))
         self.CONFIG = '\n'.join((
