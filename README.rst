@@ -397,7 +397,7 @@ Faucet has been tested against the following switches:
 3. Allied Telesis x510 and x930 series - https://www.alliedtelesis.com/products/x930-series
 4. NoviFlow 1248 - http://noviflow.com/products/noviswitch
 5. Northbound Networks - Zodiac FX - http://northboundnetworks.com/collections/zodiac-fx
-6. HP Enterprise Aruba 3810 - http://www.arubanetworks.com/products/networking/switches/3810-series
+6. HP Enterprise Aruba 5400R, 3810 and 2930F - http://www.arubanetworks.com/products/networking/switches/3810-series
 
 Faucet's design principle is to be as hardware agnostic as possible and not require Table Type Patterns. This means that Faucet expects the hardware Open Flow Agent (OFA) to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet expects the OFA to leverage the right hardware transparently.
 
@@ -410,7 +410,7 @@ Allied Telesis
 
 `Allied Telesis <http://www.alliedtelesis.com/sdn>` sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`. To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`
 
-* On Allied Telesis, all vlans must be included in the vlan database config on the switch before they can be used by OpenFlow.
+* On Allied Telesis, all vlans must be included in the vlan database config on the switch before they can be used by OpenFlow.  When ordering, request Openflow license SKU.
 
 
 NoviFlow
@@ -426,6 +426,14 @@ FAUCET supports the Zodiac FX as of v0.60 firmware.
 HP Enterprise
 -------------
 `HP Enterprise <http://www.hp.com>` and its many distributors and resellers.
+
+All the HPE Aruba’s v3 based product line (5400R, 3810 and 2930F) work with Faucet.
+
+1. 5400R is a chassis based product.
+2. 3810 can be used as a standalone or as a backplane stack.
+3. 2930F is a low cost standalone device.
+
+OpenFlow is available by default on all the firmware releases of each of these products. There is no for a purchase of separate license to enable OpenFlow on the firmware.
 
 
 =====

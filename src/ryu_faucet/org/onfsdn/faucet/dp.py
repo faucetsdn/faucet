@@ -16,6 +16,7 @@
 from conf import Conf
 from vlan import VLAN
 from port import Port
+from valve_acl import ACL
 
 import networkx
 
@@ -132,7 +133,7 @@ class DP(Conf):
 
     def add_acl(self, acl_ident, acl_conf=None):
         if acl_conf is not None:
-            self.acls[acl_ident] = [x['rule'] for x in acl_conf]
+            self.acls[acl_ident] = ACL(acl_ident, acl_conf)
 
     def add_port(self, port):
         port_num = port.number
@@ -271,7 +272,7 @@ class DP(Conf):
 
         def resolve_port_names_in_acls():
             for acl in self.acls.itervalues():
-                for rule_conf in acl:
+                for rule_conf in acl.rules:
                     for attrib, attrib_value in rule_conf.iteritems():
                         if attrib == 'actions':
                             if 'mirror' in attrib_value:

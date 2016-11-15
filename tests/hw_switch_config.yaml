@@ -1,6 +1,7 @@
 # if set to True, map a hardware OpenFlow switch to ports on this machine.
 # Otherwise, run tests against OVS locally.
 hw_switch: False
+hardware: 'Open vSwitch'
 # Map ports on the hardware switch, to physical ports on this machine.
 dp_ports:
   1: p1p1
@@ -8,4 +9,4 @@ dp_ports:
   3: p1p3
   4: p1p4
 # override test DPID if necessary
-dpid: 0000eccd6d9936ed
+dpid: 0x0000eccd6d9936ed
