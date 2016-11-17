@@ -1,12 +1,19 @@
 #!/bin/sh
 ## @author shivaram.mysore@gmail.com
 
-SCREEN="screen -S FaucetController"
-
+# path to Ryu manager (likely local)
+RYU_MANAGER=/usr/bin/ryu-manager
 #VERBOSE=--verbose
 VERBOSE=
+# directory containing FAUCET application code
+PYTHON_PKG_DIR=/usr/lib/python2.7/site-packages
+FAUCET_APP_DIR=$PYTHON_PKG_DIR/ryu_faucet/org/onfsdn/faucet
+# TCP port controller should listen on for OpenFlow switch
+CONTROLLER_LISTEN_PORT=6653
 
-RYU_CMD="/usr/bin/ryu-manager $VERBOSE --ofp-tcp-listen-port 6653 /usr/lib/python2.7/site-packages/ryu_faucet/org/onfsdn/faucet/faucet.py"
+SCREEN="screen -S FaucetController"
+
+RYU_CMD="$RYU_MANAGER $VERBOSE --ofp-tcp-listen-port $CONTROLLER_LISTEN_PORT $FAUCET_APP_DIR/faucet.py"
 
 $SCREEN -X stuff 'command ^C'
 
@@ -20,5 +27,4 @@ $SCREEN -d -m $RYU_CMD
 echo "Listing Screen process ..."
 screen -list
 echo "To attach to a running screen process run:"
-echo "  screen -r FaucetController"
-
+echo "  $SCREEN"
