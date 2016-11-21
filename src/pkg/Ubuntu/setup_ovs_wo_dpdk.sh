@@ -13,9 +13,7 @@ function countprop {
   grep "^${1}" ${ENV}.properties | wc -l
 }
 
-### End Configuration ###
-
-echo "This script sets up OVS Switch on this Linux box"
+echo "This script sets up OVS Switch *without* DPDK support on this Linux box"
 
 ovs-vsctl add-br $(prop 'BRIDGE_NAME')
 ovs-vsctl list-br
