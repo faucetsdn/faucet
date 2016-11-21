@@ -1,62 +1,58 @@
-#!/bin/sh
+#!/bin/bash
 ## @author: Shivaram.Mysore@gmail.com
 
-### Configuration Settings ###
-MGMT_IFACE=enp1s0
+ENV=${1:-ovswitch}
 
-CNTRL_IFACE_1=enp5s0
-CNTRL_IP=10.10.11.19
-CNTRL_PORT=6653
+## Function to get the property value for the provided key
+function prop {
+  grep "^${1}" ${ENV}.properties|cut -d'=' -f2
+}
 
-## Note: one of the host ports connected to the Bridge works as Uplink port
-##  - possibly connected to the same switch as your DHCP server or has 
-##    visibility to the same via DHCP Relay or helper
-BRIDGE_NAME=ovs-br0
-BRIDGE_IP=10.10.8.8/16
-HOST_IFACE_1=enp2s0
-HOST_IFACE_2=enp3s0
-HOST_IFACE_3=enp5s0
-WIRELESS_HOST_IFACE_1=wlp4s0
-
-DATAPATH_ID=ce:ba:e9:4a:ed:44
-
-## Commands
-IFCONFIG=ifconfig
-IP=ip
-OVS_VSCTL=ovs-vsctl
-OVS_DPCTL=ovs-dpctl
-OVS_OFCTL=ovs-ofctl
+## Function to count the number of keys given the start of a key
+function countprop {
+  grep "^${1}" ${ENV}.properties | wc -l
+}
 
 ### End Configuration ###
 
 echo "This script sets up OVS Switch on this Linux box"
 
-$OVS_VSCTL add-br $BRIDGE_NAME
-$OVS_VSCTL list-br
-$OVS_VSCTL add-port $BRIDGE_NAME $HOST_IFACE_1 -- set Interface $HOST_IFACE_1 type=system
-$OVS_VSCTL add-port $BRIDGE_NAME $HOST_IFACE_2 -- set Interface $HOST_IFACE_2 type=system
-$OVS_VSCTL add-port $BRIDGE_NAME $HOST_IFACE_3 -- set Interface $HOST_IFACE_3 type=system
-#$OVS_VSCTL add-port $BRIDGE_NAME $WIRELESS_HOST_IFACE_1 -- set Interface $WIRELESS_HOST_IFACE_1 type=system
+ovs-vsctl add-br $(prop 'BRIDGE_NAME')
+ovs-vsctl list-br
+
+for ((i=1;i<=$(countprop 'HOST_IFACE');i++));
+do
+  IFACE=HOST_IFACE_$i
+  ovs-vsctl add-port $(prop 'BRIDGE_NAME') "$(prop "${IFACE}")" -- set Interface "$(prop "${IFACE}")" type=system
+done
+
+# to add a wireless interface uncomment the next line.
+#ovs-vsctl add-port $BRIDGE_NAME $WIRELESS_HOST_IFACE_1 -- set Interface $WIRELESS_HOST_IFACE_1 type=system
 
 ## Zero out your host interfaces that are attached to the bridge
-$IFCONFIG $HOST_IFACE_1 0
-$IFCONFIG $HOST_IFACE_2 0
-$IFCONFIG $HOST_IFACE_3 0
+for ((i=1;i<=$(countprop 'HOST_IFACE');i++));
+do
+  IFACE=HOST_IFACE_$i
+  ip addr add 0 dev "$(prop "${IFACE}")"
+done
 
+## Set OVS Bridge properties
+ovs-vsctl set bridge $(prop 'BRIDGE_NAME') protocols=OpenFlow13 other_config:datapath-id=$(prop 'DATAPATH_ID')
 
-$OVS_VSCTL set bridge $BRIDGE_NAME protocols=OpenFlow13 other_config:datapath-id=$DATAPATH_ID
+## Assign Openflow Controller IP and Port number to the OVS Bridge
+ovs-vsctl set-controller $(prop 'BRIDGE_NAME') tcp:$(prop 'CNTRL_IP'):$(prop 'CNTRL_PORT')
 
-$OVS_VSCTL set-controller $BRIDGE_NAME tcp:$CNTRL_IP:$CNTRL_PORT
+## Show OVS brige information
+ovs-vsctl show
+ip addr add $(prop 'BRIDGE_IP') dev $(prop 'BRIDGE_NAME')
 
-$OVS_VSCTL show
-$IFCONFIG $BRIDGE_NAME $BRIDGE_IP
-
+## Show network interface information
 echo "Network interface info ..."
-$IP link
+ip link
 
 echo "To get a dump of flows on the switch run:"
-echo "$OVS_OFCTL -O OpenFlow13 dump-flows $BRIDgE_NAME"
+echo "ovs-ofctl -O OpenFlow13 dump-flows $(prop 'BRIDGE_NAME')"
 echo ""
 
 echo "For Port information, run:"
-echo "$OVS_OFCTL -O OpenFlow13 dump-ports-desc $BRIDGE_NAME"
+echo "ovs-ofctl -O OpenFlow13 dump-ports-desc $(prop 'BRIDGE_NAME')"
