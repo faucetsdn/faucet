@@ -19,6 +19,10 @@ echo "Adding faucet database to influxdb ..."
 echo "Showing all databases ..."
 /usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=SHOW DATABASES'
 
+# Create 2 users - admin and grafana
+echo "Creating admin user with password faucet"
+echo "Creating grafana user with password: faucet"
+
 ### Commands to manually creating faucet db in Influx
 # echo "Adding faucet database to influxdb ..."
 # echo "run commands:"
@@ -30,4 +34,7 @@ echo "Showing all databases ..."
 # echo "  Using database faucet"
 # echo "> show measurements"
 # echo "> show series"
+# echo "> CREATE USER grafana WITH PASSWORD 'faucet'"
+# echo "> CREATE USER admin WITH PASSWORD 'faucet' WITH ALL PRIVILEGES"
+# echo "> GRANT ALL TO grafana"
 # echo "> exit"
