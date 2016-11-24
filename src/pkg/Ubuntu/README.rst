@@ -26,13 +26,13 @@ Ubuntu 16.04 Server LTS used
 
 After Ubuntu installation, the following scripts need to be run in sequence:
 
-    1. `install_dpdk_pkgs.sh <install_dpdk_pkgs.sh>`
+    1. `install_dpdk_pkgs.sh <install_dpdk_pkgs.sh>_`
     2. Update ``/etc/default/grub`` with ``GRUB_CMDLINE_LINUX_DEFAULT`` and then run ``update-grub``
     3. ``reboot`` the system
-    4. Modify `ovswitch.properties <ovswitch.properties>` file to suit your requirements
-    5. To test if everything is working, you can run `setup_ovs_wo_dpdk.sh <setup_ovs_wo_dpdk.sh >` script.
+    4. Modify `ovswitch.properties <ovswitch.properties>_` file to suit your requirements
+    5. To test if everything is working, you can run `setup_ovs_wo_dpdk.sh <setup_ovs_wo_dpdk.sh >_` script.
     6. Deleting OVS Setup is easy.  Just run ``ovs-vsctl del-br ovs-br0`` where ``ovs-br0`` is the name of the bridge
-    7. To setup DPDK enabled OVS, run the script `setup_dpdk_enabled_ovs.sh <setup_dpdk_enabled_ovs.sh>`
+    7. To setup DPDK enabled OVS, run the script `setup_dpdk_enabled_ovs.sh <setup_dpdk_enabled_ovs.sh>_`
 
 Faucet Controller Installation
 ------------------------------

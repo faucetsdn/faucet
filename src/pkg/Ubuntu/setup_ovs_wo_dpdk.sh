@@ -40,9 +40,11 @@ ovs-vsctl set bridge $(prop 'BRIDGE_NAME') protocols=OpenFlow13 other_config:dat
 ## Assign Openflow Controller IP and Port number to the OVS Bridge
 ovs-vsctl set-controller $(prop 'BRIDGE_NAME') tcp:$(prop 'CNTRL_IP'):$(prop 'CNTRL_PORT')
 
+## Set IP address for the OVS Bridge
+ip addr add $(prop 'BRIDGE_IP') dev $(prop 'BRIDGE_NAME')
+
 ## Show OVS brige information
 ovs-vsctl show
-ip addr add $(prop 'BRIDGE_IP') dev $(prop 'BRIDGE_NAME')
 
 ## Show network interface information
 echo "Network interface info ..."

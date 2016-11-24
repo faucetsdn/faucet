@@ -31,6 +31,12 @@ GRAFANA_PKG_NM=grafana-3.1.1-1470047149.x86_64.rpm
 mv /root/pkgs/$GRAFANA_PKG_NM.orig /root/pkgs/$GRAFANA_PKG_NM
 /bin/rpm -i --nodeps /root/pkgs/$GRAFANA_PKG_NM
 
+echo "Installing Grafana plugins ..."
+grafana-cli plugins install grafana-clock-panel
+grafana-cli plugins install grafana-worldmap-panel
+grafana-cli plugins install grafana-piechart-panel
+grafana-cli plugins install grafana-simple-json-datasource
+
 echo "Starting Grafana Server ..."
 systemctl start grafana-server
 echo" Checking Grafana Server service status ..."
