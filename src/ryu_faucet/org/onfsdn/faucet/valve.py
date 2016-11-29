@@ -48,6 +48,7 @@ def valve_factory(dp):
     SUPPORTED_HARDWARE = {
         'Allied-Telesis': Valve,
         'Aruba': ArubaValve,
+        'Netronome': Valve,
         'NoviFlow': Valve,
         'Open vSwitch': Valve,
         'ZodiacFX': Valve,
