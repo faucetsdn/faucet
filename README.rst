@@ -397,7 +397,7 @@ Faucet has been tested against the following switches:
 3. Allied Telesis x510 and x930 series - https://www.alliedtelesis.com/products/x930-series
 4. NoviFlow 1248 - http://noviflow.com/products/noviswitch
 5. Northbound Networks - Zodiac FX - http://northboundnetworks.com/collections/zodiac-fx
-6. HP Enterprise Aruba 5400R, 3810 and 2930F - http://www.arubanetworks.com/products/networking/switches/3810-series
+6. Hewlett Packard Enterprise - Aruba 5400R, 3810 and 2930F - http://www.arubanetworks.com/products/networking/switches/
 7. Netronome produces PCIe adaptors, with an OVS interface - Agilio CX 2x10GbE card - https://www.netronome.com/products/agilio-cx/
 
 Faucet's design principle is to be as hardware agnostic as possible and not require Table Type Patterns. This means that Faucet expects the hardware Open Flow Agent (OFA) to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet expects the OFA to leverage the right hardware transparently.
