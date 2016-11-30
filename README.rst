@@ -424,17 +424,17 @@ NorthBound Networks
 
 FAUCET supports the Zodiac FX as of v0.60 firmware.
 
-HP Enterprise
--------------
-`HP Enterprise <http://www.hp.com>` and its many distributors and resellers.
+Hewlett Packard Enterprise
+--------------------------
+`Hewlett Packard Enterprise <http://www.hpe.com>` and its many distributors and resellers.
 
-All the HPE Aruba’s v3 based product line (5400R, 3810 and 2930F) work with Faucet.
+All the HPE Aruba’s v3 based product line (5400R, 3810 and 2930F) work with FAUCET.
 
-1. 5400R is a chassis based product.
-2. 3810 can be used as a standalone or as a backplane stack.
-3. 2930F is a low cost standalone device.
+* 5400R - http://www.arubanetworks.com/products/networking/switches/5400r-series/
+* 3810  - http://www.arubanetworks.com/products/networking/switches/3810-series/ 
+* 2930F - http://www.arubanetworks.com/products/networking/switches/2930f-series/
 
-OpenFlow is available by default on all the firmware releases of each of these products. There is no for a purchase of separate license to enable OpenFlow on the firmware.
+OpenFlow is available by default on all the firmware releases of each of these products. There is no need for a purchase of separate license to enable OpenFlow on the firmware.
 
 Netronome
 ---------
