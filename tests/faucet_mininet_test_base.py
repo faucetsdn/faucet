@@ -3,6 +3,8 @@
 """Base class for all FAUCET unit tests."""
 
 
+import shutil
+import time
 import unittest
 
 from mininet.node import Host
@@ -43,3 +45,11 @@ class FaucetTestBase(unittest.TestCase):
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     CONFIG_GLOBAL = ''
     BOGUS_MAC = '01:02:03:04:05:06'
+
+    net = None
+    tmpdir = None
+
+    def tearDown(self):
+        if self.net is not None:
+            self.net.stop()
+        shutil.rmtree(self.tmpdir)
