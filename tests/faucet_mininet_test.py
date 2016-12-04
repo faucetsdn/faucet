@@ -88,7 +88,7 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 FAUCET_LINT_SRCS = glob.glob(os.path.join(FAUCET_DIR, '*py'))
 
 # Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = 20
+MAX_PARALLEL_TESTS = 10
 
 DPID = '1'
 HARDWARE = 'Open vSwitch'
