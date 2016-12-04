@@ -27,6 +27,7 @@ import glob
 import inspect
 import os
 import sys
+import getopt
 import random
 import re
 import shutil
@@ -2361,8 +2362,7 @@ def make_suite(tc_class):
     return suite
 
 
-def run_tests():
-    requested_test_classes = sys.argv[1:]
+def run_tests(requested_test_classes, serial=False):
     single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
     for name, obj in inspect.getmembers(sys.modules[__name__]):
@@ -2372,7 +2372,7 @@ def run_tests():
             continue
         if name.endswith('Test') and name.startswith('Faucet'):
             print 'adding test %s' % name
-            if SWITCH_MAP or name.startswith('FaucetSingle'):
+            if SWITCH_MAP or serial or name.startswith('FaucetSingle'):
                 single_tests.addTest(make_suite(obj))
             else:
                 parallel_tests.addTest(make_suite(obj))
@@ -2396,12 +2396,22 @@ def run_tests():
 
 
 if __name__ == '__main__':
-    if '-c' in sys.argv[1:] or '--clean' in sys.argv[1:]:
-        print (
-            'Cleaning up test interfaces, processes and openvswitch'
-            'configuration from previous test runs')
-        Cleanup.cleanup()
-        sys.exit(0)
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "cs", ["clean", "serial"])
+    except getopt.GetoptError as err:
+        print(str(err))
+        sys.exit(2)
+
+    serial = False
+    for opt, arg in opts:
+        if opt in ('-c', '--clean'):
+            print (
+                'Cleaning up test interfaces, processes and openvswitch'
+                'configuration from previous test runs')
+            Cleanup.cleanup()
+            sys.exit(0)
+        if opt in ('-s', '--serial'):
+            serial = True
     if not check_dependencies():
         print ('dependency check failed. check required library/binary '
                'list in header of this script')
@@ -2410,4 +2420,4 @@ if __name__ == '__main__':
         print 'pylint must pass with no errors'
         sys.exit(-1)
     import_config()
-    run_tests()
+    run_tests(args, serial=serial)
