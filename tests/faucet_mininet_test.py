@@ -297,12 +297,6 @@ dps:
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
-    def add_host_ipv6_address(self, host, ip_v6):
-        host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf()))
-
-    def add_host_ipv6_route(self, host, ip_dst, ip_gw):
-        host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw))
-
     def one_ipv4_ping(self, host, dst):
         self.require_host_learned(host)
         ping_result = host.cmd('ping -c1 %s' % dst)
@@ -322,12 +316,6 @@ dps:
 
     def one_ipv6_controller_ping(self, host):
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
-
-    def hup_faucet(self):
-        controller = self.net.controllers[0]
-        tcp_pattern = '%s/tcp' % controller.port
-        fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
-        self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
 
     def force_faucet_reload(self):
         # Force FAUCET to reload by adding new line to config file.
@@ -366,9 +354,6 @@ dps:
              lambda: second_host.cmd(curl_first_host),
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
-
-    def ofctl_rest_url(self):
-        return 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
 
     def get_all_flows_from_dpid(self, dpid, timeout=10):
         int_dpid = str_int_dpid(dpid)
@@ -425,15 +410,6 @@ dps:
         self.wait_until_matching_flow(
             'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
 
-    def curl_portmod(self, int_dpid, port_no, config, mask):
-        # TODO: avoid dependency on varying 'requests' library.
-        curl_format = ' '.join((
-            'curl -X POST -d'
-            '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
-            '%s/stats/portdesc/modify'))
-        return curl_format  % (
-            int_dpid, port_no, config, mask, self.ofctl_rest_url())
-
     def flap_all_switch_ports(self, flap_time=1):
         # TODO: for hardware switches also
         if not SWITCH_MAP:
@@ -448,12 +424,6 @@ dps:
                     os.system(self.curl_portmod(
                         int_dpid, port_no,
                         0, ofp.OFPPC_PORT_DOWN))
-
-    def swap_host_macs(self, first_host, second_host):
-        first_host_mac = first_host.MAC()
-        second_host_mac = second_host.MAC()
-        first_host.setMAC(second_host_mac)
-        second_host.setMAC(first_host_mac)
 
     def verify_tp_dst_blocked(self, port, first_host, second_host):
         second_host.cmd('timeout 10s echo hello | nc -l %u &' % port)
@@ -471,9 +441,6 @@ dps:
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
         self.wait_until_matching_flow(
             r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
-
-    def add_host_ipv4_route(self, host, ip_dst, ip_gw):
-        host.cmd('route add -net %s gw %s' % (ip_dst.masked(), ip_gw))
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip):
@@ -576,40 +543,6 @@ dps:
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2)
-
-    def stop_exabgp(self, port=179):
-        controller = self.net.controllers[0]
-        controller.cmd('fuser %s/tcp -k -9' % port)
-
-    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179):
-        self.stop_exabgp(port)
-        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
-        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
-        exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
-        open(exabgp_conf_file, 'w').write(exabgp_conf)
-        controller = self.net.controllers[0]
-        controller.cmd(
-            'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u '
-            'timeout -s9 180s stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
-                listen_address, port, exabgp_conf_file, exabgp_err, exabgp_log))
-        for _ in range(60):
-            netstat = controller.cmd('netstat -an|grep %s:%s|grep ESTAB' % (
-                listen_address, port))
-            if netstat.find('ESTAB') > -1:
-                return exabgp_log
-            time.sleep(1)
-        self.assertTrue(False)
-
-    def exabgp_updates(self, exabgp_log):
-        controller = self.net.controllers[0]
-        # exabgp should have received our BGP updates
-        for _ in range(60):
-            updates = controller.cmd(
-                r'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log)
-            if updates:
-                return updates
-            time.sleep(1)
-        self.assertTrue(False)
 
 
 class FaucetUntaggedTest(FaucetTest):
