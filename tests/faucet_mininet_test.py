@@ -53,6 +53,8 @@ from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
 from ryu.ofproto import ofproto_v1_3 as ofp
 
+import faucet_mininet_test_base
+
 
 # list of required external dependencies
 # external binary, argument to get version,
@@ -200,15 +202,7 @@ class FaucetSwitchTopo(Topo):
             self.addLink(host, switch)
 
 
-class FaucetTest(unittest.TestCase):
-
-    ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
-    CONFIG = ''
-    CONTROLLER_IPV4 = '10.0.0.254'
-    CONTROLLER_IPV6 = 'fc00::1:254'
-    OFCTL = 'ovs-ofctl -OOpenFlow13'
-    CONFIG_GLOBAL = ''
-    BOGUS_MAC = '01:02:03:04:05:06'
+class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
