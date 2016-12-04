@@ -45,9 +45,7 @@ import yaml
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.net import Mininet
 from mininet.node import Controller
-from mininet.node import Host
 from mininet.node import Intf
-from mininet.node import OVSSwitch
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
@@ -117,28 +115,6 @@ def find_free_port():
     return free_port
 
 
-class FaucetSwitch(OVSSwitch):
-
-    def __init__(self, name, **params):
-        OVSSwitch.__init__(self, name=name, datapath='kernel', **params)
-
-
-class VLANHost(Host):
-
-    def config(self, vlan=100, **params):
-        """Configure VLANHost according to (optional) parameters:
-           vlan: VLAN ID for default interface"""
-        super_config = super(VLANHost, self).config(**params)
-        intf = self.defaultIntf()
-        self.cmd('ifconfig %s inet 0' % intf)
-        self.cmd('vconfig add %s %d' % (intf, vlan))
-        self.cmd('ifconfig %s.%d inet %s' % (intf, vlan, params['ip']))
-        vlan_intf_name = '%s.%d' % (intf, vlan)
-        intf.name = vlan_intf_name
-        self.nameToIntf[vlan_intf_name] = intf
-        return super_config
-
-
 class FAUCET(Controller):
 
     def __init__(self, name, cdir=FAUCET_DIR,
@@ -182,8 +158,9 @@ class FaucetSwitchTopo(Topo):
     def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
         pid = os.getpid()
         for host_n in range(n_tagged):
-            host = self.addHost('t%x%s' % (pid % 0xff, host_n + 1),
-                                cls=VLANHost, vlan=tagged_vid)
+            host = self.addHost(
+                't%x%s' % (pid % 0xff, host_n + 1),
+                cls=faucet_mininet_test_base.VLANHost, vlan=tagged_vid)
         for host_n in range(n_untagged):
             host = self.addHost('u%x%s' % (pid % 0xff, host_n + 1))
         if SWITCH_MAP:
@@ -195,7 +172,7 @@ class FaucetSwitchTopo(Topo):
             print 'mapped switch will use DPID %s' % dpid
         switch = self.addSwitch(
             's1%x' % pid,
-            cls=FaucetSwitch,
+            cls=faucet_mininet_test_base.FaucetSwitch,
             listenPort=find_free_port(),
             dpid=dpid)
         for host in self.hosts():
@@ -1924,7 +1901,10 @@ class FaucetStringOfDPSwitchTopo(Topo):
 
             for host_n in range(n_tagged):
                 host_name = 't%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1)
-                host = self.addHost(host_name, cls=VLANHost, vlan=tagged_vid)
+                host = self.addHost(
+                    host_name,
+                    cls=faucet_mininet_test_base.VLANHost,
+                    vlan=tagged_vid)
                 hosts.append(host)
 
             for host_n in range(n_untagged):
@@ -1934,7 +1914,9 @@ class FaucetStringOfDPSwitchTopo(Topo):
 
             switch_name = 's%i%x' % (i + 1, pid)
             switch = self.addSwitch(
-                switch_name, cls=FaucetSwitch, listenPort=find_free_port(),
+                switch_name,
+                cls=faucet_mininet_test_base.FaucetSwitch,
+                listenPort=find_free_port(),
                 dpid=dpid)
 
             for host in hosts:
