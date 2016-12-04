@@ -148,7 +148,13 @@ class FAUCET(Controller):
         self.ofctl_port = find_free_port()
         cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
         Controller.__init__(
-            self, name, cdir=cdir, command=command, port=port, cargs=cargs, **kwargs)
+            self,
+            name,
+            cdir=cdir,
+            command=command,
+            port=port,
+            cargs=cargs,
+            **kwargs)
 
 
 class Gauge(Controller):
@@ -160,7 +166,13 @@ class Gauge(Controller):
         name = 'gauge-%u' % os.getpid()
         port = find_free_port()
         Controller.__init__(
-            self, name, cdir=cdir, command=command, port=port, cargs=cargs, **kwargs)
+            self,
+            name,
+            cdir=cdir,
+            command=command,
+            port=port,
+            cargs=cargs,
+            **kwargs)
 
 
 class FaucetSwitchTopo(Topo):
@@ -180,7 +192,10 @@ class FaucetSwitchTopo(Topo):
             dpid = str(dpid + 1)
             print 'mapped switch will use DPID %s' % dpid
         switch = self.addSwitch(
-            's1%x' % pid, cls=FaucetSwitch, listenPort=find_free_port(), dpid=dpid)
+            's1%x' % pid,
+            cls=FaucetSwitch,
+            listenPort=find_free_port(),
+            dpid=dpid)
         for host in self.hosts():
             self.addLink(host, switch)
 
@@ -380,15 +395,14 @@ dps:
 
     def bogus_mac_flooded_to_port1(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
-        first_host_mac = first_host.MAC()
         unicast_flood_filter = 'ether host %s' % self.BOGUS_MAC
+        static_bogus_arp = 'arp -s %s %s' % (first_host.IP(), self.BOGUS_MAC)
+        curl_first_host = 'curl -m 5 http://%s' % first_host.IP()
         tcpdump_txt = self.tcpdump_helper(
             first_host, unicast_flood_filter,
-                [lambda: second_host.cmd(
-                     'arp -s %s %s' % (first_host.IP(), self.BOGUS_MAC)),
-                 lambda: second_host.cmd(
-                     'curl -m 5 http://%s' % first_host.IP()),
-                 lambda: self.net.ping(hosts=(second_host, third_host))])
+            [lambda: second_host.cmd(static_bogus_arp),
+             lambda: second_host.cmd(curl_first_host),
+             lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
     def ofctl_rest_url(self):
@@ -825,9 +839,11 @@ acls:
         for _ in range(1, 2):
             time.sleep(2)
             flow_p1 = self.get_flow(
-                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 1}')
+                ('"table_id": 0, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": 1}'))
             flow_p3 = self.get_flow(
-                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 3}')
+                ('"table_id": 0, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": 3}'))
             prev_dur_p1 = flow_p1['duration_sec']
             prev_dur_p3 = flow_p3['duration_sec']
             if vid == 200:
@@ -841,9 +857,11 @@ acls:
             open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
             self.hup_faucet()
             flow_p1 = self.get_flow(
-                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 1}')
+                ('"table_id": 0, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": 1}'))
             flow_p3 = self.get_flow(
-                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 3}')
+                ('"table_id": 0, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": 3}'))
             actions = flow_p1.get('actions', '')
             actions = [act for act in actions if 'vlan_vid' in act]
             vid_ = re.findall(r'\d+', str(actions))
@@ -859,21 +877,25 @@ acls:
         conf = yaml.load(self.CONFIG)
         for i in range(1, 2):
             time.sleep(2)
-            conf['acls'][1].insert(0,
-                    {'rule': {'dl_type': 0x800,
-                              'nw_proto': 17,
-                              'tp_dst': 8000+i,
-                              'actions': {'allow': 1}}})
+            conf['acls'][1].insert(
+                0,
+                {'rule': {'dl_type': 0x800,
+                          'nw_proto': 17,
+                          'tp_dst': 8000+i,
+                          'actions': {'allow': 1}}})
             open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
             self.hup_faucet()
             self.wait_until_matching_flow(
-                    '{"dl_type": 2048, "nw_proto": 17, "in_port": 1, "tp_dst": %d}' % \
-                            (8000+i))
+                ('{"dl_type": 2048, "nw_proto": 17,'
+                 ' "in_port": 1, "tp_dst": %d}' % (8000+i)))
 
     def ping_cross_vlans(self):
-        self.assertEqual(0, self.net.ping((self.net.hosts[0], self.net.hosts[1])))
-        self.assertEqual(0, self.net.ping((self.net.hosts[2], self.net.hosts[3])))
-        self.assertEqual(100, self.net.ping((self.net.hosts[0], self.net.hosts[3])))
+        self.assertEqual(0,
+                         self.net.ping((self.net.hosts[0], self.net.hosts[1])))
+        self.assertEqual(0,
+                         self.net.ping((self.net.hosts[2], self.net.hosts[3])))
+        self.assertEqual(100,
+                         self.net.ping((self.net.hosts[0], self.net.hosts[3])))
 
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
 
@@ -2399,7 +2421,7 @@ if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], "cs", ["clean", "serial"])
     except getopt.GetoptError as err:
-        print(str(err))
+        print str(err)
         sys.exit(2)
 
     serial = False
