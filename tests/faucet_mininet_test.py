@@ -36,9 +36,7 @@ import tempfile
 import time
 import unittest
 
-import json
 import ipaddr
-import requests
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
@@ -297,20 +295,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
              lambda: second_host.cmd(curl_first_host),
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
-
-    def get_all_flows_from_dpid(self, dpid, timeout=10):
-        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
-        for _ in range(timeout):
-            try:
-                ofctl_result = json.loads(requests.get(
-                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
-            except (ValueError, requests.exceptions.ConnectionError):
-                # Didn't get valid JSON, try again
-                time.sleep(1)
-                continue
-            flow_dump = ofctl_result[int_dpid]
-            return [json.dumps(flow) for flow in flow_dump]
-        return []
 
     def matching_flow_present_on_dpid(self, dpid, exp_flow, timeout=10):
         for _ in range(timeout):
@@ -660,15 +644,6 @@ acls:
                 native_vlan: 100
                 description: "b4"
 """
-
-    def get_flow(self, exp_flow, timeout=10):
-        for _ in range(timeout):
-            flow_dump = self.get_all_flows_from_dpid(self.dpid)
-            for flow in flow_dump:
-                if re.search(exp_flow, flow):
-                    return json.loads(flow)
-            time.sleep(1)
-        return {}
 
     def ntest_change_port_vlan(self):
         self.ping_all_when_learned()

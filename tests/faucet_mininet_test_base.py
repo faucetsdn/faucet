@@ -8,6 +8,9 @@ import shutil
 import time
 import unittest
 
+import json
+import requests
+
 from mininet.node import Host
 from mininet.node import OVSSwitch
 
@@ -101,6 +104,31 @@ dbs:
     def ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""
         return 'http://127.0.0.1:%u' % self.get_controller().ofctl_port
+
+    def get_all_flows_from_dpid(self, dpid, timeout=10):
+        """Return all flows from datapath."""
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        for _ in range(timeout):
+            try:
+                ofctl_result = json.loads(requests.get(
+                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
+            except (ValueError, requests.exceptions.ConnectionError):
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
+            flow_dump = ofctl_result[int_dpid]
+            return [json.dumps(flow) for flow in flow_dump]
+        return []
+
+    def get_flow(self, exp_flow, timeout=10):
+        """Return flow matching an RE."""
+        for _ in range(timeout):
+            flow_dump = self.get_all_flows_from_dpid(self.dpid)
+            for flow in flow_dump:
+                if re.search(exp_flow, flow):
+                    return json.loads(flow)
+            time.sleep(1)
+        return {}
 
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
