@@ -1818,7 +1818,7 @@ class FaucetStringOfDPTest(FaucetTest):
                 name = dp_name(i)
                 int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
                 config['dps'][name] = {
-                    'dp_id': int_dpid,
+                    'dp_id': int(int_dpid),
                     'hardware': hardware,
                     'ofchannel_log': ofchannel_log,
                     'interfaces': {},
@@ -2203,7 +2203,7 @@ def run_tests(requested_test_classes, serial=False):
     results = []
     if parallel_tests.countTestCases():
         max_parallel_tests = max(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
-        parallel_runner = unittest.TextTestRunner()
+        parallel_runner = unittest.TextTestRunner(verbosity=255)
         parallel_suite = ConcurrentTestSuite(
             parallel_tests, fork_for_tests(max_parallel_tests))
         results.append(parallel_runner.run(parallel_suite))
