@@ -33,6 +33,7 @@ import random
 import re
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 
@@ -238,26 +239,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
-    def one_ipv4_ping(self, host, dst):
-        self.require_host_learned(host)
-        ping_result = host.cmd('ping -c1 %s' % dst)
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
-
-    def one_ipv4_controller_ping(self, host):
-        self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
-
-    def one_ipv6_ping(self, host, dst, timeout=2):
-        self.require_host_learned(host)
-        # TODO: retry our one ping. We should not have to retry.
-        for _ in range(timeout):
-            ping_result = host.cmd('ping6 -c1 %s' % dst)
-            if re.search(self.ONE_GOOD_PING, ping_result):
-                return
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
-
-    def one_ipv6_controller_ping(self, host):
-        self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
-
     def force_faucet_reload(self):
         # Force FAUCET to reload by adding new line to config file.
         open(os.environ['FAUCET_CONFIG'], 'a').write('\n')
@@ -296,25 +277,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
-    def ping_all_when_learned(self):
-        # Cause hosts to send traffic that FAUCET can use to learn them.
-        self.net.pingAll()
-        # we should have learned all hosts now, so should have no loss.
-        for host in self.net.hosts:
-            self.require_host_learned(host)
-        self.assertEquals(0, self.net.pingAll())
-
-    def wait_until_matching_route_as_flow(self, nexthop, prefix, timeout=5):
-        if prefix.version == 6:
-            exp_prefix = '/'.join(
-                (str(prefix.masked().ip), str(prefix.netmask)))
-            nw_dst_match = '"ipv6_dst": "%s"' % exp_prefix
-        else:
-            exp_prefix = prefix.masked().with_netmask
-            nw_dst_match = '"nw_dst": "%s"' % exp_prefix
-        self.wait_until_matching_flow(
-            'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
-
     def flap_all_switch_ports(self, flap_time=1):
         # TODO: for hardware switches also
         if not SWITCH_MAP:
@@ -329,125 +291,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                     os.system(self.curl_portmod(
                         int_dpid, port_no,
                         0, ofp.OFPPC_PORT_DOWN))
-
-    def verify_tp_dst_blocked(self, port, first_host, second_host):
-        second_host.cmd('timeout 10s echo hello | nc -l %u &' % port)
-        self.assertEquals(
-            '', first_host.cmd('timeout 10s nc %s %u' % (second_host.IP(), port)))
-        self.wait_until_matching_flow(
-            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
-
-    def verify_tp_dst_notblocked(self, port, first_host, second_host):
-        second_host.cmd(
-            'timeout 10s echo hello | nc -l %s %u &' % (second_host.IP(), port))
-        time.sleep(1)
-        self.assertEquals(
-            'hello\r\n',
-            first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
-        self.wait_until_matching_flow(
-            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
-
-    def verify_ipv4_routing(self, first_host, first_host_routed_ip,
-                            second_host, second_host_routed_ip):
-        first_host.cmd(('ifconfig %s:0 %s netmask %s up' % (
-            first_host.intf(),
-            first_host_routed_ip.ip,
-            first_host_routed_ip.netmask)))
-        second_host.cmd(('ifconfig %s:0 %s netmask %s up' % (
-            second_host.intf(),
-            second_host_routed_ip.ip,
-            second_host_routed_ip.netmask)))
-        self.add_host_ipv4_route(
-            first_host, second_host_routed_ip, self.CONTROLLER_IPV4)
-        self.add_host_ipv4_route(
-            second_host, first_host_routed_ip, self.CONTROLLER_IPV4)
-        self.net.ping(hosts=(first_host, second_host))
-        self.wait_until_matching_route_as_flow(
-            first_host.MAC(), first_host_routed_ip)
-        self.wait_until_matching_route_as_flow(
-            second_host.MAC(), second_host_routed_ip)
-        self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
-        self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
-
-    def verify_ipv4_routing_mesh(self):
-        host_pair = self.net.hosts[:2]
-        first_host, second_host = host_pair
-        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
-        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
-        second_host_routed_ip2 = ipaddr.IPv4Network('10.0.3.1/24')
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2)
-
-    def setup_ipv6_hosts_addresses(self, first_host, first_host_ip,
-                                   first_host_routed_ip, second_host,
-                                   second_host_ip, second_host_routed_ip):
-        for host in first_host, second_host:
-            host.cmd('ip addr flush dev %s' % host.intf())
-        self.add_host_ipv6_address(first_host, first_host_ip)
-        self.add_host_ipv6_address(second_host, second_host_ip)
-        self.add_host_ipv6_address(first_host, first_host_routed_ip)
-        self.add_host_ipv6_address(second_host, second_host_routed_ip)
-
-    def verify_ipv6_routing(self, first_host, first_host_ip,
-                            first_host_routed_ip, second_host,
-                            second_host_ip, second_host_routed_ip):
-        self.one_ipv6_ping(first_host, second_host_ip.ip)
-        self.one_ipv6_ping(second_host, first_host_ip.ip)
-        self.add_host_ipv6_route(
-            first_host, second_host_routed_ip, self.CONTROLLER_IPV6)
-        self.add_host_ipv6_route(
-            second_host, first_host_routed_ip, self.CONTROLLER_IPV6)
-        self.wait_until_matching_route_as_flow(
-            first_host.MAC(), first_host_routed_ip)
-        self.wait_until_matching_route_as_flow(
-            second_host.MAC(), second_host_routed_ip)
-        self.one_ipv6_controller_ping(first_host)
-        self.one_ipv6_controller_ping(second_host)
-        self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
-        self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
-
-    def verify_ipv6_routing_pair(self, first_host, first_host_ip,
-                                 first_host_routed_ip, second_host,
-                                 second_host_ip, second_host_routed_ip):
-        self.setup_ipv6_hosts_addresses(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.verify_ipv6_routing(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-
-    def verify_ipv6_routing_mesh(self):
-        host_pair = self.net.hosts[:2]
-        first_host, second_host = host_pair
-        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
-        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
-        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
-        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
-        second_host_routed_ip2 = ipaddr.IPv6Network('fc00::30:1/112')
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip2)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip2)
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -746,10 +589,10 @@ group test {
 """
         first_host, second_host = self.net.hosts[:2]
         # wait until 10.0.0.1 has been resolved
-        self.wait_until_matching_route_as_flow(
+        self.wait_for_route_as_flow(
             first_host.MAC(), ipaddr.IPv4Network('10.99.99.0/24'))
         self.start_exabgp(exabgp_conf)
-        self.wait_until_matching_route_as_flow(
+        self.wait_for_route_as_flow(
             second_host.MAC(), ipaddr.IPv4Network('10.0.3.0/24'), timeout=30)
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
@@ -1555,9 +1398,9 @@ vlans:
             first_host, second_host_ip, first_host_ctrl_ip)
         self.add_host_ipv6_route(
             second_host, first_host_ip, second_host_ctrl_ip)
-        self.wait_until_matching_route_as_flow(
+        self.wait_for_route_as_flow(
             first_host.MAC(), first_host_ip)
-        self.wait_until_matching_route_as_flow(
+        self.wait_for_route_as_flow(
             second_host.MAC(), second_host_ip)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(first_host, second_host_ctrl_ip)
@@ -1628,7 +1471,7 @@ group test {
         self.verify_ipv6_routing_mesh()
         second_host = self.net.hosts[1]
         self.flap_all_switch_ports()
-        self.wait_until_matching_route_as_flow(
+        self.wait_for_route_as_flow(
             second_host.MAC(), ipaddr.IPv6Network('fc00::30:0/112'))
         self.verify_ipv6_routing_mesh()
         updates = self.exabgp_updates(exabgp_log)
@@ -1818,7 +1661,7 @@ class FaucetStringOfDPTest(FaucetTest):
                 name = dp_name(i)
                 int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
                 config['dps'][name] = {
-                    'dp_id': int_dpid,
+                    'dp_id': int(int_dpid),
                     'hardware': hardware,
                     'ofchannel_log': ofchannel_log,
                     'interfaces': {},
@@ -2185,6 +2028,9 @@ def make_suite(tc_class):
 
 
 def run_tests(requested_test_classes, serial=False):
+    ports_server = threading.Thread(target=faucet_mininet_test_util.serve_ports)
+    ports_server.setDaemon(True)
+    ports_server.start()
     single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
     for name, obj in inspect.getmembers(sys.modules[__name__]):
@@ -2203,7 +2049,7 @@ def run_tests(requested_test_classes, serial=False):
     results = []
     if parallel_tests.countTestCases():
         max_parallel_tests = max(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
-        parallel_runner = unittest.TextTestRunner()
+        parallel_runner = unittest.TextTestRunner(verbosity=255)
         parallel_suite = ConcurrentTestSuite(
             parallel_tests, fork_for_tests(max_parallel_tests))
         results.append(parallel_runner.run(parallel_suite))

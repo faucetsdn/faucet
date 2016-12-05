@@ -2,8 +2,11 @@
 
 """Standalone utility functions for Mininet tests."""
 
+import os
 import socket
 
+
+PORTS_SOCKET = '/tmp/faucet-ports-server-socket'
 RESERVED_FOR_TESTS_PORTS = (5001, 5002)
 
 
@@ -13,12 +16,33 @@ def str_int_dpid(hex_dpid):
 
 
 def find_free_port():
-    """Return a free TCP port."""
+    """Retrieve a free TCP port from test server."""
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(PORTS_SOCKET)
+    return int(sock.recv(16))
+
+
+def serve_ports():
+    """Implement a TCP server to dispense free TCP ports."""
+    if os.path.exists(PORTS_SOCKET):
+        os.unlink(PORTS_SOCKET)
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.bind(PORTS_SOCKET)
+    sock.listen(1)
+    ports_served = set()
+
     while True:
-        free_socket = socket.socket()
-        free_socket.bind(('', 0))
-        free_port = free_socket.getsockname()[1]
-        free_socket.close()
-        if free_port not in RESERVED_FOR_TESTS_PORTS:
+        connection, _ = sock.accept()
+        while True:
+            free_socket = socket.socket()
+            free_socket.bind(('', 0))
+            free_port = free_socket.getsockname()[1]
+            free_socket.close()
+            if free_port in RESERVED_FOR_TESTS_PORTS:
+                continue
+            if free_port in ports_served:
+                continue
             break
-    return free_port
+        ports_served.add(free_port)
+        connection.sendall('%16.16u' % free_port)
+        connection.close()
