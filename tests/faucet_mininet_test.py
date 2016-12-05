@@ -1,27 +1,28 @@
 #!/usr/bin/python
 
-# mininet tests for FAUCET
-#
-# * must be run as root
-# * you can run a specific test case only, by adding the class name of the test
-#   case to the command. Eg ./faucet_mininet_test.py FaucetUntaggedIPv4RouteTest
-#
-# REQUIRES:
-#
-# * mininet 2.2.0 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
-#   use the "install from source" option from
-#   https://github.com/mininet/mininet/blob/master/INSTALL.
-#   suggest ./util/install.sh -n
-# * OVS 2.3.1 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
-# * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
-# * fuser
-# * net-tools
-# * iputils-ping
-# * netcat-openbsd
-# * tcpdump
-# * exabgp
-# * pylint
-# * curl
+"""Mininet tests for FAUCET.
+
+ * must be run as root
+ * you can run a specific test case only, by adding the class name of the test
+   case to the command. Eg ./faucet_mininet_test.py FaucetUntaggedIPv4RouteTest
+
+ REQUIRES:
+
+ * mininet 2.2.0 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
+   use the "install from source" option from
+   https://github.com/mininet/mininet/blob/master/INSTALL.
+   suggest ./util/install.sh -n
+ * OVS 2.3.1 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
+ * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
+ * fuser
+ * net-tools
+ * iputils-ping
+ * netcat-openbsd
+ * tcpdump
+ * exabgp
+ * pylint
+ * curl
+"""
 
 import glob
 import inspect
@@ -30,28 +31,25 @@ import sys
 import getopt
 import random
 import re
-import shutil
-import socket
 import subprocess
 import tempfile
 import time
 import unittest
 
-import json
 import ipaddr
-import requests
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.net import Mininet
 from mininet.node import Controller
-from mininet.node import Host
 from mininet.node import Intf
-from mininet.node import OVSSwitch
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
 from ryu.ofproto import ofproto_v1_3 as ofp
+
+import faucet_mininet_test_util
+import faucet_mininet_test_base
 
 
 # list of required external dependencies
@@ -86,7 +84,7 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 FAUCET_LINT_SRCS = glob.glob(os.path.join(FAUCET_DIR, '*py'))
 
 # Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = 20
+MAX_PARALLEL_TESTS = 10
 
 DPID = '1'
 HARDWARE = 'Open vSwitch'
@@ -98,45 +96,6 @@ PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
 SWITCH_MAP = {}
 
 
-def str_int_dpid(hex_dpid):
-    return str(int(hex_dpid, 16))
-
-
-# TODO: applications should retry if port not really free
-def find_free_port():
-    while True:
-        free_socket = socket.socket()
-        free_socket.bind(('', 0))
-        free_port = free_socket.getsockname()[1]
-        free_socket.close()
-        # ports reserved in tests
-        if free_port not in [5001, 5002]:
-            break
-    return free_port
-
-
-class FaucetSwitch(OVSSwitch):
-
-    def __init__(self, name, **params):
-        OVSSwitch.__init__(self, name=name, datapath='kernel', **params)
-
-
-class VLANHost(Host):
-
-    def config(self, vlan=100, **params):
-        """Configure VLANHost according to (optional) parameters:
-           vlan: VLAN ID for default interface"""
-        super_config = super(VLANHost, self).config(**params)
-        intf = self.defaultIntf()
-        self.cmd('ifconfig %s inet 0' % intf)
-        self.cmd('vconfig add %s %d' % (intf, vlan))
-        self.cmd('ifconfig %s.%d inet %s' % (intf, vlan, params['ip']))
-        vlan_intf_name = '%s.%d' % (intf, vlan)
-        intf.name = vlan_intf_name
-        self.nameToIntf[vlan_intf_name] = intf
-        return super_config
-
-
 class FAUCET(Controller):
 
     def __init__(self, name, cdir=FAUCET_DIR,
@@ -144,11 +103,17 @@ class FAUCET(Controller):
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'faucet-%u' % os.getpid()
-        port = find_free_port()
-        self.ofctl_port = find_free_port()
+        port = faucet_mininet_test_util.find_free_port()
+        self.ofctl_port = faucet_mininet_test_util.find_free_port()
         cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
         Controller.__init__(
-            self, name, cdir=cdir, command=command, port=port, cargs=cargs, **kwargs)
+            self,
+            name,
+            cdir=cdir,
+            command=command,
+            port=port,
+            cargs=cargs,
+            **kwargs)
 
 
 class Gauge(Controller):
@@ -158,9 +123,15 @@ class Gauge(Controller):
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'gauge-%u' % os.getpid()
-        port = find_free_port()
+        port = faucet_mininet_test_util.find_free_port()
         Controller.__init__(
-            self, name, cdir=cdir, command=command, port=port, cargs=cargs, **kwargs)
+            self,
+            name,
+            cdir=cdir,
+            command=command,
+            port=port,
+            cargs=cargs,
+            **kwargs)
 
 
 class FaucetSwitchTopo(Topo):
@@ -168,8 +139,9 @@ class FaucetSwitchTopo(Topo):
     def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
         pid = os.getpid()
         for host_n in range(n_tagged):
-            host = self.addHost('t%x%s' % (pid % 0xff, host_n + 1),
-                                cls=VLANHost, vlan=tagged_vid)
+            host = self.addHost(
+                't%x%s' % (pid % 0xff, host_n + 1),
+                cls=faucet_mininet_test_base.VLANHost, vlan=tagged_vid)
         for host_n in range(n_untagged):
             host = self.addHost('u%x%s' % (pid % 0xff, host_n + 1))
         if SWITCH_MAP:
@@ -180,20 +152,15 @@ class FaucetSwitchTopo(Topo):
             dpid = str(dpid + 1)
             print 'mapped switch will use DPID %s' % dpid
         switch = self.addSwitch(
-            's1%x' % pid, cls=FaucetSwitch, listenPort=find_free_port(), dpid=dpid)
+            's1%x' % pid,
+            cls=faucet_mininet_test_base.FaucetSwitch,
+            listenPort=faucet_mininet_test_util.find_free_port(),
+            dpid=dpid)
         for host in self.hosts():
             self.addLink(host, switch)
 
 
-class FaucetTest(unittest.TestCase):
-
-    ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
-    CONFIG = ''
-    CONTROLLER_IPV4 = '10.0.0.254'
-    CONTROLLER_IPV6 = 'fc00::1:254'
-    OFCTL = 'ovs-ofctl -OOpenFlow13'
-    CONFIG_GLOBAL = ''
-    BOGUS_MAC = '01:02:03:04:05:06'
+class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -227,7 +194,6 @@ class FaucetTest(unittest.TestCase):
             self.CONFIG % PORT_MAP))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.GAUGE_CONFIG = self.get_gauge_config(
-            self.dpid,
             os.environ['FAUCET_CONFIG'],
             self.monitor_ports_file,
             self.monitor_flow_table_file
@@ -235,46 +201,6 @@ class FaucetTest(unittest.TestCase):
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
         self.net = None
         self.topo = None
-
-    def get_gauge_config(self, dp_id, faucet_config_file,
-                         monitor_ports_file, monitor_flow_table_file):
-        return '''
-faucet_configs:
-    - {0}
-watchers:
-    port_stats:
-        dps: ['faucet-1']
-        type: 'port_stats'
-        interval: 5
-        db: 'ps_file'
-    flow_table:
-        dps: ['faucet-1']
-        type: 'flow_table'
-        interval: 5
-        db: 'ft_file'
-dbs:
-    ps_file:
-        type: 'text'
-        file: {2}
-    ft_file:
-        type: 'text'
-        file: {3}
-'''.format(
-    faucet_config_file,
-    dp_id,
-    monitor_ports_file,
-    monitor_flow_table_file
-    )
-
-    def get_config_header(self, config_global, dpid, hardware):
-        return '''
-version: 2
-%s
-dps:
-    faucet-1:
-        dp_id: %s
-        hardware: "%s"
-''' % (config_global, str_int_dpid(dpid), hardware)
 
     def attach_physical_switch(self):
         switch = self.net.switches[0]
@@ -312,20 +238,6 @@ dps:
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
-    def tearDown(self):
-        if self.net is not None:
-            self.net.stop()
-            # Mininet takes a long time to actually shutdown.
-            # TODO: detect and block when Mininet isn't done.
-            time.sleep(5)
-        shutil.rmtree(self.tmpdir)
-
-    def add_host_ipv6_address(self, host, ip_v6):
-        host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf()))
-
-    def add_host_ipv6_route(self, host, ip_dst, ip_gw):
-        host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw))
-
     def one_ipv4_ping(self, host, dst):
         self.require_host_learned(host)
         ping_result = host.cmd('ping -c1 %s' % dst)
@@ -345,12 +257,6 @@ dps:
 
     def one_ipv6_controller_ping(self, host):
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
-
-    def hup_faucet(self):
-        controller = self.net.controllers[0]
-        tcp_pattern = '%s/tcp' % controller.port
-        fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
-        self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
 
     def force_faucet_reload(self):
         # Force FAUCET to reload by adding new line to config file.
@@ -380,55 +286,15 @@ dps:
 
     def bogus_mac_flooded_to_port1(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
-        first_host_mac = first_host.MAC()
         unicast_flood_filter = 'ether host %s' % self.BOGUS_MAC
+        static_bogus_arp = 'arp -s %s %s' % (first_host.IP(), self.BOGUS_MAC)
+        curl_first_host = 'curl -m 5 http://%s' % first_host.IP()
         tcpdump_txt = self.tcpdump_helper(
             first_host, unicast_flood_filter,
-                [lambda: second_host.cmd(
-                     'arp -s %s %s' % (first_host.IP(), self.BOGUS_MAC)),
-                 lambda: second_host.cmd(
-                     'curl -m 5 http://%s' % first_host.IP()),
-                 lambda: self.net.ping(hosts=(second_host, third_host))])
+            [lambda: second_host.cmd(static_bogus_arp),
+             lambda: second_host.cmd(curl_first_host),
+             lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
-
-    def ofctl_rest_url(self):
-        return 'http://127.0.0.1:%u' % self.net.controllers[0].ofctl_port
-
-    def get_all_flows_from_dpid(self, dpid, timeout=10):
-        int_dpid = str_int_dpid(dpid)
-        for _ in range(timeout):
-            try:
-                ofctl_result = json.loads(requests.get(
-                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
-            except (ValueError, requests.exceptions.ConnectionError):
-                # Didn't get valid JSON, try again
-                time.sleep(1)
-                continue
-            flow_dump = ofctl_result[int_dpid]
-            return [json.dumps(flow) for flow in flow_dump]
-        return []
-
-    def matching_flow_present_on_dpid(self, dpid, exp_flow, timeout=10):
-        for _ in range(timeout):
-            flow_dump = self.get_all_flows_from_dpid(dpid, timeout)
-            for flow in flow_dump:
-                if re.search(exp_flow, flow):
-                    return True
-            time.sleep(1)
-        return False
-
-    def matching_flow_present(self, exp_flow, timeout=10):
-        return self.matching_flow_present_on_dpid(self.dpid, exp_flow, timeout)
-
-    def wait_until_matching_flow(self, exp_flow, timeout=10):
-        self.assertTrue(self.matching_flow_present(exp_flow, timeout)), exp_flow
-
-    def host_learned(self, host):
-        return self.matching_flow_present(
-            '"table_id": 2,.+"dl_src": "%s"' % host.MAC())
-
-    def require_host_learned(self, host):
-        self.assertTrue(self.host_learned(host)), host
 
     def ping_all_when_learned(self):
         # Cause hosts to send traffic that FAUCET can use to learn them.
@@ -449,20 +315,11 @@ dps:
         self.wait_until_matching_flow(
             'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
 
-    def curl_portmod(self, int_dpid, port_no, config, mask):
-        # TODO: avoid dependency on varying 'requests' library.
-        curl_format = ' '.join((
-            'curl -X POST -d'
-            '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
-            '%s/stats/portdesc/modify'))
-        return curl_format  % (
-            int_dpid, port_no, config, mask, self.ofctl_rest_url())
-
     def flap_all_switch_ports(self, flap_time=1):
         # TODO: for hardware switches also
         if not SWITCH_MAP:
             switch = self.net.switches[0]
-            int_dpid = str_int_dpid(self.dpid)
+            int_dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
             for port_no in sorted(switch.ports.itervalues()):
                 if port_no > 0:
                     os.system(self.curl_portmod(
@@ -472,12 +329,6 @@ dps:
                     os.system(self.curl_portmod(
                         int_dpid, port_no,
                         0, ofp.OFPPC_PORT_DOWN))
-
-    def swap_host_macs(self, first_host, second_host):
-        first_host_mac = first_host.MAC()
-        second_host_mac = second_host.MAC()
-        first_host.setMAC(second_host_mac)
-        second_host.setMAC(first_host_mac)
 
     def verify_tp_dst_blocked(self, port, first_host, second_host):
         second_host.cmd('timeout 10s echo hello | nc -l %u &' % port)
@@ -495,9 +346,6 @@ dps:
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
         self.wait_until_matching_flow(
             r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
-
-    def add_host_ipv4_route(self, host, ip_dst, ip_gw):
-        host.cmd('route add -net %s gw %s' % (ip_dst.masked(), ip_gw))
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip):
@@ -600,40 +448,6 @@ dps:
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2)
-
-    def stop_exabgp(self, port=179):
-        controller = self.net.controllers[0]
-        controller.cmd('fuser %s/tcp -k -9' % port)
-
-    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179):
-        self.stop_exabgp(port)
-        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
-        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
-        exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
-        open(exabgp_conf_file, 'w').write(exabgp_conf)
-        controller = self.net.controllers[0]
-        controller.cmd(
-            'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u '
-            'timeout -s9 180s stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
-                listen_address, port, exabgp_conf_file, exabgp_err, exabgp_log))
-        for _ in range(60):
-            netstat = controller.cmd('netstat -an|grep %s:%s|grep ESTAB' % (
-                listen_address, port))
-            if netstat.find('ESTAB') > -1:
-                return exabgp_log
-            time.sleep(1)
-        self.assertTrue(False)
-
-    def exabgp_updates(self, exabgp_log):
-        controller = self.net.controllers[0]
-        # exabgp should have received our BGP updates
-        for _ in range(60):
-            updates = controller.cmd(
-                r'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log)
-            if updates:
-                return updates
-            time.sleep(1)
-        self.assertTrue(False)
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -809,25 +623,20 @@ acls:
                 description: "b4"
 """
 
-    def get_flow(self, exp_flow, timeout=10):
-        for _ in range(timeout):
-            flow_dump = self.get_all_flows_from_dpid(self.dpid)
-            for flow in flow_dump:
-                if re.search(exp_flow, flow):
-                    return json.loads(flow)
-            time.sleep(1)
-        return {}
-
     def ntest_change_port_vlan(self):
         self.ping_all_when_learned()
         conf = yaml.load(self.CONFIG)
         vid = 100
         for _ in range(1, 2):
             time.sleep(2)
-            flow_p1 = self.get_flow(
-                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 1}')
-            flow_p3 = self.get_flow(
-                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 3}')
+            flow_p1 = self.get_matching_flow_on_dpid(
+                self.dpid,
+                ('"table_id": 0, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": 1}'))
+            flow_p3 = self.get_matching_flow_on_dpid(
+                self.dpid,
+                ('"table_id": 0, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": 3}'))
             prev_dur_p1 = flow_p1['duration_sec']
             prev_dur_p3 = flow_p3['duration_sec']
             if vid == 200:
@@ -840,10 +649,14 @@ acls:
             conf['dps']['faucet-1']['interfaces'][2]['native_vlan'] = vid
             open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
             self.hup_faucet()
-            flow_p1 = self.get_flow(
-                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 1}')
-            flow_p3 = self.get_flow(
-                    '"table_id": 0, "match": {"dl_vlan": "0x0000", "in_port": 3}')
+            flow_p1 = self.get_matching_flow_on_dpid(
+                self.dpid,
+                ('"table_id": 0, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": 1}'))
+            flow_p3 = self.get_matching_flow_on_dpid(
+                self.dpid,
+                ('"table_id": 0, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": 3}'))
             actions = flow_p1.get('actions', '')
             actions = [act for act in actions if 'vlan_vid' in act]
             vid_ = re.findall(r'\d+', str(actions))
@@ -859,21 +672,25 @@ acls:
         conf = yaml.load(self.CONFIG)
         for i in range(1, 2):
             time.sleep(2)
-            conf['acls'][1].insert(0,
-                    {'rule': {'dl_type': 0x800,
-                              'nw_proto': 17,
-                              'tp_dst': 8000+i,
-                              'actions': {'allow': 1}}})
+            conf['acls'][1].insert(
+                0,
+                {'rule': {'dl_type': 0x800,
+                          'nw_proto': 17,
+                          'tp_dst': 8000+i,
+                          'actions': {'allow': 1}}})
             open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
             self.hup_faucet()
             self.wait_until_matching_flow(
-                    '{"dl_type": 2048, "nw_proto": 17, "in_port": 1, "tp_dst": %d}' % \
-                            (8000+i))
+                ('{"dl_type": 2048, "nw_proto": 17,'
+                 ' "in_port": 1, "tp_dst": %d}' % (8000+i)))
 
     def ping_cross_vlans(self):
-        self.assertEqual(0, self.net.ping((self.net.hosts[0], self.net.hosts[1])))
-        self.assertEqual(0, self.net.ping((self.net.hosts[2], self.net.hosts[3])))
-        self.assertEqual(100, self.net.ping((self.net.hosts[0], self.net.hosts[3])))
+        self.assertEqual(0,
+                         self.net.ping((self.net.hosts[0], self.net.hosts[1])))
+        self.assertEqual(0,
+                         self.net.ping((self.net.hosts[2], self.net.hosts[3])))
+        self.assertEqual(100,
+                         self.net.ping((self.net.hosts[0], self.net.hosts[3])))
 
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
 
@@ -1908,7 +1725,10 @@ class FaucetStringOfDPSwitchTopo(Topo):
 
             for host_n in range(n_tagged):
                 host_name = 't%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1)
-                host = self.addHost(host_name, cls=VLANHost, vlan=tagged_vid)
+                host = self.addHost(
+                    host_name,
+                    cls=faucet_mininet_test_base.VLANHost,
+                    vlan=tagged_vid)
                 hosts.append(host)
 
             for host_n in range(n_untagged):
@@ -1918,7 +1738,9 @@ class FaucetStringOfDPSwitchTopo(Topo):
 
             switch_name = 's%i%x' % (i + 1, pid)
             switch = self.addSwitch(
-                switch_name, cls=FaucetSwitch, listenPort=find_free_port(),
+                switch_name,
+                cls=faucet_mininet_test_base.FaucetSwitch,
+                listenPort=faucet_mininet_test_util.find_free_port(),
                 dpid=dpid)
 
             for host in hosts:
@@ -1989,14 +1811,14 @@ class FaucetStringOfDPTest(FaucetTest):
         if dpids:
             dpid_count = len(dpids)
             num_switch_links = None
-
             config['dps'] = {}
 
             for i, dpid in enumerate(dpids):
                 p = 1
                 name = dp_name(i)
+                int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
                 config['dps'][name] = {
-                    'dp_id': int(str_int_dpid(dpid)),
+                    'dp_id': int_dpid,
                     'hardware': hardware,
                     'ofchannel_log': ofchannel_log,
                     'interfaces': {},
@@ -2399,7 +2221,7 @@ if __name__ == '__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], "cs", ["clean", "serial"])
     except getopt.GetoptError as err:
-        print(str(err))
+        print str(err)
         sys.exit(2)
 
     serial = False
