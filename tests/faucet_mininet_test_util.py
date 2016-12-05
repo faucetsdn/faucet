@@ -3,7 +3,9 @@
 """Standalone utility functions for Mininet tests."""
 
 import os
+import random
 import socket
+import time
 
 
 PORTS_SOCKET = '/tmp/faucet-ports-server-socket'
@@ -46,5 +48,7 @@ def serve_ports():
                 continue
             break
         ports_served.add(free_port)
+        # delay test request for ports slightly/randomly, to limit test load.
+        time.sleep(random.random() * 0.5)
         connection.sendall('%16.16u' % free_port)
         connection.close()

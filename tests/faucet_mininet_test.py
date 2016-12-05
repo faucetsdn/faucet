@@ -85,7 +85,7 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 FAUCET_LINT_SRCS = glob.glob(os.path.join(FAUCET_DIR, '*py'))
 
 # Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = 10
+MAX_PARALLEL_TESTS = 5
 
 DPID = '1'
 HARDWARE = 'Open vSwitch'
@@ -238,7 +238,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.net.start()
             self.net.waitConnected()
             faucet = self.get_controller()
+            switch = self.net.switches[0]
+            self.wait_for_tcp_listen(switch, switch.listenPort)
             self.wait_for_tcp_listen(faucet, faucet.ofctl_port)
+            self.wait_for_tcp_listen(faucet, faucet.port)
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
@@ -1835,6 +1838,7 @@ class FaucetSingleStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
 
 
 class FaucetSingleStackStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
+    """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
     NUM_HOSTS = 4
@@ -2087,7 +2091,7 @@ def run_tests(requested_test_classes, serial=False):
     # TODO: Tests that are serialized generally depend on hardcoded ports.
     # Make them use dynamic ports.
     if single_tests.countTestCases():
-        single_runner = unittest.TextTestRunner()
+        single_runner = unittest.TextTestRunner(verbosity=255)
         results.append(single_runner.run(single_tests))
     for result in results:
         if not result.wasSuccessful():
