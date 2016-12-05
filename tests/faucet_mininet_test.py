@@ -295,10 +295,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 lambda: first_host.cmd(first_ping_second)])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt),
-            msg=tcpdump_txt)
+                        msg=tcpdump_txt)
         self.assertTrue(re.search(
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
-            msg=tcpdump_txt)
+                        msg=tcpdump_txt)
 
     def flap_all_switch_ports(self, flap_time=1):
         # TODO: for hardware switches also
