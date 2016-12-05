@@ -179,8 +179,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.tmpdir, 'gauge-exception.log')
         self.debug_log_path = os.path.join(
             self.tmpdir, 'ofchannel.log')
-        self.monitor_ports_file = os.path.join(
+        self.monitor_stats_file = os.path.join(
             self.tmpdir, 'ports.txt')
+        self.monitor_state_file = os.path.join(
+            self.tmpdir, 'state.txt')
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
         if SWITCH_MAP:
@@ -196,7 +198,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.GAUGE_CONFIG = self.get_gauge_config(
             os.environ['FAUCET_CONFIG'],
-            self.monitor_ports_file,
+            self.monitor_stats_file,
+            self.monitor_state_file,
             self.monitor_flow_table_file
             )
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
@@ -326,15 +329,19 @@ vlans:
     def test_untagged(self):
         """All hosts on the same untagged VLAN should have connectivity."""
         self.ping_all_when_learned()
+        self.flap_all_switch_ports()
         # TODO: a smoke test only - are flow/port stats accumulating
         if not SWITCH_MAP:
-            for _ in range(5):
-                if (os.path.exists(self.monitor_ports_file) and
-                        os.path.exists(self.monitor_flow_table_file)):
-                    break
-                time.sleep(1)
-            assert os.stat(self.monitor_ports_file).st_size > 0
-            assert os.stat(self.monitor_flow_table_file).st_size > 0
+            watcher_files = (
+                self.monitor_stats_file,
+                self.monitor_state_file,
+                self.monitor_flow_table_file)
+            for watcher_file in watcher_files:
+                for _ in range(5):
+                    if os.path.exists(watcher_file):
+                        break
+                    time.sleep(1)
+                self.assertTrue(os.stat(watcher_file).st_size > 0)
 
 
 class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
