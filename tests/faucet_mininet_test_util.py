@@ -3,11 +3,13 @@
 """Standalone utility functions for Mininet tests."""
 
 import os
+import random
 import socket
+import time
 
 
 PORTS_SOCKET = '/tmp/faucet-ports-server-socket'
-RESERVED_FOR_TESTS_PORTS = (5001, 5002)
+RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 9179)
 
 
 def str_int_dpid(hex_dpid):
@@ -38,11 +40,15 @@ def serve_ports():
             free_socket.bind(('', 0))
             free_port = free_socket.getsockname()[1]
             free_socket.close()
+            if free_port < 1024:
+                continue
             if free_port in RESERVED_FOR_TESTS_PORTS:
                 continue
             if free_port in ports_served:
                 continue
             break
         ports_served.add(free_port)
+        # delay test request for ports slightly/randomly, to limit test load.
+        time.sleep(random.random() * 0.5)
         connection.sendall('%16.16u' % free_port)
         connection.close()

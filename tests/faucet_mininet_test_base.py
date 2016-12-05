@@ -231,7 +231,7 @@ dbs:
             if re.search(r'^%u/tcp.+' % port, fuser_out):
                 return
             time.sleep(1)
-        self.fail('%s never listened on port %u' % (host, port))
+        self.fail('%s never listened on port %u (%s)' % (host, port, fuser_out))
 
     def serve_hello_on_tcp_port(self, host, port):
         """Serve 'hello' on a TCP port on a host."""

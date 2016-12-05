@@ -85,7 +85,7 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 FAUCET_LINT_SRCS = glob.glob(os.path.join(FAUCET_DIR, '*py'))
 
 # Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = 10
+MAX_PARALLEL_TESTS = 5
 
 DPID = '1'
 HARDWARE = 'Open vSwitch'
@@ -230,21 +230,24 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     def start_net(self):
         self.net = Mininet(self.topo, controller=FAUCET)
         # TODO: when running software only, also test gauge.
-        if not SWITCH_MAP:
-            self.net.addController(controller=Gauge)
-        self.net.start()
         if SWITCH_MAP:
+            self.net.start()
             self.attach_physical_switch()
         else:
-            for controller in self.net.controllers:
-                controller.isAvailable()
+            self.net.addController(controller=Gauge)
+            self.net.start()
             self.net.waitConnected()
+            faucet = self.get_controller()
+            switch = self.net.switches[0]
+            self.wait_for_tcp_listen(switch, switch.listenPort)
+            self.wait_for_tcp_listen(faucet, faucet.ofctl_port)
+            self.wait_for_tcp_listen(faucet, faucet.port)
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
-    def force_faucet_reload(self):
+    def force_faucet_reload(self, new_config):
         # Force FAUCET to reload by adding new line to config file.
-        open(os.environ['FAUCET_CONFIG'], 'a').write('\n')
+        open(os.environ['FAUCET_CONFIG'], 'a').write(new_config)
         self.hup_faucet()
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
@@ -279,6 +282,26 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
              lambda: second_host.cmd(curl_first_host),
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
+
+    def verify_ping_mirrored(self, first_host, second_host, mirror_host):
+        self.net.ping((first_host, second_host))
+        for host in (first_host, second_host):
+            self.require_host_learned(host)
+        self.assertEquals(0, self.net.ping((first_host, second_host)))
+        mirror_mac = mirror_host.MAC()
+        tcpdump_filter = (
+            'not ether src %s and '
+            '(icmp[icmptype] == 8 or icmp[icmptype] == 0)') % mirror_mac
+        first_ping_second = 'ping -c1 %s' % second_host.IP()
+        tcpdump_txt = self.tcpdump_helper(
+            mirror_host, tcpdump_filter, [
+                lambda: first_host.cmd(first_ping_second)])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt),
+                        msg=tcpdump_txt)
+        self.assertTrue(re.search(
+            '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
+                        msg=tcpdump_txt)
 
     def flap_all_switch_ports(self, flap_time=1):
         # TODO: for hardware switches also
@@ -391,7 +414,6 @@ vlans:
 """
 
     CONFIG = """
-        timeout: 60
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -408,7 +430,7 @@ vlans:
 """
 
     def test_untagged(self):
-        self.force_faucet_reload()
+        self.force_faucet_reload('       timeout: 60')
         self.net.pingAll()
         learned_hosts = [
             host for host in self.net.hosts if self.host_learned(host)]
@@ -1059,16 +1081,7 @@ acls:
 
     def test_untagged(self):
         first_host, second_host, mirror_host = self.net.hosts[0:3]
-        first_host.cmd('ping -c1 %s' % second_host.IP())
-        mirror_mac = mirror_host.MAC()
-        tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
-        tcpdump_txt = self.tcpdump_helper(
-            mirror_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
-        self.assertTrue(re.search(
-            '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt))
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
 
 
 class FaucetUntaggedACLMirrorDefaultAllowTest(FaucetUntaggedACLMirrorTest):
@@ -1149,7 +1162,7 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1  %s' % second_host.IP())])
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
@@ -1184,16 +1197,7 @@ vlans:
 
     def test_untagged(self):
         first_host, second_host, mirror_host = self.net.hosts[0:3]
-        first_host.cmd('ping -c1 %s' % second_host.IP())
-        mirror_mac = mirror_host.MAC()
-        tcpdump_filter = 'not ether src %s and icmp' % mirror_mac
-        tcpdump_txt = self.tcpdump_helper(
-            mirror_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -c1  %s' % second_host.IP())])
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
-        self.assertTrue(re.search(
-            '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt))
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
 
 
 class FaucetTaggedTest(FaucetTest):
@@ -1834,6 +1838,7 @@ class FaucetSingleStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
 
 
 class FaucetSingleStackStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
+    """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
     NUM_HOSTS = 4
@@ -2086,7 +2091,7 @@ def run_tests(requested_test_classes, serial=False):
     # TODO: Tests that are serialized generally depend on hardcoded ports.
     # Make them use dynamic ports.
     if single_tests.countTestCases():
-        single_runner = unittest.TextTestRunner()
+        single_runner = unittest.TextTestRunner(verbosity=255)
         results.append(single_runner.run(single_tests))
     for result in results:
         if not result.wasSuccessful():
