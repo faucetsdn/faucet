@@ -73,10 +73,13 @@ dps:
         hardware: "%s"
 """ % (config_global, faucet_mininet_test_util.str_int_dpid(dpid), hardware)
 
-    def get_gauge_config(self, faucet_config_file, monitor_ports_file,
+    def get_gauge_config(self, faucet_config_file,
+                         monitor_stats_file,
+                         monitor_state_file,
                          monitor_flow_table_file):
         """Build Gauge config."""
         return """
+version: 2
 faucet_configs:
     - %s
 watchers:
@@ -84,20 +87,29 @@ watchers:
         dps: ['faucet-1']
         type: 'port_stats'
         interval: 5
-        db: 'ps_file'
+        db: 'stats_file'
+    port_state:
+        dps: ['faucet-1']
+        type: 'port_state'
+        interval: 5
+        db: 'state_file'
     flow_table:
         dps: ['faucet-1']
         type: 'flow_table'
         interval: 5
-        db: 'ft_file'
+        db: 'flow_file'
 dbs:
-    ps_file:
+    stats_file:
         type: 'text'
         file: %s
-    ft_file:
+    state_file:
         type: 'text'
         file: %s
-""" % (faucet_config_file, monitor_ports_file, monitor_flow_table_file)
+    flow_file:
+        type: 'text'
+        file: %s
+""" % (faucet_config_file, monitor_stats_file,
+       monitor_state_file, monitor_flow_table_file)
 
     def get_controller(self):
         """Return the first (only) controller."""

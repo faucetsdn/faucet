@@ -107,18 +107,24 @@ class GaugePortStateLogger(object):
         reason = msg.reason
         port_no = msg.desc.port_no
         ofp = msg.datapath.ofproto
+        log_msg = None
         if reason == ofp.OFPPR_ADD:
-            self.logger.info("port added %s", port_no)
+            log_msg = 'port %s added' % port_no
         elif reason == ofp.OFPPR_DELETE:
-            self.logger.info("port deleted %s", port_no)
+            log_msg = 'port %s deleted' % port_no
         elif reason == ofp.OFPPR_MODIFY:
             link_down = (msg.desc.state & ofp.OFPPS_LINK_DOWN)
             if link_down:
-                self.logger.info("port deleted %s", port_no)
+                log_msg = 'port %s down' % port_no
             else:
-                self.logger.info("port added %s", port_no)
+                log_msg = 'port %s up' % port_no
         else:
-            self.logger.info("Illegal port state %s %s", port_no, reason)
+            log_msg = 'port %s unknown state %s' % (port_no, reason)
+        self.logger.info(log_msg)
+        if self.conf.file:
+            rcv_time_str = time.strftime('%b %d %H:%M:%S')
+            with open(self.conf.file, 'a') as logfile:
+                logfile.write('%s\t%s\n' % (rcv_time_str, log_msg))
 
     def start(self, ryudp):
         pass
