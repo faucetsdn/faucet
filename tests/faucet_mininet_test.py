@@ -99,19 +99,6 @@ PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
 SWITCH_MAP = {}
 
 
-# TODO: applications should retry if port not really free
-def find_free_port():
-    while True:
-        free_socket = socket.socket()
-        free_socket.bind(('', 0))
-        free_port = free_socket.getsockname()[1]
-        free_socket.close()
-        # ports reserved in tests
-        if free_port not in [5001, 5002]:
-            break
-    return free_port
-
-
 class FAUCET(Controller):
 
     def __init__(self, name, cdir=FAUCET_DIR,
@@ -119,8 +106,8 @@ class FAUCET(Controller):
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'faucet-%u' % os.getpid()
-        port = find_free_port()
-        self.ofctl_port = find_free_port()
+        port = faucet_mininet_test_util.find_free_port()
+        self.ofctl_port = faucet_mininet_test_util.find_free_port()
         cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
         Controller.__init__(
             self,
@@ -139,7 +126,7 @@ class Gauge(Controller):
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'gauge-%u' % os.getpid()
-        port = find_free_port()
+        port = faucet_mininet_test_util.find_free_port()
         Controller.__init__(
             self,
             name,
@@ -170,7 +157,7 @@ class FaucetSwitchTopo(Topo):
         switch = self.addSwitch(
             's1%x' % pid,
             cls=faucet_mininet_test_base.FaucetSwitch,
-            listenPort=find_free_port(),
+            listenPort=faucet_mininet_test_util.find_free_port(),
             dpid=dpid)
         for host in self.hosts():
             self.addLink(host, switch)
@@ -1797,7 +1784,7 @@ class FaucetStringOfDPSwitchTopo(Topo):
             switch = self.addSwitch(
                 switch_name,
                 cls=faucet_mininet_test_base.FaucetSwitch,
-                listenPort=find_free_port(),
+                listenPort=faucet_mininet_test_util.find_free_port(),
                 dpid=dpid)
 
             for host in hosts:
