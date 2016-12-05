@@ -89,7 +89,7 @@ class FaucetTestBase(unittest.TestCase):
 
     def add_host_ipv4_route(self, host, ip_dst, ip_gw):
         """Add an IPv4 route to a Mininet host."""
-        host.cmd('route add -net %s gw %s' % (ip_dst.masked(), ip_gw))
+        host.cmd('ip -4 route add %s via %s' % (ip_dst.masked(), ip_gw))
 
     def swap_host_macs(self, first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""
