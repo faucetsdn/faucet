@@ -12,9 +12,16 @@ PORTS_SOCKET = '/tmp/faucet-ports-server-socket'
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 9179)
 
 
-def str_int_dpid(hex_dpid):
-    """Return stringed-int DPID, from a stringed-hex DPID."""
-    return str(int(hex_dpid, 16))
+def mininet_dpid(int_dpid):
+    return str('%x' % int(int_dpid))
+
+
+def normalize_dpid(str_dpid):
+    str_dpid = str(str_dpid)
+    if str_dpid.startswith('0x'):
+        return str(int(str_dpid, 16))
+    else:
+        return str(int(str_dpid))
 
 
 def find_free_port():

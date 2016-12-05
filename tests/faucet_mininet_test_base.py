@@ -22,7 +22,8 @@ class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
 
     def __init__(self, name, **params):
-        OVSSwitch.__init__(self, name=name, datapath='kernel', **params)
+        OVSSwitch.__init__(
+            self, name=name, datapath='kernel', **params)
 
 
 class VLANHost(Host):
@@ -62,16 +63,17 @@ class FaucetTestBase(unittest.TestCase):
             self.net.stop()
         shutil.rmtree(self.tmpdir)
 
-    def get_config_header(self, config_global, dpid, hardware):
+    def get_config_header(self, config_global, debug_log, dpid, hardware):
         """Build v2 FAUCET config header."""
         return """
 version: 2
 %s
 dps:
     faucet-1:
-        dp_id: %s
+        ofchannel_log: %s
+        dp_id: 0x%x
         hardware: "%s"
-""" % (config_global, faucet_mininet_test_util.str_int_dpid(dpid), hardware)
+""" % (config_global, debug_log, int(dpid), hardware)
 
     def get_gauge_config(self, faucet_config_file,
                          monitor_stats_file,
@@ -121,16 +123,15 @@ dbs:
 
     def get_all_flows_from_dpid(self, dpid, timeout=10):
         """Return all flows from DPID."""
-        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         for _ in range(timeout):
             try:
                 ofctl_result = json.loads(requests.get(
-                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid)).text)
+                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), dpid)).text)
             except (ValueError, requests.exceptions.ConnectionError):
                 # Didn't get valid JSON, try again
                 time.sleep(1)
                 continue
-            flow_dump = ofctl_result[int_dpid]
+            flow_dump = ofctl_result[dpid]
             return [json.dumps(flow) for flow in flow_dump]
         return []
 
@@ -228,7 +229,7 @@ dbs:
         """Wait for a host to start listening on a port."""
         for _ in range(timeout):
             fuser_out = host.cmd('fuser -n tcp %u' % port)
-            if re.search(r'^%u/tcp.+' % port, fuser_out):
+            if re.search(r'.*%u/tcp.*' % port, fuser_out):
                 return
             time.sleep(1)
         self.fail('%s never listened on port %u (%s)' % (host, port, fuser_out))
