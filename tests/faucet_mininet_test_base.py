@@ -11,6 +11,8 @@ import unittest
 from mininet.node import Host
 from mininet.node import OVSSwitch
 
+import faucet_mininet_test_util
+
 
 class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
@@ -54,6 +56,43 @@ class FaucetTestBase(unittest.TestCase):
         if self.net is not None:
             self.net.stop()
         shutil.rmtree(self.tmpdir)
+
+    def get_config_header(self, config_global, dpid, hardware):
+        """Build v2 FAUCET config header."""
+        return """
+version: 2
+%s
+dps:
+    faucet-1:
+        dp_id: %s
+        hardware: "%s"
+""" % (config_global, faucet_mininet_test_util.str_int_dpid(dpid), hardware)
+
+    def get_gauge_config(self, faucet_config_file, monitor_ports_file,
+                         monitor_flow_table_file):
+        """Build Gauge config."""
+        return """
+faucet_configs:
+    - %s
+watchers:
+    port_stats:
+        dps: ['faucet-1']
+        type: 'port_stats'
+        interval: 5
+        db: 'ps_file'
+    flow_table:
+        dps: ['faucet-1']
+        type: 'flow_table'
+        interval: 5
+        db: 'ft_file'
+dbs:
+    ps_file:
+        type: 'text'
+        file: %s
+    ft_file:
+        type: 'text'
+        file: %s
+""" % (faucet_config_file, monitor_ports_file, monitor_flow_table_file)
 
     def get_controller(self):
         """Return the first (only) controller."""

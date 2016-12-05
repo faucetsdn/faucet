@@ -210,7 +210,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.CONFIG % PORT_MAP))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.GAUGE_CONFIG = self.get_gauge_config(
-            self.dpid,
             os.environ['FAUCET_CONFIG'],
             self.monitor_ports_file,
             self.monitor_flow_table_file
@@ -218,46 +217,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
         self.net = None
         self.topo = None
-
-    def get_gauge_config(self, dp_id, faucet_config_file,
-                         monitor_ports_file, monitor_flow_table_file):
-        return '''
-faucet_configs:
-    - {0}
-watchers:
-    port_stats:
-        dps: ['faucet-1']
-        type: 'port_stats'
-        interval: 5
-        db: 'ps_file'
-    flow_table:
-        dps: ['faucet-1']
-        type: 'flow_table'
-        interval: 5
-        db: 'ft_file'
-dbs:
-    ps_file:
-        type: 'text'
-        file: {2}
-    ft_file:
-        type: 'text'
-        file: {3}
-'''.format(
-    faucet_config_file,
-    dp_id,
-    monitor_ports_file,
-    monitor_flow_table_file
-    )
-
-    def get_config_header(self, config_global, dpid, hardware):
-        return '''
-version: 2
-%s
-dps:
-    faucet-1:
-        dp_id: %s
-        hardware: "%s"
-''' % (config_global, faucet_mininet_test_util.str_int_dpid(dpid), hardware)
 
     def attach_physical_switch(self):
         switch = self.net.switches[0]
