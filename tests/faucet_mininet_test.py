@@ -413,14 +413,13 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
         return configure_count
 
     def test_untagged(self):
-        controller = self.net.controllers[0]
         switch = self.net.switches[0]
         for i in range(0, 3):
             configure_count = self.get_configure_count()
             self.assertEquals(i, int(configure_count))
             self.hup_faucet()
             time.sleep(1)
-            for retry in range(3):
+            for _ in range(3):
                 configure_count = self.get_configure_count()
                 if configure_count == i + 1:
                     break
@@ -1599,6 +1598,8 @@ class FaucetStringOfDPSwitchTopo(Topo):
 
 class FaucetStringOfDPTest(FaucetTest):
 
+    dpids = None
+
     def build_net(self, n_dps=1, stack=False, n_tagged=0, tagged_vid=100,
                   n_untagged=0, untagged_vid=100,
                   include=[], include_optional=[], acls={}, acl_in_dp={}):
@@ -1637,9 +1638,9 @@ class FaucetStringOfDPTest(FaucetTest):
         def dp_name(i):
             return 'faucet-%i' % (i + 1)
 
-        def add_acl_to_port(name, p, interfaces_config):
-            if name in acl_in_dp and p in acl_in_dp[name]:
-                interfaces_config[p]['acl_in'] = acl_in_dp[name][p]
+        def add_acl_to_port(name, port, interfaces_config):
+            if name in acl_in_dp and port in acl_in_dp[name]:
+                interfaces_config[port]['acl_in'] = acl_in_dp[name][port]
 
         config = {'version': 2}
 
@@ -1657,7 +1658,7 @@ class FaucetStringOfDPTest(FaucetTest):
             config['dps'] = {}
 
             for i, dpid in enumerate(dpids):
-                p = 1
+                port = 1
                 name = dp_name(i)
                 int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
                 config['dps'][name] = {
@@ -1670,20 +1671,20 @@ class FaucetStringOfDPTest(FaucetTest):
                 interfaces_config = dp_config['interfaces']
 
                 for _ in range(n_tagged):
-                    interfaces_config[p] = {
+                    interfaces_config[port] = {
                         'tagged_vlans': [tagged_vid],
-                        'description': 'b%i' % p,
+                        'description': 'b%i' % port,
                     }
-                    add_acl_to_port(name, p, interfaces_config)
-                    p += 1
+                    add_acl_to_port(name, port, interfaces_config)
+                    port += 1
 
                 for _ in range(n_untagged):
-                    interfaces_config[p] = {
+                    interfaces_config[port] = {
                         'native_vlan': untagged_vid,
-                        'description': 'b%i' % p,
+                        'description': 'b%i' % port,
                     }
-                    add_acl_to_port(name, p, interfaces_config)
-                    p += 1
+                    add_acl_to_port(name, port, interfaces_config)
+                    port += 1
 
                 # Add configuration for the switch-to-switch links
                 # (0 for a single switch, 1 for an end switch, 2 for middle switches).
@@ -1703,7 +1704,7 @@ class FaucetStringOfDPTest(FaucetTest):
                         'priority': 1
                     }
 
-                first_stack_port = p
+                first_stack_port = port
 
                 for stack_dp_port in range(num_switch_links):
                     tagged_vlans = None
@@ -1724,12 +1725,12 @@ class FaucetStringOfDPTest(FaucetTest):
 
                     description = 'to %s' % dp_name(peer_dp)
 
-                    interfaces_config[p] = {
+                    interfaces_config[port] = {
                         'description': description,
                     }
 
                     if stack:
-                        interfaces_config[p]['stack'] = {
+                        interfaces_config[port]['stack'] = {
                             'dp': dp_name(peer_dp),
                             'port': peer_port,
                         }
@@ -1743,11 +1744,11 @@ class FaucetStringOfDPTest(FaucetTest):
                             tagged_vlans = [untagged_vid]
 
                         if tagged_vlans:
-                            interfaces_config[p]['tagged_vlans'] = tagged_vlans
+                            interfaces_config[port]['tagged_vlans'] = tagged_vlans
 
-                    add_acl_to_port(name, p, interfaces_config)
+                    add_acl_to_port(name, port, interfaces_config)
                     # Used as the port number for the current switch.
-                    p += 1
+                    port += 1
 
             # VLANs.
             config['vlans'] = {}
@@ -1931,6 +1932,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
 
 def import_config():
+    """Import configuration for physical switch testing."""
     try:
         with open(HW_SWITCH_CONFIG_FILE, 'r') as config_file:
             config = yaml.load(config_file)
@@ -1964,6 +1966,7 @@ def import_config():
 
 
 def check_dependencies():
+    """Verify dependant libraries/binaries are present with correct versions."""
     for (binary, binary_get_version, binary_present_re,
          binary_version_re, binary_minversion) in EXTERNAL_DEPENDENCIES:
         binary_args = [binary] + binary_get_version
@@ -2010,6 +2013,7 @@ def check_dependencies():
 
 
 def lint_check():
+    """Run pylint on required source files."""
     for faucet_src in FAUCET_LINT_SRCS:
         ret = subprocess.call(['pylint', '-E', faucet_src])
         if ret:
@@ -2019,6 +2023,7 @@ def lint_check():
 
 
 def make_suite(tc_class):
+    """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
@@ -2028,6 +2033,7 @@ def make_suite(tc_class):
 
 
 def run_tests(requested_test_classes, serial=False):
+    """Actually run the test suites, potentially in parallel."""
     ports_server = threading.Thread(target=faucet_mininet_test_util.serve_ports)
     ports_server.setDaemon(True)
     ports_server.start()
@@ -2063,23 +2069,35 @@ def run_tests(requested_test_classes, serial=False):
             print result.printErrors()
 
 
-if __name__ == '__main__':
+def parse_args():
+    """Parse command line arguments."""
     try:
         opts, args = getopt.getopt(sys.argv[1:], "cs", ["clean", "serial"])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
 
+    clean = False
     serial = False
-    for opt, arg in opts:
+
+    for opt, _ in opts:
         if opt in ('-c', '--clean'):
-            print (
-                'Cleaning up test interfaces, processes and openvswitch'
-                'configuration from previous test runs')
-            Cleanup.cleanup()
-            sys.exit(0)
+            clean = True
         if opt in ('-s', '--serial'):
             serial = True
+
+    return (args, clean, serial)
+
+
+def test_main():
+    """Test main."""
+    args, clean, serial = parse_args()
+
+    if clean:
+        print ('Cleaning up test interfaces, processes and openvswitch'
+               'configuration from previous test runs')
+        Cleanup.cleanup()
+        sys.exit(0)
     if not check_dependencies():
         print ('dependency check failed. check required library/binary '
                'list in header of this script')
@@ -2088,4 +2106,8 @@ if __name__ == '__main__':
         print 'pylint must pass with no errors'
         sys.exit(-1)
     import_config()
-    run_tests(args, serial=serial)
+    run_tests(args, serial)
+
+
+if __name__ == '__main__':
+    test_main()
