@@ -22,4 +22,3 @@ def find_free_port():
         if free_port not in RESERVED_FOR_TESTS_PORTS:
             break
     return free_port
-

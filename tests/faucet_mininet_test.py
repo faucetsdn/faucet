@@ -31,7 +31,6 @@ import sys
 import getopt
 import random
 import re
-import socket
 import subprocess
 import tempfile
 import time
