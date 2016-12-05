@@ -145,6 +145,20 @@ dbs:
         """Return True if matching flow is present on default DPID."""
         return self.matching_flow_present_on_dpid(self.dpid, exp_flow, timeout)
 
+    def wait_until_matching_flow(self, exp_flow, timeout=10):
+        """Wait (require) for flow to be present on default DPID."""
+        self.assertTrue(self.matching_flow_present(exp_flow, timeout),
+                        msg=exp_flow)
+
+    def host_learned(self, host):
+        """Return True if a host has been learned on default DPID."""
+        return self.matching_flow_present(
+            '"table_id": 2,.+"dl_src": "%s"' % host.MAC())
+
+    def require_host_learned(self, host):
+        """Wait (require) for a host to be learned on default DPID."""
+        self.assertTrue(self.host_learned(host), msg=host)
+
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
         controller = self.get_controller()

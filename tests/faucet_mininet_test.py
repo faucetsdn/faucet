@@ -296,16 +296,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
-    def wait_until_matching_flow(self, exp_flow, timeout=10):
-        self.assertTrue(self.matching_flow_present(exp_flow, timeout)), exp_flow
-
-    def host_learned(self, host):
-        return self.matching_flow_present(
-            '"table_id": 2,.+"dl_src": "%s"' % host.MAC())
-
-    def require_host_learned(self, host):
-        self.assertTrue(self.host_learned(host)), host
-
     def ping_all_when_learned(self):
         # Cause hosts to send traffic that FAUCET can use to learn them.
         self.net.pingAll()
