@@ -296,18 +296,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
-    def matching_flow_present_on_dpid(self, dpid, exp_flow, timeout=10):
-        for _ in range(timeout):
-            flow_dump = self.get_all_flows_from_dpid(dpid, timeout)
-            for flow in flow_dump:
-                if re.search(exp_flow, flow):
-                    return True
-            time.sleep(1)
-        return False
-
-    def matching_flow_present(self, exp_flow, timeout=10):
-        return self.matching_flow_present_on_dpid(self.dpid, exp_flow, timeout)
-
     def wait_until_matching_flow(self, exp_flow, timeout=10):
         self.assertTrue(self.matching_flow_present(exp_flow, timeout)), exp_flow
 
@@ -651,10 +639,12 @@ acls:
         vid = 100
         for _ in range(1, 2):
             time.sleep(2)
-            flow_p1 = self.get_flow(
+            flow_p1 = self.get_matching_flow_on_dpid(
+                self.dpid,
                 ('"table_id": 0, "match": '
                  '{"dl_vlan": "0x0000", "in_port": 1}'))
-            flow_p3 = self.get_flow(
+            flow_p3 = self.get_matching_flow_on_dpid(
+                self.dpid,
                 ('"table_id": 0, "match": '
                  '{"dl_vlan": "0x0000", "in_port": 3}'))
             prev_dur_p1 = flow_p1['duration_sec']
@@ -669,10 +659,12 @@ acls:
             conf['dps']['faucet-1']['interfaces'][2]['native_vlan'] = vid
             open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
             self.hup_faucet()
-            flow_p1 = self.get_flow(
+            flow_p1 = self.get_matching_flow_on_dpid(
+                self.dpid,
                 ('"table_id": 0, "match": '
                  '{"dl_vlan": "0x0000", "in_port": 1}'))
-            flow_p3 = self.get_flow(
+            flow_p3 = self.get_matching_flow_on_dpid(
+                self.dpid,
                 ('"table_id": 0, "match": '
                  '{"dl_vlan": "0x0000", "in_port": 3}'))
             actions = flow_p1.get('actions', '')

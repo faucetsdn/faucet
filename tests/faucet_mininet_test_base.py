@@ -52,6 +52,7 @@ class FaucetTestBase(unittest.TestCase):
     CONFIG_GLOBAL = ''
     BOGUS_MAC = '01:02:03:04:05:06'
 
+    dpid = None
     net = None
     tmpdir = None
 
@@ -106,7 +107,7 @@ dbs:
         return 'http://127.0.0.1:%u' % self.get_controller().ofctl_port
 
     def get_all_flows_from_dpid(self, dpid, timeout=10):
-        """Return all flows from datapath."""
+        """Return all flows from DPID."""
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         for _ in range(timeout):
             try:
@@ -120,15 +121,29 @@ dbs:
             return [json.dumps(flow) for flow in flow_dump]
         return []
 
-    def get_flow(self, exp_flow, timeout=10):
-        """Return flow matching an RE."""
+    def get_matching_flow_on_dpid(self, dpid, exp_flow, timeout=10):
+        """Return flow matching an RE from DPID."""
         for _ in range(timeout):
-            flow_dump = self.get_all_flows_from_dpid(self.dpid)
+            flow_dump = self.get_all_flows_from_dpid(dpid)
             for flow in flow_dump:
                 if re.search(exp_flow, flow):
                     return json.loads(flow)
             time.sleep(1)
         return {}
+
+    def get_matching_flow(self, exp_flow, timeout=10):
+        """Return flow matching an RE from default DPID."""
+        return self.get_matching_flow_on_dpid(self.dpid, exp_flow, timeout)
+
+    def matching_flow_present_on_dpid(self, dpid, exp_flow, timeout=10):
+        """Return True if matching flow is present on a DPID."""
+        if self.get_matching_flow_on_dpid(dpid, exp_flow, timeout):
+            return True
+        return False
+
+    def matching_flow_present(self, exp_flow, timeout=10):
+        """Return True if matching flow is present on default DPID."""
+        return self.matching_flow_present_on_dpid(self.dpid, exp_flow, timeout)
 
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
