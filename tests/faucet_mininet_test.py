@@ -33,6 +33,7 @@ import random
 import re
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 
@@ -238,26 +239,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
-    def one_ipv4_ping(self, host, dst):
-        self.require_host_learned(host)
-        ping_result = host.cmd('ping -c1 %s' % dst)
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
-
-    def one_ipv4_controller_ping(self, host):
-        self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
-
-    def one_ipv6_ping(self, host, dst, timeout=2):
-        self.require_host_learned(host)
-        # TODO: retry our one ping. We should not have to retry.
-        for _ in range(timeout):
-            ping_result = host.cmd('ping6 -c1 %s' % dst)
-            if re.search(self.ONE_GOOD_PING, ping_result):
-                return
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
-
-    def one_ipv6_controller_ping(self, host):
-        self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
-
     def force_faucet_reload(self):
         # Force FAUCET to reload by adding new line to config file.
         open(os.environ['FAUCET_CONFIG'], 'a').write('\n')
@@ -329,23 +310,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                     os.system(self.curl_portmod(
                         int_dpid, port_no,
                         0, ofp.OFPPC_PORT_DOWN))
-
-    def verify_tp_dst_blocked(self, port, first_host, second_host):
-        second_host.cmd('timeout 10s echo hello | nc -l %u &' % port)
-        self.assertEquals(
-            '', first_host.cmd('timeout 10s nc %s %u' % (second_host.IP(), port)))
-        self.wait_until_matching_flow(
-            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
-
-    def verify_tp_dst_notblocked(self, port, first_host, second_host):
-        second_host.cmd(
-            'timeout 10s echo hello | nc -l %s %u &' % (second_host.IP(), port))
-        time.sleep(1)
-        self.assertEquals(
-            'hello\r\n',
-            first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
-        self.wait_until_matching_flow(
-            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip):
@@ -2185,6 +2149,9 @@ def make_suite(tc_class):
 
 
 def run_tests(requested_test_classes, serial=False):
+    ports_server = threading.Thread(target=faucet_mininet_test_util.serve_ports)
+    ports_server.setDaemon(True)
+    ports_server.start()
     single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
     for name, obj in inspect.getmembers(sys.modules[__name__]):

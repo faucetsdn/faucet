@@ -187,6 +187,61 @@ dbs:
         """Add an IPv4 route to a Mininet host."""
         host.cmd('ip -4 route add %s via %s' % (ip_dst.masked(), ip_gw))
 
+    def one_ipv4_ping(self, host, dst):
+        """Ping an IPv4 destination from a host."""
+        self.require_host_learned(host)
+        ping_result = host.cmd('ping -c1 %s' % dst)
+        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
+
+    def one_ipv4_controller_ping(self, host):
+        """Ping the controller from a host with IPv4."""
+        self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
+
+    def one_ipv6_ping(self, host, dst, timeout=2):
+        """Ping an IPv6 destination from a host."""
+        self.require_host_learned(host)
+        # TODO: retry our one ping. We should not have to retry.
+        for _ in range(timeout):
+            ping_result = host.cmd('ping6 -c1 %s' % dst)
+            if re.search(self.ONE_GOOD_PING, ping_result):
+                return
+        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
+
+    def one_ipv6_controller_ping(self, host):
+        """Ping the controller from a host with IPv6."""
+        self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
+
+    def wait_for_tcp_listen(self, host, port, timeout=10):
+        """Wait for a host to start listening on a port."""
+        for _ in range(timeout):
+            fuser_out = host.cmd('fuser -n tcp %u' % port)
+            if re.search(r'^%u/tcp.+' % port, fuser_out):
+                return
+            time.sleep(1)
+        self.fail('%s never listened on port %u' % (host, port))
+
+    def serve_hello_on_tcp_port(self, host, port):
+        """Serve 'hello' on a TCP port on a host."""
+        host.cmd('timeout 10s echo hello | nc -l %s %u &' % (host.IP(), port))
+        self.wait_for_tcp_listen(host, port)
+
+    def verify_tp_dst_blocked(self, port, first_host, second_host):
+        """Verify that a TCP port on a host is blocked from another host."""
+        self.serve_hello_on_tcp_port(second_host, port)
+        self.assertEquals(
+            '', first_host.cmd('timeout 10s nc %s %u' % (second_host.IP(), port)))
+        self.wait_until_matching_flow(
+            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
+
+    def verify_tp_dst_notblocked(self, port, first_host, second_host):
+        """Verify that a TCP port on a host is NOT blocked from another host."""
+        self.serve_hello_on_tcp_port(second_host, port)
+        self.assertEquals(
+            'hello\r\n',
+            first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
+        self.wait_until_matching_flow(
+            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
+
     def swap_host_macs(self, first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""
         first_host_mac = first_host.MAC()
@@ -194,7 +249,8 @@ dbs:
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
 
-    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179):
+    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179,
+                     peer_port=9179):
         """Start exabgp process on controller host."""
         self.stop_exabgp(port)
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
@@ -202,6 +258,7 @@ dbs:
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.get_controller()
+        self.wait_for_tcp_listen(controller, peer_port)
         controller.cmd(
             'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u '
             'timeout -s9 180s stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
