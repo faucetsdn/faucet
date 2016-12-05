@@ -2,13 +2,14 @@
 
 """Base class for all FAUCET unit tests."""
 
+import json
 import os
 import re
 import shutil
 import time
 import unittest
 
-import json
+import ipaddr
 import requests
 
 from mininet.node import Host
@@ -287,3 +288,132 @@ dbs:
                 return updates
             time.sleep(1)
         self.fail('exabgp did not receive BGP updates')
+
+    def ping_all_when_learned(self):
+        """Verify all hosts can ping each other once FAUCET has learned all."""
+        # Cause hosts to send traffic that FAUCET can use to learn them.
+        self.net.pingAll()
+        # we should have learned all hosts now, so should have no loss.
+        for host in self.net.hosts:
+            self.require_host_learned(host)
+        self.assertEquals(0, self.net.pingAll())
+
+    def wait_for_route_as_flow(self, nexthop, prefix, timeout=5):
+        """Verify a route has been added as a flow."""
+        if prefix.version == 6:
+            exp_prefix = '/'.join(
+                (str(prefix.masked().ip), str(prefix.netmask)))
+            nw_dst_match = '"ipv6_dst": "%s"' % exp_prefix
+        else:
+            exp_prefix = prefix.masked().with_netmask
+            nw_dst_match = '"nw_dst": "%s"' % exp_prefix
+        self.wait_until_matching_flow(
+            'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
+
+    def verify_ipv4_routing(self, first_host, first_host_routed_ip,
+                            second_host, second_host_routed_ip):
+        """Verify one host can IPV4 route to another via FAUCET."""
+        first_host.cmd(('ifconfig %s:0 %s netmask %s up' % (
+            first_host.intf(),
+            first_host_routed_ip.ip,
+            first_host_routed_ip.netmask)))
+        second_host.cmd(('ifconfig %s:0 %s netmask %s up' % (
+            second_host.intf(),
+            second_host_routed_ip.ip,
+            second_host_routed_ip.netmask)))
+        self.add_host_ipv4_route(
+            first_host, second_host_routed_ip, self.CONTROLLER_IPV4)
+        self.add_host_ipv4_route(
+            second_host, first_host_routed_ip, self.CONTROLLER_IPV4)
+        self.net.ping(hosts=(first_host, second_host))
+        self.wait_for_route_as_flow(
+            first_host.MAC(), first_host_routed_ip)
+        self.wait_for_route_as_flow(
+            second_host.MAC(), second_host_routed_ip)
+        self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
+        self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
+
+    def verify_ipv4_routing_mesh(self):
+        """Verify hosts can route to each other via FAUCET."""
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
+        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        second_host_routed_ip2 = ipaddr.IPv4Network('10.0.3.1/24')
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2)
+
+    def setup_ipv6_hosts_addresses(self, first_host, first_host_ip,
+                                   first_host_routed_ip, second_host,
+                                   second_host_ip, second_host_routed_ip):
+        """Configure host IPv6 addresses for testing."""
+        for host in first_host, second_host:
+            host.cmd('ip addr flush dev %s' % host.intf())
+        self.add_host_ipv6_address(first_host, first_host_ip)
+        self.add_host_ipv6_address(second_host, second_host_ip)
+        self.add_host_ipv6_address(first_host, first_host_routed_ip)
+        self.add_host_ipv6_address(second_host, second_host_routed_ip)
+
+    def verify_ipv6_routing(self, first_host, first_host_ip,
+                            first_host_routed_ip, second_host,
+                            second_host_ip, second_host_routed_ip):
+        """Verify one host can IPV6 route to another via FAUCET."""
+        self.one_ipv6_ping(first_host, second_host_ip.ip)
+        self.one_ipv6_ping(second_host, first_host_ip.ip)
+        self.add_host_ipv6_route(
+            first_host, second_host_routed_ip, self.CONTROLLER_IPV6)
+        self.add_host_ipv6_route(
+            second_host, first_host_routed_ip, self.CONTROLLER_IPV6)
+        self.wait_for_route_as_flow(
+            first_host.MAC(), first_host_routed_ip)
+        self.wait_for_route_as_flow(
+            second_host.MAC(), second_host_routed_ip)
+        self.one_ipv6_controller_ping(first_host)
+        self.one_ipv6_controller_ping(second_host)
+        self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
+        self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
+
+    def verify_ipv6_routing_pair(self, first_host, first_host_ip,
+                                 first_host_routed_ip, second_host,
+                                 second_host_ip, second_host_routed_ip):
+        """Verify hosts can route IPv6 to each other via FAUCET."""
+        self.setup_ipv6_hosts_addresses(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.verify_ipv6_routing(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+
+    def verify_ipv6_routing_mesh(self):
+        """Verify IPv6 routing between hosts and multiple subnets."""
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
+        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
+        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
+        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        second_host_routed_ip2 = ipaddr.IPv6Network('fc00::30:1/112')
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip)
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2)
