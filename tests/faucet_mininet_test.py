@@ -1611,7 +1611,7 @@ class FaucetStringOfDPSwitchTopo(Topo):
             switches.append(switch)
 
 
-class FaucetStringOfDPTest(FaucetTest):
+class FaucetSingleStringOfDPTest(FaucetTest):
 
     dpids = None
 
@@ -1794,14 +1794,14 @@ class FaucetStringOfDPTest(FaucetTest):
         return False
 
 
-class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
+class FaucetSingleStringOfDPUntaggedTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 3
     NUM_HOSTS = 4
     VID = 100
 
     def setUp(self):
-        super(FaucetStringOfDPUntaggedTest, self).setUp()
+        super(FaucetSingleStringOfDPUntaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
         self.start_net()
@@ -1810,14 +1810,14 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
+class FaucetSingleStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 3
     NUM_HOSTS = 4
     VID = 100
 
     def setUp(self):
-        super(FaucetStringOfDPTaggedTest, self).setUp()
+        super(FaucetSingleStringOfDPTaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID)
         self.start_net()
@@ -1826,14 +1826,14 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
+class FaucetSingleStackStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 3
     NUM_HOSTS = 4
     VID = 100
 
     def setUp(self):
-        super(FaucetStackStringOfDPTaggedTest, self).setUp()
+        super(FaucetSingleStackStringOfDPTaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID,
             stack=True)
@@ -1845,7 +1845,7 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
+class FaucetSingleStringOfDPACLOverrideTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 1
     NUM_HOSTS = 2
@@ -1915,7 +1915,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     }
 
     def setUp(self):
-        super(FaucetStringOfDPACLOverrideTest, self).setUp()
+        super(FaucetSingleStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
         self.build_net(
             n_dps=self.NUM_DPS,
