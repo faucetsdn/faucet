@@ -1,27 +1,28 @@
 #!/usr/bin/python
 
-# mininet tests for FAUCET
-#
-# * must be run as root
-# * you can run a specific test case only, by adding the class name of the test
-#   case to the command. Eg ./faucet_mininet_test.py FaucetUntaggedIPv4RouteTest
-#
-# REQUIRES:
-#
-# * mininet 2.2.0 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
-#   use the "install from source" option from
-#   https://github.com/mininet/mininet/blob/master/INSTALL.
-#   suggest ./util/install.sh -n
-# * OVS 2.3.1 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
-# * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
-# * fuser
-# * net-tools
-# * iputils-ping
-# * netcat-openbsd
-# * tcpdump
-# * exabgp
-# * pylint
-# * curl
+"""Mininet tests for FAUCET.
+
+ * must be run as root
+ * you can run a specific test case only, by adding the class name of the test
+   case to the command. Eg ./faucet_mininet_test.py FaucetUntaggedIPv4RouteTest
+
+ REQUIRES:
+
+ * mininet 2.2.0 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
+   use the "install from source" option from
+   https://github.com/mininet/mininet/blob/master/INSTALL.
+   suggest ./util/install.sh -n
+ * OVS 2.3.1 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
+ * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
+ * fuser
+ * net-tools
+ * iputils-ping
+ * netcat-openbsd
+ * tcpdump
+ * exabgp
+ * pylint
+ * curl
+"""
 
 import glob
 import inspect
@@ -50,6 +51,7 @@ from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
 from ryu.ofproto import ofproto_v1_3 as ofp
 
+import faucet_mininet_test_util
 import faucet_mininet_test_base
 
 
@@ -95,10 +97,6 @@ HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 REQUIRED_TEST_PORTS = 4
 PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
 SWITCH_MAP = {}
-
-
-def str_int_dpid(hex_dpid):
-    return str(int(hex_dpid, 16))
 
 
 # TODO: applications should retry if port not really free
@@ -259,7 +257,7 @@ dps:
     faucet-1:
         dp_id: %s
         hardware: "%s"
-''' % (config_global, str_int_dpid(dpid), hardware)
+''' % (config_global, faucet_mininet_test_util.str_int_dpid(dpid), hardware)
 
     def attach_physical_switch(self):
         switch = self.net.switches[0]
@@ -356,7 +354,7 @@ dps:
         return not re.search('0 packets captured', tcpdump_txt)
 
     def get_all_flows_from_dpid(self, dpid, timeout=10):
-        int_dpid = str_int_dpid(dpid)
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         for _ in range(timeout):
             try:
                 ofctl_result = json.loads(requests.get(
@@ -414,7 +412,7 @@ dps:
         # TODO: for hardware switches also
         if not SWITCH_MAP:
             switch = self.net.switches[0]
-            int_dpid = str_int_dpid(self.dpid)
+            int_dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
             for port_no in sorted(switch.ports.itervalues()):
                 if port_no > 0:
                     os.system(self.curl_portmod(
@@ -1911,14 +1909,14 @@ class FaucetStringOfDPTest(FaucetTest):
         if dpids:
             dpid_count = len(dpids)
             num_switch_links = None
-
             config['dps'] = {}
 
             for i, dpid in enumerate(dpids):
                 p = 1
                 name = dp_name(i)
+                int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
                 config['dps'][name] = {
-                    'dp_id': int(str_int_dpid(dpid)),
+                    'dp_id': int_dpid,
                     'hardware': hardware,
                     'ofchannel_log': ofchannel_log,
                     'interfaces': {},
