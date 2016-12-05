@@ -294,6 +294,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
 
 class FaucetUntaggedTest(FaucetTest):
+    """Basic untagged VLAN test."""
 
     CONFIG_GLOBAL = """
 vlans:
@@ -323,6 +324,7 @@ vlans:
         self.start_net()
 
     def test_untagged(self):
+        """All hosts on the same untagged VLAN should have connectivity."""
         self.ping_all_when_learned()
         # TODO: a smoke test only - are flow/port stats accumulating
         if not SWITCH_MAP:
@@ -336,6 +338,7 @@ vlans:
 
 
 class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
+    """Test mixture of tagged and untagged hosts on the same VLAN."""
 
     CONFIG_GLOBAL = """
 vlans:
@@ -365,6 +368,7 @@ vlans:
         self.start_net()
 
     def test_untagged(self):
+        """Test connectivity including after port flapping."""
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.ping_all_when_learned()
@@ -405,14 +409,17 @@ vlans:
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
+    """Test handling HUP signal without config change."""
 
     def get_configure_count(self):
+        """Return the number of times FAUCET has received HUP."""
         controller = self.net.controllers[0]
         configure_count = controller.cmd(
             'grep -c "configuration is unchanged" %s' % os.environ['FAUCET_LOG'])
         return configure_count
 
     def test_untagged(self):
+        """Test that FAUCET receives HUP signal and keeps switching."""
         switch = self.net.switches[0]
         for i in range(0, 3):
             configure_count = self.get_configure_count()
@@ -431,6 +438,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 
 
 class FaucetUntaggedHUPConfigChangeTest(FaucetUntaggedTest):
+    """Test handling HUP signal with config change."""
 
     CONFIG_GLOBAL = """
 vlans:
@@ -509,6 +517,14 @@ acls:
             self.assertLess(prev_dur_p3, dur_p3)
             ping_test()
 
+    def ping_cross_vlans(self):
+        self.assertEqual(0,
+                         self.net.ping((self.net.hosts[0], self.net.hosts[1])))
+        self.assertEqual(0,
+                         self.net.ping((self.net.hosts[2], self.net.hosts[3])))
+        self.assertEqual(100,
+                         self.net.ping((self.net.hosts[0], self.net.hosts[3])))
+
     def test_change_port_acl(self):
         self.ping_all_when_learned()
         conf = yaml.load(self.CONFIG)
@@ -526,15 +542,9 @@ acls:
                 ('{"dl_type": 2048, "nw_proto": 17,'
                  ' "in_port": 1, "tp_dst": %d}' % (8000+i)))
 
-    def ping_cross_vlans(self):
-        self.assertEqual(0,
-                         self.net.ping((self.net.hosts[0], self.net.hosts[1])))
-        self.assertEqual(0,
-                         self.net.ping((self.net.hosts[2], self.net.hosts[3])))
-        self.assertEqual(100,
-                         self.net.ping((self.net.hosts[0], self.net.hosts[3])))
 
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
+    """Test IPv4 routing and import from BGP."""
 
     CONFIG_GLOBAL = """
 vlans:
@@ -570,6 +580,7 @@ vlans:
 """
 
     def test_untagged(self):
+        """Test IPv4 routing, and BGP routes received."""
         exabgp_conf = """
 group test {
   router-id 2.2.2.2;
@@ -600,6 +611,7 @@ group test {
 
 
 class FaucetSingleUntaggedIPv4RouteTest(FaucetUntaggedTest):
+    """Test IPv4 routing and export to BGP."""
 
     CONFIG_GLOBAL = """
 vlans:
@@ -641,6 +653,7 @@ vlans:
 """
 
     def test_untagged(self):
+        """Test IPv4 routing, and BGP routes sent."""
         exabgp_conf = """
 group test {
   process test {
@@ -1481,7 +1494,8 @@ group test {
         assert re.search('fc00::30:0/112 next-hop fc00::1:2', updates)
 
 
-class FaucetSingleTaggedIPv6RouteTest(FaucetTaggedTest):
+class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
+    """Test basic IPv6 routing without BGP."""
 
     CONFIG_GLOBAL = """
 vlans:
@@ -1515,6 +1529,7 @@ vlans:
 """
 
     def test_tagged(self):
+        """Test IPv6 routing works."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
         first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
@@ -1913,6 +1928,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_port5001_blocked(self):
+        """Test that TCP port 5001 is blocked."""
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
@@ -1922,6 +1938,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.verify_tp_dst_blocked(5001, first_host, second_host)
 
     def test_port5002_notblocked(self):
+        """Test that TCP port 5002 is not blocked."""
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_blocked(5002, first_host, second_host)
