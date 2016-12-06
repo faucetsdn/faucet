@@ -15,8 +15,6 @@ import requests
 from mininet.node import Host
 from mininet.node import OVSSwitch
 
-import faucet_mininet_test_util
-
 
 class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
@@ -164,14 +162,38 @@ dbs:
         self.assertTrue(self.matching_flow_present(exp_flow, timeout),
                         msg=exp_flow)
 
-    def host_learned(self, host):
+    def host_learned(self, host, timeout=10):
         """Return True if a host has been learned on default DPID."""
         return self.matching_flow_present(
-            '"table_id": 2,.+"dl_src": "%s"' % host.MAC())
+            '"table_id": 2,.+"dl_src": "%s"' % host.MAC(), timeout)
 
-    def require_host_learned(self, host):
-        """Wait (require) for a host to be learned on default DPID."""
-        self.assertTrue(self.host_learned(host), msg=host)
+    def host_ipv4(self, host):
+        """Return first IPv4/netmask for host's default interface."""
+        host_ip_cmd = (
+            r'ip -o -f inet addr show %s|grep -m 1 -Eo "[0-9\\.]+\/[0-9]+"')
+        return host.cmd(host_ip_cmd % host.defaultIntf()).strip()
+
+    def host_ipv6(self, host):
+        """Return first IPv6/netmask for host's default interface."""
+        host_ip_cmd = (
+            r'ip -o -f inet6 addr show %s|grep -m 1 -Eo "[0-9a-f\:]+\/[0-9]+"')
+        return host.cmd(host_ip_cmd % host.defaultIntf()).strip()
+
+    def require_host_learned(self, host, retries=3):
+        """Require a host be learned on default DPID."""
+        host_ip = self.host_ipv4(host)
+        ping_cmd = 'ping'
+        if not host_ip:
+            host_ip = self.host_ipv6(host)
+        broadcast = ipaddr.IPNetwork(host_ip)
+        if broadcast.version == 6:
+            ping_cmd = 'ping6'
+        for _ in range(retries):
+            if self.host_learned(host, timeout=1):
+                return
+            # stimulate host learning with a broadcast ping
+            host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
+        self.fail('host %s could not be learned' % host)
 
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
@@ -204,18 +226,21 @@ dbs:
     def one_ipv4_ping(self, host, dst):
         """Ping an IPv4 destination from a host."""
         self.require_host_learned(host)
-        ping_result = host.cmd('ping -c1 %s' % dst)
+        for _ in range(retries):
+            ping_result = host.cmd('ping -c1 %s' % dst)
+            if re.search(self.ONE_GOOD_PING, ping_result):
+                return
         self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
         self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
 
-    def one_ipv6_ping(self, host, dst, timeout=2):
+    def one_ipv6_ping(self, host, dst, retries=3):
         """Ping an IPv6 destination from a host."""
         self.require_host_learned(host)
         # TODO: retry our one ping. We should not have to retry.
-        for _ in range(timeout):
+        for _ in range(retries):
             ping_result = host.cmd('ping6 -c1 %s' % dst)
             if re.search(self.ONE_GOOD_PING, ping_result):
                 return
