@@ -302,14 +302,17 @@ dbs:
             time.sleep(1)
         self.fail('exabgp did not receive BGP updates')
 
-    def ping_all_when_learned(self):
+    def ping_all_when_learned(self, retries=3):
         """Verify all hosts can ping each other once FAUCET has learned all."""
         # Cause hosts to send traffic that FAUCET can use to learn them.
-        self.net.pingAll()
-        # we should have learned all hosts now, so should have no loss.
-        for host in self.net.hosts:
-            self.require_host_learned(host)
-        self.assertEquals(0, self.net.pingAll())
+        for _ in range(retries):
+            loss = self.net.pingAll()
+            # we should have learned all hosts now, so should have no loss.
+            for host in self.net.hosts:
+                self.require_host_learned(host)
+            if loss == 0:
+                return
+        self.assertEquals(0, loss)
 
     def wait_for_route_as_flow(self, nexthop, prefix, timeout=5):
         """Verify a route has been added as a flow."""

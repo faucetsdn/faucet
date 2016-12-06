@@ -85,7 +85,7 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 FAUCET_LINT_SRCS = glob.glob(os.path.join(FAUCET_DIR, '*py'))
 
 # Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = 5
+MAX_PARALLEL_TESTS = 2
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
@@ -220,14 +220,14 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 port_x, port_y = port_pair
                 switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
                     self.OFCTL, switch.name, port_x, port_y))
-        print 'waiting for physical switch to connect'
-        for _ in range(60):
+
+    def wait_debug_log(self):
+        for _ in range(20):
             if (os.path.exists(self.debug_log_path) and
                     os.path.getsize(self.debug_log_path) > 0):
                 return
             time.sleep(1)
-        print 'physical switch could not connect to controller'
-        sys.exit(-1)
+        self.fail('controller debug log did not show connection from switch')
 
     def start_net(self):
         self.net = Mininet(self.topo, controller=FAUCET)
@@ -239,12 +239,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.net.addController(controller=Gauge)
             self.net.start()
             self.net.waitConnected()
-            faucet = self.get_controller()
-            switch = self.net.switches[0]
-            self.wait_for_tcp_listen(switch, switch.listenPort)
-            self.wait_for_tcp_listen(faucet, faucet.ofctl_port)
-            self.wait_for_tcp_listen(faucet, faucet.port)
-            self.wait_until_matching_flow('OUTPUT:CONTROLLER')
+
+        self.wait_debug_log()
+        faucet = self.get_controller()
+        self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
     def force_faucet_reload(self, new_config):
