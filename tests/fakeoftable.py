@@ -33,8 +33,8 @@ class FakeOFTable():
     def apply_ofmsgs(self, ofmsgs):
         """This is used to update the fake flowtable.
 
-        Adds, Deletes and modifies are applied according to section 6.4 of the
-        OpenFlow 1.3 specification."""
+        Adds, Deletes and modify flow modification messages are applied
+        according to section 6.4 of the OpenFlow 1.3 specification."""
         for ofmsg in ofmsgs:
             if isinstance(ofmsg, parser.OFPFlowMod):
                 table_id = ofmsg.table_id
@@ -42,7 +42,7 @@ class FakeOFTable():
                     tables = self.tables
                 else:
                     tables = [self.tables[table_id]]
-                new_fte = FlowTableEntry(ofmsg)
+                flowmod = FlowMod(ofmsg)
                 for table in tables:
                     if ofmsg.command == ofp.OFPFC_ADD:
                         # From the 1.3 spec, section 6.4:
@@ -64,35 +64,35 @@ class FakeOFTable():
                         # obviously unnacceptable so we will assume this is
                         # always set
                         add = True
-                        for old_fte in table:
-                            if new_fte.fte_matches(old_fte, strict=True):
-                                table.remove(old_fte)
+                        for fte in table:
+                            if flowmod.fte_matches(fte, strict=True):
+                                table.remove(fte)
                                 break
-                            elif new_fte.overlaps(old_fte):
+                            elif flowmod.overlaps(fte):
                                 add = False
                                 break
                         if add:
-                            table.append(new_fte)
+                            table.append(flowmod)
                     elif ofmsg.command == ofp.OFPFC_DELETE:
                         removals = []
-                        for old_fte in table:
-                            if new_fte.fte_matches(old_fte):
-                                removals.append(old_fte)
-                        for old_fte in removals:
-                            table.remove(old_fte)
+                        for fte in table:
+                            if flowmod.fte_matches(fte):
+                                removals.append(fte)
+                        for fte in removals:
+                            table.remove(fte)
                     elif ofmsg.command == ofp.OFPFC_DELETE_STRICT:
-                        for old_fte in table:
-                            if new_fte.fte_matches(old_fte, strict=True):
-                                table.remove(old_fte)
+                        for fte in table:
+                            if flowmod.fte_matches(fte, strict=True):
+                                table.remove(fte)
                                 break
                     elif ofmsg.command == ofp.OFPFC_MODIFY:
-                        for old_fte in table:
-                            if new_fte.fte_matches(old_fte):
-                                old_fte.instructions = new_fte.instructions
+                        for fte in table:
+                            if flowmod.fte_matches(fte):
+                                fte.instructions = flowmod.instructions
                     elif ofmsg.command == ofp.OFPFC_MODIFY_STRICT:
-                        for old_fte in table:
-                            if new_fte.fte_matches(old_fte, strict=True):
-                                old_fte.instructions = new_fte.instructions
+                        for fte in table:
+                            if flowmod.fte_matches(fte, strict=True):
+                                fte.instructions = flowmod.instructions
                                 break
         self.sort_tables()
 
@@ -151,9 +151,6 @@ class FakeOFTable():
         To specify the packet should be output without a vlan tag set the
         OFPVID_PRESENT bit in vid is 0.
 
-        Will raise IndexError if a vlan is specified and the packet is output
-        without a vlan tag.
-
         Arguments:
         Match: a dictionary keyed by header field names with values.
         """
@@ -196,7 +193,8 @@ class FakeOFTable():
                                 return len(vid_stack) == 0
 
                             else:
-                                return vid == vid_stack[-1]
+                                return\
+                                    len(vid_stack) > 0 and vid == vid_stack[-1]
 
         return False
 
@@ -211,10 +209,7 @@ class FakeOFTable():
 
     def sort_tables(self):
         for table_id, table in enumerate(self.tables):
-            self.tables[table_id] = sorted(
-                table,
-                key=lambda x: x.priority,
-                reverse=True)
+            self.tables[table_id] = sorted(table, reverse=True)
         return self.tables
 
     def parse_of_match(self, match):
@@ -223,7 +218,11 @@ class FakeOFTable():
 
         return (values_dict, masks_dict)
 
-class FlowTableEntry(object):
+class FlowMod(object):
+    """Represents a flow modification message and its corresponding entry in
+    the flow table.
+    """
+
 
     MAC_MATCH_FIELDS = (
         'eth_src', 'eth_dst', 'arp_sha', 'arp_tha', 'ipv6_nd_sll',
@@ -233,6 +232,7 @@ class FlowTableEntry(object):
     IPV6_MATCH_FIELDS = ('ipv6_src', 'ipv6_dst', 'ipv6_nd_target')
 
     def __init__(self, flowmod):
+        """flowmod is a ryu flow modification message object"""
         self.priority = flowmod.priority
         self.instructions = flowmod.instructions
         self.match_values = {}
@@ -256,6 +256,8 @@ class FlowTableEntry(object):
             self.match_masks[key] = mask
 
     def out_port_matches(self, other):
+        """returns True if other has an output action to this flowmods
+        output_port"""
         if self.out_port is None or self.out_port == ofp.OFPP_ANY:
             return True
         for instruction in other.instructions:
@@ -267,13 +269,15 @@ class FlowTableEntry(object):
         return False
 
     def pkt_matches(self, pkt_dict):
-        '''returns True if pkt_dict matches this flow table entry.
+        """returns True if pkt_dict matches this flow table entry.
 
         args:
             pkt_dict - a dictionary keyed by flow table match fields with
                 values
         if an element is included in the flow table entry match fields but not
-        in the pkt_dict that is assumed to indicate a failed match'''
+        in the pkt_dict that is assumed to indicate a failed match
+        """
+
         #TODO: add cookie and out_group
         for key, val in self.match_values.iteritems():
             if key not in pkt_dict:
@@ -285,6 +289,16 @@ class FlowTableEntry(object):
         return True
 
     def fte_matches(self, other, strict=False):
+        """returns True if the flow table entry other matches this flowmod.
+
+        used for finding existing flow table entries that match with this
+        flowmod.
+
+        args:
+            other - a flowmod object
+            strict (bool) - whether to use strict matching (as defined in
+                of1.3 specification section 6.4)
+        """
         if not self.out_port_matches(other):
             return False
         if strict:
@@ -302,7 +316,7 @@ class FlowTableEntry(object):
 
 
     def overlaps(self, other):
-        ''' returns True if any packet can match both self and other.'''
+        """ returns True if any packet can match both self and other."""
         # This is different from the matches method as matches assumes an
         # undefined field is a failed match. In this case an undefined field is
         # potentially an overlap and therefore is considered success
@@ -317,6 +331,11 @@ class FlowTableEntry(object):
         return True
 
     def match_to_bits(self, key, val):
+        """convert match fields and masks to bits objects.
+
+        this allows for masked matching. Converting all match fields to the
+        same object simplifies things (eg __str__).
+        """
         if isinstance(val, Bits):
             return val
 
