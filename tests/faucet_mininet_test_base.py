@@ -223,7 +223,7 @@ dbs:
         """Add an IPv4 route to a Mininet host."""
         host.cmd('ip -4 route add %s via %s' % (ip_dst.masked(), ip_gw))
 
-    def one_ipv4_ping(self, host, dst):
+    def one_ipv4_ping(self, host, dst, retries=3):
         """Ping an IPv4 destination from a host."""
         self.require_host_learned(host)
         for _ in range(retries):
