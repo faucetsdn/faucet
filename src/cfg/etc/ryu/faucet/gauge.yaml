@@ -2,7 +2,7 @@ version: 2
 faucet_configs:
     - '/etc/ryu/faucet/faucet.yaml'
 watchers:
-    port_state_poller:
+    port_status_poller:
         type: 'port_state'
         dps: ['windscale-faucet-1']
         db: 'influx'
