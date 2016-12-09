@@ -127,8 +127,8 @@ class Valve(object):
 
     def _in_port_tables(self):
         in_port_tables = [self.dp.acl_table]
-        for table_id in self.TABLE_MATCH_TYPES:
-            if 'in_port' in self.TABLE_MATCH_TYPES:
+        for table_id, match_types in self.TABLE_MATCH_TYPES.iteritems():
+            if 'in_port' in match_types:
                 in_port_tables.append(table_id)
         return in_port_tables
 
