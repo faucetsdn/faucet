@@ -55,7 +55,5 @@ def serve_ports():
                 continue
             break
         ports_served.add(free_port)
-        # delay test request for ports slightly/randomly, to limit test load.
-        time.sleep(random.random())
         connection.sendall('%16.16u' % free_port)
         connection.close()
