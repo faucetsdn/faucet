@@ -8,6 +8,7 @@ import re
 import shutil
 import time
 import unittest
+import yaml
 
 import ipaddr
 import requests
@@ -195,12 +196,33 @@ dbs:
             host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
         self.fail('host %s could not be learned' % host)
 
+    def wait_debug_log(self):
+        """Require all switches to have exchanged flows with controller."""
+        config = yaml.load(open(os.environ['FAUCET_CONFIG']))
+        for dp_name, dp_config in config['dps'].iteritems():
+            debug_log = dp_config['ofchannel_log']
+            debug_log_present = False
+            for _ in range(20):
+                if (os.path.exists(debug_log) and
+                        os.path.getsize(debug_log) > 0):
+                    debug_log_present = True
+                    break
+                time.sleep(1)
+            if not debug_log_present:
+                self.fail(
+                    'no controller debug log for switch %s' % dp_name)
+
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
         controller = self.get_controller()
         tcp_pattern = '%s/tcp' % controller.port
         fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
         self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
+
+    def force_faucet_reload(self, new_config):
+        """Force FAUCET to reload by adding new line to config file."""
+        open(os.environ['FAUCET_CONFIG'], 'a').write(new_config)
+        self.hup_faucet()
 
     def curl_portmod(self, int_dpid, port_no, config, mask):
         """Use curl to send a portmod command via the ofctl module."""

@@ -41,6 +41,7 @@ import ipaddr
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
+from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import Controller
 from mininet.node import Intf
@@ -85,7 +86,7 @@ FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
 FAUCET_LINT_SRCS = glob.glob(os.path.join(FAUCET_DIR, '*py'))
 
 # Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = 2
+MAX_PARALLEL_TESTS = 4
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
@@ -142,21 +143,29 @@ class Gauge(Controller):
 
 class FaucetSwitchTopo(Topo):
 
+    def get_sid_prefix(self, port):
+        return '%x' % port
+
     def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        pid = os.getpid()
+        port = faucet_mininet_test_util.find_free_port()
+        sid_prefix = self.get_sid_prefix(port)
         for host_n in range(n_tagged):
-            host = self.addHost(
-                't%x%s' % (pid % 0xff, host_n + 1),
-                cls=faucet_mininet_test_base.VLANHost, vlan=tagged_vid)
+            host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
+            self.addHost(
+                name=host_name,
+                cls=faucet_mininet_test_base.VLANHost,
+                vlan=tagged_vid)
         for host_n in range(n_untagged):
-            host = self.addHost('u%x%s' % (pid % 0xff, host_n + 1))
+            host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
+            self.addHost(name=host_name)
         if SWITCH_MAP:
             dpid = str(int(dpid) + 1)
             print 'mapped switch will use DPID %s (%x)' % (dpid, int(dpid))
+        switch_name = 's1%s' % sid_prefix
         switch = self.addSwitch(
-            's1%x' % pid,
+            name=switch_name,
             cls=faucet_mininet_test_base.FaucetSwitch,
-            listenPort=faucet_mininet_test_util.find_free_port(),
+            listenPort=port,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
         for host in self.hosts():
             self.addLink(host, switch)
@@ -165,7 +174,7 @@ class FaucetSwitchTopo(Topo):
 class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
+        self.tmpdir = tempfile.mkdtemp(prefix='faucettests')
         os.environ['FAUCET_CONFIG'] = os.path.join(
             self.tmpdir, 'faucet.yaml')
         os.environ['GAUGE_CONFIG'] = os.path.join(
@@ -187,10 +196,9 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
         if SWITCH_MAP:
-            self.dpid = int(faucet_mininet_test_util.normalize_dpid(DPID))
+            self.dpid = faucet_mininet_test_util.str_int_dpid(DPID)
         else:
-            self.dpid = int(random.randint(1, 2**32))
-        self.dpid = str(self.dpid)
+            self.dpid = str(random.randint(1, 2**32))
 
         self.CONFIG = '\n'.join((
             self.get_config_header(
@@ -208,6 +216,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.topo = None
 
     def attach_physical_switch(self):
+        """Bridge a physical switch into test topology."""
         switch = self.net.switches[0]
         hosts_count = len(self.net.hosts)
         for i, test_host_port in enumerate(sorted(SWITCH_MAP)):
@@ -221,14 +230,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
                     self.OFCTL, switch.name, port_x, port_y))
 
-    def wait_debug_log(self):
-        for _ in range(20):
-            if (os.path.exists(self.debug_log_path) and
-                    os.path.getsize(self.debug_log_path) > 0):
-                return
-            time.sleep(1)
-        self.fail('controller debug log did not show connection from switch')
-
     def start_net(self):
         self.net = Mininet(self.topo, controller=FAUCET)
         # TODO: when running software only, also test gauge.
@@ -241,14 +242,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.net.waitConnected()
 
         self.wait_debug_log()
-        faucet = self.get_controller()
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
-
-    def force_faucet_reload(self, new_config):
-        # Force FAUCET to reload by adding new line to config file.
-        open(os.environ['FAUCET_CONFIG'], 'a').write(new_config)
-        self.hup_faucet()
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
                        timeout=10, packets=2):
@@ -304,18 +299,19 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                         msg=tcpdump_txt)
 
     def flap_all_switch_ports(self, flap_time=1):
-        # TODO: for hardware switches also
-        if not SWITCH_MAP:
-            switch = self.net.switches[0]
-            for port_no in sorted(switch.ports.itervalues()):
-                if port_no > 0:
-                    os.system(self.curl_portmod(
-                        self.dpid, port_no,
-                        ofp.OFPPC_PORT_DOWN, ofp.OFPPC_PORT_DOWN))
-                    time.sleep(flap_time)
-                    os.system(self.curl_portmod(
-                        self.dpid, port_no,
-                        0, ofp.OFPPC_PORT_DOWN))
+        """Flap all ports on switch."""
+        for port_no in PORT_MAP.itervalues():
+            os.system(self.curl_portmod(
+                self.dpid,
+                port_no,
+                ofp.OFPPC_PORT_DOWN,
+                ofp.OFPPC_PORT_DOWN))
+            time.sleep(flap_time)
+            os.system(self.curl_portmod(
+                self.dpid,
+                port_no,
+                0,
+                ofp.OFPPC_PORT_DOWN))
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -1555,7 +1551,7 @@ vlans:
             second_host, second_host_ip, second_host_routed_ip)
 
 
-class FaucetStringOfDPSwitchTopo(Topo):
+class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
 
     def build(self, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
         """String of datapaths each with hosts with a single FAUCET controller.
@@ -1583,46 +1579,42 @@ class FaucetStringOfDPSwitchTopo(Topo):
         * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
           with final two links being inter-switch
         """
-
-        pid = os.getpid()
-        switches = []
-
+        last_switch = None
         for i, dpid in enumerate(dpids):
+            port = faucet_mininet_test_util.find_free_port()
+            sid_prefix = self.get_sid_prefix(port)
+            sid = '%u%s' % (i + 1, sid_prefix)
             hosts = []
-
             for host_n in range(n_tagged):
-                host_name = 't%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1)
+                host_name = 't%s%u' % (sid, host_n + 1)
                 host = self.addHost(
                     host_name,
                     cls=faucet_mininet_test_base.VLANHost,
                     vlan=tagged_vid)
                 hosts.append(host)
-
             for host_n in range(n_untagged):
-                host_name = 'u%xs%ih%s' % (pid % 0xff, i + 1, host_n + 1)
+                host_name = 'u%s%u' % (sid, host_n + 1)
                 host = self.addHost(host_name)
                 hosts.append(host)
-
-            switch_name = 's%i%x' % (i + 1, pid)
+            switch_name = 's%s' % sid
             switch = self.addSwitch(
                 switch_name,
                 cls=faucet_mininet_test_base.FaucetSwitch,
-                listenPort=faucet_mininet_test_util.find_free_port(),
+                listenPort=port,
                 dpid=faucet_mininet_test_util.mininet_dpid(dpid))
-
             for host in hosts:
                 self.addLink(host, switch)
-
             # Add a switch-to-switch link with the previous switch,
             # if this isn't the first switch in the topology.
-            if switches:
-                self.addLink(switches[i - 1], switch)
-
-            switches.append(switch)
+            if last_switch is not None:
+                self.addLink(last_switch, switch)
+            last_switch = switch
 
 
 class FaucetSingleStringOfDPTest(FaucetTest):
 
+    NUM_HOSTS = 4
+    VID = 100
     dpids = None
 
     def build_net(self, n_dps=1, stack=False, n_tagged=0, tagged_vid=100,
@@ -1663,134 +1655,145 @@ class FaucetSingleStringOfDPTest(FaucetTest):
         def dp_name(i):
             return 'faucet-%i' % (i + 1)
 
+        def add_vlans(n_tagged, tagged_vid, n_untagged, untagged_vid):
+            vlans_config = {}
+            if n_untagged:
+                vlans_config[untagged_vid] = {
+                    'description': 'untagged',
+                }
+
+            if ((n_tagged and not n_untagged) or
+                    (n_tagged and n_untagged and tagged_vid != untagged_vid)):
+                vlans_config[tagged_vid] = {
+                    'description': 'tagged',
+                }
+            return vlans_config
+
         def add_acl_to_port(name, port, interfaces_config):
             if name in acl_in_dp and port in acl_in_dp[name]:
                 interfaces_config[port]['acl_in'] = acl_in_dp[name][port]
 
+        def add_dp_to_dp_ports(dp_config, port, interfaces_config, i,
+                               dpid_count, stack, n_tagged, tagged_vid,
+                               n_untagged, untagged_vid):
+            # Add configuration for the switch-to-switch links
+            # (0 for a single switch, 1 for an end switch, 2 for middle switches).
+            first_dp = i == 0
+            second_dp = i == 1
+            last_dp = i == dpid_count - 1
+            end_dp = first_dp or last_dp
+            num_switch_links = 0
+            if dpid_count > 1:
+                if end_dp:
+                    num_switch_links = 1
+                else:
+                    num_switch_links = 2
+
+            if stack and first_dp:
+                dp_config['stack'] = {
+                    'priority': 1
+                }
+
+            first_stack_port = port
+
+            for stack_dp_port in range(num_switch_links):
+                tagged_vlans = None
+
+                peer_dp = None
+                if stack_dp_port == 0:
+                    if first_dp:
+                        peer_dp = i + 1
+                    else:
+                        peer_dp = i - 1
+                    if first_dp or second_dp:
+                        peer_port = first_stack_port
+                    else:
+                        peer_port = first_stack_port + 1
+                else:
+                    peer_dp = i + 1
+                    peer_port = first_stack_port
+
+                description = 'to %s' % dp_name(peer_dp)
+
+                interfaces_config[port] = {
+                    'description': description,
+                }
+
+                if stack:
+                    interfaces_config[port]['stack'] = {
+                        'dp': dp_name(peer_dp),
+                        'port': peer_port,
+                    }
+                else:
+                    if n_tagged and n_untagged and n_tagged != n_untagged:
+                        tagged_vlans = [tagged_vid, untagged_vid]
+                    elif ((n_tagged and not n_untagged) or
+                          (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                        tagged_vlans = [tagged_vid]
+                    elif n_untagged and not n_tagged:
+                        tagged_vlans = [untagged_vid]
+
+                    if tagged_vlans:
+                        interfaces_config[port]['tagged_vlans'] = tagged_vlans
+
+                add_acl_to_port(name, port, interfaces_config)
+                port += 1
+
+        def add_dp(name, dpid, i, dpid_count, stack,
+                   n_tagged, tagged_vid, n_untagged, untagged_vid):
+            dpid_ofchannel_log = ofchannel_log + str(i)
+            dp_config = {
+                'dp_id': int(dpid),
+                'hardware': hardware,
+                'ofchannel_log': dpid_ofchannel_log,
+                'interfaces': {},
+            }
+            interfaces_config = dp_config['interfaces']
+
+            port = 1
+            for _ in range(n_tagged):
+                interfaces_config[port] = {
+                    'tagged_vlans': [tagged_vid],
+                    'description': 'b%i' % port,
+                }
+                add_acl_to_port(name, port, interfaces_config)
+                port += 1
+
+            for _ in range(n_untagged):
+                interfaces_config[port] = {
+                    'native_vlan': untagged_vid,
+                    'description': 'b%i' % port,
+                }
+                add_acl_to_port(name, port, interfaces_config)
+                port += 1
+
+            add_dp_to_dp_ports(
+                dp_config, port, interfaces_config, i, dpid_count, stack,
+                n_tagged, tagged_vid, n_untagged, untagged_vid)
+
+            return dp_config
+
         config = {'version': 2}
 
-        # Includes.
         if include:
             config['include'] = list(include)
 
         if include_optional:
             config['include-optional'] = list(include_optional)
 
-        # Datapaths.
-        if dpids:
-            dpid_count = len(dpids)
-            num_switch_links = None
-            config['dps'] = {}
+        config['vlans'] = add_vlans(
+            n_tagged, tagged_vid, n_untagged, untagged_vid)
 
-            for i, dpid in enumerate(dpids):
-                port = 1
-                name = dp_name(i)
-                config['dps'][name] = {
-                    'dp_id': int(dpid),
-                    'hardware': hardware,
-                    'ofchannel_log': ofchannel_log,
-                    'interfaces': {},
-                }
-                dp_config = config['dps'][name]
-                interfaces_config = dp_config['interfaces']
+        config['acls'] = acls.copy()
 
-                for _ in range(n_tagged):
-                    interfaces_config[port] = {
-                        'tagged_vlans': [tagged_vid],
-                        'description': 'b%i' % port,
-                    }
-                    add_acl_to_port(name, port, interfaces_config)
-                    port += 1
+        dpid_count = len(dpids)
+        config['dps'] = {}
 
-                for _ in range(n_untagged):
-                    interfaces_config[port] = {
-                        'native_vlan': untagged_vid,
-                        'description': 'b%i' % port,
-                    }
-                    add_acl_to_port(name, port, interfaces_config)
-                    port += 1
-
-                # Add configuration for the switch-to-switch links
-                # (0 for a single switch, 1 for an end switch, 2 for middle switches).
-                first_dp = i == 0
-                second_dp = i == 1
-                last_dp = i == dpid_count - 1
-                end_dp = first_dp or last_dp
-                num_switch_links = 0
-                if dpid_count > 1:
-                    if end_dp:
-                        num_switch_links = 1
-                    else:
-                        num_switch_links = 2
-
-                if stack and first_dp:
-                    dp_config['stack'] = {
-                        'priority': 1
-                    }
-
-                first_stack_port = port
-
-                for stack_dp_port in range(num_switch_links):
-                    tagged_vlans = None
-
-                    peer_dp = None
-                    if stack_dp_port == 0:
-                        if first_dp:
-                            peer_dp = i + 1
-                        else:
-                            peer_dp = i - 1
-                        if first_dp or second_dp:
-                            peer_port = first_stack_port
-                        else:
-                            peer_port = first_stack_port + 1
-                    else:
-                        peer_dp = i + 1
-                        peer_port = first_stack_port
-
-                    description = 'to %s' % dp_name(peer_dp)
-
-                    interfaces_config[port] = {
-                        'description': description,
-                    }
-
-                    if stack:
-                        interfaces_config[port]['stack'] = {
-                            'dp': dp_name(peer_dp),
-                            'port': peer_port,
-                        }
-                    else:
-                        if n_tagged and n_untagged and n_tagged != n_untagged:
-                            tagged_vlans = [tagged_vid, untagged_vid]
-                        elif ((n_tagged and not n_untagged) or
-                              (n_tagged and n_untagged and tagged_vid == untagged_vid)):
-                            tagged_vlans = [tagged_vid]
-                        elif n_untagged and not n_tagged:
-                            tagged_vlans = [untagged_vid]
-
-                        if tagged_vlans:
-                            interfaces_config[port]['tagged_vlans'] = tagged_vlans
-
-                    add_acl_to_port(name, port, interfaces_config)
-                    # Used as the port number for the current switch.
-                    port += 1
-
-            # VLANs.
-            config['vlans'] = {}
-
-            if n_untagged:
-                config['vlans'][untagged_vid] = {
-                    'description': 'untagged',
-                }
-
-            if ((n_tagged and not n_untagged) or
-                    (n_tagged and n_untagged and tagged_vid != untagged_vid)):
-                config['vlans'][tagged_vid] = {
-                    'description': 'tagged',
-                }
-
-        # ACLs.
-        if acls:
-            config['acls'] = acls.copy()
+        for i, dpid in enumerate(dpids):
+            name = dp_name(i)
+            config['dps'][name] = add_dp(
+                name, dpid, i, dpid_count, stack,
+                n_tagged, tagged_vid, n_untagged, untagged_vid)
 
         return yaml.dump(config, default_flow_style=False)
 
@@ -1806,8 +1809,6 @@ class FaucetSingleStringOfDPTest(FaucetTest):
 class FaucetSingleStringOfDPUntaggedTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 3
-    NUM_HOSTS = 4
-    VID = 100
 
     def setUp(self):
         super(FaucetSingleStringOfDPUntaggedTest, self).setUp()
@@ -1822,8 +1823,6 @@ class FaucetSingleStringOfDPUntaggedTest(FaucetSingleStringOfDPTest):
 class FaucetSingleStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 3
-    NUM_HOSTS = 4
-    VID = 100
 
     def setUp(self):
         super(FaucetSingleStringOfDPTaggedTest, self).setUp()
@@ -1840,7 +1839,6 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 3
     NUM_HOSTS = 4
-    VID = 100
 
     def setUp(self):
         super(FaucetSingleStackStringOfDPTaggedTest, self).setUp()
@@ -1859,7 +1857,6 @@ class FaucetSingleStringOfDPACLOverrideTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 1
     NUM_HOSTS = 2
-    VID = 100
 
     # ACL rules which will get overridden.
     ACLS = {
@@ -2086,7 +2083,7 @@ def run_tests(requested_test_classes, serial=False):
         parallel_tests.countTestCases(), single_tests.countTestCases())
     results = []
     if parallel_tests.countTestCases():
-        max_parallel_tests = max(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
+        max_parallel_tests = min(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
         parallel_runner = unittest.TextTestRunner(verbosity=255)
         parallel_suite = ConcurrentTestSuite(
             parallel_tests, fork_for_tests(max_parallel_tests))
@@ -2123,6 +2120,7 @@ def parse_args():
 
 def test_main():
     """Test main."""
+    setLogLevel('info')
     args, clean, serial = parse_args()
 
     if clean:
