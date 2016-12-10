@@ -126,11 +126,20 @@ class Valve(object):
         }
 
     def _in_port_tables(self):
+        """Return list of tables that specify in_port as a match."""
         in_port_tables = [self.dp.acl_table]
         for table_id, match_types in self.TABLE_MATCH_TYPES.iteritems():
             if 'in_port' in match_types:
                 in_port_tables.append(table_id)
         return in_port_tables
+
+    def _vlan_match_tables(self):
+        """Return list of tables that specify vlan_vid as a match."""
+        vlan_match_tables = []
+        for table_id, match_types in self.TABLE_MATCH_TYPES.iteritems():
+            if 'vlan_vid' in match_types:
+                vlan_match_tables.append(table_id)
+        return vlan_match_tables
 
     def switch_features(self, dp_id, msg):
         """Send configuration flows necessary for the switch implementation.
@@ -266,9 +275,9 @@ class Valve(object):
 
     def _delete_all_port_match_flows(self, port):
         ofmsgs = []
-        for table in self._in_port_tables():
-            in_port_match = self.valve_in_match(table, in_port=port.number)
-            ofmsgs.extend(self.valve_flowdel(table, in_port_match))
+        for table_id in self._in_port_tables():
+            in_port_match = self.valve_in_match(table_id, in_port=port.number)
+            ofmsgs.extend(self.valve_flowdel(table_id, in_port_match))
         return ofmsgs
 
     def _add_default_drop_flows(self):
@@ -337,8 +346,7 @@ class Valve(object):
         return ofmsgs
 
     def _add_vlan(self, vlan, all_port_nums):
-        """Configure a VLAN
-        """
+        """Configure a VLAN."""
         ofmsgs = []
         self.logger.info('Configuring VLAN %s', vlan)
         for port in vlan.get_ports():
@@ -353,16 +361,14 @@ class Valve(object):
         return ofmsgs
 
     def _del_vlan(self, vlan):
-        """Delete a configured VLAN
-        """
+        """Delete a configured VLAN."""
         ofmsgs = []
         tables = [self.dp.eth_src_table, self.dp.ipv4_fib_table,
                   self.dp.ipv6_fib_table, self.dp.flood_table]
-
         for table_id in tables:
             ofmsgs.extend(self.valve_flowdel(table_id,
                                match=self.valve_in_match(table_id, vlan=vlan)))
-        self.logger.info("Delete VLAN %s", vlan)
+        self.logger.info('Delete VLAN %s', vlan)
         return ofmsgs
 
     def _add_ports_and_vlans(self, discovered_port_nums):
@@ -445,7 +451,6 @@ class Valve(object):
                 self.dp.vlan_table, in_port=port.number, vlan=vlan_vid),
             priority=self.dp.low_priority,
             inst=vlan_inst))
-        ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         return ofmsgs
 
     def _port_add_vlan_untagged(self, port, vlan, forwarding_table, mirror_act):
@@ -474,9 +479,11 @@ class Valve(object):
         untagged_vlans_with_port = [
             vlan for vlan in vlans if port in vlan.untagged]
         for vlan in tagged_vlans_with_port:
+            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             ofmsgs.extend(self._port_add_vlan_tagged(
                 port, vlan, forwarding_table, mirror_act))
         for vlan in untagged_vlans_with_port:
+            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             ofmsgs.extend(self._port_add_vlan_untagged(
                 port, vlan, forwarding_table, mirror_act))
         return ofmsgs
@@ -503,14 +510,6 @@ class Valve(object):
 
         ofmsgs = []
         if modify:
-            # delete all rules related to this port
-            tables = [self.dp.vlan_table, self.dp.acl_table,
-                      self.dp.eth_src_table, self.dp.flood_table]
-            for table_id in tables:
-                ofmsgs.extend(self.valve_flowdel(
-                    table_id,
-                    self.valve_in_match(table_id, in_port=port_num)))
-
             if not port.permanent_learn:
                 # delete eth_dst rules
                 ofmsgs.extend(self.valve_flowdel(
@@ -547,16 +546,15 @@ class Valve(object):
                 match=self.valve_in_match(self.dp.vlan_table, in_port=port_num),
                 priority=self.dp.low_priority,
                 inst=[valve_of.goto_table(forwarding_table)]))
-            return ofmsgs
-
-        # Add mirroring if any
-        mirror_act = []
-        if port.mirror:
-            mirror_act = [valve_of.output_port(port.mirror)]
-
-        # Add port/to VLAN rules.
-        ofmsgs.extend(self._port_add_vlans(port, forwarding_table, mirror_act))
-
+            for vlan in self.dp.vlans.values():
+                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+        else:
+            mirror_act = []
+            # Add mirroring if any
+            if port.mirror:
+                mirror_act = [valve_of.output_port(port.mirror)]
+            # Add port/to VLAN rules.
+            ofmsgs.extend(self._port_add_vlans(port, forwarding_table, mirror_act))
         return ofmsgs
 
     def port_delete(self, dp_id, port_num):

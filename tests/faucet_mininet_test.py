@@ -1613,6 +1613,8 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
 
 class FaucetSingleStringOfDPTest(FaucetTest):
 
+    NUM_HOSTS = 4
+    VID = 100
     dpids = None
 
     def build_net(self, n_dps=1, stack=False, n_tagged=0, tagged_vid=100,
@@ -1807,8 +1809,6 @@ class FaucetSingleStringOfDPTest(FaucetTest):
 class FaucetSingleStringOfDPUntaggedTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 3
-    NUM_HOSTS = 4
-    VID = 100
 
     def setUp(self):
         super(FaucetSingleStringOfDPUntaggedTest, self).setUp()
@@ -1823,8 +1823,6 @@ class FaucetSingleStringOfDPUntaggedTest(FaucetSingleStringOfDPTest):
 class FaucetSingleStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 3
-    NUM_HOSTS = 4
-    VID = 100
 
     def setUp(self):
         super(FaucetSingleStringOfDPTaggedTest, self).setUp()
@@ -1841,7 +1839,6 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 3
     NUM_HOSTS = 4
-    VID = 100
 
     def setUp(self):
         super(FaucetSingleStackStringOfDPTaggedTest, self).setUp()
@@ -1860,7 +1857,6 @@ class FaucetSingleStringOfDPACLOverrideTest(FaucetSingleStringOfDPTest):
 
     NUM_DPS = 1
     NUM_HOSTS = 2
-    VID = 100
 
     # ACL rules which will get overridden.
     ACLS = {
