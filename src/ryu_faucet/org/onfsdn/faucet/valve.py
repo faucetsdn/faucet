@@ -363,8 +363,8 @@ class Valve(object):
     def _del_vlan(self, vlan):
         """Delete a configured VLAN."""
         ofmsgs = []
-        tables = [self.dp.eth_src_table, self.dp.ipv4_fib_table,
-                  self.dp.ipv6_fib_table, self.dp.flood_table]
+        tables = self._vlan_match_tables()
+        tables.remove(self.dp.vlan_table)
         for table_id in tables:
             ofmsgs.extend(self.valve_flowdel(table_id,
                                match=self.valve_in_match(table_id, vlan=vlan)))
