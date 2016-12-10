@@ -1617,7 +1617,8 @@ class FaucetStringOfDPTest(FaucetTest):
     VID = 100
     dpids = None
 
-    def build_net(self, n_dps=1, stack=False, n_tagged=0, tagged_vid=100,
+    def build_net(self, stack=False, n_dps=1,
+                  n_tagged=0, tagged_vid=100,
                   n_untagged=0, untagged_vid=100,
                   include=[], include_optional=[], acls={}, acl_in_dp={}):
         """Set up Mininet and Faucet for the given topology."""
@@ -1805,6 +1806,14 @@ class FaucetStringOfDPTest(FaucetTest):
                 return True
         return False
 
+    def eventually_all_reachable(self, retries=3):
+        """Allow time for distributed learning to happen."""
+        for _ in range(retries):
+            loss = self.net.pingAll()
+            if loss == 0:
+                break
+        self.assertEquals(0, loss)
+
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
@@ -1838,19 +1847,18 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
-    NUM_HOSTS = 4
 
     def setUp(self):
         super(FaucetStackStringOfDPTaggedTest, self).setUp()
         self.build_net(
-            n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID,
-            stack=True)
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_tagged=self.NUM_HOSTS,
+            tagged_vid=self.VID)
         self.start_net()
 
     def test_tagged(self):
-        self.net.pingAll()
-        # Distributed learning has had a chance to happen.
-        self.assertEquals(0, self.net.pingAll())
+        self.eventually_all_reachable()
 
 
 class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):

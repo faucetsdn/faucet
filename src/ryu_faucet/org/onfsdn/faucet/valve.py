@@ -75,6 +75,8 @@ class Valve(object):
         self.dp = dp
         self.logger = logging.getLogger(logname + '.valve')
         self.ofchannel_logger = None
+        self._packet_in_count_sec = 0
+        self._last_packet_in_sec = 0
         self._register_table_match_types()
         # TODO: functional flow managers require too much state.
         # Should interface with a common composer class.
@@ -153,6 +155,7 @@ class Valve(object):
         return []
 
     def ofchannel_log(self, ofmsgs):
+        """Log OpenFlow messages in text format to debugging log."""
         if self.dp is not None:
             if self.dp.ofchannel_log is not None:
                 self.ofchannel_logger = util.get_logger(
@@ -168,6 +171,7 @@ class Valve(object):
                        eth_dst=None, eth_dst_mask=None,
                        ipv6_nd_target=None, icmpv6_type=None,
                        nw_proto=None, nw_src=None, nw_dst=None):
+        """Compose an OpenFlow match rule."""
         match_dict = valve_of.build_match_dict(
             in_port, vlan, eth_type, eth_src,
             eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
@@ -257,6 +261,7 @@ class Valve(object):
 
     def valve_flowcontroller(self, table_id, match=None, priority=None,
                              inst=None):
+        """Add flow outputting to controller."""
         if inst is None:
             inst = []
         return self.valve_flowmod(
@@ -366,8 +371,8 @@ class Valve(object):
         tables = self._vlan_match_tables()
         tables.remove(self.dp.vlan_table)
         for table_id in tables:
-            ofmsgs.extend(self.valve_flowdel(table_id,
-                               match=self.valve_in_match(table_id, vlan=vlan)))
+            match = self.valve_in_match(table_id, vlan=vlan)
+            ofmsgs.extend(self.valve_flowdel(table_id, match=match))
         self.logger.info('Delete VLAN %s', vlan)
         return ofmsgs
 
@@ -630,6 +635,77 @@ class Valve(object):
             return True
         return False
 
+    def _rate_limit_packet_ins(self):
+        """Return True if too many packet ins this second."""
+        now_sec = int(time.time())
+        if self._last_packet_in_sec != now_sec:
+            self._last_packet_in_sec = now_sec
+            self._packet_in_count_sec = 0
+        self._packet_in_count_sec += 1
+        if self.dp.ignore_learn_ins:
+            if self._packet_in_count_sec % self.dp.ignore_learn_ins == 0:
+                return True
+        return False
+
+    def _learn_host(self, valves, vlan, port, eth_src, dp_id):
+        """Possibly learn a host on a port."""
+        ofmsgs = []
+        # ban learning new hosts if max_hosts reached on a VLAN.
+        if (vlan.max_hosts is not None and
+                len(vlan.host_cache) == vlan.max_hosts and
+                eth_src not in vlan.host_cache):
+            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
+                vlan))
+            self.logger.info(
+                'max hosts %u reached on vlan %u, ' +
+                'temporarily banning learning on this vlan, ' +
+                'and not learning %s',
+                vlan.max_hosts, vlan.vid, eth_src)
+        else:
+            if port.stack is None:
+                learn_port = port
+            else:
+                # TODO: simplest possible unicast learning.
+                # We find just one port that is the shortest unicast path to
+                # the destination. We could use other factors (eg we could
+                # load balance over multiple ports based on destination MAC).
+                # TODO: each DP learns independently. An edge DP could
+                # call other valves so they learn immediately without waiting
+                # for packet in.
+                # TODO: edge DPs could use a different forwarding algorithm
+                # (for example, just default switch to a neighbor).
+                host_learned_other_dp = None
+                # Find port that forwards closer to destination DP that
+                # has already learned this host (if any).
+                for other_dpid, other_valve in valves.iteritems():
+                    if other_dpid == dp_id:
+                        continue
+                    other_dp = other_valve.dp
+                    other_dp_host_cache = other_dp.vlans[vlan.vid].host_cache
+                    if eth_src in other_dp_host_cache:
+                        host = other_dp_host_cache[eth_src]
+                        if host.edge:
+                            host_learned_other_dp = other_dp
+                            break
+                # No edge DP may have learned this host yet.
+                if host_learned_other_dp is None:
+                    return ofmsgs
+
+                learn_port = self.dp.shortest_path_port(
+                    host_learned_other_dp.name)
+                self.logger.info(
+                    'host learned via stack port to %s',
+                    host_learned_other_dp.name)
+
+            # TODO: it would be good to be able to notify an external
+            # system upon re/learning a host.
+            ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
+                learn_port, vlan, eth_src))
+            self.logger.info(
+                'learned %u hosts on vlan %u',
+                len(vlan.host_cache), vlan.vid)
+        return ofmsgs
+
     def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
@@ -664,65 +740,10 @@ class Valve(object):
             ofmsgs.extend(self.control_plane_handler(
                 in_port, vlan, eth_src, eth_dst, pkt))
 
-        # Apply learning packet in rate limit.
-        if self.dp.ignore_learn_ins:
-            if int(time.time() * 1e3) % self.dp.ignore_learn_ins == 0:
-                return ofmsgs
+        if self._rate_limit_packet_ins():
+            return ofmsgs
 
-        # ban learning new hosts if max_hosts reached on a VLAN.
-        if (vlan.max_hosts is not None and
-                len(vlan.host_cache) == vlan.max_hosts and
-                eth_src not in vlan.host_cache):
-            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
-                vlan))
-            self.logger.info(
-                'max hosts %u reached on vlan %u, ' +
-                'temporarily banning learning on this vlan, ' +
-                'and not learning %s',
-                vlan.max_hosts, vlan.vid, eth_src)
-        else:
-            if port.stack is None:
-                learn_port = port
-            else:
-                # TODO: simplest possible unicast learning.
-                # We find just one port that is the shortest unicast path to
-                # the destination. We could use other factors (eg we could
-                # load balance over multiple ports based on destination MAC).
-                # TODO: each DP learns independently. An edge DP could
-                # call other valves so they learn immediately without waiting
-                # for packet in.
-                # TODO: edge DPs could use a different forwarding algorithm
-                # (for example, just default switch to a neighbor).
-                host_learned_other_dp = None
-                # Find port that forwards closer to destination DP that
-                # has already learned this host (if any).
-                for other_dpid, other_valve in valves.iteritems():
-                    if other_dpid == dp_id:
-                        continue
-                    other_dp = other_valve.dp
-                    other_dp_host_cache = other_dp.vlans[vlan_vid].host_cache
-                    if eth_src in other_dp_host_cache:
-                        host = other_dp_host_cache[eth_src]
-                        if host.edge:
-                            host_learned_other_dp = other_dp
-                            break
-                # No edge DP may have learned this host yet.
-                if host_learned_other_dp is None:
-                    return ofmsgs
-
-                learn_port = self.dp.shortest_path_port(
-                    host_learned_other_dp.name)
-                self.logger.info(
-                    'host learned via stack port to %s',
-                    host_learned_other_dp.name)
-
-            # TODO: it would be good to be able to notify an external
-            # system upon re/learning a host.
-            ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
-                learn_port, vlan, eth_src))
-            self.logger.info(
-                'learned %u hosts on vlan %u',
-                len(vlan.host_cache), vlan.vid)
+        ofmsgs.extend(self._learn_host(valves, vlan, port, eth_src, dp_id))
         return ofmsgs
 
     def host_expire(self):
@@ -753,8 +774,7 @@ class Valve(object):
         """
         ofmsgs = []
         if self.dp.running:
-            """Reload what has been changed
-            """
+            # Reload what has been changed
             changed_acls = {}
             for acl_id, new_acl in new_dp.acls.iteritems():
                 if acl_id not in self.dp.acls:
@@ -797,7 +817,7 @@ class Valve(object):
             self.dp = new_dp
             self.dp.running = True
 
-            for port_no, port in changed_ports.iteritems():
+            for port_no in changed_ports.iterkeys():
                 ofmsgs.extend(self.port_add(self.dp.dp_id, port_no, True))
 
         return ofmsgs
@@ -818,12 +838,14 @@ class Valve(object):
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
+        """Add route to VLAN routing table."""
         if ip_dst.version == 6:
             return self.ipv6_route_manager.add_route(vlan, ip_gw, ip_dst)
         else:
             return self.ipv4_route_manager.add_route(vlan, ip_gw, ip_dst)
 
     def del_route(self, vlan, ip_dst):
+        """Delete route from VLAN routing table."""
         if ip_dst.version == 6:
             return self.ipv6_route_manager.del_route(vlan, ip_dst)
         else:
@@ -846,6 +868,7 @@ class Valve(object):
 
 
 class ArubaValve(Valve):
+    """Valve implementation that uses OpenFlow send table features messages."""
 
     def switch_features(self, dp_id, msg):
         ryu_table_loader = aruba.LoadRyuTables()
