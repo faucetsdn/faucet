@@ -258,11 +258,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
-    def force_faucet_reload(self, new_config):
-        # Force FAUCET to reload by adding new line to config file.
-        open(os.environ['FAUCET_CONFIG'], 'a').write(new_config)
-        self.hup_faucet()
-
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
                        timeout=10, packets=2):
         tcpdump_out = tcpdump_host.popen(
