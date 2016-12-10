@@ -3,9 +3,7 @@
 """Standalone utility functions for Mininet tests."""
 
 import os
-import random
 import socket
-import time
 
 
 PORTS_SOCKET = '/tmp/faucet-ports-server-socket'
@@ -13,10 +11,12 @@ RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 9179)
 
 
 def mininet_dpid(int_dpid):
+    """Return stringified hex version, of int DPID for mininet."""
     return str('%x' % int(int_dpid))
 
 
-def normalize_dpid(str_dpid):
+def str_int_dpid(str_dpid):
+    """Return stringified int version, of int or hex DPID from YAML."""
     str_dpid = str(str_dpid)
     if str_dpid.startswith('0x'):
         return str(int(str_dpid, 16))

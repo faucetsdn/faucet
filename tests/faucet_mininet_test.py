@@ -25,7 +25,6 @@
 """
 
 import glob
-import hashlib
 import inspect
 import os
 import sys
@@ -144,26 +143,29 @@ class Gauge(Controller):
 
 class FaucetSwitchTopo(Topo):
 
-    def get_sid_prefix(self):
-        return '%5.5s' % hashlib.sha1(
-            '%x%x' % (os.getpid(), int(time.time()))).hexdigest()
+    def get_sid_prefix(self, port):
+        return '%x' % port
 
     def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        sid_prefix = self.get_sid_prefix()
+        port = faucet_mininet_test_util.find_free_port()
+        sid_prefix = self.get_sid_prefix(port)
         for host_n in range(n_tagged):
-            host = self.addHost(
-                't%s%1.1u' % (sid_prefix, host_n + 1),
-                cls=faucet_mininet_test_base.VLANHost, vlan=tagged_vid)
+            host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
+            self.addHost(
+                name=host_name,
+                cls=faucet_mininet_test_base.VLANHost,
+                vlan=tagged_vid)
         for host_n in range(n_untagged):
-            host = self.addHost(
-                'u%s%1.1u' % (sid_prefix, host_n + 1))
+            host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
+            self.addHost(name=host_name)
         if SWITCH_MAP:
             dpid = str(int(dpid) + 1)
             print 'mapped switch will use DPID %s (%x)' % (dpid, int(dpid))
+        switch_name = 's1%s' % sid_prefix
         switch = self.addSwitch(
-            's1%s' % sid_prefix,
+            name=switch_name,
             cls=faucet_mininet_test_base.FaucetSwitch,
-            listenPort=faucet_mininet_test_util.find_free_port(),
+            listenPort=port,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
         for host in self.hosts():
             self.addLink(host, switch)
@@ -194,10 +196,9 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
         if SWITCH_MAP:
-            self.dpid = int(faucet_mininet_test_util.normalize_dpid(DPID))
+            self.dpid = faucet_mininet_test_util.str_int_dpid(DPID)
         else:
-            self.dpid = int(random.randint(1, 2**32))
-        self.dpid = str(self.dpid)
+            self.dpid = str(random.randint(1, 2**32))
 
         self.CONFIG = '\n'.join((
             self.get_config_header(
@@ -215,6 +216,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.topo = None
 
     def attach_physical_switch(self):
+        """Bridge a physical switch into test topology."""
         switch = self.net.switches[0]
         hosts_count = len(self.net.hosts)
         for i, test_host_port in enumerate(sorted(SWITCH_MAP)):
@@ -227,21 +229,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 port_x, port_y = port_pair
                 switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
                     self.OFCTL, switch.name, port_x, port_y))
-
-    def wait_debug_log(self):
-        config = yaml.load(open(os.environ['FAUCET_CONFIG']))
-        for dp_name, dp in config['dps'].iteritems():
-            debug_log = dp['ofchannel_log']
-            debug_log_present = False
-            for _ in range(20):
-                if (os.path.exists(debug_log) and
-                        os.path.getsize(debug_log) > 0):
-                    debug_log_present = True
-                    break
-                time.sleep(1)
-            if not debug_log_present:
-                self.fail(
-                    'no controller debug log for switch %s' % dp_name)
 
     def start_net(self):
         self.net = Mininet(self.topo, controller=FAUCET)
@@ -312,18 +299,19 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                         msg=tcpdump_txt)
 
     def flap_all_switch_ports(self, flap_time=1):
-        # TODO: for hardware switches also
-        if not SWITCH_MAP:
-            switch = self.net.switches[0]
-            for port_no in sorted(switch.ports.itervalues()):
-                if port_no > 0:
-                    os.system(self.curl_portmod(
-                        self.dpid, port_no,
-                        ofp.OFPPC_PORT_DOWN, ofp.OFPPC_PORT_DOWN))
-                    time.sleep(flap_time)
-                    os.system(self.curl_portmod(
-                        self.dpid, port_no,
-                        0, ofp.OFPPC_PORT_DOWN))
+        """Flap all ports on switch."""
+        for port_no in PORT_MAP.itervalues():
+            os.system(self.curl_portmod(
+                self.dpid,
+                port_no,
+                ofp.OFPPC_PORT_DOWN,
+                ofp.OFPPC_PORT_DOWN))
+            time.sleep(flap_time)
+            os.system(self.curl_portmod(
+                self.dpid,
+                port_no,
+                0,
+                ofp.OFPPC_PORT_DOWN))
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -1591,42 +1579,36 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
           with final two links being inter-switch
         """
-
-        switches = []
-        sid_prefix = self.get_sid_prefix()
-
+        last_switch = None
         for i, dpid in enumerate(dpids):
+            port = faucet_mininet_test_util.find_free_port()
+            sid_prefix = self.get_sid_prefix(port)
+            sid = '%u%s' % (i + 1, sid_prefix)
             hosts = []
-
             for host_n in range(n_tagged):
-                host_name = 't%s%u%u' % (sid_prefix, i + 1, host_n + 1)
+                host_name = 't%s%u' % (sid, host_n + 1)
                 host = self.addHost(
                     host_name,
                     cls=faucet_mininet_test_base.VLANHost,
                     vlan=tagged_vid)
                 hosts.append(host)
-
             for host_n in range(n_untagged):
-                host_name = 'u%s%u%u' % (sid_prefix, i + 1, host_n + 1)
+                host_name = 'u%s%u' % (sid, host_n + 1)
                 host = self.addHost(host_name)
                 hosts.append(host)
-
-            switch_name = 's%s%u' % (sid_prefix, i + 1)
+            switch_name = 's%s' % sid
             switch = self.addSwitch(
                 switch_name,
                 cls=faucet_mininet_test_base.FaucetSwitch,
-                listenPort=faucet_mininet_test_util.find_free_port(),
+                listenPort=port,
                 dpid=faucet_mininet_test_util.mininet_dpid(dpid))
-
             for host in hosts:
                 self.addLink(host, switch)
-
             # Add a switch-to-switch link with the previous switch,
             # if this isn't the first switch in the topology.
-            if switches:
-                self.addLink(switches[i - 1], switch)
-
-            switches.append(switch)
+            if last_switch is not None:
+                self.addLink(last_switch, switch)
+            last_switch = switch
 
 
 class FaucetSingleStringOfDPTest(FaucetTest):
