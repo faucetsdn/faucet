@@ -236,8 +236,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             for _ in range(20):
                 if (os.path.exists(debug_log) and
                         os.path.getsize(debug_log) > 0):
-                   debug_log_present = True
-                   break
+                    debug_log_present = True
+                    break
                 time.sleep(1)
             if not debug_log_present:
                 self.fail(
@@ -255,7 +255,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.net.waitConnected()
 
         self.wait_debug_log()
-        faucet = self.get_controller()
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
 
@@ -1677,135 +1676,145 @@ class FaucetSingleStringOfDPTest(FaucetTest):
         def dp_name(i):
             return 'faucet-%i' % (i + 1)
 
+        def add_vlans(n_tagged, tagged_vid, n_untagged, untagged_vid):
+            vlans_config = {}
+            if n_untagged:
+                vlans_config[untagged_vid] = {
+                    'description': 'untagged',
+                }
+
+            if ((n_tagged and not n_untagged) or
+                    (n_tagged and n_untagged and tagged_vid != untagged_vid)):
+                vlans_config[tagged_vid] = {
+                    'description': 'tagged',
+                }
+            return vlans_config
+
         def add_acl_to_port(name, port, interfaces_config):
             if name in acl_in_dp and port in acl_in_dp[name]:
                 interfaces_config[port]['acl_in'] = acl_in_dp[name][port]
 
+        def add_dp_to_dp_ports(dp_config, port, interfaces_config, i,
+                               dpid_count, stack, n_tagged, tagged_vid,
+                               n_untagged, untagged_vid):
+            # Add configuration for the switch-to-switch links
+            # (0 for a single switch, 1 for an end switch, 2 for middle switches).
+            first_dp = i == 0
+            second_dp = i == 1
+            last_dp = i == dpid_count - 1
+            end_dp = first_dp or last_dp
+            num_switch_links = 0
+            if dpid_count > 1:
+                if end_dp:
+                    num_switch_links = 1
+                else:
+                    num_switch_links = 2
+
+            if stack and first_dp:
+                dp_config['stack'] = {
+                    'priority': 1
+                }
+
+            first_stack_port = port
+
+            for stack_dp_port in range(num_switch_links):
+                tagged_vlans = None
+
+                peer_dp = None
+                if stack_dp_port == 0:
+                    if first_dp:
+                        peer_dp = i + 1
+                    else:
+                        peer_dp = i - 1
+                    if first_dp or second_dp:
+                        peer_port = first_stack_port
+                    else:
+                        peer_port = first_stack_port + 1
+                else:
+                    peer_dp = i + 1
+                    peer_port = first_stack_port
+
+                description = 'to %s' % dp_name(peer_dp)
+
+                interfaces_config[port] = {
+                    'description': description,
+                }
+
+                if stack:
+                    interfaces_config[port]['stack'] = {
+                        'dp': dp_name(peer_dp),
+                        'port': peer_port,
+                    }
+                else:
+                    if n_tagged and n_untagged and n_tagged != n_untagged:
+                        tagged_vlans = [tagged_vid, untagged_vid]
+                    elif ((n_tagged and not n_untagged) or
+                          (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                        tagged_vlans = [tagged_vid]
+                    elif n_untagged and not n_tagged:
+                        tagged_vlans = [untagged_vid]
+
+                    if tagged_vlans:
+                        interfaces_config[port]['tagged_vlans'] = tagged_vlans
+
+                add_acl_to_port(name, port, interfaces_config)
+                port += 1
+
+        def add_dp(name, dpid, i, dpid_count, stack,
+                   n_tagged, tagged_vid, n_untagged, untagged_vid):
+            dpid_ofchannel_log = ofchannel_log + str(i)
+            dp_config = {
+                'dp_id': int(dpid),
+                'hardware': hardware,
+                'ofchannel_log': dpid_ofchannel_log,
+                'interfaces': {},
+            }
+            interfaces_config = dp_config['interfaces']
+
+            port = 1
+            for _ in range(n_tagged):
+                interfaces_config[port] = {
+                    'tagged_vlans': [tagged_vid],
+                    'description': 'b%i' % port,
+                }
+                add_acl_to_port(name, port, interfaces_config)
+                port += 1
+
+            for _ in range(n_untagged):
+                interfaces_config[port] = {
+                    'native_vlan': untagged_vid,
+                    'description': 'b%i' % port,
+                }
+                add_acl_to_port(name, port, interfaces_config)
+                port += 1
+
+            add_dp_to_dp_ports(
+                dp_config, port, interfaces_config, i, dpid_count, stack,
+                n_tagged, tagged_vid, n_untagged, untagged_vid)
+
+            return dp_config
+
         config = {'version': 2}
 
-        # Includes.
         if include:
             config['include'] = list(include)
 
         if include_optional:
             config['include-optional'] = list(include_optional)
 
-        # Datapaths.
-        if dpids:
-            dpid_count = len(dpids)
-            num_switch_links = None
-            config['dps'] = {}
+        config['vlans'] = add_vlans(
+            n_tagged, tagged_vid, n_untagged, untagged_vid)
 
-            for i, dpid in enumerate(dpids):
-                port = 1
-                name = dp_name(i)
-                dpid_ofchannel_log = ofchannel_log + str(i)
-                config['dps'][name] = {
-                    'dp_id': int(dpid),
-                    'hardware': hardware,
-                    'ofchannel_log': dpid_ofchannel_log,
-                    'interfaces': {},
-                }
-                dp_config = config['dps'][name]
-                interfaces_config = dp_config['interfaces']
+        config['acls'] = acls.copy()
 
-                for _ in range(n_tagged):
-                    interfaces_config[port] = {
-                        'tagged_vlans': [tagged_vid],
-                        'description': 'b%i' % port,
-                    }
-                    add_acl_to_port(name, port, interfaces_config)
-                    port += 1
+        dpid_count = len(dpids)
+        config['dps'] = {}
 
-                for _ in range(n_untagged):
-                    interfaces_config[port] = {
-                        'native_vlan': untagged_vid,
-                        'description': 'b%i' % port,
-                    }
-                    add_acl_to_port(name, port, interfaces_config)
-                    port += 1
-
-                # Add configuration for the switch-to-switch links
-                # (0 for a single switch, 1 for an end switch, 2 for middle switches).
-                first_dp = i == 0
-                second_dp = i == 1
-                last_dp = i == dpid_count - 1
-                end_dp = first_dp or last_dp
-                num_switch_links = 0
-                if dpid_count > 1:
-                    if end_dp:
-                        num_switch_links = 1
-                    else:
-                        num_switch_links = 2
-
-                if stack and first_dp:
-                    dp_config['stack'] = {
-                        'priority': 1
-                    }
-
-                first_stack_port = port
-
-                for stack_dp_port in range(num_switch_links):
-                    tagged_vlans = None
-
-                    peer_dp = None
-                    if stack_dp_port == 0:
-                        if first_dp:
-                            peer_dp = i + 1
-                        else:
-                            peer_dp = i - 1
-                        if first_dp or second_dp:
-                            peer_port = first_stack_port
-                        else:
-                            peer_port = first_stack_port + 1
-                    else:
-                        peer_dp = i + 1
-                        peer_port = first_stack_port
-
-                    description = 'to %s' % dp_name(peer_dp)
-
-                    interfaces_config[port] = {
-                        'description': description,
-                    }
-
-                    if stack:
-                        interfaces_config[port]['stack'] = {
-                            'dp': dp_name(peer_dp),
-                            'port': peer_port,
-                        }
-                    else:
-                        if n_tagged and n_untagged and n_tagged != n_untagged:
-                            tagged_vlans = [tagged_vid, untagged_vid]
-                        elif ((n_tagged and not n_untagged) or
-                              (n_tagged and n_untagged and tagged_vid == untagged_vid)):
-                            tagged_vlans = [tagged_vid]
-                        elif n_untagged and not n_tagged:
-                            tagged_vlans = [untagged_vid]
-
-                        if tagged_vlans:
-                            interfaces_config[port]['tagged_vlans'] = tagged_vlans
-
-                    add_acl_to_port(name, port, interfaces_config)
-                    # Used as the port number for the current switch.
-                    port += 1
-
-            # VLANs.
-            config['vlans'] = {}
-
-            if n_untagged:
-                config['vlans'][untagged_vid] = {
-                    'description': 'untagged',
-                }
-
-            if ((n_tagged and not n_untagged) or
-                    (n_tagged and n_untagged and tagged_vid != untagged_vid)):
-                config['vlans'][tagged_vid] = {
-                    'description': 'tagged',
-                }
-
-        # ACLs.
-        if acls:
-            config['acls'] = acls.copy()
+        for i, dpid in enumerate(dpids):
+            name = dp_name(i)
+            config['dps'][name] = add_dp(
+                name, dpid, i, dpid_count, stack,
+                n_tagged, tagged_vid, n_untagged, untagged_vid)
 
         return yaml.dump(config, default_flow_style=False)
 
@@ -2101,7 +2110,7 @@ def run_tests(requested_test_classes, serial=False):
         parallel_tests.countTestCases(), single_tests.countTestCases())
     results = []
     if parallel_tests.countTestCases():
-        max_parallel_tests = max(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
+        max_parallel_tests = min(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
         parallel_runner = unittest.TextTestRunner(verbosity=255)
         parallel_suite = ConcurrentTestSuite(
             parallel_tests, fork_for_tests(max_parallel_tests))
