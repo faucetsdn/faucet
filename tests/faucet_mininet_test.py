@@ -1611,7 +1611,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
             last_switch = switch
 
 
-class FaucetSingleStringOfDPTest(FaucetTest):
+class FaucetStringOfDPTest(FaucetTest):
 
     NUM_HOSTS = 4
     VID = 100
@@ -1806,12 +1806,12 @@ class FaucetSingleStringOfDPTest(FaucetTest):
         return False
 
 
-class FaucetSingleStringOfDPUntaggedTest(FaucetSingleStringOfDPTest):
+class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
     def setUp(self):
-        super(FaucetSingleStringOfDPUntaggedTest, self).setUp()
+        super(FaucetStringOfDPUntaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
         self.start_net()
@@ -1820,12 +1820,12 @@ class FaucetSingleStringOfDPUntaggedTest(FaucetSingleStringOfDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FaucetSingleStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
+class FauceStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
     def setUp(self):
-        super(FaucetSingleStringOfDPTaggedTest, self).setUp()
+        super(FaucetStringOfDPTaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID)
         self.start_net()
@@ -1834,14 +1834,14 @@ class FaucetSingleStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FaucetSingleStackStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
+class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
     NUM_HOSTS = 4
 
     def setUp(self):
-        super(FaucetSingleStackStringOfDPTaggedTest, self).setUp()
+        super(FaucetStackStringOfDPTaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID,
             stack=True)
@@ -1853,7 +1853,7 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetSingleStringOfDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FaucetSingleStringOfDPACLOverrideTest(FaucetSingleStringOfDPTest):
+class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
     NUM_DPS = 1
     NUM_HOSTS = 2
