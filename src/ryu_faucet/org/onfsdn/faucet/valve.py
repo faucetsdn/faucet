@@ -758,8 +758,99 @@ class Valve(object):
         for vlan in self.dp.vlans.itervalues():
             self.host_manager.expire_hosts_from_vlan(vlan, now)
 
+    def _get_config_changes(self, new_dp):
+        """Detect any config changes.
+
+        Args:
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changes (tuple) of:
+                deleted_ports (list): deleted port numbers.
+                changed_ports (list): changed/added port numbers.
+                deleted_vlans (list): deleted VLAN IDs.
+                changed_vlans (list): changed/added VLAN IDs.
+        """
+        changed_acls = {}
+        for acl_id, new_acl in new_dp.acls.iteritems():
+            if acl_id not in self.dp.acls:
+                changed_acls[acl_id] = new_acl
+            else:
+                if new_acl != self.dp.acls[acl_id]:
+                    changed_acls[acl_id] = new_acl
+
+        changed_ports = []
+        for port_no, new_port in new_dp.ports.iteritems():
+            if port_no not in self.dp.ports:
+                # Detected a newly configured port
+                changed_ports.append(port_no)
+            else:
+                # An existing port has configs changed
+                if new_port != self.dp.ports[port_no]:
+                    changed_ports.append(port_no)
+                else:
+                     # If the port has its ACL changed
+                    if new_port.acl_in in changed_acls:
+                        changed_ports.append(port_no)
+
+        deleted_ports = []
+        for port_no in self.dp.ports.iterkeys():
+            if port_no not in new_dp.ports:
+                deleted_ports.append(port_no)
+
+        changed_vlans = []
+        for vid, new_vlan in new_dp.vlans.iteritems():
+            if vid not in self.dp.vlans or new_vlan != self.dp.vlans[vid]:
+                changed_vlans.append(vid)
+
+        deleted_vlans = []
+        for vid in self.dp.vlans.iterkeys():
+            if vid not in new_dp.vlans:
+                deleted_vlans.append(vid)
+
+        changes = (deleted_ports, changed_ports, deleted_vlans, changed_vlans)
+        return changes
+
+    def _apply_config_changes(self, new_dp, changes):
+        """Apply any detected configuration changes.
+
+        Args:
+            new_dp: (DP): new dataplane configuration.
+            changes (tuple) of:
+                deleted_ports (list): deleted port numbers.
+                changed_ports (list): changed/added port numbers.
+                deleted_vlans (list): deleted VLAN IDs.
+                changed_vlans (list): changed/added VLAN IDs.
+        Returns:
+            ofmsgs (list): OpenFlow messages.
+        """
+        deleted_ports, changed_ports, deleted_vlans, changed_vlans = changes
+        ofmsgs = []
+        for port_no in deleted_ports:
+            self.logger.info('ports deleted: %s', deleted_ports)
+            ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no))
+        for vid in deleted_vlans:
+            self.logger.info('VLANs deleted: %s', deleted_vlans)
+            vlan = self.dp.vlans[vid]
+            ofmsgs.extend(self._del_vlan(vlan))
+        for vid in changed_vlans:
+            vlan = self.dp.vlans[vid]
+            ofmsgs.extend(self._del_vlan(vlan))
+
+        self.dp = new_dp
+        self.dp.running = True
+
+        for vid in changed_vlans:
+            self.logger.info('VLANs changed/added: %s', changed_vlans)
+            vlan = self.dp.vlans[vid]
+            ofmsgs.extend(self._add_vlan(vlan, set()))
+        for port_no in changed_ports:
+            self.logger.info('ports changed/added: %s', changed_ports)
+            ofmsgs.extend(self.port_add(self.dp.dp_id, port_no, True))
+        return ofmsgs
+
     def reload_config(self, new_dp):
         """Reload configuration new_dp.
+
         Following config changes are currently supported:
             - Port config: support all available configs (e.g. native_vlan, acl_in)
                 & change operations (add, delete, modify) a port
@@ -772,55 +863,12 @@ class Valve(object):
         Returns:
             list: OpenFlow messages.
         """
-        ofmsgs = []
         if self.dp.running:
-            # Reload what has been changed
-            changed_acls = {}
-            for acl_id, new_acl in new_dp.acls.iteritems():
-                if acl_id not in self.dp.acls:
-                    changed_acls[acl_id] = new_acl
-                else:
-                    if new_acl != self.dp.acls[acl_id]:
-                        changed_acls[acl_id] = new_acl
-
-            changed_ports = {}
-            for port_no, new_port in new_dp.ports.iteritems():
-                if port_no not in self.dp.ports:
-                    # Detected a newly configured port
-                    changed_ports[port_no] = new_port
-                else:
-                    # An existing port has configs changed
-                    if new_port != self.dp.ports[port_no]:
-                        changed_ports[port_no] = new_port
-                    else:
-                        # If the port has its ACL changed
-                        if new_port.acl_in in changed_acls:
-                            changed_ports[port_no] = new_port
-
-            for port_no in self.dp.ports.iterkeys():
-                if port_no not in new_dp.ports:
-                    ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no))
-
-            changed_vlans = {}
-            for vid, new_vlan in new_dp.vlans.iteritems():
-                if vid not in self.dp.vlans or new_vlan != self.dp.vlans[vid]:
-                    changed_vlans[vid] = new_vlan
-
-            if changed_vlans:
-                for vid, vlan in self.dp.vlans.iteritems():
-                    if vid not in new_dp.vlans or vid in changed_vlans:
-                        ofmsgs.extend(self._del_vlan(vlan))
-
-            for vlan in changed_vlans.itervalues():
-                ofmsgs.extend(self._add_vlan(vlan, set()))
-
-            self.dp = new_dp
-            self.dp.running = True
-
-            for port_no in changed_ports.iterkeys():
-                ofmsgs.extend(self.port_add(self.dp.dp_id, port_no, True))
-
-        return ofmsgs
+            return self._apply_config_changes(
+                new_dp,
+                self._get_config_changes(new_dp))
+        else:
+            return []
 
     def _add_controller_ips(self, controller_ips, vlan):
         ofmsgs = []
