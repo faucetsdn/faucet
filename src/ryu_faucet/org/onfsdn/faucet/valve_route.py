@@ -281,6 +281,10 @@ class ValveIPv4RouteManager(ValveRouteManager):
             arp_reply = valve_packet.arp_reply(
                 self.faucet_mac, eth_src, vid, dst_ip, src_ip)
             ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
+            # FIB entry for this host.
+            host_route = ipaddr.IPv4Network(
+                '%s/%u' % (str(src_ip), src_ip.max_prefixlen))
+            ofmsgs.extend(self.add_route(vlan, src_ip, host_route))
             self.logger.info(
                 'Responded to ARP request for %s from %s', src_ip, dst_ip)
         elif (opcode == arp.ARP_REPLY and

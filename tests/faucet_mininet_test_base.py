@@ -153,8 +153,9 @@ class FaucetTestBase(unittest.TestCase):
 
     ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
     CONFIG = ''
-    CONTROLLER_IPV4 = '10.0.0.254'
-    CONTROLLER_IPV6 = 'fc00::1:254'
+    CONTROLLER_IPV4 = ipaddr.IPv4Network('10.0.0.254/24')
+    CONTROLLER_IPV4_2 = ipaddr.IPv4Network('172.16.0.254/24')
+    CONTROLLER_IPV6 = ipaddr.IPv6Network('fc00::1:254')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     CONFIG_GLOBAL = ''
     BOGUS_MAC = '01:02:03:04:05:06'
@@ -401,7 +402,7 @@ dbs:
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
-        self.one_ipv4_ping(host, self.CONTROLLER_IPV4)
+        self.one_ipv4_ping(host, self.CONTROLLER_IPV4.ip)
 
     def one_ipv6_ping(self, host, dst, retries=3):
         """Ping an IPv6 destination from a host."""
@@ -415,7 +416,7 @@ dbs:
 
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
-        self.one_ipv6_ping(host, self.CONTROLLER_IPV6)
+        self.one_ipv6_ping(host, self.CONTROLLER_IPV6.ip)
 
     def wait_for_tcp_listen(self, host, port, timeout=10):
         """Wait for a host to start listening on a port."""
@@ -544,9 +545,9 @@ dbs:
         self.host_ipv4_alias(first_host, first_host_routed_ip)
         self.host_ipv4_alias(second_host, second_host_routed_ip)
         self.add_host_ipv4_route(
-            first_host, second_host_routed_ip, self.CONTROLLER_IPV4)
+            first_host, second_host_routed_ip, self.CONTROLLER_IPV4.ip)
         self.add_host_ipv4_route(
-            second_host, first_host_routed_ip, self.CONTROLLER_IPV4)
+            second_host, first_host_routed_ip, self.CONTROLLER_IPV4.ip)
         self.net.ping(hosts=(first_host, second_host))
         self.wait_for_route_as_flow(
             first_host.MAC(), first_host_routed_ip)
@@ -596,9 +597,9 @@ dbs:
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
         self.add_host_ipv6_route(
-            first_host, second_host_routed_ip, self.CONTROLLER_IPV6)
+            first_host, second_host_routed_ip, self.CONTROLLER_IPV6.ip)
         self.add_host_ipv6_route(
-            second_host, first_host_routed_ip, self.CONTROLLER_IPV6)
+            second_host, first_host_routed_ip, self.CONTROLLER_IPV6.ip)
         self.wait_for_route_as_flow(
             first_host.MAC(), first_host_routed_ip)
         self.wait_for_route_as_flow(

@@ -1254,6 +1254,48 @@ vlans:
             second_host, second_host_routed_ip)
 
 
+class FaucetUntaggedMixedIPv4RouteTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        controller_ips: ["172.16.0.254/24", "10.0.0.254/24"]
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_net = ipaddr.IPv4Network('10.0.0.1/24')
+        second_host_net = ipaddr.IPv4Network('172.16.0.1/24')
+        self.one_ipv4_ping(first_host, self.CONTROLLER_IPV4.ip)
+        second_host.setIP(str(second_host_net.ip))
+        self.one_ipv4_ping(second_host, self.CONTROLLER_IPV4_2.ip)
+        self.add_host_ipv4_route(
+            first_host, second_host_net.masked(), self.CONTROLLER_IPV4.ip)
+        self.add_host_ipv4_route(
+            second_host, first_host_net.masked(), self.CONTROLLER_IPV4_2.ip)
+        self.one_ipv4_ping(first_host, second_host_net.ip)
+        self.one_ipv4_ping(second_host, first_host_net.ip)
+
+
 class FaucetSingleUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
