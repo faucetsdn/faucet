@@ -78,10 +78,12 @@ class VLANHost(Host):
            vlan: VLAN ID for default interface"""
         super_config = super(VLANHost, self).config(**params)
         intf = self.defaultIntf()
-        self.cmd('ifconfig %s inet 0' % intf)
-        self.cmd('vconfig add %s %d' % (intf, vlan))
-        self.cmd('ifconfig %s.%d inet %s' % (intf, vlan, params['ip']))
         vlan_intf_name = '%s.%d' % (intf, vlan)
+        self.cmd('ip -4 addr flush dev %s' % intf)
+        self.cmd('ip -6 addr flush dev %s' % intf)
+        self.cmd('vconfig add %s %d' % (intf, vlan))
+        self.cmd('ip link set dev %s up' % vlan_intf_name)
+        self.cmd('ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name))
         intf.name = vlan_intf_name
         self.nameToIntf[vlan_intf_name] = intf
         return super_config
@@ -379,7 +381,7 @@ dbs:
         host.cmd('ip -6 route del %s' % ip_dst.masked())
         self.assertEquals(
             '',
-             host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw)))
+            host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw)))
 
     def add_host_ipv4_route(self, host, ip_dst, ip_gw):
         """Add an IPv4 route to a Mininet host."""
@@ -584,6 +586,8 @@ dbs:
         self.add_host_ipv6_address(second_host, second_host_ip)
         self.add_host_ipv6_address(first_host, first_host_routed_ip)
         self.add_host_ipv6_address(second_host, second_host_routed_ip)
+        for host in first_host, second_host:
+            self.require_host_learned(host)
 
     def verify_ipv6_routing(self, first_host, first_host_ip,
                             first_host_routed_ip, second_host,
