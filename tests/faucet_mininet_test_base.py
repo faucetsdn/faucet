@@ -59,6 +59,8 @@ class FaucetTestBase(unittest.TestCase):
     hw_switch = False
     net = None
     of_port = None
+    port_map = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
+    switch_map = {}
     tmpdir = None
 
     def __init__(self, name, config):

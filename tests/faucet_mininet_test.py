@@ -93,10 +93,6 @@ HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 REQUIRED_TEST_PORTS = 4
 
 
-PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
-SWITCH_MAP = {}
-
-
 class FAUCET(Controller):
 
     def __init__(self, name, cdir=FAUCET_DIR,
@@ -212,12 +208,17 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         if self.config is not None:
             if 'hw_switch' in self.config:
                 self.hw_switch = self.config['hw_switch']
-            if 'dpid' in self.config:
+            if self.hw_switch:
                 self.dpid = self.config['dpid']
-            if 'of_port' in self.config:
                 self.of_port = self.config['of_port']
-            if 'hardware' in self.config:
                 self.hardware = self.config['hardware']
+                dp_ports = self.config['dp_ports']
+                self.port_map = {}
+                self.switch_map = {}
+                for i, switch_port in enumerate(dp_ports):
+                    test_port_name = 'port_%u' % (i + 1)
+                    self.port_map[test_port_name] = switch_port
+                    self.switch_map[test_port_name] = dp_ports[switch_port]
 
         if self.hw_switch:
             self.topo_class = FaucetHwSwitchTopo
@@ -230,7 +231,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.CONFIG = '\n'.join((
             self.get_config_header(
                 self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
-            self.CONFIG % PORT_MAP))
+            self.CONFIG % self.port_map))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.GAUGE_CONFIG = self.get_gauge_config(
             os.environ['FAUCET_CONFIG'],
@@ -246,10 +247,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         """Bridge a physical switch into test topology."""
         switch = self.net.switches[0]
         hosts_count = len(self.net.hosts)
-        for i, test_host_port in enumerate(sorted(SWITCH_MAP)):
+        for i, test_host_port in enumerate(sorted(self.switch_map)):
             port_i = i + 1
             mapped_port_i = port_i + hosts_count
-            phys_port = Intf(SWITCH_MAP[test_host_port], node=switch)
+            phys_port = Intf(self.switch_map[test_host_port], node=switch)
             switch.cmd('ifconfig %s up' % phys_port)
             switch.cmd('ovs-vsctl add-port %s %s' % (switch.name, phys_port.name))
             for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
@@ -334,7 +335,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
-        for port_no in PORT_MAP.itervalues():
+        for port_no in self.port_map.itervalues():
             os.system(self.curl_portmod(
                 self.dpid,
                 port_no,
@@ -2045,12 +2046,6 @@ def import_config():
             print ('Exactly %u dataplane ports are required, '
                    '%d are provided in %s.' %
                    (REQUIRED_TEST_PORTS, len(dp_ports), HW_SWITCH_CONFIG_FILE))
-        for i, switch_port in enumerate(dp_ports):
-            test_port_name = 'port_%u' % (i + 1)
-            global PORT_MAP
-            PORT_MAP[test_port_name] = switch_port
-            global SWITCH_MAP
-            SWITCH_MAP[test_port_name] = dp_ports[switch_port]
         return config
     else:
         return None
