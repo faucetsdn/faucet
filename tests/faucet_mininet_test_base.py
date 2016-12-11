@@ -235,7 +235,9 @@ dbs:
 
     def add_host_ipv6_address(self, host, ip_v6):
         """Add an IPv6 address to a Mininet host."""
-        host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf()))
+        self.assertEquals(
+            '',
+            host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf())))
 
     def add_host_ipv6_route(self, host, ip_dst, ip_gw):
         """Add an IPv6 route to a Mininet host."""
@@ -310,8 +312,7 @@ dbs:
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
 
-    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179,
-                     peer_port=9179):
+    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179):
         """Start exabgp process on controller host."""
         self.stop_exabgp(port)
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
@@ -319,18 +320,21 @@ dbs:
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.get_controller()
-        self.wait_for_tcp_listen(controller, peer_port)
         controller.cmd(
             'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u '
             'timeout -s9 180s stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
                 listen_address, port, exabgp_conf_file, exabgp_err, exabgp_log))
+        self.wait_for_tcp_listen(controller, port)
+        return exabgp_log
+
+    def wait_bgp_up(self, exabgp_log):
+        """Wait for BGP to come up."""
         for _ in range(60):
-            netstat = controller.cmd('netstat -an|grep %s:%s|grep ESTAB' % (
-                listen_address, port))
-            if netstat.find('ESTAB') > -1:
-                return exabgp_log
+            exabgp_log_content = open(exabgp_log).read()
+            if exabgp_log_content.find('OPENCONFIRM') > -1:
+                return
             time.sleep(1)
-        self.fail('exabgp did not start')
+        self.fail('exabgp did not peer with FAUCET')
 
     def stop_exabgp(self, port=179):
         """Stop exabgp process on controller host."""
@@ -348,6 +352,15 @@ dbs:
                 return updates
             time.sleep(1)
         self.fail('exabgp did not receive BGP updates')
+
+    def wait_exabgp_sent_updates(self, exabgp_log):
+        """Verify that exabgp process has sent BGP updates."""
+        for _ in range(60):
+            exabgp_log_content = open(exabgp_log).read()
+            if re.search(r'>> [1-9]+[0-9]* UPDATE', exabgp_log_content):
+                return
+            time.sleep(1)
+        self.fail('exabgp did not send BGP updates')
 
     def ping_all_when_learned(self, retries=3):
         """Verify all hosts can ping each other once FAUCET has learned all."""
@@ -373,17 +386,19 @@ dbs:
         self.wait_until_matching_flow(
             'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
 
+    def host_ipv4_alias(self, host, alias_ip):
+        del_cmd = 'ip addr del %s/%s dev %s' % (
+            alias_ip.ip, alias_ip.prefixlen, host.intf())
+        add_cmd = 'ip addr add %s/%s dev %s label %s:1' % (
+            alias_ip.ip, alias_ip.prefixlen, host.intf(), host.intf())
+        host.cmd(del_cmd)
+        self.assertEquals('', host.cmd(add_cmd))
+
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip):
         """Verify one host can IPV4 route to another via FAUCET."""
-        first_host.cmd(('ifconfig %s:0 %s netmask %s up' % (
-            first_host.intf(),
-            first_host_routed_ip.ip,
-            first_host_routed_ip.netmask)))
-        second_host.cmd(('ifconfig %s:0 %s netmask %s up' % (
-            second_host.intf(),
-            second_host_routed_ip.ip,
-            second_host_routed_ip.netmask)))
+        self.host_ipv4_alias(first_host, first_host_routed_ip)
+        self.host_ipv4_alias(second_host, second_host_routed_ip)
         self.add_host_ipv4_route(
             first_host, second_host_routed_ip, self.CONTROLLER_IPV4)
         self.add_host_ipv4_route(

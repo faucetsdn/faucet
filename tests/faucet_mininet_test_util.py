@@ -28,7 +28,10 @@ def find_free_port():
     """Retrieve a free TCP port from test server."""
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(PORTS_SOCKET)
-    return int(sock.recv(16))
+    buf = ''
+    while not buf.find('\n') > -1:
+        buf = buf + sock.recv(1024)
+    return [int(x) for x in buf.strip().split()]
 
 
 def serve_ports():
@@ -55,5 +58,5 @@ def serve_ports():
                 continue
             break
         ports_served.add(free_port)
-        connection.sendall('%16.16u' % free_port)
+        connection.sendall('%u %u\n' % (free_port, len(ports_served)))
         connection.close()
