@@ -58,6 +58,7 @@ class FaucetTestBase(unittest.TestCase):
     hardware = 'Open vSwitch'
     hw_switch = False
     net = None
+    of_port = None
     tmpdir = None
 
     def __init__(self, name, config):

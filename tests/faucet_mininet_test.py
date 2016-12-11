@@ -93,7 +93,6 @@ HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 REQUIRED_TEST_PORTS = 4
 
 
-OFPORT = None
 PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
 SWITCH_MAP = {}
 
@@ -105,10 +104,6 @@ class FAUCET(Controller):
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'faucet-%u' % os.getpid()
-        if OFPORT is not None:
-            port = OFPORT
-        else:
-            port, _ = faucet_mininet_test_util.find_free_port()
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port()
         cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
         Controller.__init__(
@@ -116,7 +111,6 @@ class FAUCET(Controller):
             name,
             cdir=cdir,
             command=command,
-            port=port,
             cargs=cargs,
             **kwargs)
 
@@ -220,6 +214,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 self.hw_switch = self.config['hw_switch']
             if 'dpid' in self.config:
                 self.dpid = self.config['dpid']
+            if 'of_port' in self.config:
+                self.of_port = self.config['of_port']
             if 'hardware' in self.config:
                 self.hardware = self.config['hardware']
 
@@ -229,6 +225,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         else:
             self.topo_class = FaucetSwitchTopo
             self.dpid = str(random.randint(1, 2**32))
+            self.of_port, _ = faucet_mininet_test_util.find_free_port()
 
         self.CONFIG = '\n'.join((
             self.get_config_header(
@@ -261,10 +258,12 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                     self.OFCTL, switch.name, port_x, port_y))
 
     def pre_start_net(self):
+        """Hook called after Mininet initializtion, before Mininet started."""
         return
 
     def start_net(self):
-        self.net = Mininet(self.topo, controller=FAUCET)
+        self.net = Mininet(
+            self.topo, controller=FAUCET(name='faucet', port=self.of_port))
         self.pre_start_net()
         # TODO: when running software only, also test gauge.
         if self.hw_switch:
@@ -275,7 +274,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             gauge_controller = Gauge(name='gauge', port=gauge_port)
             self.net.addController(gauge_controller)
             self.net.start()
- 
         self.net.waitConnected()
         self.wait_debug_log()
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
@@ -2043,8 +2041,6 @@ def import_config():
                     required_key, HW_SWITCH_CONFIG_FILE)
                 sys.exit(-1)
         dp_ports = config['dp_ports']
-        global OFPORT
-        OFPORT = config['of_port']
         if len(dp_ports) != REQUIRED_TEST_PORTS:
             print ('Exactly %u dataplane ports are required, '
                    '%d are provided in %s.' %
