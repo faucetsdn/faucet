@@ -205,7 +205,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
         if self.config is not None:
-            if 'dp_id' in self.config:
+            if 'dpid' in self.config:
                 self.dpid = self.config['dpid']
             if 'hardware' in self.config:
                 self.hardware = self.config['hardware']
