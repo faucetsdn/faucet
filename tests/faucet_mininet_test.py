@@ -211,6 +211,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             if self.hw_switch:
                 self.dpid = self.config['dpid']
                 self.of_port = self.config['of_port']
+                self.gauge_of_port = self.config['gauge_of_port']
                 self.hardware = self.config['hardware']
                 dp_ports = self.config['dp_ports']
                 self.port_map = {}
@@ -227,6 +228,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.topo_class = FaucetSwitchTopo
             self.dpid = str(random.randint(1, 2**32))
             self.of_port, _ = faucet_mininet_test_util.find_free_port()
+            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port()
 
         self.CONFIG = '\n'.join((
             self.get_config_header(
@@ -266,15 +268,11 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.net = Mininet(
             self.topo, controller=FAUCET(name='faucet', port=self.of_port))
         self.pre_start_net()
-        # TODO: when running software only, also test gauge.
+        gauge_controller = Gauge(name='gauge', port=self.gauge_of_port)
+        self.net.addController(gauge_controller)
+        self.net.start()
         if self.hw_switch:
-            self.net.start()
             self.attach_physical_switch()
-        else:
-            gauge_port, _ = faucet_mininet_test_util.find_free_port()
-            gauge_controller = Gauge(name='gauge', port=gauge_port)
-            self.net.addController(gauge_controller)
-            self.net.start()
         self.net.waitConnected()
         self.wait_debug_log()
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
@@ -333,21 +331,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
 
-    def flap_all_switch_ports(self, flap_time=1):
-        """Flap all ports on switch."""
-        for port_no in self.port_map.itervalues():
-            os.system(self.curl_portmod(
-                self.dpid,
-                port_no,
-                ofp.OFPPC_PORT_DOWN,
-                ofp.OFPPC_PORT_DOWN))
-            time.sleep(flap_time)
-            os.system(self.curl_portmod(
-                self.dpid,
-                port_no,
-                0,
-                ofp.OFPPC_PORT_DOWN))
-
 
 class FaucetUntaggedTest(FaucetTest):
     """Basic untagged VLAN test."""
@@ -384,17 +367,16 @@ vlans:
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         # TODO: a smoke test only - are flow/port stats accumulating
-        if not self.hw_switch:
-            watcher_files = (
-                self.monitor_stats_file,
-                self.monitor_state_file,
-                self.monitor_flow_table_file)
-            for watcher_file in watcher_files:
-                for _ in range(5):
-                    if os.path.exists(watcher_file):
-                        break
-                    time.sleep(1)
-                self.assertTrue(os.stat(watcher_file).st_size > 0)
+        watcher_files = (
+            self.monitor_stats_file,
+            self.monitor_state_file,
+            self.monitor_flow_table_file)
+        for watcher_file in watcher_files:
+            for _ in range(5):
+                if os.path.exists(watcher_file):
+                    break
+                time.sleep(1)
+            self.assertTrue(os.stat(watcher_file).st_size > 0)
 
 
 class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
@@ -2035,7 +2017,7 @@ def import_config():
         print 'Could not load YAML config data from %s' % HW_SWITCH_CONFIG_FILE
         sys.exit(-1)
     if 'hw_switch' in config and config['hw_switch']:
-        required_config = ('dp_ports', 'dpid', 'of_port')
+        required_config = ('dp_ports', 'dpid', 'of_port', 'gauge_of_port')
         for required_key in required_config:
             if required_key not in config:
                 print '%s must be specified in %s to use HW switch.' % (

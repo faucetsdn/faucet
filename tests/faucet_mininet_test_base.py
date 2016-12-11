@@ -57,6 +57,7 @@ class FaucetTestBase(unittest.TestCase):
     dpid = None
     hardware = 'Open vSwitch'
     hw_switch = False
+    gauge_of_port = None
     net = None
     of_port = None
     port_map = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
@@ -243,6 +244,21 @@ dbs:
             '%s/stats/portdesc/modify'))
         return curl_format  % (
             int_dpid, port_no, config, mask, self.ofctl_rest_url())
+
+    def flap_all_switch_ports(self, flap_time=1):
+        """Flap all ports on switch."""
+        for port_no in self.port_map.itervalues():
+            os.system(self.curl_portmod(
+                self.dpid,
+                port_no,
+                ofp.OFPPC_PORT_DOWN,
+                ofp.OFPPC_PORT_DOWN))
+            time.sleep(flap_time)
+            os.system(self.curl_portmod(
+                self.dpid,
+                port_no,
+                0,
+                ofp.OFPPC_PORT_DOWN))
 
     def add_host_ipv6_address(self, host, ip_v6):
         """Add an IPv6 address to a Mininet host."""
