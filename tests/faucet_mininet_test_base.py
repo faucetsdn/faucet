@@ -53,11 +53,17 @@ class FaucetTestBase(unittest.TestCase):
     CONFIG_GLOBAL = ''
     BOGUS_MAC = '01:02:03:04:05:06'
 
+    config = None
     dpid = None
     net = None
     tmpdir = None
 
+    def __init__(self, name, config):
+        super(FaucetTestBase, self).__init__(name)
+        self.config = config
+
     def tearDown(self):
+        """Clean up after a test."""
         if self.net is not None:
             self.net.stop()
         shutil.rmtree(self.tmpdir)

@@ -2040,9 +2040,9 @@ def import_config():
         if 'hardware' in config:
             global HARDWARE
             HARDWARE = config['hardware']
-        return True
+        return config
     else:
-        return False
+        return None
 
 
 def check_dependencies():
@@ -2102,17 +2102,17 @@ def lint_check():
     return True
 
 
-def make_suite(tc_class):
+def make_suite(tc_class, config):
     """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
     for name in testnames:
-        suite.addTest(tc_class(name))
+        suite.addTest(tc_class(name, config))
     return suite
 
 
-def run_tests(requested_test_classes, serial=False):
+def run_tests(requested_test_classes, serial, config):
     """Actually run the test suites, potentially in parallel."""
     ports_server = threading.Thread(target=faucet_mininet_test_util.serve_ports)
     ports_server.setDaemon(True)
@@ -2126,10 +2126,11 @@ def run_tests(requested_test_classes, serial=False):
             continue
         if name.endswith('Test') and name.startswith('Faucet'):
             print 'adding test %s' % name
-            if SWITCH_MAP or serial or name.startswith('FaucetSingle'):
-                single_tests.addTest(make_suite(obj))
+            test_suite = make_suite(obj, config)
+            if serial or name.startswith('FaucetSingle'):
+                single_tests.addTest(test_suite)
             else:
-                parallel_tests.addTest(make_suite(obj))
+                parallel_tests.addTest(test_suite)
     print 'running %u tests in parallel and %u tests serial' % (
         parallel_tests.countTestCases(), single_tests.countTestCases())
     results = []
@@ -2186,10 +2187,11 @@ def test_main():
     if not lint_check():
         print 'pylint must pass with no errors'
         sys.exit(-1)
-    if import_config():
+    config = import_config()
+    if config is not None:
         print 'Testing hardware, forcing test serialization'
         serial = True
-    run_tests(args, serial)
+    run_tests(args, serial, config)
 
 
 if __name__ == '__main__':
