@@ -44,7 +44,6 @@ from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import Intf
-from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
 
@@ -89,59 +88,6 @@ HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 REQUIRED_TEST_PORTS = 4
 
 
-class FaucetSwitchTopo(Topo):
-
-    def _get_sid_prefix(self, ports_served):
-        """Return a unique switch/host prefix for a test."""
-        # Linux tools require short interface names.
-        return '%2.2x' % ports_served
-
-    def _add_tagged_host(self, sid_prefix, tagged_vid, host_n):
-        host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(
-            name=host_name,
-            cls=faucet_mininet_test_base.VLANHost,
-            vlan=tagged_vid)
-
-    def _add_untagged_host(self, sid_prefix, host_n):
-        host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(name=host_name)
-
-    def _add_faucet_switch(self, sid_prefix, port, dpid):
-        switch_name = 's%s' % sid_prefix
-        return self.addSwitch(
-            name=switch_name,
-            cls=faucet_mininet_test_base.FaucetSwitch,
-            listenPort=port,
-            dpid=faucet_mininet_test_util.mininet_dpid(dpid))
-
-    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port()
-        sid_prefix = self._get_sid_prefix(ports_served)
-        for host_n in range(n_tagged):
-            self._add_tagged_host(sid_prefix, tagged_vid, host_n)
-        for host_n in range(n_untagged):
-            self._add_untagged_host(sid_prefix, host_n)
-        switch = self._add_faucet_switch(sid_prefix, port, dpid)
-        for host in self.hosts():
-            self.addLink(host, switch)
-
-
-class FaucetHwSwitchTopo(FaucetSwitchTopo):
-
-    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port()
-        sid_prefix = self._get_sid_prefix(ports_served)
-        for host_n in range(n_tagged):
-            self._add_tagged_host(sid_prefix, tagged_vid, host_n)
-        for host_n in range(n_untagged):
-            self._add_untagged_host(sid_prefix, host_n)
-        dpid = str(int(dpid) + 1)
-        print 'remap switch will use DPID %s (%x)' % (dpid, int(dpid))
-        switch = self._add_faucet_switch(sid_prefix, port, dpid)
-        for host in self.hosts():
-            self.addLink(host, switch)
-
 
 class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
@@ -184,10 +130,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                     self.switch_map[test_port_name] = dp_ports[switch_port]
 
         if self.hw_switch:
-            self.topo_class = FaucetHwSwitchTopo
+            self.topo_class = faucet_mininet_test_base.FaucetHwSwitchTopo
             self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
         else:
-            self.topo_class = FaucetSwitchTopo
+            self.topo_class = faucet_mininet_test_base.FaucetSwitchTopo
             self.dpid = str(random.randint(1, 2**32))
             self.of_port, _ = faucet_mininet_test_util.find_free_port()
             self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port()
@@ -1553,7 +1499,7 @@ vlans:
             second_host, second_host_ip, second_host_routed_ip)
 
 
-class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
+class FaucetStringOfDPSwitchTopo(faucet_mininet_test_base.FaucetSwitchTopo):
 
     def build(self, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
         """String of datapaths each with hosts with a single FAUCET controller.
