@@ -1889,6 +1889,25 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.eventually_all_reachable()
 
 
+class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
+    """Test topology of stacked datapaths with tagged hosts."""
+
+    NUM_DPS = 2
+    NUM_HOSTS = 2
+
+    def setUp(self):
+        super(FaucetStackStringOfDPUntaggedTest, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID)
+        self.start_net()
+
+    def test_untagged(self):
+        self.eventually_all_reachable()
+
+
 class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
     NUM_DPS = 1
