@@ -376,11 +376,17 @@ dbs:
 
     def add_host_ipv6_route(self, host, ip_dst, ip_gw):
         """Add an IPv6 route to a Mininet host."""
-        host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw))
+        host.cmd('ip -6 route del %s' % ip_dst.masked())
+        self.assertEquals(
+            '',
+             host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw)))
 
     def add_host_ipv4_route(self, host, ip_dst, ip_gw):
         """Add an IPv4 route to a Mininet host."""
-        host.cmd('ip -4 route add %s via %s' % (ip_dst.masked(), ip_gw))
+        host.cmd('ip -4 route del %s' % ip_dst.masked())
+        self.assertEquals(
+            '',
+            host.cmd('ip -4 route add %s via %s' % (ip_dst.masked(), ip_gw)))
 
     def one_ipv4_ping(self, host, dst, retries=3):
         """Ping an IPv4 destination from a host."""
@@ -573,7 +579,7 @@ dbs:
                                    second_host_ip, second_host_routed_ip):
         """Configure host IPv6 addresses for testing."""
         for host in first_host, second_host:
-            host.cmd('ip addr flush dev %s' % host.intf())
+            host.cmd('ip -6 addr flush dev %s' % host.intf())
         self.add_host_ipv6_address(first_host, first_host_ip)
         self.add_host_ipv6_address(second_host, second_host_ip)
         self.add_host_ipv6_address(first_host, first_host_routed_ip)
