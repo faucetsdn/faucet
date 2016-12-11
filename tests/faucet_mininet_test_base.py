@@ -381,7 +381,7 @@ dbs:
         host.cmd('ip -6 route del %s' % ip_dst.masked())
         self.assertEquals(
             '',
-             host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw)))
+            host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw)))
 
     def add_host_ipv4_route(self, host, ip_dst, ip_gw):
         """Add an IPv4 route to a Mininet host."""

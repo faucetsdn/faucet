@@ -169,6 +169,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                     self.OFCTL, switch.name, port_x, port_y))
 
     def start_net(self):
+        """Start Mininet network."""
         self.net = Mininet(
             self.topo,
             controller=faucet_mininet_test_base.FAUCET(
@@ -1761,6 +1762,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_untagged(self):
+        """All untagged hosts in multi switch topology can reach one another."""
         self.assertEquals(0, self.net.pingAll())
 
 
@@ -1775,6 +1777,7 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_tagged(self):
+        """All tagged hosts in multi switch topology can reach one another."""
         self.assertEquals(0, self.net.pingAll())
 
 
@@ -1793,6 +1796,7 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_tagged(self):
+        """All tagged hosts in stack topology can reach each other."""
         self.eventually_all_reachable()
 
 
@@ -1812,6 +1816,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def test_untagged(self):
+        """All untagged hosts in stack topology can reach each other."""
         self.eventually_all_reachable()
 
 
