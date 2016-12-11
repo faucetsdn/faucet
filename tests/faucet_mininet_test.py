@@ -172,9 +172,22 @@ class FaucetSwitchTopo(Topo):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
         for host_n in range(n_untagged):
             self._add_untagged_host(sid_prefix, host_n)
-        if SWITCH_MAP:
-            dpid = str(int(dpid) + 1)
-            print 'mapped switch will use DPID %s (%x)' % (dpid, int(dpid))
+        switch = self._add_faucet_switch(sid_prefix, port, dpid)
+        for host in self.hosts():
+            self.addLink(host, switch)
+
+
+class FaucetHwSwitchTopo(FaucetSwitchTopo):
+
+    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
+        port, ports_served = faucet_mininet_test_util.find_free_port()
+        sid_prefix = self._get_sid_prefix(ports_served)
+        for host_n in range(n_tagged):
+            self._add_tagged_host(sid_prefix, tagged_vid, host_n)
+        for host_n in range(n_untagged):
+            self._add_untagged_host(sid_prefix, host_n)
+        dpid = str(int(dpid) + 1)
+        print 'remap switch will use DPID %s (%x)' % (dpid, int(dpid))
         switch = self._add_faucet_switch(sid_prefix, port, dpid)
         for host in self.hosts():
             self.addLink(host, switch)
@@ -205,14 +218,18 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
         if self.config is not None:
+            if 'hw_switch' in self.config:
+                self.hw_switch = self.config['hw_switch']
             if 'dpid' in self.config:
                 self.dpid = self.config['dpid']
             if 'hardware' in self.config:
                 self.hardware = self.config['hardware']
 
-        if SWITCH_MAP:
+        if self.hw_switch:
+            self.topo_class = FaucetHwSwitchTopo
             self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
         else:
+            self.topo_class = FaucetSwitchTopo
             self.dpid = str(random.randint(1, 2**32))
 
         self.CONFIG = '\n'.join((
@@ -252,14 +269,14 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.net = Mininet(self.topo, controller=FAUCET)
         self.pre_start_net()
         # TODO: when running software only, also test gauge.
-        if SWITCH_MAP:
+        if self.hw_switch:
             self.net.start()
             self.attach_physical_switch()
         else:
             self.net.addController(controller=Gauge)
             self.net.start()
-            self.net.waitConnected()
-
+ 
+        self.net.waitConnected()
         self.wait_debug_log()
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
@@ -360,7 +377,7 @@ vlans:
 
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
-        self.topo = FaucetSwitchTopo(dpid=self.dpid, n_untagged=4)
+        self.topo = self.topo_class(dpid=self.dpid, n_untagged=4)
         self.start_net()
 
     def test_untagged(self):
@@ -368,7 +385,7 @@ vlans:
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         # TODO: a smoke test only - are flow/port stats accumulating
-        if not SWITCH_MAP:
+        if not self.hw_switch:
             watcher_files = (
                 self.monitor_stats_file,
                 self.monitor_state_file,
@@ -408,7 +425,7 @@ vlans:
 
     def setUp(self):
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
-        self.topo = FaucetSwitchTopo(dpid=self.dpid, n_tagged=1, n_untagged=3)
+        self.topo = self.topo_class(dpid=self.dpid, n_tagged=1, n_untagged=3)
         self.start_net()
 
     def test_untagged(self):
@@ -1004,7 +1021,7 @@ vlans:
 
     def setUp(self):
         super(FaucetTaggedAndUntaggedTest, self).setUp()
-        self.topo = FaucetSwitchTopo(dpid=self.dpid, n_tagged=2, n_untagged=2)
+        self.topo = self.topo_class(dpid=self.dpid, n_tagged=2, n_untagged=2)
         self.start_net()
 
     def test_seperate_untagged_tagged(self):
@@ -1251,7 +1268,7 @@ vlans:
 
     def setUp(self):
         super(FaucetTaggedTest, self).setUp()
-        self.topo = FaucetSwitchTopo(dpid=self.dpid, n_tagged=4)
+        self.topo = self.topo_class(dpid=self.dpid, n_tagged=4)
         self.start_net()
 
     def test_tagged(self):
@@ -1621,7 +1638,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
           with final two links being inter-switch
         """
         last_switch = None
-        for i, dpid in enumerate(dpids):
+        for dpid in dpids:
             port, ports_served = faucet_mininet_test_util.find_free_port()
             sid_prefix = self._get_sid_prefix(ports_served)
             hosts = []
