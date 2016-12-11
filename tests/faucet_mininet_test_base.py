@@ -55,6 +55,7 @@ class FaucetTestBase(unittest.TestCase):
 
     config = None
     dpid = None
+    hardware = 'Open vSwitch'
     net = None
     tmpdir = None
 

@@ -95,7 +95,6 @@ REQUIRED_TEST_PORTS = 4
 
 DPID = '1'
 OFPORT = None
-HARDWARE = 'Open vSwitch'
 PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
 SWITCH_MAP = {}
 
@@ -206,6 +205,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.tmpdir, 'state.txt')
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
+        if self.config is not None:
+            if 'hardware' in self.config:
+                self.hardware = self.config['hardware']
+
         if SWITCH_MAP:
             self.dpid = faucet_mininet_test_util.str_int_dpid(DPID)
         else:
@@ -213,7 +216,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
         self.CONFIG = '\n'.join((
             self.get_config_header(
-                self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, HARDWARE),
+                self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
             self.CONFIG % PORT_MAP))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.GAUGE_CONFIG = self.get_gauge_config(
@@ -1659,7 +1662,7 @@ class FaucetStringOfDPTest(FaucetTest):
         self.CONFIG = self.get_config(
             self.dpids,
             stack,
-            HARDWARE,
+            self.hardware,
             self.debug_log_path,
             n_tagged,
             tagged_vid,
@@ -2037,9 +2040,6 @@ def import_config():
         if 'dpid' in config:
             global DPID
             DPID = config['dpid']
-        if 'hardware' in config:
-            global HARDWARE
-            HARDWARE = config['hardware']
         return config
     else:
         return None
