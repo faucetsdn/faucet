@@ -235,7 +235,8 @@ dbs:
 
     def add_host_ipv6_address(self, host, ip_v6):
         """Add an IPv6 address to a Mininet host."""
-        self.assertEquals('',
+        self.assertEquals(
+            '',
             host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf())))
 
     def add_host_ipv6_route(self, host, ip_dst, ip_gw):
@@ -311,8 +312,7 @@ dbs:
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
 
-    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179,
-                     peer_port=9179):
+    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179):
         """Start exabgp process on controller host."""
         self.stop_exabgp(port)
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
@@ -355,7 +355,6 @@ dbs:
 
     def wait_exabgp_sent_updates(self, exabgp_log):
         """Verify that exabgp process has sent BGP updates."""
-        controller = self.get_controller()
         for _ in range(60):
             exabgp_log_content = open(exabgp_log).read()
             if re.search(r'>> [1-9]+[0-9]* UPDATE', exabgp_log_content):
@@ -398,7 +397,7 @@ dbs:
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip):
         """Verify one host can IPV4 route to another via FAUCET."""
-        self.host_ipv4_alias(first_host, first_host_routed_ip) 
+        self.host_ipv4_alias(first_host, first_host_routed_ip)
         self.host_ipv4_alias(second_host, second_host_routed_ip)
         self.add_host_ipv4_route(
             first_host, second_host_routed_ip, self.CONTROLLER_IPV4)
