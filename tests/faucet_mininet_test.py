@@ -1611,7 +1611,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         for i, dpid in enumerate(dpids):
             port, ports_served = faucet_mininet_test_util.find_free_port()
             sid_prefix = self.get_sid_prefix(ports_served)
-            sid = '%u%s' % (i + 1, sid_prefix)
+            sid = '%s%u' % (sid_prefix, i + 1)
             hosts = []
             for host_n in range(n_tagged):
                 host_name = 't%s%u' % (sid, host_n + 1)
@@ -1624,7 +1624,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 host_name = 'u%s%u' % (sid, host_n + 1)
                 host = self.addHost(host_name)
                 hosts.append(host)
-            switch_name = 's%s' % sid
+            switch_name = 'ss%s' % sid
             switch = self.addSwitch(
                 switch_name,
                 cls=faucet_mininet_test_base.FaucetSwitch,
