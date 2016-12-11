@@ -128,13 +128,11 @@ class Gauge(Controller):
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'gauge-%u' % os.getpid()
-        port, _ = faucet_mininet_test_util.find_free_port()
         Controller.__init__(
             self,
             name,
             cdir=cdir,
             command=command,
-            port=port,
             cargs=cargs,
             **kwargs)
 
@@ -273,7 +271,9 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.net.start()
             self.attach_physical_switch()
         else:
-            self.net.addController(controller=Gauge)
+            gauge_port, _ = faucet_mininet_test_util.find_free_port()
+            gauge_controller = Gauge(name='gauge', port=gauge_port)
+            self.net.addController(gauge_controller)
             self.net.start()
  
         self.net.waitConnected()
