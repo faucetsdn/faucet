@@ -10,5 +10,7 @@ dp_ports:
   4: enp1s0f3
 # Hardware switch's DPID
 dpid: 0xeccd6d9936ed
-# OpenFlow controller port hardware switch expects to connect to
+# Switch must try to connect to controller twice;
+# once for FAUCET, once for Gauge
 of_port: 6636
+gauge_of_port: 6637

@@ -43,12 +43,9 @@ import yaml
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.log import setLogLevel
 from mininet.net import Mininet
-from mininet.node import Controller
 from mininet.node import Intf
-from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
-from ryu.ofproto import ofproto_v1_3 as ofp
 
 import faucet_mininet_test_util
 import faucet_mininet_test_base
@@ -80,10 +77,8 @@ EXTERNAL_DEPENDENCIES = (
      r'curl (\d+\.\d+).\d+', float(7.3)),
 )
 
-FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
-
 # Must pass with 0 lint errors
-FAUCET_LINT_SRCS = glob.glob(os.path.join(FAUCET_DIR, '*py'))
+FAUCET_LINT_SRCS = glob.glob(os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py'))
 
 # Maximum number of parallel tests to run at once
 MAX_PARALLEL_TESTS = 4
@@ -92,85 +87,6 @@ MAX_PARALLEL_TESTS = 4
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 REQUIRED_TEST_PORTS = 4
 
-
-DPID = '1'
-OFPORT = None
-HARDWARE = 'Open vSwitch'
-PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
-SWITCH_MAP = {}
-
-
-class FAUCET(Controller):
-
-    def __init__(self, name, cdir=FAUCET_DIR,
-                 command='ryu-manager ryu.app.ofctl_rest faucet.py',
-                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
-                 **kwargs):
-        name = 'faucet-%u' % os.getpid()
-        if OFPORT is not None:
-            port = OFPORT
-        else:
-            port, _ = faucet_mininet_test_util.find_free_port()
-        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port()
-        cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
-        Controller.__init__(
-            self,
-            name,
-            cdir=cdir,
-            command=command,
-            port=port,
-            cargs=cargs,
-            **kwargs)
-
-
-class Gauge(Controller):
-
-    def __init__(self, name, cdir=FAUCET_DIR,
-                 command='ryu-manager gauge.py',
-                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
-                 **kwargs):
-        name = 'gauge-%u' % os.getpid()
-        port, _ = faucet_mininet_test_util.find_free_port()
-        Controller.__init__(
-            self,
-            name,
-            cdir=cdir,
-            command=command,
-            port=port,
-            cargs=cargs,
-            **kwargs)
-
-
-class FaucetSwitchTopo(Topo):
-
-    def get_sid_prefix(self, ports_served):
-        """Return a unique switch/host prefix for a test."""
-        # Linux tools require short interface names.
-        return '%x' % ports_served
-
-    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port()
-        sid_prefix = self.get_sid_prefix(ports_served)
-        for host_n in range(n_tagged):
-            host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
-            self.addHost(
-                name=host_name,
-                cls=faucet_mininet_test_base.VLANHost,
-                vlan=tagged_vid)
-        for host_n in range(n_untagged):
-            host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
-            self.addHost(name=host_name)
-        if SWITCH_MAP:
-            dpid = str(int(dpid) + 1)
-            print 'mapped switch will use DPID %s (%x)' % (dpid, int(dpid))
-        switch_name = 's%s' % sid_prefix
-        switch = self.addSwitch(
-            name=switch_name,
-            cls=faucet_mininet_test_base.FaucetSwitch,
-            listenPort=port,
-            dpid=faucet_mininet_test_util.mininet_dpid(dpid))
-        for host in self.hosts():
-            self.addLink(host, switch)
 
 
 class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
@@ -197,15 +113,35 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.tmpdir, 'state.txt')
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
-        if SWITCH_MAP:
-            self.dpid = faucet_mininet_test_util.str_int_dpid(DPID)
+        if self.config is not None:
+            if 'hw_switch' in self.config:
+                self.hw_switch = self.config['hw_switch']
+            if self.hw_switch:
+                self.dpid = self.config['dpid']
+                self.of_port = self.config['of_port']
+                self.gauge_of_port = self.config['gauge_of_port']
+                self.hardware = self.config['hardware']
+                dp_ports = self.config['dp_ports']
+                self.port_map = {}
+                self.switch_map = {}
+                for i, switch_port in enumerate(dp_ports):
+                    test_port_name = 'port_%u' % (i + 1)
+                    self.port_map[test_port_name] = switch_port
+                    self.switch_map[test_port_name] = dp_ports[switch_port]
+
+        if self.hw_switch:
+            self.topo_class = faucet_mininet_test_base.FaucetHwSwitchTopo
+            self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
         else:
+            self.topo_class = faucet_mininet_test_base.FaucetSwitchTopo
             self.dpid = str(random.randint(1, 2**32))
+            self.of_port, _ = faucet_mininet_test_util.find_free_port()
+            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port()
 
         self.CONFIG = '\n'.join((
             self.get_config_header(
-                self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, HARDWARE),
-            self.CONFIG % PORT_MAP))
+                self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
+            self.CONFIG % self.port_map))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.GAUGE_CONFIG = self.get_gauge_config(
             os.environ['FAUCET_CONFIG'],
@@ -221,10 +157,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         """Bridge a physical switch into test topology."""
         switch = self.net.switches[0]
         hosts_count = len(self.net.hosts)
-        for i, test_host_port in enumerate(sorted(SWITCH_MAP)):
+        for i, test_host_port in enumerate(sorted(self.switch_map)):
             port_i = i + 1
             mapped_port_i = port_i + hosts_count
-            phys_port = Intf(SWITCH_MAP[test_host_port], node=switch)
+            phys_port = Intf(self.switch_map[test_host_port], node=switch)
             switch.cmd('ifconfig %s up' % phys_port)
             switch.cmd('ovs-vsctl add-port %s %s' % (switch.name, phys_port.name))
             for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
@@ -232,21 +168,19 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
                     self.OFCTL, switch.name, port_x, port_y))
 
-    def pre_start_net(self):
-        return
-
     def start_net(self):
-        self.net = Mininet(self.topo, controller=FAUCET)
+        self.net = Mininet(
+            self.topo,
+            controller=faucet_mininet_test_base.FAUCET(
+                name='faucet', port=self.of_port))
         self.pre_start_net()
-        # TODO: when running software only, also test gauge.
-        if SWITCH_MAP:
-            self.net.start()
+        gauge_controller = faucet_mininet_test_base.Gauge(
+            name='gauge', port=self.gauge_of_port)
+        self.net.addController(gauge_controller)
+        self.net.start()
+        if self.hw_switch:
             self.attach_physical_switch()
-        else:
-            self.net.addController(controller=Gauge)
-            self.net.start()
-            self.net.waitConnected()
-
+        self.net.waitConnected()
         self.wait_debug_log()
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
@@ -304,20 +238,17 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
 
-    def flap_all_switch_ports(self, flap_time=1):
-        """Flap all ports on switch."""
-        for port_no in PORT_MAP.itervalues():
-            os.system(self.curl_portmod(
-                self.dpid,
-                port_no,
-                ofp.OFPPC_PORT_DOWN,
-                ofp.OFPPC_PORT_DOWN))
-            time.sleep(flap_time)
-            os.system(self.curl_portmod(
-                self.dpid,
-                port_no,
-                0,
-                ofp.OFPPC_PORT_DOWN))
+    def gauge_smoke_test(self):
+        watcher_files = (
+            self.monitor_stats_file,
+            self.monitor_state_file,
+            self.monitor_flow_table_file)
+        for watcher_file in watcher_files:
+            for _ in range(5):
+                if os.path.exists(watcher_file):
+                    break
+                time.sleep(1)
+            self.assertTrue(os.stat(watcher_file).st_size > 0)
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -347,25 +278,14 @@ vlans:
 
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
-        self.topo = FaucetSwitchTopo(dpid=self.dpid, n_untagged=4)
+        self.topo = self.topo_class(dpid=self.dpid, n_untagged=4)
         self.start_net()
 
     def test_untagged(self):
         """All hosts on the same untagged VLAN should have connectivity."""
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
-        # TODO: a smoke test only - are flow/port stats accumulating
-        if not SWITCH_MAP:
-            watcher_files = (
-                self.monitor_stats_file,
-                self.monitor_state_file,
-                self.monitor_flow_table_file)
-            for watcher_file in watcher_files:
-                for _ in range(5):
-                    if os.path.exists(watcher_file):
-                        break
-                    time.sleep(1)
-                self.assertTrue(os.stat(watcher_file).st_size > 0)
+        self.gauge_smoke_test()
 
 
 class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
@@ -395,7 +315,7 @@ vlans:
 
     def setUp(self):
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
-        self.topo = FaucetSwitchTopo(dpid=self.dpid, n_tagged=1, n_untagged=3)
+        self.topo = self.topo_class(dpid=self.dpid, n_tagged=1, n_untagged=3)
         self.start_net()
 
     def test_untagged(self):
@@ -991,7 +911,7 @@ vlans:
 
     def setUp(self):
         super(FaucetTaggedAndUntaggedTest, self).setUp()
-        self.topo = FaucetSwitchTopo(dpid=self.dpid, n_tagged=2, n_untagged=2)
+        self.topo = self.topo_class(dpid=self.dpid, n_tagged=2, n_untagged=2)
         self.start_net()
 
     def test_seperate_untagged_tagged(self):
@@ -1238,7 +1158,7 @@ vlans:
 
     def setUp(self):
         super(FaucetTaggedTest, self).setUp()
-        self.topo = FaucetSwitchTopo(dpid=self.dpid, n_tagged=4)
+        self.topo = self.topo_class(dpid=self.dpid, n_tagged=4)
         self.start_net()
 
     def test_tagged(self):
@@ -1579,7 +1499,7 @@ vlans:
             second_host, second_host_ip, second_host_routed_ip)
 
 
-class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
+class FaucetStringOfDPSwitchTopo(faucet_mininet_test_base.FaucetSwitchTopo):
 
     def build(self, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
         """String of datapaths each with hosts with a single FAUCET controller.
@@ -1608,28 +1528,15 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
           with final two links being inter-switch
         """
         last_switch = None
-        for i, dpid in enumerate(dpids):
+        for dpid in dpids:
             port, ports_served = faucet_mininet_test_util.find_free_port()
-            sid_prefix = self.get_sid_prefix(ports_served)
-            sid = '%s%u' % (sid_prefix, i + 1)
+            sid_prefix = self._get_sid_prefix(ports_served)
             hosts = []
             for host_n in range(n_tagged):
-                host_name = 't%s%u' % (sid, host_n + 1)
-                host = self.addHost(
-                    host_name,
-                    cls=faucet_mininet_test_base.VLANHost,
-                    vlan=tagged_vid)
-                hosts.append(host)
+                hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
             for host_n in range(n_untagged):
-                host_name = 'u%s%u' % (sid, host_n + 1)
-                host = self.addHost(host_name)
-                hosts.append(host)
-            switch_name = 'ss%s' % sid
-            switch = self.addSwitch(
-                switch_name,
-                cls=faucet_mininet_test_base.FaucetSwitch,
-                listenPort=port,
-                dpid=faucet_mininet_test_util.mininet_dpid(dpid))
+                hosts.append(self._add_untagged_host(sid_prefix, host_n))
+            switch = self._add_faucet_switch(sid_prefix, port, dpid)
             for host in hosts:
                 self.addLink(host, switch)
             # Add a switch-to-switch link with the previous switch,
@@ -1663,7 +1570,7 @@ class FaucetStringOfDPTest(FaucetTest):
         self.CONFIG = self.get_config(
             self.dpids,
             stack,
-            HARDWARE,
+            self.hardware,
             self.debug_log_path,
             n_tagged,
             tagged_vid,
@@ -1857,7 +1764,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FauceStringOfDPTaggedTest(FaucetStringOfDPTest):
+class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
@@ -2019,34 +1926,20 @@ def import_config():
         print 'Could not load YAML config data from %s' % HW_SWITCH_CONFIG_FILE
         sys.exit(-1)
     if 'hw_switch' in config and config['hw_switch']:
-        required_config = ('dp_ports', 'dpid', 'of_port')
+        required_config = ('dp_ports', 'dpid', 'of_port', 'gauge_of_port')
         for required_key in required_config:
             if required_key not in config:
                 print '%s must be specified in %s to use HW switch.' % (
                     required_key, HW_SWITCH_CONFIG_FILE)
                 sys.exit(-1)
         dp_ports = config['dp_ports']
-        global OFPORT
-        OFPORT = config['of_port']
         if len(dp_ports) != REQUIRED_TEST_PORTS:
             print ('Exactly %u dataplane ports are required, '
                    '%d are provided in %s.' %
                    (REQUIRED_TEST_PORTS, len(dp_ports), HW_SWITCH_CONFIG_FILE))
-        for i, switch_port in enumerate(dp_ports):
-            test_port_name = 'port_%u' % (i + 1)
-            global PORT_MAP
-            PORT_MAP[test_port_name] = switch_port
-            global SWITCH_MAP
-            SWITCH_MAP[test_port_name] = dp_ports[switch_port]
-        if 'dpid' in config:
-            global DPID
-            DPID = config['dpid']
-        if 'hardware' in config:
-            global HARDWARE
-            HARDWARE = config['hardware']
-        return True
+        return config
     else:
-        return False
+        return None
 
 
 def check_dependencies():
@@ -2106,17 +1999,17 @@ def lint_check():
     return True
 
 
-def make_suite(tc_class):
+def make_suite(tc_class, config):
     """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
     for name in testnames:
-        suite.addTest(tc_class(name))
+        suite.addTest(tc_class(name, config))
     return suite
 
 
-def run_tests(requested_test_classes, serial=False):
+def run_tests(requested_test_classes, serial, config):
     """Actually run the test suites, potentially in parallel."""
     ports_server = threading.Thread(target=faucet_mininet_test_util.serve_ports)
     ports_server.setDaemon(True)
@@ -2130,10 +2023,11 @@ def run_tests(requested_test_classes, serial=False):
             continue
         if name.endswith('Test') and name.startswith('Faucet'):
             print 'adding test %s' % name
-            if SWITCH_MAP or serial or name.startswith('FaucetSingle'):
-                single_tests.addTest(make_suite(obj))
+            test_suite = make_suite(obj, config)
+            if serial or name.startswith('FaucetSingle'):
+                single_tests.addTest(test_suite)
             else:
-                parallel_tests.addTest(make_suite(obj))
+                parallel_tests.addTest(test_suite)
     print 'running %u tests in parallel and %u tests serial' % (
         parallel_tests.countTestCases(), single_tests.countTestCases())
     results = []
@@ -2190,10 +2084,11 @@ def test_main():
     if not lint_check():
         print 'pylint must pass with no errors'
         sys.exit(-1)
-    if import_config():
+    config = import_config()
+    if config is not None:
         print 'Testing hardware, forcing test serialization'
         serial = True
-    run_tests(args, serial)
+    run_tests(args, serial, config)
 
 
 if __name__ == '__main__':
