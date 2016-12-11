@@ -13,8 +13,50 @@ import yaml
 import ipaddr
 import requests
 
+from mininet.node import Controller
 from mininet.node import Host
 from mininet.node import OVSSwitch
+from ryu.ofproto import ofproto_v1_3 as ofp
+
+import faucet_mininet_test_util
+
+
+class FAUCET(Controller):
+
+    def __init__(self,
+                 name,
+                 cdir=faucet_mininet_test_util.FAUCET_DIR,
+                 command='ryu-manager ryu.app.ofctl_rest faucet.py',
+                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
+                 **kwargs):
+        name = 'faucet-%u' % os.getpid()
+        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port()
+        cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
+        Controller.__init__(
+            self,
+            name,
+            cdir=cdir,
+            command=command,
+            cargs=cargs,
+            **kwargs)
+
+
+class Gauge(Controller):
+
+    def __init__(self,
+                 name,
+                 cdir=faucet_mininet_test_util.FAUCET_DIR,
+                 command='ryu-manager gauge.py',
+                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
+                 **kwargs):
+        name = 'gauge-%u' % os.getpid()
+        Controller.__init__(
+            self,
+            name,
+            cdir=cdir,
+            command=command,
+            cargs=cargs,
+            **kwargs)
 
 
 class FaucetSwitch(OVSSwitch):
@@ -73,6 +115,10 @@ class FaucetTestBase(unittest.TestCase):
         if self.net is not None:
             self.net.stop()
         shutil.rmtree(self.tmpdir)
+
+    def pre_start_net(self):
+        """Hook called after Mininet initializtion, before Mininet started."""
+        return
 
     def get_config_header(self, config_global, debug_log, dpid, hardware):
         """Build v2 FAUCET config header."""

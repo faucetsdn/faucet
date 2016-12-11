@@ -43,12 +43,10 @@ import yaml
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.log import setLogLevel
 from mininet.net import Mininet
-from mininet.node import Controller
 from mininet.node import Intf
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
-from ryu.ofproto import ofproto_v1_3 as ofp
 
 import faucet_mininet_test_util
 import faucet_mininet_test_base
@@ -80,10 +78,8 @@ EXTERNAL_DEPENDENCIES = (
      r'curl (\d+\.\d+).\d+', float(7.3)),
 )
 
-FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
-
 # Must pass with 0 lint errors
-FAUCET_LINT_SRCS = glob.glob(os.path.join(FAUCET_DIR, '*py'))
+FAUCET_LINT_SRCS = glob.glob(os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py'))
 
 # Maximum number of parallel tests to run at once
 MAX_PARALLEL_TESTS = 4
@@ -91,40 +87,6 @@ MAX_PARALLEL_TESTS = 4
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 REQUIRED_TEST_PORTS = 4
-
-
-class FAUCET(Controller):
-
-    def __init__(self, name, cdir=FAUCET_DIR,
-                 command='ryu-manager ryu.app.ofctl_rest faucet.py',
-                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
-                 **kwargs):
-        name = 'faucet-%u' % os.getpid()
-        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port()
-        cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
-        Controller.__init__(
-            self,
-            name,
-            cdir=cdir,
-            command=command,
-            cargs=cargs,
-            **kwargs)
-
-
-class Gauge(Controller):
-
-    def __init__(self, name, cdir=FAUCET_DIR,
-                 command='ryu-manager gauge.py',
-                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
-                 **kwargs):
-        name = 'gauge-%u' % os.getpid()
-        Controller.__init__(
-            self,
-            name,
-            cdir=cdir,
-            command=command,
-            cargs=cargs,
-            **kwargs)
 
 
 class FaucetSwitchTopo(Topo):
@@ -260,15 +222,14 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
                     self.OFCTL, switch.name, port_x, port_y))
 
-    def pre_start_net(self):
-        """Hook called after Mininet initializtion, before Mininet started."""
-        return
-
     def start_net(self):
         self.net = Mininet(
-            self.topo, controller=FAUCET(name='faucet', port=self.of_port))
+            self.topo,
+            controller=faucet_mininet_test_base.FAUCET(
+                name='faucet', port=self.of_port))
         self.pre_start_net()
-        gauge_controller = Gauge(name='gauge', port=self.gauge_of_port)
+        gauge_controller = faucet_mininet_test_base.Gauge(
+            name='gauge', port=self.gauge_of_port)
         self.net.addController(gauge_controller)
         self.net.start()
         if self.hw_switch:
@@ -331,6 +292,18 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
 
+    def gauge_smoke_test(self):
+        watcher_files = (
+            self.monitor_stats_file,
+            self.monitor_state_file,
+            self.monitor_flow_table_file)
+        for watcher_file in watcher_files:
+            for _ in range(5):
+                if os.path.exists(watcher_file):
+                    break
+                time.sleep(1)
+            self.assertTrue(os.stat(watcher_file).st_size > 0)
+
 
 class FaucetUntaggedTest(FaucetTest):
     """Basic untagged VLAN test."""
@@ -366,17 +339,7 @@ vlans:
         """All hosts on the same untagged VLAN should have connectivity."""
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
-        # TODO: a smoke test only - are flow/port stats accumulating
-        watcher_files = (
-            self.monitor_stats_file,
-            self.monitor_state_file,
-            self.monitor_flow_table_file)
-        for watcher_file in watcher_files:
-            for _ in range(5):
-                if os.path.exists(watcher_file):
-                    break
-                time.sleep(1)
-            self.assertTrue(os.stat(watcher_file).st_size > 0)
+        self.gauge_smoke_test()
 
 
 class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
