@@ -110,8 +110,8 @@ class FAUCET(Controller):
         if OFPORT is not None:
             port = OFPORT
         else:
-            port = faucet_mininet_test_util.find_free_port()
-        self.ofctl_port = faucet_mininet_test_util.find_free_port()
+            port, _ = faucet_mininet_test_util.find_free_port()
+        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port()
         cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
         Controller.__init__(
             self,
@@ -130,7 +130,7 @@ class Gauge(Controller):
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'gauge-%u' % os.getpid()
-        port = faucet_mininet_test_util.find_free_port()
+        port, _ = faucet_mininet_test_util.find_free_port()
         Controller.__init__(
             self,
             name,
@@ -143,12 +143,14 @@ class Gauge(Controller):
 
 class FaucetSwitchTopo(Topo):
 
-    def get_sid_prefix(self, port):
-        return '%x' % port
+    def get_sid_prefix(self, ports_served):
+        """Return a unique switch/host prefix for a test."""
+        # Linux tools require short interface names.
+        return '%x' % ports_served
 
     def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port = faucet_mininet_test_util.find_free_port()
-        sid_prefix = self.get_sid_prefix(port)
+        port, ports_served = faucet_mininet_test_util.find_free_port()
+        sid_prefix = self.get_sid_prefix(ports_served)
         for host_n in range(n_tagged):
             host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
             self.addHost(
@@ -161,7 +163,7 @@ class FaucetSwitchTopo(Topo):
         if SWITCH_MAP:
             dpid = str(int(dpid) + 1)
             print 'mapped switch will use DPID %s (%x)' % (dpid, int(dpid))
-        switch_name = 's1%s' % sid_prefix
+        switch_name = 's%s' % sid_prefix
         switch = self.addSwitch(
             name=switch_name,
             cls=faucet_mininet_test_base.FaucetSwitch,
@@ -230,8 +232,12 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
                     self.OFCTL, switch.name, port_x, port_y))
 
+    def pre_start_net(self):
+        return
+
     def start_net(self):
         self.net = Mininet(self.topo, controller=FAUCET)
+        self.pre_start_net()
         # TODO: when running software only, also test gauge.
         if SWITCH_MAP:
             self.net.start()
@@ -603,9 +609,7 @@ vlans:
                 description: "b4"
 """
 
-    def test_untagged(self):
-        """Test IPv4 routing, and BGP routes received."""
-        exabgp_conf = """
+    exabgp_conf = """
 group test {
   router-id 2.2.2.2;
   neighbor 127.0.0.1 {
@@ -621,13 +625,21 @@ group test {
  }
 }
 """
+    exabgp_log = None
+
+    def pre_start_net(self):
+        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+
+    def test_untagged(self):
+        """Test IPv4 routing, and BGP routes received."""
         first_host, second_host = self.net.hosts[:2]
         # wait until 10.0.0.1 has been resolved
         self.wait_for_route_as_flow(
             first_host.MAC(), ipaddr.IPv4Network('10.99.99.0/24'))
-        self.start_exabgp(exabgp_conf)
+        self.wait_bgp_up(self.exabgp_log)
+        self.wait_exabgp_sent_updates(self.exabgp_log)
         self.wait_for_route_as_flow(
-            second_host.MAC(), ipaddr.IPv4Network('10.0.3.0/24'), timeout=30)
+            second_host.MAC(), ipaddr.IPv4Network('10.0.3.0/24'))
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
@@ -676,9 +688,7 @@ vlans:
                 description: "b4"
 """
 
-    def test_untagged(self):
-        """Test IPv4 routing, and BGP routes sent."""
-        exabgp_conf = """
+    exabgp_conf = """
 group test {
   process test {
     encoder json;
@@ -695,12 +705,19 @@ group test {
   }
 }
 """
-        exabgp_log = self.start_exabgp(exabgp_conf)
+    exabgp_log = None
+
+    def pre_start_net(self):
+        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+
+    def test_untagged(self):
+        """Test IPv4 routing, and BGP routes sent."""
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
+        self.wait_bgp_up(self.exabgp_log)
         # exabgp should have received our BGP updates
-        updates = self.exabgp_updates(exabgp_log)
+        updates = self.exabgp_updates(self.exabgp_log)
         self.stop_exabgp()
         assert re.search('10.0.0.0/24 next-hop 10.0.0.254', updates)
         assert re.search('10.0.1.0/24 next-hop 10.0.0.1', updates)
@@ -1266,7 +1283,7 @@ vlans:
             self.one_ipv6_controller_ping(host)
 
 
-class FaucetSingleTaggedIPv4RouteTest(FaucetTaggedTest):
+class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -1347,8 +1364,7 @@ vlans:
                 description: "b4"
 """
 
-    def test_untagged(self):
-        exabgp_conf = """
+    exabgp_conf = """
 group test {
   router-id 2.2.2.2;
   neighbor ::1 {
@@ -1364,7 +1380,14 @@ group test {
   }
 }
 """
-        self.start_exabgp(exabgp_conf, '::1')
+    exabgp_log = None
+
+    def pre_start_net(self):
+        self.exabgp_log = self.start_exabgp(self.exabgp_conf, '::1')
+
+    def test_untagged(self):
+        self.wait_bgp_up(self.exabgp_log)
+        self.wait_exabgp_sent_updates(self.exabgp_log)
         self.verify_ipv6_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
@@ -1467,8 +1490,7 @@ vlans:
                 description: "b4"
 """
 
-    def test_untagged(self):
-        exabgp_conf = """
+    exabgp_conf = """
 group test {
   process test {
     encoder json;
@@ -1485,14 +1507,20 @@ group test {
   }
 }
 """
-        exabgp_log = self.start_exabgp(exabgp_conf, '::1')
+    exabgp_log = None
+
+    def pre_start_net(self):
+        self.exabgp_log = self.start_exabgp(self.exabgp_conf, '::1')
+
+    def test_untagged(self):
         self.verify_ipv6_routing_mesh()
         second_host = self.net.hosts[1]
         self.flap_all_switch_ports()
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddr.IPv6Network('fc00::30:0/112'))
         self.verify_ipv6_routing_mesh()
-        updates = self.exabgp_updates(exabgp_log)
+        self.wait_bgp_up(self.exabgp_log)
+        updates = self.exabgp_updates(self.exabgp_log)
         self.stop_exabgp()
         assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
         assert re.search('fc00::10:0/112 next-hop fc00::1:1', updates)
@@ -1581,8 +1609,8 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         """
         last_switch = None
         for i, dpid in enumerate(dpids):
-            port = faucet_mininet_test_util.find_free_port()
-            sid_prefix = self.get_sid_prefix(port)
+            port, ports_served = faucet_mininet_test_util.find_free_port()
+            sid_prefix = self.get_sid_prefix(ports_served)
             sid = '%u%s' % (i + 1, sid_prefix)
             hosts = []
             for host_n in range(n_tagged):
