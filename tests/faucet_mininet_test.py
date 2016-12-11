@@ -93,7 +93,6 @@ HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 REQUIRED_TEST_PORTS = 4
 
 
-DPID = '1'
 OFPORT = None
 PORT_MAP = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
 SWITCH_MAP = {}
@@ -206,11 +205,13 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
         if self.config is not None:
+            if 'dp_id' in self.config:
+                self.dpid = self.config['dpid']
             if 'hardware' in self.config:
                 self.hardware = self.config['hardware']
 
         if SWITCH_MAP:
-            self.dpid = faucet_mininet_test_util.str_int_dpid(DPID)
+            self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
         else:
             self.dpid = str(random.randint(1, 2**32))
 
@@ -1856,7 +1857,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.assertEquals(0, self.net.pingAll())
 
 
-class FauceStringOfDPTaggedTest(FaucetStringOfDPTest):
+class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
@@ -2037,9 +2038,6 @@ def import_config():
             PORT_MAP[test_port_name] = switch_port
             global SWITCH_MAP
             SWITCH_MAP[test_port_name] = dp_ports[switch_port]
-        if 'dpid' in config:
-            global DPID
-            DPID = config['dpid']
         return config
     else:
         return None
