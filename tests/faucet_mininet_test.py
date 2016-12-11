@@ -143,32 +143,41 @@ class Gauge(Controller):
 
 class FaucetSwitchTopo(Topo):
 
-    def get_sid_prefix(self, ports_served):
+    def _get_sid_prefix(self, ports_served):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
-        return '%x' % ports_served
+        return '%2.2x' % ports_served
 
-    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port()
-        sid_prefix = self.get_sid_prefix(ports_served)
-        for host_n in range(n_tagged):
-            host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
-            self.addHost(
-                name=host_name,
-                cls=faucet_mininet_test_base.VLANHost,
-                vlan=tagged_vid)
-        for host_n in range(n_untagged):
-            host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
-            self.addHost(name=host_name)
-        if SWITCH_MAP:
-            dpid = str(int(dpid) + 1)
-            print 'mapped switch will use DPID %s (%x)' % (dpid, int(dpid))
+    def _add_tagged_host(self, sid_prefix, tagged_vid, host_n):
+        host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
+        return self.addHost(
+            name=host_name,
+            cls=faucet_mininet_test_base.VLANHost,
+            vlan=tagged_vid)
+
+    def _add_untagged_host(self, sid_prefix, host_n):
+        host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
+        return self.addHost(name=host_name)
+
+    def _add_faucet_switch(self, sid_prefix, port, dpid):
         switch_name = 's%s' % sid_prefix
-        switch = self.addSwitch(
+        return self.addSwitch(
             name=switch_name,
             cls=faucet_mininet_test_base.FaucetSwitch,
             listenPort=port,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
+
+    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
+        port, ports_served = faucet_mininet_test_util.find_free_port()
+        sid_prefix = self._get_sid_prefix(ports_served)
+        for host_n in range(n_tagged):
+            self._add_tagged_host(sid_prefix, tagged_vid, host_n)
+        for host_n in range(n_untagged):
+            self._add_untagged_host(sid_prefix, host_n)
+        if SWITCH_MAP:
+            dpid = str(int(dpid) + 1)
+            print 'mapped switch will use DPID %s (%x)' % (dpid, int(dpid))
+        switch = self._add_faucet_switch(sid_prefix, port, dpid)
         for host in self.hosts():
             self.addLink(host, switch)
 
@@ -1610,26 +1619,13 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         last_switch = None
         for i, dpid in enumerate(dpids):
             port, ports_served = faucet_mininet_test_util.find_free_port()
-            sid_prefix = self.get_sid_prefix(ports_served)
-            sid = '%s%u' % (sid_prefix, i + 1)
+            sid_prefix = self._get_sid_prefix(ports_served)
             hosts = []
             for host_n in range(n_tagged):
-                host_name = 't%s%u' % (sid, host_n + 1)
-                host = self.addHost(
-                    host_name,
-                    cls=faucet_mininet_test_base.VLANHost,
-                    vlan=tagged_vid)
-                hosts.append(host)
+                hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
             for host_n in range(n_untagged):
-                host_name = 'u%s%u' % (sid, host_n + 1)
-                host = self.addHost(host_name)
-                hosts.append(host)
-            switch_name = 'ss%s' % sid
-            switch = self.addSwitch(
-                switch_name,
-                cls=faucet_mininet_test_base.FaucetSwitch,
-                listenPort=port,
-                dpid=faucet_mininet_test_util.mininet_dpid(dpid))
+                hosts.append(self._add_untagged_host(sid_prefix, host_n))
+            switch = self._add_faucet_switch(sid_prefix, port, dpid)
             for host in hosts:
                 self.addLink(host, switch)
             # Add a switch-to-switch link with the previous switch,
