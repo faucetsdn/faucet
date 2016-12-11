@@ -161,7 +161,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             port_i = i + 1
             mapped_port_i = port_i + hosts_count
             phys_port = Intf(self.switch_map[test_host_port], node=switch)
-            switch.cmd('ifconfig %s up' % phys_port)
+            switch.cmd('ip link set dev %s up' % phys_port)
             switch.cmd('ovs-vsctl add-port %s %s' % (switch.name, phys_port.name))
             for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
                 port_x, port_y = port_pair

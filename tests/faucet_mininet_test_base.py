@@ -78,10 +78,12 @@ class VLANHost(Host):
            vlan: VLAN ID for default interface"""
         super_config = super(VLANHost, self).config(**params)
         intf = self.defaultIntf()
-        self.cmd('ifconfig %s inet 0' % intf)
-        self.cmd('vconfig add %s %d' % (intf, vlan))
-        self.cmd('ifconfig %s.%d inet %s' % (intf, vlan, params['ip']))
         vlan_intf_name = '%s.%d' % (intf, vlan)
+        self.cmd('ip -4 addr flush dev %s' % intf)
+        self.cmd('ip -6 addr flush dev %s' % intf)
+        self.cmd('vconfig add %s %d' % (intf, vlan))
+        self.cmd('ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name))
+        self.cmd('ip link set dev %s up' % vlan_intf_name)
         intf.name = vlan_intf_name
         self.nameToIntf[vlan_intf_name] = intf
         return super_config
@@ -579,7 +581,11 @@ dbs:
                                    second_host_ip, second_host_routed_ip):
         """Configure host IPv6 addresses for testing."""
         for host in first_host, second_host:
+            host.cmd('ip link set dev %s down' % host.intf())
+        for host in first_host, second_host:
             host.cmd('ip -6 addr flush dev %s' % host.intf())
+        for host in first_host, second_host:
+            host.cmd('ip link set dev %s up' % host.intf())
         self.add_host_ipv6_address(first_host, first_host_ip)
         self.add_host_ipv6_address(second_host, second_host_ip)
         self.add_host_ipv6_address(first_host, first_host_routed_ip)
