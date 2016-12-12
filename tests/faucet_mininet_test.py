@@ -505,7 +505,7 @@ vlans:
         bgp_port: 9179
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
-        bgp_neighbor_address: "127.0.0.1"
+        bgp_neighbor_addresses: ["127.0.0.1"]
         bgp_neighbor_as: 2
         routes:
             - route:
@@ -578,7 +578,7 @@ vlans:
         bgp_port: 9179
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
-        bgp_neighbor_address: "127.0.0.1"
+        bgp_neighbor_addresses: ["127.0.0.1"]
         bgp_neighbor_as: 2
         routes:
             - route:
@@ -1349,7 +1349,7 @@ vlans:
         bgp_port: 9179
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
-        bgp_neighbor_address: "::1"
+        bgp_neighbor_addresses: ["::1"]
         bgp_neighbor_as: 2
 """
 
@@ -1465,7 +1465,7 @@ vlans:
         bgp_port: 9179
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
-        bgp_neighbor_address: "::1"
+        bgp_neighbor_addresses: ["::1"]
         bgp_neighbor_as: 2
         routes:
             - route:
