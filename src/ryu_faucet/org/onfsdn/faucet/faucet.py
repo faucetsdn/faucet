@@ -178,9 +178,10 @@ class Faucet(app_manager.RyuApp):
             for ip_dst, ip_gw in route_table.iteritems():
                 bgp_speaker.prefix_add(
                     prefix=str(ip_dst), next_hop=str(ip_gw))
-        bgp_speaker.neighbor_add(
-            address=vlan.bgp_neighbor_address,
-            remote_as=vlan.bgp_neighbor_as)
+        for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
+            bgp_speaker.neighbor_add(
+                address=bgp_neighbor_address,
+                remote_as=vlan.bgp_neighbor_as)
         return bgp_speaker
 
     def _reset_bgp(self):

@@ -26,8 +26,8 @@ class VLAN(Conf):
     bgp_as = None
     bgp_port = None
     bgp_routerid = None
-    bgp_neighbor_address = None
-    bgp_neighbour_address = None
+    bgp_neighbor_addresses = []
+    bgp_neighbour_addresses = []
     bgp_neighbor_as = None
     bgp_neighbour_as = None
     routes = None
@@ -49,8 +49,8 @@ class VLAN(Conf):
         'bgp_as': 0,
         'bgp_port': 9179,
         'bgp_routerid': '',
-        'bgp_neighbour_address': '',
-        'bgp_neighbor_address': None,
+        'bgp_neighbour_addresses': [],
+        'bgp_neighbor_addresses': [],
         'bgp_neighbour_as': 0,
         'bgp_neighbor_as': None,
         'routes': None,
@@ -81,7 +81,8 @@ class VLAN(Conf):
         if self.bgp_as:
             assert self.bgp_port
             assert ipaddr.IPv4Address(self.bgp_routerid)
-            assert ipaddr.IPAddress(self.bgp_neighbor_address)
+            for neighbor_ip in self.bgp_neighbor_addresses:
+                assert ipaddr.IPAddress(neighbor_ip)
             assert self.bgp_neighbor_as
 
         if self.routes:
@@ -142,7 +143,7 @@ class VLAN(Conf):
         self._set_default('name', str(self._id))
         self._set_default('controller_ips', [])
         self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
-        self._set_default('bgp_neighbor_address', self.bgp_neighbour_address)
+        self._set_default('bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
