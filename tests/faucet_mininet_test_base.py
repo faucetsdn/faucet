@@ -152,13 +152,14 @@ class FaucetTestBase(unittest.TestCase):
     """Base class for all FAUCET unit tests."""
 
     ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
-    CONFIG = ''
     CONTROLLER_IPV4 = ipaddr.IPv4Network('10.0.0.254/24')
     CONTROLLER_IPV4_2 = ipaddr.IPv4Network('172.16.0.254/24')
-    CONTROLLER_IPV6 = ipaddr.IPv6Network('fc00::1:254')
+    CONTROLLER_IPV6 = ipaddr.IPv6Network('fc00::1:254/64')
+    CONTROLLER_IPV6_2 = ipaddr.IPv6Network('fc01::1:254/64')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
-    CONFIG_GLOBAL = ''
     BOGUS_MAC = '01:02:03:04:05:06'
+    CONFIG = ''
+    CONFIG_GLOBAL = ''
 
     config = None
     dpid = None

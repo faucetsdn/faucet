@@ -1285,8 +1285,8 @@ vlans:
         first_host, second_host = host_pair
         first_host_net = ipaddr.IPv4Network('10.0.0.1/24')
         second_host_net = ipaddr.IPv4Network('172.16.0.1/24')
-        self.one_ipv4_ping(first_host, self.CONTROLLER_IPV4.ip)
         second_host.setIP(str(second_host_net.ip))
+        self.one_ipv4_ping(first_host, self.CONTROLLER_IPV4.ip)
         self.one_ipv4_ping(second_host, self.CONTROLLER_IPV4_2.ip)
         self.add_host_ipv4_route(
             first_host, second_host_net.masked(), self.CONTROLLER_IPV4.ip)
@@ -1294,6 +1294,49 @@ vlans:
             second_host, first_host_net.masked(), self.CONTROLLER_IPV4_2.ip)
         self.one_ipv4_ping(first_host, second_host_net.ip)
         self.one_ipv4_ping(second_host, first_host_net.ip)
+
+
+class FaucetUntaggedMixedIPv6RouteTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        controller_ips: ["fc00::1:254/64", "fc01::1:254/64"]
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_net = ipaddr.IPv6Network('fc00::1:1/64')
+        second_host_net = ipaddr.IPv6Network('fc01::1:1/64')
+        self.add_host_ipv6_address(first_host, first_host_net)
+        self.one_ipv6_ping(first_host, self.CONTROLLER_IPV6.ip)
+        self.add_host_ipv6_address(second_host, second_host_net)
+        self.one_ipv6_ping(second_host, self.CONTROLLER_IPV6_2.ip)
+        self.add_host_ipv6_route(
+            first_host, second_host_net.masked(), self.CONTROLLER_IPV6.ip)
+        self.add_host_ipv6_route(
+            second_host, first_host_net.masked(), self.CONTROLLER_IPV6_2.ip)
+        self.one_ipv6_ping(first_host, second_host_net.ip)
+        self.one_ipv6_ping(second_host, first_host_net.ip)
 
 
 class FaucetSingleUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
