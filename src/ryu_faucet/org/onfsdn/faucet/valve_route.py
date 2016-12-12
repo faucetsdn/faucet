@@ -192,6 +192,19 @@ class ValveRouteManager(object):
                 is_updated=False))
         return ofmsgs
 
+    def _add_host_fib_route(self, vlan, host_ip):
+        """Add a host FIB route.
+
+        Args:
+            vlan (vlan): VLAN containing this RIB.
+            host_gw (ipaddr.IPAddress): IP address of host.
+        Returns:
+            list: OpenFlow messages.
+        """
+        host_route = ipaddr.IPNetwork(
+            '%s/%u' % (str(host_ip), host_ip.max_prefixlen))
+        return self.add_route(vlan, host_ip, host_route)
+
     def del_route(self, vlan, ip_dst):
         """Delete a route from the RIB.
 
@@ -281,10 +294,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             arp_reply = valve_packet.arp_reply(
                 self.faucet_mac, eth_src, vid, dst_ip, src_ip)
             ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
-            # FIB entry for this host.
-            host_route = ipaddr.IPv4Network(
-                '%s/%u' % (str(src_ip), src_ip.max_prefixlen))
-            ofmsgs.extend(self.add_route(vlan, src_ip, host_route))
+            ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
             self.logger.info(
                 'Responded to ARP request for %s from %s', src_ip, dst_ip)
         elif (opcode == arp.ARP_REPLY and
@@ -400,6 +410,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 self.faucet_mac, eth_src, vid,
                 icmpv6_pkt.data.dst, src_ip, ipv6_pkt.hop_limit)
             ofmsgs.extend([valve_of.packetout(in_port, nd_reply.data)])
+            ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
         elif (icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT and
               vlan.ip_in_controller_subnet(src_ip)):
             resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
