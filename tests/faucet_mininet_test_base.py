@@ -28,7 +28,7 @@ class FAUCET(Controller):
     def __init__(self,
                  name,
                  cdir=faucet_mininet_test_util.FAUCET_DIR,
-                 command='ryu-manager ryu.app.ofctl_rest faucet.py',
+                 command='timeout 180s ryu-manager ryu.app.ofctl_rest faucet.py',
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'faucet-%u' % os.getpid()
@@ -49,7 +49,7 @@ class Gauge(Controller):
     def __init__(self,
                  name,
                  cdir=faucet_mininet_test_util.FAUCET_DIR,
-                 command='ryu-manager gauge.py',
+                 command='timeout 180s ryu-manager gauge.py',
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'gauge-%u' % os.getpid()
