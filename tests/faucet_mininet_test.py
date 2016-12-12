@@ -1645,14 +1645,6 @@ class FaucetStringOfDPTest(FaucetTest):
         """Set up Mininet and Faucet for the given topology."""
 
         self.dpids = [str(random.randint(1, 2**32)) for _ in range(n_dps)]
-
-        self.topo = FaucetStringOfDPSwitchTopo(
-            dpids=self.dpids,
-            n_tagged=n_tagged,
-            tagged_vid=tagged_vid,
-            n_untagged=n_untagged,
-        )
-
         self.CONFIG = self.get_config(
             self.dpids,
             stack,
@@ -1668,6 +1660,13 @@ class FaucetStringOfDPTest(FaucetTest):
             acl_in_dp,
         )
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+        self.topo = FaucetStringOfDPSwitchTopo(
+            dpids=self.dpids,
+            n_tagged=n_tagged,
+            tagged_vid=tagged_vid,
+            n_untagged=n_untagged,
+        )
+
 
     def get_config(self, dpids=[], stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
