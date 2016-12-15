@@ -210,11 +210,21 @@ class DistConfigTestCase(unittest.TestCase):
                 vlan.ipv4_routes
                 )
 
-    def test_acl(self):
+    def test_port_acl(self):
         for dp in (self.v1_dp, self.v2_dp):
-            self.assertIn(1, dp.acl_in)
+            self.assertIn(1, dp.port_acl_in)
             self.assertIn(dp.ports[1].acl_in, dp.acls)
-            self.assertEquals(dp.acls[dp.ports[1].acl_in].rules[0]['nw_dst'], '172.0.0.0/8')
+            self.assertEquals(
+                dp.acls[dp.ports[1].acl_in].rules[0]['nw_dst'],
+                '172.0.0.0/8')
+
+    def test_vlan_acl(self):
+        for dp in (self.v1_dp, self.v2_dp):
+            self.assertIn(41, dp.vlan_acl_in)
+            self.assertIn(dp.vlans[41].acl_in, dp.acls)
+            self.assertEquals(
+                dp.acls[dp.vlans[41].acl_in].rules[0]['nw_dst'],
+                '172.0.0.0/8')
 
     def test_gauge_port_stats(self):
         for watcher in self.v1_watchers:

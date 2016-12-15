@@ -32,7 +32,15 @@ class ACL(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-def build_acl_entry(rule_conf, acl_allow_inst, port_num):
+# TODO: change this, maybe this can be rewritten easily
+# possibly replace with a class for ACLs
+# PLAN!
+# You can have port acls, vlan acls and datapath acls.
+# port acls happen first
+# vlan acls are in a new table following the port acls
+# then datapath acls can be whatever the fuck you want and happen after
+# vlan acls
+def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
     acl_inst = []
     match_dict = {}
     for attrib, attrib_value in rule_conf.iteritems():
@@ -72,7 +80,9 @@ def build_acl_entry(rule_conf, acl_allow_inst, port_num):
                 acl_inst.append(acl_allow_inst)
         else:
             match_dict[attrib] = attrib_value
-    # override in_port always
-    match_dict['in_port'] = port_num
+    if port_num is not None:
+        match_dict['in_port'] = port_num
+    if vlan_vid is not None:
+        match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
     acl_match = valve_of.match_from_dict(match_dict)
     return acl_match, acl_inst

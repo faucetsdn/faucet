@@ -38,7 +38,7 @@ class FakeOFTable():
         for ofmsg in ofmsgs:
             if isinstance(ofmsg, parser.OFPFlowMod):
                 table_id = ofmsg.table_id
-                if table_id == ofp.OFPTT_ALL:
+                if table_id == ofp.OFPTT_ALL or table_id is None:
                     tables = self.tables
                 else:
                     tables = [self.tables[table_id]]
@@ -349,7 +349,7 @@ class FlowMod(object):
             if val is -1:
                 val = Bits(int=-1, length=32)
             elif isinstance(val, str):
-                val = Bits(bytes=addrconv.mac.text_to_bin(val), length=32)
+                val = Bits(bytes=addrconv.ipv4.text_to_bin(val), length=32)
 
         elif key in self.IPV6_MATCH_FIELDS:
             if val is -1:
