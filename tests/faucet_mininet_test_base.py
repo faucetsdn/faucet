@@ -28,7 +28,7 @@ class FAUCET(Controller):
     def __init__(self,
                  name,
                  cdir=faucet_mininet_test_util.FAUCET_DIR,
-                 command='timeout 180s ryu-manager ryu.app.ofctl_rest faucet.py',
+                 command='ryu-manager ryu.app.ofctl_rest faucet.py',
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'faucet-%u' % os.getpid()
@@ -49,7 +49,7 @@ class Gauge(Controller):
     def __init__(self,
                  name,
                  cdir=faucet_mininet_test_util.FAUCET_DIR,
-                 command='timeout 180s ryu-manager gauge.py',
+                 command='ryu-manager gauge.py',
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'gauge-%u' % os.getpid()
@@ -323,23 +323,18 @@ dbs:
     def wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
         config = yaml.load(open(os.environ['FAUCET_CONFIG']))
-        debug_logs = []
         for dp_name, dp_config in config['dps'].iteritems():
             debug_log = dp_config['ofchannel_log']
-            debug_logs.append((dp_name, debug_log))
-        for _ in range(30):
-            debug_logs_not_present = []
-            for dp_name, debug_log in debug_logs:
-                if (not os.path.exists(debug_log) or
-                    os.path.getsize(debug_log) == 0):
-                    debug_logs_not_present.append(dp_name)
-            if debug_logs_not_present:
+            debug_log_present = False
+            for _ in range(20):
+                if (os.path.exists(debug_log) and
+                        os.path.getsize(debug_log) > 0):
+                    debug_log_present = True
+                    break
                 time.sleep(1)
-            else:
-                break
-        if debug_logs_not_present:
-            self.fail(
-                'no controller debug log(s) for %s' % debug_logs_not_present)
+            if not debug_log_present:
+                self.fail(
+                    'no controller debug log for switch %s' % dp_name)
 
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
