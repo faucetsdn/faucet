@@ -205,6 +205,17 @@ class ValveRouteManager(object):
             '%s/%u' % (str(host_ip), host_ip.max_prefixlen))
         return self.add_route(vlan, host_ip, host_route)
 
+    def add_host_fib_route_from_pkt(self, vlan, pkt):
+        """Add a host FIB route given packet from host.
+
+        Args:
+            vlan (vlan): VLAN containing this RIB.
+            pkt: ryu.lib.packet from host.
+        Returns:
+            list: OpenFlow messages.
+        """
+        pass
+
     def del_route(self, vlan, ip_dst):
         """Delete a route from the RIB.
 
@@ -246,6 +257,14 @@ class ValveIPv4RouteManager(ValveRouteManager):
     def _neighbor_resolver_pkt(self, vid, controller_ip, ip_gw):
         return valve_packet.arp_request(
             self.faucet_mac, vid, controller_ip.ip, ip_gw)
+
+    def add_host_fib_route_from_pkt(self, vlan, pkt):
+        ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+        if not ipv4_pkt:
+            return
+        src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
+        if src_ip and vlan.ip_in_controller_subnet(src_ip):
+            return self._add_host_fib_route(vlan, src_ip)
 
     def add_controller_ip(self, vlan, controller_ip, controller_ip_host):
         ofmsgs = []
@@ -350,6 +369,14 @@ class ValveIPv6RouteManager(ValveRouteManager):
     def _neighbor_resolver_pkt(self, vid, controller_ip, ip_gw):
         return valve_packet.nd_request(
             self.faucet_mac, vid, controller_ip.ip, ip_gw)
+
+    def add_host_fib_route_from_pkt(self, vlan, pkt):
+        ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
+        if not ipv6_pkt:
+            return
+        src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
+        if src_ip and vlan.ip_in_controller_subnet(src_ip):
+            return self._add_host_fib_route(vlan, src_ip)
 
     def add_controller_ip(self, vlan, controller_ip, controller_ip_host):
         ofmsgs = []
