@@ -3,6 +3,9 @@
 hw_switch: False
 hardware: 'Open vSwitch'
 # Map ports on the hardware switch, to physical ports on this machine.
+# If using a switch with less than 4 dataplane ports available, run
+# FaucetZodiac tests only. A 4th port must still be defined here and
+# must exist, but will not be used.
 dp_ports:
   1: enp1s0f0
   2: enp1s0f1
