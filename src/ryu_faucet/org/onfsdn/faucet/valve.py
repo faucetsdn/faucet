@@ -52,6 +52,7 @@ def valve_factory(dp):
         'NoviFlow': Valve,
         'Open vSwitch': Valve,
         'ZodiacFX': Valve,
+        'Lagopus': Valve,
     }
 
     if dp.hardware in SUPPORTED_HARDWARE:
