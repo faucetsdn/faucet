@@ -687,7 +687,7 @@ class Valve(object):
                 return True
         return False
 
-    def _learn_host(self, valves, vlan, port, eth_src, dp_id):
+    def _learn_host(self, valves, dp_id, vlan, port, pkt, eth_src):
         """Possibly learn a host on a port."""
         ofmsgs = []
         # ban learning new hosts if max_hosts reached on a VLAN.
@@ -741,6 +741,11 @@ class Valve(object):
             # system upon re/learning a host.
             ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
                 learn_port, vlan, eth_src))
+            # Add FIB entries, if routing is active.
+            for route_manager in (
+                    self.ipv4_route_manager, self.ipv6_route_manager):
+                if route_manager:
+                    route_manager.add_host_fib_route_from_pkt(vlan, pkt)
             self.logger.info(
                 'learned %u hosts on vlan %u',
                 len(vlan.host_cache), vlan.vid)
@@ -783,7 +788,8 @@ class Valve(object):
         if self._rate_limit_packet_ins():
             return ofmsgs
 
-        ofmsgs.extend(self._learn_host(valves, vlan, port, eth_src, dp_id))
+        ofmsgs.extend(
+            self._learn_host(valves, dp_id, vlan, port, pkt, eth_src))
         return ofmsgs
 
     def host_expire(self):
