@@ -290,7 +290,7 @@ dbs:
     def host_learned(self, host, timeout=10):
         """Return True if a host has been learned on default DPID."""
         return self.matching_flow_present(
-            '"table_id": 2,.+"dl_src": "%s"' % host.MAC(), timeout)
+            '"table_id": 3,.+"dl_src": "%s"' % host.MAC(), timeout)
 
     def host_ipv4(self, host):
         """Return first IPv4/netmask for host's default interface."""

@@ -490,11 +490,11 @@ acls:
             time.sleep(2)
             flow_p1 = self.get_matching_flow_on_dpid(
                 self.dpid,
-                ('"table_id": 0, "match": '
+                ('"table_id": 1, "match": '
                  '{"dl_vlan": "0x0000", "in_port": 1}'))
             flow_p3 = self.get_matching_flow_on_dpid(
                 self.dpid,
-                ('"table_id": 0, "match": '
+                ('"table_id": 1, "match": '
                  '{"dl_vlan": "0x0000", "in_port": 3}'))
             prev_dur_p1 = flow_p1['duration_sec']
             prev_dur_p3 = flow_p3['duration_sec']
@@ -510,11 +510,11 @@ acls:
             self.hup_faucet()
             flow_p1 = self.get_matching_flow_on_dpid(
                 self.dpid,
-                ('"table_id": 0, "match": '
+                ('"table_id": 1, "match": '
                  '{"dl_vlan": "0x0000", "in_port": 1}'))
             flow_p3 = self.get_matching_flow_on_dpid(
                 self.dpid,
-                ('"table_id": 0, "match": '
+                ('"table_id": 1, "match": '
                  '{"dl_vlan": "0x0000", "in_port": 3}'))
             actions = flow_p1.get('actions', '')
             actions = [act for act in actions if 'vlan_vid' in act]
@@ -743,10 +743,10 @@ vlans:
         self.assertTrue(self.bogus_mac_flooded_to_port1())
         # Unicast flooding rule for from port 1
         self.assertTrue(self.matching_flow_present(
-            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 1}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 1}'))
         # Unicast flood rule exists that output to port 1
         self.assertTrue(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
 
 
 class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
@@ -778,10 +778,10 @@ vlans:
         self.assertFalse(self.bogus_mac_flooded_to_port1())
         # No unicast flooding rule for from port 1
         self.assertFalse(self.matching_flow_present(
-            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 1}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 1}'))
         # No unicast flood rule exists that output to port 1
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
 
 
 class FaucetUntaggedPortUnicastFloodTest(FaucetUntaggedTest):
@@ -816,10 +816,10 @@ vlans:
         self.assertFalse(self.bogus_mac_flooded_to_port1())
         # No unicast flooding rule for from port 1
         self.assertFalse(self.matching_flow_present(
-            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 1}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 1}'))
         # No unicast flood rule exists that output to port 1
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
 
 
 class FaucetUntaggedNoPortUnicastFloodTest(FaucetUntaggedTest):
@@ -852,14 +852,14 @@ vlans:
         self.assertFalse(self.bogus_mac_flooded_to_port1())
         # Unicast flood rule present for port 2, but NOT for port 1
         self.assertTrue(self.matching_flow_present(
-            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 2}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 2}'))
         self.assertFalse(self.matching_flow_present(
-            '"table_id": 6, "match": {"dl_vlan": "100", "in_port": 1}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 1}'))
         # Unicast flood rules present that output to port 2, but NOT to port 1
         self.assertTrue(self.matching_flow_present(
-            '"OUTPUT:2".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:2".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 6, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
 
 
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):

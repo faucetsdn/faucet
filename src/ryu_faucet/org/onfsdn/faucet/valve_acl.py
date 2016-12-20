@@ -34,12 +34,6 @@ class ACL(object):
 
 # TODO: change this, maybe this can be rewritten easily
 # possibly replace with a class for ACLs
-# PLAN!
-# You can have port acls, vlan acls and datapath acls.
-# port acls happen first
-# vlan acls are in a new table following the port acls
-# then datapath acls can be whatever the fuck you want and happen after
-# vlan acls
 def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
     acl_inst = []
     match_dict = {}
