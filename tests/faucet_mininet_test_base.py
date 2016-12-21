@@ -468,12 +468,21 @@ dbs:
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
+        exabgp_env = ' '.join((
+             'exabgp.tcp.bind="%s"' % listen_address,
+             'exabgp.tcp.port=%u' % port,
+             'exabgp.log.all=true',
+             'exabgp.log.routes=true',
+             'exabgp.log.rib=true',
+             'exabgp.log.packets=true',
+             'exabgp.log.parser=true',
+        ))
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.get_controller()
         controller.cmd(
-            'env exabgp.tcp.bind="%s" exabgp.tcp.port=%u '
-            'timeout -s9 180s stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
-                listen_address, port, exabgp_conf_file, exabgp_err, exabgp_log))
+            'env %s timeout -s9 180s '
+            'stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
+                exabgp_env, exabgp_conf_file, exabgp_err, exabgp_log))
         self.wait_for_tcp_listen(controller, port)
         return exabgp_log
 
