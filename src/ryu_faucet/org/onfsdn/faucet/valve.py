@@ -52,6 +52,7 @@ def valve_factory(dp):
         'NoviFlow': Valve,
         'Open vSwitch': Valve,
         'ZodiacFX': Valve,
+        'Lagopus': Valve,
     }
 
     if dp.hardware in SUPPORTED_HARDWARE:
@@ -297,6 +298,13 @@ class Valve(object):
                 table,
                 priority=self.dp.lowest_priority))
 
+        # drop broadcast sources
+        ofmsgs.append(self.valve_flowdrop(
+            self.dp.vlan_table,
+            self.valve_in_match(
+                self.dp.vlan_table, eth_src=mac.BROADCAST_STR),
+            priority=self.dp.highest_priority))
+
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
         ofmsgs.append(self.valve_flowdrop(
@@ -305,7 +313,8 @@ class Valve(object):
                 self.dp.vlan_table, eth_src=self.FAUCET_MAC),
             priority=self.dp.high_priority))
 
-        # drop STDP BPDU
+        # drop STP BPDU
+        # TODO: compatible bridge loop detection/mitigation.
         for bpdu_mac in ('01:80:C2:00:00:00', '01:00:0C:CC:CC:CD'):
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.vlan_table,
@@ -313,19 +322,13 @@ class Valve(object):
                     self.dp.vlan_table, eth_dst=bpdu_mac),
                 priority=self.dp.highest_priority))
 
-        # drop LLDP
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, eth_type=ether.ETH_TYPE_LLDP),
-            priority=self.dp.highest_priority))
-
-        # drop broadcast sources
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, eth_src=mac.BROADCAST_STR),
-            priority=self.dp.highest_priority))
+        # drop LLDP, if configured to.
+        if self.dp.drop_lldp:
+            ofmsgs.append(self.valve_flowdrop(
+                self.dp.vlan_table,
+                self.valve_in_match(
+                    self.dp.vlan_table, eth_type=ether.ETH_TYPE_LLDP),
+                priority=self.dp.highest_priority))
 
         return ofmsgs
 

@@ -22,6 +22,7 @@
  * exabgp
  * pylint
  * curl
+ * ladvd
 """
 
 import glob
@@ -75,6 +76,8 @@ EXTERNAL_DEPENDENCIES = (
      r'pylint (\d+\.\d+).\d+,', float(1.6)),
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', float(7.3)),
+    ('ladvd', ['-v'], 'ladvd',
+     r'ladvd version (\d+\.\d+)\.\d+', float(1.1)),
 )
 
 # Must pass with 0 lint errors
@@ -222,6 +225,19 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
+
+    def verify_lldp_blocked(self):
+        first_host, second_host = self.net.hosts[0:2]
+        lldp_filter = 'ether proto 0x88cc'
+        send_lldp = 'ladvd -f -L -e lo -o %s' % second_host.defaultIntf()
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, lldp_filter,
+            [lambda: second_host.cmd(send_lldp),
+             lambda: second_host.cmd(send_lldp),
+             lambda: second_host.cmd(send_lldp)])
+        return re.search('0 packets captured', tcpdump_txt)
+
+
     def verify_ping_mirrored(self, first_host, second_host, mirror_host):
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
@@ -290,6 +306,37 @@ vlans:
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
+
+
+class FaucetUntaggedLLDPBlockedTest(FaucetUntaggedTest):
+
+    def test_untagged(self):
+        self.ping_all_when_learned()
+        self.assertTrue(self.verify_lldp_blocked())
+
+
+class FaucetUntaggedLLDPUnblockedTest(FaucetUntaggedTest):
+
+    CONFIG = """
+        drop_lldp: False
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        self.ping_all_when_learned()
+        self.assertFalse(self.verify_lldp_blocked())
 
 
 class FaucetZodiacUntaggedTest(FaucetUntaggedTest):
