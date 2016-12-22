@@ -14,7 +14,8 @@ RUN \
     python-pip \
     sudo \
     tcpdump \
-    vlan
+    vlan \
+    ladvd
 
 RUN \
   git clone git://github.com/mininet/mininet && \
