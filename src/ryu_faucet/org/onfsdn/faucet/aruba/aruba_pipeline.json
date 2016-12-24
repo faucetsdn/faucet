@@ -1,7 +1,7 @@
 [
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 300,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "VLAN",
@@ -463,7 +463,7 @@
     },
     {
         "config": 3,
-        "max_entries": 128,
+        "max_entries": 100,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "ACL",
@@ -983,7 +983,7 @@
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 500,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Source",
@@ -1456,7 +1456,7 @@
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 300,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "IPv4 FIB",
@@ -1910,7 +1910,7 @@
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 10,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "IPv6 FIB Table",
@@ -2361,7 +2361,7 @@
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 500,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Destination",
@@ -2786,7 +2786,7 @@
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 300,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Flood",
