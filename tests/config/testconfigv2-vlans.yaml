@@ -6,6 +6,7 @@ vlans:
         max_hosts: 20
     41:
         name: 'v41'
+        acl_in: 'acl1'
         controller_ips: ['10.0.0.253/24']
         bgp_port: 9179
         bgp_as: 1

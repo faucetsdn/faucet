@@ -130,7 +130,7 @@ class Valve(object):
 
     def _in_port_tables(self):
         """Return list of tables that specify in_port as a match."""
-        in_port_tables = [self.dp.acl_table]
+        in_port_tables = [self.dp.port_acl_table, self.dp.vlan_acl_table]
         for table_id, match_types in self.TABLE_MATCH_TYPES.iteritems():
             if 'in_port' in match_types:
                 in_port_tables.append(table_id)
@@ -177,7 +177,8 @@ class Valve(object):
             in_port, vlan, eth_type, eth_src,
             eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
             nw_proto, nw_src, nw_dst)
-        if table_id != self.dp.acl_table:
+        if table_id != self.dp.port_acl_table\
+                and table_id != self.dp.vlan_acl_table:
             assert table_id in self.TABLE_MATCH_TYPES,\
                 '%u table not registered' % table_id
             for match_type in match_dict.iterkeys():
@@ -208,7 +209,8 @@ class Valve(object):
         """
         return (
             self.dp.vlan_table,
-            self.dp.acl_table,
+            self.dp.port_acl_table,
+            self.dp.vlan_acl_table,
             self.dp.eth_src_table,
             self.dp.ipv4_fib_table,
             self.dp.ipv6_fib_table,
@@ -330,6 +332,23 @@ class Valve(object):
 
         return ofmsgs
 
+    def _add_vlan_acl(self, vid):
+        ofmsgs = []
+        if vid in self.dp.vlan_acl_in:
+            acl_num = self.dp.vlan_acl_in[vid]
+            acl_rule_priority = self.dp.highest_priority
+            acl_allow_inst = valve_of.goto_table(self.dp.eth_src_table)
+            for rule_conf in self.dp.acls[acl_num].rules:
+                acl_match, acl_inst = valve_acl.build_acl_entry(
+                    rule_conf, acl_allow_inst, vlan_vid=vid)
+                ofmsgs.append(self.valve_flowmod(
+                    self.dp.vlan_acl_table,
+                    acl_match,
+                    priority=acl_rule_priority,
+                    inst=acl_inst))
+                acl_rule_priority -= 1
+        return ofmsgs
+
     def _add_vlan_flood_flow(self):
         """Add a flow to flood packets for unknown destinations."""
         return [self.valve_flowmod(
@@ -364,6 +383,8 @@ class Valve(object):
             all_port_nums.add(port.number)
         # install eth_dst_table flood ofmsgs
         ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+        # add acl rules
+        ofmsgs.extend(self._add_vlan_acl(vlan.vid))
         # add controller IPs if configured.
         ofmsgs.extend(self._add_controller_ips(vlan.controller_ips, vlan))
         return ofmsgs
@@ -418,6 +439,14 @@ class Valve(object):
         self.logger.info('Configuring %s', util.dpid_log(dp_id))
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
+        changed_ports = set([])
+        for port_no in discovered_port_nums:
+            if valve_of.ignore_port(port_no):
+                continue
+            changed_ports.add(port_no)
+        changed_vlans = self.dp.vlans.iterkeys()
+        changes = ([], changed_ports, [], changed_vlans)
+        ofmsgs.extend(self._apply_config_changes(self.dp, changes))
         ofmsgs.extend(self._add_ports_and_vlans(discovered_port_nums))
         self.dp.running = True
         return ofmsgs
@@ -434,22 +463,27 @@ class Valve(object):
 
     def _port_add_acl(self, port_num):
         ofmsgs = []
-        forwarding_table = self.dp.eth_src_table
-        if port_num in self.dp.acl_in:
-            acl_num = self.dp.acl_in[port_num]
-            forwarding_table = self.dp.acl_table
+        acl_allow_inst = valve_of.goto_table(self.dp.vlan_table)
+        if port_num in self.dp.port_acl_in:
+            acl_num = self.dp.port_acl_in[port_num]
             acl_rule_priority = self.dp.highest_priority
-            acl_allow_inst = valve_of.goto_table(self.dp.eth_src_table)
             for rule_conf in self.dp.acls[acl_num].rules:
                 acl_match, acl_inst = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, port_num)
                 ofmsgs.append(self.valve_flowmod(
-                    self.dp.acl_table,
+                    self.dp.port_acl_table,
                     acl_match,
                     priority=acl_rule_priority,
                     inst=acl_inst))
                 acl_rule_priority -= 1
-        return ofmsgs, forwarding_table
+        else:
+            ofmsgs.append(self.valve_flowmod(
+                self.dp.port_acl_table,
+                self.valve_in_match(self.dp.port_acl_table, in_port=port_num),
+                priority=self.dp.highest_priority,
+                inst=[acl_allow_inst]
+                ))
+        return ofmsgs
 
     def _port_add_vlan_rules(self, port, vlan, vlan_vid, vlan_inst):
         ofmsgs = []
@@ -479,7 +513,13 @@ class Valve(object):
             vlan_inst = [valve_of.apply_actions(mirror_act)] + vlan_inst
         return self._port_add_vlan_rules(port, vlan, vlan, vlan_inst)
 
-    def _port_add_vlans(self, port, forwarding_table, mirror_act):
+    def _find_forwarding_table(self, vlan):
+        if vlan.vid in self.dp.vlan_acl_in:
+            return self.dp.vlan_acl_table
+        else:
+            return self.dp.eth_src_table
+
+    def _port_add_vlans(self, port, mirror_act):
         ofmsgs = []
         vlans = self.dp.vlans.values()
         tagged_vlans_with_port = [
@@ -489,11 +529,11 @@ class Valve(object):
         for vlan in tagged_vlans_with_port:
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             ofmsgs.extend(self._port_add_vlan_tagged(
-                port, vlan, forwarding_table, mirror_act))
+                port, vlan, self._find_forwarding_table(vlan), mirror_act))
         for vlan in untagged_vlans_with_port:
             ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             ofmsgs.extend(self._port_add_vlan_untagged(
-                port, vlan, forwarding_table, mirror_act))
+                port, vlan, self._find_forwarding_table(vlan), mirror_act))
         return ofmsgs
 
     def port_add(self, dp_id, port_num, modify=False):
@@ -544,7 +584,7 @@ class Valve(object):
             return ofmsgs
 
         # Add ACL if any.
-        acl_ofmsgs, forwarding_table = self._port_add_acl(port_num)
+        acl_ofmsgs = self._port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
 
         # If this is a stacking port, accept all VLANs (came from another FAUCET)
@@ -553,7 +593,7 @@ class Valve(object):
                 self.dp.vlan_table,
                 match=self.valve_in_match(self.dp.vlan_table, in_port=port_num),
                 priority=self.dp.low_priority,
-                inst=[valve_of.goto_table(forwarding_table)]))
+                inst=[valve_of.goto_table(self.dp.eth_src_table)]))
             for vlan in self.dp.vlans.values():
                 ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         else:
@@ -562,7 +602,7 @@ class Valve(object):
             if port.mirror:
                 mirror_act = [valve_of.output_port(port.mirror)]
             # Add port/to VLAN rules.
-            ofmsgs.extend(self._port_add_vlans(port, forwarding_table, mirror_act))
+            ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         return ofmsgs
 
     def port_delete(self, dp_id, port_num):
@@ -774,10 +814,10 @@ class Valve(object):
             new_dp (DP): new dataplane configuration.
         Returns:
             changes (tuple) of:
-                deleted_ports (list): deleted port numbers.
-                changed_ports (list): changed/added port numbers.
-                deleted_vlans (list): deleted VLAN IDs.
-                changed_vlans (list): changed/added VLAN IDs.
+                deleted_ports (set): deleted port numbers.
+                changed_ports (set): changed/added port numbers.
+                deleted_vlans (set): deleted VLAN IDs.
+                changed_vlans (set): changed/added VLAN IDs.
         """
         changed_acls = {}
         for acl_id, new_acl in new_dp.acls.iteritems():
@@ -787,34 +827,35 @@ class Valve(object):
                 if new_acl != self.dp.acls[acl_id]:
                     changed_acls[acl_id] = new_acl
 
-        changed_ports = []
+        changed_ports = set([])
         for port_no, new_port in new_dp.ports.iteritems():
             if port_no not in self.dp.ports:
                 # Detected a newly configured port
-                changed_ports.append(port_no)
+                changed_ports.add(port_no)
             else:
-                # An existing port has configs changed
                 if new_port != self.dp.ports[port_no]:
-                    changed_ports.append(port_no)
-                else:
-                     # If the port has its ACL changed
-                    if new_port.acl_in in changed_acls:
-                        changed_ports.append(port_no)
+                    # An existing port has configs changed
+                    changed_ports.add(port_no)
+                elif new_port.acl_in in changed_acls:
+                    # If the port has its ACL changed
+                    changed_ports.add(port_no)
 
-        deleted_ports = []
-        for port_no in self.dp.ports.iterkeys():
-            if port_no not in new_dp.ports:
-                deleted_ports.append(port_no)
-
-        changed_vlans = []
-        for vid, new_vlan in new_dp.vlans.iteritems():
-            if vid not in self.dp.vlans or new_vlan != self.dp.vlans[vid]:
-                changed_vlans.append(vid)
-
-        deleted_vlans = []
+        deleted_vlans = set([])
         for vid in self.dp.vlans.iterkeys():
             if vid not in new_dp.vlans:
-                deleted_vlans.append(vid)
+                deleted_vlans.add(vid)
+
+        changed_vlans = set([])
+        for vid, new_vlan in new_dp.vlans.iteritems():
+            if vid not in self.dp.vlans or new_vlan != self.dp.vlans[vid]:
+                changed_vlans.add(vid)
+            for p in new_vlan.get_ports():
+                changed_ports.add(p.number)
+
+        deleted_ports = set([])
+        for port_no in self.dp.ports.iterkeys():
+            if port_no not in new_dp.ports:
+                deleted_ports.add(port_no)
 
         changes = (deleted_ports, changed_ports, deleted_vlans, changed_vlans)
         return changes

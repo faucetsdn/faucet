@@ -33,8 +33,9 @@ class DP(Conf):
     dp_id = None
     configured = False
     table_offset = None
+    port_acl_table = None
     vlan_table = None
-    acl_table = None
+    vlan_acl_table = None
     eth_src_table = None
     ipv4_fib_table = None
     ipv6_fib_table = None
@@ -54,9 +55,10 @@ class DP(Conf):
         # Name for this dp, used for stats reporting and configuration
         'name': None,
         'table_offset': 0,
+        'port_acl_table': None,
         # The table for internally associating vlans
         'vlan_table': None,
-        'acl_table': None,
+        'vlan_acl_table': None,
         'eth_src_table': None,
         'ipv4_fib_table': None,
         'ipv6_fib_table': None,
@@ -101,7 +103,8 @@ class DP(Conf):
         self.acls = {}
         self.vlans = {}
         self.ports = {}
-        self.acl_in = {}
+        self.port_acl_in = {}
+        self.vlan_acl_in = {}
 
     def sanity_check(self):
         # TODO: this shouldnt use asserts
@@ -121,9 +124,10 @@ class DP(Conf):
         # fix special cases
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
-        self._set_default('vlan_table', self.table_offset)
-        self._set_default('acl_table', self.table_offset + 1)
-        self._set_default('eth_src_table', self.acl_table + 1)
+        self._set_default('port_acl_table', self.table_offset)
+        self._set_default('vlan_table', self.port_acl_table + 1)
+        self._set_default('vlan_acl_table', self.vlan_table + 1)
+        self._set_default('eth_src_table', self.vlan_acl_table + 1)
         self._set_default('ipv4_fib_table', self.eth_src_table + 1)
         self._set_default('ipv6_fib_table', self.ipv4_fib_table + 1)
         self._set_default('eth_dst_table', self.ipv6_fib_table + 1)
@@ -145,10 +149,12 @@ class DP(Conf):
             # other configuration entries ignored
             return
         if port.acl_in is not None:
-            self.acl_in[port_num] = port.acl_in
+            self.port_acl_in[port_num] = port.acl_in
 
     def add_vlan(self, vlan):
         self.vlans[vlan.vid] = vlan
+        if vlan.acl_in is not None:
+            self.vlan_acl_in[vlan.vid] = vlan.acl_in
 
     def resolve_stack_topology(self, dps):
 
