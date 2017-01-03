@@ -33,6 +33,7 @@ class VLAN(Conf):
     routes = None
     max_hosts = None
     unicast_flood = None
+    acl_in = None
     # Define dynamic variables with prefix dyn_ to distinguish from variables set
     # configuration
     dyn_ipv4_routes = None
@@ -44,6 +45,7 @@ class VLAN(Conf):
     defaults = {
         'name': None,
         'description': None,
+        'acl_in': None,
         'controller_ips': None,
         'unicast_flood': True,
         'bgp_as': 0,
@@ -143,7 +145,8 @@ class VLAN(Conf):
         self._set_default('name', str(self._id))
         self._set_default('controller_ips', [])
         self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
-        self._set_default('bgp_neighbor_addresses', self.bgp_neighbour_addresses)
+        self._set_default(
+            'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
