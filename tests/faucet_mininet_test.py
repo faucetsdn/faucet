@@ -229,10 +229,12 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     def verify_lldp_blocked(self):
         first_host, second_host = self.net.hosts[0:2]
         lldp_filter = 'ether proto 0x88cc'
+        ladvd_mkdir = 'mkdir -p /var/run/ladvd'
         send_lldp = 'ladvd -f -L -e lo -o %s' % second_host.defaultIntf()
         tcpdump_txt = self.tcpdump_helper(
             first_host, lldp_filter,
-            [lambda: second_host.cmd(send_lldp),
+            [lambda: second_host.cmd(ladvd_mkdir),
+             lambda: second_host.cmd(send_lldp),
              lambda: second_host.cmd(send_lldp),
              lambda: second_host.cmd(send_lldp)])
         return re.search('0 packets captured', tcpdump_txt)
