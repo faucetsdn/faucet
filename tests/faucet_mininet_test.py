@@ -161,13 +161,19 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     def attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
         switch = self.net.switches[0]
-        hosts_count = len(self.net.hosts)
+        mapped_base = max(len(self.switch_map), len(self.port_map))
         for i, test_host_port in enumerate(sorted(self.switch_map)):
             port_i = i + 1
-            mapped_port_i = port_i + hosts_count
+            mapped_port_i = mapped_base + port_i
             phys_port = Intf(self.switch_map[test_host_port], node=switch)
             switch.cmd('ip link set dev %s up' % phys_port)
-            switch.cmd('ovs-vsctl add-port %s %s' % (switch.name, phys_port.name))
+            switch.cmd(
+                ('ovs-vsctl add-port %s %s -- '
+                 'set Interface %s ofport_request=%u') % (
+                     switch.name,
+                     phys_port.name,
+                     phys_port.name,
+                     mapped_port_i))
             for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
                 port_x, port_y = port_pair
                 switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
@@ -270,7 +276,11 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 if os.path.exists(watcher_file):
                     break
                 time.sleep(1)
-            self.assertTrue(os.stat(watcher_file).st_size > 0)
+            if (os.path.exists(watcher_file) and
+                    os.stat(watcher_file).st_size > 0):
+                continue
+            self.fail(
+                'gauge did not output %s (gauge not connected?)' % watcher_file)
 
 
 class FaucetUntaggedTest(FaucetTest):
