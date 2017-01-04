@@ -22,7 +22,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
                                          ])
                     ],
         include_package_data=True,
-        install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr'],
+        install_requires=['ryu>=4.9', 'pyyaml', 'influxdb', 'ipaddr'],
         license='Apache License 2.0',
         description='Ryu faucet applications to perform Layer 2 switching with VLANs.',
         long_description=README,

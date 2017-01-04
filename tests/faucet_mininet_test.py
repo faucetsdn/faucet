@@ -57,7 +57,7 @@ import faucet_mininet_test_base
 # RE to check present RE to get version, minimum required version.
 EXTERNAL_DEPENDENCIES = (
     ('ryu-manager', ['--version'],
-     'ryu-manager', r'ryu-manager (\d+\.\d+)\n', float(4.4)),
+     'ryu-manager', r'ryu-manager (\d+\.\d+)\n', float(4.9)),
     ('ovs-vsctl', ['--version'], 'Open vSwitch',
      r'ovs-vsctl\s+\(Open vSwitch\)\s+(\d+\.\d+)\.\d+\n', float(2.3)),
     ('tcpdump', ['-h'], 'tcpdump',
