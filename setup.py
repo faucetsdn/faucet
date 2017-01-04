@@ -24,16 +24,23 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
         ## Temp Fix for v1.2 to not use data_files_prefix as we have package install issues.
         #data_files=[(data_files_prefix + 'etc/ryu/faucet',
-        data_files=[('/etc/ryu', ['src/cfg/etc/ryu/ryu.conf']),
-                     ('/etc/ryu/faucet',
-                     ['src/cfg/etc/ryu/faucet/gauge.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_Lagopus.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_ZodiacFX.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_ovs.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_demo_step1.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_demo_step2.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_demo_step3.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet.yaml'])],
+        data_files=[
+            ('/etc/ryu', [
+                'src/cfg/etc/ryu/ryu.conf'
+            ]),
+            ('/etc/ryu/faucet', [
+                'src/cfg/etc/ryu/faucet/faucet.yaml-dist',
+                'src/cfg/etc/ryu/faucet/gauge.yaml-dist'
+            ]),
+            ('/etc/ryu/faucet/examples', [
+                'src/cfg/etc/ryu/faucet/examples/faucet_lagopus.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_zodiacfx.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_ovs.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_demo_step1.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_demo_step2.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_demo_step3.yaml'
+            ])
+        ],
         include_package_data=True,
         install_requires=['ryu>=4.9', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest', 'couchdb', 'networkx'],
         license='Apache License 2.0',
