@@ -51,9 +51,8 @@ def dp_parser(config_file, logname):
     dps = None
 
     if version == 1:
-        logger.warning(
+        logger.fatal(
             'Version 1 config is UNSUPPORTED. Please move to version 2')
-        config_hashes, dps = _dp_parser_v1(conf, config_file, logname)
     elif version == 2:
         config_hashes, dps = _dp_parser_v2(conf, config_file, logname)
     else:
@@ -91,41 +90,6 @@ def _dp_config_path(config_file, parent_file=None):
         return os.path.realpath(os.path.join(os.path.dirname(parent_file), config_file))
     else:
         return os.path.realpath(config_file)
-
-def _dp_parser_v1(conf, config_file, logname):
-    logger = get_logger(logname)
-
-    config_path = _dp_config_path(config_file)
-
-    # TODO: warn when the configuration contains meaningless elements
-    # they are probably typos
-    if 'dp_id' not in conf:
-        logger.error('dp_id not configured in file %s', config_file)
-
-    dp_id = conf['dp_id']
-    dp = DP(dp_id, conf)
-
-    interfaces_conf = conf.pop('interfaces', {})
-    vlans_conf = conf.pop('vlans', {})
-    acls_conf = conf.pop('acls', {})
-
-    logger.info(str(dp))
-    vlans = {}
-    for vid, vlan_conf in vlans_conf.iteritems():
-        vlans[vid] = VLAN(vid, dp_id, vlan_conf)
-    for port_num, port_conf in interfaces_conf.iteritems():
-        dp.add_port(port_parser(dp_id, port_num, port_conf, vlans))
-    for acl_num, acl_conf in acls_conf.iteritems():
-        dp.add_acl(acl_num, acl_conf)
-    for vlan in vlans.itervalues():
-        dp.add_vlan(vlan)
-    try:
-        dp.sanity_check()
-    except AssertionError as err:
-        logger.exception('Error in config file: %s', err)
-        return None
-
-    return ({config_path: config_file_hash(config_path)}, [dp])
 
 def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
     logger = get_logger(logname)
@@ -271,105 +235,8 @@ def _dp_parser_v2(conf, config_file, logname):
     return (config_hashes, dps)
 
 def watcher_parser(config_file, logname):
-    #TODO: make this backwards compatible
-
     conf = read_config(config_file, logname)
-    if isinstance(conf, dict):
-        # in this case it may be an old style config
-        return _watcher_parser_v2(conf, logname)
-    else:
-        return _watcher_parser_v1(config_file, logname)
-
-def _watcher_parser_v1(config_file, logname):
-    result = []
-
-    INFLUX_KEYS = [
-        'influx_db',
-        'influx_host',
-        'influx_port',
-        'influx_user',
-        'influx_pwd',
-        'influx_timeout',
-        ]
-
-    GAUGEDB_KEYS = [
-        'gdb_type',
-        'nosql_db',
-        'db_username',
-        'db_password',
-        'db_ip',
-        'db_fqdn',
-        'db_port',
-        'driver',
-        'views',
-        'switches_doc',
-        'flows_doc',
-        ]
-
-    dps = []
-    with open(config_file, 'r') as conf:
-        for line in conf:
-            dps.append(dp_parser(line.strip(), logname)[1][0])
-
-    for dp in dps:
-        if dp.influxdb_stats:
-            w_type = 'port_state'
-            port_state_conf = {
-                'type': w_type,
-                'db_type': 'influx'
-                }
-            for key in INFLUX_KEYS:
-                port_state_conf[key] = dp.__dict__.get(key, None)
-            name = dp.name + '-' + w_type
-            watcher = WatcherConf(name, port_state_conf)
-            # add dp to watcher. prevents the dp_id attribute error in gauge.
-            watcher.add_dp(dp)
-            result.append(watcher)
-
-        if dp.monitor_ports:
-            w_type = 'port_stats'
-            port_stats_conf = {'type': w_type}
-            port_stats_conf['interval'] = dp.monitor_ports_interval
-            if dp.influxdb_stats:
-                port_stats_conf['db_type'] = 'influx'
-                for key in INFLUX_KEYS:
-                    port_stats_conf[key] = dp.__dict__.get(key, None)
-            else:
-                port_stats_conf['db_type'] = 'text'
-                port_stats_conf['file'] = dp.monitor_ports_file
-            name = dp.name + '-' + w_type
-            watcher = WatcherConf(name, port_stats_conf)
-            # add dp to watcher. prevents the dp_id attribute error in gauge.
-            watcher.add_dp(dp)
-            result.append(watcher)
-
-        if dp.monitor_flow_table:
-            w_type = 'flow_table'
-            flow_table_conf = {'type': w_type}
-            flow_table_conf['interval'] = dp.monitor_flow_table_interval
-            flow_table_conf['file'] = dp.monitor_flow_table_file
-            name = dp.name + '-' + w_type
-            watcher = WatcherConf(name, flow_table_conf)
-            # add dp to watcher. prevents the dp_id attribute error in gauge.
-            watcher.add_dp(dp)
-            result.append(watcher)
-
-        if dp.gaugedb_updates:
-            w_type = 'flow_table'
-            flow_table_conf = {'type': w_type}
-            flow_table_conf['db_type'] = 'gaugedb'
-            flow_table_conf['interval'] = dp.monitor_flow_table_interval
-            flow_table_conf['db_update_counter'] = dp.gaugedb_update_counter
-            name = dp.name + '-' + w_type
-            for key in GAUGEDB_KEYS:
-                flow_table_conf[key] = dp.__dict__.get('gaugedb').get(
-                    key, None)
-            watcher = WatcherConf(name, flow_table_conf)
-            watcher.add_dp(dp)
-            result.append(watcher)
-
-    return result
-
+    return _watcher_parser_v2(conf, logname)
 
 def _watcher_parser_v2(conf, logname):
     logger = get_logger(logname)
