@@ -242,9 +242,27 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             [lambda: second_host.cmd(ladvd_mkdir),
              lambda: second_host.cmd(send_lldp),
              lambda: second_host.cmd(send_lldp),
-             lambda: second_host.cmd(send_lldp)])
-        return re.search('0 packets captured', tcpdump_txt)
+             lambda: second_host.cmd(send_lldp)],
+            timeout=20, packets=5)
+        if re.search(second_host.MAC(), tcpdump_txt):
+            return False
+        return True
 
+    def is_cdp_blocked(self):
+        first_host, second_host = self.net.hosts[0:2]
+        cdp_filter = 'ether host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000'
+        ladvd_mkdir = 'mkdir -p /var/run/ladvd'
+        send_cdp = 'ladvd -f -C -e lo -o %s' % (second_host.defaultIntf())
+        tcpdump_txt = self.tcpdump_helper(first_host, cdp_filter,
+             [lambda: second_host.cmd(ladvd_mkdir), 
+              lambda: second_host.cmd(send_cdp),
+              lambda: second_host.cmd(send_cdp),
+              lambda: second_host.cmd(send_cdp)],
+             timeout=20, packets=5)
+
+        if re.search(second_host.MAC(), tcpdump_txt):
+            return False
+        return True
 
     def verify_ping_mirrored(self, first_host, second_host, mirror_host):
         self.net.ping((first_host, second_host))
@@ -326,6 +344,11 @@ class FaucetUntaggedLLDPBlockedTest(FaucetUntaggedTest):
         self.ping_all_when_learned()
         self.assertTrue(self.verify_lldp_blocked())
 
+class FaucetUntaggedCDPTest(FaucetUntaggedTest):
+
+    def test_untagged(self):
+        self.ping_all_when_learned()
+        self.assertFalse(self.is_cdp_blocked())
 
 class FaucetUntaggedLLDPUnblockedTest(FaucetUntaggedTest):
 
