@@ -1,7 +1,6 @@
 import os
 import sys
 import ipaddr
-import pprint
 
 from ryu.base import app_manager
 from ryu.lib import hub
@@ -23,15 +22,10 @@ class TestFaucetAPI(app_manager.RyuApp):
         self.faucet_api = kwargs['faucet_api']
         if self.faucet_api.is_registered():
             self.run_tests()
-        print('begin test faucet api')
 
     @set_ev_cls(EventFaucetAPIRegistered)
     def run_tests(self):
-        print 'run tests'
-        print self.faucet_api.faucet.valves[0xcafef00d].dp.acls
         config = self.faucet_api.get_config()
-        pp = pprint.PrettyPrinter()
-        pp.pprint(config)
 
         # dp config
         assert 'switch1' in config['dps']
