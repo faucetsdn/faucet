@@ -197,6 +197,9 @@ class VLAN(Conf):
                 return True
         return False
 
+    def to_conf(self):
+        return self._to_conf()
+
     def __hash__(self):
         items = [(k,v) for k,v in self.__dict__.iteritems() if 'dyn' not in k]
         return hash(frozenset(map(str, items)))

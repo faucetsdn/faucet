@@ -9,3 +9,10 @@ class Conf(object):
     def _set_default(self, key, value):
         if key not in self.__dict__ or self.__dict__[key] is None:
             self.__dict__[key] = value
+
+    def _to_conf(self):
+        result = {}
+        for k, v in self.defaults.iteritems():
+            if k != 'name':
+                result[k] = self.__dict__[str(k)]
+        return result

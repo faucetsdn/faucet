@@ -466,3 +466,15 @@ class Faucet(app_manager.RyuApp):
                                 reason, port_no)
 
         self._send_flow_msgs(ryu_dp, flowmods)
+
+    def get_config(self):
+        config = {}
+        for valve in self.valves.itervalues():
+            valve_conf = valve.get_config_dict()
+            for k in ('dps', 'acls', 'vlans'):
+                config.setdefault(k, {})
+                config[k].update(valve_conf[k])
+        return config
+
+    def get_tables(self, dp_id):
+        return self.valves[dp_id].dp.get_tables()

@@ -323,6 +323,24 @@ class DP(Conf):
 
         return None
 
+    def get_tables(self):
+        result = {}
+        for k in self.defaults:
+            if k.endswith('table'):
+                result[k] = self.__dict__[k]
+        return result
+
+    def to_conf(self):
+        result = self._to_conf()
+        if 'stack' in result:
+            result['stack'] = {
+                'root_dp': str(self.stack['root_dp'])
+                }
+        interface_dict = {}
+        for port_num, port in self.ports.iteritems():
+            interface_dict[port.name] = port.to_conf()
+        result['interfaces'] = interface_dict
+        return result
 
     def __str__(self):
         return self.name
