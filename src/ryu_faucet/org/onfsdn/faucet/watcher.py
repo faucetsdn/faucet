@@ -331,6 +331,10 @@ class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
                     ("dropped_out", stat.tx_dropped),
                     ("dropped_in", stat.rx_dropped),
                     ("errors_in", stat.rx_errors)):
+                if stat_value == 2**64-1:
+                    # For openvswitch, unsupported statistics are set to
+                    # all-1-bits (UINT64_MAX), skip reporting them
+                    continue
                 points.append({
                     "measurement": stat_name,
                     "tags": port_tags,
