@@ -1,7 +1,8 @@
 // faucet.yaml config file - dot format for visual representation
 /** @author: shivaram.mysore@gmail.com **/
 
-digraph faucet {
+digraph {
+  graph [label="faucet.yaml", labelloc=t, fontsize=30];
   ranksep = 1;  size = "11,8.5";
 
   /** version info.  Only value supported is 2 **/
@@ -37,7 +38,7 @@ digraph faucet {
   rule -> nw_src;
   rule -> nw_proto;
 
-  subgraph "cluster_match_fields" { label = "Match fields"; style = dashed; dl_type; dl_src; dl_dst; tp_src; tp_dst; nw_src; nw_proto; }
+  subgraph "cluster_match_fields" { label = "Match fields"; style = dashed; fontsize=12; dl_type; dl_src; dl_dst; tp_src; tp_dst; nw_src; nw_proto; }
 
   /** Match Actions for ACLs **/
   actions -> output;
