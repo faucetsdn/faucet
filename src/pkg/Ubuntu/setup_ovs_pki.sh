@@ -11,7 +11,7 @@ CONTROLLER_HOST=127.0.0.1
 ## Default directory is /usr/local/var/lib/openvswitch/pki
 ## pki directory consists of controllerca and switchca subdirectories.
 ## Each directory contains CA files.
-DEF_OVS_PKI_DIR=/usr/local/var/lib/openvswitch/pki
+DEF_OVS_PKI_DIR=/var/lib/openvswitch/pki
 ETC_OVS_DIR=/etc/openvswitch
 
 
@@ -23,11 +23,11 @@ echo "will need to be  copied to the OpenFlow switches and controllers, respecti
 echo ""
 
 echo "Creating controller private key and certificate ..."
-ovs-pki req+sign cntlr controller
+cd $ETC_OVS_DIR; ovs-pki req+sign cntlr controller
 ## cntlr-privkey.pem and cttlr-cert.pem are generated in the current directory.
 
 echo "Creating Switch private key and certificate ..."
-ovs-pki req+sign switch switch
+cd $ETC_OVS_DIR; ovs-pki req+sign switch switch
 ## switch-privkey.pem and switch-cert.pem are generated in the current directory.
 
 echo "Configuring ovs-vswitchd to use CA files using the ovs-vsctl  ..."
