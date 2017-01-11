@@ -1,6 +1,7 @@
 #!/bin/sh
 ## @author shivaram.mysore@gmail.com
 
+OPENSSL=/usr/bin/openssl
 PYTHON_PKG_DIR=/opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages
 FAUCET_APP_DIR=$PYTHON_PKG_DIR/ryu_faucet/org/onfsdn/faucet
 APP_FAUCET=$FAUCET_APP_DIR/faucet.py
@@ -24,11 +25,14 @@ echo ""
 
 echo "Creating controller private key and certificate ..."
 cd $ETC_OVS_DIR; ovs-pki req+sign cntlr controller
-## cntlr-privkey.pem and cttlr-cert.pem are generated in the current directory.
+## cntlr-privkey.pem and cntlr-cert.pem are generated in $ETC_OVS_DIR directory.
+echo "Printing Controller Cert ..."
+$OPENSSL x509 -in $ETC_OVS_DIR/cntlr-cert.pem -text -noout
 
 echo "Creating Switch private key and certificate ..."
 cd $ETC_OVS_DIR; ovs-pki req+sign switch switch
 ## switch-privkey.pem and switch-cert.pem are generated in the current directory.
+$OPENSSL x509 -in $ETC_OVS_DIR/switch-cert.pem -text -noout
 
 echo "Configuring ovs-vswitchd to use CA files using the ovs-vsctl  ..."
 ovs-vsctl set-ssl $ETC_OVS_DIR/switch-privkey.pem $ETC_OVS_DIR/openvswitch/switch-cert.pem $DEF_OVS_PKI_DIR/controllerca/cacert.pem
