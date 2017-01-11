@@ -39,6 +39,8 @@ echo "ex: ovs-vsctl set-controller ovs-br0 ssl:$CONTROLLER_HOST:$CONTROLLER_LIST
 echo ""
 
 echo "Running faucet with TLS"
-echo "ryu-manager --cntlr-privkey cntlr-privkey.pem --cntlr-cert cntlr-cert.pem \"
-echo "            --ca-certs $DEF_OVS_PKI_DIR/switchca/cacert.pem \"
+echo "Copy $ETC_OVS_DIR/cntlr-privkey.pem, $ETC_OVS_DIR/cntlr-cert.pem and $DEF_OVS_PKI_DIR/switchca/cacert.pem files to"
+echo " /etc/ryu/ directory on the controller host"
+echo "ryu-manager --cntlr-privkey /etc/ryu/cntlr-privkey.pem --cntlr-cert /etc/ryu/cntlr-cert.pem \ "
+echo "            --ca-certs /etc/ryu/switchca-cert.pem \ "
 echo "            --ofp-tcp-listen-port $CONTROLLER_LISTEN_PORT $APP_FAUCET"
