@@ -20,18 +20,19 @@ TLS=
 OFP_LISTEN_PORT=--ofp-tcp-listen-port
 #OFP_LISTEN_PORT=--ofp-ssl-listen-port
 
-SCREEN="screen -S FaucetController"
+SCREEN=screen
+SCR_CONTRL_NAME=FaucetController
 
-$SCREEN -X stuff 'command ^C'
+$SCREEN -S $SCR_CONTRL_NAME -X stuff 'command ^C'
 
 echo "Clearing log files ..."
 rm -f /var/log/ryu/faucet/faucet.log
 
 echo " Starting Faucet Controller ..."
-$SCREEN -d -m $RYU_MANAGER $VERBOSE $TLS $OFP_LISTEN_PORT $CONTROLLER_LISTEN_PORT $FAUCET_APP_DIR/faucet.py
+$SCREEN -S $SCR_CONTRL_NAME -d -m $RYU_MANAGER $VERBOSE $TLS $OFP_LISTEN_PORT $CONTROLLER_LISTEN_PORT $FAUCET_APP_DIR/faucet.py
 #$RYU_CMD
 
 echo "Listing Screen process ..."
 screen -list
 echo "To attach to a running screen process run:"
-echo "  $SCREEN"
+echo "  $SCREEN -r $SCR_CONTRL_NAME"
