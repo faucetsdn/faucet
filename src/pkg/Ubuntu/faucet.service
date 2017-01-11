@@ -1,0 +1,12 @@
+[Unit]
+description="FAUCET OpenFlow switch controller"
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/home/faucet/start-faucet.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

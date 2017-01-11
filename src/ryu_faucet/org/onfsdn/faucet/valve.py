@@ -299,28 +299,31 @@ class Valve(object):
                 priority=self.dp.lowest_priority))
 
         # drop broadcast sources
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, eth_src=mac.BROADCAST_STR),
-            priority=self.dp.highest_priority))
-
-        # antispoof for FAUCET's MAC address
-        # TODO: antispoof for controller IPs on this VLAN, too.
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, eth_src=self.FAUCET_MAC),
-            priority=self.dp.high_priority))
-
-        # drop STP BPDU
-        # TODO: compatible bridge loop detection/mitigation.
-        for bpdu_mac in ('01:80:C2:00:00:00', '01:00:0C:CC:CC:CD'):
+        if self.dp.drop_broadcast_source_address:
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.vlan_table,
                 self.valve_in_match(
-                    self.dp.vlan_table, eth_dst=bpdu_mac),
+                    self.dp.vlan_table, eth_src=mac.BROADCAST_STR),
                 priority=self.dp.highest_priority))
+
+        # antispoof for FAUCET's MAC address
+        # TODO: antispoof for controller IPs on this VLAN, too.
+        if self.dp.drop_spoofed_faucet_mac:
+            ofmsgs.append(self.valve_flowdrop(
+                self.dp.vlan_table,
+                self.valve_in_match(
+                    self.dp.vlan_table, eth_src=self.FAUCET_MAC),
+                priority=self.dp.high_priority))
+
+        # drop STP BPDU
+        # TODO: compatible bridge loop detection/mitigation.
+        if self.dp.drop_bpdu:
+            for bpdu_mac in ('01:80:C2:00:00:00', '01:00:0C:CC:CC:CD'):
+                ofmsgs.append(self.valve_flowdrop(
+                    self.dp.vlan_table,
+                    self.valve_in_match(
+                        self.dp.vlan_table, eth_dst=bpdu_mac),
+                    priority=self.dp.highest_priority))
 
         # drop LLDP, if configured to.
         if self.dp.drop_lldp:

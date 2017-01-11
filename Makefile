@@ -12,6 +12,7 @@ PYLINT = pylint
 RM := rm
 MKDIR := mkdir -p
 MV := mv
+DOT := dot
 
 PROJECT_NAME = ryu_faucet
 
@@ -19,7 +20,7 @@ PROJECT_NAME = ryu_faucet
 DIST_DIR = dist
 SRC_DIR = src
 
-all: clobber sdist uml
+all: clobber sdist uml dot
 
 uml:
 	$(MKDIR) $(DIST_DIR)/doc
@@ -27,6 +28,8 @@ uml:
 	$(MV) classes*png $(DIST_DIR)/doc
 	$(MV) packages*png $(DIST_DIR)/doc
 
+dot:
+	$(DOT) -Tpng $(SRC_DIR)/docs/faucet_yaml.dot -o $(DIST_DIR)/doc/faucet_yaml.png
 sdist:
 	@echo Building Python package installable via "pip"
 	$(MKDIR) $(DIST_DIR)

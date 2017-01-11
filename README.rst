@@ -257,6 +257,7 @@ Faucet Deployment around the World
 =================
 OpenFlow Pipeline
 =================
+As of Faucet v1.3 release, ACL table is now Table 0 so that actions like port mirroring happen without packet modifications and processing.  VLAN table is now Table 1.
 
 ::
 
