@@ -422,9 +422,10 @@ class Faucet(app_manager.RyuApp):
         """
         dp_id = ryu_dp.id
         if dp_id in self.valves:
-            discovered_ports = [
-                p.port_no for p in ryu_dp.ports.values() if p.state == 0]
-            flowmods = self.valves[dp_id].datapath_connect(dp_id, discovered_ports)
+            discovered_up_port_nums = [
+                port.port_no for port in ryu_dp.ports.values() if port.state == 0]
+            flowmods = self.valves[dp_id].datapath_connect(
+                dp_id, discovered_up_port_nums)
             self._send_flow_msgs(ryu_dp, flowmods)
         else:
             self.logger.error('handler_datapath: unknown %s', dpid_log(dp_id))
