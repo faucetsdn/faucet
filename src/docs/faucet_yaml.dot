@@ -6,7 +6,7 @@ digraph {
   ranksep = 1;  size = "11,8.5";
 
   /** version info.  Only value supported is 2 **/
-  version [shape = box; style = bold];
+  version [shape = box style = bold tooltip="2 - is the only value supported"];
  
   /** include yaml files **/
   include [shape = box; style = bold];
