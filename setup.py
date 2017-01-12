@@ -19,7 +19,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
 
     setup(
         name='ryu-faucet',
-        version='1.3',
+        version='1.3.1',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
         ## Temp Fix for v1.2 to not use data_files_prefix as we have package install issues.
