@@ -322,11 +322,11 @@ dbs:
 
     def require_host_learned(self, host, retries=3):
         """Require a host be learned on default DPID."""
-        host_ip = self.host_ipv4(host)
+        host_ip_net = self.host_ipv4(host)
         ping_cmd = 'ping'
-        if not host_ip:
-            host_ip = self.host_ipv6(host)
-        broadcast = ipaddr.IPNetwork(host_ip)
+        if not host_ip_net:
+            host_ip_net = self.host_ipv6(host)
+        broadcast = (ipaddr.IPNetwork(host_ip_net).broadcast)
         if broadcast.version == 6:
             ping_cmd = 'ping6'
         for _ in range(retries):

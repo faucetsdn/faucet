@@ -1,4 +1,4 @@
-:version: 1.2
+:version: 1.3.2
 :copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
 
 .. meta::
@@ -100,44 +100,9 @@ A port not explicitly defined in the YAML configuration file will be set down an
 Versions
 --------
 
-The Faucet configuration file format occasionally changes to add functionality or accommodate changes inside Faucet. If the ``version`` field is not specified in ``faucet.yaml``, the current default value is ``1``.
+The Faucet configuration file format occasionally changes to add functionality or accommodate changes inside Faucet. If the ``version`` field must be specified ``faucet.yaml``, with value ``2``.
 
-Version 1 of the Faucet configuration file format does not allow multiple datapaths to be defined. The one datapath configured for this Faucet instance is configured using top level values, a sample of which can be found in ``faucet.yaml``. Previous (1.0 and older) versions of Faucet do not support the ``version`` field, so most configuration files in this format should not use it.
-
-This version of the Faucet configuration file format is deprecated and will be removed shortly, so new installations of Faucet should use the version 2 format, documented below.
-
-.. code:: yaml
-
-  ---
-  dp_id: 0x000000000001
-  name: "test-switch-1"
-
-  interfaces:
-      1:
-          native_vlan: 2040
-          acl_in: 1
-
-  vlans:
-      2040:
-          name: "dev VLAN"
-
-  acls:
-      1:
-          - rule:
-              nw_dst: "172.0.0.0/8"
-              dl_type: 0x800
-              allow: 1
-
-          - rule:
-              dl_type: 0x0806
-              allow: 1
-
-          - rule:
-              nw_dst: "10.0.0.0/16"
-              dl_type: 0x800
-              allow: 0
-
-Version 2 of the Faucet configuration file format adds the ``version`` field, and allows multiple datapaths (switches) to be defined in one configuration file using the ``dps`` object, with each datapath sharing the ``vlans`` and ``acls`` objects defined in that file.
+Version 2 of the Faucet configuration file format allows multiple datapaths (switches) to be defined in one configuration file using the ``dps`` object, with each datapath sharing the ``vlans`` and ``acls`` objects defined in that file.
 
 .. code:: yaml
 
@@ -248,7 +213,7 @@ We provide official automated builds on `Docker Hub <https://hub.docker.com/r/fa
 
 Provided are two Docker containers, one for running Faucet and one for running Gauge. The Gauge container needs to be linked to a database container as well as a Grafana container. We also supply a ``docker-compose.yaml`` that can be used to start all the components together.
 
-Docker tags are used to differentiate versions of Faucet, ``latest`` will always point to ``master`` branch on github and stable versions are also tagged e.g ``v1_0`` and ``v1_1``.
+Docker tags are used to differentiate versions of Faucet, ``latest`` will always point to ``master`` branch on github and stable versions are also tagged e.g ``v1_3``.
 
 Running Faucet and Gauge with docker-compose
 ----------------------------------------
@@ -292,6 +257,7 @@ Faucet Deployment around the World
 =================
 OpenFlow Pipeline
 =================
+As of Faucet v1.3 release, ACL table is now Table 0 so that actions like port mirroring happen without packet modifications and processing.  VLAN table is now Table 1.
 
 ::
 
@@ -301,7 +267,7 @@ OpenFlow Pipeline
       |             |                         | |            ^            |
       |             |                         | |       +----+-----+      v
       |       +-----+----+  +----------+  +---+-+----+  |3:IPv4_FIB|  +---+------+  +----------+
-      |       |0:VLAN    |  |1:ACL     |  |2:ETH_SRC +->+          +->+5:ETH_DST |  |6:FLOOD   |
+      |       |0:ACL     |  |1:VLAN    |  |2:ETH_SRC +->+          +->+5:ETH_DST |  |6:FLOOD   |
       +------>+          |  |          |  |          |  |          |  |          |  |          |
               |          |  |          |  |          |  +----------+  |          |  |          |
               |          |  |          |  |          |                |          |  |          |

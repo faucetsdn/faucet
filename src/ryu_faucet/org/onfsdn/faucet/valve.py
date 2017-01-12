@@ -299,28 +299,31 @@ class Valve(object):
                 priority=self.dp.lowest_priority))
 
         # drop broadcast sources
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, eth_src=mac.BROADCAST_STR),
-            priority=self.dp.highest_priority))
-
-        # antispoof for FAUCET's MAC address
-        # TODO: antispoof for controller IPs on this VLAN, too.
-        ofmsgs.append(self.valve_flowdrop(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, eth_src=self.FAUCET_MAC),
-            priority=self.dp.high_priority))
-
-        # drop STP BPDU
-        # TODO: compatible bridge loop detection/mitigation.
-        for bpdu_mac in ('01:80:C2:00:00:00', '01:00:0C:CC:CC:CD'):
+        if self.dp.drop_broadcast_source_address:
             ofmsgs.append(self.valve_flowdrop(
                 self.dp.vlan_table,
                 self.valve_in_match(
-                    self.dp.vlan_table, eth_dst=bpdu_mac),
+                    self.dp.vlan_table, eth_src=mac.BROADCAST_STR),
                 priority=self.dp.highest_priority))
+
+        # antispoof for FAUCET's MAC address
+        # TODO: antispoof for controller IPs on this VLAN, too.
+        if self.dp.drop_spoofed_faucet_mac:
+            ofmsgs.append(self.valve_flowdrop(
+                self.dp.vlan_table,
+                self.valve_in_match(
+                    self.dp.vlan_table, eth_src=self.FAUCET_MAC),
+                priority=self.dp.high_priority))
+
+        # drop STP BPDU
+        # TODO: compatible bridge loop detection/mitigation.
+        if self.dp.drop_bpdu:
+            for bpdu_mac in ('01:80:C2:00:00:00', '01:00:0C:CC:CC:CD'):
+                ofmsgs.append(self.valve_flowdrop(
+                    self.dp.vlan_table,
+                    self.valve_in_match(
+                        self.dp.vlan_table, eth_dst=bpdu_mac),
+                    priority=self.dp.highest_priority))
 
         # drop LLDP, if configured to.
         if self.dp.drop_lldp:
@@ -405,6 +408,10 @@ class Valve(object):
         ofmsgs = []
         all_port_nums = set()
 
+        # add stack ports
+        for port in self.dp.stack_ports:
+            all_port_nums.add(port.number)
+
         # add vlan ports
         for vlan in self.dp.vlans.itervalues():
             ofmsgs.extend(self._add_vlan(vlan, all_port_nums))
@@ -422,32 +429,29 @@ class Valve(object):
 
         return ofmsgs
 
-    def datapath_connect(self, dp_id, discovered_port_nums):
+    def datapath_connect(self, dp_id, discovered_up_port_nums):
         """Handle Ryu datapath connection event and provision pipeline.
 
         Args:
             dp_id (int): datapath ID.
-            discovered_port_nums (list): known datapath ports as ints.
+            discovered_up_port_nums (list): datapath ports that are up as ints.
         Returns:
             list: OpenFlow messages to send to datapath.
         """
         if self._ignore_dpid(dp_id):
             return []
-        if discovered_port_nums is None:
-            discovered_port_nums = []
-
         self.logger.info('Configuring %s', util.dpid_log(dp_id))
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         changed_ports = set([])
-        for port_no in discovered_port_nums:
+        for port_no in discovered_up_port_nums:
             if valve_of.ignore_port(port_no):
                 continue
             changed_ports.add(port_no)
         changed_vlans = self.dp.vlans.iterkeys()
         changes = ([], changed_ports, [], changed_vlans)
         ofmsgs.extend(self._apply_config_changes(self.dp, changes))
-        ofmsgs.extend(self._add_ports_and_vlans(discovered_port_nums))
+        ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
         self.dp.running = True
         return ofmsgs
 
@@ -485,7 +489,7 @@ class Valve(object):
                 ))
         return ofmsgs
 
-    def _port_add_vlan_rules(self, port, vlan, vlan_vid, vlan_inst):
+    def _port_add_vlan_rules(self, port, vlan_vid, vlan_inst):
         ofmsgs = []
         ofmsgs.append(self.valve_flowmod(
             self.dp.vlan_table,
@@ -503,7 +507,7 @@ class Valve(object):
         ]
         null_vlan = namedtuple('null_vlan', 'vid')
         null_vlan.vid = ofp.OFPVID_NONE
-        return self._port_add_vlan_rules(port, vlan, null_vlan, push_vlan_inst)
+        return self._port_add_vlan_rules(port, null_vlan, push_vlan_inst)
 
     def _port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
         vlan_inst = [
@@ -511,7 +515,7 @@ class Valve(object):
         ]
         if mirror_act:
             vlan_inst = [valve_of.apply_actions(mirror_act)] + vlan_inst
-        return self._port_add_vlan_rules(port, vlan, vlan, vlan_inst)
+        return self._port_add_vlan_rules(port, vlan, vlan_inst)
 
     def _find_forwarding_table(self, vlan):
         if vlan.vid in self.dp.vlan_acl_in:
@@ -849,8 +853,8 @@ class Valve(object):
         for vid, new_vlan in new_dp.vlans.iteritems():
             if vid not in self.dp.vlans or new_vlan != self.dp.vlans[vid]:
                 changed_vlans.add(vid)
-            for p in new_vlan.get_ports():
-                changed_ports.add(p.number)
+            for port in new_vlan.get_ports():
+                changed_ports.add(port.number)
 
         deleted_ports = set([])
         for port_no in self.dp.ports.iterkeys():

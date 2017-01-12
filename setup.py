@@ -19,30 +19,38 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
 
     setup(
         name='ryu-faucet',
-        version='1.2.1',
+        version='1.3.2',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
         ## Temp Fix for v1.2 to not use data_files_prefix as we have package install issues.
         #data_files=[(data_files_prefix + 'etc/ryu/faucet',
-        data_files=[('/etc/ryu', ['src/cfg/etc/ryu/ryu.conf']),
-                     ('/etc/ryu/faucet',
-                     ['src/cfg/etc/ryu/faucet/gauge.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_ZodiacFX.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_ovs.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_demo_step1.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_demo_step2.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet_demo_step3.yaml',
-                      'src/cfg/etc/ryu/faucet/faucet.yaml'])],
+        data_files=[
+            ('/etc/ryu', [
+                'src/cfg/etc/ryu/ryu.conf'
+            ]),
+            ('/etc/ryu/faucet', [
+                'src/cfg/etc/ryu/faucet/faucet.yaml-dist',
+                'src/cfg/etc/ryu/faucet/gauge.yaml-dist'
+            ]),
+            ('/etc/ryu/faucet/examples', [
+                'src/cfg/etc/ryu/faucet/examples/faucet_lagopus.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_zodiacfx.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_ovs.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_demo_step1.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_demo_step2.yaml',
+                'src/cfg/etc/ryu/faucet/examples/faucet_demo_step3.yaml'
+            ])
+        ],
         include_package_data=True,
-        install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest', 'couchdb', 'networkx'],
+        install_requires=['ryu>=4.9', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest', 'couchdb', 'networkx'],
         license='Apache License 2.0',
         description='Faucet is an Application for Ryu Openflow Controller to enable drop-in replacement for standard or legacy L2/L3 switch with extra SDN based functionality',
         long_description=README,
-        url='http://onfsdn.github.io/faucet',
+        url='http://FaucetSDN.org',
         author='Christopher Lorier',
         author_email='chris.lorier@reannz.co.nz',
-        maintainer='Shivaram Mysore, ONFSDN.Org',
-        maintainer_email='shivaram.mysore@gmail.com, faucet-dev@OpenflowSDN.Org',
+        maintainer='Shivaram Mysore, FaucetSDN.Org',
+        maintainer_email='shivaram.mysore@gmail.com, faucet-dev@googlegroups.com',
         classifiers=[
             'Development Status :: 5 - Production/Stable',
             'Environment :: Console',

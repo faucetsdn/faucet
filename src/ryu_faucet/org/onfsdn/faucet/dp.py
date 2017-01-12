@@ -45,7 +45,11 @@ class DP(Conf):
     low_priority = None
     high_priority = None
     stack = None
+    stack_ports = None
     ignore_learn_ins = None
+    drop_broadcast_source_address = None
+    drop_spoofed_faucet_mac = None
+    drop_bpdu = None
     drop_lldp = None
 
     # Values that are set to None will be set using set_defaults
@@ -92,6 +96,12 @@ class DP(Conf):
         # Flooding will still be done by the dataplane even with a packet
         # is ignored for learning purposes.
         'ignore_learn_ins': 3,
+        # By default drop packets with a broadcast source address
+        'drop_broadcast_source_address': True,
+        # By default drop packets on datapath spoofing the FAUCET_MAC
+        'drop_spoofed_faucet_mac': True,
+        # By default drop STP BPDU frames
+        'drop_bpdu': True,
         # By default, drop LLDP. Set to False, to enable NFV offload of LLDP.
         'drop_lldp': True,
         }
@@ -103,6 +113,7 @@ class DP(Conf):
         self.acls = {}
         self.vlans = {}
         self.ports = {}
+        self.stack_ports = []
         self.port_acl_in = {}
         self.vlan_acl_in = {}
 
@@ -150,6 +161,8 @@ class DP(Conf):
             return
         if port.acl_in is not None:
             self.port_acl_in[port_num] = port.acl_in
+        if port.stack is not None:
+            self.stack_ports.append(port)
 
     def add_vlan(self, vlan):
         self.vlans[vlan.vid] = vlan
@@ -198,19 +211,18 @@ class DP(Conf):
         graph = networkx.MultiGraph()
         for dp in dps:
             graph.add_node(dp.name)
-            for port in dp.ports.itervalues():
-                if port.stack is not None:
-                    edge = canonical_edge(dp, port)
-                    edge_a, edge_z = edge
-                    edge_name = make_edge_name(edge_a, edge_z)
-                    edge_attr = make_edge_attr(edge_a, edge_z)
-                    edge_a_dp, _ = edge_a
-                    edge_z_dp, _ = edge_z
-                    if edge_name not in edge_count:
-                        edge_count[edge_name] = 0
-                    edge_count[edge_name] += 1
-                    graph.add_edge(
-                        edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
+            for port in dp.stack_ports:
+                edge = canonical_edge(dp, port)
+                edge_a, edge_z = edge
+                edge_name = make_edge_name(edge_a, edge_z)
+                edge_attr = make_edge_attr(edge_a, edge_z)
+                edge_a_dp, _ = edge_a
+                edge_z_dp, _ = edge_z
+                if edge_name not in edge_count:
+                    edge_count[edge_name] = 0
+                edge_count[edge_name] += 1
+                graph.add_edge(
+                    edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
         if len(graph.edges()):
             for edge_name, count in edge_count.iteritems():
                 assert count == 2, '%s defined only in one direction' % edge_name
@@ -232,10 +244,9 @@ class DP(Conf):
         if shortest_path is not None:
             peer_dp = shortest_path[1]
             peer_dp_ports = []
-            for port in self.ports.itervalues():
-                if port.stack is not None:
-                    if port.stack['dp'].name == peer_dp:
-                        peer_dp_ports.append(port)
+            for port in self.stack_ports:
+                if port.stack['dp'].name == peer_dp:
+                    peer_dp_ports.append(port)
             return peer_dp_ports[0]
         return None
 
@@ -257,10 +268,9 @@ class DP(Conf):
 
         def resolve_stack_dps():
             port_stack_dp = {}
-            for port in self.ports.itervalues():
-                if port.stack is not None:
-                    stack_dp = port.stack['dp']
-                    port_stack_dp[port] = dp_by_name[stack_dp]
+            for port in self.stack_ports:
+                stack_dp = port.stack['dp']
+                port_stack_dp[port] = dp_by_name[stack_dp]
             for port, dp in port_stack_dp.iteritems():
                 port.stack['dp'] = dp
                 stack_port_name = port.stack['port']

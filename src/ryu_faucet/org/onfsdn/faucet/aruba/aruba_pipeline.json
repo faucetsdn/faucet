@@ -1,7 +1,531 @@
 [
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 50,
+        "metadata_match": 0,
+        "metadata_write": 0,
+        "name": "Port ACL",
+        "properties": [
+            {
+                "name": "OFPTFPT_MATCH",
+                "oxm_ids": [
+                    {
+                        "name": "in_port",
+                        "type": "in_port"
+                    },
+                    {
+                        "name": "eth_type",
+                        "type": "eth_type"
+                    },
+                    {
+                        "name": "eth_dst",
+                        "type": "eth_dst",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "eth_src",
+                        "type": "eth_src",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "ip_proto"
+                    },
+                    {
+                        "name": "ipv4_dst",
+                        "type": "ipv4_dst",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "ipv6_dst",
+                        "type": "ipv6_dst",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "udp_src",
+                        "type": "udp_src"
+                    },
+                    {
+                        "name": "udp_dst",
+                        "type": "udp_dst"
+                    },
+                    {
+                        "name": "tcp_src",
+                        "type": "tcp_src"
+                    },
+                    {
+                        "name": "tcp_dst",
+                        "type": "tcp_dst"
+                    }
+                ],
+                "type": 8
+            },
+            {
+                "name": "OFPTFPT_WILDCARDS",
+                "oxm_ids": [
+                    {
+                        "name": "in_port",
+                        "type": "in_port"
+                    },
+                    {
+                        "name": "eth_type",
+                        "type": "eth_type"
+                    },
+                    {
+                        "name": "eth_dst",
+                        "type": "eth_dst",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "eth_src",
+                        "type": "eth_src",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "ip_proto"
+                    },
+                    {
+                        "name": "ipv4_dst",
+                        "type": "ipv4_dst",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "ipv6_dst",
+                        "type": "ipv6_dst",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "udp_src",
+                        "type": "udp_src"
+                    },
+                    {
+                        "name": "udp_dst",
+                        "type": "udp_dst"
+                    },
+                    {
+                        "name": "tcp_src",
+                        "type": "tcp_src"
+                    },
+                    {
+                        "name": "tcp_dst",
+                        "type": "tcp_dst"
+                    }
+                ],
+                "type": 10
+            },
+            {
+                "instruction_ids": [
+                    {
+                        "name": "OFPIT_GOTO_TABLE",
+                        "type": 1
+                    },
+                    {
+                        "name": "OFPIT_WRITE_ACTIONS",
+                        "type": 3
+                    },
+                    {
+                        "name": "OFPIT_APPLY_ACTIONS",
+                        "type": 4
+                    },
+                    {
+                        "name": "OFPIT_CLEAR_ACTIONS",
+                        "type": 5
+                    },
+                    {
+                        "name": "OFPIT_METER",
+                        "type": 6
+                    }
+                ],
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0
+            },
+            {
+                "instruction_ids": [
+                    {
+                        "name": "OFPIT_GOTO_TABLE",
+                        "type": 1
+                    },
+                    {
+                        "name": "OFPIT_WRITE_ACTIONS",
+                        "type": 3
+                    },
+                    {
+                        "name": "OFPIT_APPLY_ACTIONS",
+                        "type": 4
+                    },
+                    {
+                        "name": "OFPIT_CLEAR_ACTIONS",
+                        "type": 5
+                    },
+                    {
+                        "name": "OFPIT_METER",
+                        "type": 6
+                    }
+                ],
+                "name": "OFPTFPT_INSTRUCTIONS_MISS",
+                "type": 1
+            },
+            {
+                "action_ids": [
+                    {
+                        "name": "OFPAT_OUTPUT",
+                        "type": 0
+                    },
+                    {
+                        "name": "OFPAT_PUSH_VLAN",
+                        "type": 17
+                    },
+                    {
+                        "name": "OFPAT_POP_VLAN",
+                        "type": 18
+                    },
+                    {
+                        "name": "OFPAT_GROUP",
+                        "type": 22
+                    },
+                    {
+                        "name": "OFPAT_SET_NW_TTL",
+                        "type": 23
+                    },
+                    {
+                        "name": "OFPAT_SET_FIELD",
+                        "type": 25
+                    }
+                ],
+                "name": "OFPTFPT_WRITE_ACTIONS",
+                "type": 4
+            },
+            {
+                "action_ids": [
+                    {
+                        "name": "OFPAT_OUTPUT",
+                        "type": 0
+                    },
+                    {
+                        "name": "OFPAT_PUSH_VLAN",
+                        "type": 17
+                    },
+                    {
+                        "name": "OFPAT_POP_VLAN",
+                        "type": 18
+                    },
+                    {
+                        "name": "OFPAT_GROUP",
+                        "type": 22
+                    },
+                    {
+                        "name": "OFPAT_SET_NW_TTL",
+                        "type": 23
+                    },
+                    {
+                        "name": "OFPAT_SET_FIELD",
+                        "type": 25
+                    }
+                ],
+                "name": "OFPTFPT_WRITE_ACTIONS_MISS",
+                "type": 5
+            },
+            {
+                "action_ids": [
+                    {
+                        "name": "OFPAT_OUTPUT",
+                        "type": 0
+                    },
+                    {
+                        "name": "OFPAT_PUSH_VLAN",
+                        "type": 17
+                    },
+                    {
+                        "name": "OFPAT_POP_VLAN",
+                        "type": 18
+                    },
+                    {
+                        "name": "OFPAT_GROUP",
+                        "type": 22
+                    },
+                    {
+                        "name": "OFPAT_SET_NW_TTL",
+                        "type": 23
+                    },
+                    {
+                        "name": "OFPAT_SET_FIELD",
+                        "type": 25
+                    }
+                ],
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6
+            },
+            {
+                "action_ids": [
+                    {
+                        "name": "OFPAT_OUTPUT",
+                        "type": 0
+                    },
+                    {
+                        "name": "OFPAT_PUSH_VLAN",
+                        "type": 17
+                    },
+                    {
+                        "name": "OFPAT_POP_VLAN",
+                        "type": 18
+                    },
+                    {
+                        "name": "OFPAT_GROUP",
+                        "type": 22
+                    },
+                    {
+                        "name": "OFPAT_SET_NW_TTL",
+                        "type": 23
+                    },
+                    {
+                        "name": "OFPAT_SET_FIELD",
+                        "type": 25
+                    }
+                ],
+                "name": "OFPTFPT_APPLY_ACTIONS_MISS",
+                "type": 7
+            },
+            {
+                "name": "OFPTFPT_WRITE_SETFIELD",
+                "oxm_ids": [
+                    {
+                        "name": "eth_dst",
+                        "type": "eth_dst"
+                    },
+                    {
+                        "name": "eth_src",
+                        "type": "eth_src"
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
+                    },
+                    {
+                        "name": "vlan_pcp",
+                        "type": "vlan_pcp"
+                    },
+                    {
+                        "name": "ip_dscp",
+                        "type": "ip_dscp"
+                    },
+                    {
+                        "name": "ipv4_src",
+                        "type": "ipv4_src"
+                    },
+                    {
+                        "name": "ipv4_dst",
+                        "type": "ipv4_dst"
+                    },
+                    {
+                        "name": "tcp_src",
+                        "type": "tcp_src"
+                    },
+                    {
+                        "name": "tcp_dst",
+                        "type": "tcp_dst"
+                    },
+                    {
+                        "name": "udp_src",
+                        "type": "udp_src"
+                    },
+                    {
+                        "name": "udp_dst",
+                        "type": "udp_dst"
+                    }
+                ],
+                "type": 12
+            },
+            {
+                "name": "OFPTFPT_WRITE_SETFIELD_MISS",
+                "oxm_ids": [
+                    {
+                        "name": "eth_dst",
+                        "type": "eth_dst"
+                    },
+                    {
+                        "name": "eth_src",
+                        "type": "eth_src"
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
+                    },
+                    {
+                        "name": "vlan_pcp",
+                        "type": "vlan_pcp"
+                    },
+                    {
+                        "name": "ip_dscp",
+                        "type": "ip_dscp"
+                    },
+                    {
+                        "name": "ipv4_src",
+                        "type": "ipv4_src"
+                    },
+                    {
+                        "name": "ipv4_dst",
+                        "type": "ipv4_dst"
+                    },
+                    {
+                        "name": "tcp_src",
+                        "type": "tcp_src"
+                    },
+                    {
+                        "name": "tcp_dst",
+                        "type": "tcp_dst"
+                    },
+                    {
+                        "name": "udp_src",
+                        "type": "udp_src"
+                    },
+                    {
+                        "name": "udp_dst",
+                        "type": "udp_dst"
+                    }
+                ],
+                "type": 13
+            },
+            {
+                "name": "OFPTFPT_APPLY_SETFIELD",
+                "oxm_ids": [
+                    {
+                        "name": "eth_dst",
+                        "type": "eth_dst"
+                    },
+                    {
+                        "name": "eth_src",
+                        "type": "eth_src"
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
+                    },
+                    {
+                        "name": "vlan_pcp",
+                        "type": "vlan_pcp"
+                    },
+                    {
+                        "name": "ip_dscp",
+                        "type": "ip_dscp"
+                    },
+                    {
+                        "name": "ipv4_src",
+                        "type": "ipv4_src"
+                    },
+                    {
+                        "name": "ipv4_dst",
+                        "type": "ipv4_dst"
+                    },
+                    {
+                        "name": "tcp_src",
+                        "type": "tcp_src"
+                    },
+                    {
+                        "name": "tcp_dst",
+                        "type": "tcp_dst"
+                    },
+                    {
+                        "name": "udp_src",
+                        "type": "udp_src"
+                    },
+                    {
+                        "name": "udp_dst",
+                        "type": "udp_dst"
+                    }
+                ],
+                "type": 14
+            },
+            {
+                "name": "OFPTFPT_APPLY_SETFIELD_MISS",
+                "oxm_ids": [
+                    {
+                        "name": "eth_dst",
+                        "type": "eth_dst"
+                    },
+                    {
+                        "name": "eth_src",
+                        "type": "eth_src"
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
+                    },
+                    {
+                        "name": "vlan_pcp",
+                        "type": "vlan_pcp"
+                    },
+                    {
+                        "name": "ip_dscp",
+                        "type": "ip_dscp"
+                    },
+                    {
+                        "name": "ipv4_src",
+                        "type": "ipv4_src"
+                    },
+                    {
+                        "name": "ipv4_dst",
+                        "type": "ipv4_dst"
+                    },
+                    {
+                        "name": "tcp_src",
+                        "type": "tcp_src"
+                    },
+                    {
+                        "name": "tcp_dst",
+                        "type": "tcp_dst"
+                    },
+                    {
+                        "name": "udp_src",
+                        "type": "udp_src"
+                    },
+                    {
+                        "name": "udp_dst",
+                        "type": "udp_dst"
+                    }
+                ],
+                "type": 15
+            },
+            {
+                "name": "OFPTFPT_NEXT_TABLES",
+                "table_ids": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7
+                ],
+                "type": 2
+            },
+            {
+                "name": "OFPTFPT_NEXT_TABLES_MISS",
+                "table_ids": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7
+                ],
+                "type": 3
+            }
+        ],
+        "table_id": 0
+    },
+    {
+        "config": 3,
+        "max_entries": 300,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "VLAN",
@@ -437,36 +961,36 @@
             {
                 "name": "OFPTFPT_NEXT_TABLES",
                 "table_ids": [
-                    1,
                     2,
                     3,
                     4,
                     5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 2
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES_MISS",
                 "table_ids": [
-                    1,
                     2,
                     3,
                     4,
                     5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 3
             }
         ],
-        "table_id": 0
+        "table_id": 1
     },
     {
         "config": 3,
-        "max_entries": 128,
+        "max_entries": 50,
         "metadata_match": 0,
         "metadata_write": 0,
-        "name": "ACL",
+        "name": "VLAN ACL",
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -959,31 +1483,31 @@
             {
                 "name": "OFPTFPT_NEXT_TABLES",
                 "table_ids": [
-                    2,
                     3,
                     4,
                     5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 2
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES_MISS",
                 "table_ids": [
-                    2,
                     3,
                     4,
                     5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 3
             }
         ],
-        "table_id": 1
+        "table_id": 2
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 500,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Source",
@@ -1434,29 +1958,29 @@
             {
                 "name": "OFPTFPT_NEXT_TABLES",
                 "table_ids": [
-                    3,
                     4,
                     5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 2
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES_MISS",
                 "table_ids": [
-                    3,
                     4,
                     5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 3
             }
         ],
-        "table_id": 2
+        "table_id": 3
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 300,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "IPv4 FIB",
@@ -1890,27 +2414,27 @@
             {
                 "name": "OFPTFPT_NEXT_TABLES",
                 "table_ids": [
-                    4,
                     5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 2
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES_MISS",
                 "table_ids": [
-                    4,
                     5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 3
             }
         ],
-        "table_id": 3
+        "table_id": 4
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 10,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "IPv6 FIB Table",
@@ -2343,25 +2867,25 @@
             {
                 "name": "OFPTFPT_NEXT_TABLES",
                 "table_ids": [
-                    5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 2
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES_MISS",
                 "table_ids": [
-                    5,
-                    6
+                    6,
+                    7
                 ],
                 "type": 3
             }
         ],
-        "table_id": 4
+        "table_id": 5
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 500,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Destination",
@@ -2770,23 +3294,23 @@
             {
                 "name": "OFPTFPT_NEXT_TABLES",
                 "table_ids": [
-                    6
+                    7
                 ],
                 "type": 2
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES_MISS",
                 "table_ids": [
-                    6
+                    7
                 ],
                 "type": 3
             }
         ],
-        "table_id": 5
+        "table_id": 6
     },
     {
         "config": 3,
-        "max_entries": 256,
+        "max_entries": 300,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Flood",
@@ -3211,6 +3735,6 @@
                 "type": 3
             }
         ],
-        "table_id": 6
+        "table_id": 7
     }
 ]
