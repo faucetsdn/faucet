@@ -1,4 +1,4 @@
-:version: 1.3.1
+:version: 1.3.2
 :copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
 
 .. meta::
