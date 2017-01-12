@@ -37,6 +37,7 @@ import tempfile
 import threading
 import time
 import unittest
+import shutil
 
 import ipaddr
 import yaml
@@ -269,6 +270,50 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                     break
                 time.sleep(1)
             self.assertTrue(os.stat(watcher_file).st_size > 0)
+
+
+class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
+    '''test the faucet API'''
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp(prefix='faucettests')
+        self.results_file = os.path.join(
+            self.tmpdir, 'result.txt')
+        os.environ['API_TEST_RESULT'] = self.results_file
+        shutil.copytree('config', os.path.join(self.tmpdir, 'config'))
+        os.environ['FAUCET_CONFIG'] = os.path.join(
+            self.tmpdir, 'config/testconfigv2.yaml')
+        os.environ['FAUCET_LOG'] = os.path.join(
+            self.tmpdir, 'faucet.log')
+        os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
+            self.tmpdir, 'faucet-exception.log')
+        self.dpid = str(0xcafef00d)
+        self.of_port, _ = faucet_mininet_test_util.find_free_port()
+        self.topo = faucet_mininet_test_base.FaucetSwitchTopo(
+            dpid=self.dpid,
+            n_untagged=7
+            )
+        self.net = Mininet(
+            self.topo,
+            controller=faucet_mininet_test_base.FaucetAPI(
+                name='faucet-api',
+                port=self.of_port
+                )
+            )
+        self.net.start()
+
+    def test_api(self):
+        countdown = 30
+        while countdown > 0:
+            try:
+                with open(self.results_file, 'r') as f:
+                    result = f.read().strip()
+                    self.assertEquals('pass', result, result)
+                    return
+            except IOError:
+                countdown -= 1
+                time.sleep(1)
+        self.fail('no result from api test')
 
 
 class FaucetUntaggedTest(FaucetTest):
