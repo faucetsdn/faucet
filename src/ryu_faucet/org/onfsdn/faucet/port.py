@@ -27,7 +27,7 @@ class Port(Conf):
     native_vlan = None
     tagged_vlans = []
     acl_in = None
-    stack = None
+    stack = {}
 
     defaults = {
         'number': None,
