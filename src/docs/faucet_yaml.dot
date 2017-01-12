@@ -3,11 +3,11 @@
 
 digraph {
   graph [label="faucet.yaml", labelloc=t, fontsize=30];
-  ranksep = 1;  size = "11,8.5";
+  ranksep = "1.0 equally";
 
   /** version info.  Only value supported is 2 **/
-  version [shape = box; style = bold];
- 
+  version [shape = box style = bold tooltip="2 - is the only value supported"];
+
   /** include yaml files **/
   include [shape = box; style = bold];
 
@@ -22,7 +22,19 @@ digraph {
   id -> id_name;
   id -> unicast_flood;
   id -> max_hosts;
+  // routing related
+  id -> controller_ips;
+  id -> bgp_port;
+  id -> bgp_as;
+  id -> bgp_routerid;
+  id -> bgp_neighbor_addresses;
+  id -> bgp_neighbor_as;
+  id -> routes;
+  routes -> route;
+  route -> ip_dst;
+  route -> ip_gw;
 
+  subgraph "cluster_routing_related" { label = "Routing related"; style = dashed; fontsize=12; controller_ips; bgp_port; bgp_as; bgp_routerid; bgp_neighbor_addresses; bgp_neighbor_as; routes; route; ip_dst; ip_gw; }
 
   /**  ACLs **/
   ACLS [shape = box; style = bold];
@@ -33,12 +45,14 @@ digraph {
   rule -> dl_type;
   rule -> dl_src;
   rule -> dl_dst;
-  rule -> tp_src;
-  rule -> tp_dst;
+  rule -> tcp_src;
+  rule -> tcp_dst;
+  rule -> udp_src;
+  rule -> udp_dst;
   rule -> nw_src;
   rule -> nw_proto;
 
-  subgraph "cluster_match_fields" { label = "Match fields"; style = dashed; fontsize=12; dl_type; dl_src; dl_dst; tp_src; tp_dst; nw_src; nw_proto; }
+  subgraph "cluster_match_fields" { label = "Match fields"; style = dashed; fontsize=12; dl_type; dl_src; dl_dst; tcp_src; tcp_dst; udp_src; udp_dst; nw_src; nw_proto; }
 
   /** Match Actions for ACLs **/
   actions -> output;
@@ -59,6 +73,7 @@ digraph {
   dps_name -> dp_id;
   dps_name -> description;
   dps_name -> hardware;
+  dps_name -> ignore_learn_ins;
   interface_number [label = "(interface number)"]
   dps_name -> interfaces -> interface_number;
 
