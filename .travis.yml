@@ -10,7 +10,7 @@ python:
 # sudo: required
 # command to install dependencies
 install:
-  - "sudo pip install ryu pyyaml pylint influxdb ipaddr concurrencytest"
+  - "sudo pip install ryu pyyaml pylint influxdb ipaddr concurrencytest packaging"
 #  - "pip install -r requirements.txt"
 #
 # install our package into the environment

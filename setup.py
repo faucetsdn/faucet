@@ -42,7 +42,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
             ])
         ],
         include_package_data=True,
-        install_requires=['ryu>=4.9', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest', 'couchdb', 'networkx'],
+        install_requires=['ryu>=4.9', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest', 'couchdb', 'networkx', 'packaging'],
         license='Apache License 2.0',
         description='Faucet is an Application for Ryu Openflow Controller to enable drop-in replacement for standard or legacy L2/L3 switch with extra SDN based functionality',
         long_description=README,
