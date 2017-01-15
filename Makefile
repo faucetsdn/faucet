@@ -13,6 +13,11 @@ RM := rm
 MKDIR := mkdir -p
 MV := mv
 DOT := dot
+## Git version 2.11+ is required
+GIT := git
+GIT_REL_TAG := $(shell $(GIT) describe --abbrev=0 --tags)
+GIT_NUM_COMMITS := $(shell $(GIT) rev-list  `$(GIT) rev-list --tags --no-walk --max-count=1`..HEAD --count)
+GIT_LOC := $(shell $(GIT) diff --shortstat `$(GIT) rev-list --tags --no-walk --max-count=1`)
 
 PROJECT_NAME = ryu_faucet
 
@@ -49,12 +54,19 @@ codeerrors:
 	$(PYLINT) $(SRC_DIR)/ryu_faucet/org/onfsdn/faucet/*py > $(DIST_DIR)/error_report.out
 	@echo Code error report available at $(DIST_DIR)/error_report.out
 
+stats:
+	@echo 'Since last release tag $(value GIT_REL_TAG)'
+	@echo 'number of commits = $(value GIT_NUM_COMMITS)' 
+	@echo 'Net LOC added/removed = $(value GIT_LOC)'
+	@echo 
+	@echo 'Listing all commits since last tag ...'
+	@$(GIT) log $(GIT_REL_TAG)..HEAD --oneline
+
 ## list target source: http://stackoverflow.com/questions/4219255/how-do-you-get-the-list-of-targets-in-a-makefile
 .PHONY: list
 list:
 	@echo List of all targets in this Makefile:
 	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
-
 
 clobber:
 	@echo Removing $(DIST_DIR)
