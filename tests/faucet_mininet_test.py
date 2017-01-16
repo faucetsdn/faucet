@@ -47,6 +47,7 @@ from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
+from packaging import version
 
 import faucet_mininet_test_util
 import faucet_mininet_test_base
@@ -57,27 +58,27 @@ import faucet_mininet_test_base
 # RE to check present RE to get version, minimum required version.
 EXTERNAL_DEPENDENCIES = (
     ('ryu-manager', ['--version'],
-     'ryu-manager', r'ryu-manager (\d+\.\d+)\n', float(4.9)),
+     'ryu-manager', r'ryu-manager (\d+\.\d+)\n', "4.9"),
     ('ovs-vsctl', ['--version'], 'Open vSwitch',
-     r'ovs-vsctl\s+\(Open vSwitch\)\s+(\d+\.\d+)\.\d+\n', float(2.3)),
+     r'ovs-vsctl\s+\(Open vSwitch\)\s+(\d+\.\d+)\.\d+\n', "2.3"),
     ('tcpdump', ['-h'], 'tcpdump',
-     r'tcpdump\s+version\s+(\d+\.\d+)\.\d+\n', float(4.5)),
+     r'tcpdump\s+version\s+(\d+\.\d+)\.\d+\n', "4.5"),
     ('nc', [], 'nc from the netcat-openbsd', '', 0),
     ('vconfig', [], 'the VLAN you are talking about', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
-     r'fuser \(PSmisc\) (\d+\.\d+)\n', float(22.0)),
+     r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
-     r'(\d+\.\d+).\d+', float(2.2)),
+     r'(\d+\.\d+).\d+', "2.2"),
     ('exabgp', ['--version'], 'ExaBGP',
-     r'ExaBGP : (\d+\.\d+).\d+', float(3.4)),
+     r'ExaBGP : (\d+\.\d+).\d+', "3.4"),
     ('pip', ['show', 'influxdb'], 'influxdb',
-     r'Version:\s+(\d+\.\d+)\.\d+', float(3.0)),
+     r'Version:\s+(\d+\.\d+)\.\d+', "3.0"),
     ('pylint', ['--version'], 'pylint',
-     r'pylint (\d+\.\d+).\d+,', float(1.6)),
+     r'pylint (\d+\.\d+).\d+,', "1.6"),
     ('curl', ['--version'], 'libcurl',
-     r'curl (\d+\.\d+).\d+', float(7.3)),
+     r'curl (\d+\.\d+).\d+', "7.3"),
     ('ladvd', ['-v'], 'ladvd',
-     r'ladvd version (\d+\.\d+)\.\d+', float(1.1)),
+     r'ladvd version (\d+\.\d+)\.\d+', "1.1"),
 )
 
 # Must pass with 0 lint errors
@@ -2249,16 +2250,16 @@ def check_dependencies():
                     required_binary, binary_output)
                 return False
             try:
-                binary_version = float(version_match.group(1))
+                binary_version = version_match.group(1)
             except ValueError:
                 print 'cannot parse version %s for %s' % (
                     version_match, required_binary)
                 return False
-            if binary_version < binary_minversion:
-                print '%s version %.1f is less than required version %.1f' % (
+            if version.parse(binary_version) < version.parse(binary_minversion):
+                print '%s version %s is less than required version %s' % (
                     required_binary, binary_version, binary_minversion)
                 return False
-            print '%s version is %.1f' % (required_binary, binary_version)
+            print '%s version is %s' % (required_binary, binary_version)
         else:
             print '%s present (%s)' % (required_binary, binary_present_re)
     return True
