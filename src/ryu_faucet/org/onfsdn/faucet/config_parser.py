@@ -46,7 +46,7 @@ def dp_parser(config_file, logname):
     if conf is None:
         return None
 
-    version = conf.pop('version', 1)
+    version = conf.pop('version', 2)
     config_hashes = None
     dps = None
 
