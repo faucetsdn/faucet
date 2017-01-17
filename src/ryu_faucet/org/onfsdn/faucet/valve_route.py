@@ -260,11 +260,13 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def add_host_fib_route_from_pkt(self, vlan, pkt):
         ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
+        ofmsgs = []
         if not ipv4_pkt:
-            return
+            return ofmsgs
         src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
         if src_ip and vlan.ip_in_controller_subnet(src_ip):
-            return self._add_host_fib_route(vlan, src_ip)
+            ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
+        return ofmsgs
 
     def add_controller_ip(self, vlan, controller_ip, controller_ip_host):
         ofmsgs = []
@@ -372,11 +374,13 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def add_host_fib_route_from_pkt(self, vlan, pkt):
         ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
+        ofmsgs = []
         if not ipv6_pkt:
-            return
+            return ofmsgs
         src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
         if src_ip and vlan.ip_in_controller_subnet(src_ip):
-            return self._add_host_fib_route(vlan, src_ip)
+            ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
+        return ofmsgs
 
     def add_controller_ip(self, vlan, controller_ip, controller_ip_host):
         ofmsgs = []
