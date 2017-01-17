@@ -412,6 +412,43 @@ dps:
             time.sleep(1)
         return False
 
+    def get_group_id_for_matching_flow(self, exp_flow, timeout=10):
+        for _ in range(timeout):
+            flow_dump = self.get_all_flows_from_dpid(self.dpid, timeout)
+            for flow in flow_dump:
+                if re.search(exp_flow, flow):
+                    flow = json.loads(flow)
+                    group_id = int(re.findall(r'\d+', str(flow['actions']))[0])
+                    return group_id
+            time.sleep(1)
+        self.assertTrue(False,
+                "Can't find group_id for matching flow %s" % exp_flow)
+
+    def wait_matching_in_group_table(self, exp_flow, group_id, timeout=5):
+        exp_group = '%s.+"group_id": %d' % (exp_flow, group_id)
+        for _ in range(timeout):
+            group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
+            for group_desc in group_dump:
+                if re.search(exp_group, group_desc):
+                    return True
+            time.sleep(1)
+        return False
+
+    def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
+        int_dpid = str_int_dpid(dpid)
+        for _ in range(timeout):
+            try:
+                ofctl_result = json.loads(requests.get(
+                    '%s/stats/groupdesc/%s' % (self.ofctl_rest_url(),
+                                               int_dpid)).text)
+                flow_dump = ofctl_result[int_dpid]
+                return [json.dumps(flow) for flow in flow_dump]
+            except (ValueError, requests.exceptions.ConnectionError):
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
+        return []
+
     def matching_flow_present(self, exp_flow, timeout=10):
         return self.matching_flow_present_on_dpid(self.dpid, exp_flow, timeout)
 
@@ -433,7 +470,8 @@ dps:
             self.require_host_learned(host)
         self.assertEquals(0, self.net.pingAll())
 
-    def wait_until_matching_route_as_flow(self, nexthop, prefix, timeout=5):
+    def wait_until_matching_route_as_flow(self, nexthop, prefix, timeout=5,
+            with_group_table=False):
         if prefix.version == 6:
             exp_prefix = '/'.join(
                 (str(prefix.masked().ip), str(prefix.netmask)))
@@ -441,8 +479,13 @@ dps:
         else:
             exp_prefix = prefix.masked().with_netmask
             nw_dst_match = '"nw_dst": "%s"' % exp_prefix
-        self.wait_until_matching_flow(
-            'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
+        if with_group_table:
+            group_id = self.get_group_id_for_matching_flow(nw_dst_match)
+            self.wait_matching_in_group_table('SET_FIELD: {eth_dst:%s}' % nexthop,
+                    group_id, timeout)
+        else:
+            self.wait_until_matching_flow(
+                'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
 
     def curl_portmod(self, int_dpid, port_no, config, mask):
         # TODO: avoid dependency on varying 'requests' library.
@@ -495,7 +538,8 @@ dps:
         host.cmd('route add -net %s gw %s' % (ip_dst.masked(), ip_gw))
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
-                            second_host, second_host_routed_ip):
+                            second_host, second_host_routed_ip,
+                            with_group_table=False):
         first_host.cmd(('ifconfig %s:0 %s netmask %s up' % (
             first_host.intf(),
             first_host_routed_ip.ip,
@@ -510,13 +554,15 @@ dps:
             second_host, first_host_routed_ip, self.CONTROLLER_IPV4)
         self.net.ping(hosts=(first_host, second_host))
         self.wait_until_matching_route_as_flow(
-            first_host.MAC(), first_host_routed_ip)
+                first_host.MAC(), first_host_routed_ip,
+                with_group_table=with_group_table)
         self.wait_until_matching_route_as_flow(
-            second_host.MAC(), second_host_routed_ip)
+            second_host.MAC(), second_host_routed_ip,
+            with_group_table=with_group_table)
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
 
-    def verify_ipv4_routing_mesh(self):
+    def verify_ipv4_routing_mesh(self, with_group_table=False):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
@@ -524,17 +570,21 @@ dps:
         second_host_routed_ip2 = ipaddr.IPv4Network('10.0.3.1/24')
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
+            second_host, second_host_routed_ip,
+            with_group_table=with_group_table)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2)
+            second_host, second_host_routed_ip2,
+            with_group_table=with_group_table)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
+            second_host, second_host_routed_ip,
+            with_group_table=with_group_table)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip2)
+            second_host, second_host_routed_ip2,
+            with_group_table=with_group_table)
 
     def setup_ipv6_hosts_addresses(self, first_host, first_host_ip,
                                    first_host_routed_ip, second_host,
@@ -548,7 +598,8 @@ dps:
 
     def verify_ipv6_routing(self, first_host, first_host_ip,
                             first_host_routed_ip, second_host,
-                            second_host_ip, second_host_routed_ip):
+                            second_host_ip, second_host_routed_ip,
+                            with_group_table=False):
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
         self.add_host_ipv6_route(
@@ -556,9 +607,11 @@ dps:
         self.add_host_ipv6_route(
             second_host, first_host_routed_ip, self.CONTROLLER_IPV6)
         self.wait_until_matching_route_as_flow(
-            first_host.MAC(), first_host_routed_ip)
+            first_host.MAC(), first_host_routed_ip,
+            with_group_table=with_group_table)
         self.wait_until_matching_route_as_flow(
-            second_host.MAC(), second_host_routed_ip)
+            second_host.MAC(), second_host_routed_ip,
+            with_group_table=with_group_table)
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
@@ -566,13 +619,15 @@ dps:
 
     def verify_ipv6_routing_pair(self, first_host, first_host_ip,
                                  first_host_routed_ip, second_host,
-                                 second_host_ip, second_host_routed_ip):
+                                 second_host_ip, second_host_routed_ip,
+                                 with_group_table=False):
         self.setup_ipv6_hosts_addresses(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip)
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
+            second_host, second_host_ip, second_host_routed_ip,
+            with_group_table=with_group_table)
 
     def verify_ipv6_routing_mesh(self):
         host_pair = self.net.hosts[:2]
@@ -2258,6 +2313,136 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.hup_faucet()
         time.sleep(1)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
+
+
+class FaucetGroupTableTest(FaucetUntaggedTest):
+    CONFIG = """
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_group_exist(self):
+        self.assertEqual(100,
+                self.get_group_id_for_matching_flow(
+                    '"table_id": 6,.+"dl_vlan": "100"'))
+
+
+class FaucetSingleUntaggedIPv4RouteGroupTableTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        controller_ips: ["10.0.0.254/24"]
+        routes:
+            - route:
+                ip_dst: "10.0.1.0/24"
+                ip_gw: "10.0.0.1"
+            - route:
+                ip_dst: "10.0.2.0/24"
+                ip_gw: "10.0.0.2"
+            - route:
+                ip_dst: "10.0.3.0/24"
+                ip_gw: "10.0.0.2"
+"""
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
+        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip,
+            with_group_table=True)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip,
+            with_group_table=True)
+
+class FaucetSingleUntaggedIPv6RouteGroupTableTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        controller_ips: ["fc00::1:254/112"]
+        routes:
+            - route:
+                ip_dst: "fc00::10:0/112"
+                ip_gw: "fc00::1:1"
+            - route:
+                ip_dst: "fc00::20:0/112"
+                ip_gw: "fc00::1:2"
+            - route:
+                ip_dst: "fc00::30:0/112"
+                ip_gw: "fc00::1:2"
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
+        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
+        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
+        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip,
+            with_group_table=True)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip,
+            with_group_table=True)
 
 
 def import_config():
