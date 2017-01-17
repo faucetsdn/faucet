@@ -45,6 +45,7 @@ class DP(Conf):
     high_priority = None
     stack = None
     ignore_learn_ins = None
+    group_table = False
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -89,6 +90,7 @@ class DP(Conf):
         # Flooding will still be done by the dataplane even with a packet
         # is ignored for learning purposes.
         'ignore_learn_ins': 3,
+        'group_table': False,
         }
 
     def __init__(self, _id, conf):
