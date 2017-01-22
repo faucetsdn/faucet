@@ -372,17 +372,14 @@ Faucet's design principle is to be as hardware agnostic as possible and not requ
 Buying and running commercial switches supporting ryu-faucet
 ============================================================
 
+Guides for getting up and running with Faucet on vendor hardware are provided in the `docs/vendors <src/docs/vendors>`_ directory.
+
 Allied Telesis
 --------------
 
 `Allied Telesis <http://www.alliedtelesis.com/sdn>`_ sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`_. To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`_
 
 * On Allied Telesis, all vlans must be included in the vlan database config on the switch before they can be used by OpenFlow.  When ordering, request Openflow license SKU.
-
-
-NoviFlow
---------
-`NoviFlow <http://noviflow.com>`_
 
 NorthBound Networks
 -------------------
@@ -401,10 +398,6 @@ All the HPE Aruba’s v3 based product line (5400R, 3810 and 2930F) work with FA
 * `2930F <http://www.arubanetworks.com/products/networking/switches/2930f-series/>`_
 
 OpenFlow is available by default on all the firmware releases of each of these products. There is no need for a purchase of separate license to enable OpenFlow on the firmware.
-
-Netronome
----------
-`Netronome <https://www.netronome.com/>`_
 
 =====
 Gauge
