@@ -433,10 +433,14 @@ Screenshots
 Support
 =======
 
-If you have any technical questions, problems or suggestions regarding Faucet please send them to `faucet-dev@OpenflowSDN.Org <mailto:faucet-dev@openflowsdn.org>`.  Mailing list archives are available `here <https://groups.google.com/a/openflowsdn.org/forum/#!forum/faucet-dev>`.
+We run a number of mailing lists for communication between users and developers of Faucet, as well as a low traffic mailing list for announcements of new versions:
 
-Documentation is available under the `docs <https://github.com/REANNZ/faucet/tree/master/src/docs>` directory.
+- https://list.waikato.ac.nz/mailman/listinfo/faucet-announce
+- https://list.waikato.ac.nz/mailman/listinfo/faucet-dev
+- https://lists.geant.org/sympa/info/faucet-users
 
-Faucet related blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz
+Additional documentation is available under the `docs <src/docs>`_ directory.
 
-To create a issue, use `GitHub Issues <https://github.com/onfsdn/faucet/issues>`
+Faucet blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz.
+
+To create a issue, use `GitHub Issues <https://github.com/REANNZ/faucet/issues>`_.
