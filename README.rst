@@ -25,7 +25,7 @@ It supports:
 - Integrated support for InfluxDB/Grafana
 - Comprehensive Test suite - tests for all features that can be run against mininet (development) and on hardware; Most tests run in parallel to reduce time.
 - Code: Python based, easy readability (PEP8 style), documented, Unit tests for all features
-- Installation: Python pip (pip install ryu_faucet), pre-built VM available - https://susestudio.com/a/ENQFFD/ryu-faucet, Makefiles to build Docker images
+- Installation: `Python pip <#installation-with-pip>`_, `pre-built VM available <https://susestudio.com/a/ENQFFD/ryu-faucet>`_, `Docker containers <#installation-with-docker>`_
 
 ===============
 Feature Details
@@ -37,7 +37,7 @@ Rules are added in the order specified. The rule language supports anything the 
 In this example,configure an ACL on port 1, default deny, that passes an IPv4 subnet and ARP.
 Following config applies an input ACL to port 1.
 
-Supports any ACL rule that https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py to_match() supports.
+Supports any ACL rule that `ofctl_v1_3.py <https://github.com/osrg/ryu/blob/master/ryu/lib/ofctl_v1_3.py>`_ to_match() supports.
 
 .. code:: yaml
 
@@ -194,8 +194,8 @@ You have run this as ``root`` or use ``sudo``
 
 Optional Install for Network Monitoring Dashboard
 -------------------------------------------------
-- To setup InfluxDB v0.11+ - https://docs.influxdata.com/influxdb/v0.10/introduction/getting_started/
-- To setup Grafana v3.x - http://docs.grafana.org/installation/
+- `Install instructions for InfluxDB <https://docs.influxdata.com/influxdb/v1.1/introduction/getting_started/>`_
+- `Install instructions for Grafana <http://docs.grafana.org/installation/>`_
 
 Uninstall
 ---------
@@ -358,13 +358,13 @@ If you are a hardware vendor wanting to support FAUCET, you need to support all 
 Faucet has been tested against the following switches:
 (Hint: look at src/ryu_faucet/org/onfsdn/faucet/dp.py to add your switch)
 
-1. Open vSwitch v2.1+ - Open Source available at http://www.openvswitch.org
-2. Lagopus Openflow Switch - Open Source available at https://lagopus.github.io
-3. Allied Telesis x510 and x930 series - https://www.alliedtelesis.com/products/x930-series
-4. NoviFlow 1248 - http://noviflow.com/products/noviswitch
-5. Northbound Networks - Zodiac FX - http://northboundnetworks.com/collections/zodiac-fx
-6. Hewlett Packard Enterprise - Aruba 5400R, 3810 and 2930F - http://www.arubanetworks.com/products/networking/switches/
-7. Netronome produces PCIe adaptors, with an OVS interface - Agilio CX 2x10GbE card - https://www.netronome.com/products/agilio-cx/
+1. `Open vSwitch v2.1+ <http://www.openvswitch.org>`_
+2. `Lagopus Openflow Switch <https://lagopus.github.io>`_
+3. Allied Telesis `x510 <https://www.alliedtelesis.com/products/x510-series>`_ and `x930 <https://www.alliedtelesis.com/products/x930-series>`_ series
+4. `NoviFlow 1248 <http://noviflow.com/products/noviswitch>`_
+5. Northbound Networks - `Zodiac FX <http://northboundnetworks.com/collections/zodiac-fx>`_
+6. Hewlett Packard Enterprise - `Aruba 5400R, 3810 and 2930F <http://www.arubanetworks.com/products/networking/switches/>`_
+7. Netronome produces PCIe adaptors, with an OVS interface - `Agilio CX 2x10GbE card <https://www.netronome.com/products/agilio-cx/>`_
 
 Faucet's design principle is to be as hardware agnostic as possible and not require Table Type Patterns. This means that Faucet expects the hardware Open Flow Agent (OFA) to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet expects the OFA to leverage the right hardware transparently.
 
@@ -372,39 +372,32 @@ Faucet's design principle is to be as hardware agnostic as possible and not requ
 Buying and running commercial switches supporting ryu-faucet
 ============================================================
 
+Guides for getting up and running with Faucet on vendor hardware are provided in the `docs/vendors <src/docs/vendors>`_ directory.
+
 Allied Telesis
 --------------
 
-`Allied Telesis <http://www.alliedtelesis.com/sdn>` sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`. To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`
+`Allied Telesis <http://www.alliedtelesis.com/sdn>`_ sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`_. To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`_
 
 * On Allied Telesis, all vlans must be included in the vlan database config on the switch before they can be used by OpenFlow.  When ordering, request Openflow license SKU.
 
-
-NoviFlow
---------
-`NoviFlow <http://noviflow.com>`
-
 NorthBound Networks
 -------------------
-`NorthBound Networks <http://northboundnetworks.com>`
+`NorthBound Networks <http://northboundnetworks.com>`_
 
 FAUCET supports the Zodiac FX as of v0.60 firmware.
 
 Hewlett Packard Enterprise
 --------------------------
-`Hewlett Packard Enterprise <http://www.hpe.com>` and its many distributors and resellers.
+`Hewlett Packard Enterprise <http://www.hpe.com>`_ and its many distributors and resellers.
 
 All the HPE Aruba’s v3 based product line (5400R, 3810 and 2930F) work with FAUCET.
 
-* 5400R - http://www.arubanetworks.com/products/networking/switches/5400r-series/
-* 3810  - http://www.arubanetworks.com/products/networking/switches/3810-series/ 
-* 2930F - http://www.arubanetworks.com/products/networking/switches/2930f-series/
+* `5400R <http://www.arubanetworks.com/products/networking/switches/5400r-series/>`_
+* `3810 <http://www.arubanetworks.com/products/networking/switches/3810-series/>`_
+* `2930F <http://www.arubanetworks.com/products/networking/switches/2930f-series/>`_
 
 OpenFlow is available by default on all the firmware releases of each of these products. There is no need for a purchase of separate license to enable OpenFlow on the firmware.
-
-Netronome
----------
-`Netronome <https://www.netronome.com/>` 
 
 =====
 Gauge
@@ -433,10 +426,14 @@ Screenshots
 Support
 =======
 
-If you have any technical questions, problems or suggestions regarding Faucet please send them to `faucet-dev@OpenflowSDN.Org <mailto:faucet-dev@openflowsdn.org>`.  Mailing list archives are available `here <https://groups.google.com/a/openflowsdn.org/forum/#!forum/faucet-dev>`.
+We run a number of mailing lists for communication between users and developers of Faucet, as well as a low traffic mailing list for announcements of new versions:
 
-Documentation is available under the `docs <https://github.com/REANNZ/faucet/tree/master/src/docs>` directory.
+- https://list.waikato.ac.nz/mailman/listinfo/faucet-announce
+- https://list.waikato.ac.nz/mailman/listinfo/faucet-dev
+- https://lists.geant.org/sympa/info/faucet-users
 
-Faucet related blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz
+Additional documentation is available under the `docs <src/docs>`_ directory.
 
-To create a issue, use `GitHub Issues <https://github.com/onfsdn/faucet/issues>`
+Faucet blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz.
+
+To create a issue, use `GitHub Issues <https://github.com/REANNZ/faucet/issues>`_.
