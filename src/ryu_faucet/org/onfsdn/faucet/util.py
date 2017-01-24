@@ -53,7 +53,7 @@ def kill_on_exception(logname):
                 logging.getLogger(logname).exception(
                     "Unhandled exception, killing RYU")
                 logging.shutdown()
-                os.kill(os.getpid(), signal.SIGKILL)
+                os.kill(os.getpid(), signal.SIGTERM)
         return __koe
     return _koe
 
