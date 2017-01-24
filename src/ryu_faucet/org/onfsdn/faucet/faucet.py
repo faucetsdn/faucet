@@ -97,7 +97,7 @@ class Faucet(app_manager.RyuApp):
             self.logname, self.logfile, logging.DEBUG, 0)
         # Set up separate logging for exceptions
         self.exc_logger = get_logger(
-            self.exc_logname, self.exc_logfile, logging.CRITICAL, 1)
+            self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
         # Set up a valve object for each datapath
         self.valves = {}
