@@ -24,6 +24,7 @@ class VLAN(Conf):
     vid = None
     controller_ips = None
     bgp_as = None
+    bgp_local_address = None
     bgp_port = None
     bgp_routerid = None
     bgp_neighbor_addresses = []
@@ -49,6 +50,7 @@ class VLAN(Conf):
         'controller_ips': None,
         'unicast_flood': True,
         'bgp_as': 0,
+	'bgp_local_address': None,
         'bgp_port': 9179,
         'bgp_routerid': '',
         'bgp_neighbour_addresses': [],
