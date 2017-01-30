@@ -277,6 +277,9 @@ class Valve(object):
             inst=[valve_of.apply_actions(
                 [valve_of.output_controller()])] + inst)
 
+    def valve_flowreorder(self, ofmsgs):
+        pass
+
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []

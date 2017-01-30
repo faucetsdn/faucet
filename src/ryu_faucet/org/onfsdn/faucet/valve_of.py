@@ -40,6 +40,21 @@ def ignore_port(port_num):
     return port_num > 0xF0000000
 
 
+def is_flowdel(ofmsg):
+    """Return True if flow message is a FlowMod and a delete.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a FlowMod delete/strict.
+    """
+    if (isinstance(ofmsg, parser.OFPFlowMod) and
+            (ofmsg.command == ofp.OFPFC_DELETE or
+             ofmsg.command == ofp.OFPFC_DELETE_STRICT)):
+        return True
+    return False
+
+
 def apply_actions(actions):
     """Return instruction that applies action list.
 
