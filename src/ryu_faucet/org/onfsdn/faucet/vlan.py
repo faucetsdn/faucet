@@ -203,7 +203,7 @@ class VLAN(Conf):
         return self._to_conf()
 
     def __hash__(self):
-        items = [(k,v) for k,v in self.__dict__.iteritems() if 'dyn' not in k]
+        items = [(k, v) for k, v in self.__dict__.iteritems() if 'dyn' not in k]
         return hash(frozenset(map(str, items)))
 
     def __eq__(self, other):
