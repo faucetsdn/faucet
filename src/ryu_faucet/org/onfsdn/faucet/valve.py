@@ -86,17 +86,20 @@ class Valve(object):
             self.dp.ipv4_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
-            self.valve_flowcontroller)
+            self.valve_flowcontroller,
+            self.dp.group_table)
         self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.ipv6_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
-            self.valve_flowcontroller)
+            self.valve_flowcontroller,
+            self.dp.group_table)
         self.flood_manager = valve_flood.ValveFloodManager(
             self.dp.flood_table, self.dp.low_priority,
             self.valve_in_match, self.valve_flowmod,
-            self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root)
+            self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root,
+            self.dp.group_table)
         self.host_manager = valve_host.ValveHostManager(
             self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.timeout, self.dp.low_priority, self.dp.highest_priority,
@@ -279,6 +282,7 @@ class Valve(object):
         ofmsgs = []
         for table_id in self._all_valve_tables():
             ofmsgs.extend(self.valve_flowdel(table_id))
+        ofmsgs.append(valve_of.groupdel())
         return ofmsgs
 
     def _delete_all_port_match_flows(self, port):
@@ -969,6 +973,21 @@ class Valve(object):
             ofmsgs.extend(self.ipv6_route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
+    def get_config_dict(self):
+        dps_dict = {
+            self.dp.name: self.dp.to_conf()
+            }
+        vlans_dict = {}
+        for vid, vlan in self.dp.vlans.iteritems():
+            vlans_dict[vlan.name] = vlan.to_conf()
+        acls_dict = {}
+        for acl_id, acl in self.dp.acls.iteritems():
+            acls_dict[acl_id] = acl.to_conf()
+        return {
+            'dps': dps_dict,
+            'vlans': vlans_dict,
+            'acls': acls_dict,
+            }
 
 class ArubaValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""

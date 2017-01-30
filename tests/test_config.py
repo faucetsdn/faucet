@@ -187,7 +187,7 @@ class DistConfigTestCase(unittest.TestCase):
             self.assertEquals(vlan.bgp_port, 9179)
             self.assertEquals(vlan.bgp_as, 1)
             self.assertEquals(vlan.bgp_routerid, '1.1.1.1')
-            self.assertEquals(vlan.bgp_neighbor_address, '127.0.0.1')
+            self.assertIn('127.0.0.1', vlan.bgp_neighbor_addresses)
             self.assertEquals(vlan.bgp_neighbor_as, 2)
             self.assertIn(
                 ipaddr.IPNetwork('10.0.1.0/24'),

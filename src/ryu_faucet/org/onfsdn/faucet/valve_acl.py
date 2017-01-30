@@ -23,6 +23,12 @@ class ACL(object):
         self._id = id_
         self.rules = [x['rule'] for x in rule_conf]
 
+    def to_conf(self):
+        result = []
+        for rule in self.rules:
+            result.append({'rule': rule})
+        return result
+
     def __hash__(self):
         return hash(frozenset(map(str, self.__dict__.iteritems())))
 
