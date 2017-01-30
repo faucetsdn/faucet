@@ -12,7 +12,7 @@ class Conf(object):
 
     def _to_conf(self):
         result = {}
-        for k, v in self.defaults.iteritems():
+        for k in self.defaults.iterkeys():
             if k != 'name':
                 result[k] = self.__dict__[str(k)]
         return result
