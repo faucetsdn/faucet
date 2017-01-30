@@ -255,7 +255,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
         send_cdp = 'ladvd -f -C -e lo -o %s' % (second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(first_host, cdp_filter,
-             [lambda: second_host.cmd(ladvd_mkdir), 
+             [lambda: second_host.cmd(ladvd_mkdir),
               lambda: second_host.cmd(send_cdp),
               lambda: second_host.cmd(send_cdp),
               lambda: second_host.cmd(send_cdp)],
@@ -2191,6 +2191,136 @@ class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.hup_faucet()
         time.sleep(1)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
+
+
+class FaucetGroupTableTest(FaucetUntaggedTest):
+    CONFIG = """
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_group_exist(self):
+        self.assertEqual(100,
+                self.get_group_id_for_matching_flow(
+                    '"table_id": 7,.+"dl_vlan": "100"'))
+
+
+class FaucetSingleUntaggedIPv4RouteGroupTableTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        controller_ips: ["10.0.0.254/24"]
+        routes:
+            - route:
+                ip_dst: "10.0.1.0/24"
+                ip_gw: "10.0.0.1"
+            - route:
+                ip_dst: "10.0.2.0/24"
+                ip_gw: "10.0.0.2"
+            - route:
+                ip_dst: "10.0.3.0/24"
+                ip_gw: "10.0.0.2"
+"""
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
+        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip,
+            with_group_table=True)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip,
+            with_group_table=True)
+
+class FaucetSingleUntaggedIPv6RouteGroupTableTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        controller_ips: ["fc00::1:254/112"]
+        routes:
+            - route:
+                ip_dst: "fc00::10:0/112"
+                ip_gw: "fc00::1:1"
+            - route:
+                ip_dst: "fc00::20:0/112"
+                ip_gw: "fc00::1:2"
+            - route:
+                ip_dst: "fc00::30:0/112"
+                ip_gw: "fc00::1:2"
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
+        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
+        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
+        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip,
+            with_group_table=True)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip,
+            with_group_table=True)
 
 
 def import_config():

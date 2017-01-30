@@ -51,6 +51,7 @@ class DP(Conf):
     drop_spoofed_faucet_mac = None
     drop_bpdu = None
     drop_lldp = None
+    group_table = False
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -104,6 +105,8 @@ class DP(Conf):
         'drop_bpdu': True,
         # By default, drop LLDP. Set to False, to enable NFV offload of LLDP.
         'drop_lldp': True,
+        #Use GROUP tables for IP routing and vlan flooding
+        'group_table': False,
         }
 
     def __init__(self, _id, conf):
