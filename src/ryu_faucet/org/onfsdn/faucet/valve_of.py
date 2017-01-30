@@ -264,6 +264,7 @@ def flowmod(cookie, command, table_id, priority, out_port, out_group,
 def group_act(group_id):
     return parser.OFPActionGroup(group_id)
 
+
 def bucket(weight=0, watch_port=ofp.OFPP_ANY,
            watch_group=ofp.OFPG_ANY, actions=None):
     return parser.OFPBucket(
@@ -271,6 +272,7 @@ def bucket(weight=0, watch_port=ofp.OFPP_ANY,
         watch_port=watch_port,
         watch_group=watch_group,
         actions=actions)
+
 
 def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
     return parser.OFPGroupMod(
@@ -280,6 +282,7 @@ def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
         group_id,
         buckets)
 
+
 def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
     return parser.OFPGroupMod(
         datapath,
@@ -287,6 +290,7 @@ def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
         type_,
         group_id,
         buckets)
+
 
 def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
     return parser.OFPGroupMod(
