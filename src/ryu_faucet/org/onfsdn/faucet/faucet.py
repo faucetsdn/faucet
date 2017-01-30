@@ -312,8 +312,10 @@ class Faucet(app_manager.RyuApp):
         if dp_id not in self.valves:
             self.logger.error('send_flow_msgs: unknown %s', dpid_log(dp_id))
             return
-        self.valves[dp_id].ofchannel_log(flow_msgs)
-        for flow_msg in flow_msgs:
+        valve = self.valves[dp_id]
+        reordered_flow_msgs = valve.valve_flowreorder(flow_msgs)
+        valve.ofchannel_log(reordered_flow_msgs)
+        for flow_msg in reordered_flow_msgs:
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
 

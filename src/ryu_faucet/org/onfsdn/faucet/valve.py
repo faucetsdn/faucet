@@ -252,8 +252,7 @@ class Valve(object):
                 priority=priority,
                 command=ofp.OFPFC_DELETE,
                 out_port=out_port,
-                out_group=ofp.OFPG_ANY),
-            valve_of.barrier()]
+                out_group=ofp.OFPG_ANY)]
 
     def valve_flowdrop(self, table_id, match=None, priority=None,
                        hard_timeout=0):
@@ -277,8 +276,27 @@ class Valve(object):
             inst=[valve_of.apply_actions(
                 [valve_of.output_controller()])] + inst)
 
-    def valve_flowreorder(self, ofmsgs):
-        pass
+    def valve_flowreorder(self, input_ofmsgs):
+        """Reorder flows for better OFA performance."""
+        # Move all deletes to be first, and add one barrier,
+        # while preserving order. Platforms that do parallel delete
+        # will perform better and platforms that don't will have
+        # at most only one barrier to deal with.
+        # TODO: further optimizations may be possible - for example,
+        # reorder adds to be in priority order.
+        delete_ofmsgs = []
+        nondelete_ofmsgs = []
+        for ofmsg in input_ofmsgs:
+            if valve_of.is_flowdel(ofmsg):
+                delete_ofmsgs.append(ofmsg)
+            else:
+                nondelete_ofmsgs.append(ofmsg)
+        output_ofmsgs = []
+        if delete_ofmsgs:
+            output_ofmsgs.extend(delete_ofmsgs)
+            output_ofmsgs.append(valve_of.barrier())
+        output_ofmsgs.extend(nondelete_ofmsgs)
+        return output_ofmsgs
 
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
