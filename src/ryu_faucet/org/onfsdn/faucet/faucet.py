@@ -182,6 +182,7 @@ class Faucet(app_manager.RyuApp):
             bgp_speaker.neighbor_add(
                 address=bgp_neighbor_address,
                 remote_as=vlan.bgp_neighbor_as,
+                local_address=vlan.bgp_local_address,
                 enable_ipv4=True,
                 enable_ipv6=True)
         return bgp_speaker
