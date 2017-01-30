@@ -978,7 +978,7 @@ class Valve(object):
             self.dp.name: self.dp.to_conf()
             }
         vlans_dict = {}
-        for vid, vlan in self.dp.vlans.iteritems():
+        for vlan in self.dp.vlans.itervalues():
             vlans_dict[vlan.name] = vlan.to_conf()
         acls_dict = {}
         for acl_id, acl in self.dp.acls.iteritems():
