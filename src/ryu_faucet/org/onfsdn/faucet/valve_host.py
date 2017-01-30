@@ -101,6 +101,12 @@ class ValveHostManager(object):
         ofmsgs = []
         in_port = port.number
 
+        # If we've learnt this host within the last second,
+        # then ignore it.
+        if (eth_src in vlan.host_cache
+                and vlan.host_cache[eth_src].cache_time > time.time() - 1):
+            return []
+
         # hosts learned on this port never relearned
         if port.permanent_learn:
             learn_timeout = 0
