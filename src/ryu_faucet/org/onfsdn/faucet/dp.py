@@ -350,7 +350,7 @@ class DP(Conf):
                 'root_dp': str(self.stack['root_dp'])
                 }
         interface_dict = {}
-        for port_num, port in self.ports.iteritems():
+        for port in self.ports.itervalues():
             interface_dict[port.name] = port.to_conf()
         result['interfaces'] = interface_dict
         return result
