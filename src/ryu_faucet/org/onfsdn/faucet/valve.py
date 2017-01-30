@@ -752,7 +752,8 @@ class Valve(object):
             for route_manager in (
                     self.ipv4_route_manager, self.ipv6_route_manager):
                 if route_manager:
-                    route_manager.add_host_fib_route_from_pkt(vlan, pkt)
+                    ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(
+                        vlan, pkt))
             self.logger.info(
                 'learned %u hosts on vlan %u',
                 len(vlan.host_cache), vlan.vid)
