@@ -186,15 +186,15 @@ def table_features(body):
         datapath=None, body=body)
 
 
-def match(match):
+def match(match_fields):
     """Return OpenFlow matches from dict.
 
     Args:
-        match (dict): match fields and values.
+        match_fields (dict): match fields and values.
     Returns:
         ryu.ofproto.ofproto_v1_3_parser.OFPMatch: matches.
     """
-    return parser.OFPMatch(**match)
+    return parser.OFPMatch(**match_fields)
 
 
 def match_from_dict(match_dict):
@@ -247,7 +247,7 @@ def build_match_dict(in_port=None, vlan=None,
 
 
 def flowmod(cookie, command, table_id, priority, out_port, out_group,
-            match, inst, hard_timeout, idle_timeout):
+            match_fields, inst, hard_timeout, idle_timeout):
     return parser.OFPFlowMod(
         datapath=None,
         cookie=cookie,
@@ -256,7 +256,7 @@ def flowmod(cookie, command, table_id, priority, out_port, out_group,
         priority=priority,
         out_port=out_port,
         out_group=out_group,
-        match=match,
+        match=match_fields,
         instructions=inst,
         hard_timeout=hard_timeout,
         idle_timeout=idle_timeout)
@@ -265,32 +265,32 @@ def group_act(group_id):
     return parser.OFPActionGroup(group_id)
 
 def bucket(weight=0, watch_port=ofp.OFPP_ANY,
-        watch_group=ofp.OFPG_ANY, actions=None):
+           watch_group=ofp.OFPG_ANY, actions=None):
     return parser.OFPBucket(
-            weight=weight,
-            watch_port=watch_port,
-            watch_group=watch_group,
-            actions=actions)
+        weight=weight,
+        watch_port=watch_port,
+        watch_group=watch_group,
+        actions=actions)
 
 def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
     return parser.OFPGroupMod(
-            datapath,
-            ofp.OFPGC_MODIFY,
-            type_,
-            group_id,
-            buckets)
+        datapath,
+        ofp.OFPGC_MODIFY,
+        type_,
+        group_id,
+        buckets)
 
 def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
     return parser.OFPGroupMod(
-            datapath,
-            ofp.OFPGC_ADD,
-            type_,
-            group_id,
-            buckets)
+        datapath,
+        ofp.OFPGC_ADD,
+        type_,
+        group_id,
+        buckets)
 
 def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
     return parser.OFPGroupMod(
-            datapath,
-            ofp.OFPGC_DELETE,
-            0,
-            group_id)
+        datapath,
+        ofp.OFPGC_DELETE,
+        0,
+        group_id)
