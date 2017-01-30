@@ -23,8 +23,10 @@ from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
+
 VLAN_GROUP_OFFSET = 4096
 ROUTE_GROUP_OFFSET = VLAN_GROUP_OFFSET * 2
+
 
 def ignore_port(port_num):
     """Return True if FAUCET should ignore this port.
@@ -36,6 +38,21 @@ def ignore_port(port_num):
     """
     # 0xF0000000 and up are not physical ports.
     return port_num > 0xF0000000
+
+
+def is_flowdel(ofmsg):
+    """Return True if flow message is a FlowMod and a delete.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a FlowMod delete/strict.
+    """
+    if (isinstance(ofmsg, parser.OFPFlowMod) and
+            (ofmsg.command == ofp.OFPFC_DELETE or
+             ofmsg.command == ofp.OFPFC_DELETE_STRICT)):
+        return True
+    return False
 
 
 def apply_actions(actions):
@@ -261,8 +278,10 @@ def flowmod(cookie, command, table_id, priority, out_port, out_group,
         hard_timeout=hard_timeout,
         idle_timeout=idle_timeout)
 
+
 def group_act(group_id):
     return parser.OFPActionGroup(group_id)
+
 
 def bucket(weight=0, watch_port=ofp.OFPP_ANY,
            watch_group=ofp.OFPG_ANY, actions=None):
@@ -272,6 +291,7 @@ def bucket(weight=0, watch_port=ofp.OFPP_ANY,
         watch_group=watch_group,
         actions=actions)
 
+
 def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
     return parser.OFPGroupMod(
         datapath,
@@ -280,6 +300,7 @@ def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
         group_id,
         buckets)
 
+
 def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
     return parser.OFPGroupMod(
         datapath,
@@ -287,6 +308,7 @@ def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
         type_,
         group_id,
         buckets)
+
 
 def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
     return parser.OFPGroupMod(
