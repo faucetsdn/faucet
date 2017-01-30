@@ -973,6 +973,21 @@ class Valve(object):
             ofmsgs.extend(self.ipv6_route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
+    def get_config_dict(self):
+        dps_dict = {
+            self.dp.name: self.dp.to_conf()
+            }
+        vlans_dict = {}
+        for vid, vlan in self.dp.vlans.iteritems():
+            vlans_dict[vlan.name] = vlan.to_conf()
+        acls_dict = {}
+        for acl_id, acl in self.dp.acls.iteritems():
+            acls_dict[acl_id] = acl.to_conf()
+        return {
+            'dps': dps_dict,
+            'vlans': vlans_dict,
+            'acls': acls_dict,
+            }
 
 class ArubaValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""

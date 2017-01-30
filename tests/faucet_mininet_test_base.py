@@ -61,6 +61,22 @@ class Gauge(Controller):
             cargs=cargs,
             **kwargs)
 
+class FaucetAPI(Controller):
+    '''Start a controller to run the Faucet API tests.'''
+
+    def __init__(self,
+                 name,
+                 command='ryu-manager {0}/faucet.py test_api.py'.format(
+                    faucet_mininet_test_util.FAUCET_DIR),
+                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
+                 **kwargs):
+        name = 'faucet-api-%u' % os.getpid()
+        Controller.__init__(
+            self,
+            name,
+            command=command,
+            cargs=cargs,
+            **kwargs)
 
 class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""

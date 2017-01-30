@@ -27,7 +27,7 @@ class Port(Conf):
     native_vlan = None
     tagged_vlans = []
     acl_in = None
-    stack = None
+    stack = {}
 
     defaults = {
         'number': None,
@@ -70,6 +70,15 @@ class Port(Conf):
 
     def running(self):
         return self.enabled and self.phys_up
+
+    def to_conf(self):
+        result = self._to_conf()
+        if 'stack' in result and result['stack'] is not None:
+            result['stack'] = {
+                'dp': str(self.stack['dp']),
+                'port': str(self.stack['port'])
+                }
+        return result
 
     def __eq__(self, other):
         return hash(self) == hash(other)
