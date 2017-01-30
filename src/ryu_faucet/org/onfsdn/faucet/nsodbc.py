@@ -55,14 +55,13 @@ class NsOdbc(object):
 
         # couchdb specific block.
         if conn_dict['driver'] == COUCHDB:
+            auth_pair = (conn_dict['uid'], conn_dict['pwd'])
             if conn_dict['server'] == LOCALHOST:
-                cnxn = ConnectionCouch(couchdb.Server(),
-                                       (conn_dict['uid'], conn_dict['pwd']))
+                cnxn = ConnectionCouch(couchdb.Server(), auth_pair)
             else:
-                cnxn = ConnectionCouch(couchdb.Server(
-                    "http://{0}:{1}/".format(conn_dict['server'],
-                                             conn_dict['port'])),
-                    (conn_dict['uid'], conn_dict['pwd']))
+                server_pair = "http://{0}:{1}/".format(
+                    conn_dict['server'], conn_dict['port'])
+                cnxn = ConnectionCouch(couchdb.Server(server_pair), auth_pair)
             self.conn = cnxn
             return cnxn
 
