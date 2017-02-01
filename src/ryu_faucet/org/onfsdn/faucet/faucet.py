@@ -56,9 +56,11 @@ class EventFaucetHostExpire(event.EventBase):
     """Event used to trigger expiration of host state in controller."""
     pass
 
+
 class EventFaucetAPIRegistered(event.EventBase):
     """Event used to notify that the API is registered with Faucet."""
     pass
+
 
 class FaucetAPI(object):
     '''An API for communicating with Faucet.
