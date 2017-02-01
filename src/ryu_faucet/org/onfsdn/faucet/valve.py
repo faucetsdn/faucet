@@ -995,6 +995,11 @@ class Valve(object):
         return ofmsgs
 
     def get_config_dict(self):
+        """Render configuration as a dict, suitable for returning via API call.
+
+        Returns:
+            dict: current configuration.
+        """
         dps_dict = {
             self.dp.name: self.dp.to_conf()
             }
@@ -1009,6 +1014,7 @@ class Valve(object):
             'vlans': vlans_dict,
             'acls': acls_dict,
             }
+
 
 class ArubaValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
