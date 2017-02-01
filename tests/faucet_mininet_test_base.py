@@ -174,6 +174,8 @@ class FaucetTestBase(unittest.TestCase):
     CONTROLLER_IPV6_2 = ipaddr.IPv6Network('fc01::1:254/64')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     BOGUS_MAC = '01:02:03:04:05:06'
+    LADVD = 'timeout 30s ladvd -e lo -f'
+
     CONFIG = ''
     CONFIG_GLOBAL = ''
 

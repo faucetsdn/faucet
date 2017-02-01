@@ -233,12 +233,11 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
-
     def verify_lldp_blocked(self):
         first_host, second_host = self.net.hosts[0:2]
         lldp_filter = 'ether proto 0x88cc'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
-        send_lldp = 'ladvd -f -L -e lo -o %s' % second_host.defaultIntf()
+        send_lldp = '%s -L -o %s' % (self.LADVD, second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(
             first_host, lldp_filter,
             [lambda: second_host.cmd(ladvd_mkdir),
@@ -254,7 +253,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         first_host, second_host = self.net.hosts[0:2]
         cdp_filter = 'ether host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
-        send_cdp = 'ladvd -f -C -e lo -o %s' % (second_host.defaultIntf())
+        send_cdp = '%s -C -o %s' % (self.LADVD, second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(first_host, cdp_filter,
              [lambda: second_host.cmd(ladvd_mkdir),
               lambda: second_host.cmd(send_cdp),
@@ -390,11 +389,13 @@ class FaucetUntaggedLLDPBlockedTest(FaucetUntaggedTest):
         self.ping_all_when_learned()
         self.assertTrue(self.verify_lldp_blocked())
 
+
 class FaucetUntaggedCDPTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         self.ping_all_when_learned()
         self.assertFalse(self.is_cdp_blocked())
+
 
 class FaucetUntaggedLLDPUnblockedTest(FaucetUntaggedTest):
 
