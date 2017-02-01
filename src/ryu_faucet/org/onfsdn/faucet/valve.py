@@ -307,6 +307,7 @@ class Valve(object):
         return ofmsgs
 
     def _delete_all_port_match_flows(self, port):
+        """Delete all flows that match an input port from all FAUCET tables."""
         ofmsgs = []
         for table_id in self._in_port_tables():
             in_port_match = self.valve_in_match(table_id, in_port=port.number)
