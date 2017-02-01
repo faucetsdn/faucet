@@ -21,8 +21,9 @@ import valve_of
 
 class HostCacheEntry(object):
 
-    def __init__(self, eth_src, edge, permanent, now):
+    def __init__(self, eth_src, port_num, edge, permanent, now):
         self.eth_src = eth_src
+        self.port_num = port_num
         self.edge = edge
         self.permanent = permanent
         self.cache_time = now
@@ -99,13 +100,15 @@ class ValveHostManager(object):
 
     def learn_host_on_vlan_port(self, port, vlan, eth_src):
         now = time.time()
+        in_port = port.number
+        ofmsgs = []
 
         if eth_src in vlan.host_cache:
-            cache_age = now - vlan.host_cache[eth_src].cache_time
-            if cache_age < 2:
-                return []
-
-        ofmsgs = []
+            host_cache_entry = vlan.host_cache[eth_src]
+            if host_cache_entry.port_num == in_port:
+                cache_age = now - host_cache_entry.cache_time
+                if cache_age < 2:
+                    return ofmsgs
 
         # hosts learned on this port never relearned
         if port.permanent_learn:
@@ -130,7 +133,6 @@ class ValveHostManager(object):
         # the rule
         # NB: Must be lower than highest priority otherwise it can match
         # flows destined to controller
-        in_port = port.number
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
             self.valve_in_match(
@@ -151,6 +153,7 @@ class ValveHostManager(object):
 
         host_cache_entry = HostCacheEntry(
             eth_src,
+            in_port,
             port.stack is None,
             port.permanent_learn,
             now)

@@ -55,7 +55,6 @@ class ValveRouteManager(object):
         self.valve_flowmod = valve_flowmod
         self.valve_flowcontroller = valve_flowcontroller
         self.use_group_table = use_group_table
-
         self.ip_gw_to_group_id = {}
 
     def _vlan_vid(self, vlan, in_port):
@@ -111,22 +110,23 @@ class ValveRouteManager(object):
                     'Adding new route %s via %s (%s)',
                     ip_dst, ip_gw, eth_dst)
             if self.use_group_table:
-                inst = [
-                        valve_of.apply_actions([valve_of.group_act(
-                            group_id=self.ip_gw_to_group_id[ip_gw])])]
+                inst = [valve_of.apply_actions([valve_of.group_act(
+                    group_id=self.ip_gw_to_group_id[ip_gw])])]
             else:
-                inst = [
-                        valve_of.apply_actions([
-                            valve_of.set_eth_src(self.faucet_mac),
-                            valve_of.set_eth_dst(eth_dst),
-                            valve_of.dec_ip_ttl()]),
-                            valve_of.goto_table(self.eth_dst_table)]
+                inst = [valve_of.apply_actions([
+                    valve_of.set_eth_src(self.faucet_mac),
+                    valve_of.set_eth_dst(eth_dst),
+                    valve_of.dec_ip_ttl()]),
+                        valve_of.goto_table(self.eth_dst_table)]
             ofmsgs.append(self.valve_flowmod(
                 self.fib_table,
                 in_match,
                 priority=priority,
                 inst=inst))
         return ofmsgs
+
+    def _group_id_from_ip_gw(self, resolved_ip_gw):
+        return (hash(str(resolved_ip_gw)) + valve_of.ROUTE_GROUP_OFFSET) & ((1<<32) -1)
 
     def _update_nexthop(self, vlan, in_port, eth_src, resolved_ip_gw):
         ofmsgs = []
@@ -146,8 +146,7 @@ class ValveRouteManager(object):
             is_updated = False
             if self.use_group_table:
                 group_mod_method = valve_of.groupadd
-                group_id = (hash(str(resolved_ip_gw)) +
-                        valve_of.ROUTE_GROUP_OFFSET) & ((1<<32) -1)
+                group_id = self._group_id_from_ip_gw(resolved_ip_gw)
                 self.ip_gw_to_group_id[resolved_ip_gw] = group_id
 
         if is_updated is not None:
@@ -234,8 +233,7 @@ class ValveRouteManager(object):
         Returns:
             list: OpenFlow messages.
         """
-        host_route = ipaddr.IPNetwork(
-            '%s/%u' % (str(host_ip), host_ip.max_prefixlen))
+        host_route = ipaddr.IPNetwork(host_ip.exploded)
         return self.add_route(vlan, host_ip, host_route)
 
     def add_host_fib_route_from_pkt(self, vlan, pkt):

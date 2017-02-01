@@ -307,6 +307,7 @@ class Valve(object):
         return ofmsgs
 
     def _delete_all_port_match_flows(self, port):
+        """Delete all flows that match an input port from all FAUCET tables."""
         ofmsgs = []
         for table_id in self._in_port_tables():
             in_port_match = self.valve_in_match(table_id, in_port=port.number)
@@ -954,9 +955,7 @@ class Valve(object):
         ofmsgs = []
         for controller_ip in controller_ips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
-            controller_ip_host = ipaddr.IPNetwork(
-                '/'.join((str(controller_ip.ip),
-                          str(controller_ip.max_prefixlen))))
+            controller_ip_host = ipaddr.IPNetwork(controller_ip.exploded)
             if controller_ip_host.version == 6:
                 ofmsgs.extend(self.ipv6_route_manager.add_controller_ip(
                     vlan, controller_ip, controller_ip_host))
@@ -995,6 +994,11 @@ class Valve(object):
         return ofmsgs
 
     def get_config_dict(self):
+        """Render configuration as a dict, suitable for returning via API call.
+
+        Returns:
+            dict: current configuration.
+        """
         dps_dict = {
             self.dp.name: self.dp.to_conf()
             }
@@ -1009,6 +1013,7 @@ class Valve(object):
             'vlans': vlans_dict,
             'acls': acls_dict,
             }
+
 
 class ArubaValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
