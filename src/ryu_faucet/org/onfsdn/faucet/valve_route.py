@@ -233,8 +233,7 @@ class ValveRouteManager(object):
         Returns:
             list: OpenFlow messages.
         """
-        host_route = ipaddr.IPNetwork(
-            '%s/%u' % (str(host_ip), host_ip.max_prefixlen))
+        host_route = ipaddr.IPNetwork(host_ip.exploded)
         return self.add_route(vlan, host_ip, host_route)
 
     def add_host_fib_route_from_pkt(self, vlan, pkt):

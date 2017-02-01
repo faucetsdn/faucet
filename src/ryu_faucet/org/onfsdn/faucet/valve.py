@@ -955,9 +955,7 @@ class Valve(object):
         ofmsgs = []
         for controller_ip in controller_ips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
-            controller_ip_host = ipaddr.IPNetwork(
-                '/'.join((str(controller_ip.ip),
-                          str(controller_ip.max_prefixlen))))
+            controller_ip_host = ipaddr.IPNetwork(controller_ip.exploded)
             if controller_ip_host.version == 6:
                 ofmsgs.extend(self.ipv6_route_manager.add_controller_ip(
                     vlan, controller_ip, controller_ip_host))
