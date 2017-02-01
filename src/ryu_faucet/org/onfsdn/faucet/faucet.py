@@ -258,8 +258,7 @@ class Faucet(app_manager.RyuApp):
             bgp_server_port=vlan.bgp_port,
             best_path_change_handler=handler)
         for controller_ip in vlan.controller_ips:
-            prefix = ipaddr.IPNetwork(
-                '/'.join((str(controller_ip.ip), str(controller_ip.prefixlen))))
+            prefix = ipaddr.IPNetwork(controller_ip.exploded)
             bgp_speaker.prefix_add(
                 prefix=str(prefix), next_hop=str(controller_ip.ip))
         for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
