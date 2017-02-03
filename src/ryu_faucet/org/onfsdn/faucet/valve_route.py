@@ -28,8 +28,8 @@ from ryu.ofproto import ether
 from ryu.ofproto import inet
 
 
-class LinkNeighbor(object):
-    """Describes a link (layer 2) neighbor, as a nexthop."""
+class Nexthop(object):
+    """Describes a directly connected (at layer 2) nexthop."""
 
     def __init__(self, eth_src, now):
         self.eth_src = eth_src
@@ -168,8 +168,8 @@ class ValveRouteManager(object):
                     ofmsgs.extend(self._add_resolved_route(
                         vlan, ip_gw, ip_dst, eth_src, is_updated))
         now = time.time()
-        link_neighbor = LinkNeighbor(eth_src, now)
-        neighbor_cache[resolved_ip_gw] = link_neighbor
+        nexthop = NextHop(eth_src, now)
+        neighbor_cache[resolved_ip_gw] = nexthop
         return ofmsgs
 
     def _vlan_ip_gws(self, vlan):
