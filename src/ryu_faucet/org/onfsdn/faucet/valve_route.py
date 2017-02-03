@@ -172,22 +172,6 @@ class ValveRouteManager(object):
         neighbor_cache[resolved_ip_gw] = link_neighbor
         return ofmsgs
 
-    def _vlan_ip_gws(self, vlan):
-        """Return gateways for routes on this VLAN.
-
-        Args:
-            vlan (vlan): VLAN containing this RIB/FIB.
-        Returns:
-            list: gateway IPAddresses.
-        """
-        ip_gws = []
-        routes = self._vlan_routes(vlan)
-        for ip_gw in set(routes.values()):
-            for controller_ip in vlan.controller_ips:
-                if ip_gw in controller_ip:
-                    ip_gw.append(ip_gw)
-        return ip_gws
-
     def resolve_gateways(self, vlan, now):
         """Re/resolve all gateways.
 
@@ -200,17 +184,20 @@ class ValveRouteManager(object):
         ofmsgs = []
         untagged_ports = vlan.untagged_flood_ports(False)
         tagged_ports = vlan.tagged_flood_ports(False)
+        routes = self._vlan_routes(vlan)
         neighbor_cache = self._vlan_neighbor_cache(vlan)
-        for ip_gw in self._vlan_ip_gws(vlan):
-            cache_age = None
-            if ip_gw in neighbor_cache:
-                cache_time = neighbor_cache[ip_gw].cache_time
-                cache_age = now - cache_time
-                if (cache_age is None or
-                    cache_age > self.arp_neighbor_timeout):
-                    for ports in untagged_ports, tagged_ports:
-                        ofmsgs.extend(self._neighbor_resolver(
-                            ip_gw, controller_ip, vlan, ports))
+        for ip_gw in set(routes.values()):
+            for controller_ip in vlan.controller_ips:
+                if ip_gw in controller_ip:
+                    cache_age = None
+                    if ip_gw in neighbor_cache:
+                        cache_time = neighbor_cache[ip_gw].cache_time
+                        cache_age = now - cache_time
+                    if (cache_age is None or
+                            cache_age > self.arp_neighbor_timeout):
+                        for ports in untagged_ports, tagged_ports:
+                            ofmsgs.extend(self._neighbor_resolver(
+                                ip_gw, controller_ip, vlan, ports))
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
