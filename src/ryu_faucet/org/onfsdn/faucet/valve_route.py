@@ -172,6 +172,22 @@ class ValveRouteManager(object):
         neighbor_cache[resolved_ip_gw] = link_neighbor
         return ofmsgs
 
+    def _vlan_ip_gws(self, vlan):
+        """Return IP gateways in VLAN.
+
+        Args:
+            vlan (vlan): VLAN containing this RIB/FIB.
+        Returns:
+            list: tuple, IP gateway and controller IP in same subnet.
+        """
+        routes = self._vlan_routes(vlan)
+        ip_gws = []
+        for ip_gw in set(routes.values()):
+            for controller_ip in vlan.controller_ips:
+                if ip_gw in controller_ip:
+                    ip_gws.append((controller_ip, ip_gw))
+        return ip_gws
+
     def resolve_gateways(self, vlan, now):
         """Re/resolve all gateways.
 
@@ -181,23 +197,22 @@ class ValveRouteManager(object):
         Returns:
             list: OpenFlow messages.
         """
+        ip_gws = self._vlan_ip_gws(vlan)
         ofmsgs = []
         untagged_ports = vlan.untagged_flood_ports(False)
         tagged_ports = vlan.tagged_flood_ports(False)
         routes = self._vlan_routes(vlan)
         neighbor_cache = self._vlan_neighbor_cache(vlan)
-        for ip_gw in set(routes.values()):
-            for controller_ip in vlan.controller_ips:
-                if ip_gw in controller_ip:
-                    cache_age = None
-                    if ip_gw in neighbor_cache:
-                        cache_time = neighbor_cache[ip_gw].cache_time
-                        cache_age = now - cache_time
-                    if (cache_age is None or
-                            cache_age > self.arp_neighbor_timeout):
-                        for ports in untagged_ports, tagged_ports:
-                            ofmsgs.extend(self._neighbor_resolver(
-                                ip_gw, controller_ip, vlan, ports))
+        for controller_ip, ip_gw in ip_gws:
+            cache_age = None
+            if ip_gw in neighbor_cache:
+                cache_time = neighbor_cache[ip_gw].cache_time
+                cache_age = now - cache_time
+            if (cache_age is None or
+                cache_age > self.arp_neighbor_timeout):
+                for ports in untagged_ports, tagged_ports:
+                    ofmsgs.extend(self._neighbor_resolver(
+                        ip_gw, controller_ip, vlan, ports))
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
