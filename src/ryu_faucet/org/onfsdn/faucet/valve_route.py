@@ -73,6 +73,12 @@ class ValveRouteManager(object):
     def _vlan_nexthop_cache(self, vlan):
         pass
 
+    def _vlan_nexthop_cache_entry(self, vlan, ip_gw):
+        nexthop_cache = self._vlan_nexthop_cache(vlan)
+        if ip_gw in nexthop_cache:
+            return nexthop_cache[ip_gw]
+        return None
+
     def _neighbor_resolver_pkt(self, vid, controller_ip, ip_gw):
         pass
 
@@ -128,15 +134,23 @@ class ValveRouteManager(object):
     def _group_id_from_ip_gw(self, resolved_ip_gw):
         return (hash(str(resolved_ip_gw)) + valve_of.ROUTE_GROUP_OFFSET) & ((1<<32) -1)
 
+    def _update_nexthop_cache(self, vlan, eth_src, ip_gw):
+        now = time.time()
+        nexthop = NextHop(eth_src, now)
+        nexthop_cache = self._vlan_nexthop_cache(vlan)
+        nexthop_cache[ip_gw] = nexthop
+
     def _update_nexthop(self, vlan, in_port, eth_src, resolved_ip_gw):
         ofmsgs = []
         is_updated = None
         routes = self._vlan_routes(vlan)
-        nexthop_cache = self._vlan_nexthop_cache(vlan)
         group_mod_method = None
         group_id = None
-        if resolved_ip_gw in nexthop_cache:
-            cached_eth_dst = nexthop_cache[resolved_ip_gw].eth_src
+
+        nexthop_cache_entry = self._vlan_nexthop_cache_entry(
+            vlan, resolved_ip_gw)
+        if nexthop_cache_entry is not None:
+            cached_eth_dst = nexthop_cache_entry.eth_src
             if cached_eth_dst != eth_src:
                 is_updated = True
                 if self.use_group_table:
@@ -167,9 +181,8 @@ class ValveRouteManager(object):
                 if ip_gw == resolved_ip_gw:
                     ofmsgs.extend(self._add_resolved_route(
                         vlan, ip_gw, ip_dst, eth_src, is_updated))
-        now = time.time()
-        nexthop = NextHop(eth_src, now)
-        nexthop_cache[resolved_ip_gw] = nexthop
+
+        self._update_nexthop_cache(vlan, eth_src, resolved_ip_gw)
         return ofmsgs
 
     def _vlan_ip_gws(self, vlan):
@@ -197,19 +210,18 @@ class ValveRouteManager(object):
         Returns:
             list: OpenFlow messages.
         """
-        ip_gws = self._vlan_ip_gws(vlan)
         ofmsgs = []
         untagged_ports = vlan.untagged_flood_ports(False)
         tagged_ports = vlan.tagged_flood_ports(False)
-        routes = self._vlan_routes(vlan)
-        nexthop_cache = self._vlan_nexthop_cache(vlan)
+        ip_gws = self._vlan_ip_gws(vlan)
         for controller_ip, ip_gw in ip_gws:
             cache_age = None
-            if ip_gw in nexthop_cache:
-                cache_time = nexthop_cache[ip_gw].cache_time
+            nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+            if nexthop_cache_entry is not None:
+                cache_time = nexthop_cache_entry.cache_time
                 cache_age = now - cache_time
             if (cache_age is None or
-                cache_age > self.arp_neighbor_timeout):
+                    cache_age > self.arp_neighbor_timeout):
                 for ports in untagged_ports, tagged_ports:
                     ofmsgs.extend(self._neighbor_resolver(
                         ip_gw, controller_ip, vlan, ports))
@@ -227,15 +239,14 @@ class ValveRouteManager(object):
         """
         ofmsgs = []
         routes = self._vlan_routes(vlan)
-        nexthop_cache = self._vlan_nexthop_cache(vlan)
         routes[ip_dst] = ip_gw
-        if ip_gw in nexthop_cache:
-            eth_dst = nexthop_cache[ip_gw].eth_src
+        nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+        if nexthop_cache_entry is not None:
             ofmsgs.extend(self._add_resolved_route(
                 vlan=vlan,
                 ip_gw=ip_gw,
                 ip_dst=ip_dst,
-                eth_dst=eth_dst,
+                eth_dst=nexthop_cache_entry.eth_src,
                 is_updated=False))
         return ofmsgs
 
