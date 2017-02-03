@@ -198,7 +198,7 @@ class FaucetTestBase(unittest.TestCase):
         """Clean up after a test."""
         if self.net is not None:
             self.net.stop()
-        shutil.rmtree(self.tmpdir)
+        #shutil.rmtree(self.tmpdir)
 
     def pre_start_net(self):
         """Hook called after Mininet initializtion, before Mininet started."""
