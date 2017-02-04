@@ -149,7 +149,8 @@ class ValveRouteManager(object):
 
         nexthop_cache_entry = self._vlan_nexthop_cache_entry(
             vlan, resolved_ip_gw)
-        if nexthop_cache_entry is not None:
+        if (nexthop_cache_entry is not None and
+                nexthop_cache_entry.eth_src is not None):
             cached_eth_dst = nexthop_cache_entry.eth_src
             if cached_eth_dst != eth_src:
                 is_updated = True
@@ -217,7 +218,11 @@ class ValveRouteManager(object):
         for controller_ip, ip_gw in ip_gws:
             cache_age = None
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-            if nexthop_cache_entry is not None:
+            if nexthop_cache_entry is None:
+                self._update_nexthop_cache(vlan, None, ip_gw)
+                nexthop_cache_entry = self._vlan_nexthop_cache_entry(
+                    vlan, ip_gw)
+            if nexthop_cache_entry.eth_src is not None:
                 cache_time = nexthop_cache_entry.cache_time
                 cache_age = now - cache_time
             if (cache_age is None or
