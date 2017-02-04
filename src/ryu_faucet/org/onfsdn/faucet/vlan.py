@@ -199,6 +199,12 @@ class VLAN(Conf):
                 return True
         return False
 
+    def ips_in_controller_subnet(self, ips):
+        for ip in ips:
+            if not self.ip_in_controller_subnet(ip):
+                return False
+        return True
+
     def to_conf(self):
         return self._to_conf()
 
