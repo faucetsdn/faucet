@@ -193,6 +193,12 @@ class VLAN(Conf):
                 return True
         return False
 
+    def is_controller_ip(self, ip):
+        for controller_ip in self.controller_ips:
+            if ip == controller_ip.ip:
+                return True
+        return False
+
     def ip_in_controller_subnet(self, ip):
         for controller_ip in self.controller_ips:
             if ip in controller_ip:
