@@ -729,3 +729,11 @@ dbs:
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2,
             with_group_table=with_group_table)
+
+    def verify_invalid_bgp_route(self, pattern):
+        """Check if we see the pattern in Faucet's Log"""
+        controller = self.get_controller()
+        count = controller.cmd(
+                'grep -c "%s" %s' % (pattern, os.environ['FAUCET_LOG']))
+        self.assertGreater(count, 0)
+

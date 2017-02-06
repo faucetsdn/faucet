@@ -729,6 +729,8 @@ group test {
       route 10.0.1.0/24 next-hop 10.0.0.1 local-preference 100;
       route 10.0.2.0/24 next-hop 10.0.0.2 local-preference 100;
       route 10.0.3.0/24 next-hop 10.0.0.2 local-preference 100;
+      route 10.0.4.0/24 next-hop 10.0.0.254;
+      route 10.0.5.0/24 next-hop 10.10.0.1;
    }
  }
 }
@@ -746,6 +748,8 @@ group test {
             first_host.MAC(), ipaddr.IPv4Network('10.99.99.0/24'))
         self.wait_bgp_up(self.exabgp_log)
         self.wait_exabgp_sent_updates(self.exabgp_log)
+        self.verify_invalid_bgp_route('10.0.0.4/24 cannot be us')
+        self.verify_invalid_bgp_route('10.0.0.5/24 is not a connected network')
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddr.IPv4Network('10.0.3.0/24'))
         self.verify_ipv4_routing_mesh()
@@ -1615,6 +1619,8 @@ group test {
       route fc00::10:1/112 next-hop fc00::1:1 local-preference 100;
       route fc00::20:1/112 next-hop fc00::1:2 local-preference 100;
       route fc00::30:1/112 next-hop fc00::1:2 local-preference 100;
+      route fc00::40:1/112 next-hop fc00::1:254;
+      route fc00::50:1/112 next-hop fc00::2:2;
     }
   }
 }
@@ -1627,6 +1633,8 @@ group test {
     def test_untagged(self):
         self.wait_bgp_up(self.exabgp_log)
         self.wait_exabgp_sent_updates(self.exabgp_log)
+        self.verify_invalid_bgp_route('fc00::40:1/112 cannot be us')
+        self.verify_invalid_bgp_route('fc00::50:1/112 is not a connected network')
         self.verify_ipv6_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
