@@ -378,14 +378,16 @@ class ValveIPv4RouteManager(ValveRouteManager):
         ofmsgs = []
         max_prefixlen = controller_ip_host.prefixlen
         priority = self.route_priority + max_prefixlen
-        ofmsgs.append(self.valve_flowcontroller(
+        ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
             self.valve_in_match(
                 self.eth_src_table,
                 eth_type=ether.ETH_TYPE_ARP,
                 nw_dst=controller_ip_host,
                 vlan=vlan),
-            priority=priority))
+            priority=priority,
+            inst=[valve_of.apply_actions([valve_of.output_controller()]),
+                  valve_of.goto_table(self.eth_dst_table)]))
         # Initialize IPv4 FIB
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
@@ -413,9 +415,9 @@ class ValveIPv4RouteManager(ValveRouteManager):
         opcode = arp_pkt.opcode
         src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
         dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
-
         if (opcode == arp.ARP_REQUEST and
-                vlan.ips_in_controller_subnet((src_ip, dst_ip))):
+                vlan.ip_in_controller_subnet(src_ip) and
+                vlan.is_controller_ip(dst_ip)):
             vid = self._vlan_vid(vlan, in_port)
             arp_reply = valve_packet.arp_reply(
                 self.faucet_mac, eth_src, vid, dst_ip, src_ip)
@@ -425,7 +427,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 'Responded to ARP request for %s from %s', src_ip, dst_ip)
         elif (opcode == arp.ARP_REPLY and
               eth_dst == self.faucet_mac and
-              vlan.ips_in_controller_subnet((src_ip, dst_ip))):
+              vlan.ip_in_controller_subnet(src_ip) and
+              vlan.is_controller_ip(dst_ip)):
             self.logger.info('ARP response %s for %s', eth_src, src_ip)
             ofmsgs.extend(self._update_nexthop(vlan, in_port, eth_src, src_ip))
         return ofmsgs
@@ -489,7 +492,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs = []
         max_prefixlen = controller_ip_host.prefixlen
         priority = self.route_priority + max_prefixlen
-        ofmsgs.append(self.valve_flowcontroller(
+        ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
             self.valve_in_match(
                 self.eth_src_table,
@@ -498,8 +501,10 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 nw_proto=inet.IPPROTO_ICMPV6,
                 ipv6_nd_target=controller_ip_host,
                 icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
-            priority=priority))
-        ofmsgs.append(self.valve_flowcontroller(
+            priority=priority,
+            inst=[valve_of.apply_actions([valve_of.output_controller()]),
+                  valve_of.goto_table(self.eth_dst_table)]))
+        ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
             self.valve_in_match(
                 self.eth_src_table,
@@ -508,7 +513,9 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 vlan=vlan,
                 nw_proto=inet.IPPROTO_ICMPV6,
                 icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
-            priority=priority))
+            priority=priority,
+            inst=[valve_of.apply_actions([valve_of.output_controller()]),
+                  valve_of.goto_table(self.eth_dst_table)]))
         # Initialize IPv6 FIB
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
@@ -546,12 +553,14 @@ class ValveIPv6RouteManager(ValveRouteManager):
             ofmsgs.append(valve_of.packetout(in_port, nd_reply.data))
             ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
         elif (icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT and
-              vlan.ip_in_controller_subnet(src_ip)):
+              vlan.ip_in_controller_subnet(src_ip) and
+              vlan.is_controller_ip(dst_ip)):
             resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
             self.logger.info('ND response %s for %s', eth_src, resolved_ip_gw)
             ofmsgs.extend(self._update_nexthop(
                 vlan, in_port, eth_src, resolved_ip_gw))
-        elif icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST:
+        elif (icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST and
+                vlan.is_controller_ip(dst_ip)):
             icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
                 self.faucet_mac, eth_src, vid,
                 dst_ip, src_ip, ipv6_pkt.hop_limit,
