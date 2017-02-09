@@ -174,6 +174,7 @@ class FaucetTestBase(unittest.TestCase):
     CONTROLLER_IPV6_2 = ipaddr.IPv6Network('fc01::1:254/64')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     BOGUS_MAC = '01:02:03:04:05:06'
+    FAUCET_MAC = '0e:00:00:00:00:01'
     LADVD = 'timeout 30s ladvd -e lo -f'
 
     CONFIG = ''
@@ -459,6 +460,8 @@ dbs:
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
         self.one_ipv4_ping(host, self.CONTROLLER_IPV4.ip)
+        self.verify_ipv4_host_learned_mac(
+                host, self.CONTROLLER_IPV4.ip, self.FAUCET_MAC)
 
     def one_ipv6_ping(self, host, dst, retries=3):
         """Ping an IPv6 destination from a host."""
@@ -473,6 +476,8 @@ dbs:
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
         self.one_ipv6_ping(host, self.CONTROLLER_IPV6.ip)
+        self.verify_ipv6_host_learned_mac(
+                host, self.CONTROLLER_IPV6.ip, self.FAUCET_MAC)
 
     def wait_for_tcp_listen(self, host, port, timeout=10):
         """Wait for a host to start listening on a port."""
@@ -610,6 +615,26 @@ dbs:
         host.cmd(del_cmd)
         self.assertEquals('', host.cmd(add_cmd))
 
+    def verify_ipv4_host_learned_mac(self, host, ip, mac):
+        learned_mac = host.cmd(
+                "arp -n %s | grep %s | awk '{ print $3 }'" % (ip, ip))
+        self.assertEqual(learned_mac.strip(), mac,
+                        msg='MAC learned on host mismatch')
+
+    def verify_ipv4_host_learned_host(self, host, learned_host):
+        learned_ip = ipaddr.IPNetwork(self.host_ipv4(learned_host))
+        self.verify_ipv4_host_learned_mac(host, learned_ip.ip, learned_host.MAC())
+
+    def verify_ipv6_host_learned_mac(self, host, ip6, mac):
+        learned_mac = host.cmd(
+                "ip -6 neighbor show %s | awk '{ print $5 }'" % ip6)
+        self.assertEqual(learned_mac.strip(), mac,
+                        msg='MAC learned on host mismatch')
+
+    def verify_ipv6_host_learned_host(self, host, learned_host):
+        learned_ip6 = ipaddr.IPNetwork(self.host_ipv6(learned_host))
+        self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
+
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip,
                             with_group_table=False):
@@ -629,6 +654,8 @@ dbs:
             with_group_table=with_group_table)
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
+        self.verify_ipv4_host_learned_host(first_host, second_host)
+        self.verify_ipv4_host_learned_host(second_host, first_host)
 
     def verify_ipv4_routing_mesh(self, with_group_table=False):
         """Verify hosts can route to each other via FAUCET."""
@@ -689,6 +716,10 @@ dbs:
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
+        self.verify_ipv6_host_learned_mac(
+                first_host, second_host_ip.ip, second_host.MAC())
+        self.verify_ipv6_host_learned_mac(
+                second_host, first_host_ip.ip, first_host.MAC())
 
     def verify_ipv6_routing_pair(self, first_host, first_host_ip,
                                  first_host_routed_ip, second_host,
