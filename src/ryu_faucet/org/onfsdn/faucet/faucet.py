@@ -223,7 +223,7 @@ class Faucet(app_manager.RyuApp):
         flowmods = []
         valve = self.valves[vlan.dp_id]
         ryudp = self.dpset.get(valve.dp.dp_id)
-        if vlan.is_controller_ip(nexthop):
+        if vlan.is_faucet_vip(nexthop):
             self.logger.error(
                 'BGP nexthop %s for prefix %s cannot be us',
                 nexthop, prefix)
@@ -260,10 +260,10 @@ class Faucet(app_manager.RyuApp):
             router_id=vlan.bgp_routerid,
             bgp_server_port=vlan.bgp_port,
             best_path_change_handler=handler)
-        for controller_ip in vlan.controller_ips:
-            prefix = ipaddr.IPNetwork(controller_ip.exploded)
+        for faucet_vip in vlan.faucet_vips:
+            prefix = ipaddr.IPNetwork(faucet_vip.exploded)
             bgp_speaker.prefix_add(
-                prefix=str(prefix), next_hop=str(controller_ip.ip))
+                prefix=str(prefix), next_hop=str(faucet_vip.ip))
         for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
             for ip_dst, ip_gw in route_table.iteritems():
                 bgp_speaker.prefix_add(

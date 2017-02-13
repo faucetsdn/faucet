@@ -22,7 +22,7 @@ class VLAN(Conf):
     tagged = None
     untagged = None
     vid = None
-    controller_ips = None
+    faucet_vips = None
     bgp_as = None
     bgp_local_address = None
     bgp_port = None
@@ -47,7 +47,7 @@ class VLAN(Conf):
         'name': None,
         'description': None,
         'acl_in': None,
-        'controller_ips': None,
+        'faucet_vips': None,
         'unicast_flood': True,
         'bgp_as': 0,
         'bgp_local_address': None,
@@ -78,9 +78,9 @@ class VLAN(Conf):
         self.dyn_nd_cache = {}
         self.dyn_host_cache = {}
 
-        if self.controller_ips:
-            self.controller_ips = [
-                ipaddr.IPNetwork(ip) for ip in self.controller_ips]
+        if self.faucet_vips:
+            self.faucet_vips = [
+                ipaddr.IPNetwork(ip) for ip in self.faucet_vips]
 
         if self.bgp_as:
             assert self.bgp_port
@@ -145,7 +145,7 @@ class VLAN(Conf):
             self._set_default(key, value)
         self._set_default('vid', self._id)
         self._set_default('name', str(self._id))
-        self._set_default('controller_ips', [])
+        self._set_default('faucet_vips', [])
         self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
         self._set_default(
             'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
@@ -193,15 +193,15 @@ class VLAN(Conf):
                 return True
         return False
 
-    def is_controller_ip(self, ip):
-        for controller_ip in self.controller_ips:
-            if ip == controller_ip.ip:
+    def is_faucet_vip(self, ip):
+        for faucet_vip in self.faucet_vips:
+            if ip == faucet_vip.ip:
                 return True
         return False
 
     def ip_in_controller_subnet(self, ip):
-        for controller_ip in self.controller_ips:
-            if ip in controller_ip:
+        for faucet_vip in self.faucet_vips:
+            if ip in faucet_vip:
                 return True
         return False
 

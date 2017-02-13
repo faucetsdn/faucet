@@ -415,7 +415,7 @@ class Valve(object):
         # add acl rules
         ofmsgs.extend(self._add_vlan_acl(vlan.vid))
         # add controller IPs if configured.
-        ofmsgs.extend(self._add_controller_ips(vlan.controller_ips, vlan))
+        ofmsgs.extend(self._add_faucet_vips(vlan.faucet_vips, vlan))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -951,17 +951,17 @@ class Valve(object):
         else:
             return []
 
-    def _add_controller_ips(self, controller_ips, vlan):
+    def _add_faucet_vips(self, faucet_vips, vlan):
         ofmsgs = []
-        for controller_ip in controller_ips:
+        for faucet_vip in faucet_vips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
-            controller_ip_host = ipaddr.IPNetwork(controller_ip.exploded)
-            if controller_ip_host.version == 6:
-                ofmsgs.extend(self.ipv6_route_manager.add_controller_ip(
-                    vlan, controller_ip, controller_ip_host))
-            elif controller_ip_host.version == 4:
-                ofmsgs.extend(self.ipv4_route_manager.add_controller_ip(
-                    vlan, controller_ip, controller_ip_host))
+            faucet_vip_host = ipaddr.IPNetwork(faucet_vip.exploded)
+            if faucet_vip_host.version == 6:
+                ofmsgs.extend(self.ipv6_route_manager.add_faucet_vip(
+                    vlan, faucet_vip, faucet_vip_host))
+            elif faucet_vip_host.version == 4:
+                ofmsgs.extend(self.ipv4_route_manager.add_faucet_vip(
+                    vlan, faucet_vip, faucet_vip_host))
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):

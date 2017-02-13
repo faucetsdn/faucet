@@ -168,10 +168,10 @@ class FaucetTestBase(unittest.TestCase):
     """Base class for all FAUCET unit tests."""
 
     ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
-    CONTROLLER_IPV4 = ipaddr.IPv4Network('10.0.0.254/24')
-    CONTROLLER_IPV4_2 = ipaddr.IPv4Network('172.16.0.254/24')
-    CONTROLLER_IPV6 = ipaddr.IPv6Network('fc00::1:254/64')
-    CONTROLLER_IPV6_2 = ipaddr.IPv6Network('fc01::1:254/64')
+    FAUCET_VIPV4 = ipaddr.IPv4Network('10.0.0.254/24')
+    FAUCET_VIPV4_2 = ipaddr.IPv4Network('172.16.0.254/24')
+    FAUCET_VIPV6 = ipaddr.IPv6Network('fc00::1:254/64')
+    FAUCET_VIPV6_2 = ipaddr.IPv6Network('fc01::1:254/64')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     BOGUS_MAC = '01:02:03:04:05:06'
     FAUCET_MAC = '0e:00:00:00:00:01'
@@ -459,9 +459,9 @@ dbs:
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
-        self.one_ipv4_ping(host, self.CONTROLLER_IPV4.ip)
+        self.one_ipv4_ping(host, self.FAUCET_VIPV4.ip)
         self.verify_ipv4_host_learned_mac(
-                host, self.CONTROLLER_IPV4.ip, self.FAUCET_MAC)
+                host, self.FAUCET_VIPV4.ip, self.FAUCET_MAC)
 
     def one_ipv6_ping(self, host, dst, retries=3):
         """Ping an IPv6 destination from a host."""
@@ -475,9 +475,9 @@ dbs:
 
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
-        self.one_ipv6_ping(host, self.CONTROLLER_IPV6.ip)
+        self.one_ipv6_ping(host, self.FAUCET_VIPV6.ip)
         self.verify_ipv6_host_learned_mac(
-                host, self.CONTROLLER_IPV6.ip, self.FAUCET_MAC)
+                host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
     def wait_for_tcp_listen(self, host, port, timeout=10):
         """Wait for a host to start listening on a port."""
@@ -642,9 +642,9 @@ dbs:
         self.host_ipv4_alias(first_host, first_host_routed_ip)
         self.host_ipv4_alias(second_host, second_host_routed_ip)
         self.add_host_ipv4_route(
-            first_host, second_host_routed_ip, self.CONTROLLER_IPV4.ip)
+            first_host, second_host_routed_ip, self.FAUCET_VIPV4.ip)
         self.add_host_ipv4_route(
-            second_host, first_host_routed_ip, self.CONTROLLER_IPV4.ip)
+            second_host, first_host_routed_ip, self.FAUCET_VIPV4.ip)
         self.net.ping(hosts=(first_host, second_host))
         self.wait_for_route_as_flow(
             first_host.MAC(), first_host_routed_ip,
@@ -703,9 +703,9 @@ dbs:
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
         self.add_host_ipv6_route(
-            first_host, second_host_routed_ip, self.CONTROLLER_IPV6.ip)
+            first_host, second_host_routed_ip, self.FAUCET_VIPV6.ip)
         self.add_host_ipv6_route(
-            second_host, first_host_routed_ip, self.CONTROLLER_IPV6.ip)
+            second_host, first_host_routed_ip, self.FAUCET_VIPV6.ip)
         self.wait_for_route_as_flow(
             first_host.MAC(), first_host_routed_ip,
             with_group_table=with_group_table)

@@ -182,7 +182,7 @@ class DistConfigTestCase(unittest.TestCase):
             vlan = dp.vlans[41]
             self.assertIn(
                 ipaddr.IPNetwork('10.0.0.253/24'),
-                vlan.controller_ips
+                vlan.faucet_vips
                 )
             self.assertEquals(vlan.bgp_port, 9179)
             self.assertEquals(vlan.bgp_as, 1)
