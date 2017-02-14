@@ -23,7 +23,7 @@ digraph {
   id -> unicast_flood;
   id -> max_hosts;
   // routing related
-  id -> controller_ips;
+  id -> faucet_vips;
   id -> bgp_port;
   id -> bgp_as;
   id -> bgp_routerid;
@@ -34,7 +34,7 @@ digraph {
   route -> ip_dst;
   route -> ip_gw;
 
-  subgraph "cluster_routing_related" { label = "Routing related"; style = dashed; fontsize=12; controller_ips; bgp_port; bgp_as; bgp_routerid; bgp_neighbor_addresses; bgp_neighbor_as; routes; route; ip_dst; ip_gw; }
+  subgraph "cluster_routing_related" { label = "Routing related"; style = dashed; fontsize=12; faucet_vips; bgp_port; bgp_as; bgp_routerid; bgp_neighbor_addresses; bgp_neighbor_as; routes; route; ip_dst; ip_gw; }
 
   /**  ACLs **/
   ACLS [shape = box; style = bold];

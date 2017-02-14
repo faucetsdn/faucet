@@ -59,7 +59,7 @@ class TestFaucetAPI(app_manager.RyuApp):
 
             v41 = config['vlans']['v41']
             assert v41['acl_in'] == 'acl1'
-            assert ipaddr.IPNetwork('10.0.0.253/24') in v41['controller_ips']
+            assert ipaddr.IPNetwork('10.0.0.253/24') in v41['faucet_vips']
             assert v41['bgp_port'] == 9179
             assert v41['bgp_as'] == 1
             assert v41['bgp_routerid'] == '1.1.1.1'

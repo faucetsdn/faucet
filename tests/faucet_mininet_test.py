@@ -688,7 +688,7 @@ class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["10.0.0.254/24"]
+        faucet_vips: ["10.0.0.254/24"]
         bgp_port: 9179
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
@@ -765,7 +765,7 @@ class FaucetSingleUntaggedIPv4RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["10.0.0.254/24"]
+        faucet_vips: ["10.0.0.254/24"]
         bgp_port: 9179
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
@@ -1051,7 +1051,7 @@ class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["10.0.0.254/24", "fc00::1:254/112"]
+        faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -1409,7 +1409,7 @@ class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
 vlans:
     100:
         description: "tagged"
-        controller_ips: ["10.0.0.254/24", "fc00::1:254/112"]
+        faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -1447,7 +1447,7 @@ class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
 vlans:
     100:
         description: "tagged"
-        controller_ips: ["10.0.0.254/24"]
+        faucet_vips: ["10.0.0.254/24"]
         routes:
             - route:
                 ip_dst: "10.0.1.0/24"
@@ -1497,7 +1497,7 @@ class FaucetUntaggedMixedIPv4RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["172.16.0.254/24", "10.0.0.254/24"]
+        faucet_vips: ["172.16.0.254/24", "10.0.0.254/24"]
 """
 
     CONFIG = """
@@ -1523,12 +1523,12 @@ vlans:
         first_host_net = ipaddr.IPv4Network('10.0.0.1/24')
         second_host_net = ipaddr.IPv4Network('172.16.0.1/24')
         second_host.setIP(str(second_host_net.ip))
-        self.one_ipv4_ping(first_host, self.CONTROLLER_IPV4.ip)
-        self.one_ipv4_ping(second_host, self.CONTROLLER_IPV4_2.ip)
+        self.one_ipv4_ping(first_host, self.FAUCET_VIPV4.ip)
+        self.one_ipv4_ping(second_host, self.FAUCET_VIPV4_2.ip)
         self.add_host_ipv4_route(
-            first_host, second_host_net.masked(), self.CONTROLLER_IPV4.ip)
+            first_host, second_host_net.masked(), self.FAUCET_VIPV4.ip)
         self.add_host_ipv4_route(
-            second_host, first_host_net.masked(), self.CONTROLLER_IPV4_2.ip)
+            second_host, first_host_net.masked(), self.FAUCET_VIPV4_2.ip)
         self.one_ipv4_ping(first_host, second_host_net.ip)
         self.one_ipv4_ping(second_host, first_host_net.ip)
 
@@ -1539,7 +1539,7 @@ class FaucetUntaggedMixedIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["fc00::1:254/64", "fc01::1:254/64"]
+        faucet_vips: ["fc00::1:254/64", "fc01::1:254/64"]
 """
 
     CONFIG = """
@@ -1565,13 +1565,13 @@ vlans:
         first_host_net = ipaddr.IPv6Network('fc00::1:1/64')
         second_host_net = ipaddr.IPv6Network('fc01::1:1/64')
         self.add_host_ipv6_address(first_host, first_host_net)
-        self.one_ipv6_ping(first_host, self.CONTROLLER_IPV6.ip)
+        self.one_ipv6_ping(first_host, self.FAUCET_VIPV6.ip)
         self.add_host_ipv6_address(second_host, second_host_net)
-        self.one_ipv6_ping(second_host, self.CONTROLLER_IPV6_2.ip)
+        self.one_ipv6_ping(second_host, self.FAUCET_VIPV6_2.ip)
         self.add_host_ipv6_route(
-            first_host, second_host_net.masked(), self.CONTROLLER_IPV6.ip)
+            first_host, second_host_net.masked(), self.FAUCET_VIPV6.ip)
         self.add_host_ipv6_route(
-            second_host, first_host_net.masked(), self.CONTROLLER_IPV6_2.ip)
+            second_host, first_host_net.masked(), self.FAUCET_VIPV6_2.ip)
         self.one_ipv6_ping(first_host, second_host_net.ip)
         self.one_ipv6_ping(second_host, first_host_net.ip)
 
@@ -1582,7 +1582,7 @@ class FaucetSingleUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
         bgp_port: 9179
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
@@ -1647,7 +1647,7 @@ class FaucetUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["fc00::10:1/112", "fc00::20:1/112"]
+        faucet_vips: ["fc00::10:1/112", "fc00::20:1/112"]
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"
@@ -1702,7 +1702,7 @@ class FaucetSingleUntaggedIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
         bgp_port: 9179
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
@@ -1782,7 +1782,7 @@ class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
 vlans:
     100:
         description: "tagged"
-        controller_ips: ["fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"
@@ -2277,7 +2277,7 @@ class FaucetSingleUntaggedIPv4RouteGroupTableTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["10.0.0.254/24"]
+        faucet_vips: ["10.0.0.254/24"]
         routes:
             - route:
                 ip_dst: "10.0.1.0/24"
@@ -2328,7 +2328,7 @@ class FaucetSingleUntaggedIPv6RouteGroupTableTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        controller_ips: ["fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"
