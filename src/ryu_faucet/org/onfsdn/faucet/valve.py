@@ -22,8 +22,6 @@ import os
 
 from collections import namedtuple
 
-import ipaddr
-
 import aruba.aruba_pipeline as aruba
 import valve_acl
 import valve_flood
@@ -955,13 +953,12 @@ class Valve(object):
         ofmsgs = []
         for faucet_vip in faucet_vips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
-            faucet_vip_host = ipaddr.IPNetwork(faucet_vip.exploded)
-            if faucet_vip_host.version == 6:
+            if faucet_vip.version == 6:
                 ofmsgs.extend(self.ipv6_route_manager.add_faucet_vip(
-                    vlan, faucet_vip, faucet_vip_host))
-            elif faucet_vip_host.version == 4:
+                    vlan, faucet_vip))
+            elif faucet_vip.version == 4:
                 ofmsgs.extend(self.ipv4_route_manager.add_faucet_vip(
-                    vlan, faucet_vip, faucet_vip_host))
+                    vlan, faucet_vip))
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
