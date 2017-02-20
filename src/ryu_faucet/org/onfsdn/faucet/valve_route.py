@@ -311,6 +311,16 @@ class ValveRouteManager(object):
         host_route = ipaddr.IPNetwork(host_ip.exploded)
         return self.add_route(vlan, host_ip, host_route)
 
+    def _ip_pkt(self, pkt):
+        """Return an IP packet from an Ethernet packet.
+
+        Args:
+            pkt: ryu.lib.packet from host.
+        Returns:
+            IP ryu.lib.packet parsed from pkt.
+        """
+        pass
+
     def add_host_fib_route_from_pkt(self, vlan, pkt):
         """Add a host FIB route given packet from host.
 
@@ -320,7 +330,13 @@ class ValveRouteManager(object):
         Returns:
             list: OpenFlow messages.
         """
-        pass
+        ip_pkt = self._ip_pkt(pkt)
+        ofmsgs = []
+        if ip_pkt:
+            src_ip = ipaddr.IPAddress(ip_pkt.src)
+            if src_ip and vlan.ip_in_vip_subnet(src_ip):
+                ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
+        return ofmsgs
 
     def del_route(self, vlan, ip_dst):
         """Delete a route from the RIB.
@@ -364,15 +380,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
         return valve_packet.arp_request(
             self.faucet_mac, vid, faucet_vip.ip, ip_gw)
 
-    def add_host_fib_route_from_pkt(self, vlan, pkt):
-        ipv4_pkt = pkt.get_protocol(ipv4.ipv4)
-        ofmsgs = []
-        if not ipv4_pkt:
-            return ofmsgs
-        src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
-        if src_ip and vlan.ip_in_vip_subnet(src_ip):
-            ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
-        return ofmsgs
+    def _ip_pkt(self, pkt):
+        return pkt.get_protocol(ipv4.ipv4)
 
     def add_faucet_vip(self, vlan, faucet_vip):
         ofmsgs = []
@@ -415,11 +424,11 @@ class ValveIPv4RouteManager(ValveRouteManager):
     def control_plane_arp_handler(self, in_port, vlan, eth_src, eth_dst, arp_pkt):
         src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
         dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
+        vid = self._vlan_vid(vlan, in_port)
         opcode = arp_pkt.opcode
         ofmsgs = []
         if vlan.from_connected_to_vip(src_ip, dst_ip):
             if opcode == arp.ARP_REQUEST:
-                vid = self._vlan_vid(vlan, in_port)
                 arp_reply = valve_packet.arp_reply(
                     self.faucet_mac, eth_src, vid, dst_ip, src_ip)
                 ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
@@ -440,12 +449,12 @@ class ValveIPv4RouteManager(ValveRouteManager):
                                    ipv4_pkt, icmp_pkt):
         src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
         dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
+        vid = self._vlan_vid(vlan, in_port)
         icmpv4_type = icmp_pkt.type
         ofmsgs = []
         if vlan.from_connected_to_vip(src_ip, dst_ip):
             if (icmpv4_type == icmp.ICMP_ECHO_REQUEST and
-                eth_dst == self.faucet_mac):
-                vid = self._vlan_vid(vlan, in_port)
+                    eth_dst == self.faucet_mac):
                 echo_reply = valve_packet.echo_reply(
                     self.faucet_mac, eth_src, vid, dst_ip, src_ip,
                     icmp_pkt.data)
@@ -485,15 +494,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
         return valve_packet.nd_request(
             self.faucet_mac, vid, faucet_vip.ip, ip_gw)
 
-    def add_host_fib_route_from_pkt(self, vlan, pkt):
-        ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
-        ofmsgs = []
-        if not ipv6_pkt:
-            return ofmsgs
-        src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
-        if src_ip and vlan.ip_in_vip_subnet(src_ip):
-            ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
-        return ofmsgs
+    def _ip_pkt(self, pkt):
+        return pkt.get_protocol(ipv6.ipv6)
 
     def add_faucet_vip(self, vlan, faucet_vip):
         ofmsgs = []
@@ -549,9 +551,9 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def control_plane_icmpv6_handler(self, in_port, vlan, eth_src,
                                      ipv6_pkt, icmpv6_pkt):
-        vid = self._vlan_vid(vlan, in_port)
         src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
         dst_ip = ipaddr.IPv6Address(ipv6_pkt.dst)
+        vid = self._vlan_vid(vlan, in_port)
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
         if (icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT and
