@@ -413,10 +413,10 @@ class ValveIPv4RouteManager(ValveRouteManager):
         return ofmsgs
 
     def control_plane_arp_handler(self, in_port, vlan, eth_src, eth_dst, arp_pkt):
-        ofmsgs = []
-        opcode = arp_pkt.opcode
         src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
         dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
+        opcode = arp_pkt.opcode
+        ofmsgs = []
         if vlan.from_connected_to_vip(src_ip, dst_ip):
             if opcode == arp.ARP_REQUEST:
                 vid = self._vlan_vid(vlan, in_port)
@@ -436,18 +436,21 @@ class ValveIPv4RouteManager(ValveRouteManager):
         return ofmsgs
 
     def control_plane_icmp_handler(self, in_port, vlan,
-                                   eth_src,
+                                   eth_src, eth_dst,
                                    ipv4_pkt, icmp_pkt):
-        ofmsgs = []
         src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
         dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
+        icmpv4_type = icmp_pkt.type
+        ofmsgs = []
         if vlan.from_connected_to_vip(src_ip, dst_ip):
-            vid = self._vlan_vid(vlan, in_port)
-            echo_reply = valve_packet.echo_reply(
-                self.faucet_mac, eth_src, vid, dst_ip, src_ip,
-                icmp_pkt.data)
-            ofmsgs.append(
-                valve_of.packetout(in_port, echo_reply.data))
+            if (icmpv4_type == icmp.ICMP_ECHO_REQUEST and
+                eth_dst == self.faucet_mac):
+                vid = self._vlan_vid(vlan, in_port)
+                echo_reply = valve_packet.echo_reply(
+                    self.faucet_mac, eth_src, vid, dst_ip, src_ip,
+                    icmp_pkt.data)
+                ofmsgs.append(
+                    valve_of.packetout(in_port, echo_reply.data))
         return ofmsgs
 
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
@@ -461,7 +464,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             icmp_pkt = pkt.get_protocol(icmp.icmp)
             if icmp_pkt is not None:
                 return self.control_plane_icmp_handler(
-                    in_port, vlan, eth_src, ipv4_pkt, icmp_pkt)
+                    in_port, vlan, eth_src, eth_dst, ipv4_pkt, icmp_pkt)
 
         return []
 
