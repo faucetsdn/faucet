@@ -370,7 +370,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
         if not ipv4_pkt:
             return ofmsgs
         src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
-        if src_ip and vlan.ip_in_controller_subnet(src_ip):
+        if src_ip and vlan.ip_in_vip_subnet(src_ip):
             ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
         return ofmsgs
 
@@ -418,7 +418,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
         src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
         dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
         if (opcode == arp.ARP_REQUEST and
-                vlan.ip_in_controller_subnet(src_ip) and
+                vlan.ip_in_vip_subnet(src_ip) and
                 vlan.is_faucet_vip(dst_ip)):
             vid = self._vlan_vid(vlan, in_port)
             arp_reply = valve_packet.arp_reply(
@@ -429,7 +429,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 'Responded to ARP request for %s from %s', src_ip, dst_ip)
         elif (opcode == arp.ARP_REPLY and
               eth_dst == self.faucet_mac and
-              vlan.ip_in_controller_subnet(src_ip) and
+              vlan.ip_in_vip_subnet(src_ip) and
               vlan.is_faucet_vip(dst_ip)):
             self.logger.info('ARP response %s for %s', eth_src, src_ip)
             ofmsgs.extend(self._update_nexthop(vlan, in_port, eth_src, src_ip))
@@ -441,7 +441,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
         src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
         dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
         if (icmp_pkt is not None and
-                vlan.ips_in_controller_subnet((src_ip, dst_ip))):
+                vlan.ips_in_vip_subnet((src_ip, dst_ip))):
             vid = self._vlan_vid(vlan, in_port)
             echo_reply = valve_packet.echo_reply(
                 self.faucet_mac, eth_src, vid, dst_ip, src_ip, icmp_pkt.data)
@@ -486,7 +486,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         if not ipv6_pkt:
             return ofmsgs
         src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
-        if src_ip and vlan.ip_in_controller_subnet(src_ip):
+        if src_ip and vlan.ip_in_vip_subnet(src_ip):
             ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
         return ofmsgs
 
@@ -550,14 +550,14 @@ class ValveIPv6RouteManager(ValveRouteManager):
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
         if (icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT and
-                vlan.ip_in_controller_subnet(src_ip)):
+                vlan.ip_in_vip_subnet(src_ip)):
             nd_reply = valve_packet.nd_reply(
                 self.faucet_mac, eth_src, vid,
                 icmpv6_pkt.data.dst, src_ip, ipv6_pkt.hop_limit)
             ofmsgs.append(valve_of.packetout(in_port, nd_reply.data))
             ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
         elif (icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT and
-              vlan.ip_in_controller_subnet(src_ip) and
+              vlan.ip_in_vip_subnet(src_ip) and
               vlan.is_faucet_vip(dst_ip)):
             resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
             self.logger.info('ND response %s for %s', eth_src, resolved_ip_gw)

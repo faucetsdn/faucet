@@ -199,15 +199,15 @@ class VLAN(Conf):
                 return True
         return False
 
-    def ip_in_controller_subnet(self, ip):
+    def ip_in_vip_subnet(self, ip):
         for faucet_vip in self.faucet_vips:
             if ip in faucet_vip:
                 return True
         return False
 
-    def ips_in_controller_subnet(self, ips):
+    def ips_in_vip_subnet(self, ips):
         for ip in ips:
-            if not self.ip_in_controller_subnet(ip):
+            if not self.ip_in_vip_subnet(ip):
                 return False
         return True
 
