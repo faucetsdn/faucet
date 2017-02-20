@@ -417,35 +417,37 @@ class ValveIPv4RouteManager(ValveRouteManager):
         opcode = arp_pkt.opcode
         src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
         dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
-        if (opcode == arp.ARP_REQUEST and
-                vlan.ip_in_vip_subnet(src_ip) and
-                vlan.is_faucet_vip(dst_ip)):
-            vid = self._vlan_vid(vlan, in_port)
-            arp_reply = valve_packet.arp_reply(
-                self.faucet_mac, eth_src, vid, dst_ip, src_ip)
-            ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
-            ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
-            self.logger.info(
-                'Responded to ARP request for %s from %s', src_ip, dst_ip)
-        elif (opcode == arp.ARP_REPLY and
-              eth_dst == self.faucet_mac and
-              vlan.ip_in_vip_subnet(src_ip) and
-              vlan.is_faucet_vip(dst_ip)):
-            self.logger.info('ARP response %s for %s', eth_src, src_ip)
-            ofmsgs.extend(self._update_nexthop(vlan, in_port, eth_src, src_ip))
+        if vlan.from_connected_to_vip(src_ip, dst_ip):
+            if opcode == arp.ARP_REQUEST:
+                vid = self._vlan_vid(vlan, in_port)
+                arp_reply = valve_packet.arp_reply(
+                    self.faucet_mac, eth_src, vid, dst_ip, src_ip)
+                ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
+                ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
+                self.logger.info(
+                    'Responded to ARP request for %s from %s (%s)',
+                    dst_ip, src_ip, eth_src)
+            elif (opcode == arp.ARP_REPLY and
+                  eth_dst == self.faucet_mac):
+                ofmsgs.extend(
+                    self._update_nexthop(vlan, in_port, eth_src, src_ip))
+                self.logger.info(
+                    'ARP response %s (%s)', src_ip, eth_src)
         return ofmsgs
 
-    def control_plane_icmp_handler(self, in_port, vlan, eth_src,
+    def control_plane_icmp_handler(self, in_port, vlan,
+                                   eth_src,
                                    ipv4_pkt, icmp_pkt):
         ofmsgs = []
         src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
         dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
-        if (icmp_pkt is not None and
-                vlan.ips_in_vip_subnet((src_ip, dst_ip))):
+        if vlan.from_connected_to_vip(src_ip, dst_ip):
             vid = self._vlan_vid(vlan, in_port)
             echo_reply = valve_packet.echo_reply(
-                self.faucet_mac, eth_src, vid, dst_ip, src_ip, icmp_pkt.data)
-            ofmsgs.append(valve_of.packetout(in_port, echo_reply.data))
+                self.faucet_mac, eth_src, vid, dst_ip, src_ip,
+                icmp_pkt.data)
+            ofmsgs.append(
+                valve_of.packetout(in_port, echo_reply.data))
         return ofmsgs
 
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
