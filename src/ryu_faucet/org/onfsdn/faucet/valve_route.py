@@ -130,7 +130,7 @@ class ValveRouteManager(object):
                     group_id=self.ip_gw_to_group_id[ip_gw])])]
             else:
                 inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst)),
-                    valve_of.goto_table(self.eth_dst_table)]
+                        valve_of.goto_table(self.eth_dst_table)]
             ofmsgs.append(self.valve_flowmod(
                 self.fib_table,
                 in_match,
@@ -511,7 +511,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def add_faucet_vip(self, vlan, faucet_vip):
         ofmsgs = []
-        faucet_vip_net = ipaddr.IPNetwork(faucet_vip.exploded)
         faucet_vip_host = ipaddr.IPNetwork(faucet_vip.ip)
         max_prefixlen = faucet_vip_host.prefixlen
         priority = self.route_priority + max_prefixlen
