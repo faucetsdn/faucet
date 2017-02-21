@@ -696,10 +696,7 @@ class Valve(object):
             not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for handler in (self.ipv4_route_manager.control_plane_handler,
                             self.ipv6_route_manager.control_plane_handler):
-                ofmsgs = handler(
-                    pkt_meta.port.number, pkt_meta.vlan,
-                    pkt_meta.eth_src, pkt_meta.eth_dst,
-                    pkt_meta.pkt)
+                ofmsgs = handler(pkt_meta)
                 if ofmsgs:
                     return ofmsgs
         return []

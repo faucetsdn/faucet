@@ -360,7 +360,7 @@ class ValveRouteManager(object):
                 self.fib_table, route_match))
         return ofmsgs
 
-    def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
+    def control_plane_handler(self, pkt_meta):
         pass
 
 
@@ -463,7 +463,12 @@ class ValveIPv4RouteManager(ValveRouteManager):
                     valve_of.packetout(in_port, echo_reply.data))
         return ofmsgs
 
-    def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
+    def control_plane_handler(self, pkt_meta):
+        vlan = pkt_meta.vlan
+        in_port = pkt_meta.port.number
+        eth_src = pkt_meta.eth_src
+        eth_dst = pkt_meta.eth_dst
+        pkt = pkt_meta.pkt
         arp_pkt = pkt.get_protocol(arp.arp)
         if arp_pkt is not None:
             return self._control_plane_arp_handler(
@@ -587,7 +592,12 @@ class ValveIPv6RouteManager(ValveRouteManager):
                         valve_of.packetout(in_port, icmpv6_echo_reply.data))
         return ofmsgs
 
-    def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
+    def control_plane_handler(self, pkt_meta):
+        vlan = pkt_meta.vlan
+        in_port = pkt_meta.port.number
+        eth_src = pkt_meta.eth_src
+        eth_dst = pkt_meta.eth_dst
+        pkt = pkt_meta.pkt
         ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
         if ipv6_pkt is not None:
             icmpv6_pkt = pkt.get_protocol(icmpv6.icmpv6)
