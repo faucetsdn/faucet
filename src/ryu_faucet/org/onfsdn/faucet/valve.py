@@ -59,6 +59,18 @@ def valve_factory(dp):
         return None
 
 
+class PacketMeta(object):
+    """Original, and parsed Ethernet packet metadata."""
+
+    def __init__(self, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
+        self.pkt = pkt
+        self.eth_pkt = eth_pkt
+        self.port = port
+        self.vlan = vlan
+        self.eth_src = eth_src
+        self.eth_dst = eth_dst
+
+
 class Valve(object):
     """Generates the messages to configure a datapath as a l2 learning switch.
 
