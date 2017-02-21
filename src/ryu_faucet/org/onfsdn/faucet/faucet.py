@@ -228,7 +228,7 @@ class Faucet(app_manager.RyuApp):
                 'BGP nexthop %s for prefix %s cannot be us',
                 nexthop, prefix)
             return
-        if not vlan.ip_in_controller_subnet(nexthop):
+        if not vlan.ip_in_vip_subnet(nexthop):
             self.logger.error(
                 'BGP nexthop %s for prefix %s is not a connected network',
                 nexthop, prefix)

@@ -199,17 +199,30 @@ class VLAN(Conf):
                 return True
         return False
 
-    def ip_in_controller_subnet(self, ip):
+    def ip_in_vip_subnet(self, ip):
         for faucet_vip in self.faucet_vips:
             if ip in faucet_vip:
                 return True
         return False
 
-    def ips_in_controller_subnet(self, ips):
+    def ips_in_vip_subnet(self, ips):
         for ip in ips:
-            if not self.ip_in_controller_subnet(ip):
+            if not self.ip_in_vip_subnet(ip):
                 return False
         return True
+
+    def from_connected_to_vip(self, src_ip, dst_ip):
+        """Return True if src_ip in connected network and dst_ip is a VIP.
+
+        Args:
+            src_ip (ipaddr.IPAddress): source IP.
+            dst_ip (ipaddr.IPAddress): destination IP
+        Returns:
+            True if local traffic for a VIP.
+        """
+        if self.is_faucet_vip(dst_ip) and self.ip_in_vip_subnet(src_ip):
+            return True
+        return False
 
     def to_conf(self):
         return self._to_conf()
