@@ -682,24 +682,24 @@ class Valve(object):
 
         return ofmsgs
 
-    def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
+    def control_plane_handler(self, pkt_meta):
         """Handle a packet probably destined to FAUCET's route managers.
 
         For example, next hop resolution or ICMP echo requests.
 
         Args:
-            in_port (int): port the packet was received on.
-            vlan (vlan): vlan of the port the packet was received on.
-            eth_src (str): source Ethernet MAC address.
-            eth_dst (str): destination Ethernet MAC address.
-            pkt (ryu.lib.packet.ethernet): packet received.
+            pkt_meta (PacketMeta): packet for control plane.
         Returns:
             list: OpenFlow messages, if any.
         """
-        if eth_dst == self.FAUCET_MAC or not valve_packet.mac_addr_is_unicast(eth_dst):
+        if (pkt_meta.eth_dst == self.FAUCET_MAC or
+            not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for handler in (self.ipv4_route_manager.control_plane_handler,
                             self.ipv6_route_manager.control_plane_handler):
-                ofmsgs = handler(in_port, vlan, eth_src, eth_dst, pkt)
+                ofmsgs = handler(
+                    pkt_meta.port.number, pkt_meta.vlan,
+                    pkt_meta.eth_src, pkt_meta.eth_dst,
+                    pkt_meta.pkt)
                 if ofmsgs:
                     return ofmsgs
         return []
@@ -874,12 +874,7 @@ class Valve(object):
                 pkt_meta.port.number,
                 pkt_meta.vlan.vid)
 
-            ofmsgs.extend(self.control_plane_handler(
-                pkt_meta.port.number,
-                pkt_meta.vlan,
-                pkt_meta.eth_src,
-                pkt_meta.eth_dst,
-                pkt_meta.pkt))
+            ofmsgs.extend(self.control_plane_handler(pkt_meta))
 
         if self._rate_limit_packet_ins():
             return ofmsgs
