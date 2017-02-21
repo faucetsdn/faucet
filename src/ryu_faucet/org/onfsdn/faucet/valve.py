@@ -833,18 +833,17 @@ class Valve(object):
 
         pkt_meta = self._parse_rcv_packet(in_port, vlan_vid, pkt)
         ofmsgs = []
-        port = self.dp.ports[in_port]
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.debug(
                 'Packet_in %s src:%s in_port:%d vid:%s',
                 util.dpid_log(dp_id),
                 pkt_meta.eth_src,
-                in_port,
+                pkt_meta.port.number,
                 pkt_meta.vlan.vid)
 
             ofmsgs.extend(self.control_plane_handler(
-                in_port,
+                pkt_meta.port.number,
                 pkt_meta.vlan,
                 pkt_meta.eth_src,
                 pkt_meta.eth_dst,
@@ -857,7 +856,7 @@ class Valve(object):
             self._learn_host(
                 valves, dp_id,
                 pkt_meta.vlan,
-                port,
+                pkt_meta.port,
                 pkt_meta.pkt,
                 pkt_meta.eth_src))
         return ofmsgs
