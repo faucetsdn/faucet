@@ -558,15 +558,11 @@ class ValveIPv6RouteManager(ValveRouteManager):
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
         if vlan.ip_in_vip_subnet(src_ip):
-            if (icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST and
-                    eth_dst == self.faucet_mac):
-                icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
-                    self.faucet_mac, eth_src, vid,
-                    dst_ip, src_ip, ipv6_pkt.hop_limit,
-                    icmpv6_pkt.data.id, icmpv6_pkt.data.seq,
-                    icmpv6_pkt.data.data)
-                ofmsgs.append(
-                    valve_of.packetout(in_port, icmpv6_echo_reply.data))
+            if icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT:
+                ofmsgs.extend(self._update_nexthop(
+                    vlan, in_port, eth_src, src_ip))
+                self.logger.info(
+                    'ND advert %s (%s)', src_ip, eth_src)
             elif icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT:
                 nd_reply = valve_packet.nd_reply(
                     self.faucet_mac, eth_src, vid,
@@ -576,11 +572,16 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 self.logger.info(
                     'Responded to ND solicit for %s to %s (%s)',
                     dst_ip, src_ip, eth_src)
-            elif icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT:
-                ofmsgs.extend(self._update_nexthop(
-                    vlan, in_port, eth_src, src_ip))
-                self.logger.info(
-                    'ND advert %s (%s)', src_ip, eth_src)
+            elif vlan.from_connected_to_vip(src_ip, dst_ip):
+                if (icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST and
+                        eth_dst == self.faucet_mac):
+                    icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
+                        self.faucet_mac, eth_src, vid,
+                        dst_ip, src_ip, ipv6_pkt.hop_limit,
+                        icmpv6_pkt.data.id, icmpv6_pkt.data.seq,
+                        icmpv6_pkt.data.data)
+                    ofmsgs.append(
+                        valve_of.packetout(in_port, icmpv6_echo_reply.data))
         return ofmsgs
 
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
