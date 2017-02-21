@@ -576,8 +576,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 self.logger.info(
                     'Responded to ND solicit for %s to %s (%s)',
                     dst_ip, src_ip, eth_src)
-            elif (icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT and
-                  vlan.is_faucet_vip(dst_ip)):
+            elif icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT:
                 ofmsgs.extend(self._update_nexthop(
                     vlan, in_port, eth_src, src_ip))
                 self.logger.info(
