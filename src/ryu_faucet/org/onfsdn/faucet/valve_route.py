@@ -99,6 +99,12 @@ class ValveRouteManager(object):
                     port.number, resolver_pkt.data))
         return ofmsgs
 
+    def _nexthop_actions(self, eth_dst):
+        return [
+            valve_of.set_eth_src(self.faucet_mac),
+            valve_of.set_eth_dst(eth_dst),
+            valve_of.dec_ip_ttl()]
+
     def _add_resolved_route(self, vlan, ip_gw, ip_dst, eth_dst, is_updated=None):
         ofmsgs = []
         if is_updated is not None:
@@ -123,11 +129,8 @@ class ValveRouteManager(object):
                 inst = [valve_of.apply_actions([valve_of.group_act(
                     group_id=self.ip_gw_to_group_id[ip_gw])])]
             else:
-                inst = [valve_of.apply_actions([
-                    valve_of.set_eth_src(self.faucet_mac),
-                    valve_of.set_eth_dst(eth_dst),
-                    valve_of.dec_ip_ttl()]),
-                        valve_of.goto_table(self.eth_dst_table)]
+                inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst)),
+                    valve_of.goto_table(self.eth_dst_table)]
             ofmsgs.append(self.valve_flowmod(
                 self.fib_table,
                 in_match,
@@ -144,12 +147,34 @@ class ValveRouteManager(object):
         nexthop_cache = self._vlan_nexthop_cache(vlan)
         nexthop_cache[ip_gw] = nexthop
 
-    def _update_nexthop(self, vlan, in_port, eth_src, resolved_ip_gw):
-        ofmsgs = []
-        is_updated = None
-        routes = self._vlan_routes(vlan)
+    def _nexthop_group_buckets(self, vlan, in_port, eth_src):
+        actions = self._nexthop_actions(eth_src)
+        if not vlan.port_is_tagged(in_port):
+            actions.append(valve_of.pop_vlan())
+        actions.append(valve_of.output_port(in_port))
+        buckets = [valve_of.bucket(actions=actions)]
+        return buckets
+
+    def _update_nexthop_group(self, is_updated, resolved_ip_gw,
+                              vlan, in_port, eth_src):
         group_mod_method = None
         group_id = None
+        ofmsgs = []
+        if is_updated:
+            group_mod_method = valve_of.groupmod
+            group_id = self.ip_gw_to_group_id[resolved_ip_gw]
+        else:
+            group_mod_method = valve_of.groupadd
+            group_id = self._group_id_from_ip_gw(resolved_ip_gw)
+            self.ip_gw_to_group_id[resolved_ip_gw] = group_id
+        buckets = self._nexthop_group_buckets(vlan, in_port, eth_src)
+        ofmsgs = [group_mod_method(group_id=group_id, buckets=buckets)]
+        return ofmsgs
+
+    def _update_nexthop(self, vlan, in_port, eth_src, resolved_ip_gw):
+        is_updated = None
+        routes = self._vlan_routes(vlan)
+        ofmsgs = []
 
         nexthop_cache_entry = self._vlan_nexthop_cache_entry(
             vlan, resolved_ip_gw)
@@ -158,30 +183,15 @@ class ValveRouteManager(object):
             cached_eth_dst = nexthop_cache_entry.eth_src
             if cached_eth_dst != eth_src:
                 is_updated = True
-                if self.use_group_table:
-                    group_mod_method = valve_of.groupmod
-                    group_id = self.ip_gw_to_group_id[resolved_ip_gw]
         else:
             is_updated = False
-            if self.use_group_table:
-                group_mod_method = valve_of.groupadd
-                group_id = self._group_id_from_ip_gw(resolved_ip_gw)
-                self.ip_gw_to_group_id[resolved_ip_gw] = group_id
 
         if is_updated is not None:
             if self.use_group_table:
-                actions = []
-                actions.extend([
-                    valve_of.set_eth_src(self.faucet_mac),
-                    valve_of.set_eth_dst(eth_src),
-                    valve_of.dec_ip_ttl()])
-                if not vlan.port_is_tagged(in_port):
-                    actions.append(valve_of.pop_vlan())
-                actions.append(valve_of.output_port(in_port))
-                ofmsgs.append(group_mod_method(
-                    group_id=group_id,
-                    buckets=[valve_of.bucket(actions=actions)]))
-
+                ofmsgs.extend(
+                    self._update_nexthop_group(
+                        is_updated, resolved_ip_gw,
+                        vlan, in_port, eth_src))
             for ip_dst, ip_gw in routes.iteritems():
                 if ip_gw == resolved_ip_gw:
                     ofmsgs.extend(self._add_resolved_route(
