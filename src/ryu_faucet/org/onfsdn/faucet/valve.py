@@ -730,69 +730,78 @@ class Valve(object):
                 return True
         return False
 
-    def _learn_host(self, valves, dp_id, vlan, port, pkt, eth_src):
-        """Possibly learn a host on a port."""
+    def _edge_dp_for_host(self, valves, dp_id, pkt_meta):
+        """Simple distributed unicast learning.
+
+        Args:
+            valves (list): of all Valves (datapaths).
+            dp_id (int): DPID of datapath packet received on.
+            pkt_meta (PacketMeta): PacketMeta instance for packet received.
+        Returns:
+            Valve instance or None (of edge datapath where packet received)
+        """
+        # TODO: simplest possible unicast learning.
+        # We find just one port that is the shortest unicast path to
+        # the destination. We could use other factors (eg we could
+        # load balance over multiple ports based on destination MAC).
+        # TODO: each DP learns independently. An edge DP could
+        # call other valves so they learn immediately without waiting
+        # for packet in.
+        # TODO: edge DPs could use a different forwarding algorithm
+        # (for example, just default switch to a neighbor).
+        # Find port that forwards closer to destination DP that
+        # has already learned this host (if any).
+        eth_src = pkt_meta.eth_src
+        vlan_vid = pkt_meta.vlan.vid
+        for other_dpid, other_valve in valves.iteritems():
+            if other_dpid == dp_id:
+                continue
+            other_dp = other_valve.dp
+            other_dp_host_cache = other_dp.vlans[vlan_vid].host_cache
+            if eth_src in other_dp_host_cache:
+                host = other_dp_host_cache[eth_src]
+                if host.edge:
+                    return other_dp
+        return None
+
+    def _learn_host(self, valves, dp_id, pkt_meta):
+        """Possibly learn a host on a port.
+
+        Args:
+            dp_id (int): DPID of datapath packet received on.
+            valves (list): of all Valves (datapaths).
+            pkt_meta (PacketMeta): PacketMeta instance for packet received.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
+        learn_port = pkt_meta.port
         ofmsgs = []
-        # ban learning new hosts if max_hosts reached on a VLAN.
-        if (vlan.max_hosts is not None and
-                len(vlan.host_cache) == vlan.max_hosts and
-                eth_src not in vlan.host_cache):
-            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
-                vlan))
-            self.logger.info(
-                'max hosts %u reached on vlan %u, ' +
-                'temporarily banning learning on this vlan, ' +
-                'and not learning %s',
-                vlan.max_hosts, vlan.vid, eth_src)
-        else:
-            if port.stack is None:
-                learn_port = port
-            else:
-                # TODO: simplest possible unicast learning.
-                # We find just one port that is the shortest unicast path to
-                # the destination. We could use other factors (eg we could
-                # load balance over multiple ports based on destination MAC).
-                # TODO: each DP learns independently. An edge DP could
-                # call other valves so they learn immediately without waiting
-                # for packet in.
-                # TODO: edge DPs could use a different forwarding algorithm
-                # (for example, just default switch to a neighbor).
-                host_learned_other_dp = None
-                # Find port that forwards closer to destination DP that
-                # has already learned this host (if any).
-                for other_dpid, other_valve in valves.iteritems():
-                    if other_dpid == dp_id:
-                        continue
-                    other_dp = other_valve.dp
-                    other_dp_host_cache = other_dp.vlans[vlan.vid].host_cache
-                    if eth_src in other_dp_host_cache:
-                        host = other_dp_host_cache[eth_src]
-                        if host.edge:
-                            host_learned_other_dp = other_dp
-                            break
-                # No edge DP may have learned this host yet.
-                if host_learned_other_dp is None:
-                    return ofmsgs
 
-                learn_port = self.dp.shortest_path_port(
-                    host_learned_other_dp.name)
-                self.logger.info(
-                    'host learned via stack port to %s',
-                    host_learned_other_dp.name)
+        if learn_port.stack is not None:
+            edge_dp = self._edge_dp_for_host(valves, dp_id, pkt_meta)
+            # No edge DP may have learned this host yet.
+            if edge_dp is None:
+                return ofmsgs
 
-            # TODO: it would be good to be able to notify an external
-            # system upon re/learning a host.
-            ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
-                learn_port, vlan, eth_src))
-            # Add FIB entries, if routing is active.
-            for route_manager in (
-                    self.ipv4_route_manager, self.ipv6_route_manager):
-                if route_manager:
-                    ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(
-                        vlan, pkt))
+            learn_port = self.dp.shortest_path_port(edge_dp.name)
             self.logger.info(
-                'learned %u hosts on vlan %u',
-                len(vlan.host_cache), vlan.vid)
+                'host learned via stack port to %s', edge_dp.name)
+
+        # TODO: it would be good to be able to notify an external
+        # system upon re/learning a host.
+        ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
+            learn_port, pkt_meta.vlan, pkt_meta.eth_src))
+
+        # Add FIB entries, if routing is active.
+        for route_manager in (
+                self.ipv4_route_manager, self.ipv6_route_manager):
+            if route_manager:
+                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(
+                    pkt_meta.vlan, pkt_meta.pkt))
+
+        self.logger.info(
+            'learned %u hosts on vlan %u',
+            len(pkt_meta.vlan.host_cache), pkt_meta.vlan.vid)
         return ofmsgs
 
     def _parse_rcv_packet(self, in_port, vlan_vid, pkt):
@@ -811,6 +820,29 @@ class Valve(object):
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         return PacketMeta(pkt, eth_pkt, port, vlan, eth_src, eth_dst)
+
+    def _vlan_learn_ban_rules(self, pkt_meta):
+        """Limit learning to a maximum configured on this VLAN.
+
+        Args:
+            pkt_meta: PacketMeta instance.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
+        ofmsgs = []
+        vlan = pkt_meta.vlan
+        eth_src = pkt_meta.eth_src
+        if (vlan.max_hosts is not None and
+                len(vlan.host_cache) == vlan.max_hosts and
+                eth_src not in vlan.host_cache):
+            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
+                vlan))
+            self.logger.info(
+                'max hosts %u reached on vlan %u, ' +
+                'temporarily banning learning on this vlan, ' +
+                'and not learning %s',
+                vlan.max_hosts, vlan.vid, eth_src)
+        return ofmsgs
 
     def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).
@@ -852,13 +884,12 @@ class Valve(object):
         if self._rate_limit_packet_ins():
             return ofmsgs
 
-        ofmsgs.extend(
-            self._learn_host(
-                valves, dp_id,
-                pkt_meta.vlan,
-                pkt_meta.port,
-                pkt_meta.pkt,
-                pkt_meta.eth_src))
+        ban_vlan_rules = self._vlan_learn_ban_rules(pkt_meta)
+        if ban_vlan_rules:
+            ofmsgs.extend(ban_vlan_rules)
+            return ofmsgs
+
+        ofmsgs.extend(self._learn_host(valves, dp_id, pkt_meta))
         return ofmsgs
 
     def host_expire(self):
