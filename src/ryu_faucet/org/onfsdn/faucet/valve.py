@@ -795,6 +795,23 @@ class Valve(object):
                 len(vlan.host_cache), vlan.vid)
         return ofmsgs
 
+    def _parse_rcv_packet(self, in_port, vlan_vid, pkt):
+        """Parse a received packet into a PacketMeta instance.
+
+        Args:
+            in_port (int): port packet was received on.
+            vlan_vid (int): VLAN VID of port packet was received on.
+            pkt (ryu.lib.packet.packet): packet received.
+        Returns:
+            PacketMeta instance.
+        """
+        eth_pkt = valve_packet.parse_pkt(pkt)
+        eth_src = eth_pkt.src
+        eth_dst = eth_pkt.dst
+        vlan = self.dp.vlans[vlan_vid]
+        port = self.dp.ports[in_port]
+        return PacketMeta(pkt, eth_pkt, port, vlan, eth_src, eth_dst)
+
     def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
@@ -814,26 +831,35 @@ class Valve(object):
         if not self._known_up_dpid_and_port(dp_id, in_port):
             return []
 
+        pkt_meta = self._parse_rcv_packet(in_port, vlan_vid, pkt)
         ofmsgs = []
-        eth_pkt = valve_packet.parse_pkt(pkt)
-        eth_src = eth_pkt.src
-        eth_dst = eth_pkt.dst
-        vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
 
-        if valve_packet.mac_addr_is_unicast(eth_src):
+        if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.debug(
                 'Packet_in %s src:%s in_port:%d vid:%s',
-                util.dpid_log(dp_id), eth_src, in_port, vlan_vid)
+                util.dpid_log(dp_id),
+                pkt_meta.eth_src,
+                in_port,
+                pkt_meta.vlan.vid)
 
             ofmsgs.extend(self.control_plane_handler(
-                in_port, vlan, eth_src, eth_dst, pkt))
+                in_port,
+                pkt_meta.vlan,
+                pkt_meta.eth_src,
+                pkt_meta.eth_dst,
+                pkt_meta.pkt))
 
         if self._rate_limit_packet_ins():
             return ofmsgs
 
         ofmsgs.extend(
-            self._learn_host(valves, dp_id, vlan, port, pkt, eth_src))
+            self._learn_host(
+                valves, dp_id,
+                pkt_meta.vlan,
+                port,
+                pkt_meta.pkt,
+                pkt_meta.eth_src))
         return ofmsgs
 
     def host_expire(self):
