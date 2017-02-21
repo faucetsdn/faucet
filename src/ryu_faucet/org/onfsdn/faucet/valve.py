@@ -313,7 +313,8 @@ class Valve(object):
         ofmsgs = []
         for table_id in self._all_valve_tables():
             ofmsgs.extend(self.valve_flowdel(table_id))
-        ofmsgs.append(valve_of.groupdel())
+        if self.dp.group_table:
+            ofmsgs.append(valve_of.groupdel())
         return ofmsgs
 
     def _delete_all_port_match_flows(self, port):
@@ -693,7 +694,7 @@ class Valve(object):
             list: OpenFlow messages, if any.
         """
         if (pkt_meta.eth_dst == self.FAUCET_MAC or
-            not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
+                not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for handler in (self.ipv4_route_manager.control_plane_handler,
                             self.ipv6_route_manager.control_plane_handler):
                 ofmsgs = handler(pkt_meta)
