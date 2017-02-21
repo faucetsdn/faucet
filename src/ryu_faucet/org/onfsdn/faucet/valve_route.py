@@ -578,11 +578,10 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     dst_ip, src_ip, eth_src)
             elif (icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT and
                   vlan.is_faucet_vip(dst_ip)):
-                resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
                 ofmsgs.extend(self._update_nexthop(
-                    vlan, in_port, eth_src, resolved_ip_gw))
+                    vlan, in_port, eth_src, src_ip))
                 self.logger.info(
-                    'ND response %s (%s)', resolved_ip_gw, eth_src)
+                    'ND advert %s (%s)', src_ip, eth_src)
         return ofmsgs
 
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
