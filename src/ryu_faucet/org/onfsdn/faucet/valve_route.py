@@ -431,8 +431,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
             if opcode == arp.ARP_REQUEST:
                 arp_reply = valve_packet.arp_reply(
                     self.faucet_mac, eth_src, vid, dst_ip, src_ip)
-                ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
                 ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
+                ofmsgs.append(valve_of.packetout(in_port, arp_reply.data))
                 self.logger.info(
                     'Responded to ARP request for %s from %s (%s)',
                     dst_ip, src_ip, eth_src)
@@ -549,34 +549,40 @@ class ValveIPv6RouteManager(ValveRouteManager):
             priority=priority))
         return ofmsgs
 
-    def control_plane_icmpv6_handler(self, in_port, vlan, eth_src,
+    def control_plane_icmpv6_handler(self, in_port, vlan,
+                                     eth_src, eth_dst,
                                      ipv6_pkt, icmpv6_pkt):
         src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
         dst_ip = ipaddr.IPv6Address(ipv6_pkt.dst)
         vid = self._vlan_vid(vlan, in_port)
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
-        if (icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT and
-                vlan.ip_in_vip_subnet(src_ip)):
-            nd_reply = valve_packet.nd_reply(
-                self.faucet_mac, eth_src, vid,
-                icmpv6_pkt.data.dst, src_ip, ipv6_pkt.hop_limit)
-            ofmsgs.append(valve_of.packetout(in_port, nd_reply.data))
-            ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
-        elif (icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT and
-              vlan.ip_in_vip_subnet(src_ip) and
-              vlan.is_faucet_vip(dst_ip)):
-            resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
-            self.logger.info('ND response %s for %s', eth_src, resolved_ip_gw)
-            ofmsgs.extend(self._update_nexthop(
-                vlan, in_port, eth_src, resolved_ip_gw))
-        elif (icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST and
-              vlan.is_faucet_vip(dst_ip)):
-            icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
-                self.faucet_mac, eth_src, vid,
-                dst_ip, src_ip, ipv6_pkt.hop_limit,
-                icmpv6_pkt.data.id, icmpv6_pkt.data.seq, icmpv6_pkt.data.data)
-            ofmsgs.append(valve_of.packetout(in_port, icmpv6_echo_reply.data))
+        if vlan.ip_in_vip_subnet(src_ip):
+            if (icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST and
+                    eth_dst == self.faucet_mac):
+                icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
+                    self.faucet_mac, eth_src, vid,
+                    dst_ip, src_ip, ipv6_pkt.hop_limit,
+                    icmpv6_pkt.data.id, icmpv6_pkt.data.seq,
+                    icmpv6_pkt.data.data)
+                ofmsgs.append(
+                    valve_of.packetout(in_port, icmpv6_echo_reply.data))
+            elif icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT:
+                nd_reply = valve_packet.nd_reply(
+                    self.faucet_mac, eth_src, vid,
+                    icmpv6_pkt.data.dst, src_ip, ipv6_pkt.hop_limit)
+                ofmsgs.extend(self._add_host_fib_route(vlan, src_ip))
+                ofmsgs.append(valve_of.packetout(in_port, nd_reply.data))
+                self.logger.info(
+                    'Responded to ND solicit for %s to %s (%s)',
+                    dst_ip, src_ip, eth_src)
+            elif (icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT and
+                  vlan.is_faucet_vip(dst_ip)):
+                resolved_ip_gw = ipaddr.IPv6Address(icmpv6_pkt.data.dst)
+                ofmsgs.extend(self._update_nexthop(
+                    vlan, in_port, eth_src, resolved_ip_gw))
+                self.logger.info(
+                    'ND response %s (%s)', resolved_ip_gw, eth_src)
         return ofmsgs
 
     def control_plane_handler(self, in_port, vlan, eth_src, eth_dst, pkt):
@@ -585,5 +591,5 @@ class ValveIPv6RouteManager(ValveRouteManager):
             icmpv6_pkt = pkt.get_protocol(icmpv6.icmpv6)
             if icmpv6_pkt is not None:
                 return self.control_plane_icmpv6_handler(
-                    in_port, vlan, eth_src, ipv6_pkt, icmpv6_pkt)
+                    in_port, vlan, eth_src, eth_dst, ipv6_pkt, icmpv6_pkt)
         return []
