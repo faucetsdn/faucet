@@ -30,6 +30,8 @@ Configuration steps
 
 * Push the couchapp to db.
 
+(assumptions --> username: couch; password: 123; couchdb host ip address: 127.0.0.1; cocudb port: 5984)
+
   .. code:: bash
 
     couchapp push . http://couch:123@127.0.0.1:5984/flowinfodb/
