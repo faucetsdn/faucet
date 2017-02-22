@@ -346,16 +346,6 @@ class ValveRouteManager(object):
         """
         pass
 
-    def _nexthop_fresh(self, vlan, ip_gw, now):
-        nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-        if nexthop_cache_entry is not None:
-            if nexthop_cache_entry.eth_src is not None:
-                cache_time = nexthop_cache_entry.cache_time
-                cache_age = now - cache_time
-                if cache_age < self.arp_neighbor_timeout:
-                    return True
-        return False
-
     def add_host_fib_route_from_pkt(self, pkt_meta):
         """Add a host FIB route given packet from host.
 
@@ -369,13 +359,15 @@ class ValveRouteManager(object):
         if ip_pkt:
             src_ip = ipaddr.IPAddress(ip_pkt.src)
             if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
-                now = time.time()
-                if self._nexthop_fresh(pkt_meta.vlan, src_ip, now):
-                    self._update_nexthop_cache(
-                        pkt_meta.vlan, pkt_meta.eth_src, src_ip)
-                else:
+                cached_eth_dst = self._cached_nexthop_eth_dst(
+                    pkt_meta.vlan, src_ip)
+                if (cached_eth_dst is None or
+                    cached_eth_dst != pkt_meta.eth_src):
                     ofmsgs.extend(
                         self._add_host_fib_route(pkt_meta.vlan, src_ip))
+                else:
+                    self._update_nexthop_cache(
+                        pkt_meta.vlan, pkt_meta.eth_src, src_ip)
         return ofmsgs
 
     def del_route(self, vlan, ip_dst):
