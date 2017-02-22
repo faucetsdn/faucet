@@ -1,5 +1,5 @@
 {
  "env":{
-        "default":{"db":"http://<username>:<password>@<couchdb_ip>:<couchdb_port>/flowinfodb"}
+        "default":{"db":"http://couch:123@127.0.0.1:5984/flowinfodb"}
  }
 }
