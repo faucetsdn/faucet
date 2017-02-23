@@ -20,12 +20,12 @@ import time
 
 import ipaddr
 
-import valve_of
-import valve_packet
-
 from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 from ryu.ofproto import ether
 from ryu.ofproto import inet
+
+import valve_of
+import valve_packet
 
 
 class NextHop(object):
@@ -294,12 +294,12 @@ class ValveRouteManager(object):
         for ip_gw, faucet_vip, last_retry_time in cycle_unresolved_nexthops:
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             if (self._is_host_fib_route(vlan, ip_gw) and
-                    nexthop_cache_entry.resolve_retries > self.max_host_fib_retry_count):
+                    nexthop_cache_entry.resolve_retries >= self.max_host_fib_retry_count):
                 self.logger.info(
                     'expiring dead host FIB route %s (age %us)',
                     ip_gw,
                     now - nexthop_cache_entry.cache_time)
-                ofmsgs.extend(self.del_route(vlan, ip_gw))
+                ofmsgs.extend(self._del_host_fib_route(vlan, ip_gw))
             else:
                 nexthop_cache_entry.last_retry_time = now
                 nexthop_cache_entry.resolve_retries += 1
@@ -351,12 +351,24 @@ class ValveRouteManager(object):
 
         Args:
             vlan (vlan): VLAN containing this RIB.
-            host_gw (ipaddr.IPAddress): IP address of host.
+            host_ip (ipaddr.IPAddress): IP address of host.
         Returns:
             list: OpenFlow messages.
         """
         host_route = ipaddr.IPNetwork(host_ip.exploded)
         return self.add_route(vlan, host_ip, host_route)
+
+    def _del_host_fib_route(self, vlan, host_ip):
+        """Delete a host FIB route.
+
+        Args:
+            vlan (vlan): VLAN containing this RIB.
+            host_ip (ipaddr.IPAddress): IP address of host.
+        Returns:
+            list: OpenFlow messages.
+        """
+        host_route = ipaddr.IPNetwork(host_ip.exploded)
+        return self.del_route(vlan, host_route)
 
     def _ip_pkt(self, pkt):
         """Return an IP packet from an Ethernet packet.
