@@ -19,6 +19,7 @@
 
 import logging
 import os
+import random
 import signal
 
 import ipaddr
@@ -295,13 +296,13 @@ class Faucet(app_manager.RyuApp):
         """Trigger gateway/nexthop re/resolution."""
         while True:
             self.send_event('Faucet', EventFaucetResolveGateways())
-            hub.sleep(2)
+            hub.sleep(2 + random.randint(0, 2))
 
     def host_expire_request(self):
         """Trigger expiration of host state in controller."""
         while True:
             self.send_event('Faucet', EventFaucetHostExpire())
-            hub.sleep(5)
+            hub.sleep(5 + random.randint(0, 2))
 
     def _send_flow_msgs(self, ryu_dp, flow_msgs):
         """Send OpenFlow messages to a connected datapath.
