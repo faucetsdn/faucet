@@ -43,6 +43,7 @@ class ValveRouteManager(object):
 
     # TODO: resolve attempts per cycle configurable.
     MAX_HOSTS_PER_RESOLVE_CYCLE = 5
+    MAX_FIB_RETRY_COUNT = 10
 
     def __init__(self, logger, faucet_mac, arp_neighbor_timeout,
                  fib_table, eth_src_table, eth_dst_table, route_priority,
@@ -252,6 +253,22 @@ class ValveRouteManager(object):
             sorted(ip_gws_with_retry_time, key=lambda x: x[-1]))
         return ip_gws_never_tried + ip_gws_with_retry_time_sorted
 
+    def _is_host_fib_route(self, vlan, host_ip):
+        """Return True if IP destination is a host FIB route.
+
+        Args:
+            vlan (vlan): VLAN containing this RIB/FIB.
+            ip_gw (ipaddr.IPAddress): potential host FIB route.
+        Returns:
+            True if a host FIB route (and not used as a gateway).
+        """
+        routes = self._vlan_routes(vlan)
+        for ip_dst, ip_gw in routes.iteritems():
+            if ip_gw == host_ip:
+                if ip_dst.prefixlen < ip_dst.max_prefixlen:
+                    return False
+        return False
+
     def resolve_gateways(self, vlan, now):
         """Re/resolve all gateways.
 
@@ -277,18 +294,27 @@ class ValveRouteManager(object):
         ofmsgs = []
         for ip_gw, faucet_vip, last_retry_time in cycle_unresolved_nexthops:
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-            nexthop_cache_entry.last_retry_time = now
-            nexthop_cache_entry.resolve_retries += 1
-            if last_retry_time is None:
-                self.logger.info('resolving %s', ip_gw)
+            if (self._is_host_fib_route(vlan, ip_gw) and
+                    nexthop_cache_entry.resolve_retries > self.MAX_FIB_RETRY_COUNT):
+                self.logger.info(
+                    'expiring dead host FIB route %s (age %us)',
+                    ip_gw,
+                    now - nexthop_cache_entry.cache_time)
+                ofmsgs.extend(self.del_route(vlan, ip_gw))
             else:
-                self.logger.info('resolving %s retry %u (last retry was %us ago)',
-                                 ip_gw,
-                                 nexthop_cache_entry.resolve_retries,
-                                 now - last_retry_time)
-            for ports in untagged_ports, tagged_ports:
-                ofmsgs.extend(self._neighbor_resolver(
-                    ip_gw, faucet_vip, vlan, ports))
+                nexthop_cache_entry.last_retry_time = now
+                nexthop_cache_entry.resolve_retries += 1
+                if last_retry_time is None:
+                    self.logger.info('resolving %s', ip_gw)
+                else:
+                    self.logger.info(
+                        'resolving %s retry %u (last attempt was %us ago)',
+                        ip_gw,
+                        nexthop_cache_entry.resolve_retries,
+                        now - last_retry_time)
+                for ports in untagged_ports, tagged_ports:
+                    ofmsgs.extend(self._neighbor_resolver(
+                        ip_gw, faucet_vip, vlan, ports))
         return ofmsgs
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
