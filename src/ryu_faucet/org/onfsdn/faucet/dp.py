@@ -52,6 +52,8 @@ class DP(Conf):
     drop_bpdu = None
     drop_lldp = None
     group_table = False
+    max_hosts_per_resolve_cycle = None
+    max_host_fib_retry_count = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -105,8 +107,12 @@ class DP(Conf):
         'drop_bpdu': True,
         # By default, drop LLDP. Set to False, to enable NFV offload of LLDP.
         'drop_lldp': True,
-        #Use GROUP tables for IP routing and vlan flooding
+        # Use GROUP tables for IP routing and vlan flooding
         'group_table': False,
+        # Max hosts to try to resolve per gateway resolution cycle.
+        'max_hosts_per_resolve_cycle': 5,
+        # Max number of times to retry resolution of a host FIB route.
+        'max_host_fib_retry_count': 10,
         }
 
     def __init__(self, _id, conf):

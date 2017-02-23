@@ -41,17 +41,16 @@ class NextHop(object):
 class ValveRouteManager(object):
     """Base class to implement RIB/FIB."""
 
-    # TODO: resolve attempts per cycle configurable.
-    MAX_HOSTS_PER_RESOLVE_CYCLE = 5
-    MAX_FIB_RETRY_COUNT = 10
-
     def __init__(self, logger, faucet_mac, arp_neighbor_timeout,
+                 max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  fib_table, eth_src_table, eth_dst_table, route_priority,
                  valve_in_match, valve_flowdel, valve_flowmod,
                  valve_flowcontroller, use_group_table):
         self.logger = logger
         self.faucet_mac = faucet_mac
         self.arp_neighbor_timeout = arp_neighbor_timeout
+        self.max_hosts_per_resolve_cycle = max_hosts_per_resolve_cycle
+        self.max_host_fib_retry_count = max_host_fib_retry_count
         self.fib_table = fib_table
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
@@ -285,7 +284,7 @@ class ValveRouteManager(object):
         all_unresolved_nexthops = self._vlan_unresolved_nexthops(
             vlan, ip_gws, now)
         cycle_unresolved_nexthops = all_unresolved_nexthops[
-            :self.MAX_HOSTS_PER_RESOLVE_CYCLE]
+            :self.max_hosts_per_resolve_cycle]
         deferred_unresolved_nexthops = (len(all_unresolved_nexthops) -
                                         len(cycle_unresolved_nexthops))
         if deferred_unresolved_nexthops:
@@ -295,7 +294,7 @@ class ValveRouteManager(object):
         for ip_gw, faucet_vip, last_retry_time in cycle_unresolved_nexthops:
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             if (self._is_host_fib_route(vlan, ip_gw) and
-                    nexthop_cache_entry.resolve_retries > self.MAX_FIB_RETRY_COUNT):
+                    nexthop_cache_entry.resolve_retries > self.max_host_fib_retry_count):
                 self.logger.info(
                     'expiring dead host FIB route %s (age %us)',
                     ip_gw,
