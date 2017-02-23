@@ -90,7 +90,6 @@ class ValveRouteManager(object):
     def _neighbor_resolver(self, ip_gw, faucet_vip, vlan, ports):
         ofmsgs = []
         if ports:
-            self.logger.info('Resolving %s', ip_gw)
             port_num = ports[0].number
             vid = self._vlan_vid(vlan, port_num)
             resolver_pkt = self._neighbor_resolver_pkt(
