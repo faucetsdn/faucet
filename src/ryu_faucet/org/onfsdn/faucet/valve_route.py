@@ -35,6 +35,7 @@ class NextHop(object):
         self.eth_src = eth_src
         self.cache_time = now
         self.last_retry_time = None
+        self.resolve_retries = 0
 
 
 class ValveRouteManager(object):
@@ -263,20 +264,25 @@ class ValveRouteManager(object):
         """
         ip_gws = self._vlan_ip_gws(vlan)
         self._add_unresolved_nexthops(vlan, ip_gws)
-        all_unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, ip_gws, now)
+        all_unresolved_nexthops = self._vlan_unresolved_nexthops(
+            vlan, ip_gws, now)
         nexthop_cache = self._vlan_nexthop_cache(vlan)
         untagged_ports = vlan.untagged_flood_ports(False)
         tagged_ports = vlan.tagged_flood_ports(False)
         host_count = 0
         ofmsgs = []
         for ip_gw, faucet_vip, last_retry_time in all_unresolved_nexthops:
+            nexthop_cache_entry = nexthop_cache[ip_gw]
+            nexthop_cache_entry.last_retry_time = now
+            nexthop_cache_entry.resolve_retries += 1
             host_count += 1
             if last_retry_time is None:
-                self.logger.info('first time resolving %s', ip_gw)
+                self.logger.info('resolving %s', ip_gw)
             else:
-                self.logger.info('last time resolving %s was %u',
-                                 ip_gw, last_retry_time)
-            nexthop_cache[ip_gw].last_retry_time = now
+                self.logger.info('resolving %s retry %u (last retry was %us ago)',
+                                 ip_gw,
+                                 nexthop_cache_entry.resolve_retries,
+                                 now - last_retry_time)
             for ports in untagged_ports, tagged_ports:
                 ofmsgs.extend(self._neighbor_resolver(
                     ip_gw, faucet_vip, vlan, ports))
