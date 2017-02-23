@@ -259,19 +259,24 @@ class ValveRouteManager(object):
         Returns:
             list: OpenFlow messages.
         """
+        untagged_ports = vlan.untagged_flood_ports(False)
+        tagged_ports = vlan.tagged_flood_ports(False)
         ip_gws = self._vlan_ip_gws(vlan)
         self._add_unresolved_nexthops(vlan, ip_gws)
         all_unresolved_nexthops = self._vlan_unresolved_nexthops(
             vlan, ip_gws, now)
-        untagged_ports = vlan.untagged_flood_ports(False)
-        tagged_ports = vlan.tagged_flood_ports(False)
-        host_count = 0
+        cycle_unresolved_nexthops = all_unresolved_nexthops[
+            :self.MAX_HOSTS_PER_RESOLVE_CYCLE]
+        deferred_unresolved_nexthops = (len(all_unresolved_nexthops) -
+                                        len(cycle_unresolved_nexthops))
+        if deferred_unresolved_nexthops:
+            self.logger.info('deferring resolution of %u nexthops',
+                             deferred_unresolved_nexthops)
         ofmsgs = []
-        for ip_gw, faucet_vip, last_retry_time in all_unresolved_nexthops:
+        for ip_gw, faucet_vip, last_retry_time in cycle_unresolved_nexthops:
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             nexthop_cache_entry.last_retry_time = now
             nexthop_cache_entry.resolve_retries += 1
-            host_count += 1
             if last_retry_time is None:
                 self.logger.info('resolving %s', ip_gw)
             else:
@@ -282,10 +287,6 @@ class ValveRouteManager(object):
             for ports in untagged_ports, tagged_ports:
                 ofmsgs.extend(self._neighbor_resolver(
                     ip_gw, faucet_vip, vlan, ports))
-            if host_count == self.MAX_HOSTS_PER_RESOLVE_CYCLE:
-                self.logger.info('rate limiting resolve attempts %u out of %u',
-                                 host_count, len(all_unresolved_nexthops))
-                break
         return ofmsgs
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
