@@ -103,6 +103,7 @@ class ValveHostManager(object):
         in_port = port.number
         ofmsgs = []
 
+        # Don't relearn same host on same port if recently learned.
         if eth_src in vlan.host_cache:
             host_cache_entry = vlan.host_cache[eth_src]
             if host_cache_entry.port_num == in_port:
@@ -158,4 +159,8 @@ class ValveHostManager(object):
             port.permanent_learn,
             now)
         vlan.host_cache[eth_src] = host_cache_entry
+
+        self.logger.info(
+            'learned %u hosts on vlan %u', len(vlan.host_cache), vlan.vid)
+
         return ofmsgs

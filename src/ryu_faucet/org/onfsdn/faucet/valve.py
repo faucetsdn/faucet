@@ -93,6 +93,7 @@ class Valve(object):
         # Should interface with a common composer class.
         self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
+            self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
             self.dp.ipv4_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
@@ -100,6 +101,7 @@ class Valve(object):
             self.dp.group_table)
         self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
+            self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
             self.dp.ipv6_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
@@ -797,9 +799,6 @@ class Valve(object):
                 ofmsgs.extend(
                     route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
-        self.logger.info(
-            'learned %u hosts on vlan %u',
-            len(pkt_meta.vlan.host_cache), pkt_meta.vlan.vid)
         return ofmsgs
 
     def _parse_rcv_packet(self, in_port, vlan_vid, pkt):
