@@ -266,7 +266,7 @@ class ValveRouteManager(object):
             if ip_gw == host_ip:
                 if ip_dst.prefixlen < ip_dst.max_prefixlen:
                     return False
-        return False
+        return True
 
     def resolve_gateways(self, vlan, now):
         """Re/resolve all gateways.
