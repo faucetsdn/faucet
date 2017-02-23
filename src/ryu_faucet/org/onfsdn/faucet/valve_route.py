@@ -237,12 +237,9 @@ class ValveRouteManager(object):
         ip_gws_never_tried = []
         ip_gws_with_retry_time = []
         for ip_gw, faucet_vip in ip_gws:
+            if self._nexthop_fresh(vlan, ip_gw, now):
+                continue
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-            if nexthop_cache_entry.eth_src is not None:
-               cache_time = nexthop_cache_entry.cache_time
-               cache_age = now - cache_time
-               if cache_age < self.arp_neighbor_timeout:
-                   continue
             last_retry_time = nexthop_cache_entry.last_retry_time
             ip_gw_with_retry_time = (ip_gw, faucet_vip, last_retry_time)
             if last_retry_time is None:
@@ -250,7 +247,7 @@ class ValveRouteManager(object):
             else:
                 ip_gws_with_retry_time.append(ip_gw_with_retry_time)
         ip_gws_with_retry_time_sorted = list(
-            sorted(ip_gws_with_retry_time, key=lambda x: x[2]))
+            sorted(ip_gws_with_retry_time, key=lambda x: x[-1]))
         return ip_gws_never_tried + ip_gws_with_retry_time_sorted
 
     def resolve_gateways(self, vlan, now):
@@ -266,13 +263,12 @@ class ValveRouteManager(object):
         self._add_unresolved_nexthops(vlan, ip_gws)
         all_unresolved_nexthops = self._vlan_unresolved_nexthops(
             vlan, ip_gws, now)
-        nexthop_cache = self._vlan_nexthop_cache(vlan)
         untagged_ports = vlan.untagged_flood_ports(False)
         tagged_ports = vlan.tagged_flood_ports(False)
         host_count = 0
         ofmsgs = []
         for ip_gw, faucet_vip, last_retry_time in all_unresolved_nexthops:
-            nexthop_cache_entry = nexthop_cache[ip_gw]
+            nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             nexthop_cache_entry.last_retry_time = now
             nexthop_cache_entry.resolve_retries += 1
             host_count += 1
