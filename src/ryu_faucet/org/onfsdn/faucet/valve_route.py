@@ -35,6 +35,7 @@ class NextHop(object):
         self.eth_src = eth_src
         self.cache_time = now
         self.last_retry_time = None
+        self.resolve_retries = 0
 
 
 class ValveRouteManager(object):
@@ -212,14 +213,23 @@ class ValveRouteManager(object):
                     ip_gws.append((ip_gw, faucet_vip))
         return ip_gws
 
-    def _vlan_ip_gws_unresolved_and_expired(self, vlan, ip_gws, now):
-        """Return unresolved or expired IP gateways, never tried/oldest first.
-
-        Also populates any missing nexthop cache entries.
+    def _add_unresolved_nexthops(self, vlan, ip_gws):
+        """Populates any missing nexthop cache entries.
 
         Args:
            vlan (vlan): VLAN containing this RIB/FIB.
-           ip_gw (list): tuple, IP gateway and controller IP in same subnet.
+           ip_gws (list): tuple, IP gateway and controller IP in same subnet.
+        """
+        for ip_gw, _ in ip_gws:
+            if self._vlan_nexthop_cache_entry(vlan, ip_gw) is None:
+                self._update_nexthop_cache(vlan, None, ip_gw)
+
+    def _vlan_unresolved_nexthops(self, vlan, ip_gws, now):
+        """Return unresolved or expired IP gateways, never tried/oldest first.
+
+        Args:
+           vlan (vlan): VLAN containing this RIB/FIB.
+           ip_gws (list): tuple, IP gateway and controller IP in same subnet.
            now (float): seconds since epoch.
         Returns:
            list: tuple, gateway, controller IP in same subnet, last retry time.
@@ -227,25 +237,20 @@ class ValveRouteManager(object):
         ip_gws_never_tried = []
         ip_gws_with_retry_time = []
         for ip_gw, faucet_vip in ip_gws:
-            last_retry_time = None
-            cache_age = None
+            if self._nexthop_fresh(vlan, ip_gw, now):
+                continue
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-            if nexthop_cache_entry is not None:
-                if nexthop_cache_entry.eth_src is not None:
-                    cache_time = nexthop_cache_entry.cache_time
-                    cache_age = now - cache_time
-                    if cache_age < self.arp_neighbor_timeout:
-                        continue
-                last_retry_time = nexthop_cache_entry.last_retry_time
-            else:
-                self._update_nexthop_cache(vlan, None, ip_gw)
+            last_retry_time = nexthop_cache_entry.last_retry_time
             ip_gw_with_retry_time = (ip_gw, faucet_vip, last_retry_time)
             if last_retry_time is None:
                 ip_gws_never_tried.append(ip_gw_with_retry_time)
             else:
-                ip_gws_with_retry_time.append(ip_gw_with_retry_time)
+                backoff_seconds = min(
+                    2**nexthop_cache_entry.resolve_retries, 32)
+                if (now - last_retry_time) > backoff_seconds:
+                    ip_gws_with_retry_time.append(ip_gw_with_retry_time)
         ip_gws_with_retry_time_sorted = list(
-            sorted(ip_gws_with_retry_time, key=lambda x: x[2]))
+            sorted(ip_gws_with_retry_time, key=lambda x: x[-1]))
         return ip_gws_never_tried + ip_gws_with_retry_time_sorted
 
     def resolve_gateways(self, vlan, now):
@@ -257,29 +262,34 @@ class ValveRouteManager(object):
         Returns:
             list: OpenFlow messages.
         """
-        ofmsgs = []
         untagged_ports = vlan.untagged_flood_ports(False)
         tagged_ports = vlan.tagged_flood_ports(False)
-        ip_gws_unresolved_and_expired = self._vlan_ip_gws_unresolved_and_expired(
-            vlan, self._vlan_ip_gws(vlan), now)
-        nexthop_cache = self._vlan_nexthop_cache(vlan)
-        host_count = 0
-        for ip_gw, faucet_vip, last_retry_time in ip_gws_unresolved_and_expired:
-            host_count += 1
+        ip_gws = self._vlan_ip_gws(vlan)
+        self._add_unresolved_nexthops(vlan, ip_gws)
+        all_unresolved_nexthops = self._vlan_unresolved_nexthops(
+            vlan, ip_gws, now)
+        cycle_unresolved_nexthops = all_unresolved_nexthops[
+            :self.MAX_HOSTS_PER_RESOLVE_CYCLE]
+        deferred_unresolved_nexthops = (len(all_unresolved_nexthops) -
+                                        len(cycle_unresolved_nexthops))
+        if deferred_unresolved_nexthops:
+            self.logger.info('deferring resolution of %u nexthops',
+                             deferred_unresolved_nexthops)
+        ofmsgs = []
+        for ip_gw, faucet_vip, last_retry_time in cycle_unresolved_nexthops:
+            nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+            nexthop_cache_entry.last_retry_time = now
+            nexthop_cache_entry.resolve_retries += 1
             if last_retry_time is None:
-                self.logger.info('first time resolving %s', ip_gw)
+                self.logger.info('resolving %s', ip_gw)
             else:
-                self.logger.info('last time resolving %s was %u',
-                                 ip_gw, last_retry_time)
-            nexthop_cache[ip_gw].last_retry_time = now
+                self.logger.info('resolving %s retry %u (last retry was %us ago)',
+                                 ip_gw,
+                                 nexthop_cache_entry.resolve_retries,
+                                 now - last_retry_time)
             for ports in untagged_ports, tagged_ports:
                 ofmsgs.extend(self._neighbor_resolver(
                     ip_gw, faucet_vip, vlan, ports))
-            if host_count == self.MAX_HOSTS_PER_RESOLVE_CYCLE:
-                self.logger.info('rate limiting resolve attempts %u out of %u',
-                                 host_count, len(ip_gws_unresolved_and_expired))
-                break
-
         return ofmsgs
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
@@ -334,6 +344,16 @@ class ValveRouteManager(object):
         """
         pass
 
+    def _nexthop_fresh(self, vlan, ip_gw, now):
+        nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+        if nexthop_cache_entry is not None:
+            if nexthop_cache_entry.eth_src is not None:
+                cache_time = nexthop_cache_entry.cache_time
+                cache_age = now - cache_time
+                if cache_age < self.arp_neighbor_timeout:
+                    return True
+        return False
+
     def add_host_fib_route_from_pkt(self, pkt_meta):
         """Add a host FIB route given packet from host.
 
@@ -347,15 +367,13 @@ class ValveRouteManager(object):
         if ip_pkt:
             src_ip = ipaddr.IPAddress(ip_pkt.src)
             if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
-                cached_eth_dst = self._cached_nexthop_eth_dst(
-                    pkt_meta.vlan, src_ip)
-                if (cached_eth_dst is None or
-                    cached_eth_dst != pkt_meta.eth_src):
-                    ofmsgs.extend(
-                        self._add_host_fib_route(pkt_meta.vlan, src_ip))
-                else:
+                now = time.time()
+                if self._nexthop_fresh(pkt_meta.vlan, src_ip, now):
                     self._update_nexthop_cache(
                         pkt_meta.vlan, pkt_meta.eth_src, src_ip)
+                else:
+                    ofmsgs.extend(
+                        self._add_host_fib_route(pkt_meta.vlan, src_ip))
         return ofmsgs
 
     def del_route(self, vlan, ip_dst):
