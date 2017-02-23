@@ -797,9 +797,6 @@ class Valve(object):
                 ofmsgs.extend(
                     route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
-        self.logger.info(
-            'learned %u hosts on vlan %u',
-            len(pkt_meta.vlan.host_cache), pkt_meta.vlan.vid)
         return ofmsgs
 
     def _parse_rcv_packet(self, in_port, vlan_vid, pkt):
