@@ -142,8 +142,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         else:
             self.topo_class = faucet_mininet_test_base.FaucetSwitchTopo
             self.dpid = str(random.randint(1, 2**32))
-            self.of_port, _ = faucet_mininet_test_util.find_free_port()
-            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port()
+            self.of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
 
         self.CONFIG = '\n'.join((
             self.get_config_header(
@@ -186,7 +188,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.net = Mininet(
             self.topo,
             controller=faucet_mininet_test_base.FAUCET(
-                name='faucet', port=self.of_port))
+                name='faucet', ports_sock=self.ports_sock, port=self.of_port))
         self.pre_start_net()
         if self.RUN_GAUGE:
             gauge_controller = faucet_mininet_test_base.Gauge(
@@ -318,8 +320,10 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
             self.tmpdir, 'faucet-exception.log')
         self.dpid = str(0xcafef00d)
-        self.of_port, _ = faucet_mininet_test_util.find_free_port()
+        self.of_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock)
         self.topo = faucet_mininet_test_base.FaucetSwitchTopo(
+            self.ports_sock,
             dpid=self.dpid,
             n_untagged=7
             )
@@ -373,7 +377,8 @@ vlans:
 
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(dpid=self.dpid, n_untagged=4)
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid, n_untagged=4)
         self.start_net()
 
     def test_untagged(self):
@@ -428,7 +433,8 @@ class FaucetZodiacUntaggedTest(FaucetUntaggedTest):
 
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(dpid=self.dpid, n_untagged=3)
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid, n_untagged=3)
         self.start_net()
 
     def test_untagged(self):
@@ -465,7 +471,8 @@ vlans:
 
     def setUp(self):
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
-        self.topo = self.topo_class(dpid=self.dpid, n_tagged=1, n_untagged=3)
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid, n_tagged=1, n_untagged=3)
         self.start_net()
 
     def test_untagged(self):
@@ -503,7 +510,8 @@ vlans:
 
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(dpid=self.dpid, n_tagged=1, n_untagged=2)
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid, n_tagged=1, n_untagged=2)
         self.start_net()
 
     def test_untagged(self):
@@ -843,7 +851,8 @@ class FaucetSingleZodiacUntaggedIPv4RouteTest(FaucetSingleUntaggedIPv4RouteTest)
 
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(dpid=self.dpid, n_untagged=3)
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid, n_untagged=3)
         self.start_net()
 
 
@@ -1113,7 +1122,8 @@ vlans:
 
     def setUp(self):
         super(FaucetTaggedAndUntaggedTest, self).setUp()
-        self.topo = self.topo_class(dpid=self.dpid, n_tagged=2, n_untagged=2)
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid, n_tagged=2, n_untagged=2)
         self.start_net()
 
     def test_seperate_untagged_tagged(self):
@@ -1185,7 +1195,8 @@ class FaucetZodiacUntaggedACLTest(FaucetUntaggedACLTest):
 
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(dpid=self.dpid, n_untagged=3)
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid, n_untagged=3)
         self.start_net()
 
     def test_untagged(self):
@@ -1240,7 +1251,8 @@ class FaucetZodiacUntaggedACLMirrorTest(FaucetUntaggedACLMirrorTest):
 
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(dpid=self.dpid, n_untagged=3)
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid, n_untagged=3)
         self.start_net()
 
     def test_untagged(self):
@@ -1396,7 +1408,8 @@ vlans:
 
     def setUp(self):
         super(FaucetTaggedTest, self).setUp()
-        self.topo = self.topo_class(dpid=self.dpid, n_tagged=4)
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid, n_tagged=4)
         self.start_net()
 
     def test_tagged(self):
@@ -1828,7 +1841,7 @@ vlans:
 
 class FaucetStringOfDPSwitchTopo(faucet_mininet_test_base.FaucetSwitchTopo):
 
-    def build(self, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+    def build(self, ports_sock, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
         """String of datapaths each with hosts with a single FAUCET controller.
 
                                Hosts
@@ -1856,7 +1869,8 @@ class FaucetStringOfDPSwitchTopo(faucet_mininet_test_base.FaucetSwitchTopo):
         """
         last_switch = None
         for dpid in dpids:
-            port, ports_served = faucet_mininet_test_util.find_free_port()
+            port, ports_served = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
             sid_prefix = self._get_sid_prefix(ports_served)
             hosts = []
             for host_n in range(n_tagged):
@@ -1902,6 +1916,7 @@ class FaucetStringOfDPTest(FaucetTest):
         )
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.topo = FaucetStringOfDPSwitchTopo(
+            self.ports_sock,
             dpids=self.dpids,
             n_tagged=n_tagged,
             tagged_vid=tagged_vid,
@@ -2459,21 +2474,22 @@ def lint_check():
     return True
 
 
-def make_suite(tc_class, config, root_tmpdir):
+def make_suite(tc_class, config, root_tmpdir, ports_sock):
     """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
     for name in testnames:
-        suite.addTest(tc_class(name, config, root_tmpdir))
+        suite.addTest(tc_class(name, config, root_tmpdir, ports_sock))
     return suite
 
 
 def run_tests(requested_test_classes, serial, config):
     """Actually run the test suites, potentially in parallel."""
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
+    ports_sock = os.path.join(root_tmpdir, 'ports-server')
     ports_server = threading.Thread(
-        target=faucet_mininet_test_util.serve_ports)
+        target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
     ports_server.setDaemon(True)
     ports_server.start()
     single_tests = unittest.TestSuite()
@@ -2485,7 +2501,7 @@ def run_tests(requested_test_classes, serial, config):
             continue
         if name.endswith('Test') and name.startswith('Faucet'):
             print 'adding test %s' % name
-            test_suite = make_suite(obj, config, root_tmpdir)
+            test_suite = make_suite(obj, config, root_tmpdir, ports_sock)
             if serial or name.startswith('FaucetSingle'):
                 single_tests.addTest(test_suite)
             else:

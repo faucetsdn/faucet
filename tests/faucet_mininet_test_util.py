@@ -7,7 +7,6 @@ import socket
 
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../src/ryu_faucet/org/onfsdn/faucet')
-PORTS_SOCKET = '/tmp/faucet-ports-server-socket'
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653, 9179)
 
 
@@ -25,22 +24,20 @@ def str_int_dpid(str_dpid):
         return str(int(str_dpid))
 
 
-def find_free_port():
+def find_free_port(ports_socket):
     """Retrieve a free TCP port from test server."""
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.connect(PORTS_SOCKET)
+    sock.connect(ports_socket)
     buf = ''
     while not buf.find('\n') > -1:
         buf = buf + sock.recv(1024)
     return [int(x) for x in buf.strip().split()]
 
 
-def serve_ports():
+def serve_ports(ports_socket):
     """Implement a TCP server to dispense free TCP ports."""
-    if os.path.exists(PORTS_SOCKET):
-        os.unlink(PORTS_SOCKET)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.bind(PORTS_SOCKET)
+    sock.bind(ports_socket)
     sock.listen(1)
     ports_served = set()
 

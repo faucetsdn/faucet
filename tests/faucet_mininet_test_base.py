@@ -28,12 +28,14 @@ class FAUCET(Controller):
 
     def __init__(self,
                  name,
+                 ports_sock,
                  cdir=faucet_mininet_test_util.FAUCET_DIR,
                  command='ryu-manager ryu.app.ofctl_rest faucet.py',
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'faucet-%u' % os.getpid()
-        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port()
+        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
+            ports_sock)
         cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
         Controller.__init__(
             self,
@@ -136,8 +138,8 @@ class FaucetSwitchTopo(Topo):
             listenPort=port,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
 
-    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port()
+    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
+        port, ports_served = faucet_mininet_test_util.find_free_port(ports_sock)
         sid_prefix = self._get_sid_prefix(ports_served)
         for host_n in range(n_tagged):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
@@ -151,8 +153,8 @@ class FaucetSwitchTopo(Topo):
 class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
-    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port()
+    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
+        port, ports_served = faucet_mininet_test_util.find_free_port(ports_sock)
         sid_prefix = self._get_sid_prefix(ports_served)
         for host_n in range(n_tagged):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
@@ -192,10 +194,11 @@ class FaucetTestBase(unittest.TestCase):
     switch_map = {}
     tmpdir = None
 
-    def __init__(self, name, config, root_tmpdir):
+    def __init__(self, name, config, root_tmpdir, ports_sock):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
         self.root_tmpdir = root_tmpdir
+        self.ports_sock = ports_sock
 
     def tmpdir_name(self):
         test_name = '-'.join(self.id().split('.')[1:])
