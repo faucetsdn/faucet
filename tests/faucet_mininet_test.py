@@ -33,7 +33,6 @@ import getopt
 import random
 import re
 import subprocess
-import tempfile
 import threading
 import time
 import unittest
@@ -99,9 +98,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     RUN_GAUGE = True
 
     def setUp(self):
-        test_name = '-'.join(self.id().split('.')[1:])
-        self.tmpdir = tempfile.mkdtemp(
-            prefix='faucet-test-%s-' % test_name)
+        self.tmpdir = self.tmp_dir_name()
         os.environ['FAUCET_CONFIG'] = os.path.join(
             self.tmpdir, 'faucet.yaml')
         os.environ['GAUGE_CONFIG'] = os.path.join(
@@ -308,7 +305,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
     '''test the faucet API'''
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='faucettests')
+        self.tmpdir = self.tmp_dir_name()
         self.results_file = os.path.join(
             self.tmpdir, 'result.txt')
         os.environ['API_TEST_RESULT'] = self.results_file

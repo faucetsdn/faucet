@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import tempfile
 import time
 import unittest
 import yaml
@@ -195,11 +196,16 @@ class FaucetTestBase(unittest.TestCase):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
 
+    def tmp_dir_name(self):
+        test_name = '-'.join(self.id().split('.')[1:])
+        return tempfile.mkdtemp(prefix='faucet-tests-%s-' % test_name)
+
     def tearDown(self):
         """Clean up after a test."""
         if self.net is not None:
             self.net.stop()
-        shutil.rmtree(self.tmpdir)
+        if os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']) == 0:
+            shutil.rmtree(self.tmpdir)
 
     def pre_start_net(self):
         """Hook called after Mininet initializtion, before Mininet started."""
