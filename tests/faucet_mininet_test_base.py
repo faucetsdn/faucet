@@ -304,7 +304,7 @@ dbs:
         self.assertTrue(False,
                 "Can't find group_id for matching flow %s" % exp_flow)
 
-    def wait_matching_in_group_table(self, exp_flow, group_id, timeout=5):
+    def wait_matching_in_group_table(self, exp_flow, group_id, timeout=10):
         exp_group = '%s.+"group_id": %d' % (exp_flow, group_id)
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
@@ -602,7 +602,7 @@ dbs:
                 return
         self.assertEquals(0, loss)
 
-    def wait_for_route_as_flow(self, nexthop, prefix, timeout=5,
+    def wait_for_route_as_flow(self, nexthop, prefix, timeout=10,
                                with_group_table=False):
         """Verify a route has been added as a flow."""
         if prefix.version == 6:
