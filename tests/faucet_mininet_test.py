@@ -1870,7 +1870,7 @@ class FaucetStringOfDPSwitchTopo(faucet_mininet_test_base.FaucetSwitchTopo):
         last_switch = None
         for dpid in dpids:
             port, ports_served = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
+                ports_sock)
             sid_prefix = self._get_sid_prefix(ports_served)
             hosts = []
             for host_n in range(n_tagged):
@@ -1922,7 +1922,6 @@ class FaucetStringOfDPTest(FaucetTest):
             tagged_vid=tagged_vid,
             n_untagged=n_untagged,
         )
-
 
     def get_config(self, dpids=[], stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
