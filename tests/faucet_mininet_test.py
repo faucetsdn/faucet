@@ -32,11 +32,12 @@ import sys
 import getopt
 import random
 import re
+import shutil
 import subprocess
+import tempfile
 import threading
 import time
 import unittest
-import shutil
 
 import ipaddr
 import yaml
@@ -98,7 +99,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     RUN_GAUGE = True
 
     def setUp(self):
-        self.tmpdir = self.tmp_dir_name()
+        self.tmpdir = self.tmpdir_name()
         os.environ['FAUCET_CONFIG'] = os.path.join(
             self.tmpdir, 'faucet.yaml')
         os.environ['GAUGE_CONFIG'] = os.path.join(
@@ -305,7 +306,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
     '''test the faucet API'''
 
     def setUp(self):
-        self.tmpdir = self.tmp_dir_name()
+        self.tmpdir = self.tmpdir_name()
         self.results_file = os.path.join(
             self.tmpdir, 'result.txt')
         os.environ['API_TEST_RESULT'] = self.results_file
@@ -2458,19 +2459,21 @@ def lint_check():
     return True
 
 
-def make_suite(tc_class, config):
+def make_suite(tc_class, config, root_tmpdir):
     """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
     for name in testnames:
-        suite.addTest(tc_class(name, config))
+        suite.addTest(tc_class(name, config, root_tmpdir))
     return suite
 
 
 def run_tests(requested_test_classes, serial, config):
     """Actually run the test suites, potentially in parallel."""
-    ports_server = threading.Thread(target=faucet_mininet_test_util.serve_ports)
+    root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
+    ports_server = threading.Thread(
+        target=faucet_mininet_test_util.serve_ports)
     ports_server.setDaemon(True)
     ports_server.start()
     single_tests = unittest.TestSuite()
@@ -2482,7 +2485,7 @@ def run_tests(requested_test_classes, serial, config):
             continue
         if name.endswith('Test') and name.startswith('Faucet'):
             print 'adding test %s' % name
-            test_suite = make_suite(obj, config)
+            test_suite = make_suite(obj, config, root_tmpdir)
             if serial or name.startswith('FaucetSingle'):
                 single_tests.addTest(test_suite)
             else:
@@ -2501,9 +2504,13 @@ def run_tests(requested_test_classes, serial, config):
     if single_tests.countTestCases():
         single_runner = unittest.TextTestRunner(verbosity=255)
         results.append(single_runner.run(single_tests))
+    all_successful = True
     for result in results:
         if not result.wasSuccessful():
+            all_successful = False
             print result.printErrors()
+    if all_successful:
+        shutil.rmtree(root_tmpdir)
 
 
 def parse_args():

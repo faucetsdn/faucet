@@ -192,25 +192,28 @@ class FaucetTestBase(unittest.TestCase):
     switch_map = {}
     tmpdir = None
 
-    def __init__(self, name, config):
+    def __init__(self, name, config, root_tmpdir):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
+        self.root_tmpdir = root_tmpdir
 
-    def tmp_dir_name(self):
+    def tmpdir_name(self):
         test_name = '-'.join(self.id().split('.')[1:])
-        return tempfile.mkdtemp(prefix='faucet-tests-%s-' % test_name)
+        return tempfile.mkdtemp(
+            prefix='%s-' % test_name, dir=self.root_tmpdir)
 
     def tearDown(self):
         """Clean up after a test."""
-        controller_name = self.net.controllers[0].name
+        controller_names = []
+        for controller in self.net.controllers:
+            controller_names.append(controller.name)
         if self.net is not None:
             self.net.stop()
         # Associate controller log with test results, if we are keeping
         # the temporary directory, or effectively delete it if not.
         # mininet doesn't have a way to change its log name for the controller.
-        shutil.move('/tmp/%s.log' % controller_name, self.tmpdir)
-        if os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']) == 0:
-            shutil.rmtree(self.tmpdir)
+        for controller_name in controller_names:
+            shutil.move('/tmp/%s.log' % controller_name, self.tmpdir)
 
     def pre_start_net(self):
         """Hook called after Mininet initializtion, before Mininet started."""
