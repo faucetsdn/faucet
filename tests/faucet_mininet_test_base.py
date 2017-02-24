@@ -202,8 +202,13 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
+        controller_name = self.net.controllers[0].name
         if self.net is not None:
             self.net.stop()
+        # Associate controller log with test results, if we are keeping
+        # the temporary directory, or effectively delete it if not.
+        # mininet doesn't have a way to change its log name for the controller.
+        shutil.move('/tmp/%s.log' % controller_name, self.tmpdir)
         if os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']) == 0:
             shutil.rmtree(self.tmpdir)
 
