@@ -99,7 +99,9 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     RUN_GAUGE = True
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='faucettests')
+        test_name = '-'.join(self.id().split('.')[1:])
+        self.tmpdir = tempfile.mkdtemp(
+            prefix='faucet-test-%s-' % test_name)
         os.environ['FAUCET_CONFIG'] = os.path.join(
             self.tmpdir, 'faucet.yaml')
         os.environ['GAUGE_CONFIG'] = os.path.join(
