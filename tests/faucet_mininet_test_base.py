@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import tempfile
 import time
 import unittest
 import yaml
@@ -27,12 +28,14 @@ class FAUCET(Controller):
 
     def __init__(self,
                  name,
+                 ports_sock,
                  cdir=faucet_mininet_test_util.FAUCET_DIR,
                  command='ryu-manager ryu.app.ofctl_rest faucet.py',
                  cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'faucet-%u' % os.getpid()
-        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port()
+        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
+            ports_sock)
         cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
         Controller.__init__(
             self,
@@ -135,8 +138,8 @@ class FaucetSwitchTopo(Topo):
             listenPort=port,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
 
-    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port()
+    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
+        port, ports_served = faucet_mininet_test_util.find_free_port(ports_sock)
         sid_prefix = self._get_sid_prefix(ports_served)
         for host_n in range(n_tagged):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
@@ -150,8 +153,8 @@ class FaucetSwitchTopo(Topo):
 class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
-    def build(self, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port()
+    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
+        port, ports_served = faucet_mininet_test_util.find_free_port(ports_sock)
         sid_prefix = self._get_sid_prefix(ports_served)
         for host_n in range(n_tagged):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
@@ -191,15 +194,29 @@ class FaucetTestBase(unittest.TestCase):
     switch_map = {}
     tmpdir = None
 
-    def __init__(self, name, config):
+    def __init__(self, name, config, root_tmpdir, ports_sock):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
+        self.root_tmpdir = root_tmpdir
+        self.ports_sock = ports_sock
+
+    def tmpdir_name(self):
+        test_name = '-'.join(self.id().split('.')[1:])
+        return tempfile.mkdtemp(
+            prefix='%s-' % test_name, dir=self.root_tmpdir)
 
     def tearDown(self):
         """Clean up after a test."""
+        controller_names = []
+        for controller in self.net.controllers:
+            controller_names.append(controller.name)
         if self.net is not None:
             self.net.stop()
-        shutil.rmtree(self.tmpdir)
+        # Associate controller log with test results, if we are keeping
+        # the temporary directory, or effectively delete it if not.
+        # mininet doesn't have a way to change its log name for the controller.
+        for controller_name in controller_names:
+            shutil.move('/tmp/%s.log' % controller_name, self.tmpdir)
 
     def pre_start_net(self):
         """Hook called after Mininet initializtion, before Mininet started."""
@@ -290,7 +307,7 @@ dbs:
         self.assertTrue(False,
                 "Can't find group_id for matching flow %s" % exp_flow)
 
-    def wait_matching_in_group_table(self, exp_flow, group_id, timeout=5):
+    def wait_matching_in_group_table(self, exp_flow, group_id, timeout=10):
         exp_group = '%s.+"group_id": %d' % (exp_flow, group_id)
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
@@ -588,7 +605,7 @@ dbs:
                 return
         self.assertEquals(0, loss)
 
-    def wait_for_route_as_flow(self, nexthop, prefix, timeout=5,
+    def wait_for_route_as_flow(self, nexthop, prefix, timeout=10,
                                with_group_table=False):
         """Verify a route has been added as a flow."""
         if prefix.version == 6:
