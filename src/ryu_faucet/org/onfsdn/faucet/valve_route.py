@@ -296,10 +296,9 @@ class ValveRouteManager(object):
             if (self._is_host_fib_route(vlan, ip_gw) and
                     nexthop_cache_entry.resolve_retries >= self.max_host_fib_retry_count):
                 self.logger.info(
-                    'expiring dead host FIB route %s (age %us, retries %u)',
+                    'expiring dead host FIB route %s (age %us)',
                     ip_gw,
-                    now - nexthop_cache_entry.cache_time,
-                    nexthop_cache_entry.resolve_retries)
+                    now - nexthop_cache_entry.cache_time)
                 ofmsgs.extend(self._del_host_fib_route(vlan, ip_gw))
             else:
                 nexthop_cache_entry.last_retry_time = now
@@ -405,9 +404,10 @@ class ValveRouteManager(object):
             src_ip = ipaddr.IPAddress(ip_pkt.src)
             if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
                 now = time.time()
-                self._update_nexthop_cache(
-                    pkt_meta.vlan, pkt_meta.eth_src, src_ip)
-                if not self._nexthop_fresh(pkt_meta.vlan, src_ip, now):
+                if self._nexthop_fresh(pkt_meta.vlan, src_ip, now):
+                    self._update_nexthop_cache(
+                        pkt_meta.vlan, pkt_meta.eth_src, src_ip)
+                else:
                     ofmsgs.extend(
                         self._add_host_fib_route(pkt_meta.vlan, src_ip))
         return ofmsgs
