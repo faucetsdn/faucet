@@ -2489,10 +2489,10 @@ def pipeline_superset_report(root_tmpdir):
         os.path.join(root_tmpdir, '*/ofchannel.log'))
     match_re = re.compile(
         '^.+types table: (\d+) match: (.+) instructions: (.+) actions: (.+)')
+    table_matches = collections.defaultdict(set)
+    table_instructions = collections.defaultdict(set)
+    table_actions = collections.defaultdict(set)
     for log in ofchannel_logs:
-        table_matches = collections.defaultdict(set)
-        table_instructions = collections.defaultdict(set)
-        table_actions = collections.defaultdict(set)
         for log_line in open(log).readlines():
             match = match_re.match(log_line)
             if match:
@@ -2501,12 +2501,12 @@ def pipeline_superset_report(root_tmpdir):
                 table_matches[table].update(eval(matches))
                 table_instructions[table].update(eval(instructions))
                 table_actions[table].update(eval(actions))
-        print
-        for table in sorted(table_matches):
-            print 'table: %u' % table
-            print '  matches: %s' % sorted(table_matches[table])
-            print '  table_instructions: %s' % sorted(table_instructions[table])
-            print '  table_actions: %s' % sorted(table_actions[table])
+    print
+    for table in sorted(table_matches):
+        print 'table: %u' % table
+        print '  matches: %s' % sorted(table_matches[table])
+        print '  table_instructions: %s' % sorted(table_instructions[table])
+        print '  table_actions: %s' % sorted(table_actions[table])
 
 
 def run_tests(requested_test_classes, serial, config):
