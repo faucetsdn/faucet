@@ -170,17 +170,66 @@ class Valve(object):
         """
         return []
 
+    def debug_match_types(self, ofmsg):
+        match_oxm_fields = ofmsg.match.to_jsondict()['OFPMatch']['oxm_fields']
+        match_types = []
+        for field in match_oxm_fields:
+            if isinstance(field, dict):
+                value = field['OXMTlv']
+                mask = value['mask']
+                if mask is None:
+                    match_types.append(value['field'])
+                else:
+                    match_types.append('/'.join((value['field'], mask)))
+            else:
+                match_types.append(field)
+        return match_types
+
+    def debug_instruction_types(self, ofmsg):
+        inst_types = set()
+        action_types = set()
+        for inst in ofmsg.instructions:
+            for inst_name, inst_value in inst.to_jsondict().iteritems():
+                if inst_name == 'OFPInstructionActions':
+                   for action in inst_value['actions']:
+                       for action_name in action:
+                           if action_name == 'OFPActionSetField':
+                               oxmtlv = action['OFPActionSetField']['field']['OXMTlv']
+                               field = oxmtlv['field']
+                               mask = oxmtlv['mask']
+                               action_type = '_'.join((action_name, field))
+                               if mask is not None:
+                                   action_type = '/'.join((action_type, mask))
+                               action_types.add(action_type)
+                           else:
+                               action_types.add(action_name)
+                else:
+                   inst_types.add(inst_name)
+        return list(inst_types), list(action_types)
+
     def ofchannel_log(self, ofmsgs):
         """Log OpenFlow messages in text format to debugging log."""
-        if self.dp is not None:
-            if self.dp.ofchannel_log is not None:
+        if (self.dp is not None and
+                self.dp.ofchannel_log is not None):
+            if self.ofchannel_logger is None:
                 self.ofchannel_logger = util.get_logger(
                     self.dp.ofchannel_log,
                     self.dp.ofchannel_log,
                     logging.DEBUG,
                     0)
-                for ofmsg in ofmsgs:
-                    self.ofchannel_logger.debug(ofmsg)
+            for i, ofmsg in enumerate(ofmsgs, start=1):
+                log_prefix = '%u/%u %s' % (
+                    i, len(ofmsgs), util.dpid_log(self.dp.dp_id))
+                self.ofchannel_logger.debug(
+                    '%s %s %s', log_prefix, ofmsg, dir(ofmsg))
+                # TODO: log group operations as well.
+                if valve_of.is_flowmod(ofmsg):
+                    match_types = self.debug_match_types(ofmsg)
+                    inst_types, action_types = self.debug_instruction_types(ofmsg)
+                    self.ofchannel_logger.debug(
+                        '%s FlowMod types table: %u match: %s instructions: %s actions: %s',
+                        log_prefix, ofmsg.table_id,
+                        match_types, inst_types, action_types)
 
     def valve_in_match(self, table_id, in_port=None, vlan=None,
                        eth_type=None, eth_src=None,
