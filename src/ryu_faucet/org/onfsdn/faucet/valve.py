@@ -172,15 +172,18 @@ class Valve(object):
 
     def ofchannel_log(self, ofmsgs):
         """Log OpenFlow messages in text format to debugging log."""
-        if self.dp is not None:
-            if self.dp.ofchannel_log is not None:
+        if (self.dp is not None and
+                self.dp.ofchannel_log is not None):
+            if self.ofchannel_logger is None:
                 self.ofchannel_logger = util.get_logger(
                     self.dp.ofchannel_log,
                     self.dp.ofchannel_log,
                     logging.DEBUG,
                     0)
-                for ofmsg in ofmsgs:
-                    self.ofchannel_logger.debug(ofmsg)
+            for i, ofmsg in enumerate(ofmsgs, start=1):
+                self.ofchannel_logger.debug(
+                    '%u/%u %s %s', i, len(ofmsgs),
+                    util.dpid_log(self.dp.dp_id), ofmsg)
 
     def valve_in_match(self, table_id, in_port=None, vlan=None,
                        eth_type=None, eth_src=None,
