@@ -193,7 +193,16 @@ class Valve(object):
                 if inst_name == 'OFPInstructionActions':
                    for action in inst_value['actions']:
                        for action_name in action:
-                           action_types.add(action_name)
+                           if action_name == 'OFPActionSetField':
+                               oxmtlv = action['OFPActionSetField']['field']['OXMTlv']
+                               field = oxmtlv['field']
+                               mask = oxmtlv['mask']
+                               action_type = '_'.join((action_name, field))
+                               if mask is not None:
+                                   action_type = '/'.join((action_type, mask))
+                               action_types.add(action_type)
+                           else:
+                               action_types.add(action_name)
                 else:
                    inst_types.add(inst_name)
         return list(inst_types), list(action_types)
