@@ -25,6 +25,7 @@
  * ladvd
 """
 
+import collections
 import glob
 import inspect
 import os
@@ -2483,6 +2484,31 @@ def make_suite(tc_class, config, root_tmpdir, ports_sock):
     return suite
 
 
+def pipeline_superset_report(root_tmpdir):
+    ofchannel_logs = glob.glob(
+        os.path.join(root_tmpdir, '*/ofchannel.log'))
+    match_re = re.compile(
+        '^.+types table: (\d+) match: (.+) instructions: (.+) actions: (.+)')
+    for log in ofchannel_logs:
+        table_matches = collections.defaultdict(set)
+        table_instructions = collections.defaultdict(set)
+        table_actions = collections.defaultdict(set)
+        for log_line in open(log).readlines():
+            match = match_re.match(log_line)
+            if match:
+                table, matches, instructions, actions = match.groups()
+                table = int(table)
+                table_matches[table].update(eval(matches))
+                table_instructions[table].update(eval(instructions))
+                table_actions[table].update(eval(actions))
+        print
+        for table in sorted(table_matches):
+            print 'table: %u' % table
+            print '  matches: %s' % sorted(table_matches[table])
+            print '  table_instructions: %s' % sorted(table_instructions[table])
+            print '  table_actions: %s' % sorted(table_actions[table])
+
+
 def run_tests(requested_test_classes, serial, config):
     """Actually run the test suites, potentially in parallel."""
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
@@ -2524,6 +2550,7 @@ def run_tests(requested_test_classes, serial, config):
         if not result.wasSuccessful():
             all_successful = False
             print result.printErrors()
+    pipeline_superset_report(root_tmpdir)
     if all_successful:
         shutil.rmtree(root_tmpdir)
 
