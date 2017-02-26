@@ -713,6 +713,7 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -796,6 +797,7 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1067,6 +1069,7 @@ vlans:
 """
 
     CONFIG = """
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1429,6 +1432,7 @@ vlans:
 """
 
     CONFIG = """
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
@@ -1479,7 +1483,6 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        max_host_fib_retry_count: 2
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
@@ -1520,6 +1523,7 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1562,6 +1566,7 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1610,6 +1615,7 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1677,6 +1683,7 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1740,6 +1747,7 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1812,6 +1820,7 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
@@ -2310,6 +2319,7 @@ vlans:
 """
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         group_table: True
         interfaces:
             %(port_1)d:
@@ -2362,6 +2372,7 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
         group_table: True
         interfaces:
             %(port_1)d:
