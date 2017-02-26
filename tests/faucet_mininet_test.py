@@ -303,10 +303,12 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 continue
             self.fail(
                 'gauge did not output %s (gauge not connected?)' % watcher_file)
+        self.assertEquals(
+            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
 
 
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
-    '''test the faucet API'''
+    """Test the Faucet API."""
 
     def setUp(self):
         self.tmpdir = self.tmpdir_name()
@@ -315,7 +317,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         os.environ['API_TEST_RESULT'] = self.results_file
         shutil.copytree('config', os.path.join(self.tmpdir, 'config'))
         os.environ['FAUCET_CONFIG'] = os.path.join(
-            self.tmpdir, 'config/testconfigv2.yaml')
+            self.tmpdir, 'config/testconfigv2-simple.yaml')
         os.environ['FAUCET_LOG'] = os.path.join(
             self.tmpdir, 'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
@@ -348,7 +350,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
             except IOError:
                 countdown -= 1
                 time.sleep(1)
-        self.fail('no result from api test')
+        self.fail('no result from API test')
 
 
 class FaucetUntaggedTest(FaucetTest):
@@ -1476,6 +1478,8 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        max_host_fib_retry_count: 2
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]

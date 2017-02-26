@@ -94,6 +94,7 @@ class Valve(object):
         self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
+            self.dp.max_resolve_backoff_time,
             self.dp.ipv4_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
@@ -102,6 +103,7 @@ class Valve(object):
         self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
+            self.dp.max_resolve_backoff_time,
             self.dp.ipv6_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
