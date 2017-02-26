@@ -1476,6 +1476,8 @@ vlans:
 
     CONFIG = """
         arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        max_host_fib_retry_count: 2
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]

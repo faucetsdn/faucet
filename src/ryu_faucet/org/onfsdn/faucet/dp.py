@@ -54,6 +54,7 @@ class DP(Conf):
     group_table = False
     max_hosts_per_resolve_cycle = None
     max_host_fib_retry_count = None
+    max_resolve_backoff_time = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -113,6 +114,8 @@ class DP(Conf):
         'max_hosts_per_resolve_cycle': 5,
         # Max number of times to retry resolution of a host FIB route.
         'max_host_fib_retry_count': 10,
+        # Max number of seconds to back off to when resolving nexthops.
+        'max_resolve_backoff_time': 32,
         }
 
     def __init__(self, _id, conf):
