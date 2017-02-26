@@ -37,8 +37,6 @@ class TestFaucetAPI(app_manager.RyuApp):
             assert switch1['dp_id'] == 0xcafef00d
             for port in ('1', '2'):
                 assert port in switch1['interfaces']
-            for vlan in ('100'):
-                assert vlan in config['vlans']
 
         except AssertionError as err:
             with open(self.result_file, 'w') as f:

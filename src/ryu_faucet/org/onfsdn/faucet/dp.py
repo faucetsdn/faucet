@@ -332,7 +332,6 @@ class DP(Conf):
         resolve_mirror_destinations()
         resolve_port_names_in_acls()
 
-
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
             return None
@@ -354,14 +353,16 @@ class DP(Conf):
 
     def to_conf(self):
         result = self._to_conf()
-        if 'stack' in result:
-            result['stack'] = {
-                'root_dp': str(self.stack['root_dp'])
-                }
-        interface_dict = {}
-        for port in self.ports.itervalues():
-            interface_dict[port.name] = port.to_conf()
-        result['interfaces'] = interface_dict
+        if result is not None:
+            if 'stack' in result:
+                if result['stack'] is not None:
+                    result['stack'] = {
+                        'root_dp': str(self.stack['root_dp'])
+                    }
+            interface_dict = {}
+            for port in self.ports.itervalues():
+                interface_dict[port.name] = port.to_conf()
+            result['interfaces'] = interface_dict
         return result
 
     def __str__(self):
