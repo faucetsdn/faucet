@@ -64,7 +64,7 @@ class EventFaucetAPIRegistered(event.EventBase):
 
 
 class FaucetAPI(object):
-    '''An API for communicating with Faucet.
+    """An API for communicating with Faucet.
 
     Contains methods for interacting with a running faucet controller from
     within a RyuApp. This app should be run together with faucet in the same
@@ -90,7 +90,7 @@ class FaucetAPI(object):
         def print_faucet_config(self):
             if self.is_api_registered:
                 print(self.faucet_api.get_config())
-    '''
+    """
 
     def __init__(self, *args, **kwargs):
         self.faucet = None
@@ -103,27 +103,25 @@ class FaucetAPI(object):
             self.faucet = faucet
 
     def reload_config(self):
-        '''Reload config from config file in FAUCET_CONFIG env variable.'''
+        """Reload config from config file in FAUCET_CONFIG env variable."""
         if self.faucet is not None:
             self.faucet.reload_config(None)
 
     def get_config(self):
-        '''Get the current running config of Faucet as a python dictionary.'''
+        """Get the current running config of Faucet as a python dictionary."""
         if self.faucet is not None:
             return self.faucet.get_config()
         else:
             return None
 
     def get_tables(self, dp_id):
-        '''Get the current table structure used by faucet as a dictionary of
-        table name: table no.
-        '''
+        """Get the current table structure used by faucet as a dict of table name: table no."""
         if self.faucet is not None:
             return self.faucet.get_tables(dp_id)
         else:
             return None
 
-    #TODO: here are some other features I would like to see sometime:
+    # TODO: here are some other features I would like to see sometime:
     def push_config(self, config):
         raise NotImplementedError
 

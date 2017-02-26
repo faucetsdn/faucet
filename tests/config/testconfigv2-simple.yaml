@@ -6,7 +6,7 @@ dps:
         dp_id: 0xcafef00d
         hardware: 'Open vSwitch'
         interfaces:
-            port1:
+            1:
                 tagged_vlans: [100]
-            port2:
+            2:
                 native_vlan: 100

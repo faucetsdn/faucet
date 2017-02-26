@@ -308,7 +308,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
 
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
-    '''test the faucet API'''
+    """Test the Faucet API."""
 
     def setUp(self):
         self.tmpdir = self.tmpdir_name()
@@ -350,7 +350,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
             except IOError:
                 countdown -= 1
                 time.sleep(1)
-        self.fail('no result from api test')
+        self.fail('no result from API test')
 
 
 class FaucetUntaggedTest(FaucetTest):
