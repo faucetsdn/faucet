@@ -317,7 +317,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         os.environ['API_TEST_RESULT'] = self.results_file
         shutil.copytree('config', os.path.join(self.tmpdir, 'config'))
         os.environ['FAUCET_CONFIG'] = os.path.join(
-            self.tmpdir, 'config/testconfigv2.yaml')
+            self.tmpdir, 'config/testconfigv2-simple.yaml')
         os.environ['FAUCET_LOG'] = os.path.join(
             self.tmpdir, 'faucet.log')
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
