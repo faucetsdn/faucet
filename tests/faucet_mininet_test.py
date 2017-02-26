@@ -303,6 +303,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 continue
             self.fail(
                 'gauge did not output %s (gauge not connected?)' % watcher_file)
+        self.assertEquals(
+            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
 
 
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
