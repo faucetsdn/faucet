@@ -254,8 +254,8 @@ class ValveRouteManager(object):
                 ip_gws_never_tried.append(ip_gw_with_retry_time)
             else:
                 if self._retry_backoff(
-                    now, nexthop_cache_entry.resolve_retries, last_retry_time):
-                        ip_gws_with_retry_time.append(ip_gw_with_retry_time)
+                        now, nexthop_cache_entry.resolve_retries, last_retry_time):
+                    ip_gws_with_retry_time.append(ip_gw_with_retry_time)
         ip_gws_with_retry_time_sorted = list(
             sorted(ip_gws_with_retry_time, key=lambda x: x[-1]))
         return ip_gws_never_tried + ip_gws_with_retry_time_sorted
