@@ -43,6 +43,7 @@ class ValveRouteManager(object):
 
     def __init__(self, logger, faucet_mac, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
+                 max_resolve_backoff_time,
                  fib_table, eth_src_table, eth_dst_table, route_priority,
                  valve_in_match, valve_flowdel, valve_flowmod,
                  valve_flowcontroller, use_group_table):
@@ -51,6 +52,7 @@ class ValveRouteManager(object):
         self.arp_neighbor_timeout = arp_neighbor_timeout
         self.max_hosts_per_resolve_cycle = max_hosts_per_resolve_cycle
         self.max_host_fib_retry_count = max_host_fib_retry_count
+        self.max_resolve_backoff_time = max_resolve_backoff_time
         self.fib_table = fib_table
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
@@ -223,6 +225,13 @@ class ValveRouteManager(object):
             if self._vlan_nexthop_cache_entry(vlan, ip_gw) is None:
                 self._update_nexthop_cache(vlan, None, ip_gw)
 
+    def _retry_backoff(self, now, resolve_retries, last_retry_time):
+        backoff_seconds = min(
+            2**resolve_retries, self.max_resolve_backoff_time)
+        if now - last_retry_time > backoff_seconds:
+            return True
+        return False
+
     def _vlan_unresolved_nexthops(self, vlan, ip_gws, now):
         """Return unresolved or expired IP gateways, never tried/oldest first.
 
@@ -244,10 +253,9 @@ class ValveRouteManager(object):
             if last_retry_time is None:
                 ip_gws_never_tried.append(ip_gw_with_retry_time)
             else:
-                backoff_seconds = min(
-                    2**nexthop_cache_entry.resolve_retries, 32)
-                if (now - last_retry_time) > backoff_seconds:
-                    ip_gws_with_retry_time.append(ip_gw_with_retry_time)
+                if self._retry_backoff(
+                    now, nexthop_cache_entry.resolve_retries, last_retry_time):
+                        ip_gws_with_retry_time.append(ip_gw_with_retry_time)
         ip_gws_with_retry_time_sorted = list(
             sorted(ip_gws_with_retry_time, key=lambda x: x[-1]))
         return ip_gws_never_tried + ip_gws_with_retry_time_sorted
@@ -404,10 +412,10 @@ class ValveRouteManager(object):
             src_ip = ipaddr.IPAddress(ip_pkt.src)
             if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
                 now = time.time()
-                if self._nexthop_fresh(pkt_meta.vlan, src_ip, now):
-                    self._update_nexthop_cache(
-                        pkt_meta.vlan, pkt_meta.eth_src, src_ip)
-                else:
+                nexthop_fresh = self._nexthop_fresh(pkt_meta.vlan, src_ip, now)
+                self._update_nexthop_cache(
+                    pkt_meta.vlan, pkt_meta.eth_src, src_ip)
+                if not nexthop_fresh:
                     ofmsgs.extend(
                         self._add_host_fib_route(pkt_meta.vlan, src_ip))
         return ofmsgs

@@ -207,6 +207,9 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
+        # must not be any controller exception.
+        self.assertEquals(
+            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
         controller_names = []
         for controller in self.net.controllers:
             controller_names.append(controller.name)
