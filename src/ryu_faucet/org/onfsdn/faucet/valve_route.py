@@ -404,10 +404,10 @@ class ValveRouteManager(object):
             src_ip = ipaddr.IPAddress(ip_pkt.src)
             if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
                 now = time.time()
-                if self._nexthop_fresh(pkt_meta.vlan, src_ip, now):
-                    self._update_nexthop_cache(
-                        pkt_meta.vlan, pkt_meta.eth_src, src_ip)
-                else:
+                nexthop_fresh = self._nexthop_fresh(pkt_meta.vlan, src_ip, now)
+                self._update_nexthop_cache(
+                    pkt_meta.vlan, pkt_meta.eth_src, src_ip)
+                if not nexthop_fresh:
                     ofmsgs.extend(
                         self._add_host_fib_route(pkt_meta.vlan, src_ip))
         return ofmsgs
