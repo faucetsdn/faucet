@@ -223,7 +223,7 @@ class Valve(object):
                 log_prefix = '%u/%u %s' % (
                     i, len(ofmsgs), util.dpid_log(self.dp.dp_id))
                 self.ofchannel_logger.debug(
-                    '%s %s %s', log_prefix, ofmsg, dir(ofmsg))
+                    '%s %s', log_prefix, ofmsg)
                 # TODO: log group operations as well.
                 if valve_of.is_flowmod(ofmsg):
                     match_types = self.debug_match_types(ofmsg)
