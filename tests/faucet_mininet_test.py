@@ -550,7 +550,7 @@ vlans:
 """
 
     def test_untagged(self):
-        self.force_faucet_reload('       timeout: 60')
+        self.force_faucet_reload('        timeout: 60')
         self.net.pingAll()
         learned_hosts = [
             host for host in self.net.hosts if self.host_learned(host)]
