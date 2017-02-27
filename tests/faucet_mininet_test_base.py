@@ -216,7 +216,8 @@ class FaucetTestBase(unittest.TestCase):
         if self.net is not None:
             self.net.stop()
         test_class_name = self.id().split('.')[1]
-        if not test_class_name.startswith('FaucetGroup'):
+        if (not test_class_name.startswith('FaucetGroup') and
+            not test_class_name.startswith('FaucetSingleGroup')):
             for dp_name, debug_log in self.get_ofchannel_logs():
                 self.assertFalse(re.search('OFPErrorMsg', open(debug_log).read()),
                     msg='debug log has OFPErrorMsgs')

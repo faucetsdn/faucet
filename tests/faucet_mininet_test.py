@@ -2298,7 +2298,7 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
                     '"table_id": 7,.+"dl_vlan": "100"'))
 
 
-class FaucetSingleUntaggedIPv4RouteGroupTableTest(FaucetUntaggedTest):
+class FaucetSingleGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -2350,7 +2350,7 @@ vlans:
             second_host, second_host_routed_ip,
             with_group_table=True)
 
-class FaucetSingleUntaggedIPv6RouteGroupTableTest(FaucetUntaggedTest):
+class FaucetSingleGroupUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
