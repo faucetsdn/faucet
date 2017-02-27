@@ -215,6 +215,11 @@ class FaucetTestBase(unittest.TestCase):
             controller_names.append(controller.name)
         if self.net is not None:
             self.net.stop()
+        test_class_name = self.id().split('.')[1]
+        if not test_class_name.startswith('FaucetGroup'):
+            for dp_name, debug_log in self.get_ofchannel_logs():
+                self.assertFalse(re.search('OFPErrorMsg', open(debug_log).read()),
+                    msg='debug log has OFPErrorMsgs')
         # Associate controller log with test results, if we are keeping
         # the temporary directory, or effectively delete it if not.
         # mininet doesn't have a way to change its log name for the controller.
@@ -396,11 +401,19 @@ dbs:
             host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
         self.fail('host %s could not be learned' % host)
 
+    def get_ofchannel_logs(self):
+        config = yaml.load(open(os.environ['FAUCET_CONFIG']))
+        ofchannel_logs = []
+        for dp_name, dp_config in config['dps'].iteritems():
+            if 'ofchannel_log' in dp_config:
+                debug_log = dp_config['ofchannel_log']
+                ofchannel_logs.append((dp_name, debug_log))
+        return ofchannel_logs
+
     def wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
-        config = yaml.load(open(os.environ['FAUCET_CONFIG']))
-        for dp_name, dp_config in config['dps'].iteritems():
-            debug_log = dp_config['ofchannel_log']
+        ofchannel_logs = self.get_ofchannel_logs()
+        for dp_name, debug_log in ofchannel_logs:
             debug_log_present = False
             for _ in range(20):
                 if (os.path.exists(debug_log) and
