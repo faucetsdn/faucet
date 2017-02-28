@@ -1502,13 +1502,11 @@ vlans:
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
         second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip)
+        for _ in range(3):
+            self.verify_ipv4_routing(
+                first_host, first_host_routed_ip,
+                second_host, second_host_routed_ip)
+            self.swap_host_macs(first_host, second_host)
 
 
 class FaucetUntaggedMixedIPv4RouteTest(FaucetUntaggedTest):
@@ -2559,6 +2557,7 @@ def run_tests(requested_test_classes, serial, config):
     if single_tests.countTestCases():
         single_runner = unittest.TextTestRunner(verbosity=255)
         results.append(single_runner.run(single_tests))
+    os.remove(ports_sock)
     all_successful = True
     for result in results:
         if not result.wasSuccessful():
