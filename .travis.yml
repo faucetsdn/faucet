@@ -1,3 +1,6 @@
+# Check with travis lint .travis.yml.
+# TODO: we want this to be xenial, but travis doesn't support it yet.
+# dist: xenial
 language: python
 python:
   - "2.7"
@@ -6,5 +9,8 @@ before_install:
   - "sudo pip install -r requirements.txt"
 install:
   - "make"
+# We want to run actual mininet based tests too. Prefer xenial
+# but perhaps can run container-inside-container inside this container..
 script:
+  - "pylint -E src/ryu_faucet/org/onfsdn/faucet/*.py"
   - "cd ./tests ; ./test_config.py ; ./test_check_config.py ; ./test_valve.py"
