@@ -1,21 +1,7 @@
 language: python
 python:
   - "2.7"
-#  - "3.2"
-#  - "3.3"
-#  - "3.4"
-#  - "3.5"
-#  - "3.5-dev" # 3.5 development branch
-#  - "nightly" # currently points to 3.6-dev
-# sudo: required
-# command to install dependencies
 install:
-  - "sudo pip install ryu pyyaml pylint influxdb ipaddr concurrencytest packaging"
-#  - "pip install -r requirements.txt"
-#
-# install our package into the environment
-  - sudo python setup.py install
-# # command to run tests
-# removed uml from make target as python package pyreverse was not found
+  - "sudo pip install -r requirements.txt"
 script:
-  - "sudo make sdist"
+  - "./tests/test_valve.py"
