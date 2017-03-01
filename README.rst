@@ -1,4 +1,4 @@
-:version: 1.3.2
+:version: 1.4
 :copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
 
 .. meta::
@@ -22,7 +22,7 @@ It supports:
 - BGP advertisement of controller IPs and static routes and Quagga support
 - Policy based forwarding to offload processing to external systems (Eg 802.1x via hostapd)
 - Support for IPv4 and IPv6 static routes on both tagged and untagged VLANs
-- Integrated support for InfluxDB/Grafana
+- Integrated support for stats via InfluxDB/Grafana and flows via CouchDB/CouchApp
 - Comprehensive Test suite - tests for all features that can be run against mininet (development) and on hardware; Most tests run in parallel to reduce time.
 - Code: Python based, easy readability (PEP8 style), documented, Unit tests for all features
 - Installation: `Python pip <#installation-with-pip>`_, `pre-built VM available <https://susestudio.com/a/ENQFFD/ryu-faucet>`_, `Docker containers <#installation-with-docker>`_
