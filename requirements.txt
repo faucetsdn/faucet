@@ -1,3 +1,4 @@
+bitstring
 concurrencytest
 couchdb
 influxdb
