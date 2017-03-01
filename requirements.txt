@@ -1,3 +1,9 @@
-# pip install -r requirements.txt
+concurrencytest
+couchdb
+influxdb
+ipaddr
+networkx
+packaging
+pyyaml
+ryu>=4.9
 tinyrpc
-ryu==4.9
