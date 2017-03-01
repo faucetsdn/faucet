@@ -4,4 +4,4 @@ python:
 install:
   - "sudo pip install -r requirements.txt"
 script:
-  - "./tests/test_valve.py"
+  - "cd ./tests ; ./test_config.py ; ./test_check_config.py ; ./test_valve.py"
