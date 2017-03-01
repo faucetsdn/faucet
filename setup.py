@@ -1,11 +1,15 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import os
-from os import path
-from setuptools import setup
-import sys
 
-with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
+import os
+import sys
+from setuptools import setup
+
+
+setup_dir = os.path.dirname(__file__)
+
+
+with open(os.path.join(setup_dir, 'README.rst')) as readme:
     README = readme.read()
 
     # allow setup.py to be run from any path
@@ -14,16 +18,15 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
 
     data_files_prefix = '/'
     if (getattr(sys, "real_prefix", sys.prefix) != sys.prefix or
-        getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
+            getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
         data_files_prefix = ''
+    requirements = open(os.path.join(setup_dir, 'requirements.txt')).readlines()
 
     setup(
         name='ryu-faucet',
         version='1.3.2',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
-        ## Temp Fix for v1.2 to not use data_files_prefix as we have package install issues.
-        #data_files=[(data_files_prefix + 'etc/ryu/faucet',
         data_files=[
             ('/etc/ryu', [
                 'src/cfg/etc/ryu/ryu.conf'
@@ -42,7 +45,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
             ])
         ],
         include_package_data=True,
-        install_requires=['ryu>=4.9', 'pyyaml', 'influxdb', 'ipaddr', 'concurrencytest', 'couchdb', 'networkx', 'packaging'],
+        install_requires=requirements,
         license='Apache License 2.0',
         description='Faucet is an Application for Ryu Openflow Controller to enable drop-in replacement for standard or legacy L2/L3 switch with extra SDN based functionality',
         long_description=README,

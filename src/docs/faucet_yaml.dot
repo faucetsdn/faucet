@@ -9,14 +9,14 @@ digraph {
   version [shape = box style = bold tooltip="2 - is the only value supported"];
 
   /** include yaml files **/
-  include [shape = box; style = bold];
+  include [shape = box style = bold];
 
   /** include optional yaml files to augment existing elements **/
-  include_optional [label="include-optional"; shape = box; style = bold];
+  include_optional [label="include-optional" shape = box style = bold];
   include_optional;
 
   /** VLANs **/
-  VLANS [shape = box; style = bold];
+  VLANS [shape = box style = bold];
   VLANS -> id;
   id_name [label = "name"]
   id -> id_name;
@@ -37,7 +37,7 @@ digraph {
   subgraph "cluster_routing_related" { label = "Routing related"; style = dashed; fontsize=12; faucet_vips; bgp_port; bgp_as; bgp_routerid; bgp_neighbor_addresses; bgp_neighbor_as; routes; route; ip_dst; ip_gw; }
 
   /**  ACLs **/
-  ACLS [shape = box; style = bold];
+  ACLS [shape = box style = bold];
   acls_name [label = "name"]
   ACLS -> acls_name -> rule -> actions;
 
@@ -66,7 +66,7 @@ digraph {
   output -> port;
 
   /** Datapaths **/
-  dps [shape = box; style = bold];
+  dps [shape = box style = bold];
   dps_name [label = "name"]
   dps -> dps_name;
 
