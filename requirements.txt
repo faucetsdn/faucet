@@ -1,10 +1,12 @@
 bitstring
 concurrencytest
 couchdb
+graphviz
 influxdb
 ipaddr
 networkx
 packaging
 pyyaml
+pylint
 ryu>=4.9
 tinyrpc
