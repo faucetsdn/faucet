@@ -20,7 +20,7 @@ with open(os.path.join(setup_dir, 'README.rst')) as readme:
     if (getattr(sys, "real_prefix", sys.prefix) != sys.prefix or
             getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
         data_files_prefix = ''
-    requirements = open(os.path.join(setup_dir, 'requirements.txt').readlines()
+    requirements = open(os.path.join(setup_dir, 'requirements.txt')).readlines()
 
     setup(
         name='ryu-faucet',
