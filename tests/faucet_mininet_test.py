@@ -1088,7 +1088,7 @@ vlans:
         first_host, second_host = self.net.hosts[0:2]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
-        for _ in range(2):
+        for _ in range(5):
             # Verify IPv4 and IPv6 connectivity between first two hosts.
             self.one_ipv4_ping(first_host, second_host.IP())
             self.one_ipv6_ping(first_host, 'fc00::1:2')
@@ -1841,13 +1841,11 @@ vlans:
         second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
         first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
         second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip)
+        for _ in range(5):
+            self.verify_ipv6_routing_pair(
+                first_host, first_host_ip, first_host_routed_ip,
+                second_host, second_host_ip, second_host_routed_ip)
+            self.swap_host_macs(first_host, second_host)
 
 
 class FaucetStringOfDPSwitchTopo(faucet_mininet_test_base.FaucetSwitchTopo):
