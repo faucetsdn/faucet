@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+
 import os
-from os import path
-from setuptools import setup
 import sys
+from setuptools import setup
 
 with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
     README = readme.read()
@@ -14,7 +14,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
 
     data_files_prefix = '/'
     if (getattr(sys, "real_prefix", sys.prefix) != sys.prefix or
-        getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
+            getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
         data_files_prefix = ''
 
     setup(
@@ -22,8 +22,6 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
         version='1.3.2',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
-        ## Temp Fix for v1.2 to not use data_files_prefix as we have package install issues.
-        #data_files=[(data_files_prefix + 'etc/ryu/faucet',
         data_files=[
             ('/etc/ryu', [
                 'src/cfg/etc/ryu/ryu.conf'
