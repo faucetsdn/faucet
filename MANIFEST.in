@@ -1,6 +1,8 @@
 include LICENSE
 include README.rst
+include requirements.txt
 include faucet_deployment.png
+recursive-include src/apps *
 recursive-include src/cfg *
 recursive-include src/ryu_faucet *.py
 include src/ryu_faucet/org/onfsdn/faucet/aruba/*.json
