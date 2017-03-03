@@ -36,10 +36,13 @@ DEFAULT_SETUP_ARGS = {
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--setup_cfg')
-    arg_split_index = sys.argv.index('--')
-    faucet_args = sys.argv[arg_split_index+1:]
-    sys.argv = sys.argv[:arg_split_index]
+    parser.add_argument('--setup_cfg', default='faucet_setup.cfg')
+    try:
+        arg_split_index = sys.argv.index('--')
+        faucet_args = sys.argv[arg_split_index+1:]
+        sys.argv = sys.argv[:arg_split_index]
+    except ValueError:
+        faucet_args = sys.argv
     args, _ = parser.parse_known_args(faucet_args)
 
     setup_dir = os.path.dirname(__file__)
