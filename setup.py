@@ -24,7 +24,7 @@ with open(os.path.join(setup_dir, 'README.rst')) as readme:
 
     setup(
         name='ryu-faucet',
-        version='1.3.2',
+        version='1.4',
         packages=['ryu_faucet'],
         package_dir={'ryu_faucet': 'src/ryu_faucet'},
         data_files=[
@@ -53,7 +53,7 @@ with open(os.path.join(setup_dir, 'README.rst')) as readme:
         author='Christopher Lorier',
         author_email='chris.lorier@reannz.co.nz',
         maintainer='Shivaram Mysore, FaucetSDN.Org',
-        maintainer_email='shivaram.mysore@gmail.com, faucet-dev@googlegroups.com',
+        maintainer_email='shivaram.mysore@gmail.com, faucet-dev@list.waikato.ac.nz',
         classifiers=[
             'Development Status :: 5 - Production/Stable',
             'Environment :: Console',

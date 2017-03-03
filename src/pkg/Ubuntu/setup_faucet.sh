@@ -20,7 +20,7 @@ useradd $FAUCET_USER
 sudo -E -u echo -e "#!/bin/sh\nRYU_MANAGER=ryu-manager\nCONTROLLER_LISTEN_PORT=6653\nFAUCET_APP=$FAUCET_APP\n$RYU_MANAGER --ofp-tcp-listen-port $CONTROLLER_LISTEN_PORT $FAUCET_APP" >> $FAUCET_START_SCRIPT
 
 touch $FAUCET_SERVICE
-echo -e "[Unit]\ndescription="FAUCET OpenFlow switch controller"\nAfter=network-online.target\nWants=network-online.target" >> $FAUCET_SERVICE
+echo -e "[Unit]\nDescription="FAUCET OpenFlow switch controller"\nAfter=network-online.target\nWants=network-online.target" >> $FAUCET_SERVICE
 echo -e "\n[Service]\nExecStart=$FAUCET_START_SCRIPT\nRestart=always" >> $FAUCET_SERVICE
 echo -e "\n[Install]\nWantedBy=multi-user.target" >> $FAUCET_SERVICE
 
