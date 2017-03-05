@@ -36,10 +36,12 @@ class BaseFAUCET(Controller):
            '-e',
            '-n',
            '-U',
-           '-v',
+           '-q',
            self._tcpdump_intf(),
            '-w %s/%s-of.cap' % (self.tmpdir, self.name),
            'tcp and port %u' % self.port,
+           '>/dev/null',
+           '2>/dev/null',
        ))
        self.cmd('tcpdump %s &' % tcpdump_args)
 
