@@ -186,14 +186,21 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
     def start_net(self):
         """Start Mininet network."""
+        controller_intf = 'lo'
+        if self.hw_switch:
+            controller_intf = None
         self.net = Mininet(
             self.topo,
             controller=faucet_mininet_test_base.FAUCET(
-                name='faucet', ports_sock=self.ports_sock, port=self.of_port))
+                name='faucet', tmpdir=self.tmpdir,
+                controller_intf=controller_intf,
+                ports_sock=self.ports_sock, port=self.of_port))
         self.pre_start_net()
         if self.RUN_GAUGE:
             gauge_controller = faucet_mininet_test_base.Gauge(
-                name='gauge', port=self.gauge_of_port)
+                name='gauge', tmpdir=self.tmpdir,
+                controller_intf=controller_intf,
+                port=self.gauge_of_port)
             self.net.addController(gauge_controller)
         self.net.start()
         if self.hw_switch:
@@ -257,12 +264,14 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         cdp_filter = 'ether host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
         send_cdp = '%s -C -o %s' % (self.LADVD, second_host.defaultIntf())
-        tcpdump_txt = self.tcpdump_helper(first_host, cdp_filter,
-             [lambda: second_host.cmd(ladvd_mkdir),
-              lambda: second_host.cmd(send_cdp),
-              lambda: second_host.cmd(send_cdp),
-              lambda: second_host.cmd(send_cdp)],
-             timeout=20, packets=5)
+        tcpdump_txt = self.tcpdump_helper(
+            first_host,
+            cdp_filter,
+            [lambda: second_host.cmd(ladvd_mkdir),
+             lambda: second_host.cmd(send_cdp),
+             lambda: second_host.cmd(send_cdp),
+             lambda: second_host.cmd(send_cdp)],
+            timeout=20, packets=5)
 
         if re.search(second_host.MAC(), tcpdump_txt):
             return False
@@ -2289,9 +2298,10 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
 """
 
     def test_group_exist(self):
-        self.assertEqual(100,
-                self.get_group_id_for_matching_flow(
-                    '"table_id": 7,.+"dl_vlan": "100"'))
+        self.assertEqual(
+            100,
+            self.get_group_id_for_matching_flow(
+                '"table_id": 7,.+"dl_vlan": "100"'))
 
 
 class FaucetSingleGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
@@ -2519,7 +2529,7 @@ def pipeline_superset_report(root_tmpdir):
         print '  table_actions: %s' % sorted(table_actions[table])
 
 
-def run_tests(requested_test_classes, serial, config):
+def run_tests(requested_test_classes, keep_logs, serial, config):
     """Actually run the test suites, potentially in parallel."""
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
     ports_sock = os.path.join(root_tmpdir, 'ports-server')
@@ -2562,34 +2572,38 @@ def run_tests(requested_test_classes, serial, config):
             all_successful = False
             print result.printErrors()
     pipeline_superset_report(root_tmpdir)
-    if all_successful:
+    if not keep_logs and all_successful:
         shutil.rmtree(root_tmpdir)
 
 
 def parse_args():
     """Parse command line arguments."""
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "cs", ["clean", "serial"])
+        opts, args = getopt.getopt(
+            sys.argv[1:], "cks", ["clean", "keep_logs", "serial"])
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
 
     clean = False
+    keep_logs = False
     serial = False
 
     for opt, _ in opts:
         if opt in ('-c', '--clean'):
             clean = True
+        if opt in ('-k', '--keep_logs'):
+            keep_logs = True
         if opt in ('-s', '--serial'):
             serial = True
 
-    return (args, clean, serial)
+    return (args, clean, keep_logs, serial)
 
 
 def test_main():
     """Test main."""
     setLogLevel('info')
-    args, clean, serial = parse_args()
+    args, clean, keep_logs, serial = parse_args()
 
     if clean:
         print ('Cleaning up test interfaces, processes and openvswitch '
@@ -2607,7 +2621,7 @@ def test_main():
     if config is not None:
         print 'Testing hardware, forcing test serialization'
         serial = True
-    run_tests(args, serial, config)
+    run_tests(args, keep_logs, serial, config)
 
 
 if __name__ == '__main__':

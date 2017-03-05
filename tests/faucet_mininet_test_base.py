@@ -23,14 +23,38 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 import faucet_mininet_test_util
 
 
-class FAUCET(Controller):
+class BaseFAUCET(Controller):
+
+    def _tcpdump_intf(self):
+       if self.controller_intf:
+           return '-i %s' % self.controller_intf
+       return ''
+
+    def _start_tcpdump(self):
+       tcpdump_args = ' '.join((
+           '-s 0',
+           '-e',
+           '-n',
+           '-U',
+           '-v',
+           self._tcpdump_intf(),
+           '-w %s/%s-of.cap' % (self.tmpdir, self.name),
+           'tcp and port %u' % self.port,
+       ))
+       self.cmd('tcpdump %s &' % tcpdump_args)
+
+    def start(self):
+        self._start_tcpdump()
+        super(BaseFAUCET, self).start()
+
+
+class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
-    def __init__(self,
-                 name,
-                 ports_sock,
-                 **kwargs):
+    def __init__(self, name, tmpdir, controller_intf, ports_sock, **kwargs):
         name = 'faucet-%u' % os.getpid()
+        self.tmpdir = tmpdir
+        self.controller_intf = controller_intf
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
             ports_sock)
         command = 'ryu-manager ryu.app.ofctl_rest faucet.py'
@@ -48,40 +72,45 @@ class FAUCET(Controller):
             **kwargs)
 
 
-class Gauge(Controller):
+class Gauge(BaseFAUCET):
     """Start a Gauge controller."""
 
-    def __init__(self,
-                 name,
-                 cdir=faucet_mininet_test_util.FAUCET_DIR,
-                 command='ryu-manager gauge.py',
-                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
-                 **kwargs):
+    def __init__(self, name, tmpdir, controller_intf, **kwargs):
         name = 'gauge-%u' % os.getpid()
+        self.tmpdir = tmpdir
+        self.controller_intf = controller_intf
+        command='ryu-manager gauge.py'
+        cargs = ' '.join((
+            '--verbose',
+            '--use-stderr',
+            '--ofp-tcp-listen-port=%s'))
         Controller.__init__(
             self,
             name,
-            cdir=cdir,
+            cdir=faucet_mininet_test_util.FAUCET_DIR,
             command=command,
             cargs=cargs,
             **kwargs)
+
 
 class FaucetAPI(Controller):
     '''Start a controller to run the Faucet API tests.'''
 
-    def __init__(self,
-                 name,
-                 command='ryu-manager {0}/faucet.py test_api.py'.format(
-                    faucet_mininet_test_util.FAUCET_DIR),
-                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
-                 **kwargs):
+    def __init__(self, name, **kwargs):
         name = 'faucet-api-%u' % os.getpid()
+        command='ryu-manager faucet.py test_api.py'
+        cargs = ' '.join((
+            '--verbose',
+            '--use-stderr',
+            '--ofp-tcp-listen-port=%s'))
         Controller.__init__(
             self,
             name,
             command=command,
             cargs=cargs,
+            cdir=faucet_mininet_test_util.FAUCET_DIR,
             **kwargs)
+
 
 class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
