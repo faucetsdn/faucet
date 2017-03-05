@@ -98,7 +98,8 @@ class FaucetAPI(Controller):
 
     def __init__(self, name, **kwargs):
         name = 'faucet-api-%u' % os.getpid()
-        command='ryu-manager faucet.py test_api.py'
+        command='ryu-manager %s/faucet.py test_api.py' % (
+            faucet_mininet_test_util.FAUCET_DIR)
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
@@ -108,7 +109,6 @@ class FaucetAPI(Controller):
             name,
             command=command,
             cargs=cargs,
-            cdir=faucet_mininet_test_util.FAUCET_DIR,
             **kwargs)
 
 
