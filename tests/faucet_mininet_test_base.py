@@ -29,18 +29,20 @@ class FAUCET(Controller):
     def __init__(self,
                  name,
                  ports_sock,
-                 cdir=faucet_mininet_test_util.FAUCET_DIR,
-                 command='ryu-manager ryu.app.ofctl_rest faucet.py',
-                 cargs='--ofp-tcp-listen-port=%s --verbose --use-stderr',
                  **kwargs):
         name = 'faucet-%u' % os.getpid()
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
             ports_sock)
-        cargs = '--wsapi-port=%u %s' % (self.ofctl_port, cargs)
+        command = 'ryu-manager ryu.app.ofctl_rest faucet.py'
+        cargs = ' '.join((
+            '--verbose',
+            '--use-stderr',
+            '--wsapi-port=%u' % self.ofctl_port,
+            '--ofp-tcp-listen-port=%s'))
         Controller.__init__(
             self,
             name,
-            cdir=cdir,
+            cdir=faucet_mininet_test_util.FAUCET_DIR,
             command=command,
             cargs=cargs,
             **kwargs)
