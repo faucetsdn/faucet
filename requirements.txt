@@ -5,6 +5,7 @@ graphviz
 influxdb
 ipaddr
 networkx
+numpy
 packaging
 pyyaml
 pylint

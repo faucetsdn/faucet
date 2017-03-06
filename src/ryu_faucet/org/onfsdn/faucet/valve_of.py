@@ -26,6 +26,7 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 
 VLAN_GROUP_OFFSET = 4096
 ROUTE_GROUP_OFFSET = VLAN_GROUP_OFFSET * 2
+OFP_VERSIONS = [ofp.OFP_VERSION]
 
 
 def ignore_port(port_num):
