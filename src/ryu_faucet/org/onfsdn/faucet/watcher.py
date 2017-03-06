@@ -236,15 +236,31 @@ class GaugePoller(object):
 
     def _stat_port_name(self, msg, stat):
         if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
-            return '-'.join((self.dp.name, 'CONTROLLER'))
+            return 'CONTROLLER'
         elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
-            return '-'.join((self.dp.name, 'LOCAL'))
+            return 'LOCAL'
         elif stat.port_no in self.dp.ports:
-            return '-'.join(
-                (self.dp.name, self.dp.ports[stat.port_no].name))
+            return self.dp.ports[stat.port_no].name
         else:
             self.logger.info('stats for unknown port %u', stat.port_no)
             return None
+
+    def _format_port_stats(self, delim, stat):
+        formatted_port_stats = []
+        for stat_name_list, stat_val in (
+                (('packets', 'out'), stat.tx_packets),
+                (('packets', 'in'), stat.rx_packets),
+                (('bytes', 'out'), stat.tx_bytes),
+                (('bytes', 'in'), stat.rx_bytes),
+                (('dropped', 'out'), stat.tx_dropped),
+                (('dropped', 'in'), stat.rx_dropped),
+                (('errors', 'in'), stat.rx_errors)):
+            # For openvswitch, unsupported statistics are set to
+            # all-1-bits (UINT64_MAX), skip reporting them
+            if stat_val != 2**64-1:
+                stat_name = delim.join(stat_name_list)
+                formatted_port_stats.append((stat_name, stat_val))
+        return formatted_port_stats
 
 
 class GaugePortStatsPoller(GaugePoller):
@@ -261,8 +277,8 @@ class GaugePortStatsPoller(GaugePoller):
         req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
         self.ryudp.send_msg(req)
 
-    def _update_line(self, rcv_time_str, var, val): 
-        return '\t'.join((rcv_time_str, var, str(val))) + '\n'
+    def _update_line(self, rcv_time_str, stat_name, stat_val): 
+        return '\t'.join((rcv_time_str, stat_name, str(stat_val))) + '\n'
 
     def update(self, rcv_time, msg):
         # TODO: it may be worth while verifying this is the correct stats
@@ -275,19 +291,12 @@ class GaugePortStatsPoller(GaugePoller):
             if port_name is not None:
                 with open(self.conf.file, 'a') as logfile:
                     log_lines = []
-                    for stat_name, stat_var in (
-                        ('packets-out', stat.tx_packets),
-                        ('packets-in', stat.rx_packets),
-                        ('bytes-out', stat.tx_bytes),
-                        ('bytes-in', stat.rx_bytes),
-                        ('dropped-out', stat.tx_dropped),
-                        ('dropped-in', stat.rx_dropped),
-                        ('errors-in', stat.rx_errors)):
-                            log_lines.append(
-                                self._update_line(
-                                    rcv_time_str,
-                                    '-'.join((port_name, stat_name)),
-                                    stat_var))
+                    for stat_name, stat_val in self._format_port_stats('-', stat):
+                        dp_port_name = '-'.join((
+                            self.dp.name, port_name, stat_name))
+                        log_lines.append(
+                            self._update_line(
+                                rcv_time_str, dp_port_name, stat_val))
                     logfile.writelines(log_lines)
 
     def no_response(self):
