@@ -78,6 +78,7 @@ class InfluxShipper(object):
             'measurement': stat_name,
             'tags': port_tags,
             'time': int(rcv_time),
+            # pylint: disable=no-member
             'fields': {'value': numpy.float64(stat_val)}}
         return point
 
