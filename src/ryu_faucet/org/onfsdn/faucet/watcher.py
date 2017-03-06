@@ -69,11 +69,13 @@ class InfluxShipper(object):
             'dp_name': dp_name,
             'port_name': port_name,
         }
+        # InfluxDB has only one integer type, int64. We are logging OF
+        # stats that are uint64. Use float to prevent an overflow.
         point = {
             'measurement': stat_name,
             'tags': port_tags,
             'time': int(rcv_time),
-            'fields': {'value': stat_val}}
+            'fields': {'value': float(stat_val)}}
         return point
 
 
