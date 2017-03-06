@@ -155,6 +155,25 @@ class GaugePortStateLogger(object):
 
 
 class GaugePortStateInfluxDBLogger(GaugePortStateLogger, InfluxShipper):
+    """
+> use faucet
+Using database faucet
+> precision rfc3339
+> select * from port_state_reason where port_name = 'port1.0.1' order by time desc limit 10;
+name: port_state_reason
+-----------------------
+time			dp_name			port_name	value
+2017-02-21T02:12:29Z	windscale-faucet-1	port1.0.1	2
+2017-02-21T02:12:25Z	windscale-faucet-1	port1.0.1	2
+2016-07-27T22:05:08Z	windscale-faucet-1	port1.0.1	2
+2016-05-25T04:33:00Z	windscale-faucet-1	port1.0.1	2
+2016-05-25T04:32:57Z	windscale-faucet-1	port1.0.1	2
+2016-05-25T04:31:21Z	windscale-faucet-1	port1.0.1	2
+2016-05-25T04:31:18Z	windscale-faucet-1	port1.0.1	2
+2016-05-25T04:27:07Z	windscale-faucet-1	port1.0.1	2
+2016-05-25T04:27:04Z	windscale-faucet-1	port1.0.1	2
+2016-05-25T04:24:53Z	windscale-faucet-1	port1.0.1	2
+    """
 
     def __init__(self, conf, logname):
         super(GaugePortStateInfluxDBLogger, self).__init__(conf, logname)
@@ -318,6 +337,35 @@ class GaugePortStatsPoller(GaugePoller):
 class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
     """Periodically sends a port stats request to the datapath and parses
        and outputs the response.
+
+> use faucet
+Using database faucet
+> show measurements
+name: measurements
+------------------
+bytes_in
+bytes_out
+dropped_in
+dropped_out
+errors_in
+packets_in
+packets_out
+port_state_reason
+> precision rfc3339
+> select * from packets_out where port_name = 'port1.0.1' order by time desc limit 10;
+name: packets_out
+-----------------
+time			dp_name			port_name	value
+2017-03-06T05:21:42Z	windscale-faucet-1	port1.0.1	76083431
+2017-03-06T05:21:33Z	windscale-faucet-1	port1.0.1	76081172
+2017-03-06T05:21:22Z	windscale-faucet-1	port1.0.1	76078727
+2017-03-06T05:21:12Z	windscale-faucet-1	port1.0.1	76076612
+2017-03-06T05:21:02Z	windscale-faucet-1	port1.0.1	76074546
+2017-03-06T05:20:52Z	windscale-faucet-1	port1.0.1	76072730
+2017-03-06T05:20:42Z	windscale-faucet-1	port1.0.1	76070528
+2017-03-06T05:20:32Z	windscale-faucet-1	port1.0.1	76068211
+2017-03-06T05:20:22Z	windscale-faucet-1	port1.0.1	76065982
+2017-03-06T05:20:12Z	windscale-faucet-1	port1.0.1	76063941
     """
 
     def __init__(self, conf, logname):
