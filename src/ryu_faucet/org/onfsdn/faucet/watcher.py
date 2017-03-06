@@ -37,6 +37,10 @@ def watcher_factory(conf):
         return None
 
 
+def _rcv_time():
+    return time.strftime('%b %d %H:%M:%S')
+
+
 class InfluxShipper(object):
     """Convenience class for shipping values to influx db.
 
@@ -122,7 +126,7 @@ class GaugePortStateLogger(object):
             log_msg = 'port %s unknown state %s' % (port_no, reason)
         self.logger.info(log_msg)
         if self.conf.file:
-            rcv_time_str = time.strftime('%b %d %H:%M:%S')
+            rcv_time_str = _rcv_time()
             with open(self.conf.file, 'a') as logfile:
                 logfile.write('%s\t%s\n' % (rcv_time_str, log_msg))
 
@@ -166,6 +170,7 @@ class GaugePoller(object):
     The methods send_req, update and no_response should be implemented by
     subclasses.
     """
+
     def __init__(self, conf, logname):
         self.dp = conf.dp
         self.conf = conf
@@ -229,10 +234,23 @@ class GaugePoller(object):
         """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError
 
+    def _stat_port_name(self, msg, stat):
+        if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
+            return '-'.join((self.dp.name, 'CONTROLLER'))
+        elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
+            return '-'.join((self.dp.name, 'LOCAL'))
+        elif stat.port_no in self.dp.ports:
+            return '-'.join(
+                (self.dp.name, self.dp.ports[stat.port_no].name))
+        else:
+            self.logger.info('stats for unknown port %u', stat.port_no)
+            return None
+
 
 class GaugePortStatsPoller(GaugePoller):
-    """Periodically sends a port stats request to the datapath and parses and
-    outputs the response."""
+    """Periodically sends a port stats request to the datapath and parses
+       and outputs the response.
+    """
 
     def __init__(self, conf, logname):
         super(GaugePortStatsPoller, self).__init__(conf, logname)
@@ -243,45 +261,34 @@ class GaugePortStatsPoller(GaugePoller):
         req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
         self.ryudp.send_msg(req)
 
+    def _update_line(self, rcv_time_str, var, val): 
+        return '\t'.join((rcv_time_str, var, str(val))) + '\n'
+
     def update(self, rcv_time, msg):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
         self.reply_pending = False
-        rcv_time_str = time.strftime('%b %d %H:%M:%S')
+        rcv_time_str = _rcv_time()
 
         for stat in msg.body:
-            if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
-                ref = self.dp.name + "-CONTROLLER"
-            elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
-                ref = self.dp.name + "-LOCAL"
-            elif stat.port_no not in self.dp.ports:
-                self.logger.info("stats for unknown port %s", stat.port_no)
-                continue
-            else:
-                ref = self.dp.name + "-" + self.dp.ports[stat.port_no].name
-
-            with open(self.conf.file, 'a') as logfile:
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
-                                                       ref + "-packets-out",
-                                                       stat.tx_packets))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
-                                                       ref + "-packets-in",
-                                                       stat.rx_packets))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
-                                                       ref + "-bytes-out",
-                                                       stat.tx_bytes))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
-                                                       ref + "-bytes-in",
-                                                       stat.rx_bytes))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
-                                                       ref + "-dropped-out",
-                                                       stat.tx_dropped))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
-                                                       ref + "-dropped-in",
-                                                       stat.rx_dropped))
-                logfile.write('{0}\t{1}\t{2}\n'.format(rcv_time_str,
-                                                       ref + "-errors-in",
-                                                       stat.rx_errors))
+            port_name = self._stat_port_name(msg, stat)
+            if port_name is not None:
+                with open(self.conf.file, 'a') as logfile:
+                    log_lines = []
+                    for stat_name, stat_var in (
+                        ('packets-out', stat.tx_packets),
+                        ('packets-in', stat.rx_packets),
+                        ('bytes-out', stat.tx_bytes),
+                        ('bytes-in', stat.rx_bytes),
+                        ('dropped-out', stat.tx_dropped),
+                        ('dropped-in', stat.rx_dropped),
+                        ('errors-in', stat.rx_errors)):
+                            log_lines.append(
+                                self._update_line(
+                                    rcv_time_str,
+                                    '-'.join((port_name, stat_name)),
+                                    stat_var))
+                    logfile.writelines(log_lines)
 
     def no_response(self):
         self.logger.info(
@@ -289,8 +296,8 @@ class GaugePortStatsPoller(GaugePoller):
 
 
 class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
-    """Periodically sends a port stats request to the datapath and parses and
-    outputs the response."""
+    """Periodically sends a port stats request to the datapath and parses
+       and outputs the response."""
 
     def __init__(self, conf, logname):
         super(GaugePortStatsInfluxDBPoller, self).__init__(conf, logname)
@@ -372,7 +379,7 @@ class GaugeFlowTablePoller(GaugePoller):
         # response before doing this
         self.reply_pending = False
         jsondict = msg.to_jsondict()
-        rcv_time_str = time.strftime('%b %d %H:%M:%S')
+        rcv_time_str = _rcv_time()
 
         with open(self.conf.file, 'a') as logfile:
             ref = self.dp.name + "-flowtables"
