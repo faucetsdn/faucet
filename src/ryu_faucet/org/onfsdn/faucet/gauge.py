@@ -19,20 +19,21 @@ import os
 import signal
 
 from ryu.base import app_manager
-from ryu.controller import ofp_event
 from ryu.controller import dpset
 from ryu.controller import event
+from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
 
 from config_parser import watcher_parser
-from util import kill_on_exception, get_sys_prefix, get_logger, dpid_log
+from util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+import valve_of
 from watcher import watcher_factory
 
 
 class EventGaugeReconfigure(event.EventBase):
     pass
+
 
 class Gauge(app_manager.RyuApp):
     """Ryu app for polling Faucet controlled datapaths for stats/state.
@@ -42,10 +43,8 @@ class Gauge(app_manager.RyuApp):
     GAUGE_CONFIG. It logs to the file set as the environment variable
     GAUGE_LOG,
     """
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-
+    OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {'dpset': dpset.DPSet}
-
     logname = 'gauge'
     exc_logname = logname + '.exception'
 

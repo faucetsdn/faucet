@@ -25,8 +25,9 @@ import signal
 import ipaddr
 
 from config_parser import config_file_hash, dp_parser
+from util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
 from valve import valve_factory
-from util import kill_on_exception, get_sys_prefix, get_logger, dpid_log
+import valve_of
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -39,7 +40,7 @@ from ryu.lib import hub
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import packet
 from ryu.lib.packet import vlan as ryu_vlan
-from ryu.ofproto import ofproto_v1_3, ether
+from ryu.ofproto import ether
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
 
 
@@ -144,13 +145,11 @@ class Faucet(app_manager.RyuApp):
     Valve provides the switch implementation; this is a shim for the Ryu
     event handling framework to interface with Valve.
     """
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-
+    OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {
         'dpset': dpset.DPSet,
         'faucet_api': FaucetAPI
         }
-
     logname = 'faucet'
     exc_logname = logname + '.exception'
 
