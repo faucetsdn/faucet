@@ -4,6 +4,7 @@ RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends \
     git \
+    influxdb \
     iputils-ping \
     libpython2.7-dev \
     libyaml-dev \
