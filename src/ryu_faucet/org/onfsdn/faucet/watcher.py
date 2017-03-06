@@ -74,7 +74,7 @@ class GaugeDBHelper(object):
 
     def setup(self):
         self.conn_string = (
-            "driver={0};server={1};port={2};uid={3};pwd={4}".format(
+            'driver={0};server={1};port={2};uid={3};pwd={4}'.format(
                 self.conf.driver, self.conf.db_ip, self.conf.db_port,
                 self.conf.db_username, self.conf.db_password))
         nsodbc = nsodbc_factory()
@@ -128,7 +128,7 @@ class GaugePortStateLogger(object):
         if self.conf.file:
             rcv_time_str = _rcv_time()
             with open(self.conf.file, 'a') as logfile:
-                logfile.write('%s\t%s\n' % (rcv_time_str, log_msg))
+                logfile.write('\t'.join((rcv_time_str, log_msg)) + '\n')
 
     def start(self, ryudp):
         pass
@@ -149,16 +149,16 @@ class GaugePortStateInfluxDBLogger(GaugePortStateLogger, InfluxShipper):
         if port_no in self.dp.ports:
             port_name = self.dp.ports[port_no].name
             port_tags = {
-                "dp_name": self.dp.name,
-                "port_name": port_name,
+                'dp_name': self.dp.name,
+                'port_name': port_name,
             }
             points = [{
-                "measurement": "port_state_reason",
-                "tags": port_tags,
-                "time": int(rcv_time),
-                "fields": {"value": reason}}]
+                'measurement': 'port_state_reason',
+                'tags': port_tags,
+                'time': int(rcv_time),
+                'fields': {'value': reason}}]
             if not self.ship_points(points):
-                self.logger.warning("error shipping port_state_reason points")
+                self.logger.warning('error shipping port_state_reason points')
 
 
 class GaugePoller(object):
@@ -306,7 +306,8 @@ class GaugePortStatsPoller(GaugePoller):
 
 class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
     """Periodically sends a port stats request to the datapath and parses
-       and outputs the response."""
+       and outputs the response.
+    """
 
     def __init__(self, conf, logname):
         super(GaugePortStatsInfluxDBPoller, self).__init__(conf, logname)
@@ -348,7 +349,8 @@ class GaugeFlowTablePoller(GaugePoller):
 
     Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
     flow table is dumped as an OFFlowStatsReply message (in yaml format) that
-    matches all flows."""
+    matches all flows.
+    """
 
     def __init__(self, conf, logname):
         super(GaugeFlowTablePoller, self).__init__(conf, logname)
@@ -368,12 +370,14 @@ class GaugeFlowTablePoller(GaugePoller):
         self.reply_pending = False
         jsondict = msg.to_jsondict()
         rcv_time_str = _rcv_time()
-
         with open(self.conf.file, 'a') as logfile:
-            ref = self.dp.name + "-flowtables"
-            logfile.write("---\n")
-            logfile.write("time: {0}\nref: {1}\nmsg: {2}\n".format(
-                rcv_time_str, ref, json.dumps(jsondict, indent=4)))
+            ref = '-'.join((self.dp.name, 'flowtables'))
+            logfile.write(
+                '\n'.join((
+                    '---',
+                    'time: %s' % rcv_time_str,
+                    'ref: %s' % ref,
+                    'msg: %s' % json.dumps(jsondict, indent=4))))
 
     def no_response(self):
         self.logger.info(
@@ -385,7 +389,8 @@ class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
 
     Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
     flow table is dumped as an OFFlowStatsReply message (in yaml format) that
-    matches all flows."""
+    matches all flows.
+    """
 
     def __init__(self, conf, logname):
         super(GaugeFlowTableDBLogger, self).__init__(conf, logname)
