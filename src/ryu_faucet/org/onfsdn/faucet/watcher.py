@@ -3,9 +3,11 @@ import random
 import json
 import time
 
+from requests.exceptions import ConnectionError
 from ryu.lib import hub
 from influxdb import InfluxDBClient
 from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+
 
 def watcher_factory(conf):
     """Return a Gauge object based on type.
@@ -49,14 +51,17 @@ class InfluxShipper(object):
     conf = None
 
     def ship_points(self, points):
-        client = InfluxDBClient(
-            host=self.conf.influx_host,
-            port=self.conf.influx_port,
-            username=self.conf.influx_user,
-            password=self.conf.influx_pwd,
-            database=self.conf.influx_db,
-            timeout=self.conf.influx_timeout)
-        return client.write_points(points=points, time_precision='s')
+        try:
+            client = InfluxDBClient(
+                host=self.conf.influx_host,
+                port=self.conf.influx_port,
+                username=self.conf.influx_user,
+                password=self.conf.influx_pwd,
+                database=self.conf.influx_db,
+                timeout=self.conf.influx_timeout)
+            return client.write_points(points=points, time_precision='s')
+        except ConnectionError:
+            return False
 
     def make_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):
         port_tags = {
