@@ -3,6 +3,8 @@ import random
 import json
 import time
 
+import numpy
+
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from requests.exceptions import ConnectionError
@@ -70,12 +72,13 @@ class InfluxShipper(object):
             'port_name': port_name,
         }
         # InfluxDB has only one integer type, int64. We are logging OF
-        # stats that are uint64. Use float to prevent an overflow.
+        # stats that are uint64. Use float64 to prevent an overflow.
+        # q.v. https://docs.influxdata.com/influxdb/v1.2/write_protocols/line_protocol_reference/
         point = {
             'measurement': stat_name,
             'tags': port_tags,
             'time': int(rcv_time),
-            'fields': {'value': float(stat_val)}}
+            'fields': {'value': numpy.float64(stat_val)}}
         return point
 
 
