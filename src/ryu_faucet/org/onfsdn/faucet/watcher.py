@@ -58,6 +58,18 @@ class InfluxShipper(object):
             timeout=self.conf.influx_timeout)
         return client.write_points(points=points, time_precision='s')
 
+    def make_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):
+        port_tags = {
+            'dp_name': dp_name,
+            'port_name': port_name,
+        }
+        point = {
+            'measurement': stat_name,
+            'tags': port_tags,
+            'time': int(rcv_time),
+            'fields': {'value': stat_val}}
+        return point
+
 
 class GaugeDBHelper(object):
     """
@@ -148,15 +160,9 @@ class GaugePortStateInfluxDBLogger(GaugePortStateLogger, InfluxShipper):
         port_no = msg.desc.port_no
         if port_no in self.dp.ports:
             port_name = self.dp.ports[port_no].name
-            port_tags = {
-                'dp_name': self.dp.name,
-                'port_name': port_name,
-            }
-            points = [{
-                'measurement': 'port_state_reason',
-                'tags': port_tags,
-                'time': int(rcv_time),
-                'fields': {'value': reason}}]
+            points = [
+                self.make_point(
+                    self.dp.name, port_name, rcv_time, 'port_state_reason', reason)]
             if not self.ship_points(points):
                 self.logger.warning('error shipping port_state_reason points')
 
@@ -326,16 +332,10 @@ class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
 
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat)
-            port_tags = {
-                'dp_name': self.dp.name,
-                'port_name': port_name,
-            }
             for stat_name, stat_val in self._format_port_stats('_', stat):
-                points.append({
-                    'measurement': stat_name,
-                    'tags': port_tags,
-                    'time': int(rcv_time),
-                    'fields': {'value': stat_val}})
+                points.append(
+                    self.make_point(
+                        self.dp.name, port_name, rcv_time, stat_name, stat_val))
         if not self.ship_points(points):
             self.logger.warn('error shipping port_stats points')
 
