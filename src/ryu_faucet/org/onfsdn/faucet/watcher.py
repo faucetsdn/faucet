@@ -277,7 +277,7 @@ class GaugePortStatsPoller(GaugePoller):
         req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
         self.ryudp.send_msg(req)
 
-    def _update_line(self, rcv_time_str, stat_name, stat_val): 
+    def _update_line(self, rcv_time_str, stat_name, stat_val):
         return '\t'.join((rcv_time_str, stat_name, str(stat_val))) + '\n'
 
     def update(self, rcv_time, msg):
@@ -324,40 +324,19 @@ class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
         points = []
 
         for stat in msg.body:
-            if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
-                port_name = "CONTROLLER"
-            elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
-                port_name = "LOCAL"
-            elif stat.port_no not in self.dp.ports:
-                self.logger.info("stats for unknown port %s", stat.port_no)
-                continue
-            else:
-                port_name = self.dp.ports[stat.port_no].name
-
+            port_name = self._stat_port_name(msg, stat)
             port_tags = {
-                "dp_name": self.dp.name,
-                "port_name": port_name,
+                'dp_name': self.dp.name,
+                'port_name': port_name,
             }
-
-            for stat_name, stat_value in (
-                    ("packets_out", stat.tx_packets),
-                    ("packets_in", stat.rx_packets),
-                    ("bytes_out", stat.tx_bytes),
-                    ("bytes_in", stat.rx_bytes),
-                    ("dropped_out", stat.tx_dropped),
-                    ("dropped_in", stat.rx_dropped),
-                    ("errors_in", stat.rx_errors)):
-                if stat_value == 2**64-1:
-                    # For openvswitch, unsupported statistics are set to
-                    # all-1-bits (UINT64_MAX), skip reporting them
-                    continue
+            for stat_name, stat_val in self._format_port_stats('_', stat):
                 points.append({
-                    "measurement": stat_name,
-                    "tags": port_tags,
-                    "time": int(rcv_time),
-                    "fields": {"value": stat_value}})
+                    'measurement': stat_name,
+                    'tags': port_tags,
+                    'time': int(rcv_time),
+                    'fields': {'value': stat_val}})
         if not self.ship_points(points):
-            self.logger.warn("error shipping port_stats points")
+            self.logger.warn('error shipping port_stats points')
 
     def no_response(self):
         self.logger.info(
