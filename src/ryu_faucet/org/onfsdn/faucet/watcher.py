@@ -40,8 +40,8 @@ def watcher_factory(conf):
         return None
 
 
-def _rcv_time():
-    return time.strftime('%b %d %H:%M:%S')
+def _rcv_time(rcv_time):
+    return time.strftime('%b %d %H:%M:%S', time.localtime(rcv_time))
 
 
 class InfluxShipper(object):
@@ -126,6 +126,7 @@ class GaugePortStateLogger(object):
             )
 
     def update(self, rcv_time, msg):
+        rcv_time_str = _rcv_time(rcv_time)
         reason = msg.reason
         port_no = msg.desc.port_no
         ofp = msg.datapath.ofproto
@@ -144,7 +145,6 @@ class GaugePortStateLogger(object):
             log_msg = 'port %s unknown state %s' % (port_no, reason)
         self.logger.info(log_msg)
         if self.conf.file:
-            rcv_time_str = _rcv_time()
             with open(self.conf.file, 'a') as logfile:
                 logfile.write('\t'.join((rcv_time_str, log_msg)) + '\n')
 
@@ -314,9 +314,8 @@ class GaugePortStatsPoller(GaugePoller):
     def update(self, rcv_time, msg):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
+        rcv_time_str = _rcv_time(rcv_time)
         self.reply_pending = False
-        rcv_time_str = _rcv_time()
-
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat)
             if port_name is not None:
@@ -383,7 +382,6 @@ time			dp_name			port_name	value
         # response before doing this
         self.reply_pending = False
         points = []
-
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat)
             for stat_name, stat_val in self._format_port_stats('_', stat):
@@ -421,9 +419,9 @@ class GaugeFlowTablePoller(GaugePoller):
     def update(self, rcv_time, msg):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
+        rcv_time_str = _rcv_time(rcv_time)
         self.reply_pending = False
         jsondict = msg.to_jsondict()
-        rcv_time_str = _rcv_time()
         with open(self.conf.file, 'a') as logfile:
             ref = '-'.join((self.dp.name, 'flowtables'))
             logfile.write(
@@ -464,7 +462,6 @@ class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
         # response before doing this
         self.reply_pending = False
         jsondict = msg.to_jsondict()
-
         if self.db_update_counter == self.conf.db_update_counter:
             self.refresh_switchdb()
             switch_object = {'_id': str(hex(self.dp.dp_id)),
