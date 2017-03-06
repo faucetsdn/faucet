@@ -3,9 +3,10 @@ import random
 import json
 import time
 
+from influxdb import InfluxDBClient
+from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from requests.exceptions import ConnectionError
 from ryu.lib import hub
-from influxdb import InfluxDBClient
 from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
 
 
@@ -60,7 +61,7 @@ class InfluxShipper(object):
                 database=self.conf.influx_db,
                 timeout=self.conf.influx_timeout)
             return client.write_points(points=points, time_precision='s')
-        except ConnectionError:
+        except (ConnectionError, InfluxDBClientError, InfluxDBServerError):
             return False
 
     def make_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):
