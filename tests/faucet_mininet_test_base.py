@@ -515,9 +515,10 @@ dbs:
             '',
             host.cmd('ip -4 route add %s via %s' % (ip_dst.masked(), ip_gw)))
 
-    def one_ipv4_ping(self, host, dst, retries=3):
+    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True):
         """Ping an IPv4 destination from a host."""
-        self.require_host_learned(host)
+        if require_host_learned:
+            self.require_host_learned(host)
         for _ in range(retries):
             ping_result = host.cmd('ping -c1 %s' % dst)
             if re.search(self.ONE_GOOD_PING, ping_result):
