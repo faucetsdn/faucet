@@ -1,6 +1,11 @@
 #!/bin/sh
 # @author Shivaram Mysore <shivaram.mysore@gmail.com>
 
+# init
+function pause() {
+  read -p "$*"
+}
+
 pip install --upgrade pip
 pip install networkx ovs ryu ryu-faucet
 pip show ryu-faucet
@@ -19,6 +24,7 @@ systemctl restart influxdb
 echo" Checking InfluxDB service status ..."
 systemctl status influxdb
 echo ""
+pause 'Press [Enter] key to continue...'
 
 echo "Checking InfluxDB cURL action ..."
 /usr/bin/curl -sl -I localhost:8086/ping
@@ -28,15 +34,19 @@ echo "Showing all databases ..."
 /usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=SHOW DATABASES'
 
 echo "Create admin user with password: faucet ..."
+pause 'Press [Enter] key to continue...if command fails, repeat query from influx command line'
 /usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=CREATE USER "admin" WITH PASSWORD 'faucet' WITH ALL PRIVILEGES'
 /usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=GRANT ALL PRIVILEGES TO "admin"'
 
 echo "Create grafana user with password: faucet ... used as influxdb datasource login from Grafana"
+pause 'Press [Enter] key to continue...if command failes, repeat query from influx command line'
 /usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=CREATE USER "grafana" WITH PASSWORD 'faucet''
 /usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=GRANT READ ON "faucet" TO "grafana"'
 
 echo "Showing all users ..."
 /usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=SHOW USERS'
+
+pause 'Press [Enter] key to continue...'
 
 ## Zypper install of grafana on OpenSUSE has problems.  Hence manually install
 GRAFANA_PKG_NM=grafana-4.1.2-1486989747.x86_64.rpm
