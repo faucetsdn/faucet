@@ -400,6 +400,74 @@ vlans:
         self.gauge_smoke_test()
 
 
+class FaucetNailedForwardingTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            dl_dst: "0e:00:00:00:01:01"
+            actions:
+                output:
+                    port: b1
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+                output:
+                    port: b2
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.1"
+            actions:
+                output:
+                    port: b1
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.2"
+            actions:
+                output:
+                    port: b2
+        - rule:
+            actions:
+                allow: 0
+"""
+
+    CONFIG = """
+        interfaces:
+            b1:
+                number: %(port_1)d
+                native_vlan: 100
+                acl_in: 1
+            b2:
+                number: %(port_2)d
+                native_vlan: 100
+                acl_in: 1
+            b3:
+                number: %(port_3)d
+                native_vlan: 100
+                acl_in: 1
+            b4:
+                number: %(port_4)d
+                native_vlan: 100
+                acl_in: 1
+"""
+
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[0:2]
+        first_host.setMAC("0e:00:00:00:01:01")
+        second_host.setMAC("0e:00:00:00:02:02")
+        self.one_ipv4_ping(
+            first_host, second_host.IP(), require_host_learned=False)
+        self.one_ipv4_ping(
+            second_host, first_host.IP(), require_host_learned=False)
+
+
+
 class FaucetUntaggedLLDPBlockedTest(FaucetUntaggedTest):
 
     def test_untagged(self):
