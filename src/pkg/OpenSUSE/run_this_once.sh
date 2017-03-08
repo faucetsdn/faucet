@@ -55,11 +55,11 @@ echo "InfluxDB Web Query Admin UI is accessible via http://localhost:8083"
 pause 'Press [Enter] key to continue...'
 
 ## Zypper install of grafana on OpenSUSE has problems.  Hence manually install
-GRAFANA_PKG_NM=grafana-4.1.2-1486989747.x86_64.rpm
-mv /root/pkgs/$GRAFANA_PKG_NM.orig /root/pkgs/$GRAFANA_PKG_NM
-/bin/rpm -i --nodeps /root/pkgs/$GRAFANA_PKG_NM
-/bin/systemctl daemon-reload
-/bin/systemctl enable grafana-server.service
+#GRAFANA_PKG_NM=grafana-4.1.2-1486989747.x86_64.rpm
+#mv /root/pkgs/$GRAFANA_PKG_NM.orig /root/pkgs/$GRAFANA_PKG_NM
+#/bin/rpm -i --nodeps /root/pkgs/$GRAFANA_PKG_NM
+#/bin/systemctl daemon-reload
+#/bin/systemctl enable grafana-server.service
 
 echo "Installing Grafana plugins ..."
 grafana-cli plugins install grafana-clock-panel
