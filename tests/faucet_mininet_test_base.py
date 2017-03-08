@@ -25,6 +25,9 @@ import faucet_mininet_test_util
 
 class BaseFAUCET(Controller):
 
+    controller_intf = None
+    tmpdir = None
+
     def _tcpdump_intf(self):
         if self.controller_intf:
             return '-i %s' % self.controller_intf
@@ -251,7 +254,7 @@ class FaucetTestBase(unittest.TestCase):
         test_class_name = self.id().split('.')[1]
         if (not test_class_name.startswith('FaucetGroup') and
                 not test_class_name.startswith('FaucetSingleGroup')):
-            for dp_name, debug_log in self.get_ofchannel_logs():
+            for _, debug_log in self.get_ofchannel_logs():
                 self.assertFalse(
                     re.search('OFPErrorMsg', open(debug_log).read()),
                     msg='debug log has OFPErrorMsgs')
@@ -366,9 +369,8 @@ dbs:
                     group_id = int(re.findall(r'\d+', str(flow['actions']))[0])
                     return group_id
             time.sleep(1)
-        self.assertTrue(
-            False,
-            "Can't find group_id for matching flow %s" % exp_flow)
+        self.fail(
+            'Cannot find group_id for matching flow %s' % exp_flow)
 
     def wait_matching_in_group_table(self, exp_flow, group_id, timeout=10):
         exp_group = '%s.+"group_id": %d' % (exp_flow, group_id)

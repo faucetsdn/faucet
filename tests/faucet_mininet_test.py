@@ -356,8 +356,8 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         countdown = 30
         while countdown > 0:
             try:
-                with open(self.results_file, 'r') as f:
-                    result = f.read().strip()
+                with open(self.results_file, 'r') as results:
+                    result = results.read().strip()
                     self.assertEquals('pass', result, result)
                     return
             except IOError:
