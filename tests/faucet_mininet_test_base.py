@@ -26,24 +26,24 @@ import faucet_mininet_test_util
 class BaseFAUCET(Controller):
 
     def _tcpdump_intf(self):
-       if self.controller_intf:
-           return '-i %s' % self.controller_intf
-       return ''
+        if self.controller_intf:
+            return '-i %s' % self.controller_intf
+        return ''
 
     def _start_tcpdump(self):
-       tcpdump_args = ' '.join((
-           '-s 0',
-           '-e',
-           '-n',
-           '-U',
-           '-q',
-           self._tcpdump_intf(),
-           '-w %s/%s-of.cap' % (self.tmpdir, self.name),
-           'tcp and port %u' % self.port,
-           '>/dev/null',
-           '2>/dev/null',
-       ))
-       self.cmd('tcpdump %s &' % tcpdump_args)
+        tcpdump_args = ' '.join((
+            '-s 0',
+            '-e',
+            '-n',
+            '-U',
+            '-q',
+            self._tcpdump_intf(),
+            '-w %s/%s-of.cap' % (self.tmpdir, self.name),
+            'tcp and port %u' % self.port,
+            '>/dev/null',
+            '2>/dev/null',
+        ))
+        self.cmd('tcpdump %s &' % tcpdump_args)
 
     def start(self):
         self._start_tcpdump()
@@ -81,7 +81,7 @@ class Gauge(BaseFAUCET):
         name = 'gauge-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
-        command='ryu-manager gauge.py'
+        command = 'ryu-manager gauge.py'
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
@@ -100,7 +100,7 @@ class FaucetAPI(Controller):
 
     def __init__(self, name, **kwargs):
         name = 'faucet-api-%u' % os.getpid()
-        command='ryu-manager %s/faucet.py test_api.py' % (
+        command = 'ryu-manager %s/faucet.py test_api.py' % (
             faucet_mininet_test_util.FAUCET_DIR)
         cargs = ' '.join((
             '--verbose',
@@ -250,7 +250,7 @@ class FaucetTestBase(unittest.TestCase):
             self.net.stop()
         test_class_name = self.id().split('.')[1]
         if (not test_class_name.startswith('FaucetGroup') and
-            not test_class_name.startswith('FaucetSingleGroup')):
+                not test_class_name.startswith('FaucetSingleGroup')):
             for dp_name, debug_log in self.get_ofchannel_logs():
                 self.assertFalse(re.search('OFPErrorMsg', open(debug_log).read()),
                     msg='debug log has OFPErrorMsgs')
@@ -276,17 +276,9 @@ dps:
         hardware: "%s"
 """ % (config_global, debug_log, int(dpid), hardware)
 
-    def get_gauge_config(self, faucet_config_file,
-                         monitor_stats_file,
-                         monitor_state_file,
-                         monitor_flow_table_file,
-                         influx_port):
-        """Build Gauge config."""
+
+    def get_gauge_watcher_config(self):
         return """
-version: 2
-faucet_configs:
-    - %s
-watchers:
     port_stats:
         dps: ['faucet-1']
         type: 'port_stats'
@@ -302,6 +294,20 @@ watchers:
         type: 'flow_table'
         interval: 5
         db: 'flow_file'
+"""
+
+    def get_gauge_config(self, faucet_config_file,
+                         monitor_stats_file,
+                         monitor_state_file,
+                         monitor_flow_table_file,
+                         influx_port):
+        """Build Gauge config."""
+        return """
+version: 2
+faucet_configs:
+    - %s
+watchers:
+    %s
 dbs:
     stats_file:
         type: 'text'
@@ -320,8 +326,11 @@ dbs:
         influx_user: 'faucet'
         influx_pwd: ''
         influx_timeout: 10
-""" % (faucet_config_file, monitor_stats_file,
-       monitor_state_file, monitor_flow_table_file,
+""" % (faucet_config_file,
+       self.get_gauge_watcher_config(),
+       monitor_stats_file,
+       monitor_state_file,
+       monitor_flow_table_file,
        influx_port)
 
     def get_controller(self):
@@ -602,13 +611,13 @@ dbs:
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
         exabgp_env = ' '.join((
-             'exabgp.tcp.bind="%s"' % listen_address,
-             'exabgp.tcp.port=%u' % port,
-             'exabgp.log.all=true',
-             'exabgp.log.routes=true',
-             'exabgp.log.rib=true',
-             'exabgp.log.packets=true',
-             'exabgp.log.parser=true',
+            'exabgp.tcp.bind="%s"' % listen_address,
+            'exabgp.tcp.port=%u' % port,
+            'exabgp.log.all=true',
+            'exabgp.log.routes=true',
+            'exabgp.log.rib=true',
+            'exabgp.log.packets=true',
+            'exabgp.log.parser=true',
         ))
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.get_controller()
@@ -697,7 +706,7 @@ dbs:
         learned_mac = host.cmd(
                 "arp -n %s | grep %s | awk '{ print $3 }'" % (ip, ip))
         self.assertEqual(learned_mac.strip(), mac,
-                        msg='MAC learned on host mismatch')
+                         msg='MAC learned on host mismatch')
 
     def verify_ipv4_host_learned_host(self, host, learned_host):
         learned_ip = ipaddr.IPNetwork(self.host_ipv4(learned_host))
@@ -707,7 +716,7 @@ dbs:
         learned_mac = host.cmd(
                 "ip -6 neighbor show %s | awk '{ print $5 }'" % ip6)
         self.assertEqual(learned_mac.strip(), mac,
-                        msg='MAC learned on host mismatch')
+                         msg='MAC learned on host mismatch')
 
     def verify_ipv6_host_learned_host(self, host, learned_host):
         learned_ip6 = ipaddr.IPNetwork(self.host_ipv6(learned_host))
@@ -845,4 +854,3 @@ dbs:
         count = controller.cmd(
                 'grep -c "%s" %s' % (pattern, os.environ['FAUCET_LOG']))
         self.assertGreater(count, 0)
-

@@ -404,6 +404,28 @@ vlans:
         self.gauge_smoke_test()
 
 
+class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
+    """Basic untagged VLAN test with Influx."""
+
+    def get_gauge_watcher_config(self):
+        return """
+    port_stats:
+        dps: ['faucet-1']
+        type: 'port_stats'
+        interval: 10
+        db: 'influx'
+    port_state:
+        dps: ['faucet-1']
+        type: 'port_state'
+        interval: 10
+        db: 'influx'
+"""
+
+    def gauge_smoke_test(self):
+        self.assertEquals(
+            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
+
+
 class FaucetNailedForwardingTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
