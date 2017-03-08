@@ -44,6 +44,9 @@ import ipaddr
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
+from SimpleHTTPServer import SimpleHTTPRequestHandler
+from BaseHTTPServer import HTTPServer
+
 from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import Intf
@@ -412,18 +415,40 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     port_stats:
         dps: ['faucet-1']
         type: 'port_stats'
-        interval: 10
+        interval: 2
         db: 'influx'
     port_state:
         dps: ['faucet-1']
         type: 'port_state'
-        interval: 10
+        interval: 2
         db: 'influx'
 """
 
-    def gauge_smoke_test(self):
+    def test_untagged_influx_down(self):
         self.assertEquals(
             0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
+
+    def test_untagged(self):
+
+        class PostHandler(SimpleHTTPRequestHandler):
+
+            def do_POST(self):
+                content_len = int(self.headers.getheader('content-length', 0))
+                content = self.rfile.read(content_len)
+                open(os.environ['INFLUXLOG'], 'a').write(content)
+                return self.send_response(204)
+
+        os.environ['INFLUXLOG'] = os.path.join(self.tmpdir, 'influx.log')
+        server = HTTPServer(('', self.influx_port), PostHandler)
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+        for _ in range(3):
+           if os.path.exists(os.environ['INFLUXLOG']):
+               break
+           time.sleep(2)
+        server.shutdown()
+        self.assertTrue(os.path.exists(os.environ['INFLUXLOG']))
 
 
 class FaucetNailedForwardingTest(FaucetUntaggedTest):
