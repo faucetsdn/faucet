@@ -34,18 +34,24 @@ echo "Showing all databases ..."
 /usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=SHOW DATABASES'
 
 echo "Create admin user with password: faucet ..."
-pause 'Press [Enter] key to continue...if command fails, repeat query from influx command line'
-/usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=CREATE USER "admin" WITH PASSWORD 'faucet' WITH ALL PRIVILEGES'
-/usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=GRANT ALL PRIVILEGES TO "admin"'
+pause 'Press [Enter] key to continue...'
+/usr/bin/influx  -execute 'CREATE USER "admin" WITH PASSWORD 'faucet' WITH ALL PRIVILEGES'
+#/usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=CREATE USER "admin" WITH PASSWORD 'faucet' WITH ALL PRIVILEGES'
+/usr/bin/influx  -execute 'GRANT ALL PRIVILEGES TO "admin"'
+#/usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=GRANT ALL PRIVILEGES TO "admin"'
+/usr/bin/influx  -execute 
 
 echo "Create grafana user with password: faucet ... used as influxdb datasource login from Grafana"
-pause 'Press [Enter] key to continue...if command failes, repeat query from influx command line'
-/usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=CREATE USER "grafana" WITH PASSWORD 'faucet''
-/usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=GRANT READ ON "faucet" TO "grafana"'
+pause 'Press [Enter] key to continue...'
+/usr/bin/influx  -execute 'CREATE USER "grafana" WITH PASSWORD 'faucet''
+#/usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=CREATE USER "grafana" WITH PASSWORD 'faucet''
+/usr/bin/influx  -execute 'GRANT READ ON "faucet" TO "grafana"'
+#/usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=GRANT READ ON "faucet" TO "grafana"'
 
 echo "Showing all users ..."
 /usr/bin/curl -G 'http://localhost:8086/query?u=root&p=faucet' --data-urlencode 'q=SHOW USERS'
-
+echo ""
+echo "InfluxDB Web Query Admin UI is accessible via http://localhost:8083"
 pause 'Press [Enter] key to continue...'
 
 ## Zypper install of grafana on OpenSUSE has problems.  Hence manually install
