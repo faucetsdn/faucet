@@ -154,7 +154,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.CONFIG % self.port_map))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.influx_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
+            self.ports_sock)
         self.GAUGE_CONFIG = self.get_gauge_config(
             os.environ['FAUCET_CONFIG'],
             self.monitor_stats_file,
@@ -1362,12 +1362,6 @@ class FaucetZodiacUntaggedACLMirrorTest(FaucetUntaggedACLMirrorTest):
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid, n_untagged=3)
         self.start_net()
-
-    def test_untagged(self):
-        """All hosts on the same untagged VLAN should have connectivity."""
-        self.ping_all_when_learned()
-        self.flap_all_switch_ports()
-        self.ping_all_when_learned()
 
     def test_untagged(self):
         first_host, second_host, mirror_host = self.net.hosts[0:3]
@@ -2602,7 +2596,7 @@ def pipeline_superset_report(root_tmpdir):
     ofchannel_logs = glob.glob(
         os.path.join(root_tmpdir, '*/ofchannel.log'))
     match_re = re.compile(
-        '^.+types table: (\d+) match: (.+) instructions: (.+) actions: (.+)')
+        r'^.+types table: (\d+) match: (.+) instructions: (.+) actions: (.+)')
     table_matches = collections.defaultdict(set)
     table_instructions = collections.defaultdict(set)
     table_actions = collections.defaultdict(set)

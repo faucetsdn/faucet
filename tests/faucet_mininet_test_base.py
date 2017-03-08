@@ -252,7 +252,8 @@ class FaucetTestBase(unittest.TestCase):
         if (not test_class_name.startswith('FaucetGroup') and
                 not test_class_name.startswith('FaucetSingleGroup')):
             for dp_name, debug_log in self.get_ofchannel_logs():
-                self.assertFalse(re.search('OFPErrorMsg', open(debug_log).read()),
+                self.assertFalse(
+                    re.search('OFPErrorMsg', open(debug_log).read()),
                     msg='debug log has OFPErrorMsgs')
         # Associate controller log with test results, if we are keeping
         # the temporary directory, or effectively delete it if not.
@@ -365,8 +366,9 @@ dbs:
                     group_id = int(re.findall(r'\d+', str(flow['actions']))[0])
                     return group_id
             time.sleep(1)
-        self.assertTrue(False,
-                "Can't find group_id for matching flow %s" % exp_flow)
+        self.assertTrue(
+            False,
+            "Can't find group_id for matching flow %s" % exp_flow)
 
     def wait_matching_in_group_table(self, exp_flow, group_id, timeout=10):
         exp_group = '%s.+"group_id": %d' % (exp_flow, group_id)
@@ -548,7 +550,7 @@ dbs:
         """Ping the controller from a host with IPv4."""
         self.one_ipv4_ping(host, self.FAUCET_VIPV4.ip)
         self.verify_ipv4_host_learned_mac(
-                host, self.FAUCET_VIPV4.ip, self.FAUCET_MAC)
+            host, self.FAUCET_VIPV4.ip, self.FAUCET_MAC)
 
     def one_ipv6_ping(self, host, dst, retries=3):
         """Ping an IPv6 destination from a host."""
@@ -564,7 +566,7 @@ dbs:
         """Ping the controller from a host with IPv6."""
         self.one_ipv6_ping(host, self.FAUCET_VIPV6.ip)
         self.verify_ipv6_host_learned_mac(
-                host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
+            host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
     def wait_for_tcp_listen(self, host, port, timeout=10):
         """Wait for a host to start listening on a port."""
@@ -687,8 +689,9 @@ dbs:
             nw_dst_match = '"nw_dst": "%s"' % exp_prefix
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(nw_dst_match)
-            self.wait_matching_in_group_table('SET_FIELD: {eth_dst:%s}' % nexthop,
-                    group_id, timeout)
+            self.wait_matching_in_group_table(
+                'SET_FIELD: {eth_dst:%s}' % nexthop,
+                group_id, timeout)
         else:
             self.wait_until_matching_flow(
                 'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
@@ -704,7 +707,7 @@ dbs:
 
     def verify_ipv4_host_learned_mac(self, host, ip, mac):
         learned_mac = host.cmd(
-                "arp -n %s | grep %s | awk '{ print $3 }'" % (ip, ip))
+            "arp -n %s | grep %s | awk '{ print $3 }'" % (ip, ip))
         self.assertEqual(learned_mac.strip(), mac,
                          msg='MAC learned on host mismatch')
 
@@ -714,7 +717,7 @@ dbs:
 
     def verify_ipv6_host_learned_mac(self, host, ip6, mac):
         learned_mac = host.cmd(
-                "ip -6 neighbor show %s | awk '{ print $5 }'" % ip6)
+            "ip -6 neighbor show %s | awk '{ print $5 }'" % ip6)
         self.assertEqual(learned_mac.strip(), mac,
                          msg='MAC learned on host mismatch')
 
@@ -804,9 +807,9 @@ dbs:
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
         self.verify_ipv6_host_learned_mac(
-                first_host, second_host_ip.ip, second_host.MAC())
+            first_host, second_host_ip.ip, second_host.MAC())
         self.verify_ipv6_host_learned_mac(
-                second_host, first_host_ip.ip, first_host.MAC())
+            second_host, first_host_ip.ip, first_host.MAC())
 
     def verify_ipv6_routing_pair(self, first_host, first_host_ip,
                                  first_host_routed_ip, second_host,
@@ -852,5 +855,5 @@ dbs:
         """Check if we see the pattern in Faucet's Log"""
         controller = self.get_controller()
         count = controller.cmd(
-                'grep -c "%s" %s' % (pattern, os.environ['FAUCET_LOG']))
+            'grep -c "%s" %s' % (pattern, os.environ['FAUCET_LOG']))
         self.assertGreater(count, 0)
