@@ -60,6 +60,7 @@ if __name__ == '__main__':
     requirements = open(os.path.join(setup_dir, 'requirements.txt')).readlines()
     setup_args = DEFAULT_SETUP_ARGS
     setup_args.update({
+        'data_files_prefix': data_files_prefix,
         'install_requires': requirements,
         'long_description': readme_contents,
         'version': version,
