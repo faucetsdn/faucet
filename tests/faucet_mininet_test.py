@@ -44,6 +44,9 @@ import ipaddr
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
+from SimpleHTTPServer import SimpleHTTPRequestHandler
+from BaseHTTPServer import HTTPServer
+
 from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import Intf
@@ -153,13 +156,17 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
             self.CONFIG % self.port_map))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+        self.influx_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock)
         self.GAUGE_CONFIG = self.get_gauge_config(
             os.environ['FAUCET_CONFIG'],
             self.monitor_stats_file,
             self.monitor_state_file,
-            self.monitor_flow_table_file
+            self.monitor_flow_table_file,
+            self.influx_port,
             )
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
+
         self.net = None
         self.topo = None
 
@@ -352,8 +359,8 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         countdown = 30
         while countdown > 0:
             try:
-                with open(self.results_file, 'r') as f:
-                    result = f.read().strip()
+                with open(self.results_file, 'r') as results:
+                    result = results.read().strip()
                     self.assertEquals('pass', result, result)
                     return
             except IOError:
@@ -398,6 +405,50 @@ vlans:
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
+
+
+class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
+    """Basic untagged VLAN test with Influx."""
+
+    def get_gauge_watcher_config(self):
+        return """
+    port_stats:
+        dps: ['faucet-1']
+        type: 'port_stats'
+        interval: 2
+        db: 'influx'
+    port_state:
+        dps: ['faucet-1']
+        type: 'port_state'
+        interval: 2
+        db: 'influx'
+"""
+
+    def test_untagged_influx_down(self):
+        self.assertEquals(
+            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
+
+    def test_untagged(self):
+
+        class PostHandler(SimpleHTTPRequestHandler):
+
+            def do_POST(self):
+                content_len = int(self.headers.getheader('content-length', 0))
+                content = self.rfile.read(content_len)
+                open(os.environ['INFLUXLOG'], 'a').write(content)
+                return self.send_response(204)
+
+        os.environ['INFLUXLOG'] = os.path.join(self.tmpdir, 'influx.log')
+        server = HTTPServer(('', self.influx_port), PostHandler)
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+        for _ in range(3):
+           if os.path.exists(os.environ['INFLUXLOG']):
+               break
+           time.sleep(2)
+        server.shutdown()
+        self.assertTrue(os.path.exists(os.environ['INFLUXLOG']))
 
 
 class FaucetNailedForwardingTest(FaucetUntaggedTest):
@@ -1336,12 +1387,6 @@ class FaucetZodiacUntaggedACLMirrorTest(FaucetUntaggedACLMirrorTest):
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid, n_untagged=3)
         self.start_net()
-
-    def test_untagged(self):
-        """All hosts on the same untagged VLAN should have connectivity."""
-        self.ping_all_when_learned()
-        self.flap_all_switch_ports()
-        self.ping_all_when_learned()
 
     def test_untagged(self):
         first_host, second_host, mirror_host = self.net.hosts[0:3]
@@ -2576,7 +2621,7 @@ def pipeline_superset_report(root_tmpdir):
     ofchannel_logs = glob.glob(
         os.path.join(root_tmpdir, '*/ofchannel.log'))
     match_re = re.compile(
-        '^.+types table: (\d+) match: (.+) instructions: (.+) actions: (.+)')
+        r'^.+types table: (\d+) match: (.+) instructions: (.+) actions: (.+)')
     table_matches = collections.defaultdict(set)
     table_instructions = collections.defaultdict(set)
     table_actions = collections.defaultdict(set)
