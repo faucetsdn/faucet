@@ -9,6 +9,8 @@ before_install:
   - "sudo pip install -r requirements.txt"
 install:
   - "make"
+  - "cwd=$(pwd) ; tarball=`echo $cwd/dist/ryu-faucet*tar.gz` ; sudo pip install file:$tarball"
+  - "[ -f /etc/ryu/faucet/faucet.yaml-dist ]"
 # We want to run actual mininet based tests too. Prefer xenial
 # but perhaps can run container-inside-container inside this container..
 script:
