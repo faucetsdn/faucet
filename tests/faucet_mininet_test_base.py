@@ -279,7 +279,8 @@ dps:
     def get_gauge_config(self, faucet_config_file,
                          monitor_stats_file,
                          monitor_state_file,
-                         monitor_flow_table_file):
+                         monitor_flow_table_file,
+                         influx_port):
         """Build Gauge config."""
         return """
 version: 2
@@ -311,8 +312,17 @@ dbs:
     flow_file:
         type: 'text'
         file: %s
+    influx:
+        type: 'influx'
+        influx_db: 'faucet'
+        influx_host: 'localhost'
+        influx_port: %u
+        influx_user: 'faucet'
+        influx_pwd: ''
+        influx_timeout: 10
 """ % (faucet_config_file, monitor_stats_file,
-       monitor_state_file, monitor_flow_table_file)
+       monitor_state_file, monitor_flow_table_file,
+       influx_port)
 
     def get_controller(self):
         """Return the first (only) controller."""

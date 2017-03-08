@@ -153,13 +153,17 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
             self.CONFIG % self.port_map))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+        self.influx_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
         self.GAUGE_CONFIG = self.get_gauge_config(
             os.environ['FAUCET_CONFIG'],
             self.monitor_stats_file,
             self.monitor_state_file,
-            self.monitor_flow_table_file
+            self.monitor_flow_table_file,
+            self.influx_port,
             )
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
+
         self.net = None
         self.topo = None
 
