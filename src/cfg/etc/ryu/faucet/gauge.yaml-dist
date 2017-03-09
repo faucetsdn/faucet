@@ -15,8 +15,12 @@ watchers:
         type: 'flow_table'
         dps: ['windscale-faucet-1']
         interval: 40
-        db: 'couchdb'
+        #db: 'couchdb'
+        db: 'ft_file'
 dbs:
+    ft_file:
+        type: 'text'
+        file: 'flow_table.JSON'
     influx:
         type: 'influx'
         influx_db: 'faucet'
