@@ -425,6 +425,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 """
 
     def test_untagged_influx_down(self):
+        self.ping_all_when_learned()
         self.assertEquals(
             0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
 
@@ -443,6 +444,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
+        self.ping_all_when_learned()
         for _ in range(3):
             if os.path.exists(os.environ['INFLUXLOG']):
                 break
