@@ -40,13 +40,13 @@ import threading
 import time
 import unittest
 
+from SimpleHTTPServer import SimpleHTTPRequestHandler
+from BaseHTTPServer import HTTPServer
+
 import ipaddr
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
-from SimpleHTTPServer import SimpleHTTPRequestHandler
-from BaseHTTPServer import HTTPServer
-
 from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import Intf
@@ -425,6 +425,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 """
 
     def test_untagged_influx_down(self):
+        self.ping_all_when_learned()
         self.assertEquals(
             0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
 
@@ -443,10 +444,11 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
+        self.ping_all_when_learned()
         for _ in range(3):
-           if os.path.exists(os.environ['INFLUXLOG']):
-               break
-           time.sleep(2)
+            if os.path.exists(os.environ['INFLUXLOG']):
+                break
+            time.sleep(2)
         server.shutdown()
         self.assertTrue(os.path.exists(os.environ['INFLUXLOG']))
 
@@ -563,7 +565,7 @@ class FaucetZodiacUntaggedTest(FaucetUntaggedTest):
     RUN_GAUGE = False
 
     def setUp(self):
-        super(FaucetUntaggedTest, self).setUp()
+        super(FaucetZodiacUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid, n_untagged=3)
         self.start_net()
@@ -640,7 +642,7 @@ vlans:
 """
 
     def setUp(self):
-        super(FaucetUntaggedTest, self).setUp()
+        super(FaucetZodiacTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid, n_tagged=1, n_untagged=2)
         self.start_net()
