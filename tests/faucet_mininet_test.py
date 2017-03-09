@@ -372,6 +372,8 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
 class FaucetUntaggedTest(FaucetTest):
     """Basic untagged VLAN test."""
 
+    N_UNTAGGED = 4
+    N_TAGGED = 0
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -397,7 +399,8 @@ vlans:
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid, n_untagged=4)
+            self.ports_sock, dpid=self.dpid,
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
         self.start_net()
 
     def test_untagged(self):
@@ -563,12 +566,7 @@ class FaucetZodiacUntaggedTest(FaucetUntaggedTest):
     """Zodiac has only 3 ports available, and one controller so no Gauge."""
 
     RUN_GAUGE = False
-
-    def setUp(self):
-        super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid, n_untagged=3)
-        self.start_net()
+    N_UNTAGGED = 3
 
     def test_untagged(self):
         """All hosts on the same untagged VLAN should have connectivity."""
@@ -618,7 +616,8 @@ vlans:
 class FaucetZodiacTaggedAndUntaggedVlanTest(FaucetUntaggedTest):
 
     RUN_GAUGE = False
-
+    N_TAGGED = 1
+    N_UNTAGGED = 2
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -640,12 +639,6 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
-
-    def setUp(self):
-        super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid, n_tagged=1, n_untagged=2)
-        self.start_net()
 
     def test_untagged(self):
         """Test connectivity including after port flapping."""
@@ -982,12 +975,7 @@ group test {
 class FaucetSingleZodiacUntaggedIPv4RouteTest(FaucetSingleUntaggedIPv4RouteTest):
 
     RUN_GAUGE = False
-
-    def setUp(self):
-        super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid, n_untagged=3)
-        self.start_net()
+    N_UNTAGGED = 3
 
 
 class FaucetUntaggedVLanUnicastFloodTest(FaucetUntaggedTest):
@@ -1327,12 +1315,7 @@ acls:
 class FaucetZodiacUntaggedACLTest(FaucetUntaggedACLTest):
 
     RUN_GAUGE = False
-
-    def setUp(self):
-        super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid, n_untagged=3)
-        self.start_net()
+    N_UNTAGGED = 3
 
     def test_untagged(self):
         """All hosts on the same untagged VLAN should have connectivity."""
@@ -1383,16 +1366,7 @@ acls:
 class FaucetZodiacUntaggedACLMirrorTest(FaucetUntaggedACLMirrorTest):
 
     RUN_GAUGE = False
-
-    def setUp(self):
-        super(FaucetUntaggedTest, self).setUp()
-        self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid, n_untagged=3)
-        self.start_net()
-
-    def test_untagged(self):
-        first_host, second_host, mirror_host = self.net.hosts[0:3]
-        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+    N_UNTAGGED = 3
 
 
 class FaucetUntaggedACLMirrorDefaultAllowTest(FaucetUntaggedACLMirrorTest):
