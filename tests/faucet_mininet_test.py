@@ -87,7 +87,10 @@ EXTERNAL_DEPENDENCIES = (
 )
 
 # Must pass with 0 lint errors
-FAUCET_LINT_SRCS = glob.glob(os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py'))
+FAUCET_LINT_SRCS = (glob.glob(
+    os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py')) + [
+        os.path.join(os.path.dirname(__file__), 'faucet_mininet_test.py'),
+        os.path.join(os.path.dirname(__file__), 'faucet_mininet_test_base.py')])
 
 # Maximum number of parallel tests to run at once
 MAX_PARALLEL_TESTS = 4
@@ -95,7 +98,6 @@ MAX_PARALLEL_TESTS = 4
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 REQUIRED_TEST_PORTS = 4
-
 
 
 class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
