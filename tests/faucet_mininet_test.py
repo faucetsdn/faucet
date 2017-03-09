@@ -40,13 +40,13 @@ import threading
 import time
 import unittest
 
+from SimpleHTTPServer import SimpleHTTPRequestHandler
+from BaseHTTPServer import HTTPServer
+
 import ipaddr
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
-from SimpleHTTPServer import SimpleHTTPRequestHandler
-from BaseHTTPServer import HTTPServer
-
 from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import Intf
@@ -444,9 +444,9 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         thread.daemon = True
         thread.start()
         for _ in range(3):
-           if os.path.exists(os.environ['INFLUXLOG']):
-               break
-           time.sleep(2)
+            if os.path.exists(os.environ['INFLUXLOG']):
+                break
+            time.sleep(2)
         server.shutdown()
         self.assertTrue(os.path.exists(os.environ['INFLUXLOG']))
 
