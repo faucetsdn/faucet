@@ -563,7 +563,7 @@ class FaucetZodiacUntaggedTest(FaucetUntaggedTest):
     RUN_GAUGE = False
 
     def setUp(self):
-        super(FaucetUntaggedTest, self).setUp()
+        super(FaucetZodiacUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid, n_untagged=3)
         self.start_net()
@@ -640,7 +640,7 @@ vlans:
 """
 
     def setUp(self):
-        super(FaucetUntaggedTest, self).setUp()
+        super(FaucetZodiacTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid, n_tagged=1, n_untagged=2)
         self.start_net()
