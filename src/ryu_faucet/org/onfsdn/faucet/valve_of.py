@@ -176,12 +176,12 @@ def output_in_port():
 
 
 def output_controller():
-    """Return OpenFlow action to packet in to the controller (max 256 bytes).
+    """Return OpenFlow action to packet in to the controller (max 128 bytes).
 
     Returns:
         ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: packet in action.
     """
-    return output_port(ofp.OFPP_CONTROLLER, 256)
+    return output_port(ofp.OFPP_CONTROLLER, 128)
 
 
 def packetout(port_num, data):
