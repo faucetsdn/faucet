@@ -98,8 +98,7 @@ def _dp_config_path(config_file, parent_file=None):
         return os.path.realpath(config_file)
 
 
-def _dp_include(config_hashes, config_file, logname,
-                dps_conf, vlans_conf, acls_conf):
+def _dp_include(config_hashes, config_file, logname, top_confs):
     logger = get_logger(logname)
     if not os.path.isfile(config_file):
         logger.warning('not a regular file or does not exist: %s', config_file)
@@ -117,12 +116,10 @@ def _dp_include(config_hashes, config_file, logname,
 
     # Save the updated configuration state in separate dicts,
     # so if an error is found, the changes can simply be thrown away.
-    new_acls_conf = acls_conf.copy()
-    new_dps_conf = dps_conf.copy()
-    new_vlans_conf = vlans_conf.copy()
-    new_acls_conf.update(conf.pop('acls', {}))
-    new_dps_conf.update(conf.pop('dps', {}))
-    new_vlans_conf.update(conf.pop('vlans', {}))
+    new_top_confs = {}
+    for conf_name, curr_conf in top_confs.iteritems():
+        new_top_confs[conf_name] = curr_conf.copy()
+        new_top_confs[conf_name].update(conf.pop(conf_name, {}))
 
     for include_directive, file_required in (
             ('include', True),
@@ -135,8 +132,7 @@ def _dp_include(config_hashes, config_file, logname,
                     include_path, config_file,)
                 return False
             if not _dp_include(
-                    new_config_hashes, include_path, logname,
-                    new_dps_conf, new_vlans_conf, new_acls_conf):
+                    new_config_hashes, include_path, logname, new_top_confs):
                 if file_required:
                     logger.error('unable to load required include file: %s', include_path)
                     return False
@@ -147,10 +143,8 @@ def _dp_include(config_hashes, config_file, logname,
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.
     config_hashes.update(new_config_hashes)
-    acls_conf.update(new_acls_conf)
-    dps_conf.update(new_dps_conf)
-    vlans_conf.update(new_vlans_conf)
-
+    for conf_name, new_conf in new_top_confs.iteritems():
+        top_confs[conf_name].update(new_conf)
     return True
 
 
@@ -215,8 +209,7 @@ def _config_parser_v2(config_file, logname):
         'vlans': {},
     }
 
-    if not _dp_include(config_hashes, config_path, logname,
-                       top_confs['dps'], top_confs['vlans'], top_confs['acls']):
+    if not _dp_include(config_hashes, config_path, logname, top_confs):
         logger.critical('error found while loading config file: %s', config_path)
         return None
 
