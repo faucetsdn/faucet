@@ -91,7 +91,8 @@ def _dp_config_path(config_file, parent_file=None):
     else:
         return os.path.realpath(config_file)
 
-def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, acls_conf, logname):
+def _dp_include(config_hashes, parent_file, config_file, logname,
+                dps_conf, vlans_conf, acls_conf):
     logger = get_logger(logname)
 
     # Save the updated configuration state in separate dicts,
@@ -130,10 +131,8 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
             )
             return False
         if not _dp_include(
-                new_config_hashes,
-                config_file, include_path,
-                new_dps_conf, new_vlans_conf, new_acls_conf,
-                logname):
+                new_config_hashes, config_file, include_path, logname,
+                new_dps_conf, new_vlans_conf, new_acls_conf):
             logger.error('unable to load required include file: %s', include_path)
             return False
 
@@ -147,10 +146,8 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
             )
             return False
         if not _dp_include(
-                new_config_hashes,
-                config_file, include_path,
-                new_dps_conf, new_vlans_conf, new_acls_conf,
-                logname):
+                new_config_hashes, config_file, include_path, logname,
+                new_dps_conf, new_vlans_conf, new_acls_conf):
             new_config_hashes[include_path] = None
             logger.warning('skipping optional include file: %s', include_path)
 
@@ -163,7 +160,7 @@ def _dp_include(config_hashes, parent_file, config_file, dps_conf, vlans_conf, a
 
     return True
 
-def _dp_add_vlan(vid_dp, dp, vlan, logname):
+def _dp_add_vlan(vid_dp, dp, vlan):
     if vlan.vid not in vid_dp:
         vid_dp[vlan.vid] = set()
 
@@ -189,7 +186,8 @@ def _dp_parser_v2(conf, config_file, logname):
     vlans_conf = {}
     acls_conf = {}
 
-    if not _dp_include(config_hashes, None, config_path, dps_conf, vlans_conf, acls_conf, logname):
+    if not _dp_include(config_hashes, None, config_path, logname,
+                       dps_conf, vlans_conf, acls_conf):
         logger.critical('error found while loading config file: %s', config_path)
         return None
 
@@ -218,10 +216,10 @@ def _dp_parser_v2(conf, config_file, logname):
                 port = port_parser(dp_id, port_num, port_conf, vlans)
                 ports[port_num] = port
                 if port.native_vlan is not None:
-                    _dp_add_vlan(vid_dp, dp, vlans[port.native_vlan], logname)
+                    _dp_add_vlan(vid_dp, dp, vlans[port.native_vlan])
                 if port.tagged_vlans is not None:
                     for vid in port.tagged_vlans:
-                        _dp_add_vlan(vid_dp, dp, vlans[vid], logname)
+                        _dp_add_vlan(vid_dp, dp, vlans[vid])
         except AssertionError as err:
             logger.exception('Error in config file: %s', err)
             return None
