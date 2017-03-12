@@ -23,8 +23,10 @@ from port import Port
 from vlan import VLAN
 from watcher_conf import WatcherConf
 
+
 def get_logger(logname):
     return logging.getLogger(logname + '.config')
+
 
 def read_config(config_file, logname):
     logger = get_logger(logname)
@@ -36,9 +38,11 @@ def read_config(config_file, logname):
         return None
     return conf
 
+
 def config_file_hash(config_file_name):
     config_file = open(config_file_name)
     return hashlib.sha256(config_file.read()).hexdigest()
+
 
 def dp_parser(config_file, logname):
     logger = get_logger(logname)
@@ -69,6 +73,7 @@ def dp_parser(config_file, logname):
 
     return config_hashes, dps
 
+
 def port_parser(dp_id, p_identifier, port_conf, vlans):
     port = Port(p_identifier, port_conf)
 
@@ -85,11 +90,13 @@ def port_parser(dp_id, p_identifier, port_conf, vlans):
 
     return port
 
+
 def _dp_config_path(config_file, parent_file=None):
     if parent_file and not os.path.isabs(config_file):
         return os.path.realpath(os.path.join(os.path.dirname(parent_file), config_file))
     else:
         return os.path.realpath(config_file)
+
 
 def _dp_include(config_hashes, parent_file, config_file, logname,
                 dps_conf, vlans_conf, acls_conf):
@@ -159,6 +166,7 @@ def _dp_include(config_hashes, parent_file, config_file, logname,
     acls_conf.update(new_acls_conf)
 
     return True
+
 
 def _dp_add_vlan(vid_dp, dp, vlan):
     if vlan.vid not in vid_dp:
@@ -232,9 +240,11 @@ def _dp_parser_v2(conf, config_file, logname):
 
     return (config_hashes, dps)
 
+
 def watcher_parser(config_file, logname):
     conf = read_config(config_file, logname)
     return _watcher_parser_v2(conf, logname)
+
 
 def _watcher_parser_v2(conf, logname):
     logger = get_logger(logname)
