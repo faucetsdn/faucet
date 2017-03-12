@@ -182,7 +182,8 @@ class Valve(object):
                 if mask is None:
                     match_types.append(value['field'])
                 else:
-                    match_types.append('/'.join((value['field'], mask)))
+                    match_types.append(
+                        '/'.join((str(value['field']), str(mask))))
             else:
                 match_types.append(field)
         return match_types
