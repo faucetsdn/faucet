@@ -209,20 +209,23 @@ def _config_parser_v2(config_file, logname):
     logger = get_logger(logname)
     config_path = _dp_config_path(config_file)
     config_hashes = {}
-    dps_conf = {}
-    vlans_conf = {}
-    acls_conf = {}
+    top_confs = {
+        'acls': {},
+        'dps': {},
+        'vlans': {},
+    }
 
     if not _dp_include(config_hashes, config_path, logname,
-                       dps_conf, vlans_conf, acls_conf):
+                       top_confs['dps'], top_confs['vlans'], top_confs['acls']):
         logger.critical('error found while loading config file: %s', config_path)
         return None
 
-    if not dps_conf:
+    if not top_confs['dps']:
         logger.critical('dps not configured in file: %s', config_path)
         return None
 
-    dps = _dp_parser_v2(acls_conf, dps_conf, vlans_conf, logger)
+    dps = _dp_parser_v2(
+        top_confs['acls'], top_confs['dps'], top_confs['vlans'], logger)
     return (config_hashes, dps)
 
 
