@@ -58,7 +58,7 @@ def dp_parser(config_file, logname):
         logger.fatal(
             'Version 1 config is UNSUPPORTED. Please move to version 2')
     elif version == 2:
-        config_hashes, dps = _dp_parser_v2(conf, config_file, logname)
+        config_hashes, dps = _dp_parser_v2(config_file, logname)
     else:
         logger.error('unsupported config version number %s', version)
 
@@ -98,7 +98,7 @@ def _dp_config_path(config_file, parent_file=None):
         return os.path.realpath(config_file)
 
 
-def _dp_include(config_hashes, parent_file, config_file, logname,
+def _dp_include(config_hashes, config_file, logname,
                 dps_conf, vlans_conf, acls_conf):
     logger = get_logger(logname)
 
@@ -138,7 +138,7 @@ def _dp_include(config_hashes, parent_file, config_file, logname,
             )
             return False
         if not _dp_include(
-                new_config_hashes, config_file, include_path, logname,
+                new_config_hashes, include_path, logname,
                 new_dps_conf, new_vlans_conf, new_acls_conf):
             logger.error('unable to load required include file: %s', include_path)
             return False
@@ -153,7 +153,7 @@ def _dp_include(config_hashes, parent_file, config_file, logname,
             )
             return False
         if not _dp_include(
-                new_config_hashes, config_file, include_path, logname,
+                new_config_hashes, include_path, logname,
                 new_dps_conf, new_vlans_conf, new_acls_conf):
             new_config_hashes[include_path] = None
             logger.warning('skipping optional include file: %s', include_path)
@@ -183,7 +183,8 @@ def _dp_add_vlan(vid_dp, dp, vlan):
 
     vid_dp[vlan.vid].add(dp.name)
 
-def _dp_parser_v2(conf, config_file, logname):
+
+def _dp_parser_v2(config_file, logname):
     logger = get_logger(logname)
 
     config_path = _dp_config_path(config_file)
@@ -194,7 +195,7 @@ def _dp_parser_v2(conf, config_file, logname):
     vlans_conf = {}
     acls_conf = {}
 
-    if not _dp_include(config_hashes, None, config_path, logname,
+    if not _dp_include(config_hashes, config_path, logname,
                        dps_conf, vlans_conf, acls_conf):
         logger.critical('error found while loading config file: %s', config_path)
         return None
