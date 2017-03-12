@@ -128,35 +128,25 @@ def _dp_include(config_hashes, config_file, logname,
     new_vlans_conf.update(conf.pop('vlans', {}))
     new_acls_conf.update(conf.pop('acls', {}))
 
-    for include_file in conf.pop('include', []):
-        include_path = _dp_config_path(include_file, parent_file=config_file)
-        if include_path in config_hashes:
-            logger.error(
-                'include file %s already loaded, include loop found in file: %s',
-                include_path,
-                config_file,
-            )
-            return False
-        if not _dp_include(
-                new_config_hashes, include_path, logname,
-                new_dps_conf, new_vlans_conf, new_acls_conf):
-            logger.error('unable to load required include file: %s', include_path)
-            return False
-
-    for include_file in conf.pop('include-optional', []):
-        include_path = _dp_config_path(include_file, parent_file=config_file)
-        if include_path in config_hashes:
-            logger.error(
-                'include file %s already loaded, include loop found in file: %s',
-                include_path,
-                config_file,
-            )
-            return False
-        if not _dp_include(
-                new_config_hashes, include_path, logname,
-                new_dps_conf, new_vlans_conf, new_acls_conf):
-            new_config_hashes[include_path] = None
-            logger.warning('skipping optional include file: %s', include_path)
+    for include_directive, file_required in (
+            ('include', True),
+            ('include-optional', False)):
+        for include_file in conf.pop(include_directive, []):
+            include_path = _dp_config_path(include_file, parent_file=config_file)
+            if include_path in config_hashes:
+                logger.error(
+                    'include file %s already loaded, include loop found in file: %s',
+                    include_path, config_file,)
+                return False
+            if not _dp_include(
+                    new_config_hashes, include_path, logname,
+                    new_dps_conf, new_vlans_conf, new_acls_conf):
+                if file_required:
+                    logger.error('unable to load required include file: %s', include_path)
+                    return False
+                else:
+                    new_config_hashes[include_path] = None
+                    logger.warning('skipping optional include file: %s', include_path)
 
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.
