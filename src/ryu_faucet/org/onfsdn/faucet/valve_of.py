@@ -341,3 +341,20 @@ def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
         ofp.OFPGC_DELETE,
         0,
         group_id)
+
+
+def controller_pps_meteradd(datapath=None, pps=0):
+    return parser.OFPMeterMod(
+        datapath=datapath,
+        command=ofp.OFPMC_ADD,
+        flags=ofp.OFPMF_PKTPS,
+        meter_id=ofp.OFPM_CONTROLLER,
+        bands=[parser.OFPMeterBandDrop(rate=pps)])
+
+
+def controller_pps_meterdel(datapath=None):
+    return parser.OFPMeterMod(
+        datapath=datapath,
+        command=ofp.OFPMC_DELETE,
+        flags=ofp.OFPMF_PKTPS,
+        meter_id=ofp.OFPM_CONTROLLER)

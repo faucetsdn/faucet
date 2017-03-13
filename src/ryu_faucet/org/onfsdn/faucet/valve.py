@@ -457,9 +457,19 @@ class Valve(object):
             priority=self.dp.low_priority,
             inst=[valve_of.goto_table(self.dp.eth_dst_table)])]
 
+    def _add_packetin_meter(self):
+        """Add rate limiting of packet in pps (not supported by many DPs)."""
+        if self.dp.packetin_pps:
+            return [
+                valve_of.controller_pps_meterdel(),
+                valve_of.controller_pps_meteradd(pps=self.dp.packetin_pps)]
+        else:
+            return []
+
     def _add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
         ofmsgs = []
+        ofmsgs.extend(self._add_packetin_meter())
         ofmsgs.extend(self._delete_all_valve_flows())
         ofmsgs.extend(self._add_default_drop_flows())
         ofmsgs.extend(self._add_vlan_flood_flow())

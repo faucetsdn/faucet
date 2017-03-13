@@ -16,7 +16,7 @@
 from conf import Conf
 from vlan import VLAN
 from port import Port
-from valve_acl import ACL
+from acl import ACL
 
 import networkx
 
@@ -55,6 +55,7 @@ class DP(Conf):
     max_hosts_per_resolve_cycle = None
     max_host_fib_retry_count = None
     max_resolve_backoff_time = None
+    packetin_pps = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -116,6 +117,9 @@ class DP(Conf):
         'max_host_fib_retry_count': 10,
         # Max number of seconds to back off to when resolving nexthops.
         'max_resolve_backoff_time': 32,
+        # Ask switch to rate limit packet pps.
+        # TODO: Not supported by OVS in 2.7.0
+        'packetin_pps': 0,
         }
 
     def __init__(self, _id, conf):
