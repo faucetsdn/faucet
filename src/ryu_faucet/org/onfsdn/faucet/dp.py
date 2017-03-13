@@ -27,6 +27,7 @@ class DP(Conf):
     acls = None
     vlans = None
     ports = None
+    routers = None
     running = False
     influxdb_stats = False
     name = None
@@ -129,6 +130,7 @@ class DP(Conf):
         self.acls = {}
         self.vlans = {}
         self.ports = {}
+        self.routers = {}
         self.stack_ports = []
         self.port_acl_in = {}
         self.vlan_acl_in = {}
@@ -144,6 +146,8 @@ class DP(Conf):
         for portnum, port in self.ports.iteritems():
             assert isinstance(portnum, int)
             assert isinstance(port, Port)
+        for acl in self.acls.itervalues():
+            assert isinstance(acl, ACL)
 
     def set_defaults(self):
         for key, value in self.defaults.iteritems():
@@ -165,9 +169,11 @@ class DP(Conf):
         self._set_default('highest_priority', self.high_priority + 98)
         self._set_default('description', self.name)
 
-    def add_acl(self, acl_ident, acl_conf=None):
-        if acl_conf is not None:
-            self.acls[acl_ident] = ACL(acl_ident, acl_conf)
+    def add_acl(self, acl_ident, acl):
+        self.acls[acl_ident] = acl
+
+    def add_router(self, router_ident, router):
+        self.routers[router_ident] = router
 
     def add_port(self, port):
         port_num = port.number

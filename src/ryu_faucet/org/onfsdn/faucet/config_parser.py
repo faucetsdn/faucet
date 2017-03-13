@@ -13,9 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from acl import ACL
 from dp import DP
 from port import Port
 from vlan import VLAN
+from router import Router
 from watcher_conf import WatcherConf
 
 import config_parser_util
@@ -26,19 +28,11 @@ def dp_parser(config_file, logname):
     conf = config_parser_util.read_config(config_file, logname)
     if conf is None:
         return None
-
     version = conf.pop('version', 2)
-    config_hashes = None
-    dps = None
+    if version != 2:
+        logger.fatal('Only config version 2 is supported')
 
-    if version == 1:
-        logger.fatal(
-            'Version 1 config is UNSUPPORTED. Please move to version 2')
-    elif version == 2:
-        config_hashes, dps = _config_parser_v2(config_file, logname)
-    else:
-        logger.error('unsupported config version number %s', version)
-
+    config_hashes, dps = _config_parser_v2(config_file, logname)
     if dps is not None:
         for dp in dps:
             try:
@@ -47,7 +41,6 @@ def dp_parser(config_file, logname):
                 logger.exception('Error finalizing datapath configs: %s', err)
         for dp in dps:
             dp.resolve_stack_topology(dps)
-
     return config_hashes, dps
 
 
@@ -83,21 +76,31 @@ def _dp_add_vlan(vid_dp, dp, vlan):
     vid_dp[vlan.vid].add(dp.name)
 
 
-def _dp_parser_v2(acls_conf, dps_conf, vlans_conf, logger):
+def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
     dps = []
     vid_dp = {}
     for identifier, dp_conf in dps_conf.iteritems():
-        dp = DP(identifier, dp_conf)
-        dp.sanity_check()
-        dp_id = dp.dp_id
-
-        vlans = {}
-        for vid, vlan_conf in vlans_conf.iteritems():
-            vlans[vid] = VLAN(vid, dp_id, vlan_conf)
-
-        ports_conf = dp_conf.pop('interfaces', {})
-        ports = {}
         try:
+            dp = DP(identifier, dp_conf)
+            dp.sanity_check()
+            dp_id = dp.dp_id
+
+            vlans = {}
+            for vid, vlan_conf in vlans_conf.iteritems():
+                vlans[vid] = VLAN(vid, dp_id, vlan_conf)
+            acls = []
+            for acl_ident, acl_conf in acls_conf.iteritems():
+                acls.append((acl_ident, ACL(acl_ident, acl_conf)))
+            routers = []
+            for router_ident, router_conf in routers_conf.iteritems():
+                routers.append((router_ident, Router(router_ident, router_conf)))
+            if routers:
+                assert len(routers) == 1, 'only one router supported'
+                router_ident, router = routers[0]
+                assert set(router.vlans) == set(vlans.keys()), 'only global routing supported'
+                dp.add_router(router_ident, router)
+            ports_conf = dp_conf.pop('interfaces', {})
+            ports = {}
             for port_num, port_conf in ports_conf.iteritems():
                 port = port_parser(dp_id, port_num, port_conf, vlans)
                 ports[port_num] = port
@@ -111,9 +114,8 @@ def _dp_parser_v2(acls_conf, dps_conf, vlans_conf, logger):
             return None
         for port in ports.itervalues():
             dp.add_port(port)
-        for a_identifier, acl_conf in acls_conf.iteritems():
-            # TODO: turn this into an object
-            dp.add_acl(a_identifier, acl_conf)
+        for acl_ident, acl in acls:
+            dp.add_acl(acl_ident, acl)
         dps.append(dp)
     return dps
 
@@ -125,6 +127,7 @@ def _config_parser_v2(config_file, logname):
     top_confs = {
         'acls': {},
         'dps': {},
+        'routers': {},
         'vlans': {},
     }
 
@@ -138,7 +141,11 @@ def _config_parser_v2(config_file, logname):
         return None
 
     dps = _dp_parser_v2(
-        top_confs['acls'], top_confs['dps'], top_confs['vlans'], logger)
+        logger,
+        top_confs['acls'],
+        top_confs['dps'],
+        top_confs['routers'],
+        top_confs['vlans'])
     return (config_hashes, dps)
 
 
