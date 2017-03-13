@@ -144,6 +144,8 @@ class DP(Conf):
         for portnum, port in self.ports.iteritems():
             assert isinstance(portnum, int)
             assert isinstance(port, Port)
+        for acl in self.acls.itervalues():
+            assert isinstance(acl, ACL)
 
     def set_defaults(self):
         for key, value in self.defaults.iteritems():
