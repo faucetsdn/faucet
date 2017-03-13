@@ -17,18 +17,15 @@ from conf import Conf
 
 class Router(Conf):
 
-    name = None
     vlans = None
 
     defaults = {
-        'name': None,
         'vlans': None
         }
 
-    def __init__(self, _id, name, conf=None):
+    def __init__(self, _id, conf=None):
         if conf is None:
             conf = {}
-        self.name = name
         self.update(conf)
         self._id = _id
 

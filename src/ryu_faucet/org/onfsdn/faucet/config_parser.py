@@ -94,6 +94,11 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
             routers = []
             for router_ident, router_conf in routers_conf.iteritems():
                 routers.append((router_ident, Router(router_ident, router_conf)))
+            if routers:
+                assert len(routers) == 1, 'only one router supported'
+                router_ident, router = routers[0]
+                assert router.vlans == vlans.keys(), 'only global routing supported'
+                dp.add_router(router_ident, router)
             ports_conf = dp_conf.pop('interfaces', {})
             ports = {}
             for port_num, port_conf in ports_conf.iteritems():

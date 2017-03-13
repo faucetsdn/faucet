@@ -27,6 +27,7 @@ class DP(Conf):
     acls = None
     vlans = None
     ports = None
+    routers = None
     running = False
     influxdb_stats = False
     name = None
@@ -129,6 +130,7 @@ class DP(Conf):
         self.acls = {}
         self.vlans = {}
         self.ports = {}
+        self.routers = {}
         self.stack_ports = []
         self.port_acl_in = {}
         self.vlan_acl_in = {}
@@ -169,6 +171,9 @@ class DP(Conf):
 
     def add_acl(self, acl_ident, acl):
         self.acls[acl_ident] = acl
+
+    def add_router(self, router_ident, router):
+        self.routers[router_ident] = router
 
     def add_port(self, port):
         port_num = port.number
