@@ -24,7 +24,8 @@ import signal
 
 import ipaddr
 
-from config_parser import config_file_hash, dp_parser
+from config_parser import dp_parser
+from config_parser_util import config_file_hash
 from util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
 from valve import valve_factory
 import valve_of
