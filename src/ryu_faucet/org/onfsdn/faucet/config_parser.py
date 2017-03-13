@@ -17,6 +17,7 @@ from acl import ACL
 from dp import DP
 from port import Port
 from vlan import VLAN
+from router import Router
 from watcher_conf import WatcherConf
 
 import config_parser_util
@@ -75,7 +76,7 @@ def _dp_add_vlan(vid_dp, dp, vlan):
     vid_dp[vlan.vid].add(dp.name)
 
 
-def _dp_parser_v2(acls_conf, dps_conf, vlans_conf, logger):
+def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
     dps = []
     vid_dp = {}
     for identifier, dp_conf in dps_conf.iteritems():
@@ -90,7 +91,9 @@ def _dp_parser_v2(acls_conf, dps_conf, vlans_conf, logger):
             acls = []
             for acl_ident, acl_conf in acls_conf.iteritems():
                 acls.append((acl_ident, ACL(acl_ident, acl_conf)))
-
+            routers = []
+            for router_ident, router_conf in routers_conf.iteritems():
+                routers.append((router_ident, Router(router_ident, router_conf)))
             ports_conf = dp_conf.pop('interfaces', {})
             ports = {}
             for port_num, port_conf in ports_conf.iteritems():
@@ -119,6 +122,7 @@ def _config_parser_v2(config_file, logname):
     top_confs = {
         'acls': {},
         'dps': {},
+        'routers': {},
         'vlans': {},
     }
 
@@ -132,7 +136,11 @@ def _config_parser_v2(config_file, logname):
         return None
 
     dps = _dp_parser_v2(
-        top_confs['acls'], top_confs['dps'], top_confs['vlans'], logger)
+        logger,
+        top_confs['acls'],
+        top_confs['dps'],
+        top_confs['routers'],
+        top_confs['vlans'])
     return (config_hashes, dps)
 
 

@@ -44,3 +44,7 @@ dps:
                 stack:
                      dp: switch1
                      port: 7
+
+routers:
+    router1:
+        vlans: ['v40', 41]
