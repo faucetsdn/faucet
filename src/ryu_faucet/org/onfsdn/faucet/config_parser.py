@@ -26,19 +26,11 @@ def dp_parser(config_file, logname):
     conf = config_parser_util.read_config(config_file, logname)
     if conf is None:
         return None
-
     version = conf.pop('version', 2)
-    config_hashes = None
-    dps = None
+    if version != 2:
+        logger.fatal('Only config version 2 is supported')
 
-    if version == 1:
-        logger.fatal(
-            'Version 1 config is UNSUPPORTED. Please move to version 2')
-    elif version == 2:
-        config_hashes, dps = _config_parser_v2(config_file, logname)
-    else:
-        logger.error('unsupported config version number %s', version)
-
+    config_hashes, dps = _config_parser_v2(config_file, logname)
     if dps is not None:
         for dp in dps:
             try:
@@ -47,7 +39,6 @@ def dp_parser(config_file, logname):
                 logger.exception('Error finalizing datapath configs: %s', err)
         for dp in dps:
             dp.resolve_stack_topology(dps)
-
     return config_hashes, dps
 
 
