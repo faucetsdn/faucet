@@ -165,9 +165,8 @@ class DP(Conf):
         self._set_default('highest_priority', self.high_priority + 98)
         self._set_default('description', self.name)
 
-    def add_acl(self, acl_ident, acl_conf=None):
-        if acl_conf is not None:
-            self.acls[acl_ident] = ACL(acl_ident, acl_conf)
+    def add_acl(self, acl_ident, acl):
+        self.acls[acl_ident] = acl
 
     def add_port(self, port):
         port_num = port.number

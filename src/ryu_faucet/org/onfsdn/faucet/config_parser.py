@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from acl import ACL
 from dp import DP
 from port import Port
 from vlan import VLAN
@@ -78,17 +79,20 @@ def _dp_parser_v2(acls_conf, dps_conf, vlans_conf, logger):
     dps = []
     vid_dp = {}
     for identifier, dp_conf in dps_conf.iteritems():
-        dp = DP(identifier, dp_conf)
-        dp.sanity_check()
-        dp_id = dp.dp_id
-
-        vlans = {}
-        for vid, vlan_conf in vlans_conf.iteritems():
-            vlans[vid] = VLAN(vid, dp_id, vlan_conf)
-
-        ports_conf = dp_conf.pop('interfaces', {})
-        ports = {}
         try:
+            dp = DP(identifier, dp_conf)
+            dp.sanity_check()
+            dp_id = dp.dp_id
+
+            vlans = {}
+            for vid, vlan_conf in vlans_conf.iteritems():
+                vlans[vid] = VLAN(vid, dp_id, vlan_conf)
+            acls = []
+            for acl_ident, acl_conf in acls_conf.iteritems():
+                acls.append((acl_ident, ACL(acl_ident, acl_conf)))
+
+            ports_conf = dp_conf.pop('interfaces', {})
+            ports = {}
             for port_num, port_conf in ports_conf.iteritems():
                 port = port_parser(dp_id, port_num, port_conf, vlans)
                 ports[port_num] = port
@@ -102,9 +106,8 @@ def _dp_parser_v2(acls_conf, dps_conf, vlans_conf, logger):
             return None
         for port in ports.itervalues():
             dp.add_port(port)
-        for a_identifier, acl_conf in acls_conf.iteritems():
-            # TODO: turn this into an object
-            dp.add_acl(a_identifier, acl_conf)
+        for acl_ident, acl in acls:
+            dp.add_acl(acl_ident, acl)
         dps.append(dp)
     return dps
 
