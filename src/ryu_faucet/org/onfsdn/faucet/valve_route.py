@@ -28,6 +28,12 @@ import valve_of
 import valve_packet
 
 
+class AnyVlan(object):
+    """Wildcard VLAN."""
+
+    vid = valve_of.vid_present(0)
+
+
 class NextHop(object):
     """Describes a directly connected (at layer 2) nexthop."""
 
@@ -62,6 +68,9 @@ class ValveRouteManager(object):
         self.valve_flowmod = valve_flowmod
         self.valve_flowcontroller = valve_flowcontroller
         self.use_group_table = use_group_table
+        # TODO: if any router config present, we globally route between
+        # all VLANs - we want however to be able to restrict routing
+        # as required.
         self.routers = routers
         self.ip_gw_to_group_id = {}
 
@@ -102,17 +111,26 @@ class ValveRouteManager(object):
                     port.number, resolver_pkt.data))
         return ofmsgs
 
-    def _nexthop_actions(self, eth_dst):
-        return [
+    def _nexthop_actions(self, eth_dst, vlan):
+        ofmsgs = []
+        if self.routers:
+            ofmsgs.append(valve_of.set_vlan_vid(vlan.vid))
+        ofmsgs.extend([
             valve_of.set_eth_src(self.faucet_mac),
             valve_of.set_eth_dst(eth_dst),
-            valve_of.dec_ip_ttl()]
+            valve_of.dec_ip_ttl()])
+        return ofmsgs
 
     def _add_resolved_route(self, vlan, ip_gw, ip_dst, eth_dst, is_updated):
         ofmsgs = []
-        in_match = self.valve_in_match(
-            self.fib_table, vlan=vlan,
-            eth_type=self._eth_type(), nw_dst=ip_dst)
+        if self.routers:
+            in_match = self.valve_in_match(
+                self.fib_table, vlan=AnyVlan(),
+                eth_type=self._eth_type(), nw_dst=ip_dst) 
+        else:
+            in_match = self.valve_in_match(
+                self.fib_table, vlan=vlan,
+                eth_type=self._eth_type(), nw_dst=ip_dst)
         prefixlen = ipaddr.IPNetwork(ip_dst).prefixlen
         priority = self.route_priority + prefixlen
         if is_updated:
@@ -131,7 +149,7 @@ class ValveRouteManager(object):
             inst = [valve_of.apply_actions([valve_of.group_act(
                 group_id=self.ip_gw_to_group_id[ip_gw])])]
         else:
-            inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst)),
+            inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst, vlan)),
                     valve_of.goto_table(self.eth_dst_table)]
         ofmsgs.append(self.valve_flowmod(
             self.fib_table,
@@ -150,7 +168,7 @@ class ValveRouteManager(object):
         nexthop_cache[ip_gw] = nexthop
 
     def _nexthop_group_buckets(self, vlan, in_port, eth_src):
-        actions = self._nexthop_actions(eth_src)
+        actions = self._nexthop_actions(eth_src, vlan)
         if not vlan.port_is_tagged(in_port):
             actions.append(valve_of.pop_vlan())
         actions.append(valve_of.output_port(in_port))

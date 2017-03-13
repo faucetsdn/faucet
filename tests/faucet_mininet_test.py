@@ -1609,6 +1609,55 @@ vlans:
             self.swap_host_macs(first_host, second_host)
 
 
+class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "100"
+        faucet_vips: ["10.100.0.254/24"]
+    200:
+        description: "200"
+        faucet_vips: ["10.200.0.254/24"]
+routers:
+    router-1:
+        vlans: [100, 200]
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 200
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 200
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 200
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        first_host_ip = ipaddr.IPv4Network('10.100.0.1/24')
+        first_faucet_vip = ipaddr.IPv4Network('10.100.0.254/24')
+        second_host_ip = ipaddr.IPv4Network('10.200.0.1/24')
+        second_faucet_vip = ipaddr.IPv4Network('10.200.0.254/24')
+        first_host, second_host = self.net.hosts[:2]
+        first_host.setIP(str(first_host_ip.ip))
+        second_host.setIP(str(second_host_ip.ip))
+        self.add_host_ipv4_route(first_host, second_host_ip, first_faucet_vip.ip)
+        self.add_host_ipv4_route(second_host, first_host_ip, second_faucet_vip.ip)
+        self.one_ipv4_ping(first_host, first_faucet_vip.ip)
+        self.one_ipv4_ping(second_host, second_faucet_vip.ip)
+        self.one_ipv4_ping(first_host, second_host_ip.ip)
+        self.one_ipv4_ping(second_host, first_host_ip.ip)
+
+
 class FaucetUntaggedMixedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
