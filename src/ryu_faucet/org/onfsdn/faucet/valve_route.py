@@ -46,7 +46,7 @@ class ValveRouteManager(object):
                  max_resolve_backoff_time,
                  fib_table, eth_src_table, eth_dst_table, route_priority,
                  valve_in_match, valve_flowdel, valve_flowmod,
-                 valve_flowcontroller, use_group_table):
+                 valve_flowcontroller, use_group_table, routers):
         self.logger = logger
         self.faucet_mac = faucet_mac
         self.arp_neighbor_timeout = arp_neighbor_timeout
@@ -62,6 +62,7 @@ class ValveRouteManager(object):
         self.valve_flowmod = valve_flowmod
         self.valve_flowcontroller = valve_flowcontroller
         self.use_group_table = use_group_table
+        self.routers = routers
         self.ip_gw_to_group_id = {}
 
     def _vlan_vid(self, vlan, in_port):
