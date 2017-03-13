@@ -16,7 +16,7 @@
 from conf import Conf
 from vlan import VLAN
 from port import Port
-from valve_acl import ACL
+from acl import ACL
 
 import networkx
 
