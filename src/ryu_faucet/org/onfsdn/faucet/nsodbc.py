@@ -5,10 +5,7 @@ Currently couchdb support is included.
 COUCHDB = 'couchdb'
 LOCALHOST = 'localhost'
 
-try:
-    import couchdb
-except ImportError, error:
-    raise error
+import couchdb
 
 
 def todict(conn_string, kwargs):
