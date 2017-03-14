@@ -252,12 +252,10 @@ class FaucetTestBase(unittest.TestCase):
         if self.net is not None:
             self.net.stop()
         test_class_name = self.id().split('.')[1]
-        if (not test_class_name.startswith('FaucetGroup') and
-                not test_class_name.startswith('FaucetSingleGroup')):
-            for _, debug_log in self.get_ofchannel_logs():
-                self.assertFalse(
-                    re.search('OFPErrorMsg', open(debug_log).read()),
-                    msg='debug log has OFPErrorMsgs')
+        for _, debug_log in self.get_ofchannel_logs():
+            self.assertFalse(
+                re.search('OFPErrorMsg', open(debug_log).read()),
+                msg='debug log has OFPErrorMsgs')
         # Associate controller log with test results, if we are keeping
         # the temporary directory, or effectively delete it if not.
         # mininet doesn't have a way to change its log name for the controller.

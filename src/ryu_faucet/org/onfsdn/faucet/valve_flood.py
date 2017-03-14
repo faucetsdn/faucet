@@ -208,64 +208,6 @@ class ValveFloodManager(object):
                 port, mirror_acts))
         return ofmsgs
 
-    def build_flood_rules(self, vlan, modify=False):
-        """Add flows to flood packets to unknown destinations on a VLAN."""
-        # TODO: not all vendors implement groups well.
-        # That means we need flood rules for each input port, outputting
-        # to all ports except the input port. When all vendors implement
-        # groups correctly we can use them.
-        command = ofp.OFPFC_ADD
-        group_mod_method = valve_of.groupadd
-        if modify:
-            command = ofp.OFPFC_MODIFY_STRICT
-            group_mod_method = valve_of.groupmod
-        flood_priority = self.flood_priority
-        ofmsgs = []
-        broadcast_buckets = []
-        unicast_buckets = []
-        if self.use_group_table and self.stack is None:
-            # Group table usage is not supported for stacking yet
-            # TODO: implement stacking using group table
-            broadcast_buckets = self._build_group_buckets(vlan, False)
-            unicast_buckets = self._build_group_buckets(vlan, vlan.unicast_flood)
-            group_id = vlan.vid
-            ofmsgs.append(group_mod_method(
-                group_id=group_id,
-                buckets=broadcast_buckets))
-            ofmsgs.append(group_mod_method(
-                group_id=group_id+valve_of.VLAN_GROUP_OFFSET,
-                buckets=unicast_buckets))
-            for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
-                if unicast_eth_dst and not vlan.unicast_flood:
-                    continue
-                group_id = vlan.vid
-                if not eth_dst:
-                    group_id = group_id + valve_of.VLAN_GROUP_OFFSET
-                match = self.valve_in_match(
-                    self.flood_table, vlan=vlan,
-                    eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
-                ofmsgs.append(self.valve_flowmod(
-                    self.flood_table,
-                    match=match,
-                    command=command,
-                    inst=[valve_of.apply_actions([valve_of.group_act(group_id)])],
-                    priority=flood_priority))
-                flood_priority += 1
-        else:
-            for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
-                if unicast_eth_dst and not vlan.unicast_flood:
-                    continue
-                ofmsgs.extend(self._build_unmirrored_flood_rules(
-                    vlan, eth_dst, eth_dst_mask,
-                    unicast_eth_dst, command, flood_priority))
-                flood_priority += 1
-                ofmsgs.extend(self._build_mirrored_flood_rules(
-                    vlan, eth_dst, eth_dst_mask,
-                    unicast_eth_dst, command, flood_priority))
-                flood_priority += 1
-
-        return ofmsgs
-
     def _build_group_buckets(self, vlan, unicast_flood):
         buckets = []
         for port in vlan.tagged_flood_ports(unicast_flood):
@@ -277,3 +219,70 @@ class ValveFloodManager(object):
                     valve_of.pop_vlan(),
                     valve_of.output_port(port.number)]))
         return buckets
+
+    def _build_group_flood_rules(self, vlan, modify, command):
+        flood_priority = self.flood_priority
+        broadcast_buckets = self._build_group_buckets(vlan, False)
+        unicast_buckets = self._build_group_buckets(vlan, vlan.unicast_flood)
+        group_id = vlan.vid
+        ofmsgs = []
+        group_mod_method = valve_of.groupadd
+        if modify:
+            group_mod_method = valve_of.groupmod
+        else:
+            ofmsgs.append(
+                valve_of.groupdel(group_id=group_id))
+            ofmsgs.append(
+                valve_of.groupdel(group_id=group_id+valve_of.VLAN_GROUP_OFFSET))
+        ofmsgs.append(
+            group_mod_method(group_id=group_id, buckets=broadcast_buckets))
+        ofmsgs.append(
+            group_mod_method(group_id=group_id+valve_of.VLAN_GROUP_OFFSET,
+                buckets=unicast_buckets))
+        for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
+            if unicast_eth_dst and not vlan.unicast_flood:
+                continue
+            group_id = vlan.vid
+            if not eth_dst:
+                group_id = group_id + valve_of.VLAN_GROUP_OFFSET
+            match = self.valve_in_match(
+                self.flood_table, vlan=vlan,
+                eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
+            ofmsgs.append(self.valve_flowmod(
+                self.flood_table,
+                match=match,
+                command=command,
+                inst=[valve_of.apply_actions([valve_of.group_act(group_id)])],
+                priority=flood_priority))
+            flood_priority += 1
+        return ofmsgs
+
+    def _build_multiout_flood_rules(self, vlan, command):
+        flood_priority = self.flood_priority
+        ofmsgs = []
+        for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
+            if unicast_eth_dst and not vlan.unicast_flood:
+                continue
+            ofmsgs.extend(self._build_unmirrored_flood_rules(
+                vlan, eth_dst, eth_dst_mask,
+                unicast_eth_dst, command, flood_priority))
+            flood_priority += 1
+            ofmsgs.extend(self._build_mirrored_flood_rules(
+                vlan, eth_dst, eth_dst_mask,
+                unicast_eth_dst, command, flood_priority))
+            flood_priority += 1
+        return ofmsgs
+
+    def build_flood_rules(self, vlan, modify=False):
+        """Add flows to flood packets to unknown destinations on a VLAN."""
+        # TODO: not all vendors implement groups well.
+        # That means we need flood rules for each input port, outputting
+        # to all ports except the input port. When all vendors implement
+        # groups correctly we can use them.
+        command = ofp.OFPFC_ADD
+        if modify:
+            command = ofp.OFPFC_MODIFY_STRICT
+        if self.use_group_table and self.stack is None:
+            return self._build_group_flood_rules(vlan, modify, command)
+        else:
+            return self._build_multiout_flood_rules(vlan, command)
