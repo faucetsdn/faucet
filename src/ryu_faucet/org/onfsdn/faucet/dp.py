@@ -146,7 +146,7 @@ class DP(Conf):
         for portnum, port in self.ports.items():
             assert isinstance(portnum, int)
             assert isinstance(port, Port)
-        for acl in self.acls.itervalues():
+        for acl in self.acls.values():
             assert isinstance(acl, ACL)
 
     def set_defaults(self):
@@ -301,7 +301,7 @@ class DP(Conf):
         def resolve_mirror_destinations():
             # Associate mirrored ports, with their destinations.
             mirror_from_port = {}
-            for port in self.ports.itervalues():
+            for port in self.ports.values():
                 if port.mirror is not None:
                     if port.mirror in port_by_name:
                         mirror_from_port[port] = port_by_name[port.mirror]
@@ -312,7 +312,7 @@ class DP(Conf):
                 mirror_destination_port.mirror_destination = True
 
         def resolve_port_names_in_acls():
-            for acl in self.acls.itervalues():
+            for acl in self.acls.values():
                 for rule_conf in acl.rules:
                     for attrib, attrib_value in rule_conf.items():
                         if attrib == 'actions':
@@ -332,7 +332,7 @@ class DP(Conf):
                                     attrib_value['output']['port'] = port_no
 
         port_by_name = {}
-        for port in self.ports.itervalues():
+        for port in self.ports.values():
             port_by_name[port.name] = port
         dp_by_name = {}
         for dp in dps:
@@ -370,7 +370,7 @@ class DP(Conf):
                         'root_dp': str(self.stack['root_dp'])
                     }
             interface_dict = {}
-            for port in self.ports.itervalues():
+            for port in self.ports.values():
                 interface_dict[port.name] = port.to_conf()
             result['interfaces'] = interface_dict
         return result
