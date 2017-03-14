@@ -251,7 +251,6 @@ class FaucetTestBase(unittest.TestCase):
             controller_names.append(controller.name)
         if self.net is not None:
             self.net.stop()
-        test_class_name = self.id().split('.')[1]
         for _, debug_log in self.get_ofchannel_logs():
             self.assertFalse(
                 re.search('OFPErrorMsg', open(debug_log).read()),
