@@ -248,7 +248,7 @@ class Valve(object):
                 and table_id != self.dp.vlan_acl_table:
             assert table_id in self.TABLE_MATCH_TYPES,\
                 '%u table not registered' % table_id
-            for match_type in match_dict.iterkeys():
+            for match_type in match_dict.keys():
                 assert match_type in self.TABLE_MATCH_TYPES[table_id],\
                     '%s match not registered for table %u' % (
                         match_type, table_id)
@@ -549,7 +549,7 @@ class Valve(object):
             if valve_of.ignore_port(port_no):
                 continue
             changed_ports.add(port_no)
-        changed_vlans = self.dp.vlans.iterkeys()
+        changed_vlans = self.dp.vlans.keys()
         changes = ([], changed_ports, [], changed_vlans)
         ofmsgs.extend(self._apply_config_changes(self.dp, changes))
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
@@ -992,7 +992,7 @@ class Valve(object):
                     changed_ports.add(port_no)
 
         deleted_vlans = set([])
-        for vid in self.dp.vlans.iterkeys():
+        for vid in self.dp.vlans.keys():
             if vid not in new_dp.vlans:
                 deleted_vlans.add(vid)
 
@@ -1004,7 +1004,7 @@ class Valve(object):
                 changed_ports.add(port.number)
 
         deleted_ports = set([])
-        for port_no in self.dp.ports.iterkeys():
+        for port_no in self.dp.ports.keys():
             if port_no not in new_dp.ports:
                 deleted_ports.add(port_no)
 
