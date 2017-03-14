@@ -93,7 +93,7 @@ class LoadRyuTables(object):
             if (isinstance( instruction, dict )):
                 for key, value in instruction.items():
                     instruction_class = getattr(self._ofproto_parser, key)
-                    if (isinstance( value["type"], unicode )):
+                    if (isinstance(value["type"], unicode)):
                         value["type"] = str(value["type"])
                     value["type_"] = value.pop("type")
                     new_instruction = instruction_class(**value)

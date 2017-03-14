@@ -98,7 +98,8 @@ JSON_FIELDS = {
     'arp_op':'arp_op', 'arp_spa':'arp_spa', 'arp_tpa':'arp_tpa', 'arp_sha':'arp_sha', 'arp_tha':'arp_tha',
     'ipv6_src':'ipv6_src', 'ipv6_dst':'ipv6_dst', 'ipv6_label':'ipv6_flabel', 'nd_target':'ipv6_nd_target' }
 if sorted(JSON_FIELDS.keys()) != sorted(OVS_MATCH_FIELDS.keys()):
-   print('ERROR: Key mismatch between JSON_FIELDS and OVS_MATCH_FIELDS:\n '.set(JSON_FIELDS.keys()).symmetric_difference(set(OVS_MATCH_FIELDS.keys())))
+   print('ERROR: Key mismatch between JSON_FIELDS and OVS_MATCH_FIELDS:\n')
+   print(set(JSON_FIELDS.keys()).symmetric_difference(set(OVS_MATCH_FIELDS.keys())))
    exit(2)
 
 # Fields which HPE Aruba supports as setfield in any pipeline (keyed with RYU field names, not OVS)
@@ -223,7 +224,7 @@ for line in input:
       continue
 
    # Increment table size
-   if TABLE_SIZE.has_key(table):
+   if table in TABLE_SIZE:
       TABLE_SIZE[table] += 1
    else:
       TABLE_SIZE[table] = 1
