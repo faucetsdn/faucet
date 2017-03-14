@@ -148,7 +148,7 @@ class Valve(object):
     def _in_port_tables(self):
         """Return list of tables that specify in_port as a match."""
         in_port_tables = [self.dp.port_acl_table, self.dp.vlan_acl_table]
-        for table_id, match_types in self.TABLE_MATCH_TYPES.iteritems():
+        for table_id, match_types in self.TABLE_MATCH_TYPES.items():
             if 'in_port' in match_types:
                 in_port_tables.append(table_id)
         return in_port_tables
@@ -156,7 +156,7 @@ class Valve(object):
     def _vlan_match_tables(self):
         """Return list of tables that specify vlan_vid as a match."""
         vlan_match_tables = []
-        for table_id, match_types in self.TABLE_MATCH_TYPES.iteritems():
+        for table_id, match_types in self.TABLE_MATCH_TYPES.items():
             if 'vlan_vid' in match_types:
                 vlan_match_tables.append(table_id)
         return vlan_match_tables
@@ -192,7 +192,7 @@ class Valve(object):
         inst_types = set()
         action_types = set()
         for inst in ofmsg.instructions:
-            for inst_name, inst_value in inst.to_jsondict().iteritems():
+            for inst_name, inst_value in inst.to_jsondict().items():
                 if inst_name == 'OFPInstructionActions':
                    for action in inst_value['actions']:
                        for action_name in action:
@@ -815,7 +815,7 @@ class Valve(object):
         # has already learned this host (if any).
         eth_src = pkt_meta.eth_src
         vlan_vid = pkt_meta.vlan.vid
-        for other_dpid, other_valve in valves.iteritems():
+        for other_dpid, other_valve in valves.items():
             if other_dpid == dp_id:
                 continue
             other_dp = other_valve.dp
@@ -971,7 +971,7 @@ class Valve(object):
                 changed_vlans (set): changed/added VLAN IDs.
         """
         changed_acls = {}
-        for acl_id, new_acl in new_dp.acls.iteritems():
+        for acl_id, new_acl in new_dp.acls.items():
             if acl_id not in self.dp.acls:
                 changed_acls[acl_id] = new_acl
             else:
@@ -979,7 +979,7 @@ class Valve(object):
                     changed_acls[acl_id] = new_acl
 
         changed_ports = set([])
-        for port_no, new_port in new_dp.ports.iteritems():
+        for port_no, new_port in new_dp.ports.items():
             if port_no not in self.dp.ports:
                 # Detected a newly configured port
                 changed_ports.add(port_no)
@@ -997,7 +997,7 @@ class Valve(object):
                 deleted_vlans.add(vid)
 
         changed_vlans = set([])
-        for vid, new_vlan in new_dp.vlans.iteritems():
+        for vid, new_vlan in new_dp.vlans.items():
             if vid not in self.dp.vlans or new_vlan != self.dp.vlans[vid]:
                 changed_vlans.add(vid)
             for port in new_vlan.get_ports():
@@ -1125,7 +1125,7 @@ class Valve(object):
         for vlan in self.dp.vlans.itervalues():
             vlans_dict[vlan.name] = vlan.to_conf()
         acls_dict = {}
-        for acl_id, acl in self.dp.acls.iteritems():
+        for acl_id, acl in self.dp.acls.items():
             acls_dict[acl_id] = acl.to_conf()
         return {
             'dps': dps_dict,

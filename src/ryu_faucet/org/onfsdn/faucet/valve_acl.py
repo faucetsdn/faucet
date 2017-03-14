@@ -21,7 +21,7 @@ import valve_of
 def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
     acl_inst = []
     match_dict = {}
-    for attrib, attrib_value in rule_conf.iteritems():
+    for attrib, attrib_value in rule_conf.items():
         if attrib == 'in_port':
             continue
         if attrib == 'actions':

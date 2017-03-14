@@ -207,7 +207,7 @@ class ValveRouteManager(object):
                 self._update_nexthop_group(
                     is_updated, resolved_ip_gw,
                     vlan, in_port, eth_src))
-        for ip_dst, ip_gw in routes.iteritems():
+        for ip_dst, ip_gw in routes.items():
             if ip_gw == resolved_ip_gw:
                 ofmsgs.extend(self._add_resolved_route(
                     vlan, ip_gw, ip_dst, eth_src, is_updated))
@@ -287,7 +287,7 @@ class ValveRouteManager(object):
             True if a host FIB route (and not used as a gateway).
         """
         routes = self._vlan_routes(vlan)
-        for ip_dst, ip_gw in routes.iteritems():
+        for ip_dst, ip_gw in routes.items():
             if ip_gw == host_ip:
                 if ip_dst.prefixlen < ip_dst.max_prefixlen:
                     return False

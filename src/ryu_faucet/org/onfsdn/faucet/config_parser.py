@@ -79,20 +79,20 @@ def _dp_add_vlan(vid_dp, dp, vlan):
 def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
     dps = []
     vid_dp = {}
-    for identifier, dp_conf in dps_conf.iteritems():
+    for identifier, dp_conf in dps_conf.items():
         try:
             dp = DP(identifier, dp_conf)
             dp.sanity_check()
             dp_id = dp.dp_id
 
             vlans = {}
-            for vid, vlan_conf in vlans_conf.iteritems():
+            for vid, vlan_conf in vlans_conf.items():
                 vlans[vid] = VLAN(vid, dp_id, vlan_conf)
             acls = []
-            for acl_ident, acl_conf in acls_conf.iteritems():
+            for acl_ident, acl_conf in acls_conf.items():
                 acls.append((acl_ident, ACL(acl_ident, acl_conf)))
             routers = []
-            for router_ident, router_conf in routers_conf.iteritems():
+            for router_ident, router_conf in routers_conf.items():
                 routers.append((router_ident, Router(router_ident, router_conf)))
             if routers:
                 assert len(routers) == 1, 'only one router supported'
@@ -101,7 +101,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
                 dp.add_router(router_ident, router)
             ports_conf = dp_conf.pop('interfaces', {})
             ports = {}
-            for port_num, port_conf in ports_conf.iteritems():
+            for port_num, port_conf in ports_conf.items():
                 port = port_parser(dp_id, port_num, port_conf, vlans)
                 ports[port_num] = port
                 if port.native_vlan is not None:
@@ -166,7 +166,7 @@ def _watcher_parser_v2(conf, logname):
 
     dbs = conf.pop('dbs')
 
-    for name, dictionary in conf['watchers'].iteritems():
+    for name, dictionary in conf['watchers'].items():
         for dp_name in dictionary['dps']:
             if dp_name not in dps:
                 logger.error('dp %s metered but not configured', dp_name)

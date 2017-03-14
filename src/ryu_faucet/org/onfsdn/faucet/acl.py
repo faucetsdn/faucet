@@ -14,7 +14,7 @@ class ACL(object):
         return result
 
     def __hash__(self):
-        return hash(frozenset(map(str, self.__dict__.iteritems())))
+        return hash(frozenset(map(str, self.__dict__.items())))
 
     def __eq__(self, other):
         return hash(self) == hash(other)

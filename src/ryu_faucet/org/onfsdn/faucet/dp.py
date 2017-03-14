@@ -139,18 +139,18 @@ class DP(Conf):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
         assert isinstance(self.dp_id, (int, long))
-        for vid, vlan in self.vlans.iteritems():
+        for vid, vlan in self.vlans.items():
             assert isinstance(vid, int)
             assert isinstance(vlan, VLAN)
             assert all(isinstance(p, Port) for p in vlan.get_ports())
-        for portnum, port in self.ports.iteritems():
+        for portnum, port in self.ports.items():
             assert isinstance(portnum, int)
             assert isinstance(port, Port)
         for acl in self.acls.itervalues():
             assert isinstance(acl, ACL)
 
     def set_defaults(self):
-        for key, value in self.defaults.iteritems():
+        for key, value in self.defaults.items():
             self._set_default(key, value)
         # fix special cases
         self._set_default('dp_id', self._id)
@@ -246,7 +246,7 @@ class DP(Conf):
                 graph.add_edge(
                     edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
         if len(graph.edges()):
-            for edge_name, count in edge_count.iteritems():
+            for edge_name, count in edge_count.items():
                 assert count == 2, '%s defined only in one direction' % edge_name
             if self.stack is None:
                 self.stack = {}
@@ -293,7 +293,7 @@ class DP(Conf):
             for port in self.stack_ports:
                 stack_dp = port.stack['dp']
                 port_stack_dp[port] = dp_by_name[stack_dp]
-            for port, dp in port_stack_dp.iteritems():
+            for port, dp in port_stack_dp.items():
                 port.stack['dp'] = dp
                 stack_port_name = port.stack['port']
                 port.stack['port'] = dp.ports[stack_port_name]
@@ -307,14 +307,14 @@ class DP(Conf):
                         mirror_from_port[port] = port_by_name[port.mirror]
                     else:
                         mirror_from_port[self.ports[port.mirror]] = port
-            for port, mirror_destination_port in mirror_from_port.iteritems():
+            for port, mirror_destination_port in mirror_from_port.items():
                 port.mirror = mirror_destination_port.number
                 mirror_destination_port.mirror_destination = True
 
         def resolve_port_names_in_acls():
             for acl in self.acls.itervalues():
                 for rule_conf in acl.rules:
-                    for attrib, attrib_value in rule_conf.iteritems():
+                    for attrib, attrib_value in rule_conf.items():
                         if attrib == 'actions':
                             if 'mirror' in attrib_value:
                                 port_name = attrib_value['mirror']

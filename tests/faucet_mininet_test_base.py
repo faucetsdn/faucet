@@ -458,7 +458,7 @@ dbs:
     def get_ofchannel_logs(self):
         config = yaml.load(open(os.environ['FAUCET_CONFIG']))
         ofchannel_logs = []
-        for dp_name, dp_config in config['dps'].iteritems():
+        for dp_name, dp_config in config['dps'].items():
             if 'ofchannel_log' in dp_config:
                 debug_log = dp_config['ofchannel_log']
                 ofchannel_logs.append((dp_name, debug_log))

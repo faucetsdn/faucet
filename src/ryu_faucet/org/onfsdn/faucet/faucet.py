@@ -264,7 +264,7 @@ class Faucet(app_manager.RyuApp):
             bgp_speaker.prefix_add(
                 prefix=str(prefix), next_hop=str(faucet_vip.ip))
         for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
-            for ip_dst, ip_gw in route_table.iteritems():
+            for ip_dst, ip_gw in route_table.items():
                 bgp_speaker.prefix_add(
                     prefix=str(ip_dst), next_hop=str(ip_gw))
         for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
@@ -280,7 +280,7 @@ class Faucet(app_manager.RyuApp):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: configurable behavior - withdraw routes if peer goes down.
-        for dp_id, valve in self.valves.iteritems():
+        for dp_id, valve in self.valves.items():
             if dp_id not in self.dp_bgp_speakers:
                 self.dp_bgp_speakers[dp_id] = {}
             bgp_speakers = self.dp_bgp_speakers[dp_id]
@@ -341,7 +341,7 @@ class Faucet(app_manager.RyuApp):
         """
         if new_config_file != self.config_file:
             return True
-        for config_file, config_hash in self.config_hashes.iteritems():
+        for config_file, config_hash in self.config_hashes.items():
             config_file_exists = os.path.isfile(config_file)
             # Config file not loaded but exists = reload.
             if config_hash is None and config_file_exists:
@@ -383,7 +383,7 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_event (ryu.controller.event.EventReplyBase): triggering event.
         """
-        for dp_id, valve in self.valves.iteritems():
+        for dp_id, valve in self.valves.items():
             flowmods = valve.resolve_gateways()
             if flowmods:
                 ryudp = self.dpset.get(dp_id)
