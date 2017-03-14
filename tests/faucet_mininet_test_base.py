@@ -197,7 +197,7 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
         for host_n in range(n_untagged):
             self._add_untagged_host(sid_prefix, host_n)
         dpid = str(int(dpid) + 1)
-        print 'remap switch will use DPID %s (%x)' % (dpid, int(dpid))
+        print('remap switch will use DPID %s (%x)' % (dpid, int(dpid)))
         switch = self._add_faucet_switch(sid_prefix, port, dpid)
         for host in self.hosts():
             self.addLink(host, switch)
@@ -502,7 +502,7 @@ dbs:
 
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
-        for port_no in self.port_map.itervalues():
+        for port_no in self.port_map.values():
             os.system(self.curl_portmod(
                 self.dpid,
                 port_no,
