@@ -222,19 +222,23 @@ class ValveFloodManager(object):
 
     def _build_group_flood_rules(self, vlan, modify, command):
         flood_priority = self.flood_priority
-        group_mod_method = valve_of.groupadd
-        if modify:
-            group_mod_method = valve_of.groupmod
         broadcast_buckets = self._build_group_buckets(vlan, False)
         unicast_buckets = self._build_group_buckets(vlan, vlan.unicast_flood)
         group_id = vlan.vid
         ofmsgs = []
-        ofmsgs.append(group_mod_method(
-            group_id=group_id,
-            buckets=broadcast_buckets))
-        ofmsgs.append(group_mod_method(
-            group_id=group_id+valve_of.VLAN_GROUP_OFFSET,
-            buckets=unicast_buckets))
+        group_mod_method = valve_of.groupadd
+        if modify:
+            group_mod_method = valve_of.groupmod
+        else:
+            ofmsgs.append(
+                valve_of.groupdel(group_id=group_id))
+            ofmsgs.append(
+                valve_of.groupdel(group_id=group_id+valve_of.VLAN_GROUP_OFFSET))
+        ofmsgs.append(
+            group_mod_method(group_id=group_id, buckets=broadcast_buckets))
+        ofmsgs.append(
+            group_mod_method(group_id=group_id+valve_of.VLAN_GROUP_OFFSET,
+                buckets=unicast_buckets))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst and not vlan.unicast_flood:
                 continue

@@ -2496,6 +2496,7 @@ vlans:
             second_host, second_host_routed_ip,
             with_group_table=True)
 
+
 class FaucetSingleGroupUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
