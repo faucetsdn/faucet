@@ -84,7 +84,7 @@ class ValveHostManager(object):
 
     def expire_hosts_from_vlan(self, vlan, now):
         expired_hosts = []
-        for eth_src, host_cache_entry in vlan.host_cache.iteritems():
+        for eth_src, host_cache_entry in vlan.host_cache.items():
             if not host_cache_entry.permanent:
                 host_cache_entry_age = now - host_cache_entry.cache_time
                 if host_cache_entry_age > self.learn_timeout:

@@ -21,15 +21,16 @@ import tempfile
 import shutil
 from fakeoftable import FakeOFTable
 
+from ryu.ofproto import ofproto_v1_3 as ofp
+from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
+
 testdir = os.path.dirname(__file__)
 srcdir = '../src/ryu_faucet/org/onfsdn/'
 sys.path.insert(0, os.path.abspath(os.path.join(testdir, srcdir)))
 
-from ryu.ofproto import ether
-from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
 from faucet.valve import valve_factory
 from faucet.config_parser import dp_parser
+
 
 def build_pkt(pkt):
     layers = []
@@ -323,8 +324,8 @@ class ValveTestCase(ValveTestBase):
                 'vlan_vid': self.V100,
                 'eth_dst': self.P1_V100_MAC
                 }, {
-                'out_port': 1,
-                'vlan_vid': 0
+                    'out_port': 1,
+                    'vlan_vid': 0
                 }),
             ({
                 'in_port': 3,
@@ -332,8 +333,8 @@ class ValveTestCase(ValveTestBase):
                 'eth_dst': self.P2_V200_MAC,
                 'eth_src': self.P3_V200_MAC
                 }, {
-                'out_port': 2,
-                'vlan_vid': 0,
+                    'out_port': 2,
+                    'vlan_vid': 0,
                 })
             ]
         for match, result in match_results:
@@ -341,7 +342,7 @@ class ValveTestCase(ValveTestBase):
                 self.table.is_output(
                     match, result['out_port'], vid=result['vlan_vid']),
                 msg="packet not output to port correctly when eth dst is known")
-            incorrect_ports = range(1, self.NUM_PORTS + 1)
+            incorrect_ports = set(range(1, self.NUM_PORTS + 1))
             incorrect_ports.remove(result['out_port'])
             for port in incorrect_ports:
                 self.assertFalse(
@@ -527,8 +528,8 @@ acls:
         # base case
         for match in (drop_match, accept_match):
             self.assertTrue(
-            self.table.is_output(match, port=3, vid=self.V200),
-            msg="Packet not output before adding ACL")
+                self.table.is_output(match, port=3, vid=self.V200),
+                msg="Packet not output before adding ACL")
 
         # reload the config
         new_dp = self.update_config(acl_config)
@@ -604,9 +605,8 @@ acls:
         # base case
         for match in (drop_match, accept_match):
             self.assertTrue(
-            self.table.is_output(match, port=3, vid=self.V200),
-            msg="Packet not output before adding ACL")
-
+                self.table.is_output(match, port=3, vid=self.V200),
+                msg="Packet not output before adding ACL")
 
         # reload the config
         new_dp = self.update_config(acl_config)

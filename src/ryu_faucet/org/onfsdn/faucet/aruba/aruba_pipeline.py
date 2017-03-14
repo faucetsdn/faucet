@@ -30,7 +30,7 @@ class LoadRyuTables(object):
             self.ryu_table_translator.create_ryu_structure()
             python_object_result = self.ryu_table_translator.tables
         except (ValueError, IOError) as e:
-            print e
+            print(e)
             python_object_result = None
         return python_object_result
 
@@ -55,8 +55,8 @@ class LoadRyuTables(object):
     def _create_tables(self, tables_information):
         table_array = []
         for table in tables_information:
-            #iteritems is used to iterate a dictionary
-            for key, value in table.iteritems():
+            #items is used to iterate a dictionary
+            for key, value in table.items():
                 #getattr will get a function of the object entered, this function
                 #is used to create the table with ryu classes
                 table_class = getattr(self._ofproto_parser, key)
@@ -74,7 +74,7 @@ class LoadRyuTables(object):
     def _create_features(self, table_features_information):
         features_array = []
         for feature in table_features_information:
-            for key, value in feature.iteritems():
+            for key, value in feature.items():
                 name_id = self._class_name_to_name_ids[key]
                 feature_class = getattr(self._ofproto_parser, key)
                 instruction_ids = self._create_instructions(value[name_id])
@@ -91,9 +91,9 @@ class LoadRyuTables(object):
         instruction_array = []
         for instruction in instruction_ids_information:
             if (isinstance( instruction, dict )):
-                for key, value in instruction.iteritems():
+                for key, value in instruction.items():
                     instruction_class = getattr(self._ofproto_parser, key)
-                    if (isinstance( value["type"], unicode )):
+                    if (isinstance(value["type"], unicode)):
                         value["type"] = str(value["type"])
                     value["type_"] = value.pop("type")
                     new_instruction = instruction_class(**value)
@@ -193,8 +193,7 @@ class CustomJson(object):
             with open(filename) as data_file:
                 python_object_result = json.load(data_file)
         except (ValueError, IOError) as e:
-            print "Error found:"
-            print e
+            print('Error found: %s' % e)
             python_object_result = []
 
         return python_object_result

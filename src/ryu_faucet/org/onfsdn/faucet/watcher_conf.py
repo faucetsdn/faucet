@@ -27,7 +27,7 @@ class WatcherConf(Conf):
         self.set_defaults()
 
     def set_defaults(self):
-        for key, value in self.defaults.iteritems():
+        for key, value in self.defaults.items():
             self._set_default(key, value)
         self.name = str(self._id)
 

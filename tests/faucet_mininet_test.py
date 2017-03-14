@@ -2559,20 +2559,20 @@ def import_config():
         with open(HW_SWITCH_CONFIG_FILE, 'r') as config_file:
             config = yaml.load(config_file)
     except:
-        print 'Could not load YAML config data from %s' % HW_SWITCH_CONFIG_FILE
+        print('Could not load YAML config data from %s' % HW_SWITCH_CONFIG_FILE)
         sys.exit(-1)
     if 'hw_switch' in config and config['hw_switch']:
         required_config = ('dp_ports', 'dpid', 'of_port', 'gauge_of_port')
         for required_key in required_config:
             if required_key not in config:
-                print '%s must be specified in %s to use HW switch.' % (
-                    required_key, HW_SWITCH_CONFIG_FILE)
+                print('%s must be specified in %s to use HW switch.' % (
+                    required_key, HW_SWITCH_CONFIG_FILE))
                 sys.exit(-1)
         dp_ports = config['dp_ports']
         if len(dp_ports) != REQUIRED_TEST_PORTS:
-            print ('Exactly %u dataplane ports are required, '
-                   '%d are provided in %s.' %
-                   (REQUIRED_TEST_PORTS, len(dp_ports), HW_SWITCH_CONFIG_FILE))
+            print('Exactly %u dataplane ports are required, '
+                  '%d are provided in %s.' %
+                  (REQUIRED_TEST_PORTS, len(dp_ports), HW_SWITCH_CONFIG_FILE))
         return config
     else:
         return None
@@ -2596,32 +2596,32 @@ def check_dependencies():
             # Might have run successfully, need to parse output
             pass
         except OSError:
-            print 'could not run %s' % required_binary
+            print('could not run %s' % required_binary)
             return False
         present_match = re.search(binary_present_re, binary_output)
         if not present_match:
-            print '%s not present or did not return expected string %s' % (
-                required_binary, binary_present_re)
+            print('%s not present or did not return expected string %s' % (
+                required_binary, binary_present_re))
             return False
         if binary_version_re:
             version_match = re.search(binary_version_re, binary_output)
             if version_match is None:
-                print 'could not get version from %s (%s)' % (
-                    required_binary, binary_output)
+                print('could not get version from %s (%s)' % (
+                    required_binary, binary_output))
                 return False
             try:
                 binary_version = version_match.group(1)
             except ValueError:
-                print 'cannot parse version %s for %s' % (
-                    version_match, required_binary)
+                print('cannot parse version %s for %s' % (
+                    version_match, required_binary))
                 return False
             if version.parse(binary_version) < version.parse(binary_minversion):
-                print '%s version %s is less than required version %s' % (
-                    required_binary, binary_version, binary_minversion)
+                print('%s version %s is less than required version %s' % (
+                    required_binary, binary_version, binary_minversion))
                 return False
-            print '%s version is %s' % (required_binary, binary_version)
+            print('%s version is %s' % (required_binary, binary_version))
         else:
-            print '%s present (%s)' % (required_binary, binary_present_re)
+            print('%s present (%s)' % (required_binary, binary_present_re))
     return True
 
 
@@ -2630,7 +2630,7 @@ def lint_check():
     for faucet_src in FAUCET_LINT_SRCS:
         ret = subprocess.call(['pylint', '-E', faucet_src])
         if ret:
-            print 'lint of %s returns an error' % faucet_src
+            print('pylint of %s returns an error' % faucet_src)
             return False
     return True
 
@@ -2662,12 +2662,12 @@ def pipeline_superset_report(root_tmpdir):
                 table_matches[table].update(eval(matches))
                 table_instructions[table].update(eval(instructions))
                 table_actions[table].update(eval(actions))
-    print
+    print()
     for table in sorted(table_matches):
-        print 'table: %u' % table
-        print '  matches: %s' % sorted(table_matches[table])
-        print '  table_instructions: %s' % sorted(table_instructions[table])
-        print '  table_actions: %s' % sorted(table_actions[table])
+        print('table: %u' % table)
+        print('  matches: %s' % sorted(table_matches[table]))
+        print('  table_instructions: %s' % sorted(table_instructions[table]))
+        print('  table_actions: %s' % sorted(table_actions[table]))
 
 
 def run_tests(requested_test_classes, keep_logs, serial, config):
@@ -2686,14 +2686,14 @@ def run_tests(requested_test_classes, keep_logs, serial, config):
         if requested_test_classes and name not in requested_test_classes:
             continue
         if name.endswith('Test') and name.startswith('Faucet'):
-            print 'adding test %s' % name
+            print('adding test %s' % name)
             test_suite = make_suite(obj, config, root_tmpdir, ports_sock)
             if serial or name.startswith('FaucetSingle'):
                 single_tests.addTest(test_suite)
             else:
                 parallel_tests.addTest(test_suite)
-    print 'running %u tests in parallel and %u tests serial' % (
-        parallel_tests.countTestCases(), single_tests.countTestCases())
+    print('running %u tests in parallel and %u tests serial' % (
+        parallel_tests.countTestCases(), single_tests.countTestCases()))
     results = []
     if parallel_tests.countTestCases():
         max_parallel_tests = min(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
@@ -2711,7 +2711,7 @@ def run_tests(requested_test_classes, keep_logs, serial, config):
     for result in results:
         if not result.wasSuccessful():
             all_successful = False
-            print result.printErrors()
+            print(result.printErrors())
     pipeline_superset_report(root_tmpdir)
     if not keep_logs and all_successful:
         shutil.rmtree(root_tmpdir)
@@ -2723,7 +2723,7 @@ def parse_args():
         opts, args = getopt.getopt(
             sys.argv[1:], "cks", ["clean", "keep_logs", "serial"])
     except getopt.GetoptError as err:
-        print str(err)
+        print(str(err))
         sys.exit(2)
 
     clean = False
@@ -2747,20 +2747,20 @@ def test_main():
     args, clean, keep_logs, serial = parse_args()
 
     if clean:
-        print ('Cleaning up test interfaces, processes and openvswitch '
-               'configuration from previous test runs')
+        print('Cleaning up test interfaces, processes and openvswitch '
+              'configuration from previous test runs')
         Cleanup.cleanup()
         sys.exit(0)
     if not check_dependencies():
-        print ('dependency check failed. check required library/binary '
-               'list in header of this script')
+        print('dependency check failed. check required library/binary '
+              'list in header of this script')
         sys.exit(-1)
     if not lint_check():
-        print 'pylint must pass with no errors'
+        print('pylint must pass with no errors')
         sys.exit(-1)
     config = import_config()
     if config is not None:
-        print 'Testing hardware, forcing test serialization'
+        print('Testing hardware, forcing test serialization')
         serial = True
     run_tests(args, keep_logs, serial, config)
 
