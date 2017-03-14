@@ -708,8 +708,11 @@ dbs:
     def verify_ipv4_host_learned_mac(self, host, ip, mac):
         learned_mac = host.cmd(
             "arp -n %s | grep %s | awk '{ print $3 }'" % (ip, ip))
-        self.assertEqual(learned_mac.strip(), mac,
-                         msg='MAC learned on host mismatch')
+        self.assertEqual(
+            learned_mac.strip(),
+            mac,
+            msg='MAC learned on host mismatch (expected %s found %s)' % (
+                mac, learned_mac.strip()))
 
     def verify_ipv4_host_learned_host(self, host, learned_host):
         learned_ip = ipaddr.IPNetwork(self.host_ipv4(learned_host))
@@ -718,8 +721,10 @@ dbs:
     def verify_ipv6_host_learned_mac(self, host, ip6, mac):
         learned_mac = host.cmd(
             "ip -6 neighbor show %s | awk '{ print $5 }'" % ip6)
-        self.assertEqual(learned_mac.strip(), mac,
-                         msg='MAC learned on host mismatch')
+        self.assertEqual(
+            learned_mac.strip(), mac,
+            msg='MAC learned on host mismatch (expected %s found %s)' % (
+                mac, learned_mac.strip()))
 
     def verify_ipv6_host_learned_host(self, host, learned_host):
         learned_ip6 = ipaddr.IPNetwork(self.host_ipv6(learned_host))
