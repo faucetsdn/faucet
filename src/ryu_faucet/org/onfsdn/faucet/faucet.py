@@ -562,7 +562,7 @@ class Faucet(app_manager.RyuApp):
 
     def get_config(self):
         config = {}
-        for valve in self.valves.itervalues():
+        for valve in self.valves.values():
             valve_conf = valve.get_config_dict()
             for k in ('dps', 'acls', 'vlans'):
                 config.setdefault(k, {})
