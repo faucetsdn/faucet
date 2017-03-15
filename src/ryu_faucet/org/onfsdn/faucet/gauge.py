@@ -26,7 +26,7 @@ from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 
 from config_parser import watcher_parser
-from util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
 import valve_of
 from watcher import watcher_factory
 
