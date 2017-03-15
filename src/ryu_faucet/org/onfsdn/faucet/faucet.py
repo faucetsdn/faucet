@@ -26,7 +26,7 @@ import ipaddress
 
 from config_parser import dp_parser
 from config_parser_util import config_file_hash
-from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+from valve_util import btos, dpid_log, get_logger, kill_on_exception, get_sys_prefix
 from valve import valve_factory
 import valve_of
 
@@ -216,8 +216,8 @@ class Faucet(app_manager.RyuApp):
             path_change (ryu.services.protocols.bgp.bgpspeaker.EventPrefix): path change
             vlan (vlan): Valve VLAN this path change was received for.
         """
-        prefix = ipaddress.ip_network(unicode(path_change.prefix))
-        nexthop = ipaddress.ip_address(unicode(path_change.nexthop))
+        prefix = ipaddress.ip_network(btos(path_change.prefix))
+        nexthop = ipaddress.ip_address(btos(path_change.nexthop))
         withdraw = path_change.is_withdraw
         flowmods = []
         valve = self.valves[vlan.dp_id]

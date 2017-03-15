@@ -26,6 +26,7 @@ from ryu.ofproto import inet
 
 import valve_of
 import valve_packet
+from valve_util import btos
 
 
 class AnyVlan(object):
@@ -431,7 +432,7 @@ class ValveRouteManager(object):
         ip_pkt = self._ip_pkt(pkt_meta.pkt)
         ofmsgs = []
         if ip_pkt:
-            src_ip = ipaddress.ip_address(unicode(ip_pkt.src))
+            src_ip = ipaddress.ip_address(btos(ip_pkt.src))
             if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
                 now = time.time()
                 nexthop_fresh = self._nexthop_fresh(pkt_meta.vlan, src_ip, now)
@@ -526,8 +527,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
         return ofmsgs
 
     def _control_plane_arp_handler(self, pkt_meta, arp_pkt):
-        src_ip = ipaddress.IPv4Address(unicode(arp_pkt.src_ip))
-        dst_ip = ipaddress.IPv4Address(unicode(arp_pkt.dst_ip))
+        src_ip = ipaddress.IPv4Address(btos(arp_pkt.src_ip))
+        dst_ip = ipaddress.IPv4Address(btos(arp_pkt.dst_ip))
         vlan = pkt_meta.vlan
         opcode = arp_pkt.opcode
         ofmsgs = []
@@ -554,8 +555,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
         return ofmsgs
 
     def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt, icmp_pkt):
-        src_ip = ipaddress.IPv4Address(unicode(ipv4_pkt.src))
-        dst_ip = ipaddress.IPv4Address(unicode(ipv4_pkt.dst))
+        src_ip = ipaddress.IPv4Address(btos(ipv4_pkt.src))
+        dst_ip = ipaddress.IPv4Address(btos(ipv4_pkt.dst))
         vlan = pkt_meta.vlan
         icmpv4_type = icmp_pkt.type
         ofmsgs = []
@@ -656,8 +657,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _control_plane_icmpv6_handler(self, pkt_meta, ipv6_pkt, icmpv6_pkt):
         vlan = pkt_meta.vlan
-        src_ip = ipaddress.IPv6Address(unicode(ipv6_pkt.src))
-        dst_ip = ipaddress.IPv6Address(unicode(ipv6_pkt.dst))
+        src_ip = ipaddress.IPv6Address(btos(ipv6_pkt.src))
+        dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
         if vlan.ip_in_vip_subnet(src_ip):
@@ -665,7 +666,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             vid = self._vlan_vid(vlan, in_port)
             eth_src = pkt_meta.eth_src
             if icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT:
-                solicited_ip = unicode(icmpv6_pkt.data.dst)
+                solicited_ip = btos(icmpv6_pkt.data.dst)
                 if vlan.is_faucet_vip(ipaddress.ip_address(solicited_ip)):
                     ofmsgs.extend(
                         self._add_host_fib_route(vlan, src_ip))

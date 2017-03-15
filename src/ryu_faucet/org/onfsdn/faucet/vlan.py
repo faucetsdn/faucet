@@ -16,6 +16,8 @@
 import ipaddress
 
 from conf import Conf
+from valve_util import btos
+
 
 class VLAN(Conf):
 
@@ -80,20 +82,20 @@ class VLAN(Conf):
 
         if self.faucet_vips:
             self.faucet_vips = [
-                ipaddress.ip_interface(unicode(ip)) for ip in self.faucet_vips]
+                ipaddress.ip_interface(btos(ip)) for ip in self.faucet_vips]
 
         if self.bgp_as:
             assert self.bgp_port
-            assert ipaddress.IPv4Address(unicode(self.bgp_routerid))
+            assert ipaddress.IPv4Address(btos(self.bgp_routerid))
             for neighbor_ip in self.bgp_neighbor_addresses:
-                assert ipaddress.ip_address(unicode(neighbor_ip))
+                assert ipaddress.ip_address(btos(neighbor_ip))
             assert self.bgp_neighbor_as
 
         if self.routes:
             self.routes = [route['route'] for route in self.routes]
             for route in self.routes:
-                ip_gw = ipaddress.ip_address(unicode(route['ip_gw']))
-                ip_dst = ipaddress.ip_network(unicode(route['ip_dst']))
+                ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
+                ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
                 assert ip_gw.version == ip_dst.version
                 if ip_gw.version == 4:
                     self.ipv4_routes[ip_dst] = ip_gw
