@@ -17,6 +17,7 @@
 # limitations under the License.
 
 from collections import namedtuple
+import ipaddress
 
 from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.ofproto import ether
@@ -244,6 +245,13 @@ def match_from_dict(match_dict):
     return acl_match
 
 
+def _match_ip_masked(ip):
+    if isinstance(ip, ipaddress.IPv4Network) or isinstance(ip, ipaddress.IPv6Network):
+        return (str(ip.network_address), str(ip.netmask))
+    else:
+        return (str(ip.ip), str(ip.netmask))
+
+
 def build_match_dict(in_port=None, vlan=None,
                      eth_type=None, eth_src=None,
                      eth_dst=None, eth_dst_mask=None,
@@ -270,13 +278,13 @@ def build_match_dict(in_port=None, vlan=None,
     if nw_proto is not None:
         match_dict['ip_proto'] = nw_proto
     if nw_src is not None:
-        match_dict['ipv4_src'] = (str(nw_src.ip), str(nw_src.netmask))
+        match_dict['ipv4_src'] = _match_ip_masked(nw_src)
     if icmpv6_type is not None:
         match_dict['icmpv6_type'] = icmpv6_type
     if ipv6_nd_target is not None:
         match_dict['ipv6_nd_target'] = str(ipv6_nd_target.ip)
     if nw_dst is not None:
-        nw_dst_masked = (str(nw_dst.ip), str(nw_dst.netmask))
+        nw_dst_masked = _match_ip_masked(nw_dst)
         if eth_type == ether.ETH_TYPE_ARP:
             match_dict['arp_tpa'] = nw_dst_masked
         elif eth_type == ether.ETH_TYPE_IP:

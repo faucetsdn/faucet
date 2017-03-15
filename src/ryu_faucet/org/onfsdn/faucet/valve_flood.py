@@ -45,7 +45,7 @@ class ValveFloodManager(object):
         self.stack = dp_stack
         self.use_group_table = use_group_table
         self.stack_ports = [
-            port for port in dp_ports.itervalues() if port.stack is not None]
+            port for port in dp_ports.values() if port.stack is not None]
         self.towards_root_stack_ports = []
         self.away_from_root_stack_ports = []
         my_root_distance = dp_shortest_path_to_root()

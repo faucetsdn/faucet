@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ipaddr
+import ipaddress
 
 from conf import Conf
 
@@ -80,20 +80,20 @@ class VLAN(Conf):
 
         if self.faucet_vips:
             self.faucet_vips = [
-                ipaddr.IPNetwork(ip) for ip in self.faucet_vips]
+                ipaddress.ip_interface(unicode(ip)) for ip in self.faucet_vips]
 
         if self.bgp_as:
             assert self.bgp_port
-            assert ipaddr.IPv4Address(self.bgp_routerid)
+            assert ipaddress.IPv4Address(unicode(self.bgp_routerid))
             for neighbor_ip in self.bgp_neighbor_addresses:
-                assert ipaddr.IPAddress(neighbor_ip)
+                assert ipaddress.ip_address(unicode(neighbor_ip))
             assert self.bgp_neighbor_as
 
         if self.routes:
             self.routes = [route['route'] for route in self.routes]
             for route in self.routes:
-                ip_gw = ipaddr.IPAddress(route['ip_gw'])
-                ip_dst = ipaddr.IPNetwork(route['ip_dst'])
+                ip_gw = ipaddress.ip_address(unicode(route['ip_gw']))
+                ip_dst = ipaddress.ip_network(unicode(route['ip_dst']))
                 assert ip_gw.version == ip_dst.version
                 if ip_gw.version == 4:
                     self.ipv4_routes[ip_dst] = ip_gw
@@ -201,7 +201,7 @@ class VLAN(Conf):
 
     def ip_in_vip_subnet(self, ip):
         for faucet_vip in self.faucet_vips:
-            if ip in faucet_vip:
+            if ip in faucet_vip.network:
                 return True
         return False
 
@@ -215,8 +215,8 @@ class VLAN(Conf):
         """Return True if src_ip in connected network and dst_ip is a VIP.
 
         Args:
-            src_ip (ipaddr.IPAddress): source IP.
-            dst_ip (ipaddr.IPAddress): destination IP
+            src_ip (ipaddress.ip_address): source IP.
+            dst_ip (ipaddress.ip_address): destination IP
         Returns:
             True if local traffic for a VIP.
         """

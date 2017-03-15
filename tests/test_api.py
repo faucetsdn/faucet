@@ -1,6 +1,6 @@
 import os
 import sys
-import ipaddr
+import ipaddress
 
 from ryu.base import app_manager
 from ryu.lib import hub

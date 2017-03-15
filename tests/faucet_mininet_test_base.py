@@ -11,7 +11,7 @@ import time
 import unittest
 import yaml
 
-import ipaddr
+import ipaddress
 import requests
 
 from mininet.node import Controller
@@ -207,10 +207,10 @@ class FaucetTestBase(unittest.TestCase):
     """Base class for all FAUCET unit tests."""
 
     ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
-    FAUCET_VIPV4 = ipaddr.IPv4Network('10.0.0.254/24')
-    FAUCET_VIPV4_2 = ipaddr.IPv4Network('172.16.0.254/24')
-    FAUCET_VIPV6 = ipaddr.IPv6Network('fc00::1:254/64')
-    FAUCET_VIPV6_2 = ipaddr.IPv6Network('fc01::1:254/64')
+    FAUCET_VIPV4 = ipaddress.ip_interface(u'10.0.0.254/24')
+    FAUCET_VIPV4_2 = ipaddress.ip_interface(u'172.16.0.254/24')
+    FAUCET_VIPV6 = ipaddress.ip_interface(u'fc00::1:254/64')
+    FAUCET_VIPV6_2 = ipaddress.ip_interface(u'fc01::1:254/64')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     BOGUS_MAC = '01:02:03:04:05:06'
     FAUCET_MAC = '0e:00:00:00:00:01'
@@ -445,7 +445,7 @@ dbs:
         ping_cmd = 'ping'
         if not host_ip_net:
             host_ip_net = self.host_ipv6(host)
-        broadcast = (ipaddr.IPNetwork(host_ip_net).broadcast)
+        broadcast = (ipaddress.ip_interface(unicode(host_ip_net)).network.broadcast_address)
         if broadcast.version == 6:
             ping_cmd = 'ping6'
         for _ in range(retries):
@@ -521,19 +521,14 @@ dbs:
             '',
             host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf())))
 
-    def add_host_ipv6_route(self, host, ip_dst, ip_gw):
-        """Add an IPv6 route to a Mininet host."""
-        host.cmd('ip -6 route del %s' % ip_dst.masked())
+    def add_host_route(self, host, ip_dst, ip_gw):
+        """Add an IP route to a Mininet host."""
+        host.cmd('ip -%u route del %s' % (
+            ip_dst.version, ip_dst.network.with_prefixlen))
         self.assertEquals(
             '',
-            host.cmd('ip -6 route add %s via %s' % (ip_dst.masked(), ip_gw)))
-
-    def add_host_ipv4_route(self, host, ip_dst, ip_gw):
-        """Add an IPv4 route to a Mininet host."""
-        host.cmd('ip -4 route del %s' % ip_dst.masked())
-        self.assertEquals(
-            '',
-            host.cmd('ip -4 route add %s via %s' % (ip_dst.masked(), ip_gw)))
+            host.cmd('ip -%u route add %s via %s' % (
+                ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)))
 
     def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True):
         """Ping an IPv4 destination from a host."""
@@ -679,12 +674,11 @@ dbs:
     def wait_for_route_as_flow(self, nexthop, prefix, timeout=10,
                                with_group_table=False):
         """Verify a route has been added as a flow."""
+        exp_prefix = '%s/%s' % (
+            prefix.network_address, prefix.netmask)
         if prefix.version == 6:
-            exp_prefix = '/'.join(
-                (str(prefix.masked().ip), str(prefix.netmask)))
             nw_dst_match = '"ipv6_dst": "%s"' % exp_prefix
         else:
-            exp_prefix = prefix.masked().with_netmask
             nw_dst_match = '"nw_dst": "%s"' % exp_prefix
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(nw_dst_match)
@@ -697,17 +691,17 @@ dbs:
 
     def host_ipv4_alias(self, host, alias_ip):
         """Add an IPv4 alias address to a host."""
-        del_cmd = 'ip addr del %s/%s dev %s' % (
-            alias_ip.ip, alias_ip.prefixlen, host.intf())
-        add_cmd = 'ip addr add %s/%s dev %s label %s:1' % (
-            alias_ip.ip, alias_ip.prefixlen, host.intf(), host.intf())
+        del_cmd = 'ip addr del %s dev %s' % (
+            alias_ip.with_prefixlen, host.intf())
+        add_cmd = 'ip addr add %s dev %s label %s:1' % (
+            alias_ip.with_prefixlen, host.intf(), host.intf())
         host.cmd(del_cmd)
         self.assertEquals('', host.cmd(add_cmd))
 
-    def verify_ipv4_host_learned_mac(self, host, ip, mac, retries=3):
+    def _verify_host_learned_mac(self, host, ip, ip_ver, mac, retries):
         for _ in range(retries):
             learned_mac = host.cmd(
-                "arp -n %s | grep %s | awk '{ print $3 }'" % (ip, ip)).strip()
+                "ip -%u neighbor show %s | awk '{ print $5 }'" % (ip_ver, ip)).strip()
             if learned_mac:
                 break
             time.sleep(1)
@@ -716,24 +710,18 @@ dbs:
             msg='MAC learned on host mismatch (expected %s found %s)' % (
                 mac, learned_mac))
 
+    def verify_ipv4_host_learned_mac(self, host, ip, mac, retries=3):
+        self._verify_host_learned_mac(host, ip, 4, mac, retries)
+
     def verify_ipv4_host_learned_host(self, host, learned_host):
-        learned_ip = ipaddr.IPNetwork(self.host_ipv4(learned_host))
+        learned_ip = ipaddress.ip_interface(unicode(self.host_ipv4(learned_host)))
         self.verify_ipv4_host_learned_mac(host, learned_ip.ip, learned_host.MAC())
 
     def verify_ipv6_host_learned_mac(self, host, ip6, mac, retries=3):
-        for _ in range(retries):
-            learned_mac = host.cmd(
-                "ip -6 neighbor show %s | awk '{ print $5 }'" % ip6).strip()
-            if learned_mac:
-                break
-            time.sleep(1)
-        self.assertEqual(
-            mac, learned_mac,
-            msg='MAC learned on host mismatch (expected %s found %s)' % (
-                mac, learned_mac))
+        self._verify_host_learned_mac(host, ip6, 6, mac, retries)
 
     def verify_ipv6_host_learned_host(self, host, learned_host):
-        learned_ip6 = ipaddr.IPNetwork(self.host_ipv6(learned_host))
+        learned_ip6 = ipaddress.ip_interface(unicode(self.host_ipv6(learned_host)))
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
@@ -742,16 +730,16 @@ dbs:
         """Verify one host can IPV4 route to another via FAUCET."""
         self.host_ipv4_alias(first_host, first_host_routed_ip)
         self.host_ipv4_alias(second_host, second_host_routed_ip)
-        self.add_host_ipv4_route(
+        self.add_host_route(
             first_host, second_host_routed_ip, self.FAUCET_VIPV4.ip)
-        self.add_host_ipv4_route(
+        self.add_host_route(
             second_host, first_host_routed_ip, self.FAUCET_VIPV4.ip)
         self.net.ping(hosts=(first_host, second_host))
         self.wait_for_route_as_flow(
-            first_host.MAC(), first_host_routed_ip,
+            first_host.MAC(), first_host_routed_ip.network,
             with_group_table=with_group_table)
         self.wait_for_route_as_flow(
-            second_host.MAC(), second_host_routed_ip,
+            second_host.MAC(), second_host_routed_ip.network,
             with_group_table=with_group_table)
         self.one_ipv4_ping(first_host, second_host_routed_ip.ip)
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
@@ -762,9 +750,9 @@ dbs:
         """Verify hosts can route to each other via FAUCET."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
-        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
-        second_host_routed_ip2 = ipaddr.IPv4Network('10.0.3.1/24')
+        first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
+        second_host_routed_ip = ipaddress.ip_interface(u'10.0.2.1/24')
+        second_host_routed_ip2 = ipaddress.ip_interface(u'10.0.3.1/24')
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
@@ -803,15 +791,15 @@ dbs:
         """Verify one host can IPV6 route to another via FAUCET."""
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
-        self.add_host_ipv6_route(
+        self.add_host_route(
             first_host, second_host_routed_ip, self.FAUCET_VIPV6.ip)
-        self.add_host_ipv6_route(
+        self.add_host_route(
             second_host, first_host_routed_ip, self.FAUCET_VIPV6.ip)
         self.wait_for_route_as_flow(
-            first_host.MAC(), first_host_routed_ip,
+            first_host.MAC(), first_host_routed_ip.network,
             with_group_table=with_group_table)
         self.wait_for_route_as_flow(
-            second_host.MAC(), second_host_routed_ip,
+            second_host.MAC(), second_host_routed_ip.network,
             with_group_table=with_group_table)
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
@@ -839,11 +827,11 @@ dbs:
         """Verify IPv6 routing between hosts and multiple subnets."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
-        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
-        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
-        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
-        second_host_routed_ip2 = ipaddr.IPv6Network('fc00::30:1/112')
+        first_host_ip = ipaddress.ip_interface(u'fc00::1:1/112')
+        second_host_ip = ipaddress.ip_interface(u'fc00::1:2/112')
+        first_host_routed_ip = ipaddress.ip_interface(u'fc00::10:1/112')
+        second_host_routed_ip = ipaddress.ip_interface(u'fc00::20:1/112')
+        second_host_routed_ip2 = ipaddress.ip_interface(u'fc00::30:1/112')
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,

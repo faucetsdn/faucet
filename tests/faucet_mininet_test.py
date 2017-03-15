@@ -43,7 +43,7 @@ import unittest
 from SimpleHTTPServer import SimpleHTTPRequestHandler
 from BaseHTTPServer import HTTPServer
 
-import ipaddr
+import ipaddress
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
@@ -881,13 +881,13 @@ group test {
         first_host, second_host = self.net.hosts[:2]
         # wait until 10.0.0.1 has been resolved
         self.wait_for_route_as_flow(
-            first_host.MAC(), ipaddr.IPv4Network('10.99.99.0/24'))
+            first_host.MAC(), ipaddress.IPv4Network(u'10.99.99.0/24'))
         self.wait_bgp_up(self.exabgp_log)
         self.wait_exabgp_sent_updates(self.exabgp_log)
         self.verify_invalid_bgp_route('10.0.0.4/24 cannot be us')
         self.verify_invalid_bgp_route('10.0.0.5/24 is not a connected network')
         self.wait_for_route_as_flow(
-            second_host.MAC(), ipaddr.IPv4Network('10.0.3.0/24'))
+            second_host.MAC(), ipaddress.IPv4Network(u'10.0.3.0/24'))
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
@@ -1600,8 +1600,8 @@ vlans:
     def test_tagged(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
-        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
+        second_host_routed_ip = ipaddress.ip_interface(u'10.0.2.1/24')
         for _ in range(3):
             self.verify_ipv4_routing(
                 first_host, first_host_routed_ip,
@@ -1643,15 +1643,15 @@ routers:
 """
 
     def test_untagged(self):
-        first_host_ip = ipaddr.IPv4Network('10.100.0.1/24')
-        first_faucet_vip = ipaddr.IPv4Network('10.100.0.254/24')
-        second_host_ip = ipaddr.IPv4Network('10.200.0.1/24')
-        second_faucet_vip = ipaddr.IPv4Network('10.200.0.254/24')
+        first_host_ip = ipaddress.ip_interface(u'10.100.0.1/24')
+        first_faucet_vip = ipaddress.ip_interface(u'10.100.0.254/24')
+        second_host_ip = ipaddress.ip_interface(u'10.200.0.1/24')
+        second_faucet_vip = ipaddress.ip_interface(u'10.200.0.254/24')
         first_host, second_host = self.net.hosts[:2]
         first_host.setIP(str(first_host_ip.ip))
         second_host.setIP(str(second_host_ip.ip))
-        self.add_host_ipv4_route(first_host, second_host_ip, first_faucet_vip.ip)
-        self.add_host_ipv4_route(second_host, first_host_ip, second_faucet_vip.ip)
+        self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
+        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
         self.one_ipv4_ping(first_host, first_faucet_vip.ip)
         self.one_ipv4_ping(second_host, second_faucet_vip.ip)
         self.one_ipv4_ping(first_host, second_host_ip.ip)
@@ -1688,15 +1688,15 @@ vlans:
     def test_untagged(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_net = ipaddr.IPv4Network('10.0.0.1/24')
-        second_host_net = ipaddr.IPv4Network('172.16.0.1/24')
+        first_host_net = ipaddress.ip_interface(u'10.0.0.1/24')
+        second_host_net = ipaddress.ip_interface(u'172.16.0.1/24')
         second_host.setIP(str(second_host_net.ip))
         self.one_ipv4_ping(first_host, self.FAUCET_VIPV4.ip)
         self.one_ipv4_ping(second_host, self.FAUCET_VIPV4_2.ip)
-        self.add_host_ipv4_route(
-            first_host, second_host_net.masked(), self.FAUCET_VIPV4.ip)
-        self.add_host_ipv4_route(
-            second_host, first_host_net.masked(), self.FAUCET_VIPV4_2.ip)
+        self.add_host_route(
+            first_host, second_host_net, self.FAUCET_VIPV4.ip)
+        self.add_host_route(
+            second_host, first_host_net, self.FAUCET_VIPV4_2.ip)
         self.one_ipv4_ping(first_host, second_host_net.ip)
         self.one_ipv4_ping(second_host, first_host_net.ip)
 
@@ -1731,16 +1731,16 @@ vlans:
     def test_untagged(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_net = ipaddr.IPv6Network('fc00::1:1/64')
-        second_host_net = ipaddr.IPv6Network('fc01::1:1/64')
+        first_host_net = ipaddress.ip_interface(u'fc00::1:1/64')
+        second_host_net = ipaddress.ip_interface(u'fc01::1:1/64')
         self.add_host_ipv6_address(first_host, first_host_net)
         self.one_ipv6_ping(first_host, self.FAUCET_VIPV6.ip)
         self.add_host_ipv6_address(second_host, second_host_net)
         self.one_ipv6_ping(second_host, self.FAUCET_VIPV6_2.ip)
-        self.add_host_ipv6_route(
-            first_host, second_host_net.masked(), self.FAUCET_VIPV6.ip)
-        self.add_host_ipv6_route(
-            second_host, first_host_net.masked(), self.FAUCET_VIPV6_2.ip)
+        self.add_host_route(
+            first_host, second_host_net, self.FAUCET_VIPV6.ip)
+        self.add_host_route(
+            second_host, first_host_net, self.FAUCET_VIPV6_2.ip)
         self.one_ipv6_ping(first_host, second_host_net.ip)
         self.one_ipv6_ping(second_host, first_host_net.ip)
 
@@ -1847,20 +1847,20 @@ vlans:
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
-        first_host_ip = ipaddr.IPv6Network('fc00::10:2/112')
-        first_host_ctrl_ip = ipaddr.IPv6Address('fc00::10:1')
-        second_host_ip = ipaddr.IPv6Network('fc00::20:2/112')
-        second_host_ctrl_ip = ipaddr.IPv6Address('fc00::20:1')
+        first_host_ip = ipaddress.ip_interface(u'fc00::10:2/112')
+        first_host_ctrl_ip = ipaddress.ip_address(u'fc00::10:1')
+        second_host_ip = ipaddress.ip_interface(u'fc00::20:2/112')
+        second_host_ctrl_ip = ipaddress.ip_address(u'fc00::20:1')
         self.add_host_ipv6_address(first_host, first_host_ip)
         self.add_host_ipv6_address(second_host, second_host_ip)
-        self.add_host_ipv6_route(
+        self.add_host_route(
             first_host, second_host_ip, first_host_ctrl_ip)
-        self.add_host_ipv6_route(
+        self.add_host_route(
             second_host, first_host_ip, second_host_ctrl_ip)
         self.wait_for_route_as_flow(
-            first_host.MAC(), first_host_ip)
+            first_host.MAC(), first_host_ip.network)
         self.wait_for_route_as_flow(
-            second_host.MAC(), second_host_ip)
+            second_host.MAC(), second_host_ip.network)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(first_host, second_host_ctrl_ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
@@ -1936,7 +1936,7 @@ group test {
         second_host = self.net.hosts[1]
         self.flap_all_switch_ports()
         self.wait_for_route_as_flow(
-            second_host.MAC(), ipaddr.IPv6Network('fc00::30:0/112'))
+            second_host.MAC(), ipaddress.IPv6Network(u'fc00::30:0/112'))
         self.verify_ipv6_routing_mesh()
         self.wait_bgp_up(self.exabgp_log)
         updates = self.exabgp_updates(self.exabgp_log)
@@ -1986,10 +1986,10 @@ vlans:
         """Test IPv6 routing works."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
-        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
-        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
-        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        first_host_ip = ipaddress.ip_interface(u'fc00::1:1/112')
+        second_host_ip = ipaddress.ip_interface(u'fc00::1:2/112')
+        first_host_routed_ip = ipaddress.ip_interface(u'fc00::10:1/112')
+        second_host_routed_ip = ipaddress.ip_interface(u'fc00::20:1/112')
         for _ in range(5):
             self.verify_ipv6_routing_pair(
                 first_host, first_host_ip, first_host_routed_ip,
@@ -2484,8 +2484,8 @@ vlans:
     def test_untagged(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_routed_ip = ipaddr.IPv4Network('10.0.1.1/24')
-        second_host_routed_ip = ipaddr.IPv4Network('10.0.2.1/24')
+        first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
+        second_host_routed_ip = ipaddress.ip_interface(u'10.0.2.1/24')
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
@@ -2538,10 +2538,10 @@ vlans:
     def test_untagged(self):
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
-        first_host_ip = ipaddr.IPv6Network('fc00::1:1/112')
-        second_host_ip = ipaddr.IPv6Network('fc00::1:2/112')
-        first_host_routed_ip = ipaddr.IPv6Network('fc00::10:1/112')
-        second_host_routed_ip = ipaddr.IPv6Network('fc00::20:1/112')
+        first_host_ip = ipaddress.ip_interface(u'fc00::1:1/112')
+        second_host_ip = ipaddress.ip_interface(u'fc00::1:2/112')
+        first_host_routed_ip = ipaddress.ip_interface(u'fc00::10:1/112')
+        second_host_routed_ip = ipaddress.ip_interface(u'fc00::20:1/112')
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,

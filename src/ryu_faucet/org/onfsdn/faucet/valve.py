@@ -514,7 +514,7 @@ class Valve(object):
             all_port_nums.add(port.number)
 
         # add vlan ports
-        for vlan in self.dp.vlans.itervalues():
+        for vlan in self.dp.vlans.values():
             ofmsgs.extend(self._add_vlan(vlan, all_port_nums))
 
         # add any ports discovered but not configured
@@ -955,7 +955,7 @@ class Valve(object):
         if not self.dp.running:
             return
         now = time.time()
-        for vlan in self.dp.vlans.itervalues():
+        for vlan in self.dp.vlans.values():
             self.host_manager.expire_hosts_from_vlan(vlan, now)
 
     def _get_config_changes(self, new_dp):
@@ -1107,7 +1107,7 @@ class Valve(object):
             return []
         ofmsgs = []
         now = time.time()
-        for vlan in self.dp.vlans.itervalues():
+        for vlan in self.dp.vlans.values():
             ofmsgs.extend(self.ipv4_route_manager.resolve_gateways(vlan, now))
             ofmsgs.extend(self.ipv6_route_manager.resolve_gateways(vlan, now))
         return ofmsgs
@@ -1122,7 +1122,7 @@ class Valve(object):
             self.dp.name: self.dp.to_conf()
             }
         vlans_dict = {}
-        for vlan in self.dp.vlans.itervalues():
+        for vlan in self.dp.vlans.values():
             vlans_dict[vlan.name] = vlan.to_conf()
         acls_dict = {}
         for acl_id, acl in self.dp.acls.items():

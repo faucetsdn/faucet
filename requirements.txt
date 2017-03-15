@@ -4,6 +4,7 @@ couchdb
 graphviz
 influxdb
 ipaddr
+ipaddress
 networkx
 numpy
 packaging

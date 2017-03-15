@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ipaddr
+import ipaddress
 
 from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
@@ -78,8 +78,8 @@ def arp_request(eth_src, vid, src_ip, dst_ip):
     Args:
         eth_src (str): Ethernet source address.
         vid (int or None): VLAN VID to use (or None).
-        src_ip (ipaddr.IPv4Address): source IPv4 address.
-        dst_ip (ipaddr.IPv4Address): requested IPv4 address.
+        src_ip (ipaddress.IPv4Address): source IPv4 address.
+        dst_ip (ipaddress.IPv4Address): requested IPv4 address.
     Returns:
         ryu.lib.packet.arp: serialized ARP request packet.
     """
@@ -99,8 +99,8 @@ def arp_reply(eth_src, eth_dst, vid, src_ip, dst_ip):
         eth_src (str): Ethernet source address.
         eth_dst (str): destination Ethernet MAC address.
         vid (int or None): VLAN VID to use (or None).
-        src_ip (ipaddr.IPv4Address): source IPv4 address.
-        dst_ip (ipaddr.IPv4Address): destination IPv4 address.
+        src_ip (ipaddress.IPv4Address): source IPv4 address.
+        dst_ip (ipaddress.IPv4Address): destination IPv4 address.
     Returns:
         ryu.lib.packet.arp: serialized ARP reply packet.
     """
@@ -120,8 +120,8 @@ def echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, data):
         eth_src (str): Ethernet source address.
         eth_dst (str): destination Ethernet MAC address.
         vid (int or None): VLAN VID to use (or None).
-        src_ip (ipaddr.IPv4Address): source IPv4 address.
-        dst_ip (ipaddr.IPv4Address): destination IPv4 address.
+        src_ip (ipaddress.IPv4Address): source IPv4 address.
+        dst_ip (ipaddress.IPv4Address): destination IPv4 address.
     Returns:
         ryu.lib.packet.icmp: serialized ICMP echo reply packet.
     """
@@ -143,11 +143,11 @@ def ipv6_link_eth_mcast(dst_ip):
     See RFC 2464 section 7.
 
     Args:
-        dst_ip (ipaddr.IPv6Address): IPv6 address.
+        dst_ip (ipaddress.IPv6Address): IPv6 address.
     Returns:
         str: Ethernet multicast address.
     """
-    mcast_mac_bytes = ipaddr.Bytes('\x33\x33') + dst_ip.packed[-4:]
+    mcast_mac_bytes = b'\x33\x33' + dst_ip.packed[-4:]
     mcast_mac = ':'.join(['%02X' % ord(x) for x in mcast_mac_bytes])
     return mcast_mac
 
@@ -158,14 +158,13 @@ def ipv6_solicited_node_from_ucast(ucast):
     See RFC 3513 section 2.7.1.
 
     Args:
-       ucast (ipaddr.IPv6Address): IPv6 unicast address.
+       ucast (ipaddress.IPv6Address): IPv6 unicast address.
     Returns:
-       ipaddr.IPv6Address: IPv6 solicited node multicast address.
+       ipaddress.IPv6Address: IPv6 solicited node multicast address.
     """
-    link_mcast_prefix = ipaddr.IPv6Network('ff02::1:ff00:0/104')
-    mcast_bytes = ipaddr.Bytes(
-        link_mcast_prefix.packed[:13] + ucast.packed[-3:])
-    link_mcast = ipaddr.IPv6Address(mcast_bytes)
+    link_mcast_prefix = ipaddress.ip_interface(u'ff02::1:ff00:0/104')
+    mcast_bytes = link_mcast_prefix.packed[:13] + ucast.packed[-3:]
+    link_mcast = ipaddress.IPv6Address(mcast_bytes)
     return link_mcast
 
 
@@ -175,8 +174,8 @@ def nd_request(eth_src, vid, src_ip, dst_ip):
     Args:
         eth_src (str): source Ethernet MAC address.
         vid (int or None): VLAN VID to use (or None).
-        src_ip (ipaddr.IPv6Address): source IPv6 address.
-        dst_ip (ipaddr.IPv6Address): requested IPv6 address.
+        src_ip (ipaddress.IPv6Address): source IPv6 address.
+        dst_ip (ipaddress.IPv6Address): requested IPv6 address.
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 neighbor discovery packet.
     """
@@ -203,8 +202,8 @@ def nd_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): destination Ethernet MAC address.
         vid (int or None): VLAN VID to use (or None).
-        src_ip (ipaddr.IPv6Address): source IPv6 address.
-        dst_ip (ipaddr.IPv6Address): destination IPv6 address.
+        src_ip (ipaddress.IPv6Address): source IPv6 address.
+        dst_ip (ipaddress.IPv6Address): destination IPv6 address.
         hop_limit (int): IPv6 hop limit.
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 neighbor discovery packet.
@@ -235,8 +234,8 @@ def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): destination Ethernet MAC address.
         vid (int or None): VLAN VID to use (or None).
-        src_ip (ipaddr.IPv6Address): source IPv6 address.
-        dst_ip (ipaddr.IPv6Address): destination IPv6 address.
+        src_ip (ipaddress.IPv6Address): source IPv6 address.
+        dst_ip (ipaddress.IPv6Address): destination IPv6 address.
         hop_limit (int): IPv6 hop limit.
         id_ (int): identifier for echo reply.
         seq (int): sequence number for echo reply.
