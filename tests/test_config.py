@@ -19,7 +19,7 @@ import hashlib
 import logging
 import sys
 import os
-import ipaddr
+import ipaddress
 
 testdir = os.path.dirname(__file__)
 srcdir = '../src/ryu_faucet/org/onfsdn/faucet'
@@ -181,7 +181,7 @@ class DistConfigTestCase(unittest.TestCase):
         for dp in (self.v2_dp,):
             vlan = dp.vlans[41]
             self.assertIn(
-                ipaddr.IPNetwork('10.0.0.253/24'),
+                ipaddress.ip_interface(u'10.0.0.253/24'),
                 vlan.faucet_vips
                 )
             self.assertEquals(vlan.bgp_port, 9179)
@@ -190,15 +190,15 @@ class DistConfigTestCase(unittest.TestCase):
             self.assertIn('127.0.0.1', vlan.bgp_neighbor_addresses)
             self.assertEquals(vlan.bgp_neighbor_as, 2)
             self.assertIn(
-                ipaddr.IPNetwork('10.0.1.0/24'),
+                ipaddress.ip_network(u'10.0.1.0/24'),
                 vlan.ipv4_routes
                 )
             self.assertIn(
-                ipaddr.IPNetwork('10.0.2.0/24'),
+                ipaddress.ip_network(u'10.0.2.0/24'),
                 vlan.ipv4_routes
                 )
             self.assertIn(
-                ipaddr.IPNetwork('10.0.3.0/24'),
+                ipaddress.ip_network(u'10.0.3.0/24'),
                 vlan.ipv4_routes
                 )
 

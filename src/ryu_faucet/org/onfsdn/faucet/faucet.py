@@ -22,7 +22,7 @@ import os
 import random
 import signal
 
-import ipaddr
+import ipaddress
 
 from config_parser import dp_parser
 from config_parser_util import config_file_hash
@@ -216,8 +216,8 @@ class Faucet(app_manager.RyuApp):
             path_change (ryu.services.protocols.bgp.bgpspeaker.EventPrefix): path change
             vlan (vlan): Valve VLAN this path change was received for.
         """
-        prefix = ipaddr.IPNetwork(path_change.prefix)
-        nexthop = ipaddr.IPAddress(path_change.nexthop)
+        prefix = ipaddress.ip_network(unicode(path_change.prefix))
+        nexthop = ipaddress.ip_address(unicode(path_change.nexthop))
         withdraw = path_change.is_withdraw
         flowmods = []
         valve = self.valves[vlan.dp_id]
@@ -235,8 +235,7 @@ class Faucet(app_manager.RyuApp):
 
         if withdraw:
             self.logger.info(
-                'BGP withdraw %s nexthop %s',
-                prefix, nexthop)
+                'BGP withdraw %s nexthop %s', prefix, nexthop)
             flowmods = valve.del_route(vlan, prefix)
         else:
             self.logger.info(
@@ -260,9 +259,8 @@ class Faucet(app_manager.RyuApp):
             bgp_server_port=vlan.bgp_port,
             best_path_change_handler=handler)
         for faucet_vip in vlan.faucet_vips:
-            prefix = ipaddr.IPNetwork(faucet_vip.exploded)
             bgp_speaker.prefix_add(
-                prefix=str(prefix), next_hop=str(faucet_vip.ip))
+                prefix=str(faucet_vip), next_hop=str(faucet_vip.ip))
         for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
             for ip_dst, ip_gw in route_table.items():
                 bgp_speaker.prefix_add(

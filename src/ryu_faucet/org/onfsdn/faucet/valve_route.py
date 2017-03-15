@@ -18,7 +18,7 @@
 
 import time
 
-import ipaddr
+import ipaddress
 
 from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 from ryu.ofproto import ether
@@ -131,7 +131,7 @@ class ValveRouteManager(object):
             in_match = self.valve_in_match(
                 self.fib_table, vlan=vlan,
                 eth_type=self._eth_type(), nw_dst=ip_dst)
-        prefixlen = ipaddr.IPNetwork(ip_dst).prefixlen
+        prefixlen = ipaddress.ip_network(ip_dst).prefixlen
         priority = self.route_priority + prefixlen
         if is_updated:
             self.logger.info(
@@ -227,7 +227,7 @@ class ValveRouteManager(object):
         ip_gws = []
         for ip_gw in set(routes.values()):
             for faucet_vip in vlan.faucet_vips:
-                if ip_gw in faucet_vip:
+                if ip_gw in faucet_vip.network:
                     ip_gws.append((ip_gw, faucet_vip))
         return ip_gws
 
@@ -282,7 +282,7 @@ class ValveRouteManager(object):
 
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
-            ip_gw (ipaddr.IPAddress): potential host FIB route.
+            ip_gw (ipaddress.ip_address): potential host FIB route.
         Returns:
             True if a host FIB route (and not used as a gateway).
         """
@@ -348,13 +348,18 @@ class ValveRouteManager(object):
             return nexthop_cache_entry.eth_src
         return None
 
+    def _host_from_faucet_vip(self, faucet_vip):
+        max_prefixlen = faucet_vip.ip.max_prefixlen
+        return ipaddress.ip_interface(
+            u'/'.join((faucet_vip.ip.exploded, str(max_prefixlen))))
+
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add a route to the RIB.
 
         Args:
             vlan (vlan): VLAN containing this RIB.
-            ip_gw (ipaddr.IPAddress): IP address of nexthop.
-            ip_dst (ipaddr.IPNetwork): destination IP network.
+            ip_gw (ipaddress.ip_address): IP address of nexthop.
+            ip_dst (ipaddress.ip_network): destination IP network.
         Returns:
             list: OpenFlow messages.
         """
@@ -376,11 +381,11 @@ class ValveRouteManager(object):
 
         Args:
             vlan (vlan): VLAN containing this RIB.
-            host_ip (ipaddr.IPAddress): IP address of host.
+            host_ip (ipaddress.ip_address): IP address of host.
         Returns:
             list: OpenFlow messages.
         """
-        host_route = ipaddr.IPNetwork(host_ip.exploded)
+        host_route = ipaddress.ip_network(host_ip.exploded)
         return self.add_route(vlan, host_ip, host_route)
 
     def _del_host_fib_route(self, vlan, host_ip):
@@ -388,11 +393,11 @@ class ValveRouteManager(object):
 
         Args:
             vlan (vlan): VLAN containing this RIB.
-            host_ip (ipaddr.IPAddress): IP address of host.
+            host_ip (ipaddress.ip_address): IP address of host.
         Returns:
             list: OpenFlow messages.
         """
-        host_route = ipaddr.IPNetwork(host_ip.exploded)
+        host_route = ipaddress.ip_network(host_ip.exploded)
         return self.del_route(vlan, host_route)
 
     def _ip_pkt(self, pkt):
@@ -426,7 +431,7 @@ class ValveRouteManager(object):
         ip_pkt = self._ip_pkt(pkt_meta.pkt)
         ofmsgs = []
         if ip_pkt:
-            src_ip = ipaddr.IPAddress(ip_pkt.src)
+            src_ip = ipaddress.ip_address(unicode(ip_pkt.src))
             if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
                 now = time.time()
                 nexthop_fresh = self._nexthop_fresh(pkt_meta.vlan, src_ip, now)
@@ -444,7 +449,7 @@ class ValveRouteManager(object):
 
         Args:
             vlan (vlan): VLAN containing this RIB.
-            ip_dst (ipaddr.IPNetwork): destination IP network.
+            ip_dst (ipaddress.ip_network): destination IP network.
         Returns:
             list: OpenFlow messages.
         """
@@ -485,9 +490,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def add_faucet_vip(self, vlan, faucet_vip):
         ofmsgs = []
-        faucet_vip_net = ipaddr.IPNetwork(faucet_vip.exploded)
-        faucet_vip_host = ipaddr.IPNetwork(faucet_vip.ip)
-        max_prefixlen = faucet_vip_host.prefixlen
+        max_prefixlen = faucet_vip.ip.max_prefixlen
+        faucet_vip_host = self._host_from_faucet_vip(faucet_vip)
         priority = self.route_priority + max_prefixlen
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
@@ -516,14 +520,14 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 vlan=vlan,
                 eth_type=self._eth_type(),
                 nw_proto=inet.IPPROTO_ICMP,
-                nw_src=faucet_vip_net,
+                nw_src=faucet_vip,
                 nw_dst=faucet_vip_host),
             priority=priority))
         return ofmsgs
 
     def _control_plane_arp_handler(self, pkt_meta, arp_pkt):
-        src_ip = ipaddr.IPv4Address(arp_pkt.src_ip)
-        dst_ip = ipaddr.IPv4Address(arp_pkt.dst_ip)
+        src_ip = ipaddress.IPv4Address(unicode(arp_pkt.src_ip))
+        dst_ip = ipaddress.IPv4Address(unicode(arp_pkt.dst_ip))
         vlan = pkt_meta.vlan
         opcode = arp_pkt.opcode
         ofmsgs = []
@@ -550,8 +554,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
         return ofmsgs
 
     def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt, icmp_pkt):
-        src_ip = ipaddr.IPv4Address(ipv4_pkt.src)
-        dst_ip = ipaddr.IPv4Address(ipv4_pkt.dst)
+        src_ip = ipaddress.IPv4Address(unicode(ipv4_pkt.src))
+        dst_ip = ipaddress.IPv4Address(unicode(ipv4_pkt.dst))
         vlan = pkt_meta.vlan
         icmpv4_type = icmp_pkt.type
         ofmsgs = []
@@ -601,8 +605,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def add_faucet_vip(self, vlan, faucet_vip):
         ofmsgs = []
-        faucet_vip_host = ipaddr.IPNetwork(faucet_vip.ip)
-        max_prefixlen = faucet_vip_host.prefixlen
+        max_prefixlen = faucet_vip.ip.max_prefixlen
+        faucet_vip_host = self._host_from_faucet_vip(faucet_vip)
         priority = self.route_priority + max_prefixlen
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
@@ -652,8 +656,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _control_plane_icmpv6_handler(self, pkt_meta, ipv6_pkt, icmpv6_pkt):
         vlan = pkt_meta.vlan
-        src_ip = ipaddr.IPv6Address(ipv6_pkt.src)
-        dst_ip = ipaddr.IPv6Address(ipv6_pkt.dst)
+        src_ip = ipaddress.IPv6Address(unicode(ipv6_pkt.src))
+        dst_ip = ipaddress.IPv6Address(unicode(ipv6_pkt.dst))
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
         if vlan.ip_in_vip_subnet(src_ip):
@@ -661,8 +665,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
             vid = self._vlan_vid(vlan, in_port)
             eth_src = pkt_meta.eth_src
             if icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT:
-                solicited_ip = icmpv6_pkt.data.dst
-                if vlan.is_faucet_vip(ipaddr.IPAddress(solicited_ip)):
+                solicited_ip = unicode(icmpv6_pkt.data.dst)
+                if vlan.is_faucet_vip(ipaddress.ip_address(solicited_ip)):
                     ofmsgs.extend(
                         self._add_host_fib_route(vlan, src_ip))
                     nd_reply = valve_packet.nd_reply(
