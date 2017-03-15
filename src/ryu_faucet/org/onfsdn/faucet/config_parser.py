@@ -112,7 +112,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
         except AssertionError as err:
             logger.exception('Error in config file: %s', err)
             return None
-        for port in ports.itervalues():
+        for port in ports.values():
             dp.add_port(port)
         for acl_ident, acl in acls:
             dp.add_acl(acl_ident, acl)

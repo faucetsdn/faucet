@@ -282,9 +282,9 @@ class Faucet(app_manager.RyuApp):
             if dp_id not in self.dp_bgp_speakers:
                 self.dp_bgp_speakers[dp_id] = {}
             bgp_speakers = self.dp_bgp_speakers[dp_id]
-            for bgp_speaker in bgp_speakers.itervalues():
+            for bgp_speaker in bgp_speakers.values():
                 bgp_speaker.shutdown()
-            for vlan in valve.dp.vlans.itervalues():
+            for vlan in valve.dp.vlans.values():
                 if vlan.bgp_as:
                     bgp_speakers[vlan] = self._create_bgp_speaker_for_vlan(vlan)
 
