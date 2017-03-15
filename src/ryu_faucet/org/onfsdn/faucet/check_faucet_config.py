@@ -25,7 +25,7 @@ def check_config(conf_files):
                 valve_dp = valve.valve_factory(dp)
                 if valve_dp is None:
                     return False
-                print dp.to_conf()
+                print(dp.to_conf())
     return True
 
 
