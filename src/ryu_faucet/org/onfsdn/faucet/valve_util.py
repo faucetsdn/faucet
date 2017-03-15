@@ -93,4 +93,4 @@ def dpid_log(dpid):
 
 
 def btos(b_str):
-    return b_str.decode('utf-8', 'strict')
+    return b_str.encode('utf-8').decode('utf-8', 'strict')
