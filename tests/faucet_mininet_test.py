@@ -1858,9 +1858,9 @@ vlans:
         self.add_host_route(
             second_host, first_host_ip, second_host_ctrl_ip)
         self.wait_for_route_as_flow(
-            first_host.MAC(), first_host_ip)
-        self.wait_for_route_as_flow(
-            second_host.MAC(), second_host_ip)
+            first_host.MAC(), first_host_ip.network)
+        self.wait_for_route_as_flow.(
+            second_host.MAC(), second_host_ip.network)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(first_host, second_host_ctrl_ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
