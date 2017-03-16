@@ -50,7 +50,6 @@ class DistConfigTestCase(unittest.TestCase):
             'config/testgaugeconfig.yaml', logname)
 
     def test_hashes(self):
-        testconfig_yaml = os.path.realpath('config/testconfig.yaml')
         testconfigv2_yaml = os.path.realpath('config/testconfigv2.yaml')
         testconfigv2_dps_yaml = os.path.realpath('config/testconfigv2-dps.yaml')
         testconfigv2_vlans_yaml = os.path.realpath('config/testconfigv2-vlans.yaml')
@@ -78,28 +77,28 @@ class DistConfigTestCase(unittest.TestCase):
         switch2 = self.v2_dps_by_id[0xdeadbeef]
         self.assertEqual(switch1.stack['priority'], 1)
         self.assertEqual(
-             switch1.ports[7].stack['dp'], switch2)
+            switch1.ports[7].stack['dp'], switch2)
         self.assertEqual(
-             switch1.ports[7].stack['port'], switch2.ports[1])
+            switch1.ports[7].stack['port'], switch2.ports[1])
         self.assertEqual(
-             switch2.ports[1].stack['dp'], switch1)
+            switch2.ports[1].stack['dp'], switch1)
         self.assertEqual(
-             switch2.ports[1].stack['port'], switch1.ports[7])
+            switch2.ports[1].stack['port'], switch1.ports[7])
         self.assertEqual(
-             switch1.stack['root_dp'], switch1)
+            switch1.stack['root_dp'], switch1)
         self.assertEqual(
-             switch2.stack['root_dp'], switch1)
+            switch2.stack['root_dp'], switch1)
         self.assertEqual(
-             ['switch1', 'switch2'], switch1.shortest_path(switch2.name))
+            ['switch1', 'switch2'], switch1.shortest_path(switch2.name))
         self.assertEqual(
-             [], switch1.shortest_path_to_root())
+            [], switch1.shortest_path_to_root())
         self.assertEqual(
-             ['switch2', 'switch1'], switch2.shortest_path_to_root())
+            ['switch2', 'switch1'], switch2.shortest_path_to_root())
         self.assertEqual(
-             switch1.ports[7], switch1.shortest_path_port('switch2'))
+            switch1.ports[7], switch1.shortest_path_port('switch2'))
         edges = [edge for edge in switch1.stack['graph'].adjacency_iter()]
         self.assertEqual(
-             2, len(edges))
+            2, len(edges))
         edge_from_switch_a, edge_from_switch_z = edges
         _, edge_data_a = edge_from_switch_a
         _, edge_data_b = edge_from_switch_z
