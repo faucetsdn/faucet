@@ -114,13 +114,15 @@ class OpenflowToRyuTranslator(object):
         self.custom_json = CustomJson()
         # file with the variables in openflow to map them into Ryu variables
         self.openflow_to_ryu = CFG_PATH  + "/ofproto_to_ryu.json"
-        self.openflow_to_ryu = self.custom_json.read_json_document(self.openflow_to_ryu)
+        self.openflow_to_ryu = self.custom_json.read_json_document(
+            self.openflow_to_ryu)
         # variable used to save the ryu structure tables
         self.tables = []
 
     def set_json_document(self, filepath):
         self.document_with_openflow_tables = filepath
-        self.document_with_openflow_tables = self.custom_json.read_json_document(self.document_with_openflow_tables)
+        self.document_with_openflow_tables = self.custom_json.read_json_document(
+            self.document_with_openflow_tables)
 
     # The following functions are used to create the final structure
     # (same structure that use ryu library)
@@ -132,21 +134,34 @@ class OpenflowToRyuTranslator(object):
             for property_item in openflow_table["properties"]:
                 fields_tag = self.openflow_to_ryu["tables"][property_item["name"]]["action_tag"]
                 actions_ids = property_item[fields_tag]
-                table_properties.append(self.create_table_feature(property_item["name"],
-                                                                  actions_ids,
-                                                                  property_item["type"]))
+                table_properties.append(
+                    self.create_table_feature(
+                        property_item["name"],
+                        actions_ids,
+                        property_item["type"]))
 
-            self.tables.append(self.create_table(table_id=openflow_table["table_id"], name=openflow_table["name"],
-                                                 config=3, max_entries=openflow_table["max_entries"], metadata_match=0,
-                                                 metadata_write=0, properties=table_properties))
+            self.tables.append(
+                self.create_table(
+                    table_id=openflow_table["table_id"],
+                    name=openflow_table["name"],
+                    config=3,
+                    max_entries=openflow_table["max_entries"],
+                    metadata_match=0,
+                    metadata_write=0,
+                    properties=table_properties))
 
 
-    def create_table(self, table_id, name, config, max_entries, metadata_match, metadata_write, properties):
-        return {self.openflow_to_ryu["table_tag"] : {"config": config, "max_entries" : max_entries,
-                                                     "metadata_match": metadata_match,
-                                                     "metadata_write": metadata_write,
-                                                     "name": name, "properties": properties,
-                                                     "table_id": table_id}}
+    def create_table(self, table_id, name, config, max_entries,
+                     metadata_match, metadata_write, properties):
+        return {
+            self.openflow_to_ryu["table_tag"]: {
+                "config": config,
+                "max_entries": max_entries,
+                "metadata_match": metadata_match,
+                "metadata_write": metadata_write,
+                "name": name,
+                "properties": properties,
+                "table_id": table_id}}
 
     def create_table_feature(self, name, actions, type_id):
         new_table_feature = {}
@@ -164,7 +179,10 @@ class OpenflowToRyuTranslator(object):
                     action.pop("name")
                 new_array_instructions.append({action_id_name: action})
 
-        new_table_feature = {table_feature_name : {instruction_id_name: new_array_instructions, "type": type_id}}
+        new_table_feature = {
+            table_feature_name: {
+                instruction_id_name: new_array_instructions,
+                "type": type_id}}
 
         return new_table_feature
 
