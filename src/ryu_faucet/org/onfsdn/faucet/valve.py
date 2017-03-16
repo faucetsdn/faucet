@@ -29,7 +29,7 @@ import valve_host
 import valve_of
 import valve_packet
 import valve_route
-import util
+import valve_util
 
 from ryu.lib import mac
 from ryu.ofproto import ether
@@ -215,14 +215,14 @@ class Valve(object):
         if (self.dp is not None and
                 self.dp.ofchannel_log is not None):
             if self.ofchannel_logger is None:
-                self.ofchannel_logger = util.get_logger(
+                self.ofchannel_logger = valve_util.get_logger(
                     self.dp.ofchannel_log,
                     self.dp.ofchannel_log,
                     logging.DEBUG,
                     0)
             for i, ofmsg in enumerate(ofmsgs, start=1):
                 log_prefix = '%u/%u %s' % (
-                    i, len(ofmsgs), util.dpid_log(self.dp.dp_id))
+                    i, len(ofmsgs), valve_util.dpid_log(self.dp.dp_id))
                 self.ofchannel_logger.debug(
                     '%s %s', log_prefix, ofmsg)
                 # TODO: log group operations as well.
@@ -264,7 +264,7 @@ class Valve(object):
             bool: True if this datapath ID is not ours.
         """
         if dp_id != self.dp.dp_id:
-            self.logger.error('Unknown %s', util.dpid_log(dp_id))
+            self.logger.error('Unknown %s', valve_util.dpid_log(dp_id))
             return True
         return False
 
@@ -541,7 +541,7 @@ class Valve(object):
         """
         if self._ignore_dpid(dp_id):
             return []
-        self.logger.info('Configuring %s', util.dpid_log(dp_id))
+        self.logger.info('Configuring %s', valve_util.dpid_log(dp_id))
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         changed_ports = set([])
@@ -564,7 +564,7 @@ class Valve(object):
         """
         if not self._ignore_dpid(dp_id):
             self.dp.running = False
-            self.logger.warning('%s down', util.dpid_log(dp_id))
+            self.logger.warning('%s down', valve_util.dpid_log(dp_id))
 
     def _port_add_acl(self, port_num):
         ofmsgs = []
@@ -928,7 +928,7 @@ class Valve(object):
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.debug(
                 'Packet_in %s src:%s in_port:%d vid:%s',
-                util.dpid_log(dp_id),
+                valve_util.dpid_log(dp_id),
                 pkt_meta.eth_src,
                 pkt_meta.port.number,
                 pkt_meta.vlan.vid)

@@ -157,7 +157,7 @@ class GaugePortStateLogger(object):
     def start(self, ryudp):
         pass
 
-    def stop(self, ryudp):
+    def stop(self):
         pass
 
 

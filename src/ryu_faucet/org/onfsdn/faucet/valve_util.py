@@ -87,5 +87,10 @@ def get_logger(logname, logfile, loglevel, propagate):
     logger.setLevel(loglevel)
     return logger
 
+
 def dpid_log(dpid):
     return 'DPID %u (0x%x)' % (dpid, dpid)
+
+
+def btos(b_str):
+    return b_str.encode('utf-8').decode('utf-8', 'strict')

@@ -2662,7 +2662,7 @@ def pipeline_superset_report(root_tmpdir):
                 table_matches[table].update(eval(matches))
                 table_instructions[table].update(eval(instructions))
                 table_actions[table].update(eval(actions))
-    print()
+    print('')
     for table in sorted(table_matches):
         print('table: %u' % table)
         print('  matches: %s' % sorted(table_matches[table]))
