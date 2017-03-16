@@ -84,7 +84,7 @@ class Port(Conf):
         return hash(self) == hash(other)
 
     def __hash__(self):
-        items = [(k,v) for k, v in self.__dict__.items() if 'dyn' not in k]
+        items = [(k, v) for k, v in self.__dict__.items() if 'dyn' not in k]
         return hash(frozenset(map(str, items)))
 
     def __ne__(self, other):

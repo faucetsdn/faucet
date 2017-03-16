@@ -238,7 +238,7 @@ class ValveFloodManager(object):
             group_mod_method(group_id=group_id, buckets=broadcast_buckets))
         ofmsgs.append(
             group_mod_method(group_id=group_id+valve_of.VLAN_GROUP_OFFSET,
-                buckets=unicast_buckets))
+                             buckets=unicast_buckets))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst and not vlan.unicast_flood:
                 continue
