@@ -20,6 +20,7 @@ class LoadRyuTables(object):
             "OFPTableFeaturePropActions": "action_ids",
             "OFPTableFeaturePropOxm": "oxm_ids"}
         self.ryu_table_translator = OpenflowToRyuTranslator()
+        self.tables = None
 
     def _read_json_document(self, filename):
         try:
@@ -98,16 +99,17 @@ class LoadRyuTables(object):
         return instruction_array
 
 
-"""
-This script allows dynamically create a set of tables. Each table has a set of properties that allows take some actions
-depended of the incoming package. Those properties are defined ine th file "openflow_structure_tables.json", which are based on
-the openflow protocol version 1.3. Also, the fields allowed in each property are written in this file, each of those fields
-are accepted by the switch 5400.
-The output of this script is an json file with the tables well structure. This structure is converted from openflow structure
-to ryu structure using the file "ofproto_to_ryu.json", so the json file generated will be to the SDN ryu framework. But, if is
-necessary convert the structure to another sdn framework, you will only have to change the file ofproto_to_ryu.
-"""
-
+# This script allows dynamically create a set of tables. Each table has
+# a set of properties that allows take some actions depended of the
+# incoming package. Those properties are defined in the file
+# "openflow_structure_tables.json", which are based on the openflow protocol
+# version 1.3. Also, the fields allowed in each property are written in this
+# file, each of those fields are accepted by the switch 5400.
+# The output of this script is an json file with the tables well structure.
+# This structure is converted from openflow structure to ryu structure using
+# the file "ofproto_to_ryu.json", so the json file generated will be to the 
+# SDN ryu framework. But, if is necessary convert the structure to another
+# SDN framework, you will only have to change the file ofproto_to_ryu.
 class OpenflowToRyuTranslator(object):
 
     def __init__(self):
@@ -118,6 +120,7 @@ class OpenflowToRyuTranslator(object):
             self.openflow_to_ryu)
         # variable used to save the ryu structure tables
         self.tables = []
+        self.document_with_openflow_tables = None
 
     def set_json_document(self, filepath):
         self.document_with_openflow_tables = filepath
