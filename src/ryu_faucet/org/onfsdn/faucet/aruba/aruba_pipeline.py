@@ -1,7 +1,6 @@
 import inspect
 import json
 import os
-import sys
 
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ofproto_v1_3_parser
@@ -13,7 +12,7 @@ CFG_PATH = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe(
 class LoadRyuTables(object):
 
     def __init__(self):
-        self._ofproto_parser = None;
+        self._ofproto_parser = None
         self.ryu_tables = []
         self._class_name_to_name_ids = {"OFPTableFeaturePropInstructions":"instruction_ids",
                                         "OFPTableFeaturePropNextTables":"table_ids",
@@ -43,7 +42,7 @@ class LoadRyuTables(object):
         self.ryu_tables = []
         self._ofproto_parser = ofproto_parser
         self.tables = self._read_json_document(filename)
-        if (self.tables == None):
+        if self.tables == None:
             return
         self.ryu_tables = self._create_tables(self.tables)
 
@@ -90,10 +89,10 @@ class LoadRyuTables(object):
     def _create_instructions(self, instruction_ids_information):
         instruction_array = []
         for instruction in instruction_ids_information:
-            if (isinstance( instruction, dict )):
+            if isinstance(instruction, dict):
                 for key, value in instruction.items():
                     instruction_class = getattr(self._ofproto_parser, key)
-                    if (isinstance(value["type"], unicode)):
+                    if isinstance(value["type"], unicode):
                         value["type"] = str(value["type"])
                     value["type_"] = value.pop("type")
                     new_instruction = instruction_class(**value)
@@ -199,6 +198,4 @@ class CustomJson(object):
         return python_object_result
 
     def save_document(self, filepath, information):
-        file = open(filepath, "w+")
-        file.write(information)
-        file.close()
+        open(filepath, 'w+').write(information)
