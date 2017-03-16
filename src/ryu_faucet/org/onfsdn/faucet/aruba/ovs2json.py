@@ -99,9 +99,9 @@ JSON_FIELDS = {
     'arp_op':'arp_op', 'arp_spa':'arp_spa', 'arp_tpa':'arp_tpa', 'arp_sha':'arp_sha', 'arp_tha':'arp_tha',
     'ipv6_src':'ipv6_src', 'ipv6_dst':'ipv6_dst', 'ipv6_label':'ipv6_flabel', 'nd_target':'ipv6_nd_target'}
 if sorted(JSON_FIELDS.keys()) != sorted(OVS_MATCH_FIELDS.keys()):
-   print('ERROR: Key mismatch between JSON_FIELDS and OVS_MATCH_FIELDS:\n')
-   print(set(JSON_FIELDS.keys()).symmetric_difference(set(OVS_MATCH_FIELDS.keys())))
-   exit(2)
+    print('ERROR: Key mismatch between JSON_FIELDS and OVS_MATCH_FIELDS:\n')
+    print(set(JSON_FIELDS.keys()).symmetric_difference(set(OVS_MATCH_FIELDS.keys())))
+    exit(2)
 
 # Fields which HPE Aruba supports as setfield in any pipeline (keyed with RYU field names, not OVS)
 ARUBA_SETFIELDS = [
@@ -129,15 +129,14 @@ if len(sys.argv) < 2:
    exit(1)
 
 # Allocate variables which will hold data extracted from OVS output
-TABLE_MATCH = { } # Table ID key, value is a list of exact match keys
-TABLE_WILDCARDS = { } # Table ID key, value is a list of wildcardable match keys
-TABLE_MASKS = { } # Table ID key, value is a list of maskable match keys
-TABLE_SIZE = { } # Table ID key, value is number of flows in table
+TABLE_MATCH = {} # Table ID key, value is a list of exact match keys
+TABLE_WILDCARDS = {} # Table ID key, value is a list of wildcardable match keys
+TABLE_MASKS = {} # Table ID key, value is a list of maskable match keys
+TABLE_SIZE = {} # Table ID key, value is number of flows in table
 
 # Iterate over all lines of the file, gathering data
 debug("=== Per-flow pipeline analysis ===")
-file=sys.argv[1]
-input = open(file)
+input = open(open(sys.argv[1]))
 for line in input:
    # Skip empty lines
    line = line.rstrip().lstrip()
@@ -166,10 +165,10 @@ for line in input:
       match = data
 
    # Verify that we found both table ID and match data
-   if table == None:
+   if table is None:
       debug("Failed to identify table ID in line:\n "+line)
       continue
-   if match == None:
+   if match is None:
       debug("Failed to identify match data in line:\n "+line)
       continue
 
@@ -261,7 +260,7 @@ if not '0' in TABLE_SIZE:
    error("Table 0 was not used, but is required by the OpenFlow specification")
 
 # Get a numerically-sorted list of table IDs
-tables=TABLE_SIZE.keys()
+tables = TABLE_SIZE.keys()
 tables.sort(key=int)
 
 # Display and analyze gathered data to check for unsupported conditions
@@ -400,17 +399,19 @@ for table in tables:
    # all other tables will support all actions, so generate the same action
    # criteria, regardless of what the flows actually tried to use.
    genericSetfields = ['{"type":"'+f+'","name":"'+f+'"}' for f in ARUBA_SETFIELDS]
-   genericActions = ['{"type":0,"name":"OFPAT_OUTPUT"}',
-                     '{"type":17,"name":"OFPAT_PUSH_VLAN"}',
-                     '{"type":18,"name":"OFPAT_POP_VLAN"}',
-                     '{"type":22,"name":"OFPAT_GROUP"}',
-                     '{"type":23,"name":"OFPAT_SET_NW_TTL"}',
-                     '{"type":25,"name":"OFPAT_SET_FIELD"}'];
-   genericInstructions = ['{"type":1,"name":"OFPIT_GOTO_TABLE"}',
-                         '{"type":3,"name":"OFPIT_WRITE_ACTIONS"}',
-                         '{"type":4,"name":"OFPIT_APPLY_ACTIONS"}',
-                         '{"type":5,"name":"OFPIT_CLEAR_ACTIONS"}',
-                         '{"type":6,"name":"OFPIT_METER"}'];
+   genericActions = [
+       '{"type":0,"name":"OFPAT_OUTPUT"}',
+       '{"type":17,"name":"OFPAT_PUSH_VLAN"}',
+       '{"type":18,"name":"OFPAT_POP_VLAN"}',
+       '{"type":22,"name":"OFPAT_GROUP"}',
+       '{"type":23,"name":"OFPAT_SET_NW_TTL"}',
+       '{"type":25,"name":"OFPAT_SET_FIELD"}']
+   genericInstructions = [
+       '{"type":1,"name":"OFPIT_GOTO_TABLE"}',
+       '{"type":3,"name":"OFPIT_WRITE_ACTIONS"}',
+       '{"type":4,"name":"OFPIT_APPLY_ACTIONS"}',
+       '{"type":5,"name":"OFPIT_CLEAR_ACTIONS"}',
+       '{"type":6,"name":"OFPIT_METER"}']
    genericProps = ['{ "type":0, "name":"OFPTFPT_INSTRUCTIONS", "instruction_ids" : [ '+','.join(genericInstructions)+' ] }',
                    '{ "type":1, "name":"OFPTFPT_INSTRUCTIONS_MISS", "instruction_ids" : [ '+','.join(genericInstructions)+' ] }',
                    '{ "type":4, "name":"OFPTFPT_WRITE_ACTIONS", "action_ids" : [ '+','.join(genericActions)+' ] }',
@@ -420,7 +421,7 @@ for table in tables:
                    '{ "type":12, "name":"OFPTFPT_WRITE_SETFIELD", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
                    '{ "type":13, "name":"OFPTFPT_WRITE_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
                    '{ "type":14, "name":"OFPTFPT_APPLY_SETFIELD", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
-                   '{ "type":15, "name":"OFPTFPT_APPLY_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }'];
+                   '{ "type":15, "name":"OFPTFPT_APPLY_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }']
    genericProps = ','.join(genericProps)
 
    # Remove GOTO from last table
