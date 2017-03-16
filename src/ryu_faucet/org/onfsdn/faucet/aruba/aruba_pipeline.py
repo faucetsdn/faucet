@@ -14,10 +14,11 @@ class LoadRyuTables(object):
     def __init__(self):
         self._ofproto_parser = None
         self.ryu_tables = []
-        self._class_name_to_name_ids = {"OFPTableFeaturePropInstructions":"instruction_ids",
-                                        "OFPTableFeaturePropNextTables":"table_ids",
-                                        "OFPTableFeaturePropActions":"action_ids",
-                                        "OFPTableFeaturePropOxm":"oxm_ids"}
+        self._class_name_to_name_ids = {
+            "OFPTableFeaturePropInstructions": "instruction_ids",
+            "OFPTableFeaturePropNextTables": "table_ids",
+            "OFPTableFeaturePropActions": "action_ids",
+            "OFPTableFeaturePropOxm": "oxm_ids"}
         self.ryu_table_translator = OpenflowToRyuTranslator()
 
     def _read_json_document(self, filename):
@@ -33,24 +34,21 @@ class LoadRyuTables(object):
             python_object_result = None
         return python_object_result
 
-    """
-    method that will load the json file with the information of the tables
-    to convert a json file into a ryu object with all the tables
-        ofproto: it is the protocol used by the library. Also, this library was test with ofproto_v1_3_parser
-    """
+    # method that will load the json file with the information of the tables
+    # to convert a json file into a ryu object with all the tables
+    #    ofproto: it is the protocol used by the library.
+    #       Also, this library was test with ofproto_v1_3_parser
     def load_tables(self, filename, ofproto_parser):
         self.ryu_tables = []
         self._ofproto_parser = ofproto_parser
         self.tables = self._read_json_document(filename)
-        if self.tables == None:
+        if self.tables is None:
             return
         self.ryu_tables = self._create_tables(self.tables)
 
-    """
-    this method will create a table with all the stuff that ryu needs
-    like name, config, max entries, id, and properties. Note that it is only
-    processes tables, properties are processed by the function create_features
-    """
+    # this method will create a table with all the stuff that ryu needs
+    # like name, config, max entries, id, and properties. Note that it is only
+    # processes tables, properties are processed by the function create_features
     def _create_tables(self, tables_information):
         table_array = []
         for table in tables_information:
@@ -62,14 +60,13 @@ class LoadRyuTables(object):
                 properties = self._create_features(value["properties"])
                 value["properties"] = properties
                 value["name"] = str(value["name"])
-                #value is a dictionary, with ** it will expand it content to arguments
+                # value is a dictionary, with ** it will expand
+                # it content to arguments
                 new_table = table_class(**value)
                 table_array.append(new_table)
         return table_array
 
-    """
-    same as create_tables, but it will process the properties of each table
-    """
+    # same as create_tables, but it will process the properties of each table
     def _create_features(self, table_features_information):
         features_array = []
         for feature in table_features_information:
@@ -83,9 +80,7 @@ class LoadRyuTables(object):
                 features_array.append(new_feature)
         return features_array
 
-    """
-    it will process the instructions or fields of each property
-    """
+    # it will process the instructions or fields of each property
     def _create_instructions(self, instruction_ids_information):
         instruction_array = []
         for instruction in instruction_ids_information:
@@ -117,24 +112,18 @@ class OpenflowToRyuTranslator(object):
 
     def __init__(self):
         self.custom_json = CustomJson()
-        """
-        file with the variables in openflow to map them into Ryu variables
-        """
+        # file with the variables in openflow to map them into Ryu variables
         self.openflow_to_ryu = CFG_PATH  + "/ofproto_to_ryu.json"
         self.openflow_to_ryu = self.custom_json.read_json_document(self.openflow_to_ryu)
-
-        """
-        variable used to save the ryu structure tables
-        """
+        # variable used to save the ryu structure tables
         self.tables = []
 
     def set_json_document(self, filepath):
         self.document_with_openflow_tables = filepath
         self.document_with_openflow_tables = self.custom_json.read_json_document(self.document_with_openflow_tables)
 
-    """
-    The following functions are used to create the final structure (same structure that use ryu library)
-    """
+    # The following functions are used to create the final structure
+    # (same structure that use ryu library)
     def create_ryu_structure(self):
         table_properties = []
         self.tables = []
