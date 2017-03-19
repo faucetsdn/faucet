@@ -157,7 +157,7 @@ On the faucet configuration file (/etc/ryu/faucet/faucet.yaml), add the datapath
 	                native_vlan: 100
 	                name: "port2"
 
-The `aruba_pipeline.json <https://github.com/REANNZ/faucet/blob/master/src/ryu_faucet/org/onfsdn/faucet/aruba/aruba_pipeline.json>`_ file holds the OpenFlow pipeline that is pushed to the switch by faucet once it connects to an Aruba switch.
+The `aruba_pipeline.json </faucet/aruba/aruba_pipeline.json>`_ file holds the OpenFlow pipeline that is pushed to the switch by faucet once it connects to an Aruba switch.
 Any changes to the faucet pipeline will need an update to the pipeline inside the json file as well.
 
 -----
@@ -187,7 +187,7 @@ There are 2000 entries available globally for the whole pipeline. Currently, it 
 | FLOOD          | 300              |
 +----------------+------------------+
 
-Based on one's deployment needs, these numbers can be updated for each table (update max_entries in $(REPO_ROOT)/src/ryu_faucet/org/onfsdn/faucet/aruba/aruba_pipeline.json).
+Based on one's deployment needs, these numbers can be updated for each table (update max_entries in $(REPO_ROOT)/faucet/aruba/aruba_pipeline.json).
 
 ::
 
@@ -203,7 +203,7 @@ Limitations
 
 ::
 
-	diff --git a/src/ryu_faucet/org/onfsdn/faucet/valve_route.py b/src/ryu_faucet/org/onfsdn/faucet/valve_route.py
+	diff --git a/faucet/valve_route.py b/faucet/valve_route.py
 	index 0c6a27c..6513556 100644
 	--- a/src/ryu_faucet/org/onfsdn/faucet/valve_route.py
 	+++ b/src/ryu_faucet/org/onfsdn/faucet/valve_route.py

@@ -21,7 +21,7 @@ docker run -d \
     --name faucet \
     -v <path-to-config-dir>:/etc/ryu/faucet/ \
     -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6633:6633 \
+    -p 6653:6653 \
     faucet/faucet
 ```
 
@@ -33,7 +33,7 @@ docker run -d \
     --name gauge \
     -v <path-to-config-dir>:/etc/ryu/faucet/ \
     -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6634:6633 \
+    -p 6654:6653 \
     faucet/gauge
 ```
 
@@ -51,11 +51,11 @@ docker run -d \
     --name faucet \
     -v <path-to-config-dir>:/etc/ryu/faucet/ \
     -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6633:6633 \
+    -p 6653:6653 \
     reannz/faucet
 ```
 
-By default it listens on port 6633 for an OpenFlow switch to connect. Faucet
+By default it listens on port 6653 for an OpenFlow switch to connect. Faucet
 expects to find the configuration file faucet.yaml in the config folder. If
 needed the -e option can be used to specify the names of files with the
 FAUCET\_LOG, FAUCET\_EXCEPTION\_LOG, FAUCET\_CONFIG environment variables.
@@ -88,10 +88,10 @@ docker run -d \
     --name gauge \
     -v <path-to-config-dir>:/etc/ryu/faucet/ \
     -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6634:6633 \
+    -p 6654:6653 \
     reannz/gauge
 ```
-By default listens on port 6633. If you are running this with
+By default listens on port 6653. If you are running this with
 Faucet you will need to modify the port one of the containers listens on and
 configure your switches to talk to both. The faucet
 configuration file faucet.yaml should be placed in the config directory, this
