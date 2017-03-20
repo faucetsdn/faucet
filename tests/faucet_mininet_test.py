@@ -1012,7 +1012,7 @@ vlans:
             '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
         # Unicast flood rule exists that output to port 1
         self.assertTrue(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
 
 
 class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
@@ -1047,7 +1047,7 @@ vlans:
             '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
         # No unicast flood rule exists that output to port 1
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
 
 
 class FaucetUntaggedPortUnicastFloodTest(FaucetUntaggedTest):
@@ -1085,7 +1085,7 @@ vlans:
             '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
         # No unicast flood rule exists that output to port 1
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
 
 
 class FaucetUntaggedNoPortUnicastFloodTest(FaucetUntaggedTest):
@@ -1123,9 +1123,9 @@ vlans:
             '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
         # Unicast flood rules present that output to port 2, but NOT to port 1
         self.assertTrue(self.matching_flow_present(
-            '"OUTPUT:2".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_2)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
 
 
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
