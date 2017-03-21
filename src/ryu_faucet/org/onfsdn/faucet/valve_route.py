@@ -190,10 +190,8 @@ class ValveRouteManager(object):
             group_id = self._group_id_from_ip_gw(resolved_ip_gw)
             self.ip_gw_to_group_id[resolved_ip_gw] = group_id
             ofmsgs.append(valve_of.groupdel(group_id=group_id))
-            ofmsgs.append(valve_of.barrier())
         ofmsgs.append(
             group_mod_method(group_id=group_id, buckets=buckets))
-        ofmsgs.append(valve_of.barrier())
         return ofmsgs
 
     def _update_nexthop(self, vlan, in_port, eth_src, resolved_ip_gw):

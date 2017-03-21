@@ -349,15 +349,21 @@ class Valve(object):
         # TODO: further optimizations may be possible - for example,
         # reorder adds to be in priority order.
         delete_ofmsgs = []
+        groupadd_ofmsgs = []
         nondelete_ofmsgs = []
         for ofmsg in input_ofmsgs:
-            if valve_of.is_flowdel(ofmsg):
+            if valve_of.is_flowdel(ofmsg) or valve_of.is_groupdel(ofmsg):
                 delete_ofmsgs.append(ofmsg)
+            elif valve_of.is_groupadd(ofmsg):
+                groupadd_ofmsgs.append(ofmsg)
             else:
                 nondelete_ofmsgs.append(ofmsg)
         output_ofmsgs = []
         if delete_ofmsgs:
             output_ofmsgs.extend(delete_ofmsgs)
+            output_ofmsgs.append(valve_of.barrier())
+        if groupadd_ofmsgs:
+            output_ofmsgs.extend(groupadd_ofmsgs)
             output_ofmsgs.append(valve_of.barrier())
         output_ofmsgs.extend(nondelete_ofmsgs)
         return output_ofmsgs
@@ -369,7 +375,6 @@ class Valve(object):
             ofmsgs.extend(self.valve_flowdel(table_id))
         if self.dp.group_table:
             ofmsgs.append(valve_of.groupdel())
-        ofmsgs.append(valve_of.barrier())
         return ofmsgs
 
     def _delete_all_port_match_flows(self, port):
