@@ -248,7 +248,7 @@ class Valve(object):
                 and table_id != self.dp.vlan_acl_table:
             assert table_id in self.TABLE_MATCH_TYPES,\
                 '%u table not registered' % table_id
-            for match_type in match_dict.keys():
+            for match_type in match_dict:
                 assert match_type in self.TABLE_MATCH_TYPES[table_id],\
                     '%s match not registered for table %u' % (
                         match_type, table_id)

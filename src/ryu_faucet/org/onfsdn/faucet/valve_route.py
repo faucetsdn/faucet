@@ -127,7 +127,7 @@ class ValveRouteManager(object):
         if self.routers:
             in_match = self.valve_in_match(
                 self.fib_table, vlan=AnyVlan(),
-                eth_type=self._eth_type(), nw_dst=ip_dst) 
+                eth_type=self._eth_type(), nw_dst=ip_dst)
         else:
             in_match = self.valve_in_match(
                 self.fib_table, vlan=vlan,

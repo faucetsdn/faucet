@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 #
 # (c) Copyright 2016 Hewlett Packard Enterprise Development LP
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -42,7 +42,7 @@ OVS_MATCH_FIELDS = {
     'tcp_flags':899, 'icmp_type':900, 'icmp_code':901,
     # Nicira extensions
     'arp_op':902, 'arp_spa':903, 'arp_tpa':904, 'arp_sha':905, 'arp_tha':906,
-    'ipv6_src':2, 'ipv6_dst':3, 'ipv6_label':907, 'nd_target':908 }
+    'ipv6_src':2, 'ipv6_dst':3, 'ipv6_label':907, 'nd_target':908}
 
 # Match fields which are not supported by HPE Aruba switches,
 # regardless of the pipeline configuration.
@@ -61,28 +61,29 @@ OVS_UNSUPPORTED_MATCH = [
 OVS_KNOWN_MATCH = set(OVS_MATCH_FIELDS.keys()).union(set(OVS_UNSUPPORTED_MATCH))
 
 # OVS match abbreviations, keyed to what they abbreviate
-OVS_MATCH_ABBREV = { 'ip' : 'dl_type=0x0800',
-                 'ipv6' : 'dl_type=0x86dd',
-                 'icmp' : 'dl_type=0x0800,nw_proto=1',
-                 'icmp6' : 'dl_type=0x86dd,nw_proto=58',
-                 'tcp' : 'dl_type=0x0800,nw_proto=6',
-                 'tcp6' : 'dl_type=0x86dd,nw_proto=6',
-                 'udp' : 'dl_type=0x0800,nw_proto=17',
-                 'udp6' : 'dl_type=0x86dd,nw_proto=17',
-                 'sctp' : 'dl_type=0x0800,nw_proto=132',
-                 'sctp6' : 'dl_type=0x86dd,nw_proto=132',
-                 'arp' : 'dl_type=0x0806',
-                 'rarp' : 'dl_type=0x8035',
-                 'mpls' : 'dl_type=0x8847',
-                 'mplsm' : 'dl_type=0x8848',
-                 # Assume deprecated tp_src/dst are UDP (to avoid complicated parsing)
-                 'tp_src' : 'udp_src',
-                 'tp_dst' : 'udp_dst',
-                 # Special case use of vlan_tci to match packets without a VLAN tag,
-                 # to dl_vlan=0. Per OF1.3.3 spec p.117:
-                 #   - Testing for an exact match with 0x0 matches only packets without
-                 #   * an 802.1Q header.
-                 'vlan_tci=0x0000/0x1fff' : 'dl_vlan=0' }
+OVS_MATCH_ABBREV = {
+    'ip': 'dl_type=0x0800',
+    'ipv6': 'dl_type=0x86dd',
+    'icmp': 'dl_type=0x0800,nw_proto=1',
+    'icmp6': 'dl_type=0x86dd,nw_proto=58',
+    'tcp': 'dl_type=0x0800,nw_proto=6',
+    'tcp6': 'dl_type=0x86dd,nw_proto=6',
+    'udp': 'dl_type=0x0800,nw_proto=17',
+    'udp6': 'dl_type=0x86dd,nw_proto=17',
+    'sctp': 'dl_type=0x0800,nw_proto=132',
+    'sctp6': 'dl_type=0x86dd,nw_proto=132',
+    'arp': 'dl_type=0x0806',
+    'rarp': 'dl_type=0x8035',
+    'mpls': 'dl_type=0x8847',
+    'mplsm': 'dl_type=0x8848',
+    # Assume deprecated tp_src/dst are UDP (to avoid complicated parsing)
+    'tp_src': 'udp_src',
+    'tp_dst': 'udp_dst',
+    # Special case use of vlan_tci to match packets without a VLAN tag,
+    # to dl_vlan=0. Per OF1.3.3 spec p.117:
+    #   - Testing for an exact match with 0x0 matches only packets without
+    #   * an 802.1Q header.
+    'vlan_tci=0x0000/0x1fff': 'dl_vlan=0'}
 
 # Conversion from OVS field name to RYU field name. Keys should be identical
 # to the keys in OVS_MATCH_FIELDS.
@@ -96,15 +97,16 @@ JSON_FIELDS = {
     'tcp_flags':'tcp_flags', 'icmp_type':'icmpv4_type', 'icmp_code':'icmpv4_code',
     # Nicira extensions
     'arp_op':'arp_op', 'arp_spa':'arp_spa', 'arp_tpa':'arp_tpa', 'arp_sha':'arp_sha', 'arp_tha':'arp_tha',
-    'ipv6_src':'ipv6_src', 'ipv6_dst':'ipv6_dst', 'ipv6_label':'ipv6_flabel', 'nd_target':'ipv6_nd_target' }
+    'ipv6_src':'ipv6_src', 'ipv6_dst':'ipv6_dst', 'ipv6_label':'ipv6_flabel', 'nd_target':'ipv6_nd_target'}
 if sorted(JSON_FIELDS.keys()) != sorted(OVS_MATCH_FIELDS.keys()):
-   print('ERROR: Key mismatch between JSON_FIELDS and OVS_MATCH_FIELDS:\n')
-   print(set(JSON_FIELDS.keys()).symmetric_difference(set(OVS_MATCH_FIELDS.keys())))
-   exit(2)
+    print('ERROR: Key mismatch between JSON_FIELDS and OVS_MATCH_FIELDS:\n')
+    print(set(JSON_FIELDS.keys()).symmetric_difference(set(OVS_MATCH_FIELDS.keys())))
+    exit(2)
 
 # Fields which HPE Aruba supports as setfield in any pipeline (keyed with RYU field names, not OVS)
-ARUBA_SETFIELDS = ['eth_dst', 'eth_src', 'vlan_vid', 'vlan_pcp', 'ip_dscp', 'ipv4_src', 'ipv4_dst',
-                   'tcp_src', 'tcp_dst', 'udp_src', 'udp_dst']
+ARUBA_SETFIELDS = [
+    'eth_dst', 'eth_src', 'vlan_vid', 'vlan_pcp', 'ip_dscp',
+    'ipv4_src', 'ipv4_dst', 'tcp_src', 'tcp_dst', 'udp_src', 'udp_dst']
 
 DEBUG = ('DEBUG' in os.environ)
 GENERATE_JSON = True
@@ -127,23 +129,22 @@ if len(sys.argv) < 2:
    exit(1)
 
 # Allocate variables which will hold data extracted from OVS output
-TABLE_MATCH = { } # Table ID key, value is a list of exact match keys
-TABLE_WILDCARDS = { } # Table ID key, value is a list of wildcardable match keys
-TABLE_MASKS = { } # Table ID key, value is a list of maskable match keys
-TABLE_SIZE = { } # Table ID key, value is number of flows in table
+TABLE_MATCH = {} # Table ID key, value is a list of exact match keys
+TABLE_WILDCARDS = {} # Table ID key, value is a list of wildcardable match keys
+TABLE_MASKS = {} # Table ID key, value is a list of maskable match keys
+TABLE_SIZE = {} # Table ID key, value is number of flows in table
 
 # Iterate over all lines of the file, gathering data
 debug("=== Per-flow pipeline analysis ===")
-file=sys.argv[1]
-input = open(file)
+input = open(open(sys.argv[1]))
 for line in input:
    # Skip empty lines
    line = line.rstrip().lstrip()
    if "" == line:
       continue
 
-   #debug("FLOW: "+line)
-   line_data = re.split('\s+', line)
+   # debug("FLOW: "+line)
+   line_data = re.split(r'\s+', line)
    errors = 0
    table = None
    match = None
@@ -155,7 +156,7 @@ for line in input:
 
       # Store the numeric table ID
       table = data.split('=')[1]
-      table = re.sub("\D", '', table)
+      table = re.sub(r'\D', '', table)
 
    # Identify match criteria
    for data in line_data:
@@ -164,10 +165,10 @@ for line in input:
       match = data
 
    # Verify that we found both table ID and match data
-   if table == None:
+   if table is None:
       debug("Failed to identify table ID in line:\n "+line)
       continue
-   if match == None:
+   if match is None:
       debug("Failed to identify match data in line:\n "+line)
       continue
 
@@ -240,7 +241,7 @@ for line in input:
    TABLE_WILDCARDS[table] = set(wildcard).union(TABLE_WILDCARDS[table])
    TABLE_MASKS[table] = TABLE_MASKS[table].union(masks)
 
-input.close()   
+input.close()
 
 # Globals used in validation
 debug("\n=== Global and per-table pipeline analysis ===")
@@ -259,7 +260,7 @@ if not '0' in TABLE_SIZE:
    error("Table 0 was not used, but is required by the OpenFlow specification")
 
 # Get a numerically-sorted list of table IDs
-tables=TABLE_SIZE.keys()
+tables = TABLE_SIZE.keys()
 tables.sort(key=int)
 
 # Display and analyze gathered data to check for unsupported conditions
@@ -268,7 +269,7 @@ hash_tiles = 0
 for table in tables:
    # Get all fields being matched
    size = TABLE_SIZE[table]
-   exact = TABLE_MATCH[table] 
+   exact = TABLE_MATCH[table]
    wildcard = TABLE_WILDCARDS[table]
    mask = TABLE_MASKS[table]
    all_matches = exact.union(wildcard).union(mask)
@@ -291,12 +292,12 @@ for table in tables:
       debug("  wildcards: "+str(sorted(list(wildcard))))
    if len(mask) > 0:
       debug("  maskable: "+str(sorted(list(mask))))
-   
+
    # Determine number of match groups
    groups = [OVS_MATCH_FIELDS[m] for m in all_matches]
    groups = set(groups)
    gc = len(groups)
-   
+
    # Automatically upconvert Hash->TCAM if attempting to match 4 groups in hash
    if len(wildcard) == 0 and len(mask) == 0 and gc == 4:
       wildcard = exact.copy()
@@ -357,7 +358,7 @@ JSON = '['
 for table in tables:
    # Get all fields being matched
    size = str(TABLE_SIZE[table])
-   exact = TABLE_MATCH[table] 
+   exact = TABLE_MATCH[table]
    wildcard = TABLE_WILDCARDS[table]
    mask = TABLE_MASKS[table]
    all_matches = exact.union(wildcard).union(mask)
@@ -378,7 +379,7 @@ for table in tables:
       if m in mask:
          hasmask = ' , "hasmask": true'
       JSON += '{ "type": "'+JSON_FIELDS[m]+'", "name": "'+JSON_FIELDS[m]+'"'+hasmask+' },'
-   
+
    # Trim trailing common from last match
    if len(all_matches) > 0:
       JSON = JSON.rstrip(',')
@@ -398,17 +399,19 @@ for table in tables:
    # all other tables will support all actions, so generate the same action
    # criteria, regardless of what the flows actually tried to use.
    genericSetfields = ['{"type":"'+f+'","name":"'+f+'"}' for f in ARUBA_SETFIELDS]
-   genericActions = ['{"type":0,"name":"OFPAT_OUTPUT"}',
-                     '{"type":17,"name":"OFPAT_PUSH_VLAN"}',
-                     '{"type":18,"name":"OFPAT_POP_VLAN"}',
-                     '{"type":22,"name":"OFPAT_GROUP"}',
-                     '{"type":23,"name":"OFPAT_SET_NW_TTL"}',
-                     '{"type":25,"name":"OFPAT_SET_FIELD"}'];
-   genericInstructions = ['{"type":1,"name":"OFPIT_GOTO_TABLE"}',
-                         '{"type":3,"name":"OFPIT_WRITE_ACTIONS"}',
-                         '{"type":4,"name":"OFPIT_APPLY_ACTIONS"}',
-                         '{"type":5,"name":"OFPIT_CLEAR_ACTIONS"}',
-                         '{"type":6,"name":"OFPIT_METER"}'];
+   genericActions = [
+       '{"type":0,"name":"OFPAT_OUTPUT"}',
+       '{"type":17,"name":"OFPAT_PUSH_VLAN"}',
+       '{"type":18,"name":"OFPAT_POP_VLAN"}',
+       '{"type":22,"name":"OFPAT_GROUP"}',
+       '{"type":23,"name":"OFPAT_SET_NW_TTL"}',
+       '{"type":25,"name":"OFPAT_SET_FIELD"}']
+   genericInstructions = [
+       '{"type":1,"name":"OFPIT_GOTO_TABLE"}',
+       '{"type":3,"name":"OFPIT_WRITE_ACTIONS"}',
+       '{"type":4,"name":"OFPIT_APPLY_ACTIONS"}',
+       '{"type":5,"name":"OFPIT_CLEAR_ACTIONS"}',
+       '{"type":6,"name":"OFPIT_METER"}']
    genericProps = ['{ "type":0, "name":"OFPTFPT_INSTRUCTIONS", "instruction_ids" : [ '+','.join(genericInstructions)+' ] }',
                    '{ "type":1, "name":"OFPTFPT_INSTRUCTIONS_MISS", "instruction_ids" : [ '+','.join(genericInstructions)+' ] }',
                    '{ "type":4, "name":"OFPTFPT_WRITE_ACTIONS", "action_ids" : [ '+','.join(genericActions)+' ] }',
@@ -418,7 +421,7 @@ for table in tables:
                    '{ "type":12, "name":"OFPTFPT_WRITE_SETFIELD", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
                    '{ "type":13, "name":"OFPTFPT_WRITE_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
                    '{ "type":14, "name":"OFPTFPT_APPLY_SETFIELD", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
-                   '{ "type":15, "name":"OFPTFPT_APPLY_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }'];
+                   '{ "type":15, "name":"OFPTFPT_APPLY_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }']
    genericProps = ','.join(genericProps)
 
    # Remove GOTO from last table
@@ -426,7 +429,7 @@ for table in tables:
    remaining_tables = set(TABLE_SIZE.keys()).difference(prev_tables)
    lastTable = (len(remaining_tables) == 0)
    if lastTable:
-      genericProps = ''.join(genericProps.rsplit('{"type":1,"name":"OFPIT_GOTO_TABLE"}, ', 1)) 
+      genericProps = ''.join(genericProps.rsplit('{"type":1,"name":"OFPIT_GOTO_TABLE"}, ', 1))
    JSON += genericProps+','
 
    JSON += '{ "type":2, "name": "OFPTFPT_NEXT_TABLES", "table_ids": [ '+','.join(remaining_tables)+' ] },'
