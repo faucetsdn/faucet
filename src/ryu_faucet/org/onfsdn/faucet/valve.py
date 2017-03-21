@@ -355,7 +355,21 @@ class Valve(object):
             if valve_of.is_flowdel(ofmsg) or valve_of.is_groupdel(ofmsg):
                 delete_ofmsgs.append(ofmsg)
             elif valve_of.is_groupadd(ofmsg):
-                groupadd_ofmsgs.append(ofmsg)
+                # The same group_id may be deleted/added multiple times
+                # To avoid group_mod_failed/group_exists error, if the
+                # same group_id is already in groupadd_ofmsgs I replace
+                # it instead of appending it (the last groupadd in
+                # input_ofmsgs is the only one sent to the switch)
+                # TODO: optimize the provisioning to avoid having the
+                # same group_id multiple times in input_ofmsgs
+                new_group_id = True
+                for idx in xrange(len(groupadd_ofmsgs)):
+                    if groupadd_ofmsgs[idx].group_id == ofmsg.group_id:
+                        groupadd_ofmsgs[idx] = ofmsg
+                        new_group_id = False
+                        break
+                if new_group_id:
+                    groupadd_ofmsgs.append(ofmsg)
             else:
                 nondelete_ofmsgs.append(ofmsg)
         output_ofmsgs = []
