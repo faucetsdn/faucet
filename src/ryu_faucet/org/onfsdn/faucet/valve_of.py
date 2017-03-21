@@ -53,6 +53,17 @@ def is_flowmod(ofmsg):
     return isinstance(ofmsg, parser.OFPFlowMod)
 
 
+def is_groupmod(ofmsg):
+    """Return True if OF message is a GroupMod.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a GroupMod
+    """
+    return isinstance(ofmsg, parser.OFPGroupMod)
+
+
 def is_flowdel(ofmsg):
     """Return True if flow message is a FlowMod and a delete.
 
@@ -64,6 +75,34 @@ def is_flowdel(ofmsg):
     if (is_flowmod(ofmsg) and
             (ofmsg.command == ofp.OFPFC_DELETE or
              ofmsg.command == ofp.OFPFC_DELETE_STRICT)):
+        return True
+    return False
+
+
+def is_groupdel(ofmsg):
+    """Return True if OF message is a GroupMod and command is delete.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a GroupMod delete
+    """
+    if (is_groupmod(ofmsg) and
+            (ofmsg.command == ofp.OFPGC_DELETE)):
+        return True
+    return False
+
+
+def is_groupadd(ofmsg):
+    """Return True if OF message is a GroupMod and command is add.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a GroupMod add
+    """
+    if (is_groupmod(ofmsg) and
+            (ofmsg.command == ofp.OFPGC_ADD)):
         return True
     return False
 
