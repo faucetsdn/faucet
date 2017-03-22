@@ -21,7 +21,7 @@ import tempfile
 import unittest
 
 
-SRC_DIR = '../src/ryu_faucet/org/onfsdn/faucet'
+SRC_DIR = '../faucet'
 
 
 class CheckConfigTestCase(unittest.TestCase):
@@ -37,7 +37,7 @@ class CheckConfigTestCase(unittest.TestCase):
     def run_check_config(self, config):
         conf_file = os.path.join(self.tmpdir, 'faucet.yaml')
         open(conf_file, 'w').write(config)
-        return os.system('%s %s' % (self.CHECK_CONFIG, conf_file))
+        return os.system('python %s %s' % (self.CHECK_CONFIG, conf_file))
 
     def check_config_success(self, config):
         self.assertEquals(0, self.run_check_config(config))

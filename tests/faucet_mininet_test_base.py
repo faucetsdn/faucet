@@ -62,7 +62,7 @@ class FAUCET(BaseFAUCET):
         self.controller_intf = controller_intf
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
             ports_sock)
-        command = 'ryu-manager ryu.app.ofctl_rest faucet.py'
+        command = 'PYTHONPATH=../ ryu-manager ryu.app.ofctl_rest faucet.faucet'
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
@@ -84,7 +84,7 @@ class Gauge(BaseFAUCET):
         name = 'gauge-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
-        command = 'ryu-manager gauge.py'
+        command = 'PYTHONPATH=../ ryu-manager faucet.gauge'
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
@@ -103,8 +103,7 @@ class FaucetAPI(Controller):
 
     def __init__(self, name, **kwargs):
         name = 'faucet-api-%u' % os.getpid()
-        command = 'ryu-manager %s/faucet.py test_api.py' % (
-            faucet_mininet_test_util.FAUCET_DIR)
+        command = 'PYTHONPATH=../ ryu-manager faucet.faucet test_api.py'
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
