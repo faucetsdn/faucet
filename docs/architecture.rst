@@ -169,7 +169,7 @@ Faucet Application
 ============
 UML Diagrams
 ============
-.. image:: classes_ryu_faucet.png
+.. image:: classes_faucet.png
 
 
 =======================

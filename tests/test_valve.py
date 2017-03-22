@@ -25,7 +25,7 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
 
 testdir = os.path.dirname(__file__)
-srcdir = '../src/ryu_faucet/org/onfsdn/'
+srcdir = '../'
 sys.path.insert(0, os.path.abspath(os.path.join(testdir, srcdir)))
 
 from faucet.valve import valve_factory
