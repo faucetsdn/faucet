@@ -188,8 +188,8 @@ You have run this as ``root`` or use ``sudo``
 .. code:: bash
 
   apt-get install python-dev # Required for Ubuntu
-  pip install ryu-faucet
-  pip show -f ryu-faucet
+  pip install faucet
+  pip show -f faucet
 
 Optional Install for Network Monitoring Dashboard
 -------------------------------------------------
@@ -202,7 +202,7 @@ To Uninstall the package
 
 .. code:: bash
 
-  pip uninstall ryu-faucet
+  pip uninstall faucet
 
 ========================
 Installation with docker
@@ -228,16 +228,16 @@ For more advanced documentation on running Faucet with docker please read ``READ
 ============
 Architecture
 ============
-.. image:: src/docs/faucet_architecture.png
+.. image:: docs/faucet_architecture.png
 
 ==========
 Deployment
 ==========
-.. image:: src/docs/faucet_deployment.png
+.. image:: docs/faucet_deployment.png
 
 Deployment at Open Networking Foundation
 ----------------------------------------
-.. image:: src/docs/images/ONF_Faucet_deploy1.png
+.. image:: docs/images/ONF_Faucet_deploy1.png
 
 
 Faucet Deployment around the World
@@ -298,25 +298,7 @@ Run with ``ryu-manager`` (uses ``/etc/ryu/faucet/faucet.yaml`` as configuration 
     # export GAUGE_EXCEPTION_LOG=/var/log/faucet/gauge_exception.log
     # export GAUGE_DB_CONFIG=/etc/ryu/faucet/gauge_db.yaml
     # $EDITOR /etc/ryu/faucet/faucet.yaml
-    # ryu-manager --verbose faucet.py
-
-To find the location of ``faucet.py``, run ``pip show ryu-faucet`` to get the Location Path.  Then run:
-
-.. code:: bash
-
-    # ryu-manager --verbose <Location_Path>/ryu_faucet/org/onfsdn/faucet/faucet.py
-
-Alternatively, if OF Controller is using a non-default port of 6633, for example 6653, then:
-
-.. code:: bash
-
-    # ryu-manager --verbose  --ofp-tcp-listen-port 6653 <Location_Path>/ryu_faucet/org/onfsdn/faucet/faucet.py
-
-On Mac OS X, for example, one would run this as:
-
-.. code:: bash
-
-    # ryu-manager --verbose /opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages/ryu_faucet/org/onfsdn/faucet/faucet.py
+    # ryu-manager --verbose faucet.faucet
 
 To specify a different configuration file set the ``FAUCET_CONFIG`` environment variable.
 
@@ -330,7 +312,7 @@ To tell Faucet to reload its configuration file after you've changed it, simply 
 
 .. code:: bash
 
-  pkill -SIGHUP -f "ryu-manager faucet.py"
+  pkill -SIGHUP -f "ryu-manager faucet.faucet"
 
 =======
 Testing
@@ -343,7 +325,7 @@ Mininet test actually spins up virtual hosts and a switch, and a test FAUCET con
 
 .. code:: bash
 
-  git clone https://github.com/onfsdn/faucet
+  git clone https://github.com/REANNZ/faucet
   cd faucet/tests
   # (As namespace, etc needs to be setup, run the next command as root)
   sudo ./faucet_mininet_test.py
@@ -352,10 +334,10 @@ Mininet test actually spins up virtual hosts and a switch, and a test FAUCET con
 Working with Real Hardware
 --------------------------
 
-If you are a hardware vendor wanting to support FAUCET, you need to support all the matches in src/ryu_faucet/org/onfsdn/faucet/valve.py:valve_in_match().
+If you are a hardware vendor wanting to support FAUCET, you need to support all the matches in `faucet/valve.py <faucet/valve.py>`_ valve_in_match().
 
 Faucet has been tested against the following switches:
-(Hint: look at src/ryu_faucet/org/onfsdn/faucet/dp.py to add your switch)
+(Hint: look at `faucet/dp.py <faucet/dp.py>`_ to add your switch)
 
 1. `Open vSwitch v2.1+ <http://www.openvswitch.org>`_
 2. `Lagopus Openflow Switch <https://lagopus.github.io>`_
@@ -368,10 +350,10 @@ Faucet has been tested against the following switches:
 Faucet's design principle is to be as hardware agnostic as possible and not require Table Type Patterns. This means that Faucet expects the hardware Open Flow Agent (OFA) to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet expects the OFA to leverage the right hardware transparently.
 
 ============================================================
-Buying and running commercial switches supporting ryu-faucet
+Buying and running commercial switches supporting faucet
 ============================================================
 
-Guides for getting up and running with Faucet on vendor hardware are provided in the `docs/vendors <src/docs/vendors>`_ directory.
+Guides for getting up and running with Faucet on vendor hardware are provided in the `docs/vendors <docs/vendors>`_ directory.
 
 Allied Telesis
 --------------
@@ -413,13 +395,13 @@ Gauge is run with ``ryu-manager``:
 .. code:: bash
 
   $EDITOR /etc/ryu/faucet/gauge.yaml
-  ryu-manager gauge.py
+  ryu-manager faucet.gauge
 
 Screenshots
 -----------
-.. image:: src/docs/images/faucet-snapshot1.png
-.. image:: src/docs/images/faucet-snapshot2.png
-.. image:: src/docs/images/faucet-snapshot3.png
+.. image:: docs/images/faucet-snapshot1.png
+.. image:: docs/images/faucet-snapshot2.png
+.. image:: docs/images/faucet-snapshot3.png
 
 =======
 Support
@@ -431,7 +413,7 @@ We run a number of mailing lists for communication between users and developers 
 - https://list.waikato.ac.nz/mailman/listinfo/faucet-dev
 - https://lists.geant.org/sympa/info/faucet-users
 
-Additional documentation is available under the `docs <src/docs>`_ directory.
+Additional documentation is available under the `docs <docs>`_ directory.
 
 Faucet blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz.
 

@@ -755,11 +755,11 @@ acls:
             flow_p1 = self.get_matching_flow_on_dpid(
                 self.dpid,
                 ('"table_id": 1, "match": '
-                 '{"dl_vlan": "0x0000", "in_port": 1}'))
+                 '{"dl_vlan": "0x0000", "in_port": %(port_1)d}' % self.port_map))
             flow_p3 = self.get_matching_flow_on_dpid(
                 self.dpid,
                 ('"table_id": 1, "match": '
-                 '{"dl_vlan": "0x0000", "in_port": 3}'))
+                 '{"dl_vlan": "0x0000", "in_port": %(port_3)d}' % self.port_map))
             prev_dur_p1 = flow_p1['duration_sec']
             prev_dur_p3 = flow_p3['duration_sec']
             if vid == 200:
@@ -775,11 +775,11 @@ acls:
             flow_p1 = self.get_matching_flow_on_dpid(
                 self.dpid,
                 ('"table_id": 1, "match": '
-                 '{"dl_vlan": "0x0000", "in_port": 1}'))
+                 '{"dl_vlan": "0x0000", "in_port": %(port_1)d}' % self.port_map))
             flow_p3 = self.get_matching_flow_on_dpid(
                 self.dpid,
                 ('"table_id": 1, "match": '
-                 '{"dl_vlan": "0x0000", "in_port": 3}'))
+                 '{"dl_vlan": "0x0000", "in_port": %(port_3)d}' % self.port_map))
             actions = flow_p1.get('actions', '')
             actions = [act for act in actions if 'vlan_vid' in act]
             vid_ = re.findall(r'\d+', str(actions))
@@ -813,7 +813,7 @@ acls:
             self.hup_faucet()
             self.wait_until_matching_flow(
                 ('{"dl_type": 2048, "nw_proto": 17,'
-                 ' "in_port": 1, "tp_dst": %d}' % (8000+i)))
+                 ' "in_port": %d, "tp_dst": %d}' % (self.port_map["port_1"], 8000+i)))
 
 
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
@@ -1009,10 +1009,10 @@ vlans:
         self.assertTrue(self.bogus_mac_flooded_to_port1())
         # Unicast flooding rule for from port 1
         self.assertTrue(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 1}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
         # Unicast flood rule exists that output to port 1
         self.assertTrue(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
 
 
 class FaucetUntaggedNoVLanUnicastFloodTest(FaucetUntaggedTest):
@@ -1044,10 +1044,10 @@ vlans:
         self.assertFalse(self.bogus_mac_flooded_to_port1())
         # No unicast flooding rule for from port 1
         self.assertFalse(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 1}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
         # No unicast flood rule exists that output to port 1
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
 
 
 class FaucetUntaggedPortUnicastFloodTest(FaucetUntaggedTest):
@@ -1082,10 +1082,10 @@ vlans:
         self.assertFalse(self.bogus_mac_flooded_to_port1())
         # No unicast flooding rule for from port 1
         self.assertFalse(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 1}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
         # No unicast flood rule exists that output to port 1
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
 
 
 class FaucetUntaggedNoPortUnicastFloodTest(FaucetUntaggedTest):
@@ -1118,14 +1118,14 @@ vlans:
         self.assertFalse(self.bogus_mac_flooded_to_port1())
         # Unicast flood rule present for port 2, but NOT for port 1
         self.assertTrue(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 2}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_2)d}' % self.port_map))
         self.assertFalse(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": 1}'))
+            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
         # Unicast flood rules present that output to port 2, but NOT to port 1
         self.assertTrue(self.matching_flow_present(
-            '"OUTPUT:2".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_2)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:1".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .}'))
+            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
 
 
 class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
@@ -2441,7 +2441,7 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
         self.assertEqual(
             100,
             self.get_group_id_for_matching_flow(
-                '"table_id": 7,.+"dl_vlan": "100"'))
+                '"table_id": 7,.+"dl_dst".+"dl_vlan": "100"'))
 
 
 class FaucetSingleGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):

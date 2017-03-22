@@ -1,14 +1,7 @@
-bitstring
-concurrencytest
 couchdb
-graphviz
 influxdb
-ipaddr
 ipaddress
 networkx
 numpy
-packaging
 pyyaml
-pylint
 ryu>=4.9
-tinyrpc
