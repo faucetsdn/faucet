@@ -1,6 +1,5 @@
 couchdb
 influxdb
-ipaddr
 ipaddress
 networkx
 numpy
