@@ -1,4 +1,4 @@
-:copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
+:copyright: 2015--2017 The Contributors
 
 .. meta::
    :keywords: Openflow, Ryu, Faucet, VLAN, SDN, Couchdb, NoSQL
