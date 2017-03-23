@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+
 from conf import Conf
 from vlan import VLAN
 from port import Port
@@ -138,6 +140,8 @@ class DP(Conf):
     def sanity_check(self):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
+        if sys.version_info > (3,):
+            long = int
         assert isinstance(self.dp_id, (int, long))
         for vid, vlan in self.vlans.items():
             assert isinstance(vid, int)
