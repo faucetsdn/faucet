@@ -1,5 +1,4 @@
 :version: 1.4.0
-:copyright: 2015 `REANNZ <http://www.reannz.co.nz/>`_.  All Rights Reserved.
 
 .. meta::
    :keywords: OpenFlow, Ryu, Faucet, VLAN, SDN
