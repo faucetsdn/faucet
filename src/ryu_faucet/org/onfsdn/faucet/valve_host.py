@@ -140,8 +140,7 @@ class ValveHostManager(object):
                 self.eth_src_table, in_port=in_port,
                 vlan=vlan, eth_src=eth_src),
             priority=(self.host_priority - 1),
-            inst=[valve_of.goto_table(self.eth_dst_table)],
-            hard_timeout=learn_timeout))
+            inst=[valve_of.goto_table(self.eth_dst_table)]))
 
         # update datapath to output packets to this mac via the associated port
         ofmsgs.append(self.valve_flowmod(

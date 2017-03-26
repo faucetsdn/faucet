@@ -287,7 +287,8 @@ def flowmod(cookie, command, table_id, priority, out_port, out_group,
         match=match_fields,
         instructions=inst,
         hard_timeout=hard_timeout,
-        idle_timeout=idle_timeout)
+        idle_timeout=idle_timeout,
+        flags=ofp.OFPFF_SEND_FLOW_REM)
 
 
 def group_act(group_id):

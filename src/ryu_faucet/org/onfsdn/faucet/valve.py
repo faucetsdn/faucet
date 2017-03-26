@@ -935,6 +935,11 @@ class Valve(object):
         ofmsgs.extend(self._learn_host(valves, dp_id, pkt_meta))
         return ofmsgs
 
+    def delete_host_from_vlan(self, eth_src, vlan_vid):
+        """Delete an host from VLAN"""
+        vlan = self.dp.vlans[vlan_vid]
+        return self.host_manager.delete_host_from_vlan(eth_src, vlan)
+
     def host_expire(self):
         """Expire hosts not recently re/learned.
 

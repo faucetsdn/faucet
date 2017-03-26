@@ -560,6 +560,44 @@ class Faucet(app_manager.RyuApp):
 
         self._send_flow_msgs(ryu_dp, flowmods)
 
+    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) #pylint: disable=no-member
+    @kill_on_exception(exc_logname)
+    def handler_flowremoved(self, ryu_event):
+        ofmsgs = []
+        msg = ryu_event.msg
+        ryu_dp = msg.datapath
+        dp_id = ryu_dp.id
+        ofp = msg.datapath.ofproto
+        valve = self.valves[dp_id]
+        if msg.reason == ofp.OFPRR_IDLE_TIMEOUT:
+            reason = 'IDLE TIMEOUT'
+            table_id = msg.table_id
+            match_oxm_fields = msg.match.to_jsondict()['OFPMatch']['oxm_fields']
+            eth_dst = None
+            vlan_vid = None
+            for field in match_oxm_fields:
+                if isinstance(field, dict):
+                    value = field['OXMTlv']
+                    if value['field'] == 'eth_dst':
+                        eth_dst = value['value']
+                    if value['field'] == 'vlan_vid':
+                        vlan_vid = value['value'] ^ 4096
+            if eth_dst:
+                ofmsgs.extend(valve.delete_host_from_vlan(eth_dst, vlan_vid))
+                self.logger.info('Host %s expired on VLAN %s (dp: %s)',
+                        eth_dst, vlan_vid, dp_id)
+
+        elif msg.reason == ofp.OFPRR_HARD_TIMEOUT:
+            reason = 'HARD TIMEOUT'
+        elif msg.reason == ofp.OFPRR_DELETE:
+            reason = 'DELETE'
+        elif msg.reason == ofp.OFPRR_GROUP_DELETE:
+            reason = 'GROUP DELETE'
+        else:
+            reason = 'unknown'
+
+        self._send_flow_msgs(ryu_dp, ofmsgs)
+
     def get_config(self):
         config = {}
         for valve in self.valves.itervalues():
