@@ -360,7 +360,8 @@ Allied Telesis
 
 `Allied Telesis <http://www.alliedtelesis.com/sdn>`_ sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`_. To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`_
 
-* On Allied Telesis, all vlans must be included in the vlan database config on the switch before they can be used by OpenFlow.  When ordering, request Openflow license SKU.
+* On Allied Telesis, starting from latest software version 5.4.7, all data VLANs are automatically created on the switch.
+* When ordering, request Openflow switch SKU.
 
 NorthBound Networks
 -------------------
