@@ -228,17 +228,7 @@ For more advanced documentation on running Faucet with docker please read ``READ
 ============
 Architecture
 ============
-.. image:: docs/faucet_architecture.png
-
-==========
-Deployment
-==========
-.. image:: docs/faucet_deployment.png
-
-Deployment at Open Networking Foundation
-----------------------------------------
-.. image:: docs/images/ONF_Faucet_deploy1.png
-
+.. image:: docs/images/faucet-architecture.png
 
 Faucet Deployment around the World
 ----------------------------------
@@ -400,9 +390,7 @@ Gauge is run with ``ryu-manager``:
 
 Screenshots
 -----------
-.. image:: docs/images/faucet-snapshot1.png
-.. image:: docs/images/faucet-snapshot2.png
-.. image:: docs/images/faucet-snapshot3.png
+.. image:: docs/images/gauge-nznog17.png
 
 =======
 Support
