@@ -60,19 +60,19 @@ Supports any ACL rule that `ofctl_v1_3.py <https://github.com/osrg/ryu/blob/mast
           - rule:
               nw_dst: "172.0.0.0/8"
               dl_type: 0x800
-              allow: 1
+              actions:
+                  allow: 1
 
           - rule:
               dl_type: 0x0806
-              allow: 1
+              actions:
+                  allow: 1
 
           - rule:
               nw_dst: "10.0.0.0/16"
               dl_type: 0x800
-              allow: 0
-
-          - rule:
-
+              actions:
+                  allow: 0
 
 
 Unicast Flood
@@ -131,16 +131,19 @@ Version 2 of the Faucet configuration file format allows multiple datapaths (swi
           - rule:
               nw_dst: "172.0.0.0/8"
               dl_type: 0x800
-              allow: 1
+              actions:
+                  allow: 1
 
           - rule:
               dl_type: 0x0806
-              allow: 1
+              actions:
+                  allow: 1
 
           - rule:
               nw_dst: "10.0.0.0/16"
               dl_type: 0x800
-              allow: 0
+              actions:
+                  allow: 0
 
 Extra DP, VLAN or ACL data can also be separated into different files and included into the main configuration file, as shown below. The ``include`` field is used for configuration files which are required to be loaded, and Faucet will log an error if there was a problem while loading a file. Files listed on ``include-optional`` will simply be skipped and a warning will be logged instead.
 
