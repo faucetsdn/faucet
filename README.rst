@@ -60,19 +60,19 @@ Supports any ACL rule that `ofctl_v1_3.py <https://github.com/osrg/ryu/blob/mast
           - rule:
               nw_dst: "172.0.0.0/8"
               dl_type: 0x800
-              allow: 1
+              actions:
+                  allow: 1
 
           - rule:
               dl_type: 0x0806
-              allow: 1
+              actions:
+                  allow: 1
 
           - rule:
               nw_dst: "10.0.0.0/16"
               dl_type: 0x800
-              allow: 0
-
-          - rule:
-
+              actions:
+                  allow: 0
 
 
 Unicast Flood
@@ -131,16 +131,19 @@ Version 2 of the Faucet configuration file format allows multiple datapaths (swi
           - rule:
               nw_dst: "172.0.0.0/8"
               dl_type: 0x800
-              allow: 1
+              actions:
+                  allow: 1
 
           - rule:
               dl_type: 0x0806
-              allow: 1
+              actions:
+                  allow: 1
 
           - rule:
               nw_dst: "10.0.0.0/16"
               dl_type: 0x800
-              allow: 0
+              actions:
+                  allow: 0
 
 Extra DP, VLAN or ACL data can also be separated into different files and included into the main configuration file, as shown below. The ``include`` field is used for configuration files which are required to be loaded, and Faucet will log an error if there was a problem while loading a file. Files listed on ``include-optional`` will simply be skipped and a warning will be logged instead.
 
@@ -228,17 +231,7 @@ For more advanced documentation on running Faucet with docker please read ``READ
 ============
 Architecture
 ============
-.. image:: docs/faucet_architecture.png
-
-==========
-Deployment
-==========
-.. image:: docs/faucet_deployment.png
-
-Deployment at Open Networking Foundation
-----------------------------------------
-.. image:: docs/images/ONF_Faucet_deploy1.png
-
+.. image:: docs/images/faucet-architecture.png
 
 Faucet Deployment around the World
 ----------------------------------
@@ -260,12 +253,12 @@ As of Faucet v1.3 release, ACL table is now Table 0 so that actions like port mi
 
 ::
 
-    PACKETS IN                  +-------------------------+ +-------------------------+
-      +                         |                         | |                         |
-      |                         |                         | |        CONTROLLER       |
-      |                         |                         | |            ^            |
-      |                         |                         v |       +----+-----+      v
-      |     +----------+  +-----+----+  +----------+  +---+-+----+  |4:IPv4_FIB|  +---+------+  +----------+
+    PACKETS IN                  +---------------------------+
+      +                         |                           |
+      |                         |                           |        CONTROLLER
+      |                         |                           |             ^
+      |                         |                           v       +-----+----+
+      |     +----------+  +-----+----+  +----------+  +-----+----+  |4:IPv4_FIB|  +----------+  +----------+
       |     |0:PORT_ACL|  |1:VLAN    |  |2:VLAN_ACL|  |3:ETH_SRC +->+          +->+6:ETH_DST |  |7:FLOOD   |
       +---->+          |  |          |  |          |  |          |  |          |  |          |  |          |
             |          |  |          |  |          |  |          |  +----------+  |          |  |          |
@@ -275,10 +268,10 @@ As of Faucet v1.3 release, ACL table is now Table 0 so that actions like port mi
             |          |  |          |  |          |  |          |  +----------+  |          |  |          |
             |          |  |          |  |          |  |          |  |5:IPv6_FIB|  |          |  |          |
             |          |  |          |  |          |  |          +->+          +->+          |  |          |
-            +----------+  +----------+  +----------+  +----+-----+  |          |  +------+---+  +--+-------+
-                                                           |        +----+-----+         |         |
-                                                           v             v               v         v
-                                                        CONTROLLER    CONTROLLER          PACKETS OUT
+            +----------+  +----------+  +----------+  +-----+----+  |          |  +------+---+  +--+-------+
+                                                            |       +-----+----+         |         |
+                                                            v             v              v         v
+                                                       CONTROLLER    CONTROLLER          PACKETS OUT
 
 =======
 Running
@@ -400,9 +393,7 @@ Gauge is run with ``ryu-manager``:
 
 Screenshots
 -----------
-.. image:: docs/images/faucet-snapshot1.png
-.. image:: docs/images/faucet-snapshot2.png
-.. image:: docs/images/faucet-snapshot3.png
+.. image:: docs/images/gauge-nznog17.png
 
 =======
 Support
