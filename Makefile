@@ -7,7 +7,6 @@ PYREVERSE = pyreverse
 YAPF = yapf
 PYLINT = pylint
 RM := rm
-FIND := find
 MKDIR := mkdir -p
 MV := mv
 DOT := dot
@@ -58,12 +57,6 @@ stats:
 	@echo 
 	@echo 'Listing all commits since last tag ...'
 	@$(GIT) log $(GIT_REL_TAG)..HEAD --oneline
-
-## list target source: http://stackoverflow.com/questions/4219255/how-do-you-get-the-list-of-targets-in-a-makefile
-.PHONY: list
-list:
-	@echo List of all targets in this Makefile:
-	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
 
 clobber:
 	@echo Removing $(DIST_DIR)

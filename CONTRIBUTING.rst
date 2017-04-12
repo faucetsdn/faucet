@@ -7,7 +7,7 @@ We'll either accept, close or offer feedback (or some combination).
 
 Code should pass all tests.
 
-For more detail see README.developerguide.md in the docs directory
+For more detail see README.developerguide.rst in the docs directory
 
 =========
 Licensing
