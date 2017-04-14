@@ -295,6 +295,7 @@ class Valve(object):
             priority = self.dp.lowest_priority
         if inst is None:
             inst = []
+        flags = ofp.OFPFF_SEND_FLOW_REM if self.dp.flowremoved else 0
         return valve_of.flowmod(
             self.dp.cookie,
             command,
@@ -305,7 +306,8 @@ class Valve(object):
             match,
             inst,
             hard_timeout,
-            idle_timeout)
+            idle_timeout,
+            flags=flags)
 
     def valve_flowdel(self, table_id, match=None, priority=None,
                       out_port=ofp.OFPP_ANY):
@@ -966,6 +968,26 @@ class Valve(object):
 
         ofmsgs.extend(self._learn_host(valves, dp_id, pkt_meta))
         return ofmsgs
+
+    def rcv_rule_timeout(self, table_id, match):
+        in_port = None
+        eth_src = None
+        vlan_vid = None
+        match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
+        if table_id == self.dp.eth_src_table:
+            for field in match_oxm_fields:
+                if isinstance(field, dict):
+                    value = field['OXMTlv']
+                    if value['field'] == 'eth_src':
+                        eth_src = value['value']
+                    elif value['field'] == 'vlan_vid':
+                        vlan_vid = value['value'] & ~ofp.OFPVID_PRESENT
+                    elif value['field'] == 'in_port':
+                        in_port = value['value']
+            if eth_src and vlan_vid and in_port:
+                #TODO: handle host relearning as we know the host no longer sends packets
+                self.logger.info('host %s on vlan %u, in_port %d has expired',
+                        eth_src, vlan_vid, in_port)
 
     def host_expire(self):
         """Expire hosts not recently re/learned.

@@ -122,6 +122,8 @@ class DP(Conf):
         # Ask switch to rate limit packet pps.
         # TODO: Not supported by OVS in 2.7.0
         'packetin_pps': 0,
+        # Enable flowremoved ack feature in the datapath
+        'flowremoved': True
         }
 
     def __init__(self, _id, conf):

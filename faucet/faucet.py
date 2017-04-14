@@ -559,6 +559,18 @@ class Faucet(app_manager.RyuApp):
 
         self._send_flow_msgs(ryu_dp, flowmods)
 
+    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) #pylint: disable=no-member
+    @kill_on_exception(exc_logname)
+    def handler_flowremoved(self, ryu_event):
+        msg = ryu_event.msg
+        ryu_dp = msg.datapath
+        dp_id = ryu_dp.id
+        ofp = msg.datapath.ofproto
+        valve = self.valves[dp_id]
+        if (msg.reason == ofp.OFPRR_IDLE_TIMEOUT or
+                msg.reason == ofp.OFPRR_HARD_TIMEOUT):
+            valve.rcv_rule_timeout(msg.table_id, msg.match)
+
     def get_config(self):
         config = {}
         for valve in self.valves.values():
