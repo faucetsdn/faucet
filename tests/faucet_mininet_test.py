@@ -2552,6 +2552,58 @@ vlans:
             second_host, second_host_ip, second_host_routed_ip,
             with_group_table=True)
 
+class FaucetUntaggedInactiveHostExpireTest(FaucetUntaggedTest):
+    CONFIG = """
+        hard_timeout_enabled: True
+        timeout: 30
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        controller = self.net.controllers[0]
+        first_host, second_host = self.net.hosts[:2]
+        self.require_host_learned(first_host)
+        self.require_host_learned(second_host)
+        second_host_ip = second_host.IP()
+        first_host.cmd('ping %s &' % second_host_ip)
+        second_host.cmd('ifconfig %s down' % second_host.defaultIntf())
+        time.sleep(40) # Wait for host to expire
+        count = controller.cmd(
+                'grep -c "expiring host %s" %s' % (
+                    second_host.MAC(), os.environ['FAUCET_LOG']))
+        self.assertEqual(1, int(count))
+        self.assertFalse(
+                self.matching_flow_present('%s' % second_host.MAC(), timeout=1))
+
+        second_host.cmd('ifconfig %s up' % second_host.defaultIntf())
+
+
+class FaucetUntaggedMovedHostExpireTest(FaucetUntaggedInactiveHostExpireTest):
+
+    def test_untagged(self):
+        controller = self.net.controllers[0]
+        first_host, second_host = self.net.hosts[:2]
+        self.require_host_learned(first_host)
+        self.require_host_learned(second_host)
+        self.swap_host_macs(first_host, second_host)
+        self.require_host_learned(first_host)
+        self.require_host_learned(second_host)
+        all_flows = str(self.get_all_flows_from_dpid(self.dpid))
+        self.assertEqual(2, all_flows.count(first_host.MAC()))
+        self.assertEqual(2, all_flows.count(second_host.MAC()))
+
 
 def import_config():
     """Import configuration for physical switch testing."""
