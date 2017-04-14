@@ -16,6 +16,7 @@
 # limitations under the License.
 
 import time
+import random
 
 import valve_of
 
@@ -125,7 +126,8 @@ class ValveHostManager(object):
                     self.eth_src_table, vlan=vlan, eth_src=eth_src),
                 priority=(self.host_priority - 2)))
         else:
-            learn_timeout = self.learn_timeout
+            #Add a jitter to avoid whole bunch of hosts timeout simultaneously
+            learn_timeout = self.learn_timeout + random.randint(0,5)
             ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         # Update datapath to no longer send packets from this mac to controller
