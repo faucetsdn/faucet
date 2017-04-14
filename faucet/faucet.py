@@ -395,8 +395,11 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_event (ryu.controller.event.EventReplyBase): triggering event.
         """
-        for valve in self.valves.values():
-            valve.host_expire()
+        for dp_id, valve in self.valves.items():
+            flowmods = valve.host_expire()
+            if flowmods:
+                ryudp = self.dpset.get(dp_id)
+                self._send_flow_msgs(ryudp, flowmods)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

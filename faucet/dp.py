@@ -21,6 +21,7 @@ from acl import ACL
 
 import networkx
 
+MIN_TIMEOUT = 30 # seconds
 
 class DP(Conf):
     """Object to hold the configuration for a faucet controlled datapath."""
@@ -151,6 +152,7 @@ class DP(Conf):
             assert isinstance(port, Port)
         for acl in self.acls.values():
             assert isinstance(acl, ACL)
+        assert self.timeout >= MIN_TIMEOUT # pylint: disable=no-member
 
     def set_defaults(self):
         for key, value in self.defaults.items():

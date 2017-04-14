@@ -119,7 +119,8 @@ class Valve(object):
             self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
             self.dp.timeout, self.dp.low_priority, self.dp.highest_priority,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
-            self.valve_flowdrop)
+            self.valve_flowdrop,
+            not self.dp.flowremoved)
 
     def _register_table_match_types(self):
         # TODO: functional flow managers should be able to register
@@ -768,6 +769,8 @@ class Valve(object):
                 ofmsgs.extend(self.flood_manager.build_flood_rules(
                     vlan, modify=True))
 
+            self.host_manager.expire_hosts_on_port(port_num, vlan)
+
         return ofmsgs
 
     def control_plane_handler(self, pkt_meta):
@@ -985,9 +988,10 @@ class Valve(object):
                     elif value['field'] == 'in_port':
                         in_port = value['value']
             if eth_src and vlan_vid and in_port:
-                #TODO: handle host relearning as we know the host no longer sends packets
                 self.logger.info('host %s on vlan %u, in_port %d has expired',
                         eth_src, vlan_vid, in_port)
+                vlan = self.dp.vlans[vlan_vid]
+                self.host_manager.host_mark_src_rule_expired(in_port, vlan, eth_src)
 
     def host_expire(self):
         """Expire hosts not recently re/learned.
@@ -995,11 +999,14 @@ class Valve(object):
         Expire state from the host manager only; the switch does its own flow
         expiry.
         """
+        ofmsgs = []
         if not self.dp.running:
             return
         now = time.time()
         for vlan in self.dp.vlans.values():
-            self.host_manager.expire_hosts_from_vlan(vlan, now)
+            ofmsgs.extend(self.host_manager.expire_hosts_from_vlan(vlan, now))
+
+        return ofmsgs
 
     def _get_config_changes(self, new_dp):
         """Detect any config changes.
