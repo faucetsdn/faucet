@@ -70,7 +70,7 @@ EXTERNAL_DEPENDENCIES = (
      r'tcpdump\s+version\s+(\d+\.\d+)\.\d+\n', "4.5"),
     ('nc', [], 'nc from the netcat-openbsd', '', 0),
     ('vconfig', [], 'the VLAN you are talking about', '', 0),
-    ('2to3', [], 'Usage: 2to3', '', 0),
+    ('2to3', ['--help'], 'Usage: 2to3', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
