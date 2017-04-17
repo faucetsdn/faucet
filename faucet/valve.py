@@ -364,9 +364,9 @@ class Valve(object):
                 # TODO: optimize the provisioning to avoid having the
                 # same group_id multiple times in input_ofmsgs
                 new_group_id = True
-                for idx in xrange(len(groupadd_ofmsgs)):
-                    if groupadd_ofmsgs[idx].group_id == ofmsg.group_id:
-                        groupadd_ofmsgs[idx] = ofmsg
+                for i, groupadd_ofmsg in enumerate(groupadd_ofmsgs):
+                    if groupadd_ofmsg.group_id == ofmsg.group_id:
+                        groupadd_ofmsgs[i] = ofmsg
                         new_group_id = False
                         break
                 if new_group_id:
