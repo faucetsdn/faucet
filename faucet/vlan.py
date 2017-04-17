@@ -144,7 +144,7 @@ class VLAN(Conf):
         self.dyn_host_cache = value
 
     def set_defaults(self):
-        for key, value in self.defaults.items():
+        for key, value in list(self.defaults.items()):
             self._set_default(key, value)
         self._set_default('vid', self._id)
         self._set_default('name', str(self._id))
@@ -231,8 +231,8 @@ class VLAN(Conf):
         return self._to_conf()
 
     def __hash__(self):
-        items = [(k, v) for k, v in self.__dict__.items() if 'dyn' not in k]
-        return hash(frozenset(map(str, items)))
+        items = [(k, v) for k, v in list(self.__dict__.items()) if 'dyn' not in k]
+        return hash(frozenset(list(map(str, items))))
 
     def __eq__(self, other):
         return hash(self) == hash(other)

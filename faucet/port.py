@@ -54,7 +54,7 @@ class Port(Conf):
         self.dyn_phys_up = False
 
     def set_defaults(self):
-        for key, value in self.defaults.items():
+        for key, value in list(self.defaults.items()):
             self._set_default(key, value)
         self._set_default('number', self._id)
         self._set_default('name', str(self._id))
@@ -85,8 +85,8 @@ class Port(Conf):
         return hash(self) == hash(other)
 
     def __hash__(self):
-        items = [(k, v) for k, v in self.__dict__.items() if 'dyn' not in k]
-        return hash(frozenset(map(str, items)))
+        items = [(k, v) for k, v in list(self.__dict__.items()) if 'dyn' not in k]
+        return hash(frozenset(list(map(str, items))))
 
     def __ne__(self, other):
         return not self.__eq__(other)

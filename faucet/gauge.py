@@ -92,11 +92,11 @@ class Gauge(app_manager.RyuApp):
 
         if ryu_event.enter: # DP is connecting
             self.logger.info('%s up', dpid_log(dp_id))
-            for watcher in self.watchers[dp_id].values():
+            for watcher in list(self.watchers[dp_id].values()):
                 watcher.start(ryu_dp)
         else: # DP is disconnecting
             if ryu_dp.id in self.watchers:
-                for watcher in self.watchers[dp_id].values():
+                for watcher in list(self.watchers[dp_id].values()):
                     watcher.stop()
                 del self.watchers[dp_id]
             self.logger.info('%s down', dpid_log(dp_id))
@@ -132,7 +132,7 @@ class Gauge(app_manager.RyuApp):
     def handler_reconnect(self, ryu_event):
         ryu_dp = ryu_event.dp
         self.logger.info('%s reconnected', dpid_log(ryu_dp.id))
-        for watcher in self.watchers[ryu_dp.id].values():
+        for watcher in list(self.watchers[ryu_dp.id].values()):
             watcher.start(ryu_dp)
 
     def update_watcher(self, dp_id, name, msg):
