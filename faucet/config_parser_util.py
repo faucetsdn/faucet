@@ -66,7 +66,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     # Save the updated configuration state in separate dicts,
     # so if an error is found, the changes can simply be thrown away.
     new_top_confs = {}
-    for conf_name, curr_conf in top_confs.items():
+    for conf_name, curr_conf in list(top_confs.items()):
         new_top_confs[conf_name] = curr_conf.copy()
         new_top_confs[conf_name].update(conf.pop(conf_name, {}))
 
@@ -92,6 +92,6 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.
     config_hashes.update(new_config_hashes)
-    for conf_name, new_conf in new_top_confs.items():
+    for conf_name, new_conf in list(new_top_confs.items()):
         top_confs[conf_name].update(new_conf)
     return True

@@ -70,6 +70,7 @@ EXTERNAL_DEPENDENCIES = (
      r'tcpdump\s+version\s+(\d+\.\d+)\.\d+\n', "4.5"),
     ('nc', [], 'nc from the netcat-openbsd', '', 0),
     ('vconfig', [], 'the VLAN you are talking about', '', 0),
+    ('2to3', ['--help'], 'Usage: 2to3', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
@@ -87,10 +88,11 @@ EXTERNAL_DEPENDENCIES = (
 )
 
 # Must pass with 0 lint errors
-FAUCET_LINT_SRCS = (glob.glob(
-    os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py')) + [
-        os.path.join(os.path.dirname(__file__), 'faucet_mininet_test.py'),
-        os.path.join(os.path.dirname(__file__), 'faucet_mininet_test_base.py')])
+FAUCET_LINT_SRCS = glob.glob(
+    os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py'))
+FAUCET_TEST_LINT_SRCS = [
+    os.path.join(os.path.dirname(__file__), 'faucet_mininet_test.py'),
+    os.path.join(os.path.dirname(__file__), 'faucet_mininet_test_base.py')]
 
 # Maximum number of parallel tests to run at once
 MAX_PARALLEL_TESTS = 4
@@ -2627,10 +2629,18 @@ def check_dependencies():
 
 def lint_check():
     """Run pylint on required source files."""
-    for faucet_src in FAUCET_LINT_SRCS:
+    for faucet_src in FAUCET_LINT_SRCS + FAUCET_TEST_LINT_SRCS:
         ret = subprocess.call(['pylint', '-E', faucet_src])
         if ret:
-            print('pylint of %s returns an error' % faucet_src)
+            print(('pylint of %s returns an error' % faucet_src))
+            return False
+    for faucet_src in FAUCET_LINT_SRCS:
+        output_2to3 = subprocess.check_output([
+            '2to3', '--nofix=import', '--nofix=long', '--nofix=unicode', faucet_src],
+            stderr=open(os.devnull, 'wb'))
+        if output_2to3:
+            print(('2to3 of %s returns a diff (not python3 compatible)' % faucet_src))
+            print(output_2to3)
             return False
     return True
 
