@@ -2686,7 +2686,11 @@ def pipeline_superset_report(root_tmpdir):
         print('  table_actions: %s' % sorted(table_actions[table]))
 
 
-def run_tests(requested_test_classes, keep_logs, serial, hw_config):
+def run_tests(requested_test_classes,
+              excluded_test_classes,
+              keep_logs,
+              serial,
+              hw_config):
     """Actually run the test suites, potentially in parallel."""
     if hw_config is not None:
         print('Testing hardware, forcing test serialization')
@@ -2697,13 +2701,15 @@ def run_tests(requested_test_classes, keep_logs, serial, hw_config):
         target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
     ports_server.setDaemon(True)
     ports_server.start()
-    sanity_tests = unittest.TestSuite() 
+    sanity_tests = unittest.TestSuite()
     single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
     for name, obj in inspect.getmembers(sys.modules[__name__]):
         if not inspect.isclass(obj):
             continue
         if requested_test_classes and name not in requested_test_classes:
+            continue
+        if excluded_test_classes and name in excluded_test_classes:
             continue
         if name.endswith('Test') and name.startswith('Faucet'):
             print('adding test %s' % name)
@@ -2750,7 +2756,7 @@ def parse_args():
     """Parse command line arguments."""
     try:
         opts, args = getopt.getopt(
-            sys.argv[1:], "cks", ["clean", "keep_logs", "serial"])
+            sys.argv[1:], "cksx:", ["clean", "keep_logs", "serial"])
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
@@ -2758,22 +2764,25 @@ def parse_args():
     clean = False
     keep_logs = False
     serial = False
+    excluded_test_classes = []
 
-    for opt, _ in opts:
+    for opt, arg in opts:
         if opt in ('-c', '--clean'):
             clean = True
         if opt in ('-k', '--keep_logs'):
             keep_logs = True
         if opt in ('-s', '--serial'):
             serial = True
+        if opt == '-x':
+            excluded_test_classes.append(arg)
 
-    return (args, clean, keep_logs, serial)
+    return (args, clean, keep_logs, serial, excluded_test_classes)
 
 
 def test_main():
     """Test main."""
     setLogLevel('info')
-    args, clean, keep_logs, serial = parse_args()
+    args, clean, keep_logs, serial, excluded_test_classes = parse_args()
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
@@ -2788,7 +2797,7 @@ def test_main():
         print('pylint must pass with no errors')
         sys.exit(-1)
     hw_config = import_hw_config()
-    run_tests(args, keep_logs, serial, hw_config)
+    run_tests(args, excluded_test_classes, keep_logs, serial, hw_config)
 
 
 if __name__ == '__main__':
