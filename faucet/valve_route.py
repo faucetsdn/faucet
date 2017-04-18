@@ -353,7 +353,7 @@ class ValveRouteManager(object):
     def _host_from_faucet_vip(self, faucet_vip):
         max_prefixlen = faucet_vip.ip.max_prefixlen
         return ipaddress.ip_interface(
-            u'/'.join((faucet_vip.ip.exploded, str(max_prefixlen))))
+            btos('/'.join((faucet_vip.ip.exploded, str(max_prefixlen)))))
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add a route to the RIB.
