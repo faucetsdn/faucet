@@ -2636,7 +2636,7 @@ def lint_check():
             return False
     for faucet_src in FAUCET_LINT_SRCS:
         output_2to3 = subprocess.check_output([
-            '2to3', '--nofix=import', '--nofix=unicode', faucet_src],
+            '2to3', '--nofix=import', faucet_src],
             stderr=open(os.devnull, 'wb'))
         if output_2to3:
             print(('2to3 of %s returns a diff (not python3 compatible)' % faucet_src))
