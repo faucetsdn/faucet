@@ -24,6 +24,8 @@ from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
+from valve_util import btos
+
 
 def mac_addr_is_unicast(mac_addr):
     """Returns True if mac_addr is a unicast Ethernet address.
@@ -148,7 +150,7 @@ def ipv6_link_eth_mcast(dst_ip):
     Returns:
         str: Ethernet multicast address.
     """
-    mcast_mac_bytes = b'\x33\x33' + dst_ip.packed[-4:]
+    mcast_mac_bytes = btos(b'\x33\x33' + dst_ip.packed[-4:])
     mcast_mac = ':'.join(['%02X' % ord(x) for x in mcast_mac_bytes])
     return mcast_mac
 
@@ -163,7 +165,7 @@ def ipv6_solicited_node_from_ucast(ucast):
     Returns:
        ipaddress.IPv6Address: IPv6 solicited node multicast address.
     """
-    link_mcast_prefix = ipaddress.ip_interface(u'ff02::1:ff00:0/104')
+    link_mcast_prefix = ipaddress.ip_interface(btos('ff02::1:ff00:0/104'))
     mcast_bytes = link_mcast_prefix.packed[:13] + ucast.packed[-3:]
     link_mcast = ipaddress.IPv6Address(mcast_bytes)
     return link_mcast

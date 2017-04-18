@@ -70,6 +70,7 @@ EXTERNAL_DEPENDENCIES = (
      r'tcpdump\s+version\s+(\d+\.\d+)\.\d+\n', "4.5"),
     ('nc', [], 'nc from the netcat-openbsd', '', 0),
     ('vconfig', [], 'the VLAN you are talking about', '', 0),
+    ('2to3', ['--help'], 'Usage: 2to3', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
@@ -87,10 +88,11 @@ EXTERNAL_DEPENDENCIES = (
 )
 
 # Must pass with 0 lint errors
-FAUCET_LINT_SRCS = (glob.glob(
-    os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py')) + [
-        os.path.join(os.path.dirname(__file__), 'faucet_mininet_test.py'),
-        os.path.join(os.path.dirname(__file__), 'faucet_mininet_test_base.py')])
+FAUCET_LINT_SRCS = glob.glob(
+    os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py'))
+FAUCET_TEST_LINT_SRCS = [
+    os.path.join(os.path.dirname(__file__), 'faucet_mininet_test.py'),
+    os.path.join(os.path.dirname(__file__), 'faucet_mininet_test_base.py')]
 
 # Maximum number of parallel tests to run at once
 MAX_PARALLEL_TESTS = 4
@@ -410,6 +412,12 @@ vlans:
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
+
+
+class FaucetSanityTest(FaucetUntaggedTest):
+    """Sanity test - make sure test environment is correct before running all tess.""" 
+
+    pass
 
 
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
@@ -2553,7 +2561,7 @@ vlans:
             with_group_table=True)
 
 
-def import_config():
+def import_hw_config():
     """Import configuration for physical switch testing."""
     try:
         with open(HW_SWITCH_CONFIG_FILE, 'r') as config_file:
@@ -2627,21 +2635,29 @@ def check_dependencies():
 
 def lint_check():
     """Run pylint on required source files."""
-    for faucet_src in FAUCET_LINT_SRCS:
+    for faucet_src in FAUCET_LINT_SRCS + FAUCET_TEST_LINT_SRCS:
         ret = subprocess.call(['pylint', '-E', faucet_src])
         if ret:
-            print('pylint of %s returns an error' % faucet_src)
+            print(('pylint of %s returns an error' % faucet_src))
+            return False
+    for faucet_src in FAUCET_LINT_SRCS:
+        output_2to3 = subprocess.check_output([
+            '2to3', '--nofix=import', faucet_src],
+            stderr=open(os.devnull, 'wb'))
+        if output_2to3:
+            print(('2to3 of %s returns a diff (not python3 compatible)' % faucet_src))
+            print(output_2to3)
             return False
     return True
 
 
-def make_suite(tc_class, config, root_tmpdir, ports_sock):
+def make_suite(tc_class, hw_config, root_tmpdir, ports_sock):
     """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
     for name in testnames:
-        suite.addTest(tc_class(name, config, root_tmpdir, ports_sock))
+        suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock))
     return suite
 
 
@@ -2674,14 +2690,18 @@ def run_tests(requested_test_classes,
               excluded_test_classes,
               keep_logs,
               serial,
-              config):
+              hw_config):
     """Actually run the test suites, potentially in parallel."""
+    if hw_config is not None:
+        print('Testing hardware, forcing test serialization')
+        serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
     ports_sock = os.path.join(root_tmpdir, 'ports-server')
     ports_server = threading.Thread(
         target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
     ports_server.setDaemon(True)
     ports_server.start()
+    sanity_tests = unittest.TestSuite()
     single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
     for name, obj in inspect.getmembers(sys.modules[__name__]):
@@ -2693,32 +2713,41 @@ def run_tests(requested_test_classes,
             continue
         if name.endswith('Test') and name.startswith('Faucet'):
             print('adding test %s' % name)
-            test_suite = make_suite(obj, config, root_tmpdir, ports_sock)
-            if serial or name.startswith('FaucetSingle'):
-                single_tests.addTest(test_suite)
+            test_suite = make_suite(obj, hw_config, root_tmpdir, ports_sock)
+            if name.startswith('FaucetSanity'):
+                sanity_tests.addTest(test_suite)
             else:
-                parallel_tests.addTest(test_suite)
-    print('running %u tests in parallel and %u tests serial' % (
-        parallel_tests.countTestCases(), single_tests.countTestCases()))
-    results = []
-    if parallel_tests.countTestCases():
-        max_parallel_tests = min(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
-        parallel_runner = unittest.TextTestRunner(verbosity=255)
-        parallel_suite = ConcurrentTestSuite(
-            parallel_tests, fork_for_tests(max_parallel_tests))
-        results.append(parallel_runner.run(parallel_suite))
-    # TODO: Tests that are serialized generally depend on hardcoded ports.
-    # Make them use dynamic ports.
-    if single_tests.countTestCases():
-        single_runner = unittest.TextTestRunner(verbosity=255)
-        results.append(single_runner.run(single_tests))
-    os.remove(ports_sock)
+                if serial or name.startswith('FaucetSingle'):
+                    single_tests.addTest(test_suite)
+                else:
+                    parallel_tests.addTest(test_suite)
     all_successful = True
-    for result in results:
-        if not result.wasSuccessful():
-            all_successful = False
-            print(result.printErrors())
-    pipeline_superset_report(root_tmpdir)
+    sanity_runner = unittest.TextTestRunner(verbosity=255, failfast=True)
+    sanity_result = sanity_runner.run(sanity_tests)
+    if sanity_result.wasSuccessful():
+        print('running %u tests in parallel and %u tests serial' % (
+            parallel_tests.countTestCases(), single_tests.countTestCases()))
+        results = []
+        if parallel_tests.countTestCases():
+            max_parallel_tests = min(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
+            parallel_runner = unittest.TextTestRunner(verbosity=255)
+            parallel_suite = ConcurrentTestSuite(
+                parallel_tests, fork_for_tests(max_parallel_tests))
+            results.append(parallel_runner.run(parallel_suite))
+        # TODO: Tests that are serialized generally depend on hardcoded ports.
+        # Make them use dynamic ports.
+        if single_tests.countTestCases():
+            single_runner = unittest.TextTestRunner(verbosity=255)
+            results.append(single_runner.run(single_tests))
+        for result in results:
+            if not result.wasSuccessful():
+                all_successful = False
+                print(result.printErrors())
+        pipeline_superset_report(root_tmpdir)
+    else:
+        print('sanity tests failed - test environment not correct')
+
+    os.remove(ports_sock)
     if not keep_logs and all_successful:
         shutil.rmtree(root_tmpdir)
 
@@ -2767,11 +2796,8 @@ def test_main():
     if not lint_check():
         print('pylint must pass with no errors')
         sys.exit(-1)
-    config = import_config()
-    if config is not None:
-        print('Testing hardware, forcing test serialization')
-        serial = True
-    run_tests(args, excluded_test_classes, keep_logs, serial, config)
+    hw_config = import_hw_config()
+    run_tests(args, excluded_test_classes, keep_logs, serial, hw_config)
 
 
 if __name__ == '__main__':

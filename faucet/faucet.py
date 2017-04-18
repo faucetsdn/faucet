@@ -263,7 +263,7 @@ class Faucet(app_manager.RyuApp):
             bgp_speaker.prefix_add(
                 prefix=str(faucet_vip), next_hop=str(faucet_vip.ip))
         for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
-            for ip_dst, ip_gw in route_table.items():
+            for ip_dst, ip_gw in list(route_table.items()):
                 bgp_speaker.prefix_add(
                     prefix=str(ip_dst), next_hop=str(ip_gw))
         for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
@@ -279,13 +279,13 @@ class Faucet(app_manager.RyuApp):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: configurable behavior - withdraw routes if peer goes down.
-        for dp_id, valve in self.valves.items():
+        for dp_id, valve in list(self.valves.items()):
             if dp_id not in self.dp_bgp_speakers:
                 self.dp_bgp_speakers[dp_id] = {}
             bgp_speakers = self.dp_bgp_speakers[dp_id]
-            for bgp_speaker in bgp_speakers.values():
+            for bgp_speaker in list(bgp_speakers.values()):
                 bgp_speaker.shutdown()
-            for vlan in valve.dp.vlans.values():
+            for vlan in list(valve.dp.vlans.values()):
                 if vlan.bgp_as:
                     bgp_speakers[vlan] = self._create_bgp_speaker_for_vlan(vlan)
 
@@ -340,7 +340,7 @@ class Faucet(app_manager.RyuApp):
         """
         if new_config_file != self.config_file:
             return True
-        for config_file, config_hash in self.config_hashes.items():
+        for config_file, config_hash in list(self.config_hashes.items()):
             config_file_exists = os.path.isfile(config_file)
             # Config file not loaded but exists = reload.
             if config_hash is None and config_file_exists:
@@ -382,7 +382,7 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_event (ryu.controller.event.EventReplyBase): triggering event.
         """
-        for dp_id, valve in self.valves.items():
+        for dp_id, valve in list(self.valves.items()):
             flowmods = valve.resolve_gateways()
             if flowmods:
                 ryudp = self.dpset.get(dp_id)
@@ -395,7 +395,7 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_event (ryu.controller.event.EventReplyBase): triggering event.
         """
-        for valve in self.valves.values():
+        for valve in list(self.valves.values()):
             valve.host_expire()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
@@ -514,7 +514,7 @@ class Faucet(app_manager.RyuApp):
         dp_id = ryu_dp.id
         if dp_id in self.valves:
             discovered_up_port_nums = [
-                port.port_no for port in ryu_dp.ports.values() if port.state == 0]
+                port.port_no for port in list(ryu_dp.ports.values()) if port.state == 0]
             flowmods = self.valves[dp_id].datapath_connect(
                 dp_id, discovered_up_port_nums)
             self._send_flow_msgs(ryu_dp, flowmods)
@@ -561,7 +561,7 @@ class Faucet(app_manager.RyuApp):
 
     def get_config(self):
         config = {}
-        for valve in self.valves.values():
+        for valve in list(self.valves.values()):
             valve_conf = valve.get_config_dict()
             for k in ('dps', 'acls', 'vlans'):
                 config.setdefault(k, {})

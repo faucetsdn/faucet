@@ -209,7 +209,7 @@ class ValveRouteManager(object):
                 self._update_nexthop_group(
                     is_updated, resolved_ip_gw,
                     vlan, in_port, eth_src))
-        for ip_dst, ip_gw in routes.items():
+        for ip_dst, ip_gw in list(routes.items()):
             if ip_gw == resolved_ip_gw:
                 ofmsgs.extend(self._add_resolved_route(
                     vlan, ip_gw, ip_dst, eth_src, is_updated))
@@ -289,7 +289,7 @@ class ValveRouteManager(object):
             True if a host FIB route (and not used as a gateway).
         """
         routes = self._vlan_routes(vlan)
-        for ip_dst, ip_gw in routes.items():
+        for ip_dst, ip_gw in list(routes.items()):
             if ip_gw == host_ip:
                 if ip_dst.prefixlen < ip_dst.max_prefixlen:
                     return False
@@ -353,7 +353,7 @@ class ValveRouteManager(object):
     def _host_from_faucet_vip(self, faucet_vip):
         max_prefixlen = faucet_vip.ip.max_prefixlen
         return ipaddress.ip_interface(
-            u'/'.join((faucet_vip.ip.exploded, str(max_prefixlen))))
+            btos('/'.join((faucet_vip.ip.exploded, str(max_prefixlen)))))
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add a route to the RIB.
