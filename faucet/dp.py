@@ -139,7 +139,8 @@ class DP(Conf):
     def sanity_check(self):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
-        assert isinstance(self.dp_id, (int, long))
+        assert not isinstance(self.dp_id, str)
+        assert str(self.dp_id).isdigit()
         for vid, vlan in list(self.vlans.items()):
             assert isinstance(vid, int)
             assert isinstance(vlan, VLAN)
