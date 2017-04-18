@@ -326,7 +326,7 @@ def build_match_dict(in_port=None, vlan=None,
     if nw_dst is not None:
         nw_dst_masked = _match_ip_masked(nw_dst)
         if eth_type == ether.ETH_TYPE_ARP:
-            match_dict['arp_tpa'] = nw_dst_masked
+            match_dict['arp_tpa'] = str(nw_dst.ip)
         elif eth_type == ether.ETH_TYPE_IP:
             match_dict['ipv4_dst'] = nw_dst_masked
         else:
