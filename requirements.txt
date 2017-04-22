@@ -1,6 +1,7 @@
 couchdb
 influxdb
 ipaddress
+netifaces
 networkx
 numpy
 pyyaml

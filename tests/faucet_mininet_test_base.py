@@ -6,12 +6,14 @@ import json
 import os
 import re
 import shutil
+import socket
 import tempfile
 import time
 import unittest
 import yaml
 
 import ipaddress
+import netifaces
 import requests
 
 from mininet.node import Controller
@@ -28,11 +30,6 @@ class BaseFAUCET(Controller):
     controller_intf = None
     tmpdir = None
 
-    def _tcpdump_intf(self):
-        if self.controller_intf:
-            return '-i %s' % self.controller_intf
-        return ''
-
     def _start_tcpdump(self):
         tcpdump_args = ' '.join((
             '-s 0',
@@ -40,7 +37,7 @@ class BaseFAUCET(Controller):
             '-n',
             '-U',
             '-q',
-            self._tcpdump_intf(),
+            '-i %s' % self.controller_intf,
             '-w %s/%s-of.cap' % (self.tmpdir, self.name),
             'tcp and port %u' % self.port,
             '>/dev/null',
@@ -60,13 +57,18 @@ class FAUCET(BaseFAUCET):
         name = 'faucet-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
+        # pylint: disable=no-member
+        self.controller_ipv4 = netifaces.ifaddresses(
+            self.controller_intf)[socket.AF_INET][0]['addr']
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
             ports_sock)
         command = 'PYTHONPATH=../ ryu-manager ryu.app.ofctl_rest faucet.faucet'
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
+            '--wsapi-host=127.0.0.1',
             '--wsapi-port=%u' % self.ofctl_port,
+            '--ofp-listen-host=%s' % self.controller_ipv4,
             '--ofp-tcp-listen-port=%s'))
         Controller.__init__(
             self,
@@ -195,8 +197,10 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
         for host_n in range(n_untagged):
             self._add_untagged_host(sid_prefix, host_n)
-        dpid = str(int(dpid) + 1)
-        print('remap switch will use DPID %s (%x)' % (dpid, int(dpid)))
+        remap_dpid = str(int(dpid) + 1)
+        print('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
+            dpid, int(dpid), remap_dpid, int(remap_dpid)))
+        dpid = remap_dpid
         switch = self._add_faucet_switch(sid_prefix, port, dpid)
         for host in self.hosts():
             self.addLink(host, switch)
