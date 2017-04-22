@@ -133,6 +133,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 self.hw_switch = self.config['hw_switch']
             if self.hw_switch:
                 self.dpid = self.config['dpid']
+                self.cpn_intf = self.config['cpn_intf']
                 self.of_port = self.config['of_port']
                 self.gauge_of_port = self.config['gauge_of_port']
                 self.hardware = self.config['hardware']
@@ -199,7 +200,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         """Start Mininet network."""
         controller_intf = 'lo'
         if self.hw_switch:
-            controller_intf = None
+            controller_intf = self.cpn_intf
         self.net = Mininet(
             self.topo,
             controller=faucet_mininet_test_base.FAUCET(
@@ -2570,7 +2571,7 @@ def import_hw_config():
         print('Could not load YAML config data from %s' % HW_SWITCH_CONFIG_FILE)
         sys.exit(-1)
     if 'hw_switch' in config and config['hw_switch']:
-        required_config = ('dp_ports', 'dpid', 'of_port', 'gauge_of_port')
+        required_config = ('dp_ports', 'cpn_intf', 'dpid', 'of_port', 'gauge_of_port')
         for required_key in required_config:
             if required_key not in config:
                 print('%s must be specified in %s to use HW switch.' % (
