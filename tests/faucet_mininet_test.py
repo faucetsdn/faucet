@@ -83,7 +83,7 @@ EXTERNAL_DEPENDENCIES = (
      r'pylint (\d+\.\d+).\d+,', "1.6"),
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', "7.3"),
-    ('ladvd', ['-v'], 'ladvd',
+    ('ladvd', ['-h'], 'ladvd',
      r'ladvd version (\d+\.\d+)\.\d+', "1.1"),
 )
 
