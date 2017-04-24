@@ -16,9 +16,11 @@
 # limitations under the License.
 
 import time
+import random
 
 import valve_of
 
+LEARN_JITTER = 10 # seconds
 
 class HostCacheEntry(object):
 
@@ -85,7 +87,7 @@ class ValveHostManager(object):
 
     def expire_hosts_from_vlan(self, vlan, now):
         expired_hosts = []
-        for eth_src, host_cache_entry in vlan.host_cache.items():
+        for eth_src, host_cache_entry in list(vlan.host_cache.items()):
             if not host_cache_entry.permanent:
                 host_cache_entry_age = now - host_cache_entry.cache_time
                 if host_cache_entry_age > self.learn_timeout:
@@ -125,7 +127,8 @@ class ValveHostManager(object):
                     self.eth_src_table, vlan=vlan, eth_src=eth_src),
                 priority=(self.host_priority - 2)))
         else:
-            learn_timeout = self.learn_timeout
+            #Add a jitter to avoid whole bunch of hosts timeout simultaneously
+            learn_timeout = self.learn_timeout + random.randint(0,LEARN_JITTER)
             ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         # Update datapath to no longer send packets from this mac to controller

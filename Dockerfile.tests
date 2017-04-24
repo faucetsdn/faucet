@@ -3,6 +3,7 @@ FROM osrg/ryu
 RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends \
+    gcc \
     git \
     influxdb \
     iputils-ping \

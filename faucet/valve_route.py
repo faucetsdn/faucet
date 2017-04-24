@@ -209,7 +209,7 @@ class ValveRouteManager(object):
                 self._update_nexthop_group(
                     is_updated, resolved_ip_gw,
                     vlan, in_port, eth_src))
-        for ip_dst, ip_gw in routes.items():
+        for ip_dst, ip_gw in list(routes.items()):
             if ip_gw == resolved_ip_gw:
                 ofmsgs.extend(self._add_resolved_route(
                     vlan, ip_gw, ip_dst, eth_src, is_updated))
@@ -289,7 +289,7 @@ class ValveRouteManager(object):
             True if a host FIB route (and not used as a gateway).
         """
         routes = self._vlan_routes(vlan)
-        for ip_dst, ip_gw in routes.items():
+        for ip_dst, ip_gw in list(routes.items()):
             if ip_gw == host_ip:
                 if ip_dst.prefixlen < ip_dst.max_prefixlen:
                     return False
@@ -353,7 +353,7 @@ class ValveRouteManager(object):
     def _host_from_faucet_vip(self, faucet_vip):
         max_prefixlen = faucet_vip.ip.max_prefixlen
         return ipaddress.ip_interface(
-            u'/'.join((faucet_vip.ip.exploded, str(max_prefixlen))))
+            btos('/'.join((faucet_vip.ip.exploded, str(max_prefixlen)))))
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add a route to the RIB.
@@ -503,8 +503,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 nw_dst=faucet_vip_host,
                 vlan=vlan),
             priority=priority,
-            inst=[valve_of.apply_actions([valve_of.output_controller()]),
-                  valve_of.goto_table(self.eth_dst_table)]))
+            inst=[valve_of.apply_actions([valve_of.output_controller()])]))
         # Initialize IPv4 FIB
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
@@ -620,8 +619,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 ipv6_nd_target=faucet_vip_host,
                 icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
             priority=priority,
-            inst=[valve_of.apply_actions([valve_of.output_controller()]),
-                  valve_of.goto_table(self.eth_dst_table)]))
+            inst=[valve_of.apply_actions([valve_of.output_controller()])]))
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
             self.valve_in_match(
@@ -632,8 +630,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 nw_proto=inet.IPPROTO_ICMPV6,
                 icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
             priority=priority,
-            inst=[valve_of.apply_actions([valve_of.output_controller()]),
-                  valve_of.goto_table(self.eth_dst_table)]))
+            inst=[valve_of.apply_actions([valve_of.output_controller()])]))
         # Initialize IPv6 FIB
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,

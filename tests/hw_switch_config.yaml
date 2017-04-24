@@ -13,7 +13,11 @@ dp_ports:
   4: enp1s0f3
 # Hardware switch's DPID
 dpid: 0xeccd6d9936ed
-# Switch must try to connect to controller twice;
-# once for FAUCET, once for Gauge
+# Port on this machine that connects to hardware switch's CPN port.
+# Hardware switch must use IP address of this port as controller IP.
+cpn_intf: enp5s0
+# There must be two controllers configured on the hardware switch,
+# with same IP (see cpn_intf), but different ports - one for FAUCET,
+# one for Gauge.
 of_port: 6636
 gauge_of_port: 6637
