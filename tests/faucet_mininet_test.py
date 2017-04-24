@@ -83,7 +83,7 @@ EXTERNAL_DEPENDENCIES = (
      r'pylint (\d+\.\d+).\d+,', "1.6"),
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', "7.3"),
-    ('ladvd', ['-v'], 'ladvd',
+    ('ladvd', ['-h'], 'ladvd',
      r'ladvd version (\d+\.\d+)\.\d+', "1.1"),
 )
 
@@ -224,10 +224,9 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
                        timeout=10, packets=2):
-        tcpdump_out = tcpdump_host.popen(
-            'timeout %us tcpdump -e -n -U -v -c %u %s' % (
-                timeout, packets, tcpdump_filter),
-            stderr=subprocess.STDOUT)
+        tcpdump_cmd = 'timeout %us tcpdump -i %s -e -n -U -v -c %u %s' % (
+            timeout, tcpdump_host.intf().name, packets, tcpdump_filter)
+        tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
         popens = {tcpdump_host: tcpdump_out}
         tcpdump_started = False
         tcpdump_txt = ''
@@ -235,12 +234,14 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             if host == tcpdump_host:
                 if tcpdump_started:
                     tcpdump_txt += line.strip()
-                else:
+                elif re.search('tcpdump: listening on ', line):
                     # when we see tcpdump start, then call provided functions.
-                    if re.search('tcpdump: listening on ', line):
-                        tcpdump_started = True
-                        for func in funcs:
-                            func()
+                    tcpdump_started = True
+                    for func in funcs:
+                        func()
+                else:
+                    print('tcpdump_helper: %s' % line)
+        self.assertTrue(tcpdump_started)
         return tcpdump_txt
 
     def bogus_mac_flooded_to_port1(self):
