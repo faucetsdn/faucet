@@ -29,13 +29,17 @@ Makefile is provided at the top level of the directory.  Output of ``make``
 is normally stored in ``dist`` directory. The following are the targets that
 can be used:
 
- - **sdist**: Generates a pip installable source package for testing.  One has to subsequently run as ``root`` or ``sudo`` ``pip install dist/faucet*gz`` command to install the package.
- - **clobber**: Removes ``dist`` directory and temporarily created any ``*egg-info`` directories.
  - **uml**: Uses ``pyreverse`` to provide code class diagrams.
  - **dot**: Uses ``dot`` to provide hirearchical representation of ``faucet.yaml`` based on ``docs/images/faucet-yaml.dot`` file
  - **codefmt**: Provides command line usage to "Code Style" the Python file
  - **codeerrors**: Uses ``pylint`` on all Python files to generate a code error report and is placed in ``dist`` directory.
  - **stats**: Provides a list of all commits since the last release tag.
+
+To *directly install* faucet from the cloned git repo, you could use ``sudo python setup.py install`` command from the root of the directory.
+
+To *build pip installable package*, you could use ``python setup.py sdist`` command from the root of the directory.
+
+To *remove* any temporarily created directories and files, you could use ``rm -rf dist *egg-info`` command.
 
 
 Key architectural concepts/assumptions:

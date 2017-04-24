@@ -35,10 +35,6 @@ uml:
 dot:
 	$(MKDIR) $(DIST_DIR)/doc
 	$(DOT) -Tpng $(SRC_DIR)/docs/images/faucet-yaml.dot -o $(DIST_DIR)/doc/faucet-yaml.png
-sdist:
-	@echo Building Python package installable via "pip"
-	$(MKDIR) $(DIST_DIR)
-	$(PYTHON) setup.py sdist
 
 codefmt:
 	@echo Run below command manually to inline replace current code with newly formatted code per “pep8” guidelines
@@ -52,13 +48,9 @@ codeerrors:
 
 stats:
 	@echo 'Since last release tag $(value GIT_REL_TAG)'
-	@echo 'number of commits = $(value GIT_NUM_COMMITS)' 
+	@echo 'number of commits = $(value GIT_NUM_COMMITS)'
 	@echo 'Net LOC added/removed = $(value GIT_LOC)'
-	@echo 
+	@echo
 	@echo 'Listing all commits since last tag ...'
 	@$(GIT) log $(GIT_REL_TAG)..HEAD --oneline
-
-clobber:
-	@echo Removing $(DIST_DIR)
-	$(RM) -rf $(DIST_DIR)
-	$(RM) -rf faucet.egg-info ryu_faucet.egg-info
+	
