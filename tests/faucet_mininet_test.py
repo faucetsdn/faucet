@@ -1188,13 +1188,48 @@ vlans:
         self.ping_all_when_learned()
 
 
-class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
+class FaucetUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
+        faucet_vips: ["10.0.0.254/24"]
+"""
+
+    CONFIG = """
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_ping_controller(self):
+        first_host, second_host = self.net.hosts[0:2]
+        for _ in range(5):
+            self.one_ipv4_ping(first_host, second_host.IP())
+            for host in first_host, second_host:
+                self.one_ipv4_controller_ping(host)
+            self.flap_all_switch_ports()
+
+
+class FaucetUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        faucet_vips: ["fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -1219,12 +1254,8 @@ vlans:
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         for _ in range(5):
-            # Verify IPv4 and IPv6 connectivity between first two hosts.
-            self.one_ipv4_ping(first_host, second_host.IP())
             self.one_ipv6_ping(first_host, 'fc00::1:2')
-            # Verify first two hosts can ping controller over both IPv4 and IPv6
             for host in first_host, second_host:
-                self.one_ipv4_controller_ping(host)
                 self.one_ipv6_controller_ping(host)
             self.flap_all_switch_ports()
 
