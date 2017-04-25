@@ -45,13 +45,15 @@ class BaseFAUCET(Controller):
         ))
         self.cmd('tcpdump %s &' % tcpdump_args)
 
-    def _tls_cargs(self, ctl_privkey, ctl_cert, ca_certs):
+    def _tls_cargs(self, ofctl_port, ctl_privkey, ctl_cert, ca_certs):
         tls_cargs = []
         for carg_val, carg_key in ((ctl_privkey, 'ctl-privkey'),
                                    (ctl_cert, 'ctl-cert'),
                                    (ca_certs, 'ca-certs')):
             if carg_val:
                 tls_cargs.append(('--%s=%s' % (carg_key, carg_val)))
+        if tls_cargs:
+            tls_cargs.append(('--ofp-ssl-listen-port=%u' % ofctl_port))
         return ' '.join(tls_cargs)
 
     def start(self):
@@ -64,7 +66,7 @@ class FAUCET(BaseFAUCET):
 
     def __init__(self, name, tmpdir, controller_intf,
                  ctl_privkey, ctl_cert, ca_certs,
-                 ports_sock, **kwargs):
+                 ports_sock, port, **kwargs):
         name = 'faucet-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
@@ -81,13 +83,14 @@ class FAUCET(BaseFAUCET):
             '--wsapi-port=%u' % self.ofctl_port,
             '--ofp-listen-host=%s' % self.controller_ipv4,
             '--ofp-tcp-listen-port=%s',
-            self._tls_cargs(ctl_privkey, ctl_cert, ca_certs)))
+            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         Controller.__init__(
             self,
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
             command=command,
             cargs=cargs,
+            port=port,
             **kwargs)
 
 
@@ -96,7 +99,7 @@ class Gauge(BaseFAUCET):
 
     def __init__(self, name, tmpdir, controller_intf,
                  ctl_privkey, ctl_cert, ca_certs,
-                 **kwargs):
+                 port, **kwargs):
         name = 'gauge-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
@@ -105,13 +108,14 @@ class Gauge(BaseFAUCET):
             '--verbose',
             '--use-stderr',
             '--ofp-tcp-listen-port=%s',
-            self._tls_cargs(ctl_privkey, ctl_cert, ca_certs)))
+            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         Controller.__init__(
             self,
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
             command=command,
             cargs=cargs,
+            port=port,
             **kwargs)
 
 
