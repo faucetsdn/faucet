@@ -45,6 +45,15 @@ class BaseFAUCET(Controller):
         ))
         self.cmd('tcpdump %s &' % tcpdump_args)
 
+    def _tls_cargs(self, ctl_privkey, ctl_cert, ca_certs):
+        tls_cargs = []
+        for carg_val, carg_key in ((ctl_privkey, 'ctl-privkey'),
+                                   (ctl_cert, 'ctl-cert'),
+                                   (ca_certs, 'ca-certs')):
+            if carg_val:
+                tls_cargs.append(('--%s=%s' % (carg_key, carg_val)))
+        return ' '.join(tls_cargs)
+
     def start(self):
         self._start_tcpdump()
         super(BaseFAUCET, self).start()
@@ -53,7 +62,9 @@ class BaseFAUCET(Controller):
 class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
-    def __init__(self, name, tmpdir, controller_intf, ports_sock, **kwargs):
+    def __init__(self, name, tmpdir, controller_intf,
+                 ctl_privkey, ctl_cert, ca_certs,
+                 ports_sock, **kwargs):
         name = 'faucet-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
@@ -69,7 +80,8 @@ class FAUCET(BaseFAUCET):
             '--wsapi-host=127.0.0.1',
             '--wsapi-port=%u' % self.ofctl_port,
             '--ofp-listen-host=%s' % self.controller_ipv4,
-            '--ofp-tcp-listen-port=%s'))
+            '--ofp-tcp-listen-port=%s',
+            self._tls_cargs(ctl_privkey, ctl_cert, ca_certs)))
         Controller.__init__(
             self,
             name,
@@ -82,7 +94,9 @@ class FAUCET(BaseFAUCET):
 class Gauge(BaseFAUCET):
     """Start a Gauge controller."""
 
-    def __init__(self, name, tmpdir, controller_intf, **kwargs):
+    def __init__(self, name, tmpdir, controller_intf,
+                 ctl_privkey, ctl_cert, ca_certs,
+                 **kwargs):
         name = 'gauge-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
@@ -90,7 +104,8 @@ class Gauge(BaseFAUCET):
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
-            '--ofp-tcp-listen-port=%s'))
+            '--ofp-tcp-listen-port=%s',
+            self._tls_cargs(ctl_privkey, ctl_cert, ca_certs)))
         Controller.__init__(
             self,
             name,
@@ -229,6 +244,9 @@ class FaucetTestBase(unittest.TestCase):
     gauge_of_port = None
     net = None
     of_port = None
+    ctl_privkey = None
+    ctl_cert = None
+    ca_certs = None
     port_map = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
     switch_map = {}
     tmpdir = None

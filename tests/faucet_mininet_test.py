@@ -137,6 +137,12 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 self.of_port = self.config['of_port']
                 self.gauge_of_port = self.config['gauge_of_port']
                 self.hardware = self.config['hardware']
+                if 'ctl_privkey' in self.config:
+                    self.ctl_privkey = self.config['ctl_privkey']
+                if 'ctl_cert' in self.config:
+                    self.ctl_cert = self.config['ctl_cert']
+                if 'ca_certs' in self.config:
+                    self.ca_certs = self.config['ca_certs']
                 dp_ports = self.config['dp_ports']
                 self.port_map = {}
                 self.switch_map = {}
@@ -206,12 +212,19 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             controller=faucet_mininet_test_base.FAUCET(
                 name='faucet', tmpdir=self.tmpdir,
                 controller_intf=controller_intf,
-                ports_sock=self.ports_sock, port=self.of_port))
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
+                ports_sock=self.ports_sock,
+                port=self.of_port))
         self.pre_start_net()
         if self.RUN_GAUGE:
             gauge_controller = faucet_mininet_test_base.Gauge(
                 name='gauge', tmpdir=self.tmpdir,
                 controller_intf=controller_intf,
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
                 port=self.gauge_of_port)
             self.net.addController(gauge_controller)
         self.net.start()
