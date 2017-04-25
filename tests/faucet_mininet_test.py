@@ -137,6 +137,12 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 self.of_port = self.config['of_port']
                 self.gauge_of_port = self.config['gauge_of_port']
                 self.hardware = self.config['hardware']
+                if 'ctl_privkey' in self.config:
+                    self.ctl_privkey = self.config['ctl_privkey']
+                if 'ctl_cert' in self.config:
+                    self.ctl_cert = self.config['ctl_cert']
+                if 'ca_certs' in self.config:
+                    self.ca_certs = self.config['ca_certs']
                 dp_ports = self.config['dp_ports']
                 self.port_map = {}
                 self.switch_map = {}
@@ -206,12 +212,19 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             controller=faucet_mininet_test_base.FAUCET(
                 name='faucet', tmpdir=self.tmpdir,
                 controller_intf=controller_intf,
-                ports_sock=self.ports_sock, port=self.of_port))
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
+                ports_sock=self.ports_sock,
+                port=self.of_port))
         self.pre_start_net()
         if self.RUN_GAUGE:
             gauge_controller = faucet_mininet_test_base.Gauge(
                 name='gauge', tmpdir=self.tmpdir,
                 controller_intf=controller_intf,
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
                 port=self.gauge_of_port)
             self.net.addController(gauge_controller)
         self.net.start()
@@ -1188,13 +1201,48 @@ vlans:
         self.ping_all_when_learned()
 
 
-class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
+class FaucetUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
+        faucet_vips: ["10.0.0.254/24"]
+"""
+
+    CONFIG = """
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_ping_controller(self):
+        first_host, second_host = self.net.hosts[0:2]
+        for _ in range(5):
+            self.one_ipv4_ping(first_host, second_host.IP())
+            for host in first_host, second_host:
+                self.one_ipv4_controller_ping(host)
+            self.flap_all_switch_ports()
+
+
+class FaucetUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        faucet_vips: ["fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -1219,12 +1267,8 @@ vlans:
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         for _ in range(5):
-            # Verify IPv4 and IPv6 connectivity between first two hosts.
-            self.one_ipv4_ping(first_host, second_host.IP())
             self.one_ipv6_ping(first_host, 'fc00::1:2')
-            # Verify first two hosts can ping controller over both IPv4 and IPv6
             for host in first_host, second_host:
-                self.one_ipv4_controller_ping(host)
                 self.one_ipv6_controller_ping(host)
             self.flap_all_switch_ports()
 

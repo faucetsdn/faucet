@@ -21,3 +21,9 @@ cpn_intf: enp5s0
 # one for Gauge.
 of_port: 6636
 gauge_of_port: 6637
+# If you wish to test OF over TLS to the hardware switch,
+# set the following parameters per Ryu documentation.
+# https://github.com/osrg/ryu/blob/master/doc/source/tls.rst
+# ctl_privkey: ctl-privkey.pem
+# ctl_cert: ctl-cert.pem
+# ca_certs: /usr/local/var/lib/openvswitch/pki/switchca/cacert.pem
