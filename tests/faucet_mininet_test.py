@@ -236,9 +236,12 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         dumpNodeConnections(self.net.hosts)
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
-                       timeout=10, packets=2):
+                       timeout=10, packets=2, root_intf=False):
+        intf = tcpdump_host.intf().name
+        if root_intf:
+            intf = intf.split('.')[0]
         tcpdump_cmd = 'timeout %us tcpdump -i %s -e -n -U -v -c %u %s' % (
-            timeout, tcpdump_host.intf().name, packets, tcpdump_filter)
+            timeout, intf, packets, tcpdump_filter)
         tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
         popens = {tcpdump_host: tcpdump_out}
         tcpdump_started = False
@@ -430,7 +433,7 @@ vlans:
 
 
 class FaucetSanityTest(FaucetUntaggedTest):
-    """Sanity test - make sure test environment is correct before running all tess.""" 
+    """Sanity test - make sure test environment is correct before running all tests."""
 
     pass
 
@@ -1625,6 +1628,55 @@ vlans:
 
     def test_tagged(self):
         self.ping_all_when_learned()
+
+
+class FaucetTaggedPopVlansOutputTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            vlan_vid: 100
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    dl_dst: "06:06:06:06:06:06"
+                    pop_vlans: 1
+                    port: acloutport
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+                acl_in: 1
+            acloutport:
+                tagged_vlans: [100]
+                number: %(port_2)d
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_tagged(self):
+        first_host, second_host = self.net.hosts[0:2]
+        tcpdump_filter = 'not vlan'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], packets=10, root_intf=True)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
 
 class FaucetTaggedControlPlaneTest(FaucetTaggedTest):

@@ -46,6 +46,10 @@ def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
                 if 'dl_dst' in output_dict:
                     output_actions.append(
                         valve_of.set_eth_dst(output_dict['dl_dst']))
+                if 'pop_vlans' in output_dict:
+                    for _ in range(output_dict['pop_vlans']):
+                        output_actions.append(
+                            valve_of.pop_vlan())
                 # if vlan tag is specified, push it.
                 if 'vlan_vid' in output_dict:
                     output_actions.extend(
