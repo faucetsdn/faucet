@@ -50,6 +50,11 @@ def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
                 if 'vlan_vid' in output_dict:
                     output_actions.extend(
                         valve_of.push_vlan_act(output_dict['vlan_vid']))
+                # or, if a list, push them all (all with type Q).
+                elif 'vlan_vids' in output_dict:
+                    for vid in output_dict['vlan_vids']:
+                        output_actions.extend(
+                            valve_of.push_vlan_act(vid))
                 # output to port
                 port_no = output_dict['port']
                 output_actions.append(valve_of.output_port(port_no))

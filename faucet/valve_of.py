@@ -174,7 +174,7 @@ def set_vlan_vid(vlan_vid):
     return parser.OFPActionSetField(vlan_vid=vid_present(vlan_vid))
 
 
-def push_vlan_act(vlan_vid):
+def push_vlan_act(vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
     """Return OpenFlow action list to push Ethernet 802.1Q header with VLAN VID.
 
     Args:
@@ -183,7 +183,7 @@ def push_vlan_act(vlan_vid):
         list: actions to push 802.1Q header with VLAN VID set.
     """
     return [
-        parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+        parser.OFPActionPushVlan(eth_type),
         set_vlan_vid(vlan_vid),
     ]
 
