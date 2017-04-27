@@ -668,7 +668,7 @@ class Valve(object):
         Args:
             dp_id (int): datapath ID.
             port_num (int): port number.
-            old_eth_srcs (list): eth MAC of antiproofing hosts
+            old_eth_srcs (list): eth MAC of antisproofing hosts
         Returns:
             list: OpenFlow messages, if any.
         """
@@ -686,7 +686,7 @@ class Valve(object):
         ofmsgs = []
         if modify:
             if port.permanent_learn:
-                # delete antiproofing flow
+                # delete antisproofing flow
                 for eth_src in old_eth_srcs:
                     ofmsgs.extend(self.valve_flowdel(
                         self.dp.eth_src_table,
@@ -762,7 +762,7 @@ class Valve(object):
         ofmsgs = []
 
         if port.permanent_learn:
-            # delete antiproofing flows
+            # delete antisproofing flows
             for eth_src in old_eth_srcs:
                 ofmsgs.extend(self.valve_flowdel(
                     self.dp.eth_src_table,
