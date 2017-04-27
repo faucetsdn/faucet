@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """Base class for all FAUCET unit tests."""
 
@@ -6,12 +6,14 @@ import json
 import os
 import re
 import shutil
+import socket
 import tempfile
 import time
 import unittest
 import yaml
 
 import ipaddress
+import netifaces
 import requests
 
 from mininet.node import Controller
@@ -28,11 +30,6 @@ class BaseFAUCET(Controller):
     controller_intf = None
     tmpdir = None
 
-    def _tcpdump_intf(self):
-        if self.controller_intf:
-            return '-i %s' % self.controller_intf
-        return ''
-
     def _start_tcpdump(self):
         tcpdump_args = ' '.join((
             '-s 0',
@@ -40,13 +37,24 @@ class BaseFAUCET(Controller):
             '-n',
             '-U',
             '-q',
-            self._tcpdump_intf(),
+            '-i %s' % self.controller_intf,
             '-w %s/%s-of.cap' % (self.tmpdir, self.name),
             'tcp and port %u' % self.port,
             '>/dev/null',
             '2>/dev/null',
         ))
         self.cmd('tcpdump %s &' % tcpdump_args)
+
+    def _tls_cargs(self, ofctl_port, ctl_privkey, ctl_cert, ca_certs):
+        tls_cargs = []
+        for carg_val, carg_key in ((ctl_privkey, 'ctl-privkey'),
+                                   (ctl_cert, 'ctl-cert'),
+                                   (ca_certs, 'ca-certs')):
+            if carg_val:
+                tls_cargs.append(('--%s=%s' % (carg_key, carg_val)))
+        if tls_cargs:
+            tls_cargs.append(('--ofp-ssl-listen-port=%u' % ofctl_port))
+        return ' '.join(tls_cargs)
 
     def start(self):
         self._start_tcpdump()
@@ -56,31 +64,42 @@ class BaseFAUCET(Controller):
 class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
-    def __init__(self, name, tmpdir, controller_intf, ports_sock, **kwargs):
+    def __init__(self, name, tmpdir, controller_intf,
+                 ctl_privkey, ctl_cert, ca_certs,
+                 ports_sock, port, **kwargs):
         name = 'faucet-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
+        # pylint: disable=no-member
+        self.controller_ipv4 = netifaces.ifaddresses(
+            self.controller_intf)[socket.AF_INET][0]['addr']
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
             ports_sock)
         command = 'PYTHONPATH=../ ryu-manager ryu.app.ofctl_rest faucet.faucet'
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
+            '--wsapi-host=127.0.0.1',
             '--wsapi-port=%u' % self.ofctl_port,
-            '--ofp-tcp-listen-port=%s'))
+            '--ofp-listen-host=%s' % self.controller_ipv4,
+            '--ofp-tcp-listen-port=%s',
+            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         Controller.__init__(
             self,
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
             command=command,
             cargs=cargs,
+            port=port,
             **kwargs)
 
 
 class Gauge(BaseFAUCET):
     """Start a Gauge controller."""
 
-    def __init__(self, name, tmpdir, controller_intf, **kwargs):
+    def __init__(self, name, tmpdir, controller_intf,
+                 ctl_privkey, ctl_cert, ca_certs,
+                 port, **kwargs):
         name = 'gauge-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
@@ -88,13 +107,15 @@ class Gauge(BaseFAUCET):
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
-            '--ofp-tcp-listen-port=%s'))
+            '--ofp-tcp-listen-port=%s',
+            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         Controller.__init__(
             self,
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
             command=command,
             cargs=cargs,
+            port=port,
             **kwargs)
 
 
@@ -195,8 +216,10 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
         for host_n in range(n_untagged):
             self._add_untagged_host(sid_prefix, host_n)
-        dpid = str(int(dpid) + 1)
-        print('remap switch will use DPID %s (%x)' % (dpid, int(dpid)))
+        remap_dpid = str(int(dpid) + 1)
+        print('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
+            dpid, int(dpid), remap_dpid, int(remap_dpid)))
+        dpid = remap_dpid
         switch = self._add_faucet_switch(sid_prefix, port, dpid)
         for host in self.hosts():
             self.addLink(host, switch)
@@ -225,6 +248,9 @@ class FaucetTestBase(unittest.TestCase):
     gauge_of_port = None
     net = None
     of_port = None
+    ctl_privkey = None
+    ctl_cert = None
+    ca_certs = None
     port_map = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
     switch_map = {}
     tmpdir = None

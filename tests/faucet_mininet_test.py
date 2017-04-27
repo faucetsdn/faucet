@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """Mininet tests for FAUCET.
 
@@ -83,7 +83,7 @@ EXTERNAL_DEPENDENCIES = (
      r'pylint (\d+\.\d+).\d+,', "1.6"),
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', "7.3"),
-    ('ladvd', ['-v'], 'ladvd',
+    ('ladvd', ['-h'], 'ladvd',
      r'ladvd version (\d+\.\d+)\.\d+', "1.1"),
 )
 
@@ -133,9 +133,16 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 self.hw_switch = self.config['hw_switch']
             if self.hw_switch:
                 self.dpid = self.config['dpid']
+                self.cpn_intf = self.config['cpn_intf']
                 self.of_port = self.config['of_port']
                 self.gauge_of_port = self.config['gauge_of_port']
                 self.hardware = self.config['hardware']
+                if 'ctl_privkey' in self.config:
+                    self.ctl_privkey = self.config['ctl_privkey']
+                if 'ctl_cert' in self.config:
+                    self.ctl_cert = self.config['ctl_cert']
+                if 'ca_certs' in self.config:
+                    self.ca_certs = self.config['ca_certs']
                 dp_ports = self.config['dp_ports']
                 self.port_map = {}
                 self.switch_map = {}
@@ -199,18 +206,25 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         """Start Mininet network."""
         controller_intf = 'lo'
         if self.hw_switch:
-            controller_intf = None
+            controller_intf = self.cpn_intf
         self.net = Mininet(
             self.topo,
             controller=faucet_mininet_test_base.FAUCET(
                 name='faucet', tmpdir=self.tmpdir,
                 controller_intf=controller_intf,
-                ports_sock=self.ports_sock, port=self.of_port))
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
+                ports_sock=self.ports_sock,
+                port=self.of_port))
         self.pre_start_net()
         if self.RUN_GAUGE:
             gauge_controller = faucet_mininet_test_base.Gauge(
                 name='gauge', tmpdir=self.tmpdir,
                 controller_intf=controller_intf,
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
                 port=self.gauge_of_port)
             self.net.addController(gauge_controller)
         self.net.start()
@@ -222,11 +236,13 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         dumpNodeConnections(self.net.hosts)
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
-                       timeout=10, packets=2):
-        tcpdump_out = tcpdump_host.popen(
-            'timeout %us tcpdump -e -n -U -v -c %u %s' % (
-                timeout, packets, tcpdump_filter),
-            stderr=subprocess.STDOUT)
+                       timeout=10, packets=2, root_intf=False):
+        intf = tcpdump_host.intf().name
+        if root_intf:
+            intf = intf.split('.')[0]
+        tcpdump_cmd = 'timeout %us tcpdump -i %s -e -n -U -v -c %u %s' % (
+            timeout, intf, packets, tcpdump_filter)
+        tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
         popens = {tcpdump_host: tcpdump_out}
         tcpdump_started = False
         tcpdump_txt = ''
@@ -234,12 +250,14 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             if host == tcpdump_host:
                 if tcpdump_started:
                     tcpdump_txt += line.strip()
-                else:
+                elif re.search('tcpdump: listening on ', line):
                     # when we see tcpdump start, then call provided functions.
-                    if re.search('tcpdump: listening on ', line):
-                        tcpdump_started = True
-                        for func in funcs:
-                            func()
+                    tcpdump_started = True
+                    for func in funcs:
+                        func()
+                else:
+                    print('tcpdump_helper: %s' % line)
+        self.assertTrue(tcpdump_started)
         return tcpdump_txt
 
     def bogus_mac_flooded_to_port1(self):
@@ -415,7 +433,7 @@ vlans:
 
 
 class FaucetSanityTest(FaucetUntaggedTest):
-    """Sanity test - make sure test environment is correct before running all tess."""
+    """Sanity test - make sure test environment is correct before running all tests."""
 
     pass
 
@@ -1205,13 +1223,48 @@ vlans:
         self.ping_all_when_learned()
 
 
-class FaucetUntaggedControlPlaneTest(FaucetUntaggedTest):
+class FaucetUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
+        faucet_vips: ["10.0.0.254/24"]
+"""
+
+    CONFIG = """
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_ping_controller(self):
+        first_host, second_host = self.net.hosts[0:2]
+        for _ in range(5):
+            self.one_ipv4_ping(first_host, second_host.IP())
+            for host in first_host, second_host:
+                self.one_ipv4_controller_ping(host)
+            self.flap_all_switch_ports()
+
+
+class FaucetUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        faucet_vips: ["fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -1236,12 +1289,8 @@ vlans:
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         for _ in range(5):
-            # Verify IPv4 and IPv6 connectivity between first two hosts.
-            self.one_ipv4_ping(first_host, second_host.IP())
             self.one_ipv6_ping(first_host, 'fc00::1:2')
-            # Verify first two hosts can ping controller over both IPv4 and IPv6
             for host in first_host, second_host:
-                self.one_ipv4_controller_ping(host)
                 self.one_ipv6_controller_ping(host)
             self.flap_all_switch_ports()
 
@@ -1483,6 +1532,58 @@ acls:
             'vlan 123', tcpdump_txt))
 
 
+class FaucetUntaggedMultiVlansOutputTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    dl_dst: "06:06:06:06:06:06"
+                    vlan_vids: [123, 456]
+                    port: acloutport
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: 1
+            acloutport:
+                number: %(port_2)d
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    @unittest.skip('needs OVS dev or > v2.8')
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[0:2]
+        # we expected to see the rewritten address and VLAN
+        tcpdump_filter = 'vlan'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            'vlan 456.+vlan 123', tcpdump_txt))
+
+
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -1548,13 +1649,95 @@ vlans:
         self.ping_all_when_learned()
 
 
-class FaucetTaggedControlPlaneTest(FaucetTaggedTest):
+class FaucetTaggedPopVlansOutputTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "tagged"
-        faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            vlan_vid: 100
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    dl_dst: "06:06:06:06:06:06"
+                    pop_vlans: 1
+                    port: acloutport
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+                acl_in: 1
+            acloutport:
+                tagged_vlans: [100]
+                number: %(port_2)d
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_tagged(self):
+        first_host, second_host = self.net.hosts[0:2]
+        tcpdump_filter = 'not vlan'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], packets=10, root_intf=True)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+
+
+class FaucetTaggedIPv4ControlPlaneTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        faucet_vips: ["10.0.0.254/24"]
+"""
+
+    CONFIG = """
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+            %(port_2)d:
+                tagged_vlans: [100]
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_ping_controller(self):
+        first_host, second_host = self.net.hosts[0:2]
+        self.one_ipv4_ping(first_host, second_host.IP())
+        for host in first_host, second_host:
+            self.one_ipv4_controller_ping(host)
+
+
+class FaucetTaggedIPv6ControlPlaneTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        faucet_vips: ["fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -1578,12 +1761,8 @@ vlans:
         first_host, second_host = self.net.hosts[0:2]
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
-        # Verify IPv4 and IPv6 connectivity between first two hosts.
-        self.one_ipv4_ping(first_host, second_host.IP())
         self.one_ipv6_ping(first_host, 'fc00::1:2')
-        # Verify first two hosts can ping controller over both IPv4 and IPv6
         for host in first_host, second_host:
-            self.one_ipv4_controller_ping(host)
             self.one_ipv6_controller_ping(host)
 
 
@@ -2589,7 +2768,7 @@ def import_hw_config():
         print('Could not load YAML config data from %s' % HW_SWITCH_CONFIG_FILE)
         sys.exit(-1)
     if 'hw_switch' in config and config['hw_switch']:
-        required_config = ('dp_ports', 'dpid', 'of_port', 'gauge_of_port')
+        required_config = ('dp_ports', 'cpn_intf', 'dpid', 'of_port', 'gauge_of_port')
         for required_key in required_config:
             if required_key not in config:
                 print('%s must be specified in %s to use HW switch.' % (
