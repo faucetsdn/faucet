@@ -1669,7 +1669,7 @@ acls:
 
     def test_tagged(self):
         first_host, second_host = self.net.hosts[0:2]
-        tcpdump_filter = 'not vlan'
+        tcpdump_filter = 'not vlan and icmp and ether dst 06:06:06:06:06:06'
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
