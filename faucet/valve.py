@@ -662,13 +662,12 @@ class Valve(object):
                 port, vlan, self._find_forwarding_table(vlan), mirror_act))
         return ofmsgs
 
-    def port_add(self, dp_id, port_num, modify=False, old_eth_srcs=[]):
+    def port_add(self, dp_id, port_num, modify=False):
         """Handle the addition of a port.
 
         Args:
             dp_id (int): datapath ID.
             port_num (int): port number.
-            old_eth_srcs (list): eth MAC of antisproofing hosts
         Returns:
             list: OpenFlow messages, if any.
         """
@@ -685,14 +684,8 @@ class Valve(object):
 
         ofmsgs = []
         if modify:
-            if port.permanent_learn:
-                # delete antisproofing flow
-                for eth_src in old_eth_srcs:
-                    ofmsgs.extend(self.valve_flowdel(
-                        self.dp.eth_src_table,
-                        match=self.valve_in_match(
-                            self.dp.eth_src_table, eth_src=eth_src)))
-            else:
+            if not port.permanent_learn:
+                # delete eth_dst rules
                 ofmsgs.extend(self.valve_flowdel(
                     self.dp.eth_dst_table,
                     out_port=port_num))
@@ -738,13 +731,12 @@ class Valve(object):
             ofmsgs.extend(self._port_add_vlans(port, mirror_act))
         return ofmsgs
 
-    def port_delete(self, dp_id, port_num, old_eth_srcs=[]):
+    def port_delete(self, dp_id, port_num):
         """Handle the deletion of a port.
 
         Args:
             dp_id (int): datapath ID.
             port_num (int): port number.
-            old_eth_srcs (list): list of MAC learned on this port
         Returns:
             list: OpenFlow messages, if any.
         """
@@ -761,19 +753,14 @@ class Valve(object):
 
         ofmsgs = []
 
-        if port.permanent_learn:
-            # delete antisproofing flows
-            for eth_src in old_eth_srcs:
-                ofmsgs.extend(self.valve_flowdel(
-                    self.dp.eth_src_table,
-                    match=self.valve_in_match(
-                        self.dp.eth_src_table, eth_src=eth_src)))
-        else:
+        if not port.permanent_learn:
             ofmsgs.extend(self._delete_all_port_match_flows(port))
+
             # delete eth_dst rules
             ofmsgs.extend(self.valve_flowdel(
                 self.dp.eth_dst_table,
                 out_port=port_num))
+
         for vlan in list(self.dp.vlans.values()):
             if port in vlan.get_ports():
                 ofmsgs.extend(self.flood_manager.build_flood_rules(
@@ -992,17 +979,6 @@ class Valve(object):
         for vlan in list(self.dp.vlans.values()):
             self.host_manager.expire_hosts_from_vlan(vlan, now)
 
-
-    def _get_eth_srcs_learned_on_port(self, dp, port_no):
-        old_eth_srcs = []
-        port = dp.ports[port_no]
-        for vid in [port.native_vlan] + port.tagged_vlans:
-            vlan = dp.vlans[vid]
-            for eth_src, host_cache_entry in list(vlan.host_cache.items()):
-                if host_cache_entry.port_num == port_no:
-                    old_eth_srcs.append(eth_src)
-        return old_eth_srcs
-
     def _get_config_changes(self, new_dp):
         """Detect any config changes.
 
@@ -1045,13 +1021,14 @@ class Valve(object):
         for vid, new_vlan in list(new_dp.vlans.items()):
             if vid not in self.dp.vlans or new_vlan != self.dp.vlans[vid]:
                 changed_vlans.add(vid)
-                for port in new_vlan.get_ports():
-                    changed_ports.add(port.number)
+            for port in new_vlan.get_ports():
+                changed_ports.add(port.number)
 
         deleted_ports = set([])
         for port_no in list(self.dp.ports.keys()):
             if port_no not in new_dp.ports:
                 deleted_ports.add(port_no)
+
         changes = (deleted_ports, changed_ports, deleted_vlans, changed_vlans)
         return changes
 
@@ -1070,19 +1047,16 @@ class Valve(object):
         """
         deleted_ports, changed_ports, deleted_vlans, changed_vlans = changes
         ofmsgs = []
-        old_dp = self.dp
         for port_no in deleted_ports:
             self.logger.info('ports deleted: %s', deleted_ports)
-            old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
-            ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no, old_eth_srcs))
+            ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no))
         for vid in deleted_vlans:
             self.logger.info('VLANs deleted: %s', deleted_vlans)
             vlan = self.dp.vlans[vid]
             ofmsgs.extend(self._del_vlan(vlan))
         for vid in changed_vlans:
-            if vid in self.dp.vlans:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(self._del_vlan(vlan))
+            vlan = self.dp.vlans[vid]
+            ofmsgs.extend(self._del_vlan(vlan))
 
         self.dp = new_dp
         self.dp.running = True
@@ -1092,9 +1066,8 @@ class Valve(object):
             vlan = self.dp.vlans[vid]
             ofmsgs.extend(self._add_vlan(vlan, set()))
         for port_no in changed_ports:
-            self.logger.info('ports changed/added: %s', port_no)
-            old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
-            ofmsgs.extend(self.port_add(self.dp.dp_id, port_no, True, old_eth_srcs))
+            self.logger.info('ports changed/added: %s', changed_ports)
+            ofmsgs.extend(self.port_add(self.dp.dp_id, port_no, True))
         return ofmsgs
 
     def reload_config(self, new_dp):
