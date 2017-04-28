@@ -52,7 +52,8 @@ class ValveRouteManager(object):
     def __init__(self, logger, faucet_mac, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time,
-                 fib_table, eth_src_table, eth_dst_table, route_priority,
+                 fib_table, eth_src_table, eth_dst_table, flood_table,
+                 route_priority,
                  valve_in_match, valve_flowdel, valve_flowmod,
                  valve_flowcontroller, use_group_table, routers):
         self.logger = logger
@@ -64,6 +65,7 @@ class ValveRouteManager(object):
         self.fib_table = fib_table
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
+        self.flood_table = flood_table
         self.route_priority = route_priority
         self.valve_in_match = valve_in_match
         self.valve_flowdel = valve_flowdel
@@ -609,6 +611,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
         max_prefixlen = faucet_vip.ip.max_prefixlen
         faucet_vip_host = self._host_from_faucet_vip(faucet_vip)
         priority = self.route_priority + max_prefixlen
+        faucet_vip_host_nd_mcast = valve_packet.ipv6_link_eth_mcast(
+            valve_packet.ipv6_solicited_node_from_ucast(faucet_vip.ip))
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
             self.valve_in_match(
@@ -616,10 +620,12 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 eth_type=self._eth_type(),
                 vlan=vlan,
                 nw_proto=inet.IPPROTO_ICMPV6,
-                ipv6_nd_target=faucet_vip_host,
+                eth_dst=faucet_vip_host_nd_mcast,
                 icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
             priority=priority,
-            inst=[valve_of.apply_actions([valve_of.output_controller()])]))
+            inst=[
+                valve_of.apply_actions([valve_of.output_controller()]),
+                valve_of.goto_table(self.flood_table)]))
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
             self.valve_in_match(
