@@ -7,6 +7,7 @@ RUN \
     git \
     influxdb \
     iputils-ping \
+    ladvd \
     libpython2.7-dev \
     libyaml-dev \
     net-tools \
@@ -16,7 +17,7 @@ RUN \
     sudo \
     tcpdump \
     vlan \
-    ladvd
+    wpasupplicant
 
 RUN \
   git clone -b 2.2.1 https://github.com/mininet/mininet && \
