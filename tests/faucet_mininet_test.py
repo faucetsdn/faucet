@@ -326,6 +326,29 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
 
+    def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
+        self.net.ping((first_host, second_host))
+        for host in (first_host, second_host):
+            self.require_host_learned(host)
+        self.assertEquals(0, self.net.ping((first_host, second_host)))
+        mirror_mac = mirror_host.MAC()
+        tcpdump_filter = (
+            'not ether src %s and ether proto 0x888e' % mirror_mac)
+        eap_conf_cmd = (
+            'echo "eapol_version=2\nap_scan=0\nnetwork={\n'
+            'key_mgmt=IEEE8021X\neap=MD5\nidentity=\\"login\\"\n'
+            'password=\\"password\\"\n}\n" > /tmp/eap.conf')
+        wpa_supplicant_cmd = (
+            'timeout 5s wpa_supplicant -c/tmp/eap.conf -Dwired -i%s -d' % (
+                first_host.defaultIntf().name))
+        tcpdump_txt = self.tcpdump_helper(
+            mirror_host, tcpdump_filter, [
+                lambda: first_host.cmd(eap_conf_cmd),
+                lambda: first_host.cmd(wpa_supplicant_cmd)])
+        self.assertTrue(
+            re.search('01:80:c2:00:00:03, ethertype EAPOL', tcpdump_txt),
+            msg=tcpdump_txt)
+
     def gauge_smoke_test(self):
         watcher_files = (
             self.monitor_stats_file,
@@ -1420,6 +1443,10 @@ acls:
     def test_untagged(self):
         first_host, second_host, mirror_host = self.net.hosts[0:3]
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
+
+    def test_eapol_mirrored(self):
+        first_host, second_host, mirror_host = self.net.hosts[0:3]
+        self.verify_eapol_mirrored(first_host, second_host, mirror_host)
 
 
 class FaucetZodiacUntaggedACLMirrorTest(FaucetUntaggedACLMirrorTest):
