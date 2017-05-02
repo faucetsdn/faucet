@@ -504,6 +504,16 @@ dbs:
                 self.fail(
                     'no controller debug log for switch %s' % dp_name)
 
+    def scrape_prometheus(self):
+        faucet_ctl = self.net.controllers[0]
+        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT'))
+        prom_url = 'http://127.0.0.1:%u' % prom_port
+        prom_vars = []
+        for prom_line in requests.get(prom_url).text.split('\n'):
+            if not prom_line.startswith('#'):
+                prom_vars.append(prom_line)
+        return '\n'.join(prom_vars)
+
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
         controller = self.get_controller()

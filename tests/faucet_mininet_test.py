@@ -32,7 +32,6 @@ import os
 import sys
 import getopt
 import random
-import requests
 import re
 import shutil
 import subprocess
@@ -372,11 +371,12 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
 
     def prometheus_smoke_test(self):
-        faucet_ctl = self.net.controllers[0]
-        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT'))
-        prom_url = 'http://127.0.0.1:%u' % prom_port
-        prom_out = requests.get(prom_url).text
-        self.assertTrue(re.search(r'packet_ins\S+[1-9]+', prom_out))
+        prom_out = self.scrape_prometheus()
+        self.assertTrue(re.search(r'of_packet_ins\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertTrue(re.search(r'of_flowmsgs_sent\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertTrue(re.search(r'of_dp_connections\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertIsNone(re.search(r'of_errors', prom_out), msg=prom_out)
+        self.assertIsNone(re.search(r'of_dp_disconnections', prom_out), msg=prom_out)
 
 
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
