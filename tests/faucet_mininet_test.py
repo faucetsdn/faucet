@@ -32,6 +32,7 @@ import os
 import sys
 import getopt
 import random
+import requests
 import re
 import shutil
 import subprocess
@@ -120,6 +121,9 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.tmpdir, 'gauge.log')
         os.environ['GAUGE_EXCEPTION_LOG'] = os.path.join(
             self.tmpdir, 'gauge-exception.log')
+        prom_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+        os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
         self.debug_log_path = os.path.join(
             self.tmpdir, 'ofchannel.log')
         self.monitor_stats_file = os.path.join(
@@ -367,6 +371,13 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.assertEquals(
             0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
 
+    def prometheus_smoke_test(self):
+        faucet_ctl = self.net.controllers[0]
+        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT'))
+        prom_url = 'http://127.0.0.1:%u' % prom_port
+        prom_out = requests.get(prom_url).text
+        self.assertTrue(re.search(r'packet_ins\S+[1-9]+', prom_out))
+
 
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
     """Test the Faucet API."""
@@ -453,6 +464,7 @@ vlans:
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
+        self.prometheus_smoke_test()
 
 
 class FaucetSanityTest(FaucetUntaggedTest):

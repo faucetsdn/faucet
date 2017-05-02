@@ -31,6 +31,8 @@ from valve_util import btos, dpid_log, get_logger, kill_on_exception, get_sys_pr
 from valve import valve_factory
 import valve_of
 
+from prometheus_client import Counter, start_http_server
+
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -44,6 +46,14 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import vlan as ryu_vlan
 from ryu.ofproto import ether
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
+
+
+class FaucetMetrics(object):
+    """Container class for objects that can be exported to Prometheus."""
+
+    def __init__(self):
+        self.packet_ins = Counter(
+            'packet_ins', 'number of OF packet_ins received from DP', ['dpid'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -183,6 +193,12 @@ class Faucet(app_manager.RyuApp):
         # Set up separate logging for exceptions
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
+
+        # TODO: metrics instance can be passed to Valves also,
+        # for DP specific instrumentation.
+        self.metrics = FaucetMetrics()
+        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9244'))
+        start_http_server(prom_port)
 
         # Set up a valve object for each datapath
         self.valves = {}
@@ -433,6 +449,7 @@ class Faucet(app_manager.RyuApp):
             return
 
         in_port = msg.match['in_port']
+        self.metrics.packet_ins.labels(dpid=hex(dp_id)).inc() # pylint: disable=no-member
         flowmods = valve.rcv_packet(dp_id, self.valves, in_port, vlan_vid, pkt)
         self._send_flow_msgs(ryu_dp, flowmods)
 
