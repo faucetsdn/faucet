@@ -52,8 +52,9 @@ class FaucetMetrics(object):
     """Container class for objects that can be exported to Prometheus."""
 
     def __init__(self):
-        self.packet_ins = Counter(
-            'packet_ins', 'number of OF packet_ins received from DP', ['dpid'])
+        self.of_packet_ins = Counter(
+            'of_packet_ins',
+            'number of OF packet_ins received from DP', ['dpid'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -449,7 +450,7 @@ class Faucet(app_manager.RyuApp):
             return
 
         in_port = msg.match['in_port']
-        self.metrics.packet_ins.labels(dpid=hex(dp_id)).inc() # pylint: disable=no-member
+        self.metrics.of_packet_ins.labels(dpid=hex(dp_id)).inc() # pylint: disable=no-member
         flowmods = valve.rcv_packet(dp_id, self.valves, in_port, vlan_vid, pkt)
         self._send_flow_msgs(ryu_dp, flowmods)
 
