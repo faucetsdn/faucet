@@ -61,6 +61,12 @@ class FaucetMetrics(object):
         self.of_errors = Counter(
             'of_errors',
             'number of OF errors received from DP', ['dpid'])
+        self.of_dp_connections = Counter(
+            'of_dp_connections',
+            'number of OF connections from a DP', ['dpid'])
+        self.of_dp_disconnections = Counter(
+            'of_dp_disconnections',
+            'number of OF connections from a DP', ['dpid'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -512,9 +518,12 @@ class Faucet(app_manager.RyuApp):
         ryu_dp = ryu_event.dp
         dp_id = ryu_dp.id
 
+        # Datapath down message
         if not ryu_event.enter:
             if dp_id in self.valves:
-                # Datapath down message
+                # pylint: disable=no-member
+                self.metrics.of_dp_disconnections.labels(
+                    dpid=hex(dp_id)).inc()
                 self.logger.debug('%s disconnected', dpid_log(dp_id))
                 self.valves[dp_id].datapath_disconnect(dp_id)
             else:
@@ -522,6 +531,9 @@ class Faucet(app_manager.RyuApp):
                     'handler_connect_or_disconnect: unknown %s', dpid_log(dp_id))
             return
 
+        # pylint: disable=no-member
+        self.metrics.of_dp_connections.labels(
+                dpid=hex(dp_id)).inc()
         self.logger.debug('%s connected', dpid_log(dp_id))
         self.handler_datapath(ryu_dp)
 
