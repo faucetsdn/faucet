@@ -30,7 +30,6 @@ class DP(Conf):
     ports = None
     routers = None
     running = False
-    influxdb_stats = False
     name = None
     dp_id = None
     configured = False
