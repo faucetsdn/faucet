@@ -64,6 +64,10 @@ def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
                 output_actions.append(valve_of.output_port(port_no))
                 acl_inst.append(valve_of.apply_actions(output_actions))
                 continue
+
+            if 'dl_dst' in attrib_value:
+                acl_inst.append(valve_of.apply_actions([valve_of.set_eth_dst(attrib_value["dl_dst"])]))
+
             if allow:
                 acl_inst.append(acl_allow_inst)
         else:
