@@ -771,22 +771,31 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self.ping_all_when_learned()
 
 
-class FaucetConfigReloadTest(FaucetTest):
+class FaucetUntaggedHUPConfigChangeTest(FaucetUntaggedTest):
     """Test handling HUP signal with config change."""
 
-    N_UNTAGGED = 4
-    N_TAGGED = 0
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
-
+acls:
+    1:
+        - rule:
+            dl_type: 0x800
+            nw_proto: 6
+            tp_dst: 53
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
 """
     CONFIG = """
         interfaces:
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
+                acl_in: 1
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
@@ -797,103 +806,75 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
-    ACL = """
-acls:
-    1:
-        - rule:
-            dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
-            actions:
-                allow: 0
-        - rule:
-            dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5002
-            actions:
-                allow: 1
-        - rule:
-            actions:
-                allow: 1
-    2:
-        - rule:
-            dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
-            actions:
-                allow: 1
-        - rule:
-            dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5002
-            actions:
-                allow: 0
-        - rule:
-            actions:
-                allow: 1
-"""
-    def setUp(self):
-        super(FaucetConfigReloadTest, self).setUp()
-        self.acl_config_file = '%s/acl.yaml' % self.tmpdir
-        open(self.acl_config_file, 'w').write(self.ACL)
-        open(os.environ['FAUCET_CONFIG'], 'a').write(
-                'include:\n     - %s' % self.acl_config_file)
-        self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid,
-            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
-        self.start_net()
 
-    def get_port_match_flow(self, port_no, table_id=3):
-        exp_flow = '"table_id: %d".+"in_port": %s' % (table_id, port_no)
-        flow = self.get_matching_flow_on_dpid(self.dpid, exp_flow)
-        return flow
-
-    def change_port_config(self, port, config_name, config_value, restart=True):
-        conf = yaml.load(open(os.environ['FAUCET_CONFIG'], 'r').read())
-        conf['dps']['faucet-1']['interfaces'][port][config_name] = config_value
-        open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
-        if restart:
+    def ntest_change_port_vlan(self):
+        self.ping_all_when_learned()
+        conf = yaml.load(self.CONFIG)
+        vid = 100
+        for _ in range(1, 2):
+            time.sleep(2)
+            flow_p1 = self.get_matching_flow_on_dpid(
+                self.dpid,
+                ('"table_id": 1, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": %(port_1)d}' % self.port_map))
+            flow_p3 = self.get_matching_flow_on_dpid(
+                self.dpid,
+                ('"table_id": 1, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": %(port_3)d}' % self.port_map))
+            prev_dur_p1 = flow_p1['duration_sec']
+            prev_dur_p3 = flow_p3['duration_sec']
+            if vid == 200:
+                vid = 100
+                ping_test = self.ping_all_when_learned
+            else:
+                vid = 200
+                ping_test = self.ping_cross_vlans
+            conf['dps']['faucet-1']['interfaces'][1]['native_vlan'] = vid
+            conf['dps']['faucet-1']['interfaces'][2]['native_vlan'] = vid
+            open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
             self.hup_faucet()
+            flow_p1 = self.get_matching_flow_on_dpid(
+                self.dpid,
+                ('"table_id": 1, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": %(port_1)d}' % self.port_map))
+            flow_p3 = self.get_matching_flow_on_dpid(
+                self.dpid,
+                ('"table_id": 1, "match": '
+                 '{"dl_vlan": "0x0000", "in_port": %(port_3)d}' % self.port_map))
+            actions = flow_p1.get('actions', '')
+            actions = [act for act in actions if 'vlan_vid' in act]
+            vid_ = re.findall(r'\d+', str(actions))
+            self.assertEqual(vid+4096, int(vid_[0]))
+            dur_p1 = flow_p1['duration_sec']
+            dur_p3 = flow_p3['duration_sec']
+            self.assertGreater(prev_dur_p1, dur_p1)
+            self.assertLess(prev_dur_p3, dur_p3)
+            ping_test()
 
-    def change_vlan_config(self, vlan, config_name, config_value, restart=True):
-        conf = yaml.load(open(os.environ['FAUCET_CONFIG'], 'r').read())
-        conf['vlans'][vlan][config_name] = config_value
-        open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
-        if restart:
+    def ping_cross_vlans(self):
+        self.assertEqual(0,
+                         self.net.ping((self.net.hosts[0], self.net.hosts[1])))
+        self.assertEqual(0,
+                         self.net.ping((self.net.hosts[2], self.net.hosts[3])))
+        self.assertEqual(100,
+                         self.net.ping((self.net.hosts[0], self.net.hosts[3])))
+
+    def test_change_port_acl(self):
+        self.ping_all_when_learned()
+        conf = yaml.load(self.CONFIG)
+        for i in range(1, 2):
+            time.sleep(2)
+            conf['acls'][1].insert(
+                0,
+                {'rule': {'dl_type': 0x800,
+                          'nw_proto': 17,
+                          'tp_dst': 8000+i,
+                          'actions': {'allow': 1}}})
+            open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
             self.hup_faucet()
-
-    def test_port_change_vlan(self):
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
-        self.ping_all_when_learned()
-        self.change_port_config(1, 'native_vlan', 200, restart=False)
-        self.change_port_config(2, 'native_vlan', 200, restart=True)
-        self.wait_until_matching_flow(
-                r'SET_FIELD: {vlan_vid:4296}.+in_port": 1',
-                timeout=2)
-        self.one_ipv4_ping(first_host, second_host.IP(), require_host_learned=False)
-
-    def test_port_change_acl(self):
-        self.ping_all_when_learned()
-        self.change_port_config(1, 'acl_in', 1)
-        first_host, second_host = self.net.hosts[0:2]
-        self.ping_all_when_learned()
-        self.verify_tp_dst_blocked(5001, first_host, second_host)
-        self.verify_tp_dst_notblocked(5002, first_host, second_host)
-
-    def test_port_change_permanent_learn(self):
-        first_host, second_host, third_host = self.net.hosts[0:3]
-        self.change_port_config(1, 'permanent_learn', True)
-        self.ping_all_when_learned()
-        original_third_host_mac = third_host.MAC()
-        third_host.setMAC(first_host.MAC())
-        self.assertEqual(100.0, self.net.ping((second_host, third_host)))
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
-        third_host.setMAC(original_third_host_mac)
-        self.ping_all_when_learned()
-        self.change_port_config(1, 'acl_in', 1)
-        self.verify_tp_dst_blocked(5001, first_host, second_host)
-        self.verify_tp_dst_notblocked(5002, first_host, second_host)
+            self.wait_until_matching_flow(
+                ('{"dl_type": 2048, "nw_proto": 17,'
+                 ' "in_port": %d, "tp_dst": %d}' % (self.port_map["port_1"], 8000+i)))
 
 
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
