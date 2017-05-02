@@ -55,6 +55,12 @@ class FaucetMetrics(object):
         self.of_packet_ins = Counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP', ['dpid'])
+        self.of_flowmsgs_sent = Counter(
+            'of_flowmsgs_sent',
+            'number of OF flow messages (and packet outs) sent to DP', ['dpid'])
+        self.of_errors = Counter(
+            'of_errors',
+            'number of OF errors received from DP', ['dpid'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -333,6 +339,9 @@ class Faucet(app_manager.RyuApp):
         reordered_flow_msgs = valve.valve_flowreorder(flow_msgs)
         valve.ofchannel_log(reordered_flow_msgs)
         for flow_msg in reordered_flow_msgs:
+            # pylint: disable=no-member
+            self.metrics.of_flowmsgs_sent.labels(
+                dpid=hex(dp_id)).inc()
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
 
@@ -450,7 +459,9 @@ class Faucet(app_manager.RyuApp):
             return
 
         in_port = msg.match['in_port']
-        self.metrics.of_packet_ins.labels(dpid=hex(dp_id)).inc() # pylint: disable=no-member
+         # pylint: disable=no-member
+        self.metrics.of_packet_ins.labels(
+            dpid=hex(dp_id)).inc()
         flowmods = valve.rcv_packet(dp_id, self.valves, in_port, vlan_vid, pkt)
         self._send_flow_msgs(ryu_dp, flowmods)
 
@@ -466,6 +477,9 @@ class Faucet(app_manager.RyuApp):
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
         if dp_id in self.valves:
+            # pylint: disable=no-member
+            self.metrics.of_errors.labels(
+                dpid=hex(dp_id)).inc()
             self.valves[dp_id].ofchannel_log([msg])
             self.logger.error('Got OFError: %s', msg)
         else:

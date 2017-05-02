@@ -377,6 +377,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         prom_url = 'http://127.0.0.1:%u' % prom_port
         prom_out = requests.get(prom_url).text
         self.assertTrue(re.search(r'of_packet_ins\S+[1-9]+', prom_out))
+        self.assertTrue(re.search(r'of_flowmsgs_sent\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertFalse(re.search(r'of_errors', prom_out), msg=prom_out)
 
 
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
