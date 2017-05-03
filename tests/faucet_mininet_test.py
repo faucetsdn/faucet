@@ -121,7 +121,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         os.environ['GAUGE_EXCEPTION_LOG'] = os.path.join(
             self.tmpdir, 'gauge-exception.log')
         prom_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
+            self.ports_sock)
         os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
         self.debug_log_path = os.path.join(
             self.tmpdir, 'ofchannel.log')
@@ -825,7 +825,7 @@ acls:
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         open(self.acl_config_file, 'w').write(self.ACL)
         open(os.environ['FAUCET_CONFIG'], 'a').write(
-                'include:\n     - %s' % self.acl_config_file)
+            'include:\n     - %s' % self.acl_config_file)
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid,
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
@@ -857,15 +857,15 @@ acls:
         self.change_port_config(1, 'native_vlan', 200, restart=False)
         self.change_port_config(2, 'native_vlan', 200, restart=True)
         self.wait_until_matching_flow(
-                r'SET_FIELD: {vlan_vid:4296}.+in_port": 1',
-                timeout=2)
+            r'SET_FIELD: {vlan_vid:4296}.+in_port": 1',
+            timeout=2)
         self.one_ipv4_ping(first_host, second_host.IP(), require_host_learned=False)
 
     def test_port_change_acl(self):
         self.ping_all_when_learned()
         self.change_port_config(1, 'acl_in', 1)
         self.wait_until_matching_flow(
-                r'"actions": \[\].+"in_port": 1, "tp_dst": 5001')
+            r'"actions": \[\].+"in_port": 1, "tp_dst": 5001')
         first_host, second_host = self.net.hosts[0:2]
         self.ping_all_when_learned()
         self.verify_tp_dst_blocked(5001, first_host, second_host)
@@ -883,7 +883,7 @@ acls:
         self.ping_all_when_learned()
         self.change_port_config(1, 'acl_in', 1)
         self.wait_until_matching_flow(
-                r'"actions": \[\].+"in_port": 1, "tp_dst": 5001')
+            r'"actions": \[\].+"in_port": 1, "tp_dst": 5001')
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
@@ -2817,7 +2817,7 @@ acls:
             %(port_3)d:
                 native_vlan: 100
                 decsciption: "b3"
-""" 
+"""
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
@@ -2837,64 +2837,62 @@ acls:
             (Continues through faucet pipeline)
         """
         first_host, second_host, third_host = self.net.hosts[0:3]
-        
-        second_host.setMAC("00:00:00:00:00:02")
-        third_host.setMAC("00:00:00:00:00:03")
-        # get the switch to port/mac learn a host.
 
-        # let h1 think h3 is @ h2.mac, the acl should change the dst mac, 
+        second_host.setMAC('00:00:00:00:00:02')
+        third_host.setMAC('00:00:00:00:00:03')
+        # get the switch to port/mac learn a host.
+        # let h1 think h3 is @ h2.mac, the acl should change the dst mac,
         #  so that h3 will receive it and reply.
-        third_host.cmd("arp -s %s %s" %(second_host.IP(), second_host.MAC()))
-        third_host.cmd("ping -c1 %s" % second_host.IP())
+        third_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
+        third_host.cmd('ping -c1 %s' % second_host.IP())
 
         self.wait_until_matching_flow(
             r'OUTPUT:3.+table_id": 6.+dl_dst": "00:00:00:00:00:03"',
             timeout=2)
-        tcpdump_filter = ("icmp and ether src %s and ether dst %s" % (first_host.MAC(), third_host.MAC()))
+        tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
+            first_host.MAC(), third_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
-                    "arp -s %s %s" % (third_host.IP(), second_host.MAC())),
+                    'arp -s %s %s' % (third_host.IP(), second_host.MAC())),
                 # this will fail if no reply
-                lambda: self.one_ipv4_ping(first_host, third_host.IP(), require_host_learned=False)]) 
-        # ping from h1 to h2.mac should appear in third host, and not second host, as 
+                lambda: self.one_ipv4_ping(first_host, third_host.IP(), require_host_learned=False)])
+        # ping from h1 to h2.mac should appear in third host, and not second host, as
         # the acl should rewrite the dst mac.
         self.assertFalse(re.search(
-            "%s: ICMP echo request" % third_host.IP(), tcpdump_txt))
+            '%s: ICMP echo request' % third_host.IP(), tcpdump_txt))
 
     def test_switching1(self):
         """Same as test_switching(), except changed what host the tcpdump is done on.
-            Quick check until make tcpdump_helper (or similar) do multiple interfaces.
+           Quick check until make tcpdump_helper (or similar) do multiple interfaces.
            Tests that a acl can rewrite the destination mac address,
-            and the packet will only go out the port of the new mac.
-            (Continues through faucet pipeline)
+           and the packet will only go out the port of the new mac.
+           (Continues through faucet pipeline)
         """
         first_host, second_host, third_host = self.net.hosts[0:3]
-        
-        second_host.setMAC("00:00:00:00:00:02")
-        third_host.setMAC("00:00:00:00:00:03")
+        second_host.setMAC('00:00:00:00:00:02')
+        third_host.setMAC('00:00:00:00:00:03')
         # get the switch to port/mac learn a host.
- 
-        # let h1 think h3 is @ h2.mac, the acl should change the dst mac, 
-        #  so that h3 will receive it and reply.      
-        third_host.cmd("arp -s %s %s" %(second_host.IP(), second_host.MAC()))
-        third_host.cmd("ping -c1 %s" % second_host.IP())
+        # let h1 think h3 is @ h2.mac, the acl should change the dst mac,
+        # so that h3 will receive it and reply.
+        third_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
+        third_host.cmd('ping -c1 %s' % second_host.IP())
 
         self.wait_until_matching_flow(
             r'OUTPUT:3.+table_id": 6.+dl_dst": "00:00:00:00:00:03"',
             timeout=2)
-        tcpdump_filter = ("icmp and ether src %s and ether dst %s" % (first_host.MAC(), third_host.MAC()))
+        tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (first_host.MAC(), third_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
             third_host, tcpdump_filter, [
                 lambda: first_host.cmd(
-                    "arp -s %s %s" % (third_host.IP(), second_host.MAC())),
+                    'arp -s %s %s' % (third_host.IP(), second_host.MAC())),
                 # this will fail if no reply
                 lambda: self.one_ipv4_ping(first_host, third_host.IP(), require_host_learned=False)])
 
-        # ping from h1 to h2.mac should appear in third host, and not second host, as 
+        # ping from h1 to h2.mac should appear in third host, and not second host, as
         # the acl should rewrite the dst mac.
         self.assertTrue(re.search(
-            "%s: ICMP echo request" % third_host.IP(), tcpdump_txt))
+            '%s: ICMP echo request' % third_host.IP(), tcpdump_txt))
 
 
 def import_hw_config():
@@ -2977,8 +2975,8 @@ def lint_check():
             print(('pylint of %s returns an error' % faucet_src))
             return False
     for faucet_src in FAUCET_LINT_SRCS:
-        output_2to3 = subprocess.check_output([
-            '2to3', '--nofix=import', faucet_src],
+        output_2to3 = subprocess.check_output(
+            ['2to3', '--nofix=import', faucet_src],
             stderr=open(os.devnull, 'wb'))
         if output_2to3:
             print(('2to3 of %s returns a diff (not python3 compatible)' % faucet_src))
