@@ -419,7 +419,7 @@ class Faucet(app_manager.RyuApp):
                 if ryudp is not None:
                     self._send_flow_msgs(ryudp, flowmods)
                 self._reset_bgp()
-                new_dp.valve.update_config_metrics(self.metrics)
+                new_dp.update_config_metrics(self.metrics)
         else:
             self.logger.info('configuration is unchanged, not reloading')
         # pylint: disable=no-member
