@@ -73,6 +73,9 @@ class FaucetMetrics(object):
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
             'number of hosts learned on a vlan', ['dpid', 'vlan'])
+        self.faucet_config_table_names = Gauge(
+            'faucet_config_table_names',
+            'number to names map of FAUCET pipeline tables', ['dpid', 'name'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -225,12 +228,14 @@ class Faucet(app_manager.RyuApp):
             self.config_file, self.logname)
         for valve_dp in valve_dps:
             # pylint: disable=no-member
-            valve = valve_factory(valve_dp)
-            if valve is None:
+            valve_cl = valve_factory(valve_dp)
+            if valve_cl is None:
                 self.logger.error(
                     'Hardware type not supported for DP: %s', valve_dp.name)
             else:
-                self.valves[valve_dp.dp_id] = valve(valve_dp, self.logname)
+                valve = valve_cl(valve_dp, self.logname)
+                self.valves[valve_dp.dp_id] = valve
+                valve.update_config_metrics(self.metrics)
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)

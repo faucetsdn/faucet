@@ -375,6 +375,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.assertTrue(re.search(r'of_packet_ins\S+[1-9]+', prom_out), msg=prom_out)
         self.assertTrue(re.search(r'of_flowmsgs_sent\S+[1-9]+', prom_out), msg=prom_out)
         self.assertTrue(re.search(r'of_dp_connections\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertTrue(re.search(r'faucet_config\S+name=\"flood\"\S+', prom_out), msg=prom_out)
         self.assertIsNone(re.search(r'of_errors', prom_out), msg=prom_out)
         self.assertIsNone(re.search(r'of_dp_disconnections', prom_out), msg=prom_out)
 
