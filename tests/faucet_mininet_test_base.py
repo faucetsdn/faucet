@@ -534,10 +534,21 @@ dbs:
         fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
         self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
 
+    def verify_hup_faucet(self, timeout=3):
+        """HUP and verify the HUP was processed."""
+        start_configure_count = self.get_configure_count()
+        self.hup_faucet()
+        for _ in range(timeout):
+           configure_count = self.get_configure_count()
+           if configure_count > start_configure_count:
+               return
+           time.sleep(1)
+        self.fail('HUP not processed by FAUCET')
+
     def force_faucet_reload(self, new_config):
         """Force FAUCET to reload by adding new line to config file."""
         open(os.environ['FAUCET_CONFIG'], 'a').write(new_config)
-        self.hup_faucet()
+        self.verify_hup_faucet()
 
     def curl_portmod(self, int_dpid, port_no, config, mask):
         """Use curl to send a portmod command via the ofctl module."""
