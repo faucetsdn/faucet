@@ -2807,7 +2807,6 @@ acls:
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '00:00:00:00:00:02')),
                 lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
-        print(tcpdump_txt)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
@@ -2826,15 +2825,15 @@ acls:
         #  so that h3 will receive it and reply.
         third_host.cmd("arp -s %s %s" %(second_host.IP(), second_host.MAC()))
         third_host.cmd("ping -c1 %s" % second_host.IP())
-        
+        # if we don't sleep , the switch may not have installed the mac learned rules
+        time.sleep(2)
         tcpdump_filter = ("icmp and ether src %s and ether dst %s" % (first_host.MAC(), third_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     "arp -s %s %s" % (third_host.IP(), second_host.MAC())),
                 # this will fail if no reply
-                lambda: self.one_ipv4_ping(first_host, third_host.IP(), require_host_learned=False)])
-
+                lambda: self.one_ipv4_ping(first_host, third_host.IP(), require_host_learned=False)]) 
         # ping from h1 to h2.mac should appear in third host, and not second host, as 
         # the acl should rewrite the dst mac.
         self.assertFalse(re.search(
@@ -2857,7 +2856,8 @@ acls:
         #  so that h3 will receive it and reply.      
         third_host.cmd("arp -s %s %s" %(second_host.IP(), second_host.MAC()))
         third_host.cmd("ping -c1 %s" % second_host.IP())
-
+        # if we don't sleep , the switch may not have installed the mac learned rules
+        time.sleep(2)
         tcpdump_filter = ("icmp and ether src %s and ether dst %s" % (first_host.MAC(), third_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
             third_host, tcpdump_filter, [
