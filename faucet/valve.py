@@ -988,7 +988,6 @@ class Valve(object):
         for vlan in list(self.dp.vlans.values()):
             self.host_manager.expire_hosts_from_vlan(vlan, now)
 
-
     def _get_eth_srcs_learned_on_port(self, dp, port_no):
         old_eth_srcs = []
         if port_no in dp.ports:
