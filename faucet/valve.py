@@ -127,13 +127,9 @@ class Valve(object):
         self.TABLE_MATCH_TYPES = {
             self.dp.vlan_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type'),
-            # TODO: eth_src_table matches too many things. It should
-            # be split further into two tables for IPv4/IPv6 entries.
             self.dp.eth_src_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type',
-                'ip_proto',
-                'icmpv6_type', 'ipv6_nd_target',
-                'arp_tpa', 'ipv4_src'),
+                'ip_proto', 'icmpv6_type', 'arp_tpa', 'ipv4_src'),
             self.dp.ipv4_fib_table: (
                 'vlan_vid', 'eth_type', 'ip_proto',
                 'ipv4_src', 'ipv4_dst'),
