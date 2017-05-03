@@ -514,6 +514,19 @@ dbs:
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
 
+    def scrape_prometheus_var(self, var_re, default=None):
+        prom_out = self.scrape_prometheus()
+        var_match = re.search(r'%s\s+(\d+)' % var_re, prom_out)
+        if var_match is None:
+            return default
+        else:
+            return var_match.group(1)
+
+    def get_configure_count(self):
+        """Return the number of times FAUCET has processed a reload request."""
+        return self.scrape_prometheus_var(
+            'faucet_config_reload_requests', default=0)
+
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
         controller = self.get_controller()

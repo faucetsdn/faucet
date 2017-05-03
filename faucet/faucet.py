@@ -67,6 +67,9 @@ class FaucetMetrics(object):
         self.of_dp_disconnections = Counter(
             'of_dp_disconnections',
             'number of OF connections from a DP', ['dpid'])
+        self.faucet_config_reload_requests = Counter(
+            'faucet_config_reload_requests',
+            'number of config reload requests', [])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -394,18 +397,20 @@ class Faucet(app_manager.RyuApp):
             ryu_event (ryu.controller.event.EventReplyBase): triggering event.
         """
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
-        if not self._config_changed(new_config_file):
+        if self._config_changed(new_config_file):
+            self.config_file = new_config_file
+            self.config_hashes, new_dps = dp_parser(new_config_file, self.logname)
+            for new_dp in new_dps:
+                # pylint: disable=no-member
+                flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
+                ryudp = self.dpset.get(new_dp.dp_id)
+                if ryudp is not None:
+                    self._send_flow_msgs(ryudp, flowmods)
+                self._reset_bgp()
+        else:
             self.logger.info('configuration is unchanged, not reloading')
-            return
-        self.config_file = new_config_file
-        self.config_hashes, new_dps = dp_parser(new_config_file, self.logname)
-        for new_dp in new_dps:
-            # pylint: disable=no-member
-            flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
-            ryudp = self.dpset.get(new_dp.dp_id)
-            if ryudp is not None:
-                self._send_flow_msgs(ryudp, flowmods)
-            self._reset_bgp()
+        # pylint: disable=no-member
+        self.metrics.faucet_config_reload_requests.inc()
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     def resolve_gateways(self, ryu_event):
