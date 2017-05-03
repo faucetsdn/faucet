@@ -940,6 +940,9 @@ class Valve(object):
 
         metrics (FaucetMetrics): container of Prometheus metrics.
         """
+        metrics.faucet_config_dp_name.labels(
+            dpid=hex(self.dp.dp_id), name=self.dp.name).set(
+                self.dp.dp_id)
         metrics.faucet_config_table_names.labels(
             dpid=hex(self.dp.dp_id), name='port_acl').set(
                 self.dp.port_acl_table)
