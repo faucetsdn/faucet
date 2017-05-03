@@ -745,13 +745,6 @@ vlans:
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     """Test handling HUP signal without config change."""
 
-    def get_configure_count(self):
-        """Return the number of times FAUCET has received HUP."""
-        controller = self.net.controllers[0]
-        configure_count = controller.cmd(
-            'grep -c "configuration is unchanged" %s' % os.environ['FAUCET_LOG'])
-        return configure_count
-
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
         switch = self.net.switches[0]
