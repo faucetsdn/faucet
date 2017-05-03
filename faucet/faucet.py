@@ -73,6 +73,12 @@ class FaucetMetrics(object):
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
             'number of hosts learned on a vlan', ['dpid', 'vlan'])
+        self.faucet_config_table_names = Gauge(
+            'faucet_config_table_names',
+            'number to names map of FAUCET pipeline tables', ['dpid', 'name'])
+        self.faucet_config_dp_name = Gauge(
+            'faucet_config_dp_name',
+            'map of DP name to DP ID', ['dpid', 'name'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -225,12 +231,14 @@ class Faucet(app_manager.RyuApp):
             self.config_file, self.logname)
         for valve_dp in valve_dps:
             # pylint: disable=no-member
-            valve = valve_factory(valve_dp)
-            if valve is None:
+            valve_cl = valve_factory(valve_dp)
+            if valve_cl is None:
                 self.logger.error(
                     'Hardware type not supported for DP: %s', valve_dp.name)
             else:
-                self.valves[valve_dp.dp_id] = valve(valve_dp, self.logname)
+                valve = valve_cl(valve_dp, self.logname)
+                self.valves[valve_dp.dp_id] = valve
+                valve.update_config_metrics(self.metrics)
 
         self.gateway_resolve_request_thread = hub.spawn(
             self.gateway_resolve_request)
@@ -402,7 +410,8 @@ class Faucet(app_manager.RyuApp):
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
         if self._config_changed(new_config_file):
             self.config_file = new_config_file
-            self.config_hashes, new_dps = dp_parser(new_config_file, self.logname)
+            self.config_hashes, new_dps = dp_parser(
+                new_config_file, self.logname)
             for new_dp in new_dps:
                 # pylint: disable=no-member
                 flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
@@ -410,6 +419,7 @@ class Faucet(app_manager.RyuApp):
                 if ryudp is not None:
                     self._send_flow_msgs(ryudp, flowmods)
                 self._reset_bgp()
+                new_dp.valve.update_config_metrics(self.metrics)
         else:
             self.logger.info('configuration is unchanged, not reloading')
         # pylint: disable=no-member

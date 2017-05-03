@@ -935,6 +935,39 @@ class Valve(object):
                 vlan.max_hosts, vlan.vid, eth_src)
         return ofmsgs
 
+    def update_config_metrics(self, metrics):
+        """Update gauge/metrics for configuration.
+
+        metrics (FaucetMetrics): container of Prometheus metrics.
+        """
+        metrics.faucet_config_dp_name.labels(
+            dpid=hex(self.dp.dp_id), name=self.dp.name).set(
+                self.dp.dp_id)
+        metrics.faucet_config_table_names.labels(
+            dpid=hex(self.dp.dp_id), name='port_acl').set(
+                self.dp.port_acl_table)
+        metrics.faucet_config_table_names.labels(
+            dpid=hex(self.dp.dp_id), name='vlan').set(
+                self.dp.vlan_table)
+        metrics.faucet_config_table_names.labels(
+            dpid=hex(self.dp.dp_id), name='vlan_acl').set(
+                self.dp.vlan_acl_table)
+        metrics.faucet_config_table_names.labels(
+            dpid=hex(self.dp.dp_id), name='eth_src').set(
+                self.dp.eth_src_table)
+        metrics.faucet_config_table_names.labels(
+            dpid=hex(self.dp.dp_id), name='ipv4_fib').set(
+                self.dp.ipv4_fib_table)
+        metrics.faucet_config_table_names.labels(
+            dpid=hex(self.dp.dp_id), name='ipv6_fib').set(
+                self.dp.ipv6_fib_table)
+        metrics.faucet_config_table_names.labels(
+            dpid=hex(self.dp.dp_id), name='eth_dst').set(
+                self.dp.eth_dst_table)
+        metrics.faucet_config_table_names.labels(
+            dpid=hex(self.dp.dp_id), name='flood').set(
+                self.dp.flood_table)
+
     def update_metrics(self, metrics):
         """Update gauge/metrics.
 
