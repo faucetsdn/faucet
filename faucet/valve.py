@@ -127,13 +127,9 @@ class Valve(object):
         self.TABLE_MATCH_TYPES = {
             self.dp.vlan_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type'),
-            # TODO: eth_src_table matches too many things. It should
-            # be split further into two tables for IPv4/IPv6 entries.
             self.dp.eth_src_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type',
-                'ip_proto',
-                'icmpv6_type', 'ipv6_nd_target',
-                'arp_tpa', 'ipv4_src'),
+                'ip_proto', 'icmpv6_type', 'arp_tpa', 'ipv4_src'),
             self.dp.ipv4_fib_table: (
                 'vlan_vid', 'eth_type', 'ip_proto',
                 'ipv4_src', 'ipv4_dst'),
@@ -925,8 +921,10 @@ class Valve(object):
         ofmsgs = []
         vlan = pkt_meta.vlan
         eth_src = pkt_meta.eth_src
+        hosts_count = self.host_manager.hosts_learned_on_vlan_count(
+                vlan)
         if (vlan.max_hosts is not None and
-                len(vlan.host_cache) == vlan.max_hosts and
+                hosts_count == vlan.max_hosts and
                 eth_src not in vlan.host_cache):
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
                 vlan))
@@ -936,6 +934,17 @@ class Valve(object):
                 'and not learning %s',
                 vlan.max_hosts, vlan.vid, eth_src)
         return ofmsgs
+
+    def update_metrics(self, metrics):
+        """Update gauge/metrics.
+
+        metrics (FaucetMetrics or None): container of Prometheus metrics.
+        """
+        for vlan in list(self.dp.vlans.values()):
+            hosts_count = self.host_manager.hosts_learned_on_vlan_count(
+                vlan)
+            metrics.vlan_hosts_learned.labels(
+                dpid=hex(self.dp.dp_id), vlan=vlan.vid).set(hosts_count)
 
     def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).
@@ -991,7 +1000,6 @@ class Valve(object):
         now = time.time()
         for vlan in list(self.dp.vlans.values()):
             self.host_manager.expire_hosts_from_vlan(vlan, now)
-
 
     def _get_eth_srcs_learned_on_port(self, dp, port_no):
         old_eth_srcs = []

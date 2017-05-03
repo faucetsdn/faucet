@@ -31,7 +31,7 @@ from valve_util import btos, dpid_log, get_logger, kill_on_exception, get_sys_pr
 from valve import valve_factory
 import valve_of
 
-from prometheus_client import Counter, start_http_server
+from prometheus_client import Counter, Gauge, start_http_server
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -70,6 +70,9 @@ class FaucetMetrics(object):
         self.faucet_config_reload_requests = Counter(
             'faucet_config_reload_requests',
             'number of config reload requests', [])
+        self.vlan_hosts_learned = Gauge(
+            'vlan_hosts_learned',
+            'number of hosts learned on a vlan', ['dpid', 'vlan'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -434,6 +437,7 @@ class Faucet(app_manager.RyuApp):
         """
         for valve in list(self.valves.values()):
             valve.host_expire()
+            valve.update_metrics(self.metrics)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -473,8 +477,10 @@ class Faucet(app_manager.RyuApp):
          # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
             dpid=hex(dp_id)).inc()
-        flowmods = valve.rcv_packet(dp_id, self.valves, in_port, vlan_vid, pkt)
+        flowmods = valve.rcv_packet(
+            dp_id, self.valves, in_port, vlan_vid, pkt)
         self._send_flow_msgs(ryu_dp, flowmods)
+        valve.update_metrics(self.metrics)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -538,7 +544,7 @@ class Faucet(app_manager.RyuApp):
 
         # pylint: disable=no-member
         self.metrics.of_dp_connections.labels(
-                dpid=hex(dp_id)).inc()
+            dpid=hex(dp_id)).inc()
         self.logger.debug('%s connected', dpid_log(dp_id))
         self.handler_datapath(ryu_dp)
 
