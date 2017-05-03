@@ -751,13 +751,8 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
         for i in range(0, 3):
             configure_count = self.get_configure_count()
             self.assertEquals(i, int(configure_count))
-            self.hup_faucet()
-            time.sleep(1)
-            for _ in range(3):
-                configure_count = self.get_configure_count()
-                if configure_count == i + 1:
-                    break
-                time.sleep(1)
+            self.verify_hup_faucet()
+            configure_count = self.get_configure_count()
             self.assertTrue(i + 1, configure_count)
             self.assertTrue(switch.connected())
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
@@ -846,14 +841,14 @@ acls:
         conf['dps']['faucet-1']['interfaces'][port][config_name] = config_value
         open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
         if restart:
-            self.hup_faucet()
+            self.verify_hup_faucet()
 
     def change_vlan_config(self, vlan, config_name, config_value, restart=True):
         conf = yaml.load(open(os.environ['FAUCET_CONFIG'], 'r').read())
         conf['vlans'][vlan][config_name] = config_value
         open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
         if restart:
-            self.hup_faucet()
+            self.verify_hup_faucet()
 
     def test_port_change_vlan(self):
         first_host = self.net.hosts[0]
@@ -2646,8 +2641,7 @@ class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
         open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
-        self.hup_faucet()
-        time.sleep(1)
+        self.verify_hup_faucet()
         self.verify_tp_dst_blocked(5001, first_host, second_host)
 
     def test_port5002_notblocked(self):
@@ -2656,8 +2650,7 @@ class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_blocked(5002, first_host, second_host)
         open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
-        self.hup_faucet()
-        time.sleep(1)
+        self.verify_hup_faucet()
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
