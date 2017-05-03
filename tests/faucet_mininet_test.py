@@ -2831,13 +2831,7 @@ acls:
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
-    def test_switching(self):
-        """Tests that a acl can rewrite the destination mac address,
-            and the packet will only go out the port of the new mac.
-            (Continues through faucet pipeline)
-        """
-        first_host, second_host, third_host = self.net.hosts[0:3]
-
+    def verify_dest_rewrite(self, first_host, second_host, third_host):
         second_host.setMAC('00:00:00:00:00:02')
         third_host.setMAC('00:00:00:00:00:03')
         # get the switch to port/mac learn a host.
@@ -2845,10 +2839,17 @@ acls:
         #  so that h3 will receive it and reply.
         third_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
         third_host.cmd('ping -c1 %s' % second_host.IP())
-
         self.wait_until_matching_flow(
             r'OUTPUT:3.+table_id": 6.+dl_dst": "00:00:00:00:00:03"',
             timeout=2)
+
+    def test_switching(self):
+        """Tests that a acl can rewrite the destination mac address,
+            and the packet will only go out the port of the new mac.
+            (Continues through faucet pipeline)
+        """
+        first_host, second_host, third_host = self.net.hosts[0:3]
+        self.verify_dest_rewrite(first_host, second_host, third_host)
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
             first_host.MAC(), third_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
@@ -2870,18 +2871,9 @@ acls:
            (Continues through faucet pipeline)
         """
         first_host, second_host, third_host = self.net.hosts[0:3]
-        second_host.setMAC('00:00:00:00:00:02')
-        third_host.setMAC('00:00:00:00:00:03')
-        # get the switch to port/mac learn a host.
-        # let h1 think h3 is @ h2.mac, the acl should change the dst mac,
-        # so that h3 will receive it and reply.
-        third_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
-        third_host.cmd('ping -c1 %s' % second_host.IP())
-
-        self.wait_until_matching_flow(
-            r'OUTPUT:3.+table_id": 6.+dl_dst": "00:00:00:00:00:03"',
-            timeout=2)
-        tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (first_host.MAC(), third_host.MAC()))
+        self.verify_dest_rewrite(first_host, second_host, third_host)
+        tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
+            first_host.MAC(), third_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
             third_host, tcpdump_filter, [
                 lambda: first_host.cmd(
