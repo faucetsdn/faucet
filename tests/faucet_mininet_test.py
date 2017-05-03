@@ -740,6 +740,8 @@ vlans:
         learned_hosts = [
             host for host in self.net.hosts if self.host_learned(host)]
         self.assertEquals(2, len(learned_hosts))
+        self.assertEquals(2, int(self.scrape_prometheus_var(
+            r'vlan_hosts_learned\S+vlan="100"\S+')))
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
