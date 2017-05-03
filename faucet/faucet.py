@@ -413,13 +413,13 @@ class Faucet(app_manager.RyuApp):
             self.config_hashes, new_dps = dp_parser(
                 new_config_file, self.logname)
             for new_dp in new_dps:
-                # pylint: disable=no-member
-                flowmods = self.valves[new_dp.dp_id].reload_config(new_dp)
+                valve = self.valves[new_dp.dp_id]
+                flowmods = valve.reload_config(new_dp)
                 ryudp = self.dpset.get(new_dp.dp_id)
                 if ryudp is not None:
                     self._send_flow_msgs(ryudp, flowmods)
                 self._reset_bgp()
-                new_dp.update_config_metrics(self.metrics)
+                valve.update_config_metrics(self.metrics)
         else:
             self.logger.info('configuration is unchanged, not reloading')
         # pylint: disable=no-member
