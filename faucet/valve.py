@@ -921,8 +921,10 @@ class Valve(object):
         ofmsgs = []
         vlan = pkt_meta.vlan
         eth_src = pkt_meta.eth_src
+        hosts_count = self.host_manager.hosts_learned_on_vlan_count(
+                vlan)
         if (vlan.max_hosts is not None and
-                len(vlan.host_cache) == vlan.max_hosts and
+                hosts_count == vlan.max_hosts and
                 eth_src not in vlan.host_cache):
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
                 vlan))
@@ -933,7 +935,18 @@ class Valve(object):
                 vlan.max_hosts, vlan.vid, eth_src)
         return ofmsgs
 
-    def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt, metrics=None):
+    def update_metrics(self, metrics):
+        """Update gauge/metrics.
+
+        metrics (FaucetMetrics or None): container of Prometheus metrics.
+        """
+        for vlan in list(self.dp.vlans.values()):
+            hosts_count = self.host_manager.hosts_learned_on_vlan_count(
+                vlan)
+            metrics.vlan_hosts_learned.labels(
+                dpid=hex(self.dp.dp_id), vlan=vlan.vid).set(hosts_count)
+
+    def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
         The packet may be sent to us also in response to FAUCET
@@ -946,7 +959,6 @@ class Valve(object):
             in_port (int): port packet was received on.
             vlan_vid (int): VLAN VID of port packet was received on.
             pkt (ryu.lib.packet.packet): packet received.
-            metrics (FaucetMetrics or None): container of Prometheus metrics.
         Return:
             list: OpenFlow messages, if any.
         """
@@ -975,11 +987,6 @@ class Valve(object):
             return ofmsgs
 
         ofmsgs.extend(self._learn_host(valves, dp_id, pkt_meta))
-        if metrics is not None:
-            hosts_count = self.host_manager.hosts_learned_on_vlan_count(
-                pkt_meta.vlan)
-            metrics.vlan_hosts_learned.labels(
-                dpid=hex(dp_id), vlan=vlan_vid).set(hosts_count)
         return ofmsgs
 
     def host_expire(self):

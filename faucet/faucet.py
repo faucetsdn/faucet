@@ -437,6 +437,7 @@ class Faucet(app_manager.RyuApp):
         """
         for valve in list(self.valves.values()):
             valve.host_expire()
+            valve.update_metrics(self.metrics)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -477,8 +478,9 @@ class Faucet(app_manager.RyuApp):
         self.metrics.of_packet_ins.labels(
             dpid=hex(dp_id)).inc()
         flowmods = valve.rcv_packet(
-            dp_id, self.valves, in_port, vlan_vid, pkt, metrics=self.metrics)
+            dp_id, self.valves, in_port, vlan_vid, pkt)
         self._send_flow_msgs(ryu_dp, flowmods)
+        valve.update_metrics(self.metrics)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
