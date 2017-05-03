@@ -538,7 +538,7 @@ class Faucet(app_manager.RyuApp):
 
         # pylint: disable=no-member
         self.metrics.of_dp_connections.labels(
-                dpid=hex(dp_id)).inc()
+            dpid=hex(dp_id)).inc()
         self.logger.debug('%s connected', dpid_log(dp_id))
         self.handler_datapath(ryu_dp)
 
