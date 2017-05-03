@@ -2825,8 +2825,10 @@ acls:
         #  so that h3 will receive it and reply.
         third_host.cmd("arp -s %s %s" %(second_host.IP(), second_host.MAC()))
         third_host.cmd("ping -c1 %s" % second_host.IP())
-        # if we don't sleep , the switch may not have installed the mac learned rules
-        time.sleep(2)
+
+        self.wait_until_matching_flow(
+            r'OUTPUT:3.+table_id": 6.+dl_dst": "00:00:00:00:00:03"',
+            timeout=2)
         tcpdump_filter = ("icmp and ether src %s and ether dst %s" % (first_host.MAC(), third_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
             second_host, tcpdump_filter, [
@@ -2856,8 +2858,10 @@ acls:
         #  so that h3 will receive it and reply.      
         third_host.cmd("arp -s %s %s" %(second_host.IP(), second_host.MAC()))
         third_host.cmd("ping -c1 %s" % second_host.IP())
-        # if we don't sleep , the switch may not have installed the mac learned rules
-        time.sleep(2)
+
+        self.wait_until_matching_flow(
+            r'OUTPUT:3.+table_id": 6.+dl_dst": "00:00:00:00:00:03"',
+            timeout=2)
         tcpdump_filter = ("icmp and ether src %s and ether dst %s" % (first_host.MAC(), third_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
             third_host, tcpdump_filter, [
