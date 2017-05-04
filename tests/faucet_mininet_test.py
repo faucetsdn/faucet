@@ -3032,7 +3032,7 @@ def run_tests(requested_test_classes,
         if name.endswith('Test') and name.startswith('Faucet'):
             # TODO: hardware testing should have a way to configure
             # which switch in a string is the hardware switch to test.
-            if name.startswith('FaucetString') and hw_config is not None:
+            if re.search(r'Faucet.*String', name) and hw_config is not None:
                 print(
                     'skipping %s as string tests not supported for hardware' % name)
                 continue
