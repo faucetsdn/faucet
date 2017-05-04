@@ -3030,6 +3030,12 @@ def run_tests(requested_test_classes,
         if excluded_test_classes and name in excluded_test_classes:
             continue
         if name.endswith('Test') and name.startswith('Faucet'):
+            # TODO: hardware testing should have a way to configure
+            # which switch in a string is the hardware switch to test.
+            if name.startswith('FaucetString') and hw_config is not None:
+                print(
+                    'skipping %s as string tests not supported for hardware' % name)
+                continue
             print('adding test %s' % name)
             test_suite = make_suite(obj, hw_config, root_tmpdir, ports_sock)
             if name.startswith('FaucetSanity'):
