@@ -910,6 +910,24 @@ class Valve(object):
         port = self.dp.ports[in_port]
         return PacketMeta(pkt, eth_pkt, port, vlan, eth_src, eth_dst)
 
+    def _port_learn_ban_rules(self, pkt_meta):
+        ofmsgs = []
+
+        port = pkt_meta.port
+        eth_src = pkt_meta.eth_src
+
+        old_eth_srcs = self._get_eth_srcs_learned_on_port(self.dp, port.number)
+        if len(old_eth_srcs) == self.dp.ports[port.number].max_hosts:
+            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_port(
+                port))
+            self.logger.info(
+                'max hosts %u reached on dp %u port %u, ' +
+                'temporarily banning learning on this port, ' +
+                ' and not learning %s',
+                port.max_hosts, self.dp.dp_id, port.number, eth_src)
+            return ofmsgs
+        return ofmsgs
+
     def _vlan_learn_ban_rules(self, pkt_meta):
         """Limit learning to a maximum configured on this VLAN.
 
@@ -1012,6 +1030,11 @@ class Valve(object):
             ofmsgs.extend(self.control_plane_handler(pkt_meta))
 
         if self._rate_limit_packet_ins():
+            return ofmsgs
+
+        ban_port_rules = self._port_learn_ban_rules(pkt_meta)
+        if ban_port_rules:
+            ofmsgs.extend(ban_port_rules)
             return ofmsgs
 
         ban_vlan_rules = self._vlan_learn_ban_rules(pkt_meta)
