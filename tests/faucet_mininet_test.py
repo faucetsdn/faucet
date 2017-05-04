@@ -49,7 +49,7 @@ import yaml
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.log import setLogLevel
 from mininet.net import Mininet
-from mininet.node import Intf
+from mininet.node import Intf, OVSBridge
 from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
 from packaging import version
@@ -735,7 +735,6 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
-
     def test_untagged(self):
         self.net.pingAll()
         learned_hosts = [
@@ -743,6 +742,59 @@ vlans:
         self.assertEquals(2, len(learned_hosts))
         self.assertEquals(2, int(self.scrape_prometheus_var(
             r'vlan_hosts_learned\S+vlan="100"\S+')))
+
+class FaucetMaxHostsPortTest(FaucetTest):
+    N_UNTAGGED = 3
+    N_TAGGED = 0
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+                max_hosts: 3
+"""
+
+    def setUp(self):
+        super(FaucetMaxHostsPortTest, self).setUp()
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid,
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
+
+        # Can't have more that one node connected to a switch port so,
+        # add a new switch s2, connect s2 to s1, add hosts to s2.
+        new_hosts = []
+        for h in range(0, 5):
+            new_hosts.append(self.topo.addHost('nh%s' % h))
+
+        sw1 = self.topo.switches()[0]
+        sw2 = self.topo.addSwitch(name='switch2', cls=OVSBridge)
+
+        self.topo.addLink(sw2, sw1, 1, 4)
+        for h in new_hosts:
+            self.topo.addLink(sw2, h)
+
+        self.start_net()
+
+    def test_untagged(self):
+        self.net.pingAll()
+        learned_hosts = [
+            host for host in self.net.hosts if self.host_learned_on_port(host, 4)]
+        self.assertEquals(3, len(learned_hosts))
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
