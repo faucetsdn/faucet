@@ -335,14 +335,16 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.require_host_learned(host)
         self.assertEquals(0, self.net.ping((first_host, second_host)))
         mirror_mac = mirror_host.MAC()
+        tmp_eap_conf = os.path.join(self.tmpdir, 'eap.conf')
         tcpdump_filter = (
             'not ether src %s and ether proto 0x888e' % mirror_mac)
         eap_conf_cmd = (
             'echo "eapol_version=2\nap_scan=0\nnetwork={\n'
             'key_mgmt=IEEE8021X\neap=MD5\nidentity=\\"login\\"\n'
-            'password=\\"password\\"\n}\n" > /tmp/eap.conf')
+            'password=\\"password\\"\n}\n" > %s' % tmp_eap_conf)
         wpa_supplicant_cmd = (
-            'timeout 5s wpa_supplicant -c/tmp/eap.conf -Dwired -i%s -d' % (
+            'timeout 5s wpa_supplicant -c%s -Dwired -i%s -d' % (
+                tmp_eap_conf,
                 first_host.defaultIntf().name))
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
