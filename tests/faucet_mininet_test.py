@@ -470,6 +470,15 @@ vlans:
         self.prometheus_smoke_test()
 
 
+class FaucetUntaggedTcpIperfTest(FaucetUntaggedTest):
+
+    def test_untagged(self):
+       for _ in range(3):
+           self.ping_all_when_learned()
+           self.verify_iperf_min(self.net.hosts[:2], 'TCP', 1)
+           self.flap_all_switch_ports()
+
+
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 

@@ -550,13 +550,20 @@ dbs:
         open(os.environ['FAUCET_CONFIG'], 'a').write(new_config)
         self.verify_hup_faucet()
 
+    def verify_iperf_min(self, hosts, l4Type, min_mbps):
+        """Verify minimum performance."""
+        iperf_bw_results = self.net.iperf(
+            hosts=hosts, l4Type=l4Type, fmt='M')
+        for host_bw_result in iperf_bw_results:
+            self.assertTrue(int(host_bw_result.split(' ')[0]) > min_mbps)
+
     def curl_portmod(self, int_dpid, port_no, config, mask):
         """Use curl to send a portmod command via the ofctl module."""
         curl_format = ' '.join((
             'curl -X POST -d'
             '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
             '%s/stats/portdesc/modify'))
-        return curl_format  % (
+        return curl_format % (
             int_dpid, port_no, config, mask, self.ofctl_rest_url())
 
     def flap_all_switch_ports(self, flap_time=1):
