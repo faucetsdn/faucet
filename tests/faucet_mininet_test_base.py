@@ -569,23 +569,35 @@ dbs:
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         onembps = (1024 * 1024)
+        prop = 0.05
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = list(start_port_stats.keys())
         raw_server_client_results = self.net.iperf(
             hosts=hosts, seconds=seconds, l4Type=l4Type, fmt='M')
         iperf_mbps = float(raw_server_client_results[0].split(' ')[0])
         self.assertTrue(iperf_mbps > min_mbps)
-        end_port_stats = self.get_host_port_stats(hosts_switch_ports)
-        for host in hosts:
-            of_rx_mbps = (
-                end_port_stats[host]['rx_bytes'] -
-                start_port_stats[host]['rx_bytes']) / seconds / onembps
-            of_tx_mbps = (
-                end_port_stats[host]['tx_bytes'] -
-                start_port_stats[host]['tx_bytes']) / seconds / onembps
-            max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
-            self.assertTrue(iperf_mbps / max_of_mbps >= 0.95)
-            self.assertTrue(iperf_mbps / max_of_mbps <= 1.05)
+        for _ in range(3):
+            end_port_stats = self.get_host_port_stats(hosts_switch_ports)
+            approx_match = True
+            for host in hosts:
+                of_rx_mbps = (
+                    end_port_stats[host]['rx_bytes'] -
+                    start_port_stats[host]['rx_bytes']) / seconds / onembps
+                of_tx_mbps = (
+                    end_port_stats[host]['tx_bytes'] -
+                    start_port_stats[host]['tx_bytes']) / seconds / onembps
+                max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
+                iperf_to_max = iperf_mbps / max_of_mbps
+                msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
+                    iperf_mbps, max_of_mbps, iperf_to_max)
+                print(msg)
+                if ((iperf_to_max < (1.0 - prop)) or
+                    (iperf_to_max > (1.0 + prop))):
+                    approx_match = False
+            if approx_match:
+                return
+            time.sleep(1)
+        self.fail(msg=msg)
 
     def curl_portmod(self, int_dpid, port_no, config, mask):
         """Use curl to send a portmod command via the ofctl module."""
