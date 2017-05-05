@@ -394,6 +394,17 @@ dbs:
             '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid),
             timeout)
 
+    def get_port_stats_from_dpid(self, dpid, port, timeout=2):
+        """Return OFStats for a port."""
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        port_stats = self.ofctl_get(
+            int_dpid,
+            '%s/stats/port/%s/%s' % (self.ofctl_rest_url(), int_dpid, port),
+            timeout)
+        if port_stats:
+            return json.loads(port_stats[0])
+        return None
+
     def get_group_id_for_matching_flow(self, exp_flow, timeout=10):
         for _ in range(timeout):
             flow_dump = self.get_all_flows_from_dpid(self.dpid, timeout)
@@ -548,12 +559,33 @@ dbs:
         open(os.environ['FAUCET_CONFIG'], 'a').write(new_config)
         self.verify_hup_faucet()
 
-    def verify_iperf_min(self, hosts, l4Type, min_mbps):
-        """Verify minimum performance."""
-        iperf_bw_results = self.net.iperf(
-            hosts=hosts, l4Type=l4Type, fmt='M')
-        for host_bw_result in iperf_bw_results:
-            self.assertTrue(int(host_bw_result.split(' ')[0]) > min_mbps)
+    def get_host_port_stats(self, hosts_switch_ports):
+        port_stats = {}
+        for host, switch_port in hosts_switch_ports:
+            port_stats[host] = self.get_port_stats_from_dpid(self.dpid, switch_port)
+        return port_stats
+
+    def verify_iperf_min(self, hosts_switch_ports, l4Type, min_mbps):
+        """Verify minimum performance and OF counters match iperf approximately."""
+        seconds = 5
+        onembps = (1024 * 1024)
+        start_port_stats = self.get_host_port_stats(hosts_switch_ports)
+        hosts = list(start_port_stats.keys())
+        raw_server_client_results = self.net.iperf(
+            hosts=hosts, seconds=seconds, l4Type=l4Type, fmt='M')
+        iperf_mbps = float(raw_server_client_results[0].split(' ')[0])
+        self.assertTrue(iperf_mbps > min_mbps)
+        end_port_stats = self.get_host_port_stats(hosts_switch_ports)
+        for host in hosts:
+            of_rx_mbps = (
+                end_port_stats[host]['rx_bytes'] -
+                start_port_stats[host]['rx_bytes']) / seconds / onembps
+            of_tx_mbps = (
+                end_port_stats[host]['tx_bytes'] -
+                start_port_stats[host]['tx_bytes']) / seconds / onembps
+            max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
+            self.assertTrue(iperf_mbps / max_of_mbps >= 0.95)
+            self.assertTrue(iperf_mbps / max_of_mbps <= 1.05)
 
     def curl_portmod(self, int_dpid, port_no, config, mask):
         """Use curl to send a portmod command via the ofctl module."""
