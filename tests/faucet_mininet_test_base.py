@@ -692,7 +692,10 @@ dbs:
             if flow and flow['packet_count'] > 0:
                  return
             time.sleep(1)
-        self.fail('no flow matching %s had non-zero packet count' % exp_flow)
+        if flow:
+            self.fail('flow %s matching %s had zero packet count' % (flow, exp_flow))
+        else:
+            self.fail('no flow matching %s' % exp_flow)
 
     def verify_tp_dst_blocked(self, port, first_host, second_host):
         """Verify that a TCP port on a host is blocked from another host."""
