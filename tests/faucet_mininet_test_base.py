@@ -569,13 +569,14 @@ dbs:
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         onembps = (1024 * 1024)
-        prop = 0.05
+        prop = 0.1
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = list(start_port_stats.keys())
         raw_server_client_results = self.net.iperf(
             hosts=hosts, seconds=seconds, l4Type=l4Type, fmt='M')
         iperf_mbps = float(raw_server_client_results[0].split(' ')[0])
         self.assertTrue(iperf_mbps > min_mbps)
+        # TODO: account for drops.
         for _ in range(3):
             end_port_stats = self.get_host_port_stats(hosts_switch_ports)
             approx_match = True
