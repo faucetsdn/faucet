@@ -685,13 +685,21 @@ dbs:
         host.cmd('timeout 10s echo hello | nc -l %s %u &' % (host.IP(), port))
         self.wait_for_tcp_listen(host, port)
 
+    def wait_nonzero_packet_count_flow(self, exp_flow, timeout=5):
+        """Wait for a flow to be present and have a non-zero packet_count."""
+        for _ in range(timeout):
+            flow = self.get_matching_flow(exp_flow, timeout=1)
+            if flow and flow['packet_count'] > 0:
+                 return
+            time.sleep(1)
+        self.fail('no flow matching %s had non-zero packet count' % exp_flow)
+
     def verify_tp_dst_blocked(self, port, first_host, second_host):
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
             '', first_host.cmd('timeout 10s nc %s %u' % (second_host.IP(), port)))
-        self.wait_until_matching_flow(
-            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
+        self.wait_nonzero_packet_count_flow(r'"tp_dst": %u' % port)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host):
         """Verify that a TCP port on a host is NOT blocked from another host."""
@@ -699,8 +707,7 @@ dbs:
         self.assertEquals(
             'hello\r\n',
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
-        self.wait_until_matching_flow(
-            r'"packet_count": [1-9]+.+"tp_dst": %u' % port)
+        self.wait_nonzero_packet_count_flow(r'"tp_dst": %u' % port)
 
     def swap_host_macs(self, first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""
