@@ -367,20 +367,32 @@ dbs:
         """Return control URL for Ryu ofctl module."""
         return 'http://127.0.0.1:%u' % self.get_controller().ofctl_port
 
-    def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
-        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+    def ofctl_get(self, int_dpid, req, timeout):
         for _ in range(timeout):
             try:
-                ofctl_result = json.loads(requests.get(
-                    '%s/stats/groupdesc/%s' % (self.ofctl_rest_url(),
-                                               int_dpid)).text)
-                flow_dump = ofctl_result[int_dpid]
-                return [json.dumps(flow) for flow in flow_dump]
+                ofctl_result = json.loads(requests.get(req).text)
+                ofmsgs = ofctl_result[int_dpid]
+                return [json.dumps(ofmsg) for ofmsg in ofmsgs]
             except (ValueError, requests.exceptions.ConnectionError):
                 # Didn't get valid JSON, try again
                 time.sleep(1)
                 continue
         return []
+
+    def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        return self.ofctl_get(
+            int_dpid,
+            '%s/stats/groupdesc/%s' % (self.ofctl_rest_url(), int_dpid),
+            timeout)
+
+    def get_all_flows_from_dpid(self, dpid, timeout=10):
+        """Return all flows from DPID."""
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        return self.ofctl_get(
+            int_dpid,
+            '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid),
+            timeout)
 
     def get_group_id_for_matching_flow(self, exp_flow, timeout=10):
         for _ in range(timeout):
@@ -403,20 +415,6 @@ dbs:
                     return True
             time.sleep(1)
         return False
-
-    def get_all_flows_from_dpid(self, dpid, timeout=10):
-        """Return all flows from DPID."""
-        for _ in range(timeout):
-            try:
-                ofctl_result = json.loads(requests.get(
-                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), dpid)).text)
-            except (ValueError, requests.exceptions.ConnectionError):
-                # Didn't get valid JSON, try again
-                time.sleep(1)
-                continue
-            flow_dump = ofctl_result[dpid]
-            return [json.dumps(flow) for flow in flow_dump]
-        return []
 
     def get_matching_flow_on_dpid(self, dpid, exp_flow, timeout=10):
         """Return flow matching an RE from DPID."""
