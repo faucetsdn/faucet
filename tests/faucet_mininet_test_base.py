@@ -367,20 +367,43 @@ dbs:
         """Return control URL for Ryu ofctl module."""
         return 'http://127.0.0.1:%u' % self.get_controller().ofctl_port
 
-    def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
-        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+    def ofctl_get(self, int_dpid, req, timeout):
         for _ in range(timeout):
             try:
-                ofctl_result = json.loads(requests.get(
-                    '%s/stats/groupdesc/%s' % (self.ofctl_rest_url(),
-                                               int_dpid)).text)
-                flow_dump = ofctl_result[int_dpid]
-                return [json.dumps(flow) for flow in flow_dump]
+                ofctl_result = json.loads(requests.get(req).text)
+                ofmsgs = ofctl_result[int_dpid]
+                return [json.dumps(ofmsg) for ofmsg in ofmsgs]
             except (ValueError, requests.exceptions.ConnectionError):
                 # Didn't get valid JSON, try again
                 time.sleep(1)
                 continue
         return []
+
+    def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        return self.ofctl_get(
+            int_dpid,
+            '%s/stats/groupdesc/%s' % (self.ofctl_rest_url(), int_dpid),
+            timeout)
+
+    def get_all_flows_from_dpid(self, dpid, timeout=10):
+        """Return all flows from DPID."""
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        return self.ofctl_get(
+            int_dpid,
+            '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid),
+            timeout)
+
+    def get_port_stats_from_dpid(self, dpid, port, timeout=2):
+        """Return OFStats for a port."""
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        port_stats = self.ofctl_get(
+            int_dpid,
+            '%s/stats/port/%s/%s' % (self.ofctl_rest_url(), int_dpid, port),
+            timeout)
+        if port_stats:
+            return json.loads(port_stats[0])
+        return None
 
     def get_group_id_for_matching_flow(self, exp_flow, timeout=10):
         for _ in range(timeout):
@@ -403,20 +426,6 @@ dbs:
                     return True
             time.sleep(1)
         return False
-
-    def get_all_flows_from_dpid(self, dpid, timeout=10):
-        """Return all flows from DPID."""
-        for _ in range(timeout):
-            try:
-                ofctl_result = json.loads(requests.get(
-                    '%s/stats/flow/%s' % (self.ofctl_rest_url(), dpid)).text)
-            except (ValueError, requests.exceptions.ConnectionError):
-                # Didn't get valid JSON, try again
-                time.sleep(1)
-                continue
-            flow_dump = ofctl_result[dpid]
-            return [json.dumps(flow) for flow in flow_dump]
-        return []
 
     def get_matching_flow_on_dpid(self, dpid, exp_flow, timeout=10):
         """Return flow matching an RE from DPID."""
@@ -550,12 +559,46 @@ dbs:
         open(os.environ['FAUCET_CONFIG'], 'a').write(new_config)
         self.verify_hup_faucet()
 
-    def verify_iperf_min(self, hosts, l4Type, min_mbps):
-        """Verify minimum performance."""
-        iperf_bw_results = self.net.iperf(
-            hosts=hosts, l4Type=l4Type, fmt='M')
-        for host_bw_result in iperf_bw_results:
-            self.assertTrue(int(host_bw_result.split(' ')[0]) > min_mbps)
+    def get_host_port_stats(self, hosts_switch_ports):
+        port_stats = {}
+        for host, switch_port in hosts_switch_ports:
+            port_stats[host] = self.get_port_stats_from_dpid(self.dpid, switch_port)
+        return port_stats
+
+    def verify_iperf_min(self, hosts_switch_ports, l4Type, min_mbps):
+        """Verify minimum performance and OF counters match iperf approximately."""
+        seconds = 5
+        onembps = (1024 * 1024)
+        prop = 0.1
+        start_port_stats = self.get_host_port_stats(hosts_switch_ports)
+        hosts = list(start_port_stats.keys())
+        raw_server_client_results = self.net.iperf(
+            hosts=hosts, seconds=seconds, l4Type=l4Type, fmt='M')
+        iperf_mbps = float(raw_server_client_results[0].split(' ')[0])
+        self.assertTrue(iperf_mbps > min_mbps)
+        # TODO: account for drops.
+        for _ in range(3):
+            end_port_stats = self.get_host_port_stats(hosts_switch_ports)
+            approx_match = True
+            for host in hosts:
+                of_rx_mbps = (
+                    end_port_stats[host]['rx_bytes'] -
+                    start_port_stats[host]['rx_bytes']) / seconds / onembps
+                of_tx_mbps = (
+                    end_port_stats[host]['tx_bytes'] -
+                    start_port_stats[host]['tx_bytes']) / seconds / onembps
+                max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
+                iperf_to_max = iperf_mbps / max_of_mbps
+                msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
+                    iperf_mbps, max_of_mbps, iperf_to_max)
+                print(msg)
+                if ((iperf_to_max < (1.0 - prop)) or
+                    (iperf_to_max > (1.0 + prop))):
+                    approx_match = False
+            if approx_match:
+                return
+            time.sleep(1)
+        self.fail(msg=msg)
 
     def curl_portmod(self, int_dpid, port_no, config, mask):
         """Use curl to send a portmod command via the ofctl module."""
