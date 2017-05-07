@@ -782,7 +782,7 @@ vlans:
             new_hosts.append(self.topo.addHost('nh%s' % h))
 
         sw1 = self.topo.switches()[0]
-        sw2 = self.topo.addSwitch(name="switch2", cls=OVSBridge)
+        sw2 = self.topo.addSwitch(name='switch2', cls=OVSBridge)
 
         self.topo.addLink(sw2, sw1, 1, 4)
         for h in new_hosts:
@@ -794,9 +794,9 @@ vlans:
         ping_hosts = []
         flag = True
         for h in self.net.hosts:
-            if h.name.startswith("nh"):
+            if h.name.startswith('nh'):
                 ping_hosts.append(h)
-            elif flag and h.name.startswith("u"):
+            elif flag and h.name.startswith('u'):
                 ping_hosts.append(h)
                 flag = False
 
