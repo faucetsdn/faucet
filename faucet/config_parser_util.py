@@ -36,8 +36,8 @@ def read_config(config_file, logname):
 
 
 def config_file_hash(config_file_name):
-    config_file = open(config_file_name)
-    return hashlib.sha256(config_file.read().encode('utf-8')).hexdigest()
+    with open(config_file_name) as config_file:
+        return hashlib.sha256(config_file.read().encode('utf-8')).hexdigest()
 
 
 def dp_config_path(config_file, parent_file=None):
