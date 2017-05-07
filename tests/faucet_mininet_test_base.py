@@ -452,10 +452,6 @@ dbs:
         return self.matching_flow_present(
             '"table_id": 3,.+"dl_src": "%s"' % host.MAC(), timeout)
 
-    def host_learned_on_port(self, host, port_no, timeout=10):
-        return self.matching_flow_present(
-            '"table_id": 3,.+"dl_src": "%s", "in_port": %d' % (host.MAC(), port_no), timeout)
-
     def host_ipv4(self, host):
         """Return first IPv4/netmask for host's default interface."""
         host_ip_cmd = (
