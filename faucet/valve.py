@@ -911,6 +911,13 @@ class Valve(object):
         return PacketMeta(pkt, eth_pkt, port, vlan, eth_src, eth_dst)
 
     def _port_learn_ban_rules(self, pkt_meta):
+        """Limit learning to a maximum configured on this port.
+
+        Args:
+            pkt_meta: PacketMeta instance.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
         ofmsgs = []
 
         port = pkt_meta.port
