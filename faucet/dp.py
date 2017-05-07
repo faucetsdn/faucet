@@ -327,10 +327,12 @@ class DP(Conf):
                                     port = self.ports[port_no]
                                     port.mirror_destination = True
                             if 'output' in attrib_value:
-                                port_name = attrib_value['output']['port']
-                                port_no = resolve_port_no(port_name)
-                                if port_no is not None:
-                                    attrib_value['output']['port'] = port_no
+                                output_values = attrib_value['output']
+                                if 'port' in output_values:
+                                    port_name = output_values['port']
+                                    port_no = resolve_port_no(port_name)
+                                    if port_no is not None:
+                                        output_values['port'] = port_no
 
         port_by_name = {}
         for port in list(self.ports.values()):

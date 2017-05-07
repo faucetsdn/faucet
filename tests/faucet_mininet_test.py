@@ -2819,7 +2819,8 @@ acls:
             dl_dst: "00:00:00:00:00:02"
             actions:
                 allow: 1
-                dl_dst: "00:00:00:00:00:03"
+                output:
+                    dl_dst: "00:00:00:00:00:03"
         - rule:
             actions:
                 allow: 1
