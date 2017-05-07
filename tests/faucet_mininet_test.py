@@ -2313,6 +2313,7 @@ class FaucetStringOfDPTest(FaucetTest):
         """Set up Mininet and Faucet for the given topology."""
 
         self.dpids = [str(random.randint(1, 2**32)) for _ in range(n_dps)]
+        self.dpid = self.dpids[0]
         self.CONFIG = self.get_config(
             self.dpids,
             stack,
