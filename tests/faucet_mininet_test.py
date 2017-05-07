@@ -743,6 +743,7 @@ vlans:
         self.assertEquals(2, int(self.scrape_prometheus_var(
             r'vlan_hosts_learned\S+vlan="100"\S+')))
 
+
 class FaucetMaxHostsPortTest(FaucetTest):
     N_UNTAGGED = 3
     N_TAGGED = 0
