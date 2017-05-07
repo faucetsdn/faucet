@@ -1373,8 +1373,8 @@ vlans:
         self.start_net()
 
     def test_seperate_untagged_tagged(self):
-        tagged_host_pair = self.net.hosts[0:1]
-        untagged_host_pair = self.net.hosts[2:3]
+        tagged_host_pair = self.net.hosts[:2]
+        untagged_host_pair = self.net.hosts[2:]
         # hosts within VLANs can ping each other
         self.assertEquals(0, self.net.ping(tagged_host_pair))
         self.assertEquals(0, self.net.ping(untagged_host_pair))
