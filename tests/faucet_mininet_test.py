@@ -805,7 +805,7 @@ vlans:
         flows = self.get_all_flows_from_dpid(self.dpid)
 
         # There are mac address being learnt that are not belonging to the hosts
-        # that are conneted to sw2, which is why the ping may not have 3 successful pings
+        # that are connected to sw2, which is why the ping may not have 3 successful pings
         # to the hosts connected to sw1, and therefore we cannot check if the hosts are learned or
         # not, as done in FaucetUntaggedMaxHostsTest.
         #  So check there are 3 learnt mac addresses in table 3.
