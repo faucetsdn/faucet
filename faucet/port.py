@@ -29,6 +29,7 @@ class Port(Conf):
     tagged_vlans = []
     acl_in = None
     stack = {}
+    max_hosts = None
 
     defaults = {
         'number': None,
@@ -43,6 +44,7 @@ class Port(Conf):
         'tagged_vlans': None,
         'acl_in': None,
         'stack': None,
+        'max_hosts' : None,
         }
 
     def __init__(self, _id, conf=None):
