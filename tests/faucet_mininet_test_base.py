@@ -639,12 +639,15 @@ dbs:
             host.cmd('ip -%u route add %s via %s' % (
                 ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)))
 
-    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True):
+    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None):
         """Ping an IPv4 destination from a host."""
         if require_host_learned:
             self.require_host_learned(host)
+        if intf is None:
+            intf = host.defaultIntf()
         for _ in range(retries):
-            ping_result = host.cmd('ping -c1 %s' % dst)
+            ping_cmd = 'ping -c1 -I%s %s' % (intf, dst)
+            ping_result = host.cmd(ping_cmd)
             if re.search(self.ONE_GOOD_PING, ping_result):
                 return
         self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
