@@ -49,7 +49,7 @@ import yaml
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.log import setLogLevel
 from mininet.net import Mininet
-from mininet.node import Intf
+from mininet.node import Intf, OVSBridge
 from mininet.util import dumpNodeConnections, pmonitor
 from mininet.clean import Cleanup
 from packaging import version
@@ -750,7 +750,6 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
-
     def test_untagged(self):
         self.net.pingAll()
         learned_hosts = [
@@ -758,6 +757,81 @@ vlans:
         self.assertEquals(2, len(learned_hosts))
         self.assertEquals(2, int(self.scrape_prometheus_var(
             r'vlan_hosts_learned\S+vlan="100"\S+')))
+
+
+class FaucetMaxHostsPortTest(FaucetTest):
+    N_UNTAGGED = 3
+    N_TAGGED = 0
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+                max_hosts: 3
+"""
+
+    def setUp(self):
+        super(FaucetMaxHostsPortTest, self).setUp()
+        self.topo = self.topo_class(
+            self.ports_sock, dpid=self.dpid,
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
+
+        # Can't have more that one node connected to a switch port so,
+        # add a new switch sw2, connect sw2 to sw1, add hosts to sw2.
+        new_hosts = []
+        for h in range(0, 10):
+            new_hosts.append(self.topo.addHost('nh%s' % h))
+
+        sw1 = self.topo.switches()[0]
+        sw2 = self.topo.addSwitch(name='switch2', cls=OVSBridge)
+
+        self.topo.addLink(sw2, sw1, 1, 4)
+        for h in new_hosts:
+            self.topo.addLink(sw2, h)
+
+        self.start_net()
+
+    def test_untagged(self):
+        ping_hosts = []
+        flag = True
+        for h in self.net.hosts:
+            if h.name.startswith('nh'):
+                ping_hosts.append(h)
+            elif flag and h.name.startswith('u'):
+                ping_hosts.append(h)
+                flag = False
+
+        self.net.ping(ping_hosts)
+
+        flows = self.get_all_flows_from_dpid(self.dpid)
+
+        # There are mac address being learnt that are not belonging to the hosts
+        # that are connected to sw2, which is why the ping may not have 3 successful pings
+        # to the hosts connected to sw1, and therefore we cannot check if the hosts are learned or
+        # not, as done in FaucetUntaggedMaxHostsTest.
+        #  So check there are 3 learnt mac addresses in table 3.
+
+        exp_flow = '"table_id": 3, "match": {"dl_vlan": "100", "dl_src": "..:..:..:..:..:..", "in_port": 4'
+        num_mac_learned = 0
+        for flow in flows:
+            if re.search(exp_flow, flow):
+                num_mac_learned = num_mac_learned + 1
+        self.assertEquals(3, num_mac_learned)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):

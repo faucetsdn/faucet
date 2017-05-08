@@ -48,6 +48,13 @@ class ValveHostManager(object):
         self.valve_flowdel = valve_flowdel
         self.valve_flowdrop = valve_flowdrop
 
+    def temp_ban_host_learning_on_port(self, port): 
+        return self.valve_flowdrop(
+            self.eth_src_table,
+            self.valve_in_match(self.eth_src_table, in_port=port.number),
+            priority=(self.low_priority + 1),
+            hard_timeout=self.host_priority)
+
     def temp_ban_host_learning_on_vlan(self, vlan):
         return self.valve_flowdrop(
             self.eth_src_table,
