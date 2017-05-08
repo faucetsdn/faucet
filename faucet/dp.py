@@ -64,6 +64,7 @@ class DP(Conf):
         'dp_id': None,
         # Name for this dp, used for stats reporting and configuration
         'name': None,
+        'interfaces': {},
         'table_offset': 0,
         'port_acl_table': None,
         # The table for internally associating vlans
