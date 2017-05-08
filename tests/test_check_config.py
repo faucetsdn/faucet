@@ -83,6 +83,19 @@ dps:
 """
         self.check_config_failure(unknown_dp_config_item)
 
+    def test_toplevel_unknown_config(self):
+        toplevel_unknown_config = """
+vlans:
+    100:
+        name: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+unknown_thing: 1
+"""
+        self.check_config_failure(toplevel_unknown_config)
+
 
 if __name__ == "__main__":
     unittest.main()
