@@ -93,5 +93,8 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     # now that this file has been successfully loaded.
     config_hashes.update(new_config_hashes)
     for conf_name, new_conf in list(new_top_confs.items()):
+        if conf_name not in top_confs:
+            logger.error('unknown config at top level: %s', conf_name)
+            return False
         top_confs[conf_name].update(new_conf)
     return True
