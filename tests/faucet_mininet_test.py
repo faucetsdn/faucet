@@ -810,6 +810,55 @@ vlans:
         self.assertEquals(self.MAX_HOSTS, macs_learned)
 
 
+class FaucetLearn50MACsOnPortTest(FaucetUntaggedTest):
+
+    MAX_HOSTS = 50
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[:2]
+        self.ping_all_when_learned()
+        mac_intf_ipv4s = []
+        for i in range(10, 10+self.MAX_HOSTS):
+            mac_intf_ipv4s.append(('mac%u' % i, '10.0.0.%u' % i))
+        # configure macvlan interfaces and stimulate learning
+        for mac_intf, mac_ipv4 in mac_intf_ipv4s:
+            second_host.cmd('ip link add link %s %s type macvlan' % (
+                second_host.defaultIntf(), mac_intf))
+            second_host.cmd('ip address add %s/24 dev %s' % (
+                mac_ipv4, mac_intf))
+            second_host.cmd('ip link set dev %s up' % mac_intf)
+            second_host.cmd('ping -c1 -I%s %s &' % (mac_intf, first_host.IP()))
+        # verify connectivity
+        for mac_intf, _ in mac_intf_ipv4s:
+            self.one_ipv4_ping(
+                second_host, first_host.IP(),
+                require_host_learned=False, intf=mac_intf)
+        # verify FAUCET thinks it learned this many hosts
+        self.assertGreater(int(self.scrape_prometheus_var(
+            r'vlan_hosts_learned\S+vlan="100"\S+')), self.MAX_HOSTS)
+
+
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     """Test handling HUP signal without config change."""
 
