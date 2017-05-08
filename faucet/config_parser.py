@@ -118,8 +118,8 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
                 dp.add_router(router_ident, router)
             ports_conf = dp_conf.pop('interfaces', {})
             ports = {}
-            #as users can config port vlan by using vlan name, we store vid in
-            #Port instance instead of vlan name for data consistency
+            # as users can config port vlan by using vlan name, we store vid in
+            # Port instance instead of vlan name for data consistency
             for port_num, port_conf in list(ports_conf.items()):
                 port = port_parser(dp_id, port_num, port_conf, vlans)
                 ports[port_num] = port
@@ -162,7 +162,7 @@ def _config_parser_v2(config_file, logname):
         return None
 
     if not top_confs['dps']:
-        logger.critical('dps not configured in file: %s', config_path)
+        logger.critical('DPs not configured in file: %s', config_path)
         return None
 
     dps = _dp_parser_v2(

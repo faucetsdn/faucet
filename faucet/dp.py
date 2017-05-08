@@ -64,6 +64,7 @@ class DP(Conf):
         'dp_id': None,
         # Name for this dp, used for stats reporting and configuration
         'name': None,
+        'interfaces': {},
         'table_offset': 0,
         'port_acl_table': None,
         # The table for internally associating vlans
@@ -125,6 +126,9 @@ class DP(Conf):
 
     def __init__(self, _id, conf):
         self._id = _id
+        sub_conf_names = set(conf.keys())
+        unknown_conf_names = sub_conf_names - set(self.defaults.keys())
+        assert not unknown_conf_names, 'unknown config items in DP: %s' % unknown_conf_names
         self.update(conf)
         self.set_defaults()
         self.acls = {}
