@@ -121,6 +121,14 @@ class Valve(object):
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
             self.valve_flowdrop)
 
+    def dpid_log(self, log_msg):
+        self.logger.info(
+            ' '.join((valve_util.dpid_log(self.dp.dp_id), log_msg)))
+
+    def dpid_warn(self, log_msg):
+        self.logger.warning(
+            ' '.join((valve_util.dpid_log(self.dp.dp_id), log_msg)))
+
     def _register_table_match_types(self):
         # TODO: functional flow managers should be able to register
         # the flows they need, themselves.
@@ -496,7 +504,7 @@ class Valve(object):
     def _add_vlan(self, vlan, all_port_nums):
         """Configure a VLAN."""
         ofmsgs = []
-        self.logger.info('Configuring VLAN %s', vlan)
+        self.dpid_log('Configuring VLAN %s' % vlan)
         for port in vlan.get_ports():
             all_port_nums.add(port.number)
         # add mirror destination ports.
@@ -518,7 +526,7 @@ class Valve(object):
         for table_id in tables:
             match = self.valve_in_match(table_id, vlan=vlan)
             ofmsgs.extend(self.valve_flowdel(table_id, match=match))
-        self.logger.info('Delete VLAN %s', vlan)
+        self.dpid_log('Delete VLAN %s' % vlan)
         return ofmsgs
 
     def _add_ports_and_vlans(self, discovered_port_nums):
@@ -558,7 +566,7 @@ class Valve(object):
         """
         if self._ignore_dpid(dp_id):
             return []
-        self.logger.info('Configuring %s', valve_util.dpid_log(dp_id))
+        self.dpid_log('Configuring DP')
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         changed_ports = set([])
@@ -581,7 +589,7 @@ class Valve(object):
         """
         if not self._ignore_dpid(dp_id):
             self.dp.running = False
-            self.logger.warning('%s down', valve_util.dpid_log(dp_id))
+            self.dpid_warn('datapath down')
 
     def _port_add_acl(self, port_num):
         ofmsgs = []
@@ -672,8 +680,8 @@ class Valve(object):
             return []
 
         if port_num not in self.dp.ports:
-            self.logger.info(
-                'Ignoring port:%u not present in configuration file', port_num)
+            self.dpid_log(
+                'Ignoring port:%u not present in configuration file' % port_num)
             return []
 
         port = self.dp.ports[port_num]
@@ -692,14 +700,14 @@ class Valve(object):
                 ofmsgs.extend(self.valve_flowdel(
                     self.dp.eth_dst_table,
                     out_port=port_num))
-            self.logger.info('Port %s modified', port)
+            self.dpid_log('Port %s modified' % port)
         else:
-            self.logger.info('Port %s added', port)
+            self.dpid_log('Port %s added' % port)
 
         if not port.running():
             return ofmsgs
 
-        self.logger.info('Sending config for port %s', port)
+        self.dpid_log('Sending config for port %s' % port)
 
         # Delete all flows previously matching this port
         ofmsgs.extend(self._delete_all_port_match_flows(port))
@@ -752,8 +760,7 @@ class Valve(object):
 
         port = self.dp.ports[port_num]
         port.phys_up = False
-
-        self.logger.warning('Port %s down', port)
+        self.dpid_warn('Port %s down' % port)
 
         ofmsgs = []
 
@@ -876,8 +883,8 @@ class Valve(object):
                 return ofmsgs
 
             learn_port = self.dp.shortest_path_port(edge_dp.name)
-            self.logger.info(
-                'host learned via stack port to %s', edge_dp.name)
+            self.dpid_log(
+                'host learned via stack port to %s' % edge_dp.name)
 
         # TODO: it would be good to be able to notify an external
         # system upon re/learning a host.
@@ -927,11 +934,11 @@ class Valve(object):
         if len(old_eth_srcs) == self.dp.ports[port.number].max_hosts:
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_port(
                 port))
-            self.logger.info(
-                'max hosts %u reached on dp %u port %u, ' +
-                'temporarily banning learning on this port, ' +
-                'and not learning %s',
-                port.max_hosts, self.dp.dp_id, port.number, eth_src)
+            self.dpid_log(
+                'max hosts %u reached on port %u, '
+                'temporarily banning learning on this port, '
+                'and not learning %s' % (
+                    port.max_hosts, port.number, eth_src))
             return ofmsgs
         return ofmsgs
 
@@ -947,17 +954,17 @@ class Valve(object):
         vlan = pkt_meta.vlan
         eth_src = pkt_meta.eth_src
         hosts_count = self.host_manager.hosts_learned_on_vlan_count(
-                vlan)
+            vlan)
         if (vlan.max_hosts is not None and
                 hosts_count == vlan.max_hosts and
                 eth_src not in vlan.host_cache):
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
                 vlan))
-            self.logger.info(
-                'max hosts %u reached on vlan %u, ' +
-                'temporarily banning learning on this vlan, ' +
-                'and not learning %s',
-                vlan.max_hosts, vlan.vid, eth_src)
+            self.dpid_log(
+                'max hosts %u reached on vlan %u, '
+                'temporarily banning learning on this vlan, '
+                'and not learning %s' % (
+                    vlan.max_hosts, vlan.vid, eth_src))
         return ofmsgs
 
     def update_config_metrics(self, metrics):
@@ -1027,12 +1034,11 @@ class Valve(object):
         ofmsgs = []
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
-            self.logger.debug(
-                'Packet_in %s src:%s in_port:%d vid:%s',
-                valve_util.dpid_log(dp_id),
-                pkt_meta.eth_src,
-                pkt_meta.port.number,
-                pkt_meta.vlan.vid)
+            self.dpid_log(
+                'Packet_in src:%s in_port:%d vid:%s' % (
+                    pkt_meta.eth_src,
+                    pkt_meta.port.number,
+                    pkt_meta.vlan.vid))
 
             ofmsgs.extend(self.control_plane_handler(pkt_meta))
 
@@ -1146,11 +1152,11 @@ class Valve(object):
         ofmsgs = []
         old_dp = self.dp
         for port_no in deleted_ports:
-            self.logger.info('ports deleted: %s', deleted_ports)
+            self.dpid_log('ports deleted: %s' % deleted_ports)
             old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
             ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no, old_eth_srcs))
         for vid in deleted_vlans:
-            self.logger.info('VLANs deleted: %s', deleted_vlans)
+            self.dpid_log('VLANs deleted: %s' % deleted_vlans)
             vlan = self.dp.vlans[vid]
             ofmsgs.extend(self._del_vlan(vlan))
         for vid in changed_vlans:
@@ -1162,11 +1168,11 @@ class Valve(object):
         self.dp.running = True
 
         for vid in changed_vlans:
-            self.logger.info('VLANs changed/added: %s', changed_vlans)
+            self.dpid_log('VLANs changed/added: %s' % changed_vlans)
             vlan = self.dp.vlans[vid]
             ofmsgs.extend(self._add_vlan(vlan, set()))
         for port_no in changed_ports:
-            self.logger.info('ports changed/added: %s', port_no)
+            self.dpid_log('ports changed/added: %s' % port_no)
             old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
             ofmsgs.extend(self.port_add(self.dp.dp_id, port_no, True, old_eth_srcs))
         return ofmsgs
