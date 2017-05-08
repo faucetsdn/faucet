@@ -80,8 +80,8 @@ EXTERNAL_DEPENDENCIES = (
      r'ExaBGP : (\d+\.\d+).\d+', "3.4"),
     ('pip', ['show', 'influxdb'], 'influxdb',
      r'Version:\s+(\d+\.\d+)\.\d+', "3.0"),
-    ('pylint', ['--version'], 'pylint',
-     r'pylint (\d+\.\d+).\d+,', "1.6"),
+#    ('pylint', ['--version'], 'pylint',
+#     r'pylint (\d+\.\d+).\d+,', "1.6"),
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', "7.3"),
     ('ladvd', ['-h'], 'ladvd',
@@ -3259,9 +3259,9 @@ def test_main():
         print('dependency check failed. check required library/binary '
               'list in header of this script')
         sys.exit(-1)
-    if not lint_check():
-        print('pylint must pass with no errors')
-        sys.exit(-1)
+#    if not lint_check():
+#        print('pylint must pass with no errors')
+#        sys.exit(-1)
     hw_config = import_hw_config()
     run_tests(args, excluded_test_classes, keep_logs, serial, hw_config)
 
