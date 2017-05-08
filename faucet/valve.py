@@ -125,6 +125,10 @@ class Valve(object):
         self.logger.info(
             ' '.join((valve_util.dpid_log(self.dp.dp_id), log_msg)))
 
+    def dpid_warn(self, log_msg):
+        self.logger.warning(
+            ' '.join((valve_util.dpid_log(self.dp.dp_id), log_msg)))
+
     def _register_table_match_types(self):
         # TODO: functional flow managers should be able to register
         # the flows they need, themselves.
@@ -585,7 +589,7 @@ class Valve(object):
         """
         if not self._ignore_dpid(dp_id):
             self.dp.running = False
-            self.logger.warning('%s down', valve_util.dpid_log(dp_id))
+            self.dpid_warn('%s down')
 
     def _port_add_acl(self, port_num):
         ofmsgs = []
@@ -756,8 +760,7 @@ class Valve(object):
 
         port = self.dp.ports[port_num]
         port.phys_up = False
-
-        self.logger.warning('Port %s down', port)
+        self.dpid_warn('Port %s down' % port)
 
         ofmsgs = []
 
@@ -1031,9 +1034,8 @@ class Valve(object):
         ofmsgs = []
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
-            self.logger.debug(
-                'Packet_in %s src:%s in_port:%d vid:%s',
-                valve_util.dpid_log(dp_id),
+            self.dpid_log(
+                'Packet_in src:%s in_port:%d vid:%s',
                 pkt_meta.eth_src,
                 pkt_meta.port.number,
                 pkt_meta.vlan.vid)
