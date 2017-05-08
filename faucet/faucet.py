@@ -83,6 +83,11 @@ class FaucetMetrics(object):
         self.bgp_neighbor_uptime_seconds = Gauge(
             'bgp_neighbor_uptime',
             'BGP neighbor uptime in seconds', ['dpid', 'vlan', 'neighbor'])
+        self.learned_macs = Gauge(
+            'learned_macs',
+            'max address stored as 64bit number to DP ID, port, VLAN, and n (maximum number of hosts on the port)',
+            ['dpid', 'port', 'vlan', 'n'])
+
 
 
 class EventFaucetReconfigure(event.EventBase):
