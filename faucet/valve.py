@@ -930,7 +930,7 @@ class Valve(object):
             self.logger.info(
                 'max hosts %u reached on dp %u port %u, ' +
                 'temporarily banning learning on this port, ' +
-                ' and not learning %s',
+                'and not learning %s',
                 port.max_hosts, self.dp.dp_id, port.number, eth_src)
             return ofmsgs
         return ofmsgs
