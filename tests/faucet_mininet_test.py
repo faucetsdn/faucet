@@ -473,14 +473,14 @@ vlans:
 class FaucetUntaggedTcpIperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
-       for _ in range(3):
-           self.ping_all_when_learned()
-           first_host, second_host = self.net.hosts[:2]
-           self.verify_iperf_min(
-               ((first_host, self.port_map['port_1']),
-                   (second_host, self.port_map['port_2'])),
-               'TCP', 1)
-           self.flap_all_switch_ports()
+        for _ in range(3):
+            self.ping_all_when_learned()
+            first_host, second_host = self.net.hosts[:2]
+            self.verify_iperf_min(
+                ((first_host, self.port_map['port_1']),
+                 (second_host, self.port_map['port_2'])),
+                'TCP', 1)
+            self.flap_all_switch_ports()
 
 
 class FaucetSanityTest(FaucetUntaggedTest):
