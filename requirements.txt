@@ -1,0 +1,9 @@
+couchdb
+influxdb
+ipaddress
+netifaces
+networkx
+numpy
+prometheus_client
+pyyaml
+ryu>=4.9

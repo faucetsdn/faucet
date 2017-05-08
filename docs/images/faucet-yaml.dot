@@ -1,0 +1,88 @@
+// faucet.yaml config file - dot format for visual representation
+/** @author: shivaram.mysore@gmail.com **/
+
+digraph {
+  graph [label="faucet.yaml", labelloc=t, fontsize=30];
+  ranksep = "1.0 equally";
+
+  /** version info.  Only value supported is 2 **/
+  version [shape = box style = bold tooltip="2 - is the only value supported"];
+
+  /** include yaml files **/
+  include [shape = box style = bold];
+
+  /** include optional yaml files to augment existing elements **/
+  include_optional [label="include-optional" shape = box style = bold];
+  include_optional;
+
+  /** VLANs **/
+  VLANS [shape = box style = bold];
+  VLANS -> id;
+  id_name [label = "name"]
+  id -> id_name;
+  id -> unicast_flood;
+  id -> max_hosts;
+  // routing related
+  id -> faucet_vips;
+  id -> bgp_port;
+  id -> bgp_as;
+  id -> bgp_routerid;
+  id -> bgp_neighbor_addresses;
+  id -> bgp_neighbor_as;
+  id -> routes;
+  routes -> route;
+  route -> ip_dst;
+  route -> ip_gw;
+
+  subgraph "cluster_routing_related" { label = "Routing related"; style = dashed; fontsize=12; faucet_vips; bgp_port; bgp_as; bgp_routerid; bgp_neighbor_addresses; bgp_neighbor_as; routes; route; ip_dst; ip_gw; }
+
+  /**  ACLs **/
+  ACLS [shape = box style = bold];
+  acls_name [label = "name"]
+  ACLS -> acls_name -> rule -> actions;
+
+  /** Match Actions rules ACLs **/
+  rule -> dl_type;
+  rule -> dl_src;
+  rule -> dl_dst;
+  rule -> tcp_src;
+  rule -> tcp_dst;
+  rule -> udp_src;
+  rule -> udp_dst;
+  rule -> nw_src;
+  rule -> nw_proto;
+
+  subgraph "cluster_match_fields" { label = "Match fields"; style = dashed; fontsize=12; dl_type; dl_src; dl_dst; tcp_src; tcp_dst; udp_src; udp_dst; nw_src; nw_proto; }
+
+  /** Match Actions for ACLs **/
+  actions -> output;
+  actions -> allow;
+  actions -> mirror;
+
+  action_out_dl_dst [label = "dl_dst"]
+  output -> action_out_dl_dst;
+  action_out_uni_flood [label = "unicast_flood"]
+  output -> action_out_uni_flood;
+  output -> port;
+
+  /** Datapaths **/
+  dps [shape = box style = bold];
+  dps_name [label = "name"]
+  dps -> dps_name;
+
+  dps_name -> dp_id;
+  dps_name -> description;
+  dps_name -> hardware;
+  dps_name -> ignore_learn_ins;
+  interface_number [label = "(interface number)"]
+  dps_name -> interfaces -> interface_number;
+
+  interface_number -> native_vlan;
+  interface_number -> tagged_vlan;
+  interface_number_name [label = "name"]
+  interface_number -> interface_number_name;
+  interface_number_description [label = "description"]
+  interface_number -> interface_number_description;
+  interface_number -> acl_in;
+
+}

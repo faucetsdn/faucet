@@ -2,34 +2,34 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends python-pip \
-    vlan psmisc git sudo net-tools iputils-ping netcat-openbsd tcpdump \
-    libyaml-dev libpython2.7-dev
+  apt-get install -qy --no-install-recommends \
+    gcc \
+    git \
+    influxdb \
+    iputils-ping \
+    ladvd \
+    libpython2.7-dev \
+    libyaml-dev \
+    net-tools \
+    netcat-openbsd \
+    psmisc \
+    python-pip \
+    sudo \
+    tcpdump \
+    vlan \
+    wpasupplicant
 
 RUN \
-  git clone git://github.com/mininet/mininet; \
-  cd mininet; \
-  git checkout -b 2.2.1 2.2.1; \
-  cd ..; \
-  mininet/util/install.sh -nfv
-
-RUN \
-  wget --no-check-certificate https://github.com/Exa-Networks/exabgp/archive/3.4.10.tar.gz; \
-  tar -zxf 3.4.10.tar.gz; \
-  cd exabgp-3.4.10 && python setup.py install
-
-RUN \
-  apt-get remove -qy python-pip && \
-  wget https://bootstrap.pypa.io/get-pip.py && \
-  python get-pip.py
-
-RUN \
-  apt-get remove -qy pylint; \
-  pip install --upgrade pylint>=1.6
+  git clone -b 2.2.1 https://github.com/mininet/mininet && \
+  mininet/util/install.sh -nfv && \
+  apt-get purge -qy pylint
 
 COPY ./ /faucet-src/
 
 RUN \
+  pip install --upgrade pip && \
+  pip install -r /faucet-src/requirements.txt \
+              -r /faucet-src/test-requirements.txt && \
   pip install /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]
