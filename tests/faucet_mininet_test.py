@@ -817,6 +817,8 @@ vlans:
             if re.search(exp_flow, flow):
                 macs_learned += 1
         self.assertEquals(self.MAX_HOSTS, macs_learned)
+        prom_txt = self.scrape_prometheus()
+        self.assertEquals(self.MAX_HOSTS, len(re.findall(r'learned_macs\S+port="2"\Svlan="100"\S+', prom_txt)))
 
 
 class FaucetLearn50MACsOnPortTest(FaucetUntaggedTest):
