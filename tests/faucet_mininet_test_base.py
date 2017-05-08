@@ -794,7 +794,7 @@ dbs:
         self.assertEquals(0, loss)
 
     def wait_for_route_as_flow(self, nexthop, prefix, timeout=10,
-                               with_group_table=False):
+                               with_group_table=False, nonzero_packets=False):
         """Verify a route has been added as a flow."""
         exp_prefix = '%s/%s' % (
             prefix.network_address, prefix.netmask)
@@ -808,8 +808,11 @@ dbs:
                 'SET_FIELD: {eth_dst:%s}' % nexthop,
                 group_id, timeout)
         else:
-            self.wait_until_matching_flow(
-                'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match), timeout)
+            exp_flow = 'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match)
+            if nonzero_packets:
+                self.wait_nonzero_packet_count_flow(exp_flow, timeout)
+            else:
+                self.wait_until_matching_flow(exp_flow, timeout)
 
     def host_ipv4_alias(self, host, alias_ip):
         """Add an IPv4 alias address to a host."""
@@ -867,6 +870,29 @@ dbs:
         self.one_ipv4_ping(second_host, first_host_routed_ip.ip)
         self.verify_ipv4_host_learned_host(first_host, second_host)
         self.verify_ipv4_host_learned_host(second_host, first_host)
+        # verify at least 1M iperf
+        for client_host, server_host, server_ip in (
+            (first_host, second_host, second_host_routed_ip.ip),
+            (second_host, first_host, first_host_routed_ip.ip)):
+           iperf_server = server_host.cmd(
+               'timeout 10s iperf -s -B %s > /dev/null &' % server_ip)
+           self.wait_for_tcp_listen(server_host, 5001)
+           iperf_results = client_host.cmd(
+               'iperf -t 5 -f M -y c -c %s' % server_ip)
+           iperf_csv = iperf_results.strip().split(',')
+           self.assertEquals(9, len(iperf_csv), msg=iperf_csv)
+           iperf_mbps = int(iperf_csv[-1]) / (1024*1024)
+           print('%u mbps to %s' % (iperf_mbps, server_ip))
+           self.assertGreater(iperf_mbps, 1)
+        # verify packets matched routing flows
+        self.wait_for_route_as_flow(
+            first_host.MAC(), first_host_routed_ip.network,
+            with_group_table=with_group_table,
+            nonzero_packets=True)
+        self.wait_for_route_as_flow(
+            second_host.MAC(), second_host_routed_ip.network,
+            with_group_table=with_group_table,
+            nonzero_packets=True)
 
     def verify_ipv4_routing_mesh(self, with_group_table=False):
         """Verify hosts can route to each other via FAUCET."""
