@@ -589,7 +589,7 @@ class Valve(object):
         """
         if not self._ignore_dpid(dp_id):
             self.dp.running = False
-            self.dpid_warn('%s down')
+            self.dpid_warn('datapath down')
 
     def _port_add_acl(self, port_num):
         ofmsgs = []
@@ -1035,10 +1035,10 @@ class Valve(object):
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.dpid_log(
-                'Packet_in src:%s in_port:%d vid:%s',
-                pkt_meta.eth_src,
-                pkt_meta.port.number,
-                pkt_meta.vlan.vid)
+                'Packet_in src:%s in_port:%d vid:%s' % (
+                    pkt_meta.eth_src,
+                    pkt_meta.port.number,
+                    pkt_meta.vlan.vid))
 
             ofmsgs.extend(self.control_plane_handler(pkt_meta))
 
