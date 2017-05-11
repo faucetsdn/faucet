@@ -59,7 +59,7 @@ In this example, Lagopus is controlling two ports, enp1s0f0 and enp1s0f1, which 
     dps:
         lagopus-1:
             dp_id: 0x1
-            hardware: "Open vSwitch"
+            hardware: "Lagopus"
             interfaces:
                 1:
                     native_vlan: 100
