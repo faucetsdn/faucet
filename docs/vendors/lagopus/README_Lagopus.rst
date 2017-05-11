@@ -31,43 +31,40 @@ In this example, Lagopus is controlling two ports, enp1s0f0 and enp1s0f1, which 
 
 ::
 
-$ cat /usr/local/etc/lagopus/lagopus.dsl 
-channel channel01 create -dst-addr 127.0.0.1 -protocol tcp
+    $ cat /usr/local/etc/lagopus/lagopus.dsl
+    channel channel01 create -dst-addr 127.0.0.1 -protocol tcp
 
-controller controller01 create -channel channel01 -role equal -connection-type main
+    controller controller01 create -channel channel01 -role equal -connection-type main
 
-interface interface01 create -type ethernet-rawsock -device enp1s0f0
+    interface interface01 create -type ethernet-rawsock -device enp1s0f0
 
-interface interface02 create -type ethernet-rawsock -device enp1s0f1
+    interface interface02 create -type ethernet-rawsock -device enp1s0f1
 
-port port01 create -interface interface01
+    port port01 create -interface interface01
 
-port port02 create -interface interface02
+    port port02 create -interface interface02
 
-bridge bridge01 create -controller controller01 -port port01 1 -port port02 2 -dpid 0x1
-bridge bridge01 enable
+    bridge bridge01 create -controller controller01 -port port01 1 -port port02 2 -dpid 0x1
+    bridge bridge01 enable
 
-::
 
 **Create faucet.yaml**
 
 ::
 
-$ cat /etc/ryu/faucet/faucet.yaml 
-vlans:
-    100:
-        name: "test"
-dps:
-    lagopus-1:
-        dp_id: 0x1
-        hardware: "Open vSwitch"
-        interfaces:
-            1:
-                native_vlan: 100
-            2:
-                native_vlan: 100
-
-::
+    $ cat /etc/ryu/faucet/faucet.yaml
+    vlans:
+        100:
+            name: "test"
+    dps:
+        lagopus-1:
+            dp_id: 0x1
+            hardware: "Open vSwitch"
+            interfaces:
+                1:
+                    native_vlan: 100
+                2:
+                    native_vlan: 100
 
 **Start Lagopus**
 
@@ -75,17 +72,14 @@ Start in debug mode, in a dedicated terminal.
 
 ::
 
-# lagopus -d
-
-::
+    # lagopus -d
 
 **Run FAUCET**
 
 ::
 
-$ ryu-manager --config-file=/home/faucet/faucet/etc/ryu/ryu.conf /home/faucet/faucet/faucet/faucet.py --verbose --ofp-listen-host=127.0.0.1
+    $ ryu-manager --config-file=/home/faucet/faucet/etc/ryu/ryu.conf /home/faucet/faucet/faucet/faucet.py --verbose --ofp-listen-host=127.0.0.1
 
-::
 
 **Test connectivity**
 
@@ -93,19 +87,17 @@ Host(s) on enp1s0f0 and enp1s0f1 in the same IP subnet, should now be able to co
 
 ::
 
-$ tail /var/log/ryu/faucet/faucet.log
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Configuring DP
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Delete VLAN vid:100 ports:1,2
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) VLANs changed/added: [100]
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Configuring VLAN vid:100 ports:1,2
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Configuring VLAN vid:100 ports:1,2
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Port 1 added
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Sending config for port 1
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Port 2 added
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Sending config for port 2
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Packet_in src:00:16:41:6d:87:28 in_port:1 vid:100
-May 11 13:04:57 faucet.valve INFO     learned 1 hosts on vlan 100
-May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Packet_in src:00:16:41:32:87:e0 in_port:2 vid:100
-May 11 13:04:57 faucet.valve INFO     learned 2 hosts on vlan 100
-
-::
+    $ tail /var/log/ryu/faucet/faucet.log
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Configuring DP
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Delete VLAN vid:100 ports:1,2
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) VLANs changed/added: [100]
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Configuring VLAN vid:100 ports:1,2
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Configuring VLAN vid:100 ports:1,2
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Port 1 added
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Sending config for port 1
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Port 2 added
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Sending config for port 2
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Packet_in src:00:16:41:6d:87:28 in_port:1 vid:100
+    May 11 13:04:57 faucet.valve INFO     learned 1 hosts on vlan 100
+    May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Packet_in src:00:16:41:32:87:e0 in_port:2 vid:100
+    May 11 13:04:57 faucet.valve INFO     learned 2 hosts on vlan 100
