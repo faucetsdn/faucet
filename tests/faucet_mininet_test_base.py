@@ -688,7 +688,7 @@ dbs:
         host.cmd('timeout 10s echo hello | nc -l %s %u &' % (host.IP(), port))
         self.wait_for_tcp_listen(host, port)
 
-    def wait_nonzero_packet_count_flow(self, exp_flow, timeout=5):
+    def wait_nonzero_packet_count_flow(self, exp_flow, timeout=10):
         """Wait for a flow to be present and have a non-zero packet_count."""
         for _ in range(timeout):
             flow = self.get_matching_flow(exp_flow, timeout=1)
