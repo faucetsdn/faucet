@@ -125,3 +125,29 @@ You can check that FAUCET and Gauge are running via systemd or via docker:
     service faucet status
     service gauge status
     docker ps
+
+
+=====================
+Installation with pip 
+=====================
+
+You can install the latest pip package, or you can install directly from git via pip.
+
+To install the latest pip package:
+
+.. code:: bash
+
+  apt-get install python-dev
+  pip install ryu-faucet
+
+To install the latest code from git, via pip:
+
+.. code:: bash
+
+  pip install git+https://github.com/REANNZ/faucet.git
+
+You can then start FAUCET manually:
+
+.. code:: bash
+
+  ryu-manager faucet.faucet --verbose
