@@ -1,4 +1,11 @@
+sudo: required
 language: python
+services:
+  - docker
+addons:
+  apt:
+    packages:
+      - openvswitch-switch
 python:
   - "2.7"
 install:
@@ -9,3 +16,5 @@ script:
   - "python ./test_config.py"
   - "python ./test_check_config.py"
   - "python ./test_valve.py"
+  - "cd .."
+  - "docker build -t reannz/faucet-tests -f Dockerfile.tests ."
