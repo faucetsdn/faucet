@@ -21,7 +21,7 @@ RUN \
     wpasupplicant
 
 RUN \
-  git clone -b 2.2.1 https://github.com/mininet/mininet && \
+  git clone -b 2.2.2 https://github.com/mininet/mininet && \
   mininet/util/install.sh -nfv && \
   apt-get purge -qy pylint python-astroid
 
