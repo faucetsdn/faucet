@@ -57,6 +57,16 @@ Configuration examples
 
 For complete working examples of configuration features, see the unit tests, `../tests/faucet_mininet_test.py <../tests/faucet_mininet_test.py>`_.
 
+==============================
+Applying configuration updates
+==============================
+
+You can update FAUCET's configuration by sending it a HUP signal. This will cause it to apply the minimum number of flow changes to the switch(es), to implement the change.
+
+.. code:: bash
+
+  pkill -HUP -f faucet.faucet
+
 ===============================
 Configuration in separate files
 ===============================
