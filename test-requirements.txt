@@ -1,3 +1,4 @@
+wheel
 bitstring
 concurrencytest
 exabgp>=3.4.10
