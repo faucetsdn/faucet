@@ -55,7 +55,18 @@ You can verify that your configuration is correct with the `../faucet/check_fauc
 Configuration examples
 ======================
 
-For complete working examples of configuration features, see the unit tests, `../tests/faucet_mininet_test.py <../tests/faucet_mininet_test.py>`_.
+For complete working examples of configuration features, see the unit tests, `../tests/faucet_mininet_test.py <../tests/faucet_mininet_test.py>`_. For example, `FaucetUntaggedACLTest` shows how to configure an ACL to block a TCP port, `FaucetTaggedIPv4RouteTest` shows
+how to configure static IPv4 routing.
+
+==============================
+Applying configuration updates
+==============================
+
+You can update FAUCET's configuration by sending it a HUP signal. This will cause it to apply the minimum number of flow changes to the switch(es), to implement the change.
+
+.. code:: bash
+
+  pkill -HUP -f faucet.faucet
 
 ===============================
 Configuration in separate files
