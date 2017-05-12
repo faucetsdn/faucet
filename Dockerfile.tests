@@ -28,6 +28,7 @@ COPY ./ /faucet-src/
 
 RUN \
   pip install --upgrade pip && \
+  pip install setuptools wheel virtualenv --upgrade && \
   pip install -r /faucet-src/requirements.txt \
               -r /faucet-src/test-requirements.txt && \
   pip install /faucet-src
