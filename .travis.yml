@@ -2,6 +2,10 @@ sudo: required
 language: python
 services:
   - docker
+addons:
+  apt:
+    packages:
+      - openvswitch-switch
 python:
   - "2.7"
 install:
