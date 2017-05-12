@@ -340,39 +340,9 @@ Faucet has been tested against the following switches:
 6. Hewlett Packard Enterprise - `Aruba 5400R, 3810 and 2930F <http://www.arubanetworks.com/products/networking/switches/>`_
 7. Netronome produces PCIe adaptors, with an OVS interface - `Agilio CX 2x10GbE card <https://www.netronome.com/products/agilio-cx/>`_
 
+Detailed guides for getting up and running with Faucet on vendor hardware are provided in the `docs/vendors <docs/vendors>`_ directory.
+
 Faucet's design principle is to be as hardware agnostic as possible and not require Table Type Patterns. This means that Faucet expects the hardware Open Flow Agent (OFA) to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet expects the OFA to leverage the right hardware transparently.
-
-============================================================
-Buying and running commercial switches supporting faucet
-============================================================
-
-Guides for getting up and running with Faucet on vendor hardware are provided in the `docs/vendors <docs/vendors>`_ directory.
-
-Allied Telesis
---------------
-
-`Allied Telesis <http://www.alliedtelesis.com/sdn>`_ sells their products via distributors and resellers. To order in USA call `ProVantage <http://www.provantage.com/allied-telesis-splx10~7ALL912L.htm>`_. To find a sales office near you, visit `Allied Telesis <http://www.AlliedTelesis.com>`_
-
-* On Allied Telesis, starting from latest software version 5.4.7, all data VLANs are automatically created on the switch.
-* When ordering, request Openflow switch SKU.
-
-NorthBound Networks
--------------------
-`NorthBound Networks <http://northboundnetworks.com>`_
-
-FAUCET supports the Zodiac FX as of v0.60 firmware.
-
-Hewlett Packard Enterprise
---------------------------
-`Hewlett Packard Enterprise <http://www.hpe.com>`_ and its many distributors and resellers.
-
-All the HPE Aruba’s v3 based product line (5400R, 3810 and 2930F) work with FAUCET.
-
-* `5400R <http://www.arubanetworks.com/products/networking/switches/5400r-series/>`_
-* `3810 <http://www.arubanetworks.com/products/networking/switches/3810-series/>`_
-* `2930F <http://www.arubanetworks.com/products/networking/switches/2930f-series/>`_
-
-OpenFlow is available by default on all the firmware releases of each of these products. There is no need for a purchase of separate license to enable OpenFlow on the firmware.
 
 =====
 Gauge
