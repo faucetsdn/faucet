@@ -79,3 +79,18 @@ Additional documentation is available under the `docs <docs>`_ directory.
 Faucet blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz.
 
 To create a issue, use `GitHub Issues <https://github.com/REANNZ/faucet/issues>`_.
+
+
+==================================
+Faucet deployment around the world
+==================================
+   https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
+
+.. raw:: html
+
+  <div class="figure">
+  <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s" width="640" height="480"></iframe>
+  </div>
+
+
+.. Comment- TBD Code not working - embed:: https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
