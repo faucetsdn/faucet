@@ -2,9 +2,7 @@
 ## @author shivaram.mysore@gmail.com
 
 OPENSSL=/usr/bin/openssl
-PYTHON_PKG_DIR=/opt/local/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages
-FAUCET_APP_DIR=$PYTHON_PKG_DIR/ryu_faucet/faucet
-APP_FAUCET=$FAUCET_APP_DIR/faucet.py
+APP_FAUCET=faucet.faucet
 # TCP port controller should listen on for OpenFlow switch
 CONTROLLER_LISTEN_PORT=6653
 CONTROLLER_HOST=127.0.0.1
