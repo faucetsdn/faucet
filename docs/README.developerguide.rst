@@ -9,6 +9,9 @@ Before submitting a PR
 
 -  All unit tests must pass (please use the docker based tests; see
    README.docker.md).
+-  It is strongly recommended to enable TravisCI testing on your
+   repo. This enables the maintainers to quickly verify that your
+   changes pass all tests in a pristine environment.
 -  You must add a test if FAUCET's functionality changes (ie. a new
    feature, or correcting a bug).
 -  pylint must show no new errors or warnings.
