@@ -14,7 +14,7 @@ You will need to provide an initial configuration files for FAUCET and Gauge, an
   $EDITOR /etc/ryu/faucet/faucet.yaml
   $EDITOR /etc/ryu/faucet/gauge.yaml
 
-This example ``faucet.yaml`` file creates an untagged VLAN between ports 1 and 2 on DP 0x1. See `README_config.rst` for
+This example ``faucet.yaml`` file creates an untagged VLAN between ports 1 and 2 on DP 0x1. See `README_config.rst <README_config.rst>`_ for
 more advanced configuration. See `vendors <vendors>`_ for how to configure your switch.
 
 .. code:: yaml
@@ -33,7 +33,7 @@ more advanced configuration. See `vendors <vendors>`_ for how to configure your 
 
 
 This example ``gauge.yaml`` file instructs Gauge to poll the switch at 10s intervals and store the results in InfluxDB.
-See `README_config.rst` for more advanced configuration.
+See `README_config.rst <README_config.rst>`_ for more advanced configuration.
 
 .. code:: yaml
 
@@ -68,7 +68,7 @@ Installation with Docker on Ubuntu with systemd
 
 We provide official automated builds on `Docker Hub <https://hub.docker.com/r/faucet/>`_ so that you can easily
 run Faucet and it's components in a self-contained environment without installing on the main host system.
-See `README.docker.md` for more advanced usage.
+See `README.docker.md <README.docker.md>`_ for more advanced usage.
 
 ``path-to-config-dir`` (containing ``faucet.yaml``), ``path-to-faucet-logging-dir``, and ``path-to-gauge-logging-dir`` should be the directories you created, above.
 
