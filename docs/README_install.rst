@@ -68,26 +68,13 @@ Installation with Docker on Ubuntu with systemd
 
 We provide official automated builds on `Docker Hub <https://hub.docker.com/r/faucet/>`_ so that you can easily
 run Faucet and it's components in a self-contained environment without installing on the main host system.
-See `README.docker.md <README.docker.md>`_ for more advanced usage.
 
-``path-to-config-dir`` (containing ``faucet.yaml``), ``path-to-faucet-logging-dir``, and ``path-to-gauge-logging-dir`` should be the directories you created, above.
+See `README.docker.md <README.docker.md>`_ for how to install the FAUCET and Gauge images.
+
+You can configure systemd to start the containers automatically:
 
 .. code:: bash
 
-    docker pull faucet/gauge:latest
-    docker pull faucet/faucet:latest
-    docker run -d \
-        --name faucet \
-        -v <path-to-config-dir>:/etc/ryu/faucet/ \
-        -v <path-to-faucet-logging-dir>:/var/log/ryu/faucet/ \
-        -p 6653:6653 \
-        faucet/faucet
-    docker run -d \
-        --name faucet \
-        -v <path-to-config-dir>:/etc/ryu/faucet/ \
-        -v <path-to-gauge-logging-dir>:/var/log/ryu/faucet/ \
-        -p 6654:6653 \
-        faucet/gauge
     $EDITOR /etc/systemd/system/faucet.service
     $EDITOR /etc/systemd/system/gauge.service
     systemctl enable /etc/systemd/system/faucet.service
