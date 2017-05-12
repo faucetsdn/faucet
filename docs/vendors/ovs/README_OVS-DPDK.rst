@@ -106,7 +106,7 @@ NOTE: change dp_id, to the value reported above, prefaced with "0x".
 
 ::
 
-    $ ryu-manager --config-file=/home/faucet/faucet/etc/ryu/ryu.conf /home/faucet/faucet/faucet/faucet.py --verbose --ofp-listen-host=127.0.0.1
+    $ ryu-manager faucet.faucet --verbose --ofp-listen-host=127.0.0.1
 
 
 **Test connectivity**
