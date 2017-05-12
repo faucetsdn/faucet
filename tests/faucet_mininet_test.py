@@ -23,6 +23,7 @@
  * pylint
  * curl
  * ladvd
+ * iperf
 """
 
 import collections
@@ -85,6 +86,8 @@ EXTERNAL_DEPENDENCIES = (
      r'curl (\d+\.\d+).\d+', "7.3"),
     ('ladvd', ['-h'], 'ladvd',
      r'ladvd version (\d+\.\d+)\.\d+', "1.1"),
+    ('iperf', ['--version'], 'iperf',
+     r'iperf version (\d+\.\d+)\.\d+', "2.0"),
 )
 
 # Must pass with 0 lint errors
