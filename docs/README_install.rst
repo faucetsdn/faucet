@@ -10,7 +10,7 @@ You will need to provide an initial configuration file for FAUCET, and create a 
   mkdir -p /var/log/ryu/faucet
   $EDITOR /etc/ryu/faucet/faucet.yaml
 
-This example config file creates an untagged VLAN between ports 1 and 2 on DP 0x1. See ``README_config.rst`` for
+This example ``faucet.yaml`` file creates an untagged VLAN between ports 1 and 2 on DP 0x1. See ``README_config.rst`` for
 more advanced configuration. See `vendors <vendors>`_ for how to configure your switch.
 
 .. code:: yaml
@@ -36,7 +36,7 @@ We provide official automated builds on `Docker Hub <https://hub.docker.com/r/fa
 run Faucet and it's components in a self-contained environment without installing on the main host system.
 See ``README.docker.md`` for more advanced usage.
 
-path-to-config-dir (containing faucet.yaml) and path-to-logging-dir should be the directories you created, above.
+``path-to-config-dir`` (containing ``faucet.yaml``) and ``path-to-logging-dir`` should be the directories you created, above.
 
 .. code:: bash
 
@@ -51,7 +51,7 @@ path-to-config-dir (containing faucet.yaml) and path-to-logging-dir should be th
     systemctl enable /etc/systemd/system/faucet.service
     systemctl restart faucet
 
-/etc/systemd/system/faucet.service should contain:
+``/etc/systemd/system/faucet.service`` should contain:
 
 .. code:: bash
 
@@ -69,6 +69,9 @@ path-to-config-dir (containing faucet.yaml) and path-to-logging-dir should be th
     [Install]
     WantedBy=multi-user.target
 
+You can check that FAUCET is running via systemd or via docker:
+
 .. code:: bash
 
     service faucet status
+    docker ps
