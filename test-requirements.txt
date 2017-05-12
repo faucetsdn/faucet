@@ -2,5 +2,5 @@ bitstring
 concurrencytest
 exabgp>=3.4.10
 packaging
-pylint>=1.6
+pylint==1.6.5
 requests
