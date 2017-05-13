@@ -268,23 +268,23 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        # must not be any controller exception.
-        self.assertEquals(
-            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
         controller_names = []
         for controller in self.net.controllers:
             controller_names.append(controller.name)
         if self.net is not None:
             self.net.stop()
-        for _, debug_log in self.get_ofchannel_logs():
-            self.assertFalse(
-                re.search('OFPErrorMsg', open(debug_log).read()),
-                msg='debug log has OFPErrorMsgs')
         # Associate controller log with test results, if we are keeping
         # the temporary directory, or effectively delete it if not.
         # mininet doesn't have a way to change its log name for the controller.
         for controller_name in controller_names:
             shutil.move('/tmp/%s.log' % controller_name, self.tmpdir)
+        # must not be any controller exception.
+        self.assertEquals(
+            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
+        for _, debug_log in self.get_ofchannel_logs():
+            self.assertFalse(
+                re.search('OFPErrorMsg', open(debug_log).read()),
+                msg='debug log has OFPErrorMsgs')
 
     def pre_start_net(self):
         """Hook called after Mininet initializtion, before Mininet started."""
