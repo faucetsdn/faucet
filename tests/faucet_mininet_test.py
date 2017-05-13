@@ -372,8 +372,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
                 continue
             self.fail(
                 'gauge did not output %s (gauge not connected?)' % watcher_file)
-        self.assertEquals(
-            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
+        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
+        self.verify_no_exception('GAUGE_EXCEPTION_LOG')
 
     def prometheus_smoke_test(self):
         prom_out = self.scrape_prometheus()
@@ -511,8 +511,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
     def test_untagged_influx_down(self):
         self.ping_all_when_learned()
-        self.assertEquals(
-            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
+        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
 
     def test_untagged(self):
 
