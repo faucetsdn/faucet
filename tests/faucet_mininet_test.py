@@ -237,7 +237,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.net.start()
         if self.hw_switch:
             self.attach_physical_switch()
-        self.net.waitConnected()
         self.wait_debug_log()
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         dumpNodeConnections(self.net.hosts)
