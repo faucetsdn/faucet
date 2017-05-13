@@ -15,45 +15,48 @@ Docker will run the stable version 1.3 of Faucet.
 
 To pull and run the latest git version of Faucet:
 
-```
-docker pull faucet/faucet:latest
-docker run -d \
-    --name faucet \
-    -v <path-to-config-dir>:/etc/ryu/faucet/ \
-    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6653:6653 \
-    faucet/faucet
-```
+.. code:: bash
+
+  docker pull faucet/faucet:latest
+  docker run -d \
+      --name faucet \
+      -v <path-to-config-dir>:/etc/ryu/faucet/ \
+      -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+      -p 6653:6653 \
+      faucet/faucet
 
 To pull and run the latest git version of Gauge:
 
-```
-docker pull faucet/gauge:latest
-docker run -d \
-    --name gauge \
-    -v <path-to-config-dir>:/etc/ryu/faucet/ \
-    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6654:6653 \
-    faucet/gauge
-```
+.. code:: bash
+
+  docker pull faucet/gauge:latest
+  docker run -d \
+      --name gauge \
+      -v <path-to-config-dir>:/etc/ryu/faucet/ \
+      -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+      -p 6654:6653 \
+      faucet/gauge
 
 ### Dockerfile
 
 All that is needed to run faucet.
 
 It can be built as following:
-```
-docker build -t reannz/faucet .
-```
+
+.. code:: bash
+
+  docker build -t reannz/faucet .
+
 It can be run as following:
-```
-docker run -d \
-    --name faucet \
-    -v <path-to-config-dir>:/etc/ryu/faucet/ \
-    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6653:6653 \
-    reannz/faucet
-```
+
+.. code:: bash
+
+  docker run -d \
+      --name faucet \
+      -v <path-to-config-dir>:/etc/ryu/faucet/ \
+      -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+      -p 6653:6653 \
+      reannz/faucet
 
 By default it listens on port 6653 for an OpenFlow switch to connect. Faucet
 expects to find the configuration file faucet.yaml in the config folder. If
@@ -64,12 +67,12 @@ FAUCET\_LOG, FAUCET\_EXCEPTION\_LOG, FAUCET\_CONFIG environment variables.
 
 This runs the mininet tests from the docker entry-point:
 
-```
-docker build -t reannz/faucet-tests -f Dockerfile.tests .
-apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
-modprobe openvswitch
-sudo docker run --privileged -ti reannz/faucet-tests
-```
+.. code:: bash
+
+  docker build -t reannz/faucet-tests -f Dockerfile.tests .
+  apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+  modprobe openvswitch
+  sudo docker run --privileged -ti reannz/faucet-tests
 
 The apparmor command is currently required on Ubuntu hosts to allow the use of
 tcpdump inside the container.
@@ -79,18 +82,22 @@ tcpdump inside the container.
 Runs Gauge.
 
 It can be built as following:
-```
-docker build -t reannz/gauge -f Dockerfile.gauge .
-```
+
+.. code:: bash
+
+  docker build -t reannz/gauge -f Dockerfile.gauge .
+
 It can be run as following:
-```
-docker run -d \
-    --name gauge \
-    -v <path-to-config-dir>:/etc/ryu/faucet/ \
-    -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
-    -p 6654:6653 \
-    reannz/gauge
-```
+
+.. code:: bash
+
+  docker run -d \
+      --name gauge \
+      -v <path-to-config-dir>:/etc/ryu/faucet/ \
+      -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+      -p 6654:6653 \
+      reannz/gauge
+
 By default listens on port 6653. If you are running this with
 Faucet you will need to modify the port one of the containers listens on and
 configure your switches to talk to both. The faucet
@@ -98,6 +105,7 @@ configuration file faucet.yaml should be placed in the config directory, this
 also should include to configuration for gauge.
 
 ### docker-compose.yaml
+
 This is an example docker-compose file that can be used to set up gauge to talk
 to influxdb with a grafana front end.
 
@@ -109,10 +117,20 @@ Grafana First login to grafana using default credentials of
 User:admin Password:admin.
 
 Then connect to the influxDB, by adding it as a datasource. Use the following
-settings: ``` Name: Gauge # Or whatever you wish Type: InfluxDB 0.9.x Url:
-http://127.0.0.1:8086 Access: proxy Http Auth: None Database: faucet User:
-faucet # Anything will do Password: faucet # Anything will do ``` Check the
-connection using test connection.
+settings:
+
+.. code:: bash
+
+  Name: Gauge # Or whatever you wish
+  Type: InfluxDB 0.9.x
+  Url: http://127.0.0.1:8086
+  Access: proxy Http
+  Auth: None
+  Database: faucet
+  User: faucet # Anything will do
+  Password: faucet # Anything will do
+
+Check the connection using test connection.
 
 From here you can add a new dashboard with and a graph pulling data from the
 Gauge datasource.  See the Grafana's documentation for more on how to do this.
