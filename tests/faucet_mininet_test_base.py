@@ -267,7 +267,7 @@ class FaucetTestBase(unittest.TestCase):
             prefix='%s-' % test_name, dir=self.root_tmpdir)
 
     def timeout_cmd(self, cmd, timeout):
-        return 'timeout -sKILL %us %s' % (timeout, cmd)
+        return 'timeout -sKILL %us stdbuf -o0 -e0 %s' % (timeout, cmd)
 
     def verify_no_exception(self, exception_log):
         exception_contents = open(os.environ[exception_log]).read()
@@ -755,7 +755,7 @@ dbs:
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.get_controller()
         exabgp_cmd = self.timeout_cmd(
-            'stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
+            'exabgp %s -d 2> %s > %s &' % (
                 exabgp_conf_file, exabgp_err, exabgp_log), 180)
         controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
         self.wait_for_tcp_listen(controller, port)

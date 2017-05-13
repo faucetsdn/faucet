@@ -247,7 +247,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         if root_intf:
             intf = intf.split('.')[0]
         tcpdump_cmd = self.timeout_cmd(
-            'tcpdump -i %s -e -n -U -v -c %u %s' % (intf, packets, tcpdump_filter),
+            'tcpdump -i %s -e -n -U -v -c %u %s' % (
+                intf, packets, tcpdump_filter),
             timeout)
         tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
         popens = {tcpdump_host: tcpdump_out}
