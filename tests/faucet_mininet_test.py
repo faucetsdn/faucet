@@ -102,6 +102,7 @@ MAX_PARALLEL_TESTS = 4
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
+CONFIG_FILE_DIRS = ['/etc/ryu/faucet', './']
 REQUIRED_TEST_PORTS = 4
 
 
@@ -2998,24 +2999,33 @@ acls:
 
 def import_hw_config():
     """Import configuration for physical switch testing."""
+    for config_file_dir in CONFIG_FILE_DIRS:
+        config_file_name = os.path.join(config_file_dir, HW_SWITCH_CONFIG_FILE)
+        if os.path.isfile(config_file_name):
+            break
+    if os.path.isfile(config_file_name):
+        print('Using config from %s' % config_file_name)
+    else:
+        print('Cannot find %s in %s' % (HW_SWITCH_CONFIG_FILE, CONFIG_FILE_DIRS))
+        sys.exit(-1)
     try:
-        with open(HW_SWITCH_CONFIG_FILE, 'r') as config_file:
+        with open(config_file_name, 'r') as config_file:
             config = yaml.load(config_file)
     except:
-        print('Could not load YAML config data from %s' % HW_SWITCH_CONFIG_FILE)
+        print('Could not load YAML config data from %s' % config_file_name)
         sys.exit(-1)
     if 'hw_switch' in config and config['hw_switch']:
         required_config = ('dp_ports', 'cpn_intf', 'dpid', 'of_port', 'gauge_of_port')
         for required_key in required_config:
             if required_key not in config:
                 print('%s must be specified in %s to use HW switch.' % (
-                    required_key, HW_SWITCH_CONFIG_FILE))
+                    required_key, config_file_name))
                 sys.exit(-1)
         dp_ports = config['dp_ports']
         if len(dp_ports) != REQUIRED_TEST_PORTS:
             print('Exactly %u dataplane ports are required, '
                   '%d are provided in %s.' %
-                  (REQUIRED_TEST_PORTS, len(dp_ports), HW_SWITCH_CONFIG_FILE))
+                  (REQUIRED_TEST_PORTS, len(dp_ports), config_file_name))
         return config
     else:
         return None
