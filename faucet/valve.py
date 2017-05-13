@@ -1029,7 +1029,7 @@ class Valve(object):
         """
         if not self._known_up_dpid_and_port(dp_id, in_port):
             return []
-        if vlan_vid not in self.dp.vlans[vlan_vid]:
+        if not vlan_vid in self.dp.vlans:
             self.dpid_log('Packet_in for unexpected VLAN %s' % (vlan_vid))
             return []
 
