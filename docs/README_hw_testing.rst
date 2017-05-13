@@ -60,6 +60,9 @@ switch:
   # ctl_cert: ctl-cert.pem
   # ca_certs: /usr/local/var/lib/openvswitch/pki/switchca/cacert.pem
 
+Running the tests
+-----------------
+
 .. code:: bash
 
   docker build -t reannz/faucet-tests -f Dockerfile.tests .
