@@ -266,6 +266,13 @@ class FaucetTestBase(unittest.TestCase):
         return tempfile.mkdtemp(
             prefix='%s-' % test_name, dir=self.root_tmpdir)
 
+    def verify_no_exception(self, exception_log):
+        exception_contents = open(os.environ[exception_log]).read()
+        self.assertEquals(
+            '',
+            exception_contents,
+            msg='%s log contains %s' % (exception_log, exception_contents))
+
     def tearDown(self):
         """Clean up after a test."""
         controller_names = []
@@ -279,8 +286,7 @@ class FaucetTestBase(unittest.TestCase):
         for controller_name in controller_names:
             shutil.move('/tmp/%s.log' % controller_name, self.tmpdir)
         # must not be any controller exception.
-        self.assertEquals(
-            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
+        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
         for _, debug_log in self.get_ofchannel_logs():
             self.assertFalse(
                 re.search('OFPErrorMsg', open(debug_log).read()),
