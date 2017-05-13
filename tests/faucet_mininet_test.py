@@ -2938,7 +2938,10 @@ acls:
                 description: "b2"
             %(port_3)d:
                 native_vlan: 100
-                decsciption: "b3"
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
 """
 
     def test_untagged(self):
