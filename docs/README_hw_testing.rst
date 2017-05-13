@@ -14,6 +14,9 @@ You will need to configure the switch with two OpenFlow controllers, both
 with the host's CPN IP address, but with different ports (defaults are given
 below for *of_port* and *gauge_of_port*).
 
+It is assumed that you execute all following commands from your FAUCET
+source code directory (eg one you have git cloned).
+
 Test configuration
 ------------------
 
