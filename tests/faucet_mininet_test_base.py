@@ -236,7 +236,7 @@ class FaucetTestBase(unittest.TestCase):
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     BOGUS_MAC = '01:02:03:04:05:06'
     FAUCET_MAC = '0e:00:00:00:00:01'
-    LADVD = 'timeout 30s ladvd -e lo -f'
+    LADVD = 'ladvd -e lo -f'
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -265,6 +265,9 @@ class FaucetTestBase(unittest.TestCase):
         test_name = '-'.join(self.id().split('.')[1:])
         return tempfile.mkdtemp(
             prefix='%s-' % test_name, dir=self.root_tmpdir)
+
+    def timeout_cmd(self, cmd, timeout):
+        return 'timeout -sKILL %us %s' % (timeout, cmd)
 
     def verify_no_exception(self, exception_log):
         exception_contents = open(os.environ[exception_log]).read()
@@ -691,7 +694,7 @@ dbs:
 
     def serve_hello_on_tcp_port(self, host, port):
         """Serve 'hello' on a TCP port on a host."""
-        host.cmd('timeout 10s echo hello | nc -l %s %u &' % (host.IP(), port))
+        host.cmd(self.timeout_cmd('echo hello | nc -l %s %u &' % (host.IP(), port), 10))
         self.wait_for_tcp_listen(host, port)
 
     def wait_nonzero_packet_count_flow(self, exp_flow, timeout=10):
@@ -710,7 +713,7 @@ dbs:
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
-            '', first_host.cmd('timeout 10s nc %s %u' % (second_host.IP(), port)))
+            '', first_host.cmd(self.timeout_cmd('nc %s %u' % (second_host.IP(), port), 10)))
         self.wait_nonzero_packet_count_flow(r'"tp_dst": %u' % port)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host):
@@ -745,10 +748,10 @@ dbs:
         ))
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.get_controller()
-        controller.cmd(
-            'env %s timeout -s9 180s '
+        exabgp_cmd = self.timeout_cmd(
             'stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
-                exabgp_env, exabgp_conf_file, exabgp_err, exabgp_log))
+                exabgp_conf_file, exabgp_err, exabgp_log), 180)
+        controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
         self.wait_for_tcp_listen(controller, port)
         return exabgp_log
 
@@ -881,10 +884,11 @@ dbs:
             (first_host, second_host, second_host_routed_ip.ip),
             (second_host, first_host, first_host_routed_ip.ip)):
            iperf_server = server_host.cmd(
-               'timeout 10s iperf -s -B %s > /dev/null &' % server_ip)
+               self.timeout_cmd('iperf -s -B %s > /dev/null 2> /dev/null &' % server_ip,
+                   10))
            self.wait_for_tcp_listen(server_host, 5001)
            iperf_results = client_host.cmd(
-               'iperf -t 5 -f M -y c -c %s' % server_ip)
+               self.timeout_cmd('iperf -t 5 -f M -y c -c %s' % server_ip, 5))
            iperf_csv = iperf_results.strip().split(',')
            self.assertEquals(9, len(iperf_csv), msg=iperf_csv)
            iperf_mbps = int(iperf_csv[-1]) / (1024*1024)
