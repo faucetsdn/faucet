@@ -87,7 +87,7 @@ You can configure systemd to start the containers automatically:
 .. code:: bash
 
     [Unit]
-    description="FAUCET OpenFlow switch controller"
+    Description="FAUCET OpenFlow switch controller"
     After=network-online.target
     Wants=network-online.target
     After=docker.service
@@ -105,7 +105,7 @@ You can configure systemd to start the containers automatically:
 .. code:: bash
 
     [Unit]
-    description="Gauge OpenFlow switch controller"
+    Description="Gauge OpenFlow switch controller"
     After=network-online.target
     Wants=network-online.target
     After=docker.service
