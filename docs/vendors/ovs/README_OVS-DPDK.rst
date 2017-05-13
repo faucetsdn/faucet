@@ -1,7 +1,7 @@
 :Authors: - Josh Bailey
 
 =======================
-FAUCET on OVS with DPDK 
+FAUCET on OVS with DPDK
 =======================
 
 ------------
@@ -44,10 +44,10 @@ In this example, we want to use enp1s0f0 and enp1s0f1.
 
     Network devices using kernel driver
     ===================================
-    0000:01:00.0 '82580 Gigabit Network Connection' if=enp1s0f0 drv=igb unused= 
-    0000:01:00.1 '82580 Gigabit Network Connection' if=enp1s0f1 drv=igb unused= 
-    0000:01:00.2 '82580 Gigabit Network Connection' if=enp1s0f2 drv=igb unused= 
-    0000:01:00.3 '82580 Gigabit Network Connection' if=enp1s0f3 drv=igb unused= 
+    0000:01:00.0 '82580 Gigabit Network Connection' if=enp1s0f0 drv=igb unused=
+    0000:01:00.1 '82580 Gigabit Network Connection' if=enp1s0f1 drv=igb unused=
+    0000:01:00.2 '82580 Gigabit Network Connection' if=enp1s0f2 drv=igb unused=
+    0000:01:00.3 '82580 Gigabit Network Connection' if=enp1s0f3 drv=igb unused=
 
 Still from the DPDK source directory:
 
@@ -99,13 +99,13 @@ Still from the DPDK source directory:
 
 ::
 
-    ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev
-    ovs-vsctl add-port br0 dpdk0 -- set interface dpdk0 type=dpdk options:dpdk-devargs=0000:01:00.0
-    ovs-vsctl add-port br0 dpdk1 -- set interface dpdk1 type=dpdk options:dpdk-devargs=0000:01:00.1
+    ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev protocols=OpenFlow13
+    ovs-vsctl add-port br0 dpdk0 -- set interface enp1s0f0 type=dpdk options:dpdk-devargs=0000:01:00.0
+    ovs-vsctl add-port br0 dpdk1 -- set interface enp1s0f1 type=dpdk options:dpdk-devargs=0000:01:00.1
     ovs-vsctl set-fail-mode br0 secure
-    ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
+    ovs-vsctl set-controller br0 tcp:127.0.0.1:6653
     ovs-vsctl show br0
-    ovs-vsctl get Bridge br0 datapath_id
+    ovs-vsctl get bridge br0 datapath_id
 
 **Create faucet.yaml**
 
