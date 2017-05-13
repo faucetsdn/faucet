@@ -470,17 +470,23 @@ dbs:
         return self.matching_flow_present(
             '"table_id": 3,.+"dl_src": "%s"' % host.MAC(), timeout)
 
+    def host_ip(self, host, family, family_re):
+        host_ip_cmd = (
+            r'ip -o -f %s addr show %s|'
+             'grep -m 1 -Eo "%s %s"|cut -f2 -d " "' % (
+                family,
+                host.defaultIntf(),
+                family,
+                family_re))
+        return host.cmd(host_ip_cmd).strip()
+
     def host_ipv4(self, host):
         """Return first IPv4/netmask for host's default interface."""
-        host_ip_cmd = (
-            r'ip -o -f inet addr show %s|grep -m 1 -Eo "[0-9\\.]+\/[0-9]+"')
-        return host.cmd(host_ip_cmd % host.defaultIntf()).strip()
+        return self.host_ip(host, 'inet', r'[0-9\\.]+\/[0-9]+')
 
     def host_ipv6(self, host):
         """Return first IPv6/netmask for host's default interface."""
-        host_ip_cmd = (
-            r'ip -o -f inet6 addr show %s|grep -m 1 -Eo "[0-9a-f\:]+\/[0-9]+"')
-        return host.cmd(host_ip_cmd % host.defaultIntf()).strip()
+        return self.host_ip(host, 'inet6', r'[0-9a-f\:]+\/[0-9]+')
 
     def require_host_learned(self, host, retries=3):
         """Require a host be learned on default DPID."""
