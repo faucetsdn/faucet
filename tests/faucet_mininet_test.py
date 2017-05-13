@@ -874,7 +874,14 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self.verify_hup_faucet()
             configure_count = self.get_configure_count()
             self.assertTrue(i + 1, configure_count)
-            self.assertTrue(switch.connected())
+            self.assertEqual(
+                int(self.scrape_prometheus_var(
+                    r'of_dp_disconnections{dpid="0x%x"}' % long(self.dpid), 0)),
+                0)
+            self.assertEqual(
+                int(self.scrape_prometheus_var(
+                    r'of_dp_connections{dpid="0x%x"}' % long(self.dpid), 0)),
+                1)
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
             self.ping_all_when_learned()
 
