@@ -582,7 +582,7 @@ dbs:
         return port_stats
 
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
-        return (end_port_stats[var] - start_port_stats[var]) / seconds / self.ONEMBPS
+        return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
     def verify_iperf_min(self, hosts_switch_ports, l4Type, min_mbps):
         """Verify minimum performance and OF counters match iperf approximately."""
@@ -881,7 +881,7 @@ dbs:
         iperf_csv = iperf_results.strip().split(',')
         self.assertEquals(9, len(iperf_csv), msg='%s: %s' % (
             iperf_client_cmd, iperf_results))
-        iperf_mbps = int(iperf_csv[-1]) / 8 / self.ONEMBPS;
+        iperf_mbps = int(iperf_csv[-1]) / self.ONEMBPS;
         return iperf_mbps
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
