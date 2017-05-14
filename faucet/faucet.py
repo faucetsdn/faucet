@@ -24,6 +24,7 @@ import random
 import signal
 
 import ipaddress
+import json
 
 from config_parser import dp_parser
 from config_parser_util import config_file_hash
@@ -79,6 +80,9 @@ class FaucetMetrics(object):
         self.faucet_config_dp_name = Gauge(
             'faucet_config_dp_name',
             'map of DP name to DP ID', ['dpid', 'name'])
+        self.bgp_neighbor_uptime_seconds = Gauge(
+            'bgp_neighbor_uptime',
+            'BGP neighbor uptime in seconds', ['dpid', 'vlan', 'neighbor'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -252,6 +256,18 @@ class Faucet(app_manager.RyuApp):
         api = kwargs['faucet_api']
         api._register(self)
         self.send_event_to_observers(EventFaucetAPIRegistered())
+
+    def _bgp_update_metrics(self):
+        """Update BGP metrics."""
+        for dp_id, bgp_speakers in list(self.dp_bgp_speakers.items()):
+            for vlan, bgp_speaker in list(bgp_speakers.items()):
+                neighbor_states = list(json.loads(bgp_speaker.neighbor_state_get()).items())
+                for neighbor, neighbor_state in neighbor_states:
+                    self.logger.info('%s %s', neighbor, neighbor_state)
+                    # pylint: disable=no-member
+                    self.metrics.bgp_neighbor_uptime_seconds.labels(
+                        dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
+                            neighbor_state['info']['uptime'])
 
     def _bgp_route_handler(self, path_change, vlan):
         """Handle a BGP change event.
@@ -448,6 +464,7 @@ class Faucet(app_manager.RyuApp):
         for valve in list(self.valves.values()):
             valve.host_expire()
             valve.update_metrics(self.metrics)
+        self._bgp_update_metrics()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
