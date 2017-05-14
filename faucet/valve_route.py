@@ -442,6 +442,14 @@ class ValveRouteManager(object):
                 self._update_nexthop_cache(
                     pkt_meta.vlan, pkt_meta.eth_src, src_ip)
                 if not nexthop_fresh:
+                    if self.use_group_table:
+                        ofmsgs.extend(
+                            self._update_nexthop_group(
+                                False,
+                                src_ip,
+                                pkt_meta.vlan,
+                                pkt_meta.in_port,
+                                pkt_meta.eth_src))
                     ofmsgs.extend(
                         self._add_host_fib_route(pkt_meta.vlan, src_ip))
         return ofmsgs
