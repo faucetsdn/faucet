@@ -270,6 +270,9 @@ class FaucetTestBase(unittest.TestCase):
     def timeout_cmd(self, cmd, timeout):
         return 'timeout -sKILL %us stdbuf -o0 -e0 %s' % (timeout, cmd)
 
+    def timeout_soft_cmd(self, cmd, timeout):
+        return 'timeout %us stdbuf -o0 -e0 %s' % (timeout, cmd)
+
     def verify_no_exception(self, exception_log):
         exception_contents = open(os.environ[exception_log]).read()
         self.assertEquals(
@@ -764,11 +767,13 @@ dbs:
         self.wait_for_tcp_listen(controller, port)
         return exabgp_log
 
-    def wait_bgp_up(self, exabgp_log):
+    def wait_bgp_up(self, neighbor, vlan):
         """Wait for BGP to come up."""
         for _ in range(60):
-            exabgp_log_content = open(exabgp_log).read()
-            if exabgp_log_content.find('OPENCONFIRM') > -1:
+            uptime = self.scrape_prometheus_var(
+                r'bgp_neighbor_uptime{dpid="0x%x",neighbor="%s",vlan="%u"}' % (
+                    long(self.dpid), neighbor, vlan), 0)
+            if uptime > 0:
                 return
             time.sleep(1)
         self.fail('exabgp did not peer with FAUCET')

@@ -24,6 +24,7 @@ import random
 import signal
 
 import ipaddress
+import json
 
 from config_parser import dp_parser
 from config_parser_util import config_file_hash
@@ -79,6 +80,9 @@ class FaucetMetrics(object):
         self.faucet_config_dp_name = Gauge(
             'faucet_config_dp_name',
             'map of DP name to DP ID', ['dpid', 'name'])
+        self.bgp_neighbor_uptime_seconds = Gauge(
+            'bgp_neighbor_uptime',
+            'BGP neighbor uptime in seconds', ['dpid', 'vlan', 'neighbor'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -93,6 +97,11 @@ class EventFaucetResolveGateways(event.EventBase):
 
 class EventFaucetHostExpire(event.EventBase):
     """Event used to trigger expiration of host state in controller."""
+    pass
+
+
+class EventFaucetMetricUpdate(event.EventBase):
+    """Event used to trigger update of metrics."""
     pass
 
 
@@ -244,6 +253,8 @@ class Faucet(app_manager.RyuApp):
             self.gateway_resolve_request)
         self.host_expire_request_thread = hub.spawn(
             self.host_expire_request)
+        self.metric_update_request_thread = hub.spawn(
+            self.metric_update_request)
 
         self.dp_bgp_speakers = {}
         self._reset_bgp()
@@ -252,6 +263,18 @@ class Faucet(app_manager.RyuApp):
         api = kwargs['faucet_api']
         api._register(self)
         self.send_event_to_observers(EventFaucetAPIRegistered())
+
+    def _bgp_update_metrics(self):
+        """Update BGP metrics."""
+        for dp_id, bgp_speakers in list(self.dp_bgp_speakers.items()):
+            for vlan, bgp_speaker in list(bgp_speakers.items()):
+                neighbor_states = list(json.loads(bgp_speaker.neighbor_state_get()).items())
+                for neighbor, neighbor_state in neighbor_states:
+                    self.logger.info('%s %s', neighbor, neighbor_state)
+                    # pylint: disable=no-member
+                    self.metrics.bgp_neighbor_uptime_seconds.labels(
+                        dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
+                            neighbor_state['info']['uptime'])
 
     def _bgp_route_handler(self, path_change, vlan):
         """Handle a BGP change event.
@@ -342,6 +365,11 @@ class Faucet(app_manager.RyuApp):
         """Trigger expiration of host state in controller."""
         while True:
             self.send_event('Faucet', EventFaucetHostExpire())
+            hub.sleep(5 + random.randint(0, 2))
+
+    def metric_update_request(self):
+        while True:
+            self.send_event('Faucet', EventFaucetMetricUpdate())
             hub.sleep(5 + random.randint(0, 2))
 
     def _send_flow_msgs(self, ryu_dp, flow_msgs):
@@ -448,6 +476,15 @@ class Faucet(app_manager.RyuApp):
         for valve in list(self.valves.values()):
             valve.host_expire()
             valve.update_metrics(self.metrics)
+
+    @set_ev_cls(EventFaucetMetricUpdate, MAIN_DISPATCHER)
+    def metric_update(self, ryu_event):
+        """Handle a request to update metrics in the controller.
+
+        Args:
+            ryu_event (ryu.controller.event.EventReplyBase): triggering event.
+        """
+        self._bgp_update_metrics()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
