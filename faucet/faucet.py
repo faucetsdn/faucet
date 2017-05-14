@@ -100,6 +100,11 @@ class EventFaucetHostExpire(event.EventBase):
     pass
 
 
+class EventFaucetMetricUpdate(event.EventBase):
+    """Event used to trigger update of metrics."""
+    pass
+
+
 class EventFaucetAPIRegistered(event.EventBase):
     """Event used to notify that the API is registered with Faucet."""
     pass
@@ -248,6 +253,8 @@ class Faucet(app_manager.RyuApp):
             self.gateway_resolve_request)
         self.host_expire_request_thread = hub.spawn(
             self.host_expire_request)
+        self.metric_update_request_thread = hub.spawn(
+            self.metric_update_request)
 
         self.dp_bgp_speakers = {}
         self._reset_bgp()
@@ -360,6 +367,11 @@ class Faucet(app_manager.RyuApp):
             self.send_event('Faucet', EventFaucetHostExpire())
             hub.sleep(5 + random.randint(0, 2))
 
+    def metric_update_request(self):
+        while True:
+            self.send_event('Faucet', EventFaucetMetricUpdate())
+            hub.sleep(5 + random.randint(0, 2))
+
     def _send_flow_msgs(self, ryu_dp, flow_msgs):
         """Send OpenFlow messages to a connected datapath.
 
@@ -464,6 +476,14 @@ class Faucet(app_manager.RyuApp):
         for valve in list(self.valves.values()):
             valve.host_expire()
             valve.update_metrics(self.metrics)
+
+    @set_ev_cls(EventFaucetMetricUpdate, MAIN_DISPATCHER)
+    def metric_update(self, ryu_event):
+        """Handle a request to update metrics in the controller.
+
+        Args:
+            ryu_event (ryu.controller.event.EventReplyBase): triggering event.
+        """
         self._bgp_update_metrics()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
