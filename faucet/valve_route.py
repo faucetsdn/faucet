@@ -448,7 +448,7 @@ class ValveRouteManager(object):
                                 False,
                                 src_ip,
                                 pkt_meta.vlan,
-                                pkt_meta.in_port,
+                                pkt_meta.port.port_number,
                                 pkt_meta.eth_src))
                     ofmsgs.extend(
                         self._add_host_fib_route(pkt_meta.vlan, src_ip))
