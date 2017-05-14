@@ -246,8 +246,10 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         intf = tcpdump_host.intf().name
         if root_intf:
             intf = intf.split('.')[0]
-        tcpdump_cmd = 'timeout %us tcpdump -i %s -e -n -U -v -c %u %s' % (
-            timeout, intf, packets, tcpdump_filter)
+        tcpdump_cmd = self.timeout_cmd(
+            'tcpdump -i %s -e -n -U -v -c %u %s' % (
+                intf, packets, tcpdump_filter),
+            timeout)
         tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
         popens = {tcpdump_host: tcpdump_out}
         tcpdump_started = False
@@ -282,7 +284,9 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         first_host, second_host = self.net.hosts[0:2]
         lldp_filter = 'ether proto 0x88cc'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
-        send_lldp = '%s -L -o %s' % (self.LADVD, second_host.defaultIntf())
+        send_lldp = '%s -L -o %s' % (
+            self.timeout_cmd(self.LADVD, 30),
+            second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(
             first_host, lldp_filter,
             [lambda: second_host.cmd(ladvd_mkdir),
@@ -298,7 +302,9 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         first_host, second_host = self.net.hosts[0:2]
         cdp_filter = 'ether host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
-        send_cdp = '%s -C -o %s' % (self.LADVD, second_host.defaultIntf())
+        send_cdp = '%s -C -o %s' % (
+            self.timeout_cmd(self.LADVD, 30),
+            second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(
             first_host,
             cdp_filter,
@@ -345,10 +351,11 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             'echo "eapol_version=2\nap_scan=0\nnetwork={\n'
             'key_mgmt=IEEE8021X\neap=MD5\nidentity=\\"login\\"\n'
             'password=\\"password\\"\n}\n" > %s' % tmp_eap_conf)
-        wpa_supplicant_cmd = (
-            'timeout 5s wpa_supplicant -c%s -Dwired -i%s -d' % (
+        wpa_supplicant_cmd = self.timeout_cmd(
+            'wpa_supplicant -c%s -Dwired -i%s -d' % (
                 tmp_eap_conf,
-                first_host.defaultIntf().name))
+                first_host.defaultIntf().name),
+            5)
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
                 lambda: first_host.cmd(eap_conf_cmd),
