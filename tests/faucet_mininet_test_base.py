@@ -270,6 +270,9 @@ class FaucetTestBase(unittest.TestCase):
     def timeout_cmd(self, cmd, timeout):
         return 'timeout -sKILL %us stdbuf -o0 -e0 %s' % (timeout, cmd)
 
+    def timeout_soft_cmd(self, cmd, timeout):
+        return 'timeout %us stdbuf -o0 -e0 %s' % (timeout, cmd)
+
     def verify_no_exception(self, exception_log):
         exception_contents = open(os.environ[exception_log]).read()
         self.assertEquals(
