@@ -22,8 +22,12 @@ To pull and run the latest git version of Faucet:
       -v <path-to-config-dir>:/etc/ryu/faucet/ \
       -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
       -p 6653:6653 \
+      -p 9244:9244 \
       faucet/faucet
 ```
+
+Port 6653 is used for OpenFlow, port 9244 is used for Prometheus - port 9244 may be omitted if
+you do not need Prometheus.
 
 To pull and run the latest git version of Gauge:
 
