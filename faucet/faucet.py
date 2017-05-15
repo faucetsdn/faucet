@@ -270,7 +270,6 @@ class Faucet(app_manager.RyuApp):
             for vlan, bgp_speaker in list(bgp_speakers.items()):
                 neighbor_states = list(json.loads(bgp_speaker.neighbor_state_get()).items())
                 for neighbor, neighbor_state in neighbor_states:
-                    self.logger.info('%s %s', neighbor, neighbor_state)
                     # pylint: disable=no-member
                     self.metrics.bgp_neighbor_uptime_seconds.labels(
                         dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
