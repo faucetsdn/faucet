@@ -991,9 +991,9 @@ dbs:
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
-        self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
         self.verify_ipv6_host_learned_mac(
             first_host, second_host_ip.ip, second_host.MAC())
+        self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
         self.verify_ipv6_host_learned_mac(
             second_host, first_host_ip.ip, first_host.MAC())
 
