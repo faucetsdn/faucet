@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import socket
+import string
 import tempfile
 import time
 import unittest
@@ -170,7 +171,8 @@ class FaucetSwitchTopo(Topo):
     def _get_sid_prefix(self, ports_served):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
-        return '%2.2x' % ports_served
+        id_chars = string.letters + string.digits
+        return '%s' % id_chars[ports_served]
 
     def _add_tagged_host(self, sid_prefix, tagged_vid, host_n):
         """Add a single tagged test host."""
