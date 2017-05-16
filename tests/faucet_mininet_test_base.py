@@ -172,6 +172,7 @@ class FaucetSwitchTopo(Topo):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
         id_chars = string.letters + string.digits
+        assert ports_served < len(id_chars)
         return '%s' % id_chars[ports_served]
 
     def _add_tagged_host(self, sid_prefix, tagged_vid, host_n):
