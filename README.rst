@@ -11,7 +11,7 @@ FAUCET is an OpenFlow controller for multi table OpenFlow 1.3 switches, that imp
 
 It supports:
 
-- OpenFlow v1.3 (multi table) switches, hardware and software
+- OpenFlow v1.3 (multi table) switches (including optional table features), hardware and software
 - Multiple datapaths and distributed switching under a single controller
 - VLANs, mixed tagged/untagged ports
 - ACLs matching layer 2 and layer 3 fields
