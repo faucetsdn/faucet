@@ -1,6 +1,6 @@
 bitstring
 concurrencytest
-exabgp>=3.4.10
+exabgp==3.4.19
 packaging
 pylint==1.6.5
 requests
