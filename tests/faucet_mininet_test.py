@@ -58,8 +58,6 @@ from packaging import version
 import faucet_mininet_test_util
 import faucet_mininet_test_base
 
-import json
-
 
 # list of required external dependencies
 # external binary, argument to get version,
@@ -825,7 +823,13 @@ vlans:
 
 
 class FaucetHostsTimeoutPrometheusTest(FaucetUntaggedTest):
-    TIMEOUT = 60
+    '''Test for hosts that have been learnt are exported via prometheus.
+       Hosts should timeout, and the exported prometheus values should
+       be overwritten.
+       If the maximum number of MACs at any one time is 5, then only 5 values
+       should be exported, even if over 2 hours, there are 100 MACs learnt
+    '''
+    TIMEOUT = 50
     MAX_HOSTS = 50
     CONFIG_GLOBAL = """
 vlans:
@@ -834,7 +838,7 @@ vlans:
 """
 
     CONFIG = """
-        timeout: 60
+        timeout: 50
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -849,70 +853,54 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
+
     def mac_as_int(self, mac):
-        return int(mac.replace(':',''),16)
+        return int(mac.replace(':',''), 16)
 
     def are_hosts_learnt(self, hosts):
 
         flows = self.get_all_flows_from_dpid(self.dpid)
-
         prom_txt = self.scrape_prometheus()
-        print(prom_txt)
-
-        print("type {}".format(type(flows)))
         macs_learned = 0
         for mac, port in hosts.items():
             exp_flow = (
                 '"table_id": 3, "match": '
                 '{"dl_vlan": "100", "dl_src": "%s", '
                 '"in_port": %u' % (mac.strip('\n'), port))
-            print("exp_flow {}".format(exp_flow) )
+
             for flow in flows:
-                print(flow)
                 if re.search(exp_flow, flow):
                     macs_learned += 1
                     break
-            print(hosts)
-            print('port: {}, mac: {}, mac_int: {}'.format(port, mac, self.mac_as_int(mac))) 
             self.assertTrue(
                 re.search(r'learned_macs\S+port="%u"\Svlan="100"}\s%u.0'
                      % (port, self.mac_as_int(mac)), prom_txt),
                 msg='port: {}, mac: {}, mac_int: {}'.format(port, mac, self.mac_as_int(mac)))
 
-
         self.assertEquals(len(hosts), macs_learned)
 
-        prom_hosts = []
-        
-
-    
-
-
-        print('\n\n\n------------------------------------------------\n\n\n')
+    def check_prometheus_overwrite(self, port, num_empty, num_valid):
+        '''Checks that prometheus has zeroed out expired mac learning entries.
         '''
-        learned = 0
-        zeroed = 0
-        print("h {}".format(hosts))
-        for line in prom_hosts:
-            mac_as_int_str = line.split(' ')[1].split('.')[0]
-            h = '%012x' % int(mac_as_int_str)
-            macstr = h[:2] + ':' + h[2:4] + \
-                     ':' + h[4:6] + ':' + h[6:8] + \
-                     ':' + h[8:10] + ':' +  h[10:12]
-            print("macstr: {}".format(macstr))
-            if macstr in hosts.keys():
-                learned = learned + 1
-            if mac_as_int_str == '0':
-                zeroed = zeroed + 1
-        # minus 1 for first_host which has been learned
-        self.assertLessEqual(zeroed, len(prom_hosts) - len(hosts))# or zeroed == len(prom_hosts) - len(hosts)-1)
-        self.assertEquals(learned, len(hosts))'''
-        # could check that the rest of the promethues port is zeroed out 
+        prom_txt = self.scrape_prometheus() 
+        learned_macs = re.findall(r'learned_macs\S+port="%u"\Svlan="100"}\s\d+.0' % port, prom_txt)
+
+        flows = self.get_all_flows_from_dpid(self.dpid)
+
+        count_empty = 0
+        count_valid = 0
+        for l in learned_macs:
+            print(l.split(' ')[1])
+            if l.split(' ')[1] == '0.0':
+                count_empty += 1
+            else:
+                count_valid += 1
+
+        self.assertEqual(count_empty, num_empty)
+        self.assertEqual(count_valid, num_valid)
     
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
-
-        print("first host mac: {}. second host mac: {}".format(first_host.MAC(), second_host.MAC()))
         learned_mac_ports = {}
         learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
         mac_intfs = []
@@ -922,13 +910,13 @@ vlans:
                     self.one_ipv4_ping(
                         second_host, first_host.IP(),
                         require_host_learned=True, intf=mac_intf)
-                # check first 3 are learnt
+                # check first 4 are learnt
                 self.are_hosts_learnt(learned_mac_ports)
                 learned_mac_ports = {}
                 mac_intfs = []
                 # wait for first lot to time out. 
-                # Adding 10 covers the random variation when a rule is added
-                time.sleep(self.TIMEOUT + 10)
+                # Adding 11 covers the random variation when a rule is added
+                time.sleep(self.TIMEOUT + 11)
 
             mac_intf = 'mac%u' % i
             mac_intfs.append(mac_intf)
@@ -938,47 +926,17 @@ vlans:
             second_host.cmd('ip address add %s/24 dev %s' % (
                 mac_ipv4, mac_intf))
             address = second_host.cmd('ip link show %s | grep -o "..:..:..:..:..:.." | head -1 | xargs echo -n' % mac_intf)
-            print("mac is %s" % address)
             learned_mac_ports[address] = self.port_map['port_2']
             second_host.cmd('ip link set dev %s up' % mac_intf)
-            #print(second_host.cmd('ping -c1 -I%s %s ' % (mac_intf, first_host.IP())))
         for mac_intf in mac_intfs:
             self.one_ipv4_ping(
                 second_host, first_host.IP(),
                 require_host_learned=False, intf=mac_intf)
 
         learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
-        # check last lot are learnt
         self.are_hosts_learnt(learned_mac_ports)
+        self.check_prometheus_overwrite(2, 2, len(learned_mac_ports))
 
-
-    '''
-    def test_untagged2(self):
-        first_host, second_host = self.net.hosts[:2]
-        self.ping_all_when_learned()
-        mac_intf_ipv4s = []
-        for i in range(10, 16):
-            mac_intf_ipv4s.append(('mac%u' % i, '10.0.0.%u' % i))
-        # configure macvlan interfaces and stimulate learning
-
-        learned_macs = []
-        for mac_intf, mac_ipv4 in mac_intf_ipv4s:
-            second_host.cmd('ip link add link %s %s type macvlan' % (
-                second_host.defaultIntf(), mac_intf))
-            second_host.cmd('ip address add %s/24 dev %s' % (
-                mac_ipv4, mac_intf))
-            second_host.cmd('ip link set dev %s up' % mac_intf)
-            print(second_host.cmd('ping -c1 -I%s %s' % (mac_intf, first_host.IP())))
-            address = second_host.cmd('ip link show %s | grep -o "..:..:..:..:..:.." | head -1 | xargs echo -n' % mac_intf)
-            learned_macs.append(address)
-        # verify connectivity
-        for mac_intf, _ in mac_intf_ipv4s:
-            self.one_ipv4_ping(
-                second_host, first_host.IP(),
-                require_host_learned=False, intf=mac_intf)
-
-        self.are_hosts_learnt(learned_macs)
-'''
 
 class FaucetLearn50MACsOnPortTest(FaucetUntaggedTest):
 

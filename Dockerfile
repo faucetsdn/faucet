@@ -20,7 +20,5 @@ RUN \
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 
 EXPOSE 6653
-EXPOSE 9244
 
 CMD ["ryu-manager", "faucet.faucet"]
-CMD ryu-manager faucet.faucet; bash

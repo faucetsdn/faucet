@@ -849,7 +849,6 @@ dbs:
         add_cmd = 'ip addr add %s dev %s label %s:1' % (
             alias_ip.with_prefixlen, host.intf(), host.intf())
         host.cmd(del_cmd)
-        print("add_cmd {}".format(add_cmd))
         self.assertEquals('', host.cmd(add_cmd))
 
     def _verify_host_learned_mac(self, host, ip, ip_ver, mac, retries):
