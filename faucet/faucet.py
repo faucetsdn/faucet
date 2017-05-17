@@ -83,6 +83,9 @@ class FaucetMetrics(object):
         self.bgp_neighbor_uptime_seconds = Gauge(
             'bgp_neighbor_uptime',
             'BGP neighbor uptime in seconds', ['dpid', 'vlan', 'neighbor'])
+        self.bgp_neighbor_routes = Gauge(
+            'bgp_neighbor_routes',
+            'BGP neighbor route count', ['dpid', 'vlan', 'neighbor', 'ipv'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -274,6 +277,14 @@ class Faucet(app_manager.RyuApp):
                     self.metrics.bgp_neighbor_uptime_seconds.labels(
                         dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
                             neighbor_state['info']['uptime'])
+                    # pylint: disable=no-member
+                    self.metrics.bgp_neighbor_routes.labels(
+                        dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor, ipv='4').set(
+                            len(vlan.ipv4_routes))
+                    # pylint: disable=no-member
+                    self.metrics.bgp_neighbor_routes.labels(
+                        dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor, ipv='6').set(
+                            len(vlan.ipv6_routes))
 
     def _bgp_route_handler(self, path_change, vlan):
         """Handle a BGP change event.
