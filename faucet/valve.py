@@ -1005,7 +1005,7 @@ class Valve(object):
 
         metrics (FaucetMetrics or None): container of Prometheus metrics.
         """
-        self.logger.debug("pre update {}".format(metrics.learned_macs.collect()[0].samples))
+        # Clear the exported MAC learning
         for sample in metrics.learned_macs.collect()[0].samples:
             _, label_dict, mac = sample
             if int(label_dict['dpid'], 16) == self.dp.dp_id:
@@ -1013,13 +1013,13 @@ class Valve(object):
                                             vlan=label_dict['vlan'],
                                             port=label_dict['port'],
                                             n=label_dict['n']).set(0)
-        self.logger.debug("after clear {}".format(metrics.learned_macs.collect()[0].samples))
         for vlan in list(self.dp.vlans.values()):
             hosts_count = self.host_manager.hosts_learned_on_vlan_count(
                 vlan)
             metrics.vlan_hosts_learned.labels(
                 dpid=hex(self.dp.dp_id), vlan=vlan.vid).set(hosts_count)
  
+            # Repopulate MAC learning.
             port_n_counts = {}
             for eth_src, host_cache_entry in list(vlan.host_cache.items()):
                 port_num = str(host_cache_entry.port_num)
@@ -1029,10 +1029,9 @@ class Valve(object):
                 metrics.learned_macs.labels(dpid=hex(self.dp.dp_id),
                                              vlan=vlan.vid,
                                              port=port_num,
-                                             n=port_n_counts[port_num]).set(int(eth_src.replace(':',''),16))
+                                             n=port_n_counts[port_num]) \
+                                                .set(int(eth_src.replace(':',''), 16))
                 port_n_counts[port_num] = port_n_counts[port_num] + 1
-                self.logger.info("added {0} to metric {1:012x} ".format(eth_src, int(eth_src.replace(':',''),16)))
-        self.logger.debug("update finished\n{}".format(metrics.learned_macs.collect()[0].samples))
  
     def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).

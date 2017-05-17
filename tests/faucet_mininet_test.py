@@ -866,7 +866,7 @@ vlans:
             exp_flow = (
                 '"table_id": 3, "match": '
                 '{"dl_vlan": "100", "dl_src": "%s", '
-                '"in_port": %u' % (mac.strip('\n'), port))
+                '"in_port": %u' % (mac, port))
 
             for flow in flows:
                 if re.search(exp_flow, flow):
@@ -884,8 +884,6 @@ vlans:
         '''
         prom_txt = self.scrape_prometheus() 
         learned_macs = re.findall(r'learned_macs\S+port="%u"\Svlan="100"}\s\d+.0' % port, prom_txt)
-
-        flows = self.get_all_flows_from_dpid(self.dpid)
 
         count_empty = 0
         count_valid = 0
