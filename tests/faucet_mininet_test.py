@@ -239,6 +239,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.attach_physical_switch()
         self.wait_debug_log()
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
+        for port_no in self.port_map.values():
+            self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],

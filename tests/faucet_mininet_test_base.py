@@ -635,20 +635,26 @@ dbs:
         return curl_format % (
             int_dpid, port_no, config, mask, self.ofctl_rest_url())
 
+    def set_port_down(self, port_no):
+        os.system(self.curl_portmod(
+           self.dpid,
+           port_no,
+           ofp.OFPPC_PORT_DOWN,
+           ofp.OFPPC_PORT_DOWN))
+
+    def set_port_up(self, port_no):
+        os.system(self.curl_portmod(
+           self.dpid,
+           port_no,
+           0,
+           ofp.OFPPC_PORT_DOWN))
+
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
         for port_no in self.port_map.values():
-            os.system(self.curl_portmod(
-                self.dpid,
-                port_no,
-                ofp.OFPPC_PORT_DOWN,
-                ofp.OFPPC_PORT_DOWN))
+            self.set_port_down(port_no)
             time.sleep(flap_time)
-            os.system(self.curl_portmod(
-                self.dpid,
-                port_no,
-                0,
-                ofp.OFPPC_PORT_DOWN))
+            self.set_port_up(port_no)
 
     def add_host_ipv6_address(self, host, ip_v6):
         """Add an IPv6 address to a Mininet host."""
