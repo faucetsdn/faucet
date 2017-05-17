@@ -1090,6 +1090,10 @@ group test {
         self.wait_for_route_as_flow(
             first_host.MAC(), ipaddress.IPv4Network(u'10.99.99.0/24'))
         self.wait_bgp_up('127.0.0.1', 100)
+        self.assertGreater(
+            int(self.scrape_prometheus_var(
+                r'bgp_neighbor_routes\S+ipv="4"\S+vlan="100"\S+')),
+            0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
         self.verify_invalid_bgp_route('10.0.0.4/24 cannot be us')
         self.verify_invalid_bgp_route('10.0.0.5/24 is not a connected network')
@@ -1172,6 +1176,10 @@ group test {
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
         self.wait_bgp_up('127.0.0.1', 100)
+        self.assertGreater(
+            int(self.scrape_prometheus_var(
+                r'bgp_neighbor_routes\S+ipv="4"\S+vlan="100"\S+')),
+            0)
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(self.exabgp_log)
         self.stop_exabgp()
@@ -2174,6 +2182,10 @@ group test {
 
     def test_untagged(self):
         self.wait_bgp_up('::1', 100)
+        self.assertGreater(
+            int(self.scrape_prometheus_var(
+                r'bgp_neighbor_routes\S+ipv="6"\S+vlan="100"\S+')),
+            0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
         self.verify_invalid_bgp_route('fc00::40:1/112 cannot be us')
         self.verify_invalid_bgp_route('fc00::50:1/112 is not a connected network')
@@ -2311,6 +2323,10 @@ group test {
             second_host.MAC(), ipaddress.IPv6Network(u'fc00::30:0/112'))
         self.verify_ipv6_routing_mesh()
         self.wait_bgp_up('::1', 100)
+        self.assertGreater(
+            int(self.scrape_prometheus_var(
+                r'bgp_neighbor_routes\S+ipv="6"\S+vlan="100"\S+')),
+            0)
         updates = self.exabgp_updates(self.exabgp_log)
         self.stop_exabgp()
         assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
