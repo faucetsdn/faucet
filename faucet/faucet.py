@@ -30,9 +30,9 @@ from config_parser import dp_parser
 from config_parser_util import config_file_hash
 from valve_util import btos, dpid_log, get_logger, kill_on_exception, get_sys_prefix
 from valve import valve_factory
+import faucet_metrics
 import valve_of
 
-from prometheus_client import Counter, Gauge, start_http_server
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -47,45 +47,6 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import vlan as ryu_vlan
 from ryu.ofproto import ether
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
-
-
-class FaucetMetrics(object):
-    """Container class for objects that can be exported to Prometheus."""
-
-    def __init__(self):
-        self.of_packet_ins = Counter(
-            'of_packet_ins',
-            'number of OF packet_ins received from DP', ['dpid'])
-        self.of_flowmsgs_sent = Counter(
-            'of_flowmsgs_sent',
-            'number of OF flow messages (and packet outs) sent to DP', ['dpid'])
-        self.of_errors = Counter(
-            'of_errors',
-            'number of OF errors received from DP', ['dpid'])
-        self.of_dp_connections = Counter(
-            'of_dp_connections',
-            'number of OF connections from a DP', ['dpid'])
-        self.of_dp_disconnections = Counter(
-            'of_dp_disconnections',
-            'number of OF connections from a DP', ['dpid'])
-        self.faucet_config_reload_requests = Counter(
-            'faucet_config_reload_requests',
-            'number of config reload requests', [])
-        self.vlan_hosts_learned = Gauge(
-            'vlan_hosts_learned',
-            'number of hosts learned on a vlan', ['dpid', 'vlan'])
-        self.faucet_config_table_names = Gauge(
-            'faucet_config_table_names',
-            'number to names map of FAUCET pipeline tables', ['dpid', 'name'])
-        self.faucet_config_dp_name = Gauge(
-            'faucet_config_dp_name',
-            'map of DP name to DP ID', ['dpid', 'name'])
-        self.bgp_neighbor_uptime_seconds = Gauge(
-            'bgp_neighbor_uptime',
-            'BGP neighbor uptime in seconds', ['dpid', 'vlan', 'neighbor'])
-        self.bgp_neighbor_routes = Gauge(
-            'bgp_neighbor_routes',
-            'BGP neighbor route count', ['dpid', 'vlan', 'neighbor', 'ipv'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -233,9 +194,8 @@ class Faucet(app_manager.RyuApp):
 
         # TODO: metrics instance can be passed to Valves also,
         # for DP specific instrumentation.
-        self.metrics = FaucetMetrics()
         prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9244'))
-        start_http_server(prom_port)
+        self.metrics = faucet_metrics.FaucetMetrics(prom_port)
 
         # Set up a valve object for each datapath
         self.valves = {}
