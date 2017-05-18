@@ -829,7 +829,7 @@ class FaucetHostsTimeoutPrometheusTest(FaucetUntaggedTest):
        If the maximum number of MACs at any one time is 5, then only 5 values
        should be exported, even if over 2 hours, there are 100 MACs learnt
     '''
-    TIMEOUT = 50
+    TIMEOUT = 30
     MAX_HOSTS = 50
     CONFIG_GLOBAL = """
 vlans:
@@ -838,7 +838,7 @@ vlans:
 """
 
     CONFIG = """
-        timeout: 50
+        timeout: 30
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -867,16 +867,15 @@ vlans:
                 '"table_id": 3, "match": '
                 '{"dl_vlan": "100", "dl_src": "%s", '
                 '"in_port": %u' % (mac, port))
-
+            prog = re.compile(exp_flow)
             for flow in flows:
-                if re.search(exp_flow, flow):
+                if prog.search(flow):
                     macs_learned += 1
                     break
             self.assertTrue(
                 re.search(r'learned_macs\S+port="%u"\Svlan="100"}\s%u.0'
                      % (port, self.mac_as_int(mac)), prom_txt),
                 msg='port: {}, mac: {}, mac_int: {}'.format(port, mac, self.mac_as_int(mac)))
-
         self.assertEquals(len(hosts), macs_learned)
 
     def check_prometheus_overwrite(self, port, num_empty, num_valid):
@@ -926,6 +925,7 @@ vlans:
             address = second_host.cmd('ip link show %s | grep -o "..:..:..:..:..:.." | head -1 | xargs echo -n' % mac_intf)
             learned_mac_ports[address] = self.port_map['port_2']
             second_host.cmd('ip link set dev %s up' % mac_intf)
+            second_host.cmd('ping -c1 -I%s %s' % (mac_intf, first_host.IP()))
         for mac_intf in mac_intfs:
             self.one_ipv4_ping(
                 second_host, first_host.IP(),
