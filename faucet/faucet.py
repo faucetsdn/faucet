@@ -30,9 +30,10 @@ from config_parser import dp_parser
 from config_parser_util import config_file_hash
 from valve_util import btos, dpid_log, get_logger, kill_on_exception, get_sys_prefix
 from valve import valve_factory
+import faucet_api
+import faucet_metrics
 import valve_of
 
-from prometheus_client import Counter, Gauge, start_http_server
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -47,45 +48,6 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import vlan as ryu_vlan
 from ryu.ofproto import ether
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
-
-
-class FaucetMetrics(object):
-    """Container class for objects that can be exported to Prometheus."""
-
-    def __init__(self):
-        self.of_packet_ins = Counter(
-            'of_packet_ins',
-            'number of OF packet_ins received from DP', ['dpid'])
-        self.of_flowmsgs_sent = Counter(
-            'of_flowmsgs_sent',
-            'number of OF flow messages (and packet outs) sent to DP', ['dpid'])
-        self.of_errors = Counter(
-            'of_errors',
-            'number of OF errors received from DP', ['dpid'])
-        self.of_dp_connections = Counter(
-            'of_dp_connections',
-            'number of OF connections from a DP', ['dpid'])
-        self.of_dp_disconnections = Counter(
-            'of_dp_disconnections',
-            'number of OF connections from a DP', ['dpid'])
-        self.faucet_config_reload_requests = Counter(
-            'faucet_config_reload_requests',
-            'number of config reload requests', [])
-        self.vlan_hosts_learned = Gauge(
-            'vlan_hosts_learned',
-            'number of hosts learned on a vlan', ['dpid', 'vlan'])
-        self.faucet_config_table_names = Gauge(
-            'faucet_config_table_names',
-            'number to names map of FAUCET pipeline tables', ['dpid', 'name'])
-        self.faucet_config_dp_name = Gauge(
-            'faucet_config_dp_name',
-            'map of DP name to DP ID', ['dpid', 'name'])
-        self.bgp_neighbor_uptime_seconds = Gauge(
-            'bgp_neighbor_uptime',
-            'BGP neighbor uptime in seconds', ['dpid', 'vlan', 'neighbor'])
-        self.bgp_neighbor_routes = Gauge(
-            'bgp_neighbor_routes',
-            'BGP neighbor route count', ['dpid', 'vlan', 'neighbor', 'ipv'])
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -113,81 +75,6 @@ class EventFaucetAPIRegistered(event.EventBase):
     pass
 
 
-class FaucetAPI(object):
-    """An API for communicating with Faucet.
-
-    Contains methods for interacting with a running faucet controller from
-    within a RyuApp. This app should be run together with faucet in the same
-    ryu-manager process.
-
-    It can be accessed by use of the _CONTEXTS dictionary within a RyuApp.
-    eg.
-
-    class ExampleApp(app_manager.RyuApp):
-
-        _CONTEXTS = {
-            'faucet_api': FaucetAPI
-            }
-
-        def __init__(self, *args, **kwargs):
-            self.is_api_registered = False
-            self.faucet_api = kwargs['faucet_api']
-
-        @set_ev_cls(EventFaucetAPIRegistered, MAIN_DISPATCHER)
-        def _api_registered(self):
-            self.is_api_registered = True
-
-        def print_faucet_config(self):
-            if self.is_api_registered:
-                print(self.faucet_api.get_config())
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.faucet = None
-
-    def is_registered(self):
-        return self.faucet is not None
-
-    def _register(self, faucet):
-        if self.faucet is None:
-            self.faucet = faucet
-
-    def reload_config(self):
-        """Reload config from config file in FAUCET_CONFIG env variable."""
-        if self.faucet is not None:
-            self.faucet.reload_config(None)
-
-    def get_config(self):
-        """Get the current running config of Faucet as a python dictionary."""
-        if self.faucet is not None:
-            return self.faucet.get_config()
-        else:
-            return None
-
-    def get_tables(self, dp_id):
-        """Get the current table structure used by faucet as a dict of table name: table no."""
-        if self.faucet is not None:
-            return self.faucet.get_tables(dp_id)
-        else:
-            return None
-
-    # TODO: here are some other features I would like to see sometime:
-    def push_config(self, config):
-        raise NotImplementedError
-
-    def add_port_acl(self, port, acl):
-        raise NotImplementedError
-
-    def add_vlan_acl(self, vlan, acl):
-        raise NotImplementedError
-
-    def delete_port_acl(self, port, acl):
-        raise NotImplementedError
-
-    def delete_vlan_acl(self, vlan, acl):
-        raise NotImplementedError
-
-
 class Faucet(app_manager.RyuApp):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
@@ -197,7 +84,7 @@ class Faucet(app_manager.RyuApp):
     OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {
         'dpset': dpset.DPSet,
-        'faucet_api': FaucetAPI
+        'faucet_api': faucet_api.FaucetAPI
         }
     logname = 'faucet'
     exc_logname = logname + '.exception'
@@ -233,9 +120,8 @@ class Faucet(app_manager.RyuApp):
 
         # TODO: metrics instance can be passed to Valves also,
         # for DP specific instrumentation.
-        self.metrics = FaucetMetrics()
         prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9244'))
-        start_http_server(prom_port)
+        self.metrics = faucet_metrics.FaucetMetrics(prom_port)
 
         # Set up a valve object for each datapath
         self.valves = {}
