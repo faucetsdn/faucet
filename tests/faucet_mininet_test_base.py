@@ -859,15 +859,16 @@ dbs:
 
     def _verify_host_learned_mac(self, host, ip, ip_ver, mac, retries):
         for _ in range(retries):
-            learned_mac = host.cmd(
-                "ip -%u neighbor show %s | awk '{ print $5 }'" % (ip_ver, ip)).strip()
-            if learned_mac:
-                break
+            neighbors = host.cmd('ip -%u neighbor show' % ip_ver)
+            for neighbor_line in neighbors.splitlines():
+                neighbor_fields = neighbor_line.strip().split(' ')
+                learned_ip = neighbor_fields[0]
+                learned_mac = neighbor_fields[4]
+                if learned_ip == str(ip) and learned_mac == mac:
+                    return
             time.sleep(1)
-        self.assertEqual(
-            mac, learned_mac,
-            msg='MAC learned on host mismatch (expected %s found %s)' % (
-                mac, learned_mac))
+        self.fail(
+            'could not verify %s resolved to %s (%s)' % (ip, mac, neighbors))
 
     def verify_ipv4_host_learned_mac(self, host, ip, mac, retries=3):
         self._verify_host_learned_mac(host, ip, 4, mac, retries)
