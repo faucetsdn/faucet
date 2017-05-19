@@ -829,7 +829,7 @@ class FaucetHostsTimeoutPrometheusTest(FaucetUntaggedTest):
        If the maximum number of MACs at any one time is 5, then only 5 values
        should be exported, even if over 2 hours, there are 100 MACs learnt
     '''
-    TIMEOUT = 30
+    TIMEOUT = 20
     MAX_HOSTS = 50
     CONFIG_GLOBAL = """
 vlans:
@@ -838,7 +838,7 @@ vlans:
 """
 
     CONFIG = """
-        timeout: 30
+        timeout: 20
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -861,6 +861,9 @@ vlans:
 
         flows = self.get_all_flows_from_dpid(self.dpid)
         prom_txt = self.scrape_prometheus()
+        print("retreived flows+prom %.15f" % (time.time()))
+        print("flows: {}".format(flows))
+        print("prom: {}".format(prom_txt))
         macs_learned = 0
         for mac, port in hosts.items():
             exp_flow = (
@@ -901,12 +904,31 @@ vlans:
         learned_mac_ports = {}
         learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
         mac_intfs = []
+        print("test start %.15f"% time.time())
         for i in range(10, 16):
             if i == 14:
                 for mac_intf in mac_intfs:
+                    print("A ping %s %.15f" % (mac_intf, time.time()))
                     self.one_ipv4_ping(
-                        second_host, first_host.IP(),
+                        second_host, first_host.IP(), retries=3,
+                        require_host_learned=False, intf=mac_intf)
+                    print("B ping %s %.15f" % (mac_intf, time.time()))
+
+                for mac_intf in mac_intfs:
+                    print("C ping %s %.15f" % (mac_intf, time.time()))
+                    self.one_ipv4_ping(
+                        second_host, first_host.IP(), retries=3,
                         require_host_learned=True, intf=mac_intf)
+                    print("D ping %s %.15f" % (mac_intf, time.time()))
+
+                for mac_intf in mac_intfs:
+                    print("E ping %s %.15f" % (mac_intf, time.time()))
+                    self.one_ipv4_ping(
+                        second_host, first_host.IP(), retries=1,
+                        require_host_learned=False, intf=mac_intf)
+                    print("F ping %s %.15f" % (mac_intf, time.time()))
+
+                print("pings done %s %.15f" % (mac_intf, time.time()))
                 # check first 4 are learnt
                 self.are_hosts_learnt(learned_mac_ports)
                 learned_mac_ports = {}
@@ -925,7 +947,11 @@ vlans:
             address = second_host.cmd('ip link show %s | grep -o "..:..:..:..:..:.." | head -1 | xargs echo -n' % mac_intf)
             learned_mac_ports[address] = self.port_map['port_2']
             second_host.cmd('ip link set dev %s up' % mac_intf)
-            second_host.cmd('ping -c1 -I%s %s' % (mac_intf, first_host.IP()))
+#            second_host.cmd('ping -c1 -I%s %s &' % (mac_intf, first_host.IP()))
+        for mac_intf in mac_intfs:
+            self.one_ipv4_ping(
+                second_host, first_host.IP(),
+                require_host_learned=False, intf=mac_intf)
         for mac_intf in mac_intfs:
             self.one_ipv4_ping(
                 second_host, first_host.IP(),
