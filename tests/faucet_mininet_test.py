@@ -2944,6 +2944,47 @@ vlans:
             with_group_table=True)
 
 
+class FaucetEthSrcMaskTest(FaucetUntaggedTest):
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+
+acls:
+    1:
+        - rule:
+            eth_src: 0e:0d:00:00:00:00/ff:ff:00:00:00:00
+            actions:
+                allow: 1
+        - rule:
+            actions:
+                allow: 0
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[0:2]
+        first_host.setMAC('0e:0d:00:00:00:99')
+        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.wait_nonzero_packet_count_flow(
+            r'0e:0d:00:00:00:00/ff:ff:00:00:00:00')
+
+
 class FaucetDestRewriteTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
