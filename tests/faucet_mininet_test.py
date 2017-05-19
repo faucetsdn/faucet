@@ -3000,7 +3000,7 @@ acls:
         third_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
         third_host.cmd('ping -c1 %s' % second_host.IP())
         self.wait_until_matching_flow(
-            r'OUTPUT:3.+table_id": 6.+dl_dst": "00:00:00:00:00:03"',
+            r'OUTPUT:%(port_3)d.+table_id": 6.+dl_dst": "00:00:00:00:00:03"' % self.port_map,
             timeout=2)
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
             first_host.MAC(), third_host.MAC()))
