@@ -28,9 +28,11 @@ def check_config(conf_files):
                 print((dp.to_conf()))
     return True
 
-
-if __name__ == '__main__':
+def main():
     if check_config(sys.argv[1:]):
         sys.exit(0)
     else:
         sys.exit(-1)
+
+if __name__ == '__main__':
+    main()
