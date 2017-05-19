@@ -989,18 +989,21 @@ acls:
         first_host = self.net.hosts[0]
         second_host = self.net.hosts[1]
         self.ping_all_when_learned()
-        self.change_port_config(1, 'native_vlan', 200, restart=False)
-        self.change_port_config(2, 'native_vlan', 200, restart=True)
+        self.change_port_config(
+            self.port_map['port_1'], 'native_vlan', 200, restart=False)
+        self.change_port_config(
+            self.port_map['port_2'], 'native_vlan', 200, restart=True)
         self.wait_until_matching_flow(
-            r'SET_FIELD: {vlan_vid:4296}.+in_port": 1',
+            r'SET_FIELD: {vlan_vid:4296}.+in_port": %u' % self.port_map['port_1'],
             timeout=2)
         self.one_ipv4_ping(first_host, second_host.IP(), require_host_learned=False)
 
     def test_port_change_acl(self):
         self.ping_all_when_learned()
-        self.change_port_config(1, 'acl_in', 1)
+        self.change_port_config(
+            self.port_map['port_1'], 'acl_in', 1)
         self.wait_until_matching_flow(
-            r'"actions": \[\].+"in_port": 1, "tp_dst": 5001')
+            r'"actions": \[\].+"in_port": %u, "tp_dst": 5001' % self.port_map['port_1'])
         first_host, second_host = self.net.hosts[0:2]
         self.ping_all_when_learned()
         self.verify_tp_dst_blocked(5001, first_host, second_host)
@@ -1008,7 +1011,7 @@ acls:
 
     def test_port_change_permanent_learn(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
-        self.change_port_config(1, 'permanent_learn', True)
+        self.change_port_config(self.port_map['port_1'], 'permanent_learn', True)
         self.ping_all_when_learned()
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
@@ -1016,9 +1019,10 @@ acls:
         self.assertEqual(0, self.net.ping((first_host, second_host)))
         third_host.setMAC(original_third_host_mac)
         self.ping_all_when_learned()
-        self.change_port_config(1, 'acl_in', 1)
+        self.change_port_config(
+            self.port_map['port_1'], 'acl_in', 1)
         self.wait_until_matching_flow(
-            r'"actions": \[\].+"in_port": 1, "tp_dst": 5001')
+            r'"actions": \[\].+"in_port": %u, "tp_dst": 5001' % self.port_map['port_1'])
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
@@ -2996,7 +3000,7 @@ acls:
         third_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
         third_host.cmd('ping -c1 %s' % second_host.IP())
         self.wait_until_matching_flow(
-            r'OUTPUT:3.+table_id": 6.+dl_dst": "00:00:00:00:00:03"',
+            r'OUTPUT:%(port_3)d.+table_id": 6.+dl_dst": "00:00:00:00:00:03"' % self.port_map,
             timeout=2)
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
             first_host.MAC(), third_host.MAC()))
