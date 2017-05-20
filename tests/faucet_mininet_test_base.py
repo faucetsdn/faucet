@@ -549,9 +549,11 @@ dbs:
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
 
-    def scrape_prometheus_var(self, var, labels={}, default=None, dpid=True):
+    def scrape_prometheus_var(self, var, labels=None, default=None, dpid=True):
         prom_out = self.scrape_prometheus()
         label_values_re = ''
+        if labels is None:
+            labels = {}
         if dpid:
             labels.update({'dpid': '0x%x' % long(self.dpid)})
         if labels:
@@ -559,17 +561,23 @@ dbs:
             for label, value in sorted(list(labels.items())):
                 label_values.append('%s="%s"' % (label, value))
             label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
-        var_re = r'%s%s\s+(\d+)' % (var, label_values_re)
-        var_match = re.search(var_re, prom_out)
-        if var_match is None:
-            return default
-        else:
-            return var_match.group(1)
+        var_re = r'^%s%s$' % (var, label_values_re)
+        for prom_line in self.scrape_prometheus().splitlines():
+            var, value = prom_line.split(' ')
+            var_match = re.search(var_re, var)
+            if var_match:
+                return int(float(value))
+        return default
 
     def get_configure_count(self):
         """Return the number of times FAUCET has processed a reload request."""
-        return self.scrape_prometheus_var(
-            'faucet_config_reload_requests', default=0, dpid=False)
+        for _ in range(3):
+            count = self.scrape_prometheus_var(
+                'faucet_config_reload_requests', default=None, dpid=False)
+            if count is not None:
+                return count
+            time.sleep(1)
+        self.fail('configure count stayed zero')
 
     def signal_proc_on_port(self, host, port, signal):
         tcp_pattern = '%s/tcp' % port

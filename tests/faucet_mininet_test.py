@@ -769,8 +769,8 @@ vlans:
         learned_hosts = [
             host for host in self.net.hosts if self.host_learned(host)]
         self.assertEquals(2, len(learned_hosts))
-        self.assertEquals(2, int(self.scrape_prometheus_var(
-            'vlan_hosts_learned', {'vlan': '100'})))
+        self.assertEquals(2, self.scrape_prometheus_var(
+            'vlan_hosts_learned', {'vlan': '100'}))
 
 
 class FaucetMaxHostsPortTest(FaucetUntaggedTest):
@@ -869,8 +869,9 @@ vlans:
                 second_host, first_host.IP(),
                 require_host_learned=False, intf=mac_intf)
         # verify FAUCET thinks it learned this many hosts
-        self.assertGreater(int(self.scrape_prometheus_var(
-            'vlan_hosts_learned', {'vlan': '100'})), self.MAX_HOSTS)
+        self.assertGreater(
+            self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'}),
+            self.MAX_HOSTS)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
@@ -879,17 +880,18 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
         switch = self.net.switches[0]
-        for i in range(0, 3):
+        init_config_count = self.get_configure_count()
+        for i in range(init_config_count, init_config_count+3):
             configure_count = self.get_configure_count()
-            self.assertEquals(i, int(configure_count))
+            self.assertEquals(i, configure_count)
             self.verify_hup_faucet()
             configure_count = self.get_configure_count()
             self.assertTrue(i + 1, configure_count)
             self.assertEqual(
-                int(self.scrape_prometheus_var('of_dp_disconnections', default=0)),
+                self.scrape_prometheus_var('of_dp_disconnections', default=0),
                 0)
             self.assertEqual(
-                int(self.scrape_prometheus_var('of_dp_connections', default=0)),
+                self.scrape_prometheus_var('of_dp_connections', default=0),
                 1)
             self.wait_until_matching_flow('OUTPUT:CONTROLLER')
             self.ping_all_when_learned()
@@ -1096,8 +1098,8 @@ group test {
             first_host.MAC(), ipaddress.IPv4Network(u'10.99.99.0/24'))
         self.wait_bgp_up('127.0.0.1', 100)
         self.assertGreater(
-            int(self.scrape_prometheus_var(
-                'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'})),
+            self.scrape_prometheus_var(
+                'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
         self.verify_invalid_bgp_route('10.0.0.4/24 cannot be us')
@@ -1182,8 +1184,8 @@ group test {
         self.verify_ipv4_routing_mesh()
         self.wait_bgp_up('127.0.0.1', 100)
         self.assertGreater(
-            int(self.scrape_prometheus_var(
-                'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'})),
+            self.scrape_prometheus_var(
+                'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
             0)
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(self.exabgp_log)
@@ -2031,8 +2033,8 @@ vlans:
         self.add_host_route(second_host, first_host_alias_host_ip, self.FAUCET_VIPV4.ip)
         self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
         self.assertGreater(
-            int(self.scrape_prometheus_var(
-                'vlan_neighbors', {'ipv': '4', 'vlan': '100'})),
+            self.scrape_prometheus_var(
+                'vlan_neighbors', {'ipv': '4', 'vlan': '100'}),
             1)
 
 
@@ -2042,7 +2044,7 @@ class FaucetTaggedProactiveNeighborIPv6RouteTest(FaucetTaggedTest):
 vlans:
     100:
         description: "tagged"
-        faucet_vips: ["fc00::1:254/64"]
+        faucet_vips: ["fc00::1:3/64"]
 """
 
     CONFIG = """
@@ -2067,16 +2069,19 @@ vlans:
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
         first_host_alias_ip = ipaddress.ip_interface(u'fc00::1:99/64')
+        faucet_vip_ip = ipaddress.ip_interface(u'fc00::1:3/126')
         first_host_alias_host_ip = ipaddress.ip_interface(
             ipaddress.ip_network(first_host_alias_ip.ip))
         self.add_host_ipv6_address(first_host, ipaddress.ip_interface(u'fc00::1:1/64'))
-        self.add_host_ipv6_address(second_host, ipaddress.ip_interface(u'fc00::1:2/64'))
+        # We use a narrower mask to force second_host to use the /128 route,
+        # since otherwise it would realize :99 is directly connected via ND and send direct.
+        self.add_host_ipv6_address(second_host, ipaddress.ip_interface(u'fc00::1:2/126'))
         self.add_host_ipv6_address(first_host, first_host_alias_ip)
-        self.add_host_route(second_host, first_host_alias_host_ip, self.FAUCET_VIPV6.ip)
+        self.add_host_route(second_host, first_host_alias_host_ip, faucet_vip_ip.ip)
         self.one_ipv6_ping(second_host, first_host_alias_ip.ip)
         self.assertGreater(
-            int(self.scrape_prometheus_var(
-                'vlan_neighbors', {'ipv': '6', 'vlan': '100'})),
+            self.scrape_prometheus_var(
+                'vlan_neighbors', {'ipv': '6', 'vlan': '100'}),
             1)
 
 
@@ -2274,8 +2279,8 @@ group test {
     def test_untagged(self):
         self.wait_bgp_up('::1', 100)
         self.assertGreater(
-            int(self.scrape_prometheus_var(
-                'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'})),
+            self.scrape_prometheus_var(
+                'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
         self.verify_invalid_bgp_route('fc00::40:1/112 cannot be us')
@@ -2415,8 +2420,8 @@ group test {
         self.verify_ipv6_routing_mesh()
         self.wait_bgp_up('::1', 100)
         self.assertGreater(
-            int(self.scrape_prometheus_var(
-                'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'})),
+            self.scrape_prometheus_var(
+                'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         updates = self.exabgp_updates(self.exabgp_log)
         self.stop_exabgp()
