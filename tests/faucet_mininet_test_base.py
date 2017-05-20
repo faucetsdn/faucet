@@ -772,7 +772,7 @@ dbs:
         controller = self.get_controller()
         exabgp_cmd = self.timeout_cmd(
             'exabgp %s -d 2> %s > %s &' % (
-                exabgp_conf_file, exabgp_err, exabgp_log), 180)
+                exabgp_conf_file, exabgp_err, exabgp_log), 600)
         controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
         self.wait_for_tcp_listen(
             controller, port,
