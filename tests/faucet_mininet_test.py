@@ -3192,6 +3192,7 @@ def import_hw_config():
 
 def check_dependencies():
     """Verify dependant libraries/binaries are present with correct versions."""
+    print('Checking library/binary dependencies')
     for (binary, binary_get_version, binary_present_re,
          binary_version_re, binary_minversion) in EXTERNAL_DEPENDENCIES:
         binary_args = [binary] + binary_get_version
@@ -3231,14 +3232,12 @@ def check_dependencies():
                 print('%s version %s is less than required version %s' % (
                     required_binary, binary_version, binary_minversion))
                 return False
-            print('%s version is %s' % (required_binary, binary_version))
-        else:
-            print('%s present (%s)' % (required_binary, binary_present_re))
     return True
 
 
 def lint_check():
     """Run pylint on required source files."""
+    print('Running pylint checks')
     for faucet_src in FAUCET_LINT_SRCS + FAUCET_TEST_LINT_SRCS:
         ret = subprocess.call(['pylint', '--rcfile=/dev/null', '-E', faucet_src])
         if ret:
