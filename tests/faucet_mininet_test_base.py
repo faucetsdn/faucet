@@ -798,7 +798,7 @@ dbs:
         """Wait for BGP to come up."""
         label_values = {
             'neighbor': neighbor,
-            'vlan': vlan.vid
+            'vlan': vlan,
         }
         for _ in range(60):
             uptime = self.scrape_prometheus_var(
