@@ -1005,11 +1005,16 @@ class Valve(object):
 
         metrics (FaucetMetrics or None): container of Prometheus metrics.
         """
+        dpid = hex(self.dp.dp_id)
         for vlan in list(self.dp.vlans.values()):
             hosts_count = self.host_manager.hosts_learned_on_vlan_count(
                 vlan)
             metrics.vlan_hosts_learned.labels(
-                dpid=hex(self.dp.dp_id), vlan=vlan.vid).set(hosts_count)
+                dpid=dpid, vlan=vlan.vid).set(hosts_count)
+            metrics.vlan_neighbors.labels(
+                dpid=dpid, vlan=vlan.vid, ipv='4').set(len(vlan.arp_cache))
+            metrics.vlan_neighbors.labels(
+                dpid=dpid, vlan=vlan.vid, ipv='6').set(len(vlan.nd_cache))
 
     def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).

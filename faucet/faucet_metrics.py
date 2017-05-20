@@ -26,6 +26,9 @@ class FaucetMetrics(object):
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
             'number of hosts learned on a vlan', ['dpid', 'vlan'])
+        self.vlan_neighbors = Gauge(
+            'vlan_neighbors',
+            'number of neighbors on a vlan', ['dpid', 'vlan', 'ipv'])
         self.faucet_config_table_names = Gauge(
             'faucet_config_table_names',
             'number to names map of FAUCET pipeline tables', ['dpid', 'name'])
