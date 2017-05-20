@@ -904,9 +904,12 @@ dbs:
         iperf_client_cmd = self.timeout_cmd(
             '%s -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
             seconds + 5)
-        iperf_results = client_host.cmd(iperf_client_cmd)
+        for _ in range(3):
+            iperf_results = client_host.cmd(iperf_client_cmd)
+            iperf_csv = iperf_results.strip().split(',')
+            if len(iperf_csv) == 9:
+                break
         self.signal_proc_on_port(server_host, port, 15)
-        iperf_csv = iperf_results.strip().split(',')
         self.assertEquals(9, len(iperf_csv), msg='%s: %s' % (
             iperf_client_cmd, iperf_results))
         iperf_mbps = int(iperf_csv[-1]) / self.ONEMBPS
