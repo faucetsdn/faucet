@@ -774,7 +774,9 @@ dbs:
             'exabgp %s -d 2> %s > %s &' % (
                 exabgp_conf_file, exabgp_err, exabgp_log), 180)
         controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
-        self.wait_for_tcp_listen(controller, port)
+        self.wait_for_tcp_listen(
+            controller, port,
+            ipv=ipaddress.ip_address(unicode(listen_address)).version)
         return exabgp_log
 
     def wait_bgp_up(self, neighbor, vlan):
