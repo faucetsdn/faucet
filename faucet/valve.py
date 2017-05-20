@@ -117,7 +117,8 @@ class Valve(object):
             self.dp.group_table)
         self.host_manager = valve_host.ValveHostManager(
             self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
-            self.dp.timeout, self.dp.learn_jitter, self.dp.low_priority, self.dp.highest_priority,
+            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
+            self.dp.low_priority, self.dp.highest_priority,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
             self.valve_flowdrop)
 

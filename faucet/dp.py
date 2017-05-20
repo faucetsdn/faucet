@@ -59,6 +59,7 @@ class DP(Conf):
     max_resolve_backoff_time = None
     packetin_pps = None
     learn_jitter = None
+    learn_ban_timeout = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -126,6 +127,8 @@ class DP(Conf):
         'packetin_pps': 0,
         # Jitter learn timeouts by up to this many seconds
         'learn_jitter': 10,
+        # When banning/limiting learning, wait this many seconds before learning can be retried
+        'learn_ban_timeout': 10,
         }
 
     def __init__(self, _id, conf):
