@@ -1002,9 +1002,18 @@ dbs:
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
+        # verify at least 1M iperf
+        for client_host, server_host, server_ip in (
+            (first_host, second_host, second_host_routed_ip.ip),
+            (second_host, first_host, first_host_routed_ip.ip)):
+           iperf_mbps = self.iperf(
+               client_host, server_host, server_ip, 5001, 5)
+           print('%u mbps to %s' % (iperf_mbps, server_ip))
+           self.assertGreater(iperf_mbps, 1)
+        self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.verify_ipv6_host_learned_mac(
             first_host, second_host_ip.ip, second_host.MAC())
-        self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
+        self.one_ipv6_ping(second_host, first_host_ip.ip)
         self.verify_ipv6_host_learned_mac(
             second_host, first_host_ip.ip, first_host.MAC())
 
