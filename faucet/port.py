@@ -46,7 +46,7 @@ class Port(Conf):
         'tagged_vlans': None,
         'acl_in': None,
         'stack': None,
-        'max_hosts' : None,
+        'max_hosts' : 255,
         }
 
     def __init__(self, _id, conf=None):

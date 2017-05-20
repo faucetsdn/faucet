@@ -290,6 +290,8 @@ class FaucetTestBase(unittest.TestCase):
         controller_names = []
         for controller in self.net.controllers:
             controller_names.append(controller.name)
+        open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
+            self.scrape_prometheus())
         if self.net is not None:
             self.net.stop()
         # Associate controller log with test results, if we are keeping
@@ -547,9 +549,18 @@ dbs:
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
 
-    def scrape_prometheus_var(self, var_re, default=None):
+    def scrape_prometheus_var(self, var, labels={}, default=None, dpid=True):
         prom_out = self.scrape_prometheus()
-        var_match = re.search(r'%s\s+(\d+)' % var_re, prom_out)
+        label_values_re = ''
+        if dpid:
+            labels.update({'dpid': '0x%x' % long(self.dpid)})
+        if labels:
+            label_values = []
+            for label, value in sorted(list(labels.items())):
+                label_values.append('%s="%s"' % (label, value))
+            label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
+        var_re = r'%s%s\s+(\d+)' % (var, label_values_re)
+        var_match = re.search(var_re, prom_out)
         if var_match is None:
             return default
         else:
@@ -558,7 +569,7 @@ dbs:
     def get_configure_count(self):
         """Return the number of times FAUCET has processed a reload request."""
         return self.scrape_prometheus_var(
-            'faucet_config_reload_requests', default=0)
+            'faucet_config_reload_requests', default=0, dpid=False)
 
     def signal_proc_on_port(self, host, port, signal):
         tcp_pattern = '%s/tcp' % port
@@ -785,10 +796,13 @@ dbs:
 
     def wait_bgp_up(self, neighbor, vlan):
         """Wait for BGP to come up."""
+        label_values = {
+            'neighbor': neighbor,
+            'vlan': vlan.vid
+        }
         for _ in range(60):
             uptime = self.scrape_prometheus_var(
-                r'bgp_neighbor_uptime{dpid="0x%x",neighbor="%s",vlan="%u"}' % (
-                    long(self.dpid), neighbor, vlan), 0)
+                'bgp_neighbor_uptime', label_values, default=0)
             if uptime > 0:
                 return
             time.sleep(1)

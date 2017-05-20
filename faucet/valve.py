@@ -117,7 +117,8 @@ class Valve(object):
             self.dp.group_table)
         self.host_manager = valve_host.ValveHostManager(
             self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
-            self.dp.timeout, self.dp.learn_jitter, self.dp.low_priority, self.dp.highest_priority,
+            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
+            self.dp.low_priority, self.dp.highest_priority,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
             self.valve_flowdrop)
 
@@ -1005,11 +1006,16 @@ class Valve(object):
 
         metrics (FaucetMetrics or None): container of Prometheus metrics.
         """
+        dpid = hex(self.dp.dp_id)
         for vlan in list(self.dp.vlans.values()):
             hosts_count = self.host_manager.hosts_learned_on_vlan_count(
                 vlan)
             metrics.vlan_hosts_learned.labels(
-                dpid=hex(self.dp.dp_id), vlan=vlan.vid).set(hosts_count)
+                dpid=dpid, vlan=vlan.vid).set(hosts_count)
+            metrics.vlan_neighbors.labels(
+                dpid=dpid, vlan=vlan.vid, ipv='4').set(len(vlan.arp_cache))
+            metrics.vlan_neighbors.labels(
+                dpid=dpid, vlan=vlan.vid, ipv='6').set(len(vlan.nd_cache))
 
     def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).

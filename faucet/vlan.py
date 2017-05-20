@@ -62,10 +62,14 @@ class VLAN(Conf):
         'bgp_neighbour_as': 0,
         'bgp_neighbor_as': None,
         'routes': None,
-        'max_hosts': None,
+        # Limit number of hosts that can be learned on a VLAN.
+        'max_hosts': 255,
         'vid': None,
+        # Don't proactively ARP for hosts if over this limit (None unlimited)
+        'proactive_arp_limit': None,
+        # Don't proactively ND for hosts if over this limit (None unlimited)
+        'proactive_nd_limit': None,
         }
-
 
     def __init__(self, _id, dp_id, conf=None):
         if conf is None:

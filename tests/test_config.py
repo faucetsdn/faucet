@@ -166,7 +166,7 @@ class DistConfigTestCase(unittest.TestCase):
     def test_max_hosts(self):
         for dp in (self.v2_dp,):
             self.assertEqual(20, dp.vlans[40].max_hosts)
-            self.assertEqual(None, dp.vlans[41].max_hosts)
+            self.assertEqual(255, dp.vlans[41].max_hosts)
 
     def test_mirror(self):
         for dp in (self.v2_dp,):

@@ -366,10 +366,19 @@ class ValveRouteManager(object):
     def _host_from_faucet_vip(self, faucet_vip):
         return self._host_ip_to_host_int(faucet_vip.ip)
 
+    def _vlan_nexthop_cache_limit(self, vlan):
+        pass
+
     def _proactive_resolve_neighbor(self, vlans, dst_ip):
         ofmsgs = []
         for vlan in vlans:
+            limit = self._vlan_nexthop_cache_limit(vlan)
             if vlan.ip_in_vip_subnet(dst_ip) and not vlan.is_faucet_vip(dst_ip):
+                if (limit is not None and
+                    len(self._vlan_nexthop_cache(vlan)) >= limit):
+                    self.logger.info(
+                        'not proactively learning %s, at limit %u', dst_ip, limit)
+                    continue
                 for faucet_vip in vlan.faucet_vips:
                     if dst_ip in faucet_vip.network:
                         priority = self._route_priority(dst_ip)
@@ -525,6 +534,9 @@ class ValveIPv4RouteManager(ValveRouteManager):
     def _vlan_nexthop_cache(self, vlan):
         return vlan.arp_cache
 
+    def _vlan_nexthop_cache_limit(self, vlan):
+        return vlan.proactive_arp_limit
+
     def _neighbor_resolver_pkt(self, vid, faucet_vip, ip_gw):
         return valve_packet.arp_request(
             self.faucet_mac, vid, faucet_vip.ip, ip_gw)
@@ -652,6 +664,9 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _vlan_nexthop_cache(self, vlan):
         return vlan.nd_cache
+
+    def _vlan_nexthop_cache_limit(self, vlan):
+        return vlan.proactive_nd_limit
 
     def _neighbor_resolver_pkt(self, vid, faucet_vip, ip_gw):
         return valve_packet.nd_request(
