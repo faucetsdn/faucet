@@ -505,6 +505,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
         max_prefixlen = faucet_vip.ip.max_prefixlen
         faucet_vip_host = self._host_from_faucet_vip(faucet_vip)
         priority = self.route_priority + max_prefixlen
+        learn_connected_priority = self.route_priority + faucet_vip.network.prefixlen
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
             self.valve_in_match(
@@ -534,6 +535,14 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 nw_src=faucet_vip,
                 nw_dst=faucet_vip_host),
             priority=priority))
+        ofmsgs.append(self.valve_flowcontroller(
+            self.fib_table,
+            self.valve_in_match(
+                self.fib_table,
+                vlan=vlan,
+                eth_type=self._eth_type(),
+                nw_dst=faucet_vip),
+            priority=learn_connected_priority))
         return ofmsgs
 
     def _control_plane_arp_handler(self, pkt_meta, arp_pkt):
@@ -619,6 +628,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         max_prefixlen = faucet_vip.ip.max_prefixlen
         faucet_vip_host = self._host_from_faucet_vip(faucet_vip)
         priority = self.route_priority + max_prefixlen
+        learn_connected_priority = self.route_priority + faucet_vip.network.prefixlen
         faucet_vip_host_nd_mcast = valve_packet.ipv6_link_eth_mcast(
             valve_packet.ipv6_solicited_node_from_ucast(faucet_vip.ip))
         ofmsgs.append(self.valve_flowmod(
@@ -665,6 +675,14 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 nw_dst=faucet_vip_host,
                 icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
             priority=priority))
+        ofmsgs.append(self.valve_flowcontroller(
+            self.fib_table,
+            self.valve_in_match(
+                self.fib_table,
+                vlan=vlan,
+                eth_type=self._eth_type(),
+                nw_dst=faucet_vip),
+            priority=learn_connected_priority))
         return ofmsgs
 
     def _control_plane_icmpv6_handler(self, pkt_meta, ipv6_pkt, icmpv6_pkt):
