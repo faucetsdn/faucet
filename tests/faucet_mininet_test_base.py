@@ -705,10 +705,10 @@ dbs:
         self.verify_ipv6_host_learned_mac(
             host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
-    def wait_for_tcp_listen(self, host, port, timeout=10):
+    def wait_for_tcp_listen(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
         for _ in range(timeout):
-            fuser_out = host.cmd('fuser -n tcp %u' % port)
+            fuser_out = host.cmd('fuser -n tcp -%u %u' % (ipv, port))
             if re.search(r'.*%u/tcp.*' % port, fuser_out):
                 return
             time.sleep(1)
@@ -884,17 +884,19 @@ dbs:
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
     def iperf(self, client_host, server_host, server_ip, port, seconds):
-        iperf_cmd = 'iperf -f M -y c'
+        iperf_base_cmd = 'iperf -f M -y c -p %u' % port
         if server_ip.version == 6:
-            iperf_cmd += ' -V'
+            iperf_base_cmd += ' -V'
+            iperf_server_cmd = '%s -s' % iperf_base_cmd
+        else:
+            iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
         iperf_server_cmd = self.timeout_cmd(
-            '%s -s -B %s -p %u > /dev/null 2> /dev/null &' % (
-                iperf_cmd, server_ip, port),
+            '%s > /dev/null 2> /dev/null &' % iperf_server_cmd,
             seconds + 5)
         server_host.cmd(iperf_server_cmd)
-        self.wait_for_tcp_listen(server_host, port)
+        self.wait_for_tcp_listen(server_host, port, ipv=server_ip.version)
         iperf_client_cmd = self.timeout_cmd(
-            '%s -t %u -p %u -c %s' % (iperf_cmd, seconds, port, server_ip),
+            '%s -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
             seconds + 5)
         iperf_results = client_host.cmd(iperf_client_cmd)
         iperf_csv = iperf_results.strip().split(',')
