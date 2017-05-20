@@ -63,6 +63,7 @@ class VLAN(Conf):
         'bgp_neighbor_as': None,
         'routes': None,
         'max_hosts': None,
+        'vid': None,
         }
 
 
