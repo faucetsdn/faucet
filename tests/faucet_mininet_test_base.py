@@ -592,14 +592,13 @@ dbs:
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, min_mbps):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = list(start_port_stats.keys())
         client_host, server_host = hosts
-        server_ip = ipaddress.ip_interface(unicode(self.host_ipv4(server_host))).ip
         iperf_mbps = self.iperf(
             client_host, server_host, server_ip, 5001, seconds)
         self.assertTrue(iperf_mbps > min_mbps)
@@ -885,20 +884,23 @@ dbs:
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
     def iperf(self, client_host, server_host, server_ip, port, seconds):
+        iperf_cmd = 'iperf -f M -y c'
+        if server_ip.version == 6:
+            iperf_cmd += ' -V'
         iperf_server_cmd = self.timeout_cmd(
-            'iperf -s -B %s -p %u > /dev/null 2> /dev/null &' % (
-                server_ip, port),
+            '%s -s -B %s -p %u > /dev/null 2> /dev/null &' % (
+                iperf_cmd, server_ip, port),
             seconds + 5)
         server_host.cmd(iperf_server_cmd)
         self.wait_for_tcp_listen(server_host, port)
         iperf_client_cmd = self.timeout_cmd(
-            'iperf -t %u -f M -y c -p %u -c %s' % (seconds, port, server_ip),
+            '%s -t %u -p %u -c %s' % (iperf_cmd, seconds, port, server_ip),
             seconds + 5)
         iperf_results = client_host.cmd(iperf_client_cmd)
         iperf_csv = iperf_results.strip().split(',')
         self.assertEquals(9, len(iperf_csv), msg='%s: %s' % (
             iperf_client_cmd, iperf_results))
-        iperf_mbps = int(iperf_csv[-1]) / self.ONEMBPS;
+        iperf_mbps = int(iperf_csv[-1]) / self.ONEMBPS
         return iperf_mbps
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
