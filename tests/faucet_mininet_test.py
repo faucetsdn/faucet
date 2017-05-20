@@ -6,24 +6,8 @@
  * you can run a specific test case only, by adding the class name of the test
    case to the command. Eg ./faucet_mininet_test.py FaucetUntaggedIPv4RouteTest
 
- REQUIRES:
-
- * mininet 2.2.2 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
-   use the "install from source" option from
-   https://github.com/mininet/mininet/blob/master/INSTALL.
-   suggest ./util/install.sh -n
- * OVS 2.7 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
- * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
- * fuser
- * net-tools
- * iputils-ping
- * netcat-openbsd
- * tcpdump
- * exabgp
- * pylint
- * curl
- * ladvd
- * iperf
+It is strong recommended to run these tests via Docker, to ensure you have
+all dependencies correctly installed. See ../docs/.
 """
 
 import collections
@@ -3178,7 +3162,7 @@ def check_dependencies():
 def lint_check():
     """Run pylint on required source files."""
     for faucet_src in FAUCET_LINT_SRCS + FAUCET_TEST_LINT_SRCS:
-        ret = subprocess.call(['pylint', '-E', faucet_src])
+        ret = subprocess.call(['pylint', '--rcfile=/dev/null', '-E', faucet_src])
         if ret:
             print(('pylint of %s returns an error' % faucet_src))
             return False
