@@ -15,6 +15,8 @@
 # limitations under the License.
 
 from conf import Conf
+import valve_util
+
 
 class Port(Conf):
 
@@ -51,6 +53,7 @@ class Port(Conf):
         if conf is None:
             conf = {}
         self._id = _id
+        valve_util.check_unknown_conf(conf, self.defaults)
         self.update(conf)
         self.set_defaults()
         self.dyn_phys_up = False

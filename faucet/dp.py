@@ -18,6 +18,7 @@ from conf import Conf
 from vlan import VLAN
 from port import Port
 from acl import ACL
+import valve_util
 
 import networkx
 
@@ -129,9 +130,7 @@ class DP(Conf):
 
     def __init__(self, _id, conf):
         self._id = _id
-        sub_conf_names = set(conf.keys())
-        unknown_conf_names = sub_conf_names - set(self.defaults.keys())
-        assert not unknown_conf_names, 'unknown config items in DP: %s' % unknown_conf_names
+        valve_util.check_unknown_conf(conf, self.defaults)
         self.update(conf)
         self.set_defaults()
         self.acls = {}
