@@ -673,18 +673,23 @@ dbs:
             host.cmd('ip -%u route add %s via %s' % (
                 ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)))
 
-    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None):
-        """Ping an IPv4 destination from a host."""
+    def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned):
         if require_host_learned:
             self.require_host_learned(host)
-        if intf is None:
-            intf = host.defaultIntf()
         for _ in range(retries):
-            ping_cmd = 'ping -c1 -I%s %s' % (intf, dst)
             ping_result = host.cmd(ping_cmd)
             if re.search(self.ONE_GOOD_PING, ping_result):
                 return
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
+        self.assertTrue(
+            re.search(self.ONE_GOOD_PING, ping_result),
+            msg='%s: %s' % (ping_cmd, ping_result))
+
+    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None):
+        """Ping an IPv4 destination from a host."""
+        if intf is None:
+            intf = host.defaultIntf()
+        ping_cmd = 'ping -c1 -I%s %s' % (intf, dst)
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned)
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
@@ -694,13 +699,8 @@ dbs:
 
     def one_ipv6_ping(self, host, dst, retries=3):
         """Ping an IPv6 destination from a host."""
-        self.require_host_learned(host)
-        # TODO: retry our one ping. We should not have to retry.
-        for _ in range(retries):
-            ping_result = host.cmd('ping6 -c1 %s' % dst)
-            if re.search(self.ONE_GOOD_PING, ping_result):
-                return
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
+        ping_cmd = 'ping6 -c1 %s' % dst
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned=True)
 
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""

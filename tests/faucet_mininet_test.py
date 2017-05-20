@@ -1996,6 +1996,44 @@ vlans:
             self.swap_host_macs(first_host, second_host)
 
 
+class FaucetTaggedProactiveNeighborIPv4RouteTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        faucet_vips: ["10.0.0.254/24"]
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+            %(port_2)d:
+                tagged_vlans: [100]
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_tagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_alias_ip = ipaddress.ip_interface(u'10.0.0.99/24')
+        first_host_alias_host_ip = ipaddress.ip_interface(
+            ipaddress.ip_network(first_host_alias_ip.ip))
+        self.host_ipv4_alias(first_host, first_host_alias_ip)
+        self.add_host_route(second_host, first_host_alias_host_ip, self.FAUCET_VIPV4.ip)
+        self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
+
+
 class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
