@@ -768,6 +768,10 @@ class ValveIPv6RouteManager(ValveRouteManager):
         if ipv6_pkt is not None:
             icmpv6_pkt = pkt.get_protocol(icmpv6.icmpv6)
             if icmpv6_pkt is not None:
-                return self._control_plane_icmpv6_handler(
+                icmp_replies = self._control_plane_icmpv6_handler(
                     pkt_meta, ipv6_pkt, icmpv6_pkt)
+                if icmp_replies:
+                    return icmp_replies
+            dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
+            return self._proactive_resolve_neighbor([pkt_meta.vlan], dst_ip)
         return []

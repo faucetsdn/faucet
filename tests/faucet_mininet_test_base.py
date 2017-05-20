@@ -668,10 +668,11 @@ dbs:
         """Add an IP route to a Mininet host."""
         host.cmd('ip -%u route del %s' % (
             ip_dst.version, ip_dst.network.with_prefixlen))
+        add_cmd = 'ip -%u route add %s via %s' % (
+            ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)
+        results = host.cmd(add_cmd)
         self.assertEquals(
-            '',
-            host.cmd('ip -%u route add %s via %s' % (
-                ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)))
+            '', results, msg='%s: %s' % (add_cmd, results))
 
     def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned):
         if require_host_learned:
