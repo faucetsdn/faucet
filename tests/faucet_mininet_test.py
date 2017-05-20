@@ -482,16 +482,35 @@ vlans:
         self.prometheus_smoke_test()
 
 
-class FaucetUntaggedTcpIperfTest(FaucetUntaggedTest):
+class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
+        first_host, second_host = self.net.hosts[:2]
+        server_ip = ipaddress.ip_interface(
+            unicode(self.host_ipv4(second_host))).ip
         for _ in range(3):
             self.ping_all_when_learned()
-            first_host, second_host = self.net.hosts[:2]
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                'TCP', 1)
+                1, server_ip)
+            self.flap_all_switch_ports()
+
+
+class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
+
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[:2]
+        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
+        self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
+        server_ip = ipaddress.ip_interface(
+                unicode(self.host_ipv6(second_host))).ip
+        for _ in range(3):
+            self.ping_all_when_learned()
+            self.verify_iperf_min(
+                ((first_host, self.port_map['port_1']),
+                 (second_host, self.port_map['port_2'])),
+                1, server_ip)
             self.flap_all_switch_ports()
 
 

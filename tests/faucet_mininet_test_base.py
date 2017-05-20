@@ -592,14 +592,13 @@ dbs:
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, l4Type, min_mbps):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = list(start_port_stats.keys())
         client_host, server_host = hosts
-        server_ip = ipaddress.ip_interface(unicode(self.host_ipv4(server_host))).ip
         iperf_mbps = self.iperf(
             client_host, server_host, server_ip, 5001, seconds)
         self.assertTrue(iperf_mbps > min_mbps)
@@ -706,10 +705,10 @@ dbs:
         self.verify_ipv6_host_learned_mac(
             host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
-    def wait_for_tcp_listen(self, host, port, timeout=10):
+    def wait_for_tcp_listen(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
         for _ in range(timeout):
-            fuser_out = host.cmd('fuser -n tcp %u' % port)
+            fuser_out = host.cmd('fuser -n tcp -%u %u' % (ipv, port))
             if re.search(r'.*%u/tcp.*' % port, fuser_out):
                 return
             time.sleep(1)
@@ -885,20 +884,25 @@ dbs:
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
     def iperf(self, client_host, server_host, server_ip, port, seconds):
+        iperf_base_cmd = 'iperf -f M -y c -p %u' % port
+        if server_ip.version == 6:
+            iperf_base_cmd += ' -V'
+            iperf_server_cmd = '%s -s' % iperf_base_cmd
+        else:
+            iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
         iperf_server_cmd = self.timeout_cmd(
-            'iperf -s -B %s -p %u > /dev/null 2> /dev/null &' % (
-                server_ip, port),
+            '%s > /dev/null 2> /dev/null &' % iperf_server_cmd,
             seconds + 5)
         server_host.cmd(iperf_server_cmd)
-        self.wait_for_tcp_listen(server_host, port)
+        self.wait_for_tcp_listen(server_host, port, ipv=server_ip.version)
         iperf_client_cmd = self.timeout_cmd(
-            'iperf -t %u -f M -y c -p %u -c %s' % (seconds, port, server_ip),
+            '%s -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
             seconds + 5)
         iperf_results = client_host.cmd(iperf_client_cmd)
         iperf_csv = iperf_results.strip().split(',')
         self.assertEquals(9, len(iperf_csv), msg='%s: %s' % (
             iperf_client_cmd, iperf_results))
-        iperf_mbps = int(iperf_csv[-1]) / self.ONEMBPS;
+        iperf_mbps = int(iperf_csv[-1]) / self.ONEMBPS
         return iperf_mbps
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
@@ -998,9 +1002,18 @@ dbs:
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
+        # verify at least 1M iperf
+        for client_host, server_host, server_ip in (
+            (first_host, second_host, second_host_routed_ip.ip),
+            (second_host, first_host, first_host_routed_ip.ip)):
+           iperf_mbps = self.iperf(
+               client_host, server_host, server_ip, 5001, 5)
+           print('%u mbps to %s' % (iperf_mbps, server_ip))
+           self.assertGreater(iperf_mbps, 1)
+        self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.verify_ipv6_host_learned_mac(
             first_host, second_host_ip.ip, second_host.MAC())
-        self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
+        self.one_ipv6_ping(second_host, first_host_ip.ip)
         self.verify_ipv6_host_learned_mac(
             second_host, first_host_ip.ip, first_host.MAC())
 
