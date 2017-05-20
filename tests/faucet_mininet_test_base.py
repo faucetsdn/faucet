@@ -592,7 +592,7 @@ dbs:
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, l4Type, min_mbps):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1

@@ -491,7 +491,7 @@ class FaucetUntaggedTcpIperfTest(FaucetUntaggedTest):
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                'TCP', 1)
+                1)
             self.flap_all_switch_ports()
 
 
