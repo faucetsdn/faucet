@@ -557,7 +557,6 @@ dbs:
             label_values.append('%s="%s"' % (label, value))
         label_values_re = r'\S+'.join(label_values)
         var_re = r'%s\{%s\}\s+(\d+)' % (var, label_values_re)
-        print var_re
         var_match = re.search(var_re, prom_out)
         if var_match is None:
             return default

@@ -64,8 +64,11 @@ class VLAN(Conf):
         'routes': None,
         'max_hosts': None,
         'vid': None,
+        # Don't proactively ARP for hosts if over this limit (None unlimited)
+        'proactive_arp_limit': None,
+        # Don't proactively ND for hosts if over this limit (None unlimited)
+        'proactive_nd_limit': None,
         }
-
 
     def __init__(self, _id, dp_id, conf=None):
         if conf is None:
