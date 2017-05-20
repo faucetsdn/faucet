@@ -560,12 +560,15 @@ dbs:
         return self.scrape_prometheus_var(
             'faucet_config_reload_requests', default=0)
 
+    def signal_proc_on_port(self, host, port, signal):
+        tcp_pattern = '%s/tcp' % port
+        fuser_out = host.cmd('fuser %s -k -%u' % (tcp_pattern, signal))
+        return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
+
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
         controller = self.get_controller()
-        tcp_pattern = '%s/tcp' % controller.port
-        fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
-        self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
+        self.assertTrue(self.signal_proc_on_port(controller, controller.port, 1))
 
     def verify_hup_faucet(self, timeout=3):
         """HUP and verify the HUP was processed."""
@@ -665,23 +668,29 @@ dbs:
         """Add an IP route to a Mininet host."""
         host.cmd('ip -%u route del %s' % (
             ip_dst.version, ip_dst.network.with_prefixlen))
+        add_cmd = 'ip -%u route add %s via %s' % (
+            ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)
+        results = host.cmd(add_cmd)
         self.assertEquals(
-            '',
-            host.cmd('ip -%u route add %s via %s' % (
-                ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)))
+            '', results, msg='%s: %s' % (add_cmd, results))
 
-    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None):
-        """Ping an IPv4 destination from a host."""
+    def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned):
         if require_host_learned:
             self.require_host_learned(host)
-        if intf is None:
-            intf = host.defaultIntf()
         for _ in range(retries):
-            ping_cmd = 'ping -c1 -I%s %s' % (intf, dst)
             ping_result = host.cmd(ping_cmd)
             if re.search(self.ONE_GOOD_PING, ping_result):
                 return
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
+        self.assertTrue(
+            re.search(self.ONE_GOOD_PING, ping_result),
+            msg='%s: %s' % (ping_cmd, ping_result))
+
+    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None):
+        """Ping an IPv4 destination from a host."""
+        if intf is None:
+            intf = host.defaultIntf()
+        ping_cmd = 'ping -c1 -I%s %s' % (intf, dst)
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned)
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
@@ -691,13 +700,8 @@ dbs:
 
     def one_ipv6_ping(self, host, dst, retries=3):
         """Ping an IPv6 destination from a host."""
-        self.require_host_learned(host)
-        # TODO: retry our one ping. We should not have to retry.
-        for _ in range(retries):
-            ping_result = host.cmd('ping6 -c1 %s' % dst)
-            if re.search(self.ONE_GOOD_PING, ping_result):
-                return
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
+        ping_cmd = 'ping6 -c1 %s' % dst
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned=True)
 
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
@@ -793,7 +797,7 @@ dbs:
     def stop_exabgp(self, port=179):
         """Stop exabgp process on controller host."""
         controller = self.get_controller()
-        controller.cmd('fuser %s/tcp -k -9' % port)
+        self.signal_proc_on_port(controller, port, 15)
 
     def exabgp_updates(self, exabgp_log):
         """Verify that exabgp process has received BGP updates."""
@@ -894,14 +898,18 @@ dbs:
             iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
         iperf_server_cmd = self.timeout_cmd(
             '%s > /dev/null 2> /dev/null &' % iperf_server_cmd,
-            seconds + 5)
+            max(60, seconds + 5))
         server_host.cmd(iperf_server_cmd)
         self.wait_for_tcp_listen(server_host, port, ipv=server_ip.version)
         iperf_client_cmd = self.timeout_cmd(
             '%s -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
             seconds + 5)
-        iperf_results = client_host.cmd(iperf_client_cmd)
-        iperf_csv = iperf_results.strip().split(',')
+        for _ in range(3):
+            iperf_results = client_host.cmd(iperf_client_cmd)
+            iperf_csv = iperf_results.strip().split(',')
+            if len(iperf_csv) == 9:
+                break
+        self.signal_proc_on_port(server_host, port, 15)
         self.assertEquals(9, len(iperf_csv), msg='%s: %s' % (
             iperf_client_cmd, iperf_results))
         iperf_mbps = int(iperf_csv[-1]) / self.ONEMBPS

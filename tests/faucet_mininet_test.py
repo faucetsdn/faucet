@@ -6,24 +6,8 @@
  * you can run a specific test case only, by adding the class name of the test
    case to the command. Eg ./faucet_mininet_test.py FaucetUntaggedIPv4RouteTest
 
- REQUIRES:
-
- * mininet 2.2.2 or later (Ubuntu 14 ships with 2.1.0, which is not supported)
-   use the "install from source" option from
-   https://github.com/mininet/mininet/blob/master/INSTALL.
-   suggest ./util/install.sh -n
- * OVS 2.7 or later (Ubuntu 14 ships with 2.0.2, which is not supported)
- * VLAN utils (vconfig, et al - on Ubuntu, apt-get install vlan)
- * fuser
- * net-tools
- * iputils-ping
- * netcat-openbsd
- * tcpdump
- * exabgp
- * pylint
- * curl
- * ladvd
- * iperf
+It is strong recommended to run these tests via Docker, to ensure you have
+all dependencies correctly installed. See ../docs/.
 """
 
 import collections
@@ -2012,6 +1996,84 @@ vlans:
             self.swap_host_macs(first_host, second_host)
 
 
+class FaucetTaggedProactiveNeighborIPv4RouteTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        faucet_vips: ["10.0.0.254/24"]
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+            %(port_2)d:
+                tagged_vlans: [100]
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_tagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_alias_ip = ipaddress.ip_interface(u'10.0.0.99/24')
+        first_host_alias_host_ip = ipaddress.ip_interface(
+            ipaddress.ip_network(first_host_alias_ip.ip))
+        self.host_ipv4_alias(first_host, first_host_alias_ip)
+        self.add_host_route(second_host, first_host_alias_host_ip, self.FAUCET_VIPV4.ip)
+        self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
+
+
+class FaucetTaggedProactiveNeighborIPv6RouteTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        faucet_vips: ["fc00::1:254/64"]
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+            %(port_2)d:
+                tagged_vlans: [100]
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_tagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_alias_ip = ipaddress.ip_interface(u'fc00::1:99/64')
+        first_host_alias_host_ip = ipaddress.ip_interface(
+            ipaddress.ip_network(first_host_alias_ip.ip))
+        self.add_host_ipv6_address(first_host, ipaddress.ip_interface(u'fc00::1:1/64'))
+        self.add_host_ipv6_address(second_host, ipaddress.ip_interface(u'fc00::1:2/64'))
+        self.add_host_ipv6_address(first_host, first_host_alias_ip)
+        self.add_host_route(second_host, first_host_alias_host_ip, self.FAUCET_VIPV6.ip)
+        self.one_ipv6_ping(second_host, first_host_alias_ip.ip)
+
+
 class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -3130,6 +3192,7 @@ def import_hw_config():
 
 def check_dependencies():
     """Verify dependant libraries/binaries are present with correct versions."""
+    print('Checking library/binary dependencies')
     for (binary, binary_get_version, binary_present_re,
          binary_version_re, binary_minversion) in EXTERNAL_DEPENDENCIES:
         binary_args = [binary] + binary_get_version
@@ -3169,16 +3232,14 @@ def check_dependencies():
                 print('%s version %s is less than required version %s' % (
                     required_binary, binary_version, binary_minversion))
                 return False
-            print('%s version is %s' % (required_binary, binary_version))
-        else:
-            print('%s present (%s)' % (required_binary, binary_present_re))
     return True
 
 
 def lint_check():
     """Run pylint on required source files."""
+    print('Running pylint checks')
     for faucet_src in FAUCET_LINT_SRCS + FAUCET_TEST_LINT_SRCS:
-        ret = subprocess.call(['pylint', '-E', faucet_src])
+        ret = subprocess.call(['pylint', '--rcfile=/dev/null', '-E', faucet_src])
         if ret:
             print(('pylint of %s returns an error' % faucet_src))
             return False

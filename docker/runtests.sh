@@ -10,3 +10,4 @@ time ./faucet_mininet_test.py $FAUCET_TESTS
 
 echo "========== Running faucet config tests =========="
 ./test_config.py
+./test_check_config.py

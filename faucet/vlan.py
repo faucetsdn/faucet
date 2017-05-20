@@ -18,6 +18,7 @@ import ipaddress
 
 from conf import Conf
 from valve_util import btos
+import valve_util
 
 
 class VLAN(Conf):
@@ -62,6 +63,7 @@ class VLAN(Conf):
         'bgp_neighbor_as': None,
         'routes': None,
         'max_hosts': None,
+        'vid': None,
         }
 
 
@@ -70,6 +72,7 @@ class VLAN(Conf):
             conf = {}
         self._id = _id
         self.dp_id = dp_id
+        valve_util.check_unknown_conf(conf, self.defaults)
         self.update(conf)
         self.set_defaults()
         self._id = _id
