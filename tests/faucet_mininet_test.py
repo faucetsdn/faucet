@@ -862,30 +862,28 @@ vlans:
     def mac_as_int(self, mac):
         return long(mac.replace(':', ''), 16)
 
-    def are_hosts_learnt(self, hosts):
+    def macs_learned_on_port(self, port):
+        port_learned_macs_prom = self.scrape_prometheus_var(
+            'learned_macs', {'port': str(port), 'vlan': '100'},
+            default=[], multiple=True)
+        macs_learned = []
+        for _, mac_int in port_learned_macs_prom:
+            if mac_int:
+                macs_learned.append(mac_int)
+        return macs_learned
+
+    def verify_hosts_learned(self, hosts):
         """Check that hosts are learned by FAUCET on the expected ports."""
         mac_ints_on_port_learned = {}
         for mac, port in hosts.items():
             self.mac_learned(mac)
             if port not in mac_ints_on_port_learned:
                 mac_ints_on_port_learned[port] = set()
-            port_learned_macs_prom = self.scrape_prometheus_var(
-                'learned_macs', {'port': str(port), 'vlan': '100'},
-                default=0, multiple=True)
-            for _, learned_mac_int in port_learned_macs_prom:
-                mac_ints_on_port_learned[port].add(learned_mac_int)
+            macs_learned = self.macs_learned_on_port(port)
+            mac_ints_on_port_learned[port].update(macs_learned)
         for mac, port in hosts.items():
             mac_int = self.mac_as_int(mac)
             self.assertTrue(mac_int in mac_ints_on_port_learned[port])
-
-    def check_prometheus_overwrite(self, port, num_empty, num_valid):
-        """Checks that Prometheus has zeroed out expired MAC learning entries."""
-        learned_macs_prom = self.scrape_prometheus_var(
-            'learned_macs', {'port': str(port), 'vlan': '100'}, multiple=True)
-        count_learned = len([mac for _, mac in learned_macs_prom if mac != 0])
-        count_empty = len(learned_macs_prom) - count_learned
-        self.assertEqual(count_empty, num_empty)
-        self.assertEqual(count_learned, num_valid)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -898,7 +896,7 @@ vlans:
             if i == 14:
                 first_host.cmd('fping -c3 %s' % ' '.join(mac_ips))
                 # check first 4 are learnt
-                self.are_hosts_learnt(learned_mac_ports)
+                self.verify_hosts_learned(learned_mac_ports)
                 learned_mac_ports = {}
                 mac_intfs = []
                 mac_ips = []
@@ -920,8 +918,11 @@ vlans:
 
         first_host.cmd('fping -c3 %s' % ' '.join(mac_ips))
         learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
-        self.are_hosts_learnt(learned_mac_ports)
-        self.check_prometheus_overwrite(2, 2, len(learned_mac_ports))
+        self.verify_hosts_learned(learned_mac_ports)
+        # Verify same or less number of hosts on a port reported by Prometheus
+        self.assertTrue((
+            len(self.macs_learned_on_port(self.port_map['port_1'])) <=
+            len(learned_mac_ports)))
 
 
 class FaucetLearn50MACsOnPortTest(FaucetUntaggedTest):
@@ -3476,19 +3477,24 @@ def parse_args():
     """Parse command line arguments."""
     try:
         opts, args = getopt.getopt(
-            sys.argv[1:], "cksx:", ["clean", "keep_logs", "serial"])
+            sys.argv[1:],
+            "cknsx:",
+            ["clean", "nocheck", "keep_logs", "serial"])
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
 
     clean = False
     keep_logs = False
+    nocheck = False
     serial = False
     excluded_test_classes = []
 
     for opt, arg in opts:
         if opt in ('-c', '--clean'):
             clean = True
+        if opt in ('-n', '--nocheck'):
+            nocheck = True
         if opt in ('-k', '--keep_logs'):
             keep_logs = True
         if opt in ('-s', '--serial'):
@@ -3496,26 +3502,29 @@ def parse_args():
         if opt == '-x':
             excluded_test_classes.append(arg)
 
-    return (args, clean, keep_logs, serial, excluded_test_classes)
+    return (args, clean, keep_logs, nocheck, serial, excluded_test_classes)
 
 
 def test_main():
     """Test main."""
     setLogLevel('info')
-    args, clean, keep_logs, serial, excluded_test_classes = parse_args()
+    args, clean, keep_logs, nocheck, serial, excluded_test_classes = parse_args()
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
               'configuration from previous test runs')
         Cleanup.cleanup()
         sys.exit(0)
-    if not check_dependencies():
-        print('dependency check failed. check required library/binary '
-              'list in header of this script')
-        sys.exit(-1)
-    if not lint_check():
-        print('pylint must pass with no errors')
-        sys.exit(-1)
+    if nocheck:
+        print('Skipping dependencies/lint checks')
+    else:
+        if not check_dependencies():
+            print('dependency check failed. check required library/binary '
+                  'list in header of this script')
+            sys.exit(-1)
+        if not lint_check():
+            print('pylint must pass with no errors')
+            sys.exit(-1)
     hw_config = import_hw_config()
     run_tests(args, excluded_test_classes, keep_logs, serial, hw_config)
 
