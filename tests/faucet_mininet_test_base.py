@@ -571,7 +571,6 @@ dbs:
             var, value = prom_line.split(' ')
             var_match = re.search(var_re, var)
             if var_match:
-                print var, value, var_re
                 value_int = long(float(value))
                 results.append((var, value_int))
                 if not multiple:
