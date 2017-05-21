@@ -490,7 +490,7 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         server_ip = ipaddress.ip_interface(
-                unicode(self.host_ipv6(second_host))).ip
+            unicode(self.host_ipv6(second_host))).ip
         for _ in range(3):
             self.ping_all_when_learned()
             self.verify_iperf_min(
@@ -813,7 +813,6 @@ vlans:
                 mac_ipv4, mac_intf))
             second_host.cmd('ip link set dev %s up' % mac_intf)
             second_host.cmd('ping -c1 -I%s %s &' % (mac_intf, first_host.IP()))
-
         flows = self.get_all_flows_from_dpid(self.dpid)
         exp_flow = (
             '"table_id": 3, "match": '
@@ -824,9 +823,12 @@ vlans:
             if re.search(exp_flow, flow):
                 macs_learned += 1
         self.assertEquals(self.MAX_HOSTS, macs_learned)
-        prom_txt = self.scrape_prometheus()
-        self.assertEquals(self.MAX_HOSTS,
-            len(re.findall(r'learned_macs\S+port="2"\Svlan="100"\S+', prom_txt)))
+        self.assertEquals(
+            self.MAX_HOSTS,
+            len(self.scrape_prometheus_var(
+                'learned_macs',
+                {'port': self.port_map['port_2'], 'vlan': '100'},
+                multiple=True)))
 
 
 class FaucetHostsTimeoutPrometheusTest(FaucetUntaggedTest):
@@ -861,7 +863,7 @@ vlans:
 """
 
     def mac_as_int(self, mac):
-        return long(mac.replace(':',''), 16)
+        return long(mac.replace(':', ''), 16)
 
     def are_hosts_learnt(self, hosts):
         """Check that hosts are learned by FAUCET on the expected ports."""
@@ -887,7 +889,7 @@ vlans:
         count_empty = len(learned_macs_prom) - count_learned
         self.assertEqual(count_empty, num_empty)
         self.assertEqual(count_learned, num_valid)
-    
+
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
         learned_mac_ports = {}
@@ -903,7 +905,7 @@ vlans:
                 learned_mac_ports = {}
                 mac_intfs = []
                 mac_ips = []
-                # wait for first lot to time out. 
+                # wait for first lot to time out.
                 # Adding 11 covers the random variation when a rule is added
                 time.sleep(self.TIMEOUT + 11)
             mac_intf = 'mac%u' % i
@@ -918,7 +920,7 @@ vlans:
                 'ip link show %s | grep -o "..:..:..:..:..:.." | head -1 | xargs echo -n' % mac_intf)
             learned_mac_ports[address] = self.port_map['port_2']
             second_host.cmd('ip link set dev %s up' % mac_intf)
-        
+
         first_host.cmd('fping -c3 %s' % ' '.join(mac_ips))
         learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
         self.are_hosts_learnt(learned_mac_ports)
