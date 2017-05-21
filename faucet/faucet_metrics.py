@@ -41,4 +41,8 @@ class FaucetMetrics(object):
         self.bgp_neighbor_routes = Gauge(
             'bgp_neighbor_routes',
             'BGP neighbor route count', ['dpid', 'vlan', 'neighbor', 'ipv'])
+        self.learned_macs = Gauge(
+            'learned_macs',
+            'max address stored as 64bit number to DP ID, port, VLAN, and n (maximum number of hosts on the port)',
+            ['dpid', 'port', 'vlan', 'n'])
         start_http_server(prom_port)
