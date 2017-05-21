@@ -813,16 +813,13 @@ vlans:
                 mac_ipv4, mac_intf))
             second_host.cmd('ip link set dev %s up' % mac_intf)
             second_host.cmd('ping -c1 -I%s %s &' % (mac_intf, first_host.IP()))
-        flows = self.get_all_flows_from_dpid(self.dpid)
         exp_flow = (
             '"table_id": 3, "match": '
             '{"dl_vlan": "100", "dl_src": "..:..:..:..:..:..", '
             '"in_port": %u' % self.port_map['port_2'])
-        macs_learned = 0
-        for flow in flows:
-            if re.search(exp_flow, flow):
-                macs_learned += 1
-        self.assertEquals(self.MAX_HOSTS, macs_learned)
+        flows = self.get_all_flows_from_dpid(self.dpid)
+        macs_learned = [flow for flow in flows if re.search(exp_flow, flow)]
+        self.assertEquals(self.MAX_HOSTS, len(macs_learned))
         self.assertEquals(
             self.MAX_HOSTS,
             len(self.scrape_prometheus_var(
