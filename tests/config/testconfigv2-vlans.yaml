@@ -13,6 +13,7 @@ vlans:
         bgp_routerid: '1.1.1.1'
         bgp_neighbor_addresses: ['127.0.0.1']
         bgp_neighbor_as: 2
+        max_hosts: 255
         routes:
             - route:
                 ip_dst: '10.0.1.0/24'

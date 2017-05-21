@@ -1,9 +1,7 @@
 
-
 class ACL(object):
 
     def __init__(self, id_, rule_conf):
-
         self._id = id_
         self.rules = [x['rule'] for x in rule_conf]
 

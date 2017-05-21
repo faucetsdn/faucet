@@ -73,6 +73,17 @@ Running the tests
       -v /tmp:/tmp \
       -ti reannz/faucet-tests
 
+Running a single test
+---------------------
+
+.. code:: bash
+
+  sudo docker run --privileged --net=host \
+      -e FAUCET_TESTS="FaucetUntaggedTest" \
+      -v /etc/ryu/faucet:/etc/ryu/faucet \
+      -v /tmp:/tmp \
+      -ti reannz/faucet-tests
+
 Checking test results
 ---------------------
 

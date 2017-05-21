@@ -18,6 +18,7 @@ from conf import Conf
 from vlan import VLAN
 from port import Port
 from acl import ACL
+import valve_util
 
 import networkx
 
@@ -57,6 +58,8 @@ class DP(Conf):
     max_host_fib_retry_count = None
     max_resolve_backoff_time = None
     packetin_pps = None
+    learn_jitter = None
+    learn_ban_timeout = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -122,13 +125,15 @@ class DP(Conf):
         # Ask switch to rate limit packet pps.
         # TODO: Not supported by OVS in 2.7.0
         'packetin_pps': 0,
+        # Jitter learn timeouts by up to this many seconds
+        'learn_jitter': 10,
+        # When banning/limiting learning, wait this many seconds before learning can be retried
+        'learn_ban_timeout': 10,
         }
 
     def __init__(self, _id, conf):
         self._id = _id
-        sub_conf_names = set(conf.keys())
-        unknown_conf_names = sub_conf_names - set(self.defaults.keys())
-        assert not unknown_conf_names, 'unknown config items in DP: %s' % unknown_conf_names
+        valve_util.check_unknown_conf(conf, self.defaults)
         self.update(conf)
         self.set_defaults()
         self.acls = {}

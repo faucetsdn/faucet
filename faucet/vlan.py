@@ -18,6 +18,7 @@ import ipaddress
 
 from conf import Conf
 from valve_util import btos
+import valve_util
 
 
 class VLAN(Conf):
@@ -61,15 +62,21 @@ class VLAN(Conf):
         'bgp_neighbour_as': 0,
         'bgp_neighbor_as': None,
         'routes': None,
-        'max_hosts': None,
+        # Limit number of hosts that can be learned on a VLAN.
+        'max_hosts': 255,
+        'vid': None,
+        # Don't proactively ARP for hosts if over this limit (None unlimited)
+        'proactive_arp_limit': None,
+        # Don't proactively ND for hosts if over this limit (None unlimited)
+        'proactive_nd_limit': None,
         }
-
 
     def __init__(self, _id, dp_id, conf=None):
         if conf is None:
             conf = {}
         self._id = _id
         self.dp_id = dp_id
+        valve_util.check_unknown_conf(conf, self.defaults)
         self.update(conf)
         self.set_defaults()
         self._id = _id

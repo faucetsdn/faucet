@@ -95,3 +95,9 @@ def dpid_log(dpid):
 
 def btos(b_str):
     return b_str.encode('utf-8').decode('utf-8', 'strict')
+
+
+def check_unknown_conf(conf, defaults):
+    sub_conf_names = set(conf.keys())
+    unknown_conf_names = sub_conf_names - set(defaults.keys())
+    assert not unknown_conf_names, 'unknown config items: %s' % unknown_conf_names

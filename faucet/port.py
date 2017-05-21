@@ -15,6 +15,8 @@
 # limitations under the License.
 
 from conf import Conf
+import valve_util
+
 
 class Port(Conf):
 
@@ -44,13 +46,14 @@ class Port(Conf):
         'tagged_vlans': None,
         'acl_in': None,
         'stack': None,
-        'max_hosts' : None,
+        'max_hosts' : 255,
         }
 
     def __init__(self, _id, conf=None):
         if conf is None:
             conf = {}
         self._id = _id
+        valve_util.check_unknown_conf(conf, self.defaults)
         self.update(conf)
         self.set_defaults()
         self.dyn_phys_up = False

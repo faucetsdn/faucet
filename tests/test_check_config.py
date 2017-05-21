@@ -18,6 +18,7 @@
 
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -35,16 +36,26 @@ class CheckConfigTestCase(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
-    def run_check_config(self, config):
+    def run_check_config(self, config, expected_ok):
         conf_file = os.path.join(self.tmpdir, 'faucet.yaml')
         open(conf_file, 'w').write(config)
-        return os.system('python %s %s' % (self.CHECK_CONFIG, conf_file))
+        check_cli = ['python', self.CHECK_CONFIG, conf_file]
+        result_ok = False
+        try:
+            subprocess.check_output(
+                check_cli, stderr=subprocess.STDOUT)
+            result_ok = True
+        except subprocess.CalledProcessError, e:
+            if expected_ok:
+                print('%s returned %d (%s)' % (
+                    ' '.join(check_cli), e.returncode, e.output))
+        return expected_ok == result_ok
 
     def check_config_success(self, config):
-        self.assertEquals(0, self.run_check_config(config))
+        self.assertTrue(self.run_check_config(config, True))
 
     def check_config_failure(self, config):
-        self.assertNotEquals(0, self.run_check_config(config))
+        self.assertTrue(self.run_check_config(config, False))
 
     def test_minimal(self):
         minimal_conf = """
