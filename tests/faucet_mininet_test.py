@@ -1211,6 +1211,8 @@ group test {
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
         self.stop_exabgp()
+        for host in first_host, second_host:
+            self.one_ipv4_controller_ping(first_host)
 
 
 class FaucetSingleUntaggedIPv4RouteTest(FaucetUntaggedTest):
@@ -2390,6 +2392,8 @@ group test {
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
         self.stop_exabgp()
+        for host in first_host, second_host:
+            self.one_ipv4_controller_ping(first_host)
 
 
 class FaucetUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):

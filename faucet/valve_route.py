@@ -409,6 +409,8 @@ class ValveRouteManager(object):
             list: OpenFlow messages.
         """
         ofmsgs = []
+        if vlan.is_faucet_vip(ip_dst):
+            return ofmsgs
         routes = self._vlan_routes(vlan)
         routes[ip_dst] = ip_gw
         cached_eth_dst = self._cached_nexthop_eth_dst(vlan, ip_gw)
@@ -507,6 +509,8 @@ class ValveRouteManager(object):
             list: OpenFlow messages.
         """
         ofmsgs = []
+        if vlan.is_faucet_vip(ip_dst):
+            return ofmsgs
         routes = self._vlan_routes(vlan)
         if ip_dst in routes:
             del routes[ip_dst]
