@@ -3526,9 +3526,9 @@ def test_main():
         print('dependency check failed. check required library/binary '
               'list in header of this script')
         sys.exit(-1)
-#    if not lint_check():
-#        print('pylint must pass with no errors')
-#        sys.exit(-1)
+    if not lint_check():
+        print('pylint must pass with no errors')
+        sys.exit(-1)
     hw_config = import_hw_config()
     run_tests(args, excluded_test_classes, keep_logs, serial, hw_config)
 

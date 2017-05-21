@@ -1016,12 +1016,11 @@ class Valve(object):
                                             n=label_dict['n']).set(0)
 
         dpid = hex(self.dp.dp_id)
-
         for vlan in list(self.dp.vlans.values()):
             hosts_count = self.host_manager.hosts_learned_on_vlan_count(
                 vlan)
             metrics.vlan_hosts_learned.labels(
-                dpid=hex(self.dp.dp_id), vlan=vlan.vid).set(hosts_count)
+                dpid=dpid, vlan=vlan.vid).set(hosts_count)
             metrics.vlan_neighbors.labels(
                 dpid=dpid, vlan=vlan.vid, ipv='4').set(len(vlan.arp_cache))
             metrics.vlan_neighbors.labels(
@@ -1033,7 +1032,7 @@ class Valve(object):
                 if port_num not in port_n_counts:
                     port_n_counts[port_num] = 0
 
-                metrics.learned_macs.labels(dpid=hex(self.dp.dp_id),
+                metrics.learned_macs.labels(dpid=dpid,
                                              vlan=vlan.vid,
                                              port=port_num,
                                              n=port_n_counts[port_num]) \
