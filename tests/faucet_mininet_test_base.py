@@ -476,10 +476,14 @@ dbs:
         self.assertTrue(self.matching_flow_present(exp_flow, timeout),
                         msg=exp_flow)
 
+    def mac_learned(self, mac, timeout=10):
+        """Return True if a MAC has been learned on default DPID."""
+        return self.matching_flow_present(
+            '"table_id": 3,.+"dl_src": "%s"' % mac, timeout)
+
     def host_learned(self, host, timeout=10):
         """Return True if a host has been learned on default DPID."""
-        return self.matching_flow_present(
-            '"table_id": 3,.+"dl_src": "%s"' % host.MAC(), timeout)
+        return self.mac_learned(host.MAC())
 
     def host_ip(self, host, family, family_re):
         host_ip_cmd = (
@@ -549,7 +553,7 @@ dbs:
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
 
-    def scrape_prometheus_var(self, var, labels=None, default=None, dpid=True):
+    def scrape_prometheus_var(self, var, labels=None, default=None, dpid=True, multiple=False):
         prom_out = self.scrape_prometheus()
         label_values_re = ''
         if labels is None:
@@ -561,12 +565,22 @@ dbs:
             for label, value in sorted(list(labels.items())):
                 label_values.append('%s="%s"' % (label, value))
             label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
+        results = []
         var_re = r'^%s%s$' % (var, label_values_re)
         for prom_line in self.scrape_prometheus().splitlines():
             var, value = prom_line.split(' ')
             var_match = re.search(var_re, var)
             if var_match:
-                return int(float(value))
+                print var, value, var_re
+                value_int = long(float(value))
+                results.append((var, value_int))
+                if not multiple:
+                    break
+        if results:
+            if multiple:
+                return results
+            else:
+                return results[0][1]
         return default
 
     def get_configure_count(self):
