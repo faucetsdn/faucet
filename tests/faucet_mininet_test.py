@@ -3619,6 +3619,8 @@ def run_tests(requested_test_classes,
     os.remove(ports_sock)
     if not keep_logs and all_successful:
         shutil.rmtree(root_tmpdir)
+    if not all_successful:
+        sys.exit(-1)
 
 
 def parse_args():
