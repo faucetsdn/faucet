@@ -139,15 +139,11 @@ class ValveRouteManager(object):
             in_match = self._route_match(AnyVlan(), ip_dst)
         else:
             in_match = self._route_match(vlan, ip_dst)
-        priority = self._route_priority(ip_dst)
         if is_updated:
             self.logger.info(
                 'Updating next hop for route %s via %s (%s)',
                 ip_dst, ip_gw, eth_dst)
-            ofmsgs.extend(self.valve_flowdel(
-                self.fib_table,
-                in_match,
-                priority=priority))
+            ofmsgs.extend(self._del_route_flows(vlan, ip_dst))
         else:
             self.logger.info(
                 'Adding new route %s via %s (%s)',
@@ -161,7 +157,7 @@ class ValveRouteManager(object):
         ofmsgs.append(self.valve_flowmod(
             self.fib_table,
             in_match,
-            priority=priority,
+            priority=self._route_priority(ip_dst),
             inst=inst))
         return ofmsgs
 
@@ -497,6 +493,22 @@ class ValveRouteManager(object):
                         self._add_host_fib_route(pkt_meta.vlan, src_ip))
         return ofmsgs
 
+    def _del_route_flows(self, vlan, ip_dst):
+        ofmsgs = []
+        if ip_dst.prefixlen == 0:
+            route_match = self.valve_in_match(
+                self.fib_table, vlan=vlan,
+                eth_type=self._eth_type())
+        else:
+            route_match = self.valve_in_match(
+                self.fib_table, vlan=vlan,
+                eth_type=self._eth_type(), nw_dst=ip_dst)
+        ofmsgs.extend(self.valve_flowdel(
+            self.fib_table, route_match,
+            priority=self._route_priority(ip_dst),
+            strict=True))
+        return ofmsgs
+
     def del_route(self, vlan, ip_dst):
         """Delete a route from the RIB.
 
@@ -514,12 +526,7 @@ class ValveRouteManager(object):
         routes = self._vlan_routes(vlan)
         if ip_dst in routes:
             del routes[ip_dst]
-            route_match = self.valve_in_match(
-                self.fib_table, vlan=vlan,
-                eth_type=self._eth_type(), nw_dst=ip_dst)
-            ofmsgs.extend(self.valve_flowdel(
-                self.fib_table, route_match,
-                priority=self._route_priority(ip_dst)))
+            ofmsgs.extend(self._del_route_flows(vlan, ip_dst))
             # TODO: need to delete nexthop group if groups are in use.
         return ofmsgs
 
