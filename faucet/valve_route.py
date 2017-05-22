@@ -503,7 +503,7 @@ class ValveRouteManager(object):
             route_match = self.valve_in_match(
                 self.fib_table, vlan=vlan,
                 eth_type=self._eth_type(), nw_dst=ip_dst)
-        ofmsgs.append(self.valve_flowdel(
+        ofmsgs.extend(self.valve_flowdel(
             self.fib_table, route_match,
             priority=self._route_priority(ip_dst),
             strict=True))
