@@ -487,16 +487,17 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
-        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
-        self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
-        server_ip = ipaddress.ip_interface(
-            unicode(self.host_ipv6(second_host))).ip
+        client_ip = ipaddress.ip_interface(u'fc00::1:1/112')
+        server_ip = ipaddress.ip_interface(u'fc00::1:2/112')
+        self.add_host_ipv6_address(first_host, client_ip)
+        self.add_host_ipv6_address(second_host, server_ip)
         for _ in range(3):
             self.ping_all_when_learned()
+            self.one_ipv6_ping(first_host, server_ip.ip)
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                1, server_ip)
+                1, server_ip.ip)
             self.flap_all_switch_ports()
 
 
