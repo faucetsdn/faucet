@@ -560,15 +560,26 @@ vlans:
 acls:
     1:
         - rule:
-            dl_dst: "0e:00:00:00:01:01"
-            actions:
-                output:
-                    port: b1
-        - rule:
             dl_dst: "0e:00:00:00:02:02"
             actions:
                 output:
                     port: b2
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.2"
+            actions:
+                output:
+                    port: b2
+        - rule:
+            actions:
+                allow: 0
+    2:
+        - rule:
+            dl_dst: "0e:00:00:00:01:01"
+            actions:
+                output:
+                    port: b1
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
@@ -577,12 +588,13 @@ acls:
                 output:
                     port: b1
         - rule:
-            dl_type: 0x806
-            dl_dst: "ff:ff:ff:ff:ff:ff"
-            arp_tpa: "10.0.0.2"
             actions:
-                output:
-                    port: b2
+                allow: 0
+    3:
+        - rule:
+            actions:
+                allow: 0
+    4:
         - rule:
             actions:
                 allow: 0
@@ -597,15 +609,15 @@ acls:
             b2:
                 number: %(port_2)d
                 native_vlan: 100
-                acl_in: 1
+                acl_in: 2
             b3:
                 number: %(port_3)d
                 native_vlan: 100
-                acl_in: 1
+                acl_in: 3
             b4:
                 number: %(port_4)d
                 native_vlan: 100
-                acl_in: 1
+                acl_in: 4
 """
 
     def test_untagged(self):
