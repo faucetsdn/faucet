@@ -476,6 +476,7 @@ class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
             unicode(self.host_ipv4(second_host))).ip
         for _ in range(3):
             self.ping_all_when_learned()
+            self.one_ipv4_ping(first_host, server_ip)
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
