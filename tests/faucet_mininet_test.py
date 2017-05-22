@@ -1131,6 +1131,78 @@ acls:
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
+class FaucetSingleUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
+    """Test IPv4 routing and import default route from BGP."""
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        faucet_vips: ["10.0.0.254/24"]
+        bgp_port: 9179
+        bgp_as: 1
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_addresses: ["127.0.0.1"]
+        bgp_neighbor_as: 2
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    exabgp_conf = """
+group test {
+  router-id 2.2.2.2;
+  neighbor 127.0.0.1 {
+    passive;
+    local-address 127.0.0.1;
+    peer-as 1;
+    local-as 2;
+    static {
+      route 0.0.0.0/24 next-hop 10.0.0.1 local-preference 100;
+   }
+ }
+}
+"""
+    exabgp_log = None
+
+    def pre_start_net(self):
+        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+
+    def test_untagged(self):
+        """Test IPv4 routing, and BGP routes received."""
+        first_host, second_host = self.net.hosts[:2]
+        first_host_alias_ip = ipaddress.ip_interface(u'10.99.99.99/24')
+        first_host_alias_host_ip = ipaddress.ip_interface(
+            ipaddress.ip_network(first_host_alias_ip.ip))
+        self.host_ipv4_alias(first_host, first_host_alias_ip)
+        self.wait_bgp_up('127.0.0.1', 100)
+        self.assertGreater(
+            self.scrape_prometheus_var(
+                'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
+            0)
+        self.wait_exabgp_sent_updates(self.exabgp_log)
+        self.wait_for_route_as_flow(
+            first_host.MAC(), ipaddress.IPv4Network(u'0.0.0.0/24'))
+        self.one_ipv4_ping(first_host, first_host_alias_ip.ip)
+        self.stop_exabgp()
+        self.one_ipv4_controller_ping(first_host)
+
+
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
     """Test IPv4 routing and import from BGP."""
 
@@ -1211,6 +1283,8 @@ group test {
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
         self.stop_exabgp()
+        for host in first_host, second_host:
+            self.one_ipv4_controller_ping(first_host)
 
 
 class FaucetSingleUntaggedIPv4RouteTest(FaucetUntaggedTest):
@@ -2390,6 +2464,9 @@ group test {
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
         self.stop_exabgp()
+        first_host, second_host = self.net.hosts[:2]
+        for host in first_host, second_host:
+            self.one_ipv6_controller_ping(host)
 
 
 class FaucetUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
