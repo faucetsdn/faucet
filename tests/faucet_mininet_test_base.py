@@ -292,8 +292,6 @@ class FaucetTestBase(unittest.TestCase):
             controller_names.append(controller.name)
         open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
             self.scrape_prometheus())
-        open(os.path.join(self.tmpdir, 'flows.txt'), 'w').write(
-            '\n'.join(self.get_all_flows_from_dpid(self.dpid)))
         if self.net is not None:
             self.net.stop()
         # Associate controller log with test results, if we are keeping
@@ -834,7 +832,7 @@ dbs:
     def stop_exabgp(self, port=179):
         """Stop exabgp process on controller host."""
         controller = self.get_controller()
-        self.signal_proc_on_port(controller, port, 15)
+        self.signal_proc_on_port(controller, port, 9)
 
     def exabgp_updates(self, exabgp_log):
         """Verify that exabgp process has received BGP updates."""

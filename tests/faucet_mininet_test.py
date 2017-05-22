@@ -2396,6 +2396,77 @@ vlans:
         self.one_ipv6_ping(second_host, first_host_net.ip)
 
 
+class FaucetSingleUntaggedBGPIPv6DefaultRouteTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        faucet_vips: ["fc00::1:254/112"]
+        bgp_port: 9179
+        bgp_as: 1
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_addresses: ["::1"]
+        bgp_neighbor_as: 2
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    exabgp_conf = """
+group test {
+  router-id 2.2.2.2;
+  neighbor ::1 {
+    passive;
+    local-address ::1;
+    peer-as 1;
+    local-as 2;
+    static {
+      route ::/0 next-hop fc00::1:1 local-preference 100;
+    }
+  }
+}
+"""
+
+    def pre_start_net(self):
+        self.exabgp_log = self.start_exabgp(self.exabgp_conf, '::1')
+
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[:2]
+        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
+        self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
+        first_host_alias_ip = ipaddress.ip_interface(u'fc00::50:1/112')
+        first_host_alias_host_ip = ipaddress.ip_interface(
+            ipaddress.ip_network(first_host_alias_ip.ip))
+        self.add_host_ipv6_address(first_host, first_host_alias_ip)
+        self.wait_bgp_up('::1', 100)
+        self.assertGreater(
+            self.scrape_prometheus_var(
+                'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
+            0)
+        self.wait_exabgp_sent_updates(self.exabgp_log)
+        self.add_host_route(
+            second_host, first_host_alias_host_ip, self.FAUCET_VIPV6.ip)
+        self.one_ipv6_ping(second_host, first_host_alias_ip.ip)
+        self.stop_exabgp()
+        self.one_ipv6_controller_ping(first_host)
+
+
 class FaucetSingleUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
