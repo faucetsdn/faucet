@@ -749,13 +749,15 @@ dbs:
 
     def wait_for_tcp_listen(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
+        fuser_cmd = 'fuser -%u -n tcp %u' % (ipv, port)
         for _ in range(timeout):
-            fuser_out = host.cmd('fuser -%u -n tcp %u' % (ipv, port))
+            fuser_out = host.cmd(fuser_cmd)
             for fuser_line in fuser_out.splitlines(): 
                 if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
                     return
             time.sleep(1)
-        self.fail('%s never listened on port %u (%s)' % (host, port, fuser_out))
+        self.fail('%s never listened on port %u (%s: %s)' % (
+            host, port, fuser_cmd, fuser_out))
 
     def serve_hello_on_tcp_port(self, host, port):
         """Serve 'hello' on a TCP port on a host."""
@@ -944,14 +946,13 @@ dbs:
         iperf_base_cmd = 'iperf -f M -p %u' % port
         if server_ip.version == 6:
             iperf_base_cmd += ' -V'
-        iperf_server_cmd = 'strace %s -s' % iperf_base_cmd
+        iperf_server_cmd = '%s -s' % iperf_base_cmd
         iperf_server_cmd = self.timeout_cmd(
             iperf_server_cmd, (seconds * 3) + 5)
         iperf_client_cmd = self.timeout_cmd(
             '%s -y c -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
             seconds + 5)
         server_start_exp = r'Server listening on TCP port %u' % port
-        print client_host.IP(), server_host.IP()
         for _ in range(3):
             server_out = server_host.popen(
                 iperf_server_cmd, stderr=subprocess.STDOUT)
@@ -962,7 +963,7 @@ dbs:
                     lines.append(line)
                     if re.search(server_start_exp, line):
                         self.wait_for_tcp_listen(
-                            server_host, port, server_ip.version)
+                            server_host, port, ipv=server_ip.version)
                         iperf_mbps = self.iperf_client(
                             client_host, iperf_client_cmd)
                         self.signal_proc_on_port(server_host, port, 9)
