@@ -8,6 +8,7 @@ import re
 import shutil
 import socket
 import string
+import subprocess
 import tempfile
 import time
 import unittest
@@ -21,6 +22,7 @@ from mininet.node import Controller
 from mininet.node import Host
 from mininet.node import OVSSwitch
 from mininet.topo import Topo
+from mininet.util import pmonitor
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 import faucet_mininet_test_util
@@ -634,7 +636,9 @@ dbs:
         iperf_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
-        hosts = list(start_port_stats.keys())
+        hosts = []
+        for host, _ in hosts_switch_ports:
+           hosts.append(host)
         client_host, server_host = hosts
         iperf_mbps = self.iperf(
             client_host, server_host, server_ip, iperf_port, seconds)
@@ -746,9 +750,10 @@ dbs:
     def wait_for_tcp_listen(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
         for _ in range(timeout):
-            fuser_out = host.cmd('fuser -n tcp -%u %u' % (ipv, port))
-            if re.search(r'.*%u/tcp.*' % port, fuser_out):
-                return
+            fuser_out = host.cmd('fuser -%u -n tcp %u' % (ipv, port))
+            for fuser_line in fuser_out.splitlines(): 
+                if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
+                    return
             time.sleep(1)
         self.fail('%s never listened on port %u (%s)' % (host, port, fuser_out))
 
@@ -926,32 +931,45 @@ dbs:
         learned_ip6 = ipaddress.ip_interface(unicode(self.host_ipv6(learned_host)))
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
-    def iperf(self, client_host, server_host, server_ip, port, seconds):
-        iperf_base_cmd = 'iperf -f M -y c -p %u' % port
-        if server_ip.version == 6:
-            iperf_base_cmd += ' -V'
-            iperf_server_cmd = '%s -s' % iperf_base_cmd
-        else:
-            iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
-        iperf_server_cmd = self.timeout_cmd(
-            '%s > /dev/null 2> /dev/null &' % iperf_server_cmd,
-            (seconds * 3) + 5)
-        server_host.cmd(iperf_server_cmd)
-        self.wait_for_tcp_listen(server_host, port, ipv=server_ip.version)
-        iperf_client_cmd = self.timeout_cmd(
-            '%s -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
-            seconds + 5)
+    def iperf_client(self, client_host, iperf_client_cmd):
         for _ in range(3):
             iperf_results = client_host.cmd(iperf_client_cmd)
             iperf_csv = iperf_results.strip().split(',')
             if len(iperf_csv) == 9:
-                break
+                return int(iperf_csv[-1]) / self.ONEMBPS
             time.sleep(1)
-        self.signal_proc_on_port(server_host, port, 15)
-        self.assertEquals(9, len(iperf_csv), msg='%s: %s' % (
-            iperf_client_cmd, iperf_results))
-        iperf_mbps = int(iperf_csv[-1]) / self.ONEMBPS
-        return iperf_mbps
+        self.fail('%s: %s' % (iperf_client_cmd, iperf_results))
+
+    def iperf(self, client_host, server_host, server_ip, port, seconds):
+        iperf_base_cmd = 'iperf -f M -p %u' % port
+        if server_ip.version == 6:
+            iperf_base_cmd += ' -V'
+        iperf_server_cmd = 'strace %s -s' % iperf_base_cmd
+        iperf_server_cmd = self.timeout_cmd(
+            iperf_server_cmd, (seconds * 3) + 5)
+        iperf_client_cmd = self.timeout_cmd(
+            '%s -y c -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
+            seconds + 5)
+        server_start_exp = r'Server listening on TCP port %u' % port
+        print client_host.IP(), server_host.IP()
+        for _ in range(3):
+            server_out = server_host.popen(
+                iperf_server_cmd, stderr=subprocess.STDOUT)
+            popens = {server_host: server_out}
+            lines = []
+            for host, line in pmonitor(popens):
+                if host == server_host:
+                    lines.append(line)
+                    if re.search(server_start_exp, line):
+                        self.wait_for_tcp_listen(
+                            server_host, port, server_ip.version)
+                        iperf_mbps = self.iperf_client(
+                            client_host, iperf_client_cmd)
+                        self.signal_proc_on_port(server_host, port, 9)
+                        return iperf_mbps
+            time.sleep(1)
+        self.fail('%s never started (%s, %s)' % (
+            iperf_server_cmd, server_start_exp, ' '.join(lines)))
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip,
