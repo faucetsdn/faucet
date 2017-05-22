@@ -631,11 +631,13 @@ dbs:
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock)
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = list(start_port_stats.keys())
         client_host, server_host = hosts
         iperf_mbps = self.iperf(
-            client_host, server_host, server_ip, 5001, seconds)
+            client_host, server_host, server_ip, iperf_port, seconds)
         self.assertTrue(iperf_mbps > min_mbps)
         # TODO: account for drops.
         for _ in range(3):
@@ -975,8 +977,10 @@ dbs:
         for client_host, server_host, server_ip in (
             (first_host, second_host, second_host_routed_ip.ip),
             (second_host, first_host, first_host_routed_ip.ip)):
+           iperf_port, _ = faucet_mininet_test_util.find_free_port(
+               self.ports_sock)
            iperf_mbps = self.iperf(
-               client_host, server_host, server_ip, 5001, 5)
+               client_host, server_host, server_ip, iperf_port, 5)
            print('%u mbps to %s' % (iperf_mbps, server_ip))
            self.assertGreater(iperf_mbps, 1)
         # verify packets matched routing flows
@@ -1051,8 +1055,10 @@ dbs:
         for client_host, server_host, server_ip in (
             (first_host, second_host, second_host_routed_ip.ip),
             (second_host, first_host, first_host_routed_ip.ip)):
+           iperf_port, _ = faucet_mininet_test_util.find_free_port(
+               self.ports_sock)
            iperf_mbps = self.iperf(
-               client_host, server_host, server_ip, 5001, 5)
+               client_host, server_host, server_ip, iperf_port, 5)
            print('%u mbps to %s' % (iperf_mbps, server_ip))
            self.assertGreater(iperf_mbps, 1)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
