@@ -1173,7 +1173,7 @@ group test {
     peer-as 1;
     local-as 2;
     static {
-      route 0.0.0.0/24 next-hop 10.0.0.1 local-preference 100;
+      route 0.0.0.0/0 next-hop 10.0.0.1 local-preference 100;
    }
  }
 }
@@ -1196,9 +1196,9 @@ group test {
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
-        self.wait_for_route_as_flow(
-            first_host.MAC(), ipaddress.IPv4Network(u'0.0.0.0/24'))
-        self.one_ipv4_ping(first_host, first_host_alias_ip.ip)
+        self.add_host_route(
+            second_host, first_host_alias_host_ip, self.FAUCET_VIPV4.ip)
+        self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
         self.stop_exabgp()
         self.one_ipv4_controller_ping(first_host)
 
