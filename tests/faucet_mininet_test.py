@@ -1200,6 +1200,7 @@ group test {
             first_host.MAC(), ipaddress.IPv4Network(u'0.0.0.0/24'))
         self.one_ipv4_ping(first_host, first_host_alias_ip.ip)
         self.stop_exabgp()
+        self.one_ipv4_controller_ping(first_host)
 
 
 class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
@@ -2465,7 +2466,7 @@ group test {
         self.stop_exabgp()
         first_host, second_host = self.net.hosts[:2]
         for host in first_host, second_host:
-            self.one_ipv4_controller_ping(first_host)
+            self.one_ipv6_controller_ping(host)
 
 
 class FaucetUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
