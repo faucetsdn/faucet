@@ -518,7 +518,8 @@ class ValveRouteManager(object):
                 self.fib_table, vlan=vlan,
                 eth_type=self._eth_type(), nw_dst=ip_dst)
             ofmsgs.extend(self.valve_flowdel(
-                self.fib_table, route_match))
+                self.fib_table, route_match,
+                priority=self._route_priority(ip_dst)))
             # TODO: need to delete nexthop group if groups are in use.
         return ofmsgs
 

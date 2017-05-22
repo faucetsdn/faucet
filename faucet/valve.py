@@ -98,7 +98,7 @@ class Valve(object):
             self.dp.max_resolve_backoff_time,
             self.dp.ipv4_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table, self.dp.flood_table,
             self.dp.highest_priority,
-            self.valve_in_match, self.valve_flowdel_strict, self.valve_flowmod,
+            self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller,
             self.dp.group_table, self.dp.routers)
         self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
@@ -107,7 +107,7 @@ class Valve(object):
             self.dp.max_resolve_backoff_time,
             self.dp.ipv6_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table, self.dp.flood_table,
             self.dp.highest_priority,
-            self.valve_in_match, self.valve_flowdel_strict, self.valve_flowmod,
+            self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller,
             self.dp.group_table, self.dp.routers)
         self.flood_manager = valve_flood.ValveFloodManager(
@@ -313,7 +313,7 @@ class Valve(object):
             idle_timeout)
 
     def valve_flowdel(self, table_id, match=None, priority=None,
-                      command=ofp.OFPFC_DELETE, out_port=ofp.OFPP_ANY):
+                      out_port=ofp.OFPP_ANY):
         """Delete matching flows from a table."""
         return [
             self.valve_flowmod(
@@ -323,12 +323,6 @@ class Valve(object):
                 command=ofp.OFPFC_DELETE,
                 out_port=out_port,
                 out_group=ofp.OFPG_ANY)]
-
-    def valve_flowdel_strict(self, table_id, match=None, priority=None,
-                             out_port=ofp.OFPP_ANY):
-        return self.valve_flowdel(
-            table_id, match, priority,
-            command=ofp.OFPFC_DELETE_STRICT, out_port)
 
     def valve_flowdrop(self, table_id, match=None, priority=None,
                        hard_timeout=0):
