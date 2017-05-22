@@ -935,7 +935,7 @@ dbs:
             iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
         iperf_server_cmd = self.timeout_cmd(
             '%s > /dev/null 2> /dev/null &' % iperf_server_cmd,
-            max(60, seconds + 5))
+            (seconds * 3) + 5)
         server_host.cmd(iperf_server_cmd)
         self.wait_for_tcp_listen(server_host, port, ipv=server_ip.version)
         iperf_client_cmd = self.timeout_cmd(
@@ -946,6 +946,7 @@ dbs:
             iperf_csv = iperf_results.strip().split(',')
             if len(iperf_csv) == 9:
                 break
+            time.sleep(1)
         self.signal_proc_on_port(server_host, port, 15)
         self.assertEquals(9, len(iperf_csv), msg='%s: %s' % (
             iperf_client_cmd, iperf_results))
