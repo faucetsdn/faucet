@@ -313,14 +313,17 @@ class Valve(object):
             idle_timeout)
 
     def valve_flowdel(self, table_id, match=None, priority=None,
-                      out_port=ofp.OFPP_ANY):
+                      out_port=ofp.OFPP_ANY, strict=False):
         """Delete matching flows from a table."""
+        command = ofp.OFPFC_DELETE
+        if strict:
+            command = ofp.OFPFC_DELETE_STRICT
         return [
             self.valve_flowmod(
                 table_id,
                 match=match,
                 priority=priority,
-                command=ofp.OFPFC_DELETE,
+                command=command,
                 out_port=out_port,
                 out_group=ofp.OFPG_ANY)]
 
