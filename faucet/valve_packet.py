@@ -260,3 +260,36 @@ def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
     pkt.add_protocol(icmpv6_reply)
     pkt.serialize()
     return pkt
+
+
+def icmpv6_ra(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit, prefix):
+    """Return IPv6 ICMP echo reply packet.
+
+    Args:
+        eth_src (str): source Ethernet MAC address.
+        eth_dst (str): destination Ethernet MAC address.
+        vid (int or None): VLAN VID to use (or None).
+        src_ip (ipaddress.IPv6Address): source IPv6 address.
+        dst_ip (ipaddress.IPv6Address): destination IPv6 address.
+        hop_limit (int): IPv6 hop limit.
+        prefix (ipaddress.IPv6Address): prefix to advertise.
+    Returns:
+        ryu.lib.packet.ethernet: Serialized IPv6 ICMP RA packet.
+    """
+    pkt = build_pkt_header(
+        eth_src, eth_dst, vid, ether.ETH_TYPE_IPV6)
+    ipv6_reply = ipv6.ipv6(
+        src=src_ip,
+        dst=dst_ip,
+        nxt=inet.IPPROTO_ICMPV6,
+        hop_limit=hop_limit)
+    pkt.add_protocol(ipv6_reply)
+    icmpv6_ra_pkt = icmpv6.icmpv6(
+        type_=icmpv6.ND_ROUTER_ADVERT,
+        data=icmpv6.nd_router_advert(
+            options=[
+                icmpv6.nd_option_sla(hw_src=eth_src),
+                icmpv6.nd_option_pi(prefix=prefix)]))
+    pkt.add_protocol(icmpv6_ra_pkt)
+    pkt.serialize()
+    return pkt
