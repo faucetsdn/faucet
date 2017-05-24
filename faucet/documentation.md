@@ -47,49 +47,6 @@
 | Attribute | Default | Description |
 | --------- | ------- | ----------- |
 | acl_in | None|   | 
-| description | None|    description, strictly informational | 
-| enabled | True|   | 
-| max_hosts | 255|   | 
-| mirror | None|   | 
-| mirror_destination | False|   | 
-| name | None|   | 
-| native_vlan | None|   | 
-| number | None|   | 
-| permanent_learn | False|   | 
-| stack | None|    stacking config, when cross connecting multiple DPs | 
-| tagged_vlans | None|   | 
-| unicast_flood | True|   | 
-
-
-# **VLAN**
-
-| Attribute | Default | Description |
-| --------- | ------- | ----------- |
-| acl_in | None|   | 
-| bgp_as | 0|   | 
-| bgp_local_address | None|   | 
-| bgp_neighbor_addresses | []|   | 
-| bgp_neighbor_as | None|   | 
-| bgp_neighbour_addresses | []|   | 
-| bgp_neighbour_as | 0|   | 
-| bgp_port | 9179|   | 
-| bgp_routerid | |   | 
-| description | None|    description, strictly informational | 
-| faucet_vips | None|   | 
-| max_hosts | 255|   | 
-| name | None|   | 
-| proactive_arp_limit | None|   | 
-| proactive_nd_limit | None|   | 
-| routes | None|   | 
-| unicast_flood | True|   | 
-| vid | None|   | 
-
-
-# **Port**
-
-| Attribute | Default | Description |
-| --------- | ------- | ----------- |
-| acl_in | None|   | 
 | description | None|   | 
 | enabled | True|   | 
 | max_hosts | 255|   maximum number of hosts | 
@@ -133,22 +90,3 @@
 | routes | None|   | 
 | unicast_flood | True|   | 
 | vid | None|   | 
-
-
-# **WatcherConf**
-
-| Attribute | Default | Description |
-| --------- | ------- | ----------- |
-| db | None|   | 
-| db_type | text|   | 
-| dp | None|   | 
-| file | None|   | 
-| influx_db | faucet|   | 
-| influx_host | localhost|   | 
-| influx_port | 8086|   | 
-| influx_pwd | |   influx password | 
-| influx_timeout | 10|   timeout on influx requests | 
-| influx_user | |   influx username | 
-| interval | 30|   | 
-| name | None|   | 
-| type | None|   | 
