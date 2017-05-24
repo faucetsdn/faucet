@@ -27,6 +27,9 @@ from ryu.ofproto import inet
 from valve_util import btos
 
 
+IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
+
+
 def mac_addr_is_unicast(mac_addr):
     """Returns True if mac_addr is a unicast Ethernet address.
 
@@ -262,34 +265,37 @@ def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
     return pkt
 
 
-def icmpv6_ra(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit, prefix):
+def router_advert(eth_src, vid, src_ip, hop_limit, prefix):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
         eth_src (str): source Ethernet MAC address.
-        eth_dst (str): destination Ethernet MAC address.
         vid (int or None): VLAN VID to use (or None).
         src_ip (ipaddress.IPv6Address): source IPv6 address.
-        dst_ip (ipaddress.IPv6Address): destination IPv6 address.
         hop_limit (int): IPv6 hop limit.
-        prefix (ipaddress.IPv6Address): prefix to advertise.
+        prefix (ipaddress.IPv6Network): prefix to advertise.
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 ICMP RA packet.
     """
     pkt = build_pkt_header(
-        eth_src, eth_dst, vid, ether.ETH_TYPE_IPV6)
-    ipv6_reply = ipv6.ipv6(
+        eth_src, IPV6_ALL_NODES_MCAST, vid, ether.ETH_TYPE_IPV6)
+    ipv6_ra = ipv6.ipv6(
         src=src_ip,
-        dst=dst_ip,
+        dst=ipaddress.IPv6Address(btos('ff02::1')),
         nxt=inet.IPPROTO_ICMPV6,
         hop_limit=hop_limit)
-    pkt.add_protocol(ipv6_reply)
+    pkt.add_protocol(ipv6_ra)
     icmpv6_ra_pkt = icmpv6.icmpv6(
         type_=icmpv6.ND_ROUTER_ADVERT,
         data=icmpv6.nd_router_advert(
+            rou_l=1800,
             options=[
-                icmpv6.nd_option_sla(hw_src=eth_src),
-                icmpv6.nd_option_pi(prefix=prefix)]))
+                icmpv6.nd_option_pi(
+                    prefix=prefix,
+                    val_l=86400,
+                    pre_l=14400,
+                ),
+                icmpv6.nd_option_sla(hw_src=eth_src)]))
     pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()
     return pkt

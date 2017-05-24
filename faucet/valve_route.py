@@ -301,7 +301,26 @@ class ValveRouteManager(object):
             vlan.untagged_flood_ports(False), vlan.tagged_flood_ports(False))
 
     def advertise(self, vlan, faucet_vip):
+        """Send RAs for all IPv6 VIP.
+
+        Args:
+            vlan (vlan): VLAN containing this RIB/FIB.
+            ip_gw (ipaddress.ip_interface): FAUCET VIP.
+
+        Returns:
+            list: OpenFlow messages.
+        """
         ofmsgs = []
+        for ports in self._flood_ports(vlan):
+            if ports:
+                port_num = ports[0].number
+                vid = self._vlan_vid(vlan, port_num)
+                self.logger.info(faucet_vip.network)
+                ra_advert = valve_packet.ra_advert(
+                    self.faucet_mac, vid, faucet_vip.ip, 64, faucet_vip)
+                for port in ports:
+                    ofmsgs.append(
+                        valve_of.packetout(port.number, ra_advert.data))
         return ofmsgs
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
@@ -377,7 +396,7 @@ class ValveRouteManager(object):
             limit = self._vlan_nexthop_cache_limit(vlan)
             if vlan.ip_in_vip_subnet(dst_ip) and not vlan.is_faucet_vip(dst_ip):
                 if (limit is not None and
-                    len(self._vlan_nexthop_cache(vlan)) >= limit):
+                        len(self._vlan_nexthop_cache(vlan)) >= limit):
                     self.logger.info(
                         'not proactively learning %s, at limit %u', dst_ip, limit)
                     continue
