@@ -565,12 +565,13 @@ class Valve(object):
         ofmsgs = []
         now = time.time()
         if (self.dp.advertise_interval and
-            now - self._last_advertise_sec > self.dp.advertise_interval):
+                now - self._last_advertise_sec > self.dp.advertise_interval):
             for vlan in list(self.dp.vlans.values()):
-                for faucet_vip in vlan.faucet_vips:
-                    if faucet_vip.version == 6:
-                        ofmsgs.extend(
-                            self.ipv6_route_manager.advertise(vlan, faucet_vip))
+                ipv6_faucet_vips = [
+                    faucet_vip for faucet_vip in vlan.faucet_vips if faucet_vip.version == 6]
+                if ipv6_faucet_vips:
+                    ofmsgs.extend(
+                        self.ipv6_route_manager.advertise(vlan, ipv6_faucet_vips))
             self._last_advertise_sec = now
         return ofmsgs
 
