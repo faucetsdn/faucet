@@ -1660,7 +1660,7 @@ vlans:
             'ip6 host fc00::1:254'))
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping6 -c1 %s fc00::1:254')], timeout=20, packets=1)
+                lambda: first_host.cmd('ping6 -c1 %s fc00::1:254')], timeout=60, packets=1)
         self.assertTrue(
             re.search(
                 r'fc00::1:254 > ff02::1:.+ICMP6, router advertisement',
