@@ -55,8 +55,8 @@ for item in to_check:
 			continue	
 		print([name, obj])
 		ofile.write('\n\n')
-		ofile.write('#**'+str(name)+'**'+'\n\n')
-		ofile.write('DEFAULT ATTRIBUTES\n\n')
+		ofile.write('# **'+str(name)+'**'+'\n\n')
+		#ofile.write('DEFAULT ATTRIBUTES\n\n')
 		d=obj.defaults
 		print(d)
 		#start table
@@ -76,7 +76,7 @@ for item in to_check:
 						#print(s[k])
 						#print(s[k+1])
 						if '#' in s[k+1]:
-							comment=comment+s[k+1].strip().replace('#', '* ')
+							comment=comment+s[k+1].strip().replace('#', ' ')
 							#TODO - replace comment character with something .rst appropriate
 			ofile.write(comment+' | \n')
 		#ofile.write('METHODS\n')
