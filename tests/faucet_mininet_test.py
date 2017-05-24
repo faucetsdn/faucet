@@ -235,7 +235,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         if root_intf:
             intf = intf.split('.')[0]
         tcpdump_cmd = self.timeout_soft_cmd(
-            'tcpdump -i %s -e -n -U -v -c %u %s' % (
+            'tcpdump -i %s -e -n -U -vv -c %u %s' % (
                 intf, packets, tcpdump_filter),
             timeout)
         tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
@@ -1633,6 +1633,7 @@ vlans:
 """
 
     CONFIG = """
+        advertise_interval: 5
         max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
@@ -1660,7 +1661,7 @@ vlans:
             'ip6 host fc00::1:254'))
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping6 -c1 %s fc00::1:254')], timeout=60, packets=1)
+                lambda: first_host.cmd('ping6 -c1 %s fc00::1:254')], timeout=30)
         self.assertTrue(
             re.search(
                 r'fc00::1:254 > ff02::1:.+ICMP6, router advertisement',
