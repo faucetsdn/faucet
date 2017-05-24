@@ -559,6 +559,10 @@ class Valve(object):
 
         return ofmsgs
 
+    def advertise(self):
+        """Called periodically to advertise services (eg. IPv6 RAs)."""
+        return None
+
     def datapath_connect(self, dp_id, discovered_up_port_nums):
         """Handle Ryu datapath connection event and provision pipeline.
 
