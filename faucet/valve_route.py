@@ -317,7 +317,7 @@ class ValveRouteManager(object):
                 vid = self._vlan_vid(vlan, port_num)
                 ra_advert = valve_packet.router_advert(
                     self.faucet_mac, vid, faucet_vip.ip,
-                    64, 0x3, # hlim 64, set L and A flags.
+                    64, 0x6, # hlim 64, set L and A flags.
                     faucet_vip.network.network_address,
                     faucet_vip.network.prefixlen)
                 for port in ports:
