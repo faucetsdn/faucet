@@ -89,6 +89,7 @@ class Valve(object):
         self.ofchannel_logger = None
         self._packet_in_count_sec = 0
         self._last_packet_in_sec = 0
+        self._last_advertise_sec = 0
         self._register_table_match_types()
         # TODO: functional flow managers require too much state.
         # Should interface with a common composer class.
@@ -562,11 +563,14 @@ class Valve(object):
     def advertise(self):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
         ofmsgs = []
-        for vlan in list(self.dp.vlans.values()):
-            for faucet_vip in vlan.faucet_vips:
-                if faucet_vip.version == 6:
-                    ofmsgs.extend(
-                        self.ipv6_route_manager.advertise(vlan, faucet_vip))
+        now = time.time()
+        if now - self._last_advertise_sec > self.dp.advertise_interval:
+            for vlan in list(self.dp.vlans.values()):
+                for faucet_vip in vlan.faucet_vips:
+                    if faucet_vip.version == 6:
+                        ofmsgs.extend(
+                            self.ipv6_route_manager.advertise(vlan, faucet_vip))
+            self._last_advertise_sec = now
         return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_up_port_nums):

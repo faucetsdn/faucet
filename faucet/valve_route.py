@@ -317,7 +317,8 @@ class ValveRouteManager(object):
                 vid = self._vlan_vid(vlan, port_num)
                 ra_advert = valve_packet.router_advert(
                     self.faucet_mac, vid, faucet_vip.ip, 64,
-                    faucet_vip.ip, faucet_vip.network.prefixlen)
+                    faucet_vip.network.network_address,
+                    faucet_vip.network.prefixlen)
                 for port in ports:
                     ofmsgs.append(
                         valve_of.packetout(port.number, ra_advert.data))

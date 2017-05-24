@@ -66,6 +66,7 @@ class DP(Conf):
     packetin_pps = None
     learn_jitter = None
     learn_ban_timeout = None
+    advertise_interval = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -131,6 +132,8 @@ class DP(Conf):
         # Jitter learn timeouts by up to this many seconds
         'learn_ban_timeout': 10,
         # When banning/limiting learning, wait this many seconds before learning can be retried
+        'advertise_interval': 30,
+        # How often to advertise (eg. IPv6 RAs)
         }
 
     def __init__(self, _id, conf):
