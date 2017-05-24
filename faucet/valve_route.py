@@ -301,7 +301,7 @@ class ValveRouteManager(object):
             vlan.untagged_flood_ports(False), vlan.tagged_flood_ports(False))
 
     def advertise(self, vlan, faucet_vip):
-        """Send RAs for all IPv6 VIP.
+        """Send RAs for an IPv6 VIP.
 
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
@@ -316,8 +316,9 @@ class ValveRouteManager(object):
                 port_num = ports[0].number
                 vid = self._vlan_vid(vlan, port_num)
                 self.logger.info(faucet_vip.network)
-                ra_advert = valve_packet.ra_advert(
-                    self.faucet_mac, vid, faucet_vip.ip, 64, faucet_vip)
+                ra_advert = valve_packet.router_advert(
+                    self.faucet_mac, vid, faucet_vip.ip, 64,
+                    faucet_vip.ip, faucet_vip.network.prefixlen)
                 for port in ports:
                     ofmsgs.append(
                         valve_of.packetout(port.number, ra_advert.data))

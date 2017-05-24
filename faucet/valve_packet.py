@@ -265,7 +265,7 @@ def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
     return pkt
 
 
-def router_advert(eth_src, vid, src_ip, hop_limit, prefix):
+def router_advert(eth_src, vid, src_ip, hop_limit, prefix, prefixlen):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
@@ -273,7 +273,8 @@ def router_advert(eth_src, vid, src_ip, hop_limit, prefix):
         vid (int or None): VLAN VID to use (or None).
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         hop_limit (int): IPv6 hop limit.
-        prefix (ipaddress.IPv6Network): prefix to advertise.
+        prefix (ipaddress.IPv6Address): prefix to advertise.
+        prefixlen (int): length of prefix.
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 ICMP RA packet.
     """
@@ -292,6 +293,7 @@ def router_advert(eth_src, vid, src_ip, hop_limit, prefix):
             options=[
                 icmpv6.nd_option_pi(
                     prefix=prefix,
+                    pl=prefixlen,
                     val_l=86400,
                     pre_l=14400,
                 ),
