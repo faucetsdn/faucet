@@ -178,7 +178,7 @@ class Faucet(app_manager.RyuApp):
         self._thread_reschedule(EventFaucetMetricUpdate(), 5)
 
     def _advertise_request(self):
-        self._thread_reschedule(EventFaucetAdvertise(), 10)
+        self._thread_reschedule(EventFaucetAdvertise(), 30)
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     def resolve_gateways(self, _):
