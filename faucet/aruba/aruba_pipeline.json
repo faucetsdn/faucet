@@ -36,16 +36,6 @@
                         "type": "ip_proto"
                     },
                     {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "ipv6_dst",
-                        "type": "ipv6_dst",
-                        "hasmask": true
-                    },
-                    {
                         "name": "udp_src",
                         "type": "udp_src"
                     },
@@ -60,6 +50,11 @@
                     {
                         "name": "tcp_dst",
                         "type": "tcp_dst"
+                    },
+                    {
+                        "name": "arp_tpa",
+                        "type": "arp_tpa",
+                        "hasmask": true
                     }
                 ],
                 "type": 8
@@ -94,16 +89,6 @@
                         "type": "ip_proto"
                     },
                     {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "ipv6_dst",
-                        "type": "ipv6_dst",
-                        "hasmask": true
-                    },
-                    {
                         "name": "udp_src",
                         "type": "udp_src"
                     },
@@ -118,6 +103,11 @@
                     {
                         "name": "tcp_dst",
                         "type": "tcp_dst"
+                    },
+                    {
+                        "name": "arp_tpa",
+                        "type": "arp_tpa",
+                        "hasmask": true
                     }
                 ],
                 "type": 10

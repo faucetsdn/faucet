@@ -14,11 +14,16 @@ class WatcherConf(Conf):
         'db_type': 'text',
         'file': None,
         'influx_db': 'faucet',
+	#influx database name
         'influx_host': 'localhost',
+	#influx database location
         'influx_port': 8086,
         'influx_user': '',
+	#influx username
         'influx_pwd': '',
+	#influx password
         'influx_timeout': 10,
+	#timeout on influx requests
     }
 
     def __init__(self, _id, conf):
