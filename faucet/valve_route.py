@@ -315,9 +315,10 @@ class ValveRouteManager(object):
             if ports:
                 port_num = ports[0].number
                 vid = self._vlan_vid(vlan, port_num)
+                # https://tools.ietf.org/html/rfc4861#section-6.1.2
                 ra_advert = valve_packet.router_advert(
                     self.faucet_mac, vid, faucet_vip.ip,
-                    64, 0x6, # hlim 64, set L and A flags.
+                    255, 0x6, # hlim 255, set L and A flags.
                     faucet_vip.network.network_address,
                     faucet_vip.network.prefixlen)
                 for port in ports:
