@@ -41,7 +41,7 @@ for cla in os.listdir(path):
 
 print(to_check)
 #now do something not retarded and just scan through all modules
-ofile=open('documentation.rst','w')
+ofile=open('documentation.md','w')
 for item in to_check:
 	for name, obj in inspect.getmembers(sys.modules[item[:-3]]):
 		#print(name)
