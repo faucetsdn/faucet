@@ -1623,6 +1623,51 @@ vlans:
             self.flap_all_switch_ports()
 
 
+class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        faucet_vips: ["fc00::1:254/112"]
+"""
+
+    CONFIG = """
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_ra(self):
+        first_host = self.net.hosts[0]
+        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
+        tcpdump_filter = ' and '.join((
+            'ether dst 33:33:00:00:00:01',
+            'ether src 0e:00:00:00:00:01',
+            'icmp6',
+            'ip6[40] == 134',
+            'ip6 host fc00::1:254'))
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping6 -c1 %s fc00::1:254')], timeout=20, packets=1)
+        self.assertTrue(
+            re.search(
+                r'fc00::1:254 > ff02::1:.+ICMP6, router advertisement',
+                tcpdump_txt),
+            msg=tcpdump_txt)
+
+
 class FaucetUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
