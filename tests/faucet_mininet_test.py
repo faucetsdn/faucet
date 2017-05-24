@@ -1664,7 +1664,7 @@ vlans:
             timeout=30, vs='-vv', packets=1)
         for ra_required in (
             r'fc00::1:254 > ff02::1:.+ICMP6, router advertisement',
-            r'fc00::1:0/112, Flags \[auto, router\]',
+            r'fc00::1:0/112, Flags \[onlink, auto\]',
             r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
