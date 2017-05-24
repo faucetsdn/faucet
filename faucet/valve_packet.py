@@ -265,7 +265,8 @@ def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
     return pkt
 
 
-def router_advert(eth_src, vid, src_ip, hop_limit, prefix, prefixlen):
+def router_advert(eth_src, vid, src_ip, hop_limit,
+                  pi_flags, prefix, prefixlen):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
@@ -273,6 +274,7 @@ def router_advert(eth_src, vid, src_ip, hop_limit, prefix, prefixlen):
         vid (int or None): VLAN VID to use (or None).
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         hop_limit (int): IPv6 hop limit.
+        pi_flags (int): flags to set in prefix information field.
         prefix (ipaddress.IPv6Address): prefix to advertise.
         prefixlen (int): length of prefix.
     Returns:
@@ -286,6 +288,7 @@ def router_advert(eth_src, vid, src_ip, hop_limit, prefix, prefixlen):
         nxt=inet.IPPROTO_ICMPV6,
         hop_limit=hop_limit)
     pkt.add_protocol(ipv6_ra)
+    # https://tools.ietf.org/html/rfc4861#section-4.6.2
     icmpv6_ra_pkt = icmpv6.icmpv6(
         type_=icmpv6.ND_ROUTER_ADVERT,
         data=icmpv6.nd_router_advert(
@@ -294,6 +297,7 @@ def router_advert(eth_src, vid, src_ip, hop_limit, prefix, prefixlen):
                 icmpv6.nd_option_pi(
                     prefix=prefix,
                     pl=prefixlen,
+                    res1=pi_flags,
                     val_l=86400,
                     pre_l=14400,
                 ),

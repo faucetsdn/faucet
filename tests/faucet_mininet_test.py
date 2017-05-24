@@ -1634,7 +1634,6 @@ vlans:
 
     CONFIG = """
         advertise_interval: 5
-        max_resolve_backoff_time: 1
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1662,12 +1661,14 @@ vlans:
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [
                 lambda: first_host.cmd('ping6 -c1 %s fc00::1:254')],
-            timeout=30, vs='-vv')
-        self.assertTrue(
-            re.search(
-                r'fc00::1:254 > ff02::1:.+ICMP6, router advertisement',
-                tcpdump_txt),
-            msg=tcpdump_txt)
+            timeout=30, vs='-vv', packets=1)
+        for ra_required in (
+            r'fc00::1:254 > ff02::1:.+ICMP6, router advertisement',
+            r'fc00::1:0/112, Flags \[auto, router\]',
+            r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
+            self.assertTrue(
+                re.search(ra_required, tcpdump_txt),
+                msg='%s: %s' % (ra_required, tcpdump_txt))
 
 
 class FaucetUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
