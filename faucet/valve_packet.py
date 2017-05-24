@@ -293,6 +293,7 @@ def router_advert(eth_src, vid, src_ip, hop_limit,
         type_=icmpv6.ND_ROUTER_ADVERT,
         data=icmpv6.nd_router_advert(
             rou_l=1800,
+            ch_l=hop_limit,
             options=[
                 icmpv6.nd_option_pi(
                     prefix=prefix,
