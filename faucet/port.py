@@ -47,6 +47,7 @@ class Port(Conf):
         'acl_in': None,
         'stack': None,
         'max_hosts' : 255,
+	#maximum number of hosts
         }
 
     def __init__(self, _id, conf=None):
