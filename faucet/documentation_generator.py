@@ -54,12 +54,16 @@ for item in to_check:
 		if name == 'Conf':
 			continue	
 		print([name, obj])
-		ofile.write('**'+str(name)+'**'+'\n')
-		ofile.write('DEFAULT ATTRIBUTES\n')
+		ofile.write('**'+str(name)+'**'+'\n\n')
+		ofile.write('DEFAULT ATTRIBUTES\n\n')
 		d=obj.defaults
 		print(d)
+		#start table
+		ofile.write('| Attribute | Default | Description |'+'\n')
+		ofile.write('| --------- | ------- | ----------- |'+'\n')
 		for default in sorted(d.keys()):
-			ofile.write('* '+str(default)+': '+str(d[default])+'\n')
+			#ofile.write('* '+str(default)+': '+str(d[default])+'\n')
+			ofile.write('| '+str(default)+' | '+str(d[default])+ '|')
 			#now we need to scan through the parent file cna retrieve comments associated with that attribute
 			comment='  '
 			ifile=open(item, 'rU')
@@ -73,7 +77,7 @@ for item in to_check:
 						if '#' in s[k+1]:
 							comment=comment+s[k+1].strip().replace('#', '* ')
 							#TODO - replace comment character with something .rst appropriate
-			ofile.write(comment+'\n')
+			ofile.write(comment+' | \n')
 		#ofile.write('METHODS\n')
 		#meths=inspect.getmembers(obj, predicate=inspect.isfunction)		
 		#print(meths)
