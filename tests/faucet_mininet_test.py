@@ -1629,7 +1629,7 @@ class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fc00::1:254/112"]
+        faucet_vips: ["fe80::1:254/64"]
 """
 
     CONFIG = """
@@ -1651,20 +1651,17 @@ vlans:
 
     def test_ra(self):
         first_host = self.net.hosts[0]
-        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         tcpdump_filter = ' and '.join((
             'ether dst 33:33:00:00:00:01',
             'ether src 0e:00:00:00:00:01',
             'icmp6',
             'ip6[40] == 134',
-            'ip6 host fc00::1:254'))
+            'ip6 host fe80::1:254'))
         tcpdump_txt = self.tcpdump_helper(
-            first_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping6 -c1 %s fc00::1:254')],
-            timeout=30, vs='-vv', packets=1)
+            first_host, tcpdump_filter, [], timeout=30, vs='-vv', packets=1)
         for ra_required in (
-            r'fc00::1:254 > ff02::1:.+ICMP6, router advertisement',
-            r'fc00::1:0/112, Flags \[onlink, auto\]',
+            r'fe80::1:254 > ff02::1:.+ICMP6, router advertisement',
+            r'fe80::/64, Flags \[onlink, auto\]',
             r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),

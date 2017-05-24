@@ -311,19 +311,20 @@ class ValveRouteManager(object):
             list: OpenFlow messages.
         """
         ofmsgs = []
-        for ports in self._flood_ports(vlan):
-            if ports:
-                port_num = ports[0].number
-                vid = self._vlan_vid(vlan, port_num)
-                # https://tools.ietf.org/html/rfc4861#section-6.1.2
-                ra_advert = valve_packet.router_advert(
-                    self.faucet_mac, vid, faucet_vip.ip,
-                    255, 0x6, # hlim 255, set L and A flags.
-                    faucet_vip.network.network_address,
-                    faucet_vip.network.prefixlen)
-                for port in ports:
-                    ofmsgs.append(
-                        valve_of.packetout(port.number, ra_advert.data))
+        if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL.network:
+            for ports in self._flood_ports(vlan):
+                if ports:
+                    port_num = ports[0].number
+                    vid = self._vlan_vid(vlan, port_num)
+                    # https://tools.ietf.org/html/rfc4861#section-6.1.2
+                    ra_advert = valve_packet.router_advert(
+                        self.faucet_mac, vid, faucet_vip.ip,
+                        255, 0x6, # hlim 255, set L and A flags.
+                        faucet_vip.network.network_address,
+                        faucet_vip.network.prefixlen)
+                    for port in ports:
+                        ofmsgs.append(
+                            valve_of.packetout(port.number, ra_advert.data))
         return ofmsgs
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
