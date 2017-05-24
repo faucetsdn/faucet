@@ -567,10 +567,8 @@ class Valve(object):
         if (self.dp.advertise_interval and
                 now - self._last_advertise_sec > self.dp.advertise_interval):
             for vlan in list(self.dp.vlans.values()):
-                ipv6_vips = [vip for vip in vlan.faucet_vips if vip.version == 6]
-                if ipv6_vips:
-                    ofmsgs.extend(
-                        self.ipv6_route_manager.advertise(vlan, ipv6_vips))
+                ofmsgs.extend(
+                    self.ipv6_route_manager.advertise(vlan))
             self._last_advertise_sec = now
         return ofmsgs
 

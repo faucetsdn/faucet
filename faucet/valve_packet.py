@@ -30,6 +30,7 @@ from valve_util import btos
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
+IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 
 
 def mac_addr_is_unicast(mac_addr):
@@ -267,44 +268,45 @@ def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
     return pkt
 
 
-def router_advert(eth_src, vid, src_ip, hop_limit,
-                  pi_flags, prefix, prefixlen):
+def router_advert(eth_src, eth_dst, vid, src_ip, dst_ip,
+                  vips, hop_limit=255, pi_flags=0x6):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
         eth_src (str): source Ethernet MAC address.
+        eth_dst (str): dest Ethernet MAC address.
         vid (int or None): VLAN VID to use (or None).
         src_ip (ipaddress.IPv6Address): source IPv6 address.
+        vips (list): prefixes (ipaddress.IPv6Address) to advertise.
         hop_limit (int): IPv6 hop limit.
-        pi_flags (int): flags to set in prefix information field.
-        prefix (ipaddress.IPv6Address): prefix to advertise.
-        prefixlen (int): length of prefix.
+        pi_flags (int): flags to set in prefix information field (default set A and L)
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 ICMP RA packet.
     """
     pkt = build_pkt_header(
-        eth_src, IPV6_ALL_NODES_MCAST, vid, ether.ETH_TYPE_IPV6)
+        eth_src, eth_dst, vid, ether.ETH_TYPE_IPV6)
     ipv6_pkt = ipv6.ipv6(
         src=src_ip,
-        dst=ipaddress.IPv6Address(btos('ff02::1')),
+        dst=dst_ip,
         nxt=inet.IPPROTO_ICMPV6,
         hop_limit=hop_limit)
     pkt.add_protocol(ipv6_pkt)
-    # https://tools.ietf.org/html/rfc4861#section-4.6.2
-    icmpv6_ra_pkt = icmpv6.icmpv6(
-        type_=icmpv6.ND_ROUTER_ADVERT,
-        data=icmpv6.nd_router_advert(
-            rou_l=1800,
-            ch_l=hop_limit,
-            options=[
-                icmpv6.nd_option_pi(
-                    prefix=prefix,
-                    pl=prefixlen,
-                    res1=pi_flags,
-                    val_l=86400,
-                    pre_l=14400,
-                ),
-                icmpv6.nd_option_sla(hw_src=eth_src)]))
-    pkt.add_protocol(icmpv6_ra_pkt)
+    for vip in vips:
+        # https://tools.ietf.org/html/rfc4861#section-4.6.2
+        icmpv6_ra_pkt = icmpv6.icmpv6(
+            type_=icmpv6.ND_ROUTER_ADVERT,
+            data=icmpv6.nd_router_advert(
+                rou_l=1800,
+                ch_l=hop_limit,
+                options=[
+                    icmpv6.nd_option_pi(
+                        prefix=vip.network.network_address,
+                        pl=vip.network.prefixlen,
+                        res1=pi_flags,
+                        val_l=86400,
+                        pre_l=14400,
+                    ),
+                    icmpv6.nd_option_sla(hw_src=eth_src)]))
+        pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()
     return pkt
