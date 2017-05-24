@@ -305,8 +305,7 @@ class ValveRouteManager(object):
 
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
-            ip_gw (ipaddress.ip_interface): FAUCET VIP.
-
+            faucet_vips (list): list of ipaddress.ip_interfaces.
         Returns:
             list: OpenFlow messages.
         """
@@ -314,7 +313,7 @@ class ValveRouteManager(object):
         link_local_vips = []
         other_vips = []
         for faucet_vip in faucet_vips:
-            if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL.network:
+            if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
                 link_local_vips.append(faucet_vip)
             else:
                 other_vips.append(faucet_vip)
@@ -756,6 +755,20 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
             priority=priority,
             inst=[valve_of.apply_actions([valve_of.output_controller()])]))
+        if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
+            ofmsgs.append(self.valve_flowmod(
+                self.eth_src_table,
+                self.valve_in_match(
+                    self.eth_src_table,
+                    eth_type=self._eth_type(),
+                    vlan=vlan,
+                    nw_proto=inet.IPPROTO_ICMPV6,
+                    eth_dst=valve_packet.IPV6_ALL_ROUTERS_MCAST,
+                    icmpv6_type=icmpv6.ND_ROUTER_SOLICIT),
+                priority=priority,
+                inst=[
+                    valve_of.apply_actions([valve_of.output_controller()]),
+                    valve_of.goto_table(self.flood_table)]))
         # Initialize IPv6 FIB
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,

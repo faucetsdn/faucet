@@ -28,7 +28,8 @@ from valve_util import btos
 
 
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
-IPV6_LINK_LOCAL = ipaddress.ip_interface(btos('fe80::/10'))
+IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
+IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
 
 
 def mac_addr_is_unicast(mac_addr):
