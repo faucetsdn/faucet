@@ -28,6 +28,7 @@ from valve_util import btos
 
 
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
+IPV6_LINK_LOCAL = ipaddress.ip_interface(btos('fe80::/10'))
 
 
 def mac_addr_is_unicast(mac_addr):
@@ -282,12 +283,12 @@ def router_advert(eth_src, vid, src_ip, hop_limit,
     """
     pkt = build_pkt_header(
         eth_src, IPV6_ALL_NODES_MCAST, vid, ether.ETH_TYPE_IPV6)
-    ipv6_ra = ipv6.ipv6(
+    ipv6_pkt = ipv6.ipv6(
         src=src_ip,
         dst=ipaddress.IPv6Address(btos('ff02::1')),
         nxt=inet.IPPROTO_ICMPV6,
         hop_limit=hop_limit)
-    pkt.add_protocol(ipv6_ra)
+    pkt.add_protocol(ipv6_pkt)
     # https://tools.ietf.org/html/rfc4861#section-4.6.2
     icmpv6_ra_pkt = icmpv6.icmpv6(
         type_=icmpv6.ND_ROUTER_ADVERT,
