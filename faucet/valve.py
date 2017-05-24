@@ -564,7 +564,8 @@ class Valve(object):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
         ofmsgs = []
         now = time.time()
-        if now - self._last_advertise_sec > self.dp.advertise_interval:
+        if (self.dp.advertise_interval and
+            now - self._last_advertise_sec > self.dp.advertise_interval):
             for vlan in list(self.dp.vlans.values()):
                 for faucet_vip in vlan.faucet_vips:
                     if faucet_vip.version == 6:
