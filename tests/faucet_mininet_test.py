@@ -230,13 +230,13 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         dumpNodeConnections(self.net.hosts)
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
-                       timeout=10, packets=2, root_intf=False):
+                       vs='-v', timeout=10, packets=2, root_intf=False):
         intf = tcpdump_host.intf().name
         if root_intf:
             intf = intf.split('.')[0]
         tcpdump_cmd = self.timeout_soft_cmd(
-            'tcpdump -i %s -e -n -U -vv -c %u %s' % (
-                intf, packets, tcpdump_filter),
+            'tcpdump -i %s -e -n -U %s -c %u %s' % (
+                intf, vs, packets, tcpdump_filter),
             timeout)
         tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
         popens = {tcpdump_host: tcpdump_out}
@@ -1661,7 +1661,8 @@ vlans:
             'ip6 host fc00::1:254'))
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping6 -c1 %s fc00::1:254')], timeout=30)
+                lambda: first_host.cmd('ping6 -c1 %s fc00::1:254')],
+            timeout=30, vs='-vv')
         self.assertTrue(
             re.search(
                 r'fc00::1:254 > ff02::1:.+ICMP6, router advertisement',
