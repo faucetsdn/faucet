@@ -2536,6 +2536,7 @@ group test {
         self.exabgp_log = self.start_exabgp(self.exabgp_conf, '::1')
 
     def test_untagged(self):
+        first_host, second_host = self.net.hosts[:2]
         self.wait_bgp_up('::1', 100)
         self.assertGreater(
             self.scrape_prometheus_var(
@@ -2548,7 +2549,6 @@ group test {
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
         self.stop_exabgp()
-        first_host, second_host = self.net.hosts[:2]
         for host in first_host, second_host:
             self.one_ipv6_controller_ping(host)
 

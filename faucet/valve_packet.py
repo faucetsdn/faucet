@@ -198,8 +198,8 @@ def nd_request(eth_src, vid, src_ip, dst_ip):
     return pkt
 
 
-def nd_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
-    """Return IPv6 neighbor discovery reply packet.
+def nd_advert(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
+    """Return IPv6 neighbor avertisement packet.
 
     Args:
         eth_src (str): source Ethernet MAC address.
@@ -213,18 +213,18 @@ def nd_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
     """
     pkt = build_pkt_header(
         eth_src, eth_dst, vid, ether.ETH_TYPE_IPV6)
-    ipv6_reply = ipv6.ipv6(
+    ipv6_icmp6 = ipv6.ipv6(
         src=src_ip,
         dst=dst_ip,
         nxt=inet.IPPROTO_ICMPV6,
         hop_limit=hop_limit)
-    pkt.add_protocol(ipv6_reply)
-    icmpv6_reply = icmpv6.icmpv6(
+    pkt.add_protocol(ipv6_icmp6)
+    icmpv6_nd_advert = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_ADVERT,
         data=icmpv6.nd_neighbor(
             dst=src_ip,
             option=icmpv6.nd_option_tla(hw_src=eth_src), res=7))
-    pkt.add_protocol(icmpv6_reply)
+    pkt.add_protocol(icmpv6_nd_advert)
     pkt.serialize()
     return pkt
 

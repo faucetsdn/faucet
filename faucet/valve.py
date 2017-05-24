@@ -561,7 +561,13 @@ class Valve(object):
 
     def advertise(self):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
-        return None
+        ofmsgs = []
+        for vlan in list(self.dp.vlans.values()):
+            for faucet_vip in vlan.faucet_vips:
+                if faucet_vip.version == 6:
+                    ofmsgs.extend(
+                        self.ipv6_route_manager.advertise(vlan, faucet_vip))
+        return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_up_port_nums):
         """Handle Ryu datapath connection event and provision pipeline.

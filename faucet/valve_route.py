@@ -296,11 +296,17 @@ class ValveRouteManager(object):
                     return False
         return True
 
-    def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
-        untagged_ports = vlan.untagged_flood_ports(False)
-        tagged_ports = vlan.tagged_flood_ports(False)
+    def _flood_ports(self, vlan):
+        return (
+            vlan.untagged_flood_ports(False), vlan.tagged_flood_ports(False))
+
+    def advertise(self, vlan, faucet_vip):
         ofmsgs = []
-        for ports in untagged_ports, tagged_ports:
+        return ofmsgs
+
+    def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
+        ofmsgs = []
+        for ports in self._flood_ports(vlan):
             ofmsgs.extend(self._neighbor_resolver(
                 ip_gw, faucet_vip, vlan, ports))
         return ofmsgs
@@ -764,7 +770,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 if vlan.is_faucet_vip(ipaddress.ip_address(solicited_ip)):
                     ofmsgs.extend(
                         self._add_host_fib_route(vlan, src_ip))
-                    nd_reply = valve_packet.nd_reply(
+                    nd_reply = valve_packet.nd_advert(
                         self.faucet_mac, eth_src, vid,
                         solicited_ip, src_ip, ipv6_pkt.hop_limit)
                     ofmsgs.append(
