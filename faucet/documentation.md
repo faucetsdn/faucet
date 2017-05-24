@@ -1,4 +1,6 @@
-**DP**
+
+
+#**DP**
 
 DEFAULT ATTRIBUTES
 
@@ -40,7 +42,9 @@ DEFAULT ATTRIBUTES
 | timeout | 300|  *  inactive MAC timeout | 
 | vlan_acl_table | None|   | 
 | vlan_table | None|   | 
-**Port**
+
+
+#**Port**
 
 DEFAULT ATTRIBUTES
 
@@ -59,7 +63,9 @@ DEFAULT ATTRIBUTES
 | stack | None|  *  stacking config, when cross connecting multiple DPs | 
 | tagged_vlans | None|   | 
 | unicast_flood | True|   | 
-**VLAN**
+
+
+#**VLAN**
 
 DEFAULT ATTRIBUTES
 
@@ -83,7 +89,9 @@ DEFAULT ATTRIBUTES
 | routes | None|   | 
 | unicast_flood | True|   | 
 | vid | None|   | 
-**Port**
+
+
+#**Port**
 
 DEFAULT ATTRIBUTES
 
@@ -102,14 +110,18 @@ DEFAULT ATTRIBUTES
 | stack | None|   | 
 | tagged_vlans | None|   | 
 | unicast_flood | True|   | 
-**Router**
+
+
+#**Router**
 
 DEFAULT ATTRIBUTES
 
 | Attribute | Default | Description |
 | --------- | ------- | ----------- |
 | vlans | None|   | 
-**VLAN**
+
+
+#**VLAN**
 
 DEFAULT ATTRIBUTES
 
@@ -133,7 +145,9 @@ DEFAULT ATTRIBUTES
 | routes | None|   | 
 | unicast_flood | True|   | 
 | vid | None|   | 
-**WatcherConf**
+
+
+#**WatcherConf**
 
 DEFAULT ATTRIBUTES
 

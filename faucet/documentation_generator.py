@@ -54,7 +54,8 @@ for item in to_check:
 		if name == 'Conf':
 			continue	
 		print([name, obj])
-		ofile.write('**'+str(name)+'**'+'\n\n')
+		ofile.write('\n\n')
+		ofile.write('#**'+str(name)+'**'+'\n\n')
 		ofile.write('DEFAULT ATTRIBUTES\n\n')
 		d=obj.defaults
 		print(d)
