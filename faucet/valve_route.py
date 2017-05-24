@@ -315,7 +315,6 @@ class ValveRouteManager(object):
             if ports:
                 port_num = ports[0].number
                 vid = self._vlan_vid(vlan, port_num)
-                self.logger.info(faucet_vip.network)
                 ra_advert = valve_packet.router_advert(
                     self.faucet_mac, vid, faucet_vip.ip, 64,
                     faucet_vip.ip, faucet_vip.network.prefixlen)
