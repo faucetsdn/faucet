@@ -377,15 +377,18 @@ class ValveRouteManager(object):
             else:
                 nexthop_cache_entry.last_retry_time = now
                 nexthop_cache_entry.resolve_retries += 1
+                resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
                 if last_retry_time is None:
-                    self.logger.info('resolving %s', ip_gw)
+                    self.logger.info(
+                        'resolving %s (%u flows)', ip_gw, len(resolve_flows))
                 else:
                     self.logger.info(
-                        'resolving %s retry %u (last attempt was %us ago)',
+                        'resolving %s retry %u (last attempt was %us ago; %u flows)',
                         ip_gw,
                         nexthop_cache_entry.resolve_retries,
-                        now - last_retry_time)
-                ofmsgs.extend(self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw))
+                        now - last_retry_time,
+                        len(resolve_flows))
+                ofmsgs.extend(resolve_flows)
         return ofmsgs
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
@@ -426,10 +429,12 @@ class ValveRouteManager(object):
                             hard_timeout=2))
                         ofmsgs.extend(
                             self._add_host_fib_route(vlan, dst_ip))
-                        ofmsgs.extend(
-                            self.resolve_gw_on_vlan(vlan, faucet_vip, dst_ip))
+                        resolve_flows = self.resolve_gw_on_vlan(
+                            vlan, faucet_vip, dst_ip)
+                        ofmsgs.extend(resolve_flows)
                         self.logger.info(
-                            'proactively resolving %s', dst_ip)
+                            'proactively resolving %s (%u flows)',
+                            dst_ip, len(resolve_flows))
                         return ofmsgs
         return ofmsgs
 
