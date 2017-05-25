@@ -75,7 +75,7 @@ EXTERNAL_DEPENDENCIES = (
     ('fping', ['-v'], 'fping',
      r'fping: Version (\d+\.\d+)', "3.13"),
     ('ndisc6', ['--version'], 'ndisc6',
-     r'ndisc6.+tool version (\d+\.\d+)', "1.0"),
+     r'ndisc6.+tool (\d+\.\d+)', "1.0"),
 )
 
 # Must pass with 0 lint errors
