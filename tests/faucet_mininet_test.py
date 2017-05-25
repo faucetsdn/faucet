@@ -74,7 +74,7 @@ EXTERNAL_DEPENDENCIES = (
      r'iperf version (\d+\.\d+)\.\d+', "2.0"),
     ('fping', ['-v'], 'fping',
      r'fping: Version (\d+\.\d+)', "3.13"),
-    ('rdisc6', ['--version'], 'rdisc6',
+    ('rdisc6', ['-V'], 'rdisc6',
      r'rdisc6.+tool (\d+\.\d+)', "1.0"),
 )
 
