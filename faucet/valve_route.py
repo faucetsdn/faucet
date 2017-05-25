@@ -839,8 +839,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
                             vid, vip.ip, src_ip, other_vips)
                         ofmsgs.append(
                             valve_of.packetout(in_port, ra_advert.data))
-                        ofmsgs.extend(self._update_nexthop(
-                            vlan, in_port, eth_src, src_ip))
                         self.logger.info(
                             'Responded to RS solicit from %s (%s) to VIP %s',
                             src_ip, eth_src, vip)

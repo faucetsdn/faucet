@@ -1631,7 +1631,7 @@ class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112", "10.0.0.254/24"]
+        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112", "fc00::2:254/112", "10.0.0.254/24"]
 """
 
     CONFIG = """
@@ -1653,9 +1653,11 @@ vlans:
 
     def test_rdisc6(self):
         first_host = self.net.hosts[0]
+        rdisc6_results = sorted(list(set(first_host.cmd(
+            'rdisc6 -q %s' % first_host.defaultIntf()).splitlines())))
         self.assertEquals(
-            'fc00::1:0/112',
-             first_host.cmd('rdisc6 -1 -q %s' % first_host.defaultIntf()).strip())
+            ['fc00::1:0/112', 'fc00::2:0/112'],
+            rdisc6_results)
 
     def test_ra_advertise(self):
         first_host = self.net.hosts[0]
@@ -1670,6 +1672,7 @@ vlans:
         for ra_required in (
             r'fe80::1:254 > ff02::1:.+ICMP6, router advertisement',
             r'fc00::1:0/112, Flags \[onlink, auto\]',
+            r'fc00::2:0/112, Flags \[onlink, auto\]',
             r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
@@ -1690,6 +1693,7 @@ vlans:
         for ra_required in (
             r'fe80::1:254 > fe80::.+ICMP6, router advertisement',
             r'fc00::1:0/112, Flags \[onlink, auto\]',
+            r'fc00::2:0/112, Flags \[onlink, auto\]',
             r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
