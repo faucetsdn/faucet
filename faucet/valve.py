@@ -1315,4 +1315,5 @@ class ArubaValve(Valve):
         ryu_table_loader.load_tables(
             os.path.join(aruba.CFG_PATH, 'aruba_pipeline.json'), parser)
         ofmsgs = [valve_of.table_features(ryu_table_loader.ryu_tables)]
+        self.dpid_log('loading pipeline configuration')
         return ofmsgs
