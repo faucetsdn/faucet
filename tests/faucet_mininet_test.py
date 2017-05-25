@@ -1651,6 +1651,13 @@ vlans:
                 description: "b4"
 """
 
+    def test_ndisc6(self):
+        first_host = self.net.hosts[0]
+        for vip in ('fe80::1:254', 'fc00::1:254', 'fc00::2:254'):
+            self.assertEquals(
+                '0E:00:00:00:00:01',
+                first_host.cmd('ndisc6 -q %s %s' % (vip, first_host.defaultIntf())).strip())
+
     def test_rdisc6(self):
         first_host = self.net.hosts[0]
         rdisc6_results = sorted(list(set(first_host.cmd(
