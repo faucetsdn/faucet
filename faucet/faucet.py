@@ -321,20 +321,22 @@ class Faucet(app_manager.RyuApp):
                 if vlan.bgp_as:
                     bgp_speakers[vlan] = self._create_bgp_speaker_for_vlan(vlan)
 
-    def _send_flow_msgs(self, dp_id, flow_msgs):
+    def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
         """Send OpenFlow messages to a connected datapath.
 
         Args:
             dp_id (int): datapath ID.
             flow_msgs (list): OpenFlow messages to send.
+            ryu_dp: Override datapath from DPSet.
         """
-        ryu_dp = self.dpset.get(dp_id)
-        if not ryu_dp:
-            self.logger.error('send_flow_msgs: %s not up', dpid_log(dp_id))
-            return
-        if dp_id not in self.valves:
-            self.logger.error('send_flow_msgs: unknown %s', dpid_log(dp_id))
-            return
+        if ryu_dp is None:
+            ryu_dp = self.dpset.get(dp_id)
+            if not ryu_dp:
+                self.logger.error('send_flow_msgs: %s not up', dpid_log(dp_id))
+                return
+            if dp_id not in self.valves:
+                self.logger.error('send_flow_msgs: unknown %s', dpid_log(dp_id))
+                return
 
         valve = self.valves[dp_id]
         reordered_flow_msgs = valve.valve_flowreorder(flow_msgs)
@@ -479,7 +481,7 @@ class Faucet(app_manager.RyuApp):
         dp_id = ryu_dp.id
         if dp_id in self.valves:
             flowmods = self.valves[dp_id].switch_features(dp_id, msg)
-            self._send_flow_msgs(dp_id, flowmods)
+            self._send_flow_msgs(dp_id, flowmods, ryu_dp=ryu_dp)
         else:
             self.logger.error('handler_features: unknown %s', dpid_log(dp_id))
 
