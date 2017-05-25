@@ -74,6 +74,8 @@ EXTERNAL_DEPENDENCIES = (
      r'iperf version (\d+\.\d+)\.\d+', "2.0"),
     ('fping', ['-v'], 'fping',
      r'fping: Version (\d+\.\d+)', "3.13"),
+    ('rdisc6', ['-V'], 'ndisc6',
+     r'ndisc6.+tool (\d+\.\d+)', "1.0"),
 )
 
 # Must pass with 0 lint errors
@@ -1649,7 +1651,7 @@ vlans:
                 description: "b4"
 """
 
-    def test_ra(self):
+    def test_ra_advertise(self):
         first_host = self.net.hosts[0]
         tcpdump_filter = ' and '.join((
             'ether dst 33:33:00:00:00:01',
@@ -1666,6 +1668,26 @@ vlans:
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
                 msg='%s: %s' % (ra_required, tcpdump_txt))
+
+    def test_rs_reply(self):
+        first_host = self.net.hosts[0]
+        tcpdump_filter = ' and '.join((
+            'ether src 0e:00:00:00:00:01',
+            'ether dst %s' % first_host.MAC(),
+            'icmp6',
+            'ip6[40] == 134',
+            'ip6 host fe80::1:254'))
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, tcpdump_filter, [
+                lambda: first_host.cmd('rdisc6 -1 %s' % first_host.defaultIntf())],
+            timeout=30, vs='-vv', packets=1)
+        for ra_required in (
+            r'fe80::1:254 > fe80::.+ICMP6, router advertisement',
+            r'fc00::1:0/112, Flags \[onlink, auto\]',
+            r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
+            self.assertTrue(
+                re.search(ra_required, tcpdump_txt),
+                msg='%s: %s (%s)' % (ra_required, tcpdump_txt, tcpdump_filter))
 
 
 class FaucetUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):

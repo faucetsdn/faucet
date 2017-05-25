@@ -300,39 +300,40 @@ class ValveRouteManager(object):
         return (
             vlan.untagged_flood_ports(False), vlan.tagged_flood_ports(False))
 
-    def advertise(self, vlan, faucet_vips):
+    def _link_and_other_vips(self, vlan):
+        link_local_vips = []
+        other_vips = []
+        for faucet_vip in vlan.faucet_vips:
+            if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
+                link_local_vips.append(faucet_vip)
+            else:
+                other_vips.append(faucet_vip)
+        return link_local_vips, other_vips
+
+    def advertise(self, vlan):
         """Send RAs for an IPv6 VIP.
 
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
-            ip_gw (ipaddress.ip_interface): FAUCET VIP.
-
+            faucet_vips (list): list of ipaddress.ip_interfaces.
         Returns:
             list: OpenFlow messages.
         """
         ofmsgs = []
-        link_local_vips = []
-        other_vips = []
-        for faucet_vip in faucet_vips:
-            if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL.network:
-                link_local_vips.append(faucet_vip)
-            else:
-                other_vips.append(faucet_vip)
+        link_local_vips, other_vips = self._link_and_other_vips(vlan)
         for link_local_vip in link_local_vips:
-            for other_vip in other_vips:
-                for ports in self._flood_ports(vlan):
-                    if ports:
-                        port_num = ports[0].number
-                        vid = self._vlan_vid(vlan, port_num)
-                        # https://tools.ietf.org/html/rfc4861#section-6.1.2
-                        ra_advert = valve_packet.router_advert(
-                            self.faucet_mac, vid, link_local_vip.ip,
-                            255, 0x6, # hlim 255, set L and A flags.
-                            other_vip.network.network_address,
-                            other_vip.network.prefixlen)
-                        for port in ports:
-                            ofmsgs.append(
-                               valve_of.packetout(port.number, ra_advert.data))
+            for ports in self._flood_ports(vlan):
+                if ports:
+                    port_num = ports[0].number
+                    vid = self._vlan_vid(vlan, port_num)
+                    # https://tools.ietf.org/html/rfc4861#section-6.1.2
+                    ra_advert = valve_packet.router_advert(
+                        self.faucet_mac, valve_packet.IPV6_ALL_NODES_MCAST,
+                        vid, link_local_vip.ip, valve_packet.IPV6_ALL_NODES,
+                        other_vips)
+                    for port in ports:
+                        ofmsgs.append(
+                            valve_of.packetout(port.number, ra_advert.data))
         return ofmsgs
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
@@ -756,6 +757,20 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
             priority=priority,
             inst=[valve_of.apply_actions([valve_of.output_controller()])]))
+        if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
+            ofmsgs.append(self.valve_flowmod(
+                self.eth_src_table,
+                self.valve_in_match(
+                    self.eth_src_table,
+                    eth_type=self._eth_type(),
+                    vlan=vlan,
+                    nw_proto=inet.IPPROTO_ICMPV6,
+                    eth_dst=valve_packet.IPV6_ALL_ROUTERS_MCAST,
+                    icmpv6_type=icmpv6.ND_ROUTER_SOLICIT),
+                priority=priority,
+                inst=[
+                    valve_of.apply_actions([valve_of.output_controller()]),
+                    valve_of.goto_table(self.flood_table)]))
         # Initialize IPv6 FIB
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
@@ -792,7 +807,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
-        if vlan.ip_in_vip_subnet(src_ip):
+        if vlan.ip_in_vip_subnet(src_ip) and ipv6_pkt.hop_limit == 255:
             in_port = pkt_meta.port.number
             vid = self._vlan_vid(vlan, in_port)
             eth_src = pkt_meta.eth_src
@@ -814,6 +829,22 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     vlan, in_port, eth_src, src_ip))
                 self.logger.info(
                     'ND advert %s (%s)', src_ip, eth_src)
+            elif icmpv6_type == icmpv6.ND_ROUTER_SOLICIT:
+                link_local_vips, other_vips = self._link_and_other_vips(vlan)
+                for vip in link_local_vips:
+                    if src_ip in vip.network:
+                        ra_advert = valve_packet.router_advert(
+                            self.faucet_mac, eth_src,
+                            vid, vip.ip, src_ip, other_vips)
+                        self.logger.info(ra_advert)
+                        ofmsgs.append(
+                            valve_of.packetout(in_port, ra_advert.data))
+                        ofmsgs.extend(self._update_nexthop(
+                            vlan, in_port, eth_src, src_ip))
+                        self.logger.info(
+                            'Responded to RS solicit from %s (%s) to VIP %s',
+                            src_ip, eth_src, vip)
+                        break
             elif vlan.from_connected_to_vip(src_ip, dst_ip):
                 if (icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST and
                         pkt_meta.eth_dst == self.faucet_mac):

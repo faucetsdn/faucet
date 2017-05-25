@@ -12,6 +12,7 @@ RUN \
     ladvd \
     libpython2.7-dev \
     libyaml-dev \
+    ndisc6 \
     net-tools \
     netcat-openbsd \
     psmisc \
