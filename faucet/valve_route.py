@@ -807,7 +807,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
-        if vlan.ip_in_vip_subnet(src_ip) and ipv6_pkt.hop_limit == 255:
+        if vlan.ip_in_vip_subnet(src_ip):
             in_port = pkt_meta.port.number
             vid = self._vlan_vid(vlan, in_port)
             eth_src = pkt_meta.eth_src
