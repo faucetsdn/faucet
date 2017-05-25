@@ -807,7 +807,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
         dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
         icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
-        if vlan.ip_in_vip_subnet(src_ip):
+        if vlan.ip_in_vip_subnet(src_ip) and ipv6_pkt.hop_limit == 255:
             in_port = pkt_meta.port.number
             vid = self._vlan_vid(vlan, in_port)
             eth_src = pkt_meta.eth_src
@@ -836,13 +836,14 @@ class ValveIPv6RouteManager(ValveRouteManager):
                         ra_advert = valve_packet.router_advert(
                             self.faucet_mac, eth_src,
                             vid, vip.ip, src_ip, other_vips)
+                        self.logger.info(ra_advert)
                         ofmsgs.append(
                             valve_of.packetout(in_port, ra_advert.data))
                         ofmsgs.extend(self._update_nexthop(
                             vlan, in_port, eth_src, src_ip))
                         self.logger.info(
-                            'Responded to RS solicit for %s to %s (%s)',
-                            src_ip, vip, eth_src)
+                            'Responded to RS solicit from %s (%s) to VIP %s',
+                            src_ip, eth_src, vip)
                         break
             elif vlan.from_connected_to_vip(src_ip, dst_ip):
                 if (icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST and
