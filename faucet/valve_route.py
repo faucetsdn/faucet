@@ -290,11 +290,13 @@ class ValveRouteManager(object):
             True if a host FIB route (and not used as a gateway).
         """
         routes = self._vlan_routes(vlan)
+        in_fib = False
         for ip_dst, ip_gw in list(routes.items()):
             if ip_gw == host_ip:
+                in_fib = True
                 if ip_dst.prefixlen < ip_dst.max_prefixlen:
                     return False
-        return True
+        return in_fib
 
     def _flood_ports(self, vlan):
         return (
@@ -378,11 +380,15 @@ class ValveRouteManager(object):
         for vlan in vlans:
             limit = self._vlan_nexthop_cache_limit(vlan)
             if vlan.ip_in_vip_subnet(dst_ip) and not vlan.is_faucet_vip(dst_ip):
+                if self._is_host_fib_route(vlan, dst_ip):
+                    self.logger.info(
+                        'not proactively learning %s, already trying', dst_ip)
+                    break
                 if (limit is not None and
                         len(self._vlan_nexthop_cache(vlan)) >= limit):
                     self.logger.info(
                         'not proactively learning %s, at limit %u', dst_ip, limit)
-                    continue
+                    break
                 for faucet_vip in vlan.faucet_vips:
                     if dst_ip in faucet_vip.network:
                         priority = self._route_priority(dst_ip)
@@ -392,7 +398,7 @@ class ValveRouteManager(object):
                             self.fib_table,
                             in_match,
                             priority=priority,
-                            hard_timeout=2))
+                            hard_timeout=self.arp_neighbor_timeout))
                         ofmsgs.extend(
                             self._add_host_fib_route(vlan, dst_ip))
                         resolve_flows = self.resolve_gw_on_vlan(
