@@ -304,10 +304,11 @@ class ValveRouteManager(object):
         link_local_vips = []
         other_vips = []
         for faucet_vip in vlan.faucet_vips:
-            if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
-                link_local_vips.append(faucet_vip)
-            else:
-                other_vips.append(faucet_vip)
+            if faucet_vip.ip.version == 6:
+                if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
+                    link_local_vips.append(faucet_vip)
+                else:
+                    other_vips.append(faucet_vip)
         return link_local_vips, other_vips
 
     def advertise(self, vlan):
