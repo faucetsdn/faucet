@@ -376,10 +376,6 @@ class ValveRouteManager(object):
     def _proactive_resolve_neighbor(self, vlans, dst_ip):
         ofmsgs = []
         for vlan in vlans:
-            if self._is_host_fib_route(vlan, dst_ip):
-                self.logger.info(
-                    'not proactively learning %s, already trying', dst_ip)
-                return
             limit = self._vlan_nexthop_cache_limit(vlan)
             if vlan.ip_in_vip_subnet(dst_ip) and not vlan.is_faucet_vip(dst_ip):
                 if (limit is not None and
