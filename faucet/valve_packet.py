@@ -291,22 +291,24 @@ def router_advert(eth_src, eth_dst, vid, src_ip, dst_ip,
         nxt=inet.IPPROTO_ICMPV6,
         hop_limit=hop_limit)
     pkt.add_protocol(ipv6_pkt)
+    options = []
     for vip in vips:
-        # https://tools.ietf.org/html/rfc4861#section-4.6.2
-        icmpv6_ra_pkt = icmpv6.icmpv6(
-            type_=icmpv6.ND_ROUTER_ADVERT,
-            data=icmpv6.nd_router_advert(
-                rou_l=1800,
-                ch_l=hop_limit,
-                options=[
-                    icmpv6.nd_option_pi(
-                        prefix=vip.network.network_address,
-                        pl=vip.network.prefixlen,
-                        res1=pi_flags,
-                        val_l=86400,
-                        pre_l=14400,
-                    ),
-                    icmpv6.nd_option_sla(hw_src=eth_src)]))
-        pkt.add_protocol(icmpv6_ra_pkt)
+        options.append(
+            icmpv6.nd_option_pi(
+                prefix=vip.network.network_address,
+                pl=vip.network.prefixlen,
+                res1=pi_flags,
+                val_l=86400,
+                pre_l=14400,
+            ))
+    options.append(icmpv6.nd_option_sla(hw_src=eth_src))
+    # https://tools.ietf.org/html/rfc4861#section-4.6.2
+    icmpv6_ra_pkt = icmpv6.icmpv6(
+        type_=icmpv6.ND_ROUTER_ADVERT,
+        data=icmpv6.nd_router_advert(
+            rou_l=1800,
+            ch_l=hop_limit,
+            options=options))
+    pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()
     return pkt
