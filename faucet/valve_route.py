@@ -837,7 +837,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
                         ra_advert = valve_packet.router_advert(
                             self.faucet_mac, eth_src,
                             vid, vip.ip, src_ip, other_vips)
-                        self.logger.info(ra_advert)
                         ofmsgs.append(
                             valve_of.packetout(in_port, ra_advert.data))
                         ofmsgs.extend(self._update_nexthop(

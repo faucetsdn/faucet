@@ -1631,7 +1631,7 @@ class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112", "10.0.0.254/24"]
 """
 
     CONFIG = """
@@ -1650,6 +1650,12 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
+
+    def test_rdisc6(self):
+        first_host = self.net.hosts[0]
+        self.assertEquals(
+            'fc00::1:0/112',
+             first_host.cmd('rdisc6 -1 -q %s' % first_host.defaultIntf()).strip())
 
     def test_ra_advertise(self):
         first_host = self.net.hosts[0]
