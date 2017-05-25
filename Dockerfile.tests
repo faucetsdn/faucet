@@ -12,11 +12,11 @@ RUN \
     ladvd \
     libpython2.7-dev \
     libyaml-dev \
+    ndisc6 \
     net-tools \
     netcat-openbsd \
     psmisc \
     python-pip \
-    rdisc6 \
     sudo \
     tcpdump \
     vlan \
