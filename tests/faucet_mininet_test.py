@@ -74,8 +74,8 @@ EXTERNAL_DEPENDENCIES = (
      r'iperf version (\d+\.\d+)\.\d+', "2.0"),
     ('fping', ['-v'], 'fping',
      r'fping: Version (\d+\.\d+)', "3.13"),
-    ('ndisc6', ['--version'], 'ndisc6',
-     r'ndisc6.+tool (\d+\.\d+)', "1.0"),
+    ('rdisc6', ['--version'], 'rdisc6',
+     r'rdisc6.+tool (\d+\.\d+)', "1.0"),
 )
 
 # Must pass with 0 lint errors
@@ -1679,7 +1679,7 @@ vlans:
             'ip6 host fe80::1:254'))
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [
-                lambda: first_host.cmd('ndisc6 -1 %s' % first_host.defaultIntf())],
+                lambda: first_host.cmd('rdisc6 -1 %s' % first_host.defaultIntf())],
             timeout=30, vs='-vv', packets=1)
         for ra_required in (
             r'fe80::1:254 > fe80::.+ICMP6, router advertisement',
