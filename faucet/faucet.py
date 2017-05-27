@@ -143,19 +143,20 @@ class Faucet(app_manager.RyuApp):
                 valve.update_config_metrics(self.metrics)
 
         # Start BGP
-        self.dp_bgp_speakers = {}
+        self._dp_bgp_speakers = {}
         self._reset_bgp()
+
+        # Start all threads
+        self._threads = [
+            hub.spawn(thread) for thread in [
+                self._gateway_resolve_request, self._host_expire_request,
+                self._metric_update_request, self._advertise_request]]
 
         # Register to API
         api = kwargs['faucet_api']
         api._register(self)
         self.send_event_to_observers(EventFaucetAPIRegistered())
 
-        # Start all threads
-        self.threads = [
-            hub.spawn(thread) for thread in [
-                self._gateway_resolve_request, self._host_expire_request,
-                self._metric_update_request, self._advertise_request]]
 
     def _thread_reschedule(self, ryu_event, period):
         """Trigger Ryu events periodically with a jitter.
@@ -226,7 +227,7 @@ class Faucet(app_manager.RyuApp):
 
     def _bgp_update_metrics(self):
         """Update BGP metrics."""
-        for dp_id, bgp_speakers in list(self.dp_bgp_speakers.items()):
+        for dp_id, bgp_speakers in list(self._dp_bgp_speakers.items()):
             for vlan, bgp_speaker in list(bgp_speakers.items()):
                 neighbor_states = list(json.loads(bgp_speaker.neighbor_state_get()).items())
                 for neighbor, neighbor_state in neighbor_states:
@@ -312,9 +313,9 @@ class Faucet(app_manager.RyuApp):
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: configurable behavior - withdraw routes if peer goes down.
         for dp_id, valve in list(self.valves.items()):
-            if dp_id not in self.dp_bgp_speakers:
-                self.dp_bgp_speakers[dp_id] = {}
-            bgp_speakers = self.dp_bgp_speakers[dp_id]
+            if dp_id not in self._dp_bgp_speakers:
+                self._dp_bgp_speakers[dp_id] = {}
+            bgp_speakers = self._dp_bgp_speakers[dp_id]
             for bgp_speaker in list(bgp_speakers.values()):
                 bgp_speaker.shutdown()
             for vlan in list(valve.dp.vlans.values()):
