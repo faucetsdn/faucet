@@ -18,19 +18,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import logging
 import os
 import random
 import signal
 
-import ipaddress
-
 from config_parser import dp_parser
 from config_parser_util import config_file_hash
-from valve_util import btos, dpid_log, get_logger, kill_on_exception, get_sys_prefix
+from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
 from valve import valve_factory
 import faucet_api
+import faucet_bgp
 import faucet_metrics
 import valve_of
 
@@ -47,7 +45,6 @@ from ryu.lib.packet import ethernet
 from ryu.lib.packet import packet
 from ryu.lib.packet import vlan as ryu_vlan
 from ryu.ofproto import ether
-from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -140,8 +137,8 @@ class Faucet(app_manager.RyuApp):
                 valve.update_config_metrics(self.metrics)
 
         # Start BGP
-        self._dp_bgp_speakers = {}
-        self._reset_bgp()
+        self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
+        self._bgp.reset(self.valves, self.metrics)
 
         # Start all threads
         self._threads = [
@@ -238,7 +235,7 @@ class Faucet(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
-        self._bgp_update_metrics()
+        self._bgp.update_metrics()
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -248,102 +245,6 @@ class Faucet(app_manager.RyuApp):
             flowmods = valve.advertise()
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
-
-    @kill_on_exception(exc_logname)
-    def _bgp_update_metrics(self):
-        """Update BGP metrics."""
-        for dp_id, bgp_speakers in list(self._dp_bgp_speakers.items()):
-            for vlan, bgp_speaker in list(bgp_speakers.items()):
-                if bgp_speaker is not None:
-                    neighbor_states = list(json.loads(bgp_speaker.neighbor_state_get()).items())
-                    for neighbor, neighbor_state in neighbor_states:
-                        # pylint: disable=no-member
-                        self.metrics.bgp_neighbor_uptime_seconds.labels(
-                            dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
-                                neighbor_state['info']['uptime'])
-                        for ipv in vlan.ipvs():
-                            # pylint: disable=no-member
-                            self.metrics.bgp_neighbor_routes.labels(
-                            dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor, ipv=ipv).set(
-                                len(vlan.routes_by_ipv(ipv)))
-
-    def _bgp_route_handler(self, path_change, vlan):
-        """Handle a BGP change event.
-
-        Args:
-            path_change (ryu.services.protocols.bgp.bgpspeaker.EventPrefix): path change
-            vlan (vlan): Valve VLAN this path change was received for.
-        """
-        prefix = ipaddress.ip_network(btos(path_change.prefix))
-        nexthop = ipaddress.ip_address(btos(path_change.nexthop))
-        withdraw = path_change.is_withdraw
-        flowmods = []
-        valve = self.valves[vlan.dp_id]
-        if vlan.is_faucet_vip(nexthop):
-            self.logger.error(
-                'BGP nexthop %s for prefix %s cannot be us',
-                nexthop, prefix)
-            return
-        if not vlan.ip_in_vip_subnet(nexthop):
-            self.logger.error(
-                'BGP nexthop %s for prefix %s is not a connected network',
-                nexthop, prefix)
-            return
-
-        if withdraw:
-            self.logger.info(
-                'BGP withdraw %s nexthop %s', prefix, nexthop)
-            flowmods = valve.del_route(vlan, prefix)
-        else:
-            self.logger.info(
-                'BGP add %s nexthop %s', prefix, nexthop)
-            flowmods = valve.add_route(vlan, nexthop, prefix)
-        if flowmods:
-            self._send_flow_msgs(vlan.dp_id, flowmods)
-
-    def _create_bgp_speaker_for_vlan(self, vlan):
-        """Set up BGP speaker for an individual VLAN if required.
-
-        Args:
-            vlan (vlan): VLAN associated with this speaker.
-        Returns:
-            ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
-        """
-        handler = lambda x: self._bgp_route_handler(x, vlan)
-        bgp_speaker = BGPSpeaker(
-            as_number=vlan.bgp_as,
-            router_id=vlan.bgp_routerid,
-            bgp_server_port=vlan.bgp_port,
-            best_path_change_handler=handler)
-        for faucet_vip in vlan.faucet_vips:
-            bgp_speaker.prefix_add(
-                prefix=str(faucet_vip), next_hop=str(faucet_vip.ip))
-        for ipv in vlan.ipvs():
-            routes = vlan.routes_by_ipv(ipv)
-            for ip_dst, ip_gw in list(routes.items()):
-                bgp_speaker.prefix_add(
-                    prefix=str(ip_dst), next_hop=str(ip_gw))
-        for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
-            bgp_speaker.neighbor_add(
-                address=bgp_neighbor_address,
-                remote_as=vlan.bgp_neighbor_as,
-                local_address=vlan.bgp_local_address,
-                enable_ipv4=True,
-                enable_ipv6=True)
-        return bgp_speaker
-
-    def _reset_bgp(self):
-        """Set up a BGP speaker for every VLAN that requires it."""
-        # TODO: port status changes should cause us to withdraw a route.
-        for dp_id, valve in list(self.valves.items()):
-            if dp_id not in self._dp_bgp_speakers:
-                self._dp_bgp_speakers[dp_id] = {}
-            bgp_speakers = self._dp_bgp_speakers[dp_id]
-            for bgp_speaker in list(bgp_speakers.values()):
-                bgp_speaker.shutdown()
-            for vlan in list(valve.dp.vlans.values()):
-                if vlan.bgp_as:
-                    bgp_speakers[vlan] = self._create_bgp_speaker_for_vlan(vlan)
 
     def _config_changed(self, new_config_file):
         """Return True if configuration has changed.
@@ -370,12 +271,8 @@ class Faucet(app_manager.RyuApp):
         return False
 
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
-    def reload_config(self, ryu_event):
-        """Handle a request to reload configuration.
-
-        Args:
-            ryu_event (ryu.controller.event.EventReplyBase): triggering event.
-        """
+    def reload_config(self, _):
+        """Handle a request to reload configuration."""
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
         if self._config_changed(new_config_file):
             self.config_file = new_config_file
@@ -385,7 +282,7 @@ class Faucet(app_manager.RyuApp):
                 valve = self.valves[new_dp.dp_id]
                 flowmods = valve.reload_config(new_dp)
                 self._send_flow_msgs(new_dp.dp_id, flowmods)
-                self._reset_bgp()
+                self._bgp.reset(self.valves, self.metrics)
                 valve.update_config_metrics(self.metrics)
         else:
             self.logger.info('configuration is unchanged, not reloading')
