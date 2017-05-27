@@ -191,15 +191,15 @@ class DistConfigTestCase(unittest.TestCase):
             self.assertEquals(vlan.bgp_neighbor_as, 2)
             self.assertIn(
                 ipaddress.ip_network(u'10.0.1.0/24'),
-                vlan.ipv4_routes
+                vlan.routes_by_ipv(4)
                 )
             self.assertIn(
                 ipaddress.ip_network(u'10.0.2.0/24'),
-                vlan.ipv4_routes
+                vlan.routes_by_ipv(4)
                 )
             self.assertIn(
                 ipaddress.ip_network(u'10.0.3.0/24'),
-                vlan.ipv4_routes
+                vlan.routes_by_ipv(4)
                 )
 
     def test_port_acl(self):

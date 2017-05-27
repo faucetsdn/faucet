@@ -111,6 +111,9 @@ class Valve(object):
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller,
             self.dp.group_table, self.dp.routers)
+        self.route_manager_by_ipv = {}
+        for route_manager in (self.ipv4_route_manager, self.ipv6_route_manager):
+            self.route_manager_by_ipv[route_manager.IPV] = route_manager
         self.flood_manager = valve_flood.ValveFloodManager(
             self.dp.flood_table, self.dp.low_priority,
             self.valve_in_match, self.valve_flowmod,
@@ -520,7 +523,10 @@ class Valve(object):
         # add acl rules
         ofmsgs.extend(self._add_vlan_acl(vlan.vid))
         # add controller IPs if configured.
-        ofmsgs.extend(self._add_faucet_vips(vlan.faucet_vips, vlan))
+        for ipv in vlan.ipvs():
+            route_manager = self.route_manager_by_ipv[ipv]
+            ofmsgs.extend(self._add_faucet_vips(
+                route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -1035,10 +1041,10 @@ class Valve(object):
                 vlan)
             metrics.vlan_hosts_learned.labels(
                 dpid=dpid, vlan=vlan.vid).set(hosts_count)
-            metrics.vlan_neighbors.labels(
-                dpid=dpid, vlan=vlan.vid, ipv='4').set(len(vlan.arp_cache))
-            metrics.vlan_neighbors.labels(
-                dpid=dpid, vlan=vlan.vid, ipv='6').set(len(vlan.nd_cache))
+            for ipv in vlan.ipvs():
+                neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
+                metrics.vlan_neighbors.labels(
+                    dpid=dpid, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
             # Repopulate MAC learning.
             hosts_on_port = {}
             for eth_src, host_cache_entry in sorted(list(vlan.host_cache.items())):
@@ -1048,10 +1054,10 @@ class Valve(object):
                     hosts_on_port[port_num] = []
                 hosts_on_port[port_num].append(mac_int)
             for port_num, hosts in list(hosts_on_port.items()):
-                for n, mac_int in enumerate(hosts):
+                for i, mac_int in enumerate(hosts):
                     metrics.learned_macs.labels(
                         dpid=dpid, vlan=vlan.vid,
-                        port=port_num, n=n).set(mac_int)
+                        port=port_num, n=i).set(mac_int)
 
     def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).
@@ -1244,31 +1250,22 @@ class Valve(object):
         else:
             return []
 
-    def _add_faucet_vips(self, faucet_vips, vlan):
+    def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
         ofmsgs = []
         for faucet_vip in faucet_vips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
-            if faucet_vip.version == 6:
-                ofmsgs.extend(self.ipv6_route_manager.add_faucet_vip(
-                    vlan, faucet_vip))
-            elif faucet_vip.version == 4:
-                ofmsgs.extend(self.ipv4_route_manager.add_faucet_vip(
-                    vlan, faucet_vip))
+            ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
-        if ip_dst.version == 6:
-            return self.ipv6_route_manager.add_route(vlan, ip_gw, ip_dst)
-        else:
-            return self.ipv4_route_manager.add_route(vlan, ip_gw, ip_dst)
+        route_manager = self.route_manager_by_ipv[ip_dst.version]
+        return route_manager.add_route(vlan, ip_gw, ip_dst)
 
     def del_route(self, vlan, ip_dst):
         """Delete route from VLAN routing table."""
-        if ip_dst.version == 6:
-            return self.ipv6_route_manager.del_route(vlan, ip_dst)
-        else:
-            return self.ipv4_route_manager.del_route(vlan, ip_dst)
+        route_manager = self.route_manager_by_ipv[ip_dst.version]
+        return route_manager.del_route(vlan, ip_dst)
 
     def resolve_gateways(self):
         """Call route managers to re/resolve gateways.

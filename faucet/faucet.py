@@ -194,7 +194,7 @@ class Faucet(app_manager.RyuApp):
         if sigid == signal.SIGHUP:
             self.send_event('Faucet', EventFaucetReconfigure())
 
-    def _thread_reschedule(self, ryu_event, period):
+    def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
 
         Args:
@@ -203,7 +203,7 @@ class Faucet(app_manager.RyuApp):
         """
         while True:
             self.send_event('Faucet', ryu_event)
-            hub.sleep(period + random.randint(0, 2))
+            hub.sleep(period + random.randint(0, jitter))
 
     def _gateway_resolve_request(self):
         self._thread_reschedule(EventFaucetResolveGateways(), 2)
@@ -218,6 +218,7 @@ class Faucet(app_manager.RyuApp):
         self._thread_reschedule(EventFaucetAdvertise(), 5)
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
     def resolve_gateways(self, _):
         """Handle a request to re/resolve gateways."""
         for dp_id, valve in list(self.valves.items()):
@@ -226,6 +227,7 @@ class Faucet(app_manager.RyuApp):
                 self._send_flow_msgs(dp_id, flowmods)
 
     @set_ev_cls(EventFaucetHostExpire, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
     def host_expire(self, _):
         """Handle a request expire host state in the controller."""
         for valve in list(self.valves.values()):
@@ -233,11 +235,13 @@ class Faucet(app_manager.RyuApp):
             valve.update_metrics(self.metrics)
 
     @set_ev_cls(EventFaucetMetricUpdate, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
         self._bgp_update_metrics()
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
     def advertise(self, _):
         """Handle a request to advertise services."""
         for dp_id, valve in list(self.valves.items()):
@@ -245,24 +249,23 @@ class Faucet(app_manager.RyuApp):
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
 
+    @kill_on_exception(exc_logname)
     def _bgp_update_metrics(self):
         """Update BGP metrics."""
         for dp_id, bgp_speakers in list(self._dp_bgp_speakers.items()):
             for vlan, bgp_speaker in list(bgp_speakers.items()):
-                neighbor_states = list(json.loads(bgp_speaker.neighbor_state_get()).items())
-                for neighbor, neighbor_state in neighbor_states:
-                    # pylint: disable=no-member
-                    self.metrics.bgp_neighbor_uptime_seconds.labels(
-                        dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
-                            neighbor_state['info']['uptime'])
-                    # pylint: disable=no-member
-                    self.metrics.bgp_neighbor_routes.labels(
-                        dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor, ipv='4').set(
-                            len(vlan.ipv4_routes))
-                    # pylint: disable=no-member
-                    self.metrics.bgp_neighbor_routes.labels(
-                        dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor, ipv='6').set(
-                            len(vlan.ipv6_routes))
+                if bgp_speaker is not None:
+                    neighbor_states = list(json.loads(bgp_speaker.neighbor_state_get()).items())
+                    for neighbor, neighbor_state in neighbor_states:
+                        # pylint: disable=no-member
+                        self.metrics.bgp_neighbor_uptime_seconds.labels(
+                            dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
+                                neighbor_state['info']['uptime'])
+                        for ipv in vlan.ipvs():
+                            # pylint: disable=no-member
+                            self.metrics.bgp_neighbor_routes.labels(
+                            dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor, ipv=ipv).set(
+                                len(vlan.routes_by_ipv(ipv)))
 
     def _bgp_route_handler(self, path_change, vlan):
         """Handle a BGP change event.
@@ -315,8 +318,9 @@ class Faucet(app_manager.RyuApp):
         for faucet_vip in vlan.faucet_vips:
             bgp_speaker.prefix_add(
                 prefix=str(faucet_vip), next_hop=str(faucet_vip.ip))
-        for route_table in (vlan.ipv4_routes, vlan.ipv6_routes):
-            for ip_dst, ip_gw in list(route_table.items()):
+        for ipv in vlan.ipvs():
+            routes = vlan.routes_by_ipv(ipv)
+            for ip_dst, ip_gw in list(routes.items()):
                 bgp_speaker.prefix_add(
                     prefix=str(ip_dst), next_hop=str(ip_gw))
         for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
@@ -331,7 +335,6 @@ class Faucet(app_manager.RyuApp):
     def _reset_bgp(self):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
-        # TODO: configurable behavior - withdraw routes if peer goes down.
         for dp_id, valve in list(self.valves.items()):
             if dp_id not in self._dp_bgp_speakers:
                 self._dp_bgp_speakers[dp_id] = {}
@@ -453,6 +456,7 @@ class Faucet(app_manager.RyuApp):
             self.logger.error('_error_handler: unknown %s', dpid_log(dp_id))
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
+    @kill_on_exception(exc_logname)
     def handler_features(self, ryu_event):
         """Handle receiving a switch features message from a datapath.
 
@@ -510,6 +514,7 @@ class Faucet(app_manager.RyuApp):
         self.logger.debug('%s reconnected', dpid_log(ryu_dp.id))
         self.handler_datapath(ryu_dp)
 
+    @kill_on_exception(exc_logname)
     def handler_datapath(self, ryu_dp):
         """Handle any/all re/dis/connection of a datapath.
 
