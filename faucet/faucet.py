@@ -110,9 +110,6 @@ class Faucet(app_manager.RyuApp):
             'FAUCET_EXCEPTION_LOG',
             sysprefix + '/var/log/ryu/faucet/faucet_exception.log')
 
-        # Set the signal handler for reloading config file
-        signal.signal(signal.SIGHUP, self.signal_handler)
-
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
 
@@ -157,6 +154,45 @@ class Faucet(app_manager.RyuApp):
         api._register(self)
         self.send_event_to_observers(EventFaucetAPIRegistered())
 
+        # Set the signal handler for reloading config file
+        signal.signal(signal.SIGHUP, self._signal_handler)
+
+    @kill_on_exception(exc_logname)
+    def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
+        """Send OpenFlow messages to a connected datapath.
+
+        Args:
+            dp_id (int): datapath ID.
+            flow_msgs (list): OpenFlow messages to send.
+            ryu_dp: Override datapath from DPSet.
+        """
+        if ryu_dp is None:
+            ryu_dp = self.dpset.get(dp_id)
+            if not ryu_dp:
+                self.logger.error('send_flow_msgs: %s not up', dpid_log(dp_id))
+                return
+            if dp_id not in self.valves:
+                self.logger.error('send_flow_msgs: unknown %s', dpid_log(dp_id))
+                return
+
+        valve = self.valves[dp_id]
+        reordered_flow_msgs = valve.valve_flowreorder(flow_msgs)
+        valve.ofchannel_log(reordered_flow_msgs)
+        for flow_msg in reordered_flow_msgs:
+            # pylint: disable=no-member
+            self.metrics.of_flowmsgs_sent.labels(
+                dpid=hex(dp_id)).inc()
+            flow_msg.datapath = ryu_dp
+            ryu_dp.send_msg(flow_msg)
+
+    def _signal_handler(self, sigid, _):
+        """Handle any received signals.
+
+        Args:
+            sigid (int): signal to handle.
+        """
+        if sigid == signal.SIGHUP:
+            self.send_event('Faucet', EventFaucetReconfigure())
 
     def _thread_reschedule(self, ryu_event, period):
         """Trigger Ryu events periodically with a jitter.
@@ -183,11 +219,7 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     def resolve_gateways(self, _):
-        """Handle a request to re/resolve gateways.
-
-        Args:
-            ryu_event (ryu.controller.event.EventReplyBase): triggering event.
-        """
+        """Handle a request to re/resolve gateways."""
         for dp_id, valve in list(self.valves.items()):
             flowmods = valve.resolve_gateways()
             if flowmods:
@@ -195,31 +227,19 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(EventFaucetHostExpire, MAIN_DISPATCHER)
     def host_expire(self, _):
-        """Handle a request expire host state in the controller.
-
-        Args:
-            ryu_event (ryu.controller.event.EventReplyBase): triggering event.
-        """
+        """Handle a request expire host state in the controller."""
         for valve in list(self.valves.values()):
             valve.host_expire()
             valve.update_metrics(self.metrics)
 
     @set_ev_cls(EventFaucetMetricUpdate, MAIN_DISPATCHER)
     def metric_update(self, _):
-        """Handle a request to update metrics in the controller.
-
-        Args:
-            ryu_event (ryu.controller.event.EventReplyBase): triggering event.
-        """
+        """Handle a request to update metrics in the controller."""
         self._bgp_update_metrics()
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     def advertise(self, _):
-        """Handle a request to advertise services.
-
-        Args:
-           ryu_event (ryu.controller.event.EventReplyBase): triggering event.
-        """
+        """Handle a request to advertise services."""
         for dp_id, valve in list(self.valves.items()):
             flowmods = valve.advertise()
             if flowmods:
@@ -321,44 +341,6 @@ class Faucet(app_manager.RyuApp):
             for vlan in list(valve.dp.vlans.values()):
                 if vlan.bgp_as:
                     bgp_speakers[vlan] = self._create_bgp_speaker_for_vlan(vlan)
-
-    def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
-        """Send OpenFlow messages to a connected datapath.
-
-        Args:
-            dp_id (int): datapath ID.
-            flow_msgs (list): OpenFlow messages to send.
-            ryu_dp: Override datapath from DPSet.
-        """
-        if ryu_dp is None:
-            ryu_dp = self.dpset.get(dp_id)
-            if not ryu_dp:
-                self.logger.error('send_flow_msgs: %s not up', dpid_log(dp_id))
-                return
-            if dp_id not in self.valves:
-                self.logger.error('send_flow_msgs: unknown %s', dpid_log(dp_id))
-                return
-
-        valve = self.valves[dp_id]
-        reordered_flow_msgs = valve.valve_flowreorder(flow_msgs)
-        valve.ofchannel_log(reordered_flow_msgs)
-        for flow_msg in reordered_flow_msgs:
-            # pylint: disable=no-member
-            self.metrics.of_flowmsgs_sent.labels(
-                dpid=hex(dp_id)).inc()
-            flow_msg.datapath = ryu_dp
-            ryu_dp.send_msg(flow_msg)
-
-    # pylint: disable=unused-argument
-    def signal_handler(self, sigid, frame):
-        """Handle any received signals.
-
-        Args:
-            sigid (int): signal to handle.
-            frame (frame): stack frame.
-        """
-        if sigid == signal.SIGHUP:
-            self.send_event('Faucet', EventFaucetReconfigure())
 
     def _config_changed(self, new_config_file):
         """Return True if configuration has changed.
