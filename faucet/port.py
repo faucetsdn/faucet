@@ -20,6 +20,7 @@ from conf import Conf
 
 
 class Port(Conf):
+    """Implement FAUCET configuration for a port."""
 
     name = None
     number = None

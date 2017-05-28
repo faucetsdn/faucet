@@ -27,7 +27,7 @@ import networkx
 # immediately after being set. See below for example.
 
 class DP(Conf):
-    """Object to hold the configuration for a faucet controlled datapath."""
+    """Implement FAUCET configuration for a datapath."""
 
     acls = None
     vlans = None

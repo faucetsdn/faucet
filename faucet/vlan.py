@@ -24,6 +24,7 @@ from valve_util import btos
 
 
 class VLAN(Conf):
+    """Implement FAUCET configuration for a VLAN."""
 
     tagged = None
     untagged = None
@@ -227,13 +228,3 @@ class VLAN(Conf):
         if self.is_faucet_vip(dst_ip) and self.ip_in_vip_subnet(src_ip):
             return True
         return False
-
-    def __hash__(self):
-        items = [(k, v) for k, v in list(self.__dict__.items()) if 'dyn' not in k]
-        return hash(frozenset(list(map(str, items))))
-
-    def __eq__(self, other):
-        return hash(self) == hash(other)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)

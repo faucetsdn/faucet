@@ -20,6 +20,7 @@ from conf import Conf
 
 
 class Router(Conf):
+    """Implement FAUCET configuration for a router."""
 
     vlans = None
 
