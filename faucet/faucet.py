@@ -30,8 +30,8 @@ from valve import valve_factory
 import faucet_api
 import faucet_bgp
 import faucet_metrics
+import valve_packet
 import valve_of
-
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -41,10 +41,6 @@ from ryu.controller import dpset
 from ryu.controller import event
 from ryu.controller import ofp_event
 from ryu.lib import hub
-from ryu.lib.packet import ethernet
-from ryu.lib.packet import packet
-from ryu.lib.packet import vlan as ryu_vlan
-from ryu.ofproto import ether
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -308,19 +304,8 @@ class Faucet(app_manager.RyuApp):
         valve = self.valves[dp_id]
         valve.ofchannel_log([msg])
 
-        pkt = packet.Packet(msg.data)
-        eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
-        eth_type = eth_pkt.ethertype
-
-        # Packet ins, can only come when a VLAN header has already been pushed
-        # (ie. when we have progressed past the VLAN table). This gaurantees
-        # a VLAN header will always be present, so we know which VLAN the packet
-        # belongs to.
-        if eth_type == ether.ETH_TYPE_8021Q:
-            # tagged packet
-            vlan_proto = pkt.get_protocols(ryu_vlan.vlan)[0]
-            vlan_vid = vlan_proto.vid
-        else:
+        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg)
+        if vlan_vid is None:
             return
 
         in_port = msg.match['in_port']
