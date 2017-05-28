@@ -70,7 +70,7 @@ def parse_packet_in_pkt(msg):
         # tagged packet
         vlan_proto = pkt.get_protocols(vlan.vlan)[0]
         vlan_vid = vlan_proto.vid
-    return eth_pkt, vlan_vid
+    return pkt, vlan_vid
 
 
 def build_pkt_header(eth_src, eth_dst, vid, dl_type):
