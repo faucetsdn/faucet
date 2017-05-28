@@ -23,8 +23,8 @@ import os
 import random
 import signal
 
-from config_parser import dp_parser
-from config_parser_util import config_file_hash
+from config_parser import dp_parser, get_config_for_api
+from config_parser_util import config_changed
 from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
 from valve import valve_factory
 import faucet_api
@@ -242,35 +242,11 @@ class Faucet(app_manager.RyuApp):
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
 
-    def _config_changed(self, new_config_file):
-        """Return True if configuration has changed.
-
-        Args:
-            new_config_file (str): name, possibly new, of FAUCET config file.
-        Returns:
-            bool: True if the file, or any file it includes, has changed.
-        """
-        if new_config_file != self.config_file:
-            return True
-        for config_file, config_hash in list(self.config_hashes.items()):
-            config_file_exists = os.path.isfile(config_file)
-            # Config file not loaded but exists = reload.
-            if config_hash is None and config_file_exists:
-                return True
-            # Config file loaded but no longer exists = reload.
-            if config_hash and not config_file_exists:
-                return True
-            # Config file hash has changed = reload.
-            new_config_hash = config_file_hash(config_file)
-            if new_config_hash != config_hash:
-                return True
-        return False
-
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):
         """Handle a request to reload configuration."""
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
-        if self._config_changed(new_config_file):
+        if config_changed(self.config_file, new_config_file, self.config_hashes):
             self.config_file = new_config_file
             self.config_hashes, new_dps = dp_parser(
                 new_config_file, self.logname)
@@ -385,14 +361,13 @@ class Faucet(app_manager.RyuApp):
         dp_id = ryu_dp.id
         if dp_id in self.valves:
             valve = self.valves[dp_id]
+            # pylint: disable=no-member
             if ryu_event.enter:
-                # pylint: disable=no-member
                 self.metrics.of_dp_connections.labels(
                     dpid=hex(dp_id)).inc()
                 self.logger.debug('%s connected', dpid_log(dp_id))
                 self._handler_datapath(ryu_dp)
             else:
-                # pylint: disable=no-member
                 self.metrics.of_dp_disconnections.labels(
                     dpid=hex(dp_id)).inc()
                 self.logger.debug('%s disconnected', dpid_log(dp_id))
@@ -438,13 +413,7 @@ class Faucet(app_manager.RyuApp):
                 'port_status_handler: unknown %s', dpid_log(dp_id))
 
     def get_config(self):
-        config = {}
-        for valve in list(self.valves.values()):
-            valve_conf = valve.get_config_dict()
-            for k in ('dps', 'acls', 'vlans'):
-                config.setdefault(k, {})
-                config[k].update(valve_conf[k])
-        return config
+        return get_config_for_api(self.valves)
 
     def get_tables(self, dp_id):
         return self.valves[dp_id].dp.get_tables()

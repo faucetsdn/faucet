@@ -101,3 +101,30 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     for conf_name, new_conf in list(new_top_confs.items()):
         top_confs[conf_name].update(new_conf)
     return True
+
+
+def config_changed(config_file, new_config_file, config_hashes):
+    """Return True if configuration has changed.
+
+    Args:
+        config_file (str): name of FAUCET config file
+        new_config_file (str): name, possibly new, of FAUCET config file.
+        config_hashes (dict): map of config file/includes and hashes of contents.
+    Returns:
+        bool: True if the file, or any file it includes, has changed.
+    """
+    if new_config_file != config_file:
+        return True
+    for config_file, config_hash in list(config_hashes.items()):
+        config_file_exists = os.path.isfile(config_file)
+        # Config file not loaded but exists = reload.
+        if config_hash is None and config_file_exists:
+            return True
+        # Config file loaded but no longer exists = reload.
+        if config_hash and not config_file_exists:
+            return True
+        # Config file hash has changed = reload.
+        new_config_hash = config_file_hash(config_file)
+        if new_config_hash != config_hash:
+            return True
+    return False
