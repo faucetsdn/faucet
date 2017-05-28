@@ -113,7 +113,7 @@ GENERATE_JSON = True
 
 # =========================== Utility Functions ================================
 def debug(arg):
-    if True == DEBUG:
+    if DEBUG:
         print(arg)
 
 def error(arg):
@@ -136,11 +136,10 @@ TABLE_SIZE = {} # Table ID key, value is number of flows in table
 
 # Iterate over all lines of the file, gathering data
 debug("=== Per-flow pipeline analysis ===")
-input = open(open(sys.argv[1]))
-for line in input:
+for line in open(open(sys.argv[1])):
     # Skip empty lines
     line = line.rstrip().lstrip()
-    if "" == line:
+    if not line:
         continue
 
     # debug("FLOW: "+line)
@@ -241,8 +240,6 @@ for line in input:
     TABLE_WILDCARDS[table] = set(wildcard).union(TABLE_WILDCARDS[table])
     TABLE_MASKS[table] = TABLE_MASKS[table].union(masks)
 
-input.close()
-
 # Globals used in validation
 debug("\n=== Global and per-table pipeline analysis ===")
 MAX_SUPPORTED_TABLES = 12
@@ -256,7 +253,7 @@ if len(TABLE_SIZE.keys()) > MAX_SUPPORTED_TABLES:
     error("HPE Aruba switches support a maximum of "+str(MAX_SUPPORTED_TABLES)+" tables, but "+str(len(TABLE_SIZE.keys()))+" were used:\n "+str(TABLE_SIZE.keys()))
 
 # Check if table 0 (required) was used
-if not '0' in TABLE_SIZE:
+if '0' not in TABLE_SIZE:
     error("Table 0 was not used, but is required by the OpenFlow specification")
 
 # Get a numerically-sorted list of table IDs
@@ -357,14 +354,14 @@ prev_tables = set([])
 JSON = '['
 for table in tables:
     # Get all fields being matched
-    size = str(TABLE_SIZE[table])
+    size = TABLE_SIZE[table]
     exact = TABLE_MATCH[table]
     wildcard = TABLE_WILDCARDS[table]
     mask = TABLE_MASKS[table]
     all_matches = exact.union(wildcard).union(mask)
 
     # Table header information
-    JSON += '{"max_entries": '+size+','
+    JSON += '{"max_entries": '+str(size)+','
     JSON += '"name": "Table '+table+'",'
     JSON += '"table_id": '+table+','
     JSON += '"metadata_match": 0,'
@@ -400,29 +397,29 @@ for table in tables:
     # criteria, regardless of what the flows actually tried to use.
     genericSetfields = ['{"type":"'+f+'","name":"'+f+'"}' for f in ARUBA_SETFIELDS]
     genericActions = [
-       '{"type":0,"name":"OFPAT_OUTPUT"}',
-       '{"type":17,"name":"OFPAT_PUSH_VLAN"}',
-       '{"type":18,"name":"OFPAT_POP_VLAN"}',
-       '{"type":22,"name":"OFPAT_GROUP"}',
-       '{"type":23,"name":"OFPAT_SET_NW_TTL"}',
-       '{"type":25,"name":"OFPAT_SET_FIELD"}']
+        '{"type":0,"name":"OFPAT_OUTPUT"}',
+        '{"type":17,"name":"OFPAT_PUSH_VLAN"}',
+        '{"type":18,"name":"OFPAT_POP_VLAN"}',
+        '{"type":22,"name":"OFPAT_GROUP"}',
+        '{"type":23,"name":"OFPAT_SET_NW_TTL"}',
+        '{"type":25,"name":"OFPAT_SET_FIELD"}']
     genericInstructions = [
-       '{"type":1,"name":"OFPIT_GOTO_TABLE"}',
-       '{"type":3,"name":"OFPIT_WRITE_ACTIONS"}',
-       '{"type":4,"name":"OFPIT_APPLY_ACTIONS"}',
-       '{"type":5,"name":"OFPIT_CLEAR_ACTIONS"}',
-       '{"type":6,"name":"OFPIT_METER"}']
-    genericProps = ['{ "type":0, "name":"OFPTFPT_INSTRUCTIONS", "instruction_ids" : [ '+','.join(genericInstructions)+' ] }',
-                   '{ "type":1, "name":"OFPTFPT_INSTRUCTIONS_MISS", "instruction_ids" : [ '+','.join(genericInstructions)+' ] }',
-                   '{ "type":4, "name":"OFPTFPT_WRITE_ACTIONS", "action_ids" : [ '+','.join(genericActions)+' ] }',
-                   '{ "type":5, "name":"OFPTFPT_WRITE_ACTIONS_MISS", "action_ids" : [ '+','.join(genericActions)+' ] }',
-                   '{ "type":6, "name":"OFPTFPT_APPLY_ACTIONS", "action_ids" : [ '+','.join(genericActions)+' ] }',
-                   '{ "type":7, "name":"OFPTFPT_APPLY_ACTIONS_MISS", "action_ids" : [ '+','.join(genericActions)+' ] }',
-                   '{ "type":12, "name":"OFPTFPT_WRITE_SETFIELD", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
-                   '{ "type":13, "name":"OFPTFPT_WRITE_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
-                   '{ "type":14, "name":"OFPTFPT_APPLY_SETFIELD", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
-                   '{ "type":15, "name":"OFPTFPT_APPLY_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }']
-    genericProps = ','.join(genericProps)
+        '{"type":1,"name":"OFPIT_GOTO_TABLE"}',
+        '{"type":3,"name":"OFPIT_WRITE_ACTIONS"}',
+        '{"type":4,"name":"OFPIT_APPLY_ACTIONS"}',
+        '{"type":5,"name":"OFPIT_CLEAR_ACTIONS"}',
+        '{"type":6,"name":"OFPIT_METER"}']
+    genericProps = ','.join(
+        ['{ "type":0, "name":"OFPTFPT_INSTRUCTIONS", "instruction_ids": [ '+','.join(genericInstructions)+' ] }',
+         '{ "type":1, "name":"OFPTFPT_INSTRUCTIONS_MISS", "instruction_ids": [ '+','.join(genericInstructions)+' ] }',
+         '{ "type":4, "name":"OFPTFPT_WRITE_ACTIONS", "action_ids": [ '+','.join(genericActions)+' ] }',
+         '{ "type":5, "name":"OFPTFPT_WRITE_ACTIONS_MISS", "action_ids": [ '+','.join(genericActions)+' ] }',
+         '{ "type":6, "name":"OFPTFPT_APPLY_ACTIONS", "action_ids": [ '+','.join(genericActions)+' ] }',
+         '{ "type":7, "name":"OFPTFPT_APPLY_ACTIONS_MISS", "action_ids": [ '+','.join(genericActions)+' ] }',
+         '{ "type":12, "name":"OFPTFPT_WRITE_SETFIELD", "oxm_ids": [ '+','.join(genericSetfields)+' ] }',
+         '{ "type":13, "name":"OFPTFPT_WRITE_SETFIELD_MISS", "oxm_ids": [ '+','.join(genericSetfields)+' ] }',
+         '{ "type":14, "name":"OFPTFPT_APPLY_SETFIELD", "oxm_ids": [ '+','.join(genericSetfields)+' ] }',
+         '{ "type":15, "name":"OFPTFPT_APPLY_SETFIELD_MISS", "oxm_ids": [ '+','.join(genericSetfields)+' ] }'])
 
     # Remove GOTO from last table
     prev_tables.add(table)
