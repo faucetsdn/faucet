@@ -57,8 +57,10 @@ def dp_include(config_hashes, config_file, logname, top_confs):
         logger.warning('error loading config from file: %s', config_file)
         return False
 
-    unknown_top_confs = (set(conf.keys()) -
-        set(list(top_confs.keys()) + ['include', 'include-optional', 'version']))
+    unknown_top_confs = (
+        set(conf.keys()) -
+        set(list(top_confs.keys()) +
+            ['include', 'include-optional', 'version']))
     if unknown_top_confs:
         logger.error('unknown top level config items: %s', unknown_top_confs)
         return False
