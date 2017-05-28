@@ -285,11 +285,12 @@ def match_from_dict(match_dict):
     return acl_match
 
 
-def _match_ip_masked(ip):
-    if isinstance(ip, ipaddress.IPv4Network) or isinstance(ip, ipaddress.IPv6Network):
-        return (str(ip.network_address), str(ip.netmask))
+def _match_ip_masked(ipa):
+    if (isinstance(ipa, ipaddress.IPv4Network) or
+            isinstance(ipa, ipaddress.IPv6Network)):
+        return (str(ipa.network_address), str(ipa.netmask))
     else:
-        return (str(ip.ip), str(ip.netmask))
+        return (str(ipa.ip), str(ipa.netmask))
 
 
 def build_match_dict(in_port=None, vlan=None,
