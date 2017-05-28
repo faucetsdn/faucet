@@ -19,7 +19,6 @@ import ipaddress
 
 from conf import Conf
 from valve_util import btos
-import valve_util
 
 
 class VLAN(Conf):

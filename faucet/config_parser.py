@@ -59,7 +59,7 @@ def _get_vlan_by_identifier(dp_id, v_identifier, vlans):
         if v_identifier == vlan._id:
             vid = vlan.vid
             break
-    if type(vid) == str:
+    if isinstance(vid, str):
         try:
             vid = int(vid, 0)
         except:
