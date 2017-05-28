@@ -542,6 +542,8 @@ dbs:
                     break
                 time.sleep(1)
             if not debug_log_present:
+                # Maybe controller crashed.
+                self.verify_no_exception('FAUCET_EXCEPTION_LOG')
                 self.fail(
                     'no controller debug log for switch %s' % dp_name)
 
