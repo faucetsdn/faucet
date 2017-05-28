@@ -126,10 +126,10 @@ class Faucet(app_manager.RyuApp):
         self._load_configs(self.config_file)
 
         # Start all threads
-        self._threads = (
+        self._threads = [
             hub.spawn(thread) for thread in (
                 self._gateway_resolve_request, self._host_expire_request,
-                self._metric_update_request, self._advertise_request))
+                self._metric_update_request, self._advertise_request)]
 
         # Register to API
         api = kwargs['faucet_api']
