@@ -113,34 +113,23 @@ class Faucet(app_manager.RyuApp):
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
+        self.valves = {}
+
         # Start Prometheus
         prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9244'))
         self.metrics = faucet_metrics.FaucetMetrics(prom_port)
 
-        # Set up a valve object for each datapath
-        self.valves = {}
-        self.config_hashes, valve_dps = dp_parser(
-            self.config_file, self.logname)
-        for valve_dp in valve_dps:
-            # pylint: disable=no-member
-            valve_cl = valve_factory(valve_dp)
-            if valve_cl is None:
-                self.logger.error(
-                    'Hardware type not supported for DP: %s', valve_dp.name)
-            else:
-                valve = valve_cl(valve_dp, self.logname)
-                self.valves[valve_dp.dp_id] = valve
-                valve.update_config_metrics(self.metrics)
-
         # Start BGP
         self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
-        self._bgp.reset(self.valves, self.metrics)
+
+        # Configure all Valves
+        self._load_configs(self.config_file)
 
         # Start all threads
-        self._threads = [
-            hub.spawn(thread) for thread in [
+        self._threads = (
+            hub.spawn(thread) for thread in (
                 self._gateway_resolve_request, self._host_expire_request,
-                self._metric_update_request, self._advertise_request]]
+                self._metric_update_request, self._advertise_request))
 
         # Register to API
         api = kwargs['faucet_api']
@@ -149,6 +138,34 @@ class Faucet(app_manager.RyuApp):
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self._signal_handler)
+
+    @kill_on_exception(exc_logname)
+    def _load_configs(self, new_config_file):
+        self.config_file = new_config_file
+        self.config_hashes, new_dps = dp_parser(
+            new_config_file, self.logname)
+        deleted_valve_dpids = (
+            set(list(self.valves.keys())) -
+            set([valve.dp_id for valve in new_dps]))
+        for new_dp in new_dps:
+            if new_dp.dp_id in self.valves:
+                valve = self.valves[new_dp.dp_id]
+                flowmods = valve.reload_config(new_dp)
+                self._send_flow_msgs(new_dp.dp_id, flowmods)
+            else:
+                # pylint: disable=no-member
+                valve_cl = valve_factory(new_dp)
+                if valve_cl is None:
+                    self.logger.fatal('Could not configure %s', new_dp.name)
+                else:
+                    valve = valve_cl(new_dp, self.logname)
+                    self.valves[new_dp.dp_id] = valve
+            valve.update_config_metrics(self.metrics)
+        for deleted_valve_dpid in deleted_valve_dpids:
+            self.logger.info(
+                'Deleting de-configured %s', dpid_log(deleted_valve_dpid))
+            del self.valves[deleted_valve_dpid]
+        self._bgp.reset(self.valves, self.metrics)
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
@@ -247,15 +264,7 @@ class Faucet(app_manager.RyuApp):
         """Handle a request to reload configuration."""
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
         if config_changed(self.config_file, new_config_file, self.config_hashes):
-            self.config_file = new_config_file
-            self.config_hashes, new_dps = dp_parser(
-                new_config_file, self.logname)
-            for new_dp in new_dps:
-                valve = self.valves[new_dp.dp_id]
-                flowmods = valve.reload_config(new_dp)
-                self._send_flow_msgs(new_dp.dp_id, flowmods)
-                self._bgp.reset(self.valves, self.metrics)
-                valve.update_config_metrics(self.metrics)
+            self._load_configs(new_config_file)
         else:
             self.logger.info('configuration is unchanged, not reloading')
         # pylint: disable=no-member
