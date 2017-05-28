@@ -8,7 +8,7 @@ class WatcherConf(Conf):
     defaults = {
         'name': None,
         'type': None,
-        'dp': None,
+        'dps': None,
         'interval': 30,
         'db': None,
         'db_type': 'text',

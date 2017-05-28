@@ -1,10 +1,15 @@
 class Conf(object):
+
     defaults = {}
 
-    def update(self, dictionary):
-        # TODO: it would be good to warn on keys that are set but arent in
-        # defaults
-        self.__dict__.update(dictionary)
+    def _check_unknown_conf(self, conf):
+        sub_conf_names = set(conf.keys())
+        unknown_conf_names = sub_conf_names - set(self.defaults.keys())
+        assert not unknown_conf_names, 'unknown config items: %s' % unknown_conf_names
+
+    def update(self, conf):
+        self.__dict__.update(conf)
+        self._check_unknown_conf(conf)
 
     def _set_default(self, key, value):
         if key not in self.__dict__ or self.__dict__[key] is None:

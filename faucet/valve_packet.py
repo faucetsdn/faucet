@@ -56,6 +56,23 @@ def parse_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 
 
+def parse_packet_in_pkt(msg):
+    pkt = packet.Packet(msg.data)
+    eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
+    eth_type = eth_pkt.ethertype
+    vlan_vid = None
+
+    # Packet ins, can only come when a VLAN header has already been pushed
+    # (ie. when we have progressed past the VLAN table). This gaurantees
+    # a VLAN header will always be present, so we know which VLAN the packet
+    # belongs to.
+    if eth_type == ether.ETH_TYPE_8021Q:
+        # tagged packet
+        vlan_proto = pkt.get_protocols(vlan.vlan)[0]
+        vlan_vid = vlan_proto.vid
+    return pkt, vlan_vid
+
+
 def build_pkt_header(eth_src, eth_dst, vid, dl_type):
     """Return an Ethernet packet header.
 

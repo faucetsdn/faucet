@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import ipaddress
 
 from conf import Conf
@@ -41,11 +42,10 @@ class VLAN(Conf):
     acl_in = None
     # Define dynamic variables with prefix dyn_ to distinguish from variables set
     # configuration
-    dyn_ipv4_routes = None
-    dyn_ipv6_routes = None
-    dyn_arp_cache = None
-    dyn_nd_cache = None
     dyn_host_cache = None
+    dyn_faucet_vips_by_ipv = None
+    dyn_routes_by_ipv = None
+    dyn_neigh_cache_by_ipv = None
 
     defaults = {
         'name': None,
@@ -76,21 +76,24 @@ class VLAN(Conf):
             conf = {}
         self._id = _id
         self.dp_id = dp_id
-        valve_util.check_unknown_conf(conf, self.defaults)
         self.update(conf)
         self.set_defaults()
         self._id = _id
         self.tagged = []
         self.untagged = []
-        self.dyn_ipv4_routes = {}
-        self.dyn_ipv6_routes = {}
-        self.dyn_arp_cache = {}
-        self.dyn_nd_cache = {}
         self.dyn_host_cache = {}
+        self.dyn_faucet_vips_by_ipv = collections.defaultdict(list)
+        self.dyn_routes_by_ipv = collections.defaultdict(dict)
+        self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
+        self.dyn_ipvs = []
 
         if self.faucet_vips:
             self.faucet_vips = [
                 ipaddress.ip_interface(btos(ip)) for ip in self.faucet_vips]
+            for faucet_vip in self.faucet_vips:
+                self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(
+                    faucet_vip)
+            self.dyn_ipvs = list(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_as:
             assert self.bgp_port
@@ -105,42 +108,19 @@ class VLAN(Conf):
                 ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
                 ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
                 assert ip_gw.version == ip_dst.version
-                if ip_gw.version == 4:
-                    self.ipv4_routes[ip_dst] = ip_gw
-                else:
-                    self.ipv6_routes[ip_dst] = ip_gw
+                self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
 
-    @property
-    def ipv4_routes(self):
-        return self.dyn_ipv4_routes
+    def ipvs(self):
+        return self.dyn_ipvs
 
-    @ipv4_routes.setter
-    def ipv4_routes(self, value):
-        self.dyn_ipv4_routes = value
+    def faucet_vips_by_ipv(self, ipv):
+        return self.dyn_faucet_vips_by_ipv[ipv]
 
-    @property
-    def ipv6_routes(self):
-        return self.dyn_ipv6_routes
+    def routes_by_ipv(self, ipv):
+        return self.dyn_routes_by_ipv[ipv]
 
-    @ipv6_routes.setter
-    def ipv6_routes(self, value):
-        self.dyn_ipv6_routes = value
-
-    @property
-    def arp_cache(self):
-        return self.dyn_arp_cache
-
-    @arp_cache.setter
-    def arp_cache(self, value):
-        self.dyn_arp_cache = value
-
-    @property
-    def nd_cache(self):
-        return self.dyn_nd_cache
-
-    @nd_cache.setter
-    def nd_cache(self, value):
-        self.dyn_nd_cache = value
+    def neigh_cache_by_ipv(self, ipv):
+        return self.dyn_neigh_cache_by_ipv[ipv]
 
     @property
     def host_cache(self):
@@ -204,13 +184,13 @@ class VLAN(Conf):
         return False
 
     def is_faucet_vip(self, ip):
-        for faucet_vip in self.faucet_vips:
+        for faucet_vip in self.faucet_vips_by_ipv(ip.version):
             if ip == faucet_vip.ip:
                 return True
         return False
 
     def ip_in_vip_subnet(self, ip):
-        for faucet_vip in self.faucet_vips:
+        for faucet_vip in self.faucet_vips_by_ipv(ip.version):
             if ip in faucet_vip.network:
                 return True
         return False

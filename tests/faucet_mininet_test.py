@@ -2280,6 +2280,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
+        proactive_learn: true
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
@@ -2322,6 +2323,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
+        proactive_learn: true
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
