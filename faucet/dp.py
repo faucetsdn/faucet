@@ -142,7 +142,6 @@ class DP(Conf):
     def __init__(self, _id, conf):
         """Constructs a new DP object"""
         self._id = _id
-        valve_util.check_unknown_conf(conf, self.defaults)
         self.update(conf)
         self.set_defaults()
         self.acls = {}
