@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from conf import Conf
-import valve_util
 
 
 class Port(Conf):
@@ -78,7 +77,7 @@ class Port(Conf):
         return self.enabled and self.phys_up
 
     def to_conf(self):
-        result = self._to_conf()
+        result = super(Port, self).to_conf()
         if 'stack' in result and result['stack'] is not None:
             result['stack'] = {
                 'dp': str(self.stack['dp']),

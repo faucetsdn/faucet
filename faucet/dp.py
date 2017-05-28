@@ -379,7 +379,7 @@ class DP(Conf):
         return result
 
     def to_conf(self):
-        result = self._to_conf()
+        result = super(DP, self).to_conf()
         if result is not None:
             if 'stack' in result:
                 if result['stack'] is not None:

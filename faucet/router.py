@@ -22,13 +22,10 @@ class Router(Conf):
 
     defaults = {
         'vlans': None
-        }
+    }
 
     def __init__(self, _id, conf=None):
         if conf is None:
             conf = {}
         self.update(conf)
         self._id = _id
-
-    def to_conf(self):
-        return self._to_conf()

@@ -15,7 +15,7 @@ class Conf(object):
         if key not in self.__dict__ or self.__dict__[key] is None:
             self.__dict__[key] = value
 
-    def _to_conf(self):
+    def to_conf(self):
         result = {}
         for k in self.defaults:
             if k != 'name':

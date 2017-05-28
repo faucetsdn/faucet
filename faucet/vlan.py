@@ -110,19 +110,24 @@ class VLAN(Conf):
                 self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
 
     def ipvs(self):
+        """Return list of IP versions configured on this VLAN."""
         return self.dyn_ipvs
 
     def faucet_vips_by_ipv(self, ipv):
+        """Return list of VIPs with specified IP version on this VLAN."""
         return self.dyn_faucet_vips_by_ipv[ipv]
 
     def routes_by_ipv(self, ipv):
+        """Return route table for specified IP version on this VLAN."""
         return self.dyn_routes_by_ipv[ipv]
 
     def neigh_cache_by_ipv(self, ipv):
+        """Return neighbor cache for specified IP version on this VLAN."""
         return self.dyn_neigh_cache_by_ipv[ipv]
 
     @property
     def host_cache(self):
+        """Return host (L2) cache for this VLAN."""
         return self.dyn_host_cache
 
     @host_cache.setter
@@ -145,12 +150,15 @@ class VLAN(Conf):
         return 'vid:%s ports:%s' % (self.vid, ports)
 
     def get_ports(self):
+        """Return list of all ports on this VLAN."""
         return self.tagged + self.untagged
 
     def mirrored_ports(self):
+        """Return list of ports that are mirrored on this VLAN."""
         return [port for port in self.get_ports() if port.mirror]
 
     def mirror_destination_ports(self):
+        """Return list of ports that are mirrored to, on this VLAN."""
         return [port for port in self.get_ports() if port.mirror_destination]
 
     def flood_ports(self, configured_ports, exclude_unicast):
@@ -171,32 +179,37 @@ class VLAN(Conf):
         return self.flood_ports(self.untagged, exclude_unicast)
 
     def port_is_tagged(self, port_number):
+        """Return True if port number is an tagged port on this VLAN."""
         for port in self.tagged:
             if port.number == port_number:
                 return True
         return False
 
     def port_is_untagged(self, port_number):
+        """Return True if port number is an untagged port on this VLAN."""
         for port in self.untagged:
             if port.number == port_number:
                 return True
         return False
 
-    def is_faucet_vip(self, ip):
-        for faucet_vip in self.faucet_vips_by_ipv(ip.version):
-            if ip == faucet_vip.ip:
+    def is_faucet_vip(self, ipa):
+        """Return True if IP is a VIP on this VLAN."""
+        for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
+            if ipa == faucet_vip.ip:
                 return True
         return False
 
-    def ip_in_vip_subnet(self, ip):
-        for faucet_vip in self.faucet_vips_by_ipv(ip.version):
-            if ip in faucet_vip.network:
+    def ip_in_vip_subnet(self, ipa):
+        """Return True if IP in same IP network as a VIP on this VLAN."""
+        for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
+            if ipa in faucet_vip.network:
                 return True
         return False
 
     def ips_in_vip_subnet(self, ips):
-        for ip in ips:
-            if not self.ip_in_vip_subnet(ip):
+        """Return True if all IPs are on same subnet as VIP on this VLAN."""
+        for ipa in ips:
+            if not self.ip_in_vip_subnet(ipa):
                 return False
         return True
 
@@ -212,9 +225,6 @@ class VLAN(Conf):
         if self.is_faucet_vip(dst_ip) and self.ip_in_vip_subnet(src_ip):
             return True
         return False
-
-    def to_conf(self):
-        return self._to_conf()
 
     def __hash__(self):
         items = [(k, v) for k, v in list(self.__dict__.items()) if 'dyn' not in k]
