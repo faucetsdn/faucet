@@ -2,8 +2,6 @@ import inspect
 import json
 import os
 
-from ryu.ofproto import ofproto_v1_3
-from ryu.ofproto import ofproto_v1_3_parser
 
 # TODO: move configuration to separate directory
 CFG_PATH = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -107,7 +105,7 @@ class LoadRyuTables(object):
 # file, each of those fields are accepted by the switch 5400.
 # The output of this script is an json file with the tables well structure.
 # This structure is converted from openflow structure to ryu structure using
-# the file "ofproto_to_ryu.json", so the json file generated will be to the 
+# the file "ofproto_to_ryu.json", so the json file generated will be to the
 # SDN ryu framework. But, if is necessary convert the structure to another
 # SDN framework, you will only have to change the file ofproto_to_ryu.
 class OpenflowToRyuTranslator(object):
@@ -198,7 +196,6 @@ class CustomJson(object):
     def read_json_document(self, filename):
         python_object_result = []
         try:
-            python_object_result = 0
             with open(filename) as data_file:
                 python_object_result = json.load(data_file)
         except (ValueError, IOError) as e:

@@ -113,20 +113,20 @@ GENERATE_JSON = True
 
 # =========================== Utility Functions ================================
 def debug(arg):
-   if True == DEBUG:
+    if True == DEBUG:
       print(arg)
 
 def error(arg):
-   print(arg)
-   global GENERATE_JSON
-   GENERATE_JSON = False
+    print(arg)
+    global GENERATE_JSON
+    GENERATE_JSON = False
 
 # =========================== Input Processing ================================
 
 # Check for the input data file
 if len(sys.argv) < 2:
-   print("Please specify a filename which contains the output of 'ovs-ofctl dump-flows'")
-   exit(1)
+    print("Please specify a filename which contains the output of 'ovs-ofctl dump-flows'")
+    exit(1)
 
 # Allocate variables which will hold data extracted from OVS output
 TABLE_MATCH = {} # Table ID key, value is a list of exact match keys
@@ -138,60 +138,60 @@ TABLE_SIZE = {} # Table ID key, value is number of flows in table
 debug("=== Per-flow pipeline analysis ===")
 input = open(open(sys.argv[1]))
 for line in input:
-   # Skip empty lines
-   line = line.rstrip().lstrip()
-   if "" == line:
+    # Skip empty lines
+    line = line.rstrip().lstrip()
+    if "" == line:
       continue
 
-   # debug("FLOW: "+line)
-   line_data = re.split(r'\s+', line)
-   errors = 0
-   table = None
-   match = None
+    # debug("FLOW: "+line)
+    line_data = re.split(r'\s+', line)
+    errors = 0
+    table = None
+    match = None
 
-   # Identify the table
-   for data in line_data:
+    # Identify the table
+    for data in line_data:
       if "table=" not in data:
-         continue
+        continue
 
       # Store the numeric table ID
       table = data.split('=')[1]
       table = re.sub(r'\D', '', table)
 
-   # Identify match criteria
-   for data in line_data:
+    # Identify match criteria
+    for data in line_data:
       if "priority=" not in data:
-         continue
+        continue
       match = data
 
-   # Verify that we found both table ID and match data
-   if table is None:
+    # Verify that we found both table ID and match data
+    if table is None:
       debug("Failed to identify table ID in line:\n "+line)
       continue
-   if match is None:
+    if match is None:
       debug("Failed to identify match data in line:\n "+line)
       continue
 
-   # Handle deprecated tp_src/dst interpretation, which is context-dependent
-   if re.match('.*[^c]tp_(src|dst).*', match) != None:
+    # Handle deprecated tp_src/dst interpretation, which is context-dependent
+    if re.match('.*[^c]tp_(src|dst).*', match) != None:
       if "udp" in match or "proto=17" in match:
-         match = re.sub(r'([^c]*)tp_(dst|src)', r'\1udp_\2', match)
+        match = re.sub(r'([^c]*)tp_(dst|src)', r'\1udp_\2', match)
       else:
-         match = re.sub(r'([^c]*)tp_(dst|src)', r'\1tcp_\2', match)
+        match = re.sub(r'([^c]*)tp_(dst|src)', r'\1tcp_\2', match)
 
-   # Replace abbreviations
-   for abbrev in OVS_MATCH_ABBREV:
+    # Replace abbreviations
+    for abbrev in OVS_MATCH_ABBREV:
       fields = match.split(',')
       fields = [re.sub("^"+abbrev+"$", OVS_MATCH_ABBREV[abbrev], f) for f in fields]
       match = ','.join(fields)
 
-   # Get the list of matched and masked fields
-   match_keys = set([])
-   masks = set([])
-   for m in match.split(','):
+    # Get the list of matched and masked fields
+    match_keys = set([])
+    masks = set([])
+    for m in match.split(','):
       # Skip empty match field
       if m == "":
-         continue
+        continue
 
       # Parse the match key
       mp = m.split('=')
@@ -200,46 +200,46 @@ for line in input:
 
       # Parse the match value
       if len(mp) >= 2:
-         value = m.split('=')[1]
-         if "/" in value:
+        value = m.split('=')[1]
+        if "/" in value:
             masks.add(key)
       else:
-         error("Failed to parse special key-value abbreviation: "+str(m))
+        error("Failed to parse special key-value abbreviation: "+str(m))
 
-   match_keys.remove('priority') # Ignore priority, not a match field
+    match_keys.remove('priority') # Ignore priority, not a match field
 
-   # Verify our hard-coded OVS match fields are complete
-   if not OVS_KNOWN_MATCH.issuperset(match_keys):
+    # Verify our hard-coded OVS match fields are complete
+    if not OVS_KNOWN_MATCH.issuperset(match_keys):
       error("Attempted to match unknown field(s) "+str(list(match_keys.difference(OVS_KNOWN_MATCH)))+" in flow:\n "+line)
       errors += 1
 
-   # Check unsupported matches
-   for unsupp in OVS_UNSUPPORTED_MATCH:
+    # Check unsupported matches
+    for unsupp in OVS_UNSUPPORTED_MATCH:
       if unsupp in match_keys:
-         error("Match field '"+unsupp+"' is not supported, but was used in:\n "+line)
-         errors += 1
+        error("Match field '"+unsupp+"' is not supported, but was used in:\n "+line)
+        errors += 1
 
-   # If we've hit errors, skip this flow because it will complicate the
-   # global validation done later.
-   if errors > 0:
+    # If we've hit errors, skip this flow because it will complicate the
+    # global validation done later.
+    if errors > 0:
       continue
 
-   # Increment table size
-   if table in TABLE_SIZE:
+    # Increment table size
+    if table in TABLE_SIZE:
       TABLE_SIZE[table] += 1
-   else:
+    else:
       TABLE_SIZE[table] = 1
       TABLE_MATCH[table] = set(match_keys)
       TABLE_WILDCARDS[table] = set([])
       TABLE_MASKS[table] = set([])
 
-   # Record match fields
-   tm = TABLE_MATCH[table]
-   exact = tm.intersection(match_keys)
-   wildcard = tm.symmetric_difference(match_keys)
-   TABLE_MATCH[table] = set(exact)
-   TABLE_WILDCARDS[table] = set(wildcard).union(TABLE_WILDCARDS[table])
-   TABLE_MASKS[table] = TABLE_MASKS[table].union(masks)
+    # Record match fields
+    tm = TABLE_MATCH[table]
+    exact = tm.intersection(match_keys)
+    wildcard = tm.symmetric_difference(match_keys)
+    TABLE_MATCH[table] = set(exact)
+    TABLE_WILDCARDS[table] = set(wildcard).union(TABLE_WILDCARDS[table])
+    TABLE_MASKS[table] = TABLE_MASKS[table].union(masks)
 
 input.close()
 
@@ -253,11 +253,11 @@ MAX_HASH_TILES = 64 * 1024
 
 # Check if too many tables were used
 if len(TABLE_SIZE.keys()) > MAX_SUPPORTED_TABLES:
-   error("HPE Aruba switches support a maximum of "+str(MAX_SUPPORTED_TABLES)+" tables, but "+str(len(TABLE_SIZE.keys()))+" were used:\n "+str(TABLE_SIZE.keys()))
+    error("HPE Aruba switches support a maximum of "+str(MAX_SUPPORTED_TABLES)+" tables, but "+str(len(TABLE_SIZE.keys()))+" were used:\n "+str(TABLE_SIZE.keys()))
 
 # Check if table 0 (required) was used
 if not '0' in TABLE_SIZE:
-   error("Table 0 was not used, but is required by the OpenFlow specification")
+    error("Table 0 was not used, but is required by the OpenFlow specification")
 
 # Get a numerically-sorted list of table IDs
 tables = TABLE_SIZE.keys()
@@ -267,152 +267,152 @@ tables.sort(key=int)
 tcam_tiles = 0
 hash_tiles = 0
 for table in tables:
-   # Get all fields being matched
-   size = TABLE_SIZE[table]
-   exact = TABLE_MATCH[table]
-   wildcard = TABLE_WILDCARDS[table]
-   mask = TABLE_MASKS[table]
-   all_matches = exact.union(wildcard).union(mask)
+    # Get all fields being matched
+    size = TABLE_SIZE[table]
+    exact = TABLE_MATCH[table]
+    wildcard = TABLE_WILDCARDS[table]
+    mask = TABLE_MASKS[table]
+    all_matches = exact.union(wildcard).union(mask)
 
-   # Special-case: If a table had flows but none of the flows specified
-   # match criteria, we'll specify at least one wildcard (ETH_TYPE) so that
-   # the table is considered a TCAM. A hash must have all match fields specified,
-   # but since no flows specified match criteria we know a TCAM is expected.
-   # Wildcard ETH_TYPE since it is a dependency of many other fields.
-   if len(all_matches) == 0:
+    # Special-case: If a table had flows but none of the flows specified
+    # match criteria, we'll specify at least one wildcard (ETH_TYPE) so that
+    # the table is considered a TCAM. A hash must have all match fields specified,
+    # but since no flows specified match criteria we know a TCAM is expected.
+    # Wildcard ETH_TYPE since it is a dependency of many other fields.
+    if len(all_matches) == 0:
       TABLE_WILDCARDS[table].add('dl_type')
       wildcard = TABLE_WILDCARDS[table]
       all_matches = exact.union(wildcard).union(mask)
 
-   # Display table data
-   debug("TABLE #"+table+" has "+str(size)+" entries")
-   if len(exact) > 0:
+    # Display table data
+    debug("TABLE #"+table+" has "+str(size)+" entries")
+    if len(exact) > 0:
       debug("  exact-match: "+str(sorted(list(exact))))
-   if len(wildcard) > 0:
+    if len(wildcard) > 0:
       debug("  wildcards: "+str(sorted(list(wildcard))))
-   if len(mask) > 0:
+    if len(mask) > 0:
       debug("  maskable: "+str(sorted(list(mask))))
 
-   # Determine number of match groups
-   groups = [OVS_MATCH_FIELDS[m] for m in all_matches]
-   groups = set(groups)
-   gc = len(groups)
+    # Determine number of match groups
+    groups = [OVS_MATCH_FIELDS[m] for m in all_matches]
+    groups = set(groups)
+    gc = len(groups)
 
-   # Automatically upconvert Hash->TCAM if attempting to match 4 groups in hash
-   if len(wildcard) == 0 and len(mask) == 0 and gc == 4:
+    # Automatically upconvert Hash->TCAM if attempting to match 4 groups in hash
+    if len(wildcard) == 0 and len(mask) == 0 and gc == 4:
       wildcard = exact.copy()
       exact.clear()
       debug("  ** Table #"+table+" has been converted from Hash to TCAM, due to matching 4 groups")
 
-   # Calculate resource usage, based on table type
-   if len(wildcard) > 0 or len(mask) > 0:
+    # Calculate resource usage, based on table type
+    if len(wildcard) > 0 or len(mask) > 0:
       table_type = "TCAM"
       if gc > 4:
-         error("Table #"+table+" attempts to match fields from "+str(gc)+" groups. Maximum of 4 match groups supported in "+table_type)
+        error("Table #"+table+" attempts to match fields from "+str(gc)+" groups. Maximum of 4 match groups supported in "+table_type)
 
       if size < MIN_TCAM_SIZE:
-         debug("  ** Table #"+table+" has been auto-resized to minimum size of "+str(MIN_TCAM_SIZE))
-         size = MIN_TCAM_SIZE
+        debug("  ** Table #"+table+" has been auto-resized to minimum size of "+str(MIN_TCAM_SIZE))
+        size = MIN_TCAM_SIZE
 
       mult = gc if gc != 3 else 4  # TCAM: 3 groups use same as 4 groups
       tiles = size * mult
       tcam_tiles += tiles
-   else:
+    else:
       table_type = "Hash"
       if gc > 3:
-         error("Table #"+table+" attempts to match fields from "+str(gc)+" groups. Maximum of 3 match groups supported in "+table_type)
+        error("Table #"+table+" attempts to match fields from "+str(gc)+" groups. Maximum of 3 match groups supported in "+table_type)
 
       if size < MIN_HASH_SIZE:
-         debug("  ** Table #"+table+" has been auto-resized to minimum size of "+str(MIN_HASH_SIZE))
-         size = MIN_HASH_SIZE
+        debug("  ** Table #"+table+" has been auto-resized to minimum size of "+str(MIN_HASH_SIZE))
+        size = MIN_HASH_SIZE
 
       mult = gc if gc != 3 else 2  # Hash: 3 groups use same as 2 groups
       tiles = size * mult
       hash_tiles += tiles
 
-   # Store any adjusted values
-   TABLE_SIZE[table] = size
-   TABLE_MATCH[table] = exact
-   TABLE_WILDCARDS[table] = wildcard
-   TABLE_MASKS[table] = mask
+    # Store any adjusted values
+    TABLE_SIZE[table] = size
+    TABLE_MATCH[table] = exact
+    TABLE_WILDCARDS[table] = wildcard
+    TABLE_MASKS[table] = mask
 
-   # Calculate resource allocation for this table
-   debug("  allocation: "+str(len(groups))+" groups "+str(list(groups))+" using "+str(tiles)+" "+table_type+" resources")
+    # Calculate resource allocation for this table
+    debug("  allocation: "+str(len(groups))+" groups "+str(list(groups))+" using "+str(tiles)+" "+table_type+" resources")
 
 # Verify that tables will fit into available hardware resources
 debug("Total resources:  TCAM={} ({:.2f}%)  Hash={} ({:.2f}%)".format(tcam_tiles, 100*float(tcam_tiles)/MAX_TCAM_TILES,
                                                                       hash_tiles, 100*float(hash_tiles)/MAX_HASH_TILES))
 if tcam_tiles > MAX_TCAM_TILES:
-   error("Pipeline uses "+str(tcam_tiles)+" TCAM resources. Maximum of "+str(MAX_TCAM_TILES)+" available.")
+    error("Pipeline uses "+str(tcam_tiles)+" TCAM resources. Maximum of "+str(MAX_TCAM_TILES)+" available.")
 if hash_tiles > MAX_HASH_TILES:
-   error("Pipeline uses "+str(hash_tiles)+" Hash resources. Maximum of "+str(MAX_HASH_TILES)+" available.")
+    error("Pipeline uses "+str(hash_tiles)+" Hash resources. Maximum of "+str(MAX_HASH_TILES)+" available.")
 
 # Exit now if not generating JSON
 if not GENERATE_JSON:
-   exit(1)
+    exit(1)
 
 # Generate JSON for RYU pipeline format
 debug("\n=== Auto-generated pipeline JSON ===")
 prev_tables = set([])
 JSON = '['
 for table in tables:
-   # Get all fields being matched
-   size = str(TABLE_SIZE[table])
-   exact = TABLE_MATCH[table]
-   wildcard = TABLE_WILDCARDS[table]
-   mask = TABLE_MASKS[table]
-   all_matches = exact.union(wildcard).union(mask)
+    # Get all fields being matched
+    size = str(TABLE_SIZE[table])
+    exact = TABLE_MATCH[table]
+    wildcard = TABLE_WILDCARDS[table]
+    mask = TABLE_MASKS[table]
+    all_matches = exact.union(wildcard).union(mask)
 
-   # Table header information
-   JSON += '{"max_entries": '+size+','
-   JSON += '"name": "Table '+table+'",'
-   JSON += '"table_id": '+table+','
-   JSON += '"metadata_match": 0,'
-   JSON += '"metadata_write": 0,'
-   JSON += '"config": 3,'
-   JSON += '"properties": ['
+    # Table header information
+    JSON += '{"max_entries": '+size+','
+    JSON += '"name": "Table '+table+'",'
+    JSON += '"table_id": '+table+','
+    JSON += '"metadata_match": 0,'
+    JSON += '"metadata_write": 0,'
+    JSON += '"config": 3,'
+    JSON += '"properties": ['
 
-   # Matches
-   JSON += '{"type":8, "name":"OFPTFPT_MATCH", "oxm_ids": ['
-   for m in all_matches:
+    # Matches
+    JSON += '{"type":8, "name":"OFPTFPT_MATCH", "oxm_ids": ['
+    for m in all_matches:
       hasmask = ""
       if m in mask:
-         hasmask = ' , "hasmask": true'
+        hasmask = ' , "hasmask": true'
       JSON += '{ "type": "'+JSON_FIELDS[m]+'", "name": "'+JSON_FIELDS[m]+'"'+hasmask+' },'
 
-   # Trim trailing common from last match
-   if len(all_matches) > 0:
+    # Trim trailing common from last match
+    if len(all_matches) > 0:
       JSON = JSON.rstrip(',')
-   JSON += ']},'
+    JSON += ']},'
 
-   # Wildcards
-   JSON += '{"type":10, "name": "OFPTFPT_WILDCARDS", "oxm_ids": ['
-   for w in wildcard:
+    # Wildcards
+    JSON += '{"type":10, "name": "OFPTFPT_WILDCARDS", "oxm_ids": ['
+    for w in wildcard:
       JSON += '{ "type": "'+JSON_FIELDS[w]+'", "name":"'+JSON_FIELDS[w]+'" },'
 
-   # Trim trailing common from last wildcard
-   if len(wildcard) > 0:
+    # Trim trailing common from last wildcard
+    if len(wildcard) > 0:
       JSON = JSON.rstrip(',')
-   JSON += ']},'
+    JSON += ']},'
 
-   # Now that we've generated the match+wildcard criteria, we can assume that
-   # all other tables will support all actions, so generate the same action
-   # criteria, regardless of what the flows actually tried to use.
-   genericSetfields = ['{"type":"'+f+'","name":"'+f+'"}' for f in ARUBA_SETFIELDS]
-   genericActions = [
+    # Now that we've generated the match+wildcard criteria, we can assume that
+    # all other tables will support all actions, so generate the same action
+    # criteria, regardless of what the flows actually tried to use.
+    genericSetfields = ['{"type":"'+f+'","name":"'+f+'"}' for f in ARUBA_SETFIELDS]
+    genericActions = [
        '{"type":0,"name":"OFPAT_OUTPUT"}',
        '{"type":17,"name":"OFPAT_PUSH_VLAN"}',
        '{"type":18,"name":"OFPAT_POP_VLAN"}',
        '{"type":22,"name":"OFPAT_GROUP"}',
        '{"type":23,"name":"OFPAT_SET_NW_TTL"}',
        '{"type":25,"name":"OFPAT_SET_FIELD"}']
-   genericInstructions = [
+    genericInstructions = [
        '{"type":1,"name":"OFPIT_GOTO_TABLE"}',
        '{"type":3,"name":"OFPIT_WRITE_ACTIONS"}',
        '{"type":4,"name":"OFPIT_APPLY_ACTIONS"}',
        '{"type":5,"name":"OFPIT_CLEAR_ACTIONS"}',
        '{"type":6,"name":"OFPIT_METER"}']
-   genericProps = ['{ "type":0, "name":"OFPTFPT_INSTRUCTIONS", "instruction_ids" : [ '+','.join(genericInstructions)+' ] }',
+    genericProps = ['{ "type":0, "name":"OFPTFPT_INSTRUCTIONS", "instruction_ids" : [ '+','.join(genericInstructions)+' ] }',
                    '{ "type":1, "name":"OFPTFPT_INSTRUCTIONS_MISS", "instruction_ids" : [ '+','.join(genericInstructions)+' ] }',
                    '{ "type":4, "name":"OFPTFPT_WRITE_ACTIONS", "action_ids" : [ '+','.join(genericActions)+' ] }',
                    '{ "type":5, "name":"OFPTFPT_WRITE_ACTIONS_MISS", "action_ids" : [ '+','.join(genericActions)+' ] }',
@@ -422,20 +422,20 @@ for table in tables:
                    '{ "type":13, "name":"OFPTFPT_WRITE_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
                    '{ "type":14, "name":"OFPTFPT_APPLY_SETFIELD", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }',
                    '{ "type":15, "name":"OFPTFPT_APPLY_SETFIELD_MISS", "oxm_ids" : [ '+','.join(genericSetfields)+' ] }']
-   genericProps = ','.join(genericProps)
+    genericProps = ','.join(genericProps)
 
-   # Remove GOTO from last table
-   prev_tables.add(table)
-   remaining_tables = set(TABLE_SIZE.keys()).difference(prev_tables)
-   lastTable = (len(remaining_tables) == 0)
-   if lastTable:
+    # Remove GOTO from last table
+    prev_tables.add(table)
+    remaining_tables = set(TABLE_SIZE.keys()).difference(prev_tables)
+    lastTable = (len(remaining_tables) == 0)
+    if lastTable:
       genericProps = ''.join(genericProps.rsplit('{"type":1,"name":"OFPIT_GOTO_TABLE"}, ', 1))
-   JSON += genericProps+','
+    JSON += genericProps+','
 
-   JSON += '{ "type":2, "name": "OFPTFPT_NEXT_TABLES", "table_ids": [ '+','.join(remaining_tables)+' ] },'
-   JSON += '{ "type":3, "name": "OFPTFPT_NEXT_TABLES_MISS", "table_ids": [ '+','.join(remaining_tables)+' ] }'
-   JSON += ']}'
-   if not lastTable:
+    JSON += '{ "type":2, "name": "OFPTFPT_NEXT_TABLES", "table_ids": [ '+','.join(remaining_tables)+' ] },'
+    JSON += '{ "type":3, "name": "OFPTFPT_NEXT_TABLES_MISS", "table_ids": [ '+','.join(remaining_tables)+' ] }'
+    JSON += ']}'
+    if not lastTable:
       JSON += ','
 
 # Wrap things up and print ...
