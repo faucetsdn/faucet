@@ -1,3 +1,5 @@
+"""Configure routing between VLANs."""
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
@@ -16,19 +18,18 @@
 
 from conf import Conf
 
+
 class Router(Conf):
+    """Implement FAUCET configuration for a router."""
 
     vlans = None
 
     defaults = {
         'vlans': None
-        }
+    }
 
     def __init__(self, _id, conf=None):
         if conf is None:
             conf = {}
         self.update(conf)
         self._id = _id
-
-    def to_conf(self):
-        return self._to_conf()

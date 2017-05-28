@@ -11,8 +11,8 @@ python:
 install:
   - "pip install -r requirements.txt -r test-requirements.txt"
 script:
-  - "pylint -E faucet/*.py faucet/aruba/*.py"
   - "cd ./tests"
+  - "./test_min_pylint.sh"
   - "python ./test_config.py"
   - "python ./test_check_config.py"
   - "python ./test_valve.py"

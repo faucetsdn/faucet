@@ -398,6 +398,9 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
             self.tmpdir, 'faucet-exception.log')
         self.dpid = str(0xcafef00d)
+        prom_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock)
+        os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
         self.of_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)
         self.topo = faucet_mininet_test_base.FaucetSwitchTopo(

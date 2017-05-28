@@ -1,3 +1,5 @@
+"""Manage host learning on VLANs."""
+
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -49,7 +51,7 @@ class ValveHostManager(object):
         self.valve_flowdel = valve_flowdel
         self.valve_flowdrop = valve_flowdrop
 
-    def temp_ban_host_learning_on_port(self, port): 
+    def temp_ban_host_learning_on_port(self, port):
         return self.valve_flowdrop(
             self.eth_src_table,
             self.valve_in_match(self.eth_src_table, in_port=port.number),

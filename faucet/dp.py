@@ -18,19 +18,16 @@ from conf import Conf
 from vlan import VLAN
 from port import Port
 from acl import ACL
-import valve_util
 
 import networkx
 
-"""
-Documentation generated using documentation_generator.py 
-For attributues to be included in documentation they must have a default value
-Their descriptor must come immediately after being set
-See below for example.
-"""
+# Documentation generated using documentation_generator.py
+# For attributues to be included in documentation they must
+# have a default value, and their descriptor must come
+# immediately after being set. See below for example.
 
 class DP(Conf):
-    """Object to hold the configuration for a faucet controlled datapath."""
+    """Implement FAUCET configuration for a datapath."""
 
     acls = None
     vlans = None
@@ -382,7 +379,7 @@ class DP(Conf):
         return result
 
     def to_conf(self):
-        result = self._to_conf()
+        result = super(DP, self).to_conf()
         if result is not None:
             if 'stack' in result:
                 if result['stack'] is not None:

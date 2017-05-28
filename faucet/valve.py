@@ -41,17 +41,17 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 def valve_factory(dp):
     """Return a Valve object based dp's hardware configuration field.
 
-    Arguments:
-    dp -- a DP object with the configuration for this valve.
+    Args:
+        dp (DP): DP instance with the configuration for this Valve.
     """
     SUPPORTED_HARDWARE = {
         'Allied-Telesis': Valve,
         'Aruba': ArubaValve,
+        'Lagopus': Valve,
         'Netronome': Valve,
         'NoviFlow': Valve,
         'Open vSwitch': Valve,
         'ZodiacFX': Valve,
-        'Lagopus': Valve,
     }
 
     if dp.hardware in SUPPORTED_HARDWARE:
@@ -97,7 +97,8 @@ class Valve(object):
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
             self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
-            self.dp.ipv4_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table, self.dp.flood_table,
+            self.dp.ipv4_fib_table, self.dp.eth_src_table,
+            self.dp.eth_dst_table, self.dp.flood_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller,
@@ -106,7 +107,8 @@ class Valve(object):
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
             self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
-            self.dp.ipv6_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table, self.dp.flood_table,
+            self.dp.ipv6_fib_table, self.dp.eth_src_table,
+            self.dp.eth_dst_table, self.dp.flood_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller,
@@ -565,6 +567,20 @@ class Valve(object):
             ofmsgs.extend(self.port_add(self.dp.dp_id, port_num))
 
         return ofmsgs
+
+    def port_status_handler(self, dp_id, port_no, reason, port_status):
+        if reason == ofp.OFPPR_ADD:
+            return self.port_add(dp_id, port_no)
+        elif reason == ofp.OFPPR_DELETE:
+            return self.port_delete(dp_id, port_no)
+        elif reason == ofp.OFPPR_MODIFY:
+            if port_status:
+                return self.port_add(dp_id, port_no)
+            else:
+                return self.port_delete(dp_id, port_no)
+        self.dpid_warn('Unhandled port status %s for port %u' % (
+            reason, port_no))
+        return []
 
     def advertise(self):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
