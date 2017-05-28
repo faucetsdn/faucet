@@ -107,6 +107,18 @@ unknown_thing: 1
 """
         self.check_config_failure(toplevel_unknown_config)
 
+    def test_toplevel_unknown_hardware(self):
+        unknown_hardware_config = """
+vlans:
+    100:
+        name: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'NOTSUPPORTED'
+"""
+        self.check_config_failure(unknown_hardware_config)
+
 
 if __name__ == "__main__":
     unittest.main()
