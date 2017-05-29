@@ -344,7 +344,7 @@ class Valve(object):
             inst=[])
 
     def valve_flowcontroller(self, table_id, match=None, priority=None,
-                             inst=None):
+                             inst=None, max_len=96):
         """Add flow outputting to controller."""
         if inst is None:
             inst = []
@@ -353,7 +353,7 @@ class Valve(object):
             match=match,
             priority=priority,
             inst=[valve_of.apply_actions(
-                [valve_of.output_controller()])] + inst)
+                [valve_of.output_controller(max_len)])] + inst)
 
     def valve_flowreorder(self, input_ofmsgs):
         """Reorder flows for better OFA performance."""

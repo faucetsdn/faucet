@@ -759,7 +759,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 nw_proto=inet.IPPROTO_ICMPV6,
                 nw_dst=faucet_vip_host,
                 icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
-            priority=priority))
+            priority=priority,
+            max_len=128))
         if self.proactive_learn:
             ofmsgs.append(self.valve_flowcontroller(
                 self.fib_table,
