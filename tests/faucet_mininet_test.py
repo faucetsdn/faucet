@@ -3666,6 +3666,13 @@ def run_tests(requested_test_classes,
         target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
     ports_server.setDaemon(True)
     ports_server.start()
+    for _ in range(3):
+        if os.path.exists(ports_sock):
+            break
+        time.sleep(1)
+    if not os.path.exists(ports_sock):
+        print('ports server did not start (%s not created)' % ports_sock)
+        sys.exit(-1)
     sanity_tests = unittest.TestSuite()
     single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
