@@ -626,6 +626,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
             if opcode == arp.ARP_REQUEST:
                 ofmsgs.extend(
                     self._add_host_fib_route(vlan, src_ip))
+                ofmsgs.extend(self._update_nexthop(
+                    vlan, in_port, eth_src, src_ip))
                 vid = self._vlan_vid(vlan, in_port)
                 arp_reply = valve_packet.arp_reply(
                     self.faucet_mac, eth_src, vid, dst_ip, src_ip)
@@ -787,6 +789,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 if vlan.is_faucet_vip(ipaddress.ip_address(solicited_ip)):
                     ofmsgs.extend(
                         self._add_host_fib_route(vlan, src_ip))
+                    ofmsgs.extend(self._update_nexthop(
+                        vlan, in_port, eth_src, src_ip))
                     nd_reply = valve_packet.nd_advert(
                         self.faucet_mac, eth_src, vid,
                         solicited_ip, src_ip, ipv6_pkt.hop_limit)
