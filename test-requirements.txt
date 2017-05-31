@@ -1,6 +1,8 @@
+astroid==1.4.9
 bitstring
 concurrencytest
-exabgp>=3.4.10
+exabgp==3.4.19
+netifaces
 packaging
-pylint>=1.6
+pylint==1.6.5
 requests

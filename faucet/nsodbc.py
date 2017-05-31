@@ -2,10 +2,11 @@
 This module exposes an api to deal with db operations on no-sql databases.
 Currently couchdb support is included.
 """
-COUCHDB = 'couchdb'
-LOCALHOST = 'localhost'
 
 import couchdb
+
+COUCHDB = 'couchdb'
+LOCALHOST = 'localhost'
 
 
 def todict(conn_string, kwargs):

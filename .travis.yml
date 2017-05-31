@@ -1,11 +1,21 @@
+sudo: required
 language: python
+services:
+  - docker
+addons:
+  apt:
+    packages:
+      - openvswitch-switch
 python:
   - "2.7"
 install:
   - "pip install -r requirements.txt -r test-requirements.txt"
 script:
-  - "pylint -E faucet/*.py faucet/aruba/*.py"
   - "cd ./tests"
+  - "./test_min_pylint.sh"
   - "python ./test_config.py"
   - "python ./test_check_config.py"
   - "python ./test_valve.py"
+  - "cd .."
+  - "docker build -t reannz/faucet-tests -f Dockerfile.tests ."
+  - "sudo docker run --privileged -ti reannz/faucet-tests"

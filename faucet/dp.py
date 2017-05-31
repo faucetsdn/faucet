@@ -21,9 +21,13 @@ from acl import ACL
 
 import networkx
 
+# Documentation generated using documentation_generator.py
+# For attributues to be included in documentation they must
+# have a default value, and their descriptor must come
+# immediately after being set. See below for example.
 
 class DP(Conf):
-    """Object to hold the configuration for a faucet controlled datapath."""
+    """Implement FAUCET configuration for a datapath."""
 
     acls = None
     vlans = None
@@ -57,6 +61,10 @@ class DP(Conf):
     max_host_fib_retry_count = None
     max_resolve_backoff_time = None
     packetin_pps = None
+    learn_jitter = None
+    learn_ban_timeout = None
+    advertise_interval = None
+    proactive_learn = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -82,53 +90,55 @@ class DP(Conf):
         'low_priority': None,
         'high_priority': None,
         'highest_priority': None,
-        # Identification cookie value to allow for multiple controllers to
-        # control the same datapath
         'cookie': 1524372928,
-        # inactive MAC timeout
+        # Identification cookie value to allow for multiple controllers to control the same datapath
         'timeout': 300,
-        # description, strictly informational
+        # inactive MAC timeout
         'description': None,
-        # The hardware maker (for chosing an openflow driver)
+        # description, strictly informational
         'hardware': 'Open vSwitch',
-        # ARP and neighbor timeout (seconds)
+        # The hardware maker (for chosing an openflow driver)
         'arp_neighbor_timeout': 500,
-        # OF channel log
+        # ARP and neighbor timeout (seconds)
         'ofchannel_log': None,
-        # stacking config, when cross connecting multiple DPs
+        # OF channel log
         'stack': None,
-        # Ignore every approx nth packet for learning.
-        # 2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
-        # This limits control plane activity when learning new hosts rapidly.
-        # Flooding will still be done by the dataplane even with a packet
-        # is ignored for learning purposes.
+        # stacking config, when cross connecting multiple DPs
         'ignore_learn_ins': 3,
-        # By default drop packets with a broadcast source address
+        # Ignore every approx nth packet for learning. 2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
+        # This limits control plane activity when learning new hosts rapidly.
+        # Flooding will still be done by the dataplane even with a packet is ignored for learning purposes.
         'drop_broadcast_source_address': True,
-        # By default drop packets on datapath spoofing the FAUCET_MAC
+        # By default drop packets with a broadcast source address
         'drop_spoofed_faucet_mac': True,
-        # By default drop STP BPDU frames
+        # By default drop packets on datapath spoofing the FAUCET_MAC
         'drop_bpdu': True,
-        # By default, drop LLDP. Set to False, to enable NFV offload of LLDP.
+        # By default drop STP BPDU frames
         'drop_lldp': True,
-        # Use GROUP tables for IP routing and vlan flooding
+        # By default, drop LLDP. Set to False, to enable NFV offload of LLDP.
         'group_table': False,
-        # Max hosts to try to resolve per gateway resolution cycle.
+        # Use GROUP tables for IP routing and vlan flooding
         'max_hosts_per_resolve_cycle': 5,
-        # Max number of times to retry resolution of a host FIB route.
+        # Max hosts to try to resolve per gateway resolution cycle.
         'max_host_fib_retry_count': 10,
-        # Max number of seconds to back off to when resolving nexthops.
+        # Max number of times to retry resolution of a host FIB route.
         'max_resolve_backoff_time': 32,
-        # Ask switch to rate limit packet pps.
-        # TODO: Not supported by OVS in 2.7.0
+        # Max number of seconds to back off to when resolving nexthops.
         'packetin_pps': 0,
+        # Ask switch to rate limit packet pps. TODO: Not supported by OVS in 2.7.0
+        'learn_jitter': 10,
+        # Jitter learn timeouts by up to this many seconds
+        'learn_ban_timeout': 10,
+        # When banning/limiting learning, wait this many seconds before learning can be retried
+        'advertise_interval': 30,
+        # How often to advertise (eg. IPv6 RAs)
+        'proactive_learn': True,
+        # whether proactive learning is enabled for IP nexthops
         }
 
     def __init__(self, _id, conf):
+        """Constructs a new DP object"""
         self._id = _id
-        sub_conf_names = set(conf.keys())
-        unknown_conf_names = sub_conf_names - set(self.defaults.keys())
-        assert not unknown_conf_names, 'unknown config items in DP: %s' % unknown_conf_names
         self.update(conf)
         self.set_defaults()
         self.acls = {}
@@ -369,7 +379,7 @@ class DP(Conf):
         return result
 
     def to_conf(self):
-        result = self._to_conf()
+        result = super(DP, self).to_conf()
         if result is not None:
             if 'stack' in result:
                 if result['stack'] is not None:

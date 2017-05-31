@@ -41,17 +41,17 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 def valve_factory(dp):
     """Return a Valve object based dp's hardware configuration field.
 
-    Arguments:
-    dp -- a DP object with the configuration for this valve.
+    Args:
+        dp (DP): DP instance with the configuration for this Valve.
     """
     SUPPORTED_HARDWARE = {
         'Allied-Telesis': Valve,
         'Aruba': ArubaValve,
+        'Lagopus': Valve,
         'Netronome': Valve,
         'NoviFlow': Valve,
         'Open vSwitch': Valve,
         'ZodiacFX': Valve,
-        'Lagopus': Valve,
     }
 
     if dp.hardware in SUPPORTED_HARDWARE:
@@ -89,14 +89,16 @@ class Valve(object):
         self.ofchannel_logger = None
         self._packet_in_count_sec = 0
         self._last_packet_in_sec = 0
+        self._last_advertise_sec = 0
         self._register_table_match_types()
         # TODO: functional flow managers require too much state.
         # Should interface with a common composer class.
         self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-            self.dp.max_resolve_backoff_time,
-            self.dp.ipv4_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table, self.dp.flood_table,
+            self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
+            self.dp.ipv4_fib_table, self.dp.eth_src_table,
+            self.dp.eth_dst_table, self.dp.flood_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller,
@@ -104,12 +106,16 @@ class Valve(object):
         self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-            self.dp.max_resolve_backoff_time,
-            self.dp.ipv6_fib_table, self.dp.eth_src_table, self.dp.eth_dst_table, self.dp.flood_table,
+            self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
+            self.dp.ipv6_fib_table, self.dp.eth_src_table,
+            self.dp.eth_dst_table, self.dp.flood_table,
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller,
             self.dp.group_table, self.dp.routers)
+        self.route_manager_by_ipv = {}
+        for route_manager in (self.ipv4_route_manager, self.ipv6_route_manager):
+            self.route_manager_by_ipv[route_manager.IPV] = route_manager
         self.flood_manager = valve_flood.ValveFloodManager(
             self.dp.flood_table, self.dp.low_priority,
             self.valve_in_match, self.valve_flowmod,
@@ -117,7 +123,8 @@ class Valve(object):
             self.dp.group_table)
         self.host_manager = valve_host.ValveHostManager(
             self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
-            self.dp.timeout, self.dp.low_priority, self.dp.highest_priority,
+            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
+            self.dp.low_priority, self.dp.highest_priority,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
             self.valve_flowdrop)
 
@@ -312,14 +319,17 @@ class Valve(object):
             idle_timeout)
 
     def valve_flowdel(self, table_id, match=None, priority=None,
-                      out_port=ofp.OFPP_ANY):
+                      out_port=ofp.OFPP_ANY, strict=False):
         """Delete matching flows from a table."""
+        command = ofp.OFPFC_DELETE
+        if strict:
+            command = ofp.OFPFC_DELETE_STRICT
         return [
             self.valve_flowmod(
                 table_id,
                 match=match,
                 priority=priority,
-                command=ofp.OFPFC_DELETE,
+                command=command,
                 out_port=out_port,
                 out_group=ofp.OFPG_ANY)]
 
@@ -334,7 +344,7 @@ class Valve(object):
             inst=[])
 
     def valve_flowcontroller(self, table_id, match=None, priority=None,
-                             inst=None):
+                             inst=None, max_len=96):
         """Add flow outputting to controller."""
         if inst is None:
             inst = []
@@ -343,7 +353,7 @@ class Valve(object):
             match=match,
             priority=priority,
             inst=[valve_of.apply_actions(
-                [valve_of.output_controller()])] + inst)
+                [valve_of.output_controller(max_len)])] + inst)
 
     def valve_flowreorder(self, input_ofmsgs):
         """Reorder flows for better OFA performance."""
@@ -515,7 +525,10 @@ class Valve(object):
         # add acl rules
         ofmsgs.extend(self._add_vlan_acl(vlan.vid))
         # add controller IPs if configured.
-        ofmsgs.extend(self._add_faucet_vips(vlan.faucet_vips, vlan))
+        for ipv in vlan.ipvs():
+            route_manager = self.route_manager_by_ipv[ipv]
+            ofmsgs.extend(self._add_faucet_vips(
+                route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -553,6 +566,32 @@ class Valve(object):
         for port_num in all_port_nums:
             ofmsgs.extend(self.port_add(self.dp.dp_id, port_num))
 
+        return ofmsgs
+
+    def port_status_handler(self, dp_id, port_no, reason, port_status):
+        if reason == ofp.OFPPR_ADD:
+            return self.port_add(dp_id, port_no)
+        elif reason == ofp.OFPPR_DELETE:
+            return self.port_delete(dp_id, port_no)
+        elif reason == ofp.OFPPR_MODIFY:
+            if port_status:
+                return self.port_add(dp_id, port_no)
+            else:
+                return self.port_delete(dp_id, port_no)
+        self.dpid_warn('Unhandled port status %s for port %u' % (
+            reason, port_no))
+        return []
+
+    def advertise(self):
+        """Called periodically to advertise services (eg. IPv6 RAs)."""
+        ofmsgs = []
+        now = time.time()
+        if (self.dp.advertise_interval and
+                now - self._last_advertise_sec > self.dp.advertise_interval):
+            for vlan in list(self.dp.vlans.values()):
+                ofmsgs.extend(
+                    self.ipv6_route_manager.advertise(vlan))
+            self._last_advertise_sec = now
         return ofmsgs
 
     def datapath_connect(self, dp_id, discovered_up_port_nums):
@@ -1005,11 +1044,36 @@ class Valve(object):
 
         metrics (FaucetMetrics or None): container of Prometheus metrics.
         """
+        # Clear the exported MAC learning.
+        for _, label_dict, _ in metrics.learned_macs.collect()[0].samples:
+            if int(label_dict['dpid'], 16) == self.dp.dp_id:
+                metrics.learned_macs.labels(
+                    dpid=label_dict['dpid'], vlan=label_dict['vlan'],
+                    port=label_dict['port'], n=label_dict['n']).set(0)
+
+        dpid = hex(self.dp.dp_id)
         for vlan in list(self.dp.vlans.values()):
             hosts_count = self.host_manager.hosts_learned_on_vlan_count(
                 vlan)
             metrics.vlan_hosts_learned.labels(
-                dpid=hex(self.dp.dp_id), vlan=vlan.vid).set(hosts_count)
+                dpid=dpid, vlan=vlan.vid).set(hosts_count)
+            for ipv in vlan.ipvs():
+                neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
+                metrics.vlan_neighbors.labels(
+                    dpid=dpid, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
+            # Repopulate MAC learning.
+            hosts_on_port = {}
+            for eth_src, host_cache_entry in sorted(list(vlan.host_cache.items())):
+                port_num = str(host_cache_entry.port_num)
+                mac_int = int(eth_src.replace(':', ''), 16)
+                if port_num not in hosts_on_port:
+                    hosts_on_port[port_num] = []
+                hosts_on_port[port_num].append(mac_int)
+            for port_num, hosts in list(hosts_on_port.items()):
+                for i, mac_int in enumerate(hosts):
+                    metrics.learned_macs.labels(
+                        dpid=dpid, vlan=vlan.vid,
+                        port=port_num, n=i).set(mac_int)
 
     def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
         """Handle a packet from the dataplane (eg to re/learn a host).
@@ -1028,6 +1092,9 @@ class Valve(object):
             list: OpenFlow messages, if any.
         """
         if not self._known_up_dpid_and_port(dp_id, in_port):
+            return []
+        if not vlan_vid in self.dp.vlans:
+            self.dpid_log('Packet_in for unexpected VLAN %s' % (vlan_vid))
             return []
 
         pkt_meta = self._parse_rcv_packet(in_port, vlan_vid, pkt)
@@ -1199,31 +1266,22 @@ class Valve(object):
         else:
             return []
 
-    def _add_faucet_vips(self, faucet_vips, vlan):
+    def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
         ofmsgs = []
         for faucet_vip in faucet_vips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
-            if faucet_vip.version == 6:
-                ofmsgs.extend(self.ipv6_route_manager.add_faucet_vip(
-                    vlan, faucet_vip))
-            elif faucet_vip.version == 4:
-                ofmsgs.extend(self.ipv4_route_manager.add_faucet_vip(
-                    vlan, faucet_vip))
+            ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
-        if ip_dst.version == 6:
-            return self.ipv6_route_manager.add_route(vlan, ip_gw, ip_dst)
-        else:
-            return self.ipv4_route_manager.add_route(vlan, ip_gw, ip_dst)
+        route_manager = self.route_manager_by_ipv[ip_dst.version]
+        return route_manager.add_route(vlan, ip_gw, ip_dst)
 
     def del_route(self, vlan, ip_dst):
         """Delete route from VLAN routing table."""
-        if ip_dst.version == 6:
-            return self.ipv6_route_manager.del_route(vlan, ip_dst)
-        else:
-            return self.ipv4_route_manager.del_route(vlan, ip_dst)
+        route_manager = self.route_manager_by_ipv[ip_dst.version]
+        return route_manager.del_route(vlan, ip_dst)
 
     def resolve_gateways(self):
         """Call route managers to re/resolve gateways.
@@ -1270,4 +1328,5 @@ class ArubaValve(Valve):
         ryu_table_loader.load_tables(
             os.path.join(aruba.CFG_PATH, 'aruba_pipeline.json'), parser)
         ofmsgs = [valve_of.table_features(ryu_table_loader.ryu_tables)]
+        self.dpid_log('loading pipeline configuration')
         return ofmsgs

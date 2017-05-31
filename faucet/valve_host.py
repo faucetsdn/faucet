@@ -1,3 +1,5 @@
+"""Manage host learning on VLANs."""
+
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -20,7 +22,6 @@ import random
 
 import valve_of
 
-LEARN_JITTER = 10 # seconds
 
 class HostCacheEntry(object):
 
@@ -35,12 +36,14 @@ class HostCacheEntry(object):
 class ValveHostManager(object):
 
     def __init__(self, logger, eth_src_table, eth_dst_table,
-                 learn_timeout, low_priority, host_priority,
+                 learn_timeout, learn_jitter, learn_ban_timeout, low_priority, host_priority,
                  valve_in_match, valve_flowmod, valve_flowdel, valve_flowdrop):
         self.logger = logger
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
         self.learn_timeout = learn_timeout
+        self.learn_jitter = learn_jitter
+        self.learn_ban_timeout = learn_ban_timeout
         self.low_priority = low_priority
         self.host_priority = host_priority
         self.valve_in_match = valve_in_match
@@ -48,19 +51,19 @@ class ValveHostManager(object):
         self.valve_flowdel = valve_flowdel
         self.valve_flowdrop = valve_flowdrop
 
-    def temp_ban_host_learning_on_port(self, port): 
+    def temp_ban_host_learning_on_port(self, port):
         return self.valve_flowdrop(
             self.eth_src_table,
             self.valve_in_match(self.eth_src_table, in_port=port.number),
             priority=(self.low_priority + 1),
-            hard_timeout=self.host_priority)
+            hard_timeout=self.learn_ban_timeout)
 
     def temp_ban_host_learning_on_vlan(self, vlan):
         return self.valve_flowdrop(
             self.eth_src_table,
             self.valve_in_match(self.eth_src_table, vlan=vlan),
             priority=(self.low_priority + 1),
-            hard_timeout=self.host_priority)
+            hard_timeout=self.learn_ban_timeout)
 
     def build_port_out_inst(self, vlan, port):
         dst_act = []
@@ -137,8 +140,10 @@ class ValveHostManager(object):
                     self.eth_src_table, vlan=vlan, eth_src=eth_src),
                 priority=(self.host_priority - 2)))
         else:
-            #Add a jitter to avoid whole bunch of hosts timeout simultaneously
-            learn_timeout = self.learn_timeout + random.randint(0,LEARN_JITTER)
+            # Add a jitter to avoid whole bunch of hosts timeout simultaneously
+            learn_timeout = max(abs(
+                self.learn_timeout -
+                (self.learn_jitter / 2) + random.randint(0, self.learn_jitter)), 2)
             ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         # Update datapath to no longer send packets from this mac to controller

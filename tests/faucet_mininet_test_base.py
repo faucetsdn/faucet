@@ -7,6 +7,8 @@ import os
 import re
 import shutil
 import socket
+import string
+import subprocess
 import tempfile
 import time
 import unittest
@@ -20,6 +22,7 @@ from mininet.node import Controller
 from mininet.node import Host
 from mininet.node import OVSSwitch
 from mininet.topo import Topo
+from mininet.util import pmonitor
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 import faucet_mininet_test_util
@@ -170,7 +173,11 @@ class FaucetSwitchTopo(Topo):
     def _get_sid_prefix(self, ports_served):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
-        return '%2.2x' % ports_served
+        id_chars = string.letters + string.digits
+        id_a = int(ports_served / len(id_chars))
+        id_b = ports_served - (id_a * len(id_chars))
+        return '%s%s' % (
+            id_chars[id_a], id_chars[id_b])
 
     def _add_tagged_host(self, sid_prefix, tagged_vid, host_n):
         """Add a single tagged test host."""
@@ -236,7 +243,8 @@ class FaucetTestBase(unittest.TestCase):
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     BOGUS_MAC = '01:02:03:04:05:06'
     FAUCET_MAC = '0e:00:00:00:00:01'
-    LADVD = 'timeout 30s ladvd -e lo -f'
+    LADVD = 'ladvd -e lo -f'
+    ONEMBPS = (1024 * 1024)
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -266,25 +274,42 @@ class FaucetTestBase(unittest.TestCase):
         return tempfile.mkdtemp(
             prefix='%s-' % test_name, dir=self.root_tmpdir)
 
+    def timeout_cmd(self, cmd, timeout):
+        return 'timeout -sKILL %us stdbuf -o0 -e0 %s' % (timeout, cmd)
+
+    def timeout_soft_cmd(self, cmd, timeout):
+        return 'timeout %us stdbuf -o0 -e0 %s' % (timeout, cmd)
+
+    def verify_no_exception(self, exception_log):
+        exception_log_name = os.environ[exception_log]
+        if not os.path.exists(exception_log_name):
+            return
+        exception_contents = open(exception_log_name, 'r').read()
+        self.assertEquals(
+            '',
+            exception_contents,
+            msg='%s log contains %s' % (exception_log, exception_contents))
+
     def tearDown(self):
         """Clean up after a test."""
-        # must not be any controller exception.
-        self.assertEquals(
-            0, os.path.getsize(os.environ['FAUCET_EXCEPTION_LOG']))
         controller_names = []
         for controller in self.net.controllers:
             controller_names.append(controller.name)
+        open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
+            self.scrape_prometheus())
         if self.net is not None:
             self.net.stop()
-        for _, debug_log in self.get_ofchannel_logs():
-            self.assertFalse(
-                re.search('OFPErrorMsg', open(debug_log).read()),
-                msg='debug log has OFPErrorMsgs')
         # Associate controller log with test results, if we are keeping
         # the temporary directory, or effectively delete it if not.
         # mininet doesn't have a way to change its log name for the controller.
         for controller_name in controller_names:
             shutil.move('/tmp/%s.log' % controller_name, self.tmpdir)
+        # must not be any controller exception.
+        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
+        for _, debug_log in self.get_ofchannel_logs():
+            self.assertFalse(
+                re.search('OFPErrorMsg', open(debug_log).read()),
+                msg='debug log has OFPErrorMsgs')
 
     def pre_start_net(self):
         """Hook called after Mininet initializtion, before Mininet started."""
@@ -456,22 +481,32 @@ dbs:
         self.assertTrue(self.matching_flow_present(exp_flow, timeout),
                         msg=exp_flow)
 
+    def mac_learned(self, mac, timeout=10):
+        """Return True if a MAC has been learned on default DPID."""
+        return self.matching_flow_present(
+            '"table_id": 3,.+"dl_src": "%s"' % mac, timeout)
+
     def host_learned(self, host, timeout=10):
         """Return True if a host has been learned on default DPID."""
-        return self.matching_flow_present(
-            '"table_id": 3,.+"dl_src": "%s"' % host.MAC(), timeout)
+        return self.mac_learned(host.MAC())
+
+    def host_ip(self, host, family, family_re):
+        host_ip_cmd = (
+            r'ip -o -f %s addr show %s|'
+             'grep -m 1 -Eo "%s %s"|cut -f2 -d " "' % (
+                family,
+                host.defaultIntf(),
+                family,
+                family_re))
+        return host.cmd(host_ip_cmd).strip()
 
     def host_ipv4(self, host):
         """Return first IPv4/netmask for host's default interface."""
-        host_ip_cmd = (
-            r'ip -o -f inet addr show %s|grep -m 1 -Eo "[0-9\\.]+\/[0-9]+"')
-        return host.cmd(host_ip_cmd % host.defaultIntf()).strip()
+        return self.host_ip(host, 'inet', r'[0-9\\.]+\/[0-9]+')
 
     def host_ipv6(self, host):
         """Return first IPv6/netmask for host's default interface."""
-        host_ip_cmd = (
-            r'ip -o -f inet6 addr show %s|grep -m 1 -Eo "[0-9a-f\:]+\/[0-9]+"')
-        return host.cmd(host_ip_cmd % host.defaultIntf()).strip()
+        return self.host_ip(host, 'inet6', r'[0-9a-f\:]+\/[0-9]+')
 
     def require_host_learned(self, host, retries=3):
         """Require a host be learned on default DPID."""
@@ -503,13 +538,15 @@ dbs:
         ofchannel_logs = self.get_ofchannel_logs()
         for dp_name, debug_log in ofchannel_logs:
             debug_log_present = False
-            for _ in range(20):
+            for _ in range(60):
                 if (os.path.exists(debug_log) and
                         os.path.getsize(debug_log) > 0):
                     debug_log_present = True
                     break
                 time.sleep(1)
             if not debug_log_present:
+                # Maybe controller crashed.
+                self.verify_no_exception('FAUCET_EXCEPTION_LOG')
                 self.fail(
                     'no controller debug log for switch %s' % dp_name)
 
@@ -523,25 +560,54 @@ dbs:
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
 
-    def scrape_prometheus_var(self, var_re, default=None):
+    def scrape_prometheus_var(self, var, labels=None, default=None, dpid=True, multiple=False):
         prom_out = self.scrape_prometheus()
-        var_match = re.search(r'%s\s+(\d+)' % var_re, prom_out)
-        if var_match is None:
-            return default
-        else:
-            return var_match.group(1)
+        label_values_re = ''
+        if labels is None:
+            labels = {}
+        if dpid:
+            labels.update({'dpid': '0x%x' % long(self.dpid)})
+        if labels:
+            label_values = []
+            for label, value in sorted(list(labels.items())):
+                label_values.append('%s="%s"' % (label, value))
+            label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
+        results = []
+        var_re = r'^%s%s$' % (var, label_values_re)
+        for prom_line in self.scrape_prometheus().splitlines():
+            var, value = prom_line.split(' ')
+            var_match = re.search(var_re, var)
+            if var_match:
+                value_int = long(float(value))
+                results.append((var, value_int))
+                if not multiple:
+                    break
+        if results:
+            if multiple:
+                return results
+            else:
+                return results[0][1]
+        return default
 
     def get_configure_count(self):
         """Return the number of times FAUCET has processed a reload request."""
-        return self.scrape_prometheus_var(
-            'faucet_config_reload_requests', default=0)
+        for _ in range(3):
+            count = self.scrape_prometheus_var(
+                'faucet_config_reload_requests', default=None, dpid=False)
+            if count is not None:
+                return count
+            time.sleep(1)
+        self.fail('configure count stayed zero')
+
+    def signal_proc_on_port(self, host, port, signal):
+        tcp_pattern = '%s/tcp' % port
+        fuser_out = host.cmd('fuser %s -k -%u' % (tcp_pattern, signal))
+        return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
 
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
         controller = self.get_controller()
-        tcp_pattern = '%s/tcp' % controller.port
-        fuser_out = controller.cmd('fuser %s -k -1' % tcp_pattern)
-        self.assertTrue(re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out))
+        self.assertTrue(self.signal_proc_on_port(controller, controller.port, 1))
 
     def verify_hup_faucet(self, timeout=3):
         """HUP and verify the HUP was processed."""
@@ -565,28 +631,33 @@ dbs:
             port_stats[host] = self.get_port_stats_from_dpid(self.dpid, switch_port)
         return port_stats
 
-    def verify_iperf_min(self, hosts_switch_ports, l4Type, min_mbps):
+    def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
+        return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
+
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
-        onembps = (1024 * 1024)
         prop = 0.1
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock)
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
-        hosts = list(start_port_stats.keys())
-        raw_server_client_results = self.net.iperf(
-            hosts=hosts, seconds=seconds, l4Type=l4Type, fmt='M')
-        iperf_mbps = float(raw_server_client_results[0].split(' ')[0])
+        hosts = []
+        for host, _ in hosts_switch_ports:
+           hosts.append(host)
+        client_host, server_host = hosts
+        iperf_mbps = self.iperf(
+            client_host, server_host, server_ip, iperf_port, seconds)
         self.assertTrue(iperf_mbps > min_mbps)
         # TODO: account for drops.
         for _ in range(3):
             end_port_stats = self.get_host_port_stats(hosts_switch_ports)
             approx_match = True
             for host in hosts:
-                of_rx_mbps = (
-                    end_port_stats[host]['rx_bytes'] -
-                    start_port_stats[host]['rx_bytes']) / seconds / onembps
-                of_tx_mbps = (
-                    end_port_stats[host]['tx_bytes'] -
-                    start_port_stats[host]['tx_bytes']) / seconds / onembps
+                of_rx_mbps = self.of_bytes_mbps(
+                    start_port_stats[host], end_port_stats[host], 'rx_bytes', seconds)
+                of_tx_mbps = self.of_bytes_mbps(
+                    start_port_stats[host], end_port_stats[host], 'tx_bytes', seconds)
+                print of_rx_mbps, of_tx_mbps
                 max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
                 iperf_to_max = iperf_mbps / max_of_mbps
                 msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
@@ -609,20 +680,26 @@ dbs:
         return curl_format % (
             int_dpid, port_no, config, mask, self.ofctl_rest_url())
 
+    def set_port_down(self, port_no):
+        os.system(self.curl_portmod(
+           self.dpid,
+           port_no,
+           ofp.OFPPC_PORT_DOWN,
+           ofp.OFPPC_PORT_DOWN))
+
+    def set_port_up(self, port_no):
+        os.system(self.curl_portmod(
+           self.dpid,
+           port_no,
+           0,
+           ofp.OFPPC_PORT_DOWN))
+
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
         for port_no in self.port_map.values():
-            os.system(self.curl_portmod(
-                self.dpid,
-                port_no,
-                ofp.OFPPC_PORT_DOWN,
-                ofp.OFPPC_PORT_DOWN))
+            self.set_port_down(port_no)
             time.sleep(flap_time)
-            os.system(self.curl_portmod(
-                self.dpid,
-                port_no,
-                0,
-                ofp.OFPPC_PORT_DOWN))
+            self.set_port_up(port_no)
 
     def add_host_ipv6_address(self, host, ip_v6):
         """Add an IPv6 address to a Mininet host."""
@@ -634,23 +711,29 @@ dbs:
         """Add an IP route to a Mininet host."""
         host.cmd('ip -%u route del %s' % (
             ip_dst.version, ip_dst.network.with_prefixlen))
+        add_cmd = 'ip -%u route add %s via %s' % (
+            ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)
+        results = host.cmd(add_cmd)
         self.assertEquals(
-            '',
-            host.cmd('ip -%u route add %s via %s' % (
-                ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)))
+            '', results, msg='%s: %s' % (add_cmd, results))
 
-    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None):
-        """Ping an IPv4 destination from a host."""
+    def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned):
         if require_host_learned:
             self.require_host_learned(host)
-        if intf is None:
-            intf = host.defaultIntf()
         for _ in range(retries):
-            ping_cmd = 'ping -c1 -I%s %s' % (intf, dst)
             ping_result = host.cmd(ping_cmd)
             if re.search(self.ONE_GOOD_PING, ping_result):
                 return
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
+        self.assertTrue(
+            re.search(self.ONE_GOOD_PING, ping_result),
+            msg='%s: %s' % (ping_cmd, ping_result))
+
+    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None):
+        """Ping an IPv4 destination from a host."""
+        if intf is None:
+            intf = host.defaultIntf()
+        ping_cmd = 'ping -c1 -I%s %s' % (intf, dst)
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned)
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
@@ -660,13 +743,8 @@ dbs:
 
     def one_ipv6_ping(self, host, dst, retries=3):
         """Ping an IPv6 destination from a host."""
-        self.require_host_learned(host)
-        # TODO: retry our one ping. We should not have to retry.
-        for _ in range(retries):
-            ping_result = host.cmd('ping6 -c1 %s' % dst)
-            if re.search(self.ONE_GOOD_PING, ping_result):
-                return
-        self.assertTrue(re.search(self.ONE_GOOD_PING, ping_result))
+        ping_cmd = 'ping6 -c1 %s' % dst
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned=True)
 
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
@@ -674,18 +752,21 @@ dbs:
         self.verify_ipv6_host_learned_mac(
             host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
-    def wait_for_tcp_listen(self, host, port, timeout=10):
+    def wait_for_tcp_listen(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
+        fuser_cmd = 'fuser -%u -n tcp %u' % (ipv, port)
         for _ in range(timeout):
-            fuser_out = host.cmd('fuser -n tcp %u' % port)
-            if re.search(r'.*%u/tcp.*' % port, fuser_out):
-                return
+            fuser_out = host.cmd(fuser_cmd)
+            for fuser_line in fuser_out.splitlines(): 
+                if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
+                    return
             time.sleep(1)
-        self.fail('%s never listened on port %u (%s)' % (host, port, fuser_out))
+        self.fail('%s never listened on port %u (%s: %s)' % (
+            host, port, fuser_cmd, fuser_out))
 
     def serve_hello_on_tcp_port(self, host, port):
         """Serve 'hello' on a TCP port on a host."""
-        host.cmd('timeout 10s echo hello | nc -l %s %u &' % (host.IP(), port))
+        host.cmd(self.timeout_cmd('echo hello | nc -l %s %u &' % (host.IP(), port), 10))
         self.wait_for_tcp_listen(host, port)
 
     def wait_nonzero_packet_count_flow(self, exp_flow, timeout=10):
@@ -704,7 +785,7 @@ dbs:
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
-            '', first_host.cmd('timeout 10s nc %s %u' % (second_host.IP(), port)))
+            '', first_host.cmd(self.timeout_cmd('nc %s %u' % (second_host.IP(), port), 10)))
         self.wait_nonzero_packet_count_flow(r'"tp_dst": %u' % port)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host):
@@ -739,18 +820,25 @@ dbs:
         ))
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.get_controller()
-        controller.cmd(
-            'env %s timeout -s9 180s '
-            'stdbuf -o0 -e0 exabgp %s -d 2> %s > %s &' % (
-                exabgp_env, exabgp_conf_file, exabgp_err, exabgp_log))
-        self.wait_for_tcp_listen(controller, port)
+        exabgp_cmd = self.timeout_cmd(
+            'exabgp %s -d 2> %s > %s &' % (
+                exabgp_conf_file, exabgp_err, exabgp_log), 600)
+        controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
+        self.wait_for_tcp_listen(
+            controller, port,
+            ipv=ipaddress.ip_address(unicode(listen_address)).version)
         return exabgp_log
 
-    def wait_bgp_up(self, exabgp_log):
+    def wait_bgp_up(self, neighbor, vlan):
         """Wait for BGP to come up."""
+        label_values = {
+            'neighbor': neighbor,
+            'vlan': vlan,
+        }
         for _ in range(60):
-            exabgp_log_content = open(exabgp_log).read()
-            if exabgp_log_content.find('OPENCONFIRM') > -1:
+            uptime = self.scrape_prometheus_var(
+                'bgp_neighbor_uptime', label_values, default=0)
+            if uptime > 0:
                 return
             time.sleep(1)
         self.fail('exabgp did not peer with FAUCET')
@@ -758,7 +846,7 @@ dbs:
     def stop_exabgp(self, port=179):
         """Stop exabgp process on controller host."""
         controller = self.get_controller()
-        controller.cmd('fuser %s/tcp -k -9' % port)
+        self.signal_proc_on_port(controller, port, 9)
 
     def exabgp_updates(self, exabgp_log):
         """Verify that exabgp process has received BGP updates."""
@@ -825,15 +913,16 @@ dbs:
 
     def _verify_host_learned_mac(self, host, ip, ip_ver, mac, retries):
         for _ in range(retries):
-            learned_mac = host.cmd(
-                "ip -%u neighbor show %s | awk '{ print $5 }'" % (ip_ver, ip)).strip()
-            if learned_mac:
-                break
+            neighbors = host.cmd('ip -%u neighbor show' % ip_ver)
+            for neighbor_line in neighbors.splitlines():
+                neighbor_fields = neighbor_line.strip().split(' ')
+                learned_ip = neighbor_fields[0]
+                learned_mac = neighbor_fields[4]
+                if learned_ip == str(ip) and learned_mac == mac:
+                    return
             time.sleep(1)
-        self.assertEqual(
-            mac, learned_mac,
-            msg='MAC learned on host mismatch (expected %s found %s)' % (
-                mac, learned_mac))
+        self.fail(
+            'could not verify %s resolved to %s (%s)' % (ip, mac, neighbors))
 
     def verify_ipv4_host_learned_mac(self, host, ip, mac, retries=3):
         self._verify_host_learned_mac(host, ip, 4, mac, retries)
@@ -848,6 +937,45 @@ dbs:
     def verify_ipv6_host_learned_host(self, host, learned_host):
         learned_ip6 = ipaddress.ip_interface(unicode(self.host_ipv6(learned_host)))
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
+
+    def iperf_client(self, client_host, iperf_client_cmd):
+        for _ in range(3):
+            iperf_results = client_host.cmd(iperf_client_cmd)
+            iperf_csv = iperf_results.strip().split(',')
+            if len(iperf_csv) == 9:
+                return int(iperf_csv[-1]) / self.ONEMBPS
+            time.sleep(1)
+        self.fail('%s: %s' % (iperf_client_cmd, iperf_results))
+
+    def iperf(self, client_host, server_host, server_ip, port, seconds):
+        iperf_base_cmd = 'iperf -f M -p %u' % port
+        if server_ip.version == 6:
+            iperf_base_cmd += ' -V'
+        iperf_server_cmd = '%s -s' % iperf_base_cmd
+        iperf_server_cmd = self.timeout_cmd(
+            iperf_server_cmd, (seconds * 3) + 5)
+        iperf_client_cmd = self.timeout_cmd(
+            '%s -y c -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
+            seconds + 5)
+        server_start_exp = r'Server listening on TCP port %u' % port
+        for _ in range(3):
+            server_out = server_host.popen(
+                iperf_server_cmd, stderr=subprocess.STDOUT)
+            popens = {server_host: server_out}
+            lines = []
+            for host, line in pmonitor(popens):
+                if host == server_host:
+                    lines.append(line)
+                    if re.search(server_start_exp, line):
+                        self.wait_for_tcp_listen(
+                            server_host, port, ipv=server_ip.version)
+                        iperf_mbps = self.iperf_client(
+                            client_host, iperf_client_cmd)
+                        self.signal_proc_on_port(server_host, port, 9)
+                        return iperf_mbps
+            time.sleep(1)
+        self.fail('%s never started (%s, %s)' % (
+            iperf_server_cmd, server_start_exp, ' '.join(lines)))
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip,
@@ -874,14 +1002,10 @@ dbs:
         for client_host, server_host, server_ip in (
             (first_host, second_host, second_host_routed_ip.ip),
             (second_host, first_host, first_host_routed_ip.ip)):
-           iperf_server = server_host.cmd(
-               'timeout 10s iperf -s -B %s > /dev/null &' % server_ip)
-           self.wait_for_tcp_listen(server_host, 5001)
-           iperf_results = client_host.cmd(
-               'iperf -t 5 -f M -y c -c %s' % server_ip)
-           iperf_csv = iperf_results.strip().split(',')
-           self.assertEquals(9, len(iperf_csv), msg=iperf_csv)
-           iperf_mbps = int(iperf_csv[-1]) / (1024*1024)
+           iperf_port, _ = faucet_mininet_test_util.find_free_port(
+               self.ports_sock)
+           iperf_mbps = self.iperf(
+               client_host, server_host, server_ip, iperf_port, 5)
            print('%u mbps to %s' % (iperf_mbps, server_ip))
            self.assertGreater(iperf_mbps, 1)
         # verify packets matched routing flows
@@ -952,9 +1076,20 @@ dbs:
         self.one_ipv6_controller_ping(first_host)
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
-        self.one_ipv6_ping(second_host, first_host_routed_ip.ip)
+        # verify at least 1M iperf
+        for client_host, server_host, server_ip in (
+            (first_host, second_host, second_host_routed_ip.ip),
+            (second_host, first_host, first_host_routed_ip.ip)):
+           iperf_port, _ = faucet_mininet_test_util.find_free_port(
+               self.ports_sock)
+           iperf_mbps = self.iperf(
+               client_host, server_host, server_ip, iperf_port, 5)
+           print('%u mbps to %s' % (iperf_mbps, server_ip))
+           self.assertGreater(iperf_mbps, 1)
+        self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.verify_ipv6_host_learned_mac(
             first_host, second_host_ip.ip, second_host.MAC())
+        self.one_ipv6_ping(second_host, first_host_ip.ip)
         self.verify_ipv6_host_learned_mac(
             second_host, first_host_ip.ip, first_host.MAC())
 

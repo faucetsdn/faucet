@@ -27,6 +27,12 @@ from ryu.ofproto import inet
 from valve_util import btos
 
 
+IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
+IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
+IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
+IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
+
+
 def mac_addr_is_unicast(mac_addr):
     """Returns True if mac_addr is a unicast Ethernet address.
 
@@ -48,6 +54,23 @@ def parse_pkt(pkt):
         ryu.lib.packet.ethernet: Ethernet packet.
     """
     return pkt.get_protocol(ethernet.ethernet)
+
+
+def parse_packet_in_pkt(msg):
+    pkt = packet.Packet(msg.data)
+    eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
+    eth_type = eth_pkt.ethertype
+    vlan_vid = None
+
+    # Packet ins, can only come when a VLAN header has already been pushed
+    # (ie. when we have progressed past the VLAN table). This gaurantees
+    # a VLAN header will always be present, so we know which VLAN the packet
+    # belongs to.
+    if eth_type == ether.ETH_TYPE_8021Q:
+        # tagged packet
+        vlan_proto = pkt.get_protocols(vlan.vlan)[0]
+        vlan_vid = vlan_proto.vid
+    return pkt, vlan_vid
 
 
 def build_pkt_header(eth_src, eth_dst, vid, dl_type):
@@ -150,7 +173,7 @@ def ipv6_link_eth_mcast(dst_ip):
     Returns:
         str: Ethernet multicast address.
     """
-    mcast_mac_bytes = b'\x33\x33' + dst_ip.packed[-4:]
+    mcast_mac_bytes = b'\x33\x33\xff' + dst_ip.packed[-3:]
     mcast_mac = ':'.join(['%02X' % ord(x) for x in mcast_mac_bytes])
     return mcast_mac
 
@@ -198,8 +221,8 @@ def nd_request(eth_src, vid, src_ip, dst_ip):
     return pkt
 
 
-def nd_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
-    """Return IPv6 neighbor discovery reply packet.
+def nd_advert(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
+    """Return IPv6 neighbor avertisement packet.
 
     Args:
         eth_src (str): source Ethernet MAC address.
@@ -213,18 +236,18 @@ def nd_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
     """
     pkt = build_pkt_header(
         eth_src, eth_dst, vid, ether.ETH_TYPE_IPV6)
-    ipv6_reply = ipv6.ipv6(
+    ipv6_icmp6 = ipv6.ipv6(
         src=src_ip,
         dst=dst_ip,
         nxt=inet.IPPROTO_ICMPV6,
         hop_limit=hop_limit)
-    pkt.add_protocol(ipv6_reply)
-    icmpv6_reply = icmpv6.icmpv6(
+    pkt.add_protocol(ipv6_icmp6)
+    icmpv6_nd_advert = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_ADVERT,
         data=icmpv6.nd_neighbor(
             dst=src_ip,
             option=icmpv6.nd_option_tla(hw_src=eth_src), res=7))
-    pkt.add_protocol(icmpv6_reply)
+    pkt.add_protocol(icmpv6_nd_advert)
     pkt.serialize()
     return pkt
 
@@ -258,5 +281,51 @@ def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
         type_=icmpv6.ICMPV6_ECHO_REPLY,
         data=icmpv6.echo(id_=id_, seq=seq, data=data))
     pkt.add_protocol(icmpv6_reply)
+    pkt.serialize()
+    return pkt
+
+
+def router_advert(eth_src, eth_dst, vid, src_ip, dst_ip,
+                  vips, hop_limit=255, pi_flags=0x6):
+    """Return IPv6 ICMP echo reply packet.
+
+    Args:
+        eth_src (str): source Ethernet MAC address.
+        eth_dst (str): dest Ethernet MAC address.
+        vid (int or None): VLAN VID to use (or None).
+        src_ip (ipaddress.IPv6Address): source IPv6 address.
+        vips (list): prefixes (ipaddress.IPv6Address) to advertise.
+        hop_limit (int): IPv6 hop limit.
+        pi_flags (int): flags to set in prefix information field (default set A and L)
+    Returns:
+        ryu.lib.packet.ethernet: Serialized IPv6 ICMP RA packet.
+    """
+    pkt = build_pkt_header(
+        eth_src, eth_dst, vid, ether.ETH_TYPE_IPV6)
+    ipv6_pkt = ipv6.ipv6(
+        src=src_ip,
+        dst=dst_ip,
+        nxt=inet.IPPROTO_ICMPV6,
+        hop_limit=hop_limit)
+    pkt.add_protocol(ipv6_pkt)
+    options = []
+    for vip in vips:
+        options.append(
+            icmpv6.nd_option_pi(
+                prefix=vip.network.network_address,
+                pl=vip.network.prefixlen,
+                res1=pi_flags,
+                val_l=86400,
+                pre_l=14400,
+            ))
+    options.append(icmpv6.nd_option_sla(hw_src=eth_src))
+    # https://tools.ietf.org/html/rfc4861#section-4.6.2
+    icmpv6_ra_pkt = icmpv6.icmpv6(
+        type_=icmpv6.ND_ROUTER_ADVERT,
+        data=icmpv6.nd_router_advert(
+            rou_l=1800,
+            ch_l=hop_limit,
+            options=options))
+    pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()
     return pkt

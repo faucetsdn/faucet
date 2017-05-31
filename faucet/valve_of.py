@@ -227,13 +227,15 @@ def output_in_port():
     return output_port(ofp.OFPP_IN_PORT)
 
 
-def output_controller():
-    """Return OpenFlow action to packet in to the controller (max 128 bytes).
+def output_controller(max_len=96):
+    """Return OpenFlow action to packet in to the controller.
 
+    Args:
+        max_len (int): max number of bytes from packet to output.
     Returns:
         ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: packet in action.
     """
-    return output_port(ofp.OFPP_CONTROLLER, 128)
+    return output_port(ofp.OFPP_CONTROLLER, max_len)
 
 
 def packetout(port_num, data):
@@ -285,11 +287,12 @@ def match_from_dict(match_dict):
     return acl_match
 
 
-def _match_ip_masked(ip):
-    if isinstance(ip, ipaddress.IPv4Network) or isinstance(ip, ipaddress.IPv6Network):
-        return (str(ip.network_address), str(ip.netmask))
+def _match_ip_masked(ipa):
+    if (isinstance(ipa, ipaddress.IPv4Network) or
+            isinstance(ipa, ipaddress.IPv6Network)):
+        return (str(ipa.network_address), str(ipa.netmask))
     else:
-        return (str(ip.ip), str(ip.netmask))
+        return (str(ipa.ip), str(ipa.netmask))
 
 
 def build_match_dict(in_port=None, vlan=None,

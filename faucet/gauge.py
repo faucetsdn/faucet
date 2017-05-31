@@ -1,3 +1,5 @@
+"""RyuApp shim between Ryu and Gauge."""
+
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
 #
@@ -101,12 +103,12 @@ class Gauge(app_manager.RyuApp):
                 del self.watchers[dp_id]
             self.logger.info('%s down', dpid_log(dp_id))
 
-    def signal_handler(self, sigid, frame):
+    def signal_handler(self, sigid, _):
         if sigid == signal.SIGHUP:
             self.send_event('Gauge', EventGaugeReconfigure())
 
     @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
-    def reload_config(self, ryu_event):
+    def reload_config(self, _):
         self.config_file = os.getenv('GAUGE_CONFIG', self.config_file)
 
         new_confs = watcher_parser(self.config_file, self.logname)

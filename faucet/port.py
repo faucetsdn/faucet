@@ -1,3 +1,5 @@
+"""Port configuration."""
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
@@ -16,7 +18,9 @@
 
 from conf import Conf
 
+
 class Port(Conf):
+    """Implement FAUCET configuration for a port."""
 
     name = None
     number = None
@@ -44,8 +48,9 @@ class Port(Conf):
         'tagged_vlans': None,
         'acl_in': None,
         'stack': None,
-        'max_hosts' : None,
-        }
+        'max_hosts' : 255,
+        # maximum number of hosts
+    }
 
     def __init__(self, _id, conf=None):
         if conf is None:
@@ -75,7 +80,7 @@ class Port(Conf):
         return self.enabled and self.phys_up
 
     def to_conf(self):
-        result = self._to_conf()
+        result = super(Port, self).to_conf()
         if 'stack' in result and result['stack'] is not None:
             result['stack'] = {
                 'dp': str(self.stack['dp']),

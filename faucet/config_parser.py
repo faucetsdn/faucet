@@ -1,3 +1,5 @@
+"""Implement configuration file parsing."""
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
@@ -23,6 +25,12 @@ from watcher_conf import WatcherConf
 
 import config_parser_util
 
+V2_TOP_CONFS = (
+    'acls',
+    'dps',
+    'routers',
+    'vlans')
+
 
 def dp_parser(config_file, logname):
     logger = config_parser_util.get_logger(logname)
@@ -44,6 +52,7 @@ def dp_parser(config_file, logname):
             dp.resolve_stack_topology(dps)
     return config_hashes, dps
 
+
 def _get_vlan_by_identifier(dp_id, v_identifier, vlans):
     '''v_identifier can be a name or anything used to identify a vlan.
     v_identifier will be used as vid when vid is omitted in vlan config'''
@@ -52,7 +61,7 @@ def _get_vlan_by_identifier(dp_id, v_identifier, vlans):
         if v_identifier == vlan._id:
             vid = vlan.vid
             break
-    if type(vid) == str:
+    if isinstance(vid, str):
         try:
             vid = int(vid, 0)
         except:
@@ -149,12 +158,9 @@ def _config_parser_v2(config_file, logname):
     logger = config_parser_util.get_logger(logname)
     config_path = config_parser_util.dp_config_path(config_file)
     config_hashes = {}
-    top_confs = {
-        'acls': {},
-        'dps': {},
-        'routers': {},
-        'vlans': {},
-    }
+    top_confs = {}
+    for top_conf in V2_TOP_CONFS:
+        top_confs[top_conf] = {}
 
     if not config_parser_util.dp_include(
             config_hashes, config_path, logname, top_confs):
@@ -172,6 +178,18 @@ def _config_parser_v2(config_file, logname):
         top_confs['routers'],
         top_confs['vlans'])
     return (config_hashes, dps)
+
+
+def get_config_for_api(valves):
+    config = {}
+    for i in V2_TOP_CONFS:
+        config[i] = {}
+    for valve in list(valves.values()):
+        valve_conf = valve.get_config_dict()
+        for i in V2_TOP_CONFS:
+            if i in valve_conf:
+                config[i].update(valve_conf[i])
+    return config
 
 
 def watcher_parser(config_file, logname):

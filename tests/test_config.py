@@ -166,7 +166,7 @@ class DistConfigTestCase(unittest.TestCase):
     def test_max_hosts(self):
         for dp in (self.v2_dp,):
             self.assertEqual(20, dp.vlans[40].max_hosts)
-            self.assertEqual(None, dp.vlans[41].max_hosts)
+            self.assertEqual(255, dp.vlans[41].max_hosts)
 
     def test_mirror(self):
         for dp in (self.v2_dp,):
@@ -191,15 +191,15 @@ class DistConfigTestCase(unittest.TestCase):
             self.assertEquals(vlan.bgp_neighbor_as, 2)
             self.assertIn(
                 ipaddress.ip_network(u'10.0.1.0/24'),
-                vlan.ipv4_routes
+                vlan.routes_by_ipv(4)
                 )
             self.assertIn(
                 ipaddress.ip_network(u'10.0.2.0/24'),
-                vlan.ipv4_routes
+                vlan.routes_by_ipv(4)
                 )
             self.assertIn(
                 ipaddress.ip_network(u'10.0.3.0/24'),
-                vlan.ipv4_routes
+                vlan.routes_by_ipv(4)
                 )
 
     def test_port_acl(self):
