@@ -2,6 +2,7 @@ astroid==1.4.9
 bitstring
 concurrencytest
 exabgp==3.4.19
+netifaces
 packaging
 pylint==1.6.5
 requests
