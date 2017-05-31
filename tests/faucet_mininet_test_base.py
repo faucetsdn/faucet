@@ -716,7 +716,8 @@ dbs:
 
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
-        for port_no in self.port_map.values():
+        port_count = self.N_TAGGED + self.N_UNTAGGED
+        for port_no in list(sorted(self.port_map.values()))[:port_count]:
             self.set_port_down(port_no)
             self.wait_port_status(port_no, 0)
             time.sleep(flap_time)
