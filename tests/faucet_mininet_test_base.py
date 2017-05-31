@@ -707,7 +707,7 @@ dbs:
     def wait_dp_status(self, expected_status, timeout=10):
         for _ in range(timeout):
             dp_status = self.scrape_prometheus_var(
-                'dp_status', {}, default=-1)
+                'dp_status', {}, default=None)
             if dp_status is not None and dp_status == expected_status:
                 return
             time.sleep(1)
