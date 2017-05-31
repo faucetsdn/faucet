@@ -3535,13 +3535,36 @@ def import_hw_config():
     except:
         print('Could not load YAML config data from %s' % config_file_name)
         sys.exit(-1)
-    if 'hw_switch' in config and config['hw_switch']:
-        required_config = ('dp_ports', 'cpn_intf', 'dpid', 'of_port', 'gauge_of_port')
-        for required_key in required_config:
+    if 'hw_switch' in config:
+        hw_switch = config['hw_switch']
+        if not isinstance(hw_switch, bool):
+            print('hw_switch must be a bool: ' % hw_switch)
+            sys.exit(-1)
+        if not hw_switch:
+            return None
+        required_config = {
+            'dp_ports': (dict,),
+            'cpn_intf': (str,),
+            'dpid': (long, int),
+            'of_port': (int,),
+            'gauge_of_port': (int,),
+        }
+        for required_key, required_key_types in list(required_config.items()):
             if required_key not in config:
                 print('%s must be specified in %s to use HW switch.' % (
                     required_key, config_file_name))
                 sys.exit(-1)
+            required_value = config[required_key]
+            key_type_ok = False
+            for key_type in required_key_types:
+                if isinstance(required_value, key_type):
+                    key_type_ok = True
+                    break
+            if not key_type_ok:
+                print('%s (%s) must be %s in %s' % (
+                    required_key, required_value,
+                    required_key_types, config_file_name))
+                sys.exit(1)
         dp_ports = config['dp_ports']
         if len(dp_ports) != REQUIRED_TEST_PORTS:
             print('Exactly %u dataplane ports are required, '
