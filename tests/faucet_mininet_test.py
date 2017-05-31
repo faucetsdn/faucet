@@ -226,6 +226,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         if self.hw_switch:
             self.attach_physical_switch()
         self.wait_debug_log()
+        self.wait_dp_status(1)
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         for port_no in self.port_map.values():
             self.set_port_up(port_no)
