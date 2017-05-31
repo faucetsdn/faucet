@@ -27,6 +27,7 @@ def install_configs():
     dst_faucet_conf_dir = '/etc/ryu/faucet/'
     src_ryu_conf = resource_filename(__name__, "etc/ryu/ryu.conf")
     src_faucet_conf_dir = resource_filename(__name__, "etc/ryu/faucet/")
+    faucet_log_dir = '/var/log/ryu/faucet/'
 
     try:
         if not os.path.exists(dst_ryu_conf_dir):
@@ -44,6 +45,9 @@ def install_configs():
             if os.path.isfile(src_file) and not os.path.isfile(dst_file):
                 print("Copying %s to %s" % (src_file, dst_file))
                 shutil.copy(src_file, dst_file)
+        if not os.path.exists(faucet_log_dir):
+            print("Creating %s" % faucet_log_dir)
+            os.makedirs(faucet_log_dir)
     except OSError as exception:
         if exception.errno == errno.EACCES:
             print("Permission denied creating %s, skipping copying configs"
