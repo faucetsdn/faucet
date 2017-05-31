@@ -417,6 +417,9 @@ class Faucet(app_manager.RyuApp):
             flowmods = valve.port_status_handler(
                 dp_id, port_no, reason, port_status)
             self._send_flow_msgs(dp_id, flowmods)
+            # pylint: disable=no-member
+            self.metrics.port_status.labels(
+                dpid=hex(dp_id), port=port_no).set(port_status)
         else:
             self.logger.error(
                 'port_status_handler: unknown %s', dpid_log(dp_id))

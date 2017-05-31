@@ -67,4 +67,8 @@ class FaucetMetrics(object):
             ('max address stored as 64bit number to DP ID, port, VLAN, '
              'and n (maximum number of hosts on the port)'),
             ['dpid', 'port', 'vlan', 'n'])
+        self.port_status = Gauge(
+            'port_status',
+            'status of switch ports',
+            ['dpid', 'port'])
         start_http_server(prom_port)

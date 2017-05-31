@@ -694,12 +694,24 @@ dbs:
            0,
            ofp.OFPPC_PORT_DOWN))
 
+    def wait_port_status(self, port_no, expected_status, timeout=10):
+        for _ in range(timeout):
+            port_status = self.scrape_prometheus_var(
+                'port_status', {'port': port_no}, default=-1)
+            if port_status is not None and port_status == expected_status:
+                return
+            time.sleep(1)
+        self.fail('port %s status %d != expected %d' % (
+            port_no, port_status, expected_status))
+
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
         for port_no in self.port_map.values():
             self.set_port_down(port_no)
+            self.wait_port_status(port_no, 0)
             time.sleep(flap_time)
             self.set_port_up(port_no)
+            self.wait_port_status(port_no, 1)
 
     def add_host_ipv6_address(self, host, ip_v6):
         """Add an IPv6 address to a Mininet host."""
