@@ -249,6 +249,9 @@ class FaucetTestBase(unittest.TestCase):
     CONFIG = ''
     CONFIG_GLOBAL = ''
 
+    N_UNTAGGED = 0
+    N_TAGGED = 0
+
     config = None
     dpid = None
     hardware = 'Open vSwitch'
@@ -711,8 +714,8 @@ dbs:
             if dp_status is not None and dp_status == expected_status:
                 return
             time.sleep(1)
-        self.fail('port %s status %s != expected %u' % (
-            port_no, dp_status, expected_status))
+        self.fail('DP status %s != expected %u' % (
+            dp_status, expected_status))
 
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
