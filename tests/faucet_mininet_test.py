@@ -360,7 +360,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.monitor_state_file,
             self.monitor_flow_table_file)
         for watcher_file in watcher_files:
-            for _ in range(5):
+            for _ in range(60):
                 if os.path.exists(watcher_file):
                     break
                 time.sleep(1)
