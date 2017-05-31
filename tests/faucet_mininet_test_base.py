@@ -281,7 +281,10 @@ class FaucetTestBase(unittest.TestCase):
         return 'timeout %us stdbuf -o0 -e0 %s' % (timeout, cmd)
 
     def verify_no_exception(self, exception_log):
-        exception_contents = open(os.environ[exception_log]).read()
+        exception_log_name = os.environ[exception_log]
+        if not os.path.exists(exception_log_name):
+            return
+        exception_contents = open(exception_log_name, 'r').read()
         self.assertEquals(
             '',
             exception_contents,
@@ -535,7 +538,7 @@ dbs:
         ofchannel_logs = self.get_ofchannel_logs()
         for dp_name, debug_log in ofchannel_logs:
             debug_log_present = False
-            for _ in range(20):
+            for _ in range(60):
                 if (os.path.exists(debug_log) and
                         os.path.getsize(debug_log) > 0):
                     debug_log_present = True
