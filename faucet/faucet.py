@@ -400,7 +400,8 @@ class Faucet(app_manager.RyuApp):
             ryu_event (ryu.controller.dpset.EventDPReconnected): trigger.
         """
         ryu_dp = ryu_event.dp
-        self.logger.debug('%s reconnected', dpid_log(ryu_dp.id))
+        dp_id = ryu_dp.id
+        self.logger.debug('%s reconnected', dpid_log(dp_id))
         # pylint: disable=no-member
         self.metrics.dp_status.labels(
             dpid=hex(dp_id)).set(1)
