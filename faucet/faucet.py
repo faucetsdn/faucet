@@ -374,11 +374,17 @@ class Faucet(app_manager.RyuApp):
             if ryu_event.enter:
                 self.metrics.of_dp_connections.labels(
                     dpid=hex(dp_id)).inc()
+                # pylint: disable=no-member
+                self.metrics.dp_status.labels(
+                    dpid=hex(dp_id)).set(1)
                 self.logger.debug('%s connected', dpid_log(dp_id))
                 self._handler_datapath(ryu_dp)
             else:
                 self.metrics.of_dp_disconnections.labels(
                     dpid=hex(dp_id)).inc()
+                # pylint: disable=no-member
+                self.metrics.dp_status.labels(
+                    dpid=hex(dp_id)).set(0)
                 self.logger.debug('%s disconnected', dpid_log(dp_id))
                 valve.datapath_disconnect(dp_id)
         else:
@@ -394,7 +400,11 @@ class Faucet(app_manager.RyuApp):
             ryu_event (ryu.controller.dpset.EventDPReconnected): trigger.
         """
         ryu_dp = ryu_event.dp
-        self.logger.debug('%s reconnected', dpid_log(ryu_dp.id))
+        dp_id = ryu_dp.id
+        self.logger.debug('%s reconnected', dpid_log(dp_id))
+        # pylint: disable=no-member
+        self.metrics.dp_status.labels(
+            dpid=hex(dp_id)).set(1)
         self._handler_datapath(ryu_dp)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member

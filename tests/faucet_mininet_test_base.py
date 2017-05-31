@@ -249,6 +249,9 @@ class FaucetTestBase(unittest.TestCase):
     CONFIG = ''
     CONFIG_GLOBAL = ''
 
+    N_UNTAGGED = 0
+    N_TAGGED = 0
+
     config = None
     dpid = None
     hardware = 'Open vSwitch'
@@ -697,16 +700,27 @@ dbs:
     def wait_port_status(self, port_no, expected_status, timeout=10):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
-                'port_status', {'port': port_no}, default=-1)
+                'port_status', {'port': port_no}, default=None)
             if port_status is not None and port_status == expected_status:
                 return
             time.sleep(1)
-        self.fail('port %s status %d != expected %d' % (
+        self.fail('port %s status %s != expected %u' % (
             port_no, port_status, expected_status))
+
+    def wait_dp_status(self, expected_status, timeout=10):
+        for _ in range(timeout):
+            dp_status = self.scrape_prometheus_var(
+                'dp_status', {}, default=None)
+            if dp_status is not None and dp_status == expected_status:
+                return
+            time.sleep(1)
+        self.fail('DP status %s != expected %u' % (
+            dp_status, expected_status))
 
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
-        for port_no in self.port_map.values():
+        port_count = self.N_TAGGED + self.N_UNTAGGED
+        for port_no in list(sorted(self.port_map.values()))[:port_count]:
             self.set_port_down(port_no)
             self.wait_port_status(port_no, 0)
             time.sleep(flap_time)

@@ -71,4 +71,8 @@ class FaucetMetrics(object):
             'port_status',
             'status of switch ports',
             ['dpid', 'port'])
+        self.dp_status = Gauge(
+            'dp_status',
+            'status of datapaths',
+            ['dpid'])
         start_http_server(prom_port)
