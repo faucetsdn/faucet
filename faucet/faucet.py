@@ -290,7 +290,7 @@ class Faucet(app_manager.RyuApp):
         valve.ofchannel_log([msg])
 
         pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg)
-        if vlan_vid is None:
+        if pkt is None or vlan_vid is None:
             return
 
         in_port = msg.match['in_port']

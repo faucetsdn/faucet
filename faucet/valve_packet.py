@@ -20,7 +20,7 @@
 import ipaddress
 
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
+from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, stream_parser, packet, vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
@@ -57,11 +57,16 @@ def parse_pkt(pkt):
 
 
 def parse_packet_in_pkt(msg):
-    pkt = packet.Packet(msg.data)
-    eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
-    eth_type = eth_pkt.ethertype
+    pkt = None
     vlan_vid = None
 
+    try:
+        pkt = packet.Packet(msg.data)
+    except stream_parser.StreamParser.TooSmallException:
+        return (pkt, vlan_vid)
+
+    eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
+    eth_type = eth_pkt.ethertype
     # Packet ins, can only come when a VLAN header has already been pushed
     # (ie. when we have progressed past the VLAN table). This gaurantees
     # a VLAN header will always be present, so we know which VLAN the packet
@@ -70,7 +75,7 @@ def parse_packet_in_pkt(msg):
         # tagged packet
         vlan_proto = pkt.get_protocols(vlan.vlan)[0]
         vlan_vid = vlan_proto.vid
-    return pkt, vlan_vid
+    return (pkt, vlan_vid)
 
 
 def build_pkt_header(eth_src, eth_dst, vid, dl_type):
