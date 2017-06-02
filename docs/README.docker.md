@@ -5,11 +5,12 @@ This directory contains three docker files: **Dockerfile**,
 
 ### Initial configuration
 
-```
+.. code:: bash
+
   sudo mkdir -p /etc/ryu/faucet
   sudo vi /etc/ryu/faucet/faucet.yaml
   sudo vi /etc/ryu/faucet/gauge.yaml
-```
+
 
 See `README_install.rst <README_install.rst>`_ and `README_config.rst <README_config.rst>`_ for configuration options.
 
@@ -26,7 +27,8 @@ Docker will run the stable version 1.3 of Faucet.
 
 To pull and run the latest git version of Faucet:
 
-```
+.. code:: bash
+
   mkdir -p /var/log/ryu/faucet/
   docker pull faucet/faucet:latest
   docker run -d \
@@ -36,14 +38,14 @@ To pull and run the latest git version of Faucet:
       -p 6653:6653 \
       -p 9244:9244 \
       faucet/faucet
-```
 
 Port 6653 is used for OpenFlow, port 9244 is used for Prometheus - port 9244 may be omitted if
 you do not need Prometheus.
 
 To pull and run the latest git version of Gauge:
 
-```
+.. code:: bash
+
   mkdir -p /var/log/ryu/gauge/
   docker pull faucet/gauge:latest
   docker run -d \
@@ -52,7 +54,6 @@ To pull and run the latest git version of Gauge:
       -v /var/log/ryu/gauge/:/var/log/ryu/gauge/ \
       -p 6654:6653 \
       faucet/gauge
-```
 
 ### Dockerfile
 
@@ -60,13 +61,15 @@ All that is needed to run faucet.
 
 It can be built as following:
 
-```
+.. code:: bash
+
   docker build -t reannz/faucet .
-```
 
 It can be run as following:
 
-```
+
+.. code:: bash
+
   mkdir -p /var/log/ryu/faucet/
   docker run -d \
       --name faucet \
@@ -74,7 +77,6 @@ It can be run as following:
       -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
       -p 6653:6653 \
       reannz/faucet
-```
 
 By default it listens on port 6653 for an OpenFlow switch to connect. Faucet
 expects to find the configuration file faucet.yaml in the config folder. If
@@ -85,12 +87,12 @@ FAUCET\_LOG, FAUCET\_EXCEPTION\_LOG, FAUCET\_CONFIG environment variables.
 
 This runs the mininet tests from the docker entry-point:
 
-```
+.. code:: bash
+
   docker build -t reannz/faucet-tests -f Dockerfile.tests .
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   modprobe openvswitch
   sudo docker run --privileged -ti reannz/faucet-tests
-```
 
 The apparmor command is currently required on Ubuntu hosts to allow the use of
 tcpdump inside the container.
@@ -101,13 +103,14 @@ Runs Gauge.
 
 It can be built as following:
 
-```
+.. code:: bash
+
   docker build -t reannz/gauge -f Dockerfile.gauge .
-```
 
 It can be run as following:
 
-```
+.. code:: bash
+
   mkdir -p /var/log/ryu/gauge
   docker run -d \
       --name gauge \
@@ -115,7 +118,6 @@ It can be run as following:
       -v /var/log/ryu/gauge/:/var/log/ryu/gauge/ \
       -p 6654:6653 \
       reannz/gauge
-```
 
 By default listens on port 6653. If you are running this with
 Faucet you will need to modify the port one of the containers listens on and
@@ -138,7 +140,8 @@ User:admin Password:admin.
 Then connect to the influxDB, by adding it as a datasource. Use the following
 settings:
 
-```
+.. code:: bash
+
   Name: Gauge # Or whatever you wish
   Type: InfluxDB 0.9.x
   Url: http://127.0.0.1:8086
@@ -147,7 +150,6 @@ settings:
   Database: faucet
   User: faucet # Anything will do
   Password: faucet # Anything will do
-```
 
 Check the connection using test connection.
 
