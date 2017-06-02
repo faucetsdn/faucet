@@ -11,7 +11,7 @@ This directory contains three docker files: **Dockerfile**,
   sudo vi /etc/ryu/faucet/gauge.yaml
 ```
 
-See **README_install.rst**, and **README_config.rst** for configuration options.
+See `README_install.rst <README_install.rst>`_ and `README_config.rst <README_config.rst>`_ for configuration options.
 
 ### Official builds
 
