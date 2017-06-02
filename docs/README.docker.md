@@ -49,7 +49,7 @@ To pull and run the latest git version of Gauge:
   docker run -d \
       --name gauge \
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
-      -v /var/log/ryu/gauge/:/var/log/ryu/gauge/ \
+      -v /var/log/ryu/gauge/:/var/log/ryu/faucet/ \
       -p 6654:6653 \
       faucet/gauge
 ```
