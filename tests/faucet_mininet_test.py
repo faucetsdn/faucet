@@ -34,8 +34,7 @@ import yaml
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.log import setLogLevel
 from mininet.net import Mininet
-from mininet.node import Intf
-from mininet.util import dumpNodeConnections, pmonitor
+from mininet.util import pmonitor
 from mininet.clean import Cleanup
 from packaging import version
 
@@ -95,8 +94,6 @@ REQUIRED_TEST_PORTS = 4
 
 
 class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
-
-    RUN_GAUGE = True
 
     def setUp(self):
         self.tmpdir = self.tmpdir_name()
@@ -172,44 +169,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
             self.influx_port,
             )
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
-
-        self.net = None
-        self.topo = None
-
-    def start_net(self):
-        """Start Mininet network."""
-        controller_intf = 'lo'
-        if self.hw_switch:
-            controller_intf = self.cpn_intf
-        self.net = Mininet(
-            self.topo,
-            controller=faucet_mininet_test_base.FAUCET(
-                name='faucet', tmpdir=self.tmpdir,
-                controller_intf=controller_intf,
-                ctl_privkey=self.ctl_privkey,
-                ctl_cert=self.ctl_cert,
-                ca_certs=self.ca_certs,
-                ports_sock=self.ports_sock,
-                port=self.of_port))
-        self.pre_start_net()
-        if self.RUN_GAUGE:
-            gauge_controller = faucet_mininet_test_base.Gauge(
-                name='gauge', tmpdir=self.tmpdir,
-                controller_intf=controller_intf,
-                ctl_privkey=self.ctl_privkey,
-                ctl_cert=self.ctl_cert,
-                ca_certs=self.ca_certs,
-                port=self.gauge_of_port)
-            self.net.addController(gauge_controller)
-        self.net.start()
-        if self.hw_switch:
-            self.attach_physical_switch()
-        self.wait_debug_log()
-        self.wait_dp_status(1)
-        self.wait_until_matching_flow('OUTPUT:CONTROLLER')
-        for port_no in self.port_map.values():
-            self.set_port_up(port_no)
-        dumpNodeConnections(self.net.hosts)
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
                        vs='-v', timeout=10, packets=2, root_intf=False):

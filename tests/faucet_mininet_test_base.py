@@ -18,12 +18,13 @@ import ipaddress
 import netifaces
 import requests
 
+from mininet.net import Mininet
 from mininet.node import Controller
 from mininet.node import Host
 from mininet.node import Intf
 from mininet.node import OVSSwitch
 from mininet.topo import Topo
-from mininet.util import pmonitor
+from mininet.util import dumpNodeConnections, pmonitor
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 import faucet_mininet_test_util
@@ -253,6 +254,8 @@ class FaucetTestBase(unittest.TestCase):
     N_UNTAGGED = 0
     N_TAGGED = 0
 
+    RUN_GAUGE = True
+
     config = None
     dpid = None
     hardware = 'Open vSwitch'
@@ -266,6 +269,9 @@ class FaucetTestBase(unittest.TestCase):
     port_map = {'port_1': 1, 'port_2': 2, 'port_3': 3, 'port_4': 4}
     switch_map = {}
     tmpdir = None
+    net = None
+    topo = None
+    cpn_intf = None
 
     def __init__(self, name, config, root_tmpdir, ports_sock):
         super(FaucetTestBase, self).__init__(name)
@@ -314,6 +320,41 @@ class FaucetTestBase(unittest.TestCase):
                 port_x, port_y = port_pair
                 switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
                     self.OFCTL, switch.name, port_x, port_y))
+
+    def start_net(self):
+        """Start Mininet network."""
+        controller_intf = 'lo'
+        if self.hw_switch:
+            controller_intf = self.cpn_intf
+        self.net = Mininet(
+            self.topo,
+            controller=FAUCET(
+                name='faucet', tmpdir=self.tmpdir,
+                controller_intf=controller_intf,
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
+                ports_sock=self.ports_sock,
+                port=self.of_port))
+        self.pre_start_net()
+        if self.RUN_GAUGE:
+            gauge_controller = Gauge(
+                name='gauge', tmpdir=self.tmpdir,
+                controller_intf=controller_intf,
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
+                port=self.gauge_of_port)
+            self.net.addController(gauge_controller)
+        self.net.start()
+        if self.hw_switch:
+            self.attach_physical_switch()
+        self.wait_debug_log()
+        self.wait_dp_status(1)
+        self.wait_until_matching_flow('OUTPUT:CONTROLLER')
+        for port_no in self.port_map.values():
+            self.set_port_up(port_no)
+        dumpNodeConnections(self.net.hosts)
 
     def tearDown(self):
         """Clean up after a test."""
