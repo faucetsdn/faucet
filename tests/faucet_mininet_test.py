@@ -647,7 +647,11 @@ vlans:
             second_host.cmd('ip address add %s/24 dev %s' % (
                 mac_ipv4, mac_intf))
             address = second_host.cmd(
-                'ip link show %s | grep -o "..:..:..:..:..:.." | head -1 | xargs echo -n' % mac_intf)
+                '|'.join((
+                    'ip link show %s' % mac_intf,
+                    'grep -o "..:..:..:..:..:.."',
+                    'head -1',
+                    'xargs echo -n')))
             learned_mac_ports[address] = self.port_map['port_2']
             second_host.cmd('ip link set dev %s up' % mac_intf)
 
@@ -2261,6 +2265,8 @@ group test {
   }
 }
 """
+
+    exabgp_log = None
 
     def pre_start_net(self):
         self.exabgp_log = self.start_exabgp(self.exabgp_conf, '::1')
