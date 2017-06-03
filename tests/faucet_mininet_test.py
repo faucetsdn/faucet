@@ -34,7 +34,6 @@ import yaml
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 from mininet.log import setLogLevel
 from mininet.net import Mininet
-from mininet.util import pmonitor
 from mininet.clean import Cleanup
 from packaging import version
 
@@ -95,33 +94,6 @@ REQUIRED_TEST_PORTS = 4
 
 class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
-
-    def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
-                       vs='-v', timeout=10, packets=2, root_intf=False):
-        intf = tcpdump_host.intf().name
-        if root_intf:
-            intf = intf.split('.')[0]
-        tcpdump_cmd = self.timeout_soft_cmd(
-            'tcpdump -i %s -e -n -U %s -c %u %s' % (
-                intf, vs, packets, tcpdump_filter),
-            timeout)
-        tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
-        popens = {tcpdump_host: tcpdump_out}
-        tcpdump_started = False
-        tcpdump_txt = ''
-        for host, line in pmonitor(popens):
-            if host == tcpdump_host:
-                if tcpdump_started:
-                    tcpdump_txt += line.strip()
-                elif re.search('tcpdump: listening on ', line):
-                    # when we see tcpdump start, then call provided functions.
-                    tcpdump_started = True
-                    for func in funcs:
-                        func()
-                else:
-                    print('tcpdump_helper: %s' % line)
-        self.assertTrue(tcpdump_started)
-        return tcpdump_txt
 
     def bogus_mac_flooded_to_port1(self):
         first_host, second_host, third_host = self.net.hosts[0:3]

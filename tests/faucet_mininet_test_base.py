@@ -453,6 +453,33 @@ class FaucetTestBase(unittest.TestCase):
                 re.search('OFPErrorMsg', open(debug_log).read()),
                 msg='debug log has OFPErrorMsgs')
 
+    def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
+                       vs='-v', timeout=10, packets=2, root_intf=False):
+        intf = tcpdump_host.intf().name
+        if root_intf:
+            intf = intf.split('.')[0]
+        tcpdump_cmd = self.timeout_soft_cmd(
+            'tcpdump -i %s -e -n -U %s -c %u %s' % (
+                intf, vs, packets, tcpdump_filter),
+            timeout)
+        tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
+        popens = {tcpdump_host: tcpdump_out}
+        tcpdump_started = False
+        tcpdump_txt = ''
+        for host, line in pmonitor(popens):
+            if host == tcpdump_host:
+                if tcpdump_started:
+                    tcpdump_txt += line.strip()
+                elif re.search('tcpdump: listening on ', line):
+                    # when we see tcpdump start, then call provided functions.
+                    tcpdump_started = True
+                    for func in funcs:
+                        func()
+                else:
+                    print('tcpdump_helper: %s' % line)
+        self.assertTrue(tcpdump_started)
+        return tcpdump_txt
+
     def pre_start_net(self):
         """Hook called after Mininet initializtion, before Mininet started."""
         return
@@ -1326,7 +1353,7 @@ dbs:
             with_group_table=with_group_table)
 
     def verify_invalid_bgp_route(self, pattern):
-        """Check if we see the pattern in Faucet's Log"""
+        """Check if we see the pattern in Faucet's log"""
         controller = self.get_controller()
         count = controller.cmd(
             'grep -c "%s" %s' % (pattern, os.environ['FAUCET_LOG']))
