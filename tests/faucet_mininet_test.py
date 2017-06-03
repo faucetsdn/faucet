@@ -176,27 +176,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
         self.net = None
         self.topo = None
 
-    def attach_physical_switch(self):
-        """Bridge a physical switch into test topology."""
-        switch = self.net.switches[0]
-        mapped_base = max(len(self.switch_map), len(self.port_map))
-        for i, test_host_port in enumerate(sorted(self.switch_map)):
-            port_i = i + 1
-            mapped_port_i = mapped_base + port_i
-            phys_port = Intf(self.switch_map[test_host_port], node=switch)
-            switch.cmd('ip link set dev %s up' % phys_port)
-            switch.cmd(
-                ('ovs-vsctl add-port %s %s -- '
-                 'set Interface %s ofport_request=%u') % (
-                     switch.name,
-                     phys_port.name,
-                     phys_port.name,
-                     mapped_port_i))
-            for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
-                port_x, port_y = port_pair
-                switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
-                    self.OFCTL, switch.name, port_x, port_y))
-
     def start_net(self):
         """Start Mininet network."""
         controller_intf = 'lo'
