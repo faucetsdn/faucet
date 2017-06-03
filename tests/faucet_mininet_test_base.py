@@ -285,12 +285,6 @@ class FaucetTestBase(unittest.TestCase):
         return tempfile.mkdtemp(
             prefix='%s-' % test_name, dir=self.root_tmpdir)
 
-    def timeout_cmd(self, cmd, timeout):
-        return 'timeout -sKILL %us stdbuf -o0 -e0 %s' % (timeout, cmd)
-
-    def timeout_soft_cmd(self, cmd, timeout):
-        return 'timeout %us stdbuf -o0 -e0 %s' % (timeout, cmd)
-
     def verify_no_exception(self, exception_log):
         exception_log_name = os.environ[exception_log]
         if not os.path.exists(exception_log_name):
@@ -458,7 +452,7 @@ class FaucetTestBase(unittest.TestCase):
         intf = tcpdump_host.intf().name
         if root_intf:
             intf = intf.split('.')[0]
-        tcpdump_cmd = self.timeout_soft_cmd(
+        tcpdump_cmd = faucet_mininet_test_util.timeout_soft_cmd(
             'tcpdump -i %s -e -n -U %s -c %u %s' % (
                 intf, vs, packets, tcpdump_filter),
             timeout)
@@ -836,7 +830,7 @@ dbs:
             'echo "eapol_version=2\nap_scan=0\nnetwork={\n'
             'key_mgmt=IEEE8021X\neap=MD5\nidentity=\\"login\\"\n'
             'password=\\"password\\"\n}\n" > %s' % tmp_eap_conf)
-        wpa_supplicant_cmd = self.timeout_cmd(
+        wpa_supplicant_cmd = faucet_mininet_test_util.timeout_cmd(
             'wpa_supplicant -c%s -Dwired -i%s -d' % (
                 tmp_eap_conf,
                 first_host.defaultIntf().name),
@@ -866,7 +860,7 @@ dbs:
         lldp_filter = 'ether proto 0x88cc'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
         send_lldp = '%s -L -o %s' % (
-            self.timeout_cmd(self.LADVD, 30),
+            faucet_mininet_test_util.timeout_cmd(self.LADVD, 30),
             second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(
             first_host, lldp_filter,
@@ -884,7 +878,7 @@ dbs:
         cdp_filter = 'ether host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
         send_cdp = '%s -C -o %s' % (
-            self.timeout_cmd(self.LADVD, 30),
+            faucet_mininet_test_util.timeout_cmd(self.LADVD, 30),
             second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(
             first_host,
@@ -1079,7 +1073,8 @@ dbs:
 
     def serve_hello_on_tcp_port(self, host, port):
         """Serve 'hello' on a TCP port on a host."""
-        host.cmd(self.timeout_cmd('echo hello | nc -l %s %u &' % (host.IP(), port), 10))
+        host.cmd(faucet_mininet_test_util.timeout_cmd(
+            'echo hello | nc -l %s %u &' % (host.IP(), port), 10))
         self.wait_for_tcp_listen(host, port)
 
     def wait_nonzero_packet_count_flow(self, exp_flow, timeout=10):
@@ -1098,7 +1093,8 @@ dbs:
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
-            '', first_host.cmd(self.timeout_cmd('nc %s %u' % (second_host.IP(), port), 10)))
+            '', first_host.cmd(faucet_mininet_test_util.timeout_cmd(
+                'nc %s %u' % (second_host.IP(), port), 10)))
         self.wait_nonzero_packet_count_flow(r'"tp_dst": %u' % port)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host):
@@ -1133,7 +1129,7 @@ dbs:
         ))
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self.get_controller()
-        exabgp_cmd = self.timeout_cmd(
+        exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
             'exabgp %s -d 2> %s > %s &' % (
                 exabgp_conf_file, exabgp_err, exabgp_log), 600)
         controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
@@ -1265,9 +1261,9 @@ dbs:
         if server_ip.version == 6:
             iperf_base_cmd += ' -V'
         iperf_server_cmd = '%s -s' % iperf_base_cmd
-        iperf_server_cmd = self.timeout_cmd(
+        iperf_server_cmd = faucet_mininet_test_util.timeout_cmd(
             iperf_server_cmd, (seconds * 3) + 5)
-        iperf_client_cmd = self.timeout_cmd(
+        iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
             '%s -y c -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
             seconds + 5)
         server_start_exp = r'Server listening on TCP port %u' % port
