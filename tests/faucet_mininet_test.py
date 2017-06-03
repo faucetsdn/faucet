@@ -1016,7 +1016,7 @@ group test {
         self.verify_ipv4_routing_mesh()
         self.stop_exabgp()
         for host in first_host, second_host:
-            self.one_ipv4_controller_ping(first_host)
+            self.one_ipv4_controller_ping(host)
 
 
 class FaucetSingleUntaggedIPv4RouteTest(FaucetUntaggedTest):
