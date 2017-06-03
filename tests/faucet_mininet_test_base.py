@@ -94,7 +94,6 @@ class FAUCET(BaseFAUCET):
             '--ofp-tcp-listen-port=%s',
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super(FAUCET, self).__init__(
-            self,
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
             command=command,
@@ -119,7 +118,6 @@ class Gauge(BaseFAUCET):
             '--ofp-tcp-listen-port=%s',
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super(Gauge, self).__init__(
-            self,
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
             command=command,
