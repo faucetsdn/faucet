@@ -10,6 +10,8 @@ It is strong recommended to run these tests via Docker, to ensure you have
 all dependencies correctly installed. See ../docs/.
 """
 
+# pylint: disable=missing-docstring
+
 import collections
 import glob
 import inspect
@@ -1392,7 +1394,7 @@ vlans:
             'ip6[40] == 134',
             'ip6 host fe80::1:254'))
         tcpdump_txt = self.tcpdump_helper(
-            first_host, tcpdump_filter, [], timeout=30, vs='-vv', packets=1)
+            first_host, tcpdump_filter, [], timeout=30, vflags='-vv', packets=1)
         for ra_required in (
                 r'fe80::1:254 > ff02::1:.+ICMP6, router advertisement',
                 r'fc00::1:0/112, Flags \[onlink, auto\]',
@@ -1412,8 +1414,9 @@ vlans:
             'ip6 host fe80::1:254'))
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [
-                lambda: first_host.cmd('rdisc6 -1 %s' % first_host.defaultIntf())],
-            timeout=30, vs='-vv', packets=1)
+                lambda: first_host.cmd(
+                    'rdisc6 -1 %s' % first_host.defaultIntf())],
+            timeout=30, vflags='-vv', packets=1)
         for ra_required in (
                 r'fe80::1:254 > fe80::.+ICMP6, router advertisement',
                 r'fc00::1:0/112, Flags \[onlink, auto\]',

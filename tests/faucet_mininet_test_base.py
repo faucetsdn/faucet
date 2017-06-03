@@ -2,6 +2,9 @@
 
 """Base class for all FAUCET unit tests."""
 
+# pylint: disable=missing-docstring
+
+
 import json
 import os
 import random
