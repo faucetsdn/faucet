@@ -657,12 +657,12 @@ dbs:
 
     def host_learned(self, host, timeout=10):
         """Return True if a host has been learned on default DPID."""
-        return self.mac_learned(host.MAC())
+        return self.mac_learned(host.MAC(), timeout)
 
     def host_ip(self, host, family, family_re):
         host_ip_cmd = (
             r'ip -o -f %s addr show %s|'
-             'grep -m 1 -Eo "%s %s"|cut -f2 -d " "' % (
+            'grep -m 1 -Eo "%s %s"|cut -f2 -d " "' % (
                 family,
                 host.defaultIntf(),
                 family,
@@ -720,7 +720,6 @@ dbs:
                     'no controller debug log for switch %s' % dp_name)
 
     def scrape_prometheus(self):
-        faucet_ctl = self.net.controllers[0]
         prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT'))
         prom_url = 'http://127.0.0.1:%u' % prom_port
         prom_vars = []
@@ -730,7 +729,6 @@ dbs:
         return '\n'.join(prom_vars)
 
     def scrape_prometheus_var(self, var, labels=None, default=None, dpid=True, multiple=False):
-        prom_out = self.scrape_prometheus()
         label_values_re = ''
         if labels is None:
             labels = {}
@@ -859,7 +857,7 @@ dbs:
         tcpdump_txt = self.tcpdump_helper(
             first_host, unicast_flood_filter,
             [lambda: second_host.cmd(static_bogus_arp),
-             lambda: second_host.cmd(curl_first_host), 
+             lambda: second_host.cmd(curl_first_host),
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
@@ -906,10 +904,10 @@ dbs:
         start_configure_count = self.get_configure_count()
         self.hup_faucet()
         for _ in range(timeout):
-           configure_count = self.get_configure_count()
-           if configure_count > start_configure_count:
-               return
-           time.sleep(1)
+            configure_count = self.get_configure_count()
+            if configure_count > start_configure_count:
+                return
+            time.sleep(1)
         self.fail('HUP not processed by FAUCET')
 
     def force_faucet_reload(self, new_config):
@@ -935,7 +933,7 @@ dbs:
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = []
         for host, _ in hosts_switch_ports:
-           hosts.append(host)
+            hosts.append(host)
         client_host, server_host = hosts
         iperf_mbps = self.iperf(
             client_host, server_host, server_ip, iperf_port, seconds)
@@ -956,7 +954,7 @@ dbs:
                     iperf_mbps, max_of_mbps, iperf_to_max)
                 print(msg)
                 if ((iperf_to_max < (1.0 - prop)) or
-                    (iperf_to_max > (1.0 + prop))):
+                        (iperf_to_max > (1.0 + prop))):
                     approx_match = False
             if approx_match:
                 return
@@ -974,17 +972,17 @@ dbs:
 
     def set_port_down(self, port_no):
         os.system(self.curl_portmod(
-           self.dpid,
-           port_no,
-           ofp.OFPPC_PORT_DOWN,
-           ofp.OFPPC_PORT_DOWN))
+            self.dpid,
+            port_no,
+            ofp.OFPPC_PORT_DOWN,
+            ofp.OFPPC_PORT_DOWN))
 
     def set_port_up(self, port_no):
         os.system(self.curl_portmod(
-           self.dpid,
-           port_no,
-           0,
-           ofp.OFPPC_PORT_DOWN))
+            self.dpid,
+            port_no,
+            0,
+            ofp.OFPPC_PORT_DOWN))
 
     def wait_port_status(self, port_no, expected_status, timeout=10):
         for _ in range(timeout):
@@ -1072,7 +1070,7 @@ dbs:
         fuser_cmd = 'fuser -%u -n tcp %u' % (ipv, port)
         for _ in range(timeout):
             fuser_out = host.cmd(fuser_cmd)
-            for fuser_line in fuser_out.splitlines(): 
+            for fuser_line in fuser_out.splitlines():
                 if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
                     return
             time.sleep(1)
@@ -1089,7 +1087,7 @@ dbs:
         for _ in range(timeout):
             flow = self.get_matching_flow(exp_flow, timeout=1)
             if flow and flow['packet_count'] > 0:
-                 return
+                return
             time.sleep(1)
         if flow:
             self.fail('flow %s matching %s had zero packet count' % (flow, exp_flow))
@@ -1315,14 +1313,14 @@ dbs:
         self.verify_ipv4_host_learned_host(second_host, first_host)
         # verify at least 1M iperf
         for client_host, server_host, server_ip in (
-            (first_host, second_host, second_host_routed_ip.ip),
-            (second_host, first_host, first_host_routed_ip.ip)):
-           iperf_port, _ = faucet_mininet_test_util.find_free_port(
-               self.ports_sock)
-           iperf_mbps = self.iperf(
-               client_host, server_host, server_ip, iperf_port, 5)
-           print('%u mbps to %s' % (iperf_mbps, server_ip))
-           self.assertGreater(iperf_mbps, 1)
+                (first_host, second_host, second_host_routed_ip.ip),
+                (second_host, first_host, first_host_routed_ip.ip)):
+            iperf_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+            iperf_mbps = self.iperf(
+                client_host, server_host, server_ip, iperf_port, 5)
+            print('%u mbps to %s' % (iperf_mbps, server_ip))
+            self.assertGreater(iperf_mbps, 1)
         # verify packets matched routing flows
         self.wait_for_route_as_flow(
             first_host.MAC(), first_host_routed_ip.network,
@@ -1393,14 +1391,14 @@ dbs:
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
         # verify at least 1M iperf
         for client_host, server_host, server_ip in (
-            (first_host, second_host, second_host_routed_ip.ip),
-            (second_host, first_host, first_host_routed_ip.ip)):
-           iperf_port, _ = faucet_mininet_test_util.find_free_port(
-               self.ports_sock)
-           iperf_mbps = self.iperf(
-               client_host, server_host, server_ip, iperf_port, 5)
-           print('%u mbps to %s' % (iperf_mbps, server_ip))
-           self.assertGreater(iperf_mbps, 1)
+                (first_host, second_host, second_host_routed_ip.ip),
+                (second_host, first_host, first_host_routed_ip.ip)):
+            iperf_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+            iperf_mbps = self.iperf(
+                client_host, server_host, server_ip, iperf_port, 5)
+            print('%u mbps to %s' % (iperf_mbps, server_ip))
+            self.assertGreater(iperf_mbps, 1)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.verify_ipv6_host_learned_mac(
             first_host, second_host_ip.ip, second_host.MAC())

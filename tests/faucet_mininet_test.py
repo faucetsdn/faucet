@@ -713,7 +713,6 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
-        switch = self.net.switches[0]
         init_config_count = self.get_configure_count()
         for i in range(init_config_count, init_config_count+3):
             configure_count = self.get_configure_count()
@@ -1395,10 +1394,10 @@ vlans:
         tcpdump_txt = self.tcpdump_helper(
             first_host, tcpdump_filter, [], timeout=30, vs='-vv', packets=1)
         for ra_required in (
-            r'fe80::1:254 > ff02::1:.+ICMP6, router advertisement',
-            r'fc00::1:0/112, Flags \[onlink, auto\]',
-            r'fc00::2:0/112, Flags \[onlink, auto\]',
-            r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
+                r'fe80::1:254 > ff02::1:.+ICMP6, router advertisement',
+                r'fc00::1:0/112, Flags \[onlink, auto\]',
+                r'fc00::2:0/112, Flags \[onlink, auto\]',
+                r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
                 msg='%s: %s' % (ra_required, tcpdump_txt))
@@ -1416,10 +1415,10 @@ vlans:
                 lambda: first_host.cmd('rdisc6 -1 %s' % first_host.defaultIntf())],
             timeout=30, vs='-vv', packets=1)
         for ra_required in (
-            r'fe80::1:254 > fe80::.+ICMP6, router advertisement',
-            r'fc00::1:0/112, Flags \[onlink, auto\]',
-            r'fc00::2:0/112, Flags \[onlink, auto\]',
-            r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
+                r'fe80::1:254 > fe80::.+ICMP6, router advertisement',
+                r'fc00::1:0/112, Flags \[onlink, auto\]',
+                r'fc00::2:0/112, Flags \[onlink, auto\]',
+                r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
                 msg='%s: %s (%s)' % (ra_required, tcpdump_txt, tcpdump_filter))
@@ -3204,7 +3203,7 @@ acls:
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
             first_host.MAC(), third_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
-            second_host, tcpdump_filter, [
+            tcpdump_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (third_host.IP(), second_host.MAC())),
                 # this will fail if no reply
