@@ -71,7 +71,7 @@ Since faucet is desgined for a pure OpenFlow switch, we choose the "**aggregate*
 	switch(of-inst-aggregate)# controller-id 1
 	switch(of-inst-aggregate)# controller-id 2
 	
-	// Configure the OpenFlow version to be 1.3 only ('only' is optional)
+	// Configure the OpenFlow version to be 1.3
 	switch(of-inst-aggregate)# version 1.3 only
 	
 	// Configure the pipeline model type of the instance. It is a must to set it to custom.
@@ -79,6 +79,10 @@ Since faucet is desgined for a pure OpenFlow switch, we choose the "**aggregate*
 	
 	// Configure the payload in the packet-ins message to be sent in its original form.
 	switch(of-inst-aggregate)# packet-in vlan-tagging input-form
+	
+	// Ensure the switch re-attempts an OpenFlow connection at least once
+	// every 10 seconds when connection is dropped/inactive.
+	switch(of-inst-aggregate)# max-backoff-interval 10
 	
 	// Allow OpenFlow to override some protocols which are otherwise excluded from OpenFlow processing in switch CPU.
 	switch(of-inst-aggregate)# override-protocol all
@@ -216,6 +220,38 @@ Limitations
 	+                     valve_of.set_eth_dst(eth_dst)])] +
 	                 [valve_of.goto_table(self.eth_dst_table)]))
 	         now = time.time()
+
+-----
+Debug
+-----
+
+If you encounter a failure or unexpected behavior, it may help to enable debug output
+on Aruba switches. Debug output displays information about what OpenFlow is doing on
+the switch at message-level granularity.
+
+::
+
+	switch# debug openflow
+	switch# debug destination session
+	switch# show debug
+	
+	 Debug Logging
+
+	  Source IP Selection: Outgoing Interface
+	  Origin identifier: Outgoing Interface IP
+	  Destination:
+	   Session
+	
+	  Enabled debug types:
+	   openflow
+	   openflow packets
+	   openflow events
+	   openflow errors
+	   openflow packets tx
+	   openflow packets rx
+	   openflow packets tx pkt_in
+	   openflow packets rx pkt_out
+	   openflow packets rx flow_mod
 
 ----------
 References
