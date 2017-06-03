@@ -4,6 +4,7 @@
 
 import json
 import os
+import random
 import re
 import shutil
 import socket
@@ -356,6 +357,81 @@ class FaucetTestBase(unittest.TestCase):
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
 
+    def setUp(self):
+        self.tmpdir = self.tmpdir_name()
+        os.environ['FAUCET_CONFIG'] = os.path.join(
+            self.tmpdir, 'faucet.yaml')
+        os.environ['GAUGE_CONFIG'] = os.path.join(
+            self.tmpdir, 'gauge.yaml')
+        os.environ['FAUCET_LOG'] = os.path.join(
+            self.tmpdir, 'faucet.log')
+        os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
+            self.tmpdir, 'faucet-exception.log')
+        os.environ['GAUGE_LOG'] = os.path.join(
+            self.tmpdir, 'gauge.log')
+        os.environ['GAUGE_EXCEPTION_LOG'] = os.path.join(
+            self.tmpdir, 'gauge-exception.log')
+        prom_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock)
+        os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
+        self.debug_log_path = os.path.join(
+            self.tmpdir, 'ofchannel.log')
+        self.monitor_stats_file = os.path.join(
+            self.tmpdir, 'ports.txt')
+        self.monitor_state_file = os.path.join(
+            self.tmpdir, 'state.txt')
+        self.monitor_flow_table_file = os.path.join(
+            self.tmpdir, 'flow.txt')
+        if self.config is not None:
+            if 'hw_switch' in self.config:
+                self.hw_switch = self.config['hw_switch']
+            if self.hw_switch:
+                self.dpid = self.config['dpid']
+                self.cpn_intf = self.config['cpn_intf']
+                self.of_port = self.config['of_port']
+                self.gauge_of_port = self.config['gauge_of_port']
+                self.hardware = self.config['hardware']
+                if 'ctl_privkey' in self.config:
+                    self.ctl_privkey = self.config['ctl_privkey']
+                if 'ctl_cert' in self.config:
+                    self.ctl_cert = self.config['ctl_cert']
+                if 'ca_certs' in self.config:
+                    self.ca_certs = self.config['ca_certs']
+                dp_ports = self.config['dp_ports']
+                self.port_map = {}
+                self.switch_map = {}
+                for i, switch_port in enumerate(dp_ports):
+                    test_port_name = 'port_%u' % (i + 1)
+                    self.port_map[test_port_name] = switch_port
+                    self.switch_map[test_port_name] = dp_ports[switch_port]
+
+        if self.hw_switch:
+            self.topo_class = FaucetHwSwitchTopo
+            self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
+        else:
+            self.topo_class = FaucetSwitchTopo
+            self.dpid = str(random.randint(1, 2**32))
+            self.of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+
+        self.CONFIG = '\n'.join((
+            self.get_config_header(
+                self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
+            self.CONFIG % self.port_map))
+        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+        self.influx_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock)
+        self.GAUGE_CONFIG = self.get_gauge_config(
+            os.environ['FAUCET_CONFIG'],
+            self.monitor_stats_file,
+            self.monitor_state_file,
+            self.monitor_flow_table_file,
+            self.influx_port,
+            )
+        open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
+
     def tearDown(self):
         """Clean up after a test."""
         controller_names = []
@@ -654,6 +730,33 @@ dbs:
             else:
                 return results[0][1]
         return default
+
+    def gauge_smoke_test(self):
+        watcher_files = (
+            self.monitor_stats_file,
+            self.monitor_state_file,
+            self.monitor_flow_table_file)
+        for watcher_file in watcher_files:
+            for _ in range(60):
+                if os.path.exists(watcher_file):
+                    break
+                time.sleep(1)
+            if (os.path.exists(watcher_file) and
+                    os.stat(watcher_file).st_size > 0):
+                continue
+            self.fail(
+                'gauge did not output %s (gauge not connected?)' % watcher_file)
+        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
+        self.verify_no_exception('GAUGE_EXCEPTION_LOG')
+
+    def prometheus_smoke_test(self):
+        prom_out = self.scrape_prometheus()
+        self.assertTrue(re.search(r'of_packet_ins\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertTrue(re.search(r'of_flowmsgs_sent\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertTrue(re.search(r'of_dp_connections\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertTrue(re.search(r'faucet_config\S+name=\"flood\"\S+', prom_out), msg=prom_out)
+        self.assertIsNone(re.search(r'of_errors', prom_out), msg=prom_out)
+        self.assertIsNone(re.search(r'of_dp_disconnections', prom_out), msg=prom_out)
 
     def get_configure_count(self):
         """Return the number of times FAUCET has processed a reload request."""
