@@ -448,13 +448,13 @@ class FaucetTestBase(unittest.TestCase):
                 msg='debug log has OFPErrorMsgs')
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
-                       vs='-v', timeout=10, packets=2, root_intf=False):
+                       vflags='-v', timeout=10, packets=2, root_intf=False):
         intf = tcpdump_host.intf().name
         if root_intf:
             intf = intf.split('.')[0]
         tcpdump_cmd = faucet_mininet_test_util.timeout_soft_cmd(
             'tcpdump -i %s -e -n -U %s -c %u %s' % (
-                intf, vs, packets, tcpdump_filter),
+                intf, vflags, packets, tcpdump_filter),
             timeout)
         tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
         popens = {tcpdump_host: tcpdump_out}
@@ -1220,21 +1220,21 @@ dbs:
         host.cmd(del_cmd)
         self.assertEquals('', host.cmd(add_cmd))
 
-    def _verify_host_learned_mac(self, host, ip, ip_ver, mac, retries):
+    def _verify_host_learned_mac(self, host, ipa, ip_ver, mac, retries):
         for _ in range(retries):
             neighbors = host.cmd('ip -%u neighbor show' % ip_ver)
             for neighbor_line in neighbors.splitlines():
                 neighbor_fields = neighbor_line.strip().split(' ')
-                learned_ip = neighbor_fields[0]
+                learned_ipa = neighbor_fields[0]
                 learned_mac = neighbor_fields[4]
-                if learned_ip == str(ip) and learned_mac == mac:
+                if learned_ipa == str(ipa) and learned_mac == mac:
                     return
             time.sleep(1)
         self.fail(
-            'could not verify %s resolved to %s (%s)' % (ip, mac, neighbors))
+            'could not verify %s resolved to %s (%s)' % (ipa, mac, neighbors))
 
-    def verify_ipv4_host_learned_mac(self, host, ip, mac, retries=3):
-        self._verify_host_learned_mac(host, ip, 4, mac, retries)
+    def verify_ipv4_host_learned_mac(self, host, ipa, mac, retries=3):
+        self._verify_host_learned_mac(host, ipa, 4, mac, retries)
 
     def verify_ipv4_host_learned_host(self, host, learned_host):
         learned_ip = ipaddress.ip_interface(unicode(self.host_ipv4(learned_host)))
