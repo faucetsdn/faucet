@@ -3198,47 +3198,39 @@ acls:
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
-    def verify_dest_rewrite(self, first_host, second_host, third_host, tcpdump_host):
-        second_host.setMAC('00:00:00:00:00:02')
-        third_host.setMAC('00:00:00:00:00:03')
-        # get the switch to port/mac learn a host.
-        # let h1 think h3 is @ h2.mac, the acl should change the dst mac,
-        #  so that h3 will receive it and reply.
-        third_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
-        third_host.cmd('ping -c1 %s' % second_host.IP())
+    def verify_dest_rewrite(self, source_host, overridden_host, rewrite_host, tcpdump_host):
+        overridden_host.setMAC('00:00:00:00:00:02')
+        rewrite_host.setMAC('00:00:00:00:00:03')
+        rewrite_host.cmd('arp -s %s %s' % (overridden_host.IP(), overridden_host.MAC()))
+        rewrite_host.cmd('ping -c1 %s' % overridden_host.IP())
         self.wait_until_matching_flow(
-            r'OUTPUT:%(port_3)d.+table_id": 6.+dl_dst": "00:00:00:00:00:03"' % self.port_map,
+            r'.+'.join((
+                'OUTPUT:%(port_3)d',
+                'table_id": 6',
+                'dl_dst": "00:00:00:00:00:03"')) % self.port_map,
             timeout=2)
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
-            first_host.MAC(), third_host.MAC()))
+            source_host.MAC(), rewrite_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(
             tcpdump_host, tcpdump_filter, [
-                lambda: first_host.cmd(
-                    'arp -s %s %s' % (third_host.IP(), second_host.MAC())),
+                lambda: source_host.cmd(
+                    'arp -s %s %s' % (rewrite_host.IP(), overridden_host.MAC())),
                 # this will fail if no reply
-                lambda: self.one_ipv4_ping(first_host, third_host.IP(), require_host_learned=False)])
+                lambda: self.one_ipv4_ping(
+                    source_host, rewrite_host.IP(), require_host_learned=False)])
         # ping from h1 to h2.mac should appear in third host, and not second host, as
         # the acl should rewrite the dst mac.
         self.assertFalse(re.search(
-            '%s: ICMP echo request' % third_host.IP(), tcpdump_txt))
+            '%s: ICMP echo request' % rewrite_host.IP(), tcpdump_txt))
 
     def test_switching(self):
         """Tests that a acl can rewrite the destination mac address,
            and the packet will only go out the port of the new mac.
            (Continues through faucet pipeline)
         """
-        first_host, second_host, third_host = self.net.hosts[0:3]
-        self.verify_dest_rewrite(first_host, second_host, third_host, second_host)
-
-    def test_switching1(self):
-        """Same as test_switching(), except changed what host the tcpdump is done on.
-           Quick check until make tcpdump_helper (or similar) do multiple interfaces.
-           Tests that a acl can rewrite the destination mac address,
-           and the packet will only go out the port of the new mac.
-           (Continues through faucet pipeline)
-        """
-        first_host, second_host, third_host = self.net.hosts[0:3]
-        self.verify_dest_rewrite(first_host, second_host, third_host, third_host)
+        source_host, overridden_host, rewrite_host = self.net.hosts[0:3]
+        self.verify_dest_rewrite(
+            source_host, overridden_host, rewrite_host, overridden_host)
 
 
 def import_hw_config():
