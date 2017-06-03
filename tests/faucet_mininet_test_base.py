@@ -283,79 +283,24 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
 
-    def tmpdir_name(self):
-        test_name = '-'.join(self.id().split('.')[1:])
-        return tempfile.mkdtemp(
-            prefix='%s-' % test_name, dir=self.root_tmpdir)
-
-    def verify_no_exception(self, exception_log):
-        exception_log_name = os.environ[exception_log]
-        if not os.path.exists(exception_log_name):
-            return
-        exception_contents = open(exception_log_name, 'r').read()
-        self.assertEquals(
-            '',
-            exception_contents,
-            msg='%s log contains %s' % (exception_log, exception_contents))
-
-    def attach_physical_switch(self):
-        """Bridge a physical switch into test topology."""
-        switch = self.net.switches[0]
-        mapped_base = max(len(self.switch_map), len(self.port_map))
-        for i, test_host_port in enumerate(sorted(self.switch_map)):
-            port_i = i + 1
-            mapped_port_i = mapped_base + port_i
-            phys_port = Intf(self.switch_map[test_host_port], node=switch)
-            switch.cmd('ip link set dev %s up' % phys_port)
-            switch.cmd(
-                ('ovs-vsctl add-port %s %s -- '
-                 'set Interface %s ofport_request=%u') % (
-                     switch.name,
-                     phys_port.name,
-                     phys_port.name,
-                     mapped_port_i))
-            for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
-                port_x, port_y = port_pair
-                switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
-                    self.OFCTL, switch.name, port_x, port_y))
-
-    def start_net(self):
-        """Start Mininet network."""
-        controller_intf = 'lo'
-        if self.hw_switch:
-            controller_intf = self.cpn_intf
-        self.net = Mininet(
-            self.topo,
-            controller=FAUCET(
-                name='faucet', tmpdir=self.tmpdir,
-                controller_intf=controller_intf,
-                ctl_privkey=self.ctl_privkey,
-                ctl_cert=self.ctl_cert,
-                ca_certs=self.ca_certs,
-                ports_sock=self.ports_sock,
-                port=self.of_port))
-        self.pre_start_net()
-        if self.RUN_GAUGE:
-            gauge_controller = Gauge(
-                name='gauge', tmpdir=self.tmpdir,
-                controller_intf=controller_intf,
-                ctl_privkey=self.ctl_privkey,
-                ctl_cert=self.ctl_cert,
-                ca_certs=self.ca_certs,
-                port=self.gauge_of_port)
-            self.net.addController(gauge_controller)
-        self.net.start()
-        if self.hw_switch:
-            self.attach_physical_switch()
-        self.wait_debug_log()
-        self.wait_dp_status(1)
-        self.wait_until_matching_flow('OUTPUT:CONTROLLER')
-        for port_no in self.port_map.values():
-            self.set_port_up(port_no)
-        dumpNodeConnections(self.net.hosts)
-
     def setUp(self):
         self.tmpdir = self.tmpdir_name()
+        self.set_vars()
+
+        if self.hw_switch:
+            self.topo_class = FaucetHwSwitchTopo
+            self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
+        else:
+            self.topo_class = FaucetSwitchTopo
+            self.dpid = str(random.randint(1, 2**32))
+            self.of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+
+        self.write_controller_configs()
+
+    def set_vars(self):
         os.environ['FAUCET_CONFIG'] = os.path.join(
             self.tmpdir, 'faucet.yaml')
         os.environ['GAUGE_CONFIG'] = os.path.join(
@@ -402,17 +347,7 @@ class FaucetTestBase(unittest.TestCase):
                     self.port_map[test_port_name] = switch_port
                     self.switch_map[test_port_name] = dp_ports[switch_port]
 
-        if self.hw_switch:
-            self.topo_class = FaucetHwSwitchTopo
-            self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
-        else:
-            self.topo_class = FaucetSwitchTopo
-            self.dpid = str(random.randint(1, 2**32))
-            self.of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
-            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
-
+    def write_controller_configs(self):
         self.CONFIG = '\n'.join((
             self.get_config_header(
                 self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
@@ -449,6 +384,77 @@ class FaucetTestBase(unittest.TestCase):
             self.assertFalse(
                 re.search('OFPErrorMsg', open(debug_log).read()),
                 msg='debug log has OFPErrorMsgs')
+
+    def start_net(self):
+        """Start Mininet network."""
+        controller_intf = 'lo'
+        if self.hw_switch:
+            controller_intf = self.cpn_intf
+        self.net = Mininet(
+            self.topo,
+            controller=FAUCET(
+                name='faucet', tmpdir=self.tmpdir,
+                controller_intf=controller_intf,
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
+                ports_sock=self.ports_sock,
+                port=self.of_port))
+        self.pre_start_net()
+        if self.RUN_GAUGE:
+            gauge_controller = Gauge(
+                name='gauge', tmpdir=self.tmpdir,
+                controller_intf=controller_intf,
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
+                port=self.gauge_of_port)
+            self.net.addController(gauge_controller)
+        self.net.start()
+        if self.hw_switch:
+            self.attach_physical_switch()
+        self.wait_debug_log()
+        self.wait_dp_status(1)
+        self.wait_until_matching_flow('OUTPUT:CONTROLLER')
+        for port_no in self.port_map.values():
+            self.set_port_up(port_no)
+        dumpNodeConnections(self.net.hosts)
+
+    def tmpdir_name(self):
+        test_name = '-'.join(self.id().split('.')[1:])
+        return tempfile.mkdtemp(
+            prefix='%s-' % test_name, dir=self.root_tmpdir)
+
+    def verify_no_exception(self, exception_log):
+        exception_log_name = os.environ[exception_log]
+        if not os.path.exists(exception_log_name):
+            return
+        exception_contents = open(exception_log_name, 'r').read()
+        self.assertEquals(
+            '',
+            exception_contents,
+            msg='%s log contains %s' % (exception_log, exception_contents))
+
+    def attach_physical_switch(self):
+        """Bridge a physical switch into test topology."""
+        switch = self.net.switches[0]
+        mapped_base = max(len(self.switch_map), len(self.port_map))
+        for i, test_host_port in enumerate(sorted(self.switch_map)):
+            port_i = i + 1
+            mapped_port_i = mapped_base + port_i
+            phys_port = Intf(self.switch_map[test_host_port], node=switch)
+            switch.cmd('ip link set dev %s up' % phys_port)
+            switch.cmd(
+                ('ovs-vsctl add-port %s %s -- '
+                 'set Interface %s ofport_request=%u') % (
+                     switch.name,
+                     phys_port.name,
+                     phys_port.name,
+                     mapped_port_i))
+            for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
+                port_x, port_y = port_pair
+                switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
+                    self.OFCTL, switch.name, port_x, port_y))
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
                        vflags='-v', timeout=10, packets=2, root_intf=False):
