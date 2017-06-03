@@ -6,4 +6,4 @@ networkx
 numpy
 prometheus_client
 pyyaml
-git+https://github.com/osrg/ryu@a197d87375808c4f99b48af3852eb5d1c986a6a9#egg=ryu
+ryu>=4.14
