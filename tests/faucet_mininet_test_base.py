@@ -93,7 +93,7 @@ class FAUCET(BaseFAUCET):
             '--ofp-listen-host=%s' % self.controller_ipv4,
             '--ofp-tcp-listen-port=%s',
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
-        Controller.__init__(
+        super(FAUCET, self).__init__(
             self,
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
@@ -118,7 +118,7 @@ class Gauge(BaseFAUCET):
             '--use-stderr',
             '--ofp-tcp-listen-port=%s',
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
-        Controller.__init__(
+        super(Gauge, self).__init__(
             self,
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
@@ -254,6 +254,7 @@ class FaucetTestBase(unittest.TestCase):
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
+    GAUGE_CONFIG = ''
 
     N_UNTAGGED = 0
     N_TAGGED = 0
@@ -456,7 +457,7 @@ class FaucetTestBase(unittest.TestCase):
                 switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
                     self.OFCTL, switch.name, port_x, port_y))
 
-    def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=[],
+    def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=None,
                        vflags='-v', timeout=10, packets=2, root_intf=False):
         intf = tcpdump_host.intf().name
         if root_intf:
@@ -476,8 +477,9 @@ class FaucetTestBase(unittest.TestCase):
                 elif re.search('tcpdump: listening on ', line):
                     # when we see tcpdump start, then call provided functions.
                     tcpdump_started = True
-                    for func in funcs:
-                        func()
+                    if funcs is not None:
+                        for func in funcs:
+                            func()
                 else:
                     print('tcpdump_helper: %s' % line)
         self.assertTrue(tcpdump_started)
