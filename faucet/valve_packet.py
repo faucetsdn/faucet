@@ -78,13 +78,13 @@ def parse_packet_in_pkt(msg):
     return (pkt, vlan_vid)
 
 
-def build_pkt_header(eth_src, eth_dst, vid, dl_type):
+def build_pkt_header(vid, eth_src, eth_dst, dl_type):
     """Return an Ethernet packet header.
 
     Args:
+        vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): destination Ethernet MAC address.
-        vid (int or None): VLAN VID to use (or None)
         dl_type (int): EtherType.
     Returns:
         ryu.lib.packet.ethernet: Ethernet packet with header.
@@ -103,18 +103,18 @@ def build_pkt_header(eth_src, eth_dst, vid, dl_type):
     return pkt_header
 
 
-def arp_request(eth_src, vid, src_ip, dst_ip):
+def arp_request(vid, eth_src, src_ip, dst_ip):
     """Return an ARP request packet.
 
     Args:
-        eth_src (str): Ethernet source address.
         vid (int or None): VLAN VID to use (or None).
+        eth_src (str): Ethernet source address.
         src_ip (ipaddress.IPv4Address): source IPv4 address.
         dst_ip (ipaddress.IPv4Address): requested IPv4 address.
     Returns:
         ryu.lib.packet.arp: serialized ARP request packet.
     """
-    pkt = build_pkt_header(eth_src, mac.BROADCAST_STR, vid, ether.ETH_TYPE_ARP)
+    pkt = build_pkt_header(vid, eth_src, mac.BROADCAST_STR, ether.ETH_TYPE_ARP)
     arp_pkt = arp.arp(
         opcode=arp.ARP_REQUEST, src_mac=eth_src,
         src_ip=str(src_ip), dst_mac=mac.DONTCARE_STR, dst_ip=str(dst_ip))
@@ -123,19 +123,19 @@ def arp_request(eth_src, vid, src_ip, dst_ip):
     return pkt
 
 
-def arp_reply(eth_src, eth_dst, vid, src_ip, dst_ip):
+def arp_reply(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return an ARP reply packet.
 
     Args:
+        vid (int or None): VLAN VID to use (or None).
         eth_src (str): Ethernet source address.
         eth_dst (str): destination Ethernet MAC address.
-        vid (int or None): VLAN VID to use (or None).
         src_ip (ipaddress.IPv4Address): source IPv4 address.
         dst_ip (ipaddress.IPv4Address): destination IPv4 address.
     Returns:
         ryu.lib.packet.arp: serialized ARP reply packet.
     """
-    pkt = build_pkt_header(eth_src, eth_dst, vid, ether.ETH_TYPE_ARP)
+    pkt = build_pkt_header(vid, eth_src, eth_dst, ether.ETH_TYPE_ARP)
     arp_pkt = arp.arp(
         opcode=arp.ARP_REPLY, src_mac=eth_src,
         src_ip=src_ip, dst_mac=eth_dst, dst_ip=dst_ip)
@@ -144,19 +144,19 @@ def arp_reply(eth_src, eth_dst, vid, src_ip, dst_ip):
     return pkt
 
 
-def echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, data):
+def echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, data):
     """Return an ICMP echo reply packet.
 
     Args:
+        vid (int or None): VLAN VID to use (or None).
         eth_src (str): Ethernet source address.
         eth_dst (str): destination Ethernet MAC address.
-        vid (int or None): VLAN VID to use (or None).
         src_ip (ipaddress.IPv4Address): source IPv4 address.
         dst_ip (ipaddress.IPv4Address): destination IPv4 address.
     Returns:
         ryu.lib.packet.icmp: serialized ICMP echo reply packet.
     """
-    pkt = build_pkt_header(eth_src, eth_dst, vid, ether.ETH_TYPE_IP)
+    pkt = build_pkt_header(vid, eth_src, eth_dst, ether.ETH_TYPE_IP)
     ipv4_pkt = ipv4.ipv4(
         dst=dst_ip, src=src_ip, proto=inet.IPPROTO_ICMP)
     pkt.add_protocol(ipv4_pkt)
@@ -199,12 +199,12 @@ def ipv6_solicited_node_from_ucast(ucast):
     return link_mcast
 
 
-def nd_request(eth_src, vid, src_ip, dst_ip):
+def nd_request(vid, eth_src, src_ip, dst_ip):
     """Return IPv6 neighbor discovery request packet.
 
     Args:
-        eth_src (str): source Ethernet MAC address.
         vid (int or None): VLAN VID to use (or None).
+        eth_src (str): source Ethernet MAC address.
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         dst_ip (ipaddress.IPv6Address): requested IPv6 address.
     Returns:
@@ -212,7 +212,7 @@ def nd_request(eth_src, vid, src_ip, dst_ip):
     """
     nd_mac = ipv6_link_eth_mcast(dst_ip)
     ip_gw_mcast = ipv6_solicited_node_from_ucast(dst_ip)
-    pkt = build_pkt_header(eth_src, nd_mac, vid, ether.ETH_TYPE_IPV6)
+    pkt = build_pkt_header(vid, eth_src, nd_mac, ether.ETH_TYPE_IPV6)
     ipv6_pkt = ipv6.ipv6(
         src=str(src_ip), dst=ip_gw_mcast, nxt=inet.IPPROTO_ICMPV6)
     pkt.add_protocol(ipv6_pkt)
@@ -226,13 +226,13 @@ def nd_request(eth_src, vid, src_ip, dst_ip):
     return pkt
 
 
-def nd_advert(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
+def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit):
     """Return IPv6 neighbor avertisement packet.
 
     Args:
+        vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): destination Ethernet MAC address.
-        vid (int or None): VLAN VID to use (or None).
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         dst_ip (ipaddress.IPv6Address): destination IPv6 address.
         hop_limit (int): IPv6 hop limit.
@@ -240,7 +240,7 @@ def nd_advert(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
         ryu.lib.packet.ethernet: Serialized IPv6 neighbor discovery packet.
     """
     pkt = build_pkt_header(
-        eth_src, eth_dst, vid, ether.ETH_TYPE_IPV6)
+        vid, eth_src, eth_dst, ether.ETH_TYPE_IPV6)
     ipv6_icmp6 = ipv6.ipv6(
         src=src_ip,
         dst=dst_ip,
@@ -257,14 +257,14 @@ def nd_advert(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit):
     return pkt
 
 
-def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
+def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
                       id_, seq, data):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
+        vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): destination Ethernet MAC address.
-        vid (int or None): VLAN VID to use (or None).
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         dst_ip (ipaddress.IPv6Address): destination IPv6 address.
         hop_limit (int): IPv6 hop limit.
@@ -275,7 +275,7 @@ def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
         ryu.lib.packet.ethernet: Serialized IPv6 ICMP echo reply packet.
     """
     pkt = build_pkt_header(
-        eth_src, eth_dst, vid, ether.ETH_TYPE_IPV6)
+        vid, eth_src, eth_dst, ether.ETH_TYPE_IPV6)
     ipv6_reply = ipv6.ipv6(
         src=src_ip,
         dst=dst_ip,
@@ -290,14 +290,14 @@ def icmpv6_echo_reply(eth_src, eth_dst, vid, src_ip, dst_ip, hop_limit,
     return pkt
 
 
-def router_advert(eth_src, eth_dst, vid, src_ip, dst_ip,
+def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
                   vips, hop_limit=255, pi_flags=0x6):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
+        vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): dest Ethernet MAC address.
-        vid (int or None): VLAN VID to use (or None).
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         vips (list): prefixes (ipaddress.IPv6Address) to advertise.
         hop_limit (int): IPv6 hop limit.
@@ -306,7 +306,7 @@ def router_advert(eth_src, eth_dst, vid, src_ip, dst_ip,
         ryu.lib.packet.ethernet: Serialized IPv6 ICMP RA packet.
     """
     pkt = build_pkt_header(
-        eth_src, eth_dst, vid, ether.ETH_TYPE_IPV6)
+        vid, eth_src, eth_dst, ether.ETH_TYPE_IPV6)
     ipv6_pkt = ipv6.ipv6(
         src=src_ip,
         dst=dst_ip,
