@@ -7,7 +7,7 @@ import socket
 
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
-RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653, 9179)
+RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
 
 
 def mininet_dpid(int_dpid):
