@@ -112,6 +112,10 @@ class BaseFAUCET(Controller):
 
     controller_intf = None
     tmpdir = None
+    BASE_CARGS = ' '.join((
+        '--verbose',
+        '--use-stderr',
+        '--ofp-tcp-listen-port=%s'))
 
     def __init__(self, name, **kwargs):
         name = '%s-%u' % (name, os.getpid())
@@ -166,12 +170,10 @@ class FAUCET(BaseFAUCET):
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
             ports_sock)
         cargs = ' '.join((
-            '--verbose',
-            '--use-stderr',
+            self.BASE_CARGS,
             '--wsapi-host=127.0.0.1',
             '--wsapi-port=%u' % self.ofctl_port,
             '--ofp-listen-host=%s' % self.controller_ipv4,
-            '--ofp-tcp-listen-port=%s',
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super(FAUCET, self).__init__(
             name,
@@ -191,9 +193,7 @@ class Gauge(BaseFAUCET):
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
         cargs = ' '.join((
-            '--verbose',
-            '--use-stderr',
-            '--ofp-tcp-listen-port=%s',
+            self.BASE_CARGS,
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super(Gauge, self).__init__(
             name,
@@ -208,12 +208,8 @@ class FaucetAPI(BaseFAUCET):
     """Start a controller to run the Faucet API tests."""
 
     def __init__(self, name, **kwargs):
-        cargs = ' '.join((
-            '--verbose',
-            '--use-stderr',
-            '--ofp-tcp-listen-port=%s'))
         super(FaucetAPI, self).__init__(
             name,
             command=self._command('faucet.faucet test_api.py'),
-            cargs=cargs,
+            cargs=self.BASE_CARGS,
             **kwargs)
