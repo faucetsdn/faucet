@@ -127,6 +127,7 @@ class BaseFAUCET(Controller):
     def _add_cargs(self, cargs):
        ipv4_host = ''
        if self.controller_intf is not None:
+           # pylint: disable=no-member
            ipv4_host = '--ofp-listen-host=%s' % netifaces.ifaddresses(
                 self.controller_intf)[socket.AF_INET][0]['addr']
        return ' '.join((self.BASE_CARGS, ipv4_host, cargs))
