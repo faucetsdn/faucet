@@ -56,5 +56,14 @@ def serve_ports(ports_socket):
                 continue
             break
         ports_served.add(free_port)
+        # pylint: disable=no-member
         connection.sendall('%u %u\n' % (free_port, len(ports_served)))
         connection.close()
+
+
+def timeout_cmd(cmd, timeout):
+    return 'timeout -sKILL %us stdbuf -o0 -e0 %s' % (timeout, cmd)
+
+
+def timeout_soft_cmd(cmd, timeout):
+    return 'timeout %us stdbuf -o0 -e0 %s' % (timeout, cmd)
