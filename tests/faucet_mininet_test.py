@@ -112,9 +112,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         self.results_file = os.environ['API_TEST_RESULT']
         shutil.copytree('config', os.path.join(self.tmpdir, 'config'))
         self.dpid = str(0xcafef00d)
-        prom_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock)
-        os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
+        self._set_prom_port()
         self.of_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)
         self.topo = faucet_mininet_test_topo.FaucetSwitchTopo(

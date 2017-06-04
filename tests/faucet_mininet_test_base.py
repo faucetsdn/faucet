@@ -77,6 +77,11 @@ class FaucetTestBase(unittest.TestCase):
     def _set_var(self, var, value):
         os.environ[var] = os.path.join(self.tmpdir, value)
 
+    def _set_prom_port(self):
+        prom_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock)
+        os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
+
     def _set_vars(self):
         self._set_var('FAUCET_CONFIG', 'faucet.yaml')
         self._set_var('GAUGE_CONFIG', 'gauge.yaml')
@@ -84,9 +89,7 @@ class FaucetTestBase(unittest.TestCase):
         self._set_var('FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
         self._set_var('GAUGE_LOG', 'gauge.log')
         self._set_var('GAUGE_EXCEPTION_LOG', 'gauge-exception.log')
-        prom_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock)
-        os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
+        self._set_prom_port()
         self.debug_log_path = os.path.join(
             self.tmpdir, 'ofchannel.log')
         self.monitor_stats_file = os.path.join(
