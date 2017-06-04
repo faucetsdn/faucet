@@ -1143,10 +1143,16 @@ vlans:
     def test_untagged(self):
         # Unicast flooding rule for from port 1
         self.assertTrue(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
+            r''.join((
+                '"table_id": 7, ',
+                '"match": ',
+                '{"dl_vlan": "100", "in_port": %(port_1)d}')) % self.port_map))
         # Unicast flood rule exists that output to port 1
         self.assertTrue(self.matching_flow_present(
-            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
+            r''.join((
+                '"OUTPUT:%(port_1)d".+',
+                '"table_id": 7, ',
+                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
         self.assertTrue(self.bogus_mac_flooded_to_port1())
 
 
@@ -1178,10 +1184,16 @@ vlans:
     def test_untagged(self):
         # No unicast flooding rule for from port 1
         self.assertFalse(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
+            r''.join((
+                '"table_id": 7, ',
+                '"match": ',
+                '{"dl_vlan": "100", "in_port": %(port_1)d}')) % self.port_map))
         # No unicast flood rule exists that output to port 1
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
+            r''.join((
+                '"OUTPUT:%(port_1)d".+',
+                '"table_id": 7, ',
+                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
         self.assertFalse(self.bogus_mac_flooded_to_port1())
 
 
@@ -1214,10 +1226,16 @@ vlans:
     def test_untagged(self):
         # No unicast flooding rule for from port 1
         self.assertFalse(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
+            r''.join((
+                '"table_id": 7, ',
+                '"match": ',
+                '{"dl_vlan": "100", "in_port": %(port_1)d}')) % self.port_map))
         # No unicast flood rule exists that output to port 1
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
+            r''.join((
+                '"OUTPUT:%(port_1)d".+',
+                '"table_id": 7, ',
+                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
         # VLAN level config to disable flooding takes precedence,
         # cannot enable port-only flooding.
         self.assertFalse(self.bogus_mac_flooded_to_port1())
@@ -1870,7 +1888,8 @@ acls:
             second_host, tcpdump_filter, [
                 lambda: first_host.cmd(
                     'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
-                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], packets=10, root_intf=True)
+                lambda: first_host.cmd(
+                    'ping -c1 %s' % second_host.IP())], packets=10, root_intf=True)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
 
@@ -3247,7 +3266,7 @@ def import_hw_config():
     try:
         with open(config_file_name, 'r') as config_file:
             config = yaml.load(config_file)
-    except:
+    except IOError:
         print('Could not load YAML config data from %s' % config_file_name)
         sys.exit(-1)
     if 'hw_switch' in config:
