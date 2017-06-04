@@ -180,7 +180,7 @@ class FaucetTestBase(unittest.TestCase):
             shutil.move(log, self.tmpdir)
         # must not be any controller exception.
         self.verify_no_exception('FAUCET_EXCEPTION_LOG')
-        for _, debug_log in self.get_ofchannel_logs():
+        for _, debug_log in self._get_ofchannel_logs():
             self.assertFalse(
                 re.search('OFPErrorMsg', open(debug_log).read()),
                 msg='debug log has OFPErrorMsgs')
@@ -275,9 +275,18 @@ class FaucetTestBase(unittest.TestCase):
         fuser_out = host.cmd('fuser %s -k -%u' % (tcp_pattern, signal))
         return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
 
+    def _get_ofchannel_logs(self):
+        config = yaml.load(open(os.environ['FAUCET_CONFIG']))
+        ofchannel_logs = []
+        for dp_name, dp_config in config['dps'].items():
+            if 'ofchannel_log' in dp_config:
+                debug_log = dp_config['ofchannel_log']
+                ofchannel_logs.append((dp_name, debug_log))
+        return ofchannel_logs
+
     def _wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
-        ofchannel_logs = self.get_ofchannel_logs()
+        ofchannel_logs = self._get_ofchannel_logs()
         for dp_name, debug_log in ofchannel_logs:
             debug_log_present = False
             for _ in range(60):
@@ -289,8 +298,14 @@ class FaucetTestBase(unittest.TestCase):
             if not debug_log_present:
                 # Maybe controller crashed.
                 self.verify_no_exception('FAUCET_EXCEPTION_LOG')
+                # Get controller logs in case helpful
+                controller_txt = ''
+                for log in self._controller_lognames():
+                    if os.path.exists(log):
+                        controller_txt += open(log).read()
                 self.fail(
-                    'no controller debug log for switch %s' % dp_name)
+                    'no controller debug log for switch %s (log %s)' % (
+                        dp_name, controller_txt))
 
     def verify_no_exception(self, exception_log):
         exception_log_name = os.environ[exception_log]
@@ -523,15 +538,6 @@ dbs:
             # stimulate host learning with a broadcast ping
             host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
         self.fail('host %s could not be learned' % host)
-
-    def get_ofchannel_logs(self):
-        config = yaml.load(open(os.environ['FAUCET_CONFIG']))
-        ofchannel_logs = []
-        for dp_name, dp_config in config['dps'].items():
-            if 'ofchannel_log' in dp_config:
-                debug_log = dp_config['ofchannel_log']
-                ofchannel_logs.append((dp_name, debug_log))
-        return ofchannel_logs
 
     def scrape_prometheus(self):
         prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT'))
