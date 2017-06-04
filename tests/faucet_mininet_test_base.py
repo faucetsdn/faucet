@@ -138,13 +138,19 @@ class FaucetTestBase(unittest.TestCase):
             )
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
 
-    def tmpdir_name(self):
+    def _tmpdir_name(self):
         test_name = '-'.join(self.id().split('.')[1:])
         return tempfile.mkdtemp(
             prefix='%s-' % test_name, dir=self.root_tmpdir)
 
+    def _controller_lognames(self):
+        lognames = []
+        for controller in self.net.controllers:
+            lognames.append('/tmp/%s.log' % controller.name)
+        return lognames
+
     def setUp(self):
-        self.tmpdir = self.tmpdir_name()
+        self.tmpdir = self._tmpdir_name()
         self._set_vars()
 
         if self.hw_switch:
@@ -162,9 +168,7 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        controller_names = []
-        for controller in self.net.controllers:
-            controller_names.append(controller.name)
+        logs = self._controller_lognames()
         open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
             self.scrape_prometheus())
         if self.net is not None:
@@ -172,8 +176,8 @@ class FaucetTestBase(unittest.TestCase):
         # Associate controller log with test results, if we are keeping
         # the temporary directory, or effectively delete it if not.
         # mininet doesn't have a way to change its log name for the controller.
-        for controller_name in controller_names:
-            shutil.move('/tmp/%s.log' % controller_name, self.tmpdir)
+        for log in logs:
+            shutil.move(log, self.tmpdir)
         # must not be any controller exception.
         self.verify_no_exception('FAUCET_EXCEPTION_LOG')
         for _, debug_log in self.get_ofchannel_logs():
@@ -230,7 +234,7 @@ class FaucetTestBase(unittest.TestCase):
         self.net.start()
         if self.hw_switch:
             self._attach_physical_switch()
-        self.wait_debug_log()
+        self._wait_debug_log()
         self.wait_dp_status(1)
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
         for port_no in self.port_map.values():
@@ -270,6 +274,23 @@ class FaucetTestBase(unittest.TestCase):
         tcp_pattern = '%s/tcp' % port
         fuser_out = host.cmd('fuser %s -k -%u' % (tcp_pattern, signal))
         return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
+
+    def _wait_debug_log(self):
+        """Require all switches to have exchanged flows with controller."""
+        ofchannel_logs = self.get_ofchannel_logs()
+        for dp_name, debug_log in ofchannel_logs:
+            debug_log_present = False
+            for _ in range(60):
+                if (os.path.exists(debug_log) and
+                        os.path.getsize(debug_log) > 0):
+                    debug_log_present = True
+                    break
+                time.sleep(1)
+            if not debug_log_present:
+                # Maybe controller crashed.
+                self.verify_no_exception('FAUCET_EXCEPTION_LOG')
+                self.fail(
+                    'no controller debug log for switch %s' % dp_name)
 
     def verify_no_exception(self, exception_log):
         exception_log_name = os.environ[exception_log]
@@ -492,7 +513,8 @@ dbs:
         ping_cmd = 'ping'
         if not host_ip_net:
             host_ip_net = self.host_ipv6(host)
-        broadcast = (ipaddress.ip_interface(unicode(host_ip_net)).network.broadcast_address)
+        broadcast = (ipaddress.ip_interface(
+            unicode(host_ip_net)).network.broadcast_address)
         if broadcast.version == 6:
             ping_cmd = 'ping6'
         for _ in range(retries):
@@ -511,23 +533,6 @@ dbs:
                 ofchannel_logs.append((dp_name, debug_log))
         return ofchannel_logs
 
-    def wait_debug_log(self):
-        """Require all switches to have exchanged flows with controller."""
-        ofchannel_logs = self.get_ofchannel_logs()
-        for dp_name, debug_log in ofchannel_logs:
-            debug_log_present = False
-            for _ in range(60):
-                if (os.path.exists(debug_log) and
-                        os.path.getsize(debug_log) > 0):
-                    debug_log_present = True
-                    break
-                time.sleep(1)
-            if not debug_log_present:
-                # Maybe controller crashed.
-                self.verify_no_exception('FAUCET_EXCEPTION_LOG')
-                self.fail(
-                    'no controller debug log for switch %s' % dp_name)
-
     def scrape_prometheus(self):
         prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT'))
         prom_url = 'http://127.0.0.1:%u' % prom_port
@@ -537,7 +542,8 @@ dbs:
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
 
-    def scrape_prometheus_var(self, var, labels=None, default=None, dpid=True, multiple=False):
+    def scrape_prometheus_var(self, var, labels=None, default=None,
+                              dpid=True, multiple=False):
         label_values_re = ''
         if labels is None:
             labels = {}
@@ -585,12 +591,18 @@ dbs:
 
     def prometheus_smoke_test(self):
         prom_out = self.scrape_prometheus()
-        self.assertTrue(re.search(r'of_packet_ins\S+[1-9]+', prom_out), msg=prom_out)
-        self.assertTrue(re.search(r'of_flowmsgs_sent\S+[1-9]+', prom_out), msg=prom_out)
-        self.assertTrue(re.search(r'of_dp_connections\S+[1-9]+', prom_out), msg=prom_out)
-        self.assertTrue(re.search(r'faucet_config\S+name=\"flood\"\S+', prom_out), msg=prom_out)
-        self.assertIsNone(re.search(r'of_errors', prom_out), msg=prom_out)
-        self.assertIsNone(re.search(r'of_dp_disconnections', prom_out), msg=prom_out)
+        self.assertTrue(
+            re.search(r'of_packet_ins\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertTrue(
+            re.search(r'of_flowmsgs_sent\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertTrue(
+            re.search(r'of_dp_connections\S+[1-9]+', prom_out), msg=prom_out)
+        self.assertTrue(
+            re.search(r'faucet_config\S+name=\"flood\"\S+', prom_out), msg=prom_out)
+        self.assertIsNone(
+            re.search(r'of_errors', prom_out), msg=prom_out)
+        self.assertIsNone(
+            re.search(r'of_dp_disconnections', prom_out), msg=prom_out)
 
     def get_configure_count(self):
         """Return the number of times FAUCET has processed a reload request."""

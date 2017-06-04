@@ -104,7 +104,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
     """Test the Faucet API."""
 
     def setUp(self):
-        self.tmpdir = self.tmpdir_name()
+        self.tmpdir = self._tmpdir_name()
         self._set_var('FAUCET_CONFIG', 'config/testconfigv2-simple.yaml')
         self._set_var('FAUCET_LOG', 'faucet.log')
         self._set_var('FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
