@@ -26,12 +26,12 @@ from mininet.net import Mininet
 from mininet.node import Controller
 from mininet.node import Host
 from mininet.node import Intf
-from mininet.node import OVSSwitch
 from mininet.topo import Topo
 from mininet.util import dumpNodeConnections, pmonitor
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 import faucet_mininet_test_util
+import faucet_mininet_test_topo
 
 
 class BaseFAUCET(Controller):
@@ -144,14 +144,6 @@ class FaucetAPI(Controller):
             **kwargs)
 
 
-class FaucetSwitch(OVSSwitch):
-    """Switch that will be used by all tests (kernel based OVS)."""
-
-    def __init__(self, name, **params):
-        OVSSwitch.__init__(
-            self, name=name, datapath='kernel', **params)
-
-
 class VLANHost(Host):
     """Implementation of a Mininet host on a tagged VLAN."""
 
@@ -201,7 +193,7 @@ class FaucetSwitchTopo(Topo):
         switch_name = 's%s' % sid_prefix
         return self.addSwitch(
             name=switch_name,
-            cls=FaucetSwitch,
+            cls=faucet_mininet_test_topo.FaucetSwitch,
             listenPort=port,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
 
