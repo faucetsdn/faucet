@@ -247,7 +247,7 @@ class FaucetTestBase(unittest.TestCase):
         self._wait_debug_log()
         self.wait_dp_status(1)
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
-        for port_no in self.port_map.values():
+        for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
 
@@ -294,6 +294,13 @@ class FaucetTestBase(unittest.TestCase):
                 ofchannel_logs.append((dp_name, debug_log))
         return ofchannel_logs
 
+    def _report_controller_log(self):
+        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
+        controller_txt = ''
+        for log in self._controller_lognames():
+            controller_txt += open(log).read()
+        return controller_txt
+
     def _wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
         ofchannel_logs = self._get_ofchannel_logs()
@@ -306,12 +313,7 @@ class FaucetTestBase(unittest.TestCase):
                     break
                 time.sleep(1)
             if not debug_log_present:
-                # Maybe controller crashed.
-                self.verify_no_exception('FAUCET_EXCEPTION_LOG')
-                # Get controller logs in case helpful
-                controller_txt = ''
-                for log in self._controller_lognames():
-                    controller_txt += open(log).read()
+                controller_txt = self._report_controller_log()
                 self.fail(
                     'no controller debug log for switch %s (log %s)' % (
                         dp_name, controller_txt))
@@ -824,13 +826,17 @@ dbs:
             if dp_status is not None and dp_status == expected_status:
                 return
             time.sleep(1)
-        self.fail('DP status %s != expected %u' % (
-            dp_status, expected_status))
+        controller_txt = self._report_controller_log()
+        self.fail('DP status %s != expected %u (log %s)' % (
+            dp_status, expected_status, controller_txt))
+
+    def _dp_ports(self):
+        port_count = self.N_TAGGED + self.N_UNTAGGED
+        return list(sorted(self.port_map.values()))[:port_count]
 
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
-        port_count = self.N_TAGGED + self.N_UNTAGGED
-        for port_no in list(sorted(self.port_map.values()))[:port_count]:
+        for port_no in self._dp_ports():
             self.set_port_down(port_no)
             self.wait_port_status(port_no, 0)
             time.sleep(flap_time)
