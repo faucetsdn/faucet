@@ -243,28 +243,8 @@ def pipeline_superset_report(root_tmpdir):
         print('  table_actions: %s' % sorted(table_actions[table]))
 
 
-def run_tests(requested_test_classes,
-              excluded_test_classes,
-              keep_logs,
-              serial,
-              hw_config):
-    """Actually run the test suites, potentially in parallel."""
-    if hw_config is not None:
-        print('Testing hardware, forcing test serialization')
-        serial = True
-    root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
-    ports_sock = os.path.join(root_tmpdir, 'ports-server')
-    ports_server = threading.Thread(
-        target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
-    ports_server.setDaemon(True)
-    ports_server.start()
-    for _ in range(3):
-        if os.path.exists(ports_sock):
-            break
-        time.sleep(1)
-    if not os.path.exists(ports_sock):
-        print('ports server did not start (%s not created)' % ports_sock)
-        sys.exit(-1)
+def expand_tests(requested_test_classes, excluded_test_classes,
+                 hw_config, root_tmpdir, ports_sock, serial):
     sanity_tests = unittest.TestSuite()
     single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
@@ -275,7 +255,6 @@ def run_tests(requested_test_classes,
             continue
         if excluded_test_classes and name in excluded_test_classes:
             continue
-        print name
         if name.endswith('Test') and name.startswith('Faucet'):
             # TODO: hardware testing should have a way to configure
             # which switch in a string is the hardware switch to test.
@@ -292,7 +271,11 @@ def run_tests(requested_test_classes,
                     single_tests.addTest(test_suite)
                 else:
                     parallel_tests.addTest(test_suite)
-    all_successful = True
+    return (sanity_tests, single_tests, parallel_tests)
+
+
+def run_test_suites(sanity_tests, single_tests, parallel_tests):
+    all_successful = False
     sanity_runner = unittest.TextTestRunner(verbosity=255, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
     if sanity_result.wasSuccessful():
@@ -310,14 +293,49 @@ def run_tests(requested_test_classes,
         if single_tests.countTestCases():
             single_runner = unittest.TextTestRunner(verbosity=255)
             results.append(single_runner.run(single_tests))
+        all_successful = True
         for result in results:
             if not result.wasSuccessful():
                 all_successful = False
                 print(result.printErrors())
-        pipeline_superset_report(root_tmpdir)
     else:
         print('sanity tests failed - test environment not correct')
+    return all_successful
 
+
+def start_port_server(root_tmpdir):
+    ports_sock = os.path.join(root_tmpdir, 'ports-server')
+    ports_server = threading.Thread(
+        target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
+    ports_server.setDaemon(True)
+    ports_server.start()
+    for _ in range(3):
+        if os.path.exists(ports_sock):
+            break
+        time.sleep(1)
+    if not os.path.exists(ports_sock):
+        print('ports server did not start (%s not created)' % ports_sock)
+        sys.exit(-1)
+    return ports_sock
+
+
+def run_tests(requested_test_classes,
+              excluded_test_classes,
+              keep_logs,
+              serial,
+              hw_config):
+    """Actually run the test suites, potentially in parallel."""
+    if hw_config is not None:
+        print('Testing hardware, forcing test serialization')
+        serial = True
+    root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
+    ports_sock = start_port_server(root_tmpdir)
+    sanity_tests, single_tests, parallel_tests = expand_tests(
+        requested_test_classes, excluded_test_classes,
+        hw_config, root_tmpdir, ports_sock, serial)
+    all_successful = run_test_suites(
+        sanity_tests, single_tests, parallel_tests)
+    pipeline_superset_report(root_tmpdir)
     os.remove(ports_sock)
     if not keep_logs and all_successful:
         shutil.rmtree(root_tmpdir)
@@ -330,8 +348,8 @@ def parse_args():
     try:
         opts, args = getopt.getopt(
             sys.argv[1:],
-            "cknsx:",
-            ["clean", "nocheck", "keep_logs", "serial"])
+            'cknsx:',
+            ['clean', 'nocheck', 'keep_logs', 'serial'])
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)

@@ -67,6 +67,8 @@ class FaucetTestBase(unittest.TestCase):
     net = None
     topo = None
     cpn_intf = None
+    config_ports = {'bgp_port': None}
+
 
     def __init__(self, name, config, root_tmpdir, ports_sock):
         super(FaucetTestBase, self).__init__(name)
@@ -126,6 +128,13 @@ class FaucetTestBase(unittest.TestCase):
             self.get_config_header(
                 self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
             self.CONFIG % self.port_map))
+        for port_name in list(self.config_ports.keys()):
+            if re.search(port_name, self.CONFIG):
+                port, _ = faucet_mininet_test_util.find_free_port(
+                    self.ports_sock)
+                self.CONFIG = self.CONFIG % {'bgp_port': port}
+                self.config_ports[port_name] = port
+                print('allocating port %u for %s' % (port, port_name))
         open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
         self.influx_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)
@@ -134,8 +143,7 @@ class FaucetTestBase(unittest.TestCase):
             self.monitor_stats_file,
             self.monitor_state_file,
             self.monitor_flow_table_file,
-            self.influx_port,
-            )
+            self.influx_port)
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
 
     def _tmpdir_name(self):
@@ -146,7 +154,9 @@ class FaucetTestBase(unittest.TestCase):
     def _controller_lognames(self):
         lognames = []
         for controller in self.net.controllers:
-            lognames.append('/tmp/%s.log' % controller.name)
+            logname = '/tmp/%s.log' % controller.name
+            if os.path.exists(logname):
+                lognames.append(logname)
         return lognames
 
     def setUp(self):
@@ -301,8 +311,7 @@ class FaucetTestBase(unittest.TestCase):
                 # Get controller logs in case helpful
                 controller_txt = ''
                 for log in self._controller_lognames():
-                    if os.path.exists(log):
-                        controller_txt += open(log).read()
+                    controller_txt += open(log).read()
                 self.fail(
                     'no controller debug log for switch %s (log %s)' % (
                         dp_name, controller_txt))
@@ -932,30 +941,28 @@ dbs:
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
 
-    def start_exabgp(self, exabgp_conf, listen_address='127.0.0.1', port=179):
+    def start_exabgp(self, exabgp_conf):
         """Start exabgp process on controller host."""
-        self.stop_exabgp(port)
+        bgp_port = self.config_ports['bgp_port']
+        self.stop_exabgp(bgp_port)
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
         exabgp_env = ' '.join((
-            'exabgp.tcp.bind="%s"' % listen_address,
-            'exabgp.tcp.port=%u' % port,
             'exabgp.log.all=true',
             'exabgp.log.routes=true',
             'exabgp.log.rib=true',
             'exabgp.log.packets=true',
             'exabgp.log.parser=true',
         ))
+        bgp_port = self.config_ports['bgp_port']
+        exabgp_conf = exabgp_conf % {'bgp_port': bgp_port}
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self._get_controller()
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
             'exabgp %s -d 2> %s > %s &' % (
                 exabgp_conf_file, exabgp_err, exabgp_log), 600)
         controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
-        self.wait_for_tcp_listen(
-            controller, port,
-            ipv=ipaddress.ip_address(unicode(listen_address)).version)
         return exabgp_log
 
     def wait_bgp_up(self, neighbor, vlan):

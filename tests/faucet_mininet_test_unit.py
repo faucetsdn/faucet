@@ -790,7 +790,7 @@ acls:
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
-class FaucetSingleUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
+class FaucetUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
     """Test IPv4 routing and import default route from BGP."""
 
     CONFIG_GLOBAL = """
@@ -798,7 +798,7 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
-        bgp_port: 9179
+        bgp_port: %(bgp_port)d
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
@@ -827,8 +827,8 @@ vlans:
 group test {
   router-id 2.2.2.2;
   neighbor 127.0.0.1 {
-    passive;
     local-address 127.0.0.1;
+    connect %(bgp_port)d;
     peer-as 1;
     local-as 2;
     static {
@@ -862,7 +862,7 @@ group test {
         self.one_ipv4_controller_ping(first_host)
 
 
-class FaucetSingleUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
+class FaucetUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):
     """Test IPv4 routing and import from BGP."""
 
     CONFIG_GLOBAL = """
@@ -870,7 +870,7 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
-        bgp_port: 9179
+        bgp_port: %(bgp_port)d
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
@@ -903,8 +903,8 @@ vlans:
 group test {
   router-id 2.2.2.2;
   neighbor 127.0.0.1 {
-    passive;
     local-address 127.0.0.1;
+    connect %(bgp_port)d;
     peer-as 1;
     local-as 2;
     static {
@@ -946,7 +946,7 @@ group test {
             self.one_ipv4_controller_ping(host)
 
 
-class FaucetSingleUntaggedIPv4RouteTest(FaucetUntaggedTest):
+class FaucetUntaggedIPv4RouteTest(FaucetUntaggedTest):
     """Test IPv4 routing and export to BGP."""
 
     CONFIG_GLOBAL = """
@@ -954,7 +954,7 @@ vlans:
     100:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
-        bgp_port: 9179
+        bgp_port: %(bgp_port)d
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
@@ -999,8 +999,8 @@ group test {
   }
   router-id 2.2.2.2;
   neighbor 127.0.0.1 {
-    passive;
     local-address 127.0.0.1;
+    connect %(bgp_port)d;
     peer-as 1;
     local-as 2;
   }
@@ -1030,7 +1030,7 @@ group test {
         assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
 
 
-class FaucetSingleZodiacUntaggedIPv4RouteTest(FaucetSingleUntaggedIPv4RouteTest):
+class FaucetZodiacUntaggedIPv4RouteTest(FaucetUntaggedIPv4RouteTest):
 
     RUN_GAUGE = False
     N_UNTAGGED = 3
@@ -2171,14 +2171,14 @@ vlans:
         self.one_ipv6_ping(second_host, first_host_net.ip)
 
 
-class FaucetSingleUntaggedBGPIPv6DefaultRouteTest(FaucetUntaggedTest):
+class FaucetUntaggedBGPIPv6DefaultRouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
-        bgp_port: 9179
+        bgp_port: %(bgp_port)d
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
@@ -2207,8 +2207,8 @@ vlans:
 group test {
   router-id 2.2.2.2;
   neighbor ::1 {
-    passive;
     local-address ::1;
+    connect %(bgp_port)d;
     peer-as 1;
     local-as 2;
     static {
@@ -2221,7 +2221,7 @@ group test {
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf, '::1')
+        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -2244,14 +2244,14 @@ group test {
         self.one_ipv6_controller_ping(first_host)
 
 
-class FaucetSingleUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
+class FaucetUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
-        bgp_port: 9179
+        bgp_port: %(bgp_port)d
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
@@ -2280,8 +2280,8 @@ vlans:
 group test {
   router-id 2.2.2.2;
   neighbor ::1 {
-    passive;
     local-address ::1;
+    connect %(bgp_port)d;
     peer-as 1;
     local-as 2;
     static {
@@ -2297,7 +2297,7 @@ group test {
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf, '::1')
+        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -2373,14 +2373,14 @@ vlans:
         self.one_ipv6_ping(second_host, first_host_ctrl_ip)
 
 
-class FaucetSingleUntaggedIPv6RouteTest(FaucetUntaggedTest):
+class FaucetUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
-        bgp_port: 9179
+        bgp_port: %(bgp_port)d
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
@@ -2425,8 +2425,8 @@ group test {
   }
   router-id 2.2.2.2;
   neighbor ::1 {
-    passive;
     local-address ::1;
+    connect %(bgp_port)d;
     peer-as 1;
     local-as 2;
   }
@@ -2435,7 +2435,7 @@ group test {
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf, '::1')
+        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
 
     def test_untagged(self):
         self.verify_ipv6_routing_mesh()
@@ -2953,7 +2953,7 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
                 '"table_id": 7,.+"dl_dst".+"dl_vlan": "100"'))
 
 
-class FaucetSingleGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
+class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -3006,7 +3006,7 @@ vlans:
             with_group_table=True)
 
 
-class FaucetSingleGroupUntaggedIPv6RouteTest(FaucetUntaggedTest):
+class FaucetGroupUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
