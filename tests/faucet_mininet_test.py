@@ -105,16 +105,12 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
 
     def setUp(self):
         self.tmpdir = self.tmpdir_name()
-        self.results_file = os.path.join(
-            self.tmpdir, 'result.txt')
-        os.environ['API_TEST_RESULT'] = self.results_file
+        self._set_var('FAUCET_CONFIG', 'config/testconfigv2-simple.yaml')
+        self._set_var('FAUCET_LOG', 'faucet.log')
+        self._set_var('FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
+        self._set_var('API_TEST_RESULT', 'result.txt')
+        self.results_file = os.environ['API_TEST_RESULT']
         shutil.copytree('config', os.path.join(self.tmpdir, 'config'))
-        os.environ['FAUCET_CONFIG'] = os.path.join(
-            self.tmpdir, 'config/testconfigv2-simple.yaml')
-        os.environ['FAUCET_LOG'] = os.path.join(
-            self.tmpdir, 'faucet.log')
-        os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
-            self.tmpdir, 'faucet-exception.log')
         self.dpid = str(0xcafef00d)
         prom_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)

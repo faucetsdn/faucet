@@ -74,19 +74,16 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
 
+    def _set_var(self, var, value):
+        os.environ[var] = os.path.join(self.tmpdir, value)
+
     def _set_vars(self):
-        os.environ['FAUCET_CONFIG'] = os.path.join(
-            self.tmpdir, 'faucet.yaml')
-        os.environ['GAUGE_CONFIG'] = os.path.join(
-            self.tmpdir, 'gauge.yaml')
-        os.environ['FAUCET_LOG'] = os.path.join(
-            self.tmpdir, 'faucet.log')
-        os.environ['FAUCET_EXCEPTION_LOG'] = os.path.join(
-            self.tmpdir, 'faucet-exception.log')
-        os.environ['GAUGE_LOG'] = os.path.join(
-            self.tmpdir, 'gauge.log')
-        os.environ['GAUGE_EXCEPTION_LOG'] = os.path.join(
-            self.tmpdir, 'gauge-exception.log')
+        self._set_var('FAUCET_CONFIG', 'faucet.yaml')
+        self._set_var('GAUGE_CONFIG', 'gauge.yaml')
+        self._set_var('FAUCET_LOG', 'faucet.log')
+        self._set_var('FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
+        self._set_var('GAUGE_LOG', 'gauge.log')
+        self._set_var('GAUGE_EXCEPTION_LOG', 'gauge-exception.log')
         prom_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)
         os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
