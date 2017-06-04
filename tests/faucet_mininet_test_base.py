@@ -282,24 +282,7 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
 
-    def setUp(self):
-        self.tmpdir = self.tmpdir_name()
-        self.set_vars()
-
-        if self.hw_switch:
-            self.topo_class = FaucetHwSwitchTopo
-            self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
-        else:
-            self.topo_class = FaucetSwitchTopo
-            self.dpid = str(random.randint(1, 2**32))
-            self.of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
-            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
-
-        self.write_controller_configs()
-
-    def set_vars(self):
+    def _set_vars(self):
         os.environ['FAUCET_CONFIG'] = os.path.join(
             self.tmpdir, 'faucet.yaml')
         os.environ['GAUGE_CONFIG'] = os.path.join(
@@ -346,7 +329,7 @@ class FaucetTestBase(unittest.TestCase):
                     self.port_map[test_port_name] = switch_port
                     self.switch_map[test_port_name] = dp_ports[switch_port]
 
-    def write_controller_configs(self):
+    def _write_controller_configs(self):
         self.CONFIG = '\n'.join((
             self.get_config_header(
                 self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
@@ -362,6 +345,28 @@ class FaucetTestBase(unittest.TestCase):
             self.influx_port,
             )
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
+
+    def tmpdir_name(self):
+        test_name = '-'.join(self.id().split('.')[1:])
+        return tempfile.mkdtemp(
+            prefix='%s-' % test_name, dir=self.root_tmpdir)
+
+    def setUp(self):
+        self.tmpdir = self.tmpdir_name()
+        self._set_vars()
+
+        if self.hw_switch:
+            self.topo_class = FaucetHwSwitchTopo
+            self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
+        else:
+            self.topo_class = FaucetSwitchTopo
+            self.dpid = str(random.randint(1, 2**32))
+            self.of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock)
+
+        self._write_controller_configs()
 
     def tearDown(self):
         """Clean up after a test."""
@@ -383,6 +388,27 @@ class FaucetTestBase(unittest.TestCase):
             self.assertFalse(
                 re.search('OFPErrorMsg', open(debug_log).read()),
                 msg='debug log has OFPErrorMsgs')
+
+    def _attach_physical_switch(self):
+        """Bridge a physical switch into test topology."""
+        switch = self.net.switches[0]
+        mapped_base = max(len(self.switch_map), len(self.port_map))
+        for i, test_host_port in enumerate(sorted(self.switch_map)):
+            port_i = i + 1
+            mapped_port_i = mapped_base + port_i
+            phys_port = Intf(self.switch_map[test_host_port], node=switch)
+            switch.cmd('ip link set dev %s up' % phys_port)
+            switch.cmd(
+                ('ovs-vsctl add-port %s %s -- '
+                 'set Interface %s ofport_request=%u') % (
+                     switch.name,
+                     phys_port.name,
+                     phys_port.name,
+                     mapped_port_i))
+            for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
+                port_x, port_y = port_pair
+                switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
+                    self.OFCTL, switch.name, port_x, port_y))
 
     def start_net(self):
         """Start Mininet network."""
@@ -411,7 +437,7 @@ class FaucetTestBase(unittest.TestCase):
             self.net.addController(gauge_controller)
         self.net.start()
         if self.hw_switch:
-            self.attach_physical_switch()
+            self._attach_physical_switch()
         self.wait_debug_log()
         self.wait_dp_status(1)
         self.wait_until_matching_flow('OUTPUT:CONTROLLER')
@@ -419,10 +445,25 @@ class FaucetTestBase(unittest.TestCase):
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
 
-    def tmpdir_name(self):
-        test_name = '-'.join(self.id().split('.')[1:])
-        return tempfile.mkdtemp(
-            prefix='%s-' % test_name, dir=self.root_tmpdir)
+    def _get_controller(self):
+        """Return the first (only) controller."""
+        return self.net.controllers[0]
+
+    def _ofctl_rest_url(self):
+        """Return control URL for Ryu ofctl module."""
+        return 'http://127.0.0.1:%u' % self._get_controller().ofctl_port
+
+    def _ofctl_get(self, int_dpid, req, timeout):
+        for _ in range(timeout):
+            try:
+                ofctl_result = json.loads(requests.get(req).text)
+                ofmsgs = ofctl_result[int_dpid]
+                return [json.dumps(ofmsg) for ofmsg in ofmsgs]
+            except (ValueError, requests.exceptions.ConnectionError):
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
+        return []
 
     def verify_no_exception(self, exception_log):
         exception_log_name = os.environ[exception_log]
@@ -433,27 +474,6 @@ class FaucetTestBase(unittest.TestCase):
             '',
             exception_contents,
             msg='%s log contains %s' % (exception_log, exception_contents))
-
-    def attach_physical_switch(self):
-        """Bridge a physical switch into test topology."""
-        switch = self.net.switches[0]
-        mapped_base = max(len(self.switch_map), len(self.port_map))
-        for i, test_host_port in enumerate(sorted(self.switch_map)):
-            port_i = i + 1
-            mapped_port_i = mapped_base + port_i
-            phys_port = Intf(self.switch_map[test_host_port], node=switch)
-            switch.cmd('ip link set dev %s up' % phys_port)
-            switch.cmd(
-                ('ovs-vsctl add-port %s %s -- '
-                 'set Interface %s ofport_request=%u') % (
-                     switch.name,
-                     phys_port.name,
-                     phys_port.name,
-                     mapped_port_i))
-            for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
-                port_x, port_y = port_pair
-                switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
-                    self.OFCTL, switch.name, port_x, port_y))
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=None,
                        vflags='-v', timeout=10, packets=2, root_intf=False):
@@ -556,47 +576,27 @@ dbs:
        monitor_flow_table_file,
        influx_port)
 
-    def get_controller(self):
-        """Return the first (only) controller."""
-        return self.net.controllers[0]
-
-    def ofctl_rest_url(self):
-        """Return control URL for Ryu ofctl module."""
-        return 'http://127.0.0.1:%u' % self.get_controller().ofctl_port
-
-    def ofctl_get(self, int_dpid, req, timeout):
-        for _ in range(timeout):
-            try:
-                ofctl_result = json.loads(requests.get(req).text)
-                ofmsgs = ofctl_result[int_dpid]
-                return [json.dumps(ofmsg) for ofmsg in ofmsgs]
-            except (ValueError, requests.exceptions.ConnectionError):
-                # Didn't get valid JSON, try again
-                time.sleep(1)
-                continue
-        return []
-
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
-        return self.ofctl_get(
+        return self._ofctl_get(
             int_dpid,
-            '%s/stats/groupdesc/%s' % (self.ofctl_rest_url(), int_dpid),
+            '%s/stats/groupdesc/%s' % (self._ofctl_rest_url(), int_dpid),
             timeout)
 
     def get_all_flows_from_dpid(self, dpid, timeout=10):
         """Return all flows from DPID."""
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
-        return self.ofctl_get(
+        return self._ofctl_get(
             int_dpid,
-            '%s/stats/flow/%s' % (self.ofctl_rest_url(), int_dpid),
+            '%s/stats/flow/%s' % (self._ofctl_rest_url(), int_dpid),
             timeout)
 
     def get_port_stats_from_dpid(self, dpid, port, timeout=2):
         """Return OFStats for a port."""
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
-        port_stats = self.ofctl_get(
+        port_stats = self._ofctl_get(
             int_dpid,
-            '%s/stats/port/%s/%s' % (self.ofctl_rest_url(), int_dpid, port),
+            '%s/stats/port/%s/%s' % (self._ofctl_rest_url(), int_dpid, port),
             timeout)
         if port_stats:
             return json.loads(port_stats[0])
@@ -803,7 +803,7 @@ dbs:
 
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
-        controller = self.get_controller()
+        controller = self._get_controller()
         self.assertTrue(self.signal_proc_on_port(controller, controller.port, 1))
 
     def verify_ping_mirrored(self, first_host, second_host, mirror_host):
@@ -971,7 +971,7 @@ dbs:
             '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
             '%s/stats/portdesc/modify'))
         return curl_format % (
-            int_dpid, port_no, config, mask, self.ofctl_rest_url())
+            int_dpid, port_no, config, mask, self._ofctl_rest_url())
 
     def set_port_down(self, port_no):
         os.system(self.curl_portmod(
@@ -1137,7 +1137,7 @@ dbs:
             'exabgp.log.parser=true',
         ))
         open(exabgp_conf_file, 'w').write(exabgp_conf)
-        controller = self.get_controller()
+        controller = self._get_controller()
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
             'exabgp %s -d 2> %s > %s &' % (
                 exabgp_conf_file, exabgp_err, exabgp_log), 600)
@@ -1163,12 +1163,12 @@ dbs:
 
     def stop_exabgp(self, port=179):
         """Stop exabgp process on controller host."""
-        controller = self.get_controller()
+        controller = self._get_controller()
         self.signal_proc_on_port(controller, port, 9)
 
     def exabgp_updates(self, exabgp_log):
         """Verify that exabgp process has received BGP updates."""
-        controller = self.get_controller()
+        controller = self._get_controller()
         # exabgp should have received our BGP updates
         for _ in range(60):
             updates = controller.cmd(
@@ -1453,7 +1453,7 @@ dbs:
 
     def verify_invalid_bgp_route(self, pattern):
         """Check if we see the pattern in Faucet's log"""
-        controller = self.get_controller()
+        controller = self._get_controller()
         count = controller.cmd(
             'grep -c "%s" %s' % (pattern, os.environ['FAUCET_LOG']))
         self.assertGreater(count, 0)
