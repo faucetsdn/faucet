@@ -134,8 +134,7 @@ class FaucetTestBase(unittest.TestCase):
             self.monitor_stats_file,
             self.monitor_state_file,
             self.monitor_flow_table_file,
-            self.influx_port,
-            )
+            self.influx_port)
         open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
 
     def _tmpdir_name(self):
@@ -146,7 +145,8 @@ class FaucetTestBase(unittest.TestCase):
     def _controller_lognames(self):
         lognames = []
         for controller in self.net.controllers:
-            lognames.append('/tmp/%s.log' % controller.name)
+            if os.path.exists(log):
+                lognames.append('/tmp/%s.log' % controller.name)
         return lognames
 
     def setUp(self):
@@ -301,8 +301,7 @@ class FaucetTestBase(unittest.TestCase):
                 # Get controller logs in case helpful
                 controller_txt = ''
                 for log in self._controller_lognames():
-                    if os.path.exists(log):
-                        controller_txt += open(log).read()
+                    controller_txt += open(log).read()
                 self.fail(
                     'no controller debug log for switch %s (log %s)' % (
                         dp_name, controller_txt))
