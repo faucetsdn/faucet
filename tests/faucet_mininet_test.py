@@ -1270,14 +1270,26 @@ vlans:
     def test_untagged(self):
         # Unicast flood rule present for port 2, but NOT for port 1
         self.assertTrue(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_2)d}' % self.port_map))
+            r''.join((
+                '"table_id": 7, ',
+                '"match": ',
+                '{"dl_vlan": "100", "in_port": %(port_2)d}')) % self.port_map))
         self.assertFalse(self.matching_flow_present(
-            '"table_id": 7, "match": {"dl_vlan": "100", "in_port": %(port_1)d}' % self.port_map))
+            r''.join((
+                '"table_id": 7, ',
+                '"match": ',
+                '{"dl_vlan": "100", "in_port": %(port_1)d}')) % self.port_map))
         # Unicast flood rules present that output to port 2, but NOT to port 1
         self.assertTrue(self.matching_flow_present(
-            '"OUTPUT:%(port_2)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
+            r''.join((
+                '"OUTPUT:%(port_2)d".+',
+                '"table_id": 7, ',
+                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
         self.assertFalse(self.matching_flow_present(
-            '"OUTPUT:%(port_1)d".+"table_id": 7, "match": {"dl_vlan": "100", "in_port": .+}' % self.port_map))
+            r''.join((
+                '"OUTPUT:%(port_1)d".+',
+                '"table_id": 7, ',
+                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
         self.assertFalse(self.bogus_mac_flooded_to_port1())
 
 
