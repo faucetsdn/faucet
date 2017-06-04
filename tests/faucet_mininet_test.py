@@ -124,27 +124,23 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         self.topo = faucet_mininet_test_topo.FaucetSwitchTopo(
             self.ports_sock,
             dpid=self.dpid,
-            n_untagged=7
-            )
+            n_untagged=7)
         self.net = Mininet(
             self.topo,
             controller=faucet_mininet_test_topo.FaucetAPI(
                 name='faucet-api',
-                port=self.of_port
-                )
-            )
+                tmpdir=self.tmpdir,
+                port=self.of_port))
         self.net.start()
 
     def test_api(self):
-        countdown = 30
-        while countdown > 0:
+        for _ in range(30):
             try:
                 with open(self.results_file, 'r') as results:
                     result = results.read().strip()
                     self.assertEquals('pass', result, result)
                     return
             except IOError:
-                countdown -= 1
                 time.sleep(1)
         self.fail('no result from API test')
 
