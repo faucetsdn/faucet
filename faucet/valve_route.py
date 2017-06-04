@@ -104,12 +104,8 @@ class ValveRouteManager(object):
         pass
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
-        tagged_resolver_pkt = self._neighbor_resolver_pkt(
-            vlan.vid, faucet_vip, ip_gw)
-        untagged_resolver_pkt = self._neighbor_resolver_pkt(
-            None, faucet_vip, ip_gw)
-        return self._flood_ports(
-            vlan, tagged_resolver_pkt, untagged_resolver_pkt)
+        return vlan.flood_pkt(
+            self._neighbor_resolver_pkt, faucet_vip, ip_gw)
 
     def _nexthop_actions(self, eth_dst, vlan):
         ofmsgs = []
@@ -293,14 +289,6 @@ class ValveRouteManager(object):
                 if ip_dst.prefixlen < ip_dst.max_prefixlen:
                     return False
         return in_fib
-
-    def _flood_ports(self, vlan, tagged_pkt, untagged_pkt):
-        ofmsgs = []
-        for port in vlan.tagged_flood_ports(False):
-            ofmsgs.append(valve_of.packetout(port.number, tagged_pkt.data))
-        for port in vlan.untagged_flood_ports(False):
-            ofmsgs.append(valve_of.packetout(port.number, untagged_pkt.data))
-        return ofmsgs
 
     def advertise(self, vlan):
         return []
@@ -851,14 +839,9 @@ class ValveIPv6RouteManager(ValveRouteManager):
         link_local_vips, other_vips = self._link_and_other_vips(vlan)
         for link_local_vip in link_local_vips:
             # https://tools.ietf.org/html/rfc4861#section-6.1.2
-            ra_advert_tagged = valve_packet.router_advert(
-                vlan.vid, self.faucet_mac, valve_packet.IPV6_ALL_NODES_MCAST,
+            ofmsgs.extend(vlan.flood_pkt(
+                valve_packet.router_advert, self.faucet_mac,
+                valve_packet.IPV6_ALL_NODES_MCAST,
                 link_local_vip.ip, valve_packet.IPV6_ALL_NODES,
-                other_vips)
-            ra_advert_untagged = valve_packet.router_advert(
-                None, self.faucet_mac, valve_packet.IPV6_ALL_NODES_MCAST,
-                link_local_vip.ip, valve_packet.IPV6_ALL_NODES,
-                other_vips)
-            ofmsgs.extend(self._flood_ports(
-                vlan, ra_advert_tagged, ra_advert_untagged))
+                other_vips))
         return ofmsgs
