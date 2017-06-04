@@ -465,6 +465,20 @@ class FaucetTestBase(unittest.TestCase):
                 continue
         return []
 
+    def _curl_portmod(self, int_dpid, port_no, config, mask):
+        """Use curl to send a portmod command via the ofctl module."""
+        curl_format = ' '.join((
+            'curl -X POST -d'
+            '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
+            '%s/stats/portdesc/modify'))
+        return curl_format % (
+            int_dpid, port_no, config, mask, self._ofctl_rest_url())
+
+    def _signal_proc_on_port(self, host, port, signal):
+        tcp_pattern = '%s/tcp' % port
+        fuser_out = host.cmd('fuser %s -k -%u' % (tcp_pattern, signal))
+        return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
+
     def verify_no_exception(self, exception_log):
         exception_log_name = os.environ[exception_log]
         if not os.path.exists(exception_log_name):
@@ -796,15 +810,11 @@ dbs:
             time.sleep(1)
         self.fail('configure count stayed zero')
 
-    def signal_proc_on_port(self, host, port, signal):
-        tcp_pattern = '%s/tcp' % port
-        fuser_out = host.cmd('fuser %s -k -%u' % (tcp_pattern, signal))
-        return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
-
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
         controller = self._get_controller()
-        self.assertTrue(self.signal_proc_on_port(controller, controller.port, 1))
+        self.assertTrue(
+            self._signal_proc_on_port(controller, controller.port, 1))
 
     def verify_ping_mirrored(self, first_host, second_host, mirror_host):
         self.net.ping((first_host, second_host))
@@ -964,24 +974,15 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def curl_portmod(self, int_dpid, port_no, config, mask):
-        """Use curl to send a portmod command via the ofctl module."""
-        curl_format = ' '.join((
-            'curl -X POST -d'
-            '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
-            '%s/stats/portdesc/modify'))
-        return curl_format % (
-            int_dpid, port_no, config, mask, self._ofctl_rest_url())
-
     def set_port_down(self, port_no):
-        os.system(self.curl_portmod(
+        os.system(self._curl_portmod(
             self.dpid,
             port_no,
             ofp.OFPPC_PORT_DOWN,
             ofp.OFPPC_PORT_DOWN))
 
     def set_port_up(self, port_no):
-        os.system(self.curl_portmod(
+        os.system(self._curl_portmod(
             self.dpid,
             port_no,
             0,
@@ -1164,7 +1165,7 @@ dbs:
     def stop_exabgp(self, port=179):
         """Stop exabgp process on controller host."""
         controller = self._get_controller()
-        self.signal_proc_on_port(controller, port, 9)
+        self._signal_proc_on_port(controller, port, 9)
 
     def exabgp_updates(self, exabgp_log):
         """Verify that exabgp process has received BGP updates."""
@@ -1289,7 +1290,7 @@ dbs:
                             server_host, port, ipv=server_ip.version)
                         iperf_mbps = self.iperf_client(
                             client_host, iperf_client_cmd)
-                        self.signal_proc_on_port(server_host, port, 9)
+                        self._signal_proc_on_port(server_host, port, 9)
                         return iperf_mbps
             time.sleep(1)
         self.fail('%s never started (%s, %s)' % (
