@@ -121,14 +121,14 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
         self.of_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)
-        self.topo = faucet_mininet_test_base.FaucetSwitchTopo(
+        self.topo = faucet_mininet_test_topo.FaucetSwitchTopo(
             self.ports_sock,
             dpid=self.dpid,
             n_untagged=7
             )
         self.net = Mininet(
             self.topo,
-            controller=faucet_mininet_test_base.FaucetAPI(
+            controller=faucet_mininet_test_topo.FaucetAPI(
                 name='faucet-api',
                 port=self.of_port
                 )

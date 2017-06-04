@@ -1,6 +1,10 @@
 """Topology components for FAUCET Mininet unit tests."""
 
+import os
+import socket
 import string
+
+import netifaces
 
 from mininet.topo import Topo
 from mininet.node import Controller
@@ -27,11 +31,13 @@ class VLANHost(Host):
         super_config = super(VLANHost, self).config(**params)
         intf = self.defaultIntf()
         vlan_intf_name = '%s.%d' % (intf, vlan)
-        self.cmd('ip -4 addr flush dev %s' % intf)
-        self.cmd('ip -6 addr flush dev %s' % intf)
-        self.cmd('vconfig add %s %d' % (intf, vlan))
-        self.cmd('ip link set dev %s up' % vlan_intf_name)
-        self.cmd('ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name))
+        for cmd in (
+                'ip -4 addr flush dev %s' % intf,
+                'ip -6 addr flush dev %s' % intf,
+                'vconfig add %s %d' % (intf, vlan),
+                'ip link set dev %s up' % vlan_intf_name,
+                'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)):
+            self.cmd(cmd)
         intf.name = vlan_intf_name
         self.nameToIntf[vlan_intf_name] = intf
         return super_config
@@ -139,3 +145,75 @@ class BaseFAUCET(Controller):
     def start(self):
         self._start_tcpdump()
         super(BaseFAUCET, self).start()
+
+
+class FAUCET(BaseFAUCET):
+    """Start a FAUCET controller."""
+
+    def __init__(self, name, tmpdir, controller_intf,
+                 ctl_privkey, ctl_cert, ca_certs,
+                 ports_sock, port, **kwargs):
+        name = 'faucet-%u' % os.getpid()
+        self.tmpdir = tmpdir
+        self.controller_intf = controller_intf
+        # pylint: disable=no-member
+        self.controller_ipv4 = netifaces.ifaddresses(
+            self.controller_intf)[socket.AF_INET][0]['addr']
+        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
+            ports_sock)
+        cargs = ' '.join((
+            '--verbose',
+            '--use-stderr',
+            '--wsapi-host=127.0.0.1',
+            '--wsapi-port=%u' % self.ofctl_port,
+            '--ofp-listen-host=%s' % self.controller_ipv4,
+            '--ofp-tcp-listen-port=%s',
+            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
+        super(FAUCET, self).__init__(
+            name,
+            cdir=faucet_mininet_test_util.FAUCET_DIR,
+            command=self._command('ryu.app.ofctl_rest faucet.faucet'),
+            cargs=cargs,
+            port=port,
+            **kwargs)
+
+
+class Gauge(BaseFAUCET):
+    """Start a Gauge controller."""
+
+    def __init__(self, name, tmpdir, controller_intf,
+                 ctl_privkey, ctl_cert, ca_certs,
+                 port, **kwargs):
+        name = 'gauge-%u' % os.getpid()
+        self.tmpdir = tmpdir
+        self.controller_intf = controller_intf
+        cargs = ' '.join((
+            '--verbose',
+            '--use-stderr',
+            '--ofp-tcp-listen-port=%s',
+            self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
+        super(Gauge, self).__init__(
+            name,
+            cdir=faucet_mininet_test_util.FAUCET_DIR,
+            command=self._command('faucet.gauge'),
+            cargs=cargs,
+            port=port,
+            **kwargs)
+
+
+class FaucetAPI(Controller):
+    """Start a controller to run the Faucet API tests."""
+
+    def __init__(self, name, **kwargs):
+        name = 'faucet-api-%u' % os.getpid()
+        cargs = ' '.join((
+            '--verbose',
+            '--use-stderr',
+            '--ofp-tcp-listen-port=%s'))
+        Controller.__init__(
+            self,
+            name,
+            command=self._command('faucet.faucet test_api.py'),
+            cargs=cargs,
+            **kwargs)
+
