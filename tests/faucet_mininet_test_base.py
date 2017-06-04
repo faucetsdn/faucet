@@ -943,7 +943,8 @@ dbs:
 
     def start_exabgp(self, exabgp_conf):
         """Start exabgp process on controller host."""
-        self.stop_exabgp(port)
+        bgp_port = self.config_ports['bgp_port']
+        self.stop_exabgp(bgp_port)
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
@@ -955,7 +956,7 @@ dbs:
             'exabgp.log.parser=true',
         ))
         bgp_port = self.config_ports['bgp_port']
-        exabgp_conf = self.exabgp_conf % {'bgp_port': bgp_port}
+        exabgp_conf = exabgp_conf % {'bgp_port': bgp_port}
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self._get_controller()
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
