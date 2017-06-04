@@ -39,8 +39,9 @@ from mininet.net import Mininet
 from mininet.clean import Cleanup
 from packaging import version
 
-import faucet_mininet_test_util
 import faucet_mininet_test_base
+import faucet_mininet_test_util
+import faucet_mininet_test_topo
 
 
 # list of required external dependencies
@@ -2586,7 +2587,7 @@ vlans:
             self.swap_host_macs(first_host, second_host)
 
 
-class FaucetStringOfDPSwitchTopo(faucet_mininet_test_base.FaucetSwitchTopo):
+class FaucetStringOfDPSwitchTopo(faucet_mininet_test_topo.FaucetSwitchTopo):
 
     def build(self, ports_sock, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
         """String of datapaths each with hosts with a single FAUCET controller.
