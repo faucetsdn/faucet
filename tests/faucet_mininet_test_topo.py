@@ -3,6 +3,7 @@
 import string
 
 from mininet.topo import Topo
+from mininet.node import Controller
 from mininet.node import Host
 from mininet.node import OVSSwitch
 
@@ -99,3 +100,42 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
         switch = self._add_faucet_switch(sid_prefix, port, dpid)
         for host in self.hosts():
             self.addLink(host, switch)
+
+
+class BaseFAUCET(Controller):
+
+    controller_intf = None
+    tmpdir = None
+
+    def _start_tcpdump(self):
+        tcpdump_args = ' '.join((
+            '-s 0',
+            '-e',
+            '-n',
+            '-U',
+            '-q',
+            '-i %s' % self.controller_intf,
+            '-w %s/%s-of.cap' % (self.tmpdir, self.name),
+            'tcp and port %u' % self.port,
+            '>/dev/null',
+            '2>/dev/null',
+        ))
+        self.cmd('tcpdump %s &' % tcpdump_args)
+
+    def _tls_cargs(self, ofctl_port, ctl_privkey, ctl_cert, ca_certs):
+        tls_cargs = []
+        for carg_val, carg_key in ((ctl_privkey, 'ctl-privkey'),
+                                   (ctl_cert, 'ctl-cert'),
+                                   (ca_certs, 'ca-certs')):
+            if carg_val:
+                tls_cargs.append(('--%s=%s' % (carg_key, carg_val)))
+        if tls_cargs:
+            tls_cargs.append(('--ofp-ssl-listen-port=%u' % ofctl_port))
+        return ' '.join(tls_cargs)
+
+    def _command(self, args):
+        return 'PYTHONPATH=../ ryu-manager %s' % args
+
+    def start(self):
+        self._start_tcpdump()
+        super(BaseFAUCET, self).start()

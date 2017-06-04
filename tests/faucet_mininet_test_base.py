@@ -22,7 +22,6 @@ import netifaces
 import requests
 
 from mininet.net import Mininet
-from mininet.node import Controller
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -31,43 +30,7 @@ import faucet_mininet_test_util
 import faucet_mininet_test_topo
 
 
-class BaseFAUCET(Controller):
-
-    controller_intf = None
-    tmpdir = None
-
-    def _start_tcpdump(self):
-        tcpdump_args = ' '.join((
-            '-s 0',
-            '-e',
-            '-n',
-            '-U',
-            '-q',
-            '-i %s' % self.controller_intf,
-            '-w %s/%s-of.cap' % (self.tmpdir, self.name),
-            'tcp and port %u' % self.port,
-            '>/dev/null',
-            '2>/dev/null',
-        ))
-        self.cmd('tcpdump %s &' % tcpdump_args)
-
-    def _tls_cargs(self, ofctl_port, ctl_privkey, ctl_cert, ca_certs):
-        tls_cargs = []
-        for carg_val, carg_key in ((ctl_privkey, 'ctl-privkey'),
-                                   (ctl_cert, 'ctl-cert'),
-                                   (ca_certs, 'ca-certs')):
-            if carg_val:
-                tls_cargs.append(('--%s=%s' % (carg_key, carg_val)))
-        if tls_cargs:
-            tls_cargs.append(('--ofp-ssl-listen-port=%u' % ofctl_port))
-        return ' '.join(tls_cargs)
-
-    def start(self):
-        self._start_tcpdump()
-        super(BaseFAUCET, self).start()
-
-
-class FAUCET(BaseFAUCET):
+class FAUCET(faucet_mininet_test_topo.BaseFAUCET):
     """Start a FAUCET controller."""
 
     def __init__(self, name, tmpdir, controller_intf,
@@ -81,7 +44,6 @@ class FAUCET(BaseFAUCET):
             self.controller_intf)[socket.AF_INET][0]['addr']
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
             ports_sock)
-        command = 'PYTHONPATH=../ ryu-manager ryu.app.ofctl_rest faucet.faucet'
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
@@ -93,13 +55,13 @@ class FAUCET(BaseFAUCET):
         super(FAUCET, self).__init__(
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
-            command=command,
+            command=self._command('ryu.app.ofctl_rest faucet.faucet'),
             cargs=cargs,
             port=port,
             **kwargs)
 
 
-class Gauge(BaseFAUCET):
+class Gauge(faucet_mininet_test_topo.BaseFAUCET):
     """Start a Gauge controller."""
 
     def __init__(self, name, tmpdir, controller_intf,
@@ -108,7 +70,6 @@ class Gauge(BaseFAUCET):
         name = 'gauge-%u' % os.getpid()
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
-        command = 'PYTHONPATH=../ ryu-manager faucet.gauge'
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
@@ -117,18 +78,17 @@ class Gauge(BaseFAUCET):
         super(Gauge, self).__init__(
             name,
             cdir=faucet_mininet_test_util.FAUCET_DIR,
-            command=command,
+            command=self._command('faucet.gauge'),
             cargs=cargs,
             port=port,
             **kwargs)
 
 
-class FaucetAPI(Controller):
-    '''Start a controller to run the Faucet API tests.'''
+class FaucetAPI(faucet_mininet_test_topo.Controller):
+    """Start a controller to run the Faucet API tests."""
 
     def __init__(self, name, **kwargs):
         name = 'faucet-api-%u' % os.getpid()
-        command = 'PYTHONPATH=../ ryu-manager faucet.faucet test_api.py'
         cargs = ' '.join((
             '--verbose',
             '--use-stderr',
@@ -136,7 +96,7 @@ class FaucetAPI(Controller):
         Controller.__init__(
             self,
             name,
-            command=command,
+            command=self._command('faucet.faucet test_api.py'),
             cargs=cargs,
             **kwargs)
 
