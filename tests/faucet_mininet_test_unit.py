@@ -1147,12 +1147,14 @@ vlans:
         # No unicast flooding rule for from port 1
         self.assertFalse(self.matching_flow_present(
             {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_1'])},
-            table_id=7))
+            table_id=7,
+            match_exact=True))
         # No unicast flood rule exists that output to port 1
         self.assertFalse(self.matching_flow_present(
             {u'dl_vlan': u'100'},
             table_id=7,
-            actions=[u'OUTPUT:%u' % int(self.port_map['port_1'])]))
+            actions=[u'OUTPUT:%u' % int(self.port_map['port_1'])],
+            match_exact=True))
         # VLAN level config to disable flooding takes precedence,
         # cannot enable port-only flooding.
         self.assertFalse(self.bogus_mac_flooded_to_port1())
@@ -1188,10 +1190,12 @@ vlans:
         # Unicast flood rule present for port 2, but NOT for port 1
         self.assertTrue(self.matching_flow_present(
             {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
-            table_id=7))
+            table_id=7,
+            match_exact=True))
         self.assertFalse(self.matching_flow_present(
             {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_1'])},
-            table_id=7))
+            table_id=7,
+            match_exact=True))
         # Unicast flood rules present that output to port 2, but NOT to port 1
         self.assertTrue(self.matching_flow_present(
             {u'dl_vlan': u'100'},

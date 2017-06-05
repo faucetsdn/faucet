@@ -485,7 +485,7 @@ dbs:
         return False
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10,
-                                   table_id=None, actions=None):
+                                   table_id=None, actions=None, match_exact=False):
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
         for _ in range(timeout):
             flow_dicts = []
@@ -500,8 +500,11 @@ dbs:
                 if actions is not None:
                     if not set(actions).issubset(set(flow_dict['actions'])):
                         continue
-                if match:
-                    if not set(match.items()).issubset(set(flow_dict['match'].items())):
+                if match is not None:
+                    if match_exact:
+                        if match.items() != flow_dict['match'].items():
+                            continue
+                    elif not set(match.items()).issubset(set(flow_dict['match'].items())):
                         continue
                 flow_dicts.append(flow_dict)
             if flow_dicts:
@@ -510,39 +513,48 @@ dbs:
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10,
-                                  table_id=None, actions=None):
+                                  table_id=None, actions=None, match_exact=None):
         flow_dicts = self.get_matching_flows_on_dpid(
-            dpid, match, timeout, table_id, actions)
+            dpid, match, timeout=timeout, table_id=table_id,
+            actions=actions, match_exact=match_exact)
         if flow_dicts:
             return flow_dicts[0]
         else:
             return []
 
-    def get_matching_flow(self, match, timeout=10, table_id=None, actions=None):
+    def get_matching_flow(self, match, timeout=10, table_id=None, actions=None, match_exact=None):
         """Return flow matching an RE from default DPID."""
         return self.get_matching_flow_on_dpid(
-            self.dpid, match, timeout, table_id, actions)
+            self.dpid, match, timeout=timeout, table_id=table_id,
+            actions=actions, match_exact=match_exact)
 
-    def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None, actions=None):
+    def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
+                                      actions=None, match_exact=None):
         """Return True if matching flow is present on a DPID."""
         if self.get_matching_flow_on_dpid(
-                dpid, match, timeout=timeout, table_id=table_id, actions=actions):
+                dpid, match, timeout=timeout, table_id=table_id,
+                actions=actions, match_exact=match_exact):
             return True
         return False
 
-    def matching_flow_present(self, match, timeout=10, table_id=None, actions=None):
+    def matching_flow_present(self, match, timeout=10, table_id=None,
+                              actions=None, match_exact=None):
         """Return True if matching flow is present on default DPID."""
         return self.matching_flow_present_on_dpid(
-            self.dpid, match, timeout=timeout, table_id=table_id, actions=actions)
+            self.dpid, match, timeout=timeout, table_id=table_id,
+            actions=actions, match_exact=match_exact)
 
-    def wait_until_matching_flow(self, match, timeout=10, table_id=None, actions=None):
+    def wait_until_matching_flow(self, match, timeout=10, table_id=None,
+                                 actions=None, match_exact=False):
         """Wait (require) for flow to be present on default DPID."""
         self.assertTrue(
-            self.matching_flow_present(match, timeout=timeout, table_id=table_id, actions=actions),
+            self.matching_flow_present(
+                match, timeout=timeout, table_id=table_id,
+                actions=actions, match_exact=match_exact),
             msg=match)
 
     def wait_until_controller_flow(self):
-        self.wait_until_matching_flow({}, actions=[u'OUTPUT:CONTROLLER'])
+        self.wait_until_matching_flow(None, actions=[u'OUTPUT:CONTROLLER'])
 
     def mac_learned(self, mac, timeout=10):
         """Return True if a MAC has been learned on default DPID."""
