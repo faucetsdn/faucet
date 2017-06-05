@@ -117,7 +117,9 @@ class Faucet(app_manager.RyuApp):
 
         # Start Prometheus
         prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9244'))
-        self.metrics = faucet_metrics.FaucetMetrics(prom_port)
+        prom_addr = os.getenv('FAUCET_PROMETHEUS_ADDR', '')
+        self.metrics = faucet_metrics.FaucetMetrics(
+            prom_port, prom_addr)
 
         # Start BGP
         self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)

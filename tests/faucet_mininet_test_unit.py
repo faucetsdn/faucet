@@ -35,14 +35,15 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
 
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
-        self._set_var('FAUCET_CONFIG', 'config/testconfigv2-simple.yaml')
-        self._set_var('FAUCET_LOG', 'faucet.log')
-        self._set_var('FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
-        self._set_var('API_TEST_RESULT', 'result.txt')
-        self.results_file = os.environ['API_TEST_RESULT']
+        name = 'faucet'
+        self._set_var_path(name, 'FAUCET_CONFIG', 'config/testconfigv2-simple.yaml')
+        self._set_var_path(name, 'FAUCET_LOG', 'faucet.log')
+        self._set_var_path(name, 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
+        self._set_var_path(name, 'API_TEST_RESULT', 'result.txt')
+        self.results_file = self.env[name]['API_TEST_RESULT']
         shutil.copytree('config', os.path.join(self.tmpdir, 'config'))
         self.dpid = str(0xcafef00d)
-        self._set_prom_port()
+        self._set_prom_port(name)
         self.of_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)
         self.topo = faucet_mininet_test_topo.FaucetSwitchTopo(
@@ -52,8 +53,9 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         self.net = Mininet(
             self.topo,
             controller=faucet_mininet_test_topo.FaucetAPI(
-                name='faucet-api',
+                name=name,
                 tmpdir=self.tmpdir,
+                env=self.env[name],
                 port=self.of_port))
         self.net.start()
 
@@ -169,30 +171,31 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
     def test_untagged_influx_down(self):
         self.ping_all_when_learned()
-        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
+        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
 
     def test_untagged(self):
+
+        influx_log = os.path.join(self.tmpdir, 'influx.log')
 
         class PostHandler(SimpleHTTPRequestHandler):
 
             def do_POST(self):
                 content_len = int(self.headers.getheader('content-length', 0))
                 content = self.rfile.read(content_len)
-                open(os.environ['INFLUXLOG'], 'a').write(content)
+                open(influx_log, 'a').write(content)
                 return self.send_response(204)
 
-        os.environ['INFLUXLOG'] = os.path.join(self.tmpdir, 'influx.log')
         server = HTTPServer(('', self.influx_port), PostHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
         self.ping_all_when_learned()
         for _ in range(3):
-            if os.path.exists(os.environ['INFLUXLOG']):
+            if os.path.exists(influx_log):
                 break
             time.sleep(2)
         server.shutdown()
-        self.assertTrue(os.path.exists(os.environ['INFLUXLOG']))
+        self.assertTrue(os.path.exists(influx_log))
 
 
 class FaucetNailedForwardingTest(FaucetUntaggedTest):
@@ -722,7 +725,7 @@ acls:
         super(FaucetConfigReloadTest, self).setUp()
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         open(self.acl_config_file, 'w').write(self.ACL)
-        open(os.environ['FAUCET_CONFIG'], 'a').write(
+        open(self.faucet_config_path, 'a').write(
             'include:\n     - %s' % self.acl_config_file)
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid,
@@ -735,16 +738,16 @@ acls:
         return flow
 
     def change_port_config(self, port, config_name, config_value, restart=True):
-        conf = yaml.load(open(os.environ['FAUCET_CONFIG'], 'r').read())
+        conf = yaml.load(open(self.faucet_config_path, 'r').read())
         conf['dps']['faucet-1']['interfaces'][port][config_name] = config_value
-        open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
+        open(self.faucet_config_path, 'w').write(yaml.dump(conf))
         if restart:
             self.verify_hup_faucet()
 
     def change_vlan_config(self, vlan, config_name, config_value, restart=True):
-        conf = yaml.load(open(os.environ['FAUCET_CONFIG'], 'r').read())
+        conf = yaml.load(open(self.faucet_config_path, 'r').read())
         conf['vlans'][vlan][config_name] = config_value
-        open(os.environ['FAUCET_CONFIG'], 'w').write(yaml.dump(conf))
+        open(self.faucet_config_path, 'w').write(yaml.dump(conf))
         if restart:
             self.verify_hup_faucet()
 
@@ -2583,7 +2586,7 @@ class FaucetStringOfDPTest(FaucetTest):
             acls,
             acl_in_dp,
         )
-        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+        open(self.faucet_config_path, 'w').write(self.CONFIG)
         self.topo = FaucetStringOfDPSwitchTopo(
             self.ports_sock,
             dpids=self.dpids,

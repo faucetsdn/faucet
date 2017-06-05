@@ -21,6 +21,7 @@ import ipaddress
 
 from conf import Conf
 from valve_util import btos
+import valve_of
 
 
 class VLAN(Conf):
@@ -180,6 +181,17 @@ class VLAN(Conf):
 
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged, exclude_unicast)
+
+    def flood_pkt(self, packet_builder, *args):
+        ofmsgs = []
+        for vid, ports in (
+            (self.vid, self.tagged_flood_ports(False)),
+            (None, self.untagged_flood_ports(False))):
+            if ports:
+                pkt = packet_builder(vid, *args)
+                for port in ports:
+                    ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+        return ofmsgs
 
     def port_is_tagged(self, port_number):
         """Return True if port number is an tagged port on this VLAN."""

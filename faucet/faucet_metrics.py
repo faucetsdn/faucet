@@ -25,7 +25,7 @@ from prometheus_client import Counter, Gauge, start_http_server
 class FaucetMetrics(object):
     """Container class for objects that can be exported to Prometheus."""
 
-    def __init__(self, prom_port):
+    def __init__(self, prom_port, prom_addr):
         self.of_packet_ins = Counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP', ['dpid'])
@@ -75,4 +75,4 @@ class FaucetMetrics(object):
             'dp_status',
             'status of datapaths',
             ['dpid'])
-        start_http_server(prom_port)
+        start_http_server(prom_port, prom_addr)

@@ -4,7 +4,7 @@
 
 # pylint: disable=missing-docstring
 
-
+import collections
 import json
 import os
 import random
@@ -68,7 +68,7 @@ class FaucetTestBase(unittest.TestCase):
     topo = None
     cpn_intf = None
     config_ports = {'bgp_port': None}
-
+    env = collections.defaultdict(dict)
 
     def __init__(self, name, config, root_tmpdir, ports_sock):
         super(FaucetTestBase, self).__init__(name)
@@ -76,21 +76,27 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
 
-    def _set_var(self, var, value):
-        os.environ[var] = os.path.join(self.tmpdir, value)
+    def _set_var(self, controller, var, value):
+        self.env[controller][var] = value
 
-    def _set_prom_port(self):
+    def _set_var_path(self, controller, var, path):
+        self._set_var(controller, var, os.path.join(self.tmpdir, path))
+
+    def _set_prom_port(self, name='faucet'):
         prom_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)
-        os.environ['FAUCET_PROMETHEUS_PORT'] = str(prom_port)
+        self._set_var(name, 'FAUCET_PROMETHEUS_PORT', str(prom_port))
+        self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', u'127.0.0.1')
 
     def _set_vars(self):
-        self._set_var('FAUCET_CONFIG', 'faucet.yaml')
-        self._set_var('GAUGE_CONFIG', 'gauge.yaml')
-        self._set_var('FAUCET_LOG', 'faucet.log')
-        self._set_var('FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
-        self._set_var('GAUGE_LOG', 'gauge.log')
-        self._set_var('GAUGE_EXCEPTION_LOG', 'gauge-exception.log')
+        self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
+        self._set_var_path('faucet', 'FAUCET_LOG', 'faucet.log')
+        self._set_var_path('faucet', 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
+        self._set_var_path('gauge', 'GAUGE_CONFIG', 'gauge.yaml')
+        self._set_var_path('gauge', 'GAUGE_LOG', 'gauge.log')
+        self._set_var_path('gauge', 'GAUGE_EXCEPTION_LOG', 'gauge-exception.log')
+        self.faucet_config_path = self.env['faucet']['FAUCET_CONFIG']
+        self.gauge_config_path = self.env['gauge']['GAUGE_CONFIG']
         self._set_prom_port()
         self.debug_log_path = os.path.join(
             self.tmpdir, 'ofchannel.log')
@@ -135,16 +141,16 @@ class FaucetTestBase(unittest.TestCase):
                 self.CONFIG = self.CONFIG % {'bgp_port': port}
                 self.config_ports[port_name] = port
                 print('allocating port %u for %s' % (port, port_name))
-        open(os.environ['FAUCET_CONFIG'], 'w').write(self.CONFIG)
+        open(self.faucet_config_path, 'w').write(self.CONFIG)
         self.influx_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock)
         self.GAUGE_CONFIG = self.get_gauge_config(
-            os.environ['FAUCET_CONFIG'],
+            self.faucet_config_path,
             self.monitor_stats_file,
             self.monitor_state_file,
             self.monitor_flow_table_file,
             self.influx_port)
-        open(os.environ['GAUGE_CONFIG'], 'w').write(self.GAUGE_CONFIG)
+        open(self.gauge_config_path, 'w').write(self.GAUGE_CONFIG)
 
     def _tmpdir_name(self):
         test_name = '-'.join(self.id().split('.')[1:])
@@ -189,7 +195,7 @@ class FaucetTestBase(unittest.TestCase):
         for log in logs:
             shutil.move(log, self.tmpdir)
         # must not be any controller exception.
-        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
+        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         for _, debug_log in self._get_ofchannel_logs():
             self.assertFalse(
                 re.search('OFPErrorMsg', open(debug_log).read()),
@@ -226,6 +232,7 @@ class FaucetTestBase(unittest.TestCase):
             controller=faucet_mininet_test_topo.FAUCET(
                 name='faucet', tmpdir=self.tmpdir,
                 controller_intf=controller_intf,
+                env=self.env['faucet'],
                 ctl_privkey=self.ctl_privkey,
                 ctl_cert=self.ctl_cert,
                 ca_certs=self.ca_certs,
@@ -235,6 +242,7 @@ class FaucetTestBase(unittest.TestCase):
         if self.RUN_GAUGE:
             gauge_controller = faucet_mininet_test_topo.Gauge(
                 name='gauge', tmpdir=self.tmpdir,
+                env=self.env['gauge'],
                 controller_intf=controller_intf,
                 ctl_privkey=self.ctl_privkey,
                 ctl_cert=self.ctl_cert,
@@ -286,7 +294,7 @@ class FaucetTestBase(unittest.TestCase):
         return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
 
     def _get_ofchannel_logs(self):
-        config = yaml.load(open(os.environ['FAUCET_CONFIG']))
+        config = yaml.load(open(self.env['faucet']['FAUCET_CONFIG']))
         ofchannel_logs = []
         for dp_name, dp_config in config['dps'].items():
             if 'ofchannel_log' in dp_config:
@@ -295,7 +303,7 @@ class FaucetTestBase(unittest.TestCase):
         return ofchannel_logs
 
     def _report_controller_log(self):
-        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
+        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         controller_txt = ''
         for log in self._controller_lognames():
             controller_txt += open(log).read()
@@ -318,15 +326,14 @@ class FaucetTestBase(unittest.TestCase):
                     'no controller debug log for switch %s (log %s)' % (
                         dp_name, controller_txt))
 
-    def verify_no_exception(self, exception_log):
-        exception_log_name = os.environ[exception_log]
+    def verify_no_exception(self, exception_log_name):
         if not os.path.exists(exception_log_name):
             return
         exception_contents = open(exception_log_name, 'r').read()
         self.assertEquals(
             '',
             exception_contents,
-            msg='%s log contains %s' % (exception_log, exception_contents))
+            msg='%s log contains %s' % (exception_log_name, exception_contents))
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=None,
                        vflags='-v', timeout=10, packets=2, root_intf=False):
@@ -550,11 +557,15 @@ dbs:
             host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
         self.fail('host %s could not be learned' % host)
 
+    def _prometheus_url(self):
+        name = 'faucet'
+        prom_port = int(self.env[name]['FAUCET_PROMETHEUS_PORT'])
+        prom_addr = self.env[name]['FAUCET_PROMETHEUS_ADDR']
+        return 'http://%s:%u' % (prom_addr, prom_port)
+
     def scrape_prometheus(self):
-        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT'))
-        prom_url = 'http://127.0.0.1:%u' % prom_port
         prom_vars = []
-        for prom_line in requests.get(prom_url).text.split('\n'):
+        for prom_line in requests.get(self._prometheus_url()).text.split('\n'):
             if not prom_line.startswith('#'):
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
@@ -603,23 +614,21 @@ dbs:
                 continue
             self.fail(
                 'gauge did not output %s (gauge not connected?)' % watcher_file)
-        self.verify_no_exception('FAUCET_EXCEPTION_LOG')
-        self.verify_no_exception('GAUGE_EXCEPTION_LOG')
+        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def prometheus_smoke_test(self):
         prom_out = self.scrape_prometheus()
-        self.assertTrue(
-            re.search(r'of_packet_ins\S+[1-9]+', prom_out), msg=prom_out)
-        self.assertTrue(
-            re.search(r'of_flowmsgs_sent\S+[1-9]+', prom_out), msg=prom_out)
-        self.assertTrue(
-            re.search(r'of_dp_connections\S+[1-9]+', prom_out), msg=prom_out)
-        self.assertTrue(
-            re.search(r'faucet_config\S+name=\"flood\"\S+', prom_out), msg=prom_out)
-        self.assertIsNone(
-            re.search(r'of_errors', prom_out), msg=prom_out)
-        self.assertIsNone(
-            re.search(r'of_dp_disconnections', prom_out), msg=prom_out)
+        for nonzero_var in (
+                r'of_packet_ins', r'of_flowmsgs_sent', r'of_dp_connections',
+                r'faucet_config\S+name=\"flood\"'):
+            self.assertTrue(
+                re.search(r'%s\S+\s+[1-9]+' % nonzero_var, prom_out),
+                msg=prom_out)
+        for notpresent_var in (
+                'of_errors', 'of_dp_disconnections'):
+            self.assertIsNone(
+                re.search(notpresent_var, prom_out), msg=prom_out)
 
     def get_configure_count(self):
         """Return the number of times FAUCET has processed a reload request."""
@@ -746,7 +755,7 @@ dbs:
 
     def force_faucet_reload(self, new_config):
         """Force FAUCET to reload by adding new line to config file."""
-        open(os.environ['FAUCET_CONFIG'], 'a').write(new_config)
+        open(self.env['faucet']['FAUCET_CONFIG'], 'a').write(new_config)
         self.verify_hup_faucet()
 
     def get_host_port_stats(self, hosts_switch_ports):
@@ -1279,5 +1288,5 @@ dbs:
         """Check if we see the pattern in Faucet's log"""
         controller = self._get_controller()
         count = controller.cmd(
-            'grep -c "%s" %s' % (pattern, os.environ['FAUCET_LOG']))
+            'grep -c "%s" %s' % (pattern, self.env['faucet']['FAUCET_LOG']))
         self.assertGreater(count, 0)

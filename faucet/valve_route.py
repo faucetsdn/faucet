@@ -103,17 +103,9 @@ class ValveRouteManager(object):
     def _neighbor_resolver_pkt(self, vid, faucet_vip, ip_gw):
         pass
 
-    def _neighbor_resolver(self, ip_gw, faucet_vip, vlan, ports):
-        ofmsgs = []
-        if ports:
-            port_num = ports[0].number
-            vid = self._vlan_vid(vlan, port_num)
-            resolver_pkt = self._neighbor_resolver_pkt(
-                vid, faucet_vip, ip_gw)
-            for port in ports:
-                ofmsgs.append(valve_of.packetout(
-                    port.number, resolver_pkt.data))
-        return ofmsgs
+    def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
+        return vlan.flood_pkt(
+            self._neighbor_resolver_pkt, faucet_vip, ip_gw)
 
     def _nexthop_actions(self, eth_dst, vlan):
         ofmsgs = []
@@ -298,19 +290,8 @@ class ValveRouteManager(object):
                     return False
         return in_fib
 
-    def _flood_ports(self, vlan):
-        return (
-            vlan.untagged_flood_ports(False), vlan.tagged_flood_ports(False))
-
     def advertise(self, vlan):
         return []
-
-    def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
-        ofmsgs = []
-        for ports in self._flood_ports(vlan):
-            ofmsgs.extend(self._neighbor_resolver(
-                ip_gw, faucet_vip, vlan, ports))
-        return ofmsgs
 
     def resolve_gateways(self, vlan, now):
         """Re/resolve all gateways.
@@ -563,7 +544,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _neighbor_resolver_pkt(self, vid, faucet_vip, ip_gw):
         return valve_packet.arp_request(
-            self.faucet_mac, vid, faucet_vip.ip, ip_gw)
+            vid, self.faucet_mac, faucet_vip.ip, ip_gw)
 
     def _ip_pkt(self, pkt):
         return pkt.get_protocol(ipv4.ipv4)
@@ -630,7 +611,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
                     vlan, in_port, eth_src, src_ip))
                 vid = self._vlan_vid(vlan, in_port)
                 arp_reply = valve_packet.arp_reply(
-                    self.faucet_mac, eth_src, vid, dst_ip, src_ip)
+                    vid, self.faucet_mac, eth_src, dst_ip, src_ip)
                 ofmsgs.append(
                     valve_of.packetout(in_port, arp_reply.data))
                 self.logger.info(
@@ -656,8 +637,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 in_port = pkt_meta.port.number
                 vid = self._vlan_vid(vlan, in_port)
                 echo_reply = valve_packet.echo_reply(
-                    self.faucet_mac, pkt_meta.eth_src,
-                    vid, dst_ip, src_ip, icmp_pkt.data)
+                    vid, self.faucet_mac, pkt_meta.eth_src,
+                    dst_ip, src_ip, icmp_pkt.data)
                 ofmsgs.append(
                     valve_of.packetout(in_port, echo_reply.data))
         return ofmsgs
@@ -691,7 +672,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _neighbor_resolver_pkt(self, vid, faucet_vip, ip_gw):
         return valve_packet.nd_request(
-            self.faucet_mac, vid, faucet_vip.ip, ip_gw)
+            vid, self.faucet_mac, faucet_vip.ip, ip_gw)
 
     def _ip_pkt(self, pkt):
         return pkt.get_protocol(ipv6.ipv6)
@@ -792,7 +773,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     ofmsgs.extend(self._update_nexthop(
                         vlan, in_port, eth_src, src_ip))
                     nd_reply = valve_packet.nd_advert(
-                        self.faucet_mac, eth_src, vid,
+                        vid, self.faucet_mac, eth_src,
                         solicited_ip, src_ip, ipv6_pkt.hop_limit)
                     ofmsgs.append(
                         valve_of.packetout(in_port, nd_reply.data))
@@ -809,8 +790,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 for vip in link_local_vips:
                     if src_ip in vip.network:
                         ra_advert = valve_packet.router_advert(
-                            self.faucet_mac, eth_src,
-                            vid, vip.ip, src_ip, other_vips)
+                            vid, self.faucet_mac, eth_src,
+                            vip.ip, src_ip, other_vips)
                         ofmsgs.append(
                             valve_of.packetout(in_port, ra_advert.data))
                         self.logger.info(
@@ -821,7 +802,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 if (icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST and
                         pkt_meta.eth_dst == self.faucet_mac):
                     icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
-                        self.faucet_mac, eth_src, vid,
+                        vid, self.faucet_mac, eth_src,
                         dst_ip, src_ip, ipv6_pkt.hop_limit,
                         icmpv6_pkt.data.id, icmpv6_pkt.data.seq,
                         icmpv6_pkt.data.data)
@@ -857,16 +838,10 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs = []
         link_local_vips, other_vips = self._link_and_other_vips(vlan)
         for link_local_vip in link_local_vips:
-            for ports in self._flood_ports(vlan):
-                if ports:
-                    port_num = ports[0].number
-                    vid = self._vlan_vid(vlan, port_num)
-                    # https://tools.ietf.org/html/rfc4861#section-6.1.2
-                    ra_advert = valve_packet.router_advert(
-                        self.faucet_mac, valve_packet.IPV6_ALL_NODES_MCAST,
-                        vid, link_local_vip.ip, valve_packet.IPV6_ALL_NODES,
-                        other_vips)
-                    for port in ports:
-                        ofmsgs.append(
-                            valve_of.packetout(port.number, ra_advert.data))
+            # https://tools.ietf.org/html/rfc4861#section-6.1.2
+            ofmsgs.extend(vlan.flood_pkt(
+                valve_packet.router_advert, self.faucet_mac,
+                valve_packet.IPV6_ALL_NODES_MCAST,
+                link_local_vip.ip, valve_packet.IPV6_ALL_NODES,
+                other_vips))
         return ofmsgs
