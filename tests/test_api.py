@@ -11,6 +11,7 @@ from faucet.faucet_api import FaucetAPI
 
 
 class TestFaucetAPI(app_manager.RyuApp):
+
     _CONTEXTS = {
         'faucet_api': FaucetAPI
         }

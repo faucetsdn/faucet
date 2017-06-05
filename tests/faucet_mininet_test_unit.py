@@ -1065,18 +1065,16 @@ vlans:
 """
 
     def test_untagged(self):
+        self.ping_all_when_learned()
         # Unicast flooding rule for from port 1
         self.assertTrue(self.matching_flow_present(
-            r''.join((
-                '"table_id": 7, ',
-                '"match": ',
-                '{"dl_vlan": "100", "in_port": %(port_1)d}')) % self.port_map))
+            {u'dl_vlan': 100, u'in_port': int(self.port_map['port_1'])},
+            table_id=7))
         # Unicast flood rule exists that output to port 1
         self.assertTrue(self.matching_flow_present(
-            r''.join((
-                '"OUTPUT:%(port_1)d".+',
-                '"table_id": 7, ',
-                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
+            {u'dl_vlan': 100},
+            table_id=7,
+            actions=[u'OUTPUT:%u' % self.port_map['port_1']]))
         self.assertTrue(self.bogus_mac_flooded_to_port1())
 
 
@@ -2745,11 +2743,10 @@ class FaucetStringOfDPTest(FaucetTest):
 
         return yaml.dump(config, default_flow_style=False)
 
-    def matching_flow_present(self, exp_flow, timeout=10):
-        """Find the first DP that has a flow that matches exp_flow."""
-
+    def matching_flow_present(self, match, timeout=10):
+        """Find the first DP that has a flow that matches match."""
         for dpid in self.dpids:
-            if self.matching_flow_present_on_dpid(dpid, exp_flow, timeout):
+            if self.matching_flow_present_on_dpid(dpid, match, timeout=timeout):
                 return True
         return False
 
