@@ -164,7 +164,9 @@ class BaseFAUCET(Controller):
         env_vars = []
         for var, val in list(sorted(env.items())):
             env_vars.append('='.join((var, val)))
-        script_wrapper.write('PYTHONPATH=../ %s exec ryu-manager %s $*\n' % (' '.join(env_vars), args))
+        script_wrapper.write(
+            'PYTHONPATH=..:../faucet %s exec ryu-manager %s $*\n' % (
+                ' '.join(env_vars), args))
         script_wrapper.close()
         return '/bin/sh %s' % script_wrapper_name
 

@@ -141,9 +141,9 @@ class ValveHostManager(object):
                 priority=(self.host_priority - 2)))
         else:
             # Add a jitter to avoid whole bunch of hosts timeout simultaneously
-            learn_timeout = max(abs(
+            learn_timeout = int(max(abs(
                 self.learn_timeout -
-                (self.learn_jitter / 2) + random.randint(0, self.learn_jitter)), 2)
+                (self.learn_jitter / 2) + random.randint(0, self.learn_jitter)), 2))
             ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         # Update datapath to no longer send packets from this mac to controller
