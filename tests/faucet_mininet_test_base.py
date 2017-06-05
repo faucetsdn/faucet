@@ -462,18 +462,6 @@ dbs:
             return json.loads(port_stats[0])
         return None
 
-    def get_group_id_for_matching_flow(self, exp_flow, timeout=10):
-        for _ in range(timeout):
-            flow_dump = self.get_all_flows_from_dpid(self.dpid, timeout)
-            for flow in flow_dump:
-                if re.search(exp_flow, flow):
-                    flow = json.loads(flow)
-                    group_id = int(re.findall(r'\d+', str(flow['actions']))[0])
-                    return group_id
-            time.sleep(1)
-        self.fail(
-            'Cannot find group_id for matching flow %s' % exp_flow)
-
     def wait_matching_in_group_table(self, exp_flow, group_id, timeout=10):
         exp_group = '%s.+"group_id": %d' % (exp_flow, group_id)
         for _ in range(timeout):
@@ -484,8 +472,8 @@ dbs:
             time.sleep(1)
         return False
 
-    def get_matching_flows_on_dpid(self, dpid, match, timeout=10,
-                                   table_id=None, actions=None, match_exact=False):
+    def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
+                                   actions=None, match_exact=False):
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
         for _ in range(timeout):
             flow_dicts = []
@@ -512,8 +500,8 @@ dbs:
             time.sleep(1)
         return flow_dicts
 
-    def get_matching_flow_on_dpid(self, dpid, match, timeout=10,
-                                  table_id=None, actions=None, match_exact=None):
+    def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
+                                  actions=None, match_exact=None):
         flow_dicts = self.get_matching_flows_on_dpid(
             dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, match_exact=match_exact)
@@ -522,11 +510,23 @@ dbs:
         else:
             return []
 
-    def get_matching_flow(self, match, timeout=10, table_id=None, actions=None, match_exact=None):
-        """Return flow matching an RE from default DPID."""
+    def get_matching_flow(self, match, timeout=10, table_id=None,
+                          actions=None, match_exact=None):
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, match_exact=match_exact)
+
+    def get_group_id_for_matching_flow(self, match, timeout=10):
+        for _ in range(timeout):
+            flow_dict = self.get_matching_flow(match, timeout=timeout)
+            if flow_dict:
+                for action in flow_dict['actions']:
+                    if action.startswith('GROUP'):
+                        _, group_id = action.split(':')
+                        return int(group_int)
+            time.sleep(1)
+        self.fail(
+            'Cannot find group_id for matching flow %s' % match)
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                       actions=None, match_exact=None):
