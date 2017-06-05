@@ -1067,15 +1067,7 @@ vlans:
 
     def test_untagged(self):
         self.ping_all_when_learned()
-        # Unicast flooding rule for from port 1
-        self.assertTrue(self.matching_flow_present(
-            {u'dl_vlan': 100, u'in_port': int(self.port_map['port_1'])},
-            table_id=7))
-        # Unicast flood rule exists that output to port 1
-        self.assertTrue(self.matching_flow_present(
-            {u'dl_vlan': 100},
-            table_id=7,
-            actions=[u'OUTPUT:%u' % self.port_map['port_1']]))
+        self.verify_port1_unicast(True)
         self.assertTrue(self.bogus_mac_flooded_to_port1())
 
 
@@ -1105,15 +1097,7 @@ vlans:
 """
 
     def test_untagged(self):
-        # No unicast flooding rule for from port 1
-        self.assertFalse(self.matching_flow_present(
-            {u'dl_vlan': 100, u'in_port': int(self.port_map['port_1'])},
-            table_id=7))
-        # No unicast flood rule exists that output to port 1
-        self.assertFalse(self.matching_flow_present(
-            {u'dl_vlan': 100},
-            table_id=7,
-            actions=[u'OUTPUT:%u' % int(self.port_map['port_1'])]))
+        self.verify_port1_unicast(False)
         self.assertFalse(self.bogus_mac_flooded_to_port1())
 
 
@@ -1144,17 +1128,7 @@ vlans:
 """
 
     def test_untagged(self):
-        # No unicast flooding rule for from port 1
-        self.assertFalse(self.matching_flow_present(
-            {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_1'])},
-            table_id=7,
-            match_exact=True))
-        # No unicast flood rule exists that output to port 1
-        self.assertFalse(self.matching_flow_present(
-            {u'dl_vlan': u'100'},
-            table_id=7,
-            actions=[u'OUTPUT:%u' % int(self.port_map['port_1'])],
-            match_exact=True))
+        self.verify_port1_unicast(False)
         # VLAN level config to disable flooding takes precedence,
         # cannot enable port-only flooding.
         self.assertFalse(self.bogus_mac_flooded_to_port1())
@@ -1187,24 +1161,7 @@ vlans:
 """
 
     def test_untagged(self):
-        # Unicast flood rule present for port 2, but NOT for port 1
-        self.assertTrue(self.matching_flow_present(
-            {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
-            table_id=7,
-            match_exact=True))
-        self.assertFalse(self.matching_flow_present(
-            {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_1'])},
-            table_id=7,
-            match_exact=True))
-        # Unicast flood rules present that output to port 2, but NOT to port 1
-        self.assertTrue(self.matching_flow_present(
-            {u'dl_vlan': u'100'},
-            table_id=7,
-            actions=[u'OUTPUT:%u' % self.port_map['port_2']]))
-        self.assertFalse(self.matching_flow_present(
-            {u'dl_vlan': u'100'},
-            table_id=7,
-            actions=[u'OUTPUT:%u' % self.port_map['port_1']]))
+        self.verify_port1_unicast(False)
         self.assertFalse(self.bogus_mac_flooded_to_port1())
 
 
@@ -2736,11 +2693,14 @@ class FaucetStringOfDPTest(FaucetTest):
 
         return yaml.dump(config, default_flow_style=False)
 
-    def matching_flow_present(self, match, timeout=10, table_id=None, actions=None):
+    def matching_flow_present(self, match, timeout=10, table_id=None,
+                              actions=None, match_exact=None):
         """Find the first DP that has a flow that matches match."""
         for dpid in self.dpids:
             if self.matching_flow_present_on_dpid(
-                    dpid, match, timeout=timeout, table_id=table_id, actions=actions):
+                    dpid, match, timeout=timeout,
+                    table_id=table_id, actions=actions,
+                    match_exact=match_exact):
                 return True
         return False
 
