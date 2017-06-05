@@ -620,13 +620,13 @@ dbs:
     def prometheus_smoke_test(self):
         prom_out = self.scrape_prometheus()
         for nonzero_var in (
-            r'of_packet_ins', r'of_flowmsgs_sent', r'of_dp_connections', 
-            r'faucet_config\S+name=\"flood\"'):
+                r'of_packet_ins', r'of_flowmsgs_sent', r'of_dp_connections',
+                r'faucet_config\S+name=\"flood\"'):
             self.assertTrue(
                 re.search(r'%s\S+\s+[1-9]+' % nonzero_var, prom_out),
                 msg=prom_out)
         for notpresent_var in (
-            'of_errors', 'of_dp_disconnections'):
+                'of_errors', 'of_dp_disconnections'):
             self.assertIsNone(
                 re.search(notpresent_var, prom_out), msg=prom_out)
 
