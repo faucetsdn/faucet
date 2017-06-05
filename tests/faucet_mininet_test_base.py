@@ -523,7 +523,7 @@ dbs:
                 for action in flow_dict['actions']:
                     if action.startswith('GROUP'):
                         _, group_id = action.split(':')
-                        return int(group_int)
+                        return int(group_id)
             time.sleep(1)
         self.fail(
             'Cannot find group_id for matching flow %s' % match)
