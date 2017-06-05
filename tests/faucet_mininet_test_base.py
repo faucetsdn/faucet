@@ -462,13 +462,18 @@ dbs:
             return json.loads(port_stats[0])
         return None
 
-    def wait_matching_in_group_table(self, exp_flow, group_id, timeout=10):
-        exp_group = '%s.+"group_id": %d' % (exp_flow, group_id)
+    def wait_matching_in_group_table(self, action, group_id, timeout=10):
+        groupdump = os.path.join(self.tmpdir, 'groupdump-%s.txt' % self.dpid)
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
+            groupdump_file = open(groupdump, 'w')
             for group_desc in group_dump:
-                if re.search(exp_group, group_desc):
-                    return True
+                group_dict = json.loads(group_desc)
+                groupdump_file.write(str(group_dict) + '\n')
+                if group_dict['group_id'] == group_id:
+                    actions = set(group_dict['buckets'][0]['actions'])
+                    if set([action]).issubset(actions):
+                        return True
             time.sleep(1)
         return False
 
@@ -1099,19 +1104,25 @@ dbs:
             prefix.network_address, prefix.netmask)
         if prefix.version == 6:
             nw_dst_match = {u'ipv6_dst': exp_prefix}
+            table_id = 5
         else:
             nw_dst_match = {u'nw_dst': exp_prefix}
+            table_id = 4
         nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
         if with_group_table:
-            group_id = self.get_group_id_for_matching_flow(nw_dst_match)
-            self.wait_matching_in_group_table(nexthop_action, group_id, timeout)
+            group_id = self.get_group_id_for_matching_flow(
+                nw_dst_match)
+            self.wait_matching_in_group_table(
+                nexthop_action, group_id, timeout)
         else:
             if nonzero_packets:
                 self.wait_nonzero_packet_count_flow(
-                    nw_dst_match, timeout=timeout, actions=[nexthop_action])
+                    nw_dst_match, timeout=timeout, table_id=table_id,
+                    actions=[nexthop_action])
             else:
                 self.wait_until_matching_flow(
-                    nw_dst_match, timeout=timeout, actions=[nexthop_action])
+                    nw_dst_match, timeout=timeout, table_id=table_id,
+                    actions=[nexthop_action])
 
     def host_ipv4_alias(self, host, alias_ip):
         """Add an IPv4 alias address to a host."""
