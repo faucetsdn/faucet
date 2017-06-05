@@ -486,7 +486,6 @@ dbs:
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10,
                                    table_id=None, actions=None):
-        """Return flow matching an RE from DPID."""
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
         for _ in range(timeout):
             flow_dicts = []
@@ -505,6 +504,8 @@ dbs:
                     if not set(match.items()).issubset(set(flow_dict['match'].items())):
                         continue
                 flow_dicts.append(flow_dict)
+            if flow_dicts:
+                return flow_dicts
             time.sleep(1)
         return flow_dicts
 
@@ -524,19 +525,20 @@ dbs:
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None, actions=None):
         """Return True if matching flow is present on a DPID."""
-        if self.get_matching_flow_on_dpid(dpid, match, timeout, table_id, actions):
+        if self.get_matching_flow_on_dpid(
+                dpid, match, timeout=timeout, table_id=table_id, actions=actions):
             return True
         return False
 
     def matching_flow_present(self, match, timeout=10, table_id=None, actions=None):
         """Return True if matching flow is present on default DPID."""
         return self.matching_flow_present_on_dpid(
-            self.dpid, match, timeout, table_id, actions)
+            self.dpid, match, timeout=timeout, table_id=table_id, actions=actions)
 
     def wait_until_matching_flow(self, match, timeout=10, table_id=None, actions=None):
         """Wait (require) for flow to be present on default DPID."""
         self.assertTrue(
-            self.matching_flow_present(match, timeout, table_id, actions),
+            self.matching_flow_present(match, timeout=timeout, table_id=table_id, actions=actions),
             msg=match)
 
     def wait_until_controller_flow(self):
@@ -545,7 +547,7 @@ dbs:
     def mac_learned(self, mac, timeout=10):
         """Return True if a MAC has been learned on default DPID."""
         return self.matching_flow_present(
-            {u'dl_src': u'%s' % mac}, timeout, table_id=3)
+            {u'dl_src': u'%s' % mac}, timeout=timeout, table_id=3)
 
     def host_learned(self, host, timeout=10):
         """Return True if a host has been learned on default DPID."""
