@@ -254,7 +254,7 @@ class FaucetTestBase(unittest.TestCase):
             self._attach_physical_switch()
         self._wait_debug_log()
         self.wait_dp_status(1)
-        self.wait_until_matching_flow('OUTPUT:CONTROLLER')
+        self.wait_until_controller_flow()
         for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
@@ -462,61 +462,110 @@ dbs:
             return json.loads(port_stats[0])
         return None
 
-    def get_group_id_for_matching_flow(self, exp_flow, timeout=10):
-        for _ in range(timeout):
-            flow_dump = self.get_all_flows_from_dpid(self.dpid, timeout)
-            for flow in flow_dump:
-                if re.search(exp_flow, flow):
-                    flow = json.loads(flow)
-                    group_id = int(re.findall(r'\d+', str(flow['actions']))[0])
-                    return group_id
-            time.sleep(1)
-        self.fail(
-            'Cannot find group_id for matching flow %s' % exp_flow)
-
-    def wait_matching_in_group_table(self, exp_flow, group_id, timeout=10):
-        exp_group = '%s.+"group_id": %d' % (exp_flow, group_id)
+    def wait_matching_in_group_table(self, action, group_id, timeout=10):
+        groupdump = os.path.join(self.tmpdir, 'groupdump-%s.txt' % self.dpid)
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
+            groupdump_file = open(groupdump, 'w')
             for group_desc in group_dump:
-                if re.search(exp_group, group_desc):
-                    return True
+                group_dict = json.loads(group_desc)
+                groupdump_file.write(str(group_dict) + '\n')
+                if group_dict['group_id'] == group_id:
+                    actions = set(group_dict['buckets'][0]['actions'])
+                    if set([action]).issubset(actions):
+                        return True
             time.sleep(1)
         return False
 
-    def get_matching_flow_on_dpid(self, dpid, exp_flow, timeout=10):
-        """Return flow matching an RE from DPID."""
+    def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
+                                   actions=None, match_exact=False):
+        flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
         for _ in range(timeout):
+            flow_dicts = []
             flow_dump = self.get_all_flows_from_dpid(dpid)
+            flowdump_file = open(flowdump, 'w')
             for flow in flow_dump:
-                if re.search(exp_flow, flow):
-                    return json.loads(flow)
+                flow_dict = json.loads(flow)
+                flowdump_file.write(str(flow_dict) + '\n')
+                if (table_id is not None and
+                        flow_dict['table_id'] != table_id):
+                    continue
+                if actions is not None:
+                    if not set(actions).issubset(set(flow_dict['actions'])):
+                        continue
+                if match is not None:
+                    if match_exact:
+                        if match.items() != flow_dict['match'].items():
+                            continue
+                    elif not set(match.items()).issubset(set(flow_dict['match'].items())):
+                        continue
+                flow_dicts.append(flow_dict)
+            if flow_dicts:
+                return flow_dicts
             time.sleep(1)
-        return {}
+        return flow_dicts
 
-    def get_matching_flow(self, exp_flow, timeout=10):
-        """Return flow matching an RE from default DPID."""
-        return self.get_matching_flow_on_dpid(self.dpid, exp_flow, timeout)
+    def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
+                                  actions=None, match_exact=None):
+        flow_dicts = self.get_matching_flows_on_dpid(
+            dpid, match, timeout=timeout, table_id=table_id,
+            actions=actions, match_exact=match_exact)
+        if flow_dicts:
+            return flow_dicts[0]
+        else:
+            return []
 
-    def matching_flow_present_on_dpid(self, dpid, exp_flow, timeout=10):
+    def get_matching_flow(self, match, timeout=10, table_id=None,
+                          actions=None, match_exact=None):
+        return self.get_matching_flow_on_dpid(
+            self.dpid, match, timeout=timeout, table_id=table_id,
+            actions=actions, match_exact=match_exact)
+
+    def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
+        for _ in range(timeout):
+            flow_dict = self.get_matching_flow(
+                match, timeout=timeout, table_id=table_id)
+            if flow_dict:
+                for action in flow_dict['actions']:
+                    if action.startswith('GROUP'):
+                        _, group_id = action.split(':')
+                        return int(group_id)
+            time.sleep(1)
+        self.fail(
+            'Cannot find group_id for matching flow %s' % match)
+
+    def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
+                                      actions=None, match_exact=None):
         """Return True if matching flow is present on a DPID."""
-        if self.get_matching_flow_on_dpid(dpid, exp_flow, timeout):
+        if self.get_matching_flow_on_dpid(
+                dpid, match, timeout=timeout, table_id=table_id,
+                actions=actions, match_exact=match_exact):
             return True
         return False
 
-    def matching_flow_present(self, exp_flow, timeout=10):
+    def matching_flow_present(self, match, timeout=10, table_id=None,
+                              actions=None, match_exact=None):
         """Return True if matching flow is present on default DPID."""
-        return self.matching_flow_present_on_dpid(self.dpid, exp_flow, timeout)
+        return self.matching_flow_present_on_dpid(
+            self.dpid, match, timeout=timeout, table_id=table_id,
+            actions=actions, match_exact=match_exact)
 
-    def wait_until_matching_flow(self, exp_flow, timeout=10):
+    def wait_until_matching_flow(self, match, timeout=10, table_id=None,
+                                 actions=None, match_exact=False):
         """Wait (require) for flow to be present on default DPID."""
-        self.assertTrue(self.matching_flow_present(exp_flow, timeout),
-                        msg=exp_flow)
+        self.assertTrue(
+            self.matching_flow_present(
+                match, timeout=timeout, table_id=table_id,
+                actions=actions, match_exact=match_exact),
+            msg=match)
+
+    def wait_until_controller_flow(self):
+        self.wait_until_matching_flow(None, actions=[u'OUTPUT:CONTROLLER'])
 
     def mac_learned(self, mac, timeout=10):
         """Return True if a MAC has been learned on default DPID."""
         return self.matching_flow_present(
-            '"table_id": 3,.+"dl_src": "%s"' % mac, timeout)
+            {u'dl_src': u'%s' % mac}, timeout=timeout, table_id=3)
 
     def host_learned(self, host, timeout=10):
         """Return True if a host has been learned on default DPID."""
@@ -703,6 +752,23 @@ dbs:
              lambda: second_host.cmd(curl_first_host),
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
+
+    def verify_port1_unicast(self, unicast_status):
+        # Unicast flooding rule for from port 1
+        self.assertEquals(
+            self.matching_flow_present(
+                {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_1'])},
+                table_id=7,
+                match_exact=True),
+            unicast_status)
+        #  Unicast flood rule exists that output to port 1
+        self.assertEquals(
+            self.matching_flow_present(
+                {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
+                table_id=7,
+                actions=[u'OUTPUT:%u' % self.port_map['port_1']],
+                match_exact=True),
+            unicast_status)
 
     def verify_lldp_blocked(self):
         first_host, second_host = self.net.hosts[0:2]
@@ -921,17 +987,17 @@ dbs:
             'echo hello | nc -l %s %u &' % (host.IP(), port), 10))
         self.wait_for_tcp_listen(host, port)
 
-    def wait_nonzero_packet_count_flow(self, exp_flow, timeout=10):
+    def wait_nonzero_packet_count_flow(self, match, timeout=10, table_id=None, actions=None):
         """Wait for a flow to be present and have a non-zero packet_count."""
         for _ in range(timeout):
-            flow = self.get_matching_flow(exp_flow, timeout=1)
+            flow = self.get_matching_flow(match, timeout=1, table_id=table_id, actions=actions)
             if flow and flow['packet_count'] > 0:
                 return
             time.sleep(1)
         if flow:
-            self.fail('flow %s matching %s had zero packet count' % (flow, exp_flow))
+            self.fail('flow %s matching %s had zero packet count' % (flow, match))
         else:
-            self.fail('no flow matching %s' % exp_flow)
+            self.fail('no flow matching %s' % match)
 
     def verify_tp_dst_blocked(self, port, first_host, second_host):
         """Verify that a TCP port on a host is blocked from another host."""
@@ -939,7 +1005,7 @@ dbs:
         self.assertEquals(
             '', first_host.cmd(faucet_mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10)))
-        self.wait_nonzero_packet_count_flow(r'"tp_dst": %u' % port)
+        self.wait_nonzero_packet_count_flow({u'tp_dst': int(port)}, table_id=0)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host):
         """Verify that a TCP port on a host is NOT blocked from another host."""
@@ -947,7 +1013,7 @@ dbs:
         self.assertEquals(
             'hello\r\n',
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
-        self.wait_nonzero_packet_count_flow(r'"tp_dst": %u' % port)
+        self.wait_nonzero_packet_count_flow({u'tp_dst': int(port)}, table_id=0)
 
     def swap_host_macs(self, first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""
@@ -1035,23 +1101,29 @@ dbs:
     def wait_for_route_as_flow(self, nexthop, prefix, timeout=10,
                                with_group_table=False, nonzero_packets=False):
         """Verify a route has been added as a flow."""
-        exp_prefix = '%s/%s' % (
+        exp_prefix = u'%s/%s' % (
             prefix.network_address, prefix.netmask)
         if prefix.version == 6:
-            nw_dst_match = '"ipv6_dst": "%s"' % exp_prefix
+            nw_dst_match = {u'ipv6_dst': exp_prefix}
+            table_id = 5
         else:
-            nw_dst_match = '"nw_dst": "%s"' % exp_prefix
+            nw_dst_match = {u'nw_dst': exp_prefix}
+            table_id = 4
+        nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
         if with_group_table:
-            group_id = self.get_group_id_for_matching_flow(nw_dst_match)
+            group_id = self.get_group_id_for_matching_flow(
+                nw_dst_match)
             self.wait_matching_in_group_table(
-                'SET_FIELD: {eth_dst:%s}' % nexthop,
-                group_id, timeout)
+                nexthop_action, group_id, timeout)
         else:
-            exp_flow = 'SET_FIELD: {eth_dst:%s}.+%s' % (nexthop, nw_dst_match)
             if nonzero_packets:
-                self.wait_nonzero_packet_count_flow(exp_flow, timeout)
+                self.wait_nonzero_packet_count_flow(
+                    nw_dst_match, timeout=timeout, table_id=table_id,
+                    actions=[nexthop_action])
             else:
-                self.wait_until_matching_flow(exp_flow, timeout)
+                self.wait_until_matching_flow(
+                    nw_dst_match, timeout=timeout, table_id=table_id,
+                    actions=[nexthop_action])
 
     def host_ipv4_alias(self, host, alias_ip):
         """Add an IPv4 alias address to a host."""

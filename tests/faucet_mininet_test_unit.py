@@ -472,13 +472,11 @@ vlans:
                 mac_ipv4, mac_intf))
             second_host.cmd('ip link set dev %s up' % mac_intf)
             second_host.cmd('ping -c1 -I%s %s &' % (mac_intf, first_host.IP()))
-        exp_flow = (
-            '"table_id": 3, "match": '
-            '{"dl_vlan": "100", "dl_src": "..:..:..:..:..:..", '
-            '"in_port": %u' % self.port_map['port_2'])
-        flows = self.get_all_flows_from_dpid(self.dpid)
-        macs_learned = [flow for flow in flows if re.search(exp_flow, flow)]
-        self.assertEquals(self.MAX_HOSTS, len(macs_learned))
+        flows = self.get_matching_flows_on_dpid(
+            self.dpid,
+            {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
+            table_id=3)
+        self.assertEquals(self.MAX_HOSTS, len(flows))
         self.assertEquals(
             self.MAX_HOSTS,
             len(self.scrape_prometheus_var(
@@ -656,7 +654,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self.assertEqual(
                 self.scrape_prometheus_var('of_dp_connections', default=0),
                 1)
-            self.wait_until_matching_flow('OUTPUT:CONTROLLER')
+            self.wait_until_controller_flow()
             self.ping_all_when_learned()
 
 
@@ -733,8 +731,8 @@ acls:
         self.start_net()
 
     def get_port_match_flow(self, port_no, table_id=3):
-        exp_flow = '"table_id: %d".+"in_port": %s' % (table_id, port_no)
-        flow = self.get_matching_flow_on_dpid(self.dpid, exp_flow)
+        flow = self.get_matching_flow_on_dpid(
+            self.dpid, {u'in_port': int(port_no)}, table_id)
         return flow
 
     def change_port_config(self, port, config_name, config_value, restart=True):
@@ -760,7 +758,9 @@ acls:
         self.change_port_config(
             self.port_map['port_2'], 'native_vlan', 200, restart=True)
         self.wait_until_matching_flow(
-            r'SET_FIELD: {vlan_vid:4296}.+in_port": %u' % self.port_map['port_1'],
+            {u'in_port': int(self.port_map['port_1'])},
+            table_id=1,
+            actions=[u'SET_FIELD: {vlan_vid:4296}'],
             timeout=2)
         self.one_ipv4_ping(first_host, second_host.IP(), require_host_learned=False)
 
@@ -769,7 +769,7 @@ acls:
         self.change_port_config(
             self.port_map['port_1'], 'acl_in', 1)
         self.wait_until_matching_flow(
-            r'"actions": \[\].+"in_port": %u, "tp_dst": 5001' % self.port_map['port_1'])
+            {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001}, table_id=0)
         first_host, second_host = self.net.hosts[0:2]
         self.ping_all_when_learned()
         self.verify_tp_dst_blocked(5001, first_host, second_host)
@@ -788,7 +788,8 @@ acls:
         self.change_port_config(
             self.port_map['port_1'], 'acl_in', 1)
         self.wait_until_matching_flow(
-            r'"actions": \[\].+"in_port": %u, "tp_dst": 5001' % self.port_map['port_1'])
+            {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001},
+            table_id=0)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
@@ -1065,18 +1066,8 @@ vlans:
 """
 
     def test_untagged(self):
-        # Unicast flooding rule for from port 1
-        self.assertTrue(self.matching_flow_present(
-            r''.join((
-                '"table_id": 7, ',
-                '"match": ',
-                '{"dl_vlan": "100", "in_port": %(port_1)d}')) % self.port_map))
-        # Unicast flood rule exists that output to port 1
-        self.assertTrue(self.matching_flow_present(
-            r''.join((
-                '"OUTPUT:%(port_1)d".+',
-                '"table_id": 7, ',
-                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
+        self.ping_all_when_learned()
+        self.verify_port1_unicast(True)
         self.assertTrue(self.bogus_mac_flooded_to_port1())
 
 
@@ -1106,18 +1097,7 @@ vlans:
 """
 
     def test_untagged(self):
-        # No unicast flooding rule for from port 1
-        self.assertFalse(self.matching_flow_present(
-            r''.join((
-                '"table_id": 7, ',
-                '"match": ',
-                '{"dl_vlan": "100", "in_port": %(port_1)d}')) % self.port_map))
-        # No unicast flood rule exists that output to port 1
-        self.assertFalse(self.matching_flow_present(
-            r''.join((
-                '"OUTPUT:%(port_1)d".+',
-                '"table_id": 7, ',
-                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
+        self.verify_port1_unicast(False)
         self.assertFalse(self.bogus_mac_flooded_to_port1())
 
 
@@ -1148,18 +1128,7 @@ vlans:
 """
 
     def test_untagged(self):
-        # No unicast flooding rule for from port 1
-        self.assertFalse(self.matching_flow_present(
-            r''.join((
-                '"table_id": 7, ',
-                '"match": ',
-                '{"dl_vlan": "100", "in_port": %(port_1)d}')) % self.port_map))
-        # No unicast flood rule exists that output to port 1
-        self.assertFalse(self.matching_flow_present(
-            r''.join((
-                '"OUTPUT:%(port_1)d".+',
-                '"table_id": 7, ',
-                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
+        self.verify_port1_unicast(False)
         # VLAN level config to disable flooding takes precedence,
         # cannot enable port-only flooding.
         self.assertFalse(self.bogus_mac_flooded_to_port1())
@@ -1192,28 +1161,7 @@ vlans:
 """
 
     def test_untagged(self):
-        # Unicast flood rule present for port 2, but NOT for port 1
-        self.assertTrue(self.matching_flow_present(
-            r''.join((
-                '"table_id": 7, ',
-                '"match": ',
-                '{"dl_vlan": "100", "in_port": %(port_2)d}')) % self.port_map))
-        self.assertFalse(self.matching_flow_present(
-            r''.join((
-                '"table_id": 7, ',
-                '"match": ',
-                '{"dl_vlan": "100", "in_port": %(port_1)d}')) % self.port_map))
-        # Unicast flood rules present that output to port 2, but NOT to port 1
-        self.assertTrue(self.matching_flow_present(
-            r''.join((
-                '"OUTPUT:%(port_2)d".+',
-                '"table_id": 7, ',
-                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
-        self.assertFalse(self.matching_flow_present(
-            r''.join((
-                '"OUTPUT:%(port_1)d".+',
-                '"table_id": 7, ',
-                '"match": {"dl_vlan": "100", "in_port": .+}')) % self.port_map))
+        self.verify_port1_unicast(False)
         self.assertFalse(self.bogus_mac_flooded_to_port1())
 
 
@@ -2745,11 +2693,14 @@ class FaucetStringOfDPTest(FaucetTest):
 
         return yaml.dump(config, default_flow_style=False)
 
-    def matching_flow_present(self, exp_flow, timeout=10):
-        """Find the first DP that has a flow that matches exp_flow."""
-
+    def matching_flow_present(self, match, timeout=10, table_id=None,
+                              actions=None, match_exact=None):
+        """Find the first DP that has a flow that matches match."""
         for dpid in self.dpids:
-            if self.matching_flow_present_on_dpid(dpid, exp_flow, timeout):
+            if self.matching_flow_present_on_dpid(
+                    dpid, match, timeout=timeout,
+                    table_id=table_id, actions=actions,
+                    match_exact=match_exact):
                 return True
         return False
 
@@ -2953,7 +2904,7 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
         self.assertEqual(
             100,
             self.get_group_id_for_matching_flow(
-                '"table_id": 7,.+"dl_dst".+"dl_vlan": "100"'))
+                {u'dl_vlan': u'100'}, table_id=7))
 
 
 class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
@@ -3103,7 +3054,7 @@ acls:
         first_host.setMAC('0e:0d:00:00:00:99')
         self.assertEqual(0, self.net.ping((first_host, second_host)))
         self.wait_nonzero_packet_count_flow(
-            r'0e:0d:00:00:00:00/ff:ff:00:00:00:00')
+            {u'dl_src': u'0e:0d:00:00:00:00/ff:ff:00:00:00:00'}, table_id=0)
 
 
 class FaucetDestRewriteTest(FaucetUntaggedTest):
@@ -3159,10 +3110,9 @@ acls:
         rewrite_host.cmd('arp -s %s %s' % (overridden_host.IP(), overridden_host.MAC()))
         rewrite_host.cmd('ping -c1 %s' % overridden_host.IP())
         self.wait_until_matching_flow(
-            r'.+'.join((
-                'OUTPUT:%(port_3)d',
-                'table_id": 6',
-                'dl_dst": "00:00:00:00:00:03"')) % self.port_map,
+            {u'dl_dst': u'00:00:00:00:00:03'},
+            table_id=6,
+            actions=[u'OUTPUT:%u' % self.port_map['port_3']],
             timeout=2)
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
             source_host.MAC(), rewrite_host.MAC()))
