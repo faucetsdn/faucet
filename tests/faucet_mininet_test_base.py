@@ -521,9 +521,10 @@ dbs:
             self.dpid, match, timeout=timeout, table_id=table_id,
             actions=actions, match_exact=match_exact)
 
-    def get_group_id_for_matching_flow(self, match, timeout=10):
+    def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
         for _ in range(timeout):
-            flow_dict = self.get_matching_flow(match, timeout=timeout)
+            flow_dict = self.get_matching_flow(
+                match, timeout=timeout, table_id=table_id)
             if flow_dict:
                 for action in flow_dict['actions']:
                     if action.startswith('GROUP'):
