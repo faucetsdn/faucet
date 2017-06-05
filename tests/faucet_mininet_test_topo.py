@@ -125,12 +125,12 @@ class BaseFAUCET(Controller):
             name, cargs=self._add_cargs(cargs), **kwargs)
 
     def _add_cargs(self, cargs):
-       ipv4_host = ''
-       if self.controller_intf is not None:
-           # pylint: disable=no-member
-           ipv4_host = '--ofp-listen-host=%s' % netifaces.ifaddresses(
+        ipv4_host = ''
+        if self.controller_intf is not None:
+            # pylint: disable=no-member
+            ipv4_host = '--ofp-listen-host=%s' % netifaces.ifaddresses(
                 self.controller_intf)[socket.AF_INET][0]['addr']
-       return ' '.join((self.BASE_CARGS, ipv4_host, cargs))
+        return ' '.join((self.BASE_CARGS, ipv4_host, cargs))
 
     def _start_tcpdump(self):
         tcpdump_args = ' '.join((
@@ -158,8 +158,15 @@ class BaseFAUCET(Controller):
             tls_cargs.append(('--ofp-ssl-listen-port=%u' % ofctl_port))
         return ' '.join(tls_cargs)
 
-    def _command(self, args):
-        return 'PYTHONPATH=../ ryu-manager %s' % args
+    def _command(self, env, tmpdir, name, args):
+        script_wrapper_name = os.path.join(tmpdir, 'start-%s.sh' % name)
+        script_wrapper = open(script_wrapper_name, 'w')
+        env_vars = []
+        for var, val in list(sorted(env.items())):
+            env_vars.append('='.join((var, val)))
+        script_wrapper.write('PYTHONPATH=../ %s ryu-manager %s $*\n' % (' '.join(env_vars), args))
+        script_wrapper.close()
+        return '/bin/sh %s' % script_wrapper_name
 
     def start(self):
         self._start_tcpdump()
@@ -169,7 +176,7 @@ class BaseFAUCET(Controller):
 class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
-    def __init__(self, name, tmpdir, controller_intf,
+    def __init__(self, name, tmpdir, controller_intf, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, port, **kwargs):
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
@@ -183,8 +190,7 @@ class FAUCET(BaseFAUCET):
             tmpdir,
             controller_intf,
             cargs=cargs,
-            cdir=faucet_mininet_test_util.FAUCET_DIR,
-            command=self._command('ryu.app.ofctl_rest faucet.faucet'),
+            command=self._command(env, tmpdir, name, 'ryu.app.ofctl_rest faucet.faucet'),
             port=port,
             **kwargs)
 
@@ -192,7 +198,7 @@ class FAUCET(BaseFAUCET):
 class Gauge(BaseFAUCET):
     """Start a Gauge controller."""
 
-    def __init__(self, name, tmpdir, controller_intf,
+    def __init__(self, name, tmpdir, controller_intf, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  port, **kwargs):
         super(Gauge, self).__init__(
@@ -200,8 +206,7 @@ class Gauge(BaseFAUCET):
             tmpdir,
             controller_intf,
             cargs=self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs),
-            cdir=faucet_mininet_test_util.FAUCET_DIR,
-            command=self._command('faucet.gauge'),
+            command=self._command(env, tmpdir, name, 'faucet.gauge'),
             port=port,
             **kwargs)
 
@@ -209,9 +214,9 @@ class Gauge(BaseFAUCET):
 class FaucetAPI(BaseFAUCET):
     """Start a controller to run the Faucet API tests."""
 
-    def __init__(self, name, tmpdir, **kwargs):
+    def __init__(self, name, tmpdir, env, **kwargs):
         super(FaucetAPI, self).__init__(
             name,
             tmpdir,
-            command=self._command('faucet.faucet test_api.py'),
+            command=self._command(env, tmpdir, name, 'faucet.faucet test_api.py'),
             **kwargs)
