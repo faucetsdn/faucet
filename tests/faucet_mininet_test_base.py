@@ -488,8 +488,8 @@ dbs:
                                    table_id=None, actions=None):
         """Return flow matching an RE from DPID."""
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
-        flow_dicts = []
         for _ in range(timeout):
+            flow_dicts = []
             flow_dump = self.get_all_flows_from_dpid(dpid)
             flowdump_file = open(flowdump, 'w')
             for flow in flow_dump:
