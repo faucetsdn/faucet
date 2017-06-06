@@ -608,14 +608,6 @@ class Valve(object):
         self.dpid_log('Configuring DP')
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
-        changed_ports = set([])
-        for port_no in discovered_up_port_nums:
-            if valve_of.ignore_port(port_no):
-                continue
-            changed_ports.add(port_no)
-        changed_vlans = list(self.dp.vlans.keys())
-        changes = ([], changed_ports, [], changed_vlans)
-        ofmsgs.extend(self._apply_config_changes(self.dp, changes))
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
         self.dp.running = True
         return ofmsgs
