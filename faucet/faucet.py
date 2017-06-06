@@ -423,7 +423,8 @@ class Faucet(app_manager.RyuApp):
         ofp = msg.datapath.ofproto
         reason = msg.reason
         port_no = msg.desc.port_no
-        port_status = not (msg.desc.state & ofp.OFPPS_LINK_DOWN)
+        port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN
+        port_status = not port_down
         if dp_id in self.valves:
             valve = self.valves[dp_id]
             flowmods = valve.port_status_handler(
@@ -437,7 +438,9 @@ class Faucet(app_manager.RyuApp):
                 'port_status_handler: unknown %s', dpid_log(dp_id))
 
     def get_config(self):
+        """FAUCET API: return config for all Valves."""
         return get_config_for_api(self.valves)
 
     def get_tables(self, dp_id):
+        """FAUCET API: return config tables for one Valve."""
         return self.valves[dp_id].dp.get_tables()

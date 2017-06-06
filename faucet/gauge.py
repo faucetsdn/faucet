@@ -35,6 +35,8 @@ from ryu.controller import ofp_event
 
 
 class EventGaugeReconfigure(event.EventBase):
+    """Event sent to Gauge to cause config reload."""
+
     pass
 
 
@@ -79,8 +81,22 @@ class Gauge(app_manager.RyuApp):
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
 
+    def signal_handler(self, sigid, _):
+        """Handle signal and cause config reload.
+
+        Args:
+            sigid (int): signal received.
+        """
+        if sigid == signal.SIGHUP:
+            self.send_event('Gauge', EventGaugeReconfigure())
+
     @kill_on_exception(exc_logname)
     def _handler_datapath_up(self, ryu_dp):
+        """Handle DP up.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+        """
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
             self.logger.info('%s up', dpid_log(dp_id))
@@ -91,6 +107,11 @@ class Gauge(app_manager.RyuApp):
 
     @kill_on_exception(exc_logname)
     def _handler_datapath_down(self, ryu_dp):
+        """Handle DP down.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+        """
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
             self.logger.info('%s down', dpid_log(dp_id))
@@ -102,6 +123,11 @@ class Gauge(app_manager.RyuApp):
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
     def handler_connect_or_disconnect(self, ryu_event):
+        """Handle DP dis/connect.
+
+        Args:
+           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+        """
         ryu_dp = ryu_event.dp
         if ryu_event.enter:
             self._handler_datapath_up(ryu_dp)
@@ -111,14 +137,16 @@ class Gauge(app_manager.RyuApp):
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
     def handler_reconnect(self, ryu_event):
+        """Handle a DP reconnection event.
+
+        Args:
+           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+        """
         ryu_dp = ryu_event.dp
         self._handler_datapath_up(ryu_dp)
 
-    def signal_handler(self, sigid, _):
-        if sigid == signal.SIGHUP:
-            self.send_event('Gauge', EventGaugeReconfigure())
-
     def _load_config(self):
+        """Load Gauge config."""
         self.config_file = os.getenv('GAUGE_CONFIG', self.config_file)
         new_confs = watcher_parser(self.config_file, self.logname)
         new_watchers = {}
@@ -130,6 +158,7 @@ class Gauge(app_manager.RyuApp):
 
     @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):
+        """Handle request for Gauge config reload."""
         new_watchers = self._load_config()
         for dp_id, watchers in self.watchers:
             for watcher_type, watcher in watchers:
@@ -142,7 +171,8 @@ class Gauge(app_manager.RyuApp):
                     watcher.stop()
                     new_watcher.start(self.dpset.get(dp_id))
 
-    def update_watcher(self, dp_id, name, msg):
+    def _update_watcher(self, dp_id, name, msg):
+        """Call watcher with event data."""
         rcv_time = time.time()
         if dp_id in self.watchers:
             if name in self.watchers[dp_id]:
@@ -153,17 +183,32 @@ class Gauge(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ryu_event):
-        self.update_watcher(
+        """Handle port status change event.
+
+        Args:
+           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+        """
+        self._update_watcher(
             ryu_event.msg.datapath.id, 'port_state', ryu_event.msg)
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_stats_reply_handler(self, ryu_event):
-        self.update_watcher(
+        """Handle port stats reply event.
+
+        Args:
+           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+        """
+        self._update_watcher(
             ryu_event.msg.datapath.id, 'port_stats', ryu_event.msg)
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def flow_stats_reply_handler(self, ryu_event):
-        self.update_watcher(
+        """Handle flow stats reply event.
+
+        Args:
+           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+        """
+        self._update_watcher(
             ryu_event.msg.datapath.id, 'flow_table', ryu_event.msg)
