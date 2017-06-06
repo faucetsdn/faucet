@@ -563,7 +563,8 @@ class Valve(object):
 
         # now configure all ports
         for port_num in all_port_nums:
-            ofmsgs.extend(self.port_add(self.dp.dp_id, port_num))
+            ofmsgs.extend(self.port_add(
+                self.dp.dp_id, port_num, cold_start=True))
 
         return ofmsgs
 
@@ -680,7 +681,7 @@ class Valve(object):
         else:
             return self.dp.eth_src_table
 
-    def _port_add_vlans(self, port, mirror_act):
+    def _port_add_vlans(self, port, mirror_act, cold_start):
         ofmsgs = []
         vlans = list(self.dp.vlans.values())
         tagged_vlans_with_port = [
@@ -688,21 +689,26 @@ class Valve(object):
         untagged_vlans_with_port = [
             vlan for vlan in vlans if port in vlan.untagged]
         for vlan in tagged_vlans_with_port:
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+            if not cold_start:
+                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             ofmsgs.extend(self._port_add_vlan_tagged(
                 port, vlan, self._find_forwarding_table(vlan), mirror_act))
         for vlan in untagged_vlans_with_port:
-            ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+            if not cold_start:
+                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             ofmsgs.extend(self._port_add_vlan_untagged(
                 port, vlan, self._find_forwarding_table(vlan), mirror_act))
         return ofmsgs
 
-    def port_add(self, dp_id, port_num, modify=False, old_eth_srcs=[]):
+    def port_add(self, dp_id, port_num,
+                 modify=False, cold_start=False, old_eth_srcs=None):
         """Handle the addition of a port.
 
         Args:
             dp_id (int): datapath ID.
             port_num (int): port number.
+            modify (bool): True modifying an existing port config.
+            cold_start (bool): True if configuring datapath from scratch.
             old_eth_srcs (list): eth MAC of antisproofing hosts
         Returns:
             list: OpenFlow messages, if any.
@@ -717,31 +723,31 @@ class Valve(object):
 
         port = self.dp.ports[port_num]
         port.phys_up = True
-
         ofmsgs = []
-        if modify:
-            if port.permanent_learn:
-                # delete antisproofing flows
-                for eth_src in old_eth_srcs:
+        self.dpid_log('Sending config for port %s' % port)
+
+        if not cold_start:
+            if modify:
+                if port.permanent_learn:
+                    if old_eth_srcs is not None:
+                        for eth_src in old_eth_srcs:
+                            ofmsgs.extend(self.valve_flowdel(
+                                self.dp.eth_src_table,
+                                match=self.valve_in_match(
+                                    self.dp.eth_src_table, eth_src=eth_src)))
+                else:
                     ofmsgs.extend(self.valve_flowdel(
-                        self.dp.eth_src_table,
-                        match=self.valve_in_match(
-                            self.dp.eth_src_table, eth_src=eth_src)))
+                        self.dp.eth_dst_table,
+                        out_port=port_num))
+                self.dpid_log('Port %s modified' % port)
             else:
-                ofmsgs.extend(self.valve_flowdel(
-                    self.dp.eth_dst_table,
-                    out_port=port_num))
-            self.dpid_log('Port %s modified' % port)
-        else:
-            self.dpid_log('Port %s added' % port)
+                self.dpid_log('Port %s added' % port)
+
+            # Delete all flows previously matching this port
+            ofmsgs.extend(self._delete_all_port_match_flows(port))
 
         if not port.running():
             return ofmsgs
-
-        self.dpid_log('Sending config for port %s' % port)
-
-        # Delete all flows previously matching this port
-        ofmsgs.extend(self._delete_all_port_match_flows(port))
 
         # Port is a mirror destination; drop all input packets
         if port.mirror_destination:
@@ -762,15 +768,16 @@ class Valve(object):
                 match=self.valve_in_match(self.dp.vlan_table, in_port=port_num),
                 priority=self.dp.low_priority,
                 inst=[valve_of.goto_table(self.dp.eth_src_table)]))
-            for vlan in list(self.dp.vlans.values()):
-                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+            if not cold_start:
+                for vlan in list(self.dp.vlans.values()):
+                    ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         else:
             mirror_act = []
             # Add mirroring if any
             if port.mirror:
                 mirror_act = [valve_of.output_port(port.mirror)]
             # Add port/to VLAN rules.
-            ofmsgs.extend(self._port_add_vlans(port, mirror_act))
+            ofmsgs.extend(self._port_add_vlans(port, mirror_act, cold_start))
         return ofmsgs
 
     def port_delete(self, dp_id, port_num, old_eth_srcs=[]):
@@ -1233,7 +1240,8 @@ class Valve(object):
         for port_no in changed_ports:
             self.dpid_log('ports changed/added: %s' % port_no)
             old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
-            ofmsgs.extend(self.port_add(self.dp.dp_id, port_no, True, old_eth_srcs))
+            ofmsgs.extend(self.port_add(
+                self.dp.dp_id, port_no, modify=True, old_eth_srcs=old_eth_srcs))
         return ofmsgs
 
     def reload_config(self, new_dp):
