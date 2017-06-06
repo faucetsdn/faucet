@@ -508,7 +508,6 @@ class Valve(object):
         ofmsgs.extend(self._delete_all_valve_flows())
         ofmsgs.extend(self._add_default_drop_flows())
         ofmsgs.extend(self._add_vlan_flood_flow())
-        ofmsgs.extend(self._add_controller_learn_flow())
         return ofmsgs
 
     def _add_vlan(self, vlan, all_port_nums):
@@ -609,6 +608,7 @@ class Valve(object):
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
+        ofmsgs.extend(self._add_controller_learn_flow())
         self.dp.running = True
         return ofmsgs
 
