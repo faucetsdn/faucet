@@ -681,23 +681,29 @@ class Valve(object):
         else:
             return self.dp.eth_src_table
 
-    def _port_add_vlans(self, port, mirror_act, cold_start):
+    def _port_add_vlans(self, port, mirror_act,
+                        tagged_vlans_with_port, untagged_vlans_with_port):
         ofmsgs = []
-        vlans = list(self.dp.vlans.values())
-        tagged_vlans_with_port = [
-            vlan for vlan in vlans if port in vlan.tagged]
-        untagged_vlans_with_port = [
-            vlan for vlan in vlans if port in vlan.untagged]
         for vlan in tagged_vlans_with_port:
-            if not cold_start:
-                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             ofmsgs.extend(self._port_add_vlan_tagged(
                 port, vlan, self._find_forwarding_table(vlan), mirror_act))
         for vlan in untagged_vlans_with_port:
-            if not cold_start:
-                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
             ofmsgs.extend(self._port_add_vlan_untagged(
                 port, vlan, self._find_forwarding_table(vlan), mirror_act))
+        return ofmsgs
+
+    def _port_delete_flows(self, port, old_eth_srcs):
+        ofmsgs = []
+        ofmsgs.extend(self._delete_all_port_match_flows(port))
+        ofmsgs.extend(self.valve_flowdel(
+                self.dp.eth_dst_table, out_port=port.number))
+        if port.permanent_learn:
+            if old_eth_srcs is not None:
+                for eth_src in old_eth_srcs:
+                    ofmsgs.extend(self.valve_flowdel(
+                        self.dp.eth_src_table,
+                        match=self.valve_in_match(
+                            self.dp.eth_src_table, eth_src=eth_src)))
         return ofmsgs
 
     def port_add(self, dp_id, port_num,
@@ -727,24 +733,11 @@ class Valve(object):
         self.dpid_log('Sending config for port %s' % port)
 
         if not cold_start:
+            ofmsgs.extend(self._port_delete_flows(port, old_eth_srcs))
             if modify:
-                if port.permanent_learn:
-                    if old_eth_srcs is not None:
-                        for eth_src in old_eth_srcs:
-                            ofmsgs.extend(self.valve_flowdel(
-                                self.dp.eth_src_table,
-                                match=self.valve_in_match(
-                                    self.dp.eth_src_table, eth_src=eth_src)))
-                else:
-                    ofmsgs.extend(self.valve_flowdel(
-                        self.dp.eth_dst_table,
-                        out_port=port_num))
                 self.dpid_log('Port %s modified' % port)
             else:
                 self.dpid_log('Port %s added' % port)
-
-            # Delete all flows previously matching this port
-            ofmsgs.extend(self._delete_all_port_match_flows(port))
 
         if not port.running():
             return ofmsgs
@@ -761,6 +754,13 @@ class Valve(object):
         acl_ofmsgs = self._port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
 
+        vlans = list(self.dp.vlans.values())
+        tagged_vlans_with_port = [
+            vlan for vlan in vlans if port in vlan.tagged]
+        untagged_vlans_with_port = [
+            vlan for vlan in vlans if port in vlan.untagged]
+        port_vlans = tagged_vlans_with_port + untagged_vlans_with_port
+
         # If this is a stacking port, accept all VLANs (came from another FAUCET)
         if port.stack is not None:
             ofmsgs.append(self.valve_flowmod(
@@ -768,19 +768,24 @@ class Valve(object):
                 match=self.valve_in_match(self.dp.vlan_table, in_port=port_num),
                 priority=self.dp.low_priority,
                 inst=[valve_of.goto_table(self.dp.eth_src_table)]))
-            if not cold_start:
-                for vlan in list(self.dp.vlans.values()):
-                    ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+            port_vlans = vlans
         else:
             mirror_act = []
             # Add mirroring if any
             if port.mirror:
                 mirror_act = [valve_of.output_port(port.mirror)]
             # Add port/to VLAN rules.
-            ofmsgs.extend(self._port_add_vlans(port, mirror_act, cold_start))
+            ofmsgs.extend(self._port_add_vlans(
+                port, mirror_act, tagged_vlans_with_port, untagged_vlans_with_port))
+
+        # Only update flooding rules if not cold starting.
+        if not cold_start:
+            for vlan in port_vlans:
+                ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+
         return ofmsgs
 
-    def port_delete(self, dp_id, port_num, old_eth_srcs=[]):
+    def port_delete(self, dp_id, port_num, old_eth_srcs=None):
         """Handle the deletion of a port.
 
         Args:
@@ -801,20 +806,7 @@ class Valve(object):
         self.dpid_warn('Port %s down' % port)
 
         ofmsgs = []
-
-        if port.permanent_learn:
-            # delete antisproofing flows
-            for eth_src in old_eth_srcs:
-                ofmsgs.extend(self.valve_flowdel(
-                    self.dp.eth_src_table,
-                    match=self.valve_in_match(
-                        self.dp.eth_src_table, eth_src=eth_src)))
-        else:
-            ofmsgs.extend(self._delete_all_port_match_flows(port))
-            # delete eth_dst rules
-            ofmsgs.extend(self.valve_flowdel(
-                self.dp.eth_dst_table,
-                out_port=port_num))
+        ofmsgs.extend(self._port_delete_flows(port, old_eth_srcs))
         for vlan in list(self.dp.vlans.values()):
             if port in vlan.get_ports():
                 ofmsgs.extend(self.flood_manager.build_flood_rules(
