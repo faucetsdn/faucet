@@ -146,7 +146,7 @@ class Gauge(app_manager.RyuApp):
         rcv_time = time.time()
         if dp_id in self.watchers:
             if name in self.watchers[dp_id]:
-                self.watchers[dp_id][name].update(rcv_time, msg)
+                self.watchers[dp_id][name].update(rcv_time, dp_id, msg)
         else:
             self.logger.info('%s event, unknown', dpid_log(dp_id))
 
