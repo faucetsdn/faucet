@@ -1180,10 +1180,6 @@ class Valve(object):
                     changed_ports.add(port_no)
                     self.dpid_log('port %s ACL changed' % port_no)
 
-        if changed_ports == set(new_dp.ports.keys()):
-            self.dpid_log('all ports config changed')
-            all_ports_changed = True
-
         deleted_vlans = set([])
         for vid in list(self.dp.vlans.keys()):
             if vid not in new_dp.vlans:
@@ -1200,6 +1196,11 @@ class Valve(object):
         for port_no in list(self.dp.ports.keys()):
             if port_no not in new_dp.ports:
                 deleted_ports.add(port_no)
+
+        if changed_ports == set(new_dp.ports.keys()):
+            self.dpid_log('all ports config changed')
+            all_ports_changed = True
+
         changes = (
             deleted_ports, changed_ports, deleted_vlans, changed_vlans,
             all_ports_changed)
