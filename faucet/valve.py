@@ -696,7 +696,7 @@ class Valve(object):
         ofmsgs = []
         ofmsgs.extend(self._delete_all_port_match_flows(port))
         ofmsgs.extend(self.valve_flowdel(
-                self.dp.eth_dst_table, out_port=port.number))
+            self.dp.eth_dst_table, out_port=port.number))
         if port.permanent_learn:
             if old_eth_srcs is not None:
                 for eth_src in old_eth_srcs:
@@ -1209,31 +1209,32 @@ class Valve(object):
         deleted_ports, changed_ports, deleted_vlans, changed_vlans = changes
         ofmsgs = []
         old_dp = self.dp
-        for port_no in deleted_ports:
+        if deleted_ports:
             self.dpid_log('ports deleted: %s' % deleted_ports)
-            old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
-            ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no, old_eth_srcs))
-        for vid in deleted_vlans:
+            for port_no in deleted_ports:
+                old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
+                ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no, old_eth_srcs))
+        if deleted_vlans:
             self.dpid_log('VLANs deleted: %s' % deleted_vlans)
-            vlan = self.dp.vlans[vid]
-            ofmsgs.extend(self._del_vlan(vlan))
-        for vid in changed_vlans:
-            if vid in self.dp.vlans:
+            for vid in deleted_vlans:
                 vlan = self.dp.vlans[vid]
                 ofmsgs.extend(self._del_vlan(vlan))
 
         self.dp = new_dp
         self.dp.running = True
 
-        for vid in changed_vlans:
+        if changed_vlans:
             self.dpid_log('VLANs changed/added: %s' % changed_vlans)
-            vlan = self.dp.vlans[vid]
-            ofmsgs.extend(self._add_vlan(vlan, set()))
-        for port_no in changed_ports:
-            self.dpid_log('ports changed/added: %s' % port_no)
-            old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
-            ofmsgs.extend(self.port_add(
-                self.dp.dp_id, port_no, modify=True, old_eth_srcs=old_eth_srcs))
+            for vid in changed_vlans:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(self._del_vlan(vlan))
+                ofmsgs.extend(self._add_vlan(vlan, set()))
+        if changed_ports:
+            self.dpid_log('ports changed/added: %s' % changed_ports)
+            for port_no in changed_ports:
+                old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
+                ofmsgs.extend(self.port_add(
+                    self.dp.dp_id, port_no, modify=True, old_eth_srcs=old_eth_srcs))
         return ofmsgs
 
     def reload_config(self, new_dp):
