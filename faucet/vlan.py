@@ -113,6 +113,12 @@ class VLAN(Conf):
                 assert ip_gw.version == ip_dst.version
                 self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
 
+    def add_tagged(self, port):
+        self.tagged.append(port)
+
+    def add_untagged(self, port):
+        self.untagged.append(port)
+
     def ipvs(self):
         """Return list of IP versions configured on this VLAN."""
         return self.dyn_ipvs
@@ -155,7 +161,7 @@ class VLAN(Conf):
 
     def get_ports(self):
         """Return list of all ports on this VLAN."""
-        return self.tagged + self.untagged
+        return list(self.tagged) + list(self.untagged)
 
     def mirrored_ports(self):
         """Return list of ports that are mirrored on this VLAN."""
