@@ -30,7 +30,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     pass
 
 
-@unittest.skip('currently flaky')
+# @unittest.skip('currently flaky')
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
     """Test the Faucet API."""
 
@@ -59,9 +59,10 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
                 env=self.env[name],
                 port=self.of_port))
         self.net.start()
+        self.wait_for_tcp_listen(self._get_controller(), self.of_port)
 
     def test_api(self):
-        for _ in range(30):
+        for _ in range(10):
             try:
                 with open(self.results_file, 'r') as results:
                     result = results.read().strip()
