@@ -2906,7 +2906,8 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
         self.assertEqual(
             100,
             self.get_group_id_for_matching_flow(
-                {u'dl_vlan': u'100'}, table_id=7))
+                {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
+                table_id=7))
 
 
 class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
