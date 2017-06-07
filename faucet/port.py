@@ -88,18 +88,8 @@ class Port(Conf):
                 }
         return result
 
-    def __eq__(self, other):
-        return hash(self) == hash(other)
-
-    def __hash__(self):
-        items = [(k, v) for k, v in list(self.__dict__.items()) if 'dyn' not in k]
-        return hash(frozenset(list(map(str, items))))
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def __str__(self):
         return self.name
 
     def __repr__(self):
-        return "Port %s" % self.number
+        return 'Port %s' % self.number
