@@ -1152,14 +1152,18 @@ class Valve(object):
                 changed_ports (set): changed/added port numbers.
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
+                all_ports_changed (bool): True if all ports changed.
         """
+        all_ports_changed = False
         changed_acls = {}
         for acl_id, new_acl in list(new_dp.acls.items()):
             if acl_id not in self.dp.acls:
                 changed_acls[acl_id] = new_acl
+                self.dpid_log('ACL %s new' % acl_id)
             else:
                 if new_acl != self.dp.acls[acl_id]:
                     changed_acls[acl_id] = new_acl
+                    self.dpid_log('ACL %s changed' % acl_id)
 
         changed_ports = set([])
         for port_no, new_port in list(new_dp.ports.items()):
@@ -1170,9 +1174,15 @@ class Valve(object):
                 if new_port != self.dp.ports[port_no]:
                     # An existing port has configs changed
                     changed_ports.add(port_no)
+                    self.dpid_log('port %s reconfigured' % port_no)
                 elif new_port.acl_in in changed_acls:
                     # If the port has its ACL changed
                     changed_ports.add(port_no)
+                    self.dpid_log('port %s ACL changed' % port_no)
+
+        if changed_ports == set(new_dp.ports.keys()):
+            self.dpid_log('all ports config changed')
+            all_ports_changed = True
 
         deleted_vlans = set([])
         for vid in list(self.dp.vlans.keys()):
@@ -1190,7 +1200,9 @@ class Valve(object):
         for port_no in list(self.dp.ports.keys()):
             if port_no not in new_dp.ports:
                 deleted_ports.add(port_no)
-        changes = (deleted_ports, changed_ports, deleted_vlans, changed_vlans)
+        changes = (
+            deleted_ports, changed_ports, deleted_vlans, changed_vlans,
+            all_ports_changed)
         return changes
 
     def _apply_config_changes(self, new_dp, changes):
@@ -1203,38 +1215,44 @@ class Valve(object):
                 changed_ports (list): changed/added port numbers.
                 deleted_vlans (list): deleted VLAN IDs.
                 changed_vlans (list): changed/added VLAN IDs.
+                all_ports_changed (bool): True if all ports changed.
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
-        deleted_ports, changed_ports, deleted_vlans, changed_vlans = changes
+        (deleted_ports, changed_ports, deleted_vlans, changed_vlans,
+         all_ports_changed) = changes
+        new_dp.running = True
         ofmsgs = []
-        old_dp = self.dp
-        if deleted_ports:
-            self.dpid_log('ports deleted: %s' % deleted_ports)
-            for port_no in deleted_ports:
-                old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
-                ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no, old_eth_srcs))
-        if deleted_vlans:
-            self.dpid_log('VLANs deleted: %s' % deleted_vlans)
-            for vid in deleted_vlans:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(self._del_vlan(vlan))
 
-        self.dp = new_dp
-        self.dp.running = True
-
-        if changed_vlans:
-            self.dpid_log('VLANs changed/added: %s' % changed_vlans)
-            for vid in changed_vlans:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(self._del_vlan(vlan))
-                ofmsgs.extend(self._add_vlan(vlan, set()))
-        if changed_ports:
-            self.dpid_log('ports changed/added: %s' % changed_ports)
-            for port_no in changed_ports:
-                old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
-                ofmsgs.extend(self.port_add(
-                    self.dp.dp_id, port_no, modify=True, old_eth_srcs=old_eth_srcs))
+        if all_ports_changed:
+            self.dpid_log('all ports changed config, so cold starting pipeline')
+            self.dp = new_dp
+            ofmsgs.extend(self.datapath_connect(self.dp.dp_id, changed_ports))
+        else:
+            old_dp = self.dp
+            if deleted_ports:
+                self.dpid_log('ports deleted: %s' % deleted_ports)
+                for port_no in deleted_ports:
+                    old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
+                    ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no, old_eth_srcs))
+            if deleted_vlans:
+                self.dpid_log('VLANs deleted: %s' % deleted_vlans)
+                for vid in deleted_vlans:
+                    vlan = self.dp.vlans[vid]
+                    ofmsgs.extend(self._del_vlan(vlan))
+            self.dp = new_dp
+            if changed_vlans:
+                self.dpid_log('VLANs changed/added: %s' % changed_vlans)
+                for vid in changed_vlans:
+                    vlan = self.dp.vlans[vid]
+                    ofmsgs.extend(self._del_vlan(vlan))
+                    ofmsgs.extend(self._add_vlan(vlan, set()))
+            if changed_ports:
+                self.dpid_log('ports changed/added: %s' % changed_ports)
+                for port_no in changed_ports:
+                    old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
+                    ofmsgs.extend(self.port_add(
+                        self.dp.dp_id, port_no, modify=True, old_eth_srcs=old_eth_srcs))
         return ofmsgs
 
     def reload_config(self, new_dp):
