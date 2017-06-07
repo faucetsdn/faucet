@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import logging
 import time
 import os
@@ -1187,10 +1188,22 @@ class Valve(object):
 
         changed_vlans = set([])
         for vid, new_vlan in list(new_dp.vlans.items()):
-            if vid not in self.dp.vlans or new_vlan != self.dp.vlans[vid]:
+            if vid not in self.dp.vlans:
                 changed_vlans.add(vid)
-                for port in new_vlan.get_ports():
-                    changed_ports.add(port.number)
+                self.dpid_log('VLAN %s added' % vid)
+            else:
+                old_vlan = self.dp.vlans[vid]
+                if old_vlan != new_vlan:
+                    old_vlan_new_ports = copy.deepcopy(old_vlan)
+                    old_vlan_new_ports.tagged = new_vlan.tagged
+                    old_vlan_new_ports.untagged = new_vlan.untagged
+                    if old_vlan_new_ports != new_vlan:
+                        changed_vlans.add(vid)
+                        self.dpid_log('VLAN %s config changed' % vid)
+
+        for vid in changed_vlans:
+            for port in new_dp.vlans[vid].get_ports():
+                changed_ports.add(port.number)
 
         deleted_ports = set([])
         for port_no in list(self.dp.ports.keys()):
