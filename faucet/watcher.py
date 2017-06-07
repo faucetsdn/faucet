@@ -274,7 +274,7 @@ class GaugePoller(object):
         """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError
 
-    def _stat_port_name(self, msg, stat):
+    def _stat_port_name(self, msg, stat, dp_id):
         if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
             return 'CONTROLLER'
         elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
@@ -282,7 +282,8 @@ class GaugePoller(object):
         elif stat.port_no in self.dp.ports:
             return self.dp.ports[stat.port_no].name
         else:
-            self.logger.info('stats for unknown port %u', stat.port_no)
+            self.logger.info('%s stats for unknown port %u',
+                             dpid_log(dp_id), stat.port_no)
             return None
 
     def _format_port_stats(self, delim, stat):
@@ -326,7 +327,7 @@ class GaugePortStatsPoller(GaugePoller):
         rcv_time_str = _rcv_time(rcv_time)
         self.reply_pending = False
         for stat in msg.body:
-            port_name = self._stat_port_name(msg, stat)
+            port_name = self._stat_port_name(msg, stat, dp_id)
             if port_name is not None:
                 with open(self.conf.file, 'a') as logfile:
                     log_lines = []
@@ -392,7 +393,7 @@ time			dp_name			port_name	value
         self.reply_pending = False
         points = []
         for stat in msg.body:
-            port_name = self._stat_port_name(msg, stat)
+            port_name = self._stat_port_name(msg, stat, dp_id)
             for stat_name, stat_val in self._format_port_stats('_', stat):
                 points.append(
                     self.make_point(

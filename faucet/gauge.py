@@ -116,7 +116,7 @@ class Gauge(app_manager.RyuApp):
         if dp_id in self.watchers:
             self.logger.info('%s down', dpid_log(dp_id))
             for watcher in list(self.watchers[dp_id].values()):
-                watcher.stop(ryu_dp)
+                watcher.stop()
         else:
             self.logger.info('%s down, unknown', dpid_log(dp_id))
 
