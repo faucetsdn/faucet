@@ -193,19 +193,13 @@ class VLAN(Conf):
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
         return ofmsgs
 
-    def port_is_tagged(self, port_number):
+    def port_is_tagged(self, port):
         """Return True if port number is an tagged port on this VLAN."""
-        for port in self.tagged:
-            if port.number == port_number:
-                return True
-        return False
+        return port in self.tagged
 
-    def port_is_untagged(self, port_number):
+    def port_is_untagged(self, port):
         """Return True if port number is an untagged port on this VLAN."""
-        for port in self.untagged:
-            if port.number == port_number:
-                return True
-        return False
+        return port in self.untagged
 
     def is_faucet_vip(self, ipa):
         """Return True if IP is a VIP on this VLAN."""
