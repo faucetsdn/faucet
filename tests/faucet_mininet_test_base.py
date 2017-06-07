@@ -252,10 +252,12 @@ class FaucetTestBase(unittest.TestCase):
         self.net.start()
         if self.hw_switch:
             self._attach_physical_switch()
-        self.wait_for_tcp_listen(
-            self._get_controller(), self.of_port)
-        self.wait_for_tcp_listen(
-            self._get_controller(), self._get_controller().ofctl_port)
+        for controller in self.net.controllers:
+            for _ in range(10):
+                if controller.isAvailable():
+                    break
+                time.sleep(1)
+            self.assertTrue(controller.isAvailable())
         self._wait_debug_log()
         self.wait_dp_status(1)
         self.wait_until_controller_flow()
