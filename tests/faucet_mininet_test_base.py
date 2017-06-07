@@ -252,6 +252,9 @@ class FaucetTestBase(unittest.TestCase):
         self.net.start()
         if self.hw_switch:
             self._attach_physical_switch()
+        for port in (self._get_controller().ofctl_port,
+                     self.of_port, self.get_prom_port()):
+            self.wait_for_tcp_listen(self._get_controller(), port)
         self._wait_debug_log()
         self.wait_dp_status(1)
         self.wait_until_controller_flow()
@@ -606,11 +609,12 @@ dbs:
             host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
         self.fail('host %s could not be learned' % host)
 
+    def get_prom_port(self):
+        return int(self.env['faucet']['FAUCET_PROMETHEUS_PORT'])
+
     def _prometheus_url(self):
-        name = 'faucet'
-        prom_port = int(self.env[name]['FAUCET_PROMETHEUS_PORT'])
-        prom_addr = self.env[name]['FAUCET_PROMETHEUS_ADDR']
-        return 'http://%s:%u' % (prom_addr, prom_port)
+        prom_addr = self.env['faucet']['FAUCET_PROMETHEUS_ADDR']
+        return 'http://%s:%u' % (prom_addr, self.get_prom_port())
 
     def scrape_prometheus(self):
         prom_vars = []

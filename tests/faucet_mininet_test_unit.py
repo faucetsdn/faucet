@@ -30,6 +30,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     pass
 
 
+@unittest.skip('currently flaky')
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
     """Test the Faucet API."""
 
