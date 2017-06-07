@@ -34,6 +34,7 @@ class Port(Conf):
     acl_in = None
     stack = {}
     max_hosts = None
+    dyn_phys_up = None
 
     defaults = {
         'number': None,

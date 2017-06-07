@@ -359,18 +359,6 @@ class DP(Conf):
         resolve_mirror_destinations()
         resolve_port_names_in_acls()
 
-    def get_native_vlan(self, port_num):
-        if port_num not in self.ports:
-            return None
-
-        port = self.ports[port_num]
-
-        for vlan in list(self.vlans.values()):
-            if port in vlan.untagged:
-                return vlan
-
-        return None
-
     def get_tables(self):
         result = {}
         for k in self.defaults:
