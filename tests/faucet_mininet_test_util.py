@@ -2,8 +2,10 @@
 
 """Standalone utility functions for Mininet tests."""
 
+import collections
 import os
 import socket
+import time
 
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
@@ -29,20 +31,17 @@ def find_free_port(ports_socket):
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
     buf = ''
-    while not buf.find('\n') > -1:
+    while buf.find('\n') <= -1:
         buf = buf + sock.recv(1024)
     return [int(x) for x in buf.strip().split()]
 
 
 def serve_ports(ports_socket):
     """Implement a TCP server to dispense free TCP ports."""
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.bind(ports_socket)
-    sock.listen(1)
     ports_served = set()
+    ports_q = collections.deque()
 
-    while True:
-        connection, _ = sock.accept()
+    def get_port():
         while True:
             free_socket = socket.socket()
             free_socket.bind(('', 0))
@@ -56,6 +55,23 @@ def serve_ports(ports_socket):
                 continue
             break
         ports_served.add(free_port)
+        return free_port
+
+    def queue_free_ports():
+        while len(ports_q) < 20:
+           ports_q.append(get_port())
+           time.sleep(0.1)
+
+    queue_free_ports()
+
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.bind(ports_socket)
+    sock.listen(1)
+
+    while True:
+        queue_free_ports()
+        free_port = ports_q.popleft()
+        connection, _ = sock.accept()
         # pylint: disable=no-member
         connection.sendall('%u %u\n' % (free_port, len(ports_served)))
         connection.close()

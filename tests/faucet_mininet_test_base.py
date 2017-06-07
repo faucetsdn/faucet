@@ -606,11 +606,12 @@ dbs:
             host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
         self.fail('host %s could not be learned' % host)
 
+    def get_prom_port(self):
+        return int(self.env['faucet']['FAUCET_PROMETHEUS_PORT'])
+
     def _prometheus_url(self):
-        name = 'faucet'
-        prom_port = int(self.env[name]['FAUCET_PROMETHEUS_PORT'])
-        prom_addr = self.env[name]['FAUCET_PROMETHEUS_ADDR']
-        return 'http://%s:%u' % (prom_addr, prom_port)
+        prom_addr = self.env['faucet']['FAUCET_PROMETHEUS_ADDR']
+        return 'http://%s:%u' % (prom_addr, self.get_prom_port())
 
     def scrape_prometheus(self):
         prom_vars = []

@@ -30,6 +30,7 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     pass
 
 
+@unittest.skip('currently flaky')
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
     """Test the Faucet API."""
 
@@ -58,9 +59,10 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
                 env=self.env[name],
                 port=self.of_port))
         self.net.start()
+        self.wait_for_tcp_listen(self._get_controller(), self.of_port)
 
     def test_api(self):
-        for _ in range(30):
+        for _ in range(10):
             try:
                 with open(self.results_file, 'r') as results:
                     result = results.read().strip()
@@ -2904,7 +2906,8 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
         self.assertEqual(
             100,
             self.get_group_id_for_matching_flow(
-                {u'dl_vlan': u'100'}, table_id=7))
+                {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
+                table_id=7))
 
 
 class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
