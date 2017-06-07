@@ -252,6 +252,10 @@ class FaucetTestBase(unittest.TestCase):
         self.net.start()
         if self.hw_switch:
             self._attach_physical_switch()
+        self.wait_for_tcp_listen(
+            self._get_controller(), self.of_port)
+        self.wait_for_tcp_listen(
+            self._get_controller(), self._get_controller().ofctl_port)
         self._wait_debug_log()
         self.wait_dp_status(1)
         self.wait_until_controller_flow()
@@ -970,17 +974,31 @@ dbs:
         self.verify_ipv6_host_learned_mac(
             host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
+    def tcp_port_free(self, host, port, ipv=4):
+        fuser_cmd = 'fuser -%u -n tcp %u' % (ipv, port)
+        fuser_out = host.cmd(fuser_cmd)
+        for fuser_line in fuser_out.splitlines():
+            if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
+                return fuser_out
+        return None
+
+    def wait_for_tcp_free(self, host, port, timeout=10, ipv=4):
+        """Wait for a host to start listening on a port."""
+        for _ in range(timeout):
+            fuser_out = self.tcp_port_free(host, port, ipv)
+            if fuser_out is None:
+                return
+            time.sleep(1)
+        self.fail('%s busy on port %u (%s)' % (host, port, fuser_out))
+
     def wait_for_tcp_listen(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
-        fuser_cmd = 'fuser -%u -n tcp %u' % (ipv, port)
         for _ in range(timeout):
-            fuser_out = host.cmd(fuser_cmd)
-            for fuser_line in fuser_out.splitlines():
-                if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
-                    return
+            fuser_out = self.tcp_port_free(host, port, ipv)
+            if fuser_out is not None:
+                return
             time.sleep(1)
-        self.fail('%s never listened on port %u (%s: %s)' % (
-            host, port, fuser_cmd, fuser_out))
+        self.fail('%s never listened on port %u' % (host, port))
 
     def serve_hello_on_tcp_port(self, host, port):
         """Serve 'hello' on a TCP port on a host."""
