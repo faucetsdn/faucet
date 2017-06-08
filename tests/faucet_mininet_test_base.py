@@ -186,13 +186,13 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        faucet_mininet_test_util.return_free_ports(
-            self.ports_sock, self._test_name())
         open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
             self.scrape_prometheus())
         logs = self._controller_lognames()
         if self.net is not None:
             self.net.stop()
+        faucet_mininet_test_util.return_free_ports(
+            self.ports_sock, self._test_name())
         # must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         # Associate controller log with test results, if we are keeping
