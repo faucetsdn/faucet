@@ -268,29 +268,47 @@ class FaucetTestBase(unittest.TestCase):
                     port=self.gauge_of_port)
                 self.net.addController(gauge_controller)
             self.net.start()
-            if (self._wait_controllers_logging() and self._wait_debug_log() and self.wait_dp_status(1)):
+            if (self._wait_controllers_logging() and
+                    self.wait_dp_status(1) and
+                    self._wait_until_ofctl_up()):
                 return
             self.net.stop()
             time.sleep(1)
         self.fail('could not start FAUCET')
 
-    def _controller_port_busy(self, port):
-        return not self.tcp_port_free(self._get_controller(), port)
-
     def _ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""
         return 'http://127.0.0.1:%u' % self._get_controller().ofctl_port
 
+    def _ofctl(self, req):
+        try:
+            ofctl_result = requests.get(req).text
+        except requests.exceptions.ConnectionError:
+            return None
+        return ofctl_result
+
+    def _ofctl_up(self):
+        switches = self._ofctl('%s/stats/switches' % self._ofctl_rest_url())
+        return switches is not None and re.search(r'^\[[^\]]+\]$', switches)
+
+    def _wait_until_ofctl_up(self, timeout=10):
+        for _ in range(timeout):
+            if self._ofctl_up():
+                return True
+            time.sleep(1)
+        return False
+
     def _ofctl_get(self, int_dpid, req, timeout):
         for _ in range(timeout):
-            try:
-                ofctl_result = json.loads(requests.get(req).text)
-                ofmsgs = ofctl_result[int_dpid]
-                return [json.dumps(ofmsg) for ofmsg in ofmsgs]
-            except (ValueError, requests.exceptions.ConnectionError):
-                # Didn't get valid JSON, try again
-                time.sleep(1)
-                continue
+            ofctl_result = self._ofctl(req)
+            if req is not None:
+                try:
+                    ofmsgs = json.loads(ofctl_result)[int_dpid]
+                    return [json.dumps(ofmsg) for ofmsg in ofmsgs]
+                except ValueError:
+                    # Didn't get valid JSON, try again
+                    time.sleep(1)
+                    continue
         return []
 
     def _curl_portmod(self, int_dpid, port_no, config, mask):
@@ -896,18 +914,20 @@ dbs:
         self.fail(msg=msg)
 
     def set_port_down(self, port_no):
-        os.system(self._curl_portmod(
-            self.dpid,
-            port_no,
-            ofp.OFPPC_PORT_DOWN,
-            ofp.OFPPC_PORT_DOWN))
+        self.assertEquals(0,
+            os.system(self._curl_portmod(
+                self.dpid,
+                port_no,
+                ofp.OFPPC_PORT_DOWN,
+                ofp.OFPPC_PORT_DOWN)))
 
     def set_port_up(self, port_no):
-        os.system(self._curl_portmod(
-            self.dpid,
-            port_no,
-            0,
-            ofp.OFPPC_PORT_DOWN))
+        self.assertEquals(0,
+            os.system(self._curl_portmod(
+                self.dpid,
+                port_no,
+                0,
+                ofp.OFPPC_PORT_DOWN)))
 
     def wait_port_status(self, port_no, expected_status, timeout=10):
         for _ in range(timeout):
@@ -1062,7 +1082,6 @@ dbs:
 
     def start_exabgp(self, exabgp_conf):
         """Start exabgp process on controller host."""
-        self.stop_exabgp()
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
@@ -1096,12 +1115,6 @@ dbs:
                 return
             time.sleep(1)
         self.fail('exabgp did not peer with FAUCET')
-
-    def stop_exabgp(self):
-        """Stop exabgp process on controller host."""
-        port = self.config_ports['bgp_port']
-        controller = self._get_controller()
-        self._signal_proc_on_port(controller, port, 9)
 
     def exabgp_updates(self, exabgp_log):
         """Verify that exabgp process has received BGP updates."""

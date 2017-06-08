@@ -865,7 +865,6 @@ group test {
         self.add_host_route(
             second_host, first_host_alias_host_ip, self.FAUCET_VIPV4.ip)
         self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
-        self.stop_exabgp()
         self.one_ipv4_controller_ping(first_host)
 
 
@@ -948,7 +947,6 @@ group test {
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
-        self.stop_exabgp()
         for host in first_host, second_host:
             self.one_ipv4_controller_ping(host)
 
@@ -1030,7 +1028,6 @@ group test {
             0)
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(self.exabgp_log)
-        self.stop_exabgp()
         assert re.search('10.0.0.0/24 next-hop 10.0.0.254', updates)
         assert re.search('10.0.1.0/24 next-hop 10.0.0.1', updates)
         assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
@@ -2194,7 +2191,6 @@ group test {
         self.add_host_route(
             second_host, first_host_alias_host_ip, self.FAUCET_VIPV6.ip)
         self.one_ipv6_ping(second_host, first_host_alias_ip.ip)
-        self.stop_exabgp()
         self.one_ipv6_controller_ping(first_host)
 
 
@@ -2266,7 +2262,6 @@ group test {
         self.verify_ipv6_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
-        self.stop_exabgp()
         for host in first_host, second_host:
             self.one_ipv6_controller_ping(host)
 
@@ -2404,7 +2399,6 @@ group test {
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         updates = self.exabgp_updates(self.exabgp_log)
-        self.stop_exabgp()
         assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
         assert re.search('fc00::10:0/112 next-hop fc00::1:1', updates)
         assert re.search('fc00::20:0/112 next-hop fc00::1:2', updates)
