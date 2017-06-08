@@ -268,10 +268,7 @@ class FaucetTestBase(unittest.TestCase):
                     port=self.gauge_of_port)
                 self.net.addController(gauge_controller)
             self.net.start()
-            if (self._wait_controllers_logging() and
-                    self._controller_port_busy(self.get_prom_port()) and
-                    self._controller_port_busy(self.of_port) and
-                    self._controller_port_busy(self._get_controller().ofctl_port)):
+            if (self._wait_controllers_logging() and self._wait_debug_log()):
                 return
             self.net.stop()
             time.sleep(1)
