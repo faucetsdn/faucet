@@ -311,7 +311,7 @@ class FaucetTestBase(unittest.TestCase):
         return controller_txt
 
     def _wait_controllers_logging(self, timeout=10):
-        controller_count = len(self.net.controllers())
+        controller_count = len(self.net.controllers)
         for _ in range(timeout):
             lognames_count = len(self._controller_lognames())
             if controller_count == lognames_count:
@@ -619,9 +619,12 @@ dbs:
     def get_prom_port(self):
         return int(self.env['faucet']['FAUCET_PROMETHEUS_PORT'])
 
+    def get_prom_addr(self):
+        return self.env['faucet']['FAUCET_PROMETHEUS_ADDR']
+
     def _prometheus_url(self):
-        prom_addr = self.env['faucet']['FAUCET_PROMETHEUS_ADDR']
-        return 'http://%s:%u' % (prom_addr, self.get_prom_port())
+        return 'http://%s:%u' % (
+            self.get_prom_addr(), self.get_prom_port())
 
     def scrape_prometheus(self):
         prom_vars = []
