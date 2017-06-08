@@ -247,7 +247,7 @@ class ValveTestCase(ValveTestBase):
             for p in valve_vlan.get_ports():
                 remaining_ports.discard(p.number)
                 if p.number != in_port and p.running():
-                    if valve_vlan.port_is_tagged(p.number):
+                    if valve_vlan.port_is_tagged(p):
                         vid = valve_vlan.vid|ofp.OFPVID_PRESENT
                     else:
                         vid = 0
@@ -422,7 +422,7 @@ class ValveTestCase(ValveTestBase):
         # Check packets are output to each port on vlan
         for p in vlan.get_ports():
             if p.number != match['in_port'] and p.running():
-                if vlan.port_is_tagged(p.number):
+                if vlan.port_is_tagged(p):
                     vid = vlan.vid|ofp.OFPVID_PRESENT
                 else:
                     vid = 0

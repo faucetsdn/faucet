@@ -67,7 +67,7 @@ class ValveHostManager(object):
 
     def build_port_out_inst(self, vlan, port):
         dst_act = []
-        if not vlan.port_is_tagged(port.number) and port.stack is None:
+        if not vlan.port_is_tagged(port) and port.stack is None:
             dst_act.append(valve_of.pop_vlan())
         dst_act.append(valve_of.output_port(port.number))
 

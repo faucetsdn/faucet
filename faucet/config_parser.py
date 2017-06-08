@@ -79,10 +79,10 @@ def port_parser(dp_id, p_identifier, port_conf, vlans):
     if port.native_vlan is not None:
         v_identifier = port.native_vlan
         vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
-        vlan.untagged.append(port)
+        vlan.add_untagged(port)
     for v_identifier in port.tagged_vlans:
         vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
-        vlan.tagged.append(port)
+        vlan.add_tagged(port)
 
     return port
 

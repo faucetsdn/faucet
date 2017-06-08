@@ -161,7 +161,7 @@ class FaucetTestBase(unittest.TestCase):
         lognames = []
         for controller in self.net.controllers:
             logname = '/tmp/%s.log' % controller.name
-            if os.path.exists(logname):
+            if os.path.exists(logname) and os.path.getsize(logname) > 0:
                 lognames.append(logname)
         return lognames
 
@@ -184,9 +184,11 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        logs = self._controller_lognames()
+        # must not be any controller exception.
+        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
             self.scrape_prometheus())
+        logs = self._controller_lognames()
         if self.net is not None:
             self.net.stop()
         # Associate controller log with test results, if we are keeping
@@ -194,8 +196,6 @@ class FaucetTestBase(unittest.TestCase):
         # mininet doesn't have a way to change its log name for the controller.
         for log in logs:
             shutil.move(log, self.tmpdir)
-        # must not be any controller exception.
-        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         for _, debug_log in self._get_ofchannel_logs():
             self.assertFalse(
                 re.search('OFPErrorMsg', open(debug_log).read()),
@@ -252,9 +252,7 @@ class FaucetTestBase(unittest.TestCase):
         self.net.start()
         if self.hw_switch:
             self._attach_physical_switch()
-        self._wait_debug_log()
-        self.wait_dp_status(1)
-        self.wait_until_controller_flow()
+        self._start_faucet()
         for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
@@ -262,6 +260,18 @@ class FaucetTestBase(unittest.TestCase):
     def _get_controller(self):
         """Return the first (only) controller."""
         return self.net.controllers[0]
+
+    def _start_faucet(self):
+        for _ in range(3):
+            if (self._wait_controllers_logging() and
+                self._wait_debug_log()):
+                return True
+            for controller in self.net.controllers:
+                controller.stop()
+                time.sleep(1)
+                controller.start()
+            time.sleep(1)
+        self.fail('could not start FAUCET')
 
     def _ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""
@@ -309,22 +319,25 @@ class FaucetTestBase(unittest.TestCase):
             controller_txt += open(log).read()
         return controller_txt
 
+    def _wait_controllers_logging(self, timeout=10):
+        controller_count = len(self.net.controllers)
+        for _ in range(timeout):
+            lognames_count = len(self._controller_lognames())
+            if controller_count == lognames_count:
+                return True
+            time.sleep(1)
+        return False
+
     def _wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
         ofchannel_logs = self._get_ofchannel_logs()
         for dp_name, debug_log in ofchannel_logs:
-            debug_log_present = False
             for _ in range(60):
                 if (os.path.exists(debug_log) and
                         os.path.getsize(debug_log) > 0):
-                    debug_log_present = True
-                    break
+                    return True
                 time.sleep(1)
-            if not debug_log_present:
-                controller_txt = self._report_controller_log()
-                self.fail(
-                    'no controller debug log for switch %s (log %s)' % (
-                        dp_name, controller_txt))
+        return False
 
     def verify_no_exception(self, exception_log_name):
         if not os.path.exists(exception_log_name):
@@ -609,9 +622,12 @@ dbs:
     def get_prom_port(self):
         return int(self.env['faucet']['FAUCET_PROMETHEUS_PORT'])
 
+    def get_prom_addr(self):
+        return self.env['faucet']['FAUCET_PROMETHEUS_ADDR']
+
     def _prometheus_url(self):
-        prom_addr = self.env['faucet']['FAUCET_PROMETHEUS_ADDR']
-        return 'http://%s:%u' % (prom_addr, self.get_prom_port())
+        return 'http://%s:%u' % (
+            self.get_prom_addr(), self.get_prom_port())
 
     def scrape_prometheus(self):
         prom_vars = []
@@ -900,11 +916,9 @@ dbs:
             dp_status = self.scrape_prometheus_var(
                 'dp_status', {}, default=None)
             if dp_status is not None and dp_status == expected_status:
-                return
+                return True
             time.sleep(1)
-        controller_txt = self._report_controller_log()
-        self.fail('DP status %s != expected %u (log %s)' % (
-            dp_status, expected_status, controller_txt))
+        return False
 
     def _dp_ports(self):
         port_count = self.N_TAGGED + self.N_UNTAGGED
@@ -970,17 +984,31 @@ dbs:
         self.verify_ipv6_host_learned_mac(
             host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
+    def tcp_port_free(self, host, port, ipv=4):
+        fuser_cmd = 'fuser -%u -n tcp %u' % (ipv, port)
+        fuser_out = host.cmd(fuser_cmd)
+        for fuser_line in fuser_out.splitlines():
+            if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
+                return fuser_out
+        return None
+
+    def wait_for_tcp_free(self, host, port, timeout=10, ipv=4):
+        """Wait for a host to start listening on a port."""
+        for _ in range(timeout):
+            fuser_out = self.tcp_port_free(host, port, ipv)
+            if fuser_out is None:
+                return
+            time.sleep(1)
+        self.fail('%s busy on port %u (%s)' % (host, port, fuser_out))
+
     def wait_for_tcp_listen(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
-        fuser_cmd = 'fuser -%u -n tcp %u' % (ipv, port)
         for _ in range(timeout):
-            fuser_out = host.cmd(fuser_cmd)
-            for fuser_line in fuser_out.splitlines():
-                if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
-                    return
+            fuser_out = self.tcp_port_free(host, port, ipv)
+            if fuser_out is not None:
+                return
             time.sleep(1)
-        self.fail('%s never listened on port %u (%s: %s)' % (
-            host, port, fuser_cmd, fuser_out))
+        self.fail('%s never listened on port %u' % (host, port))
 
     def serve_hello_on_tcp_port(self, host, port):
         """Serve 'hello' on a TCP port on a host."""

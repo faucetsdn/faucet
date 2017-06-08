@@ -11,6 +11,6 @@ echo "========== Running faucet config tests =========="
 echo "=========== Running faucet unit tests ==========="
 ./test_valve.py || exit 1
 
-echo "=========== Running faucet systemtests ==========="
+echo "=========== Running faucet system tests ==========="
 ./faucet_mininet_test.py -c
 time ./faucet_mininet_test.py $FAUCET_TESTS || exit 1
