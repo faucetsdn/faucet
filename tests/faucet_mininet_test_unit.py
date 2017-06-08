@@ -2461,55 +2461,6 @@ vlans:
             self.swap_host_macs(first_host, second_host)
 
 
-class FaucetStringOfDPSwitchTopo(faucet_mininet_test_topo.FaucetSwitchTopo):
-
-    def build(self, ports_sock, dpids, n_tagged=0, tagged_vid=100, n_untagged=0,
-              test_name=None):
-        """String of datapaths each with hosts with a single FAUCET controller.
-
-                               Hosts
-                               ||||
-                               ||||
-                 +----+       +----+       +----+
-              ---+1   |       |1234|       |   1+---
-        Hosts ---+2   |       |    |       |   2+--- Hosts
-              ---+3   |       |    |       |   3+---
-              ---+4  5+-------+5  6+-------+5  4+---
-                 +----+       +----+       +----+
-
-                 Faucet-1     Faucet-2     Faucet-3
-
-                   |            |            |
-                   |            |            |
-                   +-------- controller -----+
-
-        * s switches (above S = 3; for S > 3, switches are added to the chain)
-        * (n_tagged + n_untagged) hosts per switch
-        * (n_tagged + n_untagged + 1) links on switches 0 and s-1,
-          with final link being inter-switch
-        * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
-          with final two links being inter-switch
-        """
-        last_switch = None
-        for dpid in dpids:
-            port, ports_served = faucet_mininet_test_util.find_free_port(
-                ports_sock, test_name)
-            sid_prefix = self._get_sid_prefix(ports_served)
-            hosts = []
-            for host_n in range(n_tagged):
-                hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
-            for host_n in range(n_untagged):
-                hosts.append(self._add_untagged_host(sid_prefix, host_n))
-            switch = self._add_faucet_switch(sid_prefix, port, dpid)
-            for host in hosts:
-                self.addLink(host, switch)
-            # Add a switch-to-switch link with the previous switch,
-            # if this isn't the first switch in the topology.
-            if last_switch is not None:
-                self.addLink(last_switch, switch)
-            last_switch = switch
-
-
 class FaucetStringOfDPTest(FaucetTest):
 
     NUM_HOSTS = 4
@@ -2539,7 +2490,7 @@ class FaucetStringOfDPTest(FaucetTest):
             acl_in_dp,
         )
         open(self.faucet_config_path, 'w').write(self.CONFIG)
-        self.topo = FaucetStringOfDPSwitchTopo(
+        self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
             self.ports_sock,
             dpids=self.dpids,
             n_tagged=n_tagged,
