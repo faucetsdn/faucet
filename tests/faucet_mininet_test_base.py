@@ -231,6 +231,7 @@ class FaucetTestBase(unittest.TestCase):
         self.pre_start_net()
         if self.hw_switch:
             self._attach_physical_switch()
+        self._wait_debug_log()
         for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
@@ -263,9 +264,9 @@ class FaucetTestBase(unittest.TestCase):
                 self.net.addController(gauge_controller)
             self.net.start()
             if (self._wait_controllers_logging() and
-                   self._controller_port_busy(self.get_prom_port()) and
-                   self._wait_debug_log() and
-                   self.wait_until_controller_flow()):
+                   self._controller_port_busy(self.get_prom_port() and
+                   self._controller_port_busy(self.of_port) and
+                   self._controller_port_busy(self._get_controller().ofctl_port))):
                 return
             self.net.stop()
             time.sleep(1)
