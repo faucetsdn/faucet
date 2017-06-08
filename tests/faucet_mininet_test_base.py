@@ -991,9 +991,10 @@ dbs:
     def tcp_port_free(self, host, port, ipv=4):
         fuser_cmd = 'fuser -%u -n tcp %u' % (ipv, port)
         fuser_out = host.cmd(fuser_cmd)
-        for fuser_line in fuser_out.splitlines():
-            if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
-                return fuser_out
+        if fuser_out:
+            for fuser_line in fuser_out.splitlines():
+                if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
+                    return fuser_out
         return None
 
     def wait_for_tcp_free(self, host, port, timeout=10, ipv=4):
