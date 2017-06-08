@@ -1061,8 +1061,7 @@ dbs:
 
     def start_exabgp(self, exabgp_conf):
         """Start exabgp process on controller host."""
-        bgp_port = self.config_ports['bgp_port']
-        self.stop_exabgp(bgp_port)
+        self.stop_exabgp()
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
@@ -1097,8 +1096,9 @@ dbs:
             time.sleep(1)
         self.fail('exabgp did not peer with FAUCET')
 
-    def stop_exabgp(self, port=179):
+    def stop_exabgp(self):
         """Stop exabgp process on controller host."""
+        port = self.config_ports['bgp_port']
         controller = self._get_controller()
         self._signal_proc_on_port(controller, port, 9)
 
