@@ -264,6 +264,7 @@ class FaucetTestBase(unittest.TestCase):
     def _start_faucet(self):
         for _ in range(3):
             if (self._wait_controllers_logging() and
+                self._controller_port_busy(self.get_prom_port()) and
                 self._wait_debug_log()):
                 return True
             for controller in self.net.controllers:
@@ -272,6 +273,9 @@ class FaucetTestBase(unittest.TestCase):
                 controller.start()
             time.sleep(1)
         self.fail('could not start FAUCET')
+
+    def _controller_port_busy(self, port):
+        return not self.tcp_port_free(self._get_controller(), port)
 
     def _ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""
