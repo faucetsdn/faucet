@@ -252,10 +252,7 @@ class FaucetTestBase(unittest.TestCase):
         self.net.start()
         if self.hw_switch:
             self._attach_physical_switch()
-        self._wait_controllers_logging()
-        self._wait_debug_log()
-        self.wait_until_controller_flow()
-        self.wait_dp_status(1)
+        self._start_faucet()
         for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
@@ -263,6 +260,18 @@ class FaucetTestBase(unittest.TestCase):
     def _get_controller(self):
         """Return the first (only) controller."""
         return self.net.controllers[0]
+
+    def _start_faucet(self):
+        for _ in range(3):
+            if (self._wait_controllers_logging() and
+                self._wait_debug_log()):
+                return True
+            for controller in self.net.controllers:
+                controller.stop()
+                time.sleep(1)
+                controller.start()
+            time.sleep(1)
+        self.fail('could not start FAUCET')
 
     def _ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""
@@ -315,26 +324,20 @@ class FaucetTestBase(unittest.TestCase):
         for _ in range(timeout):
             lognames_count = len(self._controller_lognames())
             if controller_count == lognames_count:
-                return
+                return True
             time.sleep(1)
-        self.assertEquals(controller_count, lognames_count)
+        return False
 
     def _wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
         ofchannel_logs = self._get_ofchannel_logs()
         for dp_name, debug_log in ofchannel_logs:
-            debug_log_present = False
             for _ in range(60):
                 if (os.path.exists(debug_log) and
                         os.path.getsize(debug_log) > 0):
-                    debug_log_present = True
-                    break
+                    return True
                 time.sleep(1)
-            if not debug_log_present:
-                controller_txt = self._report_controller_log()
-                self.fail(
-                    'no controller debug log for switch %s (log %s)' % (
-                        dp_name, controller_txt))
+        return False
 
     def verify_no_exception(self, exception_log_name):
         if not os.path.exists(exception_log_name):
@@ -913,11 +916,9 @@ dbs:
             dp_status = self.scrape_prometheus_var(
                 'dp_status', {}, default=None)
             if dp_status is not None and dp_status == expected_status:
-                return
+                return True
             time.sleep(1)
-        controller_txt = self._report_controller_log()
-        self.fail('DP status %s != expected %u (log %s)' % (
-            dp_status, expected_status, controller_txt))
+        return False
 
     def _dp_ports(self):
         port_count = self.N_TAGGED + self.N_UNTAGGED
