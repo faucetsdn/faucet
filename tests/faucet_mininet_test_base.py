@@ -640,7 +640,7 @@ dbs:
         try:
             prom_lines = requests.get(self._prometheus_url()).text.split('\n')
         except requests.exceptions.ConnectionError:
-            return []
+            return ''
         prom_vars = []
         for prom_line in prom_lines:
             if not prom_line.startswith('#'):
