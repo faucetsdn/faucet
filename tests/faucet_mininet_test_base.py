@@ -161,7 +161,7 @@ class FaucetTestBase(unittest.TestCase):
         lognames = []
         for controller in self.net.controllers:
             logname = '/tmp/%s.log' % controller.name
-            if os.path.exists(logname):
+            if os.path.exists(logname) and os.path.getsize(logname) > 0:
                 lognames.append(logname)
         return lognames
 
@@ -252,15 +252,10 @@ class FaucetTestBase(unittest.TestCase):
         self.net.start()
         if self.hw_switch:
             self._attach_physical_switch()
-        for controller in self.net.controllers:
-            for _ in range(10):
-                if controller.isAvailable():
-                    break
-                time.sleep(1)
-            self.assertTrue(controller.isAvailable())
+        self._wait_controllers_logging()
         self._wait_debug_log()
-        self.wait_dp_status(1)
         self.wait_until_controller_flow()
+        self.wait_dp_status(1)
         for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
@@ -314,6 +309,15 @@ class FaucetTestBase(unittest.TestCase):
         for log in self._controller_lognames():
             controller_txt += open(log).read()
         return controller_txt
+
+    def _wait_controllers_logging(self, timeout=10):
+        controller_count = len(self.net.controllers())
+        for _ in range(timeout):
+            lognames_count = len(self._controller_lognames())
+            if controller_count == lognames_count:
+                return
+            time.sleep(1)
+        self.assertEquals(controller_count, lognames_count)
 
     def _wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
