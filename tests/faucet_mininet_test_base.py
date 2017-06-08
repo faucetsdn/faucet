@@ -184,9 +184,11 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        logs = self._controller_lognames()
+        # must not be any controller exception.
+        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
             self.scrape_prometheus())
+        logs = self._controller_lognames()
         if self.net is not None:
             self.net.stop()
         # Associate controller log with test results, if we are keeping
@@ -194,8 +196,6 @@ class FaucetTestBase(unittest.TestCase):
         # mininet doesn't have a way to change its log name for the controller.
         for log in logs:
             shutil.move(log, self.tmpdir)
-        # must not be any controller exception.
-        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         for _, debug_log in self._get_ofchannel_logs():
             self.assertFalse(
                 re.search('OFPErrorMsg', open(debug_log).read()),
