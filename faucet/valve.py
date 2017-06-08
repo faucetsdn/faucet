@@ -1037,13 +1037,13 @@ class Valve(object):
         metrics (FaucetMetrics or None): container of Prometheus metrics.
         """
         # Clear the exported MAC learning.
+        dpid = hex(self.dp.dp_id)
         for _, label_dict, _ in metrics.learned_macs.collect()[0].samples:
-            if int(label_dict['dpid'], 16) == self.dp.dp_id:
+            if label_dict['dpid'] == dpid:
                 metrics.learned_macs.labels(
                     dpid=label_dict['dpid'], vlan=label_dict['vlan'],
                     port=label_dict['port'], n=label_dict['n']).set(0)
 
-        dpid = hex(self.dp.dp_id)
         for vlan in list(self.dp.vlans.values()):
             hosts_count = self.host_manager.hosts_learned_on_vlan_count(
                 vlan)
