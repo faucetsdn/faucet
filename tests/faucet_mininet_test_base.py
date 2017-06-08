@@ -283,7 +283,7 @@ class FaucetTestBase(unittest.TestCase):
     def _ofctl(self, req):
         try:
             ofctl_result = requests.get(req).text
-        except requests.exceptions.ConnectionError:
+        except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeoutError):
             return None
         return ofctl_result
 
@@ -654,7 +654,7 @@ dbs:
     def scrape_prometheus(self):
         try:
             prom_lines = requests.get(self._prometheus_url()).text.split('\n')
-        except requests.exceptions.ConnectionError:
+        except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeoutError):
             return ''
         prom_vars = []
         for prom_line in prom_lines:
