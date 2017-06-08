@@ -18,4 +18,4 @@ script:
   - "python ./test_valve.py"
   - "cd .."
   - "docker build -t reannz/faucet-tests -f Dockerfile.tests ."
-  - "sudo docker run --privileged -ti reannz/faucet-tests"
+  - "sudo docker run --privileged --net=host -ti reannz/faucet-tests"
