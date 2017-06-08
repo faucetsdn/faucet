@@ -46,11 +46,12 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         self.dpid = str(0xcafef00d)
         self._set_prom_port(name)
         self.of_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock)
+            self.ports_sock, self._test_name())
         self.topo = faucet_mininet_test_topo.FaucetSwitchTopo(
             self.ports_sock,
             dpid=self.dpid,
-            n_untagged=7)
+            n_untagged=7,
+            test_name=self._test_name())
         self.net = Mininet(
             self.topo,
             controller=faucet_mininet_test_topo.FaucetAPI(
@@ -864,7 +865,6 @@ group test {
         self.add_host_route(
             second_host, first_host_alias_host_ip, self.FAUCET_VIPV4.ip)
         self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
-        self.stop_exabgp()
         self.one_ipv4_controller_ping(first_host)
 
 
@@ -947,7 +947,6 @@ group test {
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
-        self.stop_exabgp()
         for host in first_host, second_host:
             self.one_ipv4_controller_ping(host)
 
@@ -1029,7 +1028,6 @@ group test {
             0)
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(self.exabgp_log)
-        self.stop_exabgp()
         assert re.search('10.0.0.0/24 next-hop 10.0.0.254', updates)
         assert re.search('10.0.1.0/24 next-hop 10.0.0.1', updates)
         assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
@@ -2193,7 +2191,6 @@ group test {
         self.add_host_route(
             second_host, first_host_alias_host_ip, self.FAUCET_VIPV6.ip)
         self.one_ipv6_ping(second_host, first_host_alias_ip.ip)
-        self.stop_exabgp()
         self.one_ipv6_controller_ping(first_host)
 
 
@@ -2265,7 +2262,6 @@ group test {
         self.verify_ipv6_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
-        self.stop_exabgp()
         for host in first_host, second_host:
             self.one_ipv6_controller_ping(host)
 
@@ -2403,7 +2399,6 @@ group test {
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         updates = self.exabgp_updates(self.exabgp_log)
-        self.stop_exabgp()
         assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
         assert re.search('fc00::10:0/112 next-hop fc00::1:1', updates)
         assert re.search('fc00::20:0/112 next-hop fc00::1:2', updates)
@@ -2460,54 +2455,6 @@ vlans:
             self.swap_host_macs(first_host, second_host)
 
 
-class FaucetStringOfDPSwitchTopo(faucet_mininet_test_topo.FaucetSwitchTopo):
-
-    def build(self, ports_sock, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
-        """String of datapaths each with hosts with a single FAUCET controller.
-
-                               Hosts
-                               ||||
-                               ||||
-                 +----+       +----+       +----+
-              ---+1   |       |1234|       |   1+---
-        Hosts ---+2   |       |    |       |   2+--- Hosts
-              ---+3   |       |    |       |   3+---
-              ---+4  5+-------+5  6+-------+5  4+---
-                 +----+       +----+       +----+
-
-                 Faucet-1     Faucet-2     Faucet-3
-
-                   |            |            |
-                   |            |            |
-                   +-------- controller -----+
-
-        * s switches (above S = 3; for S > 3, switches are added to the chain)
-        * (n_tagged + n_untagged) hosts per switch
-        * (n_tagged + n_untagged + 1) links on switches 0 and s-1,
-          with final link being inter-switch
-        * (n_tagged + n_untagged + 2) links on switches 0 < n < s-1,
-          with final two links being inter-switch
-        """
-        last_switch = None
-        for dpid in dpids:
-            port, ports_served = faucet_mininet_test_util.find_free_port(
-                ports_sock)
-            sid_prefix = self._get_sid_prefix(ports_served)
-            hosts = []
-            for host_n in range(n_tagged):
-                hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
-            for host_n in range(n_untagged):
-                hosts.append(self._add_untagged_host(sid_prefix, host_n))
-            switch = self._add_faucet_switch(sid_prefix, port, dpid)
-            for host in hosts:
-                self.addLink(host, switch)
-            # Add a switch-to-switch link with the previous switch,
-            # if this isn't the first switch in the topology.
-            if last_switch is not None:
-                self.addLink(last_switch, switch)
-            last_switch = switch
-
-
 class FaucetStringOfDPTest(FaucetTest):
 
     NUM_HOSTS = 4
@@ -2537,12 +2484,13 @@ class FaucetStringOfDPTest(FaucetTest):
             acl_in_dp,
         )
         open(self.faucet_config_path, 'w').write(self.CONFIG)
-        self.topo = FaucetStringOfDPSwitchTopo(
+        self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
             self.ports_sock,
             dpids=self.dpids,
             n_tagged=n_tagged,
             tagged_vid=tagged_vid,
             n_untagged=n_untagged,
+            test_name=self._test_name(),
         )
 
     def get_config(self, dpids=[], stack=False, hardware=None, ofchannel_log=None,
@@ -2784,7 +2732,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.eventually_all_reachable()
 
 
-class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):
+class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
     NUM_DPS = 1
     NUM_HOSTS = 2
@@ -2853,7 +2801,7 @@ class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     }
 
     def setUp(self):
-        super(FaucetSingleStringOfDPACLOverrideTest, self).setUp()
+        super(FaucetStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
         self.build_net(
             n_dps=self.NUM_DPS,
