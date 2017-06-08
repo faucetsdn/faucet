@@ -187,14 +187,14 @@ class FaucetTestBase(unittest.TestCase):
     def tearDown(self):
         """Clean up after a test."""
         faucet_mininet_test_util.return_free_ports(
-            self.ports_sock, self._test_name()) 
-        # must not be any controller exception.
-        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
+            self.ports_sock, self._test_name())
         open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
             self.scrape_prometheus())
         logs = self._controller_lognames()
         if self.net is not None:
             self.net.stop()
+        # must not be any controller exception.
+        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         # Associate controller log with test results, if we are keeping
         # the temporary directory, or effectively delete it if not.
         # mininet doesn't have a way to change its log name for the controller.
@@ -245,18 +245,18 @@ class FaucetTestBase(unittest.TestCase):
         return self.net.controllers[0]
 
     def _start_faucet(self, controller_intf):
-        for retry in range(3):
+        for _ in range(3):
             self.net = Mininet(
                 self.topo, controller=faucet_mininet_test_topo.FAUCET(
-                name='faucet', tmpdir=self.tmpdir,
-                controller_intf=controller_intf,
-                env=self.env['faucet'],
-                ctl_privkey=self.ctl_privkey,
-                ctl_cert=self.ctl_cert,
-                ca_certs=self.ca_certs,
-                ports_sock=self.ports_sock,
-                port=self.of_port,
-                test_name=self._test_name()))
+                    name='faucet', tmpdir=self.tmpdir,
+                    controller_intf=controller_intf,
+                    env=self.env['faucet'],
+                    ctl_privkey=self.ctl_privkey,
+                    ctl_cert=self.ctl_cert,
+                    ca_certs=self.ca_certs,
+                    ports_sock=self.ports_sock,
+                    port=self.of_port,
+                    test_name=self._test_name()))
             if self.RUN_GAUGE:
                 gauge_controller = faucet_mininet_test_topo.Gauge(
                     name='gauge', tmpdir=self.tmpdir,
@@ -269,9 +269,9 @@ class FaucetTestBase(unittest.TestCase):
                 self.net.addController(gauge_controller)
             self.net.start()
             if (self._wait_controllers_logging() and
-                   self._controller_port_busy(self.get_prom_port() and
-                   self._controller_port_busy(self.of_port) and
-                   self._controller_port_busy(self._get_controller().ofctl_port))):
+                    self._controller_port_busy(self.get_prom_port()) and
+                    self._controller_port_busy(self.of_port) and
+                    self._controller_port_busy(self._get_controller().ofctl_port)):
                 return
             self.net.stop()
             time.sleep(1)
@@ -338,7 +338,7 @@ class FaucetTestBase(unittest.TestCase):
     def _wait_debug_log(self):
         """Require all switches to have exchanged flows with controller."""
         ofchannel_logs = self._get_ofchannel_logs()
-        for dp_name, debug_log in ofchannel_logs:
+        for _, debug_log in ofchannel_logs:
             for _ in range(60):
                 if (os.path.exists(debug_log) and
                         os.path.getsize(debug_log) > 0):
@@ -637,8 +637,12 @@ dbs:
             self.get_prom_addr(), self.get_prom_port())
 
     def scrape_prometheus(self):
+        try:
+            prom_lines = requests.get(self._prometheus_url()).text.split('\n')
+        except requests.exceptions.ConnectionError:
+            return []
         prom_vars = []
-        for prom_line in requests.get(self._prometheus_url()).text.split('\n'):
+        for prom_line in prom_lines:
             if not prom_line.startswith('#'):
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
