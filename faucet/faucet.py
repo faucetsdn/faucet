@@ -376,11 +376,11 @@ class Faucet(app_manager.RyuApp):
             if ryu_event.enter:
                 self.metrics.of_dp_connections.labels(
                     dpid=hex(dp_id)).inc()
+                self.logger.debug('%s connected', dpid_log(dp_id))
+                self._handler_datapath(ryu_dp)
                 # pylint: disable=no-member
                 self.metrics.dp_status.labels(
                     dpid=hex(dp_id)).set(1)
-                self.logger.debug('%s connected', dpid_log(dp_id))
-                self._handler_datapath(ryu_dp)
             else:
                 self.metrics.of_dp_disconnections.labels(
                     dpid=hex(dp_id)).inc()
