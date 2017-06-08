@@ -2738,7 +2738,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.eventually_all_reachable()
 
 
-class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):
+class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
     NUM_DPS = 1
     NUM_HOSTS = 2
@@ -2807,7 +2807,7 @@ class FaucetSingleStringOfDPACLOverrideTest(FaucetStringOfDPTest):
     }
 
     def setUp(self):
-        super(FaucetSingleStringOfDPACLOverrideTest, self).setUp()
+        super(FaucetStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
         self.build_net(
             n_dps=self.NUM_DPS,
