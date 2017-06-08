@@ -309,7 +309,7 @@ def start_port_server(root_tmpdir):
         target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
     ports_server.setDaemon(True)
     ports_server.start()
-    for _ in range(3):
+    for _ in range(10):
         if os.path.exists(ports_sock):
             break
         time.sleep(1)

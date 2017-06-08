@@ -59,8 +59,8 @@ def serve_ports(ports_socket):
 
     def queue_free_ports():
         while len(ports_q) < 40:
-           ports_q.append(get_port())
-           time.sleep(0.1)
+            ports_q.append(get_port())
+            time.sleep(0.1)
 
     queue_free_ports()
 
