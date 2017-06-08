@@ -89,7 +89,7 @@ def serve_ports(ports_socket):
                 ports_q.append(port)
             del ports_by_name[name]
         else:
-            if ports_q.empty():
+            if len(ports_q) == 0:
                 queue_free_ports()
             port = ports_q.popleft()
             ports_served += 1
