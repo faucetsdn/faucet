@@ -245,6 +245,7 @@ def pipeline_superset_report(root_tmpdir):
 
 def expand_tests(requested_test_classes, excluded_test_classes,
                  hw_config, root_tmpdir, ports_sock, serial):
+    total_tests = 0
     sanity_tests = unittest.TestSuite()
     single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
@@ -269,9 +270,11 @@ def expand_tests(requested_test_classes, excluded_test_classes,
             else:
                 if serial or name.startswith('FaucetSingle'):
                     single_tests.addTest(test_suite)
+                    total_tests += 1
                 else:
                     parallel_tests.addTest(test_suite)
-    return (sanity_tests, single_tests, parallel_tests)
+                    total_tests += 1
+    return (total_tests, sanity_tests, single_tests, parallel_tests)
 
 
 def run_test_suites(sanity_tests, single_tests, parallel_tests):
@@ -330,7 +333,7 @@ def run_tests(requested_test_classes,
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
     ports_sock = start_port_server(root_tmpdir)
-    sanity_tests, single_tests, parallel_tests = expand_tests(
+    total_tests, sanity_tests, single_tests, parallel_tests = expand_tests(
         requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
     all_successful = run_test_suites(

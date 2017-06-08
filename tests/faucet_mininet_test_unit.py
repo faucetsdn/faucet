@@ -46,11 +46,12 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
         self.dpid = str(0xcafef00d)
         self._set_prom_port(name)
         self.of_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock)
+            self.ports_sock, self._test_name())
         self.topo = faucet_mininet_test_topo.FaucetSwitchTopo(
             self.ports_sock,
             dpid=self.dpid,
-            n_untagged=7)
+            n_untagged=7,
+            test_name=self._test_name())
         self.net = Mininet(
             self.topo,
             controller=faucet_mininet_test_topo.FaucetAPI(
@@ -2462,7 +2463,8 @@ vlans:
 
 class FaucetStringOfDPSwitchTopo(faucet_mininet_test_topo.FaucetSwitchTopo):
 
-    def build(self, ports_sock, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+    def build(self, ports_sock, dpids, n_tagged=0, tagged_vid=100, n_untagged=0,
+              test_name=None):
         """String of datapaths each with hosts with a single FAUCET controller.
 
                                Hosts
@@ -2491,7 +2493,7 @@ class FaucetStringOfDPSwitchTopo(faucet_mininet_test_topo.FaucetSwitchTopo):
         last_switch = None
         for dpid in dpids:
             port, ports_served = faucet_mininet_test_util.find_free_port(
-                ports_sock)
+                ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(ports_served)
             hosts = []
             for host_n in range(n_tagged):
@@ -2543,6 +2545,7 @@ class FaucetStringOfDPTest(FaucetTest):
             n_tagged=n_tagged,
             tagged_vid=tagged_vid,
             n_untagged=n_untagged,
+            test_name=self._test_name(),
         )
 
     def get_config(self, dpids=[], stack=False, hardware=None, ofchannel_log=None,

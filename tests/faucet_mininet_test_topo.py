@@ -77,8 +77,10 @@ class FaucetSwitchTopo(Topo):
             listenPort=port,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
 
-    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port(ports_sock)
+    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0,
+              test_name=None):
+        port, ports_served = faucet_mininet_test_util.find_free_port(
+            ports_sock, test_name)
         sid_prefix = self._get_sid_prefix(ports_served)
         for host_n in range(n_tagged):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
@@ -92,8 +94,10 @@ class FaucetSwitchTopo(Topo):
 class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
-    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        port, ports_served = faucet_mininet_test_util.find_free_port(ports_sock)
+    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0,
+              test_name=None):
+        port, ports_served = faucet_mininet_test_util.find_free_port(
+            ports_sock, test_name)
         sid_prefix = self._get_sid_prefix(ports_served)
         for host_n in range(n_tagged):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
@@ -180,9 +184,9 @@ class FAUCET(BaseFAUCET):
 
     def __init__(self, name, tmpdir, controller_intf, env,
                  ctl_privkey, ctl_cert, ca_certs,
-                 ports_sock, port, **kwargs):
+                 ports_sock, port, test_name, **kwargs):
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
-            ports_sock)
+            ports_sock, test_name)
         cargs = ' '.join((
             '--wsapi-host=127.0.0.1',
             '--wsapi-port=%u' % self.ofctl_port,

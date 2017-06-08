@@ -84,7 +84,7 @@ class FaucetTestBase(unittest.TestCase):
 
     def _set_prom_port(self, name='faucet'):
         prom_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock)
+            self.ports_sock, self._test_name())
         self._set_var(name, 'FAUCET_PROMETHEUS_PORT', str(prom_port))
         self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', u'127.0.0.1')
 
@@ -137,13 +137,13 @@ class FaucetTestBase(unittest.TestCase):
         for port_name in list(self.config_ports.keys()):
             if re.search(port_name, self.CONFIG):
                 port, _ = faucet_mininet_test_util.find_free_port(
-                    self.ports_sock)
+                    self.ports_sock, self._test_name())
                 self.CONFIG = self.CONFIG % {'bgp_port': port}
                 self.config_ports[port_name] = port
                 print('allocating port %u for %s' % (port, port_name))
         open(self.faucet_config_path, 'w').write(self.CONFIG)
         self.influx_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock)
+            self.ports_sock, self._test_name())
         self.GAUGE_CONFIG = self.get_gauge_config(
             self.faucet_config_path,
             self.monitor_stats_file,
@@ -152,10 +152,12 @@ class FaucetTestBase(unittest.TestCase):
             self.influx_port)
         open(self.gauge_config_path, 'w').write(self.GAUGE_CONFIG)
 
+    def _test_name(self):
+        return '-'.join(self.id().split('.')[1:])
+
     def _tmpdir_name(self):
-        test_name = '-'.join(self.id().split('.')[1:])
         return tempfile.mkdtemp(
-            prefix='%s-' % test_name, dir=self.root_tmpdir)
+            prefix='%s-' % self._test_name(), dir=self.root_tmpdir)
 
     def _controller_lognames(self):
         lognames = []
@@ -176,14 +178,16 @@ class FaucetTestBase(unittest.TestCase):
             self.topo_class = faucet_mininet_test_topo.FaucetSwitchTopo
             self.dpid = str(random.randint(1, 2**32))
             self.of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
+                self.ports_sock, self._test_name())
             self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
+                self.ports_sock, self._test_name())
 
         self._write_controller_configs()
 
     def tearDown(self):
         """Clean up after a test."""
+        faucet_mininet_test_util.return_free_ports(
+            self.ports_sock, self._test_name()) 
         # must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
@@ -251,7 +255,8 @@ class FaucetTestBase(unittest.TestCase):
                 ctl_cert=self.ctl_cert,
                 ca_certs=self.ca_certs,
                 ports_sock=self.ports_sock,
-                port=self.of_port))
+                port=self.of_port,
+                test_name=self._test_name()))
             if self.RUN_GAUGE:
                 gauge_controller = faucet_mininet_test_topo.Gauge(
                     name='gauge', tmpdir=self.tmpdir,
@@ -857,7 +862,7 @@ dbs:
         seconds = 5
         prop = 0.1
         iperf_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock)
+            self.ports_sock, self._test_name())
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = []
         for host, _ in hosts_switch_ports:
@@ -1258,7 +1263,7 @@ dbs:
                 (first_host, second_host, second_host_routed_ip.ip),
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
+                self.ports_sock, self._test_name())
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
             print('%u mbps to %s' % (iperf_mbps, server_ip))
@@ -1336,7 +1341,7 @@ dbs:
                 (first_host, second_host, second_host_routed_ip.ip),
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock)
+                self.ports_sock, self._test_name())
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
             print('%u mbps to %s' % (iperf_mbps, server_ip))
