@@ -227,32 +227,10 @@ class FaucetTestBase(unittest.TestCase):
         controller_intf = 'lo'
         if self.hw_switch:
             controller_intf = self.cpn_intf
-        self.net = Mininet(
-            self.topo,
-            controller=faucet_mininet_test_topo.FAUCET(
-                name='faucet', tmpdir=self.tmpdir,
-                controller_intf=controller_intf,
-                env=self.env['faucet'],
-                ctl_privkey=self.ctl_privkey,
-                ctl_cert=self.ctl_cert,
-                ca_certs=self.ca_certs,
-                ports_sock=self.ports_sock,
-                port=self.of_port))
+        self._start_faucet(controller_intf)
         self.pre_start_net()
-        if self.RUN_GAUGE:
-            gauge_controller = faucet_mininet_test_topo.Gauge(
-                name='gauge', tmpdir=self.tmpdir,
-                env=self.env['gauge'],
-                controller_intf=controller_intf,
-                ctl_privkey=self.ctl_privkey,
-                ctl_cert=self.ctl_cert,
-                ca_certs=self.ca_certs,
-                port=self.gauge_of_port)
-            self.net.addController(gauge_controller)
-        self.net.start()
         if self.hw_switch:
             self._attach_physical_switch()
-        self._start_faucet()
         for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
@@ -261,16 +239,35 @@ class FaucetTestBase(unittest.TestCase):
         """Return the first (only) controller."""
         return self.net.controllers[0]
 
-    def _start_faucet(self):
-        for _ in range(3):
+    def _start_faucet(self, controller_intf):
+        for retry in range(3):
+            self.net = Mininet(
+                self.topo, controller=faucet_mininet_test_topo.FAUCET(
+                name='faucet', tmpdir=self.tmpdir,
+                controller_intf=controller_intf,
+                env=self.env['faucet'],
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
+                ports_sock=self.ports_sock,
+                port=self.of_port))
+            if self.RUN_GAUGE:
+                gauge_controller = faucet_mininet_test_topo.Gauge(
+                    name='gauge', tmpdir=self.tmpdir,
+                    env=self.env['gauge'],
+                    controller_intf=controller_intf,
+                    ctl_privkey=self.ctl_privkey,
+                    ctl_cert=self.ctl_cert,
+                    ca_certs=self.ca_certs,
+                    port=self.gauge_of_port)
+                self.net.addController(gauge_controller)
+            self.net.start()
             if (self._wait_controllers_logging() and
-                self._controller_port_busy(self.get_prom_port()) and
-                self._wait_debug_log()):
-                return True
-            for controller in self.net.controllers:
-                controller.stop()
-                time.sleep(1)
-                controller.start()
+                   self._controller_port_busy(self.get_prom_port()) and
+                   self._wait_debug_log() and
+                   self.wait_until_controller_flow()):
+                return
+            self.net.stop()
             time.sleep(1)
         self.fail('could not start FAUCET')
 
