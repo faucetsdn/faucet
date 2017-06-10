@@ -3,13 +3,14 @@ import json
 import os
 
 
-# TODO: move configuration to separate directory
-CFG_PATH = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+CFG_PATH = os.path.dirname(os.path.abspath(
+    inspect.getfile(inspect.currentframe())))
 
 
 class LoadRyuTables(object):
 
-    def __init__(self):
+    def __init__(self, cfgpath):
+        self.cfgpath = cfgpath
         self._ofproto_parser = None
         self.ryu_tables = []
         self._class_name_to_name_ids = {
@@ -17,7 +18,7 @@ class LoadRyuTables(object):
             "OFPTableFeaturePropNextTables": "table_ids",
             "OFPTableFeaturePropActions": "action_ids",
             "OFPTableFeaturePropOxm": "oxm_ids"}
-        self.ryu_table_translator = OpenflowToRyuTranslator()
+        self.ryu_table_translator = OpenflowToRyuTranslator(self.cfgpath)
         self.tables = None
 
     def _read_json_document(self, filename):
@@ -40,7 +41,8 @@ class LoadRyuTables(object):
     def load_tables(self, filename, ofproto_parser):
         self.ryu_tables = []
         self._ofproto_parser = ofproto_parser
-        self.tables = self._read_json_document(filename)
+        self.tables = self._read_json_document(
+            os.path.join(self.cfgpath, filename))
         if self.tables is None:
             return
         self.ryu_tables = self._create_tables(self.tables)
@@ -86,8 +88,8 @@ class LoadRyuTables(object):
             if isinstance(instruction, dict):
                 for key, value in instruction.items():
                     instruction_class = getattr(self._ofproto_parser, key)
-                    if isinstance(value["type"], unicode):
-                        value["type"] = str(value["type"])
+                    #if isinstance(value["type"], int):
+                    #    value["type"] = str(value["type"])
                     value["type_"] = value.pop("type")
                     new_instruction = instruction_class(**value)
                     instruction_array.append(new_instruction)
@@ -110,10 +112,11 @@ class LoadRyuTables(object):
 # SDN framework, you will only have to change the file ofproto_to_ryu.
 class OpenflowToRyuTranslator(object):
 
-    def __init__(self):
+    def __init__(self, cfgpath):
+        self.cfgpath = cfgpath
         self.custom_json = CustomJson()
         # file with the variables in openflow to map them into Ryu variables
-        self.openflow_to_ryu = CFG_PATH  + "/ofproto_to_ryu.json"
+        self.openflow_to_ryu = os.path.join(self.cfgpath, 'ofproto_to_ryu.json')
         self.openflow_to_ryu = self.custom_json.read_json_document(
             self.openflow_to_ryu)
         # variable used to save the ryu structure tables

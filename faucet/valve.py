@@ -185,7 +185,7 @@ class Valve(object):
         """
         return []
 
-    def debug_match_types(self, ofmsg):
+    def _debug_match_types(self, ofmsg):
         match_oxm_fields = ofmsg.match.to_jsondict()['OFPMatch']['oxm_fields']
         match_types = []
         for field in match_oxm_fields:
@@ -201,24 +201,28 @@ class Valve(object):
                 match_types.append(field)
         return match_types
 
-    def debug_instruction_types(self, ofmsg):
+    def _debug_action_types(self, actions, action_types):
+        for action in actions:
+            for action_name in actions:
+                if action_name == 'OFPActionSetField':
+                    oxmtlv = action['OFPActionSetField']['field']['OXMTlv']
+                    field = oxmtlv['field']
+                    mask = oxmtlv['mask']
+                    action_type = '_'.join((action_name, field))
+                    if mask is not None:
+                        action_type = '/'.join((action_type, mask))
+                        action_types.add(action_type)
+                    else:
+                        action_types.add(action_name)
+
+    def _debug_instruction_types(self, ofmsg):
         inst_types = set()
         action_types = set()
         for inst in ofmsg.instructions:
             for inst_name, inst_value in list(inst.to_jsondict().items()):
                 if inst_name == 'OFPInstructionActions':
-                    for action in inst_value['actions']:
-                        for action_name in action:
-                            if action_name == 'OFPActionSetField':
-                                oxmtlv = action['OFPActionSetField']['field']['OXMTlv']
-                                field = oxmtlv['field']
-                                mask = oxmtlv['mask']
-                                action_type = '_'.join((action_name, field))
-                                if mask is not None:
-                                    action_type = '/'.join((action_type, mask))
-                                action_types.add(action_type)
-                            else:
-                                action_types.add(action_name)
+                    self._debug_action_types(
+                        inst_value['actions'], action_types)
                 else:
                     inst_types.add(inst_name)
         return list(inst_types), list(action_types)
@@ -240,8 +244,8 @@ class Valve(object):
                     '%s %s', log_prefix, ofmsg)
                 # TODO: log group operations as well.
                 if valve_of.is_flowmod(ofmsg):
-                    match_types = self.debug_match_types(ofmsg)
-                    inst_types, action_types = self.debug_instruction_types(ofmsg)
+                    match_types = self._debug_match_types(ofmsg)
+                    inst_types, action_types = self._debug_instruction_types(ofmsg)
                     self.ofchannel_logger.debug(
                         '%s FlowMod types table: %u match: %s instructions: %s actions: %s',
                         log_prefix, ofmsg.table_id,
@@ -917,8 +921,6 @@ class Valve(object):
             self.dpid_log(
                 'host learned via stack port to %s' % edge_dp.name)
 
-        # TODO: it would be good to be able to notify an external
-        # system upon re/learning a host.
         ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
@@ -1349,9 +1351,11 @@ class ArubaValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     def switch_features(self, dp_id, msg):
-        ryu_table_loader = aruba.LoadRyuTables()
-        ryu_table_loader.load_tables(
-            os.path.join(aruba.CFG_PATH, 'aruba_pipeline.json'), parser)
+        pipeline_config_dir = aruba.CFG_PATH
+        if self.dp.pipeline_config_dir is not None:
+            pipeline_config_dir = self.dp.pipeline_config_dir
+        ryu_table_loader = aruba.LoadRyuTables(pipeline_config_dir)
+        ryu_table_loader.load_tables('aruba_pipeline.json', parser)
         ofmsgs = [valve_of.table_features(ryu_table_loader.ryu_tables)]
         self.dpid_log('loading pipeline configuration')
         return ofmsgs
