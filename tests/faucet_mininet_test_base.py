@@ -1065,8 +1065,9 @@ dbs:
         self.assertEquals(
             '', first_host.cmd(faucet_mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10)))
-        self.wait_nonzero_packet_count_flow(
-            {u'tp_dst': int(port)}, table_id=table_id)
+        if table_id is not None:
+            self.wait_nonzero_packet_count_flow(
+                {u'tp_dst': int(port)}, table_id=table_id)
 
     def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
         """Verify that a TCP port on a host is NOT blocked from another host."""
@@ -1074,8 +1075,9 @@ dbs:
         self.assertEquals(
             'hello\r\n',
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
-        self.wait_nonzero_packet_count_flow({u'tp_dst': int(port)},
-            table_id=table_id)
+        if table_id is not None:
+            self.wait_nonzero_packet_count_flow({u'tp_dst': int(port)},
+                table_id=table_id)
 
     def swap_host_macs(self, first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""
@@ -1229,7 +1231,7 @@ dbs:
         iperf_base_cmd = 'iperf -f M -p %u' % port
         if server_ip.version == 6:
             iperf_base_cmd += ' -V'
-        iperf_server_cmd = '%s -s' % iperf_base_cmd
+        iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
         iperf_server_cmd = faucet_mininet_test_util.timeout_cmd(
             iperf_server_cmd, (seconds * 3) + 5)
         iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
