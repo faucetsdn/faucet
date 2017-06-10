@@ -1229,7 +1229,7 @@ dbs:
         iperf_base_cmd = 'iperf -f M -p %u' % port
         if server_ip.version == 6:
             iperf_base_cmd += ' -V'
-        iperf_server_cmd = '%s -s' % iperf_base_cmd
+        iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
         iperf_server_cmd = faucet_mininet_test_util.timeout_cmd(
             iperf_server_cmd, (seconds * 3) + 5)
         iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
