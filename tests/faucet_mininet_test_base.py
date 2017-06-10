@@ -1059,21 +1059,23 @@ dbs:
         else:
             self.fail('no flow matching %s' % match)
 
-    def verify_tp_dst_blocked(self, port, first_host, second_host):
+    def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0):
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
             '', first_host.cmd(faucet_mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10)))
-        self.wait_nonzero_packet_count_flow({u'tp_dst': int(port)}, table_id=0)
+        self.wait_nonzero_packet_count_flow(
+            {u'tp_dst': int(port)}, table_id=table_id)
 
-    def verify_tp_dst_notblocked(self, port, first_host, second_host):
+    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
         """Verify that a TCP port on a host is NOT blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
             'hello\r\n',
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
-        self.wait_nonzero_packet_count_flow({u'tp_dst': int(port)}, table_id=0)
+        self.wait_nonzero_packet_count_flow({u'tp_dst': int(port)},
+            table_id=table_id)
 
     def swap_host_macs(self, first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""
