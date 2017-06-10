@@ -57,12 +57,12 @@ class LoadRyuTables(object):
                 #getattr will get a function of the object entered, this function
                 #is used to create the table with ryu classes
                 table_class = getattr(self._ofproto_parser, k)
-                properties = self._create_features(value["properties"])
-                value["properties"] = properties
-                value["name"] = str(value["name"])
+                properties = self._create_features(v["properties"])
+                v["properties"] = properties
+                v["name"] = str(v["name"])
                 # value is a dictionary, with ** it will expand
                 # it content to arguments
-                new_table = table_class(**value)
+                new_table = table_class(**v)
                 table_array.append(new_table)
         return table_array
 
@@ -73,10 +73,10 @@ class LoadRyuTables(object):
             for k, v in list(feature.items()):
                 name_id = self._class_name_to_name_ids[k]
                 feature_class = getattr(self._ofproto_parser, k)
-                instruction_ids = self._create_instructions(value[name_id])
-                value[name_id] = instruction_ids
-                value["type_"] = value.pop("type")
-                new_feature = feature_class(**value)
+                instruction_ids = self._create_instructions(v[name_id])
+                v[name_id] = instruction_ids
+                v["type_"] = v.pop("type")
+                new_feature = feature_class(**v)
                 features_array.append(new_feature)
         return features_array
 
@@ -87,8 +87,8 @@ class LoadRyuTables(object):
             if isinstance(instruction, dict):
                 for k, v in list(instruction.items()):
                     instruction_class = getattr(self._ofproto_parser, k)
-                    value["type_"] = value.pop("type")
-                    new_instruction = instruction_class(**value)
+                    v["type_"] = v.pop("type")
+                    new_instruction = instruction_class(**v)
                     instruction_array.append(new_instruction)
             else:
                 instruction_array = instruction_ids_information
