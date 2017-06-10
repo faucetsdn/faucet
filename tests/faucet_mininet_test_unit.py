@@ -785,8 +785,10 @@ acls:
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self._reload_conf(orig_conf, True)
-        self.verify_tp_dst_notblocked(5001, first_host, second_host)
-        self.verify_tp_dst_notblocked(5002, first_host, second_host)
+        self.verify_tp_dst_notblocked(
+            5001, first_host, second_host, table_id=None)
+        self.verify_tp_dst_notblocked(
+            5002, first_host, second_host, table_id=None)
 
     def test_port_change_permanent_learn(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
