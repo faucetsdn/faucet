@@ -65,6 +65,7 @@ class DP(Conf):
     learn_ban_timeout = None
     advertise_interval = None
     proactive_learn = None
+    pipeline_config_dir = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -134,6 +135,8 @@ class DP(Conf):
         # How often to advertise (eg. IPv6 RAs)
         'proactive_learn': True,
         # whether proactive learning is enabled for IP nexthops
+        'pipeline_config_dir': '/etc/ryu/faucet',
+        # where config files for pipeline are stored (if any).
         }
 
     def __init__(self, _id, conf):

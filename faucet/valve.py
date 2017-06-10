@@ -1351,9 +1351,11 @@ class ArubaValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     def switch_features(self, dp_id, msg):
-        ryu_table_loader = aruba.LoadRyuTables()
-        ryu_table_loader.load_tables(
-            os.path.join(aruba.CFG_PATH, 'aruba_pipeline.json'), parser)
+        pipeline_config_dir = aruba.CFG_PATH
+        if self.dp.pipeline_config_dir is not None:
+            pipeline_config_dir = self.dp.pipeline_config_dir
+        ryu_table_loader = aruba.LoadRyuTables(pipeline_config_dir)
+        ryu_table_loader.load_tables('aruba_pipeline.json', parser)
         ofmsgs = [valve_of.table_features(ryu_table_loader.ryu_tables)]
         self.dpid_log('loading pipeline configuration')
         return ofmsgs
