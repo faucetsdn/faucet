@@ -145,7 +145,7 @@ At this point, OpenFlow is enabled and running on the switch. If the faucet cont
 Faucet
 ^^^^^^
 
-On the faucet configuration file (/etc/ryu/faucet/faucet.yaml), add the datapath of the switch you wish to be managed by faucet. The device type (hardware) should be set to **Aruba** in the configuration file.
+On the faucet configuration file (*/etc/ryu/faucet/faucet.yaml*), add the datapath of the switch you wish to be managed by faucet. The device type (hardware) should be set to **Aruba** in the configuration file.
 
 ::
 
@@ -161,8 +161,15 @@ On the faucet configuration file (/etc/ryu/faucet/faucet.yaml), add the datapath
 	                native_vlan: 100
 	                name: "port2"
 
-The `aruba_pipeline.json </faucet/aruba/aruba_pipeline.json>`_ file holds the OpenFlow pipeline that is pushed to the switch by faucet once it connects to an Aruba switch.
-Any changes to the faucet pipeline will need an update to the pipeline inside the json file as well.
+
+You will also need to install pipeline configuration files (these files instruct FAUCET to configure the switch
+with the right OpenFlow tables - these files and FAUCET's pipeline must match).
+
+::
+
+       sudo cp etc/ryu/faucet/ofproto_to_ryu.json /etc/ryu/faucet
+       sudo cp etc/ryu/faucet/aruba_pipeline.json /etc/ryu/faucet
+
 
 -----
 Scale

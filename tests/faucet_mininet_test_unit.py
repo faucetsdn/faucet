@@ -3129,8 +3129,7 @@ acls:
         self.wait_until_matching_flow(
             {u'dl_dst': u'00:00:00:00:00:03'},
             table_id=6,
-            actions=[u'OUTPUT:%u' % self.port_map['port_3']],
-            timeout=2)
+            actions=[u'OUTPUT:%u' % self.port_map['port_3']])
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
             source_host.MAC(), rewrite_host.MAC()))
         tcpdump_txt = self.tcpdump_helper(

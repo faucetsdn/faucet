@@ -20,7 +20,6 @@
 import copy
 import logging
 import time
-import os
 
 from collections import namedtuple
 

@@ -53,17 +53,12 @@ class LoadRyuTables(object):
     def _create_tables(self, tables_information):
         table_array = []
         for table in tables_information:
-            #items is used to iterate a dictionary
-            for key, value in table.items():
-                #getattr will get a function of the object entered, this function
-                #is used to create the table with ryu classes
-                table_class = getattr(self._ofproto_parser, key)
-                properties = self._create_features(value["properties"])
-                value["properties"] = properties
-                value["name"] = str(value["name"])
-                # value is a dictionary, with ** it will expand
-                # it content to arguments
-                new_table = table_class(**value)
+            for k, v in list(table.items()):
+                table_class = getattr(self._ofproto_parser, k)
+                properties = self._create_features(v["properties"])
+                v["properties"] = properties
+                v["name"] = v["name"].encode('utf-8')
+                new_table = table_class(**v)
                 table_array.append(new_table)
         return table_array
 
@@ -71,13 +66,13 @@ class LoadRyuTables(object):
     def _create_features(self, table_features_information):
         features_array = []
         for feature in table_features_information:
-            for key, value in feature.items():
-                name_id = self._class_name_to_name_ids[key]
-                feature_class = getattr(self._ofproto_parser, key)
-                instruction_ids = self._create_instructions(value[name_id])
-                value[name_id] = instruction_ids
-                value["type_"] = value.pop("type")
-                new_feature = feature_class(**value)
+            for k, v in list(feature.items()):
+                name_id = self._class_name_to_name_ids[k]
+                feature_class = getattr(self._ofproto_parser, k)
+                instruction_ids = self._create_instructions(v[name_id])
+                v[name_id] = instruction_ids
+                v["type_"] = v.pop("type")
+                new_feature = feature_class(**v)
                 features_array.append(new_feature)
         return features_array
 
@@ -86,12 +81,10 @@ class LoadRyuTables(object):
         instruction_array = []
         for instruction in instruction_ids_information:
             if isinstance(instruction, dict):
-                for key, value in instruction.items():
-                    instruction_class = getattr(self._ofproto_parser, key)
-                    #if isinstance(value["type"], int):
-                    #    value["type"] = str(value["type"])
-                    value["type_"] = value.pop("type")
-                    new_instruction = instruction_class(**value)
+                for k, v in list(instruction.items()):
+                    instruction_class = getattr(self._ofproto_parser, k)
+                    v["type_"] = v.pop("type")
+                    new_instruction = instruction_class(**v)
                     instruction_array.append(new_instruction)
             else:
                 instruction_array = instruction_ids_information
@@ -193,19 +186,8 @@ class OpenflowToRyuTranslator(object):
 
 class CustomJson(object):
 
-    def __init__(self):
-        self.json = ""
-
     def read_json_document(self, filename):
-        python_object_result = []
-        try:
-            with open(filename) as data_file:
-                python_object_result = json.load(data_file)
-        except (ValueError, IOError) as e:
-            print('Error found: %s' % e)
-            python_object_result = []
-
-        return python_object_result
+        return json.load(open(filename))
 
     def save_document(self, filepath, information):
         open(filepath, 'w+').write(information)
