@@ -53,11 +53,10 @@ class LoadRyuTables(object):
     def _create_tables(self, tables_information):
         table_array = []
         for table in tables_information:
-            #items is used to iterate a dictionary
-            for key, value in table.items():
+            for k, v in list(table.items()):
                 #getattr will get a function of the object entered, this function
                 #is used to create the table with ryu classes
-                table_class = getattr(self._ofproto_parser, key)
+                table_class = getattr(self._ofproto_parser, k)
                 properties = self._create_features(value["properties"])
                 value["properties"] = properties
                 value["name"] = str(value["name"])
@@ -71,9 +70,9 @@ class LoadRyuTables(object):
     def _create_features(self, table_features_information):
         features_array = []
         for feature in table_features_information:
-            for key, value in feature.items():
-                name_id = self._class_name_to_name_ids[key]
-                feature_class = getattr(self._ofproto_parser, key)
+            for k, v in list(feature.items()):
+                name_id = self._class_name_to_name_ids[k]
+                feature_class = getattr(self._ofproto_parser, k)
                 instruction_ids = self._create_instructions(value[name_id])
                 value[name_id] = instruction_ids
                 value["type_"] = value.pop("type")
@@ -86,10 +85,8 @@ class LoadRyuTables(object):
         instruction_array = []
         for instruction in instruction_ids_information:
             if isinstance(instruction, dict):
-                for key, value in instruction.items():
-                    instruction_class = getattr(self._ofproto_parser, key)
-                    #if isinstance(value["type"], int):
-                    #    value["type"] = str(value["type"])
+                for k, v in list(instruction.items()):
+                    instruction_class = getattr(self._ofproto_parser, k)
                     value["type_"] = value.pop("type")
                     new_instruction = instruction_class(**value)
                     instruction_array.append(new_instruction)
@@ -202,7 +199,7 @@ class CustomJson(object):
             with open(filename) as data_file:
                 python_object_result = json.load(data_file)
         except (ValueError, IOError) as e:
-            print('Error found: %s' % e)
+            print(('Error found: %s' % e))
             python_object_result = []
 
         return python_object_result

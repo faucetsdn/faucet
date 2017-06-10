@@ -20,7 +20,6 @@
 import copy
 import logging
 import time
-import os
 
 from collections import namedtuple
 
@@ -1350,7 +1349,7 @@ class Valve(object):
 class ArubaValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
-    def switch_features(self, dp_id, msg):
+    def switch_features(self, _, _):
         pipeline_config_dir = aruba.CFG_PATH
         if self.dp.pipeline_config_dir is not None:
             pipeline_config_dir = self.dp.pipeline_config_dir
