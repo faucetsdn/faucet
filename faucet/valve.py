@@ -917,8 +917,6 @@ class Valve(object):
             self.dpid_log(
                 'host learned via stack port to %s' % edge_dp.name)
 
-        # TODO: it would be good to be able to notify an external
-        # system upon re/learning a host.
         ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
