@@ -136,7 +136,7 @@ TABLE_SIZE = {} # Table ID key, value is number of flows in table
 
 # Iterate over all lines of the file, gathering data
 debug("=== Per-flow pipeline analysis ===")
-for line in open(open(sys.argv[1])):
+for line in open(sys.argv[1]):
     # Skip empty lines
     line = line.rstrip().lstrip()
     if not line:
