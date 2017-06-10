@@ -54,14 +54,10 @@ class LoadRyuTables(object):
         table_array = []
         for table in tables_information:
             for k, v in list(table.items()):
-                #getattr will get a function of the object entered, this function
-                #is used to create the table with ryu classes
                 table_class = getattr(self._ofproto_parser, k)
                 properties = self._create_features(v["properties"])
                 v["properties"] = properties
-                v["name"] = str(v["name"])
-                # value is a dictionary, with ** it will expand
-                # it content to arguments
+                v["name"] = v["name"].encode('utf-8')
                 new_table = table_class(**v)
                 table_array.append(new_table)
         return table_array
@@ -190,19 +186,8 @@ class OpenflowToRyuTranslator(object):
 
 class CustomJson(object):
 
-    def __init__(self):
-        self.json = ""
-
     def read_json_document(self, filename):
-        python_object_result = []
-        try:
-            with open(filename) as data_file:
-                python_object_result = json.load(data_file)
-        except (ValueError, IOError) as e:
-            print(('Error found: %s' % e))
-            python_object_result = []
-
-        return python_object_result
+        return json.load(open(filename))
 
     def save_document(self, filepath, information):
         open(filepath, 'w+').write(information)
