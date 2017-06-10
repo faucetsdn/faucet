@@ -73,11 +73,8 @@ EXTERNAL_DEPENDENCIES = (
 )
 
 # Must pass with 0 lint errors
-FAUCET_LINT_SRCS = (
-    glob.glob(
-        os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py')) +
-    glob.glob(
-        os.path.join(faucet_mininet_test_util.FAUCET_DIR, 'aruba/aruba*py')))
+FAUCET_LINT_SRCS = glob.glob(
+        os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py'))
 FAUCET_TEST_LINT_SRCS = glob.glob(
     os.path.join(os.path.dirname(__file__), 'faucet_mininet_test*py'))
 

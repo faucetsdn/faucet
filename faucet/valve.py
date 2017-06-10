@@ -23,7 +23,7 @@ import time
 
 from collections import namedtuple
 
-import aruba.aruba_pipeline as aruba
+import tfm_pipeline
 import valve_acl
 import valve_flood
 import valve_host
@@ -35,7 +35,6 @@ import valve_util
 from ryu.lib import mac
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.ofproto import ofproto_v1_3_parser as parser
 
 
 def valve_factory(dp):
@@ -47,6 +46,7 @@ def valve_factory(dp):
     SUPPORTED_HARDWARE = {
         'Allied-Telesis': Valve,
         'Aruba': ArubaValve,
+        'GenericTFM', TfmValve,
         'Lagopus': Valve,
         'Netronome': Valve,
         'NoviFlow': Valve,
@@ -1346,15 +1346,19 @@ class Valve(object):
             }
 
 
-class ArubaValve(Valve):
+class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
+    PIPELINE_CONF = 'tfm_pipeline.json'
+
     def switch_features(self, dp_id, msg):
-        pipeline_config_dir = aruba.CFG_PATH
-        if self.dp.pipeline_config_dir is not None:
-            pipeline_config_dir = self.dp.pipeline_config_dir
-        ryu_table_loader = aruba.LoadRyuTables(pipeline_config_dir)
-        ryu_table_loader.load_tables('aruba_pipeline.json', parser)
-        ofmsgs = [valve_of.table_features(ryu_table_loader.ryu_tables)]
+        ryu_table_loader = tfm_pipeline.LoadRyuTables(
+            self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         self.dpid_log('loading pipeline configuration')
-        return ofmsgs
+        return [valve_of.table_features(ryu_table_loader.load_tables())]
+
+
+class ArubaValve(TfmValve):
+    """Valve implementation that uses OpenFlow send table features messages."""
+
+    PIPELINE_CONF = 'aruba_pipeline.json'
