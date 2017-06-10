@@ -46,7 +46,7 @@ def valve_factory(dp):
     SUPPORTED_HARDWARE = {
         'Allied-Telesis': Valve,
         'Aruba': ArubaValve,
-        'GenericTFM', TfmValve,
+        'GenericTFM': TfmValve,
         'Lagopus': Valve,
         'Netronome': Valve,
         'NoviFlow': Valve,
