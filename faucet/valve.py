@@ -257,16 +257,14 @@ class Valve(object):
             in_port, vlan, eth_type, eth_src,
             eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
             nw_proto, nw_src, nw_dst)
-        if (table_id != self.dp.port_acl_table and
-                table_id != self.dp.vlan_acl_table):
-            assert table_id in (
-                self.TABLE_MATCH_TYPES,
-                '%u table not registered' % table_id)
+        if table_id != self.dp.port_acl_table\
+                and table_id != self.dp.vlan_acl_table:
+            assert table_id in self.TABLE_MATCH_TYPES,\
+                '%u table not registered' % table_id
             for match_type in match_dict:
-                assert match_type in (
-                    self.TABLE_MATCH_TYPES[table_id],
+                assert match_type in self.TABLE_MATCH_TYPES[table_id],\
                     '%s match not registered for table %u' % (
-                        match_type, table_id))
+                        match_type, table_id)
         match = valve_of.match(match_dict)
         return match
 
