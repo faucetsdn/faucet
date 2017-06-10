@@ -733,24 +733,32 @@ acls:
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
         self.start_net()
 
+    def _get_conf(self):
+        return yaml.load(open(self.faucet_config_path, 'r').read())
+
+    def _reload_conf(self, conf, restart):
+        open(self.faucet_config_path, 'w').write(yaml.dump(conf))
+        if restart:
+            self.verify_hup_faucet()
+
     def get_port_match_flow(self, port_no, table_id=3):
         flow = self.get_matching_flow_on_dpid(
             self.dpid, {u'in_port': int(port_no)}, table_id)
         return flow
 
-    def change_port_config(self, port, config_name, config_value, restart=True):
-        conf = yaml.load(open(self.faucet_config_path, 'r').read())
+    def change_port_config(self, port, config_name, config_value,
+                           restart=True, conf=None):
+        if conf is None:
+            conf = self._get_conf()
         conf['dps']['faucet-1']['interfaces'][port][config_name] = config_value
-        open(self.faucet_config_path, 'w').write(yaml.dump(conf))
-        if restart:
-            self.verify_hup_faucet()
+        self._reload_conf(conf, restart)
 
-    def change_vlan_config(self, vlan, config_name, config_value, restart=True):
-        conf = yaml.load(open(self.faucet_config_path, 'r').read())
+    def change_vlan_config(self, vlan, config_name, config_value,
+                           restart=True, conf=None):
+        if conf is None:
+            conf = self._get_conf()
         conf['vlans'][vlan][config_name] = config_value
-        open(self.faucet_config_path, 'w').write(yaml.dump(conf))
-        if restart:
-            self.verify_hup_faucet()
+        self._reload_conf(conf, restart)
 
     def test_port_change_vlan(self):
         first_host = self.net.hosts[0]
@@ -769,13 +777,15 @@ acls:
 
     def test_port_change_acl(self):
         self.ping_all_when_learned()
-        self.change_port_config(
-            self.port_map['port_1'], 'acl_in', 1)
+        first_host, second_host = self.net.hosts[0:2]
+        orig_conf = self._get_conf()
+        self.change_port_config(self.port_map['port_1'], 'acl_in', 1)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001}, table_id=0)
-        first_host, second_host = self.net.hosts[0:2]
-        self.ping_all_when_learned()
         self.verify_tp_dst_blocked(5001, first_host, second_host)
+        self.verify_tp_dst_notblocked(5002, first_host, second_host)
+        self._reload_conf(orig_conf, True)
+        self.verify_tp_dst_notblocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
     def test_port_change_permanent_learn(self):
