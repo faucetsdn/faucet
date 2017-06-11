@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MINRATING="8.9"
+MINRATING="9.0"
 SRC_FILES="../faucet/*.py"
 
 pylint -E $SRC_FILES || exit 1
