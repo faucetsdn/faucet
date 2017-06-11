@@ -134,15 +134,15 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
                 ports[port_num] = port
                 if port.native_vlan is not None:
                     vlan = vlans[port.native_vlan]
-                    port.native_vlan = vlan.vid
+                    port.native_vlan = vlan
                     _dp_add_vlan(vid_dp, dp, vlan)
                 if port.tagged_vlans is not None:
-                    tagged_vids = []
+                    tagged_vlans = []
                     for v_identifier in port.tagged_vlans:
                         vlan = vlans[v_identifier]
-                        tagged_vids.append(vlan.vid)
+                        tagged_vlans.append(vlan)
                         _dp_add_vlan(vid_dp, dp, vlan)
-                    port.tagged_vlans = tagged_vids
+                    port.tagged_vlans = tagged_vlans
         except AssertionError as err:
             logger.exception('Error in config file: %s', err)
             return None

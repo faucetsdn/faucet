@@ -758,11 +758,9 @@ class Valve(object):
         acl_ofmsgs = self._port_add_acl(port_num)
         ofmsgs.extend(acl_ofmsgs)
 
-        vlans = list(self.dp.vlans.values())
-        tagged_vlans_with_port = [
-            vlan for vlan in vlans if port in vlan.tagged]
+        tagged_vlans_with_port = port.tagged_vlans
         untagged_vlans_with_port = [
-            vlan for vlan in vlans if port in vlan.untagged]
+            vlan for vlan in [port.native_vlan] if vlan is not None]
         port_vlans = tagged_vlans_with_port + untagged_vlans_with_port
 
         # If this is a stacking port, accept all VLANs (came from another FAUCET)
@@ -772,7 +770,7 @@ class Valve(object):
                 match=self.valve_in_match(self.dp.vlan_table, in_port=port_num),
                 priority=self.dp.low_priority,
                 inst=[valve_of.goto_table(self.dp.eth_src_table)]))
-            port_vlans = vlans
+            port_vlans = list(self.dp.vlans.values())
         else:
             mirror_act = []
             # Add mirroring if any
@@ -1134,10 +1132,9 @@ class Valve(object):
         old_eth_srcs = []
         if port_no in dp.ports:
             port = dp.ports[port_no]
-            for vid in [port.native_vlan] + port.tagged_vlans:
-                if vid is None:
+            for vlan in [port.native_vlan] + port.tagged_vlans:
+                if vlan is None:
                     continue
-                vlan = dp.vlans[vid]
                 for eth_src, host_cache_entry in list(vlan.host_cache.items()):
                     if host_cache_entry.port_num == port_no:
                         old_eth_srcs.append(eth_src)
