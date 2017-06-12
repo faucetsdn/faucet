@@ -610,7 +610,7 @@ class Valve(object):
         """
         if self._ignore_dpid(dp_id):
             return []
-        self.dpid_log('Configuring DP')
+        self.dpid_log('Cold start configuring DP')
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
@@ -1164,7 +1164,8 @@ class Valve(object):
                 # Detected a newly configured port
                 changed_ports.add(port_no)
             else:
-                if new_port != self.dp.ports[port_no]:
+                old_port = self.dp.ports[port_no]
+                if new_port != old_port:
                     # An existing port has configs changed
                     changed_ports.add(port_no)
                     self.dpid_log('port %s reconfigured' % port_no)
