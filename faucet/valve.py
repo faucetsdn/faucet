@@ -1227,6 +1227,11 @@ class Valve(object):
         if changed_ports == set(new_dp.ports.keys()):
             self.dpid_log('all ports config changed')
             all_ports_changed = True
+        elif not changed_ports and not deleted_ports:
+            self.dpid_log('no port config changes')
+
+        if not deleted_vlans and not changed_vlans:
+            self.dpid_log('no VLAN config changes')
 
         changes = (
             deleted_ports, changed_ports, deleted_vlans, changed_vlans,
@@ -1304,6 +1309,7 @@ class Valve(object):
                 new_dp,
                 self._get_config_changes(new_dp))
         else:
+            self.dpid_log('skipping configuration because datapath not up')
             return (False, [])
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
