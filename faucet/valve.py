@@ -1257,8 +1257,8 @@ class Valve(object):
         (deleted_ports, changed_ports, deleted_vlans, changed_vlans,
          all_ports_changed) = changes
         new_dp.running = True
-        ofmsgs = []
         cold_start = True
+        ofmsgs = []
 
         if all_ports_changed:
             self.dp = new_dp
@@ -1305,6 +1305,7 @@ class Valve(object):
                 ofmsgs (list): OpenFlow messages.
         """
         if self.dp.running:
+            self.dpid_log('reload configuration')
             return self._apply_config_changes(
                 new_dp,
                 self._get_config_changes(new_dp))

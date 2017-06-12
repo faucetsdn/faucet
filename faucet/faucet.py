@@ -177,6 +177,9 @@ class Faucet(app_manager.RyuApp):
             self.logger.info(
                 'Deleting de-configured %s', dpid_log(deleted_valve_dpid))
             del self.valves[deleted_valve_dpid]
+            ryu_dp = self.dpset.get(deleted_valve_dpid)
+            if ryu_dp is not None:
+                ryu_dp.close()
         self._bgp.reset(self.valves, self.metrics)
 
     @kill_on_exception(exc_logname)
@@ -277,6 +280,7 @@ class Faucet(app_manager.RyuApp):
         self.logger.info('request to reload configuration')
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
         if config_changed(self.config_file, new_config_file, self.config_hashes):
+            self.logger.info('configuration changed')
             self._load_configs(new_config_file)
         else:
             self.logger.info('configuration is unchanged, not reloading')
@@ -350,6 +354,7 @@ class Faucet(app_manager.RyuApp):
             self._send_flow_msgs(dp_id, flowmods, ryu_dp=ryu_dp)
         else:
             self.logger.error('handler_features: unknown %s', dpid_log(dp_id))
+            ryu_dp.close()
 
     @kill_on_exception(exc_logname)
     def _handler_datapath(self, ryu_dp):
@@ -447,6 +452,7 @@ class Faucet(app_manager.RyuApp):
         else:
             self.logger.error(
                 'port_status_handler: unknown %s', dpid_log(dp_id))
+            ryu_dp.close()
 
     def get_config(self):
         """FAUCET API: return config for all Valves."""
