@@ -761,8 +761,8 @@ acls:
         self._reload_conf(conf, restart)
 
     def test_port_change_vlan(self):
-        first_host = self.net.hosts[0]
-        second_host = self.net.hosts[1]
+        first_host, second_host = self.net.hosts[:2]
+        third_host, fourth_host = self.net.hosts[2:]
         self.ping_all_when_learned()
         self.change_port_config(
             self.port_map['port_1'], 'native_vlan', 200, restart=False)
@@ -771,9 +771,11 @@ acls:
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1'])},
             table_id=1,
-            actions=[u'SET_FIELD: {vlan_vid:4296}'],
-            timeout=2)
+            actions=[u'SET_FIELD: {vlan_vid:4296}'])
         self.one_ipv4_ping(first_host, second_host.IP(), require_host_learned=False)
+        # hosts 1 and 2 now in VLAN 200, so they shouldn't see floods for 3 and 4.
+        self.verify_vlan_flood_limited(
+            third_host, fourth_host, first_host)
 
     def test_port_change_acl(self):
         self.ping_all_when_learned()
@@ -1417,6 +1419,10 @@ vlans:
     def test_seperate_untagged_tagged(self):
         tagged_host_pair = self.net.hosts[:2]
         untagged_host_pair = self.net.hosts[2:]
+        self.verify_vlan_flood_limited(
+            tagged_host_pair[0], tagged_host_pair[1], untagged_host_pair[0])
+        self.verify_vlan_flood_limited(
+            untagged_host_pair[0], untagged_host_pair[1], tagged_host_pair[0])
         # hosts within VLANs can ping each other
         self.assertEquals(0, self.net.ping(tagged_host_pair))
         self.assertEquals(0, self.net.ping(untagged_host_pair))
