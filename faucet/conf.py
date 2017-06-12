@@ -45,7 +45,7 @@ class Conf(object):
         return result
 
     def __hash__(self):
-        items = [(k, v) for k, v in list(self.__dict__.items()) if not k.startswith('dyn')]
+        items = [(k, v) for k, v in sorted(list(self.__dict__.items())) if not k.startswith('dyn')]
         return hash(frozenset(list(map(str, items))))
 
     def __eq__(self, other):
