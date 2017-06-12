@@ -738,7 +738,7 @@ acls:
     def _get_conf(self):
         return yaml.load(open(self.faucet_config_path, 'r').read())
 
-    def _reload_conf(self, conf, restart, cold_start):
+    def _reload_conf(self, conf, restart, cold_start, change_expected=True):
         open(self.faucet_config_path, 'w').write(yaml.dump(conf))
         if restart:
             var = 'faucet_config_reload_warm'
@@ -749,14 +749,28 @@ acls:
             self.verify_hup_faucet()
             new_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
-            self.assertEquals(
-                old_count + 1, new_count,
-                msg='%s did not increment: %u' % (var, new_count))
+            if change_expected:
+                self.assertEquals(
+                    old_count + 1, new_count,
+                    msg='%s did not increment: %u' % (var, new_count))
+            else:
+                self.assertEquals(
+                    old_count, new_count,
+                    msg='%s incremented: %u' % (var, new_count))
 
     def get_port_match_flow(self, port_no, table_id=3):
         flow = self.get_matching_flow_on_dpid(
             self.dpid, {u'in_port': int(port_no)}, table_id)
         return flow
+
+    def test_add_unknown_dp(self):
+        conf = self._get_conf()
+        conf['dps']['unknown'] = {
+            'dp_id': int(self.rand_dpid()),
+            'hardware': 'Open vSwitch',
+        }
+        self._reload_conf(
+            conf, restart=True, cold_start=False, change_expected=False)
 
     def change_port_config(self, port, config_name, config_value,
                            restart=True, conf=None, cold_start=False):
