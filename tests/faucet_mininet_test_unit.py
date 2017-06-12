@@ -670,7 +670,8 @@ class FaucetConfigReloadTest(FaucetTest):
 vlans:
     100:
         description: "untagged"
-
+    200:
+        description: "untagged"
 """
     CONFIG = """
         interfaces:
@@ -768,10 +769,11 @@ acls:
             self.port_map['port_1'], 'native_vlan', 200, restart=False)
         self.change_port_config(
             self.port_map['port_2'], 'native_vlan', 200, restart=True)
-        self.wait_until_matching_flow(
-            {u'in_port': int(self.port_map['port_1'])},
-            table_id=1,
-            actions=[u'SET_FIELD: {vlan_vid:4296}'])
+        for port_name in ('port_1', 'port_2'):
+            self.wait_until_matching_flow(
+                {u'in_port': int(self.port_map[port_name])},
+                table_id=1,
+                actions=[u'SET_FIELD: {vlan_vid:4296}'])
         self.one_ipv4_ping(first_host, second_host.IP(), require_host_learned=False)
         # hosts 1 and 2 now in VLAN 200, so they shouldn't see floods for 3 and 4.
         self.verify_vlan_flood_limited(

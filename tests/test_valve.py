@@ -613,7 +613,8 @@ acls:
         new_dp = self.update_config(acl_config)
         ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
-        ofmsgs = self.valve.port_add(1, 2, modify=True)
+        self.valve.port_delete(1, 2)
+        ofmsgs = self.valve.port_add(1, 2)
         self.assertFalse(
             self.table.is_output(drop_match),
             msg='packet not blocked by acl'

@@ -710,16 +710,13 @@ class Valve(object):
                             self.dp.eth_src_table, eth_src=eth_src)))
         return ofmsgs
 
-    def port_add(self, dp_id, port_num,
-                 modify=False, cold_start=False, old_eth_srcs=None):
+    def port_add(self, dp_id, port_num, cold_start=False):
         """Handle the addition of a port.
 
         Args:
             dp_id (int): datapath ID.
             port_num (int): port number.
-            modify (bool): True modifying an existing port config.
             cold_start (bool): True if configuring datapath from scratch.
-            old_eth_srcs (list): eth MAC of antisproofing hosts
         Returns:
             list: OpenFlow messages, if any.
         """
@@ -735,13 +732,6 @@ class Valve(object):
         port.phys_up = True
         ofmsgs = []
         self.dpid_log('Sending config for port %s' % port)
-
-        if not cold_start:
-            ofmsgs.extend(self._port_delete_flows(port, old_eth_srcs))
-            if modify:
-                self.dpid_log('Port %s modified' % port)
-            else:
-                self.dpid_log('Port %s added' % port)
 
         if not port.running():
             return ofmsgs
@@ -809,10 +799,13 @@ class Valve(object):
 
         ofmsgs = []
         ofmsgs.extend(self._port_delete_flows(port, old_eth_srcs))
-        for vlan in list(self.dp.vlans.values()):
-            if port in vlan.get_ports():
-                ofmsgs.extend(self.flood_manager.build_flood_rules(
-                    vlan, modify=True))
+        tagged_vlans_with_port = port.tagged_vlans
+        untagged_vlans_with_port = [
+            vlan for vlan in [port.native_vlan] if vlan is not None]
+        port_vlans = tagged_vlans_with_port + untagged_vlans_with_port
+        for vlan in port_vlans:
+            ofmsgs.extend(self.flood_manager.build_flood_rules(
+                vlan, modify=True))
 
         return ofmsgs
 
@@ -1252,6 +1245,11 @@ class Valve(object):
                 for vid in deleted_vlans:
                     vlan = self.dp.vlans[vid]
                     ofmsgs.extend(self._del_vlan(vlan))
+            if changed_ports:
+                for port_no in changed_ports:
+                    old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
+                    ofmsgs.extend(self.port_delete(
+                        self.dp.dp_id, port_no, old_eth_srcs=old_eth_srcs))
             self.dp = new_dp
             if changed_vlans:
                 self.dpid_log('VLANs changed/added: %s' % changed_vlans)
@@ -1262,9 +1260,7 @@ class Valve(object):
             if changed_ports:
                 self.dpid_log('ports changed/added: %s' % changed_ports)
                 for port_no in changed_ports:
-                    old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
-                    ofmsgs.extend(self.port_add(
-                        self.dp.dp_id, port_no, modify=True, old_eth_srcs=old_eth_srcs))
+                    ofmsgs.extend(self.port_add(self.dp.dp_id, port_no))
         return ofmsgs
 
     def reload_config(self, new_dp):
