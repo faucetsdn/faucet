@@ -703,12 +703,11 @@ class Valve(object):
         ofmsgs.extend(self.valve_flowdel(
             self.dp.eth_dst_table, out_port=port.number))
         if port.permanent_learn:
-            if old_eth_srcs is not None:
-                for eth_src in old_eth_srcs:
-                    ofmsgs.extend(self.valve_flowdel(
-                        self.dp.eth_src_table,
-                        match=self.valve_in_match(
-                            self.dp.eth_src_table, eth_src=eth_src)))
+            for eth_src in old_eth_srcs:
+                ofmsgs.extend(self.valve_flowdel(
+                    self.dp.eth_src_table,
+                    match=self.valve_in_match(
+                        self.dp.eth_src_table, eth_src=eth_src)))
         return ofmsgs
 
     def port_add(self, dp_id, port_num, cold_start=False):
@@ -778,13 +777,12 @@ class Valve(object):
 
         return ofmsgs
 
-    def port_delete(self, dp_id, port_num, old_eth_srcs=None):
+    def port_delete(self, dp_id, port_num):
         """Handle the deletion of a port.
 
         Args:
             dp_id (int): datapath ID.
             port_num (int): port number.
-            old_eth_srcs (list): list of MAC learned on this port
         Returns:
             list: OpenFlow messages, if any.
         """
@@ -799,7 +797,9 @@ class Valve(object):
         self.dpid_warn('Port %s down' % port)
 
         ofmsgs = []
-        ofmsgs.extend(self._port_delete_flows(port, old_eth_srcs))
+        ofmsgs.extend(
+            self._port_delete_flows(
+                port, self._get_eth_srcs_learned_on_port(self.dp, port.number)))
         tagged_vlans_with_port = port.tagged_vlans
         untagged_vlans_with_port = [
             vlan for vlan in [port.native_vlan] if vlan is not None]
@@ -1240,8 +1240,7 @@ class Valve(object):
             if deleted_ports:
                 self.dpid_log('ports deleted: %s' % deleted_ports)
                 for port_no in deleted_ports:
-                    old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
-                    ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no, old_eth_srcs))
+                    ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no))
             if deleted_vlans:
                 self.dpid_log('VLANs deleted: %s' % deleted_vlans)
                 for vid in deleted_vlans:
@@ -1249,9 +1248,8 @@ class Valve(object):
                     ofmsgs.extend(self._del_vlan(vlan))
             if changed_ports:
                 for port_no in changed_ports:
-                    old_eth_srcs = self._get_eth_srcs_learned_on_port(old_dp, port_no)
                     ofmsgs.extend(self.port_delete(
-                        self.dp.dp_id, port_no, old_eth_srcs=old_eth_srcs))
+                        self.dp.dp_id, port_no))
             self.dp = new_dp
             if changed_vlans:
                 self.dpid_log('VLANs changed/added: %s' % changed_vlans)
