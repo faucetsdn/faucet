@@ -397,7 +397,7 @@ class FaucetTestBase(unittest.TestCase):
                             func()
                 else:
                     print('tcpdump_helper: %s' % line)
-        self.assertTrue(tcpdump_started)
+        self.assertTrue(tcpdump_started, msg='%s did not start' % tcpdump_cmd)
         return tcpdump_txt
 
     def pre_start_net(self):
@@ -739,6 +739,22 @@ dbs:
         controller = self._get_controller()
         self.assertTrue(
             self._signal_proc_on_port(controller, controller.port, 1))
+
+    def verify_vlan_flood_limited(self, vlan_first_host, vlan_second_host,
+                                  other_vlan_host):
+        """Verify that flooding doesn't cross VLANs."""
+        for first_host, second_host in (
+                (vlan_first_host, vlan_second_host),
+                (vlan_second_host, vlan_first_host)):
+            tcpdump_filter = 'ether host %s or ether host %s' % (
+                first_host.MAC(), second_host.MAC())
+            tcpdump_txt = self.tcpdump_helper(
+                other_vlan_host, tcpdump_filter, [
+                    lambda: first_host.cmd('arp -d %s' % second_host.IP()),
+                    lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+                packets=1)
+            self.assertTrue(
+                re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
 
     def verify_ping_mirrored(self, first_host, second_host, mirror_host):
         self.net.ping((first_host, second_host))

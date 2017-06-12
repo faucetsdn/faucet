@@ -1417,6 +1417,10 @@ vlans:
     def test_seperate_untagged_tagged(self):
         tagged_host_pair = self.net.hosts[:2]
         untagged_host_pair = self.net.hosts[2:]
+        self.verify_vlan_flood_limited(
+            tagged_host_pair[0], tagged_host_pair[1], untagged_host_pair[0])
+        self.verify_vlan_flood_limited(
+            untagged_host_pair[0], untagged_host_pair[1], tagged_host_pair[0])
         # hosts within VLANs can ping each other
         self.assertEquals(0, self.net.ping(tagged_host_pair))
         self.assertEquals(0, self.net.ping(untagged_host_pair))
