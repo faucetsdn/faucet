@@ -89,7 +89,7 @@ class Port(Conf):
         return result
 
     def __str__(self):
-        return self.name
+        return 'Port %u' % self.number
 
     def __repr__(self):
-        return 'Port %s' % self.number
+        return self.__str__()

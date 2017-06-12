@@ -809,7 +809,7 @@ class Valve(object):
                 continue
             port = self.dp.ports[port_num]
             port.phys_up = False
-            self.dpid_warn('Port %s down' % port)
+            self.dpid_warn('%s down' % port)
 
             ofmsgs.extend(
                 self._port_delete_flows(
@@ -1183,6 +1183,7 @@ class Valve(object):
             if port_no not in self.dp.ports:
                 # Detected a newly configured port
                 changed_ports.add(port_no)
+                self.dpid_log('port %s added' % port_no)
             else:
                 old_port = self.dp.ports[port_no]
                 if new_port != old_port:
@@ -1244,18 +1245,21 @@ class Valve(object):
                 changed_vlans (list): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
         Returns:
-            ofmsgs (list): OpenFlow messages.
+            tuple:
+                cold_start (bool): whether cold starting.
+                ofmsgs (list): OpenFlow messages.
         """
         (deleted_ports, changed_ports, deleted_vlans, changed_vlans,
          all_ports_changed) = changes
         new_dp.running = True
         ofmsgs = []
+        cold_start = True
 
         if all_ports_changed:
-            self.dpid_log('all ports changed config, so cold starting pipeline')
             self.dp = new_dp
             ofmsgs.extend(self.datapath_connect(self.dp.dp_id, changed_ports))
         else:
+            cold_start = False
             if deleted_ports:
                 self.dpid_log('ports deleted: %s' % deleted_ports)
                 ofmsgs.extend(self.ports_delete(self.dp.dp_id, deleted_ports))
@@ -1276,7 +1280,7 @@ class Valve(object):
             if changed_ports:
                 self.dpid_log('ports changed/added: %s' % changed_ports)
                 ofmsgs.extend(self.ports_add(self.dp.dp_id, changed_ports))
-        return ofmsgs
+        return cold_start, ofmsgs
 
     def reload_config(self, new_dp):
         """Reload configuration new_dp.
@@ -1291,7 +1295,9 @@ class Valve(object):
         Args:
             new_dp (DP): new dataplane configuration.
         Returns:
-            list: OpenFlow messages.
+            tuple of:
+                cold_start (bool): whether cold starting.
+                ofmsgs (list): OpenFlow messages.
         """
         if self.dp.running:
             return self._apply_config_changes(

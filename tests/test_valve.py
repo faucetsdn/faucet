@@ -534,7 +534,7 @@ acls:
 
         # reload the config
         new_dp = self.update_config(acl_config)
-        ofmsgs = self.valve.reload_config(new_dp)
+        cold_start, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
         self.assertFalse(
@@ -611,7 +611,7 @@ acls:
 
         # reload the config
         new_dp = self.update_config(acl_config)
-        ofmsgs = self.valve.reload_config(new_dp)
+        cold_start, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
         self.valve.port_delete(1, 2)
         ofmsgs = self.valve.port_add(1, 2)
@@ -688,7 +688,7 @@ vlans:
 
         # reload the config
         new_dp = self.update_config(self.CONFIG)
-        ofmsgs = self.valve.reload_config(new_dp)
+        cold_start, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
         # relearn some mac addresses

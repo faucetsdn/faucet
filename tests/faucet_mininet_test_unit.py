@@ -737,10 +737,20 @@ acls:
     def _get_conf(self):
         return yaml.load(open(self.faucet_config_path, 'r').read())
 
-    def _reload_conf(self, conf, restart):
+    def _reload_conf(self, conf, restart, cold_start):
         open(self.faucet_config_path, 'w').write(yaml.dump(conf))
         if restart:
+            var = 'faucet_config_reload_warm'
+            if cold_start:
+                var = 'faucet_config_reload_cold'
+            old_count = int(
+                self.scrape_prometheus_var(var, dpid=True, default=0))
             self.verify_hup_faucet()
+            new_count = int(
+                self.scrape_prometheus_var(var, dpid=True, default=0))
+            self.assertEquals(
+                old_count + 1, new_count,
+                msg='%s did not increment: %u' % (var, new_count))
 
     def get_port_match_flow(self, port_no, table_id=3):
         flow = self.get_matching_flow_on_dpid(
@@ -748,18 +758,18 @@ acls:
         return flow
 
     def change_port_config(self, port, config_name, config_value,
-                           restart=True, conf=None):
+                           restart=True, conf=None, cold_start=False):
         if conf is None:
             conf = self._get_conf()
         conf['dps']['faucet-1']['interfaces'][port][config_name] = config_value
-        self._reload_conf(conf, restart)
+        self._reload_conf(conf, restart, cold_start)
 
     def change_vlan_config(self, vlan, config_name, config_value,
-                           restart=True, conf=None):
+                           restart=True, conf=None, cold_start=False):
         if conf is None:
             conf = self._get_conf()
         conf['vlans'][vlan][config_name] = config_value
-        self._reload_conf(conf, restart)
+        self._reload_conf(conf, restart, cold_start)
 
     def test_port_change_vlan(self):
         first_host, second_host = self.net.hosts[:2]
@@ -768,7 +778,7 @@ acls:
         self.change_port_config(
             self.port_map['port_1'], 'native_vlan', 200, restart=False)
         self.change_port_config(
-            self.port_map['port_2'], 'native_vlan', 200, restart=True)
+            self.port_map['port_2'], 'native_vlan', 200, restart=True, cold_start=True)
         for port_name in ('port_1', 'port_2'):
             self.wait_until_matching_flow(
                 {u'in_port': int(self.port_map[port_name])},
@@ -783,12 +793,13 @@ acls:
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
         orig_conf = self._get_conf()
-        self.change_port_config(self.port_map['port_1'], 'acl_in', 1)
+        self.change_port_config(
+            self.port_map['port_1'], 'acl_in', 1, cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001}, table_id=0)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
-        self._reload_conf(orig_conf, True)
+        self._reload_conf(orig_conf, True, cold_start=False)
         self.verify_tp_dst_notblocked(
             5001, first_host, second_host, table_id=None)
         self.verify_tp_dst_notblocked(
@@ -796,7 +807,8 @@ acls:
 
     def test_port_change_permanent_learn(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
-        self.change_port_config(self.port_map['port_1'], 'permanent_learn', True)
+        self.change_port_config(
+            self.port_map['port_1'], 'permanent_learn', True, cold_start=False)
         self.ping_all_when_learned()
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
@@ -805,7 +817,7 @@ acls:
         third_host.setMAC(original_third_host_mac)
         self.ping_all_when_learned()
         self.change_port_config(
-            self.port_map['port_1'], 'acl_in', 1)
+            self.port_map['port_1'], 'acl_in', 1, cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001},
             table_id=0)
