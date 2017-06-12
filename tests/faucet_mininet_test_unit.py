@@ -723,6 +723,7 @@ acls:
             actions:
                 allow: 1
 """
+
     def setUp(self):
         super(FaucetConfigReloadTest, self).setUp()
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
@@ -2553,7 +2554,7 @@ class FaucetStringOfDPTest(FaucetTest):
                   include=[], include_optional=[], acls={}, acl_in_dp={}):
         """Set up Mininet and Faucet for the given topology."""
 
-        self.dpids = [str(random.randint(1, 2**32)) for _ in range(n_dps)]
+        self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpid = self.dpids[0]
         self.CONFIG = self.get_config(
             self.dpids,

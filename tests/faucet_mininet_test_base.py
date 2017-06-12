@@ -78,6 +78,10 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
 
+    def rand_dpid(self):
+        reserved_range = 100
+        return str(random.randint(1, (2**32 - reserved_range)) + reserved_range)
+
     def _set_var(self, controller, var, value):
         self.env[controller][var] = value
 
@@ -178,7 +182,7 @@ class FaucetTestBase(unittest.TestCase):
             self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
         else:
             self.topo_class = faucet_mininet_test_topo.FaucetSwitchTopo
-            self.dpid = str(random.randint(1, 2**32))
+            self.dpid = self.rand_dpid()
             self.of_port, _ = faucet_mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
             self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
