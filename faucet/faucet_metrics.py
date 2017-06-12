@@ -44,6 +44,14 @@ class FaucetMetrics(object):
         self.faucet_config_reload_requests = Counter(
             'faucet_config_reload_requests',
             'number of config reload requests', [])
+        self.faucet_config_reload_warm = Counter(
+            'faucet_config_reload_warm',
+            'number of warm, differences only config reloads executed',
+            ['dpid'])
+        self.faucet_config_reload_cold = Counter(
+            'faucet_config_reload_cold',
+            'number of cold, complete reprovision config reloads executed',
+            ['dpid'])
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
             'number of hosts learned on a vlan', ['dpid', 'vlan'])
