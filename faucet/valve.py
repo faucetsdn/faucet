@@ -1304,7 +1304,7 @@ class Valve(object):
                 new_dp,
                 self._get_config_changes(new_dp))
         else:
-            return []
+            return (False, [])
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
         ofmsgs = []
