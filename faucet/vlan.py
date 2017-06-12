@@ -157,7 +157,10 @@ class VLAN(Conf):
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
         ports = ','.join(port_list)
-        return 'vid:%s ports:%s' % (self.vid, ports)
+        return 'VLAN vid:%s ports:%s' % (self.vid, ports)
+
+    def __repr__(self):
+        return self.__str__()
 
     def get_ports(self):
         """Return list of all ports on this VLAN."""

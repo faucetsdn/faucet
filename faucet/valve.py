@@ -1183,6 +1183,7 @@ class Valve(object):
             if port_no not in self.dp.ports:
                 # Detected a newly configured port
                 changed_ports.add(port_no)
+                self.dpid_log('port %s added' % port_no)
             else:
                 old_port = self.dp.ports[port_no]
                 if new_port != old_port:
@@ -1252,7 +1253,6 @@ class Valve(object):
         ofmsgs = []
 
         if all_ports_changed:
-            self.dpid_log('all ports changed config, so cold starting pipeline')
             self.dp = new_dp
             ofmsgs.extend(self.datapath_connect(self.dp.dp_id, changed_ports))
         else:
