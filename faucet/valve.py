@@ -777,38 +777,48 @@ class Valve(object):
 
         return ofmsgs
 
-    def port_delete(self, dp_id, port_num):
-        """Handle the deletion of a port.
+    def ports_delete(self, dp_id, port_nums):
+        """Handle the deletion of ports.
 
         Args:
             dp_id (int): datapath ID.
-            port_num (int): port number.
+            port_nums (list): list of port numbers.
         Returns:
             list: OpenFlow messages, if any.
         """
-        if self._ignore_dpid(dp_id) or valve_of.ignore_port(port_num):
+        if self._ignore_dpid(dp_id):
             return []
-
-        if port_num not in self.dp.ports:
-            return []
-
-        port = self.dp.ports[port_num]
-        port.phys_up = False
-        self.dpid_warn('Port %s down' % port)
 
         ofmsgs = []
-        ofmsgs.extend(
-            self._port_delete_flows(
-                port, self._get_eth_srcs_learned_on_port(self.dp, port.number)))
-        tagged_vlans_with_port = port.tagged_vlans
-        untagged_vlans_with_port = [
-            vlan for vlan in [port.native_vlan] if vlan is not None]
-        port_vlans = tagged_vlans_with_port + untagged_vlans_with_port
-        for vlan in port_vlans:
+        vlans_with_deleted_ports = set()
+
+        for port_num in port_nums:
+            if valve_of.ignore_port(port_num):
+                continue
+            if port_num not in self.dp.ports:
+                continue
+            port = self.dp.ports[port_num]
+            port.phys_up = False
+            self.dpid_warn('Port %s down' % port)
+
+            ofmsgs.extend(
+                self._port_delete_flows(
+                    port,
+                    self._get_eth_srcs_learned_on_port(self.dp, port.number)))
+            untagged_vlans_with_port = [
+                vlan for vlan in [port.native_vlan] if vlan is not None]
+            port_vlans = port.tagged_vlans + untagged_vlans_with_port
+            for vlan in port_vlans:
+                vlans_with_deleted_ports.add(vlan)
+
+        for vlan in vlans_with_deleted_ports:
             ofmsgs.extend(self.flood_manager.build_flood_rules(
                 vlan, modify=True))
 
         return ofmsgs
+
+    def port_delete(self, dp_id, port_num):
+        return self.ports_delete(dp_id, [port_num])
 
     def control_plane_handler(self, pkt_meta):
         """Handle a packet probably destined to FAUCET's route managers.
@@ -1239,17 +1249,14 @@ class Valve(object):
             old_dp = self.dp
             if deleted_ports:
                 self.dpid_log('ports deleted: %s' % deleted_ports)
-                for port_no in deleted_ports:
-                    ofmsgs.extend(self.port_delete(self.dp.dp_id, port_no))
+                ofmsgs.extend(self.ports_delete(self.dp.dp_id, deleted_ports))
             if deleted_vlans:
                 self.dpid_log('VLANs deleted: %s' % deleted_vlans)
                 for vid in deleted_vlans:
                     vlan = self.dp.vlans[vid]
                     ofmsgs.extend(self._del_vlan(vlan))
             if changed_ports:
-                for port_no in changed_ports:
-                    ofmsgs.extend(self.port_delete(
-                        self.dp.dp_id, port_no))
+                ofmsgs.extend(self.ports_delete(self.dp.dp_id, changed_ports))
             self.dp = new_dp
             if changed_vlans:
                 self.dpid_log('VLANs changed/added: %s' % changed_vlans)
