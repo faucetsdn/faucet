@@ -578,10 +578,11 @@ class Valve(object):
         elif reason == ofp.OFPPR_DELETE:
             return self.port_delete(dp_id, port_no)
         elif reason == ofp.OFPPR_MODIFY:
+            ofmsgs = []
+            ofmsgs.extend(self.port_delete(dp_id, port_no))
             if port_status:
-                return self.port_add(dp_id, port_no)
-            else:
-                return self.port_delete(dp_id, port_no)
+                ofmsgs.extend(self.port_add(dp_id, port_no))
+            return ofmsgs
         self.dpid_warn('Unhandled port status %s for port %u' % (
             reason, port_no))
         return []
