@@ -71,6 +71,8 @@ class FaucetTestBase(unittest.TestCase):
     cpn_intf = None
     config_ports = {'bgp_port': None}
     env = collections.defaultdict(dict)
+    rand_dpids = set()
+
 
     def __init__(self, name, config, root_tmpdir, ports_sock):
         super(FaucetTestBase, self).__init__(name)
@@ -80,7 +82,11 @@ class FaucetTestBase(unittest.TestCase):
 
     def rand_dpid(self):
         reserved_range = 100
-        return str(random.randint(1, (2**32 - reserved_range)) + reserved_range)
+        while True:
+            dpid = random.randint(1, (2**32 - reserved_range)) + reserved_range
+            if dpid not in self.rand_dpids:
+                self.rand_dpids.add(dpid)
+                return str(dpid)
 
     def _set_var(self, controller, var, value):
         self.env[controller][var] = value
