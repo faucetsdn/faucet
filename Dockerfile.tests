@@ -29,12 +29,12 @@ RUN \
     sudo \
     tcpdump \
     vlan \
-    wpasupplicant \
-    && apt-get purge -qy pylint python-astroid
+    wpasupplicant
 
 RUN \
   git clone -b 2.2.2 https://github.com/mininet/mininet && \
   mininet/util/install.sh -nfv && \
+  apt-get purge -qy pylint python-astroid && \
   GOPATH=~/go go get -u github.com/openconfig/gnmi/cmd/gnmi_cli
 
 COPY ./ /faucet-src/
