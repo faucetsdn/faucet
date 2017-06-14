@@ -1417,8 +1417,7 @@ vlans:
 
     def test_fping_controller(self):
         first_host = self.net.hosts[0]
-        first_host_ip = ipaddress.ip_interface(u'fc00::1:1/112')
-        self.add_host_ipv6_address(first_host, first_host_ip)
+        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.verify_controller_fping(first_host, self.FAUCET_VIPV6)
 
 

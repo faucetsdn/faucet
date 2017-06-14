@@ -755,7 +755,7 @@ dbs:
         fping_bin = 'fping'
         if faucet_vip.version == 6:
             fping_bin = 'fping6'
-        fping_cli = '%s -s -c %u -i %u -p 1 -T 1 -q %s' % (
+        fping_cli = '%s -s -c %u -i %u -p 1 -T 1 %s' % (
             fping_bin, total_packets, packet_interval_ms, faucet_vip.ip)
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(faucet_mininet_test_util.timeout_cmd(
