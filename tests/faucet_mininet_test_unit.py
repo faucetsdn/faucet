@@ -5,7 +5,6 @@
 # pylint: disable=missing-docstring
 
 import os
-import random
 import re
 import shutil
 import threading
@@ -1258,7 +1257,7 @@ vlans:
         self.ping_all_when_learned()
 
 
-class FaucetUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
+class FaucetSingleUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -1291,6 +1290,11 @@ vlans:
             for host in first_host, second_host:
                 self.one_ipv4_controller_ping(host)
             self.flap_all_switch_ports()
+
+    def test_fping_controller(self):
+        first_host = self.net.hosts[0]
+        self.one_ipv4_controller_ping(first_host)
+        self.verify_controller_fping(first_host, self.FAUCET_VIPV4)
 
 
 class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
@@ -1376,7 +1380,7 @@ vlans:
                 msg='%s: %s (%s)' % (ra_required, tcpdump_txt, tcpdump_filter))
 
 
-class FaucetUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
+class FaucetSingleUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -1411,6 +1415,12 @@ vlans:
             for host in first_host, second_host:
                 self.one_ipv6_controller_ping(host)
             self.flap_all_switch_ports()
+
+    def test_fping_controller(self):
+        first_host = self.net.hosts[0]
+        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
+        self.one_ipv6_controller_ping(first_host)
+        self.verify_controller_fping(first_host, self.FAUCET_VIPV6)
 
 
 class FaucetTaggedAndUntaggedTest(FaucetTest):
