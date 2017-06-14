@@ -762,7 +762,7 @@ dbs:
             fping_cli, timeout))
         print(fping_out)
         self.assertTrue(
-            re.search(r'%u ICMP Echo Replies received' % total_packets, fping_out),
+            not re.search('\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
 
     def verify_vlan_flood_limited(self, vlan_first_host, vlan_second_host,
