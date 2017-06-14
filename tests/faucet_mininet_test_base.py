@@ -750,6 +750,17 @@ dbs:
         self.assertTrue(
             self._signal_proc_on_port(controller, controller.port, 1))
 
+    def verify_ipv4_controller_fping(self, host, total_packets=100, packet_interval_ms=100):
+        fping_cli = 'fping -s -c %u -i %u -p 1 -T 1 %s' % (
+            total_packets, packet_interval_ms, self.FAUCET_VIPV4.ip)
+        timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
+        fping_out = host.cmd(faucet_mininet_test_util.timeout_cmd(
+            fping_cli, timeout))
+        print(fping_out)
+        self.assertTrue(
+            re.search(r'%u ICMP Echo Replies received' % total_packets, fping_out),
+            msg=fping_out)
+
     def verify_vlan_flood_limited(self, vlan_first_host, vlan_second_host,
                                   other_vlan_host):
         """Verify that flooding doesn't cross VLANs."""
@@ -942,7 +953,8 @@ dbs:
         self.fail(msg=msg)
 
     def set_port_down(self, port_no):
-        self.assertEquals(0,
+        self.assertEquals(
+            0,
             os.system(self._curl_portmod(
                 self.dpid,
                 port_no,
@@ -950,7 +962,8 @@ dbs:
                 ofp.OFPPC_PORT_DOWN)))
 
     def set_port_up(self, port_no):
-        self.assertEquals(0,
+        self.assertEquals(
+            0,
             os.system(self._curl_portmod(
                 self.dpid,
                 port_no,
@@ -1102,8 +1115,8 @@ dbs:
             'hello\r\n',
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
         if table_id is not None:
-            self.wait_nonzero_packet_count_flow({u'tp_dst': int(port)},
-                table_id=table_id)
+            self.wait_nonzero_packet_count_flow(
+                {u'tp_dst': int(port)}, table_id=table_id)
 
     def swap_host_macs(self, first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""

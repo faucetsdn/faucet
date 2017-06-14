@@ -5,7 +5,6 @@
 # pylint: disable=missing-docstring
 
 import os
-import random
 import re
 import shutil
 import threading
@@ -1291,6 +1290,10 @@ vlans:
             for host in first_host, second_host:
                 self.one_ipv4_controller_ping(host)
             self.flap_all_switch_ports()
+
+    def test_fping_controller(self):
+        first_host = self.net.hosts[0]
+        self.verify_ipv4_controller_fping(first_host)
 
 
 class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
