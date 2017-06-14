@@ -750,9 +750,13 @@ dbs:
         self.assertTrue(
             self._signal_proc_on_port(controller, controller.port, 1))
 
-    def verify_ipv4_controller_fping(self, host, total_packets=100, packet_interval_ms=100):
-        fping_cli = 'fping -s -c %u -i %u -p 1 -T 1 %s' % (
-            total_packets, packet_interval_ms, self.FAUCET_VIPV4.ip)
+    def verify_controller_fping(self, host, faucet_vip,
+                                total_packets=100, packet_interval_ms=100):
+        fping_bin = 'fping'
+        if faucet_vip.version == 6:
+            fping_bin = 'fping6'
+        fping_cli = '%s -s -c %u -i %u -p 1 -T 1 -q %s' % (
+            fping_bin, total_packets, packet_interval_ms, faucet_vip.ip)
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(faucet_mininet_test_util.timeout_cmd(
             fping_cli, timeout))

@@ -1293,7 +1293,7 @@ vlans:
 
     def test_fping_controller(self):
         first_host = self.net.hosts[0]
-        self.verify_ipv4_controller_fping(first_host)
+        self.verify_controller_fping(first_host, self.FAUCET_VIPV4)
 
 
 class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
@@ -1414,6 +1414,12 @@ vlans:
             for host in first_host, second_host:
                 self.one_ipv6_controller_ping(host)
             self.flap_all_switch_ports()
+
+    def test_fping_controller(self):
+        first_host = self.net.hosts[0]
+        first_host_ip = ipaddress.ip_interface(u'fc00::1:1/112')
+        self.add_host_ipv6_address(first_host, first_host_ip)
+        self.verify_controller_fping(first_host, self.FAUCET_VIPV6)
 
 
 class FaucetTaggedAndUntaggedTest(FaucetTest):
