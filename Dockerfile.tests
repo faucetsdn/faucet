@@ -1,8 +1,12 @@
 FROM osrg/ryu
 
 RUN \
-  add-apt-repository -y ppa:longsleep/golang-backports && \
   apt-get update && \
+  apt-get install -qy --no-install-recommends software-properties-common && \
+  add-apt-repository -y ppa:longsleep/golang-backports && \
+  apt-get update
+
+RUN \
   apt-get install -qy --no-install-recommends \
     bc \
     fping \
