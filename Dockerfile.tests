@@ -35,7 +35,8 @@ RUN \
 RUN \
   git clone -b 2.2.2 https://github.com/mininet/mininet && \
   mininet/util/install.sh -nfv && \
-  GOPATH=~/go go get -u github.com/openconfig/gnmi/cmd/gnmi_cli
+  GOPATH=~/go go get -u github.com/openconfig/gnmi/cmd/gnmi_cli && \
+  ~/go/bin/gnmi_cli
 
 COPY ./ /faucet-src/
 
