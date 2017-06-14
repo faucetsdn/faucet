@@ -1257,7 +1257,7 @@ vlans:
         self.ping_all_when_learned()
 
 
-class FaucetUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
+class FaucetSingleUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
@@ -1379,7 +1379,7 @@ vlans:
                 msg='%s: %s (%s)' % (ra_required, tcpdump_txt, tcpdump_filter))
 
 
-class FaucetUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
+class FaucetSingleUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
