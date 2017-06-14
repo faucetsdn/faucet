@@ -1,12 +1,14 @@
 FROM osrg/ryu
 
 RUN \
+  add-apt-repository -y ppa:longsleep/golang-backports && \
   apt-get update && \
   apt-get install -qy --no-install-recommends \
     bc \
     fping \
     gcc \
     git \
+    golang-go \
     influxdb \
     iperf \
     iputils-ping \
@@ -23,13 +25,13 @@ RUN \
     sudo \
     tcpdump \
     vlan \
-    wpasupplicant
-
+    wpasupplicant \
+    && apt-get purge -qy pylint python-astroid
 
 RUN \
   git clone -b 2.2.2 https://github.com/mininet/mininet && \
   mininet/util/install.sh -nfv && \
-  apt-get purge -qy pylint python-astroid
+  GOPATH=~/go go get -u github.com/openconfig/gnmi/cmd/gnmi_cli
 
 COPY ./ /faucet-src/
 
