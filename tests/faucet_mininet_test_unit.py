@@ -785,6 +785,9 @@ acls:
         conf['vlans'][vlan][config_name] = config_value
         self._reload_conf(conf, restart, cold_start)
 
+    def test_tabs_are_bad(self):
+        self.force_faucet_reload('\t'.join(('tabs', 'are', 'bad')))
+
     def test_port_change_vlan(self):
         first_host, second_host = self.net.hosts[:2]
         third_host, fourth_host = self.net.hosts[2:]
