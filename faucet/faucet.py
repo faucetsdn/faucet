@@ -146,6 +146,9 @@ class Faucet(app_manager.RyuApp):
         self.config_file = new_config_file
         self.config_hashes, new_dps = dp_parser(
             new_config_file, self.logname)
+        if new_dps is None:
+            self.logger.error('new config bad - rejecting')
+            return
         deleted_valve_dpids = (
             set(list(self.valves.keys())) -
             set([valve.dp_id for valve in new_dps]))
@@ -275,12 +278,13 @@ class Faucet(app_manager.RyuApp):
                 self._send_flow_msgs(dp_id, flowmods)
 
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
     def reload_config(self, _):
         """Handle a request to reload configuration."""
         self.logger.info('request to reload configuration')
         new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
         if config_changed(self.config_file, new_config_file, self.config_hashes):
-            self.logger.info('configuration changed')
+            self.logger.info('configuration %s changed', new_config_file)
             self._load_configs(new_config_file)
         else:
             self.logger.info('configuration is unchanged, not reloading')
