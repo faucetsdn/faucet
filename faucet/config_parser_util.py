@@ -117,6 +117,8 @@ def config_changed(config_file, new_config_file, config_hashes):
     """
     if new_config_file != config_file:
         return True
+    if config_hashes is None or new_config_file is None:
+        return False
     for config_file, config_hash in list(config_hashes.items()):
         config_file_exists = os.path.isfile(config_file)
         # Config file not loaded but exists = reload.

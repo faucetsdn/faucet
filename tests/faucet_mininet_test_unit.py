@@ -786,7 +786,12 @@ acls:
         self._reload_conf(conf, restart, cold_start)
 
     def test_tabs_are_bad(self):
+        self.ping_all_when_learned()
+        orig_conf = self._get_conf()
         self.force_faucet_reload('\t'.join(('tabs', 'are', 'bad')))
+        self.ping_all_when_learned()
+        self._reload_conf(
+            orig_conf, restart=True, cold_start=False, change_expected=False)
 
     def test_port_change_vlan(self):
         first_host, second_host = self.net.hosts[:2]

@@ -278,6 +278,7 @@ class Faucet(app_manager.RyuApp):
                 self._send_flow_msgs(dp_id, flowmods)
 
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
     def reload_config(self, _):
         """Handle a request to reload configuration."""
         self.logger.info('request to reload configuration')
