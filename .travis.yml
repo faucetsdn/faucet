@@ -15,7 +15,7 @@ install:
   - "pip3 install dist/*tar.gz"
 script:
   - "cd ./tests"
-  - "./test_min_pylint.sh"
+  - "PYTHONPATH='../faucet' ./test_min_pylint.sh"
   - "python3 ./test_config.py"
   - "python3 ./test_check_config.py"
   - "python3 ./test_valve.py"
