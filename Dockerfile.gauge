@@ -7,6 +7,7 @@ RUN \
     git \
     libpython3-all-dev \
     libyaml-dev \
+    netbase \
     python3-pip
 
 COPY ./ /faucet-src/
