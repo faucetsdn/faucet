@@ -12,7 +12,7 @@ python:
 install:
   - "pip3 install -r requirements.txt"
   - "python3 setup.py sdist"
-  - "pip3 install dist/*tgz"
+  - "pip3 install dist/*tar.gz"
 script:
   - "cd ./tests"
   - "./test_min_pylint.sh"
