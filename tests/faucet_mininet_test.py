@@ -194,7 +194,9 @@ def lint_check():
     print('Running pylint checks')
     for faucet_src in FAUCET_LINT_SRCS + FAUCET_TEST_LINT_SRCS:
         ret = subprocess.call(
-            ['PYTHONPATH="%s" pylint' % faucet_mininet_test_util.FAUCET_DIR,
+            ['env',
+             'PYTHONPATH=%s' % faucet_mininet_test_util.FAUCET_DIR,
+             'pylint',
              '--rcfile=/dev/null',
              '-E', faucet_src])
         if ret:
