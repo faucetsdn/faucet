@@ -12,7 +12,7 @@ RUN \
 COPY ./ /faucet-src/
 
 RUN \
-  pip3 install --upgrade pip3 && \
+  pip3 install --upgrade pip && \
   pip3 install setuptools wheel virtualenv --upgrade && \
   pip3 install -r /faucet-src/requirements.txt && \
   pip3 install /faucet-src
