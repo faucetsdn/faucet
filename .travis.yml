@@ -10,7 +10,7 @@ addons:
 python:
   - "3.5"
 install:
-  - "pip3 install -r requirements.txt"
+  - "pip3 install -r requirements.txt -r test-requirements.txt"
   - "python3 setup.py sdist"
   - "pip3 install dist/*tar.gz"
 script:
