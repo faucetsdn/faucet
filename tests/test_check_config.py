@@ -37,18 +37,19 @@ class CheckConfigTestCase(unittest.TestCase):
         shutil.rmtree(self.tmpdir)
 
     def run_check_config(self, config, expected_ok):
-        conf_file = os.path.join(self.tmpdir, 'faucet.yaml')
-        open(conf_file, 'w').write(config)
-        check_cli = ['python', self.CHECK_CONFIG, conf_file]
+        conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
+        with open(conf_file_name, 'w') as conf_file:
+            conf_file.write(config)
+        check_cli = ['python3', self.CHECK_CONFIG, conf_file_name]
         result_ok = False
         try:
             subprocess.check_output(
                 check_cli, stderr=subprocess.STDOUT)
             result_ok = True
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             if expected_ok:
-                print('%s returned %d (%s)' % (
-                    ' '.join(check_cli), e.returncode, e.output))
+                print(('%s returned %d (%s)' % (
+                    ' '.join(check_cli), e.returncode, e.output)))
         return expected_ok == result_ok
 
     def check_config_success(self, config):
