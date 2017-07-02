@@ -21,7 +21,10 @@
 import json
 import ipaddress
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
-from valve_util import btos
+try:
+    from valve_util import btos
+except ImportError:
+    from faucet.valve_util import btos
 
 
 class FaucetBgp(object):

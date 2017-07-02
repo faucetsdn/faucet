@@ -24,7 +24,10 @@ from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, stream_parse
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
-from valve_util import btos
+try:
+    from valve_util import btos
+except ImportError:
+    from faucet.valve_util import btos
 
 
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
