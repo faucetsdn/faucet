@@ -1,7 +1,6 @@
 astroid==1.4.9
 bitstring
 concurrencytest
-exabgp
 influxdb
 ipaddress
 netifaces
