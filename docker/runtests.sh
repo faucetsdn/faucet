@@ -6,7 +6,7 @@ cd /faucet-src/tests
 
 echo "========== Running faucet config tests =========="
 python3 ./test_config.py || exit 1
-python3 ./test_check_config.py || exit 1
+PYTHONPATH=".." python3 ./test_check_config.py || exit 1
 
 echo "=========== Running faucet unit tests ==========="
 python3 ./test_valve.py || exit 1
