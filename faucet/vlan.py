@@ -28,7 +28,6 @@ except ImportError:
     from faucet.valve_util import btos
     from faucet import valve_of
 
-
 class VLAN(Conf):
     """Implement FAUCET configuration for a VLAN."""
 
