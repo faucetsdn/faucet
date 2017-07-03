@@ -12,11 +12,10 @@ from ryu.lib import hub
 
 try:
     from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+    from valve_util import dpid_log
 except ImportError:
     from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
-
-
-from valve_util import dpid_log
+    from faucet.valve_util import dpid_log
 
 
 def watcher_factory(conf):
