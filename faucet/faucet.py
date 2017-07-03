@@ -23,6 +23,15 @@ import os
 import random
 import signal
 
+from ryu.base import app_manager
+from ryu.controller.handler import CONFIG_DISPATCHER
+from ryu.controller.handler import MAIN_DISPATCHER
+from ryu.controller.handler import set_ev_cls
+from ryu.controller import dpset
+from ryu.controller import event
+from ryu.controller import ofp_event
+from ryu.lib import hub
+
 try:
     from config_parser import dp_parser, get_config_for_api
     from config_parser_util import config_changed
@@ -43,15 +52,6 @@ except ImportError:
     from faucet import faucet_metrics
     from faucet import valve_packet
     from faucet import valve_of
-
-from ryu.base import app_manager
-from ryu.controller.handler import CONFIG_DISPATCHER
-from ryu.controller.handler import MAIN_DISPATCHER
-from ryu.controller.handler import set_ev_cls
-from ryu.controller import dpset
-from ryu.controller import event
-from ryu.controller import ofp_event
-from ryu.lib import hub
 
 
 class EventFaucetReconfigure(event.EventBase):
