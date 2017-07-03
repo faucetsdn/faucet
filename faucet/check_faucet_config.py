@@ -21,8 +21,8 @@
 import logging
 import sys
 
-from faucet import valve
-from faucet.config_parser import dp_parser
+import valve
+from config_parser import dp_parser
 
 
 def check_config(conf_files):
