@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import networkx
+
 try:
     from conf import Conf
     from vlan import VLAN
@@ -24,8 +26,6 @@ except ImportError:
     from faucet.vlan import VLAN
     from faucet.port import Port
     from faucet.acl import ACL
-
-import networkx
 
 # Documentation generated using documentation_generator.py
 # For attributues to be included in documentation they must
