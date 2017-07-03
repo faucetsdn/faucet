@@ -43,8 +43,10 @@ RUN \
   pip install --upgrade pip && \
   pip install setuptools wheel virtualenv --upgrade && \
   pip install -r /faucet-src/test-requirements.txt && \
+  pip install exabgp==3.4.20 && \
   pip3 install setuptools wheel virtualenv --upgrade && \
   pip3 install -r /faucet-src/requirements.txt && \
+  pip3 install -r /faucet-src/test-requirements.txt && \
   pip3 install /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]

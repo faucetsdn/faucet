@@ -16,14 +16,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from acl import ACL
-from dp import DP
-from port import Port
-from vlan import VLAN
-from router import Router
-from watcher_conf import WatcherConf
-
-import config_parser_util
+try:
+    from acl import ACL
+    from dp import DP
+    from port import Port
+    from vlan import VLAN
+    from router import Router
+    from watcher_conf import WatcherConf
+    import config_parser_util
+except ImportError:
+    from faucet.acl import ACL
+    from faucet.dp import DP
+    from faucet.port import Port
+    from faucet.vlan import VLAN
+    from faucet.router import Router
+    from faucet.watcher_conf import WatcherConf
+    from faucet import config_parser_util
 
 V2_TOP_CONFS = (
     'acls',
