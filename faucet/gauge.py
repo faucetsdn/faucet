@@ -21,23 +21,17 @@ import time
 import os
 import signal
 
-try:
-    from config_parser import watcher_parser
-    from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    import valve_of
-    from watcher import watcher_factory
-except ImportError:
-    from faucet.config_parser import watcher_parser
-    from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    from faucet import valve_of
-    from faucet.watcher import watcher_factory
-
 from ryu.base import app_manager
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller import dpset
 from ryu.controller import event
 from ryu.controller import ofp_event
+
+from faucet import valve_of
+from faucet.config_parser import watcher_parser
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+from faucet.watcher import watcher_factory
 
 
 class EventGaugeReconfigure(event.EventBase):

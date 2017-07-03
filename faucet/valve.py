@@ -23,28 +23,18 @@ import time
 
 from collections import namedtuple
 
-try:
-    import tfm_pipeline
-    import valve_acl
-    import valve_flood
-    import valve_host
-    import valve_of
-    import valve_packet
-    import valve_route
-    import valve_util
-except ImportError:
-    from faucet import tfm_pipeline
-    from faucet import valve_acl
-    from faucet import valve_flood
-    from faucet import valve_host
-    from faucet import valve_of
-    from faucet import valve_packet
-    from faucet import valve_route
-    from faucet import valve_util
-
 from ryu.lib import mac
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
+
+from faucet import tfm_pipeline
+from faucet import valve_acl
+from faucet import valve_flood
+from faucet import valve_host
+from faucet import valve_of
+from faucet import valve_packet
+from faucet import valve_route
+from faucet import valve_util
 
 
 def valve_factory(dp):
