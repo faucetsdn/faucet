@@ -33,6 +33,7 @@ except ImportError:
     from faucet.watcher_conf import WatcherConf
     from faucet import config_parser_util
 
+
 V2_TOP_CONFS = (
     'acls',
     'dps',

@@ -23,6 +23,10 @@ import time
 
 from collections import namedtuple
 
+from ryu.lib import mac
+from ryu.ofproto import ether
+from ryu.ofproto import ofproto_v1_3 as ofp
+
 try:
     import tfm_pipeline
     import valve_acl
@@ -41,10 +45,6 @@ except ImportError:
     from faucet import valve_packet
     from faucet import valve_route
     from faucet import valve_util
-
-from ryu.lib import mac
-from ryu.ofproto import ether
-from ryu.ofproto import ofproto_v1_3 as ofp
 
 
 def valve_factory(dp):

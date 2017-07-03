@@ -21,6 +21,7 @@ try:
 except ImportError:
     from faucet.conf import Conf
 
+
 class ACL(Conf):
     """Implement FAUCET configuration for an ACL."""
 

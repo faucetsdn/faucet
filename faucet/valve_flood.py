@@ -17,13 +17,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ryu.lib import mac
+from ryu.ofproto import ofproto_v1_3 as ofp
+
 try:
     import valve_of
 except ImportError:
     from faucet import valve_of
-
-from ryu.lib import mac
-from ryu.ofproto import ofproto_v1_3 as ofp
 
 
 class ValveFloodManager(object):
