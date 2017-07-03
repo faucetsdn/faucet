@@ -19,15 +19,14 @@
 # limitations under the License.
 
 import logging
-import os
 import sys
 
-# Workaround for testing uninstalled version of this script.
-moddir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
-sys.path.insert(0, moddir)
-
-from faucet import valve
-from faucet.config_parser import dp_parser
+try:
+    import valve
+    from config_parser import dp_parser
+except ImportError:
+    from faucet import valve
+    from faucet.config_parser import dp_parser
 
 
 def check_config(conf_files):
