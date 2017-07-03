@@ -20,10 +20,7 @@
 import time
 import random
 
-try:
-    import valve_of
-except ImportError:
-    from faucet import valve_of
+from faucet import valve_of
 
 
 class HostCacheEntry(object):
