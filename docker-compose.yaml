@@ -31,6 +31,7 @@ services:
             - '/opt/grafana:/var/lib/grafana'
         links:
             - db
+            - faucet
 
     gauge:
         restart: always
@@ -60,4 +61,5 @@ services:
             - '/etc/ryu/faucet:/etc/ryu/faucet'
         ports:
             - '6653:6653'
+            - '9244:9244'
 
