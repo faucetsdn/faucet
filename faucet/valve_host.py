@@ -176,6 +176,15 @@ class ValveHostManager(object):
             inst=self.build_port_out_inst(vlan, port),
             idle_timeout=learn_timeout))
 
+        if port.switched_edge:
+            ofmsgs.append(self.valve_flowmod(
+                self.eth_dst_table,
+                self.valve_in_match(
+                    self.eth_dst_table, vlan=vlan, eth_dst=eth_src),
+                priority=self.host_priority+1,
+                inst=self.build_port_out_inst(vlan, valve_of.output_in_port()),
+                idle_timeout=learn_timeout))
+
         host_cache_entry = HostCacheEntry(
             eth_src,
             in_port,

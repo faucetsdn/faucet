@@ -63,12 +63,14 @@ class ValveFloodManager(object):
             elif peer_root_distance < my_root_distance:
                 self.towards_root_stack_ports.append(port)
 
-    def _build_flood_port_outputs(self, ports, exclude_port):
+    def _build_flood_port_outputs(self, ports, in_port):
         flood_acts = []
         for port in ports:
-            if port == exclude_port:
-                continue
-            flood_acts.append(valve_of.output_port(port.number))
+            if port == in_port:
+                if port.switched_edge:
+                    flood_acts.append(valve_of.output_in_port())
+            else:
+                flood_acts.append(valve_of.output_port(port.number))
         return flood_acts
 
     def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port):
