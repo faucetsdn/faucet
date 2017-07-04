@@ -165,6 +165,26 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
              table_id=6, actions=[u'OUTPUT:IN_PORT'])
 
 
+class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
+
+    CONFIG = """
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                hairpin: True
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+    """
+
+
 class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):

@@ -283,14 +283,14 @@ class ValveFloodManager(object):
 
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
-        # TODO: not all vendors implement groups well.
-        # That means we need flood rules for each input port, outputting
-        # to all ports except the input port. When all vendors implement
-        # groups correctly we can use them.
+        # TODO: group table support is still fairly uncommon, so
+        # group tables are currently optional.
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
-        if self.use_group_table and self.stack is None:
-            return self._build_group_flood_rules(vlan, modify, command)
-        else:
-            return self._build_multiout_flood_rules(vlan, command)
+        if self.use_group_table
+            hairpin_ports = [port for port in vlan.get_ports() if port.hairpin]
+            # TODO: group tables for stacking and hairpin flooding modes.
+            if self.stack is None and not hairpin_ports:
+                return self._build_group_flood_rules(vlan, modify, command)
+        return self._build_multiout_flood_rules(vlan, command)
