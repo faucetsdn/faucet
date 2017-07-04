@@ -63,6 +63,7 @@ class DP(Conf):
     drop_bpdu = None
     drop_lldp = None
     group_table = False
+    group_table_routing = False
     max_hosts_per_resolve_cycle = None
     max_host_fib_retry_count = None
     max_resolve_backoff_time = None
@@ -124,7 +125,9 @@ class DP(Conf):
         'drop_lldp': True,
         # By default, drop LLDP. Set to False, to enable NFV offload of LLDP.
         'group_table': False,
-        # Use GROUP tables for IP routing and vlan flooding
+        # Use GROUP tables for VLAN flooding
+        'group_table_routing': False,
+        # Use GROUP tables for routing (nexthops)
         'max_hosts_per_resolve_cycle': 5,
         # Max hosts to try to resolve per gateway resolution cycle.
         'max_host_fib_retry_count': 10,

@@ -112,7 +112,7 @@ class Valve(object):
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller,
-            self.dp.group_table, self.dp.routers)
+            self.dp.group_table_routing, self.dp.routers)
         self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
             self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
             self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
@@ -122,7 +122,7 @@ class Valve(object):
             self.dp.highest_priority,
             self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
             self.valve_flowcontroller,
-            self.dp.group_table, self.dp.routers)
+            self.dp.group_table_routing, self.dp.routers)
         self.route_manager_by_ipv = {}
         for route_manager in (self.ipv4_route_manager, self.ipv6_route_manager):
             self.route_manager_by_ipv[route_manager.IPV] = route_manager

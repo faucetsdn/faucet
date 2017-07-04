@@ -3016,6 +3016,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
 
 class FaucetGroupTableTest(FaucetUntaggedTest):
+
     CONFIG = """
         group_table: True
         interfaces:
@@ -3062,7 +3063,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        group_table: True
+        group_table_routing: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -3116,7 +3117,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        group_table: True
+        group_table_routing: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
