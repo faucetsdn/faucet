@@ -618,6 +618,9 @@ dbs:
         """Return True if a host has been learned on default DPID."""
         return self.mac_learned(host.MAC(), timeout)
 
+    def get_host_intf_mac(self, host, intf):
+        return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
+
     def host_ip(self, host, family, family_re):
         host_ip_cmd = (
             r'ip -o -f %s addr show %s|'
@@ -1006,11 +1009,18 @@ dbs:
             self.set_port_up(port_no)
             self.wait_port_status(port_no, 1)
 
-    def add_host_ipv6_address(self, host, ip_v6):
+    def add_macvlan(self, host, macvlan_intf):
+        host.cmd('ip link add link %s %s type macvlan' % (
+            host.defaultIntf(), macvlan_intf))
+        host.cmd('ip link set dev %s up' % macvlan_intf)
+
+    def add_host_ipv6_address(self, host, ip_v6, intf=None):
         """Add an IPv6 address to a Mininet host."""
+        if intf is None:
+            intf = host.intf()
         self.assertEquals(
             '',
-            host.cmd('ip -6 addr add %s dev %s' % (ip_v6, host.intf())))
+            host.cmd('ip -6 addr add %s dev %s' % (ip_v6, intf)))
 
     def add_host_route(self, host, ip_dst, ip_gw):
         """Add an IP route to a Mininet host."""
@@ -1225,12 +1235,14 @@ dbs:
                     nw_dst_match, timeout=timeout, table_id=table_id,
                     actions=[nexthop_action])
 
-    def host_ipv4_alias(self, host, alias_ip):
+    def host_ipv4_alias(self, host, alias_ip, intf=None):
+        if intf is None:
+            intf = host.intf()
         """Add an IPv4 alias address to a host."""
         del_cmd = 'ip addr del %s dev %s' % (
-            alias_ip.with_prefixlen, host.intf())
+            alias_ip.with_prefixlen, intf)
         add_cmd = 'ip addr add %s dev %s label %s:1' % (
-            alias_ip.with_prefixlen, host.intf(), host.intf())
+            alias_ip.with_prefixlen, intf, intf)
         host.cmd(del_cmd)
         self.assertEquals('', host.cmd(add_cmd))
 

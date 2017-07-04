@@ -29,6 +29,7 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 VLAN_GROUP_OFFSET = 4096
 ROUTE_GROUP_OFFSET = VLAN_GROUP_OFFSET * 2
 OFP_VERSIONS = [ofp.OFP_VERSION]
+OFP_IN_PORT = ofp.OFPP_IN_PORT
 
 
 def ignore_port(port_num):
@@ -224,7 +225,7 @@ def output_in_port():
     Returns:
        ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput.
     """
-    return output_port(ofp.OFPP_IN_PORT)
+    return output_port(OFP_IN_PORT)
 
 
 def output_controller(max_len=96):

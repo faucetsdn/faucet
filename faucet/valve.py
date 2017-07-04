@@ -162,7 +162,7 @@ class Valve(object):
                 'vlan_vid', 'eth_type', 'ip_proto',
                 'icmpv6_type', 'ipv6_dst'),
             self.dp.eth_dst_table: (
-                'vlan_vid', 'eth_dst'),
+                'in_port', 'vlan_vid', 'eth_dst'),
             self.dp.flood_table: (
                 'in_port', 'vlan_vid', 'eth_dst'),
         }
