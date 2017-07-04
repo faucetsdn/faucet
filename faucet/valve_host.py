@@ -68,11 +68,13 @@ class ValveHostManager(object):
             priority=(self.low_priority + 1),
             hard_timeout=self.learn_ban_timeout)
 
-    def build_port_out_inst(self, vlan, port):
+    def build_port_out_inst(self, vlan, port, port_number=None):
+        if port_number is None:
+            port_number = port.number
         dst_act = []
         if not vlan.port_is_tagged(port) and port.stack is None:
             dst_act.append(valve_of.pop_vlan())
-        dst_act.append(valve_of.output_port(port.number))
+        dst_act.append(valve_of.output_port(port_number))
 
         if port.mirror is not None:
             mirror_acts = [valve_of.output_port(port.mirror)]
@@ -176,13 +178,13 @@ class ValveHostManager(object):
             inst=self.build_port_out_inst(vlan, port),
             idle_timeout=learn_timeout))
 
-        if port.switched_edge:
+        if port.hairpin:
             ofmsgs.append(self.valve_flowmod(
                 self.eth_dst_table,
                 self.valve_in_match(
-                    self.eth_dst_table, vlan=vlan, eth_dst=eth_src),
-                priority=self.host_priority+1,
-                inst=self.build_port_out_inst(vlan, valve_of.output_in_port()),
+                    self.eth_dst_table, in_port=in_port, vlan=vlan, eth_dst=eth_src),
+                priority=(self.host_priority + 1),
+                inst=self.build_port_out_inst(vlan, port, port_number=valve_of.OFP_IN_PORT),
                 idle_timeout=learn_timeout))
 
         host_cache_entry = HostCacheEntry(

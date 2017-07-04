@@ -37,7 +37,7 @@ class Port(Conf):
     acl_in = None
     stack = {}
     max_hosts = None
-    switched_edge = None
+    hairpin = None
 
     defaults = {
         'number': None,
@@ -60,7 +60,7 @@ class Port(Conf):
         # Configure a stack peer on this port.
         'max_hosts': 255,
         # maximum number of hosts
-        'switched_edge': False,
+        'hairpin': False,
         # if True, then switch between hosts on this port (eg WiFi radio).
     }
 

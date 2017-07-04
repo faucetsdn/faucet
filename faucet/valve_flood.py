@@ -67,7 +67,7 @@ class ValveFloodManager(object):
         flood_acts = []
         for port in ports:
             if port == in_port:
-                if port.switched_edge:
+                if port.hairpin:
                     flood_acts.append(valve_of.output_in_port())
             else:
                 flood_acts.append(valve_of.output_port(port.number))
