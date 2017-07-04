@@ -288,7 +288,7 @@ class ValveFloodManager(object):
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
-        if self.use_group_table
+        if self.use_group_table:
             hairpin_ports = [port for port in vlan.get_ports() if port.hairpin]
             # TODO: group tables for stacking and hairpin flooding modes.
             if self.stack is None and not hairpin_ports:
