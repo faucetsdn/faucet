@@ -158,10 +158,11 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         first_host.cmd('ip netns del %s' % netns)
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
-            {u'in_port': 1, u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
+            {u'in_port': self.port_map['port_1'], u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
              table_id=7, actions=[u'OUTPUT:IN_PORT'])
         self.wait_nonzero_packet_count_flow(
-            {u'in_port': 1, u'dl_dst': macvlan2_mac}, table_id=6, actions=[u'OUTPUT:IN_PORT'])
+            {u'in_port': self.port_map['port_1'], u'dl_dst': macvlan2_mac},
+             table_id=6, actions=[u'OUTPUT:IN_PORT'])
 
 
 class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
