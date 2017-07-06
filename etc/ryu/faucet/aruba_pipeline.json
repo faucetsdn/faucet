@@ -5,6 +5,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Port ACL",
+        "table_id": 0,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -510,8 +511,7 @@
                 ],
                 "type": 3
             }
-        ],
-        "table_id": 0
+        ]
     },
     {
         "config": 3,
@@ -519,6 +519,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "VLAN",
+        "table_id": 1,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -972,8 +973,7 @@
                 ],
                 "type": 3
             }
-        ],
-        "table_id": 1
+        ]
     },
     {
         "config": 3,
@@ -981,6 +981,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "VLAN ACL",
+        "table_id": 2,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -1492,8 +1493,7 @@
                 ],
                 "type": 3
             }
-        ],
-        "table_id": 2
+        ]
     },
     {
         "config": 3,
@@ -1501,6 +1501,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Source",
+        "table_id": 3,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -1965,8 +1966,7 @@
                 ],
                 "type": 3
             }
-        ],
-        "table_id": 3
+        ]
     },
     {
         "config": 3,
@@ -1974,6 +1974,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "IPv4 FIB",
+        "table_id": 4,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -2419,8 +2420,7 @@
                 ],
                 "type": 3
             }
-        ],
-        "table_id": 4
+        ]
     },
     {
         "config": 3,
@@ -2428,6 +2428,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "IPv6 FIB Table",
+        "table_id": 5,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -2870,8 +2871,7 @@
                 ],
                 "type": 3
             }
-        ],
-        "table_id": 5
+        ]
     },
     {
         "config": 3,
@@ -2879,10 +2879,15 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Destination",
+        "table_id": 6,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
                 "oxm_ids": [
+                    {
+                        "name": "in_port",
+                        "type": "in_port"
+                    },
                     {
                         "name": "eth_dst",
                         "type": "eth_dst",
@@ -2898,6 +2903,10 @@
             {
                 "name": "OFPTFPT_WILDCARDS",
                 "oxm_ids": [
+                    {
+                        "name": "in_port",
+                        "type": "in_port"
+                    },
                     {
                         "name": "eth_dst",
                         "type": "eth_dst"
@@ -3295,8 +3304,7 @@
                 ],
                 "type": 3
             }
-        ],
-        "table_id": 6
+        ]
     },
     {
         "config": 3,
@@ -3304,6 +3312,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Flood",
+        "table_id": 7,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -3724,7 +3733,6 @@
                 "table_ids": [],
                 "type": 3
             }
-        ],
-        "table_id": 7
+        ]
     }
 ]
