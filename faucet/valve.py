@@ -1378,20 +1378,25 @@ class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     PIPELINE_CONF = 'tfm_pipeline.json'
+    SKIP_VALIDATION_TABLES = ()
 
     def _verify_pipeline_config(self, tfm):
         for table in tfm.body:
-            if table.table_id in self.TABLE_MATCH_TYPES:
-                pipeline_matches = set(
-                    sorted(self.TABLE_MATCH_TYPES[table.table_id]))
-                for prop in table.properties:
-                    if isinstance(prop, parser.OFPTableFeaturePropOxm) and prop.type == 8:
-                        tfm_matches = set(sorted([oxm.type for oxm in prop.oxm_ids]))
-                        if tfm_matches != pipeline_matches:
-                            self.dpid_log(
-                                'table %s ID %s match TFM config %s != pipeline %s' % (
-                                    table.name, table.table_id,
-                                    tfm_matches, pipeline_matches))
+            if table.table_id not in self.TABLE_MATCH_TYPES:
+                continue
+            if table.table_id in self.SKIP_VALIDATION_TABLES:
+                continue
+            pipeline_matches = set(
+                sorted(self.TABLE_MATCH_TYPES[table.table_id]))
+            for prop in table.properties:
+                if not (isinstance(prop, parser.OFPTableFeaturePropOxm) and prop.type == 8):
+                    continue
+                tfm_matches = set(sorted([oxm.type for oxm in prop.oxm_ids]))
+                if tfm_matches != pipeline_matches:
+                    self.dpid_log(
+                        'table %s ID %s match TFM config %s != pipeline %s' % (
+                            table.name, table.table_id,
+                            tfm_matches, pipeline_matches))
 
     def switch_features(self, dp_id, msg):
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
@@ -1408,3 +1413,5 @@ class ArubaValve(TfmValve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     PIPELINE_CONF = 'aruba_pipeline.json'
+    # TODO: IPv4, IPv6 is deconfigured (takes too much wildcard table space)
+    SKIP_VALIDATION_TABLES = (3, 4, 5)
