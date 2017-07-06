@@ -575,7 +575,17 @@
                         "name": "arp_tpa",
                         "type": "arp_tpa",
                         "hasmask": true
+                    },
+                    {
+                        "name": "ipv4_src",
+                        "type": "ipv4_src",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
                     }
+
                 ]
             },
             {
@@ -609,6 +619,15 @@
                     {
                         "name": "arp_tpa",
                         "type": "arp_tpa"
+                    },
+                    {
+                        "name": "ipv4_src",
+                        "type": "ipv4_src",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
                     }
                 ]
             },
@@ -806,7 +825,7 @@
         "max_entries": 10,
         "metadata_match": 0,
         "metadata_write": 0,
-        "name": "IPv6 FIB Table",
+        "name": "IPv6 FIB",
         "table_id": 5,
         "properties": [
             {
