@@ -33,6 +33,7 @@ RUN \
 
 RUN \
   git clone -b 2.2.2 https://github.com/mininet/mininet && \
+  apt-get update && \
   mininet/util/install.sh -nfv && \
   apt-get purge -qy pylint && \
   GOPATH=~/go go get -u github.com/openconfig/gnmi/cmd/gnmi_cli
