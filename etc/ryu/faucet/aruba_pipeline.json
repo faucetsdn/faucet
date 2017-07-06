@@ -169,10 +169,6 @@
                         "type": "vlan_vid"
                     },
                     {
-                        "name": "vlan_pcp",
-                        "type": "vlan_pcp"
-                    },
-                    {
                         "name": "ip_dscp",
                         "type": "ip_dscp"
                     },
@@ -299,20 +295,8 @@
             {
                 "action_ids": [
                     {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    },
-                    {
                         "name": "OFPAT_PUSH_VLAN",
                         "type": 17
-                    },
-                    {
-                        "name": "OFPAT_POP_VLAN",
-                        "type": 18
-                    },
-                    {
-                        "name": "OFPAT_GROUP",
-                        "type": 22
                     },
                     {
                         "name": "OFPAT_SET_FIELD",
@@ -336,38 +320,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "vlan_pcp",
-                        "type": "vlan_pcp"
-                    },
-                    {
-                        "name": "ip_dscp",
-                        "type": "ip_dscp"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst"
-                    },
-                    {
-                        "name": "tcp_src",
-                        "type": "tcp_src"
-                    },
-                    {
-                        "name": "tcp_dst",
-                        "type": "tcp_dst"
-                    },
-                    {
-                        "name": "udp_src",
-                        "type": "udp_src"
-                    },
-                    {
-                        "name": "udp_dst",
-                        "type": "udp_dst"
                     }
                 ],
                 "type": 14
@@ -564,38 +516,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "vlan_pcp",
-                        "type": "vlan_pcp"
-                    },
-                    {
-                        "name": "ip_dscp",
-                        "type": "ip_dscp"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst"
-                    },
-                    {
-                        "name": "tcp_src",
-                        "type": "tcp_src"
-                    },
-                    {
-                        "name": "tcp_dst",
-                        "type": "tcp_dst"
-                    },
-                    {
-                        "name": "udp_src",
-                        "type": "udp_src"
-                    },
-                    {
-                        "name": "udp_dst",
-                        "type": "udp_dst"
                     }
                 ],
                 "type": 14
@@ -746,38 +666,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "vlan_pcp",
-                        "type": "vlan_pcp"
-                    },
-                    {
-                        "name": "ip_dscp",
-                        "type": "ip_dscp"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst"
-                    },
-                    {
-                        "name": "tcp_src",
-                        "type": "tcp_src"
-                    },
-                    {
-                        "name": "tcp_dst",
-                        "type": "tcp_dst"
-                    },
-                    {
-                        "name": "udp_src",
-                        "type": "udp_src"
-                    },
-                    {
-                        "name": "udp_dst",
-                        "type": "udp_dst"
                     }
                 ],
                 "type": 14
@@ -873,18 +761,6 @@
             {
                 "action_ids": [
                     {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    },
-                    {
-                        "name": "OFPAT_PUSH_VLAN",
-                        "type": 17
-                    },
-                    {
-                        "name": "OFPAT_POP_VLAN",
-                        "type": 18
-                    },
-                    {
                         "name": "OFPAT_GROUP",
                         "type": 22
                     },
@@ -910,38 +786,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "vlan_pcp",
-                        "type": "vlan_pcp"
-                    },
-                    {
-                        "name": "ip_dscp",
-                        "type": "ip_dscp"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst"
-                    },
-                    {
-                        "name": "tcp_src",
-                        "type": "tcp_src"
-                    },
-                    {
-                        "name": "tcp_dst",
-                        "type": "tcp_dst"
-                    },
-                    {
-                        "name": "udp_src",
-                        "type": "udp_src"
-                    },
-                    {
-                        "name": "udp_dst",
-                        "type": "udp_dst"
                     }
                 ],
                 "type": 14
@@ -1027,10 +871,6 @@
                     {
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
-                    },
-                    {
-                        "name": "OFPIT_METER",
-                        "type": 6
                     }
                 ],
                 "name": "OFPTFPT_INSTRUCTIONS",
@@ -1038,18 +878,6 @@
             },
             {
                 "action_ids": [
-                    {
-                        "name": "OFPAT_OUTPUT",
-                        "type": 0
-                    },
-                    {
-                        "name": "OFPAT_PUSH_VLAN",
-                        "type": 17
-                    },
-                    {
-                        "name": "OFPAT_POP_VLAN",
-                        "type": 18
-                    },
                     {
                         "name": "OFPAT_GROUP",
                         "type": 22
@@ -1076,38 +904,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "vlan_pcp",
-                        "type": "vlan_pcp"
-                    },
-                    {
-                        "name": "ip_dscp",
-                        "type": "ip_dscp"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst"
-                    },
-                    {
-                        "name": "tcp_src",
-                        "type": "tcp_src"
-                    },
-                    {
-                        "name": "tcp_dst",
-                        "type": "tcp_dst"
-                    },
-                    {
-                        "name": "udp_src",
-                        "type": "udp_src"
-                    },
-                    {
-                        "name": "udp_dst",
-                        "type": "udp_dst"
                     }
                 ],
                 "type": 14
@@ -1221,38 +1017,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "vlan_pcp",
-                        "type": "vlan_pcp"
-                    },
-                    {
-                        "name": "ip_dscp",
-                        "type": "ip_dscp"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst"
-                    },
-                    {
-                        "name": "tcp_src",
-                        "type": "tcp_src"
-                    },
-                    {
-                        "name": "tcp_dst",
-                        "type": "tcp_dst"
-                    },
-                    {
-                        "name": "udp_src",
-                        "type": "udp_src"
-                    },
-                    {
-                        "name": "udp_dst",
-                        "type": "udp_dst"
                     }
                 ],
                 "type": 14
@@ -1365,38 +1129,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "vlan_pcp",
-                        "type": "vlan_pcp"
-                    },
-                    {
-                        "name": "ip_dscp",
-                        "type": "ip_dscp"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst"
-                    },
-                    {
-                        "name": "tcp_src",
-                        "type": "tcp_src"
-                    },
-                    {
-                        "name": "tcp_dst",
-                        "type": "tcp_dst"
-                    },
-                    {
-                        "name": "udp_src",
-                        "type": "udp_src"
-                    },
-                    {
-                        "name": "udp_dst",
-                        "type": "udp_dst"
                     }
                 ],
                 "type": 14
