@@ -312,7 +312,7 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
 
 
 def start_port_server(root_tmpdir):
-    ports_sock = os.path.join(root_tmpdir, 'ports-server')
+    ports_sock = os.path.join(root_tmpdir, '.ports-server')
     ports_server = threading.Thread(
         target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
     ports_server.setDaemon(True)
