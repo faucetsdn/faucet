@@ -65,15 +65,13 @@ class FaucetAPI(object):
         """Get the current running config of Faucet as a python dictionary."""
         if self.faucet is not None:
             return self.faucet.get_config()
-        else:
-            return None
+        return None
 
     def get_tables(self, dp_id):
         """Get the current table structure used by faucet as a dict of table name: table no."""
         if self.faucet is not None:
             return self.faucet.get_tables(dp_id)
-        else:
-            return None
+        return None
 
     # TODO: here are some other features I would like to see sometime:
     def push_config(self, config):
