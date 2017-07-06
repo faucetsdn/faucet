@@ -1,4 +1,3 @@
-astroid==1.4.9
 bitstring
 concurrencytest
 influxdb
@@ -7,6 +6,6 @@ netifaces
 networkx
 packaging
 prometheus_client
-pylint==1.6.5
+pylint
 pyyaml
 requests

@@ -199,8 +199,8 @@ class VLAN(Conf):
     def flood_pkt(self, packet_builder, *args):
         ofmsgs = []
         for vid, ports in (
-            (self.vid, self.tagged_flood_ports(False)),
-            (None, self.untagged_flood_ports(False))):
+                (self.vid, self.tagged_flood_ports(False)),
+                (None, self.untagged_flood_ports(False))):
             if ports:
                 pkt = packet_builder(vid, *args)
                 for port in ports:

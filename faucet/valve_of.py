@@ -289,11 +289,9 @@ def match_from_dict(match_dict):
 
 
 def _match_ip_masked(ipa):
-    if (isinstance(ipa, ipaddress.IPv4Network) or
-            isinstance(ipa, ipaddress.IPv6Network)):
+    if isinstance(ipa, (ipaddress.IPv4Network, ipaddress.IPv6Network)):
         return (str(ipa.network_address), str(ipa.netmask))
-    else:
-        return (str(ipa.ip), str(ipa.netmask))
+    return (str(ipa.ip), str(ipa.netmask))
 
 
 def build_match_dict(in_port=None, vlan=None,

@@ -29,25 +29,25 @@ class LoadRyuTables(object):
     def _create_tables(self, tables_information):
         table_array = []
         for table in tables_information:
-            for k, v in list(table.items()):
-                table_class = getattr(parser, k)
-                properties = self._create_features(v['properties'])
-                v['properties'] = properties
-                v['name'] = v['name'].encode('utf-8')
-                new_table = table_class(**v)
+            for table_class_name, table_attr in list(table.items()):
+                table_class = getattr(parser, table_class_name,)
+                properties = self._create_features(table_attr['properties'])
+                table_attr['properties'] = properties
+                table_attr['name'] = table_attr['name'].encode('utf-8')
+                new_table = table_class(**table_attr)
                 table_array.append(new_table)
         return table_array
 
     def _create_features(self, table_features_information):
         features_array = []
         for feature in table_features_information:
-            for k, v in list(feature.items()):
-                name_id = self._CLASS_NAME_TO_NAME_IDS[k]
-                feature_class = getattr(parser, k)
-                instruction_ids = self._create_instructions(v[name_id])
-                v[name_id] = instruction_ids
-                v['type_'] = v.pop('type')
-                new_feature = feature_class(**v)
+            for feature_class_name, feature_attr in list(feature.items()):
+                name_id = self._CLASS_NAME_TO_NAME_IDS[feature_class_name]
+                feature_class = getattr(parser, feature_class_name)
+                instruction_ids = self._create_instructions(feature_attr[name_id])
+                feature_attr[name_id] = instruction_ids
+                feature_attr['type_'] = feature_attr.pop('type')
+                new_feature = feature_class(**feature_attr)
                 features_array.append(new_feature)
         return features_array
 
@@ -55,10 +55,10 @@ class LoadRyuTables(object):
         instruction_array = []
         for instruction in instruction_ids_information:
             if isinstance(instruction, dict):
-                for k, v in list(instruction.items()):
-                    instruction_class = getattr(parser, k)
-                    v['type_'] = v.pop('type')
-                    new_instruction = instruction_class(**v)
+                for instruction_class_name, instruction_attr in list(instruction.items()):
+                    instruction_class = getattr(parser, instruction_class_name)
+                    instruction_attr['type_'] = instruction_attr.pop('type')
+                    new_instruction = instruction_class(**instruction_attr)
                     instruction_array.append(new_instruction)
             else:
                 instruction_array = instruction_ids_information

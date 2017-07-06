@@ -286,7 +286,8 @@ class FaucetTestBase(unittest.TestCase):
                 return
             self.net.stop()
             time.sleep(1)
-        self.fail('could not start FAUCET')
+        log_txt = self._report_controller_log()
+        self.fail('could not start FAUCET: %s' % log_txt)
 
     def _ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""

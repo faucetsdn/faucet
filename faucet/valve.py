@@ -66,8 +66,7 @@ def valve_factory(dp):
 
     if dp.hardware in SUPPORTED_HARDWARE:
         return SUPPORTED_HARDWARE[dp.hardware]
-    else:
-        return None
+    return None
 
 
 class PacketMeta(object):
@@ -512,8 +511,7 @@ class Valve(object):
             return [
                 valve_of.controller_pps_meterdel(),
                 valve_of.controller_pps_meteradd(pps=self.dp.packetin_pps)]
-        else:
-            return []
+        return []
 
     def _add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -692,8 +690,7 @@ class Valve(object):
     def _find_forwarding_table(self, vlan):
         if vlan.vid in self.dp.vlan_acl_in:
             return self.dp.vlan_acl_table
-        else:
-            return self.dp.eth_src_table
+        return self.dp.eth_src_table
 
     def _port_add_vlans(self, port, mirror_act,
                         tagged_vlans_with_port, untagged_vlans_with_port):
@@ -1319,9 +1316,8 @@ class Valve(object):
             return self._apply_config_changes(
                 new_dp,
                 self._get_config_changes(new_dp))
-        else:
-            self.dpid_log('skipping configuration because datapath not up')
-            return (False, [])
+        self.dpid_log('skipping configuration because datapath not up')
+        return (False, [])
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
         ofmsgs = []
