@@ -102,29 +102,20 @@ class Valve(object):
         self._register_table_match_types()
         # TODO: functional flow managers require too much state.
         # Should interface with a common composer class.
-        self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
-            self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
-            self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-            self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
-            self.dp.ipv4_fib_table, self.dp.eth_src_table,
-            self.dp.eth_dst_table, self.dp.flood_table,
-            self.dp.highest_priority,
-            self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
-            self.valve_flowcontroller,
-            self.dp.group_table_routing, self.dp.routers)
-        self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
-            self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
-            self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-            self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
-            self.dp.ipv6_fib_table, self.dp.eth_src_table,
-            self.dp.eth_dst_table, self.dp.flood_table,
-            self.dp.highest_priority,
-            self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
-            self.valve_flowcontroller,
-            self.dp.group_table_routing, self.dp.routers)
         self.route_manager_by_ipv = {}
-        for route_manager in (self.ipv4_route_manager, self.ipv6_route_manager):
-            self.route_manager_by_ipv[route_manager.IPV] = route_manager
+        for ipv, route_manager_class, fib_table in (
+                (4, valve_route.ValveIPv4RouteManager, self.dp.ipv4_fib_table),
+                (6, valve_route.ValveIPv4RouteManager, self.dp.ipv6_fib_table)):
+            self.route_manager_by_ipv[ipv] = route_manager_class(
+                self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
+                self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
+                self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
+                fib_table, self.dp.eth_src_table,
+                self.dp.eth_dst_table, self.dp.flood_table,
+                self.dp.highest_priority,
+                self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
+                self.valve_flowcontroller,
+                self.dp.group_table_routing, self.dp.routers)
         self.flood_manager = valve_flood.ValveFloodManager(
             self.dp.flood_table, self.dp.low_priority,
             self.valve_in_match, self.valve_flowmod,
@@ -601,8 +592,8 @@ class Valve(object):
         if (self.dp.advertise_interval and
                 now - self._last_advertise_sec > self.dp.advertise_interval):
             for vlan in list(self.dp.vlans.values()):
-                ofmsgs.extend(
-                    self.ipv6_route_manager.advertise(vlan))
+                for route_manager in list(self.route_manager_by_ipv.values()):
+                    ofmsgs.extend(route_manager.advertise(vlan))
             self._last_advertise_sec = now
         return ofmsgs
 
@@ -849,9 +840,8 @@ class Valve(object):
         """
         if (pkt_meta.eth_dst == self.FAUCET_MAC or
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
-            for handler in (self.ipv4_route_manager.control_plane_handler,
-                            self.ipv6_route_manager.control_plane_handler):
-                ofmsgs = handler(pkt_meta)
+            for route_manager in list(self.route_manager_by_ipv.values()):
+                ofmsgs = route_manager.control_plane_handler(pkt_meta)
                 if ofmsgs:
                     return ofmsgs
         return []
@@ -943,11 +933,8 @@ class Valve(object):
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
         # Add FIB entries, if routing is active.
-        for route_manager in (
-                self.ipv4_route_manager, self.ipv6_route_manager):
-            if route_manager:
-                ofmsgs.extend(
-                    route_manager.add_host_fib_route_from_pkt(pkt_meta))
+        for route_manager in list(self.route_manager_by_ipv.values()):
+            ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         return ofmsgs
 
@@ -1347,8 +1334,8 @@ class Valve(object):
         ofmsgs = []
         now = time.time()
         for vlan in list(self.dp.vlans.values()):
-            ofmsgs.extend(self.ipv4_route_manager.resolve_gateways(vlan, now))
-            ofmsgs.extend(self.ipv6_route_manager.resolve_gateways(vlan, now))
+            for route_manager in list(self.route_manager_by_ipv.values()):
+                ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
     def get_config_dict(self):
