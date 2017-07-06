@@ -272,7 +272,7 @@ class DP(Conf):
                 edge_count[edge_name] += 1
                 graph.add_edge(
                     edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
-        if len(graph.edges()):
+        if graph.size():
             for edge_name, count in list(edge_count.items()):
                 assert count == 2, '%s defined only in one direction' % edge_name
             if self.stack is None:
@@ -283,9 +283,8 @@ class DP(Conf):
     def shortest_path(self, dest_dp):
         if self.stack is None:
             return None
-        else:
-            return networkx.shortest_path(
-                self.stack['graph'], self.name, dest_dp)
+        return networkx.shortest_path(
+            self.stack['graph'], self.name, dest_dp)
 
     def shortest_path_port(self, dest_dp):
         """Return port on our DP, that is the shortest path towards dest DP."""

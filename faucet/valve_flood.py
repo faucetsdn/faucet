@@ -160,18 +160,16 @@ class ValveFloodManager(object):
             if self._port_is_dp_local(in_port):
                 return flood_all_except_self
             # If input port non-local, then flood outward again
-            else:
-                return [valve_of.output_in_port()] + flood_all_except_self
+            return [valve_of.output_in_port()] + flood_all_except_self
+
         # We are not the root of the distributed switch
-        else:
-            # If input port was connected to a switch closer to the root,
-            # then flood outwards (local VLAN and stacks further than us)
-            if in_port in self.towards_root_stack_ports:
-                return flood_all_except_self
-            # If input port local or from a further away switch, flood
-            # towards the root.
-            else:
-                return toward_flood_actions
+        # If input port was connected to a switch closer to the root,
+        # then flood outwards (local VLAN and stacks further than us)
+        if in_port in self.towards_root_stack_ports:
+            return flood_all_except_self
+        # If input port local or from a further away switch, flood
+        # towards the root.
+        return toward_flood_actions
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask,
                                    exclude_unicast, command, flood_priority,
