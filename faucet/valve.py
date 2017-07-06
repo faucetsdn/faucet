@@ -26,6 +26,7 @@ from collections import namedtuple
 from ryu.lib import mac
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
+from ryu.ofproto import ofproto_v1_3_parser as parser
 
 try:
     import tfm_pipeline
@@ -1378,11 +1379,29 @@ class TfmValve(Valve):
 
     PIPELINE_CONF = 'tfm_pipeline.json'
 
+    def _verify_pipeline_config(self, tfm):
+        for table in tfm.body:
+            if table.table_id in self.TABLE_MATCH_TYPES:
+                pipeline_matches = set(
+                    sorted(self.TABLE_MATCH_TYPES[table.table_id]))
+                for prop in table.properties:
+                    if isinstance(prop, parser.OFPTableFeaturePropOxm) and prop.type == 8:
+                        tfm_matches = set(sorted([oxm.type for oxm in prop.oxm_ids]))
+                        if tfm_matches != pipeline_matches:
+                            self.dpid_log(
+                                'table %s ID %s match TFM config %s != pipeline %s' % (
+                                    table.name, table.table_id,
+                                    tfm_matches, pipeline_matches))
+
     def switch_features(self, dp_id, msg):
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         self.dpid_log('loading pipeline configuration')
-        return [valve_of.table_features(ryu_table_loader.load_tables())]
+        ofmsgs = self._delete_all_valve_flows()
+        tfm = valve_of.table_features(ryu_table_loader.load_tables())
+        self._verify_pipeline_config(tfm)
+        ofmsgs.append(tfm)
+        return ofmsgs
 
 
 class ArubaValve(TfmValve):
