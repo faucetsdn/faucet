@@ -3042,6 +3042,33 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
                 table_id=7))
 
 
+class FaucetTaggedGroupTableTest(FaucetTaggedTest):
+
+    CONFIG = """
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+            %(port_2)d:
+                tagged_vlans: [100]
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_group_exist(self):
+        self.assertEqual(
+            100,
+            self.get_group_id_for_matching_flow(
+                {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
+                table_id=7))
+
+
 class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
