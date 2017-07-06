@@ -9,6 +9,7 @@
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
+                "type": 8,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -57,11 +58,11 @@
                         "type": "arp_tpa",
                         "hasmask": true
                     }
-                ],
-                "type": 8
+                ]
             },
             {
                 "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -110,10 +111,11 @@
                         "type": "arp_tpa",
                         "hasmask": true
                     }
-                ],
-                "type": 10
+                ]
             },
             {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
                 "instruction_ids": [
                     {
                         "name": "OFPIT_GOTO_TABLE",
@@ -123,11 +125,11 @@
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
                     }
-                ],
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0
+                ]
             },
             {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
                 "action_ids": [
                     {
                         "name": "OFPAT_OUTPUT",
@@ -149,12 +151,11 @@
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
                     }
-                ],
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6
+                ]
             },
             {
                 "name": "OFPTFPT_APPLY_SETFIELD",
+                "type": 14,
                 "oxm_ids": [
                     {
                         "name": "eth_dst",
@@ -196,11 +197,11 @@
                         "name": "udp_dst",
                         "type": "udp_dst"
                     }
-                ],
-                "type": 14
+                ]
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES",
+                "type": 2,
                 "table_ids": [
                     1,
                     2,
@@ -209,8 +210,7 @@
                     5,
                     6,
                     7
-                ],
-                "type": 2
+                ]
             }
         ]
     },
@@ -224,6 +224,7 @@
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
+                "type": 8,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -247,11 +248,11 @@
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 8
+                ]
             },
             {
                 "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -275,10 +276,11 @@
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 10
+                ]
             },
             {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
                 "instruction_ids": [
                     {
                         "name": "OFPIT_GOTO_TABLE",
@@ -288,11 +290,11 @@
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
                     }
-                ],
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0
+                ]
             },
             {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
                 "action_ids": [
                     {
                         "name": "OFPAT_PUSH_VLAN",
@@ -302,12 +304,11 @@
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
                     }
-                ],
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6
+                ]
             },
             {
                 "name": "OFPTFPT_APPLY_SETFIELD",
+                "type": 14,
                 "oxm_ids": [
                     {
                         "name": "eth_dst",
@@ -321,11 +322,11 @@
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 14
+                ]
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES",
+                "type": 2,
                 "table_ids": [
                     2,
                     3,
@@ -333,8 +334,7 @@
                     5,
                     6,
                     7
-                ],
-                "type": 2
+                ]
             }
         ]
     },
@@ -348,6 +348,7 @@
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
+                "type": 8,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -401,11 +402,11 @@
                         "name": "tcp_dst",
                         "type": "tcp_dst"
                     }
-                ],
-                "type": 8
+                ]
             },
             {
                 "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -459,10 +460,11 @@
                         "name": "tcp_dst",
                         "type": "tcp_dst"
                     }
-                ],
-                "type": 10
+                ]
             },
             {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
                 "instruction_ids": [
                     {
                         "name": "OFPIT_GOTO_TABLE",
@@ -472,11 +474,11 @@
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
                     }
-                ],
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0
+                ]
             },
             {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
                 "action_ids": [
                     {
                         "name": "OFPAT_OUTPUT",
@@ -498,12 +500,11 @@
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
                     }
-                ],
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6
+                ]
             },
             {
                 "name": "OFPTFPT_APPLY_SETFIELD",
+                "type": 14,
                 "oxm_ids": [
                     {
                         "name": "eth_dst",
@@ -517,19 +518,18 @@
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 14
+                ]
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES",
+                "type": 2,
                 "table_ids": [
                     3,
                     4,
                     5,
                     6,
                     7
-                ],
-                "type": 2
+                ]
             }
         ]
     },
@@ -543,6 +543,7 @@
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
+                "type": 8,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -575,11 +576,11 @@
                         "type": "arp_tpa",
                         "hasmask": true
                     }
-                ],
-                "type": 8
+                ]
             },
             {
                 "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -609,10 +610,11 @@
                         "name": "arp_tpa",
                         "type": "arp_tpa"
                     }
-                ],
-                "type": 10
+                ]
             },
             {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
                 "instruction_ids": [
                     {
                         "name": "OFPIT_GOTO_TABLE",
@@ -622,11 +624,11 @@
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
                     }
-                ],
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0
+                ]
             },
             {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
                 "action_ids": [
                     {
                         "name": "OFPAT_OUTPUT",
@@ -648,12 +650,11 @@
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
                     }
-                ],
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6
+                ]
             },
             {
                 "name": "OFPTFPT_APPLY_SETFIELD",
+                "type": 14,
                 "oxm_ids": [
                     {
                         "name": "eth_dst",
@@ -667,18 +668,17 @@
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 14
+                ]
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES",
+                "type": 2,
                 "table_ids": [
                     4,
                     5,
                     6,
                     7
-                ],
-                "type": 2
+                ]
             }
         ]
     },
@@ -692,6 +692,7 @@
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
+                "type": 8,
                 "oxm_ids": [
                     {
                         "name": "eth_type",
@@ -715,11 +716,11 @@
                         "type": "ipv4_dst",
                         "hasmask": true
                     }
-                ],
-                "type": 8
+                ]
             },
             {
                 "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
                 "oxm_ids": [
                     {
                         "name": "eth_type",
@@ -741,10 +742,11 @@
                         "name": "ipv4_dst",
                         "type": "ipv4_dst"
                     }
-                ],
-                "type": 10
+                ]
             },
             {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
                 "instruction_ids": [
                     {
                         "name": "OFPIT_GOTO_TABLE",
@@ -754,11 +756,11 @@
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
                     }
-                ],
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0
+                ]
             },
             {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
                 "action_ids": [
                     {
                         "name": "OFPAT_GROUP",
@@ -768,12 +770,11 @@
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
                     }
-                ],
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6
+                ]
             },
             {
                 "name": "OFPTFPT_APPLY_SETFIELD",
+                "type": 14,
                 "oxm_ids": [
                     {
                         "name": "eth_dst",
@@ -787,17 +788,16 @@
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 14
+                ]
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES",
+                "type": 2,
                 "table_ids": [
                     5,
                     6,
                     7
-                ],
-                "type": 2
+                ]
             }
         ]
     },
@@ -811,6 +811,7 @@
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
+                "type": 8,
                 "oxm_ids": [
                     {
                         "name": "eth_type",
@@ -833,11 +834,11 @@
                         "name": "icmpv6_type",
                         "type": "icmpv6_type"
                     }
-                ],
-                "type": 8
+                ]
             },
             {
                 "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
                 "oxm_ids": [
                     {
                         "name": "eth_type",
@@ -859,10 +860,11 @@
                         "name": "icmpv6_type",
                         "type": "icmpv6_type"
                     }
-                ],
-                "type": 10
+                ]
             },
             {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
                 "instruction_ids": [
                     {
                         "name": "OFPIT_GOTO_TABLE",
@@ -872,11 +874,11 @@
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
                     }
-                ],
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0
+                ]
             },
             {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
                 "action_ids": [
                     {
                         "name": "OFPAT_GROUP",
@@ -886,12 +888,11 @@
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
                     }
-                ],
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6
+                ]
             },
             {
                 "name": "OFPTFPT_APPLY_SETFIELD",
+                "type": 14,
                 "oxm_ids": [
                     {
                         "name": "eth_dst",
@@ -905,16 +906,15 @@
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 14
+                ]
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES",
+                "type": 2,
                 "table_ids": [
                     6,
                     7
-                ],
-                "type": 2
+                ]
             }
         ]
     },
@@ -928,6 +928,7 @@
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
+                "type": 8,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -942,11 +943,11 @@
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 8
+                ]
             },
             {
                 "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
                 "oxm_ids": [
                     {
                         "name": "in_port",
@@ -960,10 +961,11 @@
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 10
+                ]
             },
             {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
                 "instruction_ids": [
                     {
                         "name": "OFPIT_GOTO_TABLE",
@@ -973,11 +975,11 @@
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
                     }
-                ],
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0
+                ]
             },
             {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
                 "action_ids": [
                     {
                         "name": "OFPAT_OUTPUT",
@@ -999,34 +1001,28 @@
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
                     }
-                ],
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6
+                ]
             },
             {
                 "name": "OFPTFPT_APPLY_SETFIELD",
+                "type": 14,
                 "oxm_ids": [
                     {
                         "name": "eth_dst",
                         "type": "eth_dst"
                     },
                     {
-                        "name": "eth_src",
-                        "type": "eth_src"
-                    },
-                    {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
-                ],
-                "type": 14
+                ]
             },
             {
                 "name": "OFPTFPT_NEXT_TABLES",
+                "type": 2,
                 "table_ids": [
                     7
-                ],
-                "type": 2
+                ]
             }
         ]
     },
@@ -1040,6 +1036,7 @@
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
+                "type": 8,
                 "oxm_ids": [
                     {
                         "name": "eth_dst",
@@ -1054,11 +1051,11 @@
                         "name": "in_port",
                         "type": "in_port"
                     }
-                ],
-                "type": 8
+                ]
             },
             {
                 "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
                 "oxm_ids": [
                     {
                         "name": "eth_dst",
@@ -1072,32 +1069,25 @@
                         "name": "in_port",
                         "type": "in_port"
                     }
-                ],
-                "type": 10
+                ]
             },
             {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
                 "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
                     {
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
                     }
-                ],
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0
+                ]
             },
             {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
                 "action_ids": [
                     {
                         "name": "OFPAT_OUTPUT",
                         "type": 0
-                    },
-                    {
-                        "name": "OFPAT_PUSH_VLAN",
-                        "type": 17
                     },
                     {
                         "name": "OFPAT_POP_VLAN",
@@ -1106,37 +1096,8 @@
                     {
                         "name": "OFPAT_GROUP",
                         "type": 22
-                    },
-                    {
-                        "name": "OFPAT_SET_FIELD",
-                        "type": 25
                     }
-                ],
-                "name": "OFPTFPT_APPLY_ACTIONS",
-                "type": 6
-            },
-            {
-                "name": "OFPTFPT_APPLY_SETFIELD",
-                "oxm_ids": [
-                    {
-                        "name": "eth_dst",
-                        "type": "eth_dst"
-                    },
-                    {
-                        "name": "eth_src",
-                        "type": "eth_src"
-                    },
-                    {
-                        "name": "vlan_vid",
-                        "type": "vlan_vid"
-                    }
-                ],
-                "type": 14
-            },
-            {
-                "name": "OFPTFPT_NEXT_TABLES",
-                "table_ids": [],
-                "type": 2
+                ]
             }
         ]
     }
