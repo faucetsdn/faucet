@@ -16,7 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from conf import Conf
+try:
+    from conf import Conf
+except ImportError:
+    from faucet.conf import Conf
 
 
 class Port(Conf):
@@ -34,6 +37,7 @@ class Port(Conf):
     acl_in = None
     stack = {}
     max_hosts = None
+    hairpin = None
 
     defaults = {
         'number': None,
@@ -41,15 +45,23 @@ class Port(Conf):
         'description': None,
         'enabled': True,
         'permanent_learn': False,
+        # if True, a host once learned on this port cannot be learned on another port.
         'unicast_flood': True,
+        # if True, do classical unicast flooding on this port (False floods ND/ARP/bcast only).
         'mirror': None,
         'mirror_destination': False,
         'native_vlan': None,
+        # Set untagged VLAN on this port.
         'tagged_vlans': None,
+        # Set tagged VLANs on this port.
         'acl_in': None,
+        # ACL for input on this port.
         'stack': None,
-        'max_hosts' : 255,
+        # Configure a stack peer on this port.
+        'max_hosts': 255,
         # maximum number of hosts
+        'hairpin': False,
+        # if True, then switch between hosts on this port (eg WiFi radio).
     }
 
     def __init__(self, _id, conf=None):

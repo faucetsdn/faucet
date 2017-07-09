@@ -5,16 +5,18 @@ RUN \
   apt-get install -qy --no-install-recommends \
     gcc \
     git \
-    libpython2.7-dev \
+    libpython3-all-dev \
     libyaml-dev \
-    python-pip
+    netbase \
+    python3-pip
 
 COPY ./ /faucet-src/
 
 RUN \
-  pip install --upgrade pip && \
-  pip install -r /faucet-src/requirements.txt && \
-  pip install /faucet-src
+  pip3 install --upgrade pip && \
+  pip3 install setuptools wheel virtualenv --upgrade && \
+  pip3 install -r /faucet-src/requirements.txt && \
+  pip3 install /faucet-src
 
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 

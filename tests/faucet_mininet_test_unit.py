@@ -115,6 +115,76 @@ vlans:
         self.prometheus_smoke_test()
 
 
+class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                hairpin: True
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        # Create macvlan interfaces, with one in a seperate namespace,
+        # to force traffic between them to be hairpinned via FAUCET.
+        first_host, second_host = self.net.hosts[:2]
+        macvlan1_intf = 'macvlan1'
+        macvlan1_ipv4 = '10.0.0.100'
+        macvlan2_intf = 'macvlan2'
+        macvlan2_ipv4 = '10.0.0.101'
+        netns = first_host.name
+        self.add_macvlan(first_host, macvlan1_intf)
+        first_host.cmd('ip address add %s/24 brd + dev %s' % (macvlan1_ipv4, macvlan1_intf))
+        self.add_macvlan(first_host, macvlan2_intf)
+        macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
+        first_host.cmd('ip netns add %s' % netns)
+        first_host.cmd('ip link set %s netns %s' % (macvlan2_intf, netns))
+        for exec_cmd in (
+            ('ip address add %s/24 brd + dev %s' % (macvlan2_ipv4, macvlan2_intf),
+             'ip link set %s up' % macvlan2_intf)):
+            first_host.cmd('ip netns exec %s %s' % (netns, exec_cmd))
+        self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
+        self.one_ipv4_ping(first_host, second_host.IP())
+        first_host.cmd('ip netns del %s' % netns)
+        # Verify OUTPUT:IN_PORT flood rules are exercised.
+        self.wait_nonzero_packet_count_flow(
+            {u'in_port': self.port_map['port_1'], u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
+             table_id=7, actions=[u'OUTPUT:IN_PORT'])
+        self.wait_nonzero_packet_count_flow(
+            {u'in_port': self.port_map['port_1'], u'dl_dst': macvlan2_mac},
+             table_id=6, actions=[u'OUTPUT:IN_PORT'])
+
+
+class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
+
+    CONFIG = """
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                hairpin: True
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+    """
+
+
 class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
@@ -468,11 +538,9 @@ vlans:
         for i in range(10, 10+(self.MAX_HOSTS*2)):
             mac_intf = 'mac%u' % i
             mac_ipv4 = '10.0.0.%u' % i
-            second_host.cmd('ip link add link %s %s type macvlan' % (
-                second_host.defaultIntf(), mac_intf))
-            second_host.cmd('ip address add %s/24 dev %s' % (
+            self.add_macvlan(second_host, mac_intf)
+            second_host.cmd('ip address add %s/24 brd + dev %s' % (
                 mac_ipv4, mac_intf))
-            second_host.cmd('ip link set dev %s up' % mac_intf)
             second_host.cmd('ping -c1 -I%s %s &' % (mac_intf, first_host.IP()))
         flows = self.get_matching_flows_on_dpid(
             self.dpid,
@@ -566,9 +634,8 @@ vlans:
             mac_intfs.append(mac_intf)
             mac_ipv4 = '10.0.0.%u' % i
             mac_ips.append(mac_ipv4)
-            second_host.cmd('ip link add link %s %s type macvlan' % (
-                second_host.defaultIntf(), mac_intf))
-            second_host.cmd('ip address add %s/24 dev %s' % (
+            self.add_macvlan(second_host, mac_intf)
+            second_host.cmd('ip address add %s/24 dev brd + %s' % (
                 mac_ipv4, mac_intf))
             address = second_host.cmd(
                 '|'.join((
@@ -577,7 +644,6 @@ vlans:
                     'head -1',
                     'xargs echo -n')))
             learned_mac_ports[address] = self.port_map['port_2']
-            second_host.cmd('ip link set dev %s up' % mac_intf)
 
         first_host.cmd('fping -c3 %s' % ' '.join(mac_ips))
         learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
@@ -621,11 +687,9 @@ vlans:
             mac_intf_ipv4s.append(('mac%u' % i, '10.0.0.%u' % i))
         # configure macvlan interfaces and stimulate learning
         for mac_intf, mac_ipv4 in mac_intf_ipv4s:
-            second_host.cmd('ip link add link %s %s type macvlan' % (
-                second_host.defaultIntf(), mac_intf))
-            second_host.cmd('ip address add %s/24 dev %s' % (
+            self.add_macvlan(second_host, mac_intf)
+            second_host.cmd('ip address add %s/24 brd + dev %s' % (
                 mac_ipv4, mac_intf))
-            second_host.cmd('ip link set dev %s up' % mac_intf)
             second_host.cmd('ping -c1 -I%s %s &' % (mac_intf, first_host.IP()))
         # verify connectivity
         for mac_intf, _ in mac_intf_ipv4s:
@@ -2952,6 +3016,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
 
 
 class FaucetGroupTableTest(FaucetUntaggedTest):
+
     CONFIG = """
         group_table: True
         interfaces:
@@ -2966,6 +3031,33 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
                 description: "b3"
             %(port_4)d:
                 native_vlan: 100
+                description: "b4"
+"""
+
+    def test_group_exist(self):
+        self.assertEqual(
+            100,
+            self.get_group_id_for_matching_flow(
+                {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
+                table_id=7))
+
+
+class FaucetTaggedGroupTableTest(FaucetTaggedTest):
+
+    CONFIG = """
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+            %(port_2)d:
+                tagged_vlans: [100]
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
                 description: "b4"
 """
 
@@ -2998,7 +3090,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        group_table: True
+        group_table_routing: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -3052,7 +3144,7 @@ vlans:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        group_table: True
+        group_table_routing: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100

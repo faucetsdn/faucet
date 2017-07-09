@@ -1,4 +1,4 @@
-:version: 1.5.2
+:version: 1.5.3
 
 .. meta::
    :keywords: OpenFlow, Ryu, Faucet, VLAN, SDN

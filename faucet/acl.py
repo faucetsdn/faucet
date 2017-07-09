@@ -16,7 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from conf import Conf
+try:
+    from conf import Conf
+except ImportError:
+    from faucet.conf import Conf
+
 
 class ACL(Conf):
     """Implement FAUCET configuration for an ACL."""

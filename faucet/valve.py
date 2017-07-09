@@ -23,18 +23,29 @@ import time
 
 from collections import namedtuple
 
-import tfm_pipeline
-import valve_acl
-import valve_flood
-import valve_host
-import valve_of
-import valve_packet
-import valve_route
-import valve_util
-
 from ryu.lib import mac
 from ryu.ofproto import ether
 from ryu.ofproto import ofproto_v1_3 as ofp
+from ryu.ofproto import ofproto_v1_3_parser as parser
+
+try:
+    import tfm_pipeline
+    import valve_acl
+    import valve_flood
+    import valve_host
+    import valve_of
+    import valve_packet
+    import valve_route
+    import valve_util
+except ImportError:
+    from faucet import tfm_pipeline
+    from faucet import valve_acl
+    from faucet import valve_flood
+    from faucet import valve_host
+    from faucet import valve_of
+    from faucet import valve_packet
+    from faucet import valve_route
+    from faucet import valve_util
 
 
 def valve_factory(dp):
@@ -56,8 +67,7 @@ def valve_factory(dp):
 
     if dp.hardware in SUPPORTED_HARDWARE:
         return SUPPORTED_HARDWARE[dp.hardware]
-    else:
-        return None
+    return None
 
 
 class PacketMeta(object):
@@ -93,28 +103,20 @@ class Valve(object):
         self._register_table_match_types()
         # TODO: functional flow managers require too much state.
         # Should interface with a common composer class.
-        self.ipv4_route_manager = valve_route.ValveIPv4RouteManager(
-            self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
-            self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-            self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
-            self.dp.ipv4_fib_table, self.dp.eth_src_table,
-            self.dp.eth_dst_table, self.dp.flood_table,
-            self.dp.highest_priority,
-            self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
-            self.valve_flowcontroller,
-            self.dp.group_table, self.dp.routers)
-        self.ipv6_route_manager = valve_route.ValveIPv6RouteManager(
-            self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
-            self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-            self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
-            self.dp.ipv6_fib_table, self.dp.eth_src_table,
-            self.dp.eth_dst_table, self.dp.flood_table,
-            self.dp.highest_priority,
-            self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
-            self.valve_flowcontroller,
-            self.dp.group_table, self.dp.routers)
         self.route_manager_by_ipv = {}
-        for route_manager in (self.ipv4_route_manager, self.ipv6_route_manager):
+        for fib_table, route_manager_class in (
+                (self.dp.ipv4_fib_table, valve_route.ValveIPv4RouteManager),
+                (self.dp.ipv6_fib_table, valve_route.ValveIPv6RouteManager)):
+            route_manager = route_manager_class(
+                self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
+                self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
+                self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
+                fib_table, self.dp.eth_src_table,
+                self.dp.eth_dst_table, self.dp.flood_table,
+                self.dp.highest_priority,
+                self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
+                self.valve_flowcontroller,
+                self.dp.group_table_routing, self.dp.routers)
             self.route_manager_by_ipv[route_manager.IPV] = route_manager
         self.flood_manager = valve_flood.ValveFloodManager(
             self.dp.flood_table, self.dp.low_priority,
@@ -152,7 +154,7 @@ class Valve(object):
                 'vlan_vid', 'eth_type', 'ip_proto',
                 'icmpv6_type', 'ipv6_dst'),
             self.dp.eth_dst_table: (
-                'vlan_vid', 'eth_dst'),
+                'in_port', 'vlan_vid', 'eth_dst'),
             self.dp.flood_table: (
                 'in_port', 'vlan_vid', 'eth_dst'),
         }
@@ -502,8 +504,7 @@ class Valve(object):
             return [
                 valve_of.controller_pps_meterdel(),
                 valve_of.controller_pps_meteradd(pps=self.dp.packetin_pps)]
-        else:
-            return []
+        return []
 
     def _add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
@@ -593,8 +594,8 @@ class Valve(object):
         if (self.dp.advertise_interval and
                 now - self._last_advertise_sec > self.dp.advertise_interval):
             for vlan in list(self.dp.vlans.values()):
-                ofmsgs.extend(
-                    self.ipv6_route_manager.advertise(vlan))
+                for route_manager in list(self.route_manager_by_ipv.values()):
+                    ofmsgs.extend(route_manager.advertise(vlan))
             self._last_advertise_sec = now
         return ofmsgs
 
@@ -682,8 +683,7 @@ class Valve(object):
     def _find_forwarding_table(self, vlan):
         if vlan.vid in self.dp.vlan_acl_in:
             return self.dp.vlan_acl_table
-        else:
-            return self.dp.eth_src_table
+        return self.dp.eth_src_table
 
     def _port_add_vlans(self, port, mirror_act,
                         tagged_vlans_with_port, untagged_vlans_with_port):
@@ -842,9 +842,8 @@ class Valve(object):
         """
         if (pkt_meta.eth_dst == self.FAUCET_MAC or
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
-            for handler in (self.ipv4_route_manager.control_plane_handler,
-                            self.ipv6_route_manager.control_plane_handler):
-                ofmsgs = handler(pkt_meta)
+            for route_manager in list(self.route_manager_by_ipv.values()):
+                ofmsgs = route_manager.control_plane_handler(pkt_meta)
                 if ofmsgs:
                     return ofmsgs
         return []
@@ -936,11 +935,8 @@ class Valve(object):
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
         # Add FIB entries, if routing is active.
-        for route_manager in (
-                self.ipv4_route_manager, self.ipv6_route_manager):
-            if route_manager:
-                ofmsgs.extend(
-                    route_manager.add_host_fib_route_from_pkt(pkt_meta))
+        for route_manager in list(self.route_manager_by_ipv.values()):
+            ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         return ofmsgs
 
@@ -1309,9 +1305,8 @@ class Valve(object):
             return self._apply_config_changes(
                 new_dp,
                 self._get_config_changes(new_dp))
-        else:
-            self.dpid_log('skipping configuration because datapath not up')
-            return (False, [])
+        self.dpid_log('skipping configuration because datapath not up')
+        return (False, [])
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
         ofmsgs = []
@@ -1341,8 +1336,8 @@ class Valve(object):
         ofmsgs = []
         now = time.time()
         for vlan in list(self.dp.vlans.values()):
-            ofmsgs.extend(self.ipv4_route_manager.resolve_gateways(vlan, now))
-            ofmsgs.extend(self.ipv6_route_manager.resolve_gateways(vlan, now))
+            for route_manager in list(self.route_manager_by_ipv.values()):
+                ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
     def get_config_dict(self):
@@ -1371,15 +1366,40 @@ class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     PIPELINE_CONF = 'tfm_pipeline.json'
+    SKIP_VALIDATION_TABLES = ()
+
+    def _verify_pipeline_config(self, tfm):
+        for table in tfm.body:
+            if table.table_id not in self.TABLE_MATCH_TYPES:
+                continue
+            if table.table_id in self.SKIP_VALIDATION_TABLES:
+                continue
+            pipeline_matches = set(
+                sorted(self.TABLE_MATCH_TYPES[table.table_id]))
+            for prop in table.properties:
+                if not (isinstance(prop, parser.OFPTableFeaturePropOxm) and prop.type == 8):
+                    continue
+                tfm_matches = set(sorted([oxm.type for oxm in prop.oxm_ids]))
+                if tfm_matches != pipeline_matches:
+                    self.dpid_log(
+                        'table %s ID %s match TFM config %s != pipeline %s' % (
+                            table.name, table.table_id,
+                            tfm_matches, pipeline_matches))
 
     def switch_features(self, dp_id, msg):
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         self.dpid_log('loading pipeline configuration')
-        return [valve_of.table_features(ryu_table_loader.load_tables())]
+        ofmsgs = self._delete_all_valve_flows()
+        tfm = valve_of.table_features(ryu_table_loader.load_tables())
+        self._verify_pipeline_config(tfm)
+        ofmsgs.append(tfm)
+        return ofmsgs
 
 
 class ArubaValve(TfmValve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     PIPELINE_CONF = 'aruba_pipeline.json'
+    # TODO: IPv4, IPv6 is deconfigured (takes too much wildcard table space)
+    SKIP_VALIDATION_TABLES = (3, 4, 5)

@@ -33,8 +33,9 @@ RUN \
 
 RUN \
   git clone -b 2.2.2 https://github.com/mininet/mininet && \
+  apt-get update && \
   mininet/util/install.sh -nfv && \
-  apt-get purge -qy pylint python-astroid && \
+  apt-get purge -qy pylint && \
   GOPATH=~/go go get -u github.com/openconfig/gnmi/cmd/gnmi_cli
 
 COPY ./ /faucet-src/
@@ -43,8 +44,10 @@ RUN \
   pip install --upgrade pip && \
   pip install setuptools wheel virtualenv --upgrade && \
   pip install -r /faucet-src/test-requirements.txt && \
+  pip install exabgp==3.4.20 && \
   pip3 install setuptools wheel virtualenv --upgrade && \
   pip3 install -r /faucet-src/requirements.txt && \
+  pip3 install -r /faucet-src/test-requirements.txt && \
   pip3 install /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]

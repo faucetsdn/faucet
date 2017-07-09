@@ -19,9 +19,14 @@
 import collections
 import ipaddress
 
-from conf import Conf
-from valve_util import btos
-import valve_of
+try:
+    from conf import Conf
+    from valve_util import btos
+    import valve_of
+except ImportError:
+    from faucet.conf import Conf
+    from faucet.valve_util import btos
+    from faucet import valve_of
 
 
 class VLAN(Conf):
@@ -194,8 +199,8 @@ class VLAN(Conf):
     def flood_pkt(self, packet_builder, *args):
         ofmsgs = []
         for vid, ports in (
-            (self.vid, self.tagged_flood_ports(False)),
-            (None, self.untagged_flood_ports(False))):
+                (self.vid, self.tagged_flood_ports(False)),
+                (None, self.untagged_flood_ports(False))):
             if ports:
                 pkt = packet_builder(vid, *args)
                 for port in ports:

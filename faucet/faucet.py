@@ -23,16 +23,6 @@ import os
 import random
 import signal
 
-from config_parser import dp_parser, get_config_for_api
-from config_parser_util import config_changed
-from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-from valve import valve_factory
-import faucet_api
-import faucet_bgp
-import faucet_metrics
-import valve_packet
-import valve_of
-
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -41,6 +31,27 @@ from ryu.controller import dpset
 from ryu.controller import event
 from ryu.controller import ofp_event
 from ryu.lib import hub
+
+try:
+    from config_parser import dp_parser, get_config_for_api
+    from config_parser_util import config_changed
+    from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+    from valve import valve_factory
+    import faucet_api
+    import faucet_bgp
+    import faucet_metrics
+    import valve_packet
+    import valve_of
+except ImportError:
+    from faucet.config_parser import dp_parser, get_config_for_api
+    from faucet.config_parser_util import config_changed
+    from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+    from faucet.valve import valve_factory
+    from faucet import faucet_api
+    from faucet import faucet_bgp
+    from faucet import faucet_metrics
+    from faucet import valve_packet
+    from faucet import valve_of
 
 
 class EventFaucetReconfigure(event.EventBase):

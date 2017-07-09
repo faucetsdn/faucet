@@ -9,9 +9,13 @@ from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from requests.exceptions import ConnectionError
 from ryu.lib import hub
-from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
 
-from valve_util import dpid_log
+try:
+    from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+    from valve_util import dpid_log
+except ImportError:
+    from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+    from faucet.valve_util import dpid_log
 
 
 def watcher_factory(conf):
@@ -40,8 +44,7 @@ def watcher_factory(conf):
     db_type = conf.db_type
     if w_type in WATCHER_TYPES and db_type in WATCHER_TYPES[w_type]:
         return WATCHER_TYPES[w_type][db_type]
-    else:
-        return None
+    return None
 
 
 def _rcv_time(rcv_time):
@@ -183,9 +186,6 @@ time			dp_name			port_name	value
 2016-05-25T04:24:53Z	windscale-faucet-1	port1.0.1	2
     """
 
-    def __init__(self, conf, logname):
-        super(GaugePortStateInfluxDBLogger, self).__init__(conf, logname)
-
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStateInfluxDBLogger, self).update(rcv_time, dp_id, msg)
         reason = msg.reason
@@ -281,10 +281,9 @@ class GaugePoller(object):
             return 'LOCAL'
         elif stat.port_no in self.dp.ports:
             return self.dp.ports[stat.port_no].name
-        else:
-            self.logger.info('%s stats for unknown port %u',
-                             dpid_log(dp_id), stat.port_no)
-            return None
+        self.logger.info('%s stats for unknown port %u',
+                         dpid_log(dp_id), stat.port_no)
+        return None
 
     def _format_port_stats(self, delim, stat):
         formatted_port_stats = []
@@ -308,9 +307,6 @@ class GaugePortStatsPoller(GaugePoller):
     """Periodically sends a port stats request to the datapath and parses
        and outputs the response.
     """
-
-    def __init__(self, conf, logname):
-        super(GaugePortStatsPoller, self).__init__(conf, logname)
 
     def send_req(self):
         ofp = self.ryudp.ofproto
@@ -378,9 +374,6 @@ time			dp_name			port_name	value
 2017-03-06T05:20:12Z	windscale-faucet-1	port1.0.1	76063941
     """
 
-    def __init__(self, conf, logname):
-        super(GaugePortStatsInfluxDBPoller, self).__init__(conf, logname)
-
     def send_req(self):
         ofp = self.ryudp.ofproto
         ofp_parser = self.ryudp.ofproto_parser
@@ -414,9 +407,6 @@ class GaugeFlowTablePoller(GaugePoller):
     flow table is dumped as an OFFlowStatsReply message (in yaml format) that
     matches all flows.
     """
-
-    def __init__(self, conf, logname):
-        super(GaugeFlowTablePoller, self).__init__(conf, logname)
 
     def send_req(self):
         ofp = self.ryudp.ofproto

@@ -192,8 +192,13 @@ def check_dependencies():
 def lint_check():
     """Run pylint on required source files."""
     print('Running pylint checks')
-    for faucet_src in FAUCET_LINT_SRCS + FAUCET_TEST_LINT_SRCS:
-        ret = subprocess.call(['pylint', '--rcfile=/dev/null', '-E', faucet_src])
+    for faucet_src in FAUCET_LINT_SRCS: # + FAUCET_TEST_LINT_SRCS:
+        ret = subprocess.call(
+            ['env',
+             'PYTHONPATH=%s' % faucet_mininet_test_util.FAUCET_DIR,
+             'pylint',
+             '--rcfile=/dev/null',
+             '-E', faucet_src])
         if ret:
             print(('pylint of %s returns an error' % faucet_src))
             return False
@@ -307,7 +312,7 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
 
 
 def start_port_server(root_tmpdir):
-    ports_sock = os.path.join(root_tmpdir, 'ports-server')
+    ports_sock = os.path.join(root_tmpdir, '.ports-server')
     ports_server = threading.Thread(
         target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
     ports_server.setDaemon(True)
