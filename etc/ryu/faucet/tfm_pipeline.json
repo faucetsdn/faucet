@@ -577,11 +577,6 @@
                         "hasmask": true
                     },
                     {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src",
-                        "hasmask": true
-                    },
-                    {
                         "name": "icmpv6_type",
                         "type": "icmpv6_type"
                     }
@@ -619,11 +614,6 @@
                     {
                         "name": "arp_tpa",
                         "type": "arp_tpa"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src",
-                        "hasmask": true
                     },
                     {
                         "name": "icmpv6_type",
