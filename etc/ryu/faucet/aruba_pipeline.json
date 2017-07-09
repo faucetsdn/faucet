@@ -209,7 +209,8 @@
                     4,
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
@@ -333,7 +334,8 @@
                     4,
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
@@ -528,7 +530,8 @@
                     4,
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
@@ -660,7 +663,8 @@
                     4,
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
@@ -762,7 +766,8 @@
                 "table_ids": [
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
@@ -858,7 +863,8 @@
                 "type": 2,
                 "table_ids": [
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
@@ -869,7 +875,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Destination",
-        "table_id": 6,
+        "table_id": 7,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -966,7 +972,8 @@
                 "name": "OFPTFPT_NEXT_TABLES",
                 "type": 2,
                 "table_ids": [
-                    7
+                    7,
+                    8
                 ]
             }
         ]
@@ -977,7 +984,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Flood",
-        "table_id": 7,
+        "table_id": 8,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
