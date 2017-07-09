@@ -722,15 +722,6 @@
                         "type": "vlan_vid"
                     },
                     {
-                        "name": "ip_proto",
-                        "type": "ip_proto"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src",
-                        "hasmask": true
-                    },
-                    {
                         "name": "ipv4_dst",
                         "type": "ipv4_dst",
                         "hasmask": true
@@ -748,14 +739,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "ip_proto",
-                        "type": "ip_proto"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
                     },
                     {
                         "name": "ipv4_dst",
@@ -841,17 +824,9 @@
                         "type": "vlan_vid"
                     },
                     {
-                        "name": "ip_proto",
-                        "type": "ip_proto"
-                    },
-                    {
                         "name": "ipv6_dst",
                         "type": "ipv6_dst",
                         "hasmask": true
-                    },
-                    {
-                        "name": "icmpv6_type",
-                        "type": "icmpv6_type"
                     }
                 ]
             },
@@ -868,16 +843,8 @@
                         "type": "vlan_vid"
                     },
                     {
-                        "name": "ip_proto",
-                        "type": "ip_proto"
-                    },
-                    {
                         "name": "ipv6_dst",
                         "type": "ipv6_dst"
-                    },
-                    {
-                        "name": "icmpv6_type",
-                        "type": "icmpv6_type"
                     }
                 ]
             },
