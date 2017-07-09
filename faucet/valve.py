@@ -111,7 +111,7 @@ class Valve(object):
                 self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
-                fib_table, self.dp.eth_src_table,
+                fib_table, self.dp.vip_table, self.dp.eth_src_table,
                 self.dp.eth_dst_table, self.dp.flood_table,
                 self.dp.highest_priority,
                 self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
@@ -146,13 +146,13 @@ class Valve(object):
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type'),
             self.dp.eth_src_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type',
-                'ip_proto', 'icmpv6_type', 'arp_tpa', 'ipv4_src'),
+                'ip_proto', 'icmpv6_type', 'arp_tpa'),
             self.dp.ipv4_fib_table: (
-                'vlan_vid', 'eth_type', 'ip_proto',
-                'ipv4_src', 'ipv4_dst'),
+                'vlan_vid', 'eth_type', 'ipv4_dst'),
             self.dp.ipv6_fib_table: (
-                'vlan_vid', 'eth_type', 'ip_proto',
-                'icmpv6_type', 'ipv6_dst'),
+                'vlan_vid', 'eth_type', 'ipv6_dst'),
+            self.dp.vip_table: (
+                'eth_type', 'ip_proto'),
             self.dp.eth_dst_table: (
                 'in_port', 'vlan_vid', 'eth_dst'),
             self.dp.flood_table: (
