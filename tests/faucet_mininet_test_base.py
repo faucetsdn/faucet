@@ -848,14 +848,14 @@ dbs:
         self.assertEquals(
             self.matching_flow_present(
                 {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_1'])},
-                table_id=7,
+                table_id=8,
                 match_exact=True),
             unicast_status)
         #  Unicast flood rule exists that output to port 1
         self.assertEquals(
             self.matching_flow_present(
                 {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
-                table_id=7,
+                table_id=8,
                 actions=[u'OUTPUT:%u' % self.port_map['port_1']],
                 match_exact=True),
             unicast_status)
