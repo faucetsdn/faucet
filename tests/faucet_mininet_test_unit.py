@@ -159,10 +159,10 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
             {u'in_port': self.port_map['port_1'], u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
-             table_id=8, actions=[u'OUTPUT:IN_PORT'])
+             table_id=self.FLOOD_TABLE, actions=[u'OUTPUT:IN_PORT'])
         self.wait_nonzero_packet_count_flow(
             {u'in_port': self.port_map['port_1'], u'dl_dst': macvlan2_mac},
-             table_id=7, actions=[u'OUTPUT:IN_PORT'])
+             table_id=self.ETH_DST_TABLE, actions=[u'OUTPUT:IN_PORT'])
 
 
 class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
@@ -545,7 +545,7 @@ vlans:
         flows = self.get_matching_flows_on_dpid(
             self.dpid,
             {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
-            table_id=3)
+            table_id=self.ETH_SRC_TABLE)
         self.assertEquals(self.MAX_HOSTS, len(flows))
         self.assertEquals(
             self.MAX_HOSTS,
@@ -3039,7 +3039,7 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
             100,
             self.get_group_id_for_matching_flow(
                 {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
-                table_id=8))
+                table_id=self.FLOOD_TABLE))
 
 
 class FaucetTaggedGroupTableTest(FaucetTaggedTest):
@@ -3066,7 +3066,7 @@ class FaucetTaggedGroupTableTest(FaucetTaggedTest):
             100,
             self.get_group_id_for_matching_flow(
                 {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
-                table_id=8))
+                table_id=self.FLOOD_TABLE))
 
 
 class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
@@ -3273,7 +3273,7 @@ acls:
         rewrite_host.cmd('ping -c1 %s' % overridden_host.IP())
         self.wait_until_matching_flow(
             {u'dl_dst': u'00:00:00:00:00:03'},
-            table_id=7,
+            table_id=self.ETH_DST_TABLE,
             actions=[u'OUTPUT:%u' % self.port_map['port_3']])
         tcpdump_filter = ('icmp and ether src %s and ether dst %s' % (
             source_host.MAC(), rewrite_host.MAC()))
