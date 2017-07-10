@@ -725,7 +725,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     nw_proto=inet.IPPROTO_ICMPV6,
                     icmpv6_type=icmpv6.ND_ROUTER_SOLICIT),
                 priority=priority,
-                inst=controller_and_flood)
+                inst=controller_and_flood))
         # Initialize IPv6 FIB
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
