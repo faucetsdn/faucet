@@ -406,8 +406,7 @@ class Valve(object):
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []
-        for table_id in self._all_valve_tables():
-            ofmsgs.extend(self.valve_flowdel(table_id))
+        ofmsgs.extend(self.valve_flowdel(ofp.OFPTT_ALL))
         if self.dp.group_table:
             ofmsgs.append(valve_of.groupdel())
         return ofmsgs
