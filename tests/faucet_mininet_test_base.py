@@ -53,6 +53,12 @@ class FaucetTestBase(unittest.TestCase):
 
     RUN_GAUGE = True
 
+    ETH_SRC_TABLE = 3
+    IPV4_FIB_TABLE = 4
+    IPV6_FIB_TABLE = 5
+    FLOOD_TABLE = 8
+    ETH_DST_TABLE = 7
+
     config = None
     dpid = None
     hardware = 'Open vSwitch'
@@ -613,7 +619,7 @@ dbs:
     def mac_learned(self, mac, timeout=10):
         """Return True if a MAC has been learned on default DPID."""
         return self.matching_flow_present(
-            {u'dl_src': u'%s' % mac}, timeout=timeout, table_id=3)
+            {u'dl_src': u'%s' % mac}, timeout=timeout, table_id=self.ETH_SRC_TABLE)
 
     def host_learned(self, host, timeout=10):
         """Return True if a host has been learned on default DPID."""
@@ -848,14 +854,14 @@ dbs:
         self.assertEquals(
             self.matching_flow_present(
                 {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_1'])},
-                table_id=7,
+                table_id=self.FLOOD_TABLE,
                 match_exact=True),
             unicast_status)
         #  Unicast flood rule exists that output to port 1
         self.assertEquals(
             self.matching_flow_present(
                 {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
-                table_id=7,
+                table_id=self.FLOOD_TABLE,
                 actions=[u'OUTPUT:%u' % self.port_map['port_1']],
                 match_exact=True),
             unicast_status)
@@ -1216,10 +1222,10 @@ dbs:
             prefix.network_address, prefix.netmask)
         if prefix.version == 6:
             nw_dst_match = {u'ipv6_dst': exp_prefix}
-            table_id = 5
+            table_id = self.IPV6_FIB_TABLE
         else:
             nw_dst_match = {u'nw_dst': exp_prefix}
-            table_id = 4
+            table_id = self.IPV4_FIB_TABLE
         nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(
