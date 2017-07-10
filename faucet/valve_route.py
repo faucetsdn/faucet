@@ -579,25 +579,38 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 vlan=vlan),
             priority=self.route_priority,
             inst=[valve_of.goto_table(self.fib_table)]))
-        ofmsgs.append(self.valve_flowcontroller(
+        ofmsgs.append(self.valve_flowmod(
             self.fib_table,
             self.valve_in_match(
                 self.fib_table,
                 eth_type=self.ETH_TYPE,
                 vlan=vlan,
-                nw_proto=inet.IPPROTO_ICMP,
-                nw_src=faucet_vip,
                 nw_dst=faucet_vip_host),
+            priority=priority,
+            inst=[valve_of.goto_table(self.vip_table)]))
+        ofmsgs.append(self.valve_flowcontroller(
+            self.vip_table,
+            self.valve_in_match(
+                self.vip_table,
+                eth_type=self.ETH_TYPE,
+                nw_proto=inet.IPPROTO_ICMP),
             priority=priority))
         if self.proactive_learn:
-            ofmsgs.append(self.valve_flowcontroller(
+            ofmsgs.append(self.valve_flowmod(
                 self.fib_table,
                 self.valve_in_match(
                     self.fib_table,
                     eth_type=self.ETH_TYPE,
                     vlan=vlan,
                     nw_dst=faucet_vip),
-                priority=learn_connected_priority))
+                priority=learn_connected_priority,
+                inst=[valve_of.goto_table(self.vip_table)]))
+            ofmsgs.append(self.valve_flowcontroller(
+                self.vip_table,
+                self.valve_in_match(
+                    self.vip_table,
+                    eth_type=self.ETH_TYPE),
+                priority=priority))
         return ofmsgs
 
     def _control_plane_arp_handler(self, pkt_meta, arp_pkt):
