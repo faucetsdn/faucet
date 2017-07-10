@@ -571,12 +571,12 @@
                         "type": "vlan_vid"
                     },
                     {
-                        "name": "arp_tpa",
-                        "type": "arp_tpa"
-                    },
-                    {
                         "name": "ip_proto",
                         "type": "ip_proto"
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
                     }
                 ]
             },
@@ -605,12 +605,12 @@
                         "type": "vlan_vid"
                     },
                     {
-                        "name": "arp_tpa",
-                        "type": "arp_tpa"
-                    },
-                    {
                         "name": "ip_proto",
                         "type": "ip_proto"
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
                     }
                 ]
             },
@@ -863,8 +863,16 @@
                         "type": "eth_type"
                     },
                     {
+                        "name": "eth_dst",
+                        "type": "eth_dst"
+                    },
+                    {
                         "name": "ip_proto",
                         "type": "ip_proto"
+                    },
+                    {
+                        "name": "arp_tpa",
+                        "type": "arp_tpa"
                     }
                 ]
             },
@@ -877,8 +885,16 @@
                         "type": "eth_type"
                     },
                     {
+                        "name": "eth_dst",
+                        "type": "eth_dst"
+                    },
+                    {
                         "name": "ip_proto",
                         "type": "ip_proto"
+                    },
+                    {
+                        "name": "arp_tpa",
+                        "type": "arp_tpa"
                     }
                 ]
             },
@@ -886,6 +902,10 @@
                 "name": "OFPTFPT_INSTRUCTIONS",
                 "type": 0,
                 "instruction_ids": [
+                    {
+                        "name": "OFPIT_GOTO_TABLE",
+                        "type": 1
+                    },
                     {
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
@@ -901,7 +921,16 @@
                         "type": 0
                     }
                 ]
+            },
+            {
+                "name": "OFPTFPT_NEXT_TABLES",
+                "type": 2,
+                "table_ids": [
+                    7,
+                    8
+                ]
             }
+
         ]
     },
     {
