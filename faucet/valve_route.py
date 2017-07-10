@@ -61,7 +61,7 @@ class ValveRouteManager(object):
 
     def __init__(self, logger, faucet_mac, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
-                 max_resolve_backoff_time, proactive_learn,
+                 max_resolve_backoff_time, proactive_learn, dec_ttl,
                  fib_table, vip_table, eth_src_table, eth_dst_table, flood_table,
                  route_priority,
                  valve_in_match, valve_flowdel, valve_flowmod,
@@ -73,6 +73,7 @@ class ValveRouteManager(object):
         self.max_host_fib_retry_count = max_host_fib_retry_count
         self.max_resolve_backoff_time = max_resolve_backoff_time
         self.proactive_learn = proactive_learn
+        self.dec_ttl = dec_ttl
         self.fib_table = fib_table
         self.vip_table = vip_table
         self.eth_src_table = eth_src_table
@@ -121,8 +122,9 @@ class ValveRouteManager(object):
             ofmsgs.append(valve_of.set_vlan_vid(vlan.vid))
         ofmsgs.extend([
             valve_of.set_eth_src(self.faucet_mac),
-            valve_of.set_eth_dst(eth_dst),
-            valve_of.dec_ip_ttl()])
+            valve_of.set_eth_dst(eth_dst)])
+        if self.dec_ttl:
+            ofmsgs.append(valve_of.dec_ip_ttl())
         return ofmsgs
 
     def _route_match(self, vlan, ip_dst):
