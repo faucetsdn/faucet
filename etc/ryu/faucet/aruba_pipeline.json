@@ -904,6 +904,26 @@
                         "type": "ip_proto"
                     }
                 ]
+            },
+            {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
+                "instruction_ids": [
+                    {
+                        "name": "OFPIT_APPLY_ACTIONS",
+                        "type": 4
+                    }
+                ]
+            },
+            {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
+                "action_ids": [
+                    {
+                        "name": "OFPAT_OUTPUT",
+                        "type": 0
+                    }
+                ]
             }
         ]
     },
@@ -1010,7 +1030,6 @@
                 "name": "OFPTFPT_NEXT_TABLES",
                 "type": 2,
                 "table_ids": [
-                    7,
                     8
                 ]
             }
