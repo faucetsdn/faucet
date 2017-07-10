@@ -147,7 +147,7 @@ class Valve(object):
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type'),
             self.dp.eth_src_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type',
-                'ip_proto', 'arp_tpa'),
+                'ip_proto', 'icmpv6_type', 'arp_tpa'),
             self.dp.ipv4_fib_table: (
                 'vlan_vid', 'eth_type', 'ipv4_dst'),
             self.dp.ipv6_fib_table: (
