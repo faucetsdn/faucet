@@ -571,10 +571,6 @@
                         "type": "vlan_vid"
                     },
                     {
-                        "name": "arp_tpa",
-                        "type": "arp_tpa"
-                    },
-                    {
                         "name": "ip_proto",
                         "type": "ip_proto"
                     }
@@ -603,10 +599,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "arp_tpa",
-                        "type": "arp_tpa"
                     },
                     {
                         "name": "ip_proto",
@@ -865,6 +857,10 @@
                     {
                         "name": "ip_proto",
                         "type": "ip_proto"
+                    },
+                    {
+                        "name": "arp_tpa",
+                        "type": "arp_tpa"
                     }
                 ]
             },
@@ -879,6 +875,10 @@
                     {
                         "name": "ip_proto",
                         "type": "ip_proto"
+                    },
+                    {
+                        "name": "arp_tpa",
+                        "type": "arp_tpa"
                     }
                 ]
             },
