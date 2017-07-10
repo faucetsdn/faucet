@@ -21,7 +21,6 @@ import time
 
 import ipaddress
 
-from ryu.lib import mac
 from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 from ryu.ofproto import ether
 from ryu.ofproto import inet
@@ -625,30 +624,15 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         ofmsgs = []
-        ofmsgs.append(self.valve_flowmod(
+        ofmsgs.append(self.valve_flowcontroller(
             self.eth_src_table,
             self.valve_in_match(
                 self.eth_src_table,
                 eth_type=ether.ETH_TYPE_ARP,
-                eth_dst=mac.BROADCAST_STR,
-                vlan=vlan),
-            priority=priority,
-            inst=[valve_of.goto_table(self.vip_table)]))
-        ofmsgs.append(self.valve_flowcontroller(
-            self.vip_table,
-            self.valve_in_match(
-                self.vip_table,
-                eth_type=ether.ETH_TYPE_ARP,
+                vlan=vlan,
                 nw_dst=faucet_vip_host),
-            priority=priority+1,
-            max_len=self.MAX_LEN))
-        ofmsgs.append(self.valve_flowmod(
-            self.vip_table,
-            self.valve_in_match(
-                self.vip_table,
-                eth_type=ether.ETH_TYPE_ARP),
             priority=priority,
-            inst=[valve_of.goto_table(self.flood_table)]))
+            max_len=self.MAX_LEN))
         return ofmsgs
 
     def _control_plane_arp_handler(self, pkt_meta, arp_pkt):
