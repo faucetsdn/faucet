@@ -902,6 +902,44 @@
     },
     {
         "config": 3,
+        "max_entries": 20,
+        "metadata_match": 0,
+        "metadata_write": 0,
+        "name": "VIP",
+        "table_id": 6,
+        "properties": [
+            {
+                "name": "OFPTFPT_MATCH",
+                "type": 8,
+                "oxm_ids": [
+                    {
+                        "name": "eth_type",
+                        "type": "eth_type"
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "ip_proto"
+                    }
+                ]
+            },
+            {
+                "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
+                "oxm_ids": [
+                    {
+                        "name": "eth_type",
+                        "type": "eth_type"
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "ip_proto"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "config": 3,
         "max_entries": 500,
         "metadata_match": 0,
         "metadata_write": 0,
