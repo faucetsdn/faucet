@@ -713,6 +713,25 @@
                 ]
             },
             {
+                "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
+                "oxm_ids": [
+                    {
+                        "name": "eth_type",
+                        "type": "eth_type"
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
+                    },
+                    {
+                        "name": "ipv4_dst",
+                        "type": "ipv4_dst",
+                        "hasmask": true
+                    }
+                ]
+            },
+            {
                 "name": "OFPTFPT_INSTRUCTIONS",
                 "type": 0,
                 "instruction_ids": [
@@ -787,6 +806,25 @@
                         "type": "vlan_vid"
                     },
                     {   
+                        "name": "ipv6_dst",
+                        "type": "ipv6_dst",
+                        "hasmask": true
+                    }
+                ]
+            },
+            {
+                "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
+                "oxm_ids": [
+                    {
+                        "name": "eth_type",
+                        "type": "eth_type"
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
+                    },
+                    {
                         "name": "ipv6_dst",
                         "type": "ipv6_dst",
                         "hasmask": true
