@@ -733,7 +733,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 eth_type=self.ETH_TYPE,
                 eth_dst=faucet_vip_host_nd_mcast,
                 vlan=vlan,
-                nw_proto=inet.IPPROTO_ICMPV6),
+                nw_proto=inet.IPPROTO_ICMPV6,
+                icmpv6_type=icmpv6.ND_NEIGHBOR_SOLICIT),
             priority=priority,
             inst=controller_and_flood))
         ofmsgs.append(self.valve_flowcontroller(
@@ -743,7 +744,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 eth_type=self.ETH_TYPE,
                 eth_dst=self.faucet_mac,
                 vlan=vlan,
-                nw_proto=inet.IPPROTO_ICMPV6),
+                nw_proto=inet.IPPROTO_ICMPV6,
+                icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
             priority=priority))
         if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
             ofmsgs.append(self.valve_flowmod(
@@ -753,7 +755,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     eth_type=self.ETH_TYPE,
                     eth_dst=valve_packet.IPV6_ALL_ROUTERS_MCAST,
                     vlan=vlan,
-                    nw_proto=inet.IPPROTO_ICMPV6),
+                    nw_proto=inet.IPPROTO_ICMPV6,
+                    icmpv6_type=icmpv6.ND_ROUTER_SOLICIT),
                 priority=priority,
                 inst=controller_and_flood))
         return ofmsgs
