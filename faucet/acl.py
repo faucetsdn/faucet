@@ -16,13 +16,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+try:
+    from conf import Conf
+except ImportError:
+    from faucet.conf import Conf
 
-class ACL(object):
+
+class ACL(Conf):
     """Implement FAUCET configuration for an ACL."""
 
-    def __init__(self, id_, rule_conf):
-        self._id = id_
-        self.rules = [x['rule'] for x in rule_conf]
+    rules = None
+    defaults = {
+        rules: None,
+    }
+
+    def __init__(self, _id, conf):
+        if conf is None:
+            conf = {}
+        self._id = _id
+        self.rules = [x['rule'] for x in conf]
 
     def to_conf(self):
         result = []

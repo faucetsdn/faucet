@@ -95,3 +95,4 @@ ENV/
 
 # vim temp files
 *.swp
+*.swo

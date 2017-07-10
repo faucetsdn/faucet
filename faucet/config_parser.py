@@ -16,14 +16,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from acl import ACL
-from dp import DP
-from port import Port
-from vlan import VLAN
-from router import Router
-from watcher_conf import WatcherConf
+try:
+    from acl import ACL
+    from dp import DP
+    from port import Port
+    from vlan import VLAN
+    from router import Router
+    from watcher_conf import WatcherConf
+    import config_parser_util
+except ImportError:
+    from faucet.acl import ACL
+    from faucet.dp import DP
+    from faucet.port import Port
+    from faucet.vlan import VLAN
+    from faucet.router import Router
+    from faucet.watcher_conf import WatcherConf
+    from faucet import config_parser_util
 
-import config_parser_util
 
 V2_TOP_CONFS = (
     'acls',
@@ -35,21 +44,23 @@ V2_TOP_CONFS = (
 def dp_parser(config_file, logname):
     logger = config_parser_util.get_logger(logname)
     conf = config_parser_util.read_config(config_file, logname)
-    if conf is None:
-        return None
-    version = conf.pop('version', 2)
-    if version != 2:
-        logger.fatal('Only config version 2 is supported')
+    config_hashes = None
+    dps = None
 
-    config_hashes, dps = _config_parser_v2(config_file, logname)
-    if dps is not None:
-        for dp in dps:
-            try:
-                dp.finalize_config(dps)
-            except AssertionError as err:
-                logger.exception('Error finalizing datapath configs: %s', err)
-        for dp in dps:
-            dp.resolve_stack_topology(dps)
+    if conf is not None:
+        version = conf.pop('version', 2)
+        if version != 2:
+            logger.fatal('Only config version 2 is supported')
+
+        config_hashes, dps = _config_parser_v2(config_file, logname)
+        if dps is not None:
+            for dp in dps:
+                try:
+                    dp.finalize_config(dps)
+                except AssertionError as err:
+                    logger.exception('Error finalizing datapath configs: %s', err)
+            for dp in dps:
+                dp.resolve_stack_topology(dps)
     return config_hashes, dps
 
 
@@ -79,10 +90,10 @@ def port_parser(dp_id, p_identifier, port_conf, vlans):
     if port.native_vlan is not None:
         v_identifier = port.native_vlan
         vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
-        vlan.untagged.append(port)
+        vlan.add_untagged(port)
     for v_identifier in port.tagged_vlans:
         vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
-        vlan.tagged.append(port)
+        vlan.add_tagged(port)
 
     return port
 
@@ -134,15 +145,15 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
                 ports[port_num] = port
                 if port.native_vlan is not None:
                     vlan = vlans[port.native_vlan]
-                    port.native_vlan = vlan.vid
+                    port.native_vlan = vlan
                     _dp_add_vlan(vid_dp, dp, vlan)
                 if port.tagged_vlans is not None:
-                    tagged_vids = []
+                    tagged_vlans = []
                     for v_identifier in port.tagged_vlans:
                         vlan = vlans[v_identifier]
-                        tagged_vids.append(vlan.vid)
+                        tagged_vlans.append(vlan)
                         _dp_add_vlan(vid_dp, dp, vlan)
-                    port.tagged_vlans = tagged_vids
+                    port.tagged_vlans = tagged_vlans
         except AssertionError as err:
             logger.exception('Error in config file: %s', err)
             return None

@@ -14,18 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from conf import Conf
-from vlan import VLAN
-from port import Port
-from acl import ACL
-
 import networkx
+
+try:
+    from conf import Conf
+    from vlan import VLAN
+    from port import Port
+    from acl import ACL
+except ImportError:
+    from faucet.acl import ACL
+    from faucet.conf import Conf
+    from faucet.port import Port
+    from faucet.vlan import VLAN
+
 
 # Documentation generated using documentation_generator.py
 # For attributues to be included in documentation they must
 # have a default value, and their descriptor must come
 # immediately after being set. See below for example.
-
 class DP(Conf):
     """Implement FAUCET configuration for a datapath."""
 
@@ -44,6 +50,7 @@ class DP(Conf):
     eth_src_table = None
     ipv4_fib_table = None
     ipv6_fib_table = None
+    vip_table = None
     eth_dst_table = None
     flood_table = None
     priority_offset = None
@@ -57,6 +64,7 @@ class DP(Conf):
     drop_bpdu = None
     drop_lldp = None
     group_table = False
+    group_table_routing = False
     max_hosts_per_resolve_cycle = None
     max_host_fib_retry_count = None
     max_resolve_backoff_time = None
@@ -65,6 +73,7 @@ class DP(Conf):
     learn_ban_timeout = None
     advertise_interval = None
     proactive_learn = None
+    pipeline_config_dir = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -81,6 +90,7 @@ class DP(Conf):
         'eth_src_table': None,
         'ipv4_fib_table': None,
         'ipv6_fib_table': None,
+        'vip_table': None,
         'eth_dst_table': None,
         'flood_table': None,
         # How much to offset default priority by
@@ -117,7 +127,9 @@ class DP(Conf):
         'drop_lldp': True,
         # By default, drop LLDP. Set to False, to enable NFV offload of LLDP.
         'group_table': False,
-        # Use GROUP tables for IP routing and vlan flooding
+        # Use GROUP tables for VLAN flooding
+        'group_table_routing': False,
+        # Use GROUP tables for routing (nexthops)
         'max_hosts_per_resolve_cycle': 5,
         # Max hosts to try to resolve per gateway resolution cycle.
         'max_host_fib_retry_count': 10,
@@ -134,6 +146,8 @@ class DP(Conf):
         # How often to advertise (eg. IPv6 RAs)
         'proactive_learn': True,
         # whether proactive learning is enabled for IP nexthops
+        'pipeline_config_dir': '/etc/ryu/faucet',
+        # where config files for pipeline are stored (if any).
         }
 
     def __init__(self, _id, conf):
@@ -176,7 +190,8 @@ class DP(Conf):
         self._set_default('eth_src_table', self.vlan_acl_table + 1)
         self._set_default('ipv4_fib_table', self.eth_src_table + 1)
         self._set_default('ipv6_fib_table', self.ipv4_fib_table + 1)
-        self._set_default('eth_dst_table', self.ipv6_fib_table + 1)
+        self._set_default('vip_table', self.ipv6_fib_table + 1)
+        self._set_default('eth_dst_table', self.vip_table + 1)
         self._set_default('flood_table', self.eth_dst_table + 1)
         self._set_default('lowest_priority', self.priority_offset)
         self._set_default('low_priority', self.priority_offset + 9000)
@@ -260,7 +275,7 @@ class DP(Conf):
                 edge_count[edge_name] += 1
                 graph.add_edge(
                     edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
-        if len(graph.edges()):
+        if graph.size():
             for edge_name, count in list(edge_count.items()):
                 assert count == 2, '%s defined only in one direction' % edge_name
             if self.stack is None:
@@ -271,9 +286,8 @@ class DP(Conf):
     def shortest_path(self, dest_dp):
         if self.stack is None:
             return None
-        else:
-            return networkx.shortest_path(
-                self.stack['graph'], self.name, dest_dp)
+        return networkx.shortest_path(
+            self.stack['graph'], self.name, dest_dp)
 
     def shortest_path_port(self, dest_dp):
         """Return port on our DP, that is the shortest path towards dest DP."""

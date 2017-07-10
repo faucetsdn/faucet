@@ -1,4 +1,4 @@
-FROM osrg/ryu
+FROM raspbian/jessie
 
 RUN \
   apt-get update && \
@@ -22,4 +22,4 @@ VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 
 EXPOSE 6653
 
-CMD ["ryu-manager", "faucet.gauge"]
+CMD ["ryu-manager", "faucet.faucet"]

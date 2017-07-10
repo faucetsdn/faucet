@@ -247,7 +247,7 @@ class ValveTestCase(ValveTestBase):
             for p in valve_vlan.get_ports():
                 remaining_ports.discard(p.number)
                 if p.number != in_port and p.running():
-                    if valve_vlan.port_is_tagged(p.number):
+                    if valve_vlan.port_is_tagged(p):
                         vid = valve_vlan.vid|ofp.OFPVID_PRESENT
                     else:
                         vid = 0
@@ -422,7 +422,7 @@ class ValveTestCase(ValveTestBase):
         # Check packets are output to each port on vlan
         for p in vlan.get_ports():
             if p.number != match['in_port'] and p.running():
-                if vlan.port_is_tagged(p.number):
+                if vlan.port_is_tagged(p):
                     vid = vlan.vid|ofp.OFPVID_PRESENT
                 else:
                     vid = 0
@@ -534,7 +534,7 @@ acls:
 
         # reload the config
         new_dp = self.update_config(acl_config)
-        ofmsgs = self.valve.reload_config(new_dp)
+        cold_start, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
         self.assertFalse(
@@ -611,9 +611,10 @@ acls:
 
         # reload the config
         new_dp = self.update_config(acl_config)
-        ofmsgs = self.valve.reload_config(new_dp)
+        cold_start, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
-        ofmsgs = self.valve.port_add(1, 2, modify=True)
+        self.valve.port_delete(1, 2)
+        ofmsgs = self.valve.port_add(1, 2)
         self.assertFalse(
             self.table.is_output(drop_match),
             msg='packet not blocked by acl'
@@ -687,7 +688,7 @@ vlans:
 
         # reload the config
         new_dp = self.update_config(self.CONFIG)
-        ofmsgs = self.valve.reload_config(new_dp)
+        cold_start, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
         # relearn some mac addresses

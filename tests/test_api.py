@@ -1,16 +1,14 @@
 import os
-import sys
-import ipaddress
 
 from ryu.base import app_manager
-from ryu.lib import hub
 from ryu.controller.handler import set_ev_cls
 
 from faucet.faucet import EventFaucetAPIRegistered
-from faucet.faucet_api import FaucetAPI
+from faucet_api import FaucetAPI
 
 
 class TestFaucetAPI(app_manager.RyuApp):
+
     _CONTEXTS = {
         'faucet_api': FaucetAPI
         }
@@ -36,7 +34,7 @@ class TestFaucetAPI(app_manager.RyuApp):
             for port in ('1', '2'):
                 assert port in switch1['interfaces']
 
-        except AssertionError as err:
+        except Exception as err:
             with open(self.result_file, 'w') as f:
                 f.write(str(err))
         else:

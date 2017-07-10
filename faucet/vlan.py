@@ -19,8 +19,14 @@
 import collections
 import ipaddress
 
-from conf import Conf
-from valve_util import btos
+try:
+    from conf import Conf
+    from valve_util import btos
+    import valve_of
+except ImportError:
+    from faucet.conf import Conf
+    from faucet.valve_util import btos
+    from faucet import valve_of
 
 
 class VLAN(Conf):
@@ -112,6 +118,12 @@ class VLAN(Conf):
                 assert ip_gw.version == ip_dst.version
                 self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
 
+    def add_tagged(self, port):
+        self.tagged.append(port)
+
+    def add_untagged(self, port):
+        self.untagged.append(port)
+
     def ipvs(self):
         """Return list of IP versions configured on this VLAN."""
         return self.dyn_ipvs
@@ -150,11 +162,14 @@ class VLAN(Conf):
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
         ports = ','.join(port_list)
-        return 'vid:%s ports:%s' % (self.vid, ports)
+        return 'VLAN vid:%s ports:%s' % (self.vid, ports)
+
+    def __repr__(self):
+        return self.__str__()
 
     def get_ports(self):
         """Return list of all ports on this VLAN."""
-        return self.tagged + self.untagged
+        return list(self.tagged) + list(self.untagged)
 
     def mirrored_ports(self):
         """Return list of ports that are mirrored on this VLAN."""
@@ -181,19 +196,24 @@ class VLAN(Conf):
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged, exclude_unicast)
 
-    def port_is_tagged(self, port_number):
-        """Return True if port number is an tagged port on this VLAN."""
-        for port in self.tagged:
-            if port.number == port_number:
-                return True
-        return False
+    def flood_pkt(self, packet_builder, *args):
+        ofmsgs = []
+        for vid, ports in (
+                (self.vid, self.tagged_flood_ports(False)),
+                (None, self.untagged_flood_ports(False))):
+            if ports:
+                pkt = packet_builder(vid, *args)
+                for port in ports:
+                    ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+        return ofmsgs
 
-    def port_is_untagged(self, port_number):
+    def port_is_tagged(self, port):
+        """Return True if port number is an tagged port on this VLAN."""
+        return port in self.tagged
+
+    def port_is_untagged(self, port):
         """Return True if port number is an untagged port on this VLAN."""
-        for port in self.untagged:
-            if port.number == port_number:
-                return True
-        return False
+        return port in self.untagged
 
     def is_faucet_vip(self, ipa):
         """Return True if IP is a VIP on this VLAN."""

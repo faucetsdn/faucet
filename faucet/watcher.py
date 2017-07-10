@@ -9,7 +9,13 @@ from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from requests.exceptions import ConnectionError
 from ryu.lib import hub
-from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+
+try:
+    from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+    from valve_util import dpid_log
+except ImportError:
+    from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+    from faucet.valve_util import dpid_log
 
 
 def watcher_factory(conf):
@@ -38,8 +44,7 @@ def watcher_factory(conf):
     db_type = conf.db_type
     if w_type in WATCHER_TYPES and db_type in WATCHER_TYPES[w_type]:
         return WATCHER_TYPES[w_type][db_type]
-    else:
-        return None
+    return None
 
 
 def _rcv_time(rcv_time):
@@ -131,12 +136,12 @@ class GaugePortStateLogger(object):
             logname + '.{0}'.format(self.conf.type)
             )
 
-    def update(self, rcv_time, msg):
+    def update(self, rcv_time, dp_id, msg):
         rcv_time_str = _rcv_time(rcv_time)
         reason = msg.reason
         port_no = msg.desc.port_no
         ofp = msg.datapath.ofproto
-        log_msg = None
+        log_msg = 'port %s unknown state %s' % (port_no, reason)
         if reason == ofp.OFPPR_ADD:
             log_msg = 'port %s added' % port_no
         elif reason == ofp.OFPPR_DELETE:
@@ -147,8 +152,7 @@ class GaugePortStateLogger(object):
                 log_msg = 'port %s down' % port_no
             else:
                 log_msg = 'port %s up' % port_no
-        else:
-            log_msg = 'port %s unknown state %s' % (port_no, reason)
+        log_msg = '%s %s' % (dpid_log(dp_id), log_msg)
         self.logger.info(log_msg)
         if self.conf.file:
             with open(self.conf.file, 'a') as logfile:
@@ -182,11 +186,8 @@ time			dp_name			port_name	value
 2016-05-25T04:24:53Z	windscale-faucet-1	port1.0.1	2
     """
 
-    def __init__(self, conf, logname):
-        super(GaugePortStateInfluxDBLogger, self).__init__(conf, logname)
-
-    def update(self, rcv_time, msg):
-        super(GaugePortStateInfluxDBLogger, self).update(rcv_time, msg)
+    def update(self, rcv_time, dp_id, msg):
+        super(GaugePortStateInfluxDBLogger, self).update(rcv_time, dp_id, msg)
         reason = msg.reason
         port_no = msg.desc.port_no
         if port_no in self.dp.ports:
@@ -195,7 +196,8 @@ time			dp_name			port_name	value
                 self.make_point(
                     self.dp.name, port_name, rcv_time, 'port_state_reason', reason)]
             if not self.ship_points(points):
-                self.logger.warning('error shipping port_state_reason points')
+                self.logger.warning(
+                    '%s error shipping port_state_reason points', dpid_log(dp_id))
 
 
 class GaugePoller(object):
@@ -252,7 +254,7 @@ class GaugePoller(object):
         """Send a stats request to a datapath."""
         raise NotImplementedError
 
-    def update(self, rcv_time, msg):
+    def update(self, rcv_time, dp_id, msg):
         """Handle the responses to requests.
 
         Called when a reply to a stats request sent by this object is received
@@ -263,6 +265,7 @@ class GaugePoller(object):
 
         Arguments:
         rcv_time -- the time the response was received
+        dp_id -- DP ID
         msg -- the stats reply message
         """
         raise NotImplementedError
@@ -271,16 +274,16 @@ class GaugePoller(object):
         """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError
 
-    def _stat_port_name(self, msg, stat):
+    def _stat_port_name(self, msg, stat, dp_id):
         if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
             return 'CONTROLLER'
         elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
             return 'LOCAL'
         elif stat.port_no in self.dp.ports:
             return self.dp.ports[stat.port_no].name
-        else:
-            self.logger.info('stats for unknown port %u', stat.port_no)
-            return None
+        self.logger.info('%s stats for unknown port %u',
+                         dpid_log(dp_id), stat.port_no)
+        return None
 
     def _format_port_stats(self, delim, stat):
         formatted_port_stats = []
@@ -305,9 +308,6 @@ class GaugePortStatsPoller(GaugePoller):
        and outputs the response.
     """
 
-    def __init__(self, conf, logname):
-        super(GaugePortStatsPoller, self).__init__(conf, logname)
-
     def send_req(self):
         ofp = self.ryudp.ofproto
         ofp_parser = self.ryudp.ofproto_parser
@@ -317,13 +317,13 @@ class GaugePortStatsPoller(GaugePoller):
     def _update_line(self, rcv_time_str, stat_name, stat_val):
         return '\t'.join((rcv_time_str, stat_name, str(stat_val))) + '\n'
 
-    def update(self, rcv_time, msg):
+    def update(self, rcv_time, dp_id, msg):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
         rcv_time_str = _rcv_time(rcv_time)
         self.reply_pending = False
         for stat in msg.body:
-            port_name = self._stat_port_name(msg, stat)
+            port_name = self._stat_port_name(msg, stat, dp_id)
             if port_name is not None:
                 with open(self.conf.file, 'a') as logfile:
                     log_lines = []
@@ -374,28 +374,26 @@ time			dp_name			port_name	value
 2017-03-06T05:20:12Z	windscale-faucet-1	port1.0.1	76063941
     """
 
-    def __init__(self, conf, logname):
-        super(GaugePortStatsInfluxDBPoller, self).__init__(conf, logname)
-
     def send_req(self):
         ofp = self.ryudp.ofproto
         ofp_parser = self.ryudp.ofproto_parser
         req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
         self.ryudp.send_msg(req)
 
-    def update(self, rcv_time, msg):
+    def update(self, rcv_time, dp_id, msg):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
         self.reply_pending = False
         points = []
         for stat in msg.body:
-            port_name = self._stat_port_name(msg, stat)
+            port_name = self._stat_port_name(msg, stat, dp_id)
             for stat_name, stat_val in self._format_port_stats('_', stat):
                 points.append(
                     self.make_point(
                         self.dp.name, port_name, rcv_time, stat_name, stat_val))
         if not self.ship_points(points):
-            self.logger.warn('error shipping port_stats points')
+            self.logger.warn(
+                '%s error shipping port_stats points', dpid_log(dp_id))
 
     def no_response(self):
         self.logger.info(
@@ -410,9 +408,6 @@ class GaugeFlowTablePoller(GaugePoller):
     matches all flows.
     """
 
-    def __init__(self, conf, logname):
-        super(GaugeFlowTablePoller, self).__init__(conf, logname)
-
     def send_req(self):
         ofp = self.ryudp.ofproto
         ofp_parser = self.ryudp.ofproto_parser
@@ -422,7 +417,7 @@ class GaugeFlowTablePoller(GaugePoller):
             0, 0, match)
         self.ryudp.send_msg(req)
 
-    def update(self, rcv_time, msg):
+    def update(self, rcv_time, dp_id, msg):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
         rcv_time_str = _rcv_time(rcv_time)
@@ -463,7 +458,7 @@ class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
             0, 0, match)
         self.ryudp.send_msg(req)
 
-    def update(self, rcv_time, msg):
+    def update(self, rcv_time, dp_id, msg):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
         self.reply_pending = False

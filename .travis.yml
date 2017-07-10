@@ -1,4 +1,5 @@
 sudo: required
+group: edge
 language: python
 services:
   - docker
@@ -7,15 +8,18 @@ addons:
     packages:
       - openvswitch-switch
 python:
-  - "2.7"
+  - "3.5"
 install:
-  - "pip install -r requirements.txt -r test-requirements.txt"
+  - "pip3 install -r requirements.txt -r test-requirements.txt"
+  - "python3 setup.py sdist"
+  - "pip3 install dist/*tar.gz"
+  - "pip3 show faucet"
 script:
   - "cd ./tests"
-  - "./test_min_pylint.sh"
-  - "python ./test_config.py"
-  - "python ./test_check_config.py"
-  - "python ./test_valve.py"
+  - "PYTHONPATH='../faucet' ./test_min_pylint.sh"
+  - "python3 ./test_config.py"
+  - "python3 ./test_check_config.py"
+  - "python3 ./test_valve.py"
   - "cd .."
   - "docker build -t reannz/faucet-tests -f Dockerfile.tests ."
   - "sudo docker run --privileged -ti reannz/faucet-tests"

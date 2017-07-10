@@ -2,22 +2,30 @@ FROM osrg/ryu
 
 RUN \
   apt-get update && \
+  apt-get install -qy --no-install-recommends software-properties-common && \
+  add-apt-repository -y ppa:longsleep/golang-backports && \
+  apt-get update
+
+RUN \
   apt-get install -qy --no-install-recommends \
     bc \
     fping \
     gcc \
     git \
+    golang-go \
     influxdb \
     iperf \
     iputils-ping \
     ladvd \
     libpython2.7-dev \
+    libpython3-dev \
     libyaml-dev \
     ndisc6 \
     net-tools \
     netcat-openbsd \
     psmisc \
     python-pip \
+    python3-pip \
     sudo \
     tcpdump \
     vlan \
@@ -25,16 +33,21 @@ RUN \
 
 RUN \
   git clone -b 2.2.2 https://github.com/mininet/mininet && \
+  apt-get update && \
   mininet/util/install.sh -nfv && \
-  apt-get purge -qy pylint python-astroid
+  apt-get purge -qy pylint && \
+  GOPATH=~/go go get -u github.com/openconfig/gnmi/cmd/gnmi_cli
 
 COPY ./ /faucet-src/
 
 RUN \
   pip install --upgrade pip && \
   pip install setuptools wheel virtualenv --upgrade && \
-  pip install -r /faucet-src/requirements.txt \
-              -r /faucet-src/test-requirements.txt && \
-  pip install /faucet-src
+  pip install -r /faucet-src/test-requirements.txt && \
+  pip install exabgp==3.4.20 && \
+  pip3 install setuptools wheel virtualenv --upgrade && \
+  pip3 install -r /faucet-src/requirements.txt && \
+  pip3 install -r /faucet-src/test-requirements.txt && \
+  pip3 install /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]

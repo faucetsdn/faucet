@@ -17,10 +17,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import valve_of
-
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
+
+try:
+    import valve_of
+except ImportError:
+    from faucet import valve_of
 
 
 class ValveFloodManager(object):
@@ -60,12 +63,14 @@ class ValveFloodManager(object):
             elif peer_root_distance < my_root_distance:
                 self.towards_root_stack_ports.append(port)
 
-    def _build_flood_port_outputs(self, ports, exclude_port):
+    def _build_flood_port_outputs(self, ports, in_port):
         flood_acts = []
         for port in ports:
-            if port == exclude_port:
-                continue
-            flood_acts.append(valve_of.output_port(port.number))
+            if port == in_port:
+                if port.hairpin:
+                    flood_acts.append(valve_of.output_in_port())
+            else:
+                flood_acts.append(valve_of.output_port(port.number))
         return flood_acts
 
     def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port):
@@ -155,18 +160,16 @@ class ValveFloodManager(object):
             if self._port_is_dp_local(in_port):
                 return flood_all_except_self
             # If input port non-local, then flood outward again
-            else:
-                return [valve_of.output_in_port()] + flood_all_except_self
+            return [valve_of.output_in_port()] + flood_all_except_self
+
         # We are not the root of the distributed switch
-        else:
-            # If input port was connected to a switch closer to the root,
-            # then flood outwards (local VLAN and stacks further than us)
-            if in_port in self.towards_root_stack_ports:
-                return flood_all_except_self
-            # If input port local or from a further away switch, flood
-            # towards the root.
-            else:
-                return toward_flood_actions
+        # If input port was connected to a switch closer to the root,
+        # then flood outwards (local VLAN and stacks further than us)
+        if in_port in self.towards_root_stack_ports:
+            return flood_all_except_self
+        # If input port local or from a further away switch, flood
+        # towards the root.
+        return toward_flood_actions
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask,
                                    exclude_unicast, command, flood_priority,
@@ -278,14 +281,14 @@ class ValveFloodManager(object):
 
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
-        # TODO: not all vendors implement groups well.
-        # That means we need flood rules for each input port, outputting
-        # to all ports except the input port. When all vendors implement
-        # groups correctly we can use them.
+        # TODO: group table support is still fairly uncommon, so
+        # group tables are currently optional.
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
-        if self.use_group_table and self.stack is None:
-            return self._build_group_flood_rules(vlan, modify, command)
-        else:
-            return self._build_multiout_flood_rules(vlan, command)
+        if self.use_group_table:
+            hairpin_ports = [port for port in vlan.get_ports() if port.hairpin]
+            # TODO: group tables for stacking and hairpin flooding modes.
+            if self.stack is None and not hairpin_ports:
+                return self._build_group_flood_rules(vlan, modify, command)
+        return self._build_multiout_flood_rules(vlan, command)

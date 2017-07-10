@@ -3,6 +3,16 @@
 This directory contains three docker files: **Dockerfile**,
 **Dockerfile.gauge** and **Dockerfile.tests**
 
+### Initial configuration
+
+```
+  sudo mkdir -p /etc/ryu/faucet
+  sudo vi /etc/ryu/faucet/faucet.yaml
+  sudo vi /etc/ryu/faucet/gauge.yaml
+```
+
+See README_install.rst and README_config.rst for configuration options.
+
 ### Official builds
 
 We provide official automated builds on Docker Hub so that you can run Faucet
@@ -13,14 +23,16 @@ tag will always point to the latest git commit. All tagged versions of Faucet
 in git are also available to use, for example using the faucet/faucet:v1_3
 Docker will run the stable version 1.3 of Faucet.
 
+
 To pull and run the latest git version of Faucet:
 
 ```
+  mkdir -p /var/log/ryu/faucet/
   docker pull faucet/faucet:latest
   docker run -d \
       --name faucet \
-      -v <path-to-config-dir>:/etc/ryu/faucet/ \
-      -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
+      -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
       -p 6653:6653 \
       -p 9244:9244 \
       faucet/faucet
@@ -32,11 +44,12 @@ you do not need Prometheus.
 To pull and run the latest git version of Gauge:
 
 ```
+  mkdir -p /var/log/ryu/gauge/
   docker pull faucet/gauge:latest
   docker run -d \
       --name gauge \
-      -v <path-to-config-dir>:/etc/ryu/faucet/ \
-      -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
+      -v /var/log/ryu/gauge/:/var/log/ryu/faucet/ \
       -p 6654:6653 \
       faucet/gauge
 ```
@@ -54,10 +67,11 @@ It can be built as following:
 It can be run as following:
 
 ```
+  mkdir -p /var/log/ryu/faucet/
   docker run -d \
       --name faucet \
-      -v <path-to-config-dir>:/etc/ryu/faucet/ \
-      -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
+      -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
       -p 6653:6653 \
       reannz/faucet
 ```
@@ -94,10 +108,11 @@ It can be built as following:
 It can be run as following:
 
 ```
+  mkdir -p /var/log/ryu/gauge
   docker run -d \
       --name gauge \
-      -v <path-to-config-dir>:/etc/ryu/faucet/ \
-      -v <path-to-logging-dir>:/var/log/ryu/faucet/ \
+      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
+      -v /var/log/ryu/gauge/:/var/log/ryu/gauge/ \
       -p 6654:6653 \
       reannz/gauge
 ```

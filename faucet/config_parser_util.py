@@ -43,8 +43,7 @@ def config_file_hash(config_file_name):
 def dp_config_path(config_file, parent_file=None):
     if parent_file and not os.path.isabs(config_file):
         return os.path.realpath(os.path.join(os.path.dirname(parent_file), config_file))
-    else:
-        return os.path.realpath(config_file)
+    return os.path.realpath(config_file)
 
 
 def dp_include(config_hashes, config_file, logname, top_confs):
@@ -105,18 +104,20 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     return True
 
 
-def config_changed(config_file, new_config_file, config_hashes):
+def config_changed(top_config_file, new_top_config_file, config_hashes):
     """Return True if configuration has changed.
 
     Args:
-        config_file (str): name of FAUCET config file
-        new_config_file (str): name, possibly new, of FAUCET config file.
+        top_config_file (str): name of FAUCET config file
+        new_top_config_file (str): name, possibly new, of FAUCET config file.
         config_hashes (dict): map of config file/includes and hashes of contents.
     Returns:
         bool: True if the file, or any file it includes, has changed.
     """
-    if new_config_file != config_file:
+    if new_top_config_file != top_config_file:
         return True
+    if config_hashes is None or new_top_config_file is None:
+        return False
     for config_file, config_hash in list(config_hashes.items()):
         config_file_exists = os.path.isfile(config_file)
         # Config file not loaded but exists = reload.

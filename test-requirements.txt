@@ -1,8 +1,11 @@
-astroid==1.4.9
 bitstring
 concurrencytest
-exabgp==3.4.19
+influxdb
+ipaddress
 netifaces
+networkx
 packaging
-pylint==1.6.5
+prometheus_client
+pylint
+pyyaml
 requests
