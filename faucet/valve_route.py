@@ -569,7 +569,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 nw_dst=faucet_vip_host,
                 vlan=vlan),
             priority=priority,
-            inst=[valve_of.goto_table(self.vip_table)]))
+            inst=[valve_of.apply_actions([valve_of.output_controller()])]))
         # Initialize IPv4 FIB
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
@@ -580,46 +580,25 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 vlan=vlan),
             priority=self.route_priority,
             inst=[valve_of.goto_table(self.fib_table)]))
-        ofmsgs.append(self.valve_flowmod(
+        ofmsgs.append(self.valve_flowcontroller(
             self.fib_table,
             self.valve_in_match(
                 self.fib_table,
                 vlan=vlan,
                 eth_type=self.ETH_TYPE,
+                nw_proto=inet.IPPROTO_ICMP,
+                nw_src=faucet_vip,
                 nw_dst=faucet_vip_host),
-            priority=priority,
-            inst=[valve_of.goto_table(self.vip_table)]))
-        # Initialize VIP table
-        ofmsgs.append(self.valve_flowcontroller(
-            self.vip_table,
-            self.valve_in_match(
-                self.vip_table,
-                eth_type=ether.ETH_TYPE_ARP),
             priority=priority))
         if self.proactive_learn:
-            ofmsgs.append(self.valve_flowmod(
+            ofmsgs.append(self.valve_flowcontroller(
                 self.fib_table,
                 self.valve_in_match(
                     self.fib_table,
                     vlan=vlan,
                     eth_type=self.ETH_TYPE,
                     nw_dst=faucet_vip),
-                priority=learn_connected_priority,
-                inst=[valve_of.goto_table(self.vip_table)]))
-            ofmsgs.append(self.valve_flowcontroller(
-                self.vip_table,
-                self.valve_in_match(
-                    self.vip_table,
-                    eth_type=self.ETH_TYPE),
-                priority=priority))
-        else:
-            ofmsgs.append(self.valve_flowcontroller(
-                self.vip_table,
-                self.valve_in_match(
-                    self.vip_table,
-                    eth_type=self.ETH_TYPE,
-                    nw_proto=inet.IPPROTO_ICMP),
-                priority=priority))
+                priority=learn_connected_priority))
         return ofmsgs
 
     def _control_plane_arp_handler(self, pkt_meta, arp_pkt):
@@ -732,9 +711,10 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 eth_type=self.ETH_TYPE,
                 eth_dst=self.faucet_mac,
                 vlan=vlan,
-                nw_proto=inet.IPPROTO_ICMPV6),
+                nw_proto=inet.IPPROTO_ICMPV6,
+                icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
             priority=priority,
-            inst=[valve_of.goto_table(self.vip_table)]))
+            inst=[valve_of.apply_actions([valve_of.output_controller()])]))
         if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
             ofmsgs.append(self.valve_flowmod(
                 self.eth_src_table,
@@ -759,42 +739,26 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 vlan=vlan),
             priority=self.route_priority,
             inst=[valve_of.goto_table(self.fib_table)]))
-        ofmsgs.append(self.valve_flowmod(
+        ofmsgs.append(self.valve_flowcontroller(
             self.fib_table,
             self.valve_in_match(
                 self.fib_table,
                 eth_type=self.ETH_TYPE,
                 vlan=vlan,
-                nw_dst=faucet_vip_host),
+                nw_proto=inet.IPPROTO_ICMPV6,
+                nw_dst=faucet_vip_host,
+                icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
             priority=priority,
-            inst=[valve_of.goto_table(self.vip_table)]))
-        # Initialize VIP table
+            max_len=128))
         if self.proactive_learn:
-            ofmsgs.append(self.valve_flowmod(
+            ofmsgs.append(self.valve_flowcontroller(
                 self.fib_table,
                 self.valve_in_match(
                     self.fib_table,
                     vlan=vlan,
                     eth_type=self.ETH_TYPE,
                     nw_dst=faucet_vip),
-                priority=learn_connected_priority,
-                inst=[valve_of.goto_table(self.vip_table)]))
-            ofmsgs.append(self.valve_flowcontroller(
-                self.vip_table,
-                self.valve_in_match(
-                    self.vip_table,
-                    eth_type=self.ETH_TYPE),
-                priority=priority,
-                max_len=128))
-        else:
-            ofmsgs.append(self.valve_flowcontroller(
-                self.vip_table,
-                self.valve_in_match(
-                    self.vip_table,
-                    eth_type=self.ETH_TYPE,
-                    nw_proto=inet.IPPROTO_ICMPV6),
-                priority=priority,
-                max_len=128))
+                priority=learn_connected_priority))
         return ofmsgs
 
     def _control_plane_icmpv6_handler(self, pkt_meta, ipv6_pkt, icmpv6_pkt):
