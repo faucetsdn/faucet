@@ -128,7 +128,7 @@ class Valve(object):
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.low_priority, self.dp.highest_priority,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
-            self.valve_flowdrop)
+            self.valve_flowdrop, self.dp.hard_timeout_enabled)
 
     def dpid_log(self, log_msg):
         self.logger.info(
@@ -312,6 +312,7 @@ class Valve(object):
             priority = self.dp.lowest_priority
         if inst is None:
             inst = []
+        flags = 0 if self.dp.hard_timeout_enabled else ofp.OFPFF_SEND_FLOW_REM
         return valve_of.flowmod(
             self.dp.cookie,
             command,
@@ -322,7 +323,8 @@ class Valve(object):
             match,
             inst,
             hard_timeout,
-            idle_timeout)
+            idle_timeout,
+            flags)
 
     def valve_flowdel(self, table_id, match=None, priority=None,
                       out_port=ofp.OFPP_ANY, strict=False):
@@ -1053,7 +1055,7 @@ class Valve(object):
             # Repopulate MAC learning.
             hosts_on_port = {}
             for eth_src, host_cache_entry in sorted(list(vlan.host_cache.items())):
-                port_num = str(host_cache_entry.port_num)
+                port_num = str(host_cache_entry.port.number)
                 mac_int = int(eth_src.replace(':', ''), 16)
                 if port_num not in hosts_on_port:
                     hosts_on_port[port_num] = []
@@ -1120,11 +1122,14 @@ class Valve(object):
         Expire state from the host manager only; the switch does its own flow
         expiry.
         """
+        ofmsgs = []
         if not self.dp.running:
             return
         now = time.time()
         for vlan in list(self.dp.vlans.values()):
-            self.host_manager.expire_hosts_from_vlan(vlan, now)
+            ofmsgs.extend(self.host_manager.expire_hosts_from_vlan(vlan, now))
+
+        return ofmsgs
 
     def _get_eth_srcs_learned_on_port(self, dp, port_no):
         old_eth_srcs = []
@@ -1134,7 +1139,7 @@ class Valve(object):
                 if vlan is None:
                     continue
                 for eth_src, host_cache_entry in list(vlan.host_cache.items()):
-                    if host_cache_entry.port_num == port_no:
+                    if host_cache_entry.port.number == port_no:
                         old_eth_srcs.append(eth_src)
         return old_eth_srcs
 
@@ -1348,6 +1353,23 @@ class Valve(object):
             'vlans': vlans_dict,
             'acls': acls_dict,
             }
+
+    def flow_timeout(self, table_id, match):
+        eth_src = None
+        match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
+        if table_id == self.dp.eth_src_table:
+            for field in match_oxm_fields:
+                if isinstance(field, dict):
+                    value = field['OXMTlv']
+                    if value['field'] == 'eth_src':
+                        eth_src = value['value']
+                    if value['field'] == 'vlan_vid':
+                        vid = value['value'] & ~ofp.OFPVID_PRESENT
+                    if value['field'] == 'in_port':
+                        in_port = value['value']
+            if eth_src and vid and in_port:
+                vlan = self.dp.vlans[vid]
+                self.host_manager.src_rule_expire(vlan, in_port, eth_src)
 
 
 class TfmValve(Valve):

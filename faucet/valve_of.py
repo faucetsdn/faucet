@@ -339,7 +339,7 @@ def build_match_dict(in_port=None, vlan=None,
 
 
 def flowmod(cookie, command, table_id, priority, out_port, out_group,
-            match_fields, inst, hard_timeout, idle_timeout):
+            match_fields, inst, hard_timeout, idle_timeout, flags=0):
     return parser.OFPFlowMod(
         datapath=None,
         cookie=cookie,
@@ -351,7 +351,8 @@ def flowmod(cookie, command, table_id, priority, out_port, out_group,
         match=match_fields,
         instructions=inst,
         hard_timeout=hard_timeout,
-        idle_timeout=idle_timeout)
+        idle_timeout=idle_timeout,
+        flags=flags)
 
 
 def group_act(group_id):

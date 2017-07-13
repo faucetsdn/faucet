@@ -74,6 +74,7 @@ class DP(Conf):
     advertise_interval = None
     proactive_learn = None
     pipeline_config_dir = None
+    hard_timeout_enabled = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -148,6 +149,8 @@ class DP(Conf):
         # whether proactive learning is enabled for IP nexthops
         'pipeline_config_dir': '/etc/ryu/faucet',
         # where config files for pipeline are stored (if any).
+        'hard_timeout_enabled': True,
+        #disable/enable hard timeout of rules
         }
 
     defaults_types = {
