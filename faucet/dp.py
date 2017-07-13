@@ -184,15 +184,19 @@ class DP(Conf):
         # fix special cases
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
-        self._set_default('port_acl_table', self.table_offset)
-        self._set_default('vlan_table', self.port_acl_table + 1)
-        self._set_default('vlan_acl_table', self.vlan_table + 1)
-        self._set_default('eth_src_table', self.vlan_acl_table + 1)
-        self._set_default('ipv4_fib_table', self.eth_src_table + 1)
-        self._set_default('ipv6_fib_table', self.ipv4_fib_table + 1)
-        self._set_default('vip_table', self.ipv6_fib_table + 1)
-        self._set_default('eth_dst_table', self.vip_table + 1)
-        self._set_default('flood_table', self.eth_dst_table + 1)
+        table_id = self.table_offset
+        for table_name in (
+                'port_acl_table',
+                'vlan_table',
+                'vlan_acl_table',
+                'eth_src_table',
+                'ipv4_fib_table',
+                'ipv6_fib_table',
+                'vip_table',
+                'eth_dst_table',
+                'flood_table'):
+            self._set_default(table_name, table_id)
+            table_id += 1
         self._set_default('lowest_priority', self.priority_offset)
         self._set_default('low_priority', self.priority_offset + 9000)
         self._set_default('high_priority', self.low_priority + 1)
