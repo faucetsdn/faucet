@@ -150,6 +150,11 @@ class DP(Conf):
         # where config files for pipeline are stored (if any).
         }
 
+    defaults_types = {
+        'dp_id': int,
+    }
+
+
     def __init__(self, _id, conf):
         """Constructs a new DP object"""
         self._id = _id
@@ -166,14 +171,11 @@ class DP(Conf):
     def sanity_check(self):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
-        assert not isinstance(self.dp_id, str)
         assert str(self.dp_id).isdigit()
-        for vid, vlan in list(self.vlans.items()):
-            assert isinstance(vid, int)
+        for vlan in list(self.vlans.values()):
             assert isinstance(vlan, VLAN)
             assert all(isinstance(p, Port) for p in vlan.get_ports())
-        for portnum, port in list(self.ports.items()):
-            assert isinstance(portnum, int)
+        for port in list(self.ports.values()):
             assert isinstance(port, Port)
         for acl in list(self.acls.values()):
             assert isinstance(acl, ACL)
