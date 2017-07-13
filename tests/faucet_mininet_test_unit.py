@@ -3484,3 +3484,61 @@ acls:
         source_host, overridden_host, rewrite_host = self.net.hosts[0:3]
         self.verify_dest_rewrite(
             source_host, overridden_host, rewrite_host, overridden_host)
+
+
+class FaucetDisableHardTimeoutTest(FaucetUntaggedTest):
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+"""
+    CONFIG = """
+        timeout: 10
+        hard_timeout_enabled: false
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        self.net.pingAll()
+        first_host, second_host = self.net.hosts[:2]
+        third_host, fourth_host = self.net.hosts[2:]
+        first_host.cmd('ping %s &' % second_host.IP())
+        time.sleep(30) # wait enough for hosts to expire
+        controller = self._get_controller()
+        for mac in (first_host.MAC(), second_host.MAC()):
+            count = controller.cmd(
+                'grep -c "refreshing host %s" %s' % (mac, self.env['faucet']['FAUCET_LOG']))
+            self.assertGreaterEqual(int(count), 1)
+        # expect see two hosts expired in the controller log
+        for mac in (third_host.MAC(), fourth_host.MAC()):
+            count = controller.cmd(
+                'grep -c "expiring host %s" %s' % (mac, self.env['faucet']['FAUCET_LOG']))
+            self.assertEqual(int(count), 1)
+        # now move host 2 to host 3
+        self.swap_host_macs(second_host, third_host)
+        self.require_host_learned(second_host)
+        self.assertEquals(0, self.net.ping((first_host, second_host)))
+        # expect old flows of host 2 disappear from switch
+        self.assertTrue(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_2']),
+                u'dl_src': u'%s' % second_host.MAC()},
+            timeout=5))
+        self.assertFalse(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_2']),
+                u'dl_src': u'%s' % third_host.MAC()},
+            timeout=18))
+
