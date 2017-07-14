@@ -31,7 +31,6 @@ class Conf(object):
 
     def _check_defaults_types(self, conf):
         """Check that conf value is of the correct type."""
-        # TODO: enforce type checking of every possible config item.
         # assert set(list(self.defaults_types.keys())) == set(list(conf.keys()))
         for conf_key, conf_value in list(conf.items()):
             if conf_key in self.defaults_types and conf_value is not None:
