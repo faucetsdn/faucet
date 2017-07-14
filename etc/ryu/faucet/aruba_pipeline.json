@@ -1079,7 +1079,7 @@
     },
     {
         "config": 3,
-        "max_entries": 100,
+        "max_entries": 300,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Flood",
