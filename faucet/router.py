@@ -28,7 +28,11 @@ class Router(Conf):
     vlans = None
 
     defaults = {
-        'vlans': None
+        'vlans': None,
+    }
+
+    defaults_type = {
+        'vlans': list,
     }
 
     def __init__(self, _id, conf=None):
