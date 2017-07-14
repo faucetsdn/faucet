@@ -16,5 +16,7 @@ Copy /tmp/ctrlr.cert /tmp/sw.key and /tmp/sw.cert to the switch. Configure the s
     ovs-vsctl set-ssl  /tmp/sw.key /tmp/sw.cert  /tmp/ctrlr.cert
     ovs-vsctl set-controller br0 ssl:<ctrlr_ip>:6653
 
-## Start Faucet with the keys:
+## Start Faucet with the keys.
+Update [faucet/tests/hw_switch_config.yaml](https://github.com/REANNZ/faucet/blob/master/tests/hw_switch_config.yaml) to match the configurations of the hardware switch. Start the Faucet controller:
+
     ryu-manager --ctl-privkey /tmp/ctrlr.key --ctl-cert /tmp/ctrlr.cert  --ca-certs /tmp/sw.cert faucet.faucet --verbose 
