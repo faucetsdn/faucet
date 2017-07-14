@@ -71,7 +71,7 @@ class Port(Conf):
         'enabled': bool,
         'permanent_learn': bool,
         'unicast_flood': bool,
-        'mirror': str,
+        'mirror': (str, int),
         'mirror_destination': bool,
         'native_vlan': (str, int),
         'tagged_vlans': list,
