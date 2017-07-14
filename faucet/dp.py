@@ -150,6 +150,51 @@ class DP(Conf):
         # where config files for pipeline are stored (if any).
         }
 
+    defaults_types = {
+        'dp_id': int,
+        'name': str,
+        'interfaces': dict,
+        'table_offset': int,
+        'port_acl_table': int,
+        'vlan_table': int,
+        'vlan_acl_table': int,
+        'eth_src_table': int,
+        'ipv4_fib_table': int,
+        'ipv6_fib_table': int,
+        'vip_table': int,
+        'eth_dst_table': int,
+        'flood_table': int,
+        'priority_offset': int,
+        'lowest_priority': int,
+        'low_priority': int,
+        'high_priority': int,
+        'highest_priority': int,
+        'cookie': int,
+        'timeout': int,
+        'description': str,
+        'hardware': str,
+        'arp_neighbor_timeout': int,
+        'ofchannel_log': str,
+        'stack': dict,
+        'ignore_learn_ins': int,
+        'drop_broadcast_source_address': bool,
+        'drop_spoofed_faucet_mac': bool,
+        'drop_bpdu': bool,
+        'drop_lldp': bool,
+        'group_table': bool,
+        'group_table_routing': bool,
+        'max_hosts_per_resolve_cycle': int,
+        'max_host_fib_retry_count': int,
+        'max_resolve_backoff_time': int,
+        'packetin_pps': int,
+        'learn_jitter': int,
+        'learn_ban_timeout': int,
+        'advertise_interval': int,
+        'proactive_learn': bool,
+        'pipeline_config_dir': str,
+    }
+
+
     def __init__(self, _id, conf):
         """Constructs a new DP object"""
         self._id = _id
@@ -166,14 +211,11 @@ class DP(Conf):
     def sanity_check(self):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
-        assert not isinstance(self.dp_id, str)
         assert str(self.dp_id).isdigit()
-        for vid, vlan in list(self.vlans.items()):
-            assert isinstance(vid, int)
+        for vlan in list(self.vlans.values()):
             assert isinstance(vlan, VLAN)
             assert all(isinstance(p, Port) for p in vlan.get_ports())
-        for portnum, port in list(self.ports.items()):
-            assert isinstance(portnum, int)
+        for port in list(self.ports.values()):
             assert isinstance(port, Port)
         for acl in list(self.acls.values()):
             assert isinstance(acl, ACL)
@@ -184,15 +226,19 @@ class DP(Conf):
         # fix special cases
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
-        self._set_default('port_acl_table', self.table_offset)
-        self._set_default('vlan_table', self.port_acl_table + 1)
-        self._set_default('vlan_acl_table', self.vlan_table + 1)
-        self._set_default('eth_src_table', self.vlan_acl_table + 1)
-        self._set_default('ipv4_fib_table', self.eth_src_table + 1)
-        self._set_default('ipv6_fib_table', self.ipv4_fib_table + 1)
-        self._set_default('vip_table', self.ipv6_fib_table + 1)
-        self._set_default('eth_dst_table', self.vip_table + 1)
-        self._set_default('flood_table', self.eth_dst_table + 1)
+        table_id = self.table_offset
+        for table_name in (
+                'port_acl_table',
+                'vlan_table',
+                'vlan_acl_table',
+                'eth_src_table',
+                'ipv4_fib_table',
+                'ipv6_fib_table',
+                'vip_table',
+                'eth_dst_table',
+                'flood_table'):
+            self._set_default(table_name, table_id)
+            table_id += 1
         self._set_default('lowest_priority', self.priority_offset)
         self._set_default('low_priority', self.priority_offset + 9000)
         self._set_default('high_priority', self.low_priority + 1)

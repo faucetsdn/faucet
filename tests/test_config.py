@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(testdir, srcdir)))
 import unittest
 from faucet.config_parser import dp_parser, watcher_parser
 
+
 class DistConfigTestCase(unittest.TestCase):
     def setUp(self):
         logname = 'test_config'
