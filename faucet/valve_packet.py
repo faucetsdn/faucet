@@ -34,6 +34,7 @@ IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
 IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
+IPV6_MAX_HOP_LIM = 255
 
 
 def mac_addr_is_unicast(mac_addr):
@@ -235,7 +236,7 @@ def nd_request(vid, eth_src, src_ip, dst_ip):
     return pkt
 
 
-def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit):
+def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return IPv6 neighbor avertisement packet.
 
     Args:
@@ -244,7 +245,6 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit):
         eth_dst (str): destination Ethernet MAC address.
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         dst_ip (ipaddress.IPv6Address): destination IPv6 address.
-        hop_limit (int): IPv6 hop limit.
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 neighbor discovery packet.
     """
@@ -254,7 +254,7 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit):
         src=src_ip,
         dst=dst_ip,
         nxt=inet.IPPROTO_ICMPV6,
-        hop_limit=hop_limit)
+        hop_limit=IPV6_MAX_HOP_LIM)
     pkt.add_protocol(ipv6_icmp6)
     icmpv6_nd_advert = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_ADVERT,
@@ -300,7 +300,7 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
 
 
 def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
-                  vips, hop_limit=255, pi_flags=0x6):
+                  vips, pi_flags=0x6):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
@@ -309,7 +309,6 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         eth_dst (str): dest Ethernet MAC address.
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         vips (list): prefixes (ipaddress.IPv6Address) to advertise.
-        hop_limit (int): IPv6 hop limit.
         pi_flags (int): flags to set in prefix information field (default set A and L)
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 ICMP RA packet.
@@ -320,7 +319,7 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         src=src_ip,
         dst=dst_ip,
         nxt=inet.IPPROTO_ICMPV6,
-        hop_limit=hop_limit)
+        hop_limit=IPV6_MAX_HOP_LIM)
     pkt.add_protocol(ipv6_pkt)
     options = []
     for vip in vips:
@@ -338,7 +337,7 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         type_=icmpv6.ND_ROUTER_ADVERT,
         data=icmpv6.nd_router_advert(
             rou_l=1800,
-            ch_l=hop_limit,
+            ch_l=IPV6_MAX_HOP_LIM,
             options=options))
     pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()

@@ -805,7 +805,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                         vlan, port, eth_src, src_ip))
                     nd_reply = valve_packet.nd_advert(
                         vid, self.faucet_mac, eth_src,
-                        solicited_ip, src_ip, ipv6_pkt.hop_limit)
+                        solicited_ip, src_ip)
                     ofmsgs.append(
                         valve_of.packetout(port.number, nd_reply.data))
                     self.logger.info(
