@@ -363,6 +363,13 @@ class DP(Conf):
                 return port_name
             return None
 
+        def resolve_vlan(vlan_name):
+            if vlan_name in vlan_by_name:
+                return vlan_by_name[vlan_name]
+            elif vlan_name in self.vlans:
+                return self.vlans[vlan_name]
+            return None
+
         def resolve_stack_dps():
             port_stack_dp = {}
             for port in self.stack_ports:
@@ -408,16 +415,30 @@ class DP(Conf):
                                     if port_no is not None:
                                         output_values['port'] = port_no
 
+        def resolve_vlan_names_in_routers():
+            for router_name in list(self.routers.keys()):
+                router = self.routers[router_name]
+                vlans = []
+                for vlan_name in router.vlans:
+                    vlan = resolve_vlan(vlan_name)
+                    if vlan is not None:
+                        vlans.append(vlan)
+                self.routers[router_name].vlans = vlans
+
         port_by_name = {}
         for port in list(self.ports.values()):
             port_by_name[port.name] = port
         dp_by_name = {}
         for dp in dps:
             dp_by_name[dp.name] = dp
+        vlan_by_name = {}
+        for vlan in list(self.vlans.values()):
+            vlan_by_name[vlan.name] = vlan
 
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_port_names_in_acls()
+        resolve_vlan_names_in_routers()
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:

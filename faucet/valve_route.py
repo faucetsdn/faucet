@@ -36,12 +36,6 @@ except ImportError:
     from faucet.valve_util import btos
 
 
-class AnyVlan(object):
-    """Wildcard VLAN."""
-
-    vid = valve_of.vid_present(0)
-
-
 class NextHop(object):
     """Describes a directly connected (at layer 2) nexthop."""
 
@@ -136,6 +130,15 @@ class ValveRouteManager(object):
         prefixlen = ipaddress.ip_network(ip_dst).prefixlen
         return self.route_priority + prefixlen
 
+    def _routed_vlans(self, vlan):
+        vlans = set([vlan])
+        if self.routers:
+            for router in list(self.routers.values()):
+                if vlan in router.vlans:
+                    for other_vlan in router.vlans:
+                        vlans.add(other_vlan)
+        return vlans
+
     def _add_faucet_fib_to_vip(self, vlan, priority, faucet_vip, faucet_vip_host):
         learn_connected_priority = self.route_priority + faucet_vip.network.prefixlen
         ofmsgs = []
@@ -200,10 +203,6 @@ class ValveRouteManager(object):
 
     def _add_resolved_route(self, vlan, ip_gw, ip_dst, eth_dst, is_updated):
         ofmsgs = []
-        if self.routers:
-            in_match = self._route_match(AnyVlan(), ip_dst)
-        else:
-            in_match = self._route_match(vlan, ip_dst)
         if is_updated:
             self.logger.info(
                 'Updating next hop for route %s via %s (%s)',
@@ -219,11 +218,13 @@ class ValveRouteManager(object):
         else:
             inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst, vlan)),
                     valve_of.goto_table(self.eth_dst_table)]
-        ofmsgs.append(self.valve_flowmod(
-            self.fib_table,
-            in_match,
-            priority=self._route_priority(ip_dst),
-            inst=inst))
+        for routed_vlan in self._routed_vlans(vlan):
+            in_match = self._route_match(routed_vlan, ip_dst)
+            ofmsgs.append(self.valve_flowmod(
+                self.fib_table,
+                in_match,
+                priority=self._route_priority(ip_dst),
+                inst=inst))
         return ofmsgs
 
     def _group_id_from_ip_gw(self, resolved_ip_gw):
@@ -567,18 +568,19 @@ class ValveRouteManager(object):
 
     def _del_route_flows(self, vlan, ip_dst):
         ofmsgs = []
-        if ip_dst.prefixlen == 0:
-            route_match = self.valve_in_match(
-                self.fib_table, vlan=vlan,
-                eth_type=self.ETH_TYPE)
-        else:
-            route_match = self.valve_in_match(
-                self.fib_table, vlan=vlan,
-                eth_type=self.ETH_TYPE, nw_dst=ip_dst)
-        ofmsgs.extend(self.valve_flowdel(
-            self.fib_table, route_match,
-            priority=self._route_priority(ip_dst),
-            strict=True))
+        for routed_vlan in self._routed_vlans(vlan):
+            if ip_dst.prefixlen == 0:
+                route_match = self.valve_in_match(
+                    self.fib_table, vlan=routed_vlan,
+                    eth_type=self.ETH_TYPE)
+            else:
+                route_match = self.valve_in_match(
+                    self.fib_table, vlan=routed_vlan,
+                    eth_type=self.ETH_TYPE, nw_dst=ip_dst)
+            ofmsgs.extend(self.valve_flowdel(
+                self.fib_table, route_match,
+                priority=self._route_priority(ip_dst),
+                strict=True))
         return ofmsgs
 
     def del_route(self, vlan, ip_dst):

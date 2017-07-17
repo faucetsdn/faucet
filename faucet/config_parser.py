@@ -130,11 +130,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
                 acls.append((acl_ident, ACL(acl_ident, acl_conf)))
             routers = []
             for router_ident, router_conf in list(routers_conf.items()):
-                routers.append((router_ident, Router(router_ident, router_conf)))
-            if routers:
-                assert len(routers) == 1, 'only one router supported'
-                router_ident, router = routers[0]
-                assert set(router.vlans) == set(vlans.keys()), 'only global routing supported'
+                router = Router(router_ident, router_conf)
                 dp.add_router(router_ident, router)
             ports_conf = dp_conf.pop('interfaces', {})
             ports = {}
