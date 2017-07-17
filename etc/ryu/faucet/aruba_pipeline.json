@@ -209,14 +209,15 @@
                     4,
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
     },
     {
         "config": 3,
-        "max_entries": 300,
+        "max_entries": 100,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "VLAN",
@@ -333,7 +334,8 @@
                     4,
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
@@ -528,14 +530,15 @@
                     4,
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
     },
     {
         "config": 3,
-        "max_entries": 500,
+        "max_entries": 100,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Source",
@@ -555,17 +558,23 @@
                     },
                     {
                         "name": "eth_dst",
-                        "type": "eth_dst",
-                        "hasmask": true
+                        "type": "eth_dst"
                     },
                     {
                         "name": "eth_src",
-                        "type": "eth_src",
-                        "hasmask": true
+                        "type": "eth_src"
                     },
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "ip_proto"
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
                     }
                 ]
             },
@@ -592,6 +601,14 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "ip_proto"
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
                     }
                 ]
             },
@@ -660,14 +677,15 @@
                     4,
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
     },
     {
         "config": 3,
-        "max_entries": 300,
+        "max_entries": 100,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "IPv4 FIB",
@@ -684,15 +702,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "ip_proto",
-                        "type": "ip_proto"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src",
-                        "hasmask": true
                     },
                     {
                         "name": "ipv4_dst",
@@ -714,16 +723,9 @@
                         "type": "vlan_vid"
                     },
                     {
-                        "name": "ip_proto",
-                        "type": "ip_proto"
-                    },
-                    {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src"
-                    },
-                    {
                         "name": "ipv4_dst",
-                        "type": "ipv4_dst"
+                        "type": "ipv4_dst",
+                        "hasmask": true
                     }
                 ]
             },
@@ -766,10 +768,6 @@
                     {
                         "name": "eth_src",
                         "type": "eth_src"
-                    },
-                    {
-                        "name": "vlan_vid",
-                        "type": "vlan_vid"
                     }
                 ]
             },
@@ -779,14 +777,15 @@
                 "table_ids": [
                     5,
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
     },
     {
         "config": 3,
-        "max_entries": 10,
+        "max_entries": 100,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "IPv6 FIB",
@@ -803,6 +802,11 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
+                    },
+                    {   
+                        "name": "ipv6_dst",
+                        "type": "ipv6_dst",
+                        "hasmask": true
                     }
                 ]
             },
@@ -819,16 +823,9 @@
                         "type": "vlan_vid"
                     },
                     {
-                        "name": "ip_proto",
-                        "type": "ip_proto"
-                    },
-                    {
                         "name": "ipv6_dst",
-                        "type": "ipv6_dst"
-                    },
-                    {
-                        "name": "icmpv6_type",
-                        "type": "icmpv6_type"
+                        "type": "ipv6_dst",
+                        "hasmask": true
                     }
                 ]
             },
@@ -871,10 +868,6 @@
                     {
                         "name": "eth_src",
                         "type": "eth_src"
-                    },
-                    {
-                        "name": "vlan_vid",
-                        "type": "vlan_vid"
                     }
                 ]
             },
@@ -883,18 +876,106 @@
                 "type": 2,
                 "table_ids": [
                     6,
-                    7
+                    7,
+                    8
                 ]
             }
         ]
     },
     {
         "config": 3,
-        "max_entries": 500,
+        "max_entries": 20,
+        "metadata_match": 0,
+        "metadata_write": 0,
+        "name": "VIP",
+        "table_id": 6,
+        "properties": [
+            {
+                "name": "OFPTFPT_MATCH",
+                "type": 8,
+                "oxm_ids": [
+                    {
+                        "name": "eth_type",
+                        "type": "eth_type"
+                    },
+                    {
+                        "name": "eth_dst",
+                        "type": "eth_dst"
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "ip_proto"
+                    },
+                    {
+                        "name": "arp_tpa",
+                        "type": "arp_tpa"
+                    }
+                ]
+            },
+            {
+                "name": "OFPTFPT_WILDCARDS",
+                "type": 10,
+                "oxm_ids": [
+                    {
+                        "name": "eth_type",
+                        "type": "eth_type"
+                    },
+                    {
+                        "name": "eth_dst",
+                        "type": "eth_dst"
+                    },
+                    {
+                        "name": "ip_proto",
+                        "type": "ip_proto"
+                    },
+                    {
+                        "name": "arp_tpa",
+                        "type": "arp_tpa"
+                    }
+                ]
+            },
+            {
+                "name": "OFPTFPT_INSTRUCTIONS",
+                "type": 0,
+                "instruction_ids": [
+                    {
+                        "name": "OFPIT_GOTO_TABLE",
+                        "type": 1
+                    },
+                    {
+                        "name": "OFPIT_APPLY_ACTIONS",
+                        "type": 4
+                    }
+                ]
+            },
+            {
+                "name": "OFPTFPT_APPLY_ACTIONS",
+                "type": 6,
+                "action_ids": [
+                    {
+                        "name": "OFPAT_OUTPUT",
+                        "type": 0
+                    }
+                ]
+            },
+            {
+                "name": "OFPTFPT_NEXT_TABLES",
+                "type": 2,
+                "table_ids": [
+                    7,
+                    8
+                ]
+            }
+
+        ]
+    },
+    {
+        "config": 3,
+        "max_entries": 100,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Destination",
-        "table_id": 6,
+        "table_id": 7,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",
@@ -991,7 +1072,7 @@
                 "name": "OFPTFPT_NEXT_TABLES",
                 "type": 2,
                 "table_ids": [
-                    7
+                    8
                 ]
             }
         ]
@@ -1002,7 +1083,7 @@
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Flood",
-        "table_id": 7,
+        "table_id": 8,
         "properties": [
             {
                 "name": "OFPTFPT_MATCH",

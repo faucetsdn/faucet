@@ -152,7 +152,7 @@ class ValveFloodManager(object):
             self.away_from_root_stack_ports, in_port)
         toward_flood_actions = self._build_flood_port_outputs(
             self.towards_root_stack_ports, in_port)
-        flood_all_except_self = local_flood_actions + away_flood_actions
+        flood_all_except_self = away_flood_actions + local_flood_actions
 
         # If we're the root of a distributed switch..
         if self._dp_is_root():

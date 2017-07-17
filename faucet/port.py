@@ -64,6 +64,23 @@ class Port(Conf):
         # if True, then switch between hosts on this port (eg WiFi radio).
     }
 
+    defaults_types = {
+        'number': int,
+        'name': str,
+        'description': str,
+        'enabled': bool,
+        'permanent_learn': bool,
+        'unicast_flood': bool,
+        'mirror': (str, int),
+        'mirror_destination': bool,
+        'native_vlan': (str, int),
+        'tagged_vlans': list,
+        'acl_in': (str, int),
+        'stack': dict,
+        'max_hosts': int,
+        'hairpin': bool,
+    }
+
     def __init__(self, _id, conf=None):
         if conf is None:
             conf = {}

@@ -92,6 +92,7 @@ class Valve(object):
 
     FAUCET_MAC = '0e:00:00:00:00:01'
     TABLE_MATCH_TYPES = {}
+    DEC_TTL = True
 
     def __init__(self, dp, logname, *args, **kwargs):
         self.dp = dp
@@ -110,8 +111,8 @@ class Valve(object):
             route_manager = route_manager_class(
                 self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
-                self.dp.max_resolve_backoff_time, self.dp.proactive_learn,
-                fib_table, self.dp.eth_src_table,
+                self.dp.max_resolve_backoff_time, self.dp.proactive_learn, self.DEC_TTL,
+                fib_table, self.dp.vip_table, self.dp.eth_src_table,
                 self.dp.eth_dst_table, self.dp.flood_table,
                 self.dp.highest_priority,
                 self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
@@ -146,13 +147,13 @@ class Valve(object):
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type'),
             self.dp.eth_src_table: (
                 'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type',
-                'ip_proto', 'icmpv6_type', 'arp_tpa', 'ipv4_src'),
+                'ip_proto', 'icmpv6_type'),
             self.dp.ipv4_fib_table: (
-                'vlan_vid', 'eth_type', 'ip_proto',
-                'ipv4_src', 'ipv4_dst'),
+                'vlan_vid', 'eth_type', 'ipv4_dst'),
             self.dp.ipv6_fib_table: (
-                'vlan_vid', 'eth_type', 'ip_proto',
-                'icmpv6_type', 'ipv6_dst'),
+                'vlan_vid', 'eth_type', 'ipv6_dst'),
+            self.dp.vip_table: (
+                'eth_type', 'eth_dst', 'ip_proto', 'arp_tpa'),
             self.dp.eth_dst_table: (
                 'in_port', 'vlan_vid', 'eth_dst'),
             self.dp.flood_table: (
@@ -262,8 +263,8 @@ class Valve(object):
             in_port, vlan, eth_type, eth_src,
             eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
             nw_proto, nw_src, nw_dst)
-        if table_id != self.dp.port_acl_table\
-                and table_id != self.dp.vlan_acl_table:
+        if (table_id not in (
+            self.dp.port_acl_table, self.dp.vlan_acl_table, ofp.OFPTT_ALL)):
             assert table_id in self.TABLE_MATCH_TYPES,\
                 '%u table not registered' % table_id
             for match_type in match_dict:
@@ -406,8 +407,7 @@ class Valve(object):
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []
-        for table_id in self._all_valve_tables():
-            ofmsgs.extend(self.valve_flowdel(table_id))
+        ofmsgs.extend(self.valve_flowdel(ofp.OFPTT_ALL))
         if self.dp.group_table:
             ofmsgs.append(valve_of.groupdel())
         return ofmsgs
@@ -1401,5 +1401,4 @@ class ArubaValve(TfmValve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     PIPELINE_CONF = 'aruba_pipeline.json'
-    # TODO: IPv4, IPv6 is deconfigured (takes too much wildcard table space)
-    SKIP_VALIDATION_TABLES = (3, 4, 5)
+    DEC_TTL = False

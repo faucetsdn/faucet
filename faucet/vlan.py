@@ -48,6 +48,8 @@ class VLAN(Conf):
     max_hosts = None
     unicast_flood = None
     acl_in = None
+    proactive_arp_limit = None
+    proactive_nd_limit = None
     # Define dynamic variables with prefix dyn_ to distinguish from variables set
     # configuration
     dyn_host_cache = None
@@ -61,13 +63,13 @@ class VLAN(Conf):
         'acl_in': None,
         'faucet_vips': None,
         'unicast_flood': True,
-        'bgp_as': 0,
+        'bgp_as': None,
         'bgp_local_address': None,
         'bgp_port': 9179,
-        'bgp_routerid': '',
+        'bgp_routerid': None,
         'bgp_neighbour_addresses': [],
         'bgp_neighbor_addresses': [],
-        'bgp_neighbour_as': 0,
+        'bgp_neighbour_as': None,
         'bgp_neighbor_as': None,
         'routes': None,
         'max_hosts': 255,
@@ -78,6 +80,27 @@ class VLAN(Conf):
         'proactive_nd_limit': None,
         # Don't proactively ND for hosts if over this limit (None unlimited)
         }
+
+    defaults_types = {
+        'name': str,
+        'description': str,
+        'acl_in': (int, str),
+        'faucet_vips': list,
+        'unicast_flood': bool,
+        'bgp_as': int,
+        'bgp_local_address': str,
+        'bgp_port': int,
+        'bgp_routerid': str,
+        'bgp_neighbour_addresses': list,
+        'bgp_neighbor_addresses': list,
+        'bgp_neighbour_as': int,
+        'bgp_neighbor_as': int,
+        'routes': list,
+        'max_hosts': int,
+        'vid': int,
+        'proactive_arp_limit': int,
+        'proactive_nd_limit': int,
+    }
 
     def __init__(self, _id, dp_id, conf=None):
         if conf is None:
