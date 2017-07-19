@@ -1911,6 +1911,59 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetTaggedSwapVidOutputTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        unicast_flood: False
+    101:
+        description: "tagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            vlan_vid: 100
+            actions:
+                output:
+                    swap_vid: 101
+                    port: acloutport
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+                acl_in: 1
+            acloutport:
+                number: %(port_2)d
+                tagged_vlans: [101]
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_tagged(self):
+        first_host, second_host = self.net.hosts[0:2]
+        # we expected to see the swapped VLAN VID
+        tcpdump_filter = 'vlan 101'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], root_intf=True)
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            'vlan 101', tcpdump_txt))
+
+
 class FaucetTaggedPopVlansOutputTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """
