@@ -35,10 +35,15 @@ RUN \
   git clone -b 2.2.2 https://github.com/mininet/mininet && \
   apt-get update && \
   mininet/util/install.sh -nfv && \
-  apt-get purge -qy pylint && \
-  GOPATH=~/go go get -u github.com/openconfig/gnmi/cmd/gnmi_cli
+  apt-get purge -qy pylint
 
 COPY ./ /faucet-src/
+
+RUN mkdir -p \
+      $HOME/go
+
+RUN GOPATH=$HOME/go go get -u \
+      github.com/openconfig/reference/telemetry/collector/cli
 
 RUN \
   pip install --upgrade pip && \
