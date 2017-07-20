@@ -1,8 +1,7 @@
 #!/bin/bash
 echo "========== Running gNMI tests ==================="
-export GOPATH=$HOME/go
 # Just a placeholder that runs a gNMI client and displays help.
-go run $GOPATH/src/github.com/openconfig/reference/telemetry/collector/cli/main.go --help || exit 0
+$GOPATH/bin/cli --help
 
 echo "========== Starting OVS ========================="
 service openvswitch-switch start

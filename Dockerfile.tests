@@ -39,10 +39,13 @@ RUN \
 
 COPY ./ /faucet-src/
 
-RUN mkdir -p \
-      $HOME/go
+ENV GOPATH=/go
 
-RUN GOPATH=$HOME/go go get -u \
+RUN mkdir -p \
+      $GOPATH \
+    && go get -u \
+      github.com/openconfig/reference/telemetry/collector/cli \
+    && go install \
       github.com/openconfig/reference/telemetry/collector/cli
 
 RUN \
