@@ -2,12 +2,12 @@ version: '2'
 services:
     db:
         restart: always
-        image: 'tutum/influxdb:0.13'
+        image: 'influxdb:1.3.0'
         ports:
             - '8086'
             - '8083'
         volumes:
-            - '/opt/influxdb/shared/data/db:/data'
+            - '/opt/influxdb/shared/data/db:/var/lib/influxdb'
         environment:
             PRE_CREATE_DB: 'faucet'
             ADMIN_USER: 'faucet'
@@ -22,16 +22,28 @@ services:
             COUCHDB_USER: 'couch'
             COUCHDB_PASSWORD: '123'
 
+    prometheus:
+        restart: always
+        image: 'prom/prometheus:v1.7.1'
+        ports:
+            - '9090:9090'
+        volumes:
+            - '/opt/prometheus/:/prometheus'
+            - './etc/prometheus/prometheus-docker-compose.yml:/etc/prometheus/prometheus.yml'
+            - './etc/prometheus/faucet.rules:/etc/prometheus/faucet.rules'
+        links:
+            - faucet
+
     grafana:
         restart: always
-        image: 'grafana/grafana:3.1.1'
+        image: 'grafana/grafana:4.4.1'
         ports:
             - '3000:3000'
         volumes:
             - '/opt/grafana:/var/lib/grafana'
         links:
             - db
-            - faucet
+            - prometheus
 
     gauge:
         restart: always
@@ -61,4 +73,6 @@ services:
             - '/etc/ryu/faucet:/etc/ryu/faucet'
         ports:
             - '6653:6653'
-            - '9244:9244'
+            - '9244'
+        links:
+            - db
