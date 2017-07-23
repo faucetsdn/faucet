@@ -1,0 +1,7 @@
+# Convert OF stats to rates
+instance_dpid:of_packet_ins:rate1m = rate(of_packet_ins[1m])
+instance_dpid:of_flowmsgs_sent:rate1m = rate(of_flowmsgs_sent[1m])
+
+# Sum hosts learned on VLANs
+instance:vlan_hosts_learned:sum = sum(vlan_hosts_learned) by (instance,vlan)
+instance:learned_macs:sum = count(count_values("mac", learned_macs{} != 0) by (vlan)) by (vlan)
