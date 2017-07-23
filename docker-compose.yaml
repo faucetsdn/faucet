@@ -1,6 +1,6 @@
 version: '2'
 services:
-    db:
+    influxdb:
         restart: always
         image: 'influxdb:1.3.0'
         ports:
@@ -42,7 +42,7 @@ services:
         volumes:
             - '/opt/grafana:/var/lib/grafana'
         links:
-            - db
+            - influxdb
             - prometheus
 
     gauge:
@@ -60,7 +60,7 @@ services:
             - '6654:6653'
         links:
             - couchdb
-            - db
+            - influxdb
 
     faucet:
         restart: always
@@ -74,5 +74,3 @@ services:
         ports:
             - '6653:6653'
             - '9244'
-        links:
-            - db
