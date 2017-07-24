@@ -3,6 +3,7 @@ influxdb
 ipaddress
 networkx
 numpy
+pbr
 prometheus_client
 pyyaml
 ryu==4.14
