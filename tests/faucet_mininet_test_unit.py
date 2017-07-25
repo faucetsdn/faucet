@@ -1374,12 +1374,15 @@ vlans:
 
 class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
 
+    FAUCET_MAC = "0e:00:00:00:00:99"
+
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
         faucet_vips: ["fe80::1:254/64", "fc00::1:254/112", "fc00::2:254/112", "10.0.0.254/24"]
-"""
+        faucet_mac: "%s"
+""" % FAUCET_MAC
 
     CONFIG = """
         advertise_interval: 5
