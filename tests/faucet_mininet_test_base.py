@@ -53,9 +53,13 @@ class FaucetTestBase(unittest.TestCase):
 
     RUN_GAUGE = True
 
+    PORT_ACL_TABLE = 0
+    VLAN_TABLE = 1
+    VLAN_ACL_TABLE = 2
     ETH_SRC_TABLE = 3
     IPV4_FIB_TABLE = 4
     IPV6_FIB_TABLE = 5
+    VIP_TABLE = 6
     FLOOD_TABLE = 8
     ETH_DST_TABLE = 7
 
