@@ -2230,6 +2230,8 @@ vlans:
 
 class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
 
+    FAUCET_MAC2 = '0e:00:00:00:00:02'
+
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -2238,10 +2240,11 @@ vlans:
     200:
         description: "200"
         faucet_vips: ["10.200.0.254/24"]
+        faucet_mac: "%s"
 routers:
     router-1:
         vlans: [100, 200]
-"""
+""" % FAUCET_MAC2
 
     CONFIG = """
         arp_neighbor_timeout: 2
@@ -2275,6 +2278,10 @@ routers:
         self.one_ipv4_ping(second_host, second_faucet_vip.ip)
         self.one_ipv4_ping(first_host, second_host_ip.ip)
         self.one_ipv4_ping(second_host, first_host_ip.ip)
+        self.assertEquals(
+            self._ip_neigh(first_host, first_faucet_vip.ip, 4), self.FAUCET_MAC)
+        self.assertEquals(
+            self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
 
 
 class FaucetUntaggedMixedIPv4RouteTest(FaucetUntaggedTest):
