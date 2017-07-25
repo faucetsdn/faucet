@@ -53,9 +53,13 @@ class FaucetTestBase(unittest.TestCase):
 
     RUN_GAUGE = True
 
+    PORT_ACL_TABLE = 0
+    VLAN_TABLE = 1
+    VLAN_ACL_TABLE = 2
     ETH_SRC_TABLE = 3
     IPV4_FIB_TABLE = 4
     IPV6_FIB_TABLE = 5
+    VIP_TABLE = 6
     FLOOD_TABLE = 8
     ETH_DST_TABLE = 7
 
@@ -289,6 +293,7 @@ class FaucetTestBase(unittest.TestCase):
             if (self._wait_controllers_logging() and
                     self.wait_dp_status(1) and
                     self._wait_until_ofctl_up()):
+                self._config_tableids()
                 return
             self.net.stop()
             time.sleep(1)
@@ -738,7 +743,7 @@ dbs:
                 r'faucet_config\S+name=\"flood\"'):
             self.assertTrue(
                 re.search(r'%s\S+\s+[1-9]+' % nonzero_var, prom_out),
-                msg=prom_out)
+                msg='expected %s to be nonzero (%s)' % (nonzero_var, prom_out))
         for notpresent_var in (
                 'of_errors', 'of_dp_disconnections'):
             self.assertIsNone(
@@ -1002,6 +1007,21 @@ dbs:
                 return True
             time.sleep(1)
         return False
+
+    def _get_tableid(self, name):
+        return self.scrape_prometheus_var(
+            'faucet_config_table_names', {'name': name})
+
+    def _config_tableids(self):
+        self.PORT_ACL_TABLE = self._get_tableid('port_acl')
+        self.VLAN_TABLE = self._get_tableid('vlan')
+        self.VLAN_ACL_TABLE = self._get_tableid('vlan_acl')
+        self.ETH_SRC_TABLE = self._get_tableid('eth_src')
+        self.IPV4_FIB_TABLE = self._get_tableid('ipv4_fib')
+        self.IPV6_FIB_TABLE = self._get_tableid('ipv6_fib')
+        self.VIP_TABLE = self._get_tableid('vip')
+        self.ETH_DST_TABLE = self._get_tableid('eth_dst')
+        self.FLOOD_TABLE = self._get_tableid('flood')
 
     def _dp_ports(self):
         port_count = self.N_TAGGED + self.N_UNTAGGED

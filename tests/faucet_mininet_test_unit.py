@@ -821,7 +821,9 @@ acls:
                     old_count, new_count,
                     msg='%s incremented: %u' % (var, new_count))
 
-    def get_port_match_flow(self, port_no, table_id=3):
+    def get_port_match_flow(self, port_no, table_id=None):
+        if table_id is None:
+            table_id = self.ETH_SRC_TABLE
         flow = self.get_matching_flow_on_dpid(
             self.dpid, {u'in_port': int(port_no)}, table_id)
         return flow
@@ -868,7 +870,7 @@ acls:
         for port_name in ('port_1', 'port_2'):
             self.wait_until_matching_flow(
                 {u'in_port': int(self.port_map[port_name])},
-                table_id=1,
+                table_id=self.VLAN_TABLE,
                 actions=[u'SET_FIELD: {vlan_vid:4296}'])
         self.one_ipv4_ping(first_host, second_host.IP(), require_host_learned=False)
         # hosts 1 and 2 now in VLAN 200, so they shouldn't see floods for 3 and 4.
@@ -882,7 +884,8 @@ acls:
         self.change_port_config(
             self.port_map['port_1'], 'acl_in', 1, cold_start=False)
         self.wait_until_matching_flow(
-            {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001}, table_id=0)
+            {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001},
+            table_id=self.PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self._reload_conf(orig_conf, True, cold_start=False)
@@ -906,7 +909,7 @@ acls:
             self.port_map['port_1'], 'acl_in', 1, cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001},
-            table_id=0)
+            table_id=self.PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
@@ -1639,13 +1642,13 @@ vlans:
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_blocked(
-            5001, first_host, second_host, table_id=2)
+            5001, first_host, second_host, table_id=self.VLAN_ACL_TABLE)
 
     def test_port5002_notblocked(self):
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_notblocked(
-            5002, first_host, second_host, table_id=2)
+            5002, first_host, second_host, table_id=self.VLAN_ACL_TABLE)
 
 
 class FaucetZodiacUntaggedACLTest(FaucetUntaggedACLTest):
@@ -3269,7 +3272,8 @@ acls:
         first_host.setMAC('0e:0d:00:00:00:99')
         self.assertEqual(0, self.net.ping((first_host, second_host)))
         self.wait_nonzero_packet_count_flow(
-            {u'dl_src': u'0e:0d:00:00:00:00/ff:ff:00:00:00:00'}, table_id=0)
+            {u'dl_src': u'0e:0d:00:00:00:00/ff:ff:00:00:00:00'},
+            table_id=self.PORT_ACL_TABLE)
 
 
 class FaucetDestRewriteTest(FaucetUntaggedTest):

@@ -1015,30 +1015,18 @@ class Valve(object):
         metrics.faucet_config_dp_name.labels(
             dpid=hex(self.dp.dp_id), name=self.dp.name).set(
                 self.dp.dp_id)
-        metrics.faucet_config_table_names.labels(
-            dpid=hex(self.dp.dp_id), name='port_acl').set(
-                self.dp.port_acl_table)
-        metrics.faucet_config_table_names.labels(
-            dpid=hex(self.dp.dp_id), name='vlan').set(
-                self.dp.vlan_table)
-        metrics.faucet_config_table_names.labels(
-            dpid=hex(self.dp.dp_id), name='vlan_acl').set(
-                self.dp.vlan_acl_table)
-        metrics.faucet_config_table_names.labels(
-            dpid=hex(self.dp.dp_id), name='eth_src').set(
-                self.dp.eth_src_table)
-        metrics.faucet_config_table_names.labels(
-            dpid=hex(self.dp.dp_id), name='ipv4_fib').set(
-                self.dp.ipv4_fib_table)
-        metrics.faucet_config_table_names.labels(
-            dpid=hex(self.dp.dp_id), name='ipv6_fib').set(
-                self.dp.ipv6_fib_table)
-        metrics.faucet_config_table_names.labels(
-            dpid=hex(self.dp.dp_id), name='eth_dst').set(
-                self.dp.eth_dst_table)
-        metrics.faucet_config_table_names.labels(
-            dpid=hex(self.dp.dp_id), name='flood').set(
-                self.dp.flood_table)
+        for table_name, table_id in (
+                ('port_acl', self.dp.port_acl_table),
+                ('vlan', self.dp.vlan_table),
+                ('vlan_acl', self.dp.vlan_acl_table),
+                ('eth_src', self.dp.eth_src_table),
+                ('ipv4_fib', self.dp.ipv4_fib_table),
+                ('ipv6_fib', self.dp.ipv6_fib_table),
+                ('vip', self.dp.vip_table),
+                ('eth_dst', self.dp.eth_dst_table),
+                ('flood', self.dp.flood_table)):
+            metrics.faucet_config_table_names.labels(
+                dpid=hex(self.dp.dp_id), name=table_name).set(table_id)
 
     def update_metrics(self, metrics):
         """Update gauge/metrics.
