@@ -29,6 +29,9 @@ except ImportError:
     from faucet import valve_of
 
 
+FAUCET_MAC = '0e:00:00:00:00:01'
+
+
 class VLAN(Conf):
     """Implement FAUCET configuration for a VLAN."""
 
@@ -36,6 +39,7 @@ class VLAN(Conf):
     untagged = None
     vid = None
     faucet_vips = None
+    faucet_mac = None
     bgp_as = None
     bgp_local_address = None
     bgp_port = None
@@ -62,6 +66,8 @@ class VLAN(Conf):
         'description': None,
         'acl_in': None,
         'faucet_vips': None,
+        'faucet_mac': FAUCET_MAC,
+        # set MAC for FAUCET VIPs on this VLAN
         'unicast_flood': True,
         'bgp_as': None,
         'bgp_local_address': None,
@@ -86,6 +92,7 @@ class VLAN(Conf):
         'description': str,
         'acl_in': (int, str),
         'faucet_vips': list,
+        'faucet_mac': str,
         'unicast_flood': bool,
         'bgp_as': int,
         'bgp_local_address': str,
@@ -225,7 +232,7 @@ class VLAN(Conf):
                 (self.vid, self.tagged_flood_ports(False)),
                 (None, self.untagged_flood_ports(False))):
             if ports:
-                pkt = packet_builder(vid, *args)
+                pkt = packet_builder(self, vid, *args)
                 for port in ports:
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
         return ofmsgs

@@ -1374,12 +1374,15 @@ vlans:
 
 class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
 
+    FAUCET_MAC = "0e:00:00:00:00:99"
+
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
         faucet_vips: ["fe80::1:254/64", "fc00::1:254/112", "fc00::2:254/112", "10.0.0.254/24"]
-"""
+        faucet_mac: "%s"
+""" % FAUCET_MAC
 
     CONFIG = """
         advertise_interval: 5
@@ -1402,7 +1405,7 @@ vlans:
         first_host = self.net.hosts[0]
         for vip in ('fe80::1:254', 'fc00::1:254', 'fc00::2:254'):
             self.assertEquals(
-                '0E:00:00:00:00:01',
+                self.FAUCET_MAC.upper(),
                 first_host.cmd('ndisc6 -q %s %s' % (vip, first_host.defaultIntf())).strip())
 
     def test_rdisc6(self):
@@ -1417,7 +1420,7 @@ vlans:
         first_host = self.net.hosts[0]
         tcpdump_filter = ' and '.join((
             'ether dst 33:33:00:00:00:01',
-            'ether src 0e:00:00:00:00:01',
+            'ether src %s' % self.FAUCET_MAC,
             'icmp6',
             'ip6[40] == 134',
             'ip6 host fe80::1:254'))
@@ -1427,7 +1430,7 @@ vlans:
                 r'fe80::1:254 > ff02::1:.+ICMP6, router advertisement',
                 r'fc00::1:0/112, Flags \[onlink, auto\]',
                 r'fc00::2:0/112, Flags \[onlink, auto\]',
-                r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
+                r'source link-address option \(1\), length 8 \(1\): %s' % self.FAUCET_MAC):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
                 msg='%s: %s' % (ra_required, tcpdump_txt))
@@ -1435,7 +1438,7 @@ vlans:
     def test_rs_reply(self):
         first_host = self.net.hosts[0]
         tcpdump_filter = ' and '.join((
-            'ether src 0e:00:00:00:00:01',
+            'ether src %s' % self.FAUCET_MAC,
             'ether dst %s' % first_host.MAC(),
             'icmp6',
             'ip6[40] == 134',
@@ -1449,7 +1452,7 @@ vlans:
                 r'fe80::1:254 > fe80::.+ICMP6, router advertisement',
                 r'fc00::1:0/112, Flags \[onlink, auto\]',
                 r'fc00::2:0/112, Flags \[onlink, auto\]',
-                r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
+                r'source link-address option \(1\), length 8 \(1\): %s' % self.FAUCET_MAC):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
                 msg='%s: %s (%s)' % (ra_required, tcpdump_txt, tcpdump_filter))
@@ -2227,6 +2230,8 @@ vlans:
 
 class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
 
+    FAUCET_MAC2 = '0e:00:00:00:00:02'
+
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -2235,10 +2240,11 @@ vlans:
     200:
         description: "200"
         faucet_vips: ["10.200.0.254/24"]
+        faucet_mac: "%s"
 routers:
     router-1:
         vlans: [100, 200]
-"""
+""" % FAUCET_MAC2
 
     CONFIG = """
         arp_neighbor_timeout: 2
@@ -2272,6 +2278,10 @@ routers:
         self.one_ipv4_ping(second_host, second_faucet_vip.ip)
         self.one_ipv4_ping(first_host, second_host_ip.ip)
         self.one_ipv4_ping(second_host, first_host_ip.ip)
+        self.assertEquals(
+            self._ip_neigh(first_host, first_faucet_vip.ip, 4), self.FAUCET_MAC)
+        self.assertEquals(
+            self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
 
 
 class FaucetUntaggedMixedIPv4RouteTest(FaucetUntaggedTest):

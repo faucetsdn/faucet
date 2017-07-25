@@ -1273,15 +1273,16 @@ dbs:
         host.cmd(del_cmd)
         self.assertEquals('', host.cmd(add_cmd))
 
+    def _ip_neigh(self, host, ipa, ip_ver):
+        neighbors = host.cmd('ip -%u neighbor show %s' % (ip_ver, ipa))
+        if neighbors:
+            return neighbors.split()[4]
+        return None
+
     def _verify_host_learned_mac(self, host, ipa, ip_ver, mac, retries):
         for _ in range(retries):
-            neighbors = host.cmd('ip -%u neighbor show' % ip_ver)
-            for neighbor_line in neighbors.splitlines():
-                neighbor_fields = neighbor_line.strip().split(' ')
-                learned_ipa = neighbor_fields[0]
-                learned_mac = neighbor_fields[4]
-                if learned_ipa == str(ipa) and learned_mac == mac:
-                    return
+            if self._ip_neigh(ipa, ip_ver) == mac:
+                return
             time.sleep(1)
         self.fail(
             'could not verify %s resolved to %s (%s)' % (ipa, mac, neighbors))
