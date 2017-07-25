@@ -1281,7 +1281,7 @@ dbs:
 
     def _verify_host_learned_mac(self, host, ipa, ip_ver, mac, retries):
         for _ in range(retries):
-            if self._ip_neigh(ipa, ip_ver) == mac:
+            if self._ip_neigh(host, ipa, ip_ver) == mac:
                 return
             time.sleep(1)
         self.fail(
