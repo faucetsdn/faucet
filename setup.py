@@ -55,13 +55,25 @@ def install_configs():
         else:
             raise
 
-os.environ["PBR_VERSION"] = parse_version()
+# This is a workaround to override version code from pbr as
+# PBR_VERSION env variable interferes with the installation
+# of pbr itself as part of setup_requires
+#
+# See launchpad bug: https://bugs.launchpad.net/pbr/+bug/1256138
+with open("METADATA", "w") as fd:
+    fd.write("Name: faucet\n")
+    fd.write("Version: %s\n" % parse_version())
 
-setup(
-    name='faucet',
-    setup_requires=['pbr>=1.9', 'setuptools>=17.1'],
-    pbr=True
-)
+try:
+    setup(
+        name='faucet',
+        setup_requires=['pbr>=1.9', 'setuptools>=17.1'],
+        pbr=True
+    )
 
-if 'install' in sys.argv or 'bdist_wheel' in sys.argv:
-    install_configs()
+    if 'install' in sys.argv or 'bdist_wheel' in sys.argv:
+        install_configs()
+finally:
+    if os.path.isfile("METADATA"):
+        os.remove("METADATA")
+
