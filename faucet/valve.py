@@ -90,7 +90,6 @@ class Valve(object):
     function switch_features.
     """
 
-    FAUCET_MAC = '0e:00:00:00:00:01'
     TABLE_MATCH_TYPES = {}
     DEC_TTL = True
 
@@ -109,7 +108,7 @@ class Valve(object):
                 (self.dp.ipv4_fib_table, valve_route.ValveIPv4RouteManager),
                 (self.dp.ipv6_fib_table, valve_route.ValveIPv6RouteManager)):
             route_manager = route_manager_class(
-                self.logger, self.FAUCET_MAC, self.dp.arp_neighbor_timeout,
+                self.logger, self.dp.arp_neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, self.dp.proactive_learn, self.DEC_TTL,
                 fib_table, self.dp.vip_table, self.dp.eth_src_table,
@@ -441,11 +440,12 @@ class Valve(object):
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
         if self.dp.drop_spoofed_faucet_mac:
-            ofmsgs.append(self.valve_flowdrop(
-                self.dp.vlan_table,
-                self.valve_in_match(
-                    self.dp.vlan_table, eth_src=self.FAUCET_MAC),
-                priority=self.dp.high_priority))
+            for vlan in list(self.dp.vlans.values()):
+                ofmsgs.append(self.valve_flowdrop(
+                    self.dp.vlan_table,
+                    self.valve_in_match(
+                        self.dp.vlan_table, eth_src=vlan.faucet_mac),
+                    priority=self.dp.high_priority))
 
         # drop STP BPDU
         # TODO: compatible bridge loop detection/mitigation.
@@ -840,7 +840,7 @@ class Valve(object):
         Returns:
             list: OpenFlow messages, if any.
         """
-        if (pkt_meta.eth_dst == self.FAUCET_MAC or
+        if (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac or
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for route_manager in list(self.route_manager_by_ipv.values()):
                 ofmsgs = route_manager.control_plane_handler(pkt_meta)
