@@ -1402,7 +1402,7 @@ vlans:
         first_host = self.net.hosts[0]
         for vip in ('fe80::1:254', 'fc00::1:254', 'fc00::2:254'):
             self.assertEquals(
-                '0E:00:00:00:00:01',
+                self.FAUCET_MAC,
                 first_host.cmd('ndisc6 -q %s %s' % (vip, first_host.defaultIntf())).strip())
 
     def test_rdisc6(self):
@@ -1417,7 +1417,7 @@ vlans:
         first_host = self.net.hosts[0]
         tcpdump_filter = ' and '.join((
             'ether dst 33:33:00:00:00:01',
-            'ether src 0e:00:00:00:00:01',
+            'ether src %s' % self.FAUCET_MAC,
             'icmp6',
             'ip6[40] == 134',
             'ip6 host fe80::1:254'))
@@ -1427,7 +1427,7 @@ vlans:
                 r'fe80::1:254 > ff02::1:.+ICMP6, router advertisement',
                 r'fc00::1:0/112, Flags \[onlink, auto\]',
                 r'fc00::2:0/112, Flags \[onlink, auto\]',
-                r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
+                r'source link-address option \(1\), length 8 \(1\): %s' % self.FAUCET_MAC):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
                 msg='%s: %s' % (ra_required, tcpdump_txt))
@@ -1435,7 +1435,7 @@ vlans:
     def test_rs_reply(self):
         first_host = self.net.hosts[0]
         tcpdump_filter = ' and '.join((
-            'ether src 0e:00:00:00:00:01',
+            'ether src %s' % self.FAUCET_MAC,
             'ether dst %s' % first_host.MAC(),
             'icmp6',
             'ip6[40] == 134',
@@ -1449,7 +1449,7 @@ vlans:
                 r'fe80::1:254 > fe80::.+ICMP6, router advertisement',
                 r'fc00::1:0/112, Flags \[onlink, auto\]',
                 r'fc00::2:0/112, Flags \[onlink, auto\]',
-                r'source link-address option \(1\), length 8 \(1\): 0e:00:00:00:00:01'):
+                r'source link-address option \(1\), length 8 \(1\): %s' % self.FAUCET_MAC):
             self.assertTrue(
                 re.search(ra_required, tcpdump_txt),
                 msg='%s: %s (%s)' % (ra_required, tcpdump_txt, tcpdump_filter))
