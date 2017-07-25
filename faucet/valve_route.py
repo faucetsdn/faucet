@@ -822,7 +822,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 for vip in link_local_vips:
                     if src_ip in vip.network:
                         ra_advert = valve_packet.router_advert(
-                            vid, vlan.faucet_mac, eth_src,
+                            vlan, vid, vlan.faucet_mac, eth_src,
                             vip.ip, src_ip, other_vips)
                         ofmsgs.append(
                             valve_of.packetout(port.number, ra_advert.data))

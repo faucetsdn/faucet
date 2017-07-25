@@ -299,11 +299,12 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
     return pkt
 
 
-def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
+def router_advert(vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
                   vips, pi_flags=0x6):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
+        vlan (VLAN): VLAN instance.
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): dest Ethernet MAC address.
