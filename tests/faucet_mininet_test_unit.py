@@ -224,6 +224,83 @@ class FaucetSanityTest(FaucetUntaggedTest):
     pass
 
 
+class FaucetUntaggedInfluxDownTest(FaucetUntaggedTest):
+
+    def get_gauge_watcher_config(self):
+        return """
+    port_stats:
+        dps: ['faucet-1']
+        type: 'port_stats'
+        interval: 2
+        db: 'influx'
+    port_state:
+        dps: ['faucet-1']
+        type: 'port_state'
+        interval: 2
+        db: 'influx'
+"""
+
+    def _wait_error_shipping(self, timeout=10):
+        for _ in range(timeout):
+            log_content = open(self.env['gauge']['GAUGE_LOG']).read()
+            if re.search('error shipping', log_content):
+                return
+            time.sleep(1)
+        self.fail('Influx error not noted in gauge log: %s' % log_content)
+
+    def test_untagged(self):
+        self.ping_all_when_learned()
+        self._wait_error_shipping()
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
+
+
+class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxDownTest):
+
+
+    def get_gauge_config(self, faucet_config_file,
+                         monitor_stats_file,
+                         monitor_state_file,
+                         monitor_flow_table_file,
+                         influx_port):
+        """Build Gauge config."""
+        return """
+faucet_configs:
+    - %s
+watchers:
+    %s
+dbs:
+    stats_file:
+        type: 'text'
+        file: %s
+    state_file:
+        type: 'text'
+        file: %s
+    flow_file:
+        type: 'text'
+        file: %s
+    influx:
+        type: 'influx'
+        influx_db: 'faucet'
+        influx_host: '127.0.0.2'
+        influx_port: %u
+        influx_user: 'faucet'
+        influx_pwd: ''
+        influx_timeout: 10
+""" % (faucet_config_file,
+       self.get_gauge_watcher_config(),
+       monitor_stats_file,
+       monitor_state_file,
+       monitor_flow_table_file,
+       influx_port)
+
+    def test_untagged(self):
+        self.gauge_controller.cmd(
+            'route add 127.0.0.2 gw 127.0.0.1 lo')
+        self.ping_all_when_learned()
+        self._wait_error_shipping()
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
+
+
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     """Basic untagged VLAN test with Influx."""
 
@@ -240,19 +317,6 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         interval: 2
         db: 'influx'
 """
-
-    def _wait_error_shipping(self):
-        for _ in range(10):
-            log_content = open(self.env['gauge']['GAUGE_LOG']).read()
-            if re.search('error shipping', log_content):
-                return
-            time.sleep(1)
-        self.fail('Influx error not noted in gauge log: %s' % log_content)
-
-    def test_untagged_influx_down(self):
-        self.ping_all_when_learned()
-        self._wait_error_shipping()
-        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def test_untagged(self):
 
