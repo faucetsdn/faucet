@@ -241,9 +241,18 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         db: 'influx'
 """
 
+    def _wait_error_shipping(self):
+        for _ in range(10):
+            log_content = open(self.env['gauge']['GAUGE_LOG']).read()
+            if re.search('error shipping', log_content):
+                return
+            time.sleep(1)
+        self.fail('Influx error not noted in gauge log: %s' % log_content)
+
     def test_untagged_influx_down(self):
         self.ping_all_when_learned()
-        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
+        self._wait_error_shipping()
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def test_untagged(self):
 
