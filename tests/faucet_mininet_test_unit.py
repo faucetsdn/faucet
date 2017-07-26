@@ -224,7 +224,8 @@ class FaucetSanityTest(FaucetUntaggedTest):
     pass
 
 
-class FaucetUntaggedInfluxDownTest(FaucetUntaggedTest):
+class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
+    """Basic untagged VLAN test with Influx."""
 
     def get_gauge_watcher_config(self):
         return """
@@ -249,13 +250,39 @@ class FaucetUntaggedInfluxDownTest(FaucetUntaggedTest):
         self.fail('Influx error not noted in gauge log: %s' % log_content)
 
     def test_untagged(self):
+
+        influx_log = os.path.join(self.tmpdir, 'influx.log')
+
+        class PostHandler(SimpleHTTPRequestHandler):
+
+            def do_POST(self):
+                content_len = int(self.headers.getheader('content-length', 0))
+                content = self.rfile.read(content_len)
+                open(influx_log, 'a').write(content)
+                return self.send_response(204)
+
+        server = HTTPServer(('', self.influx_port), PostHandler)
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+        self.ping_all_when_learned()
+        for _ in range(3):
+            if os.path.exists(influx_log):
+                break
+            time.sleep(2)
+        server.shutdown()
+        self.assertTrue(os.path.exists(influx_log))
+
+
+class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
+
+    def test_untagged(self):
         self.ping_all_when_learned()
         self._wait_error_shipping()
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
 
-class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxDownTest):
-
+class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
 
     def get_gauge_config(self, faucet_config_file,
                          monitor_stats_file,
@@ -297,6 +324,50 @@ dbs:
         self.gauge_controller.cmd(
             'route add 127.0.0.2 gw 127.0.0.1 lo')
         self.ping_all_when_learned()
+        self._wait_error_shipping()
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
+
+
+class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
+
+    def get_gauge_watcher_config(self):
+        return """
+    port_stats:
+        dps: ['faucet-1']
+        type: 'port_stats'
+        interval: 2
+        db: 'influx'
+    port_state:
+        dps: ['faucet-1']
+        type: 'port_state'
+        interval: 2
+        db: 'influx'
+"""
+
+    def test_untagged(self):
+
+        influx_log = os.path.join(self.tmpdir, 'influx.log')
+
+        class PostHandler(SimpleHTTPRequestHandler):
+
+            def do_POST(self):
+                content_len = int(self.headers.getheader('content-length', 0))
+                content = self.rfile.read(content_len)
+                open(influx_log, 'a').write(content)
+                time.sleep(10)
+                return self.send_response(500)
+
+        server = HTTPServer(('', self.influx_port), PostHandler)
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+        self.ping_all_when_learned()
+        for _ in range(3):
+            if os.path.exists(influx_log):
+                break
+            time.sleep(2)
+        server.shutdown()
+        self.assertTrue(os.path.exists(influx_log))
         self._wait_error_shipping()
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 

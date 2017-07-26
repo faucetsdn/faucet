@@ -486,7 +486,7 @@ dbs:
         influx_port: %u
         influx_user: 'faucet'
         influx_pwd: ''
-        influx_timeout: 10
+        influx_timeout: 5
 """ % (faucet_config_file,
        self.get_gauge_watcher_config(),
        monitor_stats_file,
