@@ -67,6 +67,7 @@ class FaucetTestBase(unittest.TestCase):
     dpid = None
     hardware = 'Open vSwitch'
     hw_switch = False
+    gauge_controller = None
     gauge_of_port = None
     net = None
     of_port = None
@@ -280,7 +281,7 @@ class FaucetTestBase(unittest.TestCase):
                     port=self.of_port,
                     test_name=self._test_name()))
             if self.RUN_GAUGE:
-                gauge_controller = faucet_mininet_test_topo.Gauge(
+                self.gauge_controller = faucet_mininet_test_topo.Gauge(
                     name='gauge', tmpdir=self.tmpdir,
                     env=self.env['gauge'],
                     controller_intf=controller_intf,
@@ -288,7 +289,7 @@ class FaucetTestBase(unittest.TestCase):
                     ctl_cert=self.ctl_cert,
                     ca_certs=self.ca_certs,
                     port=self.gauge_of_port)
-                self.net.addController(gauge_controller)
+                self.net.addController(self.gauge_controller)
             self.net.start()
             if (self._wait_controllers_logging() and
                     self.wait_dp_status(1) and
@@ -429,7 +430,6 @@ class FaucetTestBase(unittest.TestCase):
     def get_config_header(self, config_global, debug_log, dpid, hardware):
         """Build v2 FAUCET config header."""
         return """
-version: 2
 %s
 dps:
     faucet-1:
@@ -465,7 +465,6 @@ dps:
                          influx_port):
         """Build Gauge config."""
         return """
-version: 2
 faucet_configs:
     - %s
 watchers:
@@ -487,7 +486,7 @@ dbs:
         influx_port: %u
         influx_user: 'faucet'
         influx_pwd: ''
-        influx_timeout: 10
+        influx_timeout: 5
 """ % (faucet_config_file,
        self.get_gauge_watcher_config(),
        monitor_stats_file,

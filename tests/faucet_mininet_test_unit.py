@@ -150,19 +150,21 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         first_host.cmd('ip netns add %s' % netns)
         first_host.cmd('ip link set %s netns %s' % (macvlan2_intf, netns))
         for exec_cmd in (
-            ('ip address add %s/24 brd + dev %s' % (macvlan2_ipv4, macvlan2_intf),
-             'ip link set %s up' % macvlan2_intf)):
+                ('ip address add %s/24 brd + dev %s' % (
+                    macvlan2_ipv4, macvlan2_intf),
+                 'ip link set %s up' % macvlan2_intf)):
             first_host.cmd('ip netns exec %s %s' % (netns, exec_cmd))
         self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
         self.one_ipv4_ping(first_host, second_host.IP())
         first_host.cmd('ip netns del %s' % netns)
         # Verify OUTPUT:IN_PORT flood rules are exercised.
         self.wait_nonzero_packet_count_flow(
-            {u'in_port': self.port_map['port_1'], u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
-             table_id=self.FLOOD_TABLE, actions=[u'OUTPUT:IN_PORT'])
+            {u'in_port': self.port_map['port_1'],
+             u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
+            table_id=self.FLOOD_TABLE, actions=[u'OUTPUT:IN_PORT'])
         self.wait_nonzero_packet_count_flow(
             {u'in_port': self.port_map['port_1'], u'dl_dst': macvlan2_mac},
-             table_id=self.ETH_DST_TABLE, actions=[u'OUTPUT:IN_PORT'])
+            table_id=self.ETH_DST_TABLE, actions=[u'OUTPUT:IN_PORT'])
 
 
 class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
@@ -241,9 +243,13 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         db: 'influx'
 """
 
-    def test_untagged_influx_down(self):
-        self.ping_all_when_learned()
-        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
+    def _wait_error_shipping(self, timeout=10):
+        for _ in range(timeout):
+            log_content = open(self.env['gauge']['GAUGE_LOG']).read()
+            if re.search('error shipping', log_content):
+                return
+            time.sleep(1)
+        self.fail('Influx error not noted in gauge log: %s' % log_content)
 
     def test_untagged(self):
 
@@ -268,6 +274,104 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             time.sleep(2)
         server.shutdown()
         self.assertTrue(os.path.exists(influx_log))
+
+
+class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
+
+    def test_untagged(self):
+        self.ping_all_when_learned()
+        self._wait_error_shipping()
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
+
+
+class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
+
+    def get_gauge_config(self, faucet_config_file,
+                         monitor_stats_file,
+                         monitor_state_file,
+                         monitor_flow_table_file,
+                         influx_port):
+        """Build Gauge config."""
+        return """
+faucet_configs:
+    - %s
+watchers:
+    %s
+dbs:
+    stats_file:
+        type: 'text'
+        file: %s
+    state_file:
+        type: 'text'
+        file: %s
+    flow_file:
+        type: 'text'
+        file: %s
+    influx:
+        type: 'influx'
+        influx_db: 'faucet'
+        influx_host: '127.0.0.2'
+        influx_port: %u
+        influx_user: 'faucet'
+        influx_pwd: ''
+        influx_timeout: 5
+""" % (faucet_config_file,
+       self.get_gauge_watcher_config(),
+       monitor_stats_file,
+       monitor_state_file,
+       monitor_flow_table_file,
+       influx_port)
+
+    def test_untagged(self):
+        self.gauge_controller.cmd(
+            'route add 127.0.0.2 gw 127.0.0.1 lo')
+        self.ping_all_when_learned()
+        self._wait_error_shipping()
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
+
+
+class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
+
+    def get_gauge_watcher_config(self):
+        return """
+    port_stats:
+        dps: ['faucet-1']
+        type: 'port_stats'
+        interval: 2
+        db: 'influx'
+    port_state:
+        dps: ['faucet-1']
+        type: 'port_state'
+        interval: 2
+        db: 'influx'
+"""
+
+    def test_untagged(self):
+
+        influx_log = os.path.join(self.tmpdir, 'influx.log')
+
+        class PostHandler(SimpleHTTPRequestHandler):
+
+            def do_POST(self):
+                content_len = int(self.headers.getheader('content-length', 0))
+                content = self.rfile.read(content_len)
+                open(influx_log, 'a').write(content)
+                time.sleep(10)
+                return self.send_response(500)
+
+        server = HTTPServer(('', self.influx_port), PostHandler)
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+        self.ping_all_when_learned()
+        for _ in range(3):
+            if os.path.exists(influx_log):
+                break
+            time.sleep(2)
+        server.shutdown()
+        self.assertTrue(os.path.exists(influx_log))
+        self._wait_error_shipping()
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
 
 class FaucetNailedForwardingTest(FaucetUntaggedTest):
