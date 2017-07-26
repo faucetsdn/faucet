@@ -138,7 +138,7 @@ To install the latest pip package:
 .. code:: bash
 
   apt-get install python-dev
-  pip install ryu-faucet
+  pip install faucet
 
 To install the latest code from git, via pip:
 
