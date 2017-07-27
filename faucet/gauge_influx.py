@@ -158,6 +158,28 @@ time                    dp_name                 port_name       value
 
 
 class GaugeFlowTableInfluxDBLogger(GaugeFlowTablePoller, InfluxShipper):
+    """
+> use faucet
+Using database faucet
+> show series where table_id = '0' and in_port = '2'
+key
+---
+flow_byte_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=17,priority=9099,table_id=0,udp_dst=53
+flow_byte_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=6,priority=9098,table_id=0,tcp_dst=53
+flow_byte_count,dp_name=windscale-faucet-1,in_port=2,priority=9097,table_id=0
+flow_packet_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=17,priority=9099,table_id=0,udp_dst=53
+flow_packet_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=6,priority=9098,table_id=0,tcp_dst=53
+flow_packet_count,dp_name=windscale-faucet-1,in_port=2,priority=9097,table_id=0
+> select * from flow_byte_count where table_id = '0' and in_port = '2' and ip_proto = '17' and time > now() - 5m
+name: flow_byte_count
+time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_type in_port ip_proto ipv4_dst ipv6_dst priority table_id tcp_dst udp_dst value vlan_vid
+----                ------- -------            ------- ------- -------- ----------- ------- -------- -------- -------- -------- -------- ------- ------- ----- --------
+1501154797000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      9414
+1501154857000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      10554
+1501154917000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      10554
+1501154977000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      12164
+1501155037000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      12239
+"""
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTableInfluxDBLogger, self).update(rcv_time, dp_id, msg)
