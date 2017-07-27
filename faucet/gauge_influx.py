@@ -24,10 +24,10 @@ from requests.exceptions import ConnectionError, ReadTimeout
 
 
 try:
-    from gauge_pollers import GaugePortStateBaseLogger, GaugePortStatsPoller
+    from gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
     from valve_util import dpid_log
 except ImportError:
-    from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugePortStatsPoller
+    from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
     from faucet.valve_util import dpid_log
 
 
@@ -155,3 +155,36 @@ time                    dp_name                 port_name       value
         if not self.ship_points(points):
             self.logger.warn(
                 '%s error shipping port_stats points', dpid_log(dp_id))
+
+
+class GaugeFlowTableInfluxDBLogger(GaugeFlowTablePoller, InfluxShipper):
+
+    def update(self, rcv_time, dp_id, msg):
+        super(GaugeFlowTableInfluxDBLogger, self).update(rcv_time, dp_id, msg)
+        jsondict = msg.to_jsondict()
+        points = []
+        for stats_reply in jsondict['OFPFlowStatsReply']['body']:
+            stats = stats_reply['OFPFlowStats']
+            packet_count = int(stats['packet_count'])
+            byte_count = int(stats['byte_count'])
+            tags = {
+                'dp_name': self.dp.name,
+                'table_id': int(stats['table_id']),
+                'priority': int(stats['priority']),
+            }
+            oxm_matches = stats['match']['OFPMatch']['oxm_fields']
+            for oxm_match in oxm_matches:
+                oxm_tlv = oxm_match['OXMTlv']
+                mask = oxm_tlv['mask']
+                val = oxm_tlv['value']
+                field = oxm_tlv['field']
+                if mask is not None:
+                    val = '/'.join((val, mask))
+                tags[field] = val
+            points.append(
+                self.make_point(tags, rcv_time, 'flow_packet_count', packet_count))
+            points.append(
+                self.make_point(tags, rcv_time, 'flow_byte_count', byte_count))
+        if not self.ship_points(points):
+            self.logger.warn(
+                '%s error shipping flow_table points', dpid_log(dp_id))

@@ -3,12 +3,12 @@ import time
 
 try:
     from valve_util import dpid_log
-    from gauge_influx import GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger
+    from gauge_influx import GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger, GaugeFlowTableInfluxDBLogger
     from gauge_nsodbc import GaugeFlowTableDBLogger
     from gauge_pollers import GaugePortStateBaseLogger, GaugePortStatsPoller, GaugeFlowTablePoller
 except ImportError:
     from faucet.valve_util import dpid_log
-    from faucet.gauge_influx import GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger
+    from faucet.gauge_influx import GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger, GaugeFlowTableInfluxDBLogger
     from faucet.gauge_nsodbc import GaugeFlowTableDBLogger
     from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugePortStatsPoller, GaugeFlowTablePoller
 
@@ -32,6 +32,7 @@ def watcher_factory(conf):
         'flow_table': {
             'text': GaugeFlowTableLogger,
             'gaugedb': GaugeFlowTableDBLogger,
+            'influx': GaugeFlowTableInfluxDBLogger,
             },
     }
 
