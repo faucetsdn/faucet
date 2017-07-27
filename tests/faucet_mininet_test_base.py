@@ -487,6 +487,22 @@ dbs:
         influx_user: 'faucet'
         influx_pwd: ''
         influx_timeout: 5
+    couchdb:
+        type: gaugedb
+        gdb_type: nosql
+        nosql_db: couch
+        db_username: couch
+        db_password: 123
+        db_ip: 'localhost'
+        db_port: 5001
+        driver: 'couchdb'
+        views:
+            switch_view: '_design/switches/_view/switch'
+            match_view: '_design/flows/_view/match'
+            tag_view: '_design/tags/_view/tags'
+        switches_doc: 'switches_bak'
+        flows_doc: 'flows_bak'
+        db_update_counter: 2
 """ % (faucet_config_file,
        self.get_gauge_watcher_config(),
        monitor_stats_file,

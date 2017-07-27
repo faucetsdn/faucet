@@ -85,6 +85,7 @@ class ConnectionCouch(object):
         If the database exists, return the same and send a True flag.
         This way, a connection object will only be created once.
         """
+        # TODO: initial connection failure not handled
         try:
             self.database[db_name] = DatabaseCouch(self.conn.create(db_name))
             return self.database[db_name], False

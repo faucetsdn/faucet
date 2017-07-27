@@ -50,6 +50,17 @@ class WatcherConf(Conf):
         # influx password
         'influx_timeout': 10,
         # timeout on influx requests
+        'views': {},
+        'db_update_counter': 0,
+        'nosql_db': '',
+        'db_password': '',
+        'flows_doc': '',
+        'db_ip': '',
+        'db_port': 0,
+        'gdb_type': '',
+        'driver': '',
+        'db_username': '',
+        'switches_doc': '',
     }
 
     def __init__(self, _id, conf):

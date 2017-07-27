@@ -241,6 +241,11 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         type: 'port_state'
         interval: 2
         db: 'influx'
+    flow_table:
+        dps: ['faucet-1']
+        type: 'flow_table'
+        interval: 2
+        db: 'influx'
 """
 
     def _wait_error_shipping(self, timeout=10):
