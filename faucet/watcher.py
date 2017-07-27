@@ -1,5 +1,4 @@
 import logging
-import random
 import json
 import time
 
@@ -8,14 +7,15 @@ import numpy
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from requests.exceptions import ConnectionError, ReadTimeout
-from ryu.lib import hub
 
 try:
     from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
     from valve_util import dpid_log
+    from gauge_pollers import GaugePoller
 except ImportError:
     from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
     from faucet.valve_util import dpid_log
+    from faucet.gauge_pollers import GaugePoller
 
 
 def watcher_factory(conf):
@@ -198,109 +198,6 @@ time			dp_name			port_name	value
             if not self.ship_points(points):
                 self.logger.warning(
                     '%s error shipping port_state_reason points', dpid_log(dp_id))
-
-
-class GaugePoller(object):
-    """A ryu thread object for sending and receiving openflow stats requests.
-
-    The thread runs in a loop sending a request, sleeping then checking a
-    response was received before sending another request.
-
-    The methods send_req, update and no_response should be implemented by
-    subclasses.
-    """
-
-    def __init__(self, conf, logname):
-        self.dp = conf.dp
-        self.conf = conf
-        self.thread = None
-        self.reply_pending = False
-        self.interval = self.conf.interval
-        self.logger = logging.getLogger(
-            logname + '.{0}'.format(self.conf.type)
-            )
-        self.ryudp = None
-
-    def start(self, ryudp):
-        self.ryudp = ryudp
-        self.stop()
-        self.thread = hub.spawn(self)
-
-    def stop(self):
-        if self.running():
-            hub.kill(self.thread)
-            hub.joinall([self.thread])
-            self.thread = None
-
-    def __call__(self):
-        """Send request loop.
-
-        Delays the initial request for a random interval to reduce load.
-        Then sends a request to the datapath, waits the specified interval and
-        checks that a response has been received in a loop."""
-        #TODO: this should use a deterministic method instead of random
-        hub.sleep(random.randint(1, self.conf.interval))
-        while True:
-            self.send_req()
-            self.reply_pending = True
-            hub.sleep(self.conf.interval)
-            if self.reply_pending:
-                self.no_response()
-
-    def running(self):
-        return self.thread is not None
-
-    def send_req(self):
-        """Send a stats request to a datapath."""
-        raise NotImplementedError
-
-    def update(self, rcv_time, dp_id, msg):
-        """Handle the responses to requests.
-
-        Called when a reply to a stats request sent by this object is received
-        by the controller.
-
-        It should acknowledge the receipt by setting self.reply_pending to
-        false.
-
-        Arguments:
-        rcv_time -- the time the response was received
-        dp_id -- DP ID
-        msg -- the stats reply message
-        """
-        raise NotImplementedError
-
-    def no_response(self):
-        """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError
-
-    def _stat_port_name(self, msg, stat, dp_id):
-        if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
-            return 'CONTROLLER'
-        elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
-            return 'LOCAL'
-        elif stat.port_no in self.dp.ports:
-            return self.dp.ports[stat.port_no].name
-        self.logger.info('%s stats for unknown port %u',
-                         dpid_log(dp_id), stat.port_no)
-        return None
-
-    def _format_port_stats(self, delim, stat):
-        formatted_port_stats = []
-        for stat_name_list, stat_val in (
-                (('packets', 'out'), stat.tx_packets),
-                (('packets', 'in'), stat.rx_packets),
-                (('bytes', 'out'), stat.tx_bytes),
-                (('bytes', 'in'), stat.rx_bytes),
-                (('dropped', 'out'), stat.tx_dropped),
-                (('dropped', 'in'), stat.rx_dropped),
-                (('errors', 'in'), stat.rx_errors)):
-            # For openvswitch, unsupported statistics are set to
-            # all-1-bits (UINT64_MAX), skip reporting them
-            if stat_val != 2**64-1:
-                stat_name = delim.join(stat_name_list)
-                formatted_port_stats.append((stat_name, stat_val))
-        return formatted_port_stats
 
 
 class GaugePortStatsPoller(GaugePoller):
