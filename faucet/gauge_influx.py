@@ -20,7 +20,7 @@ import numpy
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
-from requests.exceptions import ConnectTimeout, ReadTimeout
+from requests.exceptions import ConnectionError, ReadTimeout
 
 
 class InfluxShipper(object):
@@ -31,6 +31,7 @@ class InfluxShipper(object):
     conf = None
 
     def ship_points(self, points):
+        """Make a connection to InfluxDB and ship points."""
         try:
             client = InfluxDBClient(
                 host=self.conf.influx_host,
@@ -40,21 +41,26 @@ class InfluxShipper(object):
                 database=self.conf.influx_db,
                 timeout=self.conf.influx_timeout)
             return client.write_points(points=points, time_precision='s')
-        except (ConnectionError, ConnectTimeout, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
+        except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
             return False
 
-    def make_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):
-        port_tags = {
-            'dp_name': dp_name,
-            'port_name': port_name,
-        }
+    def make_point(self, tags, rcv_time, stat_name, stat_val):
+        """Make an InfluxDB point."""
         # InfluxDB has only one integer type, int64. We are logging OF
         # stats that are uint64. Use float64 to prevent an overflow.
         # q.v. https://docs.influxdata.com/influxdb/v1.2/write_protocols/line_protocol_reference/
         point = {
             'measurement': stat_name,
-            'tags': port_tags,
+            'tags': tags,
             'time': int(rcv_time),
             # pylint: disable=no-member
             'fields': {'value': numpy.float64(stat_val)}}
         return point
+
+    def make_port_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):
+        """Make an InfluxDB point about a port measurement."""
+        port_tags = {
+            'dp_name': dp_name,
+            'port_name': port_name,
+        }
+        return self.make_point(port_tags, rcv_time, stat_name, stat_val)

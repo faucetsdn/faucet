@@ -113,7 +113,7 @@ time			dp_name			port_name	value
         if port_no in self.dp.ports:
             port_name = self.dp.ports[port_no].name
             points = [
-                self.make_point(
+                self.make_port_point(
                     self.dp.name, port_name, rcv_time, 'port_state_reason', reason)]
             if not self.ship_points(points):
                 self.logger.warning(
@@ -188,7 +188,7 @@ time			dp_name			port_name	value
             port_name = self._stat_port_name(msg, stat, dp_id)
             for stat_name, stat_val in self._format_port_stats('_', stat):
                 points.append(
-                    self.make_point(
+                    self.make_port_point(
                         self.dp.name, port_name, rcv_time, stat_name, stat_val))
         if not self.ship_points(points):
             self.logger.warn(
