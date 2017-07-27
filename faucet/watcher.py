@@ -3,14 +3,14 @@ import json
 import time
 
 try:
-    from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
     from valve_util import dpid_log
     from gauge_influx import InfluxShipper
+    from gauge_nsodbc import GaugeNsODBC
     from gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
 except ImportError:
-    from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
     from faucet.valve_util import dpid_log
     from faucet.gauge_influx import InfluxShipper
+    from faucet.gauge_nsodbc import GaugeNsODBC
     from faucet.gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
 
 
@@ -45,45 +45,6 @@ def watcher_factory(conf):
 
 def _rcv_time(rcv_time):
     return time.strftime('%b %d %H:%M:%S', time.localtime(rcv_time))
-
-
-class GaugeDBHelper(object):
-    """
-    Helper class for gaugedb operations
-
-    Inheritors must have a WatcherConf object as conf.
-    """
-    conf = None
-    db_update_counter = None
-    conn_string = None
-    switch_database = None
-    flow_database = None
-    conn = None
-
-    def setup(self):
-        self.conn_string = (
-            'driver={0};server={1};port={2};uid={3};pwd={4}'.format(
-                self.conf.driver, self.conf.db_ip, self.conf.db_port,
-                self.conf.db_username, self.conf.db_password))
-        nsodbc = nsodbc_factory()
-        self.conn = nsodbc.connect(self.conn_string)
-        self.switch_database, exists = self.conn.create(self.conf.switches_doc)
-        if not exists:
-            init_switch_db(self.switch_database)
-        self.flow_database, exists = self.conn.create(self.conf.flows_doc)
-        if not exists:
-            init_flow_db(self.flow_database)
-        self.db_update_counter = int(self.conf.db_update_counter)
-
-    def refresh_switchdb(self):
-        self.conn.delete(self.conf.switches_doc)
-        self.switch_database, _ = self.conn.create(self.conf.switches_doc)
-        init_switch_db(self.switch_database)
-
-    def refresh_flowdb(self):
-        self.conn.delete(self.conf.flows_doc)
-        self.flow_database, _ = self.conn.create(self.conf.flows_doc)
-        init_flow_db(self.flow_database)
 
 
 class GaugePortStateLogger(object):
@@ -258,7 +219,7 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
                     'msg: %s' % json.dumps(jsondict, indent=4))))
 
 
-class GaugeFlowTableDBLogger(GaugeFlowTablePoller, GaugeDBHelper):
+class GaugeFlowTableDBLogger(GaugeFlowTablePoller, GaugeNsODBC):
     """Periodically dumps the current datapath flow table as a yaml object.
 
     Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The

@@ -1,3 +1,5 @@
+"""Library for interacting with InfluxDB."""
+
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
 #
@@ -18,7 +20,7 @@ import numpy
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
-from requests.exceptions import ConnectTimeoutError, ReadTimeout
+from requests.exceptions import ConnectTimeout, ReadTimeout
 
 
 class InfluxShipper(object):
@@ -38,7 +40,7 @@ class InfluxShipper(object):
                 database=self.conf.influx_db,
                 timeout=self.conf.influx_timeout)
             return client.write_points(points=points, time_precision='s')
-        except (ConnectionError, ConnectTimeoutError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
+        except (ConnectionError, ConnectTimeout, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
             return False
 
     def make_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):

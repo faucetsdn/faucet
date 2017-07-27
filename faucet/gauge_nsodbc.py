@@ -1,0 +1,62 @@
+"""Library for interacting with ODBC databases."""
+
+# Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
+# Copyright (C) 2015--2017 The Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+try:
+    from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+except ImportError:
+    from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+
+
+class GaugeNsODBC(object):
+    """
+    Helper class for NSODBC operations
+
+    Inheritors must have a WatcherConf object as conf.
+    """
+    conf = None
+    db_update_counter = None
+    conn_string = None
+    switch_database = None
+    flow_database = None
+    conn = None
+
+    def setup(self):
+        self.conn_string = (
+            'driver={0};server={1};port={2};uid={3};pwd={4}'.format(
+                self.conf.driver, self.conf.db_ip, self.conf.db_port,
+                self.conf.db_username, self.conf.db_password))
+        nsodbc = nsodbc_factory()
+        self.conn = nsodbc.connect(self.conn_string)
+        self.switch_database, exists = self.conn.create(self.conf.switches_doc)
+        if not exists:
+            init_switch_db(self.switch_database)
+        self.flow_database, exists = self.conn.create(self.conf.flows_doc)
+        if not exists:
+            init_flow_db(self.flow_database)
+        self.db_update_counter = int(self.conf.db_update_counter)
+
+    def refresh_switchdb(self):
+        self.conn.delete(self.conf.switches_doc)
+        self.switch_database, _ = self.conn.create(self.conf.switches_doc)
+        init_switch_db(self.switch_database)
+
+    def refresh_flowdb(self):
+        self.conn.delete(self.conf.flows_doc)
+        self.flow_database, _ = self.conn.create(self.conf.flows_doc)
+        init_flow_db(self.flow_database)

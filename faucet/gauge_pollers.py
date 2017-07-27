@@ -1,3 +1,5 @@
+"""Library for polling dataplanes for statistics."""
+
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
 #
