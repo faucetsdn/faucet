@@ -115,6 +115,17 @@ vlans:
         self.prometheus_smoke_test()
 
 
+class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):
+
+    def test_untagged(self):
+        faucet_log = self.env['faucet']['FAUCET_LOG']
+        self.assertTrue(os.path.exists(faucet_log))
+        os.rename(faucet_log, faucet_log + '.old')
+        self.assertTrue(os.path.exists(faucet_log + '.old'))
+        self.flap_all_switch_ports()
+        self.assertTrue(os.path.exists(faucet_log))
+
+
 class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
 
     CONFIG = """
