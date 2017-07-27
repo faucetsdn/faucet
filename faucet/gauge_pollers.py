@@ -147,9 +147,6 @@ class GaugePortStatsPoller(GaugePoller):
         self.logger.info(
             'port stats request timed out for %s', self.dp.name)
 
-    def update(self, rcv_time, dp_id, msg):
-        raise NotImplementedError
-
 
 class GaugeFlowTablePoller(GaugePoller):
     """Periodically dumps the current datapath flow table as a yaml object.
@@ -172,5 +169,18 @@ class GaugeFlowTablePoller(GaugePoller):
         self.logger.info(
             'flow dump request timed out for %s', self.dp.name)
 
-    def update(self, rcv_time, dp_id, msg):
-        raise NotImplementedError
+
+class GaugePortStateBaseLogger(object):
+
+    def __init__(self, conf, logname):
+        self.dp = conf.dp
+        self.conf = conf
+        self.logger = logging.getLogger(
+            logname + '.{0}'.format(self.conf.type)
+            )
+
+    def start(self, ryudp):
+        pass
+
+    def stop(self):
+        pass

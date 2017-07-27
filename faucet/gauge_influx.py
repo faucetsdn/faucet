@@ -23,6 +23,14 @@ from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from requests.exceptions import ConnectionError, ReadTimeout
 
 
+try:
+    from gauge_pollers import GaugePortStateBaseLogger, GaugePortStatsPoller
+    from valve_util import dpid_log
+except ImportError:
+    from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugePortStatsPoller
+    from faucet.valve_util import dpid_log
+
+
 class InfluxShipper(object):
     """Convenience class for shipping values to InfluxDB.
 
@@ -64,3 +72,86 @@ class InfluxShipper(object):
             'port_name': port_name,
         }
         return self.make_point(port_tags, rcv_time, stat_name, stat_val)
+
+
+class GaugePortStateInfluxDBLogger(GaugePortStateBaseLogger, InfluxShipper):
+    """
+> use faucet
+Using database faucet
+> precision rfc3339
+> select * from port_state_reason where port_name = 'port1.0.1' order by time desc limit 10;
+name: port_state_reason
+-----------------------
+time                    dp_name                 port_name       value
+2017-02-21T02:12:29Z    windscale-faucet-1      port1.0.1       2
+2017-02-21T02:12:25Z    windscale-faucet-1      port1.0.1       2
+2016-07-27T22:05:08Z    windscale-faucet-1      port1.0.1       2
+2016-05-25T04:33:00Z    windscale-faucet-1      port1.0.1       2
+2016-05-25T04:32:57Z    windscale-faucet-1      port1.0.1       2
+2016-05-25T04:31:21Z    windscale-faucet-1      port1.0.1       2
+2016-05-25T04:31:18Z    windscale-faucet-1      port1.0.1       2
+2016-05-25T04:27:07Z    windscale-faucet-1      port1.0.1       2
+2016-05-25T04:27:04Z    windscale-faucet-1      port1.0.1       2
+2016-05-25T04:24:53Z    windscale-faucet-1      port1.0.1       2
+    """
+
+    def update(self, rcv_time, dp_id, msg):
+        super(GaugePortStateInfluxDBLogger, self).update(rcv_time, dp_id, msg)
+        reason = msg.reason
+        port_no = msg.desc.port_no
+        if port_no in self.dp.ports:
+            port_name = self.dp.ports[port_no].name
+            points = [
+                self.make_port_point(
+                    self.dp.name, port_name, rcv_time, 'port_state_reason', reason)]
+            if not self.ship_points(points):
+                self.logger.warning(
+                    '%s error shipping port_state_reason points', dpid_log(dp_id))
+
+
+class GaugePortStatsInfluxDBLogger(GaugePortStatsPoller, InfluxShipper):
+    """Periodically sends a port stats request to the datapath and parses
+       and outputs the response.
+
+> use faucet
+Using database faucet
+> show measurements
+name: measurements
+------------------
+bytes_in
+bytes_out
+dropped_in
+dropped_out
+errors_in
+packets_in
+packets_out
+port_state_reason
+> precision rfc3339
+> select * from packets_out where port_name = 'port1.0.1' order by time desc limit 10;
+name: packets_out
+-----------------
+time                    dp_name                 port_name       value
+2017-03-06T05:21:42Z    windscale-faucet-1      port1.0.1       76083431
+2017-03-06T05:21:33Z    windscale-faucet-1      port1.0.1       76081172
+2017-03-06T05:21:22Z    windscale-faucet-1      port1.0.1       76078727
+2017-03-06T05:21:12Z    windscale-faucet-1      port1.0.1       76076612
+2017-03-06T05:21:02Z    windscale-faucet-1      port1.0.1       76074546
+2017-03-06T05:20:52Z    windscale-faucet-1      port1.0.1       76072730
+2017-03-06T05:20:42Z    windscale-faucet-1      port1.0.1       76070528
+2017-03-06T05:20:32Z    windscale-faucet-1      port1.0.1       76068211
+2017-03-06T05:20:22Z    windscale-faucet-1      port1.0.1       76065982
+2017-03-06T05:20:12Z    windscale-faucet-1      port1.0.1       76063941
+    """
+
+    def update(self, rcv_time, dp_id, msg):
+        super(GaugePortStatsInfluxDBLogger, self).update(rcv_time, dp_id, msg)
+        points = []
+        for stat in msg.body:
+            port_name = self._stat_port_name(msg, stat, dp_id)
+            for stat_name, stat_val in self._format_port_stats('_', stat):
+                points.append(
+                    self.make_port_point(
+                        self.dp.name, port_name, rcv_time, stat_name, stat_val))
+        if not self.ship_points(points):
+            self.logger.warn(
+                '%s error shipping port_stats points', dpid_log(dp_id))

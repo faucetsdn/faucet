@@ -16,10 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 try:
+    from gauge_pollers import GaugeFlowTablePoller
     from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
 except ImportError:
+    from faucet.gauge_pollers import GaugeFlowTablePoller
     from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
 
 
@@ -60,3 +61,41 @@ class GaugeNsODBC(object):
         self.conn.delete(self.conf.flows_doc)
         self.flow_database, _ = self.conn.create(self.conf.flows_doc)
         init_flow_db(self.flow_database)
+
+
+class GaugeFlowTableDBLogger(GaugeFlowTablePoller, GaugeNsODBC):
+    """Periodically dumps the current datapath flow table to ODBC DB."""
+
+    def __init__(self, conf, logname):
+        super(GaugeFlowTableDBLogger, self).__init__(conf, logname)
+        self.setup()
+
+    def update(self, rcv_time, dp_id, msg):
+        super(GaugeFlowTableDBLogger, self).update(rcv_time, dp_id, msg)
+        jsondict = msg.to_jsondict()
+        if self.db_update_counter == self.conf.db_update_counter:
+            self.refresh_switchdb()
+            switch_object = {'_id': str(hex(self.dp.dp_id)),
+                             'data': {'flows': []}}
+            self.switch_database.insert_update_doc(switch_object,
+                                                   'data')
+            try:
+                rows = self.switch_database.get_docs(
+                    self.conf.views['switch_view'],
+                    key=str(hex(self.dp.dp_id)))
+                switch = rows[0]
+            except IndexError:
+                switch = None
+
+            if switch:
+                self.refresh_flowdb()
+                for f_msg in jsondict['OFPFlowStatsReply']['body']:
+                    flow_object = {'data': f_msg, 'tags': []}
+                    flow_id = self.flow_database.insert_update_doc(
+                        flow_object, '')
+                    switch.value['data']['flows'].append(flow_id)
+                    self.switch_database.insert_update_doc(
+                        switch.value, 'data')
+        self.db_update_counter -= 1
+        if not self.db_update_counter:
+            self.db_update_counter = self.conf.db_update_counter
