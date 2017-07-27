@@ -126,10 +126,8 @@ class GaugePortStatsLogger(GaugePortStatsPoller):
         return '\t'.join((rcv_time_str, stat_name, str(stat_val))) + '\n'
 
     def update(self, rcv_time, dp_id, msg):
-        # TODO: it may be worth while verifying this is the correct stats
-        # response before doing this
+        super(GaugePortStatsLogger, self).update(rcv_time, dp_id, msg)
         rcv_time_str = _rcv_time(rcv_time)
-        self.reply_pending = False
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat, dp_id)
             if port_name is not None:
@@ -180,9 +178,7 @@ time			dp_name			port_name	value
     """
 
     def update(self, rcv_time, dp_id, msg):
-        # TODO: it may be worth while verifying this is the correct stats
-        # response before doing this
-        self.reply_pending = False
+        super(GaugePortStatsInfluxDBLogger, self).update(rcv_time, dp_id, msg)
         points = []
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat, dp_id)
@@ -204,10 +200,8 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
     """
 
     def update(self, rcv_time, dp_id, msg):
-        # TODO: it may be worth while verifying this is the correct stats
-        # response before doing this
+        super(GaugeFlowTableLogger, self).update(rcv_time, dp_id, msg)
         rcv_time_str = _rcv_time(rcv_time)
-        self.reply_pending = False
         jsondict = msg.to_jsondict()
         with open(self.conf.file, 'a') as logfile:
             ref = '-'.join((self.dp.name, 'flowtables'))
@@ -220,21 +214,14 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
 
 
 class GaugeFlowTableDBLogger(GaugeFlowTablePoller, GaugeNsODBC):
-    """Periodically dumps the current datapath flow table as a yaml object.
-
-    Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
-    flow table is dumped as an OFFlowStatsReply message (in yaml format) that
-    matches all flows.
-    """
+    """Periodically dumps the current datapath flow table to ODBC DB."""
 
     def __init__(self, conf, logname):
         super(GaugeFlowTableDBLogger, self).__init__(conf, logname)
         self.setup()
 
     def update(self, rcv_time, dp_id, msg):
-        # TODO: it may be worth while verifying this is the correct stats
-        # response before doing this
-        self.reply_pending = False
+        super(GaugeFlowTableDBLogger, self).update(rcv_time, dp_id, msg)
         jsondict = msg.to_jsondict()
         if self.db_update_counter == self.conf.db_update_counter:
             self.refresh_switchdb()

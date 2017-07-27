@@ -95,7 +95,9 @@ class GaugePoller(object):
         dp_id -- DP ID
         msg -- the stats reply message
         """
-        raise NotImplementedError
+        # TODO: it may be worth while verifying this is the correct stats
+        # response before doing this
+        self.reply_pending = False
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
