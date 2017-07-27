@@ -126,3 +126,47 @@ class GaugePoller(object):
                 stat_name = delim.join(stat_name_list)
                 formatted_port_stats.append((stat_name, stat_val))
         return formatted_port_stats
+
+
+class GaugePortStatsPoller(GaugePoller):
+    """Periodically sends a port stats request to the datapath and parses
+       and outputs the response.
+    """
+
+    def send_req(self):
+        ofp = self.ryudp.ofproto
+        ofp_parser = self.ryudp.ofproto_parser
+        req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
+        self.ryudp.send_msg(req)
+
+    def no_response(self):
+        self.logger.info(
+            'port stats request timed out for %s', self.dp.name)
+
+    def update(self, rcv_time, dp_id, msg):
+        raise NotImplementedError
+
+
+class GaugeFlowTablePoller(GaugePoller):
+    """Periodically dumps the current datapath flow table as a yaml object.
+
+    Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
+    flow table is dumped as an OFFlowStatsReply message (in yaml format) that
+    matches all flows.
+    """
+
+    def send_req(self):
+        ofp = self.ryudp.ofproto
+        ofp_parser = self.ryudp.ofproto_parser
+        match = ofp_parser.OFPMatch()
+        req = ofp_parser.OFPFlowStatsRequest(
+            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
+            0, 0, match)
+        self.ryudp.send_msg(req)
+
+    def no_response(self):
+        self.logger.info(
+            'flow dump request timed out for %s', self.dp.name)
+
+    def update(self, rcv_time, dp_id, msg):
+        raise NotImplementedError

@@ -11,11 +11,11 @@ from requests.exceptions import ConnectionError, ReadTimeout
 try:
     from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
     from valve_util import dpid_log
-    from gauge_pollers import GaugePoller
+    from gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
 except ImportError:
     from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
     from faucet.valve_util import dpid_log
-    from faucet.gauge_pollers import GaugePoller
+    from faucet.gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
 
 
 def watcher_factory(conf):
@@ -31,11 +31,11 @@ def watcher_factory(conf):
             'influx': GaugePortStateInfluxDBLogger,
             },
         'port_stats': {
-            'text': GaugePortStatsPoller,
-            'influx': GaugePortStatsInfluxDBPoller,
+            'text': GaugePortStatsLogger,
+            'influx': GaugePortStatsInfluxDBLogger,
             },
         'flow_table': {
-            'text': GaugeFlowTablePoller,
+            'text': GaugeFlowTableLogger,
             'gaugedb': GaugeFlowTableDBLogger,
             },
     }
@@ -200,16 +200,7 @@ time			dp_name			port_name	value
                     '%s error shipping port_state_reason points', dpid_log(dp_id))
 
 
-class GaugePortStatsPoller(GaugePoller):
-    """Periodically sends a port stats request to the datapath and parses
-       and outputs the response.
-    """
-
-    def send_req(self):
-        ofp = self.ryudp.ofproto
-        ofp_parser = self.ryudp.ofproto_parser
-        req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
-        self.ryudp.send_msg(req)
+class GaugePortStatsLogger(GaugePortStatsPoller):
 
     def _update_line(self, rcv_time_str, stat_name, stat_val):
         return '\t'.join((rcv_time_str, stat_name, str(stat_val))) + '\n'
@@ -232,12 +223,9 @@ class GaugePortStatsPoller(GaugePoller):
                                 rcv_time_str, dp_port_name, stat_val))
                     logfile.writelines(log_lines)
 
-    def no_response(self):
-        self.logger.info(
-            'port stats request timed out for %s', self.dp.name)
 
+class GaugePortStatsInfluxDBLogger(GaugePortStatsPoller, InfluxShipper):
 
-class GaugePortStatsInfluxDBPoller(GaugePoller, InfluxShipper):
     """Periodically sends a port stats request to the datapath and parses
        and outputs the response.
 
@@ -271,12 +259,6 @@ time			dp_name			port_name	value
 2017-03-06T05:20:12Z	windscale-faucet-1	port1.0.1	76063941
     """
 
-    def send_req(self):
-        ofp = self.ryudp.ofproto
-        ofp_parser = self.ryudp.ofproto_parser
-        req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
-        self.ryudp.send_msg(req)
-
     def update(self, rcv_time, dp_id, msg):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
@@ -292,27 +274,14 @@ time			dp_name			port_name	value
             self.logger.warn(
                 '%s error shipping port_stats points', dpid_log(dp_id))
 
-    def no_response(self):
-        self.logger.info(
-            'port stats request timed out for %s', self.dp.name)
 
-
-class GaugeFlowTablePoller(GaugePoller):
+class GaugeFlowTableLogger(GaugeFlowTablePoller):
     """Periodically dumps the current datapath flow table as a yaml object.
 
     Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
     flow table is dumped as an OFFlowStatsReply message (in yaml format) that
     matches all flows.
     """
-
-    def send_req(self):
-        ofp = self.ryudp.ofproto
-        ofp_parser = self.ryudp.ofproto_parser
-        match = ofp_parser.OFPMatch()
-        req = ofp_parser.OFPFlowStatsRequest(
-            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
-            0, 0, match)
-        self.ryudp.send_msg(req)
 
     def update(self, rcv_time, dp_id, msg):
         # TODO: it may be worth while verifying this is the correct stats
@@ -329,12 +298,8 @@ class GaugeFlowTablePoller(GaugePoller):
                     'ref: %s' % ref,
                     'msg: %s' % json.dumps(jsondict, indent=4))))
 
-    def no_response(self):
-        self.logger.info(
-            'flow dump request timed out for %s', self.dp.name)
 
-
-class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
+class GaugeFlowTableDBLogger(GaugeFlowTablePoller, GaugeDBHelper):
     """Periodically dumps the current datapath flow table as a yaml object.
 
     Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
@@ -345,15 +310,6 @@ class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
     def __init__(self, conf, logname):
         super(GaugeFlowTableDBLogger, self).__init__(conf, logname)
         self.setup()
-
-    def send_req(self):
-        ofp = self.ryudp.ofproto
-        ofp_parser = self.ryudp.ofproto_parser
-        match = ofp_parser.OFPMatch()
-        req = ofp_parser.OFPFlowStatsRequest(
-            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
-            0, 0, match)
-        self.ryudp.send_msg(req)
 
     def update(self, rcv_time, dp_id, msg):
         # TODO: it may be worth while verifying this is the correct stats
@@ -386,7 +342,3 @@ class GaugeFlowTableDBLogger(GaugePoller, GaugeDBHelper):
         self.db_update_counter -= 1
         if not self.db_update_counter:
             self.db_update_counter = self.conf.db_update_counter
-
-    def no_response(self):
-        self.logger.info(
-            'flow dump request timed out for %s', self.dp.name)
