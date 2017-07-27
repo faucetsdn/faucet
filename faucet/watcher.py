@@ -2,19 +2,15 @@ import logging
 import json
 import time
 
-import numpy
-
-from influxdb import InfluxDBClient
-from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
-from requests.exceptions import ConnectionError, ReadTimeout
-
 try:
     from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
     from valve_util import dpid_log
+    from gauge_influx import InfluxShipper
     from gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
 except ImportError:
     from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
     from faucet.valve_util import dpid_log
+    from faucet.gauge_influx import InfluxShipper
     from faucet.gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
 
 
@@ -49,43 +45,6 @@ def watcher_factory(conf):
 
 def _rcv_time(rcv_time):
     return time.strftime('%b %d %H:%M:%S', time.localtime(rcv_time))
-
-
-class InfluxShipper(object):
-    """Convenience class for shipping values to influx db.
-
-    Inheritors must have a WatcherConf object as conf.
-    """
-    conf = None
-
-    def ship_points(self, points):
-        try:
-            client = InfluxDBClient(
-                host=self.conf.influx_host,
-                port=self.conf.influx_port,
-                username=self.conf.influx_user,
-                password=self.conf.influx_pwd,
-                database=self.conf.influx_db,
-                timeout=self.conf.influx_timeout)
-            return client.write_points(points=points, time_precision='s')
-        except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
-            return False
-
-    def make_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):
-        port_tags = {
-            'dp_name': dp_name,
-            'port_name': port_name,
-        }
-        # InfluxDB has only one integer type, int64. We are logging OF
-        # stats that are uint64. Use float64 to prevent an overflow.
-        # q.v. https://docs.influxdata.com/influxdb/v1.2/write_protocols/line_protocol_reference/
-        point = {
-            'measurement': stat_name,
-            'tags': port_tags,
-            'time': int(rcv_time),
-            # pylint: disable=no-member
-            'fields': {'value': numpy.float64(stat_val)}}
-        return point
 
 
 class GaugeDBHelper(object):
