@@ -18,7 +18,7 @@ import numpy
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
-from requests.exceptions import ReadTimeout
+from requests.exceptions import ConnectTimeoutError, ReadTimeout
 
 
 class InfluxShipper(object):
@@ -38,7 +38,7 @@ class InfluxShipper(object):
                 database=self.conf.influx_db,
                 timeout=self.conf.influx_timeout)
             return client.write_points(points=points, time_precision='s')
-        except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
+        except (ConnectionError, ConnectTimeoutError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
             return False
 
     def make_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):
