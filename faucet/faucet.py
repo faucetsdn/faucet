@@ -269,10 +269,8 @@ class Faucet(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def host_expire(self, _):
         """Handle a request expire host state in the controller."""
-        for dp_id, valve in list(self.valves.items()):
-            flowmods = valve.host_expire()
-            if flowmods:
-                self._send_flow_msgs(dp_id, flowmods)
+        for valve in list(self.valves.values()):
+            valve.host_expire()
             valve.update_metrics(self.metrics)
 
     @set_ev_cls(EventFaucetMetricUpdate, MAIN_DISPATCHER)
@@ -479,7 +477,7 @@ class Faucet(app_manager.RyuApp):
         """FAUCET API: return config tables for one Valve."""
         return self.valves[dp_id].dp.get_tables()
 
-    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)# pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def handle_flowremoved(self, ryu_event):
         msg = ryu_event.msg
@@ -487,6 +485,9 @@ class Faucet(app_manager.RyuApp):
         ofp = msg.datapath.ofproto
         reason = msg.reason
         valve = self.valves[ryu_dp.id]
+        valve.ofchannel_log([msg])
         if reason == ofp.OFPRR_IDLE_TIMEOUT:
-            valve.flow_timeout(msg.table_id, msg.match)
+            flowmods = valve.flow_timeout(msg.table_id, msg.match)
+            if flowmods:
+                self._send_flow_msgs(ryu_dp.id, flowmods)
 

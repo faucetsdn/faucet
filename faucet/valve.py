@@ -1122,14 +1122,11 @@ class Valve(object):
         Expire state from the host manager only; the switch does its own flow
         expiry.
         """
-        ofmsgs = []
         if not self.dp.running:
             return
         now = time.time()
         for vlan in list(self.dp.vlans.values()):
-            ofmsgs.extend(self.host_manager.expire_hosts_from_vlan(vlan, now))
-
-        return ofmsgs
+            self.host_manager.expire_hosts_from_vlan(vlan, now)
 
     def _get_eth_srcs_learned_on_port(self, dp, port_no):
         old_eth_srcs = []
@@ -1355,21 +1352,30 @@ class Valve(object):
             }
 
     def flow_timeout(self, table_id, match):
+        ofmsgs = []
         eth_src = None
         match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
-        if table_id == self.dp.eth_src_table:
+        if table_id == self.dp.eth_src_table or table_id == self.dp.eth_dst_table:
+            in_port = eth_src = eth_dst = None
             for field in match_oxm_fields:
                 if isinstance(field, dict):
                     value = field['OXMTlv']
                     if value['field'] == 'eth_src':
                         eth_src = value['value']
+                    if value['field'] == 'eth_dst':
+                        eth_dst = value['value']
                     if value['field'] == 'vlan_vid':
                         vid = value['value'] & ~ofp.OFPVID_PRESENT
                     if value['field'] == 'in_port':
                         in_port = value['value']
             if eth_src and vid and in_port:
                 vlan = self.dp.vlans[vid]
-                self.host_manager.src_rule_expire(vlan, in_port, eth_src)
+                ofmsgs.extend(
+                    self.host_manager.src_rule_expire(vlan, in_port, eth_src))
+            elif eth_dst and vid:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(self.host_manager.dst_rule_expire(vlan, eth_dst))
+        return ofmsgs
 
 
 class TfmValve(Valve):

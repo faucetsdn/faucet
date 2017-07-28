@@ -104,7 +104,6 @@ class ValveHostManager(object):
         return ofmsgs
 
     def expire_hosts_from_vlan(self, vlan, now):
-        ofmsgs = []
         expired_hosts = []
         for eth_src, host_cache_entry in list(vlan.host_cache.items()):
             if not host_cache_entry.permanent:
@@ -113,10 +112,7 @@ class ValveHostManager(object):
                     if self.hard_timeout_enabled or host_cache_entry.expired:
                         expired_hosts.append(eth_src)
                     else:
-                        self.logger.info(
-                            'refreshing host %s from vlan %u', eth_src, vlan.vid)
-                        ofmsgs.extend(self.learn_host_on_vlan_port(
-                            host_cache_entry.port, vlan, eth_src, False))
+                        host_cache_entry.cache_time = time.time()
         if expired_hosts:
             for eth_src in expired_hosts:
                 del vlan.host_cache[eth_src]
@@ -125,8 +121,6 @@ class ValveHostManager(object):
             self.logger.info(
                 '%u recently active hosts on vlan %u',
                 self.hosts_learned_on_vlan_count(vlan), vlan.vid)
-
-        return ofmsgs
 
     def hosts_learned_on_vlan_count(self, vlan):
         return len(vlan.host_cache)
@@ -180,7 +174,7 @@ class ValveHostManager(object):
         else:
             src_rule_idle_timeout = learn_timeout
             src_rule_hard_timeout = 0
-            dst_rule_idle_timeout = learn_timeout
+            dst_rule_idle_timeout = learn_timeout + 2
 
         ofmsgs.append(self.valve_flowmod(
             self.eth_src_table,
@@ -226,7 +220,28 @@ class ValveHostManager(object):
         return ofmsgs
 
     def src_rule_expire(self, vlan, in_port, eth_src):
+        """When a src rule expires, the host is probably inactive or active in
+        receiving but not sending. We mark just mark the host as expired
+        """
+        ofmsgs = []
         if eth_src in vlan.host_cache:
             host_cache_entry = vlan.host_cache[eth_src]
             if host_cache_entry.port.number == in_port:
                 host_cache_entry.expired = True
+                self.logger.info('expired src_rule for host %s' % eth_src)
+        return ofmsgs
+
+    def dst_rule_expire(self, vlan, eth_dst):
+        """Expiring a dst rule may indicate that the host is actively sending
+        traffic but not receving. If the src rule not yet expires, we reinstall
+        host rules.
+        """
+        ofmsgs = []
+        if eth_dst in vlan.host_cache:
+            host_cache_entry = vlan.host_cache[eth_dst]
+            if not host_cache_entry.expired:
+                ofmsgs.extend(self.learn_host_on_vlan_port(
+                    host_cache_entry.port, vlan, eth_dst, False))
+                self.logger.info(
+                    'refreshing host %s from vlan %u' % (eth_dst, vlan.vid))
+        return ofmsgs
