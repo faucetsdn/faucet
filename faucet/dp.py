@@ -195,6 +195,7 @@ class DP(Conf):
         'advertise_interval': int,
         'proactive_learn': bool,
         'pipeline_config_dir': str,
+        'hard_timeout_enabled': bool,
     }
 
 
