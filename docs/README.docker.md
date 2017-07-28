@@ -13,6 +13,9 @@ This directory contains three docker files: **Dockerfile**,
 
 See README_install.rst and README_config.rst for configuration options.
 
+** In particular, see vendor specific docs for additional files that may be
+necessary in /etc/ryu/faucet to configure the switch pipeline. **
+
 ### Official builds
 
 We provide official automated builds on Docker Hub so that you can run Faucet
