@@ -1290,7 +1290,8 @@ dbs:
 
     def _ip_neigh(self, host, ipa, ip_ver):
         neighbors = host.cmd('ip -%u neighbor show %s' % (ip_ver, ipa))
-        if neighbors:
+        neighbors_fields = neighbors.split()
+        if len(neighbors_fields) >= 5:
             return neighbors.split()[4]
         return None
 
