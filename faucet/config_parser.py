@@ -26,6 +26,7 @@ try:
     from vlan import VLAN
     from watcher_conf import WatcherConf
 except ImportError:
+    from faucet import config_parser_util
     from faucet.acl import ACL
     from faucet.dp import DP
     from faucet.meter import Meter
