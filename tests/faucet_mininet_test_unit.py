@@ -481,8 +481,8 @@ acls:
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
-        first_host.setMAC("0e:00:00:00:01:01")
-        second_host.setMAC("0e:00:00:00:02:02")
+        first_host.setMAC('0e:00:00:00:01:01')
+        second_host.setMAC('0e:00:00:00:02:02')
         self.one_ipv4_ping(
             first_host, second_host.IP(), require_host_learned=False)
         self.one_ipv4_ping(
