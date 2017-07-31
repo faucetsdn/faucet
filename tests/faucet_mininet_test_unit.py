@@ -277,6 +277,15 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             value = float(value_field.split('=')[1])
             ts_name_fields = ts_name.split(',')
             self.assertGreater(len(ts_name_fields), 1)
+            label_values = {}
+            for label_value in ts_name_fields[1:]:
+                label, value = label_value.split('=')
+                label_values[label] = value
+            if ts_name.startswith('flow'):
+                self.assertTrue('inst_count' in label_values,msg=point_line)
+                if 'vlan_vid' in label_values:
+                    self.assertEquals(
+                        int(label_values['vlan']), int(value) ^ 0x1000)
 
     def test_untagged(self):
 

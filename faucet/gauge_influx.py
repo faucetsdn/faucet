@@ -191,10 +191,12 @@ time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_t
             stats = stats_reply['OFPFlowStats']
             packet_count = int(stats['packet_count'])
             byte_count = int(stats['byte_count'])
+            instructions = stats['instructions']
             tags = {
                 'dp_name': self.dp.name,
                 'table_id': int(stats['table_id']),
                 'priority': int(stats['priority']),
+                'inst_count': len(instructions),
             }
             oxm_matches = stats['match']['OFPMatch']['oxm_fields']
             for oxm_match in oxm_matches:
@@ -205,7 +207,7 @@ time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_t
                 if mask is not None:
                     val = '/'.join((val, mask))
                 tags[field] = val
-                if field == 'vlan_vid':
+                if field == 'vlan_vid' and mask is None:
                     tags['vlan'] = devid_present(int(val))
             points.append(
                 self.make_point(tags, rcv_time, 'flow_packet_count', packet_count))
