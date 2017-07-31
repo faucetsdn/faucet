@@ -267,6 +267,17 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             time.sleep(1)
         self.fail('Influx error not noted in gauge log: %s' % log_content)
 
+    def _verify_influx_log(self, influx_log):
+        self.assertTrue(os.path.exists(influx_log))
+        for point_line in open(influx_log).readlines():
+            point_fields = point_line.strip().split()
+            self.assertEquals(3, len(point_fields), msg=point_fields)
+            ts_name, value_field, timestamp_str = point_fields
+            timestamp = int(timestamp_str)
+            value = float(value_field.split('=')[1])
+            ts_name_fields = ts_name.split(',')
+            self.assertGreater(len(ts_name_fields), 1)
+
     def test_untagged(self):
 
         influx_log = os.path.join(self.tmpdir, 'influx.log')
@@ -289,7 +300,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 break
             time.sleep(2)
         server.shutdown()
-        self.assertTrue(os.path.exists(influx_log))
+        self._verify_influx_log(influx_log)
 
 
 class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
