@@ -17,26 +17,28 @@
 # limitations under the License.
 
 try:
+    import config_parser_util
     from acl import ACL
     from dp import DP
+    from meter import Meter
     from port import Port
-    from vlan import VLAN
     from router import Router
+    from vlan import VLAN
     from watcher_conf import WatcherConf
-    import config_parser_util
 except ImportError:
     from faucet.acl import ACL
     from faucet.dp import DP
+    from faucet.meter import Meter
     from faucet.port import Port
-    from faucet.vlan import VLAN
     from faucet.router import Router
+    from faucet.vlan import VLAN
     from faucet.watcher_conf import WatcherConf
-    from faucet import config_parser_util
 
 
 V2_TOP_CONFS = (
     'acls',
     'dps',
+    'meters',
     'routers',
     'vlans')
 
@@ -113,7 +115,8 @@ def _dp_add_vlan(vid_dp, dp, vlan):
     vid_dp[vlan.vid].add(dp.name)
 
 
-def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
+def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
+                  routers_conf, vlans_conf):
     dps = []
     vid_dp = {}
     for identifier, dp_conf in list(dps_conf.items()):
@@ -128,10 +131,12 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, routers_conf, vlans_conf):
             acls = []
             for acl_ident, acl_conf in list(acls_conf.items()):
                 acls.append((acl_ident, ACL(acl_ident, acl_conf)))
-            routers = []
             for router_ident, router_conf in list(routers_conf.items()):
                 router = Router(router_ident, router_conf)
                 dp.add_router(router_ident, router)
+            meters = []
+            for meter_ident, meter_conf in list(meters_conf.items()):
+                meters.append((meter_ident, meter(meter_ident, meter_conf)))
             ports_conf = dp_conf.pop('interfaces', {})
             ports = {}
             # as users can config port vlan by using vlan name, we store vid in
@@ -182,6 +187,7 @@ def _config_parser_v2(config_file, logname):
         logger,
         top_confs['acls'],
         top_confs['dps'],
+        top_confs['meters'],
         top_confs['routers'],
         top_confs['vlans'])
     return (config_hashes, dps)
