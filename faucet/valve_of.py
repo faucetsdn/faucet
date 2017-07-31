@@ -164,6 +164,17 @@ def vid_present(vid):
     return vid | ofp.OFPVID_PRESENT
 
 
+def devid_present(vid):
+    """Return VLAN VID without VID_PRESENT flag set.
+
+    Args:
+        vid (int): VLAN VID with VID_PRESENT.
+    Returns:
+        int: VLAN VID.
+    """
+    return vid ^ ofp.OFPVID_PRESENT
+
+
 def set_vlan_vid(vlan_vid):
     """Set VLAN VID with VID_PRESENT flag set.
 
