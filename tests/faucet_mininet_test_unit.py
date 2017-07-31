@@ -267,6 +267,26 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             time.sleep(1)
         self.fail('Influx error not noted in gauge log: %s' % log_content)
 
+    def _verify_influx_log(self, influx_log):
+        self.assertTrue(os.path.exists(influx_log))
+        for point_line in open(influx_log).readlines():
+            point_fields = point_line.strip().split()
+            self.assertEquals(3, len(point_fields), msg=point_fields)
+            ts_name, value_field, timestamp_str = point_fields
+            timestamp = int(timestamp_str)
+            value = float(value_field.split('=')[1])
+            ts_name_fields = ts_name.split(',')
+            self.assertGreater(len(ts_name_fields), 1)
+            label_values = {}
+            for label_value in ts_name_fields[1:]:
+                label, value = label_value.split('=')
+                label_values[label] = value
+            if ts_name.startswith('flow'):
+                self.assertTrue('inst_count' in label_values,msg=point_line)
+                if 'vlan_vid' in label_values:
+                    self.assertEquals(
+                        int(label_values['vlan']), int(value) ^ 0x1000)
+
     def test_untagged(self):
 
         influx_log = os.path.join(self.tmpdir, 'influx.log')
@@ -289,7 +309,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 break
             time.sleep(2)
         server.shutdown()
-        self.assertTrue(os.path.exists(influx_log))
+        self._verify_influx_log(influx_log)
 
 
 class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
@@ -461,8 +481,8 @@ acls:
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
-        first_host.setMAC("0e:00:00:00:01:01")
-        second_host.setMAC("0e:00:00:00:02:02")
+        first_host.setMAC('0e:00:00:00:01:01')
+        second_host.setMAC('0e:00:00:00:02:02')
         self.one_ipv4_ping(
             first_host, second_host.IP(), require_host_learned=False)
         self.one_ipv4_ping(
@@ -2206,6 +2226,58 @@ vlans:
         self.one_ipv6_ping(first_host, 'fc00::1:2')
         for host in first_host, second_host:
             self.one_ipv6_controller_ping(host)
+
+
+class FaucetTaggedICMPv6ACLTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+acls:
+    1:
+        - rule:
+            dl_type: 0x86dd
+            vlan_vid: 100
+            ip_proto: 58
+            icmpv6_type: 135
+            ipv6_nd_target: "fc00::1:2/112"
+            actions:
+                output:
+                    port: b2
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    100:
+        description: "tagged"
+        faucet_vips: ["fc00::1:254/112"]
+"""
+
+    CONFIG = """
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+                acl_in: 1
+            b2:
+                number: %(port_2)d
+                tagged_vlans: [100]
+                description: "b2"
+            %(port_3)d:
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_icmpv6_acl_match(self):
+        first_host, second_host = self.net.hosts[0:2]
+        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
+        self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
+        self.one_ipv6_ping(first_host, 'fc00::1:2')
+        self.wait_nonzero_packet_count_flow(
+            {u'ipv6_nd_target': u'fc00::1:0/ffff:ffff:ffff:ffff:ffff:ffff:ffff:0'},
+            table_id=self.PORT_ACL_TABLE)
 
 
 class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):
