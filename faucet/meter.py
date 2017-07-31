@@ -18,6 +18,8 @@
 
 from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.ofproto import ofproto_v1_3 as ofp
+from ryu.ofproto import ofproto_v1_3_parser as parser
+
 
 try:
     from conf import Conf
@@ -27,14 +29,14 @@ except ImportError:
 
 class NoopDP(object):
 
+    id = 0
     msg = None
 
-    def send_msg(self, _dp, msg):
+    def send_msg(self, msg):
         self.msg = msg
-        return
 
-    def set_xid(self, _):
-        return 
+    def set_xid(self, msg):
+        msg.xid = 0
 
 
 class Meter(Conf):
@@ -57,6 +59,7 @@ class Meter(Conf):
         self.update(conf)
         self._id = _id
         noop_dp = NoopDP()
+        noop_dp.ofproto = ofp
+        noop_dp.ofproto_parser = parser
         ofctl.mod_meter_entry(noop_dp, self.entry, ofp.OFPMC_ADD)
         self.entry_msg = noop_dp.msg
-        print(self.entry_msg)
