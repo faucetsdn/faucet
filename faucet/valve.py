@@ -265,7 +265,7 @@ class Valve(object):
             eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
             nw_proto, nw_src, nw_dst)
         if (table_id not in (
-            self.dp.port_acl_table, self.dp.vlan_acl_table, ofp.OFPTT_ALL)):
+                self.dp.port_acl_table, self.dp.vlan_acl_table, ofp.OFPTT_ALL)):
             assert table_id in self.TABLE_MATCH_TYPES,\
                 '%u table not registered' % table_id
             for match_type in match_dict:
@@ -949,7 +949,7 @@ class Valve(object):
         Args:
             in_port (int): port packet was received on.
             vlan_vid (int): VLAN VID of port packet was received on.
-            data: Raw packet data.
+            data (bytes): Raw packet data.
             pkt (ryu.lib.packet.packet): parsed packet received.
         Returns:
             PacketMeta instance.
