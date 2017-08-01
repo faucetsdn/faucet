@@ -73,7 +73,8 @@ def valve_factory(dp):
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
-    def __init__(self, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
+    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
+        self.data = data
         self.pkt = pkt
         self.eth_pkt = eth_pkt
         self.port = port
@@ -942,13 +943,14 @@ class Valve(object):
 
         return ofmsgs
 
-    def _parse_rcv_packet(self, in_port, vlan_vid, pkt):
+    def parse_rcv_packet(self, in_port, vlan_vid, data, pkt):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
             in_port (int): port packet was received on.
             vlan_vid (int): VLAN VID of port packet was received on.
-            pkt (ryu.lib.packet.packet): packet received.
+            data: Raw packet data.
+            pkt (ryu.lib.packet.packet): parsed packet received.
         Returns:
             PacketMeta instance.
         """
@@ -957,7 +959,7 @@ class Valve(object):
         eth_dst = eth_pkt.dst
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
-        return PacketMeta(pkt, eth_pkt, port, vlan, eth_src, eth_dst)
+        return PacketMeta(data, pkt, eth_pkt, port, vlan, eth_src, eth_dst)
 
     def _port_learn_ban_rules(self, pkt_meta):
         """Limit learning to a maximum configured on this port.
@@ -1066,7 +1068,7 @@ class Valve(object):
                         dpid=dpid, vlan=vlan.vid,
                         port=port_num, n=i).set(mac_int)
 
-    def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
+    def rcv_packet(self, dp_id, valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
         The packet may be sent to us also in response to FAUCET
@@ -1076,19 +1078,16 @@ class Valve(object):
         Args:
             dp_id (int): datapath ID.
             valves (dict): all datapaths, indexed by datapath ID.
-            in_port (int): port packet was received on.
-            vlan_vid (int): VLAN VID of port packet was received on.
-            pkt (ryu.lib.packet.packet): packet received.
+            pkt_meta (PacketMeta): packet for control plane.
         Return:
             list: OpenFlow messages, if any.
         """
-        if not self._known_up_dpid_and_port(dp_id, in_port):
+        if not self._known_up_dpid_and_port(dp_id, pkt_meta.port.number):
             return []
-        if not vlan_vid in self.dp.vlans:
-            self.dpid_log('Packet_in for unexpected VLAN %s' % (vlan_vid))
+        if not pkt_meta.vlan.vid in self.dp.vlans:
+            self.dpid_log('Packet_in for unexpected VLAN %s' % (pkt_meta.vlan.vid))
             return []
 
-        pkt_meta = self._parse_rcv_packet(in_port, vlan_vid, pkt)
         ofmsgs = []
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):

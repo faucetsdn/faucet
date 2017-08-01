@@ -37,18 +37,6 @@ IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
 
 
-def mac_addr_is_unicast(mac_addr):
-    """Returns True if mac_addr is a unicast Ethernet address.
-
-    Args:
-        mac_addr (str): MAC address.
-    Returns:
-        bool: True if a unicast Ethernet address.
-    """
-    msb = mac_addr.split(':')[0]
-    return msb[-1] in '02468aAcCeE'
-
-
 def parse_pkt(pkt):
     """Return parsed Ethernet packet.
 
@@ -60,21 +48,20 @@ def parse_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 
 
-def parse_packet_in_pkt(msg, parse_ip):
+def parse_packet_in_pkt(data, parse_ip):
     pkt = None
     vlan_vid = None
 
-    data = msg.data
     if not parse_ip:
         # Ethernet header plus VLAN
-        data = msg.data[:(14 + 4)]
+        data = data[:(14 + 4)]
 
     try:
         pkt = packet.Packet(data)
     except stream_parser.StreamParser.TooSmallException:
         return (pkt, vlan_vid)
 
-    eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
+    eth_pkt = parse_pkt(pkt)
     eth_type = eth_pkt.ethertype
     # Packet ins, can only come when a VLAN header has already been pushed
     # (ie. when we have progressed past the VLAN table). This gaurantees
@@ -85,6 +72,18 @@ def parse_packet_in_pkt(msg, parse_ip):
         vlan_proto = pkt.get_protocols(vlan.vlan)[0]
         vlan_vid = vlan_proto.vid
     return (pkt, vlan_vid)
+
+
+def mac_addr_is_unicast(mac_addr):
+    """Returns True if mac_addr is a unicast Ethernet address.
+
+    Args:
+        mac_addr (str): MAC address.
+    Returns:
+        bool: True if a unicast Ethernet address.
+    """
+    msb = mac_addr.split(':')[0]
+    return msb[-1] in '02468aAcCeE'
 
 
 def build_pkt_header(vid, eth_src, eth_dst, dl_type):
