@@ -64,8 +64,13 @@ def parse_packet_in_pkt(msg):
     pkt = None
     vlan_vid = None
 
+    max_header = build_pkt_header(
+        1, mac.BROADCAST_STR, mac.BROADCAST_STR, ether.ETH_TYPE_IP)
+    max_header.serialize()
+    data = msg.data[:len(max_header.data)]
+
     try:
-        pkt = packet.Packet(msg.data)
+        pkt = packet.Packet(data=data)
     except stream_parser.StreamParser.TooSmallException:
         return (pkt, vlan_vid)
 
