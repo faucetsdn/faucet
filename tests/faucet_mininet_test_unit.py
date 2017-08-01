@@ -126,6 +126,27 @@ class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):
         self.assertTrue(os.path.exists(faucet_log))
 
 
+class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+meters:
+    1:
+        entry:
+            flags: "KBPS"
+            meter_id: 1
+            bands:
+                [
+                    {
+                        type: "DROP",
+                        rate: 1000
+                    }
+                ]
+vlans:
+    100:
+        description: "untagged"
+"""
+
+
 class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
 
     CONFIG = """
