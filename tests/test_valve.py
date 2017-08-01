@@ -142,12 +142,13 @@ vlans:
 
     def rcv_packet(self, port, vid, match):
         pkt = build_pkt(match)
+        pkt.serialize()
+        pkt_meta = self.valve.parse_rcv_packet(
+            port, vid, pkt.data, pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             dp_id=1,
             valves={},
-            in_port=port,
-            vlan_vid=vid,
-            pkt=pkt
+            pkt_meta=pkt_meta,
             )
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
 
