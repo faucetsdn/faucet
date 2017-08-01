@@ -321,11 +321,13 @@ class Faucet(app_manager.RyuApp):
         valve = self.valves[dp_id]
         valve.ofchannel_log([msg])
 
-        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg)
+        in_port = msg.match['in_port']
+        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg, valve.L3)
         if pkt is None or vlan_vid is None:
+            self.logger.info(
+                'unparseable packet from %s port %s', dpid_log(dp_id), in_port)
             return
 
-        in_port = msg.match['in_port']
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
             dpid=hex(dp_id)).inc()

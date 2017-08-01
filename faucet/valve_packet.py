@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import ipaddress
 
 from ryu.lib import mac
@@ -60,17 +61,19 @@ def parse_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 
 
-def parse_packet_in_pkt(msg):
+def parse_packet_in_pkt(msg, parse_l3):
     pkt = None
     vlan_vid = None
 
-    max_header = build_pkt_header(
-        1, mac.BROADCAST_STR, mac.BROADCAST_STR, ether.ETH_TYPE_IP)
-    max_header.serialize()
-    data = msg.data[:len(max_header.data)]
+    data = msg.data
+    if not parse_l3:
+        max_header = build_pkt_header(
+            1, mac.BROADCAST_STR, mac.BROADCAST_STR, ether.ETH_TYPE_IPV6)
+        max_header.serialize()
+        data = msg.data[:len(max_header.data)]
 
     try:
-        pkt = packet.Packet(data=data)
+        pkt = packet.Packet(data)
     except stream_parser.StreamParser.TooSmallException:
         return (pkt, vlan_vid)
 

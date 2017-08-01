@@ -92,6 +92,7 @@ class Valve(object):
 
     TABLE_MATCH_TYPES = {}
     DEC_TTL = True
+    L3 = False
 
     def __init__(self, dp, logname, *args, **kwargs):
         self.dp = dp
@@ -935,8 +936,9 @@ class Valve(object):
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
         # Add FIB entries, if routing is active.
-        for route_manager in list(self.route_manager_by_ipv.values()):
-            ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
+        if self.L3:
+            for route_manager in list(self.route_manager_by_ipv.values()):
+                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         return ofmsgs
 
@@ -1096,7 +1098,8 @@ class Valve(object):
                     pkt_meta.port.number,
                     pkt_meta.vlan.vid))
 
-            ofmsgs.extend(self.control_plane_handler(pkt_meta))
+            if self.L3:
+                ofmsgs.extend(self.control_plane_handler(pkt_meta))
 
         if self._rate_limit_packet_ins():
             return ofmsgs
@@ -1301,6 +1304,7 @@ class Valve(object):
         for faucet_vip in faucet_vips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
             ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
+            self.L3 = True
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
