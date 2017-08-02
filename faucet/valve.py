@@ -73,13 +73,31 @@ def valve_factory(dp):
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
-    def __init__(self, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
+    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
+        self.data = data
         self.pkt = pkt
         self.eth_pkt = eth_pkt
         self.port = port
         self.vlan = vlan
         self.eth_src = eth_src
         self.eth_dst = eth_dst
+
+    def reparse(self, max_len):
+        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(
+            self.data, max_len)
+        if pkt is None or vlan_vid is None:
+            return
+        self.pkt = pkt
+        self.eth_pkt = valve_packet.parse_pkt(self.pkt)
+
+    def reparse_all(self):
+        self.reparse(0)
+
+    def reparse_ip(self, eth_type, payload=0):
+        ip_header = valve_packet.build_pkt_header(
+            1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
+        ip_header.serialize()
+        self.reparse(len(ip_header.data) + payload)
 
 
 class Valve(object):
@@ -92,6 +110,7 @@ class Valve(object):
 
     TABLE_MATCH_TYPES = {}
     DEC_TTL = True
+    L3 = False
 
     def __init__(self, dp, logname, *args, **kwargs):
         self.dp = dp
@@ -263,7 +282,7 @@ class Valve(object):
             eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
             nw_proto, nw_src, nw_dst)
         if (table_id not in (
-            self.dp.port_acl_table, self.dp.vlan_acl_table, ofp.OFPTT_ALL)):
+                self.dp.port_acl_table, self.dp.vlan_acl_table, ofp.OFPTT_ALL)):
             assert table_id in self.TABLE_MATCH_TYPES,\
                 '%u table not registered' % table_id
             for match_type in match_dict:
@@ -843,6 +862,7 @@ class Valve(object):
         if (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac or
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for route_manager in list(self.route_manager_by_ipv.values()):
+                pkt_meta.reparse_ip(route_manager.ETH_TYPE)
                 ofmsgs = route_manager.control_plane_handler(pkt_meta)
                 if ofmsgs:
                     return ofmsgs
@@ -935,18 +955,20 @@ class Valve(object):
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
         # Add FIB entries, if routing is active.
-        for route_manager in list(self.route_manager_by_ipv.values()):
-            ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
+        if self.L3:
+            for route_manager in list(self.route_manager_by_ipv.values()):
+                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         return ofmsgs
 
-    def _parse_rcv_packet(self, in_port, vlan_vid, pkt):
+    def parse_rcv_packet(self, in_port, vlan_vid, data, pkt):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
             in_port (int): port packet was received on.
             vlan_vid (int): VLAN VID of port packet was received on.
-            pkt (ryu.lib.packet.packet): packet received.
+            data (bytes): Raw packet data.
+            pkt (ryu.lib.packet.packet): parsed packet received.
         Returns:
             PacketMeta instance.
         """
@@ -955,7 +977,7 @@ class Valve(object):
         eth_dst = eth_pkt.dst
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
-        return PacketMeta(pkt, eth_pkt, port, vlan, eth_src, eth_dst)
+        return PacketMeta(data, pkt, eth_pkt, port, vlan, eth_src, eth_dst)
 
     def _port_learn_ban_rules(self, pkt_meta):
         """Limit learning to a maximum configured on this port.
@@ -1064,7 +1086,7 @@ class Valve(object):
                         dpid=dpid, vlan=vlan.vid,
                         port=port_num, n=i).set(mac_int)
 
-    def rcv_packet(self, dp_id, valves, in_port, vlan_vid, pkt):
+    def rcv_packet(self, dp_id, valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
         The packet may be sent to us also in response to FAUCET
@@ -1074,19 +1096,16 @@ class Valve(object):
         Args:
             dp_id (int): datapath ID.
             valves (dict): all datapaths, indexed by datapath ID.
-            in_port (int): port packet was received on.
-            vlan_vid (int): VLAN VID of port packet was received on.
-            pkt (ryu.lib.packet.packet): packet received.
+            pkt_meta (PacketMeta): packet for control plane.
         Return:
             list: OpenFlow messages, if any.
         """
-        if not self._known_up_dpid_and_port(dp_id, in_port):
+        if not self._known_up_dpid_and_port(dp_id, pkt_meta.port.number):
             return []
-        if not vlan_vid in self.dp.vlans:
-            self.dpid_log('Packet_in for unexpected VLAN %s' % (vlan_vid))
+        if not pkt_meta.vlan.vid in self.dp.vlans:
+            self.dpid_log('Packet_in for unexpected VLAN %s' % (pkt_meta.vlan.vid))
             return []
 
-        pkt_meta = self._parse_rcv_packet(in_port, vlan_vid, pkt)
         ofmsgs = []
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
@@ -1096,7 +1115,8 @@ class Valve(object):
                     pkt_meta.port.number,
                     pkt_meta.vlan.vid))
 
-            ofmsgs.extend(self.control_plane_handler(pkt_meta))
+            if self.L3:
+                ofmsgs.extend(self.control_plane_handler(pkt_meta))
 
         if self._rate_limit_packet_ins():
             return ofmsgs
@@ -1301,6 +1321,7 @@ class Valve(object):
         for faucet_vip in faucet_vips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
             ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
+            self.L3 = True
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
