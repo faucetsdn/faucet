@@ -802,6 +802,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
         if vlan.ip_in_vip_subnet(src_ip):
             if ipv6_pkt.nxt != inet.IPPROTO_ICMPV6:
                 return ofmsgs
+            if ipv6_pkt.ext_hdrs:
+                return ofmsgs
             pkt_meta.reparse_all()
             icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
             if icmpv6_pkt is None:

@@ -93,11 +93,11 @@ class PacketMeta(object):
     def reparse_all(self):
         self.reparse(0)
 
-    def reparse_ip(self, eth_type):
+    def reparse_ip(self, eth_type, payload=0):
         ip_header = valve_packet.build_pkt_header(
             1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
         ip_header.serialize()
-        self.reparse(len(ip_header.data))
+        self.reparse(len(ip_header.data) + payload)
 
 
 class Valve(object):
