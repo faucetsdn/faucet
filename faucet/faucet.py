@@ -322,7 +322,11 @@ class Faucet(app_manager.RyuApp):
         valve.ofchannel_log([msg])
 
         in_port = msg.match['in_port']
-        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg.data, False)
+        max_len = 0
+        # eth/VLAN header only if no L3
+        if not valve.L3:
+            max_len = 14 + 4
+        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg.data, max_len)
         if pkt is None or vlan_vid is None:
             self.logger.info(
                 'unparseable packet from %s port %s', dpid_log(dp_id), in_port)

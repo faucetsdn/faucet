@@ -661,13 +661,17 @@ class ValveIPv4RouteManager(ValveRouteManager):
             max_len=self.MAX_LEN))
         return ofmsgs
 
-    def _control_plane_arp_handler(self, pkt_meta, arp_pkt):
+    def _control_plane_arp_handler(self, pkt_meta):
+        ofmsgs = []
+        pkt_meta.reparse_ip(ether.ETH_TYPE_ARP)
+        arp_pkt = pkt_meta.pkt.get_protocol(arp.arp)
+        if arp_pkt is None:
+            return ofmsgs
         src_ip = ipaddress.IPv4Address(btos(arp_pkt.src_ip))
         dst_ip = ipaddress.IPv4Address(btos(arp_pkt.dst_ip))
         vlan = pkt_meta.vlan
-        opcode = arp_pkt.opcode
-        ofmsgs = []
         if vlan.from_connected_to_vip(src_ip, dst_ip):
+            opcode = arp_pkt.opcode
             port = pkt_meta.port
             eth_src = pkt_meta.eth_src
             if opcode == arp.ARP_REQUEST:
@@ -691,15 +695,19 @@ class ValveIPv4RouteManager(ValveRouteManager):
                     'ARP response %s (%s)', src_ip, eth_src)
         return ofmsgs
 
-    def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt, icmp_pkt):
+    def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt):
+        ofmsgs = []
         src_ip = ipaddress.IPv4Address(btos(ipv4_pkt.src))
         dst_ip = ipaddress.IPv4Address(btos(ipv4_pkt.dst))
         vlan = pkt_meta.vlan
-        icmpv4_type = icmp_pkt.type
-        ofmsgs = []
         if vlan.from_connected_to_vip(src_ip, dst_ip):
-            if (icmpv4_type == icmp.ICMP_ECHO_REQUEST and
-                    pkt_meta.eth_dst == vlan.faucet_mac):
+            if pkt_meta.eth_dst != vlan.faucet_mac:
+                return ofmsgs
+            pkt_meta.reparse_all()
+            icmp_pkt = pkt_meta.pkt.get_protocol(icmp.icmp)
+            if icmp_pkt is None:
+                return ofmsgs
+            if icmp_pkt.type == icmp.ICMP_ECHO_REQUEST:
                 port = pkt_meta.port
                 vid = self._vlan_vid(vlan, port)
                 echo_reply = valve_packet.echo_reply(
@@ -710,17 +718,14 @@ class ValveIPv4RouteManager(ValveRouteManager):
         return ofmsgs
 
     def control_plane_handler(self, pkt_meta):
-        arp_pkt = pkt_meta.pkt.get_protocol(arp.arp)
-        if arp_pkt is not None:
-            return self._control_plane_arp_handler(pkt_meta, arp_pkt)
         ipv4_pkt = pkt_meta.pkt.get_protocol(ipv4.ipv4)
-        if ipv4_pkt is not None:
-            icmp_pkt = pkt_meta.pkt.get_protocol(icmp.icmp)
-            if icmp_pkt is not None:
-                icmp_replies = self._control_plane_icmp_handler(
-                    pkt_meta, ipv4_pkt, icmp_pkt)
-                if icmp_replies:
-                    return icmp_replies
+        if ipv4_pkt is None:
+            return self._control_plane_arp_handler(pkt_meta)
+        else:
+            icmp_replies = self._control_plane_icmp_handler(
+                pkt_meta, ipv4_pkt)
+            if icmp_replies:
+                return icmp_replies
             dst_ip = ipaddress.IPv4Address(btos(ipv4_pkt.dst))
             vlan = pkt_meta.vlan
             return self._proactive_resolve_neighbor([vlan], dst_ip)
@@ -787,13 +792,17 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 inst=controller_and_flood))
         return ofmsgs
 
-    def _control_plane_icmpv6_handler(self, pkt_meta, ipv6_pkt, icmpv6_pkt):
+    def _control_plane_icmpv6_handler(self, pkt_meta, ipv6_pkt):
         vlan = pkt_meta.vlan
         src_ip = ipaddress.IPv6Address(btos(ipv6_pkt.src))
         dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
-        icmpv6_type = icmpv6_pkt.type_
         ofmsgs = []
         if vlan.ip_in_vip_subnet(src_ip):
+            pkt_meta.reparse_all()
+            icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
+            if icmpv6_pkt is None:
+                return ofmsgs
+            icmpv6_type = icmpv6_pkt.type_
             port = pkt_meta.port
             vid = self._vlan_vid(vlan, port)
             eth_src = pkt_meta.eth_src
@@ -846,12 +855,10 @@ class ValveIPv6RouteManager(ValveRouteManager):
         pkt = pkt_meta.pkt
         ipv6_pkt = pkt.get_protocol(ipv6.ipv6)
         if ipv6_pkt is not None:
-            icmpv6_pkt = pkt.get_protocol(icmpv6.icmpv6)
-            if icmpv6_pkt is not None:
-                icmp_replies = self._control_plane_icmpv6_handler(
-                    pkt_meta, ipv6_pkt, icmpv6_pkt)
-                if icmp_replies:
-                    return icmp_replies
+            icmp_replies = self._control_plane_icmpv6_handler(
+                pkt_meta, ipv6_pkt)
+            if icmp_replies:
+                return icmp_replies
             dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
             return self._proactive_resolve_neighbor([pkt_meta.vlan], dst_ip)
         return []

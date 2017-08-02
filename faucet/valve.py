@@ -82,6 +82,23 @@ class PacketMeta(object):
         self.eth_src = eth_src
         self.eth_dst = eth_dst
 
+    def reparse(self, max_len):
+        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(
+            self.data, max_len)
+        if pkt is None or vlan_vid is None:
+            return
+        self.pkt = pkt
+        self.eth_pkt = valve_packet.parse_pkt(self.pkt)
+
+    def reparse_all(self):
+        self.reparse(0)
+
+    def reparse_ip(self, eth_type):
+        ip_header = valve_packet.build_pkt_header(
+            1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
+        ip_header.serialize()
+        self.reparse(len(ip_header.data))
+
 
 class Valve(object):
     """Generates the messages to configure a datapath as a l2 learning switch.
@@ -844,15 +861,8 @@ class Valve(object):
         """
         if (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac or
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
-            # Reparse the packet deeper if looks like it might be
-            # destined for us.
-            pkt, vlan_vid = valve_packet.parse_packet_in_pkt(
-                pkt_meta.data, True)
-            if pkt is None or vlan_vid is None:
-                return
-            pkt_meta = self.parse_rcv_packet(
-                pkt_meta.port.number, vlan_vid, pkt_meta.data, pkt)
             for route_manager in list(self.route_manager_by_ipv.values()):
+                pkt_meta.reparse_ip(route_manager.ETH_TYPE)
                 ofmsgs = route_manager.control_plane_handler(pkt_meta)
                 if ofmsgs:
                     return ofmsgs

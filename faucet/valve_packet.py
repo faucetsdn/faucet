@@ -48,13 +48,12 @@ def parse_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 
 
-def parse_packet_in_pkt(data, parse_ip):
+def parse_packet_in_pkt(data, max_len):
     pkt = None
     vlan_vid = None
 
-    if not parse_ip:
-        # Ethernet header plus VLAN
-        data = data[:(14 + 4)]
+    if max_len:
+        data = data[:max_len]
 
     try:
         pkt = packet.Packet(data)
