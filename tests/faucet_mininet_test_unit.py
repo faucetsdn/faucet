@@ -1578,6 +1578,17 @@ vlans:
         self.one_ipv4_controller_ping(first_host)
         self.verify_controller_fping(first_host, self.FAUCET_VIPV4)
 
+    def test_fuzz_controller(self):
+        first_host = self.net.hosts[0]
+        self.one_ipv4_controller_ping(first_host)
+        packets = 1000
+        fuzz_cmd = (
+            'python -c \"from scapy.all import * ;'
+            'scapy.all.send(IP(dst=\'%s\')/'
+            'fuzz(%s()),count=%u)\"' % (first_host.IP(), fuzz_class, packets))
+        print first_host.cmd(fuzz_cmd)
+        self.one_ipv6_controller_ping(first_host)
+
 
 class FaucetUntaggedIPv6RATest(FaucetUntaggedTest):
 
