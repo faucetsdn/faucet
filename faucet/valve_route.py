@@ -808,11 +808,14 @@ class ValveIPv6RouteManager(ValveRouteManager):
             # Explicitly ignore messages to all notes.
             if dst_ip == valve_packet.IPV6_ALL_NODES:
                 return ofmsgs
-            pkt_meta.reparse_all()
+            pkt_meta.reparse_ip(self.ETH_TYPE, payload=32)
             icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
             if icmpv6_pkt is None:
                 return ofmsgs
             icmpv6_type = icmpv6_pkt.type_
+            if (ipv6_pkt.hop_limit != valve_packet.IPV6_MAX_HOP_LIM and
+                    icmpv6_type != icmpv6.ICMPV6_ECHO_REQUEST):
+                return ofmsgs
             port = pkt_meta.port
             vid = self._vlan_vid(vlan, port)
             eth_src = pkt_meta.eth_src
