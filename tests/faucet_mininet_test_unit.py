@@ -126,14 +126,15 @@ class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):
         self.assertTrue(os.path.exists(faucet_log))
 
 
+@unittest.skip('meters not widely supported')
 class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 meters:
-    1:
+    dropsome:
+        meter_id: 1
         entry:
             flags: "KBPS"
-            meter_id: 1
             bands:
                 [
                     {
@@ -144,6 +145,50 @@ meters:
 vlans:
     100:
         description: "untagged"
+"""
+
+
+@unittest.skip('meters not widely supported')
+class FaucetUntaggedApplyMeterTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+meters:
+    lossymeter:
+        meter_id: 1
+        entry:
+            flags: "KBPS"
+            bands:
+                [
+                    {
+                        type: "DROP",
+                        rate: 1000
+                    }
+                ]
+acls:
+    lossyacl:
+        - rule:
+            actions:
+                meter: lossymeter
+                allow: 1
+vlans:
+    100:
+        description: "untagged"
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                acl_in: lossyacl
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
 """
 
 

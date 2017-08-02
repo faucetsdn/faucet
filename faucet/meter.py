@@ -46,20 +46,28 @@ class Meter(Conf):
     entry_msg = None
 
     defaults = {
+        'meter_id': None,
         'entry': None,
     }
 
     defaults_type = {
         'entry': dict,
+        'meter_id': int,
     }
 
     def __init__(self, _id, conf=None):
         if conf is None:
             conf = {}
+        assert(conf['entry'])
+        assert(conf['entry']['flags'])
+        assert(conf['entry']['bands'])
         self.update(conf)
         self._id = _id
+        conf['entry']['meter_id'] = self.meter_id
         noop_dp = NoopDP()
         noop_dp.ofproto = ofp
         noop_dp.ofproto_parser = parser
         ofctl.mod_meter_entry(noop_dp, self.entry, ofp.OFPMC_ADD)
+        noop_dp.msg.xid = None
+        noop_dp.msg.datapath = None
         self.entry_msg = noop_dp.msg

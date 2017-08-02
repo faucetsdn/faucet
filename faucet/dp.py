@@ -74,6 +74,7 @@ class DP(Conf):
     advertise_interval = None
     proactive_learn = None
     pipeline_config_dir = None
+    meters = {}
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -393,11 +394,14 @@ class DP(Conf):
                 port.mirror = mirror_destination_port.number
                 mirror_destination_port.mirror_destination = True
 
-        def resolve_port_names_in_acls():
+        def resolve_names_in_acls():
             for acl in list(self.acls.values()):
                 for rule_conf in acl.rules:
                     for attrib, attrib_value in list(rule_conf.items()):
                         if attrib == 'actions':
+                            if 'meter' in attrib_value:
+                                meter_name = attrib_value['meter']
+                                assert(meter_name in self.meters)
                             if 'mirror' in attrib_value:
                                 port_name = attrib_value['mirror']
                                 port_no = resolve_port_no(port_name)
@@ -437,7 +441,7 @@ class DP(Conf):
 
         resolve_stack_dps()
         resolve_mirror_destinations()
-        resolve_port_names_in_acls()
+        resolve_names_in_acls()
         resolve_vlan_names_in_routers()
 
     def get_native_vlan(self, port_num):

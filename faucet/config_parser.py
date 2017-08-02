@@ -135,9 +135,8 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
             for router_ident, router_conf in list(routers_conf.items()):
                 router = Router(router_ident, router_conf)
                 dp.add_router(router_ident, router)
-            meters = []
             for meter_ident, meter_conf in list(meters_conf.items()):
-                meters.append((meter_ident, Meter(meter_ident, meter_conf)))
+                dp.meters[meter_ident] = Meter(meter_ident, meter_conf)
             ports_conf = dp_conf.pop('interfaces', {})
             ports = {}
             # as users can config port vlan by using vlan name, we store vid in
