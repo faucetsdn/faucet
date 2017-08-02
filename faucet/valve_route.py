@@ -703,6 +703,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
         if vlan.from_connected_to_vip(src_ip, dst_ip):
             if pkt_meta.eth_dst != vlan.faucet_mac:
                 return ofmsgs
+            if ipv4_pkt.proto != inet.IPPROTO_ICMP:
+                return ofmsgs
             pkt_meta.reparse_all()
             icmp_pkt = pkt_meta.pkt.get_protocol(icmp.icmp)
             if icmp_pkt is None:
