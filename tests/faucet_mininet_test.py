@@ -70,6 +70,7 @@ EXTERNAL_DEPENDENCIES = (
      r'fping: Version (\d+\.\d+)', "3.13"),
     ('rdisc6', ['-V'], 'ndisc6',
      r'ndisc6.+tool (\d+\.\d+)', "1.0"),
+    ('scapy', [], 'Usage: scapy', '', 0),
 )
 
 # Must pass with 0 lint errors

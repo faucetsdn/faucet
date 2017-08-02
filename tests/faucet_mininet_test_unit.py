@@ -15,6 +15,7 @@ from SimpleHTTPServer import SimpleHTTPRequestHandler
 from BaseHTTPServer import HTTPServer
 
 import ipaddress
+import scapy.all
 import yaml
 
 from mininet.net import Mininet
@@ -1705,6 +1706,24 @@ vlans:
         self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
         self.one_ipv6_controller_ping(first_host)
         self.verify_controller_fping(first_host, self.FAUCET_VIPV6)
+
+    def test_fuzz_controller(self):
+        first_host = self.net.hosts[0]
+        self.add_host_ipv6_address(first_host, 'fc00::1:1/112')
+        self.one_ipv6_controller_ping(first_host)
+        fuzz_success = False
+        packets = 1000
+        for fuzz_class in dir(scapy.all):
+            if fuzz_class.startswith('ICMPv6'):
+                fuzz_cmd = (
+                    'python -c \"from scapy.all import * ;'
+                    'scapy.all.send(IPv6(dst=\'%s\')/'
+                    'fuzz(%s()),count=%u)\"' % ('fc00::1:254', fuzz_class, packets))
+                if re.search('Sent %u packets' % packets, first_host.cmd(fuzz_cmd)):
+                    print fuzz_class
+                    fuzz_success = True
+        self.assertTrue(fuzz_success)
+        self.one_ipv6_controller_ping(first_host)
 
 
 class FaucetTaggedAndUntaggedTest(FaucetTest):
