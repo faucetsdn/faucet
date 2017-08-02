@@ -795,11 +795,13 @@ class ValveIPv6RouteManager(ValveRouteManager):
         return ofmsgs
 
     def _control_plane_icmpv6_handler(self, pkt_meta, ipv6_pkt):
-        vlan = pkt_meta.vlan
+        ofmsgs = []
         src_ip = ipaddress.IPv6Address(btos(ipv6_pkt.src))
         dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
-        ofmsgs = []
+        vlan = pkt_meta.vlan
         if vlan.ip_in_vip_subnet(src_ip):
+            if ipv6_pkt.nxt != inet.IPPROTO_ICMPV6:
+                return ofmsgs
             pkt_meta.reparse_all()
             icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
             if icmpv6_pkt is None:
@@ -841,8 +843,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                             'Responded to RS solicit from %s (%s) to VIP %s',
                             src_ip, eth_src, vip)
                         break
-            elif vlan.from_connected_to_vip(src_ip, dst_ip):
-                if (icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST and
+            elif icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST:
+                if (vlan.from_connected_to_vip(src_ip, dst_ip) and
                         pkt_meta.eth_dst == vlan.faucet_mac):
                     icmpv6_echo_reply = valve_packet.icmpv6_echo_reply(
                         vid, vlan.faucet_mac, eth_src,
