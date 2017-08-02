@@ -168,7 +168,7 @@ acls:
     lossyacl:
         - rule:
             actions:
-                meter: lossymeter 
+                meter: lossymeter
                 allow: 1
 vlans:
     100:
