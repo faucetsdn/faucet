@@ -9,4 +9,3 @@ prometheus_client
 pylint
 pyyaml
 requests
-scapy
