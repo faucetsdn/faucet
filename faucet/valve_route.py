@@ -800,9 +800,13 @@ class ValveIPv6RouteManager(ValveRouteManager):
         dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
         vlan = pkt_meta.vlan
         if vlan.ip_in_vip_subnet(src_ip):
+            # Must be ICMPv6 and have no extended headers.
             if ipv6_pkt.nxt != inet.IPPROTO_ICMPV6:
                 return ofmsgs
             if ipv6_pkt.ext_hdrs:
+                return ofmsgs
+            # Explicitly ignore messages to all notes.
+            if dst_ip == valve_packet.IPV6_ALL_NODES:
                 return ofmsgs
             pkt_meta.reparse_all()
             icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
