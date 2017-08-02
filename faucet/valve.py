@@ -426,6 +426,8 @@ class Valve(object):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []
         ofmsgs.extend(self.valve_flowdel(ofp.OFPTT_ALL))
+        if self.dp.meters:
+            ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
             ofmsgs.append(valve_of.groupdel())
         return ofmsgs
@@ -494,7 +496,7 @@ class Valve(object):
             acl_allow_inst = valve_of.goto_table(self.dp.eth_src_table)
             for rule_conf in self.dp.acls[acl_num].rules:
                 acl_match, acl_inst = valve_acl.build_acl_entry(
-                    rule_conf, acl_allow_inst, vlan_vid=vid)
+                    rule_conf, acl_allow_inst, self.dp.meters, vlan_vid=vid)
                 ofmsgs.append(self.valve_flowmod(
                     self.dp.vlan_acl_table,
                     acl_match,
@@ -528,8 +530,11 @@ class Valve(object):
     def _add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
         ofmsgs = []
-        ofmsgs.extend(self._add_packetin_meter())
         ofmsgs.extend(self._delete_all_valve_flows())
+        ofmsgs.extend(self._add_packetin_meter())
+        if self.dp.meters:
+            for meter in list(self.dp.meters.values()):
+                ofmsgs.append(meter.entry_msg)
         ofmsgs.extend(self._add_default_drop_flows())
         ofmsgs.extend(self._add_vlan_flood_flow())
         return ofmsgs
@@ -655,7 +660,7 @@ class Valve(object):
             acl_rule_priority = self.dp.highest_priority
             for rule_conf in self.dp.acls[acl_num].rules:
                 acl_match, acl_inst = valve_acl.build_acl_entry(
-                    rule_conf, acl_allow_inst, port_num)
+                    rule_conf, acl_allow_inst, self.dp.meters, port_num)
                 ofmsgs.append(self.valve_flowmod(
                     self.dp.port_acl_table,
                     acl_match,

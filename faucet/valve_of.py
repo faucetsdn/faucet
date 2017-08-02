@@ -109,6 +109,10 @@ def is_groupadd(ofmsg):
     return False
 
 
+def apply_meter(meter_id):
+    return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
+
+
 def apply_actions(actions):
     """Return instruction that applies action list.
 
@@ -402,6 +406,14 @@ def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
         ofp.OFPGC_DELETE,
         0,
         group_id)
+
+
+def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):
+    return parser.OFPMeterMod(
+        datapath,
+        ofp.OFPMC_DELETE,
+        0,
+        meter_id)
 
 
 def controller_pps_meteradd(datapath=None, pps=0):

@@ -45,7 +45,7 @@ def rewrite_vlan(output_dict):
 
 # TODO: change this, maybe this can be rewritten easily
 # possibly replace with a class for ACLs
-def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
+def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=None):
     acl_inst = []
     match_dict = {}
     for attrib, attrib_value in list(rule_conf.items()):
@@ -58,6 +58,9 @@ def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
                 allow_specified = True
                 if attrib_value['allow'] == 1:
                     allow = True
+            if 'meter' in attrib_value:
+                meter_name = attrib_value['meter']
+                acl_inst.append(valve_of.apply_meter(meters[meter_name].meter_id))
             if 'mirror' in attrib_value:
                 port_no = attrib_value['mirror']
                 acl_inst.append(
