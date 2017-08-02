@@ -116,9 +116,11 @@ class DP(Conf):
         'stack': None,
         # stacking config, when cross connecting multiple DPs
         'ignore_learn_ins': 3,
-        # Ignore every approx nth packet for learning. 2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
+        # Ignore every approx nth packet for learning.
+        #2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
         # This limits control plane activity when learning new hosts rapidly.
-        # Flooding will still be done by the dataplane even with a packet is ignored for learning purposes.
+        # Flooding will still be done by the dataplane even with a packet
+        # is ignored for learning purposes.
         'drop_broadcast_source_address': True,
         # By default drop packets with a broadcast source address
         'drop_spoofed_faucet_mac': True,
@@ -401,7 +403,7 @@ class DP(Conf):
                         if attrib == 'actions':
                             if 'meter' in attrib_value:
                                 meter_name = attrib_value['meter']
-                                assert(meter_name in self.meters)
+                                assert meter_name in self.meters
                             if 'mirror' in attrib_value:
                                 port_name = attrib_value['mirror']
                                 port_no = resolve_port_no(port_name)
