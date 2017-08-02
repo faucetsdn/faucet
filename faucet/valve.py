@@ -607,7 +607,7 @@ class Valve(object):
             if port_status:
                 ofmsgs.extend(self.port_add(dp_id, port_no))
             return ofmsgs
-        self.dpid_warn('Unhandled port status %s for port %u' % (
+        self.dpid_warning('Unhandled port status %s for port %u' % (
             reason, port_no))
         return []
 
@@ -650,7 +650,7 @@ class Valve(object):
         """
         if not self._ignore_dpid(dp_id):
             self.dp.running = False
-            self.dpid_warn('datapath down')
+            self.dpid_warning('datapath down')
 
     def _port_add_acl(self, port_num):
         ofmsgs = []
