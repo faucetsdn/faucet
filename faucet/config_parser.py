@@ -67,22 +67,22 @@ def dp_parser(config_file, logname):
     return config_hashes, dps
 
 
-def _get_vlan_by_identifier(dp_id, v_identifier, vlans):
-    '''v_identifier can be a name or anything used to identify a vlan.
-    v_identifier will be used as vid when vid is omitted in vlan config'''
-    vid = v_identifier
+def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
+    """v_identifier can be a name or anything used to identify a vlan.
+       v_identifier will be used as vid when vid is omitted in vlan config
+    """
+    if vlan_ident in vlans:
+        return vlans[vlan_ident]
     for vlan in list(vlans.values()):
-        if v_identifier == vlan._id:
-            vid = vlan.vid
-            break
-    if isinstance(vid, str):
-        try:
-            vid = int(vid, 0)
-        except:
-            assert False, 'vid value (%s) is invalid' % vid
+        if int(vlan_ident) == vlan.vid:
+            return vlan
+    try:
+        vid = int(vlan_ident, 0)
+    except:
+        assert False, 'VLAN VID value (%s) is invalid' % vid
 
-    vlan = vlans.setdefault(v_identifier, VLAN(vid, dp_id))
-    return vlan
+    return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
+
 
 def port_parser(dp_id, p_identifier, port_conf, vlans):
     port = Port(p_identifier, port_conf)
@@ -127,8 +127,8 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
             dp_id = dp.dp_id
 
             vlans = {}
-            for vid, vlan_conf in list(vlans_conf.items()):
-                vlans[vid] = VLAN(vid, dp_id, vlan_conf)
+            for vlan_ident, vlan_conf in list(vlans_conf.items()):
+                vlans[vlan_ident] = VLAN(vlan_ident, dp_id, vlan_conf)
             acls = []
             for acl_ident, acl_conf in list(acls_conf.items()):
                 acls.append((acl_ident, ACL(acl_ident, acl_conf)))
@@ -145,13 +145,13 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
                 port = port_parser(dp_id, port_num, port_conf, vlans)
                 ports[port_num] = port
                 if port.native_vlan is not None:
-                    vlan = vlans[port.native_vlan]
+                    vlan = _get_vlan_by_identifier(dp_id, port.native_vlan, vlans)
                     port.native_vlan = vlan
                     _dp_add_vlan(vid_dp, dp, vlan)
                 if port.tagged_vlans is not None:
                     tagged_vlans = []
-                    for v_identifier in port.tagged_vlans:
-                        vlan = vlans[v_identifier]
+                    for vlan_ident in port.tagged_vlans:
+                        vlan = _get_vlan_by_identifier(dp_id, vlan_ident, vlans)
                         tagged_vlans.append(vlan)
                         _dp_add_vlan(vid_dp, dp, vlan)
                     port.tagged_vlans = tagged_vlans

@@ -2530,15 +2530,17 @@ class FaucetUntaggedIPv4InterVLANRouteTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
     100:
-        description: "100"
         faucet_vips: ["10.100.0.254/24"]
-    200:
-        description: "200"
+    vlanb:
+        vid: 200
         faucet_vips: ["10.200.0.254/24"]
         faucet_mac: "%s"
+    vlanc:
+        vid: 100
+        description: "not used"
 routers:
     router-1:
-        vlans: [100, 200]
+        vlans: [100, vlanb]
 """ % FAUCET_MAC2
 
     CONFIG = """
@@ -2549,13 +2551,13 @@ routers:
                 native_vlan: 100
                 description: "b1"
             %(port_2)d:
-                native_vlan: 200
+                native_vlan: vlanb
                 description: "b2"
             %(port_3)d:
-                native_vlan: 200
+                native_vlan: vlanb
                 description: "b3"
             %(port_4)d:
-                native_vlan: 200
+                native_vlan: vlanb
                 description: "b4"
 """
 

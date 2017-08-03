@@ -116,7 +116,6 @@ class VLAN(Conf):
         self.dp_id = dp_id
         self.update(conf)
         self.set_defaults()
-        self._id = _id
         self.tagged = []
         self.untagged = []
         self.dyn_host_cache = {}
@@ -192,7 +191,7 @@ class VLAN(Conf):
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
         ports = ','.join(port_list)
-        return 'VLAN vid:%s ports:%s' % (self.vid, ports)
+        return 'VLAN %s vid:%s ports:%s' % (self.name, self.vid, ports)
 
     def __repr__(self):
         return self.__str__()
