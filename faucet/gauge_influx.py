@@ -155,7 +155,7 @@ time                    dp_name                 port_name       value
                     self.make_port_point(
                         self.dp.name, port_name, rcv_time, stat_name, stat_val))
         if not self.ship_points(points):
-            self.logger.warn(
+            self.logger.warning(
                 '%s error shipping port_stats points', dpid_log(dp_id))
 
 
@@ -214,5 +214,5 @@ time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_t
             points.append(
                 self.make_point(tags, rcv_time, 'flow_byte_count', byte_count))
         if not self.ship_points(points):
-            self.logger.warn(
+            self.logger.warning(
                 '%s error shipping flow_table points', dpid_log(dp_id))

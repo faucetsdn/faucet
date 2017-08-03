@@ -112,7 +112,7 @@ class Valve(object):
     DEC_TTL = True
     L3 = False
 
-    def __init__(self, dp, logname, *args, **kwargs):
+    def __init__(self, dp, logname):
         self.dp = dp
         self.logger = logging.getLogger(logname + '.valve')
         self.ofchannel_logger = None

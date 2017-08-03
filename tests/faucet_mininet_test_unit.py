@@ -2579,6 +2579,106 @@ routers:
             self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
 
 
+class FaucetUntaggedIPv4PolicyRouteTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "100"
+        faucet_vips: ["10.0.0.254/24"]
+        acl_in: pbr
+    200:
+        description: "200"
+        faucet_vips: ["10.20.0.254/24"]
+        routes:
+            - route:
+                ip_dst: "10.99.0.0/24"
+                ip_gw: "10.20.0.2"
+    300:
+        description: "300"
+        faucet_vips: ["10.30.0.254/24"]
+        routes:
+            - route:
+                ip_dst: "10.99.0.0/24"
+                ip_gw: "10.30.0.3"
+acls:
+    pbr:
+        - rule:
+            vlan_vid: 100
+            dl_type: 0x800
+            nw_dst: "10.99.0.2"
+            actions:
+                allow: 1
+                output:
+                    swap_vid: 300
+        - rule:
+            vlan_vid: 100
+            dl_type: 0x800
+            nw_dst: "10.99.0.0/24"
+            actions:
+                allow: 1
+                output:
+                    swap_vid: 200
+        - rule:
+            actions:
+                allow: 1
+routers:
+    router-100-200:
+        vlans: [100, 200]
+    router-100-300:
+        vlans: [100, 300]
+"""
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 200
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 300
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        # 10.99.0.1 is on b2, and 10.99.0.2 is on b3
+        # we want to route 10.99.0.0/24 to b2, but we want
+        # want to PBR 10.99.0.2/32 to b3.
+        first_host_ip = ipaddress.ip_interface(u'10.0.0.1/24')
+        first_faucet_vip = ipaddress.ip_interface(u'10.0.0.254/24')
+        second_host_ip = ipaddress.ip_interface(u'10.20.0.2/24')
+        second_faucet_vip = ipaddress.ip_interface(u'10.20.0.254/24')
+        third_host_ip = ipaddress.ip_interface(u'10.30.0.3/24')
+        third_faucet_vip = ipaddress.ip_interface(u'10.30.0.254/24')
+        first_host, second_host, third_host = self.net.hosts[:3]
+        remote_ip = ipaddress.ip_interface(u'10.99.0.1/24')
+        remote_ip2 = ipaddress.ip_interface(u'10.99.0.2/24')
+        second_host.setIP(str(second_host_ip.ip))
+        third_host.setIP(str(third_host_ip.ip))
+        self.host_ipv4_alias(second_host, remote_ip)
+        self.host_ipv4_alias(third_host, remote_ip2)
+        self.add_host_route(first_host, remote_ip, first_faucet_vip.ip)
+        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
+        self.add_host_route(third_host, first_host_ip, third_faucet_vip.ip)
+        # ensure all nexthops resolved.
+        self.one_ipv4_ping(first_host, first_faucet_vip.ip)
+        self.one_ipv4_ping(second_host, second_faucet_vip.ip)
+        self.one_ipv4_ping(third_host, third_faucet_vip.ip)
+        self.wait_for_route_as_flow(
+            second_host.MAC(), ipaddress.IPv4Network(u'10.99.0.0/24'), vlan_vid=200)
+        self.wait_for_route_as_flow(
+            third_host.MAC(), ipaddress.IPv4Network(u'10.99.0.0/24'), vlan_vid=300)
+        # verify b1 can reach 10.99.0.1 and .2 on b2 and b3 respectively.
+        self.one_ipv4_ping(first_host, remote_ip.ip)
+        self.one_ipv4_ping(first_host, remote_ip2.ip)
+
+
 class FaucetUntaggedMixedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
