@@ -204,13 +204,13 @@ class ValveRouteManager(object):
         ofmsgs = []
         if is_updated:
             self.logger.info(
-                'Updating next hop for route %s via %s (%s)',
-                ip_dst, ip_gw, eth_dst)
+                'Updating next hop for route %s via %s (%s) on %s',
+                ip_dst, ip_gw, eth_dst, vlan)
             ofmsgs.extend(self._del_route_flows(vlan, ip_dst))
         else:
             self.logger.info(
-                'Adding new route %s via %s (%s)',
-                ip_dst, ip_gw, eth_dst)
+                'Adding new route %s via %s (%s) on %s',
+                ip_dst, ip_gw, eth_dst, vlan)
         if self.use_group_table:
             inst = [valve_of.apply_actions([valve_of.group_act(
                 group_id=self.ip_gw_to_group_id[ip_gw])])]

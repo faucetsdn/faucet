@@ -1250,7 +1250,7 @@ dbs:
                 return
         self.assertEquals(0, loss)
 
-    def wait_for_route_as_flow(self, nexthop, prefix, timeout=10,
+    def wait_for_route_as_flow(self, nexthop, prefix, vlan_vid=None, timeout=10,
                                with_group_table=False, nonzero_packets=False):
         """Verify a route has been added as a flow."""
         exp_prefix = u'%s/%s' % (
@@ -1262,6 +1262,8 @@ dbs:
             nw_dst_match = {u'nw_dst': exp_prefix}
             table_id = self.IPV4_FIB_TABLE
         nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
+        if vlan_vid is not None:
+            nw_dst_match[u'dl_vlan'] = unicode(vlan_vid)
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(
                 nw_dst_match)
