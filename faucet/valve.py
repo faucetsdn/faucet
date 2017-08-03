@@ -542,7 +542,7 @@ class Valve(object):
     def _add_vlan(self, vlan, all_port_nums):
         """Configure a VLAN."""
         ofmsgs = []
-        self.dpid_log('Configuring VLAN %s' % vlan)
+        self.dpid_log('Configuring %s' % vlan)
         for port in vlan.get_ports():
             all_port_nums.add(port.number)
         # add mirror destination ports.
