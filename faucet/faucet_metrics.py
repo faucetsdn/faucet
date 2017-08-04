@@ -54,10 +54,13 @@ class FaucetMetrics(object):
             ['dpid'])
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
-            'number of hosts learned on a vlan', ['dpid', 'vlan'])
+            'number of hosts learned on a VLAN', ['dpid', 'vlan'])
         self.vlan_neighbors = Gauge(
             'vlan_neighbors',
-            'number of neighbors on a vlan', ['dpid', 'vlan', 'ipv'])
+            'number of neighbors on a VLAN', ['dpid', 'vlan', 'ipv'])
+        self.vlan_learn_bans = Gauge(
+            'vlan_learn_bans',
+            'number of times learning was banned on a VLAN', ['dpid', 'vlan'])
         self.faucet_config_table_names = Gauge(
             'faucet_config_table_names',
             'number to names map of FAUCET pipeline tables', ['dpid', 'name'])
@@ -78,6 +81,10 @@ class FaucetMetrics(object):
         self.port_status = Gauge(
             'port_status',
             'status of switch ports',
+            ['dpid', 'port'])
+        self.port_learn_bans = Gauge(
+            'port_learn_bans',
+            'number of times learning was banned on a port',
             ['dpid', 'port'])
         self.dp_status = Gauge(
             'dp_status',

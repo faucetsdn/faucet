@@ -1001,6 +1001,7 @@ class Valve(object):
         if len(old_eth_srcs) == self.dp.ports[port.number].max_hosts:
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_port(
                 port))
+            port.learn_ban_count += 1
             self.dpid_log(
                 'max hosts %u reached on port %u, '
                 'temporarily banning learning on this port, '
@@ -1027,6 +1028,7 @@ class Valve(object):
                 eth_src not in vlan.host_cache):
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
                 vlan))
+            vlan.learn_ban_count += 1
             self.dpid_log(
                 'max hosts %u reached on vlan %u, '
                 'temporarily banning learning on this vlan, '
@@ -1056,7 +1058,7 @@ class Valve(object):
                 dpid=hex(self.dp.dp_id), name=table_name).set(table_id)
 
     def update_metrics(self, metrics):
-        """Update gauge/metrics.
+        """Update Gauge/metrics.
 
         metrics (FaucetMetrics or None): container of Prometheus metrics.
         """
@@ -1073,6 +1075,8 @@ class Valve(object):
                 vlan)
             metrics.vlan_hosts_learned.labels(
                 dpid=dpid, vlan=vlan.vid).set(hosts_count)
+            metrics.vlan_learn_bans.labels(
+                dpid=dpid, vlan=vlan.vid).set(vlan.learn_ban_count)
             for ipv in vlan.ipvs():
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
@@ -1090,6 +1094,10 @@ class Valve(object):
                     metrics.learned_macs.labels(
                         dpid=dpid, vlan=vlan.vid,
                         port=port_num, n=i).set(mac_int)
+            for port in list(self.dp.ports.values()):
+                metrics.port_learn_bans.labels(
+                     dpid=dpid, port=port.number).set(port.learn_ban_count)
+
 
     def rcv_packet(self, dp_id, valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
