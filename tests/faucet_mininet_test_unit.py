@@ -711,6 +711,9 @@ vlans:
         self.assertEquals(2, len(learned_hosts))
         self.assertEquals(2, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
+        self.assertGreater(
+            self.scrape_prometheus_var(
+                'vlan_learn_bans', {'vlan': '100'}), 0)
 
 
 class FaucetMaxHostsPortTest(FaucetUntaggedTest):
@@ -760,6 +763,9 @@ vlans:
                 'learned_macs',
                 {'port': self.port_map['port_2'], 'vlan': '100'},
                 multiple=True)))
+        self.assertGreater(
+            self.scrape_prometheus_var(
+                'port_learn_bans', {'port': self.port_map['port_2']}), 0)
 
 
 class FaucetHostsTimeoutPrometheusTest(FaucetUntaggedTest):
