@@ -111,9 +111,9 @@ class ValveHostManager(object):
             for eth_src in expired_hosts:
                 del vlan.host_cache[eth_src]
                 self.logger.info(
-                    'expiring host %s from vlan %u', eth_src, vlan.vid)
+                    'expiring host %s from VLAN %u', eth_src, vlan.vid)
             self.logger.info(
-                '%u recently active hosts on vlan %u',
+                '%u recently active hosts on VLAN %u',
                 self.hosts_learned_on_vlan_count(vlan), vlan.vid)
 
     def hosts_learned_on_vlan_count(self, vlan):
@@ -196,7 +196,7 @@ class ValveHostManager(object):
         vlan.host_cache[eth_src] = host_cache_entry
 
         self.logger.info(
-            'learned %u hosts on vlan %u',
+            'learned %u hosts on VLAN %u',
             self.hosts_learned_on_vlan_count(vlan),
             vlan.vid)
 
