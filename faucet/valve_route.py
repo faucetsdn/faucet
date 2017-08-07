@@ -401,7 +401,7 @@ class ValveRouteManager(object):
                 nexthop_cache_entry.resolve_retries += 1
                 resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
                 if last_retry_time is None:
-                    self.logger.info(
+                    self.logger.debug(
                         'resolving %s (%u flows)', ip_gw, len(resolve_flows))
                 else:
                     self.logger.info(

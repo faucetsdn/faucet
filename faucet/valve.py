@@ -109,6 +109,9 @@ class ValveLogger(object):
     def _dpid_prefix(self, log_msg):
         return ' '.join((valve_util.dpid_log(self.dp_id), log_msg))
 
+    def debug(self, log_msg):
+        self.logger.debug(self._dpid_prefix(log_msg))
+
     def info(self, log_msg):
         self.logger.info(self._dpid_prefix(log_msg))
 
@@ -1128,13 +1131,13 @@ class Valve(object):
         if not self._known_up_dpid_and_port(dp_id, pkt_meta.port.number):
             return []
         if not pkt_meta.vlan.vid in self.dp.vlans:
-            self.logger.info('Packet_in for unexpected VLAN %s' % pkt_meta.vlan.vid)
+            self.logger.warning('Packet_in for unexpected VLAN %s' % pkt_meta.vlan.vid)
             return []
 
         ofmsgs = []
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
-            self.logger.info(
+            self.logger.debug(
                 'Packet_in src:%s in_port:%d vid:%s' % (
                     pkt_meta.eth_src,
                     pkt_meta.port.number,
