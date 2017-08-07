@@ -196,7 +196,10 @@ class ValveHostManager(object):
         vlan.host_cache[eth_src] = host_cache_entry
 
         self.logger.info(
-            'learned %u hosts on VLAN %u' % (
-                self.hosts_learned_on_vlan_count(vlan), vlan.vid))
+            'learned %s on %s on VLAN %u (%u hosts total)' % (
+                eth_src,
+                port,
+                vlan.vid,
+                self.hosts_learned_on_vlan_count(vlan)))
 
         return ofmsgs
