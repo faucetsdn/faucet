@@ -1111,7 +1111,7 @@ class Valve(object):
                         port=port_num, n=i).set(mac_int)
             for port in list(self.dp.ports.values()):
                 metrics.port_learn_bans.labels(
-                     dpid=dpid, port=port.number).set(port.learn_ban_count)
+                    dpid=dpid, port=port.number).set(port.learn_ban_count)
 
 
     def rcv_packet(self, dp_id, valves, pkt_meta):
