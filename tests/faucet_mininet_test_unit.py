@@ -1502,8 +1502,10 @@ class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
         self.assertEqual(0, self.net.ping((first_host, second_host)))
         self.swap_host_macs(first_host, second_host)
         self.net.ping((first_host, second_host))
-        for host in (first_host, second_host):
-            self.require_host_learned(host)
+        for host, in_port in (
+                (first_host, self.port_map['port_1']),
+                (second_host, self.port_map['port_2'])):
+            self.require_host_learned(host, in_port=in_port)
         self.assertEquals(0, self.net.ping((first_host, second_host)))
 
 
