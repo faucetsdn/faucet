@@ -636,14 +636,17 @@ dbs:
     def wait_until_controller_flow(self):
         self.wait_until_matching_flow(None, actions=[u'OUTPUT:CONTROLLER'])
 
-    def mac_learned(self, mac, timeout=10):
+    def mac_learned(self, mac, timeout=10, in_port=None):
         """Return True if a MAC has been learned on default DPID."""
+        match = {u'dl_src': u'%s' % mac}
+        if in_port is not None:
+            match[u'in_port'] = in_port
         return self.matching_flow_present(
-            {u'dl_src': u'%s' % mac}, timeout=timeout, table_id=self.ETH_SRC_TABLE)
+            match, timeout=timeout, table_id=self.ETH_SRC_TABLE)
 
-    def host_learned(self, host, timeout=10):
+    def host_learned(self, host, timeout=10, in_port=None):
         """Return True if a host has been learned on default DPID."""
-        return self.mac_learned(host.MAC(), timeout)
+        return self.mac_learned(host.MAC(), timeout, in_port)
 
     def get_host_intf_mac(self, host, intf):
         return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
@@ -666,7 +669,7 @@ dbs:
         """Return first IPv6/netmask for host's default interface."""
         return self.host_ip(host, 'inet6', r'[0-9a-f\:]+\/[0-9]+')
 
-    def require_host_learned(self, host, retries=3):
+    def require_host_learned(self, host, retries=3, in_port=None):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
         ping_cmd = 'ping'
@@ -677,7 +680,7 @@ dbs:
         if broadcast.version == 6:
             ping_cmd = 'ping6'
         for _ in range(retries):
-            if self.host_learned(host, timeout=1):
+            if self.host_learned(host, timeout=1, in_port=in_port):
                 return
             # stimulate host learning with a broadcast ping
             host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
