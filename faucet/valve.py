@@ -948,13 +948,14 @@ class Valve(object):
                     return other_dp
         return None
 
-    def _learn_host(self, valves, dp_id, pkt_meta):
+    def _learn_host(self, valves, dp_id, pkt_meta, control_plane_handled):
         """Possibly learn a host on a port.
 
         Args:
             dp_id (int): DPID of datapath packet received on.
             valves (list): of all Valves (datapaths).
             pkt_meta (PacketMeta): PacketMeta instance for packet received.
+            control_plane_handled (bool): True if handled by control plane.
         Returns:
             list: OpenFlow messages, if any.
         """
@@ -974,8 +975,9 @@ class Valve(object):
         ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
-        # Add FIB entries, if routing is active.
-        if self.L3:
+        # Add FIB entries, if routing is active and not already handled
+        # by control plane.
+        if self.L3 and not control_plane_handled:
             for route_manager in list(self.route_manager_by_ipv.values()):
                 ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
@@ -1135,6 +1137,7 @@ class Valve(object):
             return []
 
         ofmsgs = []
+        control_plane_handled = False
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.debug(
@@ -1144,7 +1147,10 @@ class Valve(object):
                     pkt_meta.vlan.vid))
 
             if self.L3:
-                ofmsgs.extend(self.control_plane_handler(pkt_meta))
+                control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
+                if control_plane_ofmsgs:
+                    control_plane_handled = True
+                    ofmsgs.extend(control_plane_ofmsgs)
 
         if self._rate_limit_packet_ins():
             return ofmsgs
@@ -1159,7 +1165,8 @@ class Valve(object):
             ofmsgs.extend(ban_vlan_rules)
             return ofmsgs
 
-        ofmsgs.extend(self._learn_host(valves, dp_id, pkt_meta))
+        ofmsgs.extend(
+            self._learn_host(valves, dp_id, pkt_meta, control_plane_handled))
         return ofmsgs
 
     def host_expire(self):
