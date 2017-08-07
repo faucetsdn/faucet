@@ -204,13 +204,13 @@ class ValveRouteManager(object):
         ofmsgs = []
         if is_updated:
             self.logger.info(
-                'Updating next hop for route %s via %s (%s) on VLAN %u',
-                ip_dst, ip_gw, eth_dst, vlan.vid)
+                'Updating next hop for route %s via %s (%s) on VLAN %u' % (
+                    ip_dst, ip_gw, eth_dst, vlan.vid))
             ofmsgs.extend(self._del_route_flows(vlan, ip_dst))
         else:
             self.logger.info(
-                'Adding new route %s via %s (%s) on VLAN %u',
-                ip_dst, ip_gw, eth_dst, vlan.vid)
+                'Adding new route %s via %s (%s) on VLAN %u' % (
+                    ip_dst, ip_gw, eth_dst, vlan.vid))
         if self.use_group_table:
             inst = [valve_of.apply_actions([valve_of.group_act(
                 group_id=self.ip_gw_to_group_id[ip_gw])])]
@@ -384,17 +384,19 @@ class ValveRouteManager(object):
         deferred_unresolved_nexthops = (len(all_unresolved_nexthops) -
                                         len(cycle_unresolved_nexthops))
         if deferred_unresolved_nexthops:
-            self.logger.info('deferring resolution of %u nexthops',
-                             deferred_unresolved_nexthops)
+            self.logger.info(
+                'deferring resolution of %u nexthops on VLAN %u' % (
+                    deferred_unresolved_nexthops, vlan.vid))
         ofmsgs = []
         for ip_gw, faucet_vip, last_retry_time in cycle_unresolved_nexthops:
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             if (self._is_host_fib_route(vlan, ip_gw) and
                     nexthop_cache_entry.resolve_retries >= self.max_host_fib_retry_count):
                 self.logger.info(
-                    'expiring dead host FIB route %s (age %us)',
-                    ip_gw,
-                    now - nexthop_cache_entry.cache_time)
+                    'expiring dead host FIB route %s (age %us) on VLAN %u' % (
+                        ip_gw,
+                        now - nexthop_cache_entry.cache_time,
+                        vlan.vid))
                 ofmsgs.extend(self._del_host_fib_route(vlan, ip_gw))
             else:
                 nexthop_cache_entry.last_retry_time = now
@@ -402,14 +404,16 @@ class ValveRouteManager(object):
                 resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
                 if last_retry_time is None:
                     self.logger.debug(
-                        'resolving %s (%u flows)', ip_gw, len(resolve_flows))
+                        'resolving %s (%u flows) on VLAN %u' % (
+                            ip_gw, len(resolve_flows), vlan.vid))
                 else:
                     self.logger.info(
-                        'resolving %s retry %u (last attempt was %us ago; %u flows)',
-                        ip_gw,
-                        nexthop_cache_entry.resolve_retries,
-                        now - last_retry_time,
-                        len(resolve_flows))
+                        'resolving %s retry %u (last attempt was %us ago; %u flows) on VLAN %u' % (
+                            ip_gw,
+                            nexthop_cache_entry.resolve_retries,
+                            now - last_retry_time,
+                            len(resolve_flows),
+                            vlan.vid))
                 ofmsgs.extend(resolve_flows)
         return ofmsgs
 
@@ -438,12 +442,14 @@ class ValveRouteManager(object):
             if vlan.ip_in_vip_subnet(dst_ip) and not vlan.is_faucet_vip(dst_ip):
                 if self._is_host_fib_route(vlan, dst_ip):
                     self.logger.info(
-                        'not proactively learning %s, already trying', dst_ip)
+                        'not proactively learning %s, already trying on VLAN %u' % (
+                            dst_ip, vlan.vid))
                     break
                 if (limit is not None and
                         len(self._vlan_nexthop_cache(vlan)) >= limit):
                     self.logger.info(
-                        'not proactively learning %s, at limit %u', dst_ip, limit)
+                        'not proactively learning %s, at limit %u on VLAN %u' % (
+                            dst_ip, limit, vlan.vid))
                     break
                 for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
                     if dst_ip in faucet_vip.network:
@@ -461,8 +467,8 @@ class ValveRouteManager(object):
                             vlan, faucet_vip, dst_ip)
                         ofmsgs.extend(resolve_flows)
                         self.logger.info(
-                            'proactively resolving %s (%u flows)',
-                            dst_ip, len(resolve_flows))
+                            'proactively resolving %s (%u flows) on VLAN %u' % (
+                                dst_ip, len(resolve_flows), vlan.vid))
                         return ofmsgs
         return ofmsgs
 
@@ -685,14 +691,15 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 ofmsgs.append(
                     valve_of.packetout(port.number, arp_reply.data))
                 self.logger.info(
-                    'Responded to ARP request for %s from %s (%s) on VLAN %u',
-                    dst_ip, src_ip, eth_src, vid)
+                    'Responded to ARP request for %s from %s (%s) on VLAN %u' % (
+                        dst_ip, src_ip, eth_src, vid))
             elif (opcode == arp.ARP_REPLY and
                   pkt_meta.eth_dst == vlan.faucet_mac):
                 ofmsgs.extend(
                     self._update_nexthop(vlan, port, eth_src, src_ip))
                 self.logger.info(
-                    'ARP response %s (%s) on VLAN %u', src_ip, eth_src, vid)
+                    'ARP response %s (%s) on VLAN %u' % (
+                        src_ip, eth_src, vid))
         return ofmsgs
 
     def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt):
@@ -832,13 +839,13 @@ class ValveIPv6RouteManager(ValveRouteManager):
                     ofmsgs.append(
                         valve_of.packetout(port.number, nd_reply.data))
                     self.logger.info(
-                        'Responded to ND solicit for %s to %s (%s) on VLAN %u',
-                        solicited_ip, src_ip, eth_src, vid)
+                        'Responded to ND solicit for %s to %s (%s) on VLAN %u' % (
+                            solicited_ip, src_ip, eth_src, vid))
             elif icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT:
                 ofmsgs.extend(self._update_nexthop(
                     vlan, port, eth_src, src_ip))
                 self.logger.info(
-                    'ND advert %s (%s) on VLAN %u', src_ip, eth_src, vid)
+                    'ND advert %s (%s) on VLAN %u' % (src_ip, eth_src, vid))
             elif icmpv6_type == icmpv6.ND_ROUTER_SOLICIT:
                 link_local_vips, other_vips = self._link_and_other_vips(vlan)
                 for vip in link_local_vips:
@@ -849,8 +856,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                         ofmsgs.append(
                             valve_of.packetout(port.number, ra_advert.data))
                         self.logger.info(
-                            'Responded to RS solicit from %s (%s) to VIP %s on VLAN %u',
-                            src_ip, eth_src, vip, vid)
+                            'Responded to RS solicit from %s (%s) to VIP %s on VLAN %u' % (
+                                src_ip, eth_src, vip, vid))
                         break
             elif icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST:
                 if (vlan.from_connected_to_vip(src_ip, dst_ip) and
