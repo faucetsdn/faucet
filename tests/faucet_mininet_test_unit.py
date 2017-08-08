@@ -2554,6 +2554,7 @@ routers:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
+        proactive_learn: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2579,8 +2580,6 @@ routers:
         second_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
         self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
-        self.one_ipv4_ping(first_host, first_faucet_vip.ip)
-        self.one_ipv4_ping(second_host, second_faucet_vip.ip)
         self.one_ipv4_ping(first_host, second_host_ip.ip)
         self.one_ipv4_ping(second_host, first_host_ip.ip)
         self.assertEquals(
@@ -2612,6 +2611,7 @@ routers:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
+        proactive_learn: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2633,9 +2633,7 @@ routers:
         first_host_net = ipaddress.ip_interface(u'fc00::1:1/64')
         second_host_net = ipaddress.ip_interface(u'fc01::1:1/64')
         self.add_host_ipv6_address(first_host, first_host_net)
-        self.one_ipv6_ping(first_host, self.FAUCET_VIPV6.ip)
         self.add_host_ipv6_address(second_host, second_host_net)
-        self.one_ipv6_ping(second_host, self.FAUCET_VIPV6_2.ip)
         self.add_host_route(
             first_host, second_host_net, self.FAUCET_VIPV6.ip)
         self.add_host_route(

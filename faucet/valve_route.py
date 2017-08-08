@@ -168,15 +168,16 @@ class ValveRouteManager(object):
             priority=priority,
             max_len=self.MAX_LEN))
         if self.proactive_learn:
-            ofmsgs.append(self.valve_flowmod(
-                self.fib_table,
-                self.valve_in_match(
+            for routed_vlan in self._routed_vlans(vlan):
+                ofmsgs.append(self.valve_flowmod(
                     self.fib_table,
-                    eth_type=self.ETH_TYPE,
-                    vlan=vlan,
-                    nw_dst=faucet_vip),
-                priority=learn_connected_priority,
-                inst=[valve_of.goto_table(self.vip_table)]))
+                    self.valve_in_match(
+                        self.fib_table,
+                        eth_type=self.ETH_TYPE,
+                        vlan=routed_vlan,
+                        nw_dst=faucet_vip),
+                    priority=learn_connected_priority,
+                    inst=[valve_of.goto_table(self.vip_table)]))
             ofmsgs.append(self.valve_flowcontroller(
                 self.vip_table,
                 self.valve_in_match(
@@ -739,7 +740,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 return icmp_replies
             dst_ip = ipaddress.IPv4Address(btos(ipv4_pkt.dst))
             vlan = pkt_meta.vlan
-            return self._proactive_resolve_neighbor([vlan], dst_ip)
+            return self._proactive_resolve_neighbor(
+                self._routed_vlans(vlan), dst_ip)
         return []
 
 
@@ -887,7 +889,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
             if icmp_replies:
                 return icmp_replies
             dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
-            return self._proactive_resolve_neighbor([pkt_meta.vlan], dst_ip)
+            return self._proactive_resolve_neighbor(
+                self._routed_vlans(pkt_meta.vlan), dst_ip)
         return []
 
     def _link_and_other_vips(self, vlan):
