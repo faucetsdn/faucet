@@ -253,19 +253,19 @@ class VLAN(Conf):
         return False
 
     def ip_in_vip_subnet(self, ipa):
-        """Return True if IP in same IP network as a VIP on this VLAN."""
+        """Return faucet_vip if IP in same IP network as a VIP on this VLAN."""
         for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
             if ipa in faucet_vip.network:
                 if ipa not in (
                         faucet_vip.network.network_address,
                         faucet_vip.network.broadcast_address):
-                    return True
-        return False
+                    return faucet_vip
+        return None
 
     def ips_in_vip_subnet(self, ips):
         """Return True if all IPs are on same subnet as VIP on this VLAN."""
         for ipa in ips:
-            if not self.ip_in_vip_subnet(ipa):
+            if self.ip_in_vip_subnet(ipa) is None:
                 return False
         return True
 
