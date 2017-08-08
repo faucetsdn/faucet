@@ -2575,8 +2575,8 @@ routers:
         second_host_ip = ipaddress.ip_interface(u'10.200.0.1/24')
         second_faucet_vip = ipaddress.ip_interface(u'10.200.0.254/24')
         first_host, second_host = self.net.hosts[:2]
-        first_host.setIP(str(first_host_ip.ip))
-        second_host.setIP(str(second_host_ip.ip))
+        first_host.setIP(str(first_host_ip.ip), prefixLen=24)
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
         self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
         self.one_ipv4_ping(first_host, first_faucet_vip.ip)
@@ -2724,8 +2724,8 @@ routers:
         first_host, second_host, third_host = self.net.hosts[:3]
         remote_ip = ipaddress.ip_interface(u'10.99.0.1/24')
         remote_ip2 = ipaddress.ip_interface(u'10.99.0.2/24')
-        second_host.setIP(str(second_host_ip.ip))
-        third_host.setIP(str(third_host_ip.ip))
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        third_host.setIP(str(third_host_ip.ip), prefixLen=24)
         self.host_ipv4_alias(second_host, remote_ip)
         self.host_ipv4_alias(third_host, remote_ip2)
         self.add_host_route(first_host, remote_ip, first_faucet_vip.ip)
@@ -2776,7 +2776,7 @@ vlans:
         first_host, second_host = host_pair
         first_host_net = ipaddress.ip_interface(u'10.0.0.1/24')
         second_host_net = ipaddress.ip_interface(u'172.16.0.1/24')
-        second_host.setIP(str(second_host_net.ip))
+        second_host.setIP(str(second_host_net.ip), prefixLen=24)
         self.one_ipv4_ping(first_host, self.FAUCET_VIPV4.ip)
         self.one_ipv4_ping(second_host, self.FAUCET_VIPV4_2.ip)
         self.add_host_route(
