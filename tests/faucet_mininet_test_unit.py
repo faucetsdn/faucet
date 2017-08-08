@@ -2589,6 +2589,61 @@ routers:
             self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
 
 
+class FaucetUntaggedIPv6InterVLANRouteTest(FaucetUntaggedTest):
+
+    FAUCET_MAC2 = '0e:00:00:00:00:02'
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        faucet_vips: ["fc00::1:254/64"]
+    vlanb:
+        vid: 200
+        faucet_vips: ["fc01::1:254/64"]
+        faucet_mac: "%s"
+    vlanc:
+        vid: 100
+        description: "not used"
+routers:
+    router-1:
+        vlans: [100, vlanb]
+""" % FAUCET_MAC2
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: vlanb
+                description: "b2"
+            %(port_3)d:
+                native_vlan: vlanb
+                description: "b3"
+            %(port_4)d:
+                native_vlan: vlanb
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_net = ipaddress.ip_interface(u'fc00::1:1/64')
+        second_host_net = ipaddress.ip_interface(u'fc01::1:1/64')
+        self.add_host_ipv6_address(first_host, first_host_net)
+        self.one_ipv6_ping(first_host, self.FAUCET_VIPV6.ip)
+        self.add_host_ipv6_address(second_host, second_host_net)
+        self.one_ipv6_ping(second_host, self.FAUCET_VIPV6_2.ip)
+        self.add_host_route(
+            first_host, second_host_net, self.FAUCET_VIPV6.ip)
+        self.add_host_route(
+            second_host, first_host_net, self.FAUCET_VIPV6_2.ip)
+        self.one_ipv6_ping(first_host, second_host_net.ip)
+        self.one_ipv6_ping(second_host, first_host_net.ip)
+
+
 class FaucetUntaggedIPv4PolicyRouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
