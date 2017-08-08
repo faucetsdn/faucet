@@ -53,7 +53,7 @@ class FaucetBgp(object):
                 'BGP nexthop %s for prefix %s cannot be us',
                 nexthop, prefix)
             return
-        if not vlan.ip_in_vip_subnet(nexthop):
+        if vlan.ip_in_vip_subnet(nexthop) is None:
             self.logger.error(
                 'BGP nexthop %s for prefix %s is not a connected network',
                 nexthop, prefix)

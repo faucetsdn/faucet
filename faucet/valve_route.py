@@ -449,7 +449,8 @@ class ValveRouteManager(object):
             return []
         for vlan in vlans:
             limit = self._vlan_nexthop_cache_limit(vlan)
-            if vlan.ip_in_vip_subnet(dst_ip) and not vlan.is_faucet_vip(dst_ip):
+            faucet_vip = vlan.ip_in_vip_subnet(dst_ip)
+            if faucet_vip and not vlan.is_faucet_vip(dst_ip):
                 if self._is_host_fib_route(vlan, dst_ip):
                     self.logger.info(
                         'not proactively learning %s, already trying on VLAN %u' % (
@@ -461,25 +462,23 @@ class ValveRouteManager(object):
                         'not proactively learning %s, at limit %u on VLAN %u' % (
                             dst_ip, limit, vlan.vid))
                     break
-                for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
-                    if dst_ip in faucet_vip.network:
-                        priority = self._route_priority(dst_ip)
-                        dst_int = self._host_ip_to_host_int(dst_ip)
-                        in_match = self._route_match(vlan, dst_int)
-                        ofmsgs.append(self.valve_flowmod(
-                            self.fib_table,
-                            in_match,
-                            priority=priority,
-                            hard_timeout=self.arp_neighbor_timeout))
-                        ofmsgs.extend(
-                            self._add_host_fib_route(vlan, dst_ip))
-                        resolve_flows = self.resolve_gw_on_vlan(
-                            vlan, faucet_vip, dst_ip)
-                        ofmsgs.extend(resolve_flows)
-                        self.logger.info(
-                            'proactively resolving %s (%u flows) on VLAN %u' % (
-                                dst_ip, len(resolve_flows), vlan.vid))
-                        return ofmsgs
+                priority = self._route_priority(dst_ip)
+                dst_int = self._host_ip_to_host_int(dst_ip)
+                in_match = self._route_match(vlan, dst_int)
+                ofmsgs.append(self.valve_flowmod(
+                    self.fib_table,
+                    in_match,
+                    priority=priority,
+                    hard_timeout=self.arp_neighbor_timeout))
+                ofmsgs.extend(
+                    self._add_host_fib_route(vlan, dst_ip))
+                resolve_flows = self.resolve_gw_on_vlan(
+                    vlan, faucet_vip, dst_ip)
+                ofmsgs.extend(resolve_flows)
+                self.logger.info(
+                    'proactively resolving %s (%u flows) on VLAN %u' % (
+                        dst_ip, len(resolve_flows), vlan.vid))
+                break
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
