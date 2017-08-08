@@ -262,23 +262,32 @@ class ValveRouteManager(object):
         return ofmsgs
 
     def _update_nexthop(self, vlan, port, eth_src, resolved_ip_gw):
-        is_updated = False
-        routes = self._vlan_routes(vlan)
-        cached_eth_dst = self._cached_nexthop_eth_dst(vlan, resolved_ip_gw)
+        """Update routes where nexthop is newly resolved or changed.
+
+        Args:
+            vlan (vlan): VLAN containing this RIB/FIB.
+            port (port): port for nexthop.
+            eth_src (str): MAC address for nexthop.
+            resolved_ip_gw (IPAddress): IP address for nexthop
+        Returns:
+            list: OpenFlow messages, if routes need to be updated.
+        """
         ofmsgs = []
+        cached_eth_dst = self._cached_nexthop_eth_dst(vlan, resolved_ip_gw)
 
-        if cached_eth_dst is not None and cached_eth_dst != eth_src:
-            is_updated = True
+        if cached_eth_dst != eth_src:
+            is_updated = cached_eth_dst is not None
 
-        if self.use_group_table:
-            ofmsgs.extend(
-                self._update_nexthop_group(
-                    is_updated, resolved_ip_gw,
-                    vlan, port, eth_src))
-        for ip_dst, ip_gw in list(routes.items()):
-            if ip_gw == resolved_ip_gw:
-                ofmsgs.extend(self._add_resolved_route(
-                    vlan, ip_gw, ip_dst, eth_src, is_updated))
+            if self.use_group_table:
+                ofmsgs.extend(
+                    self._update_nexthop_group(
+                        is_updated, resolved_ip_gw,
+                        vlan, port, eth_src))
+            routes = self._vlan_routes(vlan)
+            for ip_dst, ip_gw in list(routes.items()):
+                if ip_gw == resolved_ip_gw:
+                    ofmsgs.extend(self._add_resolved_route(
+                        vlan, ip_gw, ip_dst, eth_src, is_updated))
 
         self._update_nexthop_cache(vlan, eth_src, resolved_ip_gw)
         return ofmsgs
