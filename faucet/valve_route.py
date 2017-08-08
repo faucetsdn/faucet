@@ -571,8 +571,6 @@ class ValveRouteManager(object):
                     self._add_host_fib_route(pkt_meta.vlan, src_ip))
                 ofmsgs.extend(self._update_nexthop(
                     pkt_meta.vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
-                self._update_nexthop_cache(
-                    pkt_meta.vlan, pkt_meta.eth_src, src_ip)
         return ofmsgs
 
     def _del_route_flows(self, vlan, ip_dst):
