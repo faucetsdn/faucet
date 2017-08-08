@@ -948,14 +948,13 @@ class Valve(object):
                     return other_dp
         return None
 
-    def _learn_host(self, valves, dp_id, pkt_meta, control_plane_handled):
+    def _learn_host(self, valves, dp_id, pkt_meta):
         """Possibly learn a host on a port.
 
         Args:
             dp_id (int): DPID of datapath packet received on.
             valves (list): of all Valves (datapaths).
             pkt_meta (PacketMeta): PacketMeta instance for packet received.
-            control_plane_handled (bool): True if handled by control plane.
         Returns:
             list: OpenFlow messages, if any.
         """
@@ -974,12 +973,6 @@ class Valve(object):
 
         ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
-
-        # Add FIB entries, if routing is active and not already handled
-        # by control plane.
-        if self.L3 and not control_plane_handled:
-            for route_manager in list(self.route_manager_by_ipv.values()):
-                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         return ofmsgs
 
@@ -1166,7 +1159,14 @@ class Valve(object):
             return ofmsgs
 
         ofmsgs.extend(
-            self._learn_host(valves, dp_id, pkt_meta, control_plane_handled))
+            self._learn_host(valves, dp_id, pkt_meta))
+
+        # Add FIB entries, if routing is active and not already handled
+        # by control plane.
+        if self.L3 and not control_plane_handled:
+            for route_manager in list(self.route_manager_by_ipv.values()):
+                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
+
         return ofmsgs
 
     def host_expire(self):

@@ -262,23 +262,32 @@ class ValveRouteManager(object):
         return ofmsgs
 
     def _update_nexthop(self, vlan, port, eth_src, resolved_ip_gw):
-        is_updated = False
-        routes = self._vlan_routes(vlan)
-        cached_eth_dst = self._cached_nexthop_eth_dst(vlan, resolved_ip_gw)
+        """Update routes where nexthop is newly resolved or changed.
+
+        Args:
+            vlan (vlan): VLAN containing this RIB/FIB.
+            port (port): port for nexthop.
+            eth_src (str): MAC address for nexthop.
+            resolved_ip_gw (IPAddress): IP address for nexthop
+        Returns:
+            list: OpenFlow messages, if routes need to be updated.
+        """
         ofmsgs = []
+        cached_eth_dst = self._cached_nexthop_eth_dst(vlan, resolved_ip_gw)
 
-        if cached_eth_dst is not None and cached_eth_dst != eth_src:
-            is_updated = True
+        if cached_eth_dst != eth_src:
+            is_updated = cached_eth_dst is not None
 
-        if self.use_group_table:
-            ofmsgs.extend(
-                self._update_nexthop_group(
-                    is_updated, resolved_ip_gw,
-                    vlan, port, eth_src))
-        for ip_dst, ip_gw in list(routes.items()):
-            if ip_gw == resolved_ip_gw:
-                ofmsgs.extend(self._add_resolved_route(
-                    vlan, ip_gw, ip_dst, eth_src, is_updated))
+            if self.use_group_table:
+                ofmsgs.extend(
+                    self._update_nexthop_group(
+                        is_updated, resolved_ip_gw,
+                        vlan, port, eth_src))
+            routes = self._vlan_routes(vlan)
+            for ip_dst, ip_gw in list(routes.items()):
+                if ip_gw == resolved_ip_gw:
+                    ofmsgs.extend(self._add_resolved_route(
+                        vlan, ip_gw, ip_dst, eth_src, is_updated))
 
         self._update_nexthop_cache(vlan, eth_src, resolved_ip_gw)
         return ofmsgs
@@ -486,6 +495,10 @@ class ValveRouteManager(object):
         if vlan.is_faucet_vip(ip_dst):
             return ofmsgs
         routes = self._vlan_routes(vlan)
+        if ip_dst in routes:
+            if routes[ip_dst] == ip_gw:
+                return ofmsgs
+
         routes[ip_dst] = ip_gw
         cached_eth_dst = self._cached_nexthop_eth_dst(vlan, ip_gw)
         if cached_eth_dst is not None:
@@ -554,21 +567,10 @@ class ValveRouteManager(object):
         if ip_pkt:
             src_ip = ipaddress.ip_address(btos(ip_pkt.src))
             if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
-                now = time.time()
-                nexthop_fresh = self._nexthop_fresh(pkt_meta.vlan, src_ip, now)
-                self._update_nexthop_cache(
-                    pkt_meta.vlan, pkt_meta.eth_src, src_ip)
-                if not nexthop_fresh:
-                    if self.use_group_table:
-                        ofmsgs.extend(
-                            self._update_nexthop_group(
-                                False,
-                                src_ip,
-                                pkt_meta.vlan,
-                                pkt_meta.port,
-                                pkt_meta.eth_src))
-                    ofmsgs.extend(
-                        self._add_host_fib_route(pkt_meta.vlan, src_ip))
+                ofmsgs.extend(
+                    self._add_host_fib_route(pkt_meta.vlan, src_ip))
+                ofmsgs.extend(self._update_nexthop(
+                    pkt_meta.vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
         return ofmsgs
 
     def _del_route_flows(self, vlan, ip_dst):
@@ -851,6 +853,10 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 link_local_vips, other_vips = self._link_and_other_vips(vlan)
                 for vip in link_local_vips:
                     if src_ip in vip.network:
+                        ofmsgs.extend(
+                            self._add_host_fib_route(vlan, src_ip))
+                        ofmsgs.extend(self._update_nexthop(
+                            vlan, port, eth_src, src_ip))
                         ra_advert = valve_packet.router_advert(
                             vlan, vid, vlan.faucet_mac, eth_src,
                             vip.ip, src_ip, other_vips)
