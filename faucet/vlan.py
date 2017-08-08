@@ -256,7 +256,10 @@ class VLAN(Conf):
         """Return True if IP in same IP network as a VIP on this VLAN."""
         for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
             if ipa in faucet_vip.network:
-                return True
+                if ipa not in (
+                        faucet_vip.network.network_address,
+                        faucet_vip.network.broadcast_address):
+                    return True
         return False
 
     def ips_in_vip_subnet(self, ips):
