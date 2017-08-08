@@ -853,6 +853,10 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 link_local_vips, other_vips = self._link_and_other_vips(vlan)
                 for vip in link_local_vips:
                     if src_ip in vip.network:
+                        ofmsgs.extend(
+                            self._add_host_fib_route(vlan, src_ip))
+                        ofmsgs.extend(self._update_nexthop(
+                            vlan, port, eth_src, src_ip))
                         ra_advert = valve_packet.router_advert(
                             vlan, vid, vlan.faucet_mac, eth_src,
                             vip.ip, src_ip, other_vips)
