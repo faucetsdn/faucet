@@ -684,10 +684,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             eth_src = pkt_meta.eth_src
             vid = self._vlan_vid(vlan, port)
             if opcode == arp.ARP_REQUEST:
-                ofmsgs.extend(
-                    self._add_host_fib_route(vlan, src_ip))
-                ofmsgs.extend(self._update_nexthop(
-                    vlan, port, eth_src, src_ip))
+                ofmsgs.extend(self.add_host_fib_route_from_pkt(pkt_meta))
                 arp_reply = valve_packet.arp_reply(
                     vid, vlan.faucet_mac, eth_src, dst_ip, src_ip)
                 ofmsgs.append(
@@ -831,10 +828,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             if icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT:
                 solicited_ip = btos(icmpv6_pkt.data.dst)
                 if vlan.is_faucet_vip(ipaddress.ip_address(solicited_ip)):
-                    ofmsgs.extend(
-                        self._add_host_fib_route(vlan, src_ip))
-                    ofmsgs.extend(self._update_nexthop(
-                        vlan, port, eth_src, src_ip))
+                    ofmsgs.extend(self.add_host_fib_route_from_pkt(pkt_meta))
                     nd_reply = valve_packet.nd_advert(
                         vid, vlan.faucet_mac, eth_src,
                         solicited_ip, src_ip)
@@ -853,6 +847,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 link_local_vips, other_vips = self._link_and_other_vips(vlan)
                 for vip in link_local_vips:
                     if src_ip in vip.network:
+                        ofmsgs.extend(self.add_host_fib_route_from_pkt(pkt_meta))
                         ra_advert = valve_packet.router_advert(
                             vlan, vid, vlan.faucet_mac, eth_src,
                             vip.ip, src_ip, other_vips)
