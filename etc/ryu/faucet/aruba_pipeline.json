@@ -124,6 +124,10 @@
                     {
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
+                    },
+                    {
+                        "name": "OFPIT_METER",
+                        "type": 6
                     }
                 ]
             },
@@ -475,6 +479,10 @@
                     {
                         "name": "OFPIT_APPLY_ACTIONS",
                         "type": 4
+                    },
+                    {
+                        "name": "OFPIT_METER",
+                        "type": 6
                     }
                 ]
             },
