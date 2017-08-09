@@ -112,9 +112,10 @@ class Port(Conf):
     def to_conf(self):
         result = super(Port, self).to_conf()
         if 'stack' in result and result['stack'] is not None:
-            result['stack'] = {
-                'dp': str(self.stack['dp']),
-                'port': str(self.stack['port'])
+            if 'dp' in self.stack and 'port' in self.stack:
+                result['stack'] = {
+                    'dp': str(self.stack['dp']),
+                    'port': str(self.stack['port'])
                 }
         return result
 
