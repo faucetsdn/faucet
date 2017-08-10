@@ -79,7 +79,7 @@ def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
     try:
         vid = int(vlan_ident, 0)
     except:
-        assert False, 'VLAN VID value (%s) is invalid' % vid
+        assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
 
     return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
 
