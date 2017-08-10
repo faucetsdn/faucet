@@ -749,10 +749,10 @@ dbs:
             if (os.path.exists(watcher_file) and
                     os.stat(watcher_file).st_size > 0):
                 continue
+            self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
             self.fail(
                 'gauge did not output %s (gauge not connected?)' % watcher_file)
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def prometheus_smoke_test(self):
         prom_out = self.scrape_prometheus()
