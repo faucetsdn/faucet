@@ -302,6 +302,10 @@
                 "type": 6,
                 "action_ids": [
                     {
+                        "name": "OFPAT_OUTPUT",
+                        "type": 0
+                    },
+                    {
                         "name": "OFPAT_PUSH_VLAN",
                         "type": 17
                     },
@@ -776,6 +780,10 @@
                     {
                         "name": "eth_src",
                         "type": "eth_src"
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
                     }
                 ]
             },
@@ -876,6 +884,10 @@
                     {
                         "name": "eth_src",
                         "type": "eth_src"
+                    },
+                    {
+                        "name": "vlan_vid",
+                        "type": "vlan_vid"
                     }
                 ]
             },
