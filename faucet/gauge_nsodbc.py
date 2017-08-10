@@ -38,6 +38,8 @@ class GaugeNsODBC(object):
     conn = None
 
     def setup(self):
+        if self.conf is None:
+            return
         self.conn_string = (
             'driver={0};server={1};port={2};uid={3};pwd={4}'.format(
                 self.conf.driver, self.conf.db_ip, self.conf.db_port,
@@ -53,11 +55,15 @@ class GaugeNsODBC(object):
         self.db_update_counter = int(self.conf.db_update_counter)
 
     def refresh_switchdb(self):
+        if self.conf is None:
+            return
         self.conn.delete(self.conf.switches_doc)
         self.switch_database, _ = self.conn.create(self.conf.switches_doc)
         init_switch_db(self.switch_database)
 
     def refresh_flowdb(self):
+        if self.conf is None:
+            return
         self.conn.delete(self.conf.flows_doc)
         self.flow_database, _ = self.conn.create(self.conf.flows_doc)
         init_flow_db(self.flow_database)
