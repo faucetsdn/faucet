@@ -47,6 +47,8 @@ class FaucetBgp(object):
         nexthop = ipaddress.ip_address(btos(path_change.nexthop))
         withdraw = path_change.is_withdraw
         flowmods = []
+        if not self._valves or vlan.dp_id not in self._valves:
+            return
         valve = self._valves[vlan.dp_id]
         if vlan.is_faucet_vip(nexthop):
             self.logger.error(
