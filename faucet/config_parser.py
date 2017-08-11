@@ -79,7 +79,7 @@ def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
     try:
         vid = int(vlan_ident, 0)
     except:
-        assert False, 'VLAN VID value (%s) is invalid' % vid
+        assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
 
     return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
 
@@ -169,27 +169,25 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
 def _config_parser_v2(config_file, logname):
     logger = config_parser_util.get_logger(logname)
     config_path = config_parser_util.dp_config_path(config_file)
-    config_hashes = {}
     top_confs = {}
+    config_hashes = {}
+    dps = None
     for top_conf in V2_TOP_CONFS:
         top_confs[top_conf] = {}
 
     if not config_parser_util.dp_include(
             config_hashes, config_path, logname, top_confs):
         logger.critical('error found while loading config file: %s', config_path)
-        return None
-
-    if not top_confs['dps']:
+    elif not top_confs['dps']:
         logger.critical('DPs not configured in file: %s', config_path)
-        return None
-
-    dps = _dp_parser_v2(
-        logger,
-        top_confs['acls'],
-        top_confs['dps'],
-        top_confs['meters'],
-        top_confs['routers'],
-        top_confs['vlans'])
+    else:
+        dps = _dp_parser_v2(
+            logger,
+            top_confs['acls'],
+            top_confs['dps'],
+            top_confs['meters'],
+            top_confs['routers'],
+            top_confs['vlans'])
     return (config_hashes, dps)
 
 
@@ -217,8 +215,9 @@ def _watcher_parser_v2(conf, logname):
     dps = {}
     for faucet_file in conf['faucet_configs']:
         _, dp_list = dp_parser(faucet_file, logname)
-        for dp in dp_list:
-            dps[dp.name] = dp
+        if dp_list:
+            for dp in dp_list:
+                dps[dp.name] = dp
 
     dbs = conf.pop('dbs')
 

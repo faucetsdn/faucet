@@ -47,13 +47,15 @@ class FaucetBgp(object):
         nexthop = ipaddress.ip_address(btos(path_change.nexthop))
         withdraw = path_change.is_withdraw
         flowmods = []
+        if not self._valves or vlan.dp_id not in self._valves:
+            return
         valve = self._valves[vlan.dp_id]
         if vlan.is_faucet_vip(nexthop):
             self.logger.error(
                 'BGP nexthop %s for prefix %s cannot be us',
                 nexthop, prefix)
             return
-        if not vlan.ip_in_vip_subnet(nexthop):
+        if vlan.ip_in_vip_subnet(nexthop) is None:
             self.logger.error(
                 'BGP nexthop %s for prefix %s is not a connected network',
                 nexthop, prefix)

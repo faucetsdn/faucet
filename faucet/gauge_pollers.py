@@ -138,10 +138,11 @@ class GaugePortStatsPoller(GaugePoller):
     """
 
     def send_req(self):
-        ofp = self.ryudp.ofproto
-        ofp_parser = self.ryudp.ofproto_parser
-        req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
-        self.ryudp.send_msg(req)
+        if self.ryudp:
+            ofp = self.ryudp.ofproto
+            ofp_parser = self.ryudp.ofproto_parser
+            req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
+            self.ryudp.send_msg(req)
 
     def no_response(self):
         self.logger.info(
@@ -157,13 +158,14 @@ class GaugeFlowTablePoller(GaugePoller):
     """
 
     def send_req(self):
-        ofp = self.ryudp.ofproto
-        ofp_parser = self.ryudp.ofproto_parser
-        match = ofp_parser.OFPMatch()
-        req = ofp_parser.OFPFlowStatsRequest(
-            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
-            0, 0, match)
-        self.ryudp.send_msg(req)
+        if self.ryudp:
+            ofp = self.ryudp.ofproto
+            ofp_parser = self.ryudp.ofproto_parser
+            match = ofp_parser.OFPMatch()
+            req = ofp_parser.OFPFlowStatsRequest(
+                self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
+                0, 0, match)
+            self.ryudp.send_msg(req)
 
     def no_response(self):
         self.logger.info(

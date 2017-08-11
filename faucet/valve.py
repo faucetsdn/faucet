@@ -774,7 +774,7 @@ class Valve(object):
 
             port = self.dp.ports[port_num]
             port.phys_up = True
-            self.logger.info('Sending config for port %s' % port)
+            self.logger.info('Sending config for %s' % port)
 
             if not port.running():
                 continue
@@ -974,11 +974,6 @@ class Valve(object):
         ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
-        # Add FIB entries, if routing is active.
-        if self.L3:
-            for route_manager in list(self.route_manager_by_ipv.values()):
-                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
-
         return ofmsgs
 
     def parse_rcv_packet(self, in_port, vlan_vid, data, pkt):
@@ -1135,6 +1130,7 @@ class Valve(object):
             return []
 
         ofmsgs = []
+        control_plane_handled = False
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.debug(
@@ -1144,7 +1140,10 @@ class Valve(object):
                     pkt_meta.vlan.vid))
 
             if self.L3:
-                ofmsgs.extend(self.control_plane_handler(pkt_meta))
+                control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
+                if control_plane_ofmsgs:
+                    control_plane_handled = True
+                    ofmsgs.extend(control_plane_ofmsgs)
 
         if self._rate_limit_packet_ins():
             return ofmsgs
@@ -1159,7 +1158,15 @@ class Valve(object):
             ofmsgs.extend(ban_vlan_rules)
             return ofmsgs
 
-        ofmsgs.extend(self._learn_host(valves, dp_id, pkt_meta))
+        ofmsgs.extend(
+            self._learn_host(valves, dp_id, pkt_meta))
+
+        # Add FIB entries, if routing is active and not already handled
+        # by control plane.
+        if self.L3 and not control_plane_handled:
+            for route_manager in list(self.route_manager_by_ipv.values()):
+                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
+
         return ofmsgs
 
     def host_expire(self):

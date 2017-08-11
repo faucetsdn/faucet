@@ -2554,6 +2554,7 @@ routers:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
+        proactive_learn: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2575,18 +2576,70 @@ routers:
         second_host_ip = ipaddress.ip_interface(u'10.200.0.1/24')
         second_faucet_vip = ipaddress.ip_interface(u'10.200.0.254/24')
         first_host, second_host = self.net.hosts[:2]
-        first_host.setIP(str(first_host_ip.ip))
-        second_host.setIP(str(second_host_ip.ip))
+        first_host.setIP(str(first_host_ip.ip), prefixLen=24)
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
         self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
-        self.one_ipv4_ping(first_host, first_faucet_vip.ip)
-        self.one_ipv4_ping(second_host, second_faucet_vip.ip)
         self.one_ipv4_ping(first_host, second_host_ip.ip)
         self.one_ipv4_ping(second_host, first_host_ip.ip)
         self.assertEquals(
             self._ip_neigh(first_host, first_faucet_vip.ip, 4), self.FAUCET_MAC)
         self.assertEquals(
             self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
+
+
+class FaucetUntaggedIPv6InterVLANRouteTest(FaucetUntaggedTest):
+
+    FAUCET_MAC2 = '0e:00:00:00:00:02'
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        faucet_vips: ["fc00::1:254/64"]
+    vlanb:
+        vid: 200
+        faucet_vips: ["fc01::1:254/64"]
+        faucet_mac: "%s"
+    vlanc:
+        vid: 100
+        description: "not used"
+routers:
+    router-1:
+        vlans: [100, vlanb]
+""" % FAUCET_MAC2
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        proactive_learn: True
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: vlanb
+                description: "b2"
+            %(port_3)d:
+                native_vlan: vlanb
+                description: "b3"
+            %(port_4)d:
+                native_vlan: vlanb
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        host_pair = self.net.hosts[:2]
+        first_host, second_host = host_pair
+        first_host_net = ipaddress.ip_interface(u'fc00::1:1/64')
+        second_host_net = ipaddress.ip_interface(u'fc01::1:1/64')
+        self.add_host_ipv6_address(first_host, first_host_net)
+        self.add_host_ipv6_address(second_host, second_host_net)
+        self.add_host_route(
+            first_host, second_host_net, self.FAUCET_VIPV6.ip)
+        self.add_host_route(
+            second_host, first_host_net, self.FAUCET_VIPV6_2.ip)
+        self.one_ipv6_ping(first_host, second_host_net.ip)
+        self.one_ipv6_ping(second_host, first_host_net.ip)
 
 
 class FaucetUntaggedIPv4PolicyRouteTest(FaucetUntaggedTest):
@@ -2669,8 +2722,8 @@ routers:
         first_host, second_host, third_host = self.net.hosts[:3]
         remote_ip = ipaddress.ip_interface(u'10.99.0.1/24')
         remote_ip2 = ipaddress.ip_interface(u'10.99.0.2/24')
-        second_host.setIP(str(second_host_ip.ip))
-        third_host.setIP(str(third_host_ip.ip))
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        third_host.setIP(str(third_host_ip.ip), prefixLen=24)
         self.host_ipv4_alias(second_host, remote_ip)
         self.host_ipv4_alias(third_host, remote_ip2)
         self.add_host_route(first_host, remote_ip, first_faucet_vip.ip)
@@ -2721,7 +2774,7 @@ vlans:
         first_host, second_host = host_pair
         first_host_net = ipaddress.ip_interface(u'10.0.0.1/24')
         second_host_net = ipaddress.ip_interface(u'172.16.0.1/24')
-        second_host.setIP(str(second_host_net.ip))
+        second_host.setIP(str(second_host_net.ip), prefixLen=24)
         self.one_ipv4_ping(first_host, self.FAUCET_VIPV4.ip)
         self.one_ipv4_ping(second_host, self.FAUCET_VIPV4_2.ip)
         self.add_host_route(
