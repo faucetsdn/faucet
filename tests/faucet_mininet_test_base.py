@@ -1157,17 +1157,21 @@ dbs:
         else:
             self.fail('no flow matching %s' % match)
 
-    def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0):
+    def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
             '', first_host.cmd(faucet_mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10)))
         if table_id is not None:
+            if mask is None:
+                match_port = int(port)
+            else:
+                match_port = '/'.join((str(port), str(mask)))
             self.wait_nonzero_packet_count_flow(
-                {u'tp_dst': int(port)}, table_id=table_id)
+                {u'tp_dst': match_port}, table_id=table_id)
 
-    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
+    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is NOT blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
