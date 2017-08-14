@@ -19,7 +19,7 @@
 
 import ipaddress
 
-from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_vid, to_match_eth, OFCtlUtil 
+from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_vid, to_match_eth, OFCtlUtil
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
