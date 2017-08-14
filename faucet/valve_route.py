@@ -452,13 +452,13 @@ class ValveRouteManager(object):
             faucet_vip = vlan.ip_in_vip_subnet(dst_ip)
             if faucet_vip and not vlan.is_faucet_vip(dst_ip):
                 if self._is_host_fib_route(vlan, dst_ip):
-                    self.logger.info(
+                    self.logger.debug(
                         'not proactively learning %s, already trying on VLAN %u' % (
                             dst_ip, vlan.vid))
                     break
                 if (limit is not None and
                         len(self._vlan_nexthop_cache(vlan)) >= limit):
-                    self.logger.info(
+                    self.logger.debug(
                         'not proactively learning %s, at limit %u on VLAN %u' % (
                             dst_ip, limit, vlan.vid))
                     break
@@ -475,7 +475,7 @@ class ValveRouteManager(object):
                 resolve_flows = self.resolve_gw_on_vlan(
                     vlan, faucet_vip, dst_ip)
                 ofmsgs.extend(resolve_flows)
-                self.logger.info(
+                self.logger.debug(
                     'proactively resolving %s (%u flows) on VLAN %u' % (
                         dst_ip, len(resolve_flows), vlan.vid))
                 break
