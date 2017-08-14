@@ -362,8 +362,10 @@ def match_from_dict(match_dict):
             match_dict.get('eth_type') == ether.ETH_TYPE_ARP):
         if 'nw_src' in match_dict and 'arp_spa' not in match_dict:
             match_dict['arp_spa'] = match_dict['nw_src']
-        else:
-            assert 'Unknown match field: %s' % key
+            del match_dict['nw_src']
+        if 'nw_dst' in match_dict and 'arp_tpa' not in match_dict:
+            match_dict['arp_tpa'] = match_dict['nw_dst']
+            del match_dict['nw_dst']
 
     kwargs = {}
     for key, value in list(match_dict.items()):
@@ -386,7 +388,7 @@ def match_from_dict(match_dict):
                 # others
                 kwargs[key] = value
         else:
-             assert 'Unknown match field: %s' % key
+            assert 'Unknown match field: %s' % key
 
     return parser.OFPMatch(**kwargs)
 
