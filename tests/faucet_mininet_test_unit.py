@@ -1822,7 +1822,7 @@ acls:
         - rule:
             dl_type: 0x800
             nw_proto: 6
-            # Match packets > 1024
+            # Match packets > 1023
             tp_dst: 1024/1024
             actions:
                 allow: 0
@@ -1847,7 +1847,7 @@ acls:
                 description: "b4"
 """
 
-    def test_port_gt1024_blocked(self):
+    def test_port_gt1023_blocked(self):
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_blocked(1024, first_host, second_host, mask=1024)
