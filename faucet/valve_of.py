@@ -19,7 +19,7 @@
 
 import ipaddress
 
-from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_vid, to_match_eth, OFCtlUtil
+from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -295,6 +295,10 @@ def match(match_fields):
     return parser.OFPMatch(**match_fields)
 
 
+def valve_match_vid(value):
+    return to_match_vid(value, ofp.OFPVID_PRESENT)
+
+
 def match_from_dict(match_dict):
     convert = {
         'in_port': OFCtlUtil(ofp).ofp_port_from_user,
@@ -306,8 +310,8 @@ def match_from_dict(match_dict):
         'eth_src': to_match_eth,
         'dl_type': str_to_int,
         'eth_type': str_to_int,
-        'dl_vlan': to_match_vid,
-        'vlan_vid': to_match_vid,
+        'dl_vlan': valve_match_vid,
+        'vlan_vid': valve_match_vid,
         'vlan_pcp': str_to_int,
         'ip_dscp': str_to_int,
         'ip_ecn': str_to_int,
