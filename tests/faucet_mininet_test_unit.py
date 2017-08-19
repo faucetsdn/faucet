@@ -7,6 +7,7 @@
 import os
 import re
 import shutil
+import socket
 import threading
 import time
 import unittest
@@ -365,6 +366,13 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 content = self.rfile.read(content_len)
                 open(influx_log, 'a').write(content)
                 return self.send_response(204)
+
+            def finish(self):
+                try:
+                    SimpleHTTPRequestHandler.finish(self)
+                except socket.error:
+                    pass
+
 
         server = HTTPServer(('', self.influx_port), PostHandler)
         thread = threading.Thread(target=server.serve_forever)

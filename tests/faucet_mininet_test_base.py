@@ -1310,7 +1310,7 @@ dbs:
                 return
             time.sleep(1)
         self.fail(
-            'could not verify %s resolved to %s (%s)' % (ipa, mac, neighbors))
+            'could not verify %s resolved to %s' % (ipa, mac))
 
     def verify_ipv4_host_learned_mac(self, host, ipa, mac, retries=3):
         self._verify_host_learned_mac(host, ipa, 4, mac, retries)
