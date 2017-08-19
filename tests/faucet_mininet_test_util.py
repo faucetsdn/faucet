@@ -52,6 +52,8 @@ def serve_ports(ports_socket):
     """Implement a TCP server to dispense free TCP ports."""
     ports_q = collections.deque()
     free_ports = set()
+    port_age = {}
+    min_port_age = 10
 
     def get_port():
         while True:
@@ -67,11 +69,14 @@ def serve_ports(ports_socket):
                 continue
             break
         free_ports.add(free_port)
+        port_age[free_port] = time.time()
         return free_port
 
     def queue_free_ports():
         while len(ports_q) < 50:
-            ports_q.append(get_port())
+            port = get_port()
+            ports_q.append(port)
+            port_age[port] = time.time()
             time.sleep(0.1)
 
     queue_free_ports()
@@ -87,6 +92,7 @@ def serve_ports(ports_socket):
         if command == 'PUT':
             for port in ports_by_name[name]:
                 ports_q.append(port)
+                port_age[port] = time.time()
             del ports_by_name[name]
         else:
             if len(ports_q) == 0:
@@ -94,6 +100,8 @@ def serve_ports(ports_socket):
             port = ports_q.popleft()
             ports_served += 1
             ports_by_name[name].add(port)
+            if time.time() - port_age[port] < min_port_age:
+                time.sleep(min_port_age)
             # pylint: disable=no-member
             connection.sendall('%u %u\n' % (port, ports_served))
         connection.close()
