@@ -1836,13 +1836,6 @@ acls:
             actions:
                 allow: 0
         - rule:
-            dl_type: 0x800
-            nw_proto: 6
-            # Match packets > 1023
-            tp_dst: 1024/1024
-            actions:
-                allow: 0
-        - rule:
             actions:
                 allow: 1
 """
@@ -1863,12 +1856,6 @@ acls:
                 description: "b4"
 """
 
-    def test_port_gt1023_blocked(self):
-        self.ping_all_when_learned()
-        first_host, second_host = self.net.hosts[0:2]
-        self.verify_tp_dst_blocked(1024, first_host, second_host, mask=1024)
-        self.verify_tp_dst_notblocked(1023, first_host, second_host, table_id=None)
-
     def test_port5001_blocked(self):
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
@@ -1878,6 +1865,45 @@ acls:
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
+
+
+class FaucetUntaggedACLTcpMaskTest(FaucetUntaggedACLTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            dl_type: 0x800
+            nw_proto: 6
+            tp_dst: 5002
+            actions:
+                allow: 1
+        - rule:
+            dl_type: 0x800
+            nw_proto: 6
+            tp_dst: 5001
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x800
+            nw_proto: 6
+            # Match packets > 1023
+            tp_dst: 1024/1024
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+"""
+
+    def test_port_gt1023_blocked(self):
+        self.ping_all_when_learned()
+        first_host, second_host = self.net.hosts[0:2]
+        self.verify_tp_dst_blocked(1024, first_host, second_host, mask=1024)
+        self.verify_tp_dst_notblocked(1023, first_host, second_host, table_id=None)
 
 
 class FaucetUntaggedVLANACLTest(FaucetUntaggedTest):
