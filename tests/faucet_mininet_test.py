@@ -238,9 +238,10 @@ def pipeline_superset_report(root_tmpdir):
             if match:
                 table, matches, instructions, actions = match.groups()
                 table = int(table)
-                table_matches[table].update(eval(matches))
-                table_instructions[table].update(eval(instructions))
-                table_actions[table].update(eval(actions))
+                if table != 255:
+                    table_matches[table].update(eval(matches))
+                    table_instructions[table].update(eval(instructions))
+                    table_actions[table].update(eval(actions))
     print('')
     for table in sorted(table_matches):
         print('table: %u' % table)
