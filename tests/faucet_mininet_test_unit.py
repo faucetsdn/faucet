@@ -302,7 +302,15 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
-    pass
+    def test_portmap(self):
+        first_host, second_host, third_host, fourth_host = self.net.hosts
+        for host, in_port in (
+                (first_host, 'port_1'),
+                (second_host, 'port_2'),
+                (third_host, 'port_3'),
+                (fourth_host, 'port_4')):
+            print 'verifying host/port mapping for %s' % in_port
+            self.require_host_learned(host, in_port=self.port_map[in_port])
 
 
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
@@ -2370,7 +2378,7 @@ acls:
             vlan_vid: 100
             ip_proto: 58
             icmpv6_type: 135
-            ipv6_nd_target: "fc00::1:2/112"
+            ipv6_nd_target: "fc00::1:2"
             actions:
                 output:
                     port: b2
@@ -2408,8 +2416,7 @@ vlans:
         self.add_host_ipv6_address(second_host, 'fc00::1:2/112')
         self.one_ipv6_ping(first_host, 'fc00::1:2')
         self.wait_nonzero_packet_count_flow(
-            {u'ipv6_nd_target': u'fc00::1:0/ffff:ffff:ffff:ffff:ffff:ffff:ffff:0'},
-            table_id=self.PORT_ACL_TABLE)
+            {u'ipv6_nd_target': u'fc00::1:2'}, table_id=self.PORT_ACL_TABLE)
 
 
 class FaucetTaggedIPv4RouteTest(FaucetTaggedTest):

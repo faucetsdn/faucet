@@ -33,15 +33,17 @@ In this example, the server running FAUCET is 10.0.1.8; configuration for CPN in
   ACL table matches and any changes for future versions.
 
 .. code:: bash
-  
-   set config table tableid 0 matchfields 0 3 4 5 6 10 14 16 18 23
+
+   set config pipeline tablesizes 1024 1024 1024 1024 1024 1024 1024 1024 1024 tablewidths 80 40 40 40 40 40 40 40 40
+   set config table tableid 0 matchfields 0 3 4 5 6 10 14 23 29 31
    set config table tableid 1 matchfields 0 3 4 5 6
    set config table tableid 2 matchfields 0 5 6 10 14
-   set config table tableid 3 matchfields 0 3 4 5 6 10 23 29
-   set config table tableid 4 matchfields 5 6 10 11 12
-   set config table tableid 5 matchfields 5 6 10 27 29
-   set config table tableid 6 matchfields 3 6
+   set config table tableid 3 matchfields 0 3 4 5 6 10 29
+   set config table tableid 4 matchfields 5 6 12
+   set config table tableid 5 matchfields 5 6 27
+   set config table tableid 6 matchfields 3 5 10 23
    set config table tableid 7 matchfields 0 3 6
+   set config table tableid 8 matchfields 0 3 6
 
 **Create faucet.yaml**
 
