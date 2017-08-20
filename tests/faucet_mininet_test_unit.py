@@ -302,7 +302,15 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
-    pass
+    def test_portmap(self):
+        first_host, second_host, third_host, fourth_host = self.net.hosts
+        for host, in_port in (
+                (first_host, 'port_1'),
+                (second_host, 'port_2'),
+                (third_host, 'port_3'),
+                (fourth_host, 'port_4')):
+            print 'verifying host/port mapping for %s' % in_port
+            self.require_host_learned(host, in_port=self.port_map[in_port])
 
 
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
