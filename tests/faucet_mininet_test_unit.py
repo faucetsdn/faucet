@@ -26,6 +26,13 @@ import faucet_mininet_test_util
 import faucet_mininet_test_topo
 
 
+class QuietHTTPServer(HTTPServer):
+
+    def handle_error(self, _request, _client_address):
+        return
+
+
+
 class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
     pass
@@ -375,14 +382,8 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 open(influx_log, 'a').write(content)
                 return self.send_response(204)
 
-            def finish(self):
-                try:
-                    SimpleHTTPRequestHandler.finish(self)
-                except socket.error:
-                    pass
 
-
-        server = HTTPServer(('', self.influx_port), PostHandler)
+        server = QuietHTTPServer(('', self.influx_port), PostHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
@@ -478,7 +479,8 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
                 time.sleep(10)
                 return self.send_response(500)
 
-        server = HTTPServer(('', self.influx_port), PostHandler)
+
+        server = QuietHTTPServer(('', self.influx_port), PostHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
