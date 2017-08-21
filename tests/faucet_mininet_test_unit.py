@@ -363,6 +363,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
     def _verify_influx_log(self, influx_log):
         self.assertTrue(os.path.exists(influx_log))
+        observed_vars = set()
         for point_line in open(influx_log).readlines():
             point_fields = point_line.strip().split()
             self.assertEquals(3, len(point_fields), msg=point_fields)
@@ -371,6 +372,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             value = float(value_field.split('=')[1])
             ts_name_fields = ts_name.split(',')
             self.assertGreater(len(ts_name_fields), 1)
+            observed_vars.add(ts_name_fields[0])
             label_values = {}
             for label_value in ts_name_fields[1:]:
                 label, value = label_value.split('=')
@@ -380,6 +382,11 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 if 'vlan_vid' in label_values:
                     self.assertEquals(
                         int(label_values['vlan']), int(value) ^ 0x1000)
+        self.assertEquals(set([
+            'dropped_in', 'dropped_out', 'bytes_out', 'flow_packet_count',
+            'errors_in', 'bytes_in', 'flow_byte_count', 'port_state_reason',
+            'packets_in', 'packets_out']), observed_vars)
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def _wait_influx_log(self, influx_log):
         for _ in range(self.INFLUX_TIMEOUT * 2):
@@ -389,7 +396,6 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         return
 
     def test_untagged(self):
-
         influx_log = os.path.join(self.tmpdir, 'influx.log')
 
         class InfluxPostHandler(PostHandler):
@@ -404,6 +410,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         thread.daemon = True
         thread.start()
         self.ping_all_when_learned()
+        self.flap_all_switch_ports()
         self._wait_influx_log(influx_log)
         server.shutdown()
         self._verify_influx_log(influx_log)
@@ -480,7 +487,6 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 """
 
     def test_untagged(self):
-
         influx_log = os.path.join(self.tmpdir, 'influx.log')
 
         class InfluxPostHandler(PostHandler):
