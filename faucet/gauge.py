@@ -102,6 +102,9 @@ class Gauge(app_manager.RyuApp):
                 self.watchers[watcher_dpid] = {}
 
             self.watchers[watcher_dpid][watcher_type] = watcher
+            ryu_dp = self.dpset.get(watcher_dpid)
+            if ryu_dp is not None:
+                watcher.start(ryu_dp)
             self.logger.info(
                 '%s %s watcher added', dpid_log(watcher_dpid), watcher_type)
 
