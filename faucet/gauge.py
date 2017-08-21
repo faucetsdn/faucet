@@ -92,6 +92,7 @@ class Gauge(app_manager.RyuApp):
         """Load Gauge config."""
         self.config_file = os.getenv('GAUGE_CONFIG', self.config_file)
         new_confs = watcher_parser(self.config_file, self.logname)
+        new_watchers = {}
 
         for conf in new_confs:
             watcher = watcher_factory(conf)(conf, self.logname)
@@ -100,21 +101,32 @@ class Gauge(app_manager.RyuApp):
             watcher_type = watcher.conf.type
             watcher_msg = '%s %s watcher' % (dpid_log(watcher_dpid), watcher_type)
 
-            if watcher_dpid not in self.watchers:
-                self.watchers[watcher_dpid] = {}
+            if watcher_dpid not in new_watchers:
+                new_watchers[watcher_dpid] = {}
 
-            if watcher_type in self.watchers[watcher_dpid]:
+            if (watcher_dpid in self.watchers and
+                    watcher_type in self.watchers[watcher_dpid]):
                 old_watcher = self.watchers[watcher_dpid][watcher_type]
                 if old_watcher.running():
                     self.logger.info('%s stopped', watcher_msg)
                     old_watcher.stop()
+                del self.watchers[watcher_dpid][watcher_type]
 
-            self.watchers[watcher_dpid][watcher_type] = watcher 
+            new_watchers[watcher_dpid][watcher_type] = watcher
             if ryu_dp is None:
                 self.logger.info('%s added but DP currently down', watcher_msg)
             else:
-                self.watchers[watcher_dpid][watcher_type].start(ryu_dp)
+                new_watchers[watcher_dpid][watcher_type].start(ryu_dp)
                 self.logger.info('%s started', watcher_msg)
+
+        for watcher_dpid, leftover_watchers in list(self.watchers.items()):
+            for watcher_type, watcher in list(leftover_watchers.items()):
+                if watcher.running():
+                    self.logger.info(
+                        '%s %s deconfigured', dpid_log(watcher_dpid), watcher_type)
+                    watcher.stop()
+
+        self.watchers = new_watchers
         self.logger.info('config complete')
 
     @kill_on_exception(exc_logname)
