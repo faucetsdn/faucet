@@ -192,7 +192,7 @@ class Gauge(app_manager.RyuApp):
         """Handle port status change event.
 
         Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+           ryu_event (ryu.controller.event.EventReplyBase): port status change event.
         """
         self._update_watcher(
             ryu_event.msg.datapath.id, 'port_state', ryu_event.msg)
@@ -203,7 +203,7 @@ class Gauge(app_manager.RyuApp):
         """Handle port stats reply event.
 
         Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+           ryu_event (ryu.controller.event.EventReplyBase): port stats event.
         """
         self._update_watcher(
             ryu_event.msg.datapath.id, 'port_stats', ryu_event.msg)
@@ -214,7 +214,7 @@ class Gauge(app_manager.RyuApp):
         """Handle flow stats reply event.
 
         Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+           ryu_event (ryu.controller.event.EventReplyBase): flow stats event.
         """
         self._update_watcher(
             ryu_event.msg.datapath.id, 'flow_table', ryu_event.msg)

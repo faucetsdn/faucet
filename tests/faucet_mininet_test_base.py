@@ -43,6 +43,7 @@ class FaucetTestBase(unittest.TestCase):
     FAUCET_MAC = '0e:00:00:00:00:01'
     LADVD = 'ladvd -e lo -f'
     ONEMBPS = (1024 * 1024)
+    INFLUX_TIMEOUT = 5
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -486,7 +487,7 @@ dbs:
         influx_port: %u
         influx_user: 'faucet'
         influx_pwd: ''
-        influx_timeout: 5
+        influx_timeout: %u
     couchdb:
         type: gaugedb
         gdb_type: nosql
@@ -508,7 +509,8 @@ dbs:
        monitor_stats_file,
        monitor_state_file,
        monitor_flow_table_file,
-       influx_port)
+       influx_port,
+       self.INFLUX_TIMEOUT)
 
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)

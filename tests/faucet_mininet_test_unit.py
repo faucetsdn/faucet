@@ -32,6 +32,14 @@ class QuietHTTPServer(HTTPServer):
         return
 
 
+class PostHandler(SimpleHTTPRequestHandler):
+
+    def _log_post(self, influx_log):
+        content_len = int(self.headers.getheader('content-length', 0))
+        content = self.rfile.read(content_len).strip()
+        if content:
+            open(influx_log, 'a').write(content + '\n')
+
 
 class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 
@@ -342,16 +350,20 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         db: 'influx'
 """
 
-    def _wait_error_shipping(self, timeout=10):
+    def _wait_error_shipping(self, timeout=None):
+        if timeout is None:
+            timeout = self.INFLUX_TIMEOUT
+        gauge_log = self.env['gauge']['GAUGE_LOG']
         for _ in range(timeout):
-            log_content = open(self.env['gauge']['GAUGE_LOG']).read()
+            log_content = open(gauge_log).read()
             if re.search('error shipping', log_content):
                 return
             time.sleep(1)
-        self.fail('Influx error not noted in gauge log: %s' % log_content)
+        self.fail('Influx error not noted in %s: %s' % (gauge_log, log_content))
 
     def _verify_influx_log(self, influx_log):
         self.assertTrue(os.path.exists(influx_log))
+        observed_vars = set()
         for point_line in open(influx_log).readlines():
             point_fields = point_line.strip().split()
             self.assertEquals(3, len(point_fields), msg=point_fields)
@@ -360,6 +372,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             value = float(value_field.split('=')[1])
             ts_name_fields = ts_name.split(',')
             self.assertGreater(len(ts_name_fields), 1)
+            observed_vars.add(ts_name_fields[0])
             label_values = {}
             for label_value in ts_name_fields[1:]:
                 label, value = label_value.split('=')
@@ -369,29 +382,36 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 if 'vlan_vid' in label_values:
                     self.assertEquals(
                         int(label_values['vlan']), int(value) ^ 0x1000)
+        self.assertEquals(set([
+            'dropped_in', 'dropped_out', 'bytes_out', 'flow_packet_count',
+            'errors_in', 'bytes_in', 'flow_byte_count', 'port_state_reason',
+            'packets_in', 'packets_out']), observed_vars)
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
+
+    def _wait_influx_log(self, influx_log):
+        for _ in range(self.INFLUX_TIMEOUT * 2):
+            if os.path.exists(influx_log):
+                return
+            time.sleep(1)
+        return
 
     def test_untagged(self):
-
         influx_log = os.path.join(self.tmpdir, 'influx.log')
 
-        class PostHandler(SimpleHTTPRequestHandler):
+        class InfluxPostHandler(PostHandler):
 
             def do_POST(self):
-                content_len = int(self.headers.getheader('content-length', 0))
-                content = self.rfile.read(content_len)
-                open(influx_log, 'a').write(content)
+                self._log_post(influx_log)
                 return self.send_response(204)
 
 
-        server = QuietHTTPServer(('', self.influx_port), PostHandler)
+        server = QuietHTTPServer(('', self.influx_port), InfluxPostHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
         self.ping_all_when_learned()
-        for _ in range(3):
-            if os.path.exists(influx_log):
-                break
-            time.sleep(2)
+        self.flap_all_switch_ports()
+        self._wait_influx_log(influx_log)
         server.shutdown()
         self._verify_influx_log(influx_log)
 
@@ -467,28 +487,24 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 """
 
     def test_untagged(self):
-
         influx_log = os.path.join(self.tmpdir, 'influx.log')
 
-        class PostHandler(SimpleHTTPRequestHandler):
+        class InfluxPostHandler(PostHandler):
+
+            INFLUX_TIMEOUT = self.INFLUX_TIMEOUT
 
             def do_POST(self):
-                content_len = int(self.headers.getheader('content-length', 0))
-                content = self.rfile.read(content_len)
-                open(influx_log, 'a').write(content)
-                time.sleep(10)
+                self._log_post(influx_log)
+                time.sleep(self.INFLUX_TIMEOUT * 2)
                 return self.send_response(500)
 
 
-        server = QuietHTTPServer(('', self.influx_port), PostHandler)
+        server = QuietHTTPServer(('', self.influx_port), InfluxPostHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
         self.ping_all_when_learned()
-        for _ in range(3):
-            if os.path.exists(influx_log):
-                break
-            time.sleep(2)
+        self._wait_influx_log(influx_log)
         server.shutdown()
         self.assertTrue(os.path.exists(influx_log))
         self._wait_error_shipping()
