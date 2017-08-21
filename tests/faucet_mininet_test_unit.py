@@ -412,6 +412,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self._wait_influx_log(influx_log)
+        self.hup_gauge()
         server.shutdown()
         self._verify_influx_log(influx_log)
 
