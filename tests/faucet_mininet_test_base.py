@@ -789,7 +789,7 @@ dbs:
     def hup_gauge(self):
         self.assertTrue(
             self._signal_proc_on_port(
-                self.gauge_controller, self.gauge_of_port, 1))
+                self.gauge_controller, int(self.gauge_of_port), 1))
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):

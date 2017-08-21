@@ -81,6 +81,7 @@ class Gauge(app_manager.RyuApp):
         self.dpset = kwargs['dpset']
 
         # dict of watchers/handlers, indexed by dp_id and then by name
+        self.watchers = {}
         self._load_config()
 
         # Set the signal handler for reloading config file
@@ -92,21 +93,29 @@ class Gauge(app_manager.RyuApp):
         self.config_file = os.getenv('GAUGE_CONFIG', self.config_file)
         new_confs = watcher_parser(self.config_file, self.logname)
 
-        self.watchers = {}
         for conf in new_confs:
             watcher = watcher_factory(conf)(conf, self.logname)
             watcher_dpid = watcher.dp.dp_id
+            ryu_dp = self.dpset.get(watcher_dpid)
             watcher_type = watcher.conf.type
+            watcher_msg = '%s %s watcher' % (dpid_log(watcher_dpid), watcher_type)
 
             if watcher_dpid not in self.watchers:
                 self.watchers[watcher_dpid] = {}
 
-            self.watchers[watcher_dpid][watcher_type] = watcher
-            ryu_dp = self.dpset.get(watcher_dpid)
-            if ryu_dp is not None:
-                watcher.start(ryu_dp)
-            self.logger.info(
-                '%s %s watcher added', dpid_log(watcher_dpid), watcher_type)
+            if watcher_type in self.watchers[watcher_dpid]:
+                old_watcher = self.watchers[watcher_dpid][watcher_type]
+                if old_watcher.running():
+                    self.logger.info('%s stopped', watcher_msg)
+                    old_watcher.stop()
+
+            self.watchers[watcher_dpid][watcher_type] = watcher 
+            if ryu_dp is None:
+                self.logger.info('%s added but DP currently down', watcher_msg)
+            else:
+                self.watchers[watcher_dpid][watcher_type].start(ryu_dp)
+                self.logger.info('%s started', watcher_msg)
+        self.logger.info('config complete')
 
     @kill_on_exception(exc_logname)
     def _update_watcher(self, dp_id, name, msg):
@@ -131,7 +140,7 @@ class Gauge(app_manager.RyuApp):
     @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):
         """Handle request for Gauge config reload."""
-        self.logger.info('reload config requested')
+        self.logger.warning('reload config requested')
         self._load_config()
 
     @kill_on_exception(exc_logname)
@@ -145,6 +154,8 @@ class Gauge(app_manager.RyuApp):
         if dp_id in self.watchers:
             self.logger.info('%s up', dpid_log(dp_id))
             for watcher in list(self.watchers[dp_id].values()):
+                self.logger.info(
+                    '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
                 watcher.start(ryu_dp)
         else:
             self.logger.info('%s up, unknown', dpid_log(dp_id))
@@ -160,6 +171,8 @@ class Gauge(app_manager.RyuApp):
         if dp_id in self.watchers:
             self.logger.info('%s down', dpid_log(dp_id))
             for watcher in list(self.watchers[dp_id].values()):
+                self.logger.info(
+                    '%s %s watcher stopping', dpid_log(dp_id), watcher.conf.type)
                 watcher.stop()
         else:
             self.logger.info('%s down, unknown', dpid_log(dp_id))
