@@ -43,6 +43,7 @@ class FaucetTestBase(unittest.TestCase):
     FAUCET_MAC = '0e:00:00:00:00:01'
     LADVD = 'ladvd -e lo -f'
     ONEMBPS = (1024 * 1024)
+    INFLUX_TIMEOUT = 5
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -264,7 +265,7 @@ class FaucetTestBase(unittest.TestCase):
         dumpNodeConnections(self.net.hosts)
 
     def _get_controller(self):
-        """Return the first (only) controller."""
+        """Return first controller."""
         return self.net.controllers[0]
 
     def _start_faucet(self, controller_intf):
@@ -486,7 +487,8 @@ dbs:
         influx_port: %u
         influx_user: 'faucet'
         influx_pwd: ''
-        influx_timeout: 5
+        influx_timeout: %u
+        interval: %u
     couchdb:
         type: gaugedb
         gdb_type: nosql
@@ -508,7 +510,9 @@ dbs:
        monitor_stats_file,
        monitor_state_file,
        monitor_flow_table_file,
-       influx_port)
+       influx_port,
+       self.INFLUX_TIMEOUT,
+       self.INFLUX_TIMEOUT + 1)
 
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
@@ -752,6 +756,7 @@ dbs:
             self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
             self.fail(
                 'gauge did not output %s (gauge not connected?)' % watcher_file)
+        self.hup_gauge()
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
 
     def prometheus_smoke_test(self):
@@ -782,6 +787,11 @@ dbs:
         controller = self._get_controller()
         self.assertTrue(
             self._signal_proc_on_port(controller, controller.port, 1))
+
+    def hup_gauge(self):
+        self.assertTrue(
+            self._signal_proc_on_port(
+                self.gauge_controller, int(self.gauge_of_port), 1))
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
