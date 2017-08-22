@@ -33,6 +33,7 @@ services:
             - './etc/prometheus/faucet.rules:/etc/prometheus/faucet.rules'
         links:
             - faucet
+            - gauge
 
     grafana:
         restart: always
