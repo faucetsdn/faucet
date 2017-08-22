@@ -1897,18 +1897,6 @@ acls:
         - rule:
             dl_type: 0x800
             nw_proto: 6
-            tp_dst: 5002
-            actions:
-                allow: 1
-        - rule:
-            dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
-            actions:
-                allow: 0
-        - rule:
-            dl_type: 0x800
-            nw_proto: 6
             # Match packets > 1023
             tp_dst: 1024/1024
             actions:
