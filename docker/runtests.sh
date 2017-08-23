@@ -11,8 +11,15 @@ cd /faucet-src/tests
 echo "============ Running pytype analyzer ============"
 # TODO: pytype doesn't completely understand py3 yet.
 for p in ../faucet/*py ; do
-  echo $p
-  pytype -d import-error $p || exit 1
+  pytype -d import-error $p &
+done
+
+while /bin/true; do
+  wait -n || {
+    code="$?"
+    ([[ $code = "127" ]] && exit 0 || exit "$code")
+    break
+  }
 done
 
 echo "========== Running faucet config tests =========="
