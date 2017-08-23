@@ -59,4 +59,11 @@ RUN \
   pip3 install -r /faucet-src/test-requirements.txt && \
   pip3 install /faucet-src
 
+RUN \
+  git clone https://github.com/google/pytype.git && \
+  cd pytype && \
+  git submodule init && \
+  git submodule update && \
+  python2 setup.py install
+
 CMD ["/faucet-src/docker/runtests.sh"]
