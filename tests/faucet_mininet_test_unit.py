@@ -389,7 +389,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def _wait_influx_log(self, influx_log):
-        for _ in range(self.INFLUX_TIMEOUT * 2):
+        for _ in range(self.INFLUX_TIMEOUT * 3):
             if os.path.exists(influx_log):
                 return
             time.sleep(1)
