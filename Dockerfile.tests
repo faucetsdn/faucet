@@ -3,11 +3,16 @@ FROM osrg/ryu
 RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends software-properties-common && \
+  add-apt-repository ppa:saiarcot895/myppa && \
   add-apt-repository -y ppa:longsleep/golang-backports && \
-  apt-get update
+  apt-get update && \
+  echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections && \
+  echo debconf apt-fast/dlflag boolean true | debconf-set-selections && \
+  echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections && \
+  apt-get -y install apt-fast
 
 RUN \
-  apt-get install -qy --no-install-recommends \
+  apt-fast install -qy --no-install-recommends \
     bc \
     fping \
     gcc \
@@ -33,9 +38,8 @@ RUN \
 
 RUN \
   git clone -b 2.2.2 https://github.com/mininet/mininet && \
-  apt-get update && \
   mininet/util/install.sh -nfv && \
-  apt-get purge -qy pylint
+  apt-fast purge -qy pylint
 
 COPY ./ /faucet-src/
 
