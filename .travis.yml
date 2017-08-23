@@ -7,14 +7,6 @@ addons:
   apt:
     packages:
       - openvswitch-switch
-cache:
-  directories:
-    - /home/travis/docker/
-before_install:
-  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
-env:
-  global:
-    - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
 python:
   - "3.5"
 install:
@@ -31,4 +23,3 @@ script:
   - "cd .."
   - "docker build -t reannz/faucet-tests -f Dockerfile.tests ."
   - "sudo docker run --privileged -ti reannz/faucet-tests"
-  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(docker history -q ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT} | grep -v '<missing>') | gzip > ${DOCKER_CACHE_FILE}; fi
