@@ -488,6 +488,7 @@ dbs:
         influx_user: 'faucet'
         influx_pwd: ''
         influx_timeout: %u
+        interval: %u
     couchdb:
         type: gaugedb
         gdb_type: nosql
@@ -510,7 +511,8 @@ dbs:
        monitor_state_file,
        monitor_flow_table_file,
        influx_port,
-       self.INFLUX_TIMEOUT)
+       self.INFLUX_TIMEOUT,
+       self.INFLUX_TIMEOUT + 1)
 
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
