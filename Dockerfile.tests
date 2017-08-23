@@ -38,8 +38,8 @@ RUN \
 
 RUN \
   git clone -b 2.2.2 https://github.com/mininet/mininet && \
-  mininet/util/install.sh -nfv && \
-  apt-fast purge -qy pylint
+  perl -pi -e "s/apt-get/apt-fast/g" mininet/util/install.sh && \
+  mininet/util/install.sh -nfv
 
 COPY ./ /faucet-src/
 
@@ -53,6 +53,7 @@ RUN mkdir -p \
       github.com/openconfig/reference/telemetry/collector/cli
 
 RUN \
+  apt-fast purge -qy pylint && \
   pip install --upgrade pip && \
   pip install setuptools wheel virtualenv --upgrade && \
   pip install -r /faucet-src/test-requirements.txt && \
