@@ -60,6 +60,7 @@ class VLAN(Conf):
     dyn_faucet_vips_by_ipv = None
     dyn_routes_by_ipv = None
     dyn_neigh_cache_by_ipv = None
+    learn_ban_count = 0
 
     defaults = {
         'name': None,
@@ -116,7 +117,6 @@ class VLAN(Conf):
         self.dp_id = dp_id
         self.update(conf)
         self.set_defaults()
-        self._id = _id
         self.tagged = []
         self.untagged = []
         self.dyn_host_cache = {}
@@ -192,7 +192,7 @@ class VLAN(Conf):
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
         ports = ','.join(port_list)
-        return 'VLAN vid:%s ports:%s' % (self.vid, ports)
+        return 'VLAN %s vid:%s ports:%s' % (self.name, self.vid, ports)
 
     def __repr__(self):
         return self.__str__()
@@ -253,16 +253,19 @@ class VLAN(Conf):
         return False
 
     def ip_in_vip_subnet(self, ipa):
-        """Return True if IP in same IP network as a VIP on this VLAN."""
+        """Return faucet_vip if IP in same IP network as a VIP on this VLAN."""
         for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
             if ipa in faucet_vip.network:
-                return True
-        return False
+                if ipa not in (
+                        faucet_vip.network.network_address,
+                        faucet_vip.network.broadcast_address):
+                    return faucet_vip
+        return None
 
     def ips_in_vip_subnet(self, ips):
         """Return True if all IPs are on same subnet as VIP on this VLAN."""
         for ipa in ips:
-            if not self.ip_in_vip_subnet(ipa):
+            if self.ip_in_vip_subnet(ipa) is None:
                 return False
         return True
 

@@ -20,14 +20,17 @@ import numpy
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
+# pytype: disable=pyi-error
 from requests.exceptions import ConnectionError, ReadTimeout
 
 
 try:
     from gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
+    from valve_of import devid_present
     from valve_util import dpid_log
 except ImportError:
     from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
+    from faucet.valve_of import devid_present
     from faucet.valve_util import dpid_log
 
 
@@ -40,17 +43,21 @@ class InfluxShipper(object):
 
     def ship_points(self, points):
         """Make a connection to InfluxDB and ship points."""
-        try:
-            client = InfluxDBClient(
-                host=self.conf.influx_host,
-                port=self.conf.influx_port,
-                username=self.conf.influx_user,
-                password=self.conf.influx_pwd,
-                database=self.conf.influx_db,
-                timeout=self.conf.influx_timeout)
-            return client.write_points(points=points, time_precision='s')
-        except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
+        if self.conf is None:
             return False
+        else:
+            try:
+                client = InfluxDBClient(
+                    host=self.conf.influx_host,
+                    port=self.conf.influx_port,
+                    username=self.conf.influx_user,
+                    password=self.conf.influx_pwd,
+                    database=self.conf.influx_db,
+                    timeout=self.conf.influx_timeout)
+                return client.write_points(points=points, time_precision='s')
+            except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
+                return False
+            return True
 
     def make_point(self, tags, rcv_time, stat_name, stat_val):
         """Make an InfluxDB point."""
@@ -153,7 +160,7 @@ time                    dp_name                 port_name       value
                     self.make_port_point(
                         self.dp.name, port_name, rcv_time, stat_name, stat_val))
         if not self.ship_points(points):
-            self.logger.warn(
+            self.logger.warning(
                 '%s error shipping port_stats points', dpid_log(dp_id))
 
 
@@ -189,10 +196,12 @@ time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_t
             stats = stats_reply['OFPFlowStats']
             packet_count = int(stats['packet_count'])
             byte_count = int(stats['byte_count'])
+            instructions = stats['instructions']
             tags = {
                 'dp_name': self.dp.name,
                 'table_id': int(stats['table_id']),
                 'priority': int(stats['priority']),
+                'inst_count': len(instructions),
             }
             oxm_matches = stats['match']['OFPMatch']['oxm_fields']
             for oxm_match in oxm_matches:
@@ -203,10 +212,12 @@ time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_t
                 if mask is not None:
                     val = '/'.join((val, mask))
                 tags[field] = val
+                if field == 'vlan_vid' and mask is None:
+                    tags['vlan'] = devid_present(int(val))
             points.append(
                 self.make_point(tags, rcv_time, 'flow_packet_count', packet_count))
             points.append(
                 self.make_point(tags, rcv_time, 'flow_byte_count', byte_count))
         if not self.ship_points(points):
-            self.logger.warn(
+            self.logger.warning(
                 '%s error shipping flow_table points', dpid_log(dp_id))

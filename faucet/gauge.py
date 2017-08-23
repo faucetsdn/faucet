@@ -77,16 +77,69 @@ class Gauge(app_manager.RyuApp):
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
-        # dict of watchers/handlers:
-        # indexed by dp_id and then by name
-        self.watchers = self._load_config()
+        # Create dpset object for querying Ryu's DPSet application
+        self.dpset = kwargs['dpset']
+
+        # dict of watchers/handlers, indexed by dp_id and then by name
+        self.watchers = {}
+        self._load_config()
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
 
-        # Create dpset object for querying Ryu's DPSet application
-        self.dpset = kwargs['dpset']
+    @kill_on_exception(exc_logname)
+    def _load_config(self):
+        """Load Gauge config."""
+        self.config_file = os.getenv('GAUGE_CONFIG', self.config_file)
+        new_confs = watcher_parser(self.config_file, self.logname)
+        new_watchers = {}
 
+        for conf in new_confs:
+            watcher = watcher_factory(conf)(conf, self.logname)
+            watcher_dpid = watcher.dp.dp_id
+            ryu_dp = self.dpset.get(watcher_dpid)
+            watcher_type = watcher.conf.type
+            watcher_msg = '%s %s watcher' % (dpid_log(watcher_dpid), watcher_type)
+
+            if watcher_dpid not in new_watchers:
+                new_watchers[watcher_dpid] = {}
+
+            if (watcher_dpid in self.watchers and
+                    watcher_type in self.watchers[watcher_dpid]):
+                old_watcher = self.watchers[watcher_dpid][watcher_type]
+                if old_watcher.running():
+                    self.logger.info('%s stopped', watcher_msg)
+                    old_watcher.stop()
+                del self.watchers[watcher_dpid][watcher_type]
+
+            new_watchers[watcher_dpid][watcher_type] = watcher
+            if ryu_dp is None:
+                self.logger.info('%s added but DP currently down', watcher_msg)
+            else:
+                new_watchers[watcher_dpid][watcher_type].start(ryu_dp)
+                self.logger.info('%s started', watcher_msg)
+
+        for watcher_dpid, leftover_watchers in list(self.watchers.items()):
+            for watcher_type, watcher in list(leftover_watchers.items()):
+                if watcher.running():
+                    self.logger.info(
+                        '%s %s deconfigured', dpid_log(watcher_dpid), watcher_type)
+                    watcher.stop()
+
+        self.watchers = new_watchers
+        self.logger.info('config complete')
+
+    @kill_on_exception(exc_logname)
+    def _update_watcher(self, dp_id, name, msg):
+        """Call watcher with event data."""
+        rcv_time = time.time()
+        if dp_id in self.watchers:
+            if name in self.watchers[dp_id]:
+                self.watchers[dp_id][name].update(rcv_time, dp_id, msg)
+        else:
+            self.logger.info('%s event, unknown', dpid_log(dp_id))
+
+    @kill_on_exception(exc_logname)
     def signal_handler(self, sigid, _):
         """Handle signal and cause config reload.
 
@@ -95,6 +148,12 @@ class Gauge(app_manager.RyuApp):
         """
         if sigid == signal.SIGHUP:
             self.send_event('Gauge', EventGaugeReconfigure())
+
+    @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
+    def reload_config(self, _):
+        """Handle request for Gauge config reload."""
+        self.logger.warning('reload config requested')
+        self._load_config()
 
     @kill_on_exception(exc_logname)
     def _handler_datapath_up(self, ryu_dp):
@@ -107,6 +166,8 @@ class Gauge(app_manager.RyuApp):
         if dp_id in self.watchers:
             self.logger.info('%s up', dpid_log(dp_id))
             for watcher in list(self.watchers[dp_id].values()):
+                self.logger.info(
+                    '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
                 watcher.start(ryu_dp)
         else:
             self.logger.info('%s up, unknown', dpid_log(dp_id))
@@ -122,6 +183,8 @@ class Gauge(app_manager.RyuApp):
         if dp_id in self.watchers:
             self.logger.info('%s down', dpid_log(dp_id))
             for watcher in list(self.watchers[dp_id].values()):
+                self.logger.info(
+                    '%s %s watcher stopping', dpid_log(dp_id), watcher.conf.type)
                 watcher.stop()
         else:
             self.logger.info('%s down, unknown', dpid_log(dp_id))
@@ -151,48 +214,13 @@ class Gauge(app_manager.RyuApp):
         ryu_dp = ryu_event.dp
         self._handler_datapath_up(ryu_dp)
 
-    def _load_config(self):
-        """Load Gauge config."""
-        self.config_file = os.getenv('GAUGE_CONFIG', self.config_file)
-        new_confs = watcher_parser(self.config_file, self.logname)
-        new_watchers = {}
-        for conf in new_confs:
-            watcher = watcher_factory(conf)(conf, self.logname)
-            new_watchers.setdefault(watcher.dp.dp_id, {})
-            new_watchers[watcher.dp.dp_id][watcher.conf.type] = watcher
-        return new_watchers
-
-    @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
-    def reload_config(self, _):
-        """Handle request for Gauge config reload."""
-        new_watchers = self._load_config()
-        for dp_id, watchers in self.watchers:
-            for watcher_type, watcher in watchers:
-                try:
-                    new_watcher = new_watchers[dp_id][watcher_type]
-                    self.watchers[dp_id][watcher_type] = new_watcher
-                except KeyError:
-                    del self.watchers[dp_id][watcher_type]
-                if watcher.running():
-                    watcher.stop()
-                    new_watcher.start(self.dpset.get(dp_id))
-
-    def _update_watcher(self, dp_id, name, msg):
-        """Call watcher with event data."""
-        rcv_time = time.time()
-        if dp_id in self.watchers:
-            if name in self.watchers[dp_id]:
-                self.watchers[dp_id][name].update(rcv_time, dp_id, msg)
-        else:
-            self.logger.info('%s event, unknown', dpid_log(dp_id))
-
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ryu_event):
         """Handle port status change event.
 
         Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+           ryu_event (ryu.controller.event.EventReplyBase): port status change event.
         """
         self._update_watcher(
             ryu_event.msg.datapath.id, 'port_state', ryu_event.msg)
@@ -203,7 +231,7 @@ class Gauge(app_manager.RyuApp):
         """Handle port stats reply event.
 
         Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+           ryu_event (ryu.controller.event.EventReplyBase): port stats event.
         """
         self._update_watcher(
             ryu_event.msg.datapath.id, 'port_stats', ryu_event.msg)
@@ -214,7 +242,7 @@ class Gauge(app_manager.RyuApp):
         """Handle flow stats reply event.
 
         Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
+           ryu_event (ryu.controller.event.EventReplyBase): flow stats event.
         """
         self._update_watcher(
             ryu_event.msg.datapath.id, 'flow_table', ryu_event.msg)

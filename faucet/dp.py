@@ -74,7 +74,8 @@ class DP(Conf):
     advertise_interval = None
     proactive_learn = None
     pipeline_config_dir = None
-    hard_timeout_enabled = None
+    use_idle_timeout = None
+    meters = {}
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -116,9 +117,11 @@ class DP(Conf):
         'stack': None,
         # stacking config, when cross connecting multiple DPs
         'ignore_learn_ins': 3,
-        # Ignore every approx nth packet for learning. 2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
+        # Ignore every approx nth packet for learning.
+        #2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
         # This limits control plane activity when learning new hosts rapidly.
-        # Flooding will still be done by the dataplane even with a packet is ignored for learning purposes.
+        # Flooding will still be done by the dataplane even with a packet
+        # is ignored for learning purposes.
         'drop_broadcast_source_address': True,
         # By default drop packets with a broadcast source address
         'drop_spoofed_faucet_mac': True,
@@ -149,8 +152,8 @@ class DP(Conf):
         # whether proactive learning is enabled for IP nexthops
         'pipeline_config_dir': '/etc/ryu/faucet',
         # where config files for pipeline are stored (if any).
-        'hard_timeout_enabled': True,
-        #disable/enable hard timeout of rules
+        'use_idle_timeout': False,
+        #Turn on/off the use of idle timeout for src_table, default OFF.
         }
 
     defaults_types = {
@@ -195,7 +198,7 @@ class DP(Conf):
         'advertise_interval': int,
         'proactive_learn': bool,
         'pipeline_config_dir': str,
-        'hard_timeout_enabled': bool,
+        'use_idle_timeout': bool,
     }
 
 
@@ -230,10 +233,10 @@ class DP(Conf):
         # fix special cases
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
-        self._set_default('lowest_priority', self.priority_offset)
-        self._set_default('low_priority', self.priority_offset + 9000)
-        self._set_default('high_priority', self.low_priority + 1)
-        self._set_default('highest_priority', self.high_priority + 98)
+        self._set_default('lowest_priority', self.priority_offset) # pytype: disable=none-attr
+        self._set_default('low_priority', self.priority_offset + 9000) # pytype: disable=none-attr
+        self._set_default('high_priority', self.low_priority + 1) # pytype: disable=none-attr
+        self._set_default('highest_priority', self.high_priority + 98) # pytype: disable=none-attr
         self._set_default('description', self.name)
         table_id = self.table_offset
         for table_name in (
@@ -247,7 +250,7 @@ class DP(Conf):
                 'eth_dst_table',
                 'flood_table'):
             self._set_default(table_name, table_id)
-            table_id += 1
+            table_id += 1 # pytype: disable=none-attr
 
     def add_acl(self, acl_ident, acl):
         self.acls[acl_ident] = acl
@@ -397,11 +400,14 @@ class DP(Conf):
                 port.mirror = mirror_destination_port.number
                 mirror_destination_port.mirror_destination = True
 
-        def resolve_port_names_in_acls():
+        def resolve_names_in_acls():
             for acl in list(self.acls.values()):
                 for rule_conf in acl.rules:
                     for attrib, attrib_value in list(rule_conf.items()):
                         if attrib == 'actions':
+                            if 'meter' in attrib_value:
+                                meter_name = attrib_value['meter']
+                                assert meter_name in self.meters
                             if 'mirror' in attrib_value:
                                 port_name = attrib_value['mirror']
                                 port_no = resolve_port_no(port_name)
@@ -441,7 +447,7 @@ class DP(Conf):
 
         resolve_stack_dps()
         resolve_mirror_destinations()
-        resolve_port_names_in_acls()
+        resolve_names_in_acls()
         resolve_vlan_names_in_routers()
 
     def get_native_vlan(self, port_num):

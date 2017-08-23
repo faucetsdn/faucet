@@ -17,14 +17,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
 import ipaddress
 
-from ryu.lib import ofctl_v1_3 as ofctl
+from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil
 from ryu.ofproto import ether
+from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
-
 
 VLAN_GROUP_OFFSET = 4096
 ROUTE_GROUP_OFFSET = VLAN_GROUP_OFFSET * 2
@@ -109,6 +108,10 @@ def is_groupadd(ofmsg):
     return False
 
 
+def apply_meter(meter_id):
+    return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
+
+
 def apply_actions(actions):
     """Return instruction that applies action list.
 
@@ -162,6 +165,17 @@ def vid_present(vid):
         int: VLAN VID with VID_PRESENT.
     """
     return vid | ofp.OFPVID_PRESENT
+
+
+def devid_present(vid):
+    """Return VLAN VID without VID_PRESENT flag set.
+
+    Args:
+        vid (int): VLAN VID with VID_PRESENT.
+    Returns:
+        int: VLAN VID.
+    """
+    return vid ^ ofp.OFPVID_PRESENT
 
 
 def set_vlan_vid(vlan_vid):
@@ -281,11 +295,106 @@ def match(match_fields):
     return parser.OFPMatch(**match_fields)
 
 
+def valve_match_vid(value):
+    return to_match_vid(value, ofp.OFPVID_PRESENT)
+
+
 def match_from_dict(match_dict):
-    null_dp = namedtuple('null_dp', 'ofproto_parser')
-    null_dp.ofproto_parser = parser
-    acl_match = ofctl.to_match(null_dp, match_dict)
-    return acl_match
+    convert = {
+        'in_port': OFCtlUtil(ofp).ofp_port_from_user,
+        'in_phy_port': str_to_int,
+        'metadata': to_match_masked_int,
+        'dl_dst': to_match_eth,
+        'dl_src': to_match_eth,
+        'eth_dst': to_match_eth,
+        'eth_src': to_match_eth,
+        'dl_type': str_to_int,
+        'eth_type': str_to_int,
+        'dl_vlan': valve_match_vid,
+        'vlan_vid': valve_match_vid,
+        'vlan_pcp': str_to_int,
+        'ip_dscp': str_to_int,
+        'ip_ecn': str_to_int,
+        'nw_proto': str_to_int,
+        'ip_proto': str_to_int,
+        'nw_src': to_match_ip,
+        'nw_dst': to_match_ip,
+        'ipv4_src': to_match_ip,
+        'ipv4_dst': to_match_ip,
+        'tp_src': to_match_masked_int,
+        'tp_dst': to_match_masked_int,
+        'tcp_src': to_match_masked_int,
+        'tcp_dst': to_match_masked_int,
+        'udp_src': to_match_masked_int,
+        'udp_dst': to_match_masked_int,
+        'sctp_src': to_match_masked_int,
+        'sctp_dst': to_match_masked_int,
+        'icmpv4_type': str_to_int,
+        'icmpv4_code': str_to_int,
+        'arp_op': str_to_int,
+        'arp_spa': to_match_ip,
+        'arp_tpa': to_match_ip,
+        'arp_sha': to_match_eth,
+        'arp_tha': to_match_eth,
+        'ipv6_src': to_match_ip,
+        'ipv6_dst': to_match_ip,
+        'ipv6_flabel': str_to_int,
+        'icmpv6_type': str_to_int,
+        'icmpv6_code': str_to_int,
+        'ipv6_nd_target': to_match_ip,
+        'ipv6_nd_sll': to_match_eth,
+        'ipv6_nd_tll': to_match_eth,
+        'mpls_label': str_to_int,
+        'mpls_tc': str_to_int,
+        'mpls_bos': str_to_int,
+        'pbb_isid': to_match_masked_int,
+        'tunnel_id': to_match_masked_int,
+        'ipv6_exthdr': to_match_masked_int
+    }
+
+    keys = {
+        'dl_dst': 'eth_dst',
+        'dl_src': 'eth_src',
+        'dl_type': 'eth_type',
+        'dl_vlan': 'vlan_vid',
+        'nw_src': 'ipv4_src',
+        'nw_dst': 'ipv4_dst',
+        'nw_proto': 'ip_proto'
+    }
+
+    if (match_dict.get('dl_type') == ether.ETH_TYPE_ARP or
+            match_dict.get('eth_type') == ether.ETH_TYPE_ARP):
+        if 'nw_src' in match_dict and 'arp_spa' not in match_dict:
+            match_dict['arp_spa'] = match_dict['nw_src']
+            del match_dict['nw_src']
+        if 'nw_dst' in match_dict and 'arp_tpa' not in match_dict:
+            match_dict['arp_tpa'] = match_dict['nw_dst']
+            del match_dict['nw_dst']
+
+    kwargs = {}
+    for key, value in list(match_dict.items()):
+        if key in keys:
+            # For old field name
+            key = keys[key]
+        if key in convert:
+            value = convert[key](value)
+            if key == 'tp_src' or key == 'tp_dst':
+                # TCP/UDP port
+                conv = {inet.IPPROTO_TCP: {'tp_src': 'tcp_src',
+                                           'tp_dst': 'tcp_dst'},
+                        inet.IPPROTO_UDP: {'tp_src': 'udp_src',
+                                           'tp_dst': 'udp_dst'}}
+                ip_proto = match_dict.get(
+                    'nw_proto', match_dict.get('ip_proto', 0))
+                key = conv[ip_proto][key]
+                kwargs[key] = value
+            else:
+                # others
+                kwargs[key] = value
+        else:
+            assert 'Unknown match field: %s' % key
+
+    return parser.OFPMatch(**kwargs)
 
 
 def _match_ip_masked(ipa):
@@ -392,6 +501,14 @@ def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
         ofp.OFPGC_DELETE,
         0,
         group_id)
+
+
+def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):
+    return parser.OFPMeterMod(
+        datapath,
+        ofp.OFPMC_DELETE,
+        0,
+        meter_id)
 
 
 def controller_pps_meteradd(datapath=None, pps=0):

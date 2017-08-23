@@ -43,6 +43,7 @@ class FaucetTestBase(unittest.TestCase):
     FAUCET_MAC = '0e:00:00:00:00:01'
     LADVD = 'ladvd -e lo -f'
     ONEMBPS = (1024 * 1024)
+    INFLUX_TIMEOUT = 5
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -264,7 +265,7 @@ class FaucetTestBase(unittest.TestCase):
         dumpNodeConnections(self.net.hosts)
 
     def _get_controller(self):
-        """Return the first (only) controller."""
+        """Return first controller."""
         return self.net.controllers[0]
 
     def _start_faucet(self, controller_intf):
@@ -486,7 +487,8 @@ dbs:
         influx_port: %u
         influx_user: 'faucet'
         influx_pwd: ''
-        influx_timeout: 5
+        influx_timeout: %u
+        interval: %u
     couchdb:
         type: gaugedb
         gdb_type: nosql
@@ -508,7 +510,9 @@ dbs:
        monitor_stats_file,
        monitor_state_file,
        monitor_flow_table_file,
-       influx_port)
+       influx_port,
+       self.INFLUX_TIMEOUT,
+       self.INFLUX_TIMEOUT + 1)
 
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
@@ -636,14 +640,17 @@ dbs:
     def wait_until_controller_flow(self):
         self.wait_until_matching_flow(None, actions=[u'OUTPUT:CONTROLLER'])
 
-    def mac_learned(self, mac, timeout=10):
+    def mac_learned(self, mac, timeout=10, in_port=None):
         """Return True if a MAC has been learned on default DPID."""
+        match = {u'dl_src': u'%s' % mac}
+        if in_port is not None:
+            match[u'in_port'] = in_port
         return self.matching_flow_present(
-            {u'dl_src': u'%s' % mac}, timeout=timeout, table_id=self.ETH_SRC_TABLE)
+            match, timeout=timeout, table_id=self.ETH_SRC_TABLE)
 
-    def host_learned(self, host, timeout=10):
+    def host_learned(self, host, timeout=10, in_port=None):
         """Return True if a host has been learned on default DPID."""
-        return self.mac_learned(host.MAC(), timeout)
+        return self.mac_learned(host.MAC(), timeout, in_port)
 
     def get_host_intf_mac(self, host, intf):
         return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
@@ -666,7 +673,7 @@ dbs:
         """Return first IPv6/netmask for host's default interface."""
         return self.host_ip(host, 'inet6', r'[0-9a-f\:]+\/[0-9]+')
 
-    def require_host_learned(self, host, retries=3):
+    def require_host_learned(self, host, retries=3, in_port=None):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
         ping_cmd = 'ping'
@@ -677,7 +684,7 @@ dbs:
         if broadcast.version == 6:
             ping_cmd = 'ping6'
         for _ in range(retries):
-            if self.host_learned(host, timeout=1):
+            if self.host_learned(host, timeout=1, in_port=in_port):
                 return
             # stimulate host learning with a broadcast ping
             host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
@@ -733,6 +740,18 @@ dbs:
                 return results[0][1]
         return default
 
+    def wait_gauge_up(self, timeout=30):
+        gauge_log = self.env['gauge']['GAUGE_LOG']
+        log_content = ''
+        for _ in range(timeout):
+            if os.path.exists(gauge_log):
+                log_content = open(gauge_log).read()
+                if re.search('DPID %u.+up' % int(self.dpid), log_content):
+                    return
+            time.sleep(1)
+        self.fail('%s does not exist or does not have DPID up (%s)' % (
+            gauge_log, log_content))
+
     def gauge_smoke_test(self):
         watcher_files = (
             self.monitor_stats_file,
@@ -746,10 +765,11 @@ dbs:
             if (os.path.exists(watcher_file) and
                     os.stat(watcher_file).st_size > 0):
                 continue
+            self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
             self.fail(
                 'gauge did not output %s (gauge not connected?)' % watcher_file)
+        self.hup_gauge()
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def prometheus_smoke_test(self):
         prom_out = self.scrape_prometheus()
@@ -779,6 +799,11 @@ dbs:
         controller = self._get_controller()
         self.assertTrue(
             self._signal_proc_on_port(controller, controller.port, 1))
+
+    def hup_gauge(self):
+        self.assertTrue(
+            self._signal_proc_on_port(
+                self.gauge_controller, int(self.gauge_of_port), 1))
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
@@ -1154,17 +1179,21 @@ dbs:
         else:
             self.fail('no flow matching %s' % match)
 
-    def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0):
+    def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
             '', first_host.cmd(faucet_mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10)))
         if table_id is not None:
+            if mask is None:
+                match_port = int(port)
+            else:
+                match_port = '/'.join((str(port), str(mask)))
             self.wait_nonzero_packet_count_flow(
-                {u'tp_dst': int(port)}, table_id=table_id)
+                {u'tp_dst': match_port}, table_id=table_id)
 
-    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
+    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is NOT blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
@@ -1250,7 +1279,7 @@ dbs:
                 return
         self.assertEquals(0, loss)
 
-    def wait_for_route_as_flow(self, nexthop, prefix, timeout=10,
+    def wait_for_route_as_flow(self, nexthop, prefix, vlan_vid=None, timeout=10,
                                with_group_table=False, nonzero_packets=False):
         """Verify a route has been added as a flow."""
         exp_prefix = u'%s/%s' % (
@@ -1262,6 +1291,8 @@ dbs:
             nw_dst_match = {u'nw_dst': exp_prefix}
             table_id = self.IPV4_FIB_TABLE
         nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
+        if vlan_vid is not None:
+            nw_dst_match[u'dl_vlan'] = unicode(vlan_vid)
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(
                 nw_dst_match)
@@ -1301,7 +1332,7 @@ dbs:
                 return
             time.sleep(1)
         self.fail(
-            'could not verify %s resolved to %s (%s)' % (ipa, mac, neighbors))
+            'could not verify %s resolved to %s' % (ipa, mac))
 
     def verify_ipv4_host_learned_mac(self, host, ipa, mac, retries=3):
         self._verify_host_learned_mac(host, ipa, 4, mac, retries)

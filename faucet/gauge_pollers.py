@@ -28,54 +28,23 @@ except ImportError:
 
 
 class GaugePoller(object):
-    """A ryu thread object for sending and receiving OpenFlow stats requests.
-
-    The thread runs in a loop sending a request, sleeping then checking a
-    response was received before sending another request.
-
-    The methods send_req, update and no_response should be implemented by
-    subclasses.
-    """
 
     def __init__(self, conf, logname):
         self.dp = conf.dp
         self.conf = conf
-        self.thread = None
         self.reply_pending = False
-        self.interval = self.conf.interval
         self.logger = logging.getLogger(
             logname + '.{0}'.format(self.conf.type)
             )
-        self.ryudp = None
 
-    def start(self, ryudp):
-        self.ryudp = ryudp
-        self.stop()
-        self.thread = hub.spawn(self)
+    def start(self, _ryudp):
+        return
 
     def stop(self):
-        if self.running():
-            hub.kill(self.thread)
-            hub.joinall([self.thread])
-            self.thread = None
-
-    def __call__(self):
-        """Send request loop.
-
-        Delays the initial request for a random interval to reduce load.
-        Then sends a request to the datapath, waits the specified interval and
-        checks that a response has been received in a loop."""
-        # TODO: this should use a deterministic method instead of random
-        hub.sleep(random.randint(1, self.conf.interval))
-        while True:
-            self.send_req()
-            self.reply_pending = True
-            hub.sleep(self.conf.interval)
-            if self.reply_pending:
-                self.no_response()
+        return
 
     def running(self):
-        return self.thread is not None
+        return True
 
     def send_req(self):
         """Send a stats request to a datapath."""
@@ -132,23 +101,70 @@ class GaugePoller(object):
         return formatted_port_stats
 
 
-class GaugePortStatsPoller(GaugePoller):
+class GaugeThreadPoller(GaugePoller):
+    """A ryu thread object for sending and receiving OpenFlow stats requests.
+
+    The thread runs in a loop sending a request, sleeping then checking a
+    response was received before sending another request.
+
+    The methods send_req, update and no_response should be implemented by
+    subclasses.
+    """
+
+    def __init__(self, conf, logname):
+        super(GaugeThreadPoller, self).__init__(conf, logname)
+        self.thread = None
+        self.interval = self.conf.interval
+        self.ryudp = None
+
+    def start(self, ryudp):
+        self.ryudp = ryudp
+        self.stop()
+        self.thread = hub.spawn(self)
+
+    def stop(self):
+        if self.running():
+            hub.kill(self.thread)
+            hub.joinall([self.thread])
+            self.thread = None
+
+    def running(self):
+        return self.thread is not None
+
+    def __call__(self):
+        """Send request loop.
+
+        Delays the initial request for a random interval to reduce load.
+        Then sends a request to the datapath, waits the specified interval and
+        checks that a response has been received in a loop."""
+        # TODO: this should use a deterministic method instead of random
+        hub.sleep(random.randint(1, self.conf.interval))
+        while True:
+            self.send_req()
+            self.reply_pending = True
+            hub.sleep(self.conf.interval)
+            if self.reply_pending:
+                self.no_response()
+
+
+class GaugePortStatsPoller(GaugeThreadPoller):
     """Periodically sends a port stats request to the datapath and parses
        and outputs the response.
     """
 
     def send_req(self):
-        ofp = self.ryudp.ofproto
-        ofp_parser = self.ryudp.ofproto_parser
-        req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
-        self.ryudp.send_msg(req)
+        if self.ryudp:
+            ofp = self.ryudp.ofproto
+            ofp_parser = self.ryudp.ofproto_parser
+            req = ofp_parser.OFPPortStatsRequest(self.ryudp, 0, ofp.OFPP_ANY)
+            self.ryudp.send_msg(req)
 
     def no_response(self):
         self.logger.info(
             'port stats request timed out for %s', self.dp.name)
 
 
-class GaugeFlowTablePoller(GaugePoller):
+class GaugeFlowTablePoller(GaugeThreadPoller):
     """Periodically dumps the current datapath flow table as a yaml object.
 
     Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
@@ -157,30 +173,20 @@ class GaugeFlowTablePoller(GaugePoller):
     """
 
     def send_req(self):
-        ofp = self.ryudp.ofproto
-        ofp_parser = self.ryudp.ofproto_parser
-        match = ofp_parser.OFPMatch()
-        req = ofp_parser.OFPFlowStatsRequest(
-            self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
-            0, 0, match)
-        self.ryudp.send_msg(req)
+        if self.ryudp:
+            ofp = self.ryudp.ofproto
+            ofp_parser = self.ryudp.ofproto_parser
+            match = ofp_parser.OFPMatch()
+            req = ofp_parser.OFPFlowStatsRequest(
+                self.ryudp, 0, ofp.OFPTT_ALL, ofp.OFPP_ANY, ofp.OFPG_ANY,
+                0, 0, match)
+            self.ryudp.send_msg(req)
 
     def no_response(self):
         self.logger.info(
             'flow dump request timed out for %s', self.dp.name)
 
 
-class GaugePortStateBaseLogger(object):
+class GaugePortStateBaseLogger(GaugePoller):
 
-    def __init__(self, conf, logname):
-        self.dp = conf.dp
-        self.conf = conf
-        self.logger = logging.getLogger(
-            logname + '.{0}'.format(self.conf.type)
-            )
-
-    def start(self, ryudp):
-        pass
-
-    def stop(self):
-        pass
+    pass

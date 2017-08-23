@@ -70,6 +70,7 @@ EXTERNAL_DEPENDENCIES = (
      r'fping: Version (\d+\.\d+)', "3.13"),
     ('rdisc6', ['-V'], 'ndisc6',
      r'ndisc6.+tool (\d+\.\d+)', "1.0"),
+    ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
 
 # Must pass with 0 lint errors
@@ -79,7 +80,7 @@ FAUCET_TEST_LINT_SRCS = glob.glob(
     os.path.join(os.path.dirname(__file__), 'faucet_mininet_test*py'))
 
 # Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = 6
+MAX_PARALLEL_TESTS = 4
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
@@ -237,9 +238,10 @@ def pipeline_superset_report(root_tmpdir):
             if match:
                 table, matches, instructions, actions = match.groups()
                 table = int(table)
-                table_matches[table].update(eval(matches))
-                table_instructions[table].update(eval(instructions))
-                table_actions[table].update(eval(actions))
+                if table != 255:
+                    table_matches[table].update(eval(matches))
+                    table_instructions[table].update(eval(instructions))
+                    table_actions[table].update(eval(actions))
     print('')
     for table in sorted(table_matches):
         print('table: %u' % table)

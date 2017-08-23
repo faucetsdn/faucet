@@ -37,18 +37,6 @@ IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
 
 
-def mac_addr_is_unicast(mac_addr):
-    """Returns True if mac_addr is a unicast Ethernet address.
-
-    Args:
-        mac_addr (str): MAC address.
-    Returns:
-        bool: True if a unicast Ethernet address.
-    """
-    msb = mac_addr.split(':')[0]
-    return msb[-1] in '02468aAcCeE'
-
-
 def parse_pkt(pkt):
     """Return parsed Ethernet packet.
 
@@ -60,16 +48,28 @@ def parse_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 
 
-def parse_packet_in_pkt(msg):
+def parse_packet_in_pkt(data, max_len):
+    """Parse a packet received via packet in from the dataplane.
+
+    Args:
+        data (bytearray): packet data from dataplane.
+        max_len (int): max number of packet data bytes to parse.
+    Returns:
+        ryu.lib.packet.ethernet: Ethernet packet.
+        int: VLAN VID.
+    """
     pkt = None
     vlan_vid = None
 
+    if max_len:
+        data = data[:max_len]
+
     try:
-        pkt = packet.Packet(msg.data)
+        pkt = packet.Packet(data)
     except stream_parser.StreamParser.TooSmallException:
         return (pkt, vlan_vid)
 
-    eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
+    eth_pkt = parse_pkt(pkt)
     eth_type = eth_pkt.ethertype
     # Packet ins, can only come when a VLAN header has already been pushed
     # (ie. when we have progressed past the VLAN table). This gaurantees
@@ -80,6 +80,18 @@ def parse_packet_in_pkt(msg):
         vlan_proto = pkt.get_protocols(vlan.vlan)[0]
         vlan_vid = vlan_proto.vid
     return (pkt, vlan_vid)
+
+
+def mac_addr_is_unicast(mac_addr):
+    """Returns True if mac_addr is a unicast Ethernet address.
+
+    Args:
+        mac_addr (str): MAC address.
+    Returns:
+        bool: True if a unicast Ethernet address.
+    """
+    msb = mac_addr.split(':')[0]
+    return msb[-1] in '02468aAcCeE'
 
 
 def build_pkt_header(vid, eth_src, eth_dst, dl_type):
@@ -299,12 +311,12 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
     return pkt
 
 
-def router_advert(vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
+def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
                   vips, pi_flags=0x6):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
-        vlan (VLAN): VLAN instance.
+        _vlan (VLAN): VLAN instance.
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): dest Ethernet MAC address.

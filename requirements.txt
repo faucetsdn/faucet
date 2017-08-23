@@ -5,4 +5,4 @@ networkx
 numpy
 prometheus_client
 pyyaml
-ryu==4.15
+ryu==4.16

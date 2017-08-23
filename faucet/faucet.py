@@ -321,16 +321,19 @@ class Faucet(app_manager.RyuApp):
         valve = self.valves[dp_id]
         valve.ofchannel_log([msg])
 
-        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg)
-        if pkt is None or vlan_vid is None:
-            return
-
         in_port = msg.match['in_port']
+        # eth/VLAN header only
+        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg.data, max_len=(14 + 4))
+        if pkt is None or vlan_vid is None:
+            self.logger.info(
+                'unparseable packet from %s port %s', dpid_log(dp_id), in_port)
+            return
+        pkt_meta = valve.parse_rcv_packet(in_port, vlan_vid, msg.data, pkt)
+
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
             dpid=hex(dp_id)).inc()
-        flowmods = valve.rcv_packet(
-            dp_id, self.valves, in_port, vlan_vid, pkt)
+        flowmods = valve.rcv_packet(dp_id, self.valves, pkt_meta)
         self._send_flow_msgs(dp_id, flowmods)
         valve.update_metrics(self.metrics)
 
