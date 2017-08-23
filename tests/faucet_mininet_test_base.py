@@ -740,6 +740,18 @@ dbs:
                 return results[0][1]
         return default
 
+    def wait_gauge_up(self, timeout=30):
+        gauge_log = self.env['gauge']['GAUGE_LOG']
+        log_content = ''
+        for _ in range(timeout):
+            if os.path.exists(gauge_log):
+                log_content = open(gauge_log).read()
+                if re.search('DPID %u.+up' % int(self.dpid), log_content):
+                    return
+            time.sleep(1)
+        self.fail('%s does not exist or does not have DPID up (%s)' % (
+            gauge_log, log_content))
+
     def gauge_smoke_test(self):
         watcher_files = (
             self.monitor_stats_file,
