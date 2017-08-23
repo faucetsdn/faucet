@@ -410,6 +410,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         thread.daemon = True
         thread.start()
         self.ping_all_when_learned()
+        self.wait_gauge_up()
         self.hup_gauge()
         self.flap_all_switch_ports()
         self._wait_influx_log(influx_log)
@@ -505,6 +506,7 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
         thread.daemon = True
         thread.start()
         self.ping_all_when_learned()
+        self.wait_gauge_up()
         self._wait_influx_log(influx_log)
         server.shutdown()
         self.assertTrue(os.path.exists(influx_log))
@@ -1894,18 +1896,6 @@ vlans:
         description: "untagged"
 acls:
     1:
-        - rule:
-            dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5002
-            actions:
-                allow: 1
-        - rule:
-            dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
-            actions:
-                allow: 0
         - rule:
             dl_type: 0x800
             nw_proto: 6
