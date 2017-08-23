@@ -3899,7 +3899,7 @@ acls:
             source_host, overridden_host, rewrite_host, overridden_host)
 
 
-class FaucetDisableHardTimeoutTest(FaucetUntaggedTest):
+class FaucetWithUseIdleTimeoutTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -3907,7 +3907,7 @@ vlans:
 """
     CONFIG = """
         timeout: 8
-        hard_timeout_enabled: false
+        use_idle_timeout: true
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -3968,7 +3968,7 @@ vlans:
                 u'dl_src': u'%s' % first_host.MAC()},
             timeout=1))
 
-class FaucetDisableHardTimeoutRuleExpiredTest(FaucetDisableHardTimeoutTest):
+class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
 
     def test_untagged(self):
         """Host that is actively sending should have its dst rule renewed as the
