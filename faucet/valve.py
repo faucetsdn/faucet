@@ -848,7 +848,7 @@ class Valve(object):
                 continue
             port = self.dp.ports[port_num]
             port.phys_up = False
-            self.logger.warning('%s down' % port)
+            self.logger.info('%s down' % port)
 
             ofmsgs.extend(
                 self._port_delete_flows(
