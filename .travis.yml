@@ -9,6 +9,9 @@ addons:
       - openvswitch-switch
 python:
   - "3.5"
+before_install:
+  - "sudo apt-get update"
+  - "sudo apt-get -y -o Dpkg::Options::'=--force-confnew' install docker-engine"
 install:
   - "pip3 install -r requirements.txt -r test-requirements.txt"
   - "python3 setup.py sdist"
