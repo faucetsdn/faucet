@@ -229,10 +229,10 @@ class DP(Conf):
         # fix special cases
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
-        self._set_default('lowest_priority', self.priority_offset)
-        self._set_default('low_priority', self.priority_offset + 9000)
-        self._set_default('high_priority', self.low_priority + 1)
-        self._set_default('highest_priority', self.high_priority + 98)
+        self._set_default('lowest_priority', self.priority_offset) # pytype: disable=none-attr
+        self._set_default('low_priority', self.priority_offset + 9000) # pytype: disable=none-attr
+        self._set_default('high_priority', self.low_priority + 1) # pytype: disable=none-attr
+        self._set_default('highest_priority', self.high_priority + 98) # pytype: disable=none-attr
         self._set_default('description', self.name)
         table_id = self.table_offset
         for table_name in (
@@ -246,7 +246,7 @@ class DP(Conf):
                 'eth_dst_table',
                 'flood_table'):
             self._set_default(table_name, table_id)
-            table_id += 1
+            table_id += 1 # pytype: disable=none-attr
 
     def add_acl(self, acl_ident, acl):
         self.acls[acl_ident] = acl
