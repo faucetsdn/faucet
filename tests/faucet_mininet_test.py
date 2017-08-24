@@ -19,6 +19,7 @@ import inspect
 import os
 import sys
 import getopt
+import multiprocessing
 import re
 import shutil
 import subprocess
@@ -80,7 +81,7 @@ FAUCET_TEST_LINT_SRCS = glob.glob(
     os.path.join(os.path.dirname(__file__), 'faucet_mininet_test*py'))
 
 # Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = 6
+MAX_PARALLEL_TESTS = multiprocessing.cpu_count()
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
@@ -291,6 +292,7 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
     if sanity_result.wasSuccessful():
         print('running %u tests in parallel and %u tests serial' % (
             parallel_tests.countTestCases(), single_tests.countTestCases()))
+        print('running maximum of %u of parallel tests' % MAX_PARALLEL_TESTS)
         results = []
         if parallel_tests.countTestCases():
             max_parallel_tests = min(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
