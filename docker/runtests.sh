@@ -10,9 +10,7 @@ cd /faucet-src/tests
 
 echo "============ Running pytype analyzer ============"
 # TODO: pytype doesn't completely understand py3 yet.
-for p in ../faucet/*py ; do
-  pytype -d import-error $p &
-done
+ls -1 ../faucet/*py | parallel pytype -d import-error || exit 1
 
 while /bin/true; do
   wait -n || {

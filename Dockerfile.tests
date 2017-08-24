@@ -28,6 +28,7 @@ RUN \
     ndisc6 \
     net-tools \
     netcat-openbsd \
+    parallel \
     psmisc \
     python-pip \
     python3-pip \
