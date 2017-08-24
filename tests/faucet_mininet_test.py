@@ -281,6 +281,9 @@ def expand_tests(requested_test_classes, excluded_test_classes,
                 else:
                     parallel_test_suites.append(test_suite)
                     total_tests += 1
+    seed = time.time()
+    print('seeding parallel test shuffle with %f' % seed)
+    random.seed(seed)
     random.shuffle(parallel_test_suites)
     parallel_tests = unittest.TestSuite()
     for test_suite in parallel_test_suites:
@@ -292,7 +295,7 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
     all_successful = False
     sanity_runner = unittest.TextTestRunner(verbosity=255, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
-    max_parallel_tests = multiprocessing.cpu_count() * 2
+    max_parallel_tests = multiprocessing.cpu_count() * 3
     if sanity_result.wasSuccessful():
         print('running %u tests in parallel and %u tests serial' % (
             parallel_tests.countTestCases(), single_tests.countTestCases()))
