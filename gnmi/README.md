@@ -61,5 +61,5 @@ Override GNMI_TARGET, GNMI_PORT and GNMI_QUERY to perform the gNMI Get against o
 
 ## Used gNMI tools:
 
-*  [gNMI get](https://github.com/samribeiro/gnmi/gnmi_get)
-*  [gNMI target](https://github.com/samribeiro/gnmi/gnmi_target)
+*  [gNMI get](https://github.com/samribeiro/gnmi/tree/master/gnmi_get)
+*  [gNMI target](https://github.com/samribeiro/gnmi/tree/master/gnmi_target)
