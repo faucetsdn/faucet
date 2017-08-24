@@ -514,6 +514,18 @@ dbs:
        self.INFLUX_TIMEOUT,
        self.INFLUX_TIMEOUT + 1)
 
+    def get_exabgp_conf(self, peer, peer_config=''):
+       return """
+  neighbor %s {
+    router-id 2.2.2.2;
+    local-address %s;
+    connect %s;
+    peer-as 1;
+    local-as 2;
+    %s
+  }
+""" % (peer, peer, '%(bgp_port)d', peer_config)
+
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         return self._ofctl_get(

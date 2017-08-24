@@ -1,5 +1,6 @@
 bitstring
 concurrencytest
+exabgp
 influxdb
 ipaddress
 netifaces
