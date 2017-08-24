@@ -16,8 +16,7 @@ env:
 python:
   - "3.5"
 before_install:
-#  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
-  - rm -f ${DOCKER_CACHE_FILE}
+  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
 install:
   - "pip3 install -r requirements.txt -r test-requirements.txt"
   - "python3 setup.py sdist"
@@ -31,4 +30,5 @@ script:
   - "python3 ./test_valve.py"
   - "cd .."
   - "docker build -t reannz/faucet-tests -f Dockerfile.tests ."
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(docker history -q reannz/faucet-tests:latest | grep -v '<missing>') | gzip > ${DOCKER_CACHE_FILE}; fi
   - "sudo docker run --privileged -ti reannz/faucet-tests"
