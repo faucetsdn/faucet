@@ -32,5 +32,5 @@ script:
   - ls -l `dirname ${DOCKER_CACHE_FILE}`
   - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
-  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(docker history -q ${FAUCET_TEST_IMG}:latest | grep -v '<missing>') $(docker history -q osrg/ryu:latest | grep -v '<missing>') | gzip > ${DOCKER_CACHE_FILE}; fi
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(/bin/echo -e "osrg/ryu:latest\nreannz/faucet-tests:latest"| xargs -n 1 docker history -q|grep -v missing) | gzip > ${DOCKER_CACHE_FILE} & ; fi
   - sudo docker run --privileged -ti ${FAUCET_TEST_IMG}
