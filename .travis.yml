@@ -16,7 +16,8 @@ env:
 python:
   - "3.5"
 before_install:
-  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
+#  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
+  - rm -f ${DOCKER_CACHE_FILE}
 install:
   - "pip3 install -r requirements.txt -r test-requirements.txt"
   - "python3 setup.py sdist"
