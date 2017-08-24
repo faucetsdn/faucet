@@ -1,10 +1,9 @@
 #!/bin/bash
 
-MINRATING="9.0"
+MINRATING="8.97"
 SRC_FILES="../faucet/*.py"
 
-pylint -E $SRC_FILES || exit 1
-RATING=`pylint $SRC_FILES | grep -ohE "rated at [0-9\.]+" | sed "s/rated at //g"`
+RATING=`ls -1 $SRC_FILES | parallel pylint | grep -ohE "rated at [0-9\.]+" | sed "s/rated at //g" |awk '{ total += $1; ++count } END { print total/count }'`
 echo pylint rating: $RATING
 if [ $(bc <<< "$RATING < $MINRATING") -eq 1 ] ; then
   echo "$RATING below min ($MINRATING)"
