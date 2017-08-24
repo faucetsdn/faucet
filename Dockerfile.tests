@@ -1,12 +1,9 @@
 FROM osrg/ryu
 
-ENV GOPATH=/go
-
 RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends software-properties-common && \
   add-apt-repository ppa:saiarcot895/myppa && \
-  add-apt-repository -y ppa:longsleep/golang-backports && \
   apt-get update && \
   echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections && \
   echo debconf apt-fast/dlflag boolean true | debconf-set-selections && \
@@ -19,7 +16,6 @@ RUN \
     fping \
     gcc \
     git \
-    golang-go \
     influxdb \
     iperf \
     iputils-ping \
@@ -40,7 +36,7 @@ RUN \
     wpasupplicant
 
 ###
-### TODO: pytype/gNMI may be slightly stale due to Docker caching.
+### TODO: pytype may be slightly stale due to Docker caching.
 ### Specify versions as we do for mininet if possible.
 ###
 
@@ -51,13 +47,6 @@ RUN \
   cd mininet && git checkout 2.2.2 && cd .. && \
   perl -pi -e "s/apt-get/apt-fast/g" mininet/util/install.sh && \
   mininet/util/install.sh -nfv
-
-RUN mkdir -p \
-      $GOPATH \
-    && go get -u \
-      github.com/openconfig/reference/telemetry/collector/cli \
-    && go install \
-      github.com/openconfig/reference/telemetry/collector/cli
 
 RUN \
   apt-fast purge -qy pylint && \
