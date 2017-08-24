@@ -33,5 +33,5 @@ script:
   - python3 ./test_valve.py
   - cd ..
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
-  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(docker history -q ${FAUCET_TEST_IMG}:latest | grep -v '<missing>') | gzip > ${DOCKER_CACHE_FILE}; fi
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(docker history -q ${FAUCET_TEST_IMG}:latest | grep -v '<missing>') $(docker history -q osrg/ryu | grep -v '<missing>') | gzip > ${DOCKER_CACHE_FILE}; fi
   - sudo docker run --privileged -ti ${FAUCET_TEST_IMG}

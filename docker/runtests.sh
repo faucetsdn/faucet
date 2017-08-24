@@ -6,19 +6,13 @@ $GOPATH/bin/cli --help
 echo "========== Starting OVS ========================="
 service openvswitch-switch start
 
+ovs-vsctl show || exit 1
+
 cd /faucet-src/tests
 
 echo "============ Running pytype analyzer ============"
 # TODO: pytype doesn't completely understand py3 yet.
 ls -1 ../faucet/*py | parallel --bar pytype -d import-error || exit 1
-
-while /bin/true; do
-  wait -n || {
-    code="$?"
-    ([[ $code = "127" ]] && exit 0 || exit "$code")
-    break
-  }
-done
 
 echo "========== Running faucet config tests =========="
 python3 ./test_config.py || exit 1
