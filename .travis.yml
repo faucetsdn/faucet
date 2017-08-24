@@ -10,6 +10,7 @@ addons:
     packages:
       - openvswitch-switch
 cache:
+  pip: true
   directories:
     - /home/travis/docker/
 env:
