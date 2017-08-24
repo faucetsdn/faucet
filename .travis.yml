@@ -1,25 +1,37 @@
 sudo: required
 group: edge
 language: python
+python:
+  - "3.5"
 services:
   - docker
 addons:
   apt:
     packages:
       - openvswitch-switch
-python:
-  - "3.5"
+cache:
+  pip: true
+  directories:
+    - /home/travis/docker/
+env:
+  global:
+    - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
+    - FAUCET_TEST_IMG=reannz/faucet-tests
+before_install:
+  - ls -l `dirname ${DOCKER_CACHE_FILE}`
+  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
 install:
-  - "pip3 install -r requirements.txt -r test-requirements.txt"
-  - "python3 setup.py sdist"
-  - "pip3 install dist/*tar.gz"
-  - "pip3 show faucet"
+  - pip3 install -r requirements.txt -r test-requirements.txt
+  - python3 setup.py sdist
+  - pip3 install dist/*tar.gz
+  - pip3 show faucet
 script:
-  - "cd ./tests"
-  - "PYTHONPATH='../faucet' ./test_min_pylint.sh"
-  - "python3 ./test_config.py"
-  - "python3 ./test_check_config.py"
-  - "python3 ./test_valve.py"
-  - "cd .."
-  - "docker build -t reannz/faucet-tests -f Dockerfile.tests ."
-  - "sudo docker run --privileged -ti reannz/faucet-tests"
+  - cd ./tests
+  - PYTHONPATH="../faucet" ./test_min_pylint.sh
+  - python3 ./test_config.py
+  - python3 ./test_check_config.py
+  - python3 ./test_valve.py
+  - cd ..
+  - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(docker history -q ${FAUCET_TEST_IMG}:latest | grep -v '<missing>') | gzip > ${DOCKER_CACHE_FILE}; fi
+  - sudo docker run --privileged -ti ${FAUCET_TEST_IMG}

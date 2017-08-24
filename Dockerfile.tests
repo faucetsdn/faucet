@@ -28,6 +28,7 @@ RUN \
     ndisc6 \
     net-tools \
     netcat-openbsd \
+    parallel \
     psmisc \
     python-pip \
     python3-pip \
@@ -57,7 +58,6 @@ RUN \
   pip install --upgrade pip && \
   pip install setuptools wheel virtualenv --upgrade && \
   pip install -r /faucet-src/test-requirements.txt && \
-  pip install exabgp==3.4.20 && \
   pip install scapy==2.3.2 && \
   pip3 install setuptools wheel virtualenv --upgrade && \
   pip3 install -r /faucet-src/requirements.txt && \

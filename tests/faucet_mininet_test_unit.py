@@ -1197,24 +1197,16 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  router-id 2.2.2.2;
-  neighbor 127.0.0.1 {
-    local-address 127.0.0.1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
+    exabgp_peer_conf = """
     static {
       route 0.0.0.0/0 next-hop 10.0.0.1 local-preference 100;
-   }
- }
-}
+    }
 """
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
@@ -1272,14 +1264,7 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  router-id 2.2.2.2;
-  neighbor 127.0.0.1 {
-    local-address 127.0.0.1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
+    exabgp_peer_conf = """
     static {
       route 10.0.1.0/24 next-hop 10.0.0.1 local-preference 100;
       route 10.0.2.0/24 next-hop 10.0.0.2 local-preference 100;
@@ -1287,13 +1272,12 @@ group test {
       route 10.0.4.0/24 next-hop 10.0.0.254;
       route 10.0.5.0/24 next-hop 10.10.0.1;
    }
- }
-}
 """
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
@@ -1361,27 +1345,11 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  process test {
-    encoder json;
-    neighbor-changes;
-    receive-routes;
-    run /bin/cat;
-  }
-  router-id 2.2.2.2;
-  neighbor 127.0.0.1 {
-    local-address 127.0.0.1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
-  }
-}
-"""
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('127.0.0.1')
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes sent."""
@@ -2936,25 +2904,17 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  router-id 2.2.2.2;
-  neighbor ::1 {
-    local-address ::1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
+    exabgp_peer_conf = """
     static {
       route ::/0 next-hop fc00::1:1 local-preference 100;
     }
-  }
-}
 """
 
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -3008,14 +2968,7 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  router-id 2.2.2.2;
-  neighbor ::1 {
-    local-address ::1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
+    exabgp_peer_conf = """
     static {
       route fc00::10:1/112 next-hop fc00::1:1 local-preference 100;
       route fc00::20:1/112 next-hop fc00::1:2 local-preference 100;
@@ -3023,13 +2976,12 @@ group test {
       route fc00::40:1/112 next-hop fc00::1:254;
       route fc00::50:1/112 next-hop fc00::2:2;
     }
-  }
-}
 """
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -3146,27 +3098,11 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  process test {
-    encoder json;
-    neighbor-changes;
-    receive-routes;
-    run /bin/cat;
-  }
-  router-id 2.2.2.2;
-  neighbor ::1 {
-    local-address ::1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
-  }
-}
-"""
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('::1')
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         self.verify_ipv6_routing_mesh()
