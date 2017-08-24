@@ -1,5 +1,7 @@
 FROM osrg/ryu
 
+ENV GOPATH=/go
+
 RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends software-properties-common && \
@@ -37,6 +39,11 @@ RUN \
     vlan \
     wpasupplicant
 
+###
+### TODO: pytype/gNMI may be slightly stale due to Docker caching.
+### Specify versions as we do for mininet if possible.
+###
+
 RUN \
   /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" |parallel --bar git clone
 
@@ -45,29 +52,33 @@ RUN \
   perl -pi -e "s/apt-get/apt-fast/g" mininet/util/install.sh && \
   mininet/util/install.sh -nfv
 
-COPY ./ /faucet-src/
-
-RUN \
-  apt-fast purge -qy pylint && \
-  pip install --upgrade pip && \
-  pip install setuptools wheel virtualenv --upgrade && \
-  pip install -r /faucet-src/test-requirements.txt && \
-  pip install scapy==2.3.2 && \
-  pip3 install setuptools wheel virtualenv --upgrade && \
-  pip3 install -r /faucet-src/requirements.txt && \
-  pip3 install -r /faucet-src/test-requirements.txt && \
-  pip3 install /faucet-src
-
-RUN \
-  cd pytype && git submodule init && git submodule update && python2 setup.py install && cd ..
-
-ENV GOPATH=/go
-
 RUN mkdir -p \
       $GOPATH \
     && go get -u \
       github.com/openconfig/reference/telemetry/collector/cli \
     && go install \
       github.com/openconfig/reference/telemetry/collector/cli
+
+RUN \
+  apt-fast purge -qy pylint && \
+  pip install --upgrade pip && \
+  pip install setuptools wheel virtualenv --upgrade && \
+  pip install scapy==2.3.2 && \
+  pip3 install setuptools wheel virtualenv --upgrade
+
+RUN \
+  cd pytype && git submodule init && git submodule update && python2 setup.py install && cd ..
+
+###
+### To maximize Docker caching, try to keep invariant dependencies above this line.
+###
+
+COPY ./ /faucet-src/
+
+RUN \
+  pip install -r /faucet-src/test-requirements.txt && \
+  pip3 install -r /faucet-src/requirements.txt && \
+  pip3 install -r /faucet-src/test-requirements.txt && \
+  pip3 install /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]

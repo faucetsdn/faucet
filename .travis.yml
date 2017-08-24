@@ -8,6 +8,7 @@ services:
 addons:
   apt:
     packages:
+      - parallel
       - openvswitch-switch
 cache:
   pip: true
@@ -17,21 +18,21 @@ env:
   global:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
     - FAUCET_TEST_IMG=reannz/faucet-tests
-before_install:
-  - ls -l `dirname ${DOCKER_CACHE_FILE}`
-  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
 install:
   - pip3 install -r requirements.txt -r test-requirements.txt
   - python3 setup.py sdist
   - pip3 install dist/*tar.gz
   - pip3 show faucet
 script:
+  - touch ~/.pylintrc
   - cd ./tests
   - PYTHONPATH="../faucet" ./test_min_pylint.sh
   - python3 ./test_config.py
   - python3 ./test_check_config.py
   - python3 ./test_valve.py
   - cd ..
+  - ls -l `dirname ${DOCKER_CACHE_FILE}`
+  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
-  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(docker history -q ${FAUCET_TEST_IMG}:latest | grep -v '<missing>') $(docker history -q osrg/ryu | grep -v '<missing>') | gzip > ${DOCKER_CACHE_FILE}; fi
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(/bin/echo -e "osrg/ryu:latest\nreannz/faucet-tests:latest"| xargs -n 1 docker history -q|grep -v missing) | gzip > ${DOCKER_CACHE_FILE} ; fi
   - sudo docker run --privileged -ti ${FAUCET_TEST_IMG}
