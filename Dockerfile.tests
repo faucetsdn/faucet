@@ -38,20 +38,14 @@ RUN \
     wpasupplicant
 
 RUN \
-  git clone -b 2.2.2 https://github.com/mininet/mininet && \
+  /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" |parallel --bar git clone
+
+RUN \
+  cd mininet && git checkout 2.2.2 && cd .. && \
   perl -pi -e "s/apt-get/apt-fast/g" mininet/util/install.sh && \
   mininet/util/install.sh -nfv
 
 COPY ./ /faucet-src/
-
-ENV GOPATH=/go
-
-RUN mkdir -p \
-      $GOPATH \
-    && go get -u \
-      github.com/openconfig/reference/telemetry/collector/cli \
-    && go install \
-      github.com/openconfig/reference/telemetry/collector/cli
 
 RUN \
   apt-fast purge -qy pylint && \
@@ -65,10 +59,15 @@ RUN \
   pip3 install /faucet-src
 
 RUN \
-  git clone https://github.com/google/pytype.git && \
-  cd pytype && \
-  git submodule init && \
-  git submodule update && \
-  python2 setup.py install
+  cd pytype && git submodule init && git submodule update && python2 setup.py install && cd ..
+
+ENV GOPATH=/go
+
+RUN mkdir -p \
+      $GOPATH \
+    && go get -u \
+      github.com/openconfig/reference/telemetry/collector/cli \
+    && go install \
+      github.com/openconfig/reference/telemetry/collector/cli
 
 CMD ["/faucet-src/docker/runtests.sh"]
