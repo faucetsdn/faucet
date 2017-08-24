@@ -80,9 +80,6 @@ FAUCET_LINT_SRCS = glob.glob(
 FAUCET_TEST_LINT_SRCS = glob.glob(
     os.path.join(os.path.dirname(__file__), 'faucet_mininet_test*py'))
 
-# Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = multiprocessing.cpu_count()
-
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
 CONFIG_FILE_DIRS = ['/etc/ryu/faucet', './']
@@ -215,13 +212,13 @@ def lint_check():
     return True
 
 
-def make_suite(tc_class, hw_config, root_tmpdir, ports_sock):
+def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
     """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
     for name in testnames:
-        suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock))
+        suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock, max_test_load))
     return suite
 
 
@@ -272,7 +269,8 @@ def expand_tests(requested_test_classes, excluded_test_classes,
                     'skipping %s as string tests not supported for hardware' % name)
                 continue
             print('adding test %s' % name)
-            test_suite = make_suite(obj, hw_config, root_tmpdir, ports_sock)
+            test_suite = make_suite(
+                obj, hw_config, root_tmpdir, ports_sock, multiprocessing.cpu_count())
             if name.startswith('FaucetSanity'):
                 sanity_tests.addTest(test_suite)
             else:
@@ -289,13 +287,14 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
     all_successful = False
     sanity_runner = unittest.TextTestRunner(verbosity=255, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
+    max_parallel_tests = multiprocessing.cpu_count() * 2
     if sanity_result.wasSuccessful():
         print('running %u tests in parallel and %u tests serial' % (
             parallel_tests.countTestCases(), single_tests.countTestCases()))
-        print('running maximum of %u of parallel tests' % MAX_PARALLEL_TESTS)
+        print('running maximum of %u of parallel tests' % max_parallel_tests)
         results = []
         if parallel_tests.countTestCases():
-            max_parallel_tests = min(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
+            max_parallel_tests = min(parallel_tests.countTestCases(), max_parallel_tests)
             parallel_runner = unittest.TextTestRunner(verbosity=255)
             parallel_suite = ConcurrentTestSuite(
                 parallel_tests, fork_for_tests(max_parallel_tests))

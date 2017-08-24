@@ -86,11 +86,12 @@ class FaucetTestBase(unittest.TestCase):
     rand_dpids = set()
 
 
-    def __init__(self, name, config, root_tmpdir, ports_sock):
+    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
+        self.max_test_load = max_test_load
 
     def rand_dpid(self):
         reserved_range = 100
@@ -191,6 +192,16 @@ class FaucetTestBase(unittest.TestCase):
                 lognames.append(logname)
         return lognames
 
+    def _wait_load(self, load_timeout=120):
+        for _ in range(load_timeout):
+            load = os.getloadavg()[0]
+            if load < self.max_test_load:
+                return
+            else:
+                print('load average too high %f, waiting' % load)
+            time.sleep(1)
+        self.fail('load average %f consistently too high' % load)
+
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_vars()
@@ -207,6 +218,7 @@ class FaucetTestBase(unittest.TestCase):
                 self.ports_sock, self._test_name())
 
         self._write_controller_configs()
+        self._wait_load()
 
     def tearDown(self):
         """Clean up after a test."""
