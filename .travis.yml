@@ -8,6 +8,7 @@ services:
 addons:
   apt:
     packages:
+      - parallel
       - openvswitch-switch
 cache:
   pip: true
