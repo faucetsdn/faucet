@@ -97,11 +97,14 @@ def serve_ports(ports_socket):
         else:
             if len(ports_q) == 0:
                 queue_free_ports()
-            port = ports_q.popleft()
+            while True:
+                port = ports_q.popleft()
+                if time.time() - port_age[port] > min_port_age:
+                    break
+                ports_q.append(port)
+                time.sleep(min_port_age)
             ports_served += 1
             ports_by_name[name].add(port)
-            if time.time() - port_age[port] < min_port_age:
-                time.sleep(min_port_age)
             # pylint: disable=no-member
             connection.sendall('%u %u\n' % (port, ports_served))
         connection.close()

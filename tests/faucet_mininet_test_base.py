@@ -737,8 +737,13 @@ dbs:
             label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         results = []
         var_re = r'^%s%s$' % (var, label_values_re)
-        for prom_line in self.scrape_prometheus().splitlines():
-            var, value = prom_line.split(' ')
+        prom_lines = self.scrape_prometheus()
+        for prom_line in prom_lines.splitlines():
+            prom_var_data = prom_line.split(' ')
+            self.assertEquals(
+                2, len(prom_var_data),
+                msg='invalid prometheus line in %s' % prom_lines)
+            var, value = prom_var_data
             var_match = re.search(var_re, var)
             if var_match:
                 value_int = long(float(value))
@@ -752,7 +757,7 @@ dbs:
                 return results[0][1]
         return default
 
-    def wait_gauge_up(self, timeout=30):
+    def wait_gauge_up(self, timeout=60):
         gauge_log = self.env['gauge']['GAUGE_LOG']
         log_content = ''
         for _ in range(timeout):
@@ -760,6 +765,7 @@ dbs:
                 log_content = open(gauge_log).read()
                 if re.search('DPID %u.+up' % int(self.dpid), log_content):
                     return
+            self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
             time.sleep(1)
         self.fail('%s does not exist or does not have DPID up (%s)' % (
             gauge_log, log_content))

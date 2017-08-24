@@ -10,12 +10,8 @@ ovs-vsctl show || exit 1
 
 cd /faucet-src/tests
 
-echo "========== Running faucet config tests =========="
-python3 ./test_config.py || exit 1
-python3 ./test_check_config.py || exit 1
-
-echo "========== Running faucet unit tests ============"
-python3 ./test_valve.py || exit 1
+echo "========== Running faucet unit tests =========="
+py.test ./test_check_config.py ./test_config.py ./test_valve.py --cov faucet --doctest-modules -v --cov-report term-missing
 
 echo "============ Running pytype analyzer ============"
 # TODO: pytype doesn't completely understand py3 yet.

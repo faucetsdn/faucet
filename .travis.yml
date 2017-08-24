@@ -27,9 +27,8 @@ script:
   - touch ~/.pylintrc
   - cd ./tests
   - PYTHONPATH="../faucet" ./test_min_pylint.sh
-  - python3 ./test_config.py
-  - python3 ./test_check_config.py
-  - python3 ./test_valve.py
+  - py.test ./test_check_config.py ./test_config.py ./test_valve.py --cov faucet --doctest-modules -v --cov-report term-missing
+  - coveralls
   - cd ..
   - ls -l `dirname ${DOCKER_CACHE_FILE}`
   - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi

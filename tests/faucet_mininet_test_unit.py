@@ -382,11 +382,11 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 if 'vlan_vid' in label_values:
                     self.assertEquals(
                         int(label_values['vlan']), int(value) ^ 0x1000)
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
         self.assertEquals(set([
             'dropped_in', 'dropped_out', 'bytes_out', 'flow_packet_count',
             'errors_in', 'bytes_in', 'flow_byte_count', 'port_state_reason',
             'packets_in', 'packets_out']), observed_vars)
-        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def _wait_influx_log(self, influx_log):
         for _ in range(self.INFLUX_TIMEOUT * 3):
