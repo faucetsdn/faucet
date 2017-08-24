@@ -24,6 +24,7 @@ install:
   - pip3 install dist/*tar.gz
   - pip3 show faucet
 script:
+  - touch ~/.pylintrc
   - cd ./tests
   - PYTHONPATH="../faucet" ./test_min_pylint.sh
   - python3 ./test_config.py

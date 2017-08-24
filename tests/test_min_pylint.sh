@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MINRATING="8.97"
+MINRATING="8.95"
 SRC_FILES="../faucet/*.py"
 
 RATING=`ls -1 $SRC_FILES | parallel pylint | grep -ohE "rated at [0-9\.]+" | sed "s/rated at //g" |awk '{ total += $1; ++count } END { print total/count }'`
