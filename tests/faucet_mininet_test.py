@@ -20,6 +20,7 @@ import os
 import sys
 import getopt
 import multiprocessing
+import random
 import re
 import shutil
 import subprocess
