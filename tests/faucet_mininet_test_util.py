@@ -53,7 +53,7 @@ def serve_ports(ports_socket):
     ports_q = collections.deque()
     free_ports = set()
     port_age = {}
-    min_port_age = 10
+    min_port_age = 30
 
     def get_port():
         while True:
@@ -102,7 +102,7 @@ def serve_ports(ports_socket):
                 if time.time() - port_age[port] > min_port_age:
                     break
                 ports_q.append(port)
-                time.sleep(min_port_age)
+                time.sleep(1)
             ports_served += 1
             ports_by_name[name].add(port)
             # pylint: disable=no-member

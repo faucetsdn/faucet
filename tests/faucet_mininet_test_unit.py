@@ -405,7 +405,8 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 return self.send_response(204)
 
 
-        server = QuietHTTPServer(('', self.influx_port), InfluxPostHandler)
+        server = QuietHTTPServer(
+            ('127.0.0.1', self.influx_port), InfluxPostHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
@@ -501,7 +502,8 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
                 return self.send_response(500)
 
 
-        server = QuietHTTPServer(('', self.influx_port), InfluxPostHandler)
+        server = QuietHTTPServer(
+            ('127.0.0.1', self.influx_port), InfluxPostHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
