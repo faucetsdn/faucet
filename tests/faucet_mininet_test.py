@@ -253,7 +253,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
     total_tests = 0
     sanity_tests = unittest.TestSuite()
     single_tests = unittest.TestSuite()
-    parallel_tests = unittest.TestSuite()
+    parallel_test_suites = []
     for name, obj in inspect.getmembers(sys.modules[__name__]):
         if not inspect.isclass(obj):
             continue
@@ -270,7 +270,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
                 continue
             print('adding test %s' % name)
             test_suite = make_suite(
-                obj, hw_config, root_tmpdir, ports_sock, multiprocessing.cpu_count())
+                obj, hw_config, root_tmpdir, ports_sock, multiprocessing.cpu_count() + 1)
             if name.startswith('FaucetSanity'):
                 sanity_tests.addTest(test_suite)
             else:
@@ -278,8 +278,12 @@ def expand_tests(requested_test_classes, excluded_test_classes,
                     single_tests.addTest(test_suite)
                     total_tests += 1
                 else:
-                    parallel_tests.addTest(test_suite)
+                    parallel_test_suites.append(test_suite)
                     total_tests += 1
+    random.shuffle(parallel_test_suites)
+    parallel_tests = unittest.TestSuite()
+    for test_suite in parallel_test_suites:
+        parallel_tests.addTest(test_suite)
     return (total_tests, sanity_tests, single_tests, parallel_tests)
 
 
