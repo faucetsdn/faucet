@@ -15,4 +15,4 @@ ls -1 ../faucet/*py | parallel --bar pytype -d import-error || exit 1
 
 echo "========== Running faucet system tests =========="
 python2 ./faucet_mininet_test.py -c
-time ./faucet_mininet_test.py $FAUCET_TESTS || exit 1
+time python2 ./faucet_mininet_test.py $FAUCET_TESTS || exit 1
