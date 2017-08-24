@@ -1,20 +1,20 @@
 sudo: required
 group: edge
 language: python
+python:
+  - "3.5"
 services:
   - docker
 addons:
   apt:
     packages:
       - openvswitch-switch
-cache:
+cache: pip
   directories:
     - /home/travis/docker/
 env:
   global:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
-python:
-  - "3.5"
 before_install:
 # - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
 install:
