@@ -1,8 +1,4 @@
 #!/bin/bash
-echo "========== Running gNMI tests ==================="
-# Just a placeholder that runs a gNMI client and displays help.
-$GOPATH/bin/cli --help
-
 echo "========== Starting OVS ========================="
 service openvswitch-switch start
 
