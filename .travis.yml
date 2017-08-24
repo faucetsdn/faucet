@@ -7,8 +7,16 @@ addons:
   apt:
     packages:
       - openvswitch-switch
+cache:
+  directories:
+    - /home/travis/docker/
+env:
+  global:
+    - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
 python:
   - "3.5"
+before_install:
+  - if [ -f ${DOCKER_CACHE_FILE} ]; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
 install:
   - "pip3 install -r requirements.txt -r test-requirements.txt"
   - "python3 setup.py sdist"
