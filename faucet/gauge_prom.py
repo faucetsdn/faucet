@@ -1,6 +1,6 @@
 import os
 from prometheus_client import Counter, start_http_server
-from prometheus_client import Gauge as PromGauge # *sigh*
+from prometheus_client import Gauge as PromGauge # avoid collision
 try:
     from gauge_pollers import GaugePortStatsPoller
     from valve_of import devid_present
