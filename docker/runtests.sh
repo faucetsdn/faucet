@@ -4,6 +4,9 @@ service openvswitch-switch start
 
 ovs-vsctl show || exit 1
 
+# enable fast reuse of ports.
+sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=5
+
 cd /faucet-src/tests
 
 echo "========== Running faucet unit tests =========="
