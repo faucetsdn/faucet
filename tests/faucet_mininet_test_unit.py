@@ -474,6 +474,7 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
                          monitor_stats_file,
                          monitor_state_file,
                          monitor_flow_table_file,
+                         prometheus_port,
                          influx_port):
         """Build Gauge config."""
         return """
