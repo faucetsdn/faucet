@@ -479,3 +479,18 @@ class Faucet(app_manager.RyuApp):
     def get_tables(self, dp_id):
         """FAUCET API: return config tables for one Valve."""
         return self.valves[dp_id].dp.get_tables()
+
+    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)# pylint: disable=no-member
+    @kill_on_exception(exc_logname)
+    def handle_flowremoved(self, ryu_event):
+        msg = ryu_event.msg
+        ryu_dp = msg.datapath
+        ofp = msg.datapath.ofproto
+        reason = msg.reason
+        valve = self.valves[ryu_dp.id]
+        valve.ofchannel_log([msg])
+        if reason == ofp.OFPRR_IDLE_TIMEOUT:
+            flowmods = valve.flow_timeout(msg.table_id, msg.match)
+            if flowmods:
+                self._send_flow_msgs(ryu_dp.id, flowmods)
+

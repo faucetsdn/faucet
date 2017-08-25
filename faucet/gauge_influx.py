@@ -20,6 +20,7 @@ import numpy
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
+# pytype: disable=pyi-error
 from requests.exceptions import ConnectionError, ReadTimeout
 
 

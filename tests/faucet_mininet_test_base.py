@@ -86,11 +86,12 @@ class FaucetTestBase(unittest.TestCase):
     rand_dpids = set()
 
 
-    def __init__(self, name, config, root_tmpdir, ports_sock):
+    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
+        self.max_test_load = max_test_load
 
     def rand_dpid(self):
         reserved_range = 100
@@ -194,6 +195,15 @@ class FaucetTestBase(unittest.TestCase):
                 lognames.append(logname)
         return lognames
 
+    def _wait_load(self, load_retries=120):
+        for _ in range(load_retries):
+            load = os.getloadavg()[0]
+            if load < self.max_test_load:
+                return
+            print('load average too high %f, waiting' % load)
+            time.sleep(random.randint(1, 7))
+        self.fail('load average %f consistently too high' % load)
+
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_vars()
@@ -210,6 +220,7 @@ class FaucetTestBase(unittest.TestCase):
                 self.ports_sock, self._test_name())
 
         self._write_controller_configs()
+        self._wait_load()
 
     def tearDown(self):
         """Clean up after a test."""
@@ -523,6 +534,18 @@ dbs:
        self.INFLUX_TIMEOUT,
        self.INFLUX_TIMEOUT + 1)
 
+    def get_exabgp_conf(self, peer, peer_config=''):
+       return """
+  neighbor %s {
+    router-id 2.2.2.2;
+    local-address %s;
+    connect %s;
+    peer-as 1;
+    local-as 2;
+    %s
+  }
+""" % (peer, peer, '%(bgp_port)d', peer_config)
+
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         return self._ofctl_get(
@@ -739,8 +762,13 @@ dbs:
             label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         results = []
         var_re = r'^%s%s$' % (var, label_values_re)
-        for prom_line in self.scrape_prometheus(controller).splitlines():
-            var, value = prom_line.split(' ')
+        prom_lines = self.scrape_prometheus(controller)
+        for prom_line in prom_lines.splitlines():
+            prom_var_data = prom_line.split(' ')
+            self.assertEquals(
+                2, len(prom_var_data),
+                msg='invalid prometheus line in %s' % prom_lines)
+            var, value = prom_var_data
             var_match = re.search(var_re, var)
             if var_match:
                 value_int = long(float(value))
@@ -753,6 +781,19 @@ dbs:
             else:
                 return results[0][1]
         return default
+
+    def wait_gauge_up(self, timeout=60):
+        gauge_log = self.env['gauge']['GAUGE_LOG']
+        log_content = ''
+        for _ in range(timeout):
+            if os.path.exists(gauge_log):
+                log_content = open(gauge_log).read()
+                if re.search('DPID %u.+up' % int(self.dpid), log_content):
+                    return
+            self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
+            time.sleep(1)
+        self.fail('%s does not exist or does not have DPID up (%s)' % (
+            gauge_log, log_content))
 
     def gauge_smoke_test(self):
         watcher_files = (

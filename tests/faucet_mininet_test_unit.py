@@ -423,14 +423,14 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 if 'vlan_vid' in label_values:
                     self.assertEquals(
                         int(label_values['vlan']), int(value) ^ 0x1000)
+        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
         self.assertEquals(set([
             'dropped_in', 'dropped_out', 'bytes_out', 'flow_packet_count',
             'errors_in', 'bytes_in', 'flow_byte_count', 'port_state_reason',
             'packets_in', 'packets_out']), observed_vars)
-        self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def _wait_influx_log(self, influx_log):
-        for _ in range(self.DB_TIMEOUT * 2):
+        for _ in range(self.DB_TIMEOUT * 3):
             if os.path.exists(influx_log):
                 return
             time.sleep(1)
@@ -446,11 +446,13 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 return self.send_response(204)
 
 
-        server = QuietHTTPServer(('', self.influx_port), InfluxPostHandler)
+        server = QuietHTTPServer(
+            ('127.0.0.1', self.influx_port), InfluxPostHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
         self.ping_all_when_learned()
+        self.wait_gauge_up()
         self.hup_gauge()
         self.flap_all_switch_ports()
         self._wait_influx_log(influx_log)
@@ -541,11 +543,13 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
                 return self.send_response(500)
 
 
-        server = QuietHTTPServer(('', self.influx_port), InfluxPostHandler)
+        server = QuietHTTPServer(
+            ('127.0.0.1', self.influx_port), InfluxPostHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
         self.ping_all_when_learned()
+        self.wait_gauge_up()
         self._wait_influx_log(influx_log)
         server.shutdown()
         self.assertTrue(os.path.exists(influx_log))
@@ -1236,24 +1240,16 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  router-id 2.2.2.2;
-  neighbor 127.0.0.1 {
-    local-address 127.0.0.1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
+    exabgp_peer_conf = """
     static {
       route 0.0.0.0/0 next-hop 10.0.0.1 local-preference 100;
-   }
- }
-}
+    }
 """
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
@@ -1311,14 +1307,7 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  router-id 2.2.2.2;
-  neighbor 127.0.0.1 {
-    local-address 127.0.0.1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
+    exabgp_peer_conf = """
     static {
       route 10.0.1.0/24 next-hop 10.0.0.1 local-preference 100;
       route 10.0.2.0/24 next-hop 10.0.0.2 local-preference 100;
@@ -1326,13 +1315,12 @@ group test {
       route 10.0.4.0/24 next-hop 10.0.0.254;
       route 10.0.5.0/24 next-hop 10.10.0.1;
    }
- }
-}
 """
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
@@ -1400,27 +1388,11 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  process test {
-    encoder json;
-    neighbor-changes;
-    receive-routes;
-    run /bin/cat;
-  }
-  router-id 2.2.2.2;
-  neighbor 127.0.0.1 {
-    local-address 127.0.0.1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
-  }
-}
-"""
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('127.0.0.1')
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes sent."""
@@ -2975,25 +2947,17 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  router-id 2.2.2.2;
-  neighbor ::1 {
-    local-address ::1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
+    exabgp_peer_conf = """
     static {
       route ::/0 next-hop fc00::1:1 local-preference 100;
     }
-  }
-}
 """
 
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -3047,14 +3011,7 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  router-id 2.2.2.2;
-  neighbor ::1 {
-    local-address ::1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
+    exabgp_peer_conf = """
     static {
       route fc00::10:1/112 next-hop fc00::1:1 local-preference 100;
       route fc00::20:1/112 next-hop fc00::1:2 local-preference 100;
@@ -3062,13 +3019,12 @@ group test {
       route fc00::40:1/112 next-hop fc00::1:254;
       route fc00::50:1/112 next-hop fc00::2:2;
     }
-  }
-}
 """
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -3185,27 +3141,11 @@ vlans:
                 description: "b4"
 """
 
-    exabgp_conf = """
-group test {
-  process test {
-    encoder json;
-    neighbor-changes;
-    receive-routes;
-    run /bin/cat;
-  }
-  router-id 2.2.2.2;
-  neighbor ::1 {
-    local-address ::1;
-    connect %(bgp_port)d;
-    peer-as 1;
-    local-as 2;
-  }
-}
-"""
     exabgp_log = None
 
     def pre_start_net(self):
-        self.exabgp_log = self.start_exabgp(self.exabgp_conf)
+        exabgp_conf = self.get_exabgp_conf('::1')
+        self.exabgp_log = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         self.verify_ipv6_routing_mesh()
@@ -3936,3 +3876,110 @@ acls:
         source_host, overridden_host, rewrite_host = self.net.hosts[0:3]
         self.verify_dest_rewrite(
             source_host, overridden_host, rewrite_host, overridden_host)
+
+
+class FaucetWithUseIdleTimeoutTest(FaucetUntaggedTest):
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+"""
+    CONFIG = """
+        timeout: 8
+        use_idle_timeout: true
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+    def wait_for_flowremoved_msg(self, src_mac=None, dst_mac=None, timeout=30):
+        pattern = "OFPFlowRemoved"
+        mac = None
+        if src_mac:
+            pattern = "OFPFlowRemoved(.*)'eth_src': '%s'" % src_mac
+            mac = src_mac
+        if dst_mac:
+            pattern = "OFPFlowRemoved(.*)'eth_dst': '%s'" % dst_mac
+            mac = dst_mac
+        for i in range(0, timeout):
+            for _, debug_log in self._get_ofchannel_logs():
+                match = re.search(pattern, open(debug_log).read())
+            if match:
+                return
+            time.sleep(1)
+        self.assertTrue(False,
+                msg='Not received OFPFlowRemoved for host %s' % mac)
+
+    def wait_for_host_log_msg(self, host_mac, msg, timeout=15):
+        controller = self._get_controller()
+        count = 0
+        for _ in range(0, timeout):
+            count = controller.cmd('grep -c "%s %s" %s' % (
+                msg, host_mac, self.env['faucet']['FAUCET_LOG']))
+            if int(count) != 0:
+                break
+            time.sleep(1)
+        self.assertGreaterEqual(int(count), 1,
+            'log msg "%s" for host %s not found' % (msg, host_mac))
+
+    def test_untagged(self):
+        self.net.pingAll()
+        first_host, second_host = self.net.hosts[:2]
+        self.swap_host_macs(first_host, second_host)
+        self.wait_for_flowremoved_msg(src_mac=second_host.MAC())
+        self.require_host_learned(first_host)
+        self.assertTrue(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_1']),
+                u'dl_src': u'%s' % first_host.MAC()}))
+        self.assertFalse(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_2']),
+                u'dl_src': u'%s' % first_host.MAC()},
+            timeout=1))
+
+class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
+
+    def test_untagged(self):
+        """Host that is actively sending should have its dst rule renewed as the
+        rule expires. Host that is not sending expires as usual.
+        """
+        self.net.pingAll()
+        first_host, second_host = self.net.hosts[:2]
+        third_host, fourth_host = self.net.hosts[2:]
+        self.host_ipv4_alias(first_host, ipaddress.ip_interface(u'10.99.99.1/24'))
+        first_host.cmd('ping 10.0.0.2 -I 10.99.99.1 &')
+        second_host.cmd('ifconfig %s 0' % second_host.defaultIntf())
+        third_host.cmd('ifconfig %s 0' % third_host.defaultIntf())
+        self.wait_for_flowremoved_msg(src_mac=second_host.MAC())
+        # expect to see dst rule present
+        self.wait_for_host_log_msg(first_host.MAC(), 'refreshing host')
+        self.assertTrue(self.matching_flow_present(
+            match={u'dl_dst': u'%s' % first_host.MAC()},
+            table_id=self.ETH_DST_TABLE))
+        self.wait_for_host_log_msg(second_host.MAC(), 'expiring host')
+        self.assertFalse(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_2']),
+                u'dl_src': u'%s' % second_host.MAC()},
+            timeout=2))
+        self.wait_for_host_log_msg(third_host.MAC(), 'expiring host')
+        self.assertFalse(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_3']),
+                u'dl_src': u'%s' % third_host.MAC()},
+            timeout=2))
+        self.assertFalse(self.matching_flow_present(
+            match={u'dl_dst': u'%s' % third_host.MAC()},
+            table_id=self.ETH_DST_TABLE,
+            timeout=2))
+
