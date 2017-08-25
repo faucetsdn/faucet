@@ -327,6 +327,47 @@ class FaucetSanityTest(FaucetUntaggedTest):
             print 'verifying host/port mapping for %s' % in_port
             self.require_host_learned(host, in_port=self.port_map[in_port])
 
+class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
+    """Testing Gauge Prometheus"""
+
+    def get_gauge_watcher_config(self):
+        return """
+    port_stats:
+        dps: ['faucet-1']
+        type: 'port_stats'
+        interval: 1
+        db: 'prometheus'
+"""
+
+    def test_untagged(self):
+        labels = {'port_name': '1'}
+        for _ in range(0, self.DB_TIMEOUT):
+            init_p1_bytes_in = self.scrape_prometheus_var(
+                'bytes_in',
+                labels=labels,
+                controller='gauge',
+                dpid=False
+                )
+            if init_p1_bytes_in is not None:
+                break
+            time.sleep(1)
+        if init_p1_bytes_in is None:
+            self.fail(msg='Could not retreive value from gauge prometheus')
+
+        self.ping_all_when_learned()
+
+        for _ in range(0, self.DB_TIMEOUT):
+            new_p1_bytes_in = self.scrape_prometheus_var(
+                'bytes_in',
+                labels=labels,
+                controller='gauge',
+                dpid=False
+                )
+            if new_p1_bytes_in > init_p1_bytes_in:
+                return
+            time.sleep(1)
+        self.fail(msg='Gauge prometheus values not increasing')
+
 
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     """Basic untagged VLAN test with Influx."""
@@ -352,7 +393,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
     def _wait_error_shipping(self, timeout=None):
         if timeout is None:
-            timeout = self.INFLUX_TIMEOUT
+            timeout = self.DB_TIMEOUT
         gauge_log = self.env['gauge']['GAUGE_LOG']
         for _ in range(timeout):
             log_content = open(gauge_log).read()
@@ -389,7 +430,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
     def _wait_influx_log(self, influx_log):
-        for _ in range(self.INFLUX_TIMEOUT * 2):
+        for _ in range(self.DB_TIMEOUT * 2):
             if os.path.exists(influx_log):
                 return
             time.sleep(1)
@@ -492,11 +533,11 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
         class InfluxPostHandler(PostHandler):
 
-            INFLUX_TIMEOUT = self.INFLUX_TIMEOUT
+            DB_TIMEOUT = self.DB_TIMEOUT
 
             def do_POST(self):
                 self._log_post(influx_log)
-                time.sleep(self.INFLUX_TIMEOUT * 2)
+                time.sleep(self.DB_TIMEOUT * 2)
                 return self.send_response(500)
 
 

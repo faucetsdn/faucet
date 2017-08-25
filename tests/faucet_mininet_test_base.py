@@ -43,7 +43,7 @@ class FaucetTestBase(unittest.TestCase):
     FAUCET_MAC = '0e:00:00:00:00:01'
     LADVD = 'ladvd -e lo -f'
     ONEMBPS = (1024 * 1024)
-    INFLUX_TIMEOUT = 5
+    DB_TIMEOUT = 5
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -168,11 +168,14 @@ class FaucetTestBase(unittest.TestCase):
         open(self.faucet_config_path, 'w').write(self.CONFIG)
         self.influx_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock, self._test_name())
+        self.gauge_prom_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
         self.GAUGE_CONFIG = self.get_gauge_config(
             self.faucet_config_path,
             self.monitor_stats_file,
             self.monitor_state_file,
             self.monitor_flow_table_file,
+            self.gauge_prom_port,
             self.influx_port)
         open(self.gauge_config_path, 'w').write(self.GAUGE_CONFIG)
 
@@ -463,6 +466,7 @@ dps:
                          monitor_stats_file,
                          monitor_state_file,
                          monitor_flow_table_file,
+                         prometheus_port,
                          influx_port):
         """Build Gauge config."""
         return """
@@ -480,6 +484,10 @@ dbs:
     flow_file:
         type: 'text'
         file: %s
+    prometheus:
+        type: 'prometheus'
+        prometheus_port: %u
+        prometheus_addr: '127.0.0.1'
     influx:
         type: 'influx'
         influx_db: 'faucet'
@@ -510,6 +518,7 @@ dbs:
        monitor_stats_file,
        monitor_state_file,
        monitor_flow_table_file,
+       prometheus_port,
        influx_port,
        self.INFLUX_TIMEOUT,
        self.INFLUX_TIMEOUT + 1)
@@ -696,13 +705,18 @@ dbs:
     def get_prom_addr(self):
         return self.env['faucet']['FAUCET_PROMETHEUS_ADDR']
 
-    def _prometheus_url(self):
-        return 'http://%s:%u' % (
-            self.get_prom_addr(), self.get_prom_port())
+    def _prometheus_url(self, controller):
+        if controller == 'faucet':
+            return 'http://%s:%u' % (
+                self.get_prom_addr(), self.get_prom_port())
+        elif controller == 'gauge':
+            return 'http://%s:%u' % (
+                self.get_prom_addr(), self.gauge_prom_port)
 
-    def scrape_prometheus(self):
+    def scrape_prometheus(self, controller='faucet'):
+        url = self._prometheus_url(controller)
         try:
-            prom_lines = requests.get(self._prometheus_url()).text.split('\n')
+            prom_lines = requests.get(url).text.split('\n')
         except ConnectionError:
             return ''
         prom_vars = []
@@ -712,7 +726,7 @@ dbs:
         return '\n'.join(prom_vars)
 
     def scrape_prometheus_var(self, var, labels=None, default=None,
-                              dpid=True, multiple=False):
+                              dpid=True, multiple=False, controller='faucet'):
         label_values_re = ''
         if labels is None:
             labels = {}
@@ -725,7 +739,7 @@ dbs:
             label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         results = []
         var_re = r'^%s%s$' % (var, label_values_re)
-        for prom_line in self.scrape_prometheus().splitlines():
+        for prom_line in self.scrape_prometheus(controller).splitlines():
             var, value = prom_line.split(' ')
             var_match = re.search(var_re, var)
             if var_match:

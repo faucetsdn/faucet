@@ -50,6 +50,9 @@ class WatcherConf(Conf):
         # influx password
         'influx_timeout': 10,
         # timeout on influx requests
+        # prometheus config
+        'prometheus_port': 9303,
+        'prometheus_addr': '127.0.0.1',
         'views': {},
         'db_update_counter': 0,
         'nosql_db': '',

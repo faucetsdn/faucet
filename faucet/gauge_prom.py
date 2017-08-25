@@ -53,7 +53,10 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
             ['dp_id', 'port_name'])
         try:
             self.logger.debug('Attempting to start Prometheus server')
-            start_http_server(9303, os.getenv('FAUCET_PROMETHEUS_ADDR', ''))
+            start_http_server(
+                self.conf.prometheus_port,
+                self.conf.prometheus_addr
+                )
         except OSError:
             # Prometheus server already started
             self.logger.debug('Prometheus server already running')
