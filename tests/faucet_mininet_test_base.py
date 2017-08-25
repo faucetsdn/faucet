@@ -1482,6 +1482,10 @@ dbs:
             second_host, second_host_routed_ip2,
             with_group_table=with_group_table)
 
+    def host_drop_all_ips(self, host):
+        for ipv in (4, 6):
+            host.cmd('ip -%u addr flush dev %s' % (ipv, host.defaultIntf()))
+
     def setup_ipv6_hosts_addresses(self, first_host, first_host_ip,
                                    first_host_routed_ip, second_host,
                                    second_host_ip, second_host_routed_ip):
