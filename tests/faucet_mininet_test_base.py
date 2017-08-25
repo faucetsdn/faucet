@@ -665,11 +665,16 @@ dbs:
 
     def mac_learned(self, mac, timeout=10, in_port=None):
         """Return True if a MAC has been learned on default DPID."""
-        match = {u'dl_src': u'%s' % mac}
-        if in_port is not None:
-            match[u'in_port'] = in_port
-        return self.matching_flow_present(
-            match, timeout=timeout, table_id=self.ETH_SRC_TABLE)
+        for eth_field, table_id in (
+                (u'dl_src', self.ETH_SRC_TABLE),
+                (u'dl_dst', self.ETH_DST_TABLE)):
+            match = {eth_field: u'%s' % mac}
+            if in_port is not None and table_id == self.ETH_SRC_TABLE:
+                match[u'in_port'] = in_port
+            if not self.matching_flow_present(
+                    match, timeout=timeout, table_id=table_id):
+                return False
+        return True
 
     def host_learned(self, host, timeout=10, in_port=None):
         """Return True if a host has been learned on default DPID."""
