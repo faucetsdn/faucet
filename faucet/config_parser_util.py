@@ -17,6 +17,7 @@
 import hashlib
 import logging
 import os
+# pytype: disable=pyi-error
 import yaml
 
 

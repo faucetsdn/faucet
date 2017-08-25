@@ -43,6 +43,7 @@ class FaucetTestBase(unittest.TestCase):
     FAUCET_MAC = '0e:00:00:00:00:01'
     LADVD = 'ladvd -e lo -f'
     ONEMBPS = (1024 * 1024)
+    INFLUX_TIMEOUT = 5
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -85,11 +86,12 @@ class FaucetTestBase(unittest.TestCase):
     rand_dpids = set()
 
 
-    def __init__(self, name, config, root_tmpdir, ports_sock):
+    def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
         super(FaucetTestBase, self).__init__(name)
         self.config = config
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
+        self.max_test_load = max_test_load
 
     def rand_dpid(self):
         reserved_range = 100
@@ -190,6 +192,15 @@ class FaucetTestBase(unittest.TestCase):
                 lognames.append(logname)
         return lognames
 
+    def _wait_load(self, load_retries=120):
+        for _ in range(load_retries):
+            load = os.getloadavg()[0]
+            if load < self.max_test_load:
+                return
+            print('load average too high %f, waiting' % load)
+            time.sleep(random.randint(1, 7))
+        self.fail('load average %f consistently too high' % load)
+
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_vars()
@@ -206,6 +217,7 @@ class FaucetTestBase(unittest.TestCase):
                 self.ports_sock, self._test_name())
 
         self._write_controller_configs()
+        self._wait_load()
 
     def tearDown(self):
         """Clean up after a test."""
@@ -264,7 +276,7 @@ class FaucetTestBase(unittest.TestCase):
         dumpNodeConnections(self.net.hosts)
 
     def _get_controller(self):
-        """Return the first (only) controller."""
+        """Return first controller."""
         return self.net.controllers[0]
 
     def _start_faucet(self, controller_intf):
@@ -486,7 +498,8 @@ dbs:
         influx_port: %u
         influx_user: 'faucet'
         influx_pwd: ''
-        influx_timeout: 5
+        influx_timeout: %u
+        interval: %u
     couchdb:
         type: gaugedb
         gdb_type: nosql
@@ -508,7 +521,21 @@ dbs:
        monitor_stats_file,
        monitor_state_file,
        monitor_flow_table_file,
-       influx_port)
+       influx_port,
+       self.INFLUX_TIMEOUT,
+       self.INFLUX_TIMEOUT + 1)
+
+    def get_exabgp_conf(self, peer, peer_config=''):
+       return """
+  neighbor %s {
+    router-id 2.2.2.2;
+    local-address %s;
+    connect %s;
+    peer-as 1;
+    local-as 2;
+    %s
+  }
+""" % (peer, peer, '%(bgp_port)d', peer_config)
 
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
@@ -721,8 +748,13 @@ dbs:
             label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         results = []
         var_re = r'^%s%s$' % (var, label_values_re)
-        for prom_line in self.scrape_prometheus().splitlines():
-            var, value = prom_line.split(' ')
+        prom_lines = self.scrape_prometheus()
+        for prom_line in prom_lines.splitlines():
+            prom_var_data = prom_line.split(' ')
+            self.assertEquals(
+                2, len(prom_var_data),
+                msg='invalid prometheus line in %s' % prom_lines)
+            var, value = prom_var_data
             var_match = re.search(var_re, var)
             if var_match:
                 value_int = long(float(value))
@@ -735,6 +767,19 @@ dbs:
             else:
                 return results[0][1]
         return default
+
+    def wait_gauge_up(self, timeout=60):
+        gauge_log = self.env['gauge']['GAUGE_LOG']
+        log_content = ''
+        for _ in range(timeout):
+            if os.path.exists(gauge_log):
+                log_content = open(gauge_log).read()
+                if re.search('DPID %u.+up' % int(self.dpid), log_content):
+                    return
+            self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
+            time.sleep(1)
+        self.fail('%s does not exist or does not have DPID up (%s)' % (
+            gauge_log, log_content))
 
     def gauge_smoke_test(self):
         watcher_files = (
@@ -752,6 +797,7 @@ dbs:
             self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
             self.fail(
                 'gauge did not output %s (gauge not connected?)' % watcher_file)
+        self.hup_gauge()
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
 
     def prometheus_smoke_test(self):
@@ -782,6 +828,11 @@ dbs:
         controller = self._get_controller()
         self.assertTrue(
             self._signal_proc_on_port(controller, controller.port, 1))
+
+    def hup_gauge(self):
+        self.assertTrue(
+            self._signal_proc_on_port(
+                self.gauge_controller, int(self.gauge_of_port), 1))
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
@@ -1157,17 +1208,21 @@ dbs:
         else:
             self.fail('no flow matching %s' % match)
 
-    def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0):
+    def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
             '', first_host.cmd(faucet_mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10)))
         if table_id is not None:
+            if mask is None:
+                match_port = int(port)
+            else:
+                match_port = '/'.join((str(port), str(mask)))
             self.wait_nonzero_packet_count_flow(
-                {u'tp_dst': int(port)}, table_id=table_id)
+                {u'tp_dst': match_port}, table_id=table_id)
 
-    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
+    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is NOT blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEquals(
@@ -1306,7 +1361,7 @@ dbs:
                 return
             time.sleep(1)
         self.fail(
-            'could not verify %s resolved to %s (%s)' % (ipa, mac, neighbors))
+            'could not verify %s resolved to %s' % (ipa, mac))
 
     def verify_ipv4_host_learned_mac(self, host, ipa, mac, retries=3):
         self._verify_host_learned_mac(host, ipa, 4, mac, retries)

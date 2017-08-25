@@ -170,7 +170,7 @@ class Valve(object):
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.low_priority, self.dp.highest_priority,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
-            self.valve_flowdrop)
+            self.valve_flowdrop, self.dp.use_idle_timeout)
 
     def _register_table_match_types(self):
         # TODO: functional flow managers should be able to register
@@ -346,6 +346,7 @@ class Valve(object):
             priority = self.dp.lowest_priority
         if inst is None:
             inst = []
+        flags = ofp.OFPFF_SEND_FLOW_REM if self.dp.use_idle_timeout else 0
         return valve_of.flowmod(
             self.dp.cookie,
             command,
@@ -356,7 +357,8 @@ class Valve(object):
             match,
             inst,
             hard_timeout,
-            idle_timeout)
+            idle_timeout,
+            flags)
 
     def valve_flowdel(self, table_id, match=None, priority=None,
                       out_port=ofp.OFPP_ANY, strict=False):
@@ -848,7 +850,7 @@ class Valve(object):
                 continue
             port = self.dp.ports[port_num]
             port.phys_up = False
-            self.logger.warning('%s down' % port)
+            self.logger.info('%s down' % port)
 
             ofmsgs.extend(
                 self._port_delete_flows(
@@ -1094,7 +1096,7 @@ class Valve(object):
             # Repopulate MAC learning.
             hosts_on_port = {}
             for eth_src, host_cache_entry in sorted(list(vlan.host_cache.items())):
-                port_num = str(host_cache_entry.port_num)
+                port_num = str(host_cache_entry.port.number)
                 mac_int = int(eth_src.replace(':', ''), 16)
                 if port_num not in hosts_on_port:
                     hosts_on_port[port_num] = []
@@ -1189,24 +1191,18 @@ class Valve(object):
                 if vlan is None:
                     continue
                 for eth_src, host_cache_entry in list(vlan.host_cache.items()):
-                    if host_cache_entry.port_num == port_no:
+                    if host_cache_entry.port.number == port_no:
                         old_eth_srcs.append(eth_src)
         return old_eth_srcs
 
-    def _get_config_changes(self, new_dp):
-        """Detect any config changes.
+    def _get_acl_config_changes(self, new_dp):
+        """Detect any config changes to ACLs.
 
         Args:
             new_dp (DP): new dataplane configuration.
         Returns:
-            changes (tuple) of:
-                deleted_ports (set): deleted port numbers.
-                changed_ports (set): changed/added port numbers.
-                deleted_vlans (set): deleted VLAN IDs.
-                changed_vlans (set): changed/added VLAN IDs.
-                all_ports_changed (bool): True if all ports changed.
+            changed_acls (dict): ACL ID map to new/changed ACLs.
         """
-        all_ports_changed = False
         changed_acls = {}
         for acl_id, new_acl in list(new_dp.acls.items()):
             if acl_id not in self.dp.acls:
@@ -1216,24 +1212,18 @@ class Valve(object):
                 if new_acl != self.dp.acls[acl_id]:
                     changed_acls[acl_id] = new_acl
                     self.logger.info('ACL %s changed' % acl_id)
+        return changed_acls
 
-        changed_ports = set([])
-        for port_no, new_port in list(new_dp.ports.items()):
-            if port_no not in self.dp.ports:
-                # Detected a newly configured port
-                changed_ports.add(port_no)
-                self.logger.info('port %s added' % port_no)
-            else:
-                old_port = self.dp.ports[port_no]
-                if new_port != old_port:
-                    # An existing port has configs changed
-                    changed_ports.add(port_no)
-                    self.logger.info('port %s reconfigured' % port_no)
-                elif new_port.acl_in in changed_acls:
-                    # If the port has its ACL changed
-                    changed_ports.add(port_no)
-                    self.logger.info('port %s ACL changed' % port_no)
+    def _get_vlan_config_changes(self, new_dp):
+        """Detect any config changes to VLANs.
 
+        Args:
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changes (tuple) of:
+                deleted_vlans (set): deleted VLAN IDs.
+                changed_vlans (set): changed/added VLAN IDs.
+        """
         deleted_vlans = set([])
         for vid in list(self.dp.vlans.keys()):
             if vid not in new_dp.vlans:
@@ -1254,6 +1244,42 @@ class Valve(object):
                         changed_vlans.add(vid)
                         self.logger.info('VLAN %s config changed' % vid)
 
+        if not deleted_vlans and not changed_vlans:
+            self.logger.info('no VLAN config changes')
+
+        return (deleted_vlans, changed_vlans)
+
+    def _get_port_config_changes(self, new_dp, changed_vlans, changed_acls):
+        """Detect any config changes to ports.
+
+        Args:
+            new_dp (DP): new dataplane configuration.
+            changed_vlans (set): changed/added VLAN IDs.
+            changed_acls (dict): ACL ID map to new/changed ACLs.
+        Returns:
+            changes (tuple) of:
+                all_ports_changed (bool): True if all ports changed.
+                deleted_ports (set): deleted port numbers.
+                changed_ports (set): changed/added port numbers.
+        """
+        all_ports_changed = False
+        changed_ports = set([])
+        for port_no, new_port in list(new_dp.ports.items()):
+            if port_no not in self.dp.ports:
+                # Detected a newly configured port
+                changed_ports.add(port_no)
+                self.logger.info('port %s added' % port_no)
+            else:
+                old_port = self.dp.ports[port_no]
+                if new_port != old_port:
+                    # An existing port has configs changed
+                    changed_ports.add(port_no)
+                    self.logger.info('port %s reconfigured' % port_no)
+                elif new_port.acl_in in changed_acls:
+                    # If the port has its ACL changed
+                    changed_ports.add(port_no)
+                    self.logger.info('port %s ACL changed' % port_no)
+
         for vid in changed_vlans:
             for port in new_dp.vlans[vid].get_ports():
                 changed_ports.add(port.number)
@@ -1269,13 +1295,27 @@ class Valve(object):
         elif not changed_ports and not deleted_ports:
             self.logger.info('no port config changes')
 
-        if not deleted_vlans and not changed_vlans:
-            self.logger.info('no VLAN config changes')
+        return (all_ports_changed, deleted_ports, changed_ports)
 
-        changes = (
-            deleted_ports, changed_ports, deleted_vlans, changed_vlans,
-            all_ports_changed)
-        return changes
+    def _get_config_changes(self, new_dp):
+        """Detect any config changes.
+
+        Args:
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changes (tuple) of:
+                deleted_ports (set): deleted port numbers.
+                changed_ports (set): changed/added port numbers.
+                deleted_vlans (set): deleted VLAN IDs.
+                changed_vlans (set): changed/added VLAN IDs.
+                all_ports_changed (bool): True if all ports changed.
+        """
+        changed_acls = self._get_acl_config_changes(new_dp)
+        deleted_vlans, changed_vlans = self._get_vlan_config_changes(new_dp)
+        all_ports_changed, deleted_ports, changed_ports = self._get_port_config_changes(
+            new_dp, changed_vlans, changed_acls)
+        return (deleted_ports, changed_ports, deleted_vlans, changed_vlans,
+                all_ports_changed)
 
     def _apply_config_changes(self, new_dp, changes):
         """Apply any detected configuration changes.
@@ -1404,6 +1444,32 @@ class Valve(object):
             'vlans': vlans_dict,
             'acls': acls_dict,
             }
+
+    def flow_timeout(self, table_id, match):
+        ofmsgs = []
+        eth_src = None
+        match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
+        if table_id == self.dp.eth_src_table or table_id == self.dp.eth_dst_table:
+            in_port = eth_src = eth_dst = None
+            for field in match_oxm_fields:
+                if isinstance(field, dict):
+                    value = field['OXMTlv']
+                    if value['field'] == 'eth_src':
+                        eth_src = value['value']
+                    if value['field'] == 'eth_dst':
+                        eth_dst = value['value']
+                    if value['field'] == 'vlan_vid':
+                        vid = value['value'] & ~ofp.OFPVID_PRESENT
+                    if value['field'] == 'in_port':
+                        in_port = value['value']
+            if eth_src and vid and in_port:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(
+                    self.host_manager.src_rule_expire(vlan, in_port, eth_src))
+            elif eth_dst and vid:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(self.host_manager.dst_rule_expire(vlan, eth_dst))
+        return ofmsgs
 
 
 class TfmValve(Valve):
