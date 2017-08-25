@@ -8,7 +8,10 @@
 Faucet Design and Architecture
 ==============================
 
-Faucet enables providing L2 Switches for the masses not classes
+Faucet enables providing L2 Switches for the masses not classes.  Faucet Umbrella it is a dedicated architecture for IXP switching fabric. 
+Using Faucet configured as Umbrella, one can stop Faucet service. The Datapath keeps functioning as all the states programmed proactively.  
+
+FAUCET and GAUGE use two fully separated RYU instance.  They're not identical - Faucet programs the "software" pipeline onto the switch and keeps track of port events and topology so that it can program corresponding flows on the same.  Gauge doesn't program any flows. It just polls for state and exports to database(s).
 
 ---------------------------------
 Terminology used in this document
