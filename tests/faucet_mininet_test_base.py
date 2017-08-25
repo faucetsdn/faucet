@@ -531,8 +531,8 @@ dbs:
        monitor_flow_table_file,
        prometheus_port,
        influx_port,
-       self.INFLUX_TIMEOUT,
-       self.INFLUX_TIMEOUT + 1)
+       self.DB_TIMEOUT,
+       self.DB_TIMEOUT + 1)
 
     def get_exabgp_conf(self, peer, peer_config=''):
        return """
