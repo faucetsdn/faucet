@@ -74,6 +74,7 @@ class DP(Conf):
     advertise_interval = None
     proactive_learn = None
     pipeline_config_dir = None
+    use_idle_timeout = None
     meters = {}
 
     # Values that are set to None will be set using set_defaults
@@ -151,6 +152,8 @@ class DP(Conf):
         # whether proactive learning is enabled for IP nexthops
         'pipeline_config_dir': '/etc/ryu/faucet',
         # where config files for pipeline are stored (if any).
+        'use_idle_timeout': False,
+        #Turn on/off the use of idle timeout for src_table, default OFF.
         }
 
     defaults_types = {
@@ -195,6 +198,7 @@ class DP(Conf):
         'advertise_interval': int,
         'proactive_learn': bool,
         'pipeline_config_dir': str,
+        'use_idle_timeout': bool,
     }
 
 
