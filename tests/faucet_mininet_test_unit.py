@@ -3860,6 +3860,7 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
+
     def wait_for_flowremoved_msg(self, src_mac=None, dst_mac=None, timeout=30):
         pattern = "OFPFlowRemoved"
         mac = None
@@ -3869,7 +3870,7 @@ vlans:
         if dst_mac:
             pattern = "OFPFlowRemoved(.*)'eth_dst': '%s'" % dst_mac
             mac = dst_mac
-        for i in range(0, timeout):
+        for i in range(timeout):
             for _, debug_log in self._get_ofchannel_logs():
                 match = re.search(pattern, open(debug_log).read())
             if match:
@@ -3881,7 +3882,7 @@ vlans:
     def wait_for_host_log_msg(self, host_mac, msg, timeout=15):
         controller = self._get_controller()
         count = 0
-        for _ in range(0, timeout):
+        for _ in range(timeout):
             count = controller.cmd('grep -c "%s %s" %s' % (
                 msg, host_mac, self.env['faucet']['FAUCET_LOG']))
             if int(count) != 0:
@@ -3894,13 +3895,11 @@ vlans:
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[:2]
         self.swap_host_macs(first_host, second_host)
-        self.wait_for_flowremoved_msg(src_mac=second_host.MAC())
-        self.require_host_learned(first_host)
-        self.assertFalse(self.matching_flow_present(
-            match={
-                u'in_port': int(self.port_map['port_2']),
-                u'dl_src': u'%s' % first_host.MAC()},
-            timeout=1))
+        for host, port in (
+                (first_host, self.port_map['port_1']),
+                (second_host, self.port_map['port_2'])):
+            self.wait_for_flowremoved_msg(src_mac=host.MAC())
+            self.require_host_learned(host, in_port=int(port))
 
 
 class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
@@ -3927,4 +3926,3 @@ class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
             self.wait_for_host_log_msg(host.MAC(), 'expiring host')
             self.assertFalse(self.host_learned(
                 host, in_port=int(port), timeout=2))
-
