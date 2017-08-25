@@ -3835,3 +3835,110 @@ acls:
         source_host, overridden_host, rewrite_host = self.net.hosts[0:3]
         self.verify_dest_rewrite(
             source_host, overridden_host, rewrite_host, overridden_host)
+
+
+class FaucetWithUseIdleTimeoutTest(FaucetUntaggedTest):
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+"""
+    CONFIG = """
+        timeout: 8
+        use_idle_timeout: true
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+    def wait_for_flowremoved_msg(self, src_mac=None, dst_mac=None, timeout=30):
+        pattern = "OFPFlowRemoved"
+        mac = None
+        if src_mac:
+            pattern = "OFPFlowRemoved(.*)'eth_src': '%s'" % src_mac
+            mac = src_mac
+        if dst_mac:
+            pattern = "OFPFlowRemoved(.*)'eth_dst': '%s'" % dst_mac
+            mac = dst_mac
+        for i in range(0, timeout):
+            for _, debug_log in self._get_ofchannel_logs():
+                match = re.search(pattern, open(debug_log).read())
+            if match:
+                return
+            time.sleep(1)
+        self.assertTrue(False,
+                msg='Not received OFPFlowRemoved for host %s' % mac)
+
+    def wait_for_host_log_msg(self, host_mac, msg, timeout=15):
+        controller = self._get_controller()
+        count = 0
+        for _ in range(0, timeout):
+            count = controller.cmd('grep -c "%s %s" %s' % (
+                msg, host_mac, self.env['faucet']['FAUCET_LOG']))
+            if int(count) != 0:
+                break
+            time.sleep(1)
+        self.assertGreaterEqual(int(count), 1,
+            'log msg "%s" for host %s not found' % (msg, host_mac))
+
+    def test_untagged(self):
+        self.net.pingAll()
+        first_host, second_host = self.net.hosts[:2]
+        self.swap_host_macs(first_host, second_host)
+        self.wait_for_flowremoved_msg(src_mac=second_host.MAC())
+        self.require_host_learned(first_host)
+        self.assertTrue(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_1']),
+                u'dl_src': u'%s' % first_host.MAC()}))
+        self.assertFalse(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_2']),
+                u'dl_src': u'%s' % first_host.MAC()},
+            timeout=1))
+
+class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
+
+    def test_untagged(self):
+        """Host that is actively sending should have its dst rule renewed as the
+        rule expires. Host that is not sending expires as usual.
+        """
+        self.net.pingAll()
+        first_host, second_host = self.net.hosts[:2]
+        third_host, fourth_host = self.net.hosts[2:]
+        self.host_ipv4_alias(first_host, ipaddress.ip_interface(u'10.99.99.1/24'))
+        first_host.cmd('ping 10.0.0.2 -I 10.99.99.1 &')
+        second_host.cmd('ifconfig %s 0' % second_host.defaultIntf())
+        third_host.cmd('ifconfig %s 0' % third_host.defaultIntf())
+        self.wait_for_flowremoved_msg(src_mac=second_host.MAC())
+        # expect to see dst rule present
+        self.wait_for_host_log_msg(first_host.MAC(), 'refreshing host')
+        self.assertTrue(self.matching_flow_present(
+            match={u'dl_dst': u'%s' % first_host.MAC()},
+            table_id=self.ETH_DST_TABLE))
+        self.wait_for_host_log_msg(second_host.MAC(), 'expiring host')
+        self.assertFalse(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_2']),
+                u'dl_src': u'%s' % second_host.MAC()},
+            timeout=2))
+        self.wait_for_host_log_msg(third_host.MAC(), 'expiring host')
+        self.assertFalse(self.matching_flow_present(
+            match={
+                u'in_port': int(self.port_map['port_3']),
+                u'dl_src': u'%s' % third_host.MAC()},
+            timeout=2))
+        self.assertFalse(self.matching_flow_present(
+            match={u'dl_dst': u'%s' % third_host.MAC()},
+            table_id=self.ETH_DST_TABLE,
+            timeout=2))
+

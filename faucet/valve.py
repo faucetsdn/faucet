@@ -170,7 +170,7 @@ class Valve(object):
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.low_priority, self.dp.highest_priority,
             self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
-            self.valve_flowdrop)
+            self.valve_flowdrop, self.dp.use_idle_timeout)
 
     def _register_table_match_types(self):
         # TODO: functional flow managers should be able to register
@@ -346,6 +346,7 @@ class Valve(object):
             priority = self.dp.lowest_priority
         if inst is None:
             inst = []
+        flags = ofp.OFPFF_SEND_FLOW_REM if self.dp.use_idle_timeout else 0
         return valve_of.flowmod(
             self.dp.cookie,
             command,
@@ -356,7 +357,8 @@ class Valve(object):
             match,
             inst,
             hard_timeout,
-            idle_timeout)
+            idle_timeout,
+            flags)
 
     def valve_flowdel(self, table_id, match=None, priority=None,
                       out_port=ofp.OFPP_ANY, strict=False):
@@ -1094,7 +1096,7 @@ class Valve(object):
             # Repopulate MAC learning.
             hosts_on_port = {}
             for eth_src, host_cache_entry in sorted(list(vlan.host_cache.items())):
-                port_num = str(host_cache_entry.port_num)
+                port_num = str(host_cache_entry.port.number)
                 mac_int = int(eth_src.replace(':', ''), 16)
                 if port_num not in hosts_on_port:
                     hosts_on_port[port_num] = []
@@ -1189,7 +1191,7 @@ class Valve(object):
                 if vlan is None:
                     continue
                 for eth_src, host_cache_entry in list(vlan.host_cache.items()):
-                    if host_cache_entry.port_num == port_no:
+                    if host_cache_entry.port.number == port_no:
                         old_eth_srcs.append(eth_src)
         return old_eth_srcs
 
@@ -1442,6 +1444,32 @@ class Valve(object):
             'vlans': vlans_dict,
             'acls': acls_dict,
             }
+
+    def flow_timeout(self, table_id, match):
+        ofmsgs = []
+        eth_src = None
+        match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
+        if table_id == self.dp.eth_src_table or table_id == self.dp.eth_dst_table:
+            in_port = eth_src = eth_dst = None
+            for field in match_oxm_fields:
+                if isinstance(field, dict):
+                    value = field['OXMTlv']
+                    if value['field'] == 'eth_src':
+                        eth_src = value['value']
+                    if value['field'] == 'eth_dst':
+                        eth_dst = value['value']
+                    if value['field'] == 'vlan_vid':
+                        vid = value['value'] & ~ofp.OFPVID_PRESENT
+                    if value['field'] == 'in_port':
+                        in_port = value['value']
+            if eth_src and vid and in_port:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(
+                    self.host_manager.src_rule_expire(vlan, in_port, eth_src))
+            elif eth_dst and vid:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(self.host_manager.dst_rule_expire(vlan, eth_dst))
+        return ofmsgs
 
 
 class TfmValve(Valve):
