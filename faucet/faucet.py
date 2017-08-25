@@ -127,7 +127,7 @@ class Faucet(app_manager.RyuApp):
         self.valves = {}
 
         # Start Prometheus
-        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9244'))
+        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9302'))
         prom_addr = os.getenv('FAUCET_PROMETHEUS_ADDR', '')
         self.metrics = faucet_metrics.FaucetMetrics(
             prom_port, prom_addr)
