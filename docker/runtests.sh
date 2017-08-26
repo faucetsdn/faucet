@@ -5,7 +5,9 @@ service openvswitch-switch start
 ovs-vsctl show || exit 1
 
 # enable fast reuse of ports.
-sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=5
+sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=10
+# minimize TCP connection timeout so application layer timeouts are quicker to test.
+sysctl -w net.ipv4.tcp_syn_retries=4
 
 cd /faucet-src/tests
 
