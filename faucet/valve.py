@@ -1450,10 +1450,7 @@ class Valve(object):
         eth_src = None
         match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
         if table_id == self.dp.eth_src_table or table_id == self.dp.eth_dst_table:
-            in_port = None
-            eth_src = None
-            eth_dst = None
-            vid = None
+            in_port = eth_src = eth_dst = None
             for field in match_oxm_fields:
                 if isinstance(field, dict):
                     value = field['OXMTlv']
