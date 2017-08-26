@@ -53,7 +53,8 @@ def serve_ports(ports_socket):
     ports_q = collections.deque()
     free_ports = set()
     port_age = {}
-    min_port_age = 30
+    min_port_age = int(open(
+        '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2
 
     def get_port():
         while True:
