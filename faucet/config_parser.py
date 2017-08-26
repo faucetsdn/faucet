@@ -113,7 +113,8 @@ def _dp_add_vlan(vid_dp, dp, vlan):
     if vlan not in dp.vlans:
         dp.add_vlan(vlan)
 
-    vid_dp[vlan.vid].add(dp.name)
+    if vlan.bgp_as is not None:
+        vid_dp[vlan.vid].add(dp.name)
 
 
 def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
