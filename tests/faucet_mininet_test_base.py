@@ -1264,9 +1264,9 @@ dbs:
             'exabgp %s -d 2> %s > %s &' % (
                 exabgp_conf_file, exabgp_err, exabgp_log), 600)
         controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
-        return exabgp_log
+        return (exabgp_log, exabgp_err)
 
-    def wait_bgp_up(self, neighbor, vlan):
+    def wait_bgp_up(self, neighbor, vlan, exabgp_log, exabgp_err):
         """Wait for BGP to come up."""
         label_values = {
             'neighbor': neighbor,
@@ -1278,7 +1278,11 @@ dbs:
             if uptime > 0:
                 return
             time.sleep(1)
-        self.fail('exabgp did not peer with FAUCET')
+        exabgp_log_content = []
+        for log in (exabgp_log, exabgp_err):
+            if os.path.exists(log):
+                exabgp_log_content.append(open(log).read())
+        self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
     def exabgp_updates(self, exabgp_log):
         """Verify that exabgp process has received BGP updates."""
