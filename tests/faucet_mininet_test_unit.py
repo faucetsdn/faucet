@@ -1208,7 +1208,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
@@ -1217,7 +1217,7 @@ vlans:
         first_host_alias_host_ip = ipaddress.ip_interface(
             ipaddress.ip_network(first_host_alias_ip.ip))
         self.host_ipv4_alias(first_host, first_host_alias_ip)
-        self.wait_bgp_up('127.0.0.1', 100)
+        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1279,7 +1279,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
@@ -1287,7 +1287,7 @@ vlans:
         # wait until 10.0.0.1 has been resolved
         self.wait_for_route_as_flow(
             first_host.MAC(), ipaddress.IPv4Network(u'10.99.99.0/24'))
-        self.wait_bgp_up('127.0.0.1', 100)
+        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1351,14 +1351,14 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('127.0.0.1')
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes sent."""
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
-        self.wait_bgp_up('127.0.0.1', 100)
+        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -2916,7 +2916,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -2926,7 +2926,7 @@ vlans:
         first_host_alias_host_ip = ipaddress.ip_interface(
             ipaddress.ip_network(first_host_alias_ip.ip))
         self.add_host_ipv6_address(first_host, first_host_alias_ip)
-        self.wait_bgp_up('::1', 100)
+        self.wait_bgp_up('::1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
@@ -2983,11 +2983,11 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
-        self.wait_bgp_up('::1', 100)
+        self.wait_bgp_up('::1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
@@ -3104,7 +3104,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1')
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         self.verify_ipv6_routing_mesh()
@@ -3113,7 +3113,7 @@ vlans:
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv6Network(u'fc00::30:0/112'))
         self.verify_ipv6_routing_mesh()
-        self.wait_bgp_up('::1', 100)
+        self.wait_bgp_up('::1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
