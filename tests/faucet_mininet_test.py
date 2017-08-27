@@ -435,17 +435,34 @@ def start_port_server(root_tmpdir):
     return ports_sock
 
 
-def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, failures):
+def dump_failed_test(test_name, test_dir):
+    print test_name
+    print
+    print
+    test_files = glob.glob(os.path.join(test_dir, '*'))
+    for test_file in test_files:
+        if not test_file.endswith('.cap'):
+            print test_file
+            print
+            print open(test_file).read()
+
+
+def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
+                    failures, dumpfail):
     if all_successful:
         if not keep_logs:
             shutil.rmtree(root_tmpdir)
     else:
+        print 'log/debug files for failed tests are in %s' % root_tmpdir
         if not keep_logs:
             if sanity:
                 test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
                 for test_dir in test_dirs:
                     test_name = os.path.basename(test_dir)
-                    if test_name not in failures:
+                    if test_name in failures:
+                        if dumpfail:
+                            dump_failed_test(test_name, test_dir)
+                    else:
                         shutil.rmtree(test_dir)
 
 
@@ -465,11 +482,8 @@ def decode_of_pcaps(root_tmpdir):
     return decoded_pcap_logs
 
 
-def run_tests(requested_test_classes,
-              excluded_test_classes,
-              keep_logs,
-              serial,
-              hw_config):
+def run_tests(hw_config, requested_test_classes, dumpfail,
+              keep_logs, serial, excluded_test_classes):
     """Actually run the test suites, potentially in parallel."""
     if hw_config is not None:
         print('Testing hardware, forcing test serialization')
@@ -484,7 +498,8 @@ def run_tests(requested_test_classes,
     os.remove(ports_sock)
     decoded_pcap_logs = decode_of_pcaps(root_tmpdir)
     pipeline_superset_report(decoded_pcap_logs)
-    clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, failures)
+    clean_test_dirs(
+        root_tmpdir, all_successful, sanity, keep_logs, failures, dumpfail)
     if not all_successful:
         sys.exit(-1)
 
@@ -494,13 +509,14 @@ def parse_args():
     try:
         opts, args = getopt.getopt(
             sys.argv[1:],
-            'cknsx:',
-            ['clean', 'nocheck', 'keep_logs', 'serial'])
+            'cdknsx:',
+            ['clean', 'dumpfail', 'keep_logs', 'nocheck', 'serial'])
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
 
     clean = False
+    dumpfail = False
     keep_logs = False
     nocheck = False
     serial = False
@@ -509,22 +525,27 @@ def parse_args():
     for opt, arg in opts:
         if opt in ('-c', '--clean'):
             clean = True
-        if opt in ('-n', '--nocheck'):
-            nocheck = True
+        if opt in ('-d', '--dumpfail'):
+            dumpfail = True
         if opt in ('-k', '--keep_logs'):
             keep_logs = True
+        if opt in ('-n', '--nocheck'):
+            nocheck = True
         if opt in ('-s', '--serial'):
             serial = True
         if opt == '-x':
             excluded_test_classes.append(arg)
 
-    return (args, clean, keep_logs, nocheck, serial, excluded_test_classes)
+    return (
+        args, clean, dumpfail, keep_logs, nocheck,
+        serial, excluded_test_classes)
 
 
 def test_main():
     """Test main."""
     setLogLevel('info')
-    args, clean, keep_logs, nocheck, serial, excluded_test_classes = parse_args()
+    (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
+       serial, excluded_test_classes) = parse_args()
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
@@ -542,7 +563,9 @@ def test_main():
             print('pylint must pass with no errors')
             sys.exit(-1)
     hw_config = import_hw_config()
-    run_tests(args, excluded_test_classes, keep_logs, serial, hw_config)
+    run_tests(
+        hw_config, requested_test_classes, dumpfail,
+        keep_logs, serial, excluded_test_classes)
 
 
 if __name__ == '__main__':
