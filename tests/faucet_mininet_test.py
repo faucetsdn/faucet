@@ -225,25 +225,65 @@ def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
     return suite
 
 
-def pipeline_superset_report(root_tmpdir):
-    ofchannel_logs = glob.glob(
-        os.path.join(root_tmpdir, '*/ofchannel.log'))
-    match_re = re.compile(
-        r'^.+types table: (\d+) match: (.+) instructions: (.+) actions: (.+)')
+def pipeline_superset_report(decoded_pcap_logs):
+    """Report on matches, instructions, and actions by table from tshark logs."""
     table_matches = collections.defaultdict(set)
     table_instructions = collections.defaultdict(set)
     table_actions = collections.defaultdict(set)
-    for log in ofchannel_logs:
-        for log_line in open(log).readlines():
-            match = match_re.match(log_line)
-            if match:
-                table, matches, instructions, actions = match.groups()
-                table = int(table)
-                if table != 255:
-                    table_matches[table].update(eval(matches))
-                    table_instructions[table].update(eval(instructions))
-                    table_actions[table].update(eval(actions))
-    print('')
+
+    for log in decoded_pcap_logs:
+        flows = re.compile(r'\n{2,}').split(open(log).read())
+
+        for flow in flows:
+            table_id = None
+            last_indent_count = 0
+            last_flow_line = ''
+            last_oxm_match = ''
+            section_stack = []
+            depth = 0
+
+            for flow_line in flow.splitlines():
+                orig_flow_line = len(flow_line)
+                flow_line = flow_line.lstrip()
+                indent_count = orig_flow_line - len(flow_line)
+                if indent_count > last_indent_count:
+                    depth += 1
+                    section_stack.append(last_flow_line)
+                elif indent_count < last_indent_count:
+                    depth -= 1
+                    section_stack.pop()
+                last_indent_count = indent_count
+                last_flow_line = flow_line
+                if depth <= 1:
+                    if flow_line.startswith('Type'):
+                        if not flow_line.startswith('Type: OFPT_FLOW_MOD'):
+                            break
+                    if flow_line.startswith('Table ID'):
+                        if flow_line.startswith('Table ID: OFPTT_ALL'):
+                            break
+                        table_id = int(flow_line.split()[-1])
+                    continue
+                if table_id is None:
+                    continue
+                section_name = section_stack[-1]
+                if 'Match' in section_stack:
+                    if section_name == 'OXM field':
+                        oxm_match = re.match(r'.*Field: (\S+).*', flow_line)
+                        if oxm_match:
+                            table_matches[table_id].add(oxm_match.group(1))
+                            last_oxm_match = oxm_match.group(1)
+                        else:
+                            oxm_mask_match = re.match(r'.*Has mask: True.*', flow_line)
+                            if oxm_mask_match:
+                                table_matches[table_id].add(last_oxm_match + '/Mask')
+                elif 'Instruction' in section_stack:
+                    type_match = re.match(r'Type: (\S+).+', flow_line)
+                    if type_match:
+                        if section_name == 'Instruction':
+                            table_instructions[table_id].add(type_match.group(1))
+                        elif section_name == 'Action':
+                            table_actions[table_id].add(type_match.group(1))
+
     for table in sorted(table_matches):
         print('table: %u' % table)
         print('  matches: %s' % sorted(table_matches[table]))
@@ -361,15 +401,19 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, failures):
 
 
 def decode_of_pcaps(root_tmpdir):
+    decoded_pcap_logs = []
     test_ofcaps = glob.glob(os.path.join(
         os.path.join(root_tmpdir, '*'), '*of.cap'))
     for test_ofcap in test_ofcaps:
-        text_test_ofcap = open('%stxt' % test_ofcap, 'w')
+        decoded_pcap_log = '%stxt' % test_ofcap
+        text_test_ofcap = open(decoded_pcap_log, 'w')
+        decoded_pcap_logs.append(decoded_pcap_log)
         subprocess.call(
             ['tshark', '-d', 'tcp.port==1-65535,openflow',
-             '-O', 'openflow_v4', '-Y', 'openflow_v4',
+             '-O', 'openflow_v4', '-Y', 'openflow_v4', '-n',
              '-r', test_ofcap],
             stdout=text_test_ofcap, stderr=open(os.devnull, 'w'))
+    return decoded_pcap_logs
 
 
 def run_tests(requested_test_classes,
@@ -389,9 +433,9 @@ def run_tests(requested_test_classes,
     sanity, all_successful, failures = run_test_suites(
         sanity_tests, single_tests, parallel_tests)
     os.remove(ports_sock)
-    pipeline_superset_report(root_tmpdir)
+    decoded_pcap_logs = decode_of_pcaps(root_tmpdir)
+    pipeline_superset_report(decoded_pcap_logs)
     clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, failures)
-    decode_of_pcaps(root_tmpdir)
     if not all_successful:
         sys.exit(-1)
 
