@@ -238,7 +238,6 @@ def pipeline_superset_report(decoded_pcap_logs):
 
     for log in decoded_pcap_logs:
         flows = re.compile(r'\n{2,}').split(open(log).read())
-
         for flow in flows:
             flowmod = False
             last_indent_count = 0
@@ -258,15 +257,18 @@ def pipeline_superset_report(decoded_pcap_logs):
                 orig_flow_line = len(flow_line)
                 flow_line = flow_line.lstrip()
                 indent_count = orig_flow_line - len(flow_line)
+                if indent_count == 0:
+                    section_stack = []
                 if indent_count > last_indent_count:
                     section_stack.append(last_flow_line)
                 elif indent_count < last_indent_count:
-                    section_stack.pop()
+                    if section_stack:
+                        section_stack.pop()
                 depth = len(section_stack)
                 last_indent_count = indent_count
                 last_flow_line = flow_line
                 if depth <= 1:
-                    if flow_line.startswith('Type: OFPT_'):
+                    if flow_line.startswith('Version:'):
                         table_id = None
                         group_id = None
                         matches_count = 0
@@ -275,18 +277,19 @@ def pipeline_superset_report(decoded_pcap_logs):
                         group_actions_count = 0
                         last_oxm_match = ''
                         flowmod = False
+                    if flow_line.startswith('Type: OFPT_'):
                         if (flow_line.startswith('Type: OFPT_FLOW_MOD') or
                                 flow_line.startswith('Type: OFPT_GROUP_MOD')):
                             flowmod = True
                     if flowmod:
                         if flow_line.startswith('Table ID'):
-                            if flow_line.startswith('Table ID: OFPTT_ALL'):
-                                break
-                            table_id = int(flow_line.split()[-1])
+                            if not flow_line.startswith('Table ID: OFPTT_ALL'):
+                                table_id = int(flow_line.split()[-1])
                         if flow_line.startswith('Group ID'):
-                            if flow_line.startswith('Group ID: OFPG_ALL'):
-                                break
-                            group_id = int(flow_line.split()[-1])
+                            if not flow_line.startswith('Group ID: OFPG_ALL'):
+                                group_id = int(flow_line.split()[-1])
+                    continue
+                if not flowmod:
                     continue
                 section_name = section_stack[-1]
                 if table_id is not None:
