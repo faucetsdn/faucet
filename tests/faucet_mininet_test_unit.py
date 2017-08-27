@@ -3838,6 +3838,7 @@ acls:
             source_host, overridden_host, rewrite_host, overridden_host)
 
 
+@unittest.skip('use_idle_timeout unreliable')
 class FaucetWithUseIdleTimeoutTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
@@ -3861,6 +3862,7 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
+
     def wait_for_host_removed(self, host, in_port, timeout=5):
         for _ in range(timeout):
             if not self.host_learned(host, in_port=in_port, timeout=1):
@@ -3907,6 +3909,7 @@ vlans:
             self.require_host_learned(host, in_port=int(port))
 
 
+@unittest.skip('use_idle_timeout unreliable')
 class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
 
     def test_untagged(self):
