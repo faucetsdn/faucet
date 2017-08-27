@@ -331,6 +331,9 @@ class FaucetSanityTest(FaucetUntaggedTest):
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     """Basic untagged VLAN test with Influx."""
 
+    server_thread = None
+    server = None
+
     def get_gauge_watcher_config(self):
         return """
     port_stats:
@@ -395,6 +398,23 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             time.sleep(1)
         return
 
+    def _start_influx(self, handler):
+        for _ in range(3):
+            try:
+                self.server = QuietHTTPServer(
+                    ('127.0.0.1', self.influx_port), handler)
+                break
+            except socket.error:
+                time.sleep(1)
+        self.server_thread = threading.Thread(
+            target=self.server.serve_forever)
+        self.server_thread.daemon = True
+        self.server_thread.start()
+
+    def _stop_influx(self):
+        self.server.shutdown()
+        self.server.socket.close()
+
     def test_untagged(self):
         influx_log = os.path.join(self.tmpdir, 'influx.log')
 
@@ -405,17 +425,13 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 return self.send_response(204)
 
 
-        server = QuietHTTPServer(
-            ('127.0.0.1', self.influx_port), InfluxPostHandler)
-        thread = threading.Thread(target=server.serve_forever)
-        thread.daemon = True
-        thread.start()
+        self._start_influx(InfluxPostHandler)
         self.ping_all_when_learned()
         self.wait_gauge_up()
         self.hup_gauge()
         self.flap_all_switch_ports()
         self._wait_influx_log(influx_log)
-        server.shutdown()
+        self._stop_influx()
         self._verify_influx_log(influx_log)
 
 
@@ -501,16 +517,11 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
                 time.sleep(self.INFLUX_TIMEOUT * 2)
                 return self.send_response(500)
 
-
-        server = QuietHTTPServer(
-            ('127.0.0.1', self.influx_port), InfluxPostHandler)
-        thread = threading.Thread(target=server.serve_forever)
-        thread.daemon = True
-        thread.start()
+        self._start_influx(InfluxPostHandler)
         self.ping_all_when_learned()
         self.wait_gauge_up()
         self._wait_influx_log(influx_log)
-        server.shutdown()
+        self._stop_influx()
         self.assertTrue(os.path.exists(influx_log))
         self._wait_error_shipping()
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
@@ -957,15 +968,22 @@ vlans:
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     """Test handling HUP signal without config change."""
 
+    def _configure_count_with_retry(self, expected_count):
+        for _ in range(3):
+            configure_count = self.get_configure_count()
+            if configure_count == expected_count:
+                return
+            time.sleep(1)
+        self.fail('configure count %u != expected %u' % (
+            configure_count, expected_count))
+
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
         init_config_count = self.get_configure_count()
         for i in range(init_config_count, init_config_count+3):
-            configure_count = self.get_configure_count()
-            self.assertEquals(i, configure_count)
+            self._configure_count_with_retry(i)
             self.verify_hup_faucet()
-            configure_count = self.get_configure_count()
-            self.assertTrue(i + 1, configure_count)
+            self._configure_count_with_retry(i+1)
             self.assertEqual(
                 self.scrape_prometheus_var('of_dp_disconnections', default=0),
                 0)
@@ -3837,6 +3855,7 @@ acls:
             source_host, overridden_host, rewrite_host, overridden_host)
 
 
+@unittest.skip('use_idle_timeout is not stable - do not use')
 class FaucetWithUseIdleTimeoutTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
@@ -3906,6 +3925,7 @@ vlans:
             self.require_host_learned(host, in_port=int(port))
 
 
+@unittest.skip('use_idle_timeout is not stable - do not use')
 class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
 
     def test_untagged(self):

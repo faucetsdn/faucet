@@ -5,6 +5,7 @@
 import collections
 import os
 import socket
+import subprocess
 import time
 
 
@@ -15,6 +16,16 @@ RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
 def mininet_dpid(int_dpid):
     """Return stringified hex version, of int DPID for mininet."""
     return str('%x' % int(int_dpid))
+
+
+def tcp_port_free(port):
+    fuser_cmd = ['fuser', '-v', '-n', 'tcp', str(port)]
+    try:
+        fuser_out = subprocess.check_call(fuser_cmd, stderr=open(os.devnull, 'wb'))
+    except subprocess.CalledProcessError:
+        return True
+    print 'port %u not free: %s' % (port, fuser_out)
+    return False
 
 
 def str_int_dpid(str_dpid):
@@ -53,8 +64,8 @@ def serve_ports(ports_socket):
     ports_q = collections.deque()
     free_ports = set()
     port_age = {}
-    min_port_age = int(open(
-        '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2
+    min_port_age = max(int(open(
+        '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2, 20)
 
     def get_port():
         while True:
@@ -100,7 +111,7 @@ def serve_ports(ports_socket):
                 queue_free_ports()
             while True:
                 port = ports_q.popleft()
-                if time.time() - port_age[port] > min_port_age:
+                if tcp_port_free(port) and time.time() - port_age[port] > min_port_age:
                     break
                 ports_q.append(port)
                 time.sleep(1)
