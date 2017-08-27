@@ -388,7 +388,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                     ('127.0.0.1', self.influx_port), handler)
                 break
             except socket.error:
-                time.sleep(3)
+                time.sleep(7)
         self.server_thread = threading.Thread(
             target=self.server.serve_forever)
         self.server_thread.daemon = True
