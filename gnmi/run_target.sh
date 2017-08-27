@@ -4,5 +4,4 @@ gnmi_target \
   -key $HOME/certs/server.key \
   -cert $HOME/certs/server.crt \
   -ca $HOME/certs/ca.crt \
-  -alsologtostderr \
-  &
+  -alsologtostderr

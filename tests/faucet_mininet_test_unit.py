@@ -76,6 +76,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
                 env=self.env[name],
                 port=self.of_port))
         self.net.start()
+        self.reset_all_ipv4_prefix(prefix=24)
         self.wait_for_tcp_listen(self._get_controller(), self.of_port)
 
     def test_api(self):
@@ -148,28 +149,6 @@ class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 meters:
-    dropsome:
-        meter_id: 1
-        entry:
-            flags: "KBPS"
-            bands:
-                [
-                    {
-                        type: "DROP",
-                        rate: 1000
-                    }
-                ]
-vlans:
-    100:
-        description: "untagged"
-"""
-
-
-@unittest.skip('meters not widely supported')
-class FaucetUntaggedApplyMeterTest(FaucetUntaggedTest):
-
-    CONFIG_GLOBAL = """
-meters:
     lossymeter:
         meter_id: 1
         entry:
@@ -191,6 +170,11 @@ vlans:
     100:
         description: "untagged"
 """
+
+
+@unittest.skip('meters not widely supported')
+class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
+
     CONFIG = """
         interfaces:
             %(port_1)d:
@@ -372,6 +356,9 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     """Basic untagged VLAN test with Influx."""
 
+    server_thread = None
+    server = None
+
     def get_gauge_watcher_config(self):
         return """
     port_stats:
@@ -393,7 +380,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
     def _wait_error_shipping(self, timeout=None):
         if timeout is None:
-            timeout = self.DB_TIMEOUT
+            timeout = self.DB_TIMEOUT * 2
         gauge_log = self.env['gauge']['GAUGE_LOG']
         for _ in range(timeout):
             log_content = open(gauge_log).read()
@@ -436,6 +423,26 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             time.sleep(1)
         return
 
+    def _start_influx(self, handler):
+        for _ in range(3):
+            try:
+                self.server = QuietHTTPServer(
+                    ('127.0.0.1', self.influx_port), handler)
+                break
+            except socket.error:
+                time.sleep(7)
+        self.assertIsNotNone(
+            self.server,
+            msg='could not start test Influx server on %u' % self.influx_port)
+        self.server_thread = threading.Thread(
+            target=self.server.serve_forever)
+        self.server_thread.daemon = True
+        self.server_thread.start()
+
+    def _stop_influx(self):
+        self.server.shutdown()
+        self.server.socket.close()
+
     def test_untagged(self):
         influx_log = os.path.join(self.tmpdir, 'influx.log')
 
@@ -446,17 +453,13 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 return self.send_response(204)
 
 
-        server = QuietHTTPServer(
-            ('127.0.0.1', self.influx_port), InfluxPostHandler)
-        thread = threading.Thread(target=server.serve_forever)
-        thread.daemon = True
-        thread.start()
+        self._start_influx(InfluxPostHandler)
         self.ping_all_when_learned()
         self.wait_gauge_up()
         self.hup_gauge()
         self.flap_all_switch_ports()
         self._wait_influx_log(influx_log)
-        server.shutdown()
+        self._stop_influx()
         self._verify_influx_log(influx_log)
 
 
@@ -543,16 +546,11 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
                 time.sleep(self.DB_TIMEOUT * 2)
                 return self.send_response(500)
 
-
-        server = QuietHTTPServer(
-            ('127.0.0.1', self.influx_port), InfluxPostHandler)
-        thread = threading.Thread(target=server.serve_forever)
-        thread.daemon = True
-        thread.start()
+        self._start_influx(InfluxPostHandler)
         self.ping_all_when_learned()
         self.wait_gauge_up()
         self._wait_influx_log(influx_log)
-        server.shutdown()
+        self._stop_influx()
         self.assertTrue(os.path.exists(influx_log))
         self._wait_error_shipping()
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
@@ -999,15 +997,22 @@ vlans:
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     """Test handling HUP signal without config change."""
 
+    def _configure_count_with_retry(self, expected_count):
+        for _ in range(3):
+            configure_count = self.get_configure_count()
+            if configure_count == expected_count:
+                return
+            time.sleep(1)
+        self.fail('configure count %u != expected %u' % (
+            configure_count, expected_count))
+
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
         init_config_count = self.get_configure_count()
         for i in range(init_config_count, init_config_count+3):
-            configure_count = self.get_configure_count()
-            self.assertEquals(i, configure_count)
+            self._configure_count_with_retry(i)
             self.verify_hup_faucet()
-            configure_count = self.get_configure_count()
-            self.assertTrue(i + 1, configure_count)
+            self._configure_count_with_retry(i+1)
             self.assertEqual(
                 self.scrape_prometheus_var('of_dp_disconnections', default=0),
                 0)
@@ -1250,7 +1255,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
@@ -1259,7 +1264,7 @@ vlans:
         first_host_alias_host_ip = ipaddress.ip_interface(
             ipaddress.ip_network(first_host_alias_ip.ip))
         self.host_ipv4_alias(first_host, first_host_alias_ip)
-        self.wait_bgp_up('127.0.0.1', 100)
+        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1321,7 +1326,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
@@ -1329,7 +1334,7 @@ vlans:
         # wait until 10.0.0.1 has been resolved
         self.wait_for_route_as_flow(
             first_host.MAC(), ipaddress.IPv4Network(u'10.99.99.0/24'))
-        self.wait_bgp_up('127.0.0.1', 100)
+        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1393,14 +1398,14 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('127.0.0.1')
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes sent."""
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
-        self.wait_bgp_up('127.0.0.1', 100)
+        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -2958,7 +2963,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -2968,7 +2973,7 @@ vlans:
         first_host_alias_host_ip = ipaddress.ip_interface(
             ipaddress.ip_network(first_host_alias_ip.ip))
         self.add_host_ipv6_address(first_host, first_host_alias_ip)
-        self.wait_bgp_up('::1', 100)
+        self.wait_bgp_up('::1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
@@ -3025,11 +3030,11 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
-        self.wait_bgp_up('::1', 100)
+        self.wait_bgp_up('::1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
@@ -3146,7 +3151,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1')
-        self.exabgp_log = self.start_exabgp(exabgp_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
         self.verify_ipv6_routing_mesh()
@@ -3155,7 +3160,7 @@ vlans:
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv6Network(u'fc00::30:0/112'))
         self.verify_ipv6_routing_mesh()
-        self.wait_bgp_up('::1', 100)
+        self.wait_bgp_up('::1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
@@ -3879,6 +3884,7 @@ acls:
             source_host, overridden_host, rewrite_host, overridden_host)
 
 
+@unittest.skip('use_idle_timeout unreliable')
 class FaucetWithUseIdleTimeoutTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
@@ -3902,6 +3908,13 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
+
+    def wait_for_host_removed(self, host, in_port, timeout=5):
+        for _ in range(timeout):
+            if not self.host_learned(host, in_port=in_port, timeout=1):
+                return
+        self.fail('flow matching %s still exists' % match)
+
     def wait_for_flowremoved_msg(self, src_mac=None, dst_mac=None, timeout=30):
         pattern = "OFPFlowRemoved"
         mac = None
@@ -3911,19 +3924,18 @@ vlans:
         if dst_mac:
             pattern = "OFPFlowRemoved(.*)'eth_dst': '%s'" % dst_mac
             mac = dst_mac
-        for i in range(0, timeout):
+        for i in range(timeout):
             for _, debug_log in self._get_ofchannel_logs():
                 match = re.search(pattern, open(debug_log).read())
             if match:
                 return
             time.sleep(1)
-        self.assertTrue(False,
-                msg='Not received OFPFlowRemoved for host %s' % mac)
+        self.fail('Not received OFPFlowRemoved for host %s' % mac)
 
     def wait_for_host_log_msg(self, host_mac, msg, timeout=15):
         controller = self._get_controller()
         count = 0
-        for _ in range(0, timeout):
+        for _ in range(timeout):
             count = controller.cmd('grep -c "%s %s" %s' % (
                 msg, host_mac, self.env['faucet']['FAUCET_LOG']))
             if int(count) != 0:
@@ -3933,54 +3945,37 @@ vlans:
             'log msg "%s" for host %s not found' % (msg, host_mac))
 
     def test_untagged(self):
-        self.net.pingAll()
+        self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[:2]
         self.swap_host_macs(first_host, second_host)
-        self.wait_for_flowremoved_msg(src_mac=second_host.MAC())
-        self.require_host_learned(first_host)
-        self.assertTrue(self.matching_flow_present(
-            match={
-                u'in_port': int(self.port_map['port_1']),
-                u'dl_src': u'%s' % first_host.MAC()}))
-        self.assertFalse(self.matching_flow_present(
-            match={
-                u'in_port': int(self.port_map['port_2']),
-                u'dl_src': u'%s' % first_host.MAC()},
-            timeout=1))
+        for host, port in (
+                (first_host, self.port_map['port_1']),
+                (second_host, self.port_map['port_2'])):
+            self.wait_for_flowremoved_msg(src_mac=host.MAC())
+            self.require_host_learned(host, in_port=int(port))
 
+
+@unittest.skip('use_idle_timeout unreliable')
 class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
 
     def test_untagged(self):
         """Host that is actively sending should have its dst rule renewed as the
         rule expires. Host that is not sending expires as usual.
         """
-        self.net.pingAll()
-        first_host, second_host = self.net.hosts[:2]
-        third_host, fourth_host = self.net.hosts[2:]
+        self.ping_all_when_learned()
+        first_host, second_host, third_host, fourth_host = self.net.hosts
         self.host_ipv4_alias(first_host, ipaddress.ip_interface(u'10.99.99.1/24'))
-        first_host.cmd('ping 10.0.0.2 -I 10.99.99.1 &')
-        second_host.cmd('ifconfig %s 0' % second_host.defaultIntf())
-        third_host.cmd('ifconfig %s 0' % third_host.defaultIntf())
-        self.wait_for_flowremoved_msg(src_mac=second_host.MAC())
-        # expect to see dst rule present
+        first_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
+        first_host.cmd('timeout 120s ping -I 10.99.99.1 %s &' % second_host.IP())
+        for host in (second_host, third_host, fourth_host):
+            self.host_drop_all_ips(host)
         self.wait_for_host_log_msg(first_host.MAC(), 'refreshing host')
-        self.assertTrue(self.matching_flow_present(
-            match={u'dl_dst': u'%s' % first_host.MAC()},
-            table_id=self.ETH_DST_TABLE))
-        self.wait_for_host_log_msg(second_host.MAC(), 'expiring host')
-        self.assertFalse(self.matching_flow_present(
-            match={
-                u'in_port': int(self.port_map['port_2']),
-                u'dl_src': u'%s' % second_host.MAC()},
-            timeout=2))
-        self.wait_for_host_log_msg(third_host.MAC(), 'expiring host')
-        self.assertFalse(self.matching_flow_present(
-            match={
-                u'in_port': int(self.port_map['port_3']),
-                u'dl_src': u'%s' % third_host.MAC()},
-            timeout=2))
-        self.assertFalse(self.matching_flow_present(
-            match={u'dl_dst': u'%s' % third_host.MAC()},
-            table_id=self.ETH_DST_TABLE,
-            timeout=2))
-
+        self.assertTrue(self.host_learned(
+            first_host, in_port=int(self.port_map['port_1'])))
+        for host, port in (
+                (second_host, self.port_map['port_2']),
+                (third_host, self.port_map['port_3']),
+                (fourth_host, self.port_map['port_4'])):
+            self.wait_for_flowremoved_msg(src_mac=host.MAC())
+            self.wait_for_host_log_msg(host.MAC(), 'expiring host')
+            self.wait_for_host_removed(host, in_port=int(port))

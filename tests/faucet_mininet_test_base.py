@@ -184,8 +184,9 @@ class FaucetTestBase(unittest.TestCase):
         return '-'.join(self.id().split('.')[1:])
 
     def _tmpdir_name(self):
-        return tempfile.mkdtemp(
-            prefix='%s-' % self._test_name(), dir=self.root_tmpdir)
+        tmpdir = os.path.join(self.root_tmpdir, self._test_name())
+        os.mkdir(tmpdir)
+        return tmpdir
 
     def _controller_lognames(self):
         lognames = []
@@ -277,6 +278,7 @@ class FaucetTestBase(unittest.TestCase):
         for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
+        self.reset_all_ipv4_prefix(prefix=24)
 
     def _get_controller(self):
         """Return first controller."""
@@ -314,7 +316,7 @@ class FaucetTestBase(unittest.TestCase):
             self.net.stop()
             time.sleep(1)
         log_txt = self._report_controller_log()
-        self.fail('could not start FAUCET: %s' % log_txt)
+        self.fail('could not start FAUCET or switch not connected: %s' % log_txt)
 
     def _ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""
@@ -674,11 +676,16 @@ dbs:
 
     def mac_learned(self, mac, timeout=10, in_port=None):
         """Return True if a MAC has been learned on default DPID."""
-        match = {u'dl_src': u'%s' % mac}
-        if in_port is not None:
-            match[u'in_port'] = in_port
-        return self.matching_flow_present(
-            match, timeout=timeout, table_id=self.ETH_SRC_TABLE)
+        for eth_field, table_id in (
+                (u'dl_src', self.ETH_SRC_TABLE),
+                (u'dl_dst', self.ETH_DST_TABLE)):
+            match = {eth_field: u'%s' % mac}
+            if in_port is not None and table_id == self.ETH_SRC_TABLE:
+                match[u'in_port'] = in_port
+            if not self.matching_flow_present(
+                    match, timeout=timeout, table_id=table_id):
+                return False
+        return True
 
     def host_learned(self, host, timeout=10, in_port=None):
         """Return True if a host has been learned on default DPID."""
@@ -705,6 +712,13 @@ dbs:
         """Return first IPv6/netmask for host's default interface."""
         return self.host_ip(host, 'inet6', r'[0-9a-f\:]+\/[0-9]+')
 
+    def reset_ipv4_prefix(self, host, prefix=24):
+        host.setIP(host.IP(), prefixLen=prefix)
+
+    def reset_all_ipv4_prefix(self, prefix=24):
+        for host in self.net.hosts:
+            self.reset_ipv4_prefix(host, prefix)
+
     def require_host_learned(self, host, retries=3, in_port=None):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
@@ -719,8 +733,10 @@ dbs:
             if self.host_learned(host, timeout=1, in_port=in_port):
                 return
             # stimulate host learning with a broadcast ping
-            host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
-        self.fail('host %s could not be learned' % host)
+            ping_cli = '%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast)
+            ping_result = host.cmd(ping_cli)
+        self.fail('host %s (%s) could not be learned (%s: %s)' % (
+            host, host.MAC(), ping_cli, ping_result))
 
     def get_prom_port(self):
         return int(self.env['faucet']['FAUCET_PROMETHEUS_PORT'])
@@ -1273,9 +1289,9 @@ dbs:
             'exabgp %s -d 2> %s > %s &' % (
                 exabgp_conf_file, exabgp_err, exabgp_log), 600)
         controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
-        return exabgp_log
+        return (exabgp_log, exabgp_err)
 
-    def wait_bgp_up(self, neighbor, vlan):
+    def wait_bgp_up(self, neighbor, vlan, exabgp_log, exabgp_err):
         """Wait for BGP to come up."""
         label_values = {
             'neighbor': neighbor,
@@ -1287,7 +1303,11 @@ dbs:
             if uptime > 0:
                 return
             time.sleep(1)
-        self.fail('exabgp did not peer with FAUCET')
+        exabgp_log_content = []
+        for log in (exabgp_log, exabgp_err):
+            if os.path.exists(log):
+                exabgp_log_content.append(open(log).read())
+        self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
     def exabgp_updates(self, exabgp_log):
         """Verify that exabgp process has received BGP updates."""
@@ -1495,6 +1515,10 @@ dbs:
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip2,
             with_group_table=with_group_table)
+
+    def host_drop_all_ips(self, host):
+        for ipv in (4, 6):
+            host.cmd('ip -%u addr flush dev %s' % (ipv, host.defaultIntf()))
 
     def setup_ipv6_hosts_addresses(self, first_host, first_host_ip,
                                    first_host_routed_ip, second_host,

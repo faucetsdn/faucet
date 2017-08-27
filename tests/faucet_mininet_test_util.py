@@ -22,8 +22,7 @@ def str_int_dpid(str_dpid):
     str_dpid = str(str_dpid)
     if str_dpid.startswith('0x'):
         return str(int(str_dpid, 16))
-    else:
-        return str(int(str_dpid))
+    return str(int(str_dpid))
 
 
 def receive_sock_line(sock):
@@ -48,12 +47,13 @@ def return_free_ports(ports_socket, name):
     sock.sendall('PUT,%s\n' % name)
 
 
-def serve_ports(ports_socket):
+def serve_ports(ports_socket, min_free_ports):
     """Implement a TCP server to dispense free TCP ports."""
     ports_q = collections.deque()
     free_ports = set()
     port_age = {}
-    min_port_age = 30
+    min_port_age = max(int(open(
+        '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2, 30)
 
     def get_port():
         while True:
@@ -73,7 +73,7 @@ def serve_ports(ports_socket):
         return free_port
 
     def queue_free_ports():
-        while len(ports_q) < 50:
+        while len(ports_q) < min_free_ports:
             port = get_port()
             ports_q.append(port)
             port_age[port] = time.time()

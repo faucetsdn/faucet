@@ -1,5 +1,7 @@
 FROM osrg/ryu
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends software-properties-common && \
@@ -8,7 +10,7 @@ RUN \
   echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections && \
   echo debconf apt-fast/dlflag boolean true | debconf-set-selections && \
   echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections && \
-  apt-get -y install apt-fast
+  apt-get -yq install apt-fast
 
 RUN \
   apt-fast install -qy --no-install-recommends \
@@ -32,6 +34,7 @@ RUN \
     python3-pip \
     sudo \
     tcpdump \
+    tshark \
     vlan \
     wpasupplicant
 

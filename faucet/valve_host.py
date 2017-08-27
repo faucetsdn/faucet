@@ -110,8 +110,6 @@ class ValveHostManager(object):
                 if host_cache_entry_age > self.learn_timeout:
                     if not self.use_idle_timeout or host_cache_entry.expired:
                         expired_hosts.append(eth_src)
-                    else:
-                        host_cache_entry.cache_time = time.time()
         if expired_hosts:
             for eth_src in expired_hosts:
                 del vlan.host_cache[eth_src]

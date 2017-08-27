@@ -14,6 +14,7 @@ all dependencies correctly installed. See ../docs/.
 # pylint: disable=unused-wildcard-import
 
 import collections
+import copy
 import glob
 import inspect
 import os
@@ -72,6 +73,8 @@ EXTERNAL_DEPENDENCIES = (
      r'fping: Version (\d+\.\d+)', "3.13"),
     ('rdisc6', ['-V'], 'ndisc6',
      r'ndisc6.+tool (\d+\.\d+)', "1.0"),
+    ('tshark', ['-v'], 'tshark',
+     r'TShark.+(\d+\.\d+)', "2.2"),
     ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
 
@@ -223,30 +226,118 @@ def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
     return suite
 
 
-def pipeline_superset_report(root_tmpdir):
-    ofchannel_logs = glob.glob(
-        os.path.join(root_tmpdir, '*/ofchannel.log'))
-    match_re = re.compile(
-        r'^.+types table: (\d+) match: (.+) instructions: (.+) actions: (.+)')
+def pipeline_superset_report(decoded_pcap_logs):
+    """Report on matches, instructions, and actions by table from tshark logs."""
+
+    def parse_flow(flow_lines):
+        table_id = None
+        group_id = None
+        last_oxm_match = ''
+        matches_count = 0
+        actions_count = 0
+        instructions_count = 0
+
+        for flow_line, depth, section_stack in flow_lines:
+            if depth == 1:
+                if flow_line.startswith('Type: OFPT_'):
+                    if not (flow_line.startswith('Type: OFPT_FLOW_MOD') or
+                              flow_line.startswith('Type: OFPT_GROUP_MOD')):
+                        return
+                if flow_line.startswith('Table ID'):
+                    if not flow_line.startswith('Table ID: OFPTT_ALL'):
+                       table_id = int(flow_line.split()[-1])
+                    else:
+                       return
+                if flow_line.startswith('Group ID'):
+                    if not flow_line.startswith('Group ID: OFPG_ALL'):
+                        group_id = int(flow_line.split()[-1])
+                    else:
+                        return
+                continue
+            elif depth > 1:
+                section_name = section_stack[-1]
+                if table_id is not None:
+                    if 'Match' in section_stack:
+                        if section_name == 'OXM field':
+                            oxm_match = re.match(r'.*Field: (\S+).*', flow_line)
+                            if oxm_match:
+                                table_matches[table_id].add(oxm_match.group(1))
+                                last_oxm_match = oxm_match.group(1)
+                                matches_count += 1
+                                if matches_count > table_matches_max[table_id]:
+                                   table_matches_max[table_id] = matches_count
+                            else:
+                                oxm_mask_match = re.match(r'.*Has mask: True.*', flow_line)
+                                if oxm_mask_match:
+                                    table_matches[table_id].add(last_oxm_match + '/Mask')
+                    elif 'Instruction' in section_stack:
+                        type_match = re.match(r'Type: (\S+).+', flow_line)
+                        if type_match:
+                            if section_name == 'Instruction':
+                                table_instructions[table_id].add(type_match.group(1))
+                                instructions_count += 1
+                                if instructions_count > table_instructions_max[table_id]:
+                                   table_instructions_max[table_id] = instructions_count
+                            elif section_name == 'Action':
+                                table_actions[table_id].add(type_match.group(1))
+                                actions_count += 1
+                                if actions_count > table_actions_max[table_id]:
+                                   table_actions_max[table_id] = actions_count
+                elif group_id is not None:
+                    if 'Bucket' in section_stack:
+                        type_match = re.match(r'Type: (\S+).+', flow_line)
+                        if type_match:
+                            if section_name == 'Action':
+                                group_actions.add(type_match.group(1))
+
+    group_actions = set()
     table_matches = collections.defaultdict(set)
+    table_matches_max = collections.defaultdict(lambda: 0)
     table_instructions = collections.defaultdict(set)
+    table_instructions_max = collections.defaultdict(lambda: 0)
     table_actions = collections.defaultdict(set)
-    for log in ofchannel_logs:
-        for log_line in open(log).readlines():
-            match = match_re.match(log_line)
-            if match:
-                table, matches, instructions, actions = match.groups()
-                table = int(table)
-                if table != 255:
-                    table_matches[table].update(eval(matches))
-                    table_instructions[table].update(eval(instructions))
-                    table_actions[table].update(eval(actions))
-    print('')
+    table_actions_max = collections.defaultdict(lambda: 0)
+
+    for log in decoded_pcap_logs:
+        packets = re.compile(r'\n{2,}').split(open(log).read())
+        for packet in packets:
+            last_packet_line = None
+            indent_count = 0
+            last_indent_count = 0
+            section_stack = []
+            flow_lines = []
+
+            for packet_line in packet.splitlines():
+                orig_packet_line = len(packet_line)
+                packet_line = packet_line.lstrip()
+                indent_count = orig_packet_line - len(packet_line)
+                if indent_count == 0:
+                    parse_flow(flow_lines)
+                    flow_lines = []
+                    section_stack = []
+                elif indent_count > last_indent_count:
+                    section_stack.append(last_packet_line)
+                elif indent_count < last_indent_count:
+                    if section_stack:
+                        section_stack.pop()
+                depth = len(section_stack)
+                last_indent_count = indent_count
+                last_packet_line = packet_line
+                flow_lines.append((packet_line, depth, copy.copy(section_stack)))
+            parse_flow(flow_lines)
+
+
     for table in sorted(table_matches):
         print('table: %u' % table)
-        print('  matches: %s' % sorted(table_matches[table]))
-        print('  table_instructions: %s' % sorted(table_instructions[table]))
-        print('  table_actions: %s' % sorted(table_actions[table]))
+        print('  matches: %s (max %u)' % (
+            sorted(table_matches[table]), table_matches_max[table]))
+        print('  table_instructions: %s (max %u)' % (
+            sorted(table_instructions[table]), table_instructions_max[table]))
+        print('  table_actions: %s (max %u)' % (
+            sorted(table_actions[table]), table_actions_max[table]))
+    if group_actions:
+        print('group bucket actions:')
+        print('  %s' % group_actions)
 
 
 def expand_tests(requested_test_classes, excluded_test_classes,
@@ -292,11 +383,14 @@ def expand_tests(requested_test_classes, excluded_test_classes,
 
 
 def run_test_suites(sanity_tests, single_tests, parallel_tests):
+    sanity = False
     all_successful = False
+    failures = []
     sanity_runner = unittest.TextTestRunner(verbosity=255, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
     max_parallel_tests = multiprocessing.cpu_count() * 3
     if sanity_result.wasSuccessful():
+        sanity = True
         print('running %u tests in parallel and %u tests serial' % (
             parallel_tests.countTestCases(), single_tests.countTestCases()))
         print('running maximum of %u of parallel tests' % max_parallel_tests)
@@ -315,20 +409,26 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
         all_successful = True
         for result in results:
             if not result.wasSuccessful():
+                for failure in result.failures + result.errors:
+                    description = failure[0].shortDescription()
+                    if description:
+                        failed_name = '-'.join(description.split('.')[1:])
+                        failures.append(failed_name)
                 all_successful = False
                 print(result.printErrors())
     else:
         print('sanity tests failed - test environment not correct')
-    return all_successful
+    return (sanity, all_successful, failures)
 
 
-def start_port_server(root_tmpdir):
+def start_port_server(root_tmpdir, min_free_ports):
     ports_sock = os.path.join(root_tmpdir, '.ports-server')
     ports_server = threading.Thread(
-        target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
+        target=faucet_mininet_test_util.serve_ports,
+        args=(ports_sock, min_free_ports))
     ports_server.setDaemon(True)
     ports_server.start()
-    for _ in range(10):
+    for _ in range(min_free_ports / 2):
         if os.path.exists(ports_sock):
             break
         time.sleep(1)
@@ -338,26 +438,73 @@ def start_port_server(root_tmpdir):
     return ports_sock
 
 
-def run_tests(requested_test_classes,
-              excluded_test_classes,
-              keep_logs,
-              serial,
-              hw_config):
+def dump_failed_test(test_name, test_dir):
+    print test_name
+    print
+    print
+    test_files = glob.glob(os.path.join(test_dir, '*'))
+    for test_file in test_files:
+        if not test_file.endswith('.cap'):
+            print test_file
+            print
+            print open(test_file).read()
+
+
+def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
+                    failures, dumpfail):
+    if all_successful:
+        if not keep_logs:
+            shutil.rmtree(root_tmpdir)
+    else:
+        print 'log/debug files for failed tests are in %s' % root_tmpdir
+        if not keep_logs:
+            if sanity:
+                test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
+                for test_dir in test_dirs:
+                    test_name = os.path.basename(test_dir)
+                    if test_name in failures:
+                        if dumpfail:
+                            dump_failed_test(test_name, test_dir)
+                    else:
+                        shutil.rmtree(test_dir)
+
+
+def decode_of_pcaps(root_tmpdir):
+    decoded_pcap_logs = []
+    test_ofcaps = glob.glob(os.path.join(
+        os.path.join(root_tmpdir, '*'), '*of.cap'))
+    for test_ofcap in test_ofcaps:
+        decoded_pcap_log = '%stxt' % test_ofcap
+        text_test_ofcap = open(decoded_pcap_log, 'w')
+        decoded_pcap_logs.append(decoded_pcap_log)
+        subprocess.call(
+            ['tshark', '-d', 'tcp.port==1-65535,openflow',
+             '-O', 'openflow_v4', '-Y', 'openflow_v4', '-n',
+             '-r', test_ofcap],
+            stdout=text_test_ofcap, stderr=open(os.devnull, 'w'))
+    return decoded_pcap_logs
+
+
+def run_tests(hw_config, requested_test_classes, dumpfail,
+              keep_logs, serial, excluded_test_classes):
     """Actually run the test suites, potentially in parallel."""
     if hw_config is not None:
         print('Testing hardware, forcing test serialization')
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
-    ports_sock = start_port_server(root_tmpdir)
+    min_free_ports = 100
+    ports_sock = start_port_server(root_tmpdir, min_free_ports)
+    print('test ports server started')
     total_tests, sanity_tests, single_tests, parallel_tests = expand_tests(
         requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    all_successful = run_test_suites(
+    sanity, all_successful, failures = run_test_suites(
         sanity_tests, single_tests, parallel_tests)
-    pipeline_superset_report(root_tmpdir)
     os.remove(ports_sock)
-    if not keep_logs and all_successful:
-        shutil.rmtree(root_tmpdir)
+    decoded_pcap_logs = decode_of_pcaps(root_tmpdir)
+    pipeline_superset_report(decoded_pcap_logs)
+    clean_test_dirs(
+        root_tmpdir, all_successful, sanity, keep_logs, failures, dumpfail)
     if not all_successful:
         sys.exit(-1)
 
@@ -367,13 +514,14 @@ def parse_args():
     try:
         opts, args = getopt.getopt(
             sys.argv[1:],
-            'cknsx:',
-            ['clean', 'nocheck', 'keep_logs', 'serial'])
+            'cdknsx:',
+            ['clean', 'dumpfail', 'keep_logs', 'nocheck', 'serial'])
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
 
     clean = False
+    dumpfail = False
     keep_logs = False
     nocheck = False
     serial = False
@@ -382,22 +530,27 @@ def parse_args():
     for opt, arg in opts:
         if opt in ('-c', '--clean'):
             clean = True
-        if opt in ('-n', '--nocheck'):
-            nocheck = True
+        if opt in ('-d', '--dumpfail'):
+            dumpfail = True
         if opt in ('-k', '--keep_logs'):
             keep_logs = True
+        if opt in ('-n', '--nocheck'):
+            nocheck = True
         if opt in ('-s', '--serial'):
             serial = True
         if opt == '-x':
             excluded_test_classes.append(arg)
 
-    return (args, clean, keep_logs, nocheck, serial, excluded_test_classes)
+    return (
+        args, clean, dumpfail, keep_logs, nocheck,
+        serial, excluded_test_classes)
 
 
 def test_main():
     """Test main."""
     setLogLevel('info')
-    args, clean, keep_logs, nocheck, serial, excluded_test_classes = parse_args()
+    (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
+       serial, excluded_test_classes) = parse_args()
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
@@ -415,7 +568,9 @@ def test_main():
             print('pylint must pass with no errors')
             sys.exit(-1)
     hw_config = import_hw_config()
-    run_tests(args, excluded_test_classes, keep_logs, serial, hw_config)
+    run_tests(
+        hw_config, requested_test_classes, dumpfail,
+        keep_logs, serial, excluded_test_classes)
 
 
 if __name__ == '__main__':
