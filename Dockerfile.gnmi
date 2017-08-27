@@ -47,5 +47,5 @@ ENV GNMI_TARGET=localhost
 ENV GNMI_PORT=32123
 ENV GNMI_QUERY="system/openflow/controllers/controller[name=main]/connections/connection[aux-id=0]/state/address"
 
-CMD nohup ./run_target.sh > $HOME/target.log \
+CMD ./_startup.sh \
     && /bin/bash
