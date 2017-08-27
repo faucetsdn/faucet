@@ -148,28 +148,6 @@ class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 meters:
-    dropsome:
-        meter_id: 1
-        entry:
-            flags: "KBPS"
-            bands:
-                [
-                    {
-                        type: "DROP",
-                        rate: 1000
-                    }
-                ]
-vlans:
-    100:
-        description: "untagged"
-"""
-
-
-@unittest.skip('meters not widely supported')
-class FaucetUntaggedApplyMeterTest(FaucetUntaggedTest):
-
-    CONFIG_GLOBAL = """
-meters:
     lossymeter:
         meter_id: 1
         entry:
@@ -191,6 +169,11 @@ vlans:
     100:
         description: "untagged"
 """
+
+
+@unittest.skip('meters not widely supported')
+class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
+
     CONFIG = """
         interfaces:
             %(port_1)d:
