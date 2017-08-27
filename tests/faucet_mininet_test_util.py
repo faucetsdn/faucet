@@ -20,7 +20,7 @@ def mininet_dpid(int_dpid):
 
 def tcp_port_free(port):
     fuser_cmd = ['fuser', '-v', '-n', 'tcp', str(port)]
-    if subprocess.call(fuser_cmd) == 0:
+    if subprocess.call(fuser_cmd, stderr=open(os.devnull, 'wb')) == 0:
         return False
     return True
 
