@@ -419,13 +419,14 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
     return (sanity, all_successful, failures)
 
 
-def start_port_server(root_tmpdir):
+def start_port_server(root_tmpdir, min_free_ports):
     ports_sock = os.path.join(root_tmpdir, '.ports-server')
     ports_server = threading.Thread(
-        target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
+        target=faucet_mininet_test_util.serve_ports,
+        args=(ports_sock, min_free_ports))
     ports_server.setDaemon(True)
     ports_server.start()
-    for _ in range(10):
+    for _ in range(min_free_ports / 2):
         if os.path.exists(ports_sock):
             break
         time.sleep(1)
@@ -489,7 +490,8 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
         print('Testing hardware, forcing test serialization')
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
-    ports_sock = start_port_server(root_tmpdir)
+    min_free_ports = 100
+    ports_sock = start_port_server(root_tmpdir, min_free_ports)
     print('test ports server started')
     total_tests, sanity_tests, single_tests, parallel_tests = expand_tests(
         requested_test_classes, excluded_test_classes,
