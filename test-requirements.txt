@@ -1,5 +1,7 @@
 bitstring
 concurrencytest
+coveralls
+exabgp
 influxdb
 ipaddress
 netifaces
@@ -7,5 +9,6 @@ networkx
 packaging
 prometheus_client
 pylint
+pytest-cov
 pyyaml
 requests
