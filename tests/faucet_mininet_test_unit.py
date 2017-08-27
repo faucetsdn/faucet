@@ -341,7 +341,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         labels = {'port_name': '1'}
-        for _ in range(0, self.DB_TIMEOUT):
+        for _ in range(0, self.DB_TIMEOUT * 2):
             init_p1_bytes_in = self.scrape_prometheus_var(
                 'bytes_in',
                 labels=labels,
@@ -356,7 +356,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 
         self.ping_all_when_learned()
 
-        for _ in range(0, self.DB_TIMEOUT):
+        for _ in range(0, self.DB_TIMEOUT * 2):
             new_p1_bytes_in = self.scrape_prometheus_var(
                 'bytes_in',
                 labels=labels,
