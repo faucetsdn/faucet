@@ -712,7 +712,6 @@ dbs:
     def require_host_learned(self, host, retries=3, in_port=None):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
-        print host_ip_net
         ping_cmd = 'ping'
         if not host_ip_net:
             host_ip_net = self.host_ipv6(host)
