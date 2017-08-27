@@ -224,6 +224,28 @@ class Faucet(app_manager.RyuApp):
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
 
+    @kill_on_exception(exc_logname)
+    def _get_valve(self, ryu_dp, handler_name, msg=None):
+        """Get Valve instance to response to an event.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+            handler_name (string): handler name to log if datapath unknown.
+            msg (ryu.controller.ofp_event.EventOFPMsgBase): message from datapath.
+        Returns:
+            Valve instance or None.
+        """
+        dp_id = ryu_dp.id
+        if dp_id in self.valves:
+            valve = self.valves[dp_id]
+            if msg:
+                valve.ofchannel_log([msg])
+            return valve
+        ryu_dp.close()
+        self.logger.error(
+            '%s: unknown datpath %s', handler_name, dpid_log(dp_id))
+        return None
+
     def _signal_handler(self, sigid, _):
         """Handle any received signals.
 
@@ -287,6 +309,14 @@ class Faucet(app_manager.RyuApp):
             flowmods = valve.advertise()
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
+
+    def get_config(self):
+        """FAUCET API: return config for all Valves."""
+        return get_config_for_api(self.valves)
+
+    def get_tables(self, dp_id):
+        """FAUCET API: return config tables for one Valve."""
+        return self.valves[dp_id].dp.get_tables()
 
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -472,15 +502,7 @@ class Faucet(app_manager.RyuApp):
                 'port_status_handler: unknown %s', dpid_log(dp_id))
             ryu_dp.close()
 
-    def get_config(self):
-        """FAUCET API: return config for all Valves."""
-        return get_config_for_api(self.valves)
-
-    def get_tables(self, dp_id):
-        """FAUCET API: return config tables for one Valve."""
-        return self.valves[dp_id].dp.get_tables()
-
-    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)# pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def handle_flowremoved(self, ryu_event):
         msg = ryu_event.msg
@@ -493,4 +515,3 @@ class Faucet(app_manager.RyuApp):
             flowmods = valve.flow_timeout(msg.table_id, msg.match)
             if flowmods:
                 self._send_flow_msgs(ryu_dp.id, flowmods)
-
