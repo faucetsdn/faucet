@@ -181,8 +181,9 @@ class FaucetTestBase(unittest.TestCase):
         return '-'.join(self.id().split('.')[1:])
 
     def _tmpdir_name(self):
-        return tempfile.mkdtemp(
-            prefix='%s-' % self._test_name(), dir=self.root_tmpdir)
+        tmpdir = os.path.join(self.root_tmpdir, self._test_name())
+        os.mkdir(tmpdir)
+        return tmpdir
 
     def _controller_lognames(self):
         lognames = []
