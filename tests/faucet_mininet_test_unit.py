@@ -3855,7 +3855,6 @@ acls:
             source_host, overridden_host, rewrite_host, overridden_host)
 
 
-@unittest.skip('use_idle_timeout is not stable - do not use')
 class FaucetWithUseIdleTimeoutTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
@@ -3925,7 +3924,6 @@ vlans:
             self.require_host_learned(host, in_port=int(port))
 
 
-@unittest.skip('use_idle_timeout is not stable - do not use')
 class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
 
     def test_untagged(self):
