@@ -14,6 +14,7 @@ all dependencies correctly installed. See ../docs/.
 # pylint: disable=unused-wildcard-import
 
 import collections
+import copy
 import glob
 import inspect
 import os
@@ -227,70 +228,33 @@ def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
 
 def pipeline_superset_report(decoded_pcap_logs):
     """Report on matches, instructions, and actions by table from tshark logs."""
-    table_matches = collections.defaultdict(set)
-    table_matches_max = collections.defaultdict(lambda: 0)
-    table_instructions = collections.defaultdict(set)
-    table_instructions_max = collections.defaultdict(lambda: 0)
-    table_actions = collections.defaultdict(set)
-    table_actions_max = collections.defaultdict(lambda: 0)
-    group_actions = set()
-    group_actions_max = 0
 
-    for log in decoded_pcap_logs:
-        flows = re.compile(r'\n{2,}').split(open(log).read())
-        for flow in flows:
-            flowmod = False
-            last_indent_count = 0
-            last_flow_line = ''
-            last_oxm_match = ''
-            section_stack = []
+    def parse_flow(flow_lines):
+        table_id = None
+        group_id = None
+        last_oxm_match = ''
+        matches_count = 0
+        actions_count = 0
+        instructions_count = 0
 
-            table_id = None
-            group_id = None
-            matches_count = 0
-            instructions_count = 0
-            actions_count = 0
-            group_actions_count = 0
-            last_oxm_match = ''
-
-            for flow_line in flow.splitlines():
-                orig_flow_line = len(flow_line)
-                flow_line = flow_line.lstrip()
-                indent_count = orig_flow_line - len(flow_line)
-                if indent_count == 0:
-                    section_stack = []
-                if indent_count > last_indent_count:
-                    section_stack.append(last_flow_line)
-                elif indent_count < last_indent_count:
-                    if section_stack:
-                        section_stack.pop()
-                depth = len(section_stack)
-                last_indent_count = indent_count
-                last_flow_line = flow_line
-                if depth <= 1:
-                    if flow_line.startswith('Version:'):
-                        table_id = None
-                        group_id = None
-                        matches_count = 0
-                        instructions_count = 0
-                        actions_count = 0
-                        group_actions_count = 0
-                        last_oxm_match = ''
-                        flowmod = False
-                    if flow_line.startswith('Type: OFPT_'):
-                        if (flow_line.startswith('Type: OFPT_FLOW_MOD') or
-                                flow_line.startswith('Type: OFPT_GROUP_MOD')):
-                            flowmod = True
-                    if flowmod:
-                        if flow_line.startswith('Table ID'):
-                            if not flow_line.startswith('Table ID: OFPTT_ALL'):
-                                table_id = int(flow_line.split()[-1])
-                        if flow_line.startswith('Group ID'):
-                            if not flow_line.startswith('Group ID: OFPG_ALL'):
-                                group_id = int(flow_line.split()[-1])
-                    continue
-                if not flowmod:
-                    continue
+        for flow_line, depth, section_stack in flow_lines:
+            if depth == 1:
+                if flow_line.startswith('Type: OFPT_'):
+                    if not (flow_line.startswith('Type: OFPT_FLOW_MOD') or
+                              flow_line.startswith('Type: OFPT_GROUP_MOD')):
+                        return
+                if flow_line.startswith('Table ID'):
+                    if not flow_line.startswith('Table ID: OFPTT_ALL'):
+                       table_id = int(flow_line.split()[-1])
+                    else:
+                       return
+                if flow_line.startswith('Group ID'):
+                    if not flow_line.startswith('Group ID: OFPG_ALL'):
+                        group_id = int(flow_line.split()[-1])
+                    else:
+                        return
+                continue
+            elif depth > 1:
                 section_name = section_stack[-1]
                 if table_id is not None:
                     if 'Match' in section_stack:
@@ -325,9 +289,43 @@ def pipeline_superset_report(decoded_pcap_logs):
                         if type_match:
                             if section_name == 'Action':
                                 group_actions.add(type_match.group(1))
-                                group_actions_count += 1
-                                if group_actions_count > group_actions_max:
-                                    group_actions_max = group_actions_count
+
+    group_actions = set()
+    table_matches = collections.defaultdict(set)
+    table_matches_max = collections.defaultdict(lambda: 0)
+    table_instructions = collections.defaultdict(set)
+    table_instructions_max = collections.defaultdict(lambda: 0)
+    table_actions = collections.defaultdict(set)
+    table_actions_max = collections.defaultdict(lambda: 0)
+
+    for log in decoded_pcap_logs:
+        packets = re.compile(r'\n{2,}').split(open(log).read())
+        for packet in packets:
+            last_packet_line = None
+            indent_count = 0
+            last_indent_count = 0
+            section_stack = []
+            flow_lines = []
+
+            for packet_line in packet.splitlines():
+                orig_packet_line = len(packet_line)
+                packet_line = packet_line.lstrip()
+                indent_count = orig_packet_line - len(packet_line)
+                if indent_count == 0:
+                    parse_flow(flow_lines)
+                    flow_lines = []
+                    section_stack = []
+                elif indent_count > last_indent_count:
+                    section_stack.append(last_packet_line)
+                elif indent_count < last_indent_count:
+                    if section_stack:
+                        section_stack.pop()
+                depth = len(section_stack)
+                last_indent_count = indent_count
+                last_packet_line = packet_line
+                flow_lines.append((packet_line, depth, copy.copy(section_stack)))
+            parse_flow(flow_lines)
+
 
     for table in sorted(table_matches):
         print('table: %u' % table)
@@ -339,7 +337,7 @@ def pipeline_superset_report(decoded_pcap_logs):
             sorted(table_actions[table]), table_actions_max[table]))
     if group_actions:
         print('group bucket actions:')
-        print('  %s (max %u)' % (group_actions, group_actions_max))
+        print('  %s' % group_actions)
 
 
 def expand_tests(requested_test_classes, excluded_test_classes,
