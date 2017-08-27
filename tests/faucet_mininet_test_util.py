@@ -19,7 +19,7 @@ def mininet_dpid(int_dpid):
 
 
 def tcp_port_free(port):
-    fuser_cmd = ['fuser', '-v', '-n', 'tcp', str(port)]
+    fuser_cmd = ['timeout', '10s', 'fuser', '-v', '-n', 'tcp', str(port)]
     try:
         fuser_out = subprocess.check_call(fuser_cmd, stderr=open(os.devnull, 'wb'))
     except subprocess.CalledProcessError:
