@@ -275,6 +275,7 @@ class FaucetTestBase(unittest.TestCase):
         for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
+        self.reset_all_ipv4_prefix(prefix=24)
 
     def _get_controller(self):
         """Return first controller."""
