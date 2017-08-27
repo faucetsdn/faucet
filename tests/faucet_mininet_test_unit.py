@@ -3860,6 +3860,11 @@ vlans:
                 native_vlan: 100
                 description: "b4"
 """
+    def wait_for_host_removed(self, host, in_port, timeout=5):
+        for _ in range(timeout):
+            if not self.host_learned(host, in_port=in_port, timeout=1):
+                return
+        self.fail('flow matching %s still exists' % match)
 
     def wait_for_flowremoved_msg(self, src_mac=None, dst_mac=None, timeout=30):
         pattern = "OFPFlowRemoved"
@@ -3876,8 +3881,7 @@ vlans:
             if match:
                 return
             time.sleep(1)
-        self.assertTrue(False,
-                msg='Not received OFPFlowRemoved for host %s' % mac)
+        self.fail('Not received OFPFlowRemoved for host %s' % mac)
 
     def wait_for_host_log_msg(self, host_mac, msg, timeout=15):
         controller = self._get_controller()
@@ -3924,5 +3928,4 @@ class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
                 (fourth_host, self.port_map['port_4'])):
             self.wait_for_flowremoved_msg(src_mac=host.MAC())
             self.wait_for_host_log_msg(host.MAC(), 'expiring host')
-            self.assertFalse(self.host_learned(
-                host, in_port=int(port), timeout=2))
+            self.wait_for_host_removed(host, in_port=int(port))
