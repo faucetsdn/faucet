@@ -292,11 +292,14 @@ def expand_tests(requested_test_classes, excluded_test_classes,
 
 
 def run_test_suites(sanity_tests, single_tests, parallel_tests):
+    sanity = False
     all_successful = False
+    failures = []
     sanity_runner = unittest.TextTestRunner(verbosity=255, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
     max_parallel_tests = multiprocessing.cpu_count() * 3
     if sanity_result.wasSuccessful():
+        sanity_failed = True
         print('running %u tests in parallel and %u tests serial' % (
             parallel_tests.countTestCases(), single_tests.countTestCases()))
         print('running maximum of %u of parallel tests' % max_parallel_tests)
@@ -315,11 +318,14 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
         all_successful = True
         for result in results:
             if not result.wasSuccessful():
+                for failure in result.failures + result.errors:
+                    failed_name = '-'.join(failure[0].shortDescription().split('.')[1:])
+                    failures.append(failed_name)
                 all_successful = False
                 print(result.printErrors())
     else:
         print('sanity tests failed - test environment not correct')
-    return all_successful
+    return (sanity, all_successful, failures)
 
 
 def start_port_server(root_tmpdir):
@@ -352,13 +358,21 @@ def run_tests(requested_test_classes,
     total_tests, sanity_tests, single_tests, parallel_tests = expand_tests(
         requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    all_successful = run_test_suites(
+    sanity, all_successful, failures = run_test_suites(
         sanity_tests, single_tests, parallel_tests)
     pipeline_superset_report(root_tmpdir)
     os.remove(ports_sock)
-    if not keep_logs and all_successful:
-        shutil.rmtree(root_tmpdir)
-    if not all_successful:
+    if all_successful:
+        if not keep_logs:
+            shutil.rmtree(root_tmpdir)
+    else:
+        if not keep_logs:
+            if sanity:
+                test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
+                for test_dir in test_dirs:
+                    test_name = os.path.basename(test_dir)
+                    if test_name not in failures:
+                        shutil.rmtree(test_dir)
         sys.exit(-1)
 
 
