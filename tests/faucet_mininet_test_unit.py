@@ -76,6 +76,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
                 env=self.env[name],
                 port=self.of_port))
         self.net.start()
+        self.reset_all_ipv4_prefix(prefix=24)
         self.wait_for_tcp_listen(self._get_controller(), self.of_port)
 
     def test_api(self):
@@ -388,7 +389,10 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                     ('127.0.0.1', self.influx_port), handler)
                 break
             except socket.error:
-                time.sleep(3)
+                time.sleep(7)
+        self.assertIsNotNone(
+            self.server,
+            msg='could not start test Influx server on %u' % self.influx_port)
         self.server_thread = threading.Thread(
             target=self.server.serve_forever)
         self.server_thread.daemon = True

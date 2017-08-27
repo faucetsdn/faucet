@@ -410,8 +410,10 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
         for result in results:
             if not result.wasSuccessful():
                 for failure in result.failures + result.errors:
-                    failed_name = '-'.join(failure[0].shortDescription().split('.')[1:])
-                    failures.append(failed_name)
+                    description = failure[0].shortDescription()
+                    if description:
+                        failed_name = '-'.join(description.split('.')[1:])
+                        failures.append(failed_name)
                 all_successful = False
                 print(result.printErrors())
     else:

@@ -275,6 +275,7 @@ class FaucetTestBase(unittest.TestCase):
         for port_no in self._dp_ports():
             self.set_port_up(port_no)
         dumpNodeConnections(self.net.hosts)
+        self.reset_all_ipv4_prefix(prefix=24)
 
     def _get_controller(self):
         """Return first controller."""
@@ -702,6 +703,13 @@ dbs:
         """Return first IPv6/netmask for host's default interface."""
         return self.host_ip(host, 'inet6', r'[0-9a-f\:]+\/[0-9]+')
 
+    def reset_ipv4_prefix(self, host, prefix=24):
+        host.setIP(host.IP(), prefixLen=prefix)
+
+    def reset_all_ipv4_prefix(self, prefix=24):
+        for host in self.net.hosts:
+            self.reset_ipv4_prefix(host, prefix)
+
     def require_host_learned(self, host, retries=3, in_port=None):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
@@ -716,8 +724,10 @@ dbs:
             if self.host_learned(host, timeout=1, in_port=in_port):
                 return
             # stimulate host learning with a broadcast ping
-            host.cmd('%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast))
-        self.fail('host %s could not be learned' % host)
+            ping_cli = '%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast)
+            ping_result = host.cmd(ping_cli)
+        self.fail('host %s (%s) could not be learned (%s: %s)' % (
+            host, host.MAC(), ping_cli, ping_result))
 
     def get_prom_port(self):
         return int(self.env['faucet']['FAUCET_PROMETHEUS_PORT'])
