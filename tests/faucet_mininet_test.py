@@ -72,6 +72,8 @@ EXTERNAL_DEPENDENCIES = (
      r'fping: Version (\d+\.\d+)', "3.13"),
     ('rdisc6', ['-V'], 'ndisc6',
      r'ndisc6.+tool (\d+\.\d+)', "1.0"),
+    ('tshark', ['-v'], 'tshark',
+     r'TShark.+(\d+\.\d+)', "2.2"),
     ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
 
@@ -299,7 +301,7 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
     sanity_result = sanity_runner.run(sanity_tests)
     max_parallel_tests = multiprocessing.cpu_count() * 3
     if sanity_result.wasSuccessful():
-        sanity_failed = True
+        sanity = True
         print('running %u tests in parallel and %u tests serial' % (
             parallel_tests.countTestCases(), single_tests.countTestCases()))
         print('running maximum of %u of parallel tests' % max_parallel_tests)
@@ -344,6 +346,32 @@ def start_port_server(root_tmpdir):
     return ports_sock
 
 
+def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, failures):
+    if all_successful:
+        if not keep_logs:
+            shutil.rmtree(root_tmpdir)
+    else:
+        if not keep_logs:
+            if sanity:
+                test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
+                for test_dir in test_dirs:
+                    test_name = os.path.basename(test_dir)
+                    if test_name not in failures:
+                        shutil.rmtree(test_dir)
+
+
+def decode_of_pcaps(root_tmpdir):
+    test_ofcaps = glob.glob(os.path.join(
+        os.path.join(root_tmpdir, '*'), '*of.cap'))
+    for test_ofcap in test_ofcaps:
+        text_test_ofcap = open('%stxt' % test_ofcap, 'w')
+        subprocess.call(
+            ['tshark', '-d', 'tcp.port==1-65535,openflow',
+             '-O', 'openflow_v4', '-Y', 'openflow_v4',
+             '-r', test_ofcap],
+            stdout=text_test_ofcap, stderr=open(os.devnull, 'w'))
+
+
 def run_tests(requested_test_classes,
               excluded_test_classes,
               keep_logs,
@@ -360,19 +388,11 @@ def run_tests(requested_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
     sanity, all_successful, failures = run_test_suites(
         sanity_tests, single_tests, parallel_tests)
-    pipeline_superset_report(root_tmpdir)
     os.remove(ports_sock)
-    if all_successful:
-        if not keep_logs:
-            shutil.rmtree(root_tmpdir)
-    else:
-        if not keep_logs:
-            if sanity:
-                test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
-                for test_dir in test_dirs:
-                    test_name = os.path.basename(test_dir)
-                    if test_name not in failures:
-                        shutil.rmtree(test_dir)
+    pipeline_superset_report(root_tmpdir)
+    clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, failures)
+    decode_of_pcaps(root_tmpdir)
+    if not all_successful:
         sys.exit(-1)
 
 
