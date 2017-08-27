@@ -228,67 +228,115 @@ def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
 def pipeline_superset_report(decoded_pcap_logs):
     """Report on matches, instructions, and actions by table from tshark logs."""
     table_matches = collections.defaultdict(set)
+    table_matches_max = collections.defaultdict(lambda: 0)
     table_instructions = collections.defaultdict(set)
+    table_instructions_max = collections.defaultdict(lambda: 0)
     table_actions = collections.defaultdict(set)
+    table_actions_max = collections.defaultdict(lambda: 0)
+    group_actions = set()
+    group_actions_max = 0
 
     for log in decoded_pcap_logs:
         flows = re.compile(r'\n{2,}').split(open(log).read())
 
         for flow in flows:
-            table_id = None
+            flowmod = False
             last_indent_count = 0
             last_flow_line = ''
             last_oxm_match = ''
             section_stack = []
-            depth = 0
+
+            table_id = None
+            group_id = None
+            matches_count = 0
+            instructions_count = 0
+            actions_count = 0
+            group_actions_count = 0
+            last_oxm_match = ''
 
             for flow_line in flow.splitlines():
                 orig_flow_line = len(flow_line)
                 flow_line = flow_line.lstrip()
                 indent_count = orig_flow_line - len(flow_line)
                 if indent_count > last_indent_count:
-                    depth += 1
                     section_stack.append(last_flow_line)
                 elif indent_count < last_indent_count:
-                    depth -= 1
                     section_stack.pop()
+                depth = len(section_stack)
                 last_indent_count = indent_count
                 last_flow_line = flow_line
                 if depth <= 1:
-                    if flow_line.startswith('Type'):
-                        if not flow_line.startswith('Type: OFPT_FLOW_MOD'):
-                            break
-                    if flow_line.startswith('Table ID'):
-                        if flow_line.startswith('Table ID: OFPTT_ALL'):
-                            break
-                        table_id = int(flow_line.split()[-1])
-                    continue
-                if table_id is None:
+                    if flow_line.startswith('Type: OFPT_'):
+                        table_id = None
+                        group_id = None
+                        matches_count = 0
+                        instructions_count = 0
+                        actions_count = 0
+                        group_actions_count = 0
+                        last_oxm_match = ''
+                        flowmod = False
+                        if (flow_line.startswith('Type: OFPT_FLOW_MOD') or
+                                flow_line.startswith('Type: OFPT_GROUP_MOD')):
+                            flowmod = True
+                    if flowmod:
+                        if flow_line.startswith('Table ID'):
+                            if flow_line.startswith('Table ID: OFPTT_ALL'):
+                                break
+                            table_id = int(flow_line.split()[-1])
+                        if flow_line.startswith('Group ID'):
+                            if flow_line.startswith('Group ID: OFPG_ALL'):
+                                break
+                            group_id = int(flow_line.split()[-1])
                     continue
                 section_name = section_stack[-1]
-                if 'Match' in section_stack:
-                    if section_name == 'OXM field':
-                        oxm_match = re.match(r'.*Field: (\S+).*', flow_line)
-                        if oxm_match:
-                            table_matches[table_id].add(oxm_match.group(1))
-                            last_oxm_match = oxm_match.group(1)
-                        else:
-                            oxm_mask_match = re.match(r'.*Has mask: True.*', flow_line)
-                            if oxm_mask_match:
-                                table_matches[table_id].add(last_oxm_match + '/Mask')
-                elif 'Instruction' in section_stack:
-                    type_match = re.match(r'Type: (\S+).+', flow_line)
-                    if type_match:
-                        if section_name == 'Instruction':
-                            table_instructions[table_id].add(type_match.group(1))
-                        elif section_name == 'Action':
-                            table_actions[table_id].add(type_match.group(1))
+                if table_id is not None:
+                    if 'Match' in section_stack:
+                        if section_name == 'OXM field':
+                            oxm_match = re.match(r'.*Field: (\S+).*', flow_line)
+                            if oxm_match:
+                                table_matches[table_id].add(oxm_match.group(1))
+                                last_oxm_match = oxm_match.group(1)
+                                matches_count += 1
+                                if matches_count > table_matches_max[table_id]:
+                                   table_matches_max[table_id] = matches_count
+                            else:
+                                oxm_mask_match = re.match(r'.*Has mask: True.*', flow_line)
+                                if oxm_mask_match:
+                                    table_matches[table_id].add(last_oxm_match + '/Mask')
+                    elif 'Instruction' in section_stack:
+                        type_match = re.match(r'Type: (\S+).+', flow_line)
+                        if type_match:
+                            if section_name == 'Instruction':
+                                table_instructions[table_id].add(type_match.group(1))
+                                instructions_count += 1
+                                if instructions_count > table_instructions_max[table_id]:
+                                   table_instructions_max[table_id] = instructions_count
+                            elif section_name == 'Action':
+                                table_actions[table_id].add(type_match.group(1))
+                                actions_count += 1
+                                if actions_count > table_actions_max[table_id]:
+                                   table_actions_max[table_id] = actions_count
+                elif group_id is not None:
+                    if 'Bucket' in section_stack:
+                        type_match = re.match(r'Type: (\S+).+', flow_line)
+                        if type_match:
+                            if section_name == 'Action':
+                                group_actions.add(type_match.group(1))
+                                group_actions_count += 1
+                                if group_actions_count > group_actions_max:
+                                    group_actions_max = group_actions_count
 
     for table in sorted(table_matches):
         print('table: %u' % table)
-        print('  matches: %s' % sorted(table_matches[table]))
-        print('  table_instructions: %s' % sorted(table_instructions[table]))
-        print('  table_actions: %s' % sorted(table_actions[table]))
+        print('  matches: %s (max %u)' % (
+            sorted(table_matches[table]), table_matches_max[table]))
+        print('  table_instructions: %s (max %u)' % (
+            sorted(table_instructions[table]), table_instructions_max[table]))
+        print('  table_actions: %s (max %u)' % (
+            sorted(table_actions[table]), table_actions_max[table]))
+    if group_actions:
+        print('group bucket actions:')
+        print('  %s (max %u)' % (group_actions, group_actions_max))
 
 
 def expand_tests(requested_test_classes, excluded_test_classes,
