@@ -402,7 +402,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         for _ in range(3):
             try:
                 self.server = QuietHTTPServer(
-                    ('127.0.0.1', self.influx_port), InfluxPostHandler)
+                    ('127.0.0.1', self.influx_port), handler)
                 break
             except socket.error:
                 time.sleep(1)
@@ -412,8 +412,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self.server_thread.start()
 
     def _stop_influx(self):
-        self.server_thread.stop()
-        self.server.stop()
+        self.server.shutdown()
 
     def test_untagged(self):
         influx_log = os.path.join(self.tmpdir, 'influx.log')
