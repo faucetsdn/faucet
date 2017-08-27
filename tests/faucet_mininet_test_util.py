@@ -20,9 +20,12 @@ def mininet_dpid(int_dpid):
 
 def tcp_port_free(port):
     fuser_cmd = ['fuser', '-v', '-n', 'tcp', str(port)]
-    if subprocess.call(fuser_cmd, stderr=open(os.devnull, 'wb')) == 0:
-        return False
-    return True
+    try:
+        fuser_out = subprocess.check_call(fuser_cmd, stderr=open(os.devnull, 'wb'))
+    except subprocess.CalledProcessError:
+        return True
+    print 'port %u not free: %s' % (port, fuser_out)
+    return False
 
 
 def str_int_dpid(str_dpid):
