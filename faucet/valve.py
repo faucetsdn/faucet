@@ -1397,7 +1397,6 @@ class Valve(object):
 
     def flow_timeout(self, table_id, match):
         ofmsgs = []
-        eth_src = None
         match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
         if table_id == self.dp.eth_src_table or table_id == self.dp.eth_dst_table:
             in_port = None

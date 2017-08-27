@@ -3,7 +3,8 @@
 DEPCHECK=1
 
 # if -n passed, don't check dependencies/lint/type.
-while getopts "n" o $FAUCET_TESTS; do
+# wrapper script only cares about -n, others passed to test suite.
+while getopts "cdknsx" o $FAUCET_TESTS; do
   case "${o}" in
         n)
             DEPCHECK=0
