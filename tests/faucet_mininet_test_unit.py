@@ -413,6 +413,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
     def _stop_influx(self):
         self.server.shutdown()
+        self.server.socket.close()
 
     def test_untagged(self):
         influx_log = os.path.join(self.tmpdir, 'influx.log')
