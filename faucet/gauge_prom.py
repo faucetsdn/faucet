@@ -43,8 +43,10 @@ class GaugePrometheusClient(object):
                 counter, '', ['dp_id', 'port_name'])
 
     def start(self, addr, port):
-        start_http_server(port, addr)
-        self.running = True
+        """Start Prometheus client if not already running."""
+        if not self.running:
+            start_http_server(port, addr)
+            self.running = True
 
 
 class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
