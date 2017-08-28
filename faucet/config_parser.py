@@ -203,12 +203,12 @@ def get_config_for_api(valves):
     return config
 
 
-def watcher_parser(config_file, logname):
+def watcher_parser(config_file, logname, prom_client):
     conf = config_parser_util.read_config(config_file, logname)
-    return _watcher_parser_v2(conf, logname)
+    return _watcher_parser_v2(conf, logname, prom_client)
 
 
-def _watcher_parser_v2(conf, logname):
+def _watcher_parser_v2(conf, logname, prom_client):
     logger = config_parser_util.get_logger(logname)
     result = []
 
@@ -227,7 +227,7 @@ def _watcher_parser_v2(conf, logname):
                 logger.error('dp %s metered but not configured', dp_name)
                 continue
             dp = dps[dp_name]
-            watcher = WatcherConf(name, dictionary)
+            watcher = WatcherConf(name, dictionary, prom_client)
             watcher.add_db(dbs[watcher.db])
             watcher.add_dp(dp)
             result.append(watcher)

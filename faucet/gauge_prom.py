@@ -24,25 +24,13 @@ except ImportError:
     from faucet.gauge_pollers import GaugePortStatsPoller
 
 
-class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
-    """Exports port stats to Prometheus.
+class GaugePrometheusClient(object):
+    """Wrapper for Prometheus client that is shared between all pollers."""
 
-    Note: the prometheus server starts in a separate thread. Whereas Ryu is
-    single-threaded and event based.
-    """
-    # Ensure only one PromGauge objects are shared across all
-    # GaugePortStatsPrometheusPollers
-    # TODO: when we add another prometheus watcher it will probably make sense
-    # to split this into a superclass that we inherit from
-    _prom_initialised = False
-    _counters = {}
+    running = False
+    metrics = {}
 
-    def _init_counter(self, name):
-        self.__dict__[name] = self._counters.setdefault(name, PromGauge(
-            name, '', ['dp_id', 'port_name']))
-
-    def __init__(self, conf, logger):
-        super(GaugePortStatsPrometheusPoller, self).__init__(conf, logger)
+    def __init__(self):
         for counter in (
                 'bytes_in',
                 'bytes_out',
@@ -50,24 +38,28 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
                 'dropped_out',
                 'errors_in',
                 'packets_in',
-                'packets_out',
-                'port_state_reason'):
-            self._init_counter(counter)
-        try:
-            if not self._prom_initialised:
-                self.logger.debug('Attempting to start Prometheus server')
-                start_http_server(
-                    self.conf.prometheus_port, self.conf.prometheus_addr)
-                self._prom_initialised = True
-        except OSError:
-            # Prometheus server already started
-            self.logger.debug('Prometheus server already running')
+                'packets_out'):
+            self.metrics[counter] = PromGauge(
+                counter, '', ['dp_id', 'port_name'])
+
+    def start(self, addr, port):
+        start_http_server(addr, port)
+        self.running = True
+
+
+class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
+    """Exports port stats to Prometheus."""
+
+    def __init__(self, conf, logger, prom_client):
+        super(GaugePortStatsPrometheusPoller, self).__init__(conf, logger, prom_client)
+        if not self.prom_client.running:
+            self.prom_client.start(self.conf.prometheus_port, self.conf.prometheus_addr)
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStatsPrometheusPoller, self).update(rcv_time, dp_id, msg)
-        self.logger.debug('Updating Prometheus stats')
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat, dp_id)
             for stat_name, stat_val in self._format_port_stats('_', stat):
-                self.__dict__[stat_name].labels(
-                    dp_id=hex(dp_id), port_name=port_name).set(stat_val)
+                if stat_name in self.prom_client.metrics:
+                    self.prom_client.metrics[stat_name].labels(
+                        dp_id=hex(dp_id), port_name=port_name).set(stat_val)
