@@ -324,7 +324,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 """
 
     def test_untagged(self):
-        labels = {'port_name': '1'}
+        labels = {'port_name': '1', 'dp_id': '0x%x' % long(self.dpid)}
         for _ in range(0, self.DB_TIMEOUT * 2):
             init_p1_bytes_in = self.scrape_prometheus_var(
                 'bytes_in',
