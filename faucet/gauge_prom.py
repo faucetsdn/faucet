@@ -16,47 +16,49 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
     Note: the prometheus server starts in a separate thread. Whereas Ryu is
     single-threaded and event based.
     '''
+    # Ensure only one PromGauge objects are shared across all
+    # GaugePortStatsPrometheusPollers
+    # TODO: when we add another prometheus watcher it will probably make sense
+    # to split this into a superclass that we inherit from
+    _prom_initialised = False
+    _counters = {}
+
+    def _init_counter(self, name):
+        self.__dict__[name] = self._counters.setdefault(name, PromGauge(
+            name,
+            '',
+            ['dp_id', 'port_name']
+            ))
+        #if name not in self._counters:
+        #    self.__dict__[name] = PromGauge(
+        #        name,
+        #        '',
+        #        ['dp_id', 'port_name'])
+        #    self._counters[name] = self.__dict__[name]
+        #else:
+        #    self.__dict__[name] = self._counters
 
     def __init__(self, conf, logger):
         super(GaugePortStatsPrometheusPoller, self).__init__(conf, logger)
-        self.bytes_in = PromGauge(
-            'bytes_in',
-            '',
-            ['dp_id', 'port_name'])
-        self.bytes_out = PromGauge(
-            'bytes_out',
-            '',
-            ['dp_id', 'port_name'])
-        self.dropped_in = PromGauge(
-            'dropped_in',
-            '',
-            ['dp_id', 'port_name'])
-        self.dropped_out = PromGauge(
-            'dropped_out',
-            '',
-            ['dp_id', 'port_name'])
-        self.errors_in = PromGauge(
-            'errors_in',
-            '',
-            ['dp_id', 'port_name'])
-        self.packets_in = PromGauge(
-            'packets_in',
-            '',
-            ['dp_id', 'port_name'])
-        self.packets_out = PromGauge(
-            'packets_out',
-            '',
-            ['dp_id', 'port_name'])
-        self.port_state_reason = PromGauge(
-            'port_state_reason',
-            '',
-            ['dp_id', 'port_name'])
+        for counter in (
+                'bytes_in',
+                'bytes_out',
+                'dropped_in',
+                'dropped_out',
+                'errors_in',
+                'packets_in',
+                'packets_out',
+                'port_state_reason'
+                ):
+            self._init_counter(counter)
         try:
-            self.logger.debug('Attempting to start Prometheus server')
-            start_http_server(
-                self.conf.prometheus_port,
-                self.conf.prometheus_addr
-                )
+            if not self._prom_initialised:
+                self.logger.debug('Attempting to start Prometheus server')
+                start_http_server(
+                    self.conf.prometheus_port,
+                    self.conf.prometheus_addr
+                    )
+                self._prom_initialised = True
         except OSError:
             # Prometheus server already started
             self.logger.debug('Prometheus server already running')
