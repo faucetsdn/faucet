@@ -317,7 +317,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     port_stats:
         dps: ['faucet-1']
         type: 'port_stats'
-        interval: 1
+        interval: 5
         db: 'prometheus'
 """
 
