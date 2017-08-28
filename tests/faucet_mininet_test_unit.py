@@ -3844,7 +3844,7 @@ vlans:
         description: "untagged"
 """
     CONFIG = """
-        timeout: 8
+        timeout: 1
         use_idle_timeout: true
         interfaces:
             %(port_1)d:
