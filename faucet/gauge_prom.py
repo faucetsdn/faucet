@@ -1,14 +1,28 @@
-import os
-from prometheus_client import Counter, start_http_server
+"""Prometheus for Gauge."""
+
+# Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
+# Copyright (C) 2015--2017 The Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from prometheus_client import start_http_server
 from prometheus_client import Gauge as PromGauge # avoid collision
 try:
     from gauge_pollers import GaugePortStatsPoller
-    from valve_of import devid_present
-    from valve_util import dpid_log
 except ImportError:
     from faucet.gauge_pollers import GaugePortStatsPoller
-    from faucet.valve_of import devid_present
-    from faucet.valve_util import dpid_log
+
 
 class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
     '''Exports port stats to prometheus.
@@ -60,7 +74,6 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
         except OSError:
             # Prometheus server already started
             self.logger.debug('Prometheus server already running')
-            pass
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStatsPrometheusPoller, self).update(rcv_time, dp_id, msg)
