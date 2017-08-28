@@ -224,6 +224,7 @@ class FaucetTestBase(unittest.TestCase):
                 self.ports_sock, self._test_name())
 
         self._write_controller_configs()
+        self._wait_load()
 
     def tearDown(self):
         """Clean up after a test."""
