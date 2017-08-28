@@ -619,8 +619,13 @@ class Valve(object):
             self.dp.running = False
             self.logger.warning('datapath down')
 
-    def _port_add_acl(self, port_num):
+    def _port_add_acl(self, port_num, cold_start=False):
         ofmsgs = []
+        in_port_match = self.valve_in_match(
+            self.dp.port_acl_table, in_port=port_num)
+        if cold_start:
+            ofmsgs.extend(
+                self.valve_flowdel(self.dp.port_acl_table, in_port_match))
         acl_allow_inst = valve_of.goto_table(self.dp.vlan_table)
         if port_num in self.dp.port_acl_in:
             acl_num = self.dp.port_acl_in[port_num]
@@ -637,10 +642,9 @@ class Valve(object):
         else:
             ofmsgs.append(self.valve_flowmod(
                 self.dp.port_acl_table,
-                self.valve_in_match(self.dp.port_acl_table, in_port=port_num),
+                in_port_match,
                 priority=self.dp.highest_priority,
-                inst=[acl_allow_inst]
-                ))
+                inst=[acl_allow_inst]))
         return ofmsgs
 
     def _port_add_vlan_rules(self, port, vlan_vid, vlan_inst):
@@ -1211,9 +1215,12 @@ class Valve(object):
                 all_ports_changed (bool): True if all ports changed.
                 deleted_ports (set): deleted port numbers.
                 changed_ports (set): changed/added port numbers.
+                changed_acl_ports (set): changed ACL only port numbers.
         """
         all_ports_changed = False
         changed_ports = set([])
+        changed_acl_ports = set([])
+
         for port_no, new_port in list(new_dp.ports.items()):
             if port_no not in self.dp.ports:
                 # Detected a newly configured port
@@ -1221,15 +1228,23 @@ class Valve(object):
                 self.logger.info('port %s added' % port_no)
             else:
                 old_port = self.dp.ports[port_no]
+                # An existing port has configs changed
                 if new_port != old_port:
-                    # An existing port has configs changed
-                    changed_ports.add(port_no)
-                    self.logger.info('port %s reconfigured' % port_no)
+                    old_port_ignore_acl = copy.deepcopy(old_port)
+                    old_port_ignore_acl.acl_in = new_port.acl_in
+                    # Did config other than ACL change
+                    if new_port != old_port_ignore_acl:
+                        changed_ports.add(port_no)
+                        self.logger.info('port %s reconfigured' % port_no)
+                    else:
+                        changed_acl_ports.add(port_no)
+                        self.logger.info('port %s ACL changed' % port_no)
                 elif new_port.acl_in in changed_acls:
-                    # If the port has its ACL changed
-                    changed_ports.add(port_no)
+                    # If the port has ACL changed.
+                    changed_acl_ports.add(port_no)
                     self.logger.info('port %s ACL changed' % port_no)
 
+        # TODO: optimize case where only VLAN ACL changed.
         for vid in changed_vlans:
             for port in new_dp.vlans[vid].get_ports():
                 changed_ports.add(port.number)
@@ -1242,10 +1257,13 @@ class Valve(object):
         if changed_ports == set(new_dp.ports.keys()):
             self.logger.info('all ports config changed')
             all_ports_changed = True
-        elif not changed_ports and not deleted_ports:
+        elif (not changed_ports and
+              not deleted_ports and
+              not changed_acl_ports):
             self.logger.info('no port config changes')
 
-        return (all_ports_changed, deleted_ports, changed_ports)
+        return (all_ports_changed, deleted_ports,
+                changed_ports, changed_acl_ports)
 
     def _get_config_changes(self, new_dp):
         """Detect any config changes.
@@ -1256,16 +1274,18 @@ class Valve(object):
             changes (tuple) of:
                 deleted_ports (set): deleted port numbers.
                 changed_ports (set): changed/added port numbers.
+                changed_acl_ports (set): changed ACL only port numbers.
                 deleted_vlans (set): deleted VLAN IDs.
                 changed_vlans (set): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
         """
         changed_acls = self._get_acl_config_changes(new_dp)
         deleted_vlans, changed_vlans = self._get_vlan_config_changes(new_dp)
-        all_ports_changed, deleted_ports, changed_ports = self._get_port_config_changes(
-            new_dp, changed_vlans, changed_acls)
-        return (deleted_ports, changed_ports, deleted_vlans, changed_vlans,
-                all_ports_changed)
+        (all_ports_changed, deleted_ports,
+         changed_ports, changed_acl_ports) = self._get_port_config_changes(
+             new_dp, changed_vlans, changed_acls)
+        return (deleted_ports, changed_ports, changed_acl_ports,
+                deleted_vlans, changed_vlans, all_ports_changed)
 
     def _apply_config_changes(self, new_dp, changes):
         """Apply any detected configuration changes.
@@ -1275,6 +1295,7 @@ class Valve(object):
             changes (tuple) of:
                 deleted_ports (list): deleted port numbers.
                 changed_ports (list): changed/added port numbers.
+                changed_acl_ports (set): changed ACL only port numbers.
                 deleted_vlans (list): deleted VLAN IDs.
                 changed_vlans (list): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
@@ -1283,8 +1304,8 @@ class Valve(object):
                 cold_start (bool): whether cold starting.
                 ofmsgs (list): OpenFlow messages.
         """
-        (deleted_ports, changed_ports, deleted_vlans, changed_vlans,
-         all_ports_changed) = changes
+        (deleted_ports, changed_ports, changed_acl_ports,
+         deleted_vlans, changed_vlans, all_ports_changed) = changes
         new_dp.running = True
         cold_start = True
         ofmsgs = []
@@ -1314,6 +1335,11 @@ class Valve(object):
             if changed_ports:
                 self.logger.info('ports changed/added: %s' % changed_ports)
                 ofmsgs.extend(self.ports_add(self.dp.dp_id, changed_ports))
+            if changed_acl_ports:
+                self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
+                for port in changed_acl_ports:
+                    ofmsgs.extend(self._port_add_acl(port, cold_start=True))
+
         return cold_start, ofmsgs
 
     def reload_config(self, new_dp):
