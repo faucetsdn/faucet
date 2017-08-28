@@ -54,6 +54,7 @@ class FaucetTestBase(unittest.TestCase):
     NUM_DPS = 1
 
     RUN_GAUGE = True
+    REQUIRES_METERS = False
 
     PORT_ACL_TABLE = 0
     VLAN_TABLE = 1

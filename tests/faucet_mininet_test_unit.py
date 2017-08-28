@@ -146,9 +146,9 @@ class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):
         self.assertTrue(os.path.exists(faucet_log))
 
 
-@unittest.skip('meters not widely supported')
 class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
 
+    REQUIRES_METERS = True
     CONFIG_GLOBAL = """
 meters:
     lossymeter:
@@ -174,7 +174,6 @@ vlans:
 """
 
 
-@unittest.skip('meters not widely supported')
 class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
 
     CONFIG = """
