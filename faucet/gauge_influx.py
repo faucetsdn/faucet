@@ -210,7 +210,7 @@ time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_t
                 val = oxm_tlv['value']
                 field = oxm_tlv['field']
                 if mask is not None:
-                    val = '/'.join((val, mask))
+                    val = '/'.join((str(val), str(mask)))
                 tags[field] = val
                 if field == 'vlan_vid' and mask is None:
                     tags['vlan'] = devid_present(int(val))
