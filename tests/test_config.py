@@ -49,7 +49,7 @@ class DistConfigTestCase(unittest.TestCase):
             self.v2_dps_by_id[dp.dp_id] = dp
         self.v2_dp = self.v2_dps_by_id[0xcafef00d]
         self.v2_watchers = watcher_parser(
-            'config/testgaugeconfig.yaml', logname)
+            'config/testgaugeconfig.yaml', logname, None)
 
     def test_hashes(self):
         testconfigv2_yaml = os.path.realpath('config/testconfigv2.yaml')
