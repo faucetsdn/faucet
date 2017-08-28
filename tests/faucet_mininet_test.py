@@ -340,33 +340,46 @@ def pipeline_superset_report(decoded_pcap_logs):
         print('  %s' % group_actions)
 
 
+def filter_test_hardware(test_name, test_obj, hw_config):
+    test_hosts = test_obj.N_TAGGED + test_obj.N_UNTAGGED
+    if hw_config is not None:
+        test_hardware = hw_config['hardware']
+        if test_obj.NUM_DPS != 1:
+            return False
+        if test_hosts < REQUIRED_TEST_PORTS:
+            if test_hardware == 'ZodiacFX':
+                return True
+            return False
+    else:
+        if test_hosts < REQUIRED_TEST_PORTS:
+            return False
+    return True
+
+
 def expand_tests(requested_test_classes, excluded_test_classes,
                  hw_config, root_tmpdir, ports_sock, serial):
     total_tests = 0
     sanity_tests = unittest.TestSuite()
     single_tests = unittest.TestSuite()
     parallel_test_suites = []
-    for name, obj in inspect.getmembers(sys.modules[__name__]):
-        if not inspect.isclass(obj):
+    max_loadavg = multiprocessing.cpu_count() + 1
+    for test_name, test_obj in inspect.getmembers(sys.modules[__name__]):
+        if not inspect.isclass(test_obj):
             continue
-        if requested_test_classes and name not in requested_test_classes:
+        if requested_test_classes and test_name not in requested_test_classes:
             continue
-        if excluded_test_classes and name in excluded_test_classes:
+        if excluded_test_classes and test_name in excluded_test_classes:
             continue
-        if name.endswith('Test') and name.startswith('Faucet'):
-            # TODO: hardware testing should have a way to configure
-            # which switch in a string is the hardware switch to test.
-            if re.search(r'Faucet.*String', name) and hw_config is not None:
-                print(
-                    'skipping %s as string tests not supported for hardware' % name)
+        if test_name.endswith('Test') and test_name.startswith('Faucet'):
+            if not filter_test_hardware(test_name, test_obj, hw_config):
                 continue
-            print('adding test %s' % name)
+            print('adding test %s' % (test_name))
             test_suite = make_suite(
-                obj, hw_config, root_tmpdir, ports_sock, multiprocessing.cpu_count() + 1)
-            if name.startswith('FaucetSanity'):
+                test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg)
+            if test_name.startswith('FaucetSanity'):
                 sanity_tests.addTest(test_suite)
             else:
-                if serial or name.startswith('FaucetSingle'):
+                if serial or test_name.startswith('FaucetSingle'):
                     single_tests.addTest(test_suite)
                     total_tests += 1
                 else:
