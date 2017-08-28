@@ -370,11 +370,11 @@ def filter_test_hardware(test_name, test_obj, hw_config):
 
 def expand_tests(requested_test_classes, excluded_test_classes,
                  hw_config, root_tmpdir, ports_sock, serial):
-    total_tests = 0
-    sanity_tests = unittest.TestSuite()
-    single_tests = unittest.TestSuite()
+    sanity_test_suites = []
+    single_test_suites = []
     parallel_test_suites = []
     max_loadavg = multiprocessing.cpu_count() + 1
+
     for test_name, test_obj in inspect.getmembers(sys.modules[__name__]):
         if not inspect.isclass(test_obj):
             continue
@@ -385,25 +385,37 @@ def expand_tests(requested_test_classes, excluded_test_classes,
         if test_name.endswith('Test') and test_name.startswith('Faucet'):
             if not filter_test_hardware(test_name, test_obj, hw_config):
                 continue
-            print('adding test %s' % (test_name))
+            print('adding test %s' % test_name)
             test_suite = make_suite(
                 test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg)
             if test_name.startswith('FaucetSanity'):
-                sanity_tests.addTest(test_suite)
+                sanity_test_suites.append(test_suite)
             else:
                 if serial or test_name.startswith('FaucetSingle'):
-                    single_tests.addTest(test_suite)
-                    total_tests += 1
+                    single_test_suites.addTest(test_suite)
                 else:
                     parallel_test_suites.append(test_suite)
-                    total_tests += 1
-    seed = time.time()
-    print('seeding parallel test shuffle with %f' % seed)
-    random.seed(seed)
-    random.shuffle(parallel_test_suites)
+
+    sanity_tests = unittest.TestSuite()
+    single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
-    for test_suite in parallel_test_suites:
-        parallel_tests.addTest(test_suite)
+
+    if len(parallel_test_suites) == 1:
+        single_test_suites.extend(parallel_test_suites)
+        parallel_test_suites = []
+    if len(parallel_test_suites) > 0:
+        seed = time.time()
+        print('seeding parallel test shuffle with %f' % seed)
+        random.seed(seed)
+        random.shuffle(parallel_test_suites)
+        for test_suite in parallel_test_suites:
+            parallel_tests.addTest(test_suite)
+
+    for test_suite in sanity_test_suites:
+        sanity_tests.addTest(test_suite)
+    for test_suite in single_test_suites:
+        single_tests.addTest(test_suite)
+    total_tests = len(single_test_suites) + len(parallel_test_suites)
     return (total_tests, sanity_tests, single_tests, parallel_tests)
 
 
@@ -418,9 +430,9 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
         sanity = True
         print('running %u tests in parallel and %u tests serial' % (
             parallel_tests.countTestCases(), single_tests.countTestCases()))
-        print('running maximum of %u of parallel tests' % max_parallel_tests)
         results = []
         if parallel_tests.countTestCases():
+            print('running maximum of %u of parallel tests' % max_parallel_tests)
             max_parallel_tests = min(parallel_tests.countTestCases(), max_parallel_tests)
             parallel_runner = unittest.TextTestRunner(verbosity=255)
             parallel_suite = ConcurrentTestSuite(
