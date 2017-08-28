@@ -392,7 +392,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
                 sanity_test_suites.append(test_suite)
             else:
                 if serial or test_name.startswith('FaucetSingle'):
-                    single_test_suites.addTest(test_suite)
+                    single_test_suites.append(test_suite)
                 else:
                     parallel_test_suites.append(test_suite)
 
