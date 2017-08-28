@@ -1257,27 +1257,31 @@ dbs:
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
 
-    def start_exabgp(self, exabgp_conf):
+    def start_exabgp(self, exabgp_conf, timeout=30):
         """Start exabgp process on controller host."""
         exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
         exabgp_env = ' '.join((
+            'exabgp.daemon.user=root',
             'exabgp.log.all=true',
-            'exabgp.log.routes=true',
-            'exabgp.log.rib=true',
-            'exabgp.log.packets=true',
-            'exabgp.log.parser=true',
+            'exabgp.log.level=DEBUG',
+            'exabgp.log.destination=%s' % exabgp_log,
         ))
         bgp_port = self.config_ports['bgp_port']
         exabgp_conf = exabgp_conf % {'bgp_port': bgp_port}
         open(exabgp_conf_file, 'w').write(exabgp_conf)
         controller = self._get_controller()
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
-            'exabgp %s -d 2> %s > %s &' % (
-                exabgp_conf_file, exabgp_err, exabgp_log), 600)
-        controller.cmd('env %s %s' % (exabgp_env, exabgp_cmd))
-        return (exabgp_log, exabgp_err)
+            'exabgp %s -d 2> %s > /dev/null &' % (
+                exabgp_conf_file, exabgp_err), 600)
+        exabgp_cli = 'env %s %s' % (exabgp_env, exabgp_cmd)
+        controller.cmd(exabgp_cli)
+        for _ in range(timeout):
+            if os.path.exists(exabgp_log):
+                return (exabgp_log, exabgp_err)
+            time.sleep(1)
+        self.fail('exabgp did not start')
 
     def wait_bgp_up(self, neighbor, vlan, exabgp_log, exabgp_err):
         """Wait for BGP to come up."""
