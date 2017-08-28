@@ -210,6 +210,7 @@ class FaucetTestBase(unittest.TestCase):
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_vars()
+        self._wait_load()
 
         if self.hw_switch:
             self.topo_class = faucet_mininet_test_topo.FaucetHwSwitchTopo
@@ -223,7 +224,6 @@ class FaucetTestBase(unittest.TestCase):
                 self.ports_sock, self._test_name())
 
         self._write_controller_configs()
-        self._wait_load()
 
     def tearDown(self):
         """Clean up after a test."""
