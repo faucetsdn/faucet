@@ -201,10 +201,10 @@ class FaucetTestBase(unittest.TestCase):
     def _wait_load(self, load_retries=120):
         for _ in range(load_retries):
             load = os.getloadavg()[0]
+            time.sleep(random.randint(1, 7))
             if load < self.max_test_load:
                 return
             print('load average too high %f, waiting' % load)
-            time.sleep(random.randint(1, 7))
         self.fail('load average %f consistently too high' % load)
 
     def setUp(self):

@@ -373,7 +373,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
     sanity_test_suites = []
     single_test_suites = []
     parallel_test_suites = []
-    max_loadavg = multiprocessing.cpu_count() + 1
+    max_loadavg = multiprocessing.cpu_count()
 
     for test_name, test_obj in inspect.getmembers(sys.modules[__name__]):
         if not inspect.isclass(test_obj):
