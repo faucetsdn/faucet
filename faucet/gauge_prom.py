@@ -31,16 +31,13 @@ class GaugePrometheusClient(object):
     metrics = {}
 
     def __init__(self):
-        for counter in (
-                'bytes_in',
-                'bytes_out',
-                'dropped_in',
-                'dropped_out',
-                'errors_in',
-                'packets_in',
-                'packets_out'):
-            self.metrics[counter] = PromGauge(
-                counter, '', ['dp_id', 'port_name'])
+        for stat_name in (
+                'bytes_in', 'bytes_out',
+                'dropped_in', 'dropped_out', 'errors_in',
+                'packets_in', 'packets_out'):
+            export_name = '_'.join(('of', stat_name))
+            self.metrics[stat_name] = PromGauge(
+                export_name, '', ['dp_id', 'port_name'])
 
     def start(self, addr, port):
         """Start Prometheus client if not already running."""
