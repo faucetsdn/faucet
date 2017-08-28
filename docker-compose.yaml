@@ -33,6 +33,7 @@ services:
             - './etc/prometheus/faucet.rules:/etc/prometheus/faucet.rules'
         links:
             - faucet
+            - gauge
 
     grafana:
         restart: always
@@ -58,6 +59,7 @@ services:
             - '/etc/ryu/faucet:/etc/ryu/faucet'
         ports:
             - '6654:6653'
+            - '9303'
         links:
             - couchdb
             - influxdb
@@ -73,4 +75,4 @@ services:
             - '/etc/ryu/faucet:/etc/ryu/faucet'
         ports:
             - '6653:6653'
-            - '9244'
+            - '9302'
