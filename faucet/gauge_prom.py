@@ -23,6 +23,17 @@ try:
 except ImportError:
     from faucet.gauge_pollers import GaugePortStatsPoller
 
+PROM_PREFIX_DELIM = '_'
+PROM_PORT_PREFIX = 'of_port'
+PROM_PORT_VARS = (
+    'tx_packets',
+    'rx_packets',
+    'tx_bytes',
+    'rx_bytes',
+    'tx_dropped',
+    'rx_dropped',
+    'rx_errors')
+
 
 class GaugePrometheusClient(object):
     """Wrapper for Prometheus client that is shared between all pollers."""
@@ -31,21 +42,16 @@ class GaugePrometheusClient(object):
     metrics = {}
 
     def __init__(self):
-        for counter in (
-                'bytes_in',
-                'bytes_out',
-                'dropped_in',
-                'dropped_out',
-                'errors_in',
-                'packets_in',
-                'packets_out'):
-            self.metrics[counter] = PromGauge(
-                counter, '', ['dp_id', 'port_name'])
+        for prom_var in PROM_PORT_VARS:
+            exported_prom_var = PROM_PREFIX_DELIM.join(
+                (PROM_PORT_PREFIX, prom_var))
+            self.metrics[exported_prom_var] = PromGauge(
+                exported_prom_var, '', ['dp_id', 'port_name'])
 
     def start(self, addr, port):
         """Start Prometheus client if not already running."""
         if not self.running:
-            start_http_server(port, addr)
+            start_http_server(int(port), addr)
             self.running = True
 
 
@@ -59,11 +65,20 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
             self.prom_client.start(
                 self.conf.prometheus_addr, self.conf.prometheus_port)
 
+    def _format_port_stats(self, delim, stat):
+        formatted_port_stats = []
+        for prom_var in PROM_PORT_VARS:
+            stat_name = delim.join((PROM_PORT_PREFIX, prom_var))
+            stat_val = getattr(stat, prom_var)
+            if stat_val != 2**64-1:
+                formatted_port_stats.append((stat_name, stat_val))
+        return formatted_port_stats
+
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStatsPrometheusPoller, self).update(rcv_time, dp_id, msg)
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat, dp_id)
-            for stat_name, stat_val in self._format_port_stats('_', stat):
-                if stat_name in self.prom_client.metrics:
-                    self.prom_client.metrics[stat_name].labels(
-                        dp_id=hex(dp_id), port_name=port_name).set(stat_val)
+            for stat_name, stat_val in self._format_port_stats(
+                    PROM_PREFIX_DELIM, stat):
+                self.prom_client.metrics[stat_name].labels(
+                    dp_id=hex(dp_id), port_name=port_name).set(stat_val)

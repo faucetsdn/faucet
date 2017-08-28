@@ -309,6 +309,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
             print 'verifying host/port mapping for %s' % in_port
             self.require_host_learned(host, in_port=self.port_map[in_port])
 
+
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     """Testing Gauge Prometheus"""
 
@@ -329,7 +330,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
             updated_counters = False
             for _ in range(self.DB_TIMEOUT * 3):
                 p1_bytes_in = self.scrape_prometheus_var(
-                    'bytes_in', labels=labels, controller='gauge', dpid=False)
+                    'of_port_rx_bytes', labels=labels, controller='gauge', dpid=False)
                 if p1_bytes_in is not None and p1_bytes_in > last_p1_bytes_in:
                     updated_counters = True
                     last_p1_bytes_in = p1_bytes_in
