@@ -344,8 +344,7 @@ def filter_test_hardware(test_name, test_obj, hw_config):
     test_hosts = test_obj.N_TAGGED + test_obj.N_UNTAGGED
     if hw_config is not None:
         test_hardware = hw_config['hardware']
-        if re.search(r'Faucet.*String', name):
-            print('skipping %s (string tests not supported for hardware)' % test_name)
+        if test_obj.NUM_DPS != 1:
             return False
         if test_hosts < REQUIRED_TEST_PORTS:
             if test_hardware == 'ZodiacFX':

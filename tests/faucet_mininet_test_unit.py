@@ -50,6 +50,8 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
 class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
     """Test the Faucet API."""
 
+    NUM_DPS = 0
+
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         name = 'faucet'
@@ -302,12 +304,9 @@ class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
     def test_portmap(self):
-        first_host, second_host, third_host, fourth_host = self.net.hosts
-        for host, in_port in (
-                (first_host, 'port_1'),
-                (second_host, 'port_2'),
-                (third_host, 'port_3'),
-                (fourth_host, 'port_4')):
+        test_ports = self.N_TAGGED + self.N_UNTAGGED
+        for i, host in enumerate(self.net.hosts):
+            in_port = 'port_%u' % (i + 1)
             print 'verifying host/port mapping for %s' % in_port
             self.require_host_learned(host, in_port=self.port_map[in_port])
 
