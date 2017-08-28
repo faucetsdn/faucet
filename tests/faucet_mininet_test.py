@@ -42,6 +42,12 @@ import faucet_mininet_test_util
 # pylint: disable=wildcard-import
 from faucet_mininet_test_unit import *
 
+# Only these hardware types will be tested with meters.
+SUPPORTS_METERS = (
+    'Aruba',
+    'NoviFlow',
+)
+
 
 EXTERNAL_DEPENDENCIES = (
     ('ryu-manager', ['--version'],
@@ -350,8 +356,14 @@ def filter_test_hardware(test_name, test_obj, hw_config):
             if test_hardware == 'ZodiacFX':
                 return True
             return False
+        if test_obj.REQUIRES_METERS:
+            if test_hardware not in SUPPORTS_METERS:
+                return False
     else:
         if test_hosts < REQUIRED_TEST_PORTS:
+            return False
+        # TODO: OVS does not support meters
+        if test_obj.REQUIRES_METERS:
             return False
     return True
 
