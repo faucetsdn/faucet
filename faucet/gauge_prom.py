@@ -43,7 +43,7 @@ class GaugePrometheusClient(object):
                 counter, '', ['dp_id', 'port_name'])
 
     def start(self, addr, port):
-        start_http_server(addr, port)
+        start_http_server(port, addr)
         self.running = True
 
 
@@ -51,9 +51,11 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
     """Exports port stats to Prometheus."""
 
     def __init__(self, conf, logger, prom_client):
-        super(GaugePortStatsPrometheusPoller, self).__init__(conf, logger, prom_client)
+        super(GaugePortStatsPrometheusPoller, self).__init__(
+            conf, logger, prom_client)
         if not self.prom_client.running:
-            self.prom_client.start(self.conf.prometheus_port, self.conf.prometheus_addr)
+            self.prom_client.start(
+                self.conf.prometheus_addr, self.conf.prometheus_port)
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugePortStatsPrometheusPoller, self).update(rcv_time, dp_id, msg)
