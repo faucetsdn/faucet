@@ -29,9 +29,10 @@ except ImportError:
 
 class GaugePoller(object):
 
-    def __init__(self, conf, logname):
+    def __init__(self, conf, logname, prom_client):
         self.dp = conf.dp
         self.conf = conf
+        self.prom_client = prom_client
         self.reply_pending = False
         self.logger = logging.getLogger(
             logname + '.{0}'.format(self.conf.type)
@@ -111,8 +112,8 @@ class GaugeThreadPoller(GaugePoller):
     subclasses.
     """
 
-    def __init__(self, conf, logname):
-        super(GaugeThreadPoller, self).__init__(conf, logname)
+    def __init__(self, conf, logname, prom_client):
+        super(GaugeThreadPoller, self).__init__(conf, logname, prom_client)
         self.thread = None
         self.interval = self.conf.interval
         self.ryudp = None

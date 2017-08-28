@@ -334,7 +334,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                 break
             time.sleep(1)
         if init_p1_bytes_in is None:
-            self.fail(msg='Could not retrieve value from gauge prometheus')
+            self.fail(msg='Could not retrieve values from Gauge Prometheus')
 
         self.ping_all_when_learned()
 

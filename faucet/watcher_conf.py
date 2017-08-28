@@ -30,6 +30,7 @@ class WatcherConf(Conf):
 
     db = None
     dp = None
+    prom_client = None
 
     defaults = {
         'name': None,
@@ -66,8 +67,9 @@ class WatcherConf(Conf):
         'switches_doc': '',
     }
 
-    def __init__(self, _id, conf):
+    def __init__(self, _id, conf, prom_client):
         self._id = _id
+        self.prom_client = prom_client
         self.update(conf)
         self.set_defaults()
 

@@ -29,13 +29,15 @@ from ryu.controller import event
 from ryu.controller import ofp_event
 
 try:
-    from config_parser import watcher_parser
-    from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
     import valve_of
+    from config_parser import watcher_parser
+    from gauge_prom import GaugePrometheusClient
+    from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
     from watcher import watcher_factory
 except ImportError:
     from faucet import valve_of
     from faucet.config_parser import watcher_parser
+    from faucet.gauge_prom import GaugePrometheusClient
     from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
     from faucet.watcher import watcher_factory
 
@@ -77,6 +79,8 @@ class Gauge(app_manager.RyuApp):
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
+        self.prom_client = GaugePrometheusClient()
+
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
 
@@ -91,11 +95,11 @@ class Gauge(app_manager.RyuApp):
     def _load_config(self):
         """Load Gauge config."""
         self.config_file = os.getenv('GAUGE_CONFIG', self.config_file)
-        new_confs = watcher_parser(self.config_file, self.logname)
+        new_confs = watcher_parser(self.config_file, self.logname, self.prom_client)
         new_watchers = {}
 
         for conf in new_confs:
-            watcher = watcher_factory(conf)(conf, self.logname)
+            watcher = watcher_factory(conf)(conf, self.logname, self.prom_client)
             watcher_dpid = watcher.dp.dp_id
             ryu_dp = self.dpset.get(watcher_dpid)
             watcher_type = watcher.conf.type
