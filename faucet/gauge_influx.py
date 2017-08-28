@@ -45,19 +45,18 @@ class InfluxShipper(object):
         """Make a connection to InfluxDB and ship points."""
         if self.conf is None:
             return False
-        else:
-            try:
-                client = InfluxDBClient(
-                    host=self.conf.influx_host,
-                    port=self.conf.influx_port,
-                    username=self.conf.influx_user,
-                    password=self.conf.influx_pwd,
-                    database=self.conf.influx_db,
-                    timeout=self.conf.influx_timeout)
-                return client.write_points(points=points, time_precision='s')
-            except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
-                return False
-            return True
+        try:
+            client = InfluxDBClient(
+                host=self.conf.influx_host,
+                port=self.conf.influx_port,
+                username=self.conf.influx_user,
+                password=self.conf.influx_pwd,
+                database=self.conf.influx_db,
+                timeout=self.conf.influx_timeout)
+            return client.write_points(points=points, time_precision='s')
+        except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
+            return False
+        return True
 
     def make_point(self, tags, rcv_time, stat_name, stat_val):
         """Make an InfluxDB point."""

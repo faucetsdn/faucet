@@ -476,7 +476,7 @@ def dump_failed_test(test_name, test_dir):
 
 
 def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
-                    failures, dumpfail):
+                    failures, dumpfail, single_tests):
     if all_successful:
         if not keep_logs:
             shutil.rmtree(root_tmpdir)
@@ -484,14 +484,15 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
         print 'log/debug files for failed tests are in %s' % root_tmpdir
         if not keep_logs:
             if sanity:
-                test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
-                for test_dir in test_dirs:
-                    test_name = os.path.basename(test_dir)
-                    if test_name in failures:
-                        if dumpfail:
-                            dump_failed_test(test_name, test_dir)
-                    else:
-                        shutil.rmtree(test_dir)
+                if not single_tests:
+                    test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
+                    for test_dir in test_dirs:
+                        test_name = os.path.basename(test_dir)
+                        if test_name in failures:
+                            if dumpfail:
+                                dump_failed_test(test_name, test_dir)
+                        else:
+                            shutil.rmtree(test_dir)
 
 
 def decode_of_pcaps(root_tmpdir):
@@ -529,7 +530,8 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
     decoded_pcap_logs = decode_of_pcaps(root_tmpdir)
     pipeline_superset_report(decoded_pcap_logs)
     clean_test_dirs(
-        root_tmpdir, all_successful, sanity, keep_logs, failures, dumpfail)
+        root_tmpdir, all_successful, sanity,
+        keep_logs, failures, dumpfail, single_tests)
     if not all_successful:
         sys.exit(-1)
 
