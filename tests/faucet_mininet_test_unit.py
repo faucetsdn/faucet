@@ -323,32 +323,20 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         labels = {'port_name': '1', 'dp_id': '0x%x' % long(self.dpid)}
-        for _ in range(0, self.DB_TIMEOUT * 2):
-            init_p1_bytes_in = self.scrape_prometheus_var(
-                'bytes_in',
-                labels=labels,
-                controller='gauge',
-                dpid=False
-                )
-            if init_p1_bytes_in is not None:
-                break
-            time.sleep(1)
-        if init_p1_bytes_in is None:
-            self.fail(msg='Could not retrieve values from Gauge Prometheus')
-
-        self.ping_all_when_learned()
-
-        for _ in range(0, self.DB_TIMEOUT * 2):
-            new_p1_bytes_in = self.scrape_prometheus_var(
-                'bytes_in',
-                labels=labels,
-                controller='gauge',
-                dpid=False
-                )
-            if new_p1_bytes_in > init_p1_bytes_in:
-                return
-            time.sleep(1)
-        self.fail(msg='Gauge prometheus values not increasing')
+        last_p1_bytes_in = 0
+        for poll in range(2):
+            self.ping_all_when_learned()
+            updated_counters = False
+            for _ in range(self.DB_TIMEOUT * 3):
+                p1_bytes_in = self.scrape_prometheus_var(
+                    'bytes_in', labels=labels, controller='gauge', dpid=False)
+                if p1_bytes_in is not None and p1_bytes_in > last_p1_bytes_in:
+                    updated_counters = True
+                    last_p1_bytes_in = p1_bytes_in
+                    break
+                time.sleep(1)
+            if not updated_counters:
+                self.fail(msg='Gauge Prometheus counters not increasing')
 
 
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
