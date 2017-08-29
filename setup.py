@@ -3,21 +3,12 @@
 from __future__ import print_function
 
 import errno
-import io
 import os
-import re
 import shutil
 import sys
 
 from pkg_resources import resource_filename
 from setuptools import setup
-
-def parse_version():
-    """ Parse version from README.rst """
-    setup_dir = os.path.dirname(__file__)
-    readme_contents = io.open(os.path.join(setup_dir, 'README.rst'), encoding="utf-8").read()
-    faucet_version = re.match(r'.+version: ([0-9\.]+)', readme_contents).group(1)
-    return faucet_version
 
 def install_configs():
     """ Install configuration files to /etc """
@@ -55,25 +46,11 @@ def install_configs():
         else:
             raise
 
-# This is a workaround to override version code from pbr as
-# PBR_VERSION env variable interferes with the installation
-# of pbr itself as part of setup_requires
-#
-# See launchpad bug: https://bugs.launchpad.net/pbr/+bug/1256138
-with open("METADATA", "w") as fd:
-    fd.write("Name: faucet\n")
-    fd.write("Version: %s\n" % parse_version())
+setup(
+    name='faucet',
+    setup_requires=['pbr>=1.9', 'setuptools>=17.1'],
+    pbr=True
+)
 
-try:
-    setup(
-        name='faucet',
-        setup_requires=['pbr>=1.9', 'setuptools>=17.1'],
-        pbr=True
-    )
-
-    if 'install' in sys.argv or 'bdist_wheel' in sys.argv:
-        install_configs()
-finally:
-    if os.path.isfile("METADATA"):
-        os.remove("METADATA")
-
+if 'install' in sys.argv or 'bdist_wheel' in sys.argv:
+    install_configs()
