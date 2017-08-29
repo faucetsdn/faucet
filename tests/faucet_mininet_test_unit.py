@@ -323,6 +323,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 """
 
     def test_untagged(self):
+        self.wait_dp_status(1, controller='gauge')
         labels = {'port_name': '1', 'dp_id': '0x%x' % long(self.dpid)}
         last_p1_bytes_in = 0
         for poll in range(2):

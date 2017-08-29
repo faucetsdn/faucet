@@ -1101,10 +1101,10 @@ dbs:
         self.fail('port %s status %s != expected %u' % (
             port_no, port_status, expected_status))
 
-    def wait_dp_status(self, expected_status, timeout=60):
+    def wait_dp_status(self, expected_status, controller='faucet', timeout=60):
         for _ in range(timeout):
             dp_status = self.scrape_prometheus_var(
-                'dp_status', {}, default=None)
+                'dp_status', {}, controller=controller, default=None)
             if dp_status is not None and dp_status == expected_status:
                 return True
             time.sleep(1)

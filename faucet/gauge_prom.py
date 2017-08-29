@@ -42,6 +42,10 @@ class GaugePrometheusClient(object):
     metrics = {}
 
     def __init__(self):
+        self.dp_status = PromGauge(
+            'dp_status',
+            'status of datapaths',
+            ['dpid'])
         for prom_var in PROM_PORT_VARS:
             exported_prom_var = PROM_PREFIX_DELIM.join(
                 (PROM_PORT_PREFIX, prom_var))
