@@ -9,8 +9,8 @@ instance:learned_macs:sum = count(count_values("mac", learned_macs{} != 0) by (v
 # Convert Port stats to rates
 instance_port:of_port_rx_packets:rate1m = rate(of_port_rx_packets[1m])
 instance_port:of_port_tx_packets:rate1m = rate(of_port_tx_packets[1m])
-instance_port:of_port_rx_bytes:rate1m = rate(of_port_rx_bytes[1m]) * 8
-instance_port:of_port_tx_bytes:rate1m = rate(of_port_tx_bytes[1m]) * 8
+instance_port:of_port_rx_bits:rate1m = rate(of_port_rx_bytes[1m]) * 8
+instance_port:of_port_tx_bits:rate1m = rate(of_port_tx_bytes[1m]) * 8
 instance_port:of_port_rx_dropped:rate1m = rate(of_port_rx_dropped[1m])
 instance_port:of_port_tx_dropped:rate1m = rate(of_port_tx_dropped[1m])
 instance_port:of_port_rx_errors:rate1m = rate(of_port_rx_errors[1m])
