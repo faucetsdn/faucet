@@ -7,10 +7,10 @@ instance:vlan_hosts_learned:sum = sum(vlan_hosts_learned) by (instance,vlan)
 instance:learned_macs:sum = count(count_values("mac", learned_macs{} != 0) by (vlan)) by (vlan)
 
 # Convert Port stats to rates
-instance_port:packets_in:rate1m = rate(packets_in[1m])
-instance_port:packets_out:rate1m = rate(packets_out[1m])
-instance_port:bps_in:rate1m = rate(bytes_in[1m]) * 8
-instance_port:bps_out:rate1m = rate(bytes_out[1m]) * 8
-instance_port:dropped_in:rate1m = rate(dropped_in[1m])
-instance_port:dropped_out:rate1m = rate(dropped_out[1m])
-instance_port:errors_in:rate1m = rate(errors_in[1m])
+instance_port:of_port_rx_packets:rate1m = rate(of_port_rx_packets[1m])
+instance_port:of_port_tx_packets:rate1m = rate(of_port_tx_packets[1m])
+instance_port:of_port_rx_bytes:rate1m = rate(of_port_rx_bytes[1m]) * 8
+instance_port:of_port_tx_bytes:rate1m = rate(of_port_tx_bytes[1m]) * 8
+instance_port:of_port_rx_dropped:rate1m = rate(of_port_rx_dropped[1m])
+instance_port:of_port_tx_dropped:rate1m = rate(of_port_tx_dropped[1m])
+instance_port:of_port_rx_errors:rate1m = rate(of_port_rx_errors[1m])
