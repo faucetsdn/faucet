@@ -343,7 +343,7 @@ def pipeline_superset_report(decoded_pcap_logs):
             sorted(table_actions[table]), table_actions_max[table]))
     if group_actions:
         print('group bucket actions:')
-        print('  %s' % group_actions)
+        print('  %s' % sorted(group_actions))
 
 
 def filter_test_hardware(test_name, test_obj, hw_config):

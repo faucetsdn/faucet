@@ -101,7 +101,7 @@ Table 5: IPV6_FIB
     - Unknown traffic is dropped
 
 ----------------
-Table 6: ETH_DST
+Table 6: VIP
 ----------------
 
 - Operations:
