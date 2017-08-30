@@ -773,7 +773,7 @@ dbs:
         if labels is None:
             labels = {}
         if dpid:
-            labels.update({'dpid': '0x%x' % long(self.dpid)})
+            labels.update({'dp_id': '0x%x' % long(self.dpid)})
         if labels:
             label_values = []
             for label, value in sorted(list(labels.items())):

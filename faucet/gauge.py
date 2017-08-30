@@ -169,7 +169,7 @@ class Gauge(app_manager.RyuApp):
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
             self.logger.info('%s up', dpid_log(dp_id))
-            self.prom_client.dp_status.labels(dpid=hex(dp_id)).set(1)
+            self.prom_client.dp_status.labels(dp_id=hex(dp_id)).set(1)
             for watcher in list(self.watchers[dp_id].values()):
                 self.logger.info(
                     '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
@@ -187,7 +187,7 @@ class Gauge(app_manager.RyuApp):
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
             self.logger.info('%s down', dpid_log(dp_id))
-            self.prom_client.dp_status.labels(dpid=hex(dp_id)).set(0)
+            self.prom_client.dp_status.labels(dp_id=hex(dp_id)).set(0)
             for watcher in list(self.watchers[dp_id].values()):
                 self.logger.info(
                     '%s %s watcher stopping', dpid_log(dp_id), watcher.conf.type)
