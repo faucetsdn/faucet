@@ -2217,6 +2217,9 @@ vlans:
 
 class FaucetTaggedTest(FaucetTest):
 
+    N_UNTAGGED = 0
+    N_TAGGED = 4
+
     CONFIG_GLOBAL = """
 vlans:
     100:

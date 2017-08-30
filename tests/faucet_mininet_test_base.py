@@ -815,21 +815,24 @@ dbs:
             gauge_log, log_content))
 
     def gauge_smoke_test(self):
-        watcher_files = (
+        watcher_files = set([
             self.monitor_stats_file,
             self.monitor_state_file,
-            self.monitor_flow_table_file)
-        for watcher_file in watcher_files:
-            for _ in range(60):
-                if os.path.exists(watcher_file):
-                    break
-                time.sleep(1)
-            if (os.path.exists(watcher_file) and
-                    os.stat(watcher_file).st_size > 0):
-                continue
+            self.monitor_flow_table_file])
+        found_watcher_files = set()
+        for _ in range(60):
+            for watcher_file in watcher_files:
+                if (os.path.exists(watcher_file)
+                        and os.path.getsize(watcher_file)):
+                    found_watcher_files.add(watcher_file)
+            if watcher_files == found_watcher_files:
+                break
             self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
-            self.fail(
-                'gauge did not output %s (gauge not connected?)' % watcher_file)
+            time.sleep(1)
+            found_watcher_files = set()
+        missing_watcher_files = watcher_files - found_watcher_files
+        self.assertEqual(
+            missing_watcher_files, set(), msg='Gauge missing logs: %s' % missing_watcher_files)
         self.hup_gauge()
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
 
