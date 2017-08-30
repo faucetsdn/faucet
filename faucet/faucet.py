@@ -173,10 +173,10 @@ class Faucet(app_manager.RyuApp):
                     self._send_flow_msgs(new_dp.dp_id, flowmods)
                     if cold_start:
                         self.metrics.faucet_config_reload_cold.labels(
-                            dpid=hex(dp_id)).inc()
+                            dp_id=hex(dp_id)).inc()
                     else:
                         self.metrics.faucet_config_reload_warm.labels(
-                            dpid=hex(dp_id)).inc()
+                            dp_id=hex(dp_id)).inc()
             else:
                 # pylint: disable=no-member
                 valve_cl = valve_factory(new_dp)
@@ -220,7 +220,7 @@ class Faucet(app_manager.RyuApp):
         for flow_msg in reordered_flow_msgs:
             # pylint: disable=no-member
             self.metrics.of_flowmsgs_sent.labels(
-                dpid=hex(dp_id)).inc()
+                dp_id=hex(dp_id)).inc()
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
 
@@ -357,7 +357,7 @@ class Faucet(app_manager.RyuApp):
 
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
-            dpid=hex(dp_id)).inc()
+            dp_id=hex(dp_id)).inc()
         flowmods = valve.rcv_packet(dp_id, self.valves, pkt_meta)
         self._send_flow_msgs(dp_id, flowmods)
         valve.update_metrics(self.metrics)
@@ -377,7 +377,7 @@ class Faucet(app_manager.RyuApp):
         if valve is None:
             return
         # pylint: disable=no-member
-        self.metrics.of_errors.labels(dpid=hex(dp_id)).inc()
+        self.metrics.of_errors.labels(dp_id=hex(dp_id)).inc()
         self.logger.error('OFError %s from %s', msg, dpid_log(dp_id))
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
@@ -414,8 +414,8 @@ class Faucet(app_manager.RyuApp):
             dp_id, discovered_up_port_nums)
         self._send_flow_msgs(dp_id, flowmods)
         # pylint: disable=no-member
-        self.metrics.of_dp_connections.labels(dpid=hex(dp_id)).inc()
-        self.metrics.dp_status.labels(dpid=hex(dp_id)).set(1)
+        self.metrics.of_dp_connections.labels(dp_id=hex(dp_id)).inc()
+        self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(1)
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_dp):
@@ -430,8 +430,8 @@ class Faucet(app_manager.RyuApp):
             return
         valve.datapath_disconnect(dp_id)
         # pylint: disable=no-member
-        self.metrics.of_dp_disconnections.labels(dpid=hex(dp_id)).inc()
-        self.metrics.dp_status.labels(dpid=hex(dp_id)).set(0)
+        self.metrics.of_dp_disconnections.labels(dp_id=hex(dp_id)).inc()
+        self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(0)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -493,7 +493,7 @@ class Faucet(app_manager.RyuApp):
         self._send_flow_msgs(dp_id, flowmods)
         # pylint: disable=no-member
         self.metrics.port_status.labels(
-            dpid=hex(dp_id), port=port_no).set(port_status)
+            dp_id=hex(dp_id), port=port_no).set(port_status)
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

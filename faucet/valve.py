@@ -1008,7 +1008,7 @@ class Valve(object):
         metrics (FaucetMetrics): container of Prometheus metrics.
         """
         metrics.faucet_config_dp_name.labels(
-            dpid=hex(self.dp.dp_id), name=self.dp.name).set(
+            dp_id=hex(self.dp.dp_id), name=self.dp.name).set(
                 self.dp.dp_id)
         for table_name, table_id in (
                 ('port_acl', self.dp.port_acl_table),
@@ -1021,7 +1021,7 @@ class Valve(object):
                 ('eth_dst', self.dp.eth_dst_table),
                 ('flood', self.dp.flood_table)):
             metrics.faucet_config_table_names.labels(
-                dpid=hex(self.dp.dp_id), name=table_name).set(table_id)
+                dp_id=hex(self.dp.dp_id), name=table_name).set(table_id)
 
     def update_metrics(self, metrics):
         """Update Gauge/metrics.
@@ -1029,24 +1029,24 @@ class Valve(object):
         metrics (FaucetMetrics or None): container of Prometheus metrics.
         """
         # Clear the exported MAC learning.
-        dpid = hex(self.dp.dp_id)
+        dp_id = hex(self.dp.dp_id)
         for _, label_dict, _ in metrics.learned_macs.collect()[0].samples:
-            if label_dict['dpid'] == dpid:
+            if label_dict['dp_id'] == dp_id:
                 metrics.learned_macs.labels(
-                    dpid=label_dict['dpid'], vlan=label_dict['vlan'],
+                    dp_id=label_dict['dp_id'], vlan=label_dict['vlan'],
                     port=label_dict['port'], n=label_dict['n']).set(0)
 
         for vlan in list(self.dp.vlans.values()):
             hosts_count = self.host_manager.hosts_learned_on_vlan_count(
                 vlan)
             metrics.vlan_hosts_learned.labels(
-                dpid=dpid, vlan=vlan.vid).set(hosts_count)
+                dp_id=dp_id, vlan=vlan.vid).set(hosts_count)
             metrics.vlan_learn_bans.labels(
-                dpid=dpid, vlan=vlan.vid).set(vlan.learn_ban_count)
+                dp_id=dp_id, vlan=vlan.vid).set(vlan.learn_ban_count)
             for ipv in vlan.ipvs():
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
-                    dpid=dpid, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
+                    dp_id=dp_id, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
             # Repopulate MAC learning.
             hosts_on_port = {}
             for eth_src, host_cache_entry in sorted(list(vlan.host_cache.items())):
@@ -1058,11 +1058,11 @@ class Valve(object):
             for port_num, hosts in list(hosts_on_port.items()):
                 for i, mac_int in enumerate(hosts):
                     metrics.learned_macs.labels(
-                        dpid=dpid, vlan=vlan.vid,
+                        dp_id=dp_id, vlan=vlan.vid,
                         port=port_num, n=i).set(mac_int)
             for port in list(self.dp.ports.values()):
                 metrics.port_learn_bans.labels(
-                    dpid=dpid, port=port.number).set(port.learn_ban_count)
+                    dp_id=dp_id, port=port.number).set(port.learn_ban_count)
 
 
     def rcv_packet(self, dp_id, valves, pkt_meta):
