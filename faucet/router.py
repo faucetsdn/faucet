@@ -34,9 +34,3 @@ class Router(Conf):
     defaults_type = {
         'vlans': list,
     }
-
-    def __init__(self, _id, conf=None):
-        if conf is None:
-            conf = {}
-        self.update(conf)
-        self._id = _id
