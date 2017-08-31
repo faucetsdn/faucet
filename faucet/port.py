@@ -87,8 +87,7 @@ class Port(Conf):
         self.dyn_phys_up = False
 
     def set_defaults(self):
-        for key, value in list(self.defaults.items()):
-            self._set_default(key, value)
+        super(Port, self).set_defaults()
         self._set_default('number', self._id)
         self._set_default('name', str(self._id))
         self._set_default('description', self.name)
