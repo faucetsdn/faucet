@@ -70,10 +70,6 @@ class WatcherConf(Conf):
     def __init__(self, _id, conf, prom_client):
         super(WatcherConf, self).__init__(_id, conf)
         self.prom_client = prom_client
-
-    def set_defaults(self):
-        for key, value in list(self.defaults.items()):
-            self._set_default(key, value)
         self.name = str(self._id)
 
     def add_db(self, db_conf):
