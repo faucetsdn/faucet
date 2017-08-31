@@ -18,14 +18,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from prometheus_client import Counter, Gauge
 
-from prometheus_client import Counter, Gauge, start_http_server
+try:
+    from prom_client import PromClient
+except ImportError:
+    from faucet.prom_client import PromClient
 
 
-class FaucetMetrics(object):
+class FaucetMetrics(PromClient):
     """Container class for objects that can be exported to Prometheus."""
 
-    def __init__(self, prom_port, prom_addr):
+    def __init__(self):
         self.of_packet_ins = Counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP', ['dp_id'])
@@ -90,4 +94,3 @@ class FaucetMetrics(object):
             'dp_status',
             'status of datapaths',
             ['dp_id'])
-        start_http_server(prom_port, prom_addr)
