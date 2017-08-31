@@ -23,6 +23,15 @@ class Conf(object):
     defaults = {}
     defaults_types = {}
 
+    def __init__(self, _id, conf):
+        self._id = _id
+        self.update(conf)
+        self.set_defaults()
+
+    def set_defaults(self):
+        for key, value in list(self.defaults.items()):
+            self._set_default(key, value)
+
     def _check_unknown_conf(self, conf):
         """Check that supplied conf dict doesn't specify keys not defined."""
         sub_conf_names = set(conf.keys())
