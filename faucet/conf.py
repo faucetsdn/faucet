@@ -50,7 +50,7 @@ class Conf(object):
     def update(self, conf):
         """Parse supplied YAML config and sanity check."""
         # TODO: check sequences as well.
-        if isinstance(conf, dict):
+        if isistance(conf, dict):
             self.__dict__.update(conf)
             self._check_unknown_conf(conf)
             self._check_defaults_types(conf)
