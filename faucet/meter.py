@@ -16,27 +16,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ryu.lib import ofctl_v1_3 as ofctl
-from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.ofproto import ofproto_v1_3_parser as parser
-
-
 try:
     from conf import Conf
+    from valve_of import meteradd
 except ImportError:
     from faucet.conf import Conf
-
-
-class NoopDP(object):
-
-    id = 0
-    msg = None
-
-    def send_msg(self, msg):
-        self.msg = msg
-
-    def set_xid(self, msg):
-        msg.xid = 0
+    from faucet.valve_of import meteradd
 
 
 class Meter(Conf):
@@ -55,19 +40,11 @@ class Meter(Conf):
         'meter_id': int,
     }
 
-    def __init__(self, _id, conf=None):
-        if conf is None:
-            conf = {}
-        assert(conf['entry'])
-        assert(conf['entry']['flags'])
-        assert(conf['entry']['bands'])
-        self.update(conf)
+    def __init__(self, _id, conf):
         self._id = _id
+        self.update(conf)
+        assert conf['entry']
+        assert conf['entry']['flags']
+        assert conf['entry']['bands']
         conf['entry']['meter_id'] = self.meter_id
-        noop_dp = NoopDP()
-        noop_dp.ofproto = ofp
-        noop_dp.ofproto_parser = parser
-        ofctl.mod_meter_entry(noop_dp, self.entry, ofp.OFPMC_ADD)
-        noop_dp.msg.xid = None
-        noop_dp.msg.datapath = None
-        self.entry_msg = noop_dp.msg
+        self.entry_msg = meteradd(self.entry)
