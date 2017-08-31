@@ -41,8 +41,7 @@ class Meter(Conf):
     }
 
     def __init__(self, _id, conf):
-        self._id = _id
-        self.update(conf)
+        super(Meter, self).__init__(_id, conf)
         assert conf['entry']
         assert conf['entry']['flags']
         assert conf['entry']['bands']
