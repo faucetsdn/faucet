@@ -19,6 +19,7 @@
 
 import ipaddress
 
+from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil
 from ryu.ofproto import ether
 from ryu.ofproto import inet
@@ -509,6 +510,28 @@ def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):
         ofp.OFPMC_DELETE,
         0,
         meter_id)
+
+
+def meteradd(meter_conf):
+
+    class NoopDP(object):
+
+        id = 0
+        msg = None
+        ofproto = ofp
+        ofproto_parser = parser
+
+        def send_msg(self, msg):
+            self.msg = msg
+
+        def set_xid(self, msg):
+            msg.xid = 0
+
+    noop_dp = NoopDP()
+    ofctl.mod_meter_entry(noop_dp, meter_conf, ofp.OFPMC_ADD)
+    noop_dp.msg.xid = None
+    noop_dp.msg.datapath = None
+    return noop_dp.msg
 
 
 def controller_pps_meteradd(datapath=None, pps=0):
