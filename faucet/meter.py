@@ -21,7 +21,7 @@ try:
     from valve_of import meteradd
 except ImportError:
     from faucet.conf import Conf
-    from faucet.valve_of import meteradd
+    from valve_of import meteradd
 
 
 class Meter(Conf):
