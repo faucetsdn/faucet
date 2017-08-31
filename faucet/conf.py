@@ -49,9 +49,11 @@ class Conf(object):
 
     def update(self, conf):
         """Parse supplied YAML config and sanity check."""
-        self.__dict__.update(conf)
-        self._check_unknown_conf(conf)
-        self._check_defaults_types(conf)
+        # TODO: check sequences as well.
+        if isistance(conf, dict):
+            self.__dict__.update(conf)
+            self._check_unknown_conf(conf)
+            self._check_defaults_types(conf)
 
     def _set_default(self, key, value):
         if key not in self.__dict__ or self.__dict__[key] is None:
