@@ -30,6 +30,7 @@ except ImportError:
 
 
 def check_config(conf_files):
+    """Check a list of FAUCET YAML config files, return 0 if all are valid."""
     logname = '/dev/null'
     logger = logging.getLogger('%s.config' % logname)
     logger_handler = logging.StreamHandler(stream=sys.stderr)
@@ -42,19 +43,20 @@ def check_config(conf_files):
         if parse_result is None:
             return False
         else:
-            _, dps = parse_result
-            for dp in dps:
-                valve_dp = valve.valve_factory(dp)
+            _, valve_dps = parse_result
+            for valve_dp in valve_dps:
+                valve_dp = valve.valve_factory(valve_dp)
                 if valve_dp is None:
                     return False
-                print((dp.to_conf()))
+                print((valve_dp.to_conf()))
     return True
+
 
 def main():
     if check_config(sys.argv[1:]):
         sys.exit(0)
-    else:
-        sys.exit(-1)
+    sys.exit(-1)
+
 
 if __name__ == '__main__':
     main()
