@@ -1,3 +1,5 @@
+"""Configuration for a datapath."""
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
@@ -226,8 +228,7 @@ class DP(Conf):
             assert isinstance(acl, ACL)
 
     def set_defaults(self):
-        for key, value in list(self.defaults.items()):
-            self._set_default(key, value)
+        super(DP, self).set_defaults()
         # fix special cases
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
@@ -335,10 +336,19 @@ class DP(Conf):
             self.stack['graph'] = graph
 
     def shortest_path(self, dest_dp):
+        """Return shortest path to a DP, as a list of DPs."""
         if self.stack is None:
             return None
         return networkx.shortest_path(
             self.stack['graph'], self.name, dest_dp)
+
+    def shortest_path_to_root(self):
+        """Return shortest path to root DP, as list of DPs."""
+        if self.stack is not None:
+            root_dp = self.stack['root_dp']
+            if root_dp != self:
+                return self.shortest_path(root_dp.name)
+        return []
 
     def shortest_path_port(self, dest_dp):
         """Return port on our DP, that is the shortest path towards dest DP."""
@@ -351,13 +361,6 @@ class DP(Conf):
                     peer_dp_ports.append(port)
             return peer_dp_ports[0]
         return None
-
-    def shortest_path_to_root(self):
-        if self.stack is not None:
-            root_dp = self.stack['root_dp']
-            if root_dp != self:
-                return self.shortest_path(root_dp.name)
-        return []
 
     def finalize_config(self, dps):
 
@@ -398,30 +401,33 @@ class DP(Conf):
                 port.mirror = mirror_destination_port.number
                 mirror_destination_port.mirror_destination = True
 
+        def resolve_names_in_acl_actions(attrib_value):
+            if 'meter' in attrib_value:
+                meter_name = attrib_value['meter']
+                assert meter_name in self.meters
+            if 'mirror' in attrib_value:
+                port_name = attrib_value['mirror']
+                port_no = resolve_port_no(port_name)
+                # in V2 config, we might have an ACL that does
+                # not apply to a DP.
+                if port_no is not None:
+                    attrib_value['mirror'] = port_no
+                    port = self.ports[port_no]
+                    port.mirror_destination = True
+                if 'output' in attrib_value:
+                    output_values = attrib_value['output']
+                    if 'port' in output_values:
+                        port_name = output_values['port']
+                        port_no = resolve_port_no(port_name)
+                        if port_no is not None:
+                            output_values['port'] = port_no
+
         def resolve_names_in_acls():
             for acl in list(self.acls.values()):
                 for rule_conf in acl.rules:
                     for attrib, attrib_value in list(rule_conf.items()):
                         if attrib == 'actions':
-                            if 'meter' in attrib_value:
-                                meter_name = attrib_value['meter']
-                                assert meter_name in self.meters
-                            if 'mirror' in attrib_value:
-                                port_name = attrib_value['mirror']
-                                port_no = resolve_port_no(port_name)
-                                # in V2 config, we might have an ACL that does
-                                # not apply to a DP.
-                                if port_no is not None:
-                                    attrib_value['mirror'] = port_no
-                                    port = self.ports[port_no]
-                                    port.mirror_destination = True
-                            if 'output' in attrib_value:
-                                output_values = attrib_value['output']
-                                if 'port' in output_values:
-                                    port_name = output_values['port']
-                                    port_no = resolve_port_no(port_name)
-                                    if port_no is not None:
-                                        output_values['port'] = port_no
+                            resolve_names_in_acl_actions(attrib_value)
 
         def resolve_vlan_names_in_routers():
             for router_name in list(self.routers.keys()):
