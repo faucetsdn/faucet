@@ -204,9 +204,7 @@ class DP(Conf):
 
     def __init__(self, _id, conf):
         """Constructs a new DP object"""
-        self._id = _id
-        self.update(conf)
-        self.set_defaults()
+        super(DP, self).__init__(_id, conf)
         self.acls = {}
         self.vlans = {}
         self.ports = {}
@@ -228,8 +226,7 @@ class DP(Conf):
             assert isinstance(acl, ACL)
 
     def set_defaults(self):
-        for key, value in list(self.defaults.items()):
-            self._set_default(key, value)
+        super(DP, self).set_defaults()
         # fix special cases
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
