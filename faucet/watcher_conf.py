@@ -68,10 +68,8 @@ class WatcherConf(Conf):
     }
 
     def __init__(self, _id, conf, prom_client):
-        self._id = _id
+        super(WatcherConf, self).__init__(_id, conf)
         self.prom_client = prom_client
-        self.update(conf)
-        self.set_defaults()
 
     def set_defaults(self):
         for key, value in list(self.defaults.items()):
