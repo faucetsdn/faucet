@@ -204,9 +204,7 @@ class DP(Conf):
 
     def __init__(self, _id, conf):
         """Constructs a new DP object"""
-        self._id = _id
-        self.update(conf)
-        self.set_defaults()
+        super(DP, self).__init__(_id, conf)
         self.acls = {}
         self.vlans = {}
         self.ports = {}

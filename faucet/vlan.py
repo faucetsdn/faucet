@@ -111,12 +111,8 @@ class VLAN(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
-        if conf is None:
-            conf = {}
-        self._id = _id
+        super(VLAN, self).__init__(_id, conf)
         self.dp_id = dp_id
-        self.update(conf)
-        self.set_defaults()
         self.tagged = []
         self.untagged = []
         self.dyn_host_cache = {}
