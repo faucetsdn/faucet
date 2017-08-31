@@ -83,11 +83,16 @@ class Port(Conf):
     }
 
     def __init__(self, _id, conf=None):
-        super(Port, self).__init__(_id, conf)
+        if conf is None:
+            conf = {}
+        self._id = _id
+        self.update(conf)
+        self.set_defaults()
         self.dyn_phys_up = False
 
     def set_defaults(self):
-        super(Port, self).__set_defaults()
+        for key, value in list(self.defaults.items()):
+            self._set_default(key, value)
         self._set_default('number', self._id)
         self._set_default('name', str(self._id))
         self._set_default('description', self.name)

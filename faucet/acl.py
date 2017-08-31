@@ -31,8 +31,10 @@ class ACL(Conf):
     }
 
     def __init__(self, _id, conf):
-        super(ACL, self).__init__(_id, conf)
-        # TODO: ACL rule content should be type checked.
+        # ACL rule content should be type checked.
+        if conf is None:
+            conf = {}
+        self._id = _id
         self.rules = [x['rule'] for x in conf]
 
     def to_conf(self):
