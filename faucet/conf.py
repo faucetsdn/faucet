@@ -27,8 +27,10 @@ class Conf(object):
         if conf is None:
             conf = {}
         self._id = _id
-        self.update(conf)
-        self.set_defaults()
+        # TODO: handle conf as a sequence.
+        if isinstance(conf, dict):
+            self.update(conf)
+            self.set_defaults()
 
     def _check_unknown_conf(self, conf):
         """Check that supplied conf dict doesn't specify keys not defined."""
@@ -38,7 +40,7 @@ class Conf(object):
 
     def _check_defaults_types(self, conf):
         """Check that conf value is of the correct type."""
-        # assert set(list(self.defaults_types.keys())) == set(list(conf.keys()))
+        #  assert set(list(self.defaults_types.keys())) == set(list(conf.keys()))
         for conf_key, conf_value in list(conf.items()):
             if conf_key in self.defaults_types and conf_value is not None:
                 default_type = self.defaults_types[conf_key]
