@@ -249,8 +249,7 @@ class ValveFloodManager(object):
                 group_id = group_id + valve_of.VLAN_GROUP_OFFSET
             match = self.flood_table.match(
                 vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
-            ofmsgs.append(self.valve_flowmod(
-                self.flood_table.table_id,
+            ofmsgs.append(self.flood_table.flowmod(
                 match=match,
                 command=command,
                 inst=[valve_of.apply_actions([valve_of.group_act(group_id)])],
