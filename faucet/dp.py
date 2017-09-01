@@ -19,15 +19,17 @@
 import networkx
 
 try:
-    from conf import Conf
-    from vlan import VLAN
-    from port import Port
     from acl import ACL
+    from conf import Conf
+    from port import Port
+    from vlan import VLAN
+    from valve_table import ValveTable
 except ImportError:
     from faucet.acl import ACL
     from faucet.conf import Conf
     from faucet.port import Port
     from faucet.vlan import VLAN
+    from faucet.valve_table import ValveTable
 
 
 # Documentation generated using documentation_generator.py
@@ -77,6 +79,7 @@ class DP(Conf):
     proactive_learn = None
     pipeline_config_dir = None
     use_idle_timeout = None
+    tables = {}
     meters = {}
 
     # Values that are set to None will be set using set_defaults
@@ -237,8 +240,7 @@ class DP(Conf):
         self._set_default('high_priority', self.low_priority + 1) # pytype: disable=none-attr
         self._set_default('highest_priority', self.high_priority + 98) # pytype: disable=none-attr
         self._set_default('description', self.name)
-        table_id = self.table_offset
-        for table_name in (
+        for table_id, table_name in enumerate((
                 'port_acl_table',
                 'vlan_table',
                 'vlan_acl_table',
@@ -247,9 +249,9 @@ class DP(Conf):
                 'ipv6_fib_table',
                 'vip_table',
                 'eth_dst_table',
-                'flood_table'):
+                'flood_table')):
             self._set_default(table_name, table_id)
-            table_id += 1 # pytype: disable=none-attr
+            self.tables[table_name] = ValveTable(table_id, table_name)
 
     def add_acl(self, acl_ident, acl):
         self.acls[acl_ident] = acl
