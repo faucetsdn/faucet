@@ -206,48 +206,6 @@ class Valve(object):
             return True
         return False
 
-    def valve_flowreorder(self, input_ofmsgs):
-        """Reorder flows for better OFA performance."""
-        # Move all deletes to be first, and add one barrier,
-        # while preserving order. Platforms that do parallel delete
-        # will perform better and platforms that don't will have
-        # at most only one barrier to deal with.
-        # TODO: further optimizations may be possible - for example,
-        # reorder adds to be in priority order.
-        delete_ofmsgs = []
-        groupadd_ofmsgs = []
-        nondelete_ofmsgs = []
-        for ofmsg in input_ofmsgs:
-            if valve_of.is_flowdel(ofmsg) or valve_of.is_groupdel(ofmsg):
-                delete_ofmsgs.append(ofmsg)
-            elif valve_of.is_groupadd(ofmsg):
-                # The same group_id may be deleted/added multiple times
-                # To avoid group_mod_failed/group_exists error, if the
-                # same group_id is already in groupadd_ofmsgs I replace
-                # it instead of appending it (the last groupadd in
-                # input_ofmsgs is the only one sent to the switch)
-                # TODO: optimize the provisioning to avoid having the
-                # same group_id multiple times in input_ofmsgs
-                new_group_id = True
-                for i, groupadd_ofmsg in enumerate(groupadd_ofmsgs):
-                    if groupadd_ofmsg.group_id == ofmsg.group_id:
-                        groupadd_ofmsgs[i] = ofmsg
-                        new_group_id = False
-                        break
-                if new_group_id:
-                    groupadd_ofmsgs.append(ofmsg)
-            else:
-                nondelete_ofmsgs.append(ofmsg)
-        output_ofmsgs = []
-        if delete_ofmsgs:
-            output_ofmsgs.extend(delete_ofmsgs)
-            output_ofmsgs.append(valve_of.barrier())
-        if groupadd_ofmsgs:
-            output_ofmsgs.extend(groupadd_ofmsgs)
-            output_ofmsgs.append(valve_of.barrier())
-        output_ofmsgs.extend(nondelete_ofmsgs)
-        return output_ofmsgs
-
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []

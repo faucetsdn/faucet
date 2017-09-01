@@ -215,7 +215,7 @@ class Faucet(app_manager.RyuApp):
                 return
 
         valve = self.valves[dp_id]
-        reordered_flow_msgs = valve.valve_flowreorder(flow_msgs)
+        reordered_flow_msgs = valve_of.valve_flowreorder(flow_msgs)
         valve.ofchannel_log(reordered_flow_msgs)
         for flow_msg in reordered_flow_msgs:
             # pylint: disable=no-member

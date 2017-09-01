@@ -110,6 +110,7 @@ def is_groupadd(ofmsg):
 
 
 def apply_meter(meter_id):
+    """Return instruction to apply a meter."""
     return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
 
 
@@ -466,11 +467,13 @@ def flowmod(cookie, command, table_id, priority, out_port, out_group,
 
 
 def group_act(group_id):
+    """Return an action to run a group."""
     return parser.OFPActionGroup(group_id)
 
 
 def bucket(weight=0, watch_port=ofp.OFPP_ANY,
            watch_group=ofp.OFPG_ANY, actions=None):
+    """Return a group action bucket with provided actions."""
     return parser.OFPBucket(
         weight=weight,
         watch_port=watch_port,
@@ -479,6 +482,7 @@ def bucket(weight=0, watch_port=ofp.OFPP_ANY,
 
 
 def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
+    """Modify a group."""
     return parser.OFPGroupMod(
         datapath,
         ofp.OFPGC_MODIFY,
@@ -488,6 +492,7 @@ def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
 
 
 def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
+    """Add a group."""
     return parser.OFPGroupMod(
         datapath,
         ofp.OFPGC_ADD,
@@ -497,6 +502,7 @@ def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
 
 
 def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
+    """Delete a group (default all groups)."""
     return parser.OFPGroupMod(
         datapath,
         ofp.OFPGC_DELETE,
@@ -505,6 +511,7 @@ def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
 
 
 def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):
+    """Delete a meter (default all meters)."""
     return parser.OFPMeterMod(
         datapath,
         ofp.OFPMC_DELETE,
@@ -513,8 +520,10 @@ def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):
 
 
 def meteradd(meter_conf):
+    """Add a meter based on YAML configuration."""
 
     class NoopDP(object):
+        """Fake DP to be able to use ofctl to parse meter config."""
 
         id = 0
         msg = None
@@ -522,9 +531,12 @@ def meteradd(meter_conf):
         ofproto_parser = parser
 
         def send_msg(self, msg):
+            """Save msg only."""
             self.msg = msg
 
-        def set_xid(self, msg):
+        @staticmethod
+        def set_xid(msg):
+            """Clear msg XID."""
             msg.xid = 0
 
     noop_dp = NoopDP()
@@ -535,6 +547,7 @@ def meteradd(meter_conf):
 
 
 def controller_pps_meteradd(datapath=None, pps=0):
+    """Add a PPS meter towards controller."""
     return parser.OFPMeterMod(
         datapath=datapath,
         command=ofp.OFPMC_ADD,
@@ -544,8 +557,52 @@ def controller_pps_meteradd(datapath=None, pps=0):
 
 
 def controller_pps_meterdel(datapath=None):
+    """Delete a PPS meter towards controller."""
     return parser.OFPMeterMod(
         datapath=datapath,
         command=ofp.OFPMC_DELETE,
         flags=ofp.OFPMF_PKTPS,
         meter_id=ofp.OFPM_CONTROLLER)
+
+
+def valve_flowreorder(input_ofmsgs):
+    """Reorder flows for better OFA performance."""
+    # Move all deletes to be first, and add one barrier,
+    # while preserving order. Platforms that do parallel delete
+    # will perform better and platforms that don't will have
+    # at most only one barrier to deal with.
+    # TODO: further optimizations may be possible - for example,
+    # reorder adds to be in priority order.
+    delete_ofmsgs = []
+    groupadd_ofmsgs = []
+    nondelete_ofmsgs = []
+    for ofmsg in input_ofmsgs:
+        if is_flowdel(ofmsg) or is_groupdel(ofmsg):
+            delete_ofmsgs.append(ofmsg)
+        elif is_groupadd(ofmsg):
+            # The same group_id may be deleted/added multiple times
+            # To avoid group_mod_failed/group_exists error, if the
+            # same group_id is already in groupadd_ofmsgs I replace
+            # it instead of appending it (the last groupadd in
+            # input_ofmsgs is the only one sent to the switch)
+            # TODO: optimize the provisioning to avoid having the
+            # same group_id multiple times in input_ofmsgs
+            new_group_id = True
+            for i, groupadd_ofmsg in enumerate(groupadd_ofmsgs):
+                if groupadd_ofmsg.group_id == ofmsg.group_id:
+                    groupadd_ofmsgs[i] = ofmsg
+                    new_group_id = False
+                    break
+            if new_group_id:
+                groupadd_ofmsgs.append(ofmsg)
+        else:
+            nondelete_ofmsgs.append(ofmsg)
+    output_ofmsgs = []
+    if delete_ofmsgs:
+        output_ofmsgs.extend(delete_ofmsgs)
+        output_ofmsgs.append(barrier())
+    if groupadd_ofmsgs:
+        output_ofmsgs.extend(groupadd_ofmsgs)
+        output_ofmsgs.append(barrier())
+    output_ofmsgs.extend(nondelete_ofmsgs)
+    return output_ofmsgs
