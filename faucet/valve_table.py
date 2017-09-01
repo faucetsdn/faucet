@@ -20,6 +20,9 @@
 class ValveTable(object):
     """Wrapper for an OpenFlow table."""
 
-    def __init__(self, table_id, name):
+    def __init__(self, table_id, name, restricted_match_types):
         self.table_id = table_id
         self.name = name
+        self.restricted_match_types = None
+        if restricted_match_types:
+            self.restricted_match_types = set(restricted_match_types)

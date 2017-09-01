@@ -47,16 +47,6 @@ class DP(Conf):
     name = None
     dp_id = None
     configured = False
-    table_offset = None
-    port_acl_table = None
-    vlan_table = None
-    vlan_acl_table = None
-    eth_src_table = None
-    ipv4_fib_table = None
-    ipv6_fib_table = None
-    vip_table = None
-    eth_dst_table = None
-    flood_table = None
     priority_offset = None
     low_priority = None
     high_priority = None
@@ -80,6 +70,7 @@ class DP(Conf):
     pipeline_config_dir = None
     use_idle_timeout = None
     tables = {}
+    tables_by_id = {}
     meters = {}
 
     # Values that are set to None will be set using set_defaults
@@ -89,17 +80,6 @@ class DP(Conf):
         # Name for this dp, used for stats reporting and configuration
         'name': None,
         'interfaces': {},
-        'table_offset': 0,
-        'port_acl_table': None,
-        # The table for internally associating vlans
-        'vlan_table': None,
-        'vlan_acl_table': None,
-        'eth_src_table': None,
-        'ipv4_fib_table': None,
-        'ipv6_fib_table': None,
-        'vip_table': None,
-        'eth_dst_table': None,
-        'flood_table': None,
         # How much to offset default priority by
         'priority_offset': 0,
         # Some priority values
@@ -165,16 +145,6 @@ class DP(Conf):
         'dp_id': int,
         'name': str,
         'interfaces': dict,
-        'table_offset': int,
-        'port_acl_table': int,
-        'vlan_table': int,
-        'vlan_acl_table': int,
-        'eth_src_table': int,
-        'ipv4_fib_table': int,
-        'ipv6_fib_table': int,
-        'vip_table': int,
-        'eth_dst_table': int,
-        'flood_table': int,
         'priority_offset': int,
         'lowest_priority': int,
         'low_priority': int,
@@ -240,18 +210,47 @@ class DP(Conf):
         self._set_default('high_priority', self.low_priority + 1) # pytype: disable=none-attr
         self._set_default('highest_priority', self.high_priority + 98) # pytype: disable=none-attr
         self._set_default('description', self.name)
-        for table_id, table_name in enumerate((
-                'port_acl_table',
-                'vlan_table',
-                'vlan_acl_table',
-                'eth_src_table',
-                'ipv4_fib_table',
-                'ipv6_fib_table',
-                'vip_table',
-                'eth_dst_table',
-                'flood_table')):
-            self._set_default(table_name, table_id)
-            self.tables[table_name] = ValveTable(table_id, table_name)
+
+        for table_id, table_config in enumerate((
+                ('port_acl', None),
+                ('vlan', ('in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type')),
+                ('vlan_acl', None),
+                ('eth_src', ('in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type')),
+                ('ipv4_fib', ('vlan_vid', 'eth_type', 'ipv4_dst')),
+                ('ipv6_fib', ('vlan_vid', 'eth_type', 'ipv6_dst')),
+                ('vip', ('eth_type', 'eth_dst', 'ip_proto', 'arp_tpa')),
+                ('eth_dst', ('in_port', 'vlan_vid', 'eth_dst')),
+                ('flood', ('in_port', 'vlan_vid', 'eth_dst')))):
+            table_name, restricted_match_types = table_config
+            self.tables[table_name] = ValveTable(
+                table_id, table_name, restricted_match_types)
+            self.tables_by_id[table_id] = self.tables[table_name]
+
+    def match_tables(self, match_type):
+        match_tables = []
+        for table_id, table in list(self.tables_by_id.items()):
+            if table.restricted_match_types is not None:
+                if match_type in table.restricted_match_types:
+                    match_tables.append(table_id)
+            else:
+                match_tables.append(table_id)
+        return match_tables
+
+    def in_port_tables(self):
+        """Return list of tables that specify in_port as a match."""
+        return self.match_tables('in_port')
+
+    def vlan_match_tables(self):
+        """Return list of tables that specify vlan_vid as a match."""
+        return self.match_tables('vlan_vid')
+
+    def all_valve_tableids(self):
+        """Return all Valve tables.
+
+        Returns:
+            tuple: all Valve tables as ints.
+        """
+        return list(self.tables_by_id.keys())
 
     def add_acl(self, acl_ident, acl):
         self.acls[acl_ident] = acl
@@ -467,9 +466,8 @@ class DP(Conf):
 
     def get_tables(self):
         result = {}
-        for k in self.defaults:
-            if k.endswith('table'):
-                result[k] = self.__dict__[k]
+        for table_name, table in list(self.dp.tables.items()):
+                result[table_name] = table.table_id
         return result
 
     def to_conf(self):
