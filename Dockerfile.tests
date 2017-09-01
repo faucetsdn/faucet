@@ -44,6 +44,7 @@ RUN \
 ###
 
 RUN \
+  git config --global url.https://github.com/.insteadOf git://github.com/ && \
   /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" |parallel --bar git clone
 
 RUN \
