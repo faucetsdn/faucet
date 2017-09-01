@@ -240,7 +240,9 @@ class Valve(object):
             priority = self.dp.lowest_priority
         if inst is None:
             inst = []
-        flags = ofp.OFPFF_SEND_FLOW_REM if self.dp.use_idle_timeout else 0
+        flags = 0
+        if self.dp.use_idle_timeout:
+            flags = ofp.OFPFF_SEND_FLOW_REM
         return valve_of.flowmod(
             self.dp.cookie,
             command,
