@@ -956,7 +956,7 @@ class Valve(object):
                 self.dp.dp_id)
         for table_id, table in list(self.dp.tables.items()):
             metrics.faucet_config_table_names.labels(
-                dp_id=hex(self.dp.dp_id), name=table.name).set(table.table_id)
+                dp_id=hex(self.dp.dp_id), name=table.name).set(table_id)
 
     def update_metrics(self, metrics):
         """Update Gauge/metrics.
