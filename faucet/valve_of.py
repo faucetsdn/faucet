@@ -124,15 +124,15 @@ def apply_actions(actions):
     return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
 
 
-def goto_table(table_id):
+def goto_table(table):
     """Return instruction to goto table.
 
     Args:
-        table_id (int): table to goto.
+        table (ValveTable): table to goto.
     Returns:
         ryu.ofproto.ofproto_v1_3_parser.OFPInstruction: goto instruction.
     """
-    return parser.OFPInstructionGotoTable(table_id)
+    return parser.OFPInstructionGotoTable(table.table_id)
 
 
 def set_eth_src(eth_src):

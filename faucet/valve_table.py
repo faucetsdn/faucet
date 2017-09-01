@@ -27,12 +27,14 @@ except ImportError:
 class ValveTable(object):
     """Wrapper for an OpenFlow table."""
 
-    def __init__(self, table_id, name, restricted_match_types):
+    def __init__(self, table_id, name, restricted_match_types, flow_cookie, notify_flow_removed=False):
         self.table_id = table_id
         self.name = name
         self.restricted_match_types = None
         if restricted_match_types:
             self.restricted_match_types = set(restricted_match_types)
+        self.flow_cookie = flow_cookie
+        self.notify_flow_removed = False
 
     def match(self, in_port=None, vlan=None,
               eth_type=None, eth_src=None,
@@ -62,11 +64,10 @@ class ValveTable(object):
         if inst is None:
             inst = []
         flags = 0
-        #if self.dp.use_idle_timeout:
-        #    flags = ofp.OFPFF_SEND_FLOW_REM
-        cookie = 0
+        if self.notify_flow_removed:
+            flags = ofp.OFPFF_SEND_FLOW_REM
         return valve_of.flowmod(
-            cookie,
+            self.flow_cookie,
             command,
             self.table_id,
             priority,

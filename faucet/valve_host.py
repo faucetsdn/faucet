@@ -167,7 +167,7 @@ class ValveHostManager(object):
             self.eth_src_table.match(
                 in_port=in_port, vlan=vlan, eth_src=eth_src),
             priority=(self.host_priority - 1),
-            inst=[valve_of.goto_table(self.eth_dst_table.table_id)],
+            inst=[valve_of.goto_table(self.eth_dst_table)],
             hard_timeout=src_rule_hard_timeout,
             idle_timeout=src_rule_idle_timeout))
 

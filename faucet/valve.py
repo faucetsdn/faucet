@@ -310,7 +310,7 @@ class Valve(object):
         if vid in self.dp.vlan_acl_in:
             acl_num = self.dp.vlan_acl_in[vid]
             acl_rule_priority = self.dp.highest_priority
-            acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'].table_id)
+            acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
             for rule_conf in self.dp.acls[acl_num].rules:
                 acl_match, acl_inst = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, self.dp.meters, vlan_vid=vid)
@@ -325,13 +325,13 @@ class Valve(object):
         """Add a flow to flood packets for unknown destinations."""
         return [self.dp.tables['eth_dst'].flowmod(
             priority=self.dp.low_priority,
-            inst=[valve_of.goto_table(self.dp.tables['flood'].table_id)])]
+            inst=[valve_of.goto_table(self.dp.tables['flood'])])]
 
     def _add_controller_learn_flow(self):
         """Add a flow for controller to learn/add flows for destinations."""
         return [self.dp.tables['eth_src'].flowcontroller(
             priority=self.dp.low_priority,
-            inst=[valve_of.goto_table(self.dp.tables['eth_dst'].table_id)])]
+            inst=[valve_of.goto_table(self.dp.tables['eth_dst'])])]
 
     def _add_packetin_meter(self):
         """Add rate limiting of packet in pps (not supported by many DPs)."""
@@ -471,7 +471,7 @@ class Valve(object):
         in_port_match = port_acl_table.match(in_port=port_num)
         if cold_start:
             ofmsgs.extend(port_acl_table.flowdel(in_port_match))
-        acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'].table_id)
+        acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
         if port_num in self.dp.port_acl_in:
             acl_num = self.dp.port_acl_in[port_num]
             acl_rule_priority = self.dp.highest_priority
@@ -503,7 +503,7 @@ class Valve(object):
         push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan.vid)
         push_vlan_inst = [
             valve_of.apply_actions(push_vlan_act),
-            valve_of.goto_table(forwarding_table.table_id)
+            valve_of.goto_table(forwarding_table)
         ]
         null_vlan = namedtuple('null_vlan', 'vid')
         null_vlan.vid = ofp.OFPVID_NONE
@@ -511,7 +511,7 @@ class Valve(object):
 
     def _port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
         vlan_inst = [
-            valve_of.goto_table(forwarding_table.table_id)
+            valve_of.goto_table(forwarding_table)
         ]
         if mirror_act:
             vlan_inst = [valve_of.apply_actions(mirror_act)] + vlan_inst
@@ -580,7 +580,6 @@ class Valve(object):
             # Port is a mirror destination; drop all input packets
             if port.mirror_destination:
                 ofmsgs.append(vlan_table.flowdrop(
-                    vlan_table.table_id,
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.highest_priority))
                 continue
@@ -599,7 +598,7 @@ class Valve(object):
                 ofmsgs.append(vlan_table.flowmod(
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
-                    inst=[valve_of.goto_table(eth_src_table.table_id)]))
+                    inst=[valve_of.goto_table(eth_src_table)]))
                 port_vlans = list(self.dp.vlans.values())
             else:
                 mirror_act = []

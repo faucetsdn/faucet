@@ -40,7 +40,6 @@ except ImportError:
 class DP(Conf):
     """Implement FAUCET configuration for a datapath."""
 
-    wildcard_table = ValveTable(ofp.OFPTT_ALL, 'all', None)
     acls = None
     vlans = None
     ports = None
@@ -178,6 +177,8 @@ class DP(Conf):
         'use_idle_timeout': bool,
     }
 
+    wildcard_table = ValveTable(ofp.OFPTT_ALL, 'all', None, flow_cookie=0)
+
 
     def __init__(self, _id, conf):
         """Constructs a new DP object"""
@@ -202,9 +203,27 @@ class DP(Conf):
         for acl in list(self.acls.values()):
             assert isinstance(acl, ACL)
 
+    def _configure_tables(self):
+        """Configure FAUCET pipeline of tables with matches."""
+        for table_id, table_config in enumerate((
+                ('port_acl', None),
+                ('vlan', ('eth_dst', 'eth_src', 'eth_type', 'in_port', 'vlan_vid')),
+                ('vlan_acl', None),
+                ('eth_src', ('eth_dst', 'eth_src', 'eth_type',
+                             'icmpv6_type', 'in_port', 'ip_proto', 'vlan_vid')),
+                ('ipv4_fib', ('eth_type', 'ipv4_dst', 'vlan_vid')),
+                ('ipv6_fib', ('eth_type', 'ipv6_dst', 'vlan_vid')),
+                ('vip', ('arp_tpa', 'eth_dst', 'eth_type', 'ip_proto')),
+                ('eth_dst', ('eth_dst', 'in_port', 'vlan_vid')),
+                ('flood', ('eth_dst', 'in_port', 'vlan_vid')))):
+            table_name, restricted_match_types = table_config
+            self.tables[table_name] = ValveTable(
+                table_id, table_name, restricted_match_types,
+                self.cookie, notify_flow_removed=self.use_idle_timeout)
+            self.tables_by_id[table_id] = self.tables[table_name]
+
     def set_defaults(self):
         super(DP, self).set_defaults()
-        # fix special cases
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
         self._set_default('lowest_priority', self.priority_offset) # pytype: disable=none-attr
@@ -212,25 +231,12 @@ class DP(Conf):
         self._set_default('high_priority', self.low_priority + 1) # pytype: disable=none-attr
         self._set_default('highest_priority', self.high_priority + 98) # pytype: disable=none-attr
         self._set_default('description', self.name)
-
-        for table_id, table_config in enumerate((
-                ('port_acl', None),
-                ('vlan', ('in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type')),
-                ('vlan_acl', None),
-                ('eth_src', ('in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type')),
-                ('ipv4_fib', ('vlan_vid', 'eth_type', 'ipv4_dst')),
-                ('ipv6_fib', ('vlan_vid', 'eth_type', 'ipv6_dst')),
-                ('vip', ('eth_type', 'eth_dst', 'ip_proto', 'arp_tpa')),
-                ('eth_dst', ('in_port', 'vlan_vid', 'eth_dst')),
-                ('flood', ('in_port', 'vlan_vid', 'eth_dst')))):
-            table_name, restricted_match_types = table_config
-            self.tables[table_name] = ValveTable(
-                table_id, table_name, restricted_match_types)
-            self.tables_by_id[table_id] = self.tables[table_name]
+        self._configure_tables()
 
     def match_tables(self, match_type):
+        """Return list of tables with matches of a specific match type."""
         match_tables = []
-        for table_id, table in list(self.tables_by_id.items()):
+        for table in list(self.tables_by_id.values()):
             if table.restricted_match_types is not None:
                 if match_type in table.restricted_match_types:
                     match_tables.append(table)
