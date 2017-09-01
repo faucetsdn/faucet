@@ -3923,9 +3923,8 @@ vlans:
             mac = dst_mac
         for i in range(timeout):
             for _, debug_log in self._get_ofchannel_logs():
-                match = re.search(pattern, open(debug_log).read())
-            if match:
-                return
+                if re.search(pattern, open(debug_log).read()):
+                    return
             time.sleep(1)
         self.fail('Not received OFPFlowRemoved for host %s' % mac)
 
