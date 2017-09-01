@@ -130,7 +130,6 @@ class Valve(object):
     function switch_features.
     """
 
-    TABLE_MATCH_TYPES = {}
     DEC_TTL = True
     L3 = False
 
@@ -142,72 +141,30 @@ class Valve(object):
         self._packet_in_count_sec = 0
         self._last_packet_in_sec = 0
         self._last_advertise_sec = 0
-        self._register_table_match_types()
         # TODO: functional flow managers require too much state.
         # Should interface with a common composer class.
         self.route_manager_by_ipv = {}
         for fib_table, route_manager_class in (
-                (self.dp.ipv4_fib_table, valve_route.ValveIPv4RouteManager),
-                (self.dp.ipv6_fib_table, valve_route.ValveIPv6RouteManager)):
+                (self.dp.tables['ipv4_fib'], valve_route.ValveIPv4RouteManager),
+                (self.dp.tables['ipv6_fib'], valve_route.ValveIPv6RouteManager)):
             route_manager = route_manager_class(
                 self.logger, self.dp.arp_neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, self.dp.proactive_learn, self.DEC_TTL,
-                fib_table, self.dp.vip_table, self.dp.eth_src_table,
-                self.dp.eth_dst_table, self.dp.flood_table,
+                fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
+                self.dp.tables['eth_dst'], self.dp.tables['flood'],
                 self.dp.highest_priority,
-                self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
-                self.valve_flowcontroller,
                 self.dp.group_table_routing, self.dp.routers)
             self.route_manager_by_ipv[route_manager.IPV] = route_manager
         self.flood_manager = valve_flood.ValveFloodManager(
-            self.dp.flood_table, self.dp.low_priority,
-            self.valve_in_match, self.valve_flowmod,
+            self.dp.tables['flood'], self.dp.low_priority,
             self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root,
             self.dp.group_table)
         self.host_manager = valve_host.ValveHostManager(
-            self.logger, self.dp.eth_src_table, self.dp.eth_dst_table,
+            self.logger, self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.low_priority, self.dp.highest_priority,
-            self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
-            self.valve_flowdrop, self.dp.use_idle_timeout)
-
-    def _register_table_match_types(self):
-        # TODO: functional flow managers should be able to register
-        # the flows they need, themselves.
-        self.TABLE_MATCH_TYPES = {
-            self.dp.vlan_table: (
-                'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type'),
-            self.dp.eth_src_table: (
-                'in_port', 'vlan_vid', 'eth_src', 'eth_dst', 'eth_type',
-                'ip_proto', 'icmpv6_type'),
-            self.dp.ipv4_fib_table: (
-                'vlan_vid', 'eth_type', 'ipv4_dst'),
-            self.dp.ipv6_fib_table: (
-                'vlan_vid', 'eth_type', 'ipv6_dst'),
-            self.dp.vip_table: (
-                'eth_type', 'eth_dst', 'ip_proto', 'arp_tpa'),
-            self.dp.eth_dst_table: (
-                'in_port', 'vlan_vid', 'eth_dst'),
-            self.dp.flood_table: (
-                'in_port', 'vlan_vid', 'eth_dst'),
-        }
-
-    def _in_port_tables(self):
-        """Return list of tables that specify in_port as a match."""
-        in_port_tables = [self.dp.port_acl_table, self.dp.vlan_acl_table]
-        for table_id, match_types in list(self.TABLE_MATCH_TYPES.items()):
-            if 'in_port' in match_types:
-                in_port_tables.append(table_id)
-        return in_port_tables
-
-    def _vlan_match_tables(self):
-        """Return list of tables that specify vlan_vid as a match."""
-        vlan_match_tables = []
-        for table_id, match_types in list(self.TABLE_MATCH_TYPES.items()):
-            if 'vlan_vid' in match_types:
-                vlan_match_tables.append(table_id)
-        return vlan_match_tables
+            self.dp.use_idle_timeout)
 
     def switch_features(self, dp_id, msg):
         """Send configuration flows necessary for the switch implementation.
@@ -236,27 +193,6 @@ class Valve(object):
                 self.ofchannel_logger.debug(
                     '%s %s', log_prefix, ofmsg)
 
-    def valve_in_match(self, table_id, in_port=None, vlan=None,
-                       eth_type=None, eth_src=None,
-                       eth_dst=None, eth_dst_mask=None,
-                       ipv6_nd_target=None, icmpv6_type=None,
-                       nw_proto=None, nw_src=None, nw_dst=None):
-        """Compose an OpenFlow match rule."""
-        match_dict = valve_of.build_match_dict(
-            in_port, vlan, eth_type, eth_src,
-            eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
-            nw_proto, nw_src, nw_dst)
-        if (table_id not in (
-                self.dp.port_acl_table, self.dp.vlan_acl_table, ofp.OFPTT_ALL)):
-            assert table_id in self.TABLE_MATCH_TYPES,\
-                '%u table not registered' % table_id
-            for match_type in match_dict:
-                assert match_type in self.TABLE_MATCH_TYPES[table_id],\
-                    '%s match not registered for table %u' % (
-                        match_type, table_id)
-        match = valve_of.match(match_dict)
-        return match
-
     def _ignore_dpid(self, dp_id):
         """Return True if this datapath ID is not ours.
 
@@ -270,129 +206,10 @@ class Valve(object):
             return True
         return False
 
-    def _all_valve_tables(self):
-        """Return all Valve tables.
-
-        Returns:
-            tuple: all Valve tables as ints.
-        """
-        return (
-            self.dp.vlan_table,
-            self.dp.port_acl_table,
-            self.dp.vlan_acl_table,
-            self.dp.eth_src_table,
-            self.dp.ipv4_fib_table,
-            self.dp.ipv6_fib_table,
-            self.dp.eth_dst_table,
-            self.dp.flood_table)
-
-    def valve_flowmod(self, table_id, match=None, priority=None,
-                      inst=None, command=ofp.OFPFC_ADD, out_port=0,
-                      out_group=0, hard_timeout=0, idle_timeout=0):
-        """Helper function to construct a flow mod message with cookie."""
-        if match is None:
-            match = self.valve_in_match(table_id)
-        if priority is None:
-            priority = self.dp.lowest_priority
-        if inst is None:
-            inst = []
-        flags = ofp.OFPFF_SEND_FLOW_REM if self.dp.use_idle_timeout else 0
-        return valve_of.flowmod(
-            self.dp.cookie,
-            command,
-            table_id,
-            priority,
-            out_port,
-            out_group,
-            match,
-            inst,
-            hard_timeout,
-            idle_timeout,
-            flags)
-
-    def valve_flowdel(self, table_id, match=None, priority=None,
-                      out_port=ofp.OFPP_ANY, strict=False):
-        """Delete matching flows from a table."""
-        command = ofp.OFPFC_DELETE
-        if strict:
-            command = ofp.OFPFC_DELETE_STRICT
-        return [
-            self.valve_flowmod(
-                table_id,
-                match=match,
-                priority=priority,
-                command=command,
-                out_port=out_port,
-                out_group=ofp.OFPG_ANY)]
-
-    def valve_flowdrop(self, table_id, match=None, priority=None,
-                       hard_timeout=0):
-        """Add drop matching flow to a table."""
-        return self.valve_flowmod(
-            table_id,
-            match=match,
-            priority=priority,
-            hard_timeout=hard_timeout,
-            inst=[])
-
-    def valve_flowcontroller(self, table_id, match=None, priority=None,
-                             inst=None, max_len=96):
-        """Add flow outputting to controller."""
-        if inst is None:
-            inst = []
-        return self.valve_flowmod(
-            table_id,
-            match=match,
-            priority=priority,
-            inst=[valve_of.apply_actions(
-                [valve_of.output_controller(max_len)])] + inst)
-
-    def valve_flowreorder(self, input_ofmsgs):
-        """Reorder flows for better OFA performance."""
-        # Move all deletes to be first, and add one barrier,
-        # while preserving order. Platforms that do parallel delete
-        # will perform better and platforms that don't will have
-        # at most only one barrier to deal with.
-        # TODO: further optimizations may be possible - for example,
-        # reorder adds to be in priority order.
-        delete_ofmsgs = []
-        groupadd_ofmsgs = []
-        nondelete_ofmsgs = []
-        for ofmsg in input_ofmsgs:
-            if valve_of.is_flowdel(ofmsg) or valve_of.is_groupdel(ofmsg):
-                delete_ofmsgs.append(ofmsg)
-            elif valve_of.is_groupadd(ofmsg):
-                # The same group_id may be deleted/added multiple times
-                # To avoid group_mod_failed/group_exists error, if the
-                # same group_id is already in groupadd_ofmsgs I replace
-                # it instead of appending it (the last groupadd in
-                # input_ofmsgs is the only one sent to the switch)
-                # TODO: optimize the provisioning to avoid having the
-                # same group_id multiple times in input_ofmsgs
-                new_group_id = True
-                for i, groupadd_ofmsg in enumerate(groupadd_ofmsgs):
-                    if groupadd_ofmsg.group_id == ofmsg.group_id:
-                        groupadd_ofmsgs[i] = ofmsg
-                        new_group_id = False
-                        break
-                if new_group_id:
-                    groupadd_ofmsgs.append(ofmsg)
-            else:
-                nondelete_ofmsgs.append(ofmsg)
-        output_ofmsgs = []
-        if delete_ofmsgs:
-            output_ofmsgs.extend(delete_ofmsgs)
-            output_ofmsgs.append(valve_of.barrier())
-        if groupadd_ofmsgs:
-            output_ofmsgs.extend(groupadd_ofmsgs)
-            output_ofmsgs.append(valve_of.barrier())
-        output_ofmsgs.extend(nondelete_ofmsgs)
-        return output_ofmsgs
-
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []
-        ofmsgs.extend(self.valve_flowdel(ofp.OFPTT_ALL))
+        ofmsgs.extend(self.dp.wildcard_table.flowdel())
         if self.dp.meters:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
@@ -402,55 +219,46 @@ class Valve(object):
     def _delete_all_port_match_flows(self, port):
         """Delete all flows that match an input port from all FAUCET tables."""
         ofmsgs = []
-        for table_id in self._in_port_tables():
-            in_port_match = self.valve_in_match(table_id, in_port=port.number)
-            ofmsgs.extend(self.valve_flowdel(table_id, in_port_match))
+        for table in self.dp.in_port_tables():
+            ofmsgs.extend(table.flowdel(
+                match=table.match(in_port=port.number)))
         return ofmsgs
 
     def _add_default_drop_flows(self):
         """Add default drop rules on all FAUCET tables."""
+        vlan_table = self.dp.tables['vlan']
 
         # default drop on all tables.
         ofmsgs = []
-        for table in self._all_valve_tables():
-            ofmsgs.append(self.valve_flowdrop(
-                table,
-                priority=self.dp.lowest_priority))
+        for table in self.dp.all_valve_tables():
+            ofmsgs.append(table.flowdrop(priority=self.dp.lowest_priority))
 
         # drop broadcast sources
         if self.dp.drop_broadcast_source_address:
-            ofmsgs.append(self.valve_flowdrop(
-                self.dp.vlan_table,
-                self.valve_in_match(
-                    self.dp.vlan_table, eth_src=mac.BROADCAST_STR),
+            ofmsgs.append(vlan_table.flowdrop(
+                vlan_table.match(eth_src=mac.BROADCAST_STR),
                 priority=self.dp.highest_priority))
 
         # antispoof for FAUCET's MAC address
         # TODO: antispoof for controller IPs on this VLAN, too.
         if self.dp.drop_spoofed_faucet_mac:
             for vlan in list(self.dp.vlans.values()):
-                ofmsgs.append(self.valve_flowdrop(
-                    self.dp.vlan_table,
-                    self.valve_in_match(
-                        self.dp.vlan_table, eth_src=vlan.faucet_mac),
+                ofmsgs.append(vlan_table.flowdrop(
+                    vlan_table.match(eth_src=vlan.faucet_mac),
                     priority=self.dp.high_priority))
 
         # drop STP BPDU
         # TODO: compatible bridge loop detection/mitigation.
         if self.dp.drop_bpdu:
             for bpdu_mac in ('01:80:C2:00:00:00', '01:00:0C:CC:CC:CD'):
-                ofmsgs.append(self.valve_flowdrop(
-                    self.dp.vlan_table,
-                    self.valve_in_match(
-                        self.dp.vlan_table, eth_dst=bpdu_mac),
+                ofmsgs.append(vlan_table.flowdrop(
+                    vlan_table.match(eth_dst=bpdu_mac),
                     priority=self.dp.highest_priority))
 
         # drop LLDP, if configured to.
         if self.dp.drop_lldp:
-            ofmsgs.append(self.valve_flowdrop(
-                self.dp.vlan_table,
-                self.valve_in_match(
-                    self.dp.vlan_table, eth_type=ether.ETH_TYPE_LLDP),
+            ofmsgs.append(vlan_table.flowdrop(
+                vlan_table.match(eth_type=ether.ETH_TYPE_LLDP),
                 priority=self.dp.highest_priority))
 
         return ofmsgs
@@ -460,12 +268,11 @@ class Valve(object):
         if vid in self.dp.vlan_acl_in:
             acl_num = self.dp.vlan_acl_in[vid]
             acl_rule_priority = self.dp.highest_priority
-            acl_allow_inst = valve_of.goto_table(self.dp.eth_src_table)
+            acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
             for rule_conf in self.dp.acls[acl_num].rules:
                 acl_match, acl_inst = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, self.dp.meters, vlan_vid=vid)
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.vlan_acl_table,
+                ofmsgs.append(self.dp.tables['vlan_acl'].flowmod(
                     acl_match,
                     priority=acl_rule_priority,
                     inst=acl_inst))
@@ -474,17 +281,15 @@ class Valve(object):
 
     def _add_vlan_flood_flow(self):
         """Add a flow to flood packets for unknown destinations."""
-        return [self.valve_flowmod(
-            self.dp.eth_dst_table,
+        return [self.dp.tables['eth_dst'].flowmod(
             priority=self.dp.low_priority,
-            inst=[valve_of.goto_table(self.dp.flood_table)])]
+            inst=[valve_of.goto_table(self.dp.tables['flood'])])]
 
     def _add_controller_learn_flow(self):
         """Add a flow for controller to learn/add flows for destinations."""
-        return [self.valve_flowcontroller(
-            self.dp.eth_src_table,
+        return [self.dp.tables['eth_src'].flowcontroller(
             priority=self.dp.low_priority,
-            inst=[valve_of.goto_table(self.dp.eth_dst_table)])]
+            inst=[valve_of.goto_table(self.dp.tables['eth_dst'])])]
 
     def _add_packetin_meter(self):
         """Add rate limiting of packet in pps (not supported by many DPs)."""
@@ -529,11 +334,10 @@ class Valve(object):
     def _del_vlan(self, vlan):
         """Delete a configured VLAN."""
         ofmsgs = []
-        tables = self._vlan_match_tables()
-        tables.remove(self.dp.vlan_table)
-        for table_id in tables:
-            match = self.valve_in_match(table_id, vlan=vlan)
-            ofmsgs.extend(self.valve_flowdel(table_id, match=match))
+        vlan_table = self.dp.tables['vlan']
+        for table in self.dp.vlan_match_tables():
+            if table != vlan_table:
+                ofmsgs.extend(table.flowdel(match=table.match(vlan=vlan)))
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs
 
@@ -621,38 +425,34 @@ class Valve(object):
 
     def _port_add_acl(self, port_num, cold_start=False):
         ofmsgs = []
-        in_port_match = self.valve_in_match(
-            self.dp.port_acl_table, in_port=port_num)
+        port_acl_table = self.dp.tables['port_acl']
+        in_port_match = port_acl_table.match(in_port=port_num)
         if cold_start:
-            ofmsgs.extend(
-                self.valve_flowdel(self.dp.port_acl_table, in_port_match))
-        acl_allow_inst = valve_of.goto_table(self.dp.vlan_table)
+            ofmsgs.extend(port_acl_table.flowdel(in_port_match))
+        acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
         if port_num in self.dp.port_acl_in:
             acl_num = self.dp.port_acl_in[port_num]
             acl_rule_priority = self.dp.highest_priority
             for rule_conf in self.dp.acls[acl_num].rules:
                 acl_match, acl_inst = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, self.dp.meters, port_num)
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.port_acl_table,
+                ofmsgs.append(port_acl_table.flowmod(
                     acl_match,
                     priority=acl_rule_priority,
                     inst=acl_inst))
                 acl_rule_priority -= 1
         else:
-            ofmsgs.append(self.valve_flowmod(
-                self.dp.port_acl_table,
+            ofmsgs.append(port_acl_table.flowmod(
                 in_port_match,
                 priority=self.dp.highest_priority,
                 inst=[acl_allow_inst]))
         return ofmsgs
 
     def _port_add_vlan_rules(self, port, vlan_vid, vlan_inst):
+        vlan_table = self.dp.tables['vlan']
         ofmsgs = []
-        ofmsgs.append(self.valve_flowmod(
-            self.dp.vlan_table,
-            self.valve_in_match(
-                self.dp.vlan_table, in_port=port.number, vlan=vlan_vid),
+        ofmsgs.append(vlan_table.flowmod(
+            vlan_table.match(in_port=port.number, vlan=vlan_vid),
             priority=self.dp.low_priority,
             inst=vlan_inst))
         return ofmsgs
@@ -677,8 +477,8 @@ class Valve(object):
 
     def _find_forwarding_table(self, vlan):
         if vlan.vid in self.dp.vlan_acl_in:
-            return self.dp.vlan_acl_table
-        return self.dp.eth_src_table
+            return self.dp.tables['vlan_acl']
+        return self.dp.tables['eth_src']
 
     def _port_add_vlans(self, port, mirror_act,
                         tagged_vlans_with_port, untagged_vlans_with_port):
@@ -694,14 +494,12 @@ class Valve(object):
     def _port_delete_flows(self, port, old_eth_srcs):
         ofmsgs = []
         ofmsgs.extend(self._delete_all_port_match_flows(port))
-        ofmsgs.extend(self.valve_flowdel(
-            self.dp.eth_dst_table, out_port=port.number))
+        ofmsgs.extend(self.dp.tables['eth_dst'].flowdel(out_port=port.number))
         if port.permanent_learn:
             for eth_src in old_eth_srcs:
-                ofmsgs.extend(self.valve_flowdel(
-                    self.dp.eth_src_table,
-                    match=self.valve_in_match(
-                        self.dp.eth_src_table, eth_src=eth_src)))
+                eth_src_table = self.dp.tables['eth_src']
+                ofmsgs.extend(eth_src_table.flowdel(
+                    match=eth_src_table.match(eth_src=eth_src)))
         return ofmsgs
 
     def ports_add(self, dp_id, port_nums, cold_start=False):
@@ -719,6 +517,8 @@ class Valve(object):
 
         ofmsgs = []
         vlans_with_ports_added = set()
+        eth_src_table = self.dp.tables['eth_src']
+        vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
             if valve_of.ignore_port(port_num):
@@ -737,9 +537,8 @@ class Valve(object):
 
             # Port is a mirror destination; drop all input packets
             if port.mirror_destination:
-                ofmsgs.append(self.valve_flowdrop(
-                    self.dp.vlan_table,
-                    match=self.valve_in_match(self.dp.vlan_table, in_port=port_num),
+                ofmsgs.append(vlan_table.flowdrop(
+                    match=vlan_table.match(in_port=port_num),
                     priority=self.dp.highest_priority))
                 continue
 
@@ -754,11 +553,10 @@ class Valve(object):
 
             # If this is a stacking port, accept all VLANs (came from another FAUCET)
             if port.stack is not None:
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.vlan_table,
-                    match=self.valve_in_match(self.dp.vlan_table, in_port=port_num),
+                ofmsgs.append(vlan_table.flowmod(
+                    match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
-                    inst=[valve_of.goto_table(self.dp.eth_src_table)]))
+                    inst=[valve_of.goto_table(eth_src_table)]))
                 port_vlans = list(self.dp.vlans.values())
             else:
                 mirror_act = []
@@ -1010,18 +808,9 @@ class Valve(object):
         metrics.faucet_config_dp_name.labels(
             dp_id=hex(self.dp.dp_id), name=self.dp.name).set(
                 self.dp.dp_id)
-        for table_name, table_id in (
-                ('port_acl', self.dp.port_acl_table),
-                ('vlan', self.dp.vlan_table),
-                ('vlan_acl', self.dp.vlan_acl_table),
-                ('eth_src', self.dp.eth_src_table),
-                ('ipv4_fib', self.dp.ipv4_fib_table),
-                ('ipv6_fib', self.dp.ipv6_fib_table),
-                ('vip', self.dp.vip_table),
-                ('eth_dst', self.dp.eth_dst_table),
-                ('flood', self.dp.flood_table)):
+        for table_id, table in list(self.dp.tables_by_id.items()):
             metrics.faucet_config_table_names.labels(
-                dp_id=hex(self.dp.dp_id), name=table_name).set(table_id)
+                dp_id=hex(self.dp.dp_id), name=table.name).set(table_id)
 
     def update_metrics(self, metrics):
         """Update Gauge/metrics.
@@ -1423,12 +1212,12 @@ class Valve(object):
 
     def flow_timeout(self, table_id, match):
         ofmsgs = []
-        match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
-        if table_id == self.dp.eth_src_table or table_id == self.dp.eth_dst_table:
+        if table_id in (self.dp.tables['eth_src'].table_id, self.dp.tables['eth_dst'].table_id):
             in_port = None
             eth_src = None
             eth_dst = None
             vid = None
+            match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
             for field in match_oxm_fields:
                 if isinstance(field, dict):
                     value = field['OXMTlv']
@@ -1457,22 +1246,21 @@ class TfmValve(Valve):
     SKIP_VALIDATION_TABLES = ()
 
     def _verify_pipeline_config(self, tfm):
-        for table in tfm.body:
-            if table.table_id not in self.TABLE_MATCH_TYPES:
-                continue
+        for tfm_table in tfm.body:
+            table = self.dp.tables_by_id[tfm_table.table_id]
             if table.table_id in self.SKIP_VALIDATION_TABLES:
                 continue
-            pipeline_matches = set(
-                sorted(self.TABLE_MATCH_TYPES[table.table_id]))
-            for prop in table.properties:
+            if table.restricted_match_types is None:
+                continue
+            for prop in tfm_table.properties:
                 if not (isinstance(prop, parser.OFPTableFeaturePropOxm) and prop.type == 8):
                     continue
                 tfm_matches = set(sorted([oxm.type for oxm in prop.oxm_ids]))
-                if tfm_matches != pipeline_matches:
+                if tfm_matches != table.restricted_match_types:
                     self.logger.info(
                         'table %s ID %s match TFM config %s != pipeline %s' % (
-                            table.name, table.table_id,
-                            tfm_matches, pipeline_matches))
+                            tfm_table.name, tfm_table.table_id,
+                            tfm_matches, table.restricted_match_types))
 
     def switch_features(self, dp_id, msg):
         ryu_table_loader = tfm_pipeline.LoadRyuTables(

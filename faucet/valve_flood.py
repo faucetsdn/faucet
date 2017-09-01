@@ -41,13 +41,10 @@ class ValveFloodManager(object):
     )
 
     def __init__(self, flood_table, flood_priority,
-                 valve_in_match, valve_flowmod,
                  dp_stack, dp_ports, dp_shortest_path_to_root,
                  use_group_table):
         self.flood_table = flood_table
         self.flood_priority = flood_priority
-        self.valve_in_match = valve_in_match
-        self.valve_flowmod = valve_flowmod
         self.stack = dp_stack
         self.use_group_table = use_group_table
         self.stack_ports = [
@@ -175,13 +172,12 @@ class ValveFloodManager(object):
                                    exclude_unicast, command, flood_priority,
                                    port, preflood_acts):
         ofmsgs = []
-        match = self.valve_in_match(
-            self.flood_table, vlan=vlan, in_port=port.number,
+        match = self.flood_table.match(
+            vlan=vlan, in_port=port.number,
             eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
         flood_acts = self._build_flood_rule_actions(
             vlan, exclude_unicast, port)
-        ofmsgs.append(self.valve_flowmod(
-            self.flood_table,
+        ofmsgs.append(self.flood_table.flowmod(
             match=match,
             command=command,
             inst=[valve_of.apply_actions(preflood_acts + flood_acts)],
@@ -251,11 +247,9 @@ class ValveFloodManager(object):
             group_id = vlan.vid
             if not eth_dst:
                 group_id = group_id + valve_of.VLAN_GROUP_OFFSET
-            match = self.valve_in_match(
-                self.flood_table, vlan=vlan,
-                eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
-            ofmsgs.append(self.valve_flowmod(
-                self.flood_table,
+            match = self.flood_table.match(
+                vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
+            ofmsgs.append(self.flood_table.flowmod(
                 match=match,
                 command=command,
                 inst=[valve_of.apply_actions([valve_of.group_act(group_id)])],

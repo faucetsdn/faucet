@@ -17,17 +17,20 @@
 # limitations under the License.
 
 import networkx
+from ryu.ofproto import ofproto_v1_3 as ofp
 
 try:
-    from conf import Conf
-    from vlan import VLAN
-    from port import Port
     from acl import ACL
+    from conf import Conf
+    from port import Port
+    from vlan import VLAN
+    from valve_table import ValveTable
 except ImportError:
     from faucet.acl import ACL
     from faucet.conf import Conf
     from faucet.port import Port
     from faucet.vlan import VLAN
+    from faucet.valve_table import ValveTable
 
 
 # Documentation generated using documentation_generator.py
@@ -45,16 +48,6 @@ class DP(Conf):
     name = None
     dp_id = None
     configured = False
-    table_offset = None
-    port_acl_table = None
-    vlan_table = None
-    vlan_acl_table = None
-    eth_src_table = None
-    ipv4_fib_table = None
-    ipv6_fib_table = None
-    vip_table = None
-    eth_dst_table = None
-    flood_table = None
     priority_offset = None
     low_priority = None
     high_priority = None
@@ -77,6 +70,8 @@ class DP(Conf):
     proactive_learn = None
     pipeline_config_dir = None
     use_idle_timeout = None
+    tables = {}
+    tables_by_id = {}
     meters = {}
 
     # Values that are set to None will be set using set_defaults
@@ -86,17 +81,6 @@ class DP(Conf):
         # Name for this dp, used for stats reporting and configuration
         'name': None,
         'interfaces': {},
-        'table_offset': 0,
-        'port_acl_table': None,
-        # The table for internally associating vlans
-        'vlan_table': None,
-        'vlan_acl_table': None,
-        'eth_src_table': None,
-        'ipv4_fib_table': None,
-        'ipv6_fib_table': None,
-        'vip_table': None,
-        'eth_dst_table': None,
-        'flood_table': None,
         # How much to offset default priority by
         'priority_offset': 0,
         # Some priority values
@@ -162,16 +146,6 @@ class DP(Conf):
         'dp_id': int,
         'name': str,
         'interfaces': dict,
-        'table_offset': int,
-        'port_acl_table': int,
-        'vlan_table': int,
-        'vlan_acl_table': int,
-        'eth_src_table': int,
-        'ipv4_fib_table': int,
-        'ipv6_fib_table': int,
-        'vip_table': int,
-        'eth_dst_table': int,
-        'flood_table': int,
         'priority_offset': int,
         'lowest_priority': int,
         'low_priority': int,
@@ -203,6 +177,8 @@ class DP(Conf):
         'use_idle_timeout': bool,
     }
 
+    wildcard_table = ValveTable(ofp.OFPTT_ALL, 'all', None, flow_cookie=0)
+
 
     def __init__(self, _id, conf):
         """Constructs a new DP object"""
@@ -227,9 +203,27 @@ class DP(Conf):
         for acl in list(self.acls.values()):
             assert isinstance(acl, ACL)
 
+    def _configure_tables(self):
+        """Configure FAUCET pipeline of tables with matches."""
+        for table_id, table_config in enumerate((
+                ('port_acl', None),
+                ('vlan', ('eth_dst', 'eth_src', 'eth_type', 'in_port', 'vlan_vid')),
+                ('vlan_acl', None),
+                ('eth_src', ('eth_dst', 'eth_src', 'eth_type',
+                             'icmpv6_type', 'in_port', 'ip_proto', 'vlan_vid')),
+                ('ipv4_fib', ('eth_type', 'ipv4_dst', 'vlan_vid')),
+                ('ipv6_fib', ('eth_type', 'ipv6_dst', 'vlan_vid')),
+                ('vip', ('arp_tpa', 'eth_dst', 'eth_type', 'ip_proto')),
+                ('eth_dst', ('eth_dst', 'in_port', 'vlan_vid')),
+                ('flood', ('eth_dst', 'in_port', 'vlan_vid')))):
+            table_name, restricted_match_types = table_config
+            self.tables[table_name] = ValveTable(
+                table_id, table_name, restricted_match_types,
+                self.cookie, notify_flow_removed=self.use_idle_timeout)
+            self.tables_by_id[table_id] = self.tables[table_name]
+
     def set_defaults(self):
         super(DP, self).set_defaults()
-        # fix special cases
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
         self._set_default('lowest_priority', self.priority_offset) # pytype: disable=none-attr
@@ -237,19 +231,34 @@ class DP(Conf):
         self._set_default('high_priority', self.low_priority + 1) # pytype: disable=none-attr
         self._set_default('highest_priority', self.high_priority + 98) # pytype: disable=none-attr
         self._set_default('description', self.name)
-        table_id = self.table_offset
-        for table_name in (
-                'port_acl_table',
-                'vlan_table',
-                'vlan_acl_table',
-                'eth_src_table',
-                'ipv4_fib_table',
-                'ipv6_fib_table',
-                'vip_table',
-                'eth_dst_table',
-                'flood_table'):
-            self._set_default(table_name, table_id)
-            table_id += 1 # pytype: disable=none-attr
+        self._configure_tables()
+
+    def match_tables(self, match_type):
+        """Return list of tables with matches of a specific match type."""
+        match_tables = []
+        for table in list(self.tables_by_id.values()):
+            if table.restricted_match_types is not None:
+                if match_type in table.restricted_match_types:
+                    match_tables.append(table)
+            else:
+                match_tables.append(table)
+        return match_tables
+
+    def in_port_tables(self):
+        """Return list of tables that specify in_port as a match."""
+        return self.match_tables('in_port')
+
+    def vlan_match_tables(self):
+        """Return list of tables that specify vlan_vid as a match."""
+        return self.match_tables('vlan_vid')
+
+    def all_valve_tables(self):
+        """Return all Valve tables.
+
+        Returns:
+            list: all ValveTables.
+        """
+        return list(self.tables_by_id.values())
 
     def add_acl(self, acl_ident, acl):
         self.acls[acl_ident] = acl
@@ -465,9 +474,8 @@ class DP(Conf):
 
     def get_tables(self):
         result = {}
-        for k in self.defaults:
-            if k.endswith('table'):
-                result[k] = self.__dict__[k]
+        for table_name, table in list(self.dp.tables.items()):
+            result[table_name] = table.table_id
         return result
 
     def to_conf(self):
