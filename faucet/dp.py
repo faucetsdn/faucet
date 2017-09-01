@@ -17,6 +17,7 @@
 # limitations under the License.
 
 import networkx
+from ryu.ofproto import ofproto_v1_3 as ofp
 
 try:
     from acl import ACL
@@ -39,6 +40,7 @@ except ImportError:
 class DP(Conf):
     """Implement FAUCET configuration for a datapath."""
 
+    wildcard_table = ValveTable(ofp.OFPTT_ALL, 'all', None)
     acls = None
     vlans = None
     ports = None
@@ -231,9 +233,9 @@ class DP(Conf):
         for table_id, table in list(self.tables_by_id.items()):
             if table.restricted_match_types is not None:
                 if match_type in table.restricted_match_types:
-                    match_tables.append(table_id)
+                    match_tables.append(table)
             else:
-                match_tables.append(table_id)
+                match_tables.append(table)
         return match_tables
 
     def in_port_tables(self):

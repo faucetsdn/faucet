@@ -145,29 +145,28 @@ class Valve(object):
         # Should interface with a common composer class.
         self.route_manager_by_ipv = {}
         for fib_table, route_manager_class in (
-                (self.dp.tables['ipv4_fib'].table_id, valve_route.ValveIPv4RouteManager),
-                (self.dp.tables['ipv6_fib'].table_id, valve_route.ValveIPv6RouteManager)):
+                (self.dp.tables['ipv4_fib'], valve_route.ValveIPv4RouteManager),
+                (self.dp.tables['ipv6_fib'], valve_route.ValveIPv6RouteManager)):
             route_manager = route_manager_class(
                 self.logger, self.dp.arp_neighbor_timeout,
                 self.dp.max_hosts_per_resolve_cycle, self.dp.max_host_fib_retry_count,
                 self.dp.max_resolve_backoff_time, self.dp.proactive_learn, self.DEC_TTL,
-                fib_table, self.dp.tables['vip'].table_id, self.dp.tables['eth_src'].table_id,
-                self.dp.tables['eth_dst'].table_id, self.dp.tables['flood'].table_id,
+                fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
+                self.dp.tables['eth_dst'], self.dp.tables['flood'],
                 self.dp.highest_priority,
-                self.valve_in_match, self.valve_flowdel, self.valve_flowmod,
+                self.valve_flowdel, self.valve_flowmod,
                 self.valve_flowcontroller,
                 self.dp.group_table_routing, self.dp.routers)
             self.route_manager_by_ipv[route_manager.IPV] = route_manager
         self.flood_manager = valve_flood.ValveFloodManager(
-            self.dp.tables['flood'].table_id, self.dp.low_priority,
-            self.valve_in_match, self.valve_flowmod,
+            self.dp.tables['flood'], self.dp.low_priority, self.valve_flowmod,
             self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root,
             self.dp.group_table)
         self.host_manager = valve_host.ValveHostManager(
-            self.logger, self.dp.tables['eth_src'].table_id, self.dp.tables['eth_dst'].table_id,
+            self.logger, self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.low_priority, self.dp.highest_priority,
-            self.valve_in_match, self.valve_flowmod, self.valve_flowdel,
+            self.valve_flowmod, self.valve_flowdel,
             self.valve_flowdrop, self.dp.use_idle_timeout)
 
     def switch_features(self, dp_id, msg):
@@ -197,26 +196,6 @@ class Valve(object):
                 self.ofchannel_logger.debug(
                     '%s %s', log_prefix, ofmsg)
 
-    def valve_in_match(self, table_id, in_port=None, vlan=None,
-                       eth_type=None, eth_src=None,
-                       eth_dst=None, eth_dst_mask=None,
-                       ipv6_nd_target=None, icmpv6_type=None,
-                       nw_proto=None, nw_src=None, nw_dst=None):
-        """Compose an OpenFlow match rule."""
-        match_dict = valve_of.build_match_dict(
-            in_port, vlan, eth_type, eth_src,
-            eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
-            nw_proto, nw_src, nw_dst)
-        if table_id != ofp.OFPTT_ALL:
-            assert table_id in self.dp.tables_by_id, '%u table not registered' % table_id
-            table = self.dp.tables_by_id[table_id]
-            if table.restricted_match_types is not None:
-                for match_type in match_dict:
-                    assert match_type in table.restricted_match_types, '%s match not registered for table %u' % (
-                        match_type, table_id)
-        match = valve_of.match(match_dict)
-        return match
-
     def _ignore_dpid(self, dp_id):
         """Return True if this datapath ID is not ours.
 
@@ -235,7 +214,7 @@ class Valve(object):
                       out_group=0, hard_timeout=0, idle_timeout=0):
         """Helper function to construct a flow mod message with cookie."""
         if match is None:
-            match = self.valve_in_match(table_id)
+           match = self.dp.wildcard_table.match()
         if priority is None:
             priority = self.dp.lowest_priority
         if inst is None:
@@ -338,7 +317,7 @@ class Valve(object):
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []
-        ofmsgs.extend(self.valve_flowdel(ofp.OFPTT_ALL))
+        ofmsgs.extend(self.valve_flowdel(self.dp.wildcard_table.table_id))
         if self.dp.meters:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
@@ -348,9 +327,9 @@ class Valve(object):
     def _delete_all_port_match_flows(self, port):
         """Delete all flows that match an input port from all FAUCET tables."""
         ofmsgs = []
-        for table_id in self.dp.in_port_tables():
-            in_port_match = self.valve_in_match(table_id, in_port=port.number)
-            ofmsgs.extend(self.valve_flowdel(table_id, in_port_match))
+        for table in self.dp.in_port_tables():
+            in_port_match = table.match(in_port=port.number)
+            ofmsgs.extend(self.valve_flowdel(table.table_id, in_port_match))
         return ofmsgs
 
     def _add_default_drop_flows(self):
@@ -472,11 +451,11 @@ class Valve(object):
     def _del_vlan(self, vlan):
         """Delete a configured VLAN."""
         ofmsgs = []
-        tables = self.dp.vlan_match_tables()
-        tables.remove(self.dp.tables[vlan].table_id)
-        for table_id in tables:
-            match = self.valve_in_match(table_id, vlan=vlan)
-            ofmsgs.extend(self.valve_flowdel(table_id, match=match))
+        vlan_table = self.dp.tables['vlan']
+        for table in self.dp.vlan_match_tables():
+            if table != vlan_table:
+                ofmsgs.extend(self.valve_flowdel(
+                    table.table_id, match=table.match(vlan=vlan)))
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs
 
@@ -603,7 +582,7 @@ class Valve(object):
         push_vlan_act = mirror_act + valve_of.push_vlan_act(vlan.vid)
         push_vlan_inst = [
             valve_of.apply_actions(push_vlan_act),
-            valve_of.goto_table(forwarding_table)
+            valve_of.goto_table(forwarding_table.table_id)
         ]
         null_vlan = namedtuple('null_vlan', 'vid')
         null_vlan.vid = ofp.OFPVID_NONE
@@ -611,7 +590,7 @@ class Valve(object):
 
     def _port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
         vlan_inst = [
-            valve_of.goto_table(forwarding_table)
+            valve_of.goto_table(forwarding_table.table_id)
         ]
         if mirror_act:
             vlan_inst = [valve_of.apply_actions(mirror_act)] + vlan_inst
@@ -619,8 +598,8 @@ class Valve(object):
 
     def _find_forwarding_table(self, vlan):
         if vlan.vid in self.dp.vlan_acl_in:
-            return self.dp.tables['vlan_acl'].table_id
-        return self.dp.tables['eth_src'].table_id
+            return self.dp.tables['vlan_acl']
+        return self.dp.tables['eth_src']
 
     def _port_add_vlans(self, port, mirror_act,
                         tagged_vlans_with_port, untagged_vlans_with_port):
@@ -661,6 +640,8 @@ class Valve(object):
 
         ofmsgs = []
         vlans_with_ports_added = set()
+        eth_src_table = self.dp.tables['eth_src']
+        vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
             if valve_of.ignore_port(port_num):
@@ -676,7 +657,6 @@ class Valve(object):
 
             if not port.running():
                 continue
-            vlan_table = self.dp.tables['vlan']
 
             # Port is a mirror destination; drop all input packets
             if port.mirror_destination:
@@ -701,7 +681,7 @@ class Valve(object):
                     vlan_table.table_id,
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
-                    inst=[valve_of.goto_table(self.dp.tables['eth_src'].table_id)]))
+                    inst=[valve_of.goto_table(self.dp.eth_src_tables.table_id)]))
                 port_vlans = list(self.dp.vlans.values())
             else:
                 mirror_act = []

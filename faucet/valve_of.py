@@ -415,7 +415,7 @@ def build_match_dict(in_port=None, vlan=None,
         match_dict['in_port'] = in_port
     if vlan is not None:
         if vlan.vid == ofp.OFPVID_NONE:
-            match_dict['vlan_vid'] = ofp.OFPVID_NONE
+            match_dict['vlan_vid'] = int(ofp.OFPVID_NONE)
         elif vlan.vid == ofp.OFPVID_PRESENT:
             match_dict['vlan_vid'] = (ofp.OFPVID_PRESENT, ofp.OFPVID_PRESENT)
         else:

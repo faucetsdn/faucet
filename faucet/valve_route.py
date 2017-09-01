@@ -58,8 +58,7 @@ class ValveRouteManager(object):
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl,
                  fib_table, vip_table, eth_src_table, eth_dst_table, flood_table,
-                 route_priority,
-                 valve_in_match, valve_flowdel, valve_flowmod,
+                 route_priority, valve_flowdel, valve_flowmod,
                  valve_flowcontroller, use_group_table, routers):
         self.logger = logger
         self.arp_neighbor_timeout = arp_neighbor_timeout
@@ -74,7 +73,6 @@ class ValveRouteManager(object):
         self.eth_dst_table = eth_dst_table
         self.flood_table = flood_table
         self.route_priority = route_priority
-        self.valve_in_match = valve_in_match
         self.valve_flowdel = valve_flowdel
         self.valve_flowmod = valve_flowmod
         self.valve_flowcontroller = valve_flowcontroller
@@ -122,8 +120,7 @@ class ValveRouteManager(object):
         return ofmsgs
 
     def _route_match(self, vlan, ip_dst):
-        return self.valve_in_match(
-            self.fib_table, vlan=vlan, eth_type=self.ETH_TYPE, nw_dst=ip_dst)
+        self.fib_table.match(vlan=vlan, eth_type=self.ETH_TYPE, nw_dst=ip_dst)
 
     def _route_priority(self, ip_dst):
         prefixlen = ipaddress.ip_network(ip_dst).prefixlen
@@ -142,27 +139,25 @@ class ValveRouteManager(object):
         learn_connected_priority = self.route_priority + faucet_vip.network.prefixlen
         ofmsgs = []
         ofmsgs.append(self.valve_flowmod(
-            self.eth_src_table,
-            self.valve_in_match(
-                self.eth_src_table,
+            self.eth_src_table.table_id,
+            self.eth_src_table.match(
                 eth_type=self.ETH_TYPE,
                 eth_dst=vlan.faucet_mac,
                 vlan=vlan),
             priority=self.route_priority,
-            inst=[valve_of.goto_table(self.fib_table)]))
+            inst=[valve_of.goto_table(self.fib_table.table_id)]))
         ofmsgs.append(self.valve_flowmod(
-            self.fib_table,
-            self.valve_in_match(
+            self.fib_table.table_id,
+            self.fib_table.match(
                 self.fib_table,
                 eth_type=self.ETH_TYPE,
                 vlan=vlan,
                 nw_dst=faucet_vip_host),
             priority=priority,
-            inst=[valve_of.goto_table(self.vip_table)]))
+            inst=[valve_of.goto_table(self.vip_table.table_id)]))
         ofmsgs.append(self.valve_flowcontroller(
-            self.vip_table,
-            self.valve_in_match(
-                self.vip_table,
+            self.vip_table.table_id,
+            self.vip_table.match(
                 eth_type=self.ETH_TYPE,
                 nw_proto=self.ICMP_TYPE),
             priority=priority,
@@ -171,18 +166,15 @@ class ValveRouteManager(object):
             for routed_vlan in self._routed_vlans(vlan):
                 ofmsgs.append(self.valve_flowmod(
                     self.fib_table,
-                    self.valve_in_match(
-                        self.fib_table,
+                    self.fib_table.match(
                         eth_type=self.ETH_TYPE,
                         vlan=routed_vlan,
                         nw_dst=faucet_vip),
                     priority=learn_connected_priority,
-                    inst=[valve_of.goto_table(self.vip_table)]))
+                    inst=[valve_of.goto_table(self.vip_table.table_id)]))
             ofmsgs.append(self.valve_flowcontroller(
                 self.vip_table,
-                self.valve_in_match(
-                    self.vip_table,
-                    eth_type=self.ETH_TYPE),
+                self.vip_table.match(eth_type=self.ETH_TYPE),
                 priority=priority,
                 max_len=self.MAX_LEN))
         return ofmsgs
@@ -217,11 +209,11 @@ class ValveRouteManager(object):
                 group_id=self.ip_gw_to_group_id[ip_gw])])]
         else:
             inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst, vlan)),
-                    valve_of.goto_table(self.eth_dst_table)]
+                    valve_of.goto_table(self.eth_dst_table.table_id)]
         for routed_vlan in self._routed_vlans(vlan):
             in_match = self._route_match(routed_vlan, ip_dst)
             ofmsgs.append(self.valve_flowmod(
-                self.fib_table,
+                self.fib_table.table_id,
                 in_match,
                 priority=self._route_priority(ip_dst),
                 inst=inst))
@@ -466,7 +458,7 @@ class ValveRouteManager(object):
                 dst_int = self._host_ip_to_host_int(dst_ip)
                 in_match = self._route_match(vlan, dst_int)
                 ofmsgs.append(self.valve_flowmod(
-                    self.fib_table,
+                    self.fib_table.table_id,
                     in_match,
                     priority=priority,
                     hard_timeout=self.arp_neighbor_timeout))
@@ -577,15 +569,13 @@ class ValveRouteManager(object):
         ofmsgs = []
         for routed_vlan in self._routed_vlans(vlan):
             if ip_dst.prefixlen == 0:
-                route_match = self.valve_in_match(
-                    self.fib_table, vlan=routed_vlan,
-                    eth_type=self.ETH_TYPE)
+                route_match = self.fib_table.match(
+                    vlan=routed_vlan, eth_type=self.ETH_TYPE)
             else:
-                route_match = self.valve_in_match(
-                    self.fib_table, vlan=routed_vlan,
-                    eth_type=self.ETH_TYPE, nw_dst=ip_dst)
+                route_match = self.fib_table.match(
+                    vlan=routed_vlan, eth_type=self.ETH_TYPE, nw_dst=ip_dst)
             ofmsgs.extend(self.valve_flowdel(
-                self.fib_table, route_match,
+                self.fib_table.table_id, route_match,
                 priority=self._route_priority(ip_dst),
                 strict=True))
         return ofmsgs
@@ -635,34 +625,29 @@ class ValveIPv4RouteManager(ValveRouteManager):
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         ofmsgs = []
         ofmsgs.append(self.valve_flowmod(
-            self.eth_src_table,
-            self.valve_in_match(
-                self.eth_src_table,
+            self.eth_src_table.table_id,
+            self.eth_src_table.match(
                 eth_type=ether.ETH_TYPE_ARP,
                 vlan=vlan),
             priority=priority,
-            inst=[valve_of.goto_table(self.vip_table)]))
+            inst=[valve_of.goto_table(self.vip_table.table_id)]))
         ofmsgs.append(self.valve_flowmod(
-            self.vip_table,
-            self.valve_in_match(
-                self.vip_table,
-                eth_type=ether.ETH_TYPE_ARP),
+            self.vip_table.table_id,
+            self.vip_table.match(eth_type=ether.ETH_TYPE_ARP),
             priority=priority,
-            inst=[valve_of.goto_table(self.eth_dst_table)]))
+            inst=[valve_of.goto_table(self.eth_dst_table.table_id)]))
         priority += 1
         ofmsgs.append(self.valve_flowmod(
-            self.vip_table,
-            self.valve_in_match(
-                self.vip_table,
+            self.vip_table.table_id,
+            self.vip_table.match(
                 eth_type=ether.ETH_TYPE_ARP,
                 eth_dst=mac.BROADCAST_STR),
             priority=priority,
-            inst=[valve_of.goto_table(self.flood_table)]))
+            inst=[valve_of.goto_table(self.flood_table.table_id)]))
         priority += 1
         ofmsgs.append(self.valve_flowcontroller(
-            self.vip_table,
-            self.valve_in_match(
-                self.vip_table,
+            self.vip_table.table_id,
+            self.vip_table.match(
                 eth_type=ether.ETH_TYPE_ARP,
                 nw_dst=faucet_vip_host),
             priority=priority,
@@ -767,12 +752,11 @@ class ValveIPv6RouteManager(ValveRouteManager):
             valve_packet.ipv6_solicited_node_from_ucast(faucet_vip.ip))
         controller_and_flood = [
             valve_of.apply_actions([valve_of.output_controller()]),
-            valve_of.goto_table(self.flood_table)]
+            valve_of.goto_table(self.flood_table.table_id)]
         ofmsgs = []
         ofmsgs.append(self.valve_flowmod(
-            self.eth_src_table,
-            self.valve_in_match(
-                self.eth_src_table,
+            self.eth_src_table.table_id,
+            self.eth_src_table.match(
                 eth_type=self.ETH_TYPE,
                 eth_dst=faucet_vip_host_nd_mcast,
                 vlan=vlan,
@@ -781,9 +765,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
             priority=priority,
             inst=controller_and_flood))
         ofmsgs.append(self.valve_flowcontroller(
-            self.eth_src_table,
-            self.valve_in_match(
-                self.eth_src_table,
+            self.eth_src_table.table_id,
+            self.eth_src_table.match(
                 eth_type=self.ETH_TYPE,
                 eth_dst=vlan.faucet_mac,
                 vlan=vlan,
@@ -792,9 +775,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
             priority=priority))
         if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
             ofmsgs.append(self.valve_flowmod(
-                self.eth_src_table,
-                self.valve_in_match(
-                    self.eth_src_table,
+                self.eth_src_table.table_id,
+                self.eth_src_table.match(
                     eth_type=self.ETH_TYPE,
                     eth_dst=valve_packet.IPV6_ALL_ROUTERS_MCAST,
                     vlan=vlan,
