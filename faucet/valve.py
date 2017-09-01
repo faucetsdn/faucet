@@ -496,8 +496,8 @@ class Valve(object):
         ofmsgs.extend(self._delete_all_port_match_flows(port))
         ofmsgs.extend(self.dp.tables['eth_dst'].flowdel(out_port=port.number))
         if port.permanent_learn:
+            eth_src_table = self.dp.tables['eth_src']
             for eth_src in old_eth_srcs:
-                eth_src_table = self.dp.tables['eth_src']
                 ofmsgs.extend(eth_src_table.flowdel(
                     match=eth_src_table.match(eth_src=eth_src)))
         return ofmsgs
