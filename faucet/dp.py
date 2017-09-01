@@ -401,33 +401,30 @@ class DP(Conf):
                 port.mirror = mirror_destination_port.number
                 mirror_destination_port.mirror_destination = True
 
-        def resolve_names_in_acl_actions(attrib_value):
-            if 'meter' in attrib_value:
-                meter_name = attrib_value['meter']
-                assert meter_name in self.meters
-            if 'mirror' in attrib_value:
-                port_name = attrib_value['mirror']
-                port_no = resolve_port_no(port_name)
-                # in V2 config, we might have an ACL that does
-                # not apply to a DP.
-                if port_no is not None:
-                    attrib_value['mirror'] = port_no
-                    port = self.ports[port_no]
-                    port.mirror_destination = True
-                if 'output' in attrib_value:
-                    output_values = attrib_value['output']
-                    if 'port' in output_values:
-                        port_name = output_values['port']
-                        port_no = resolve_port_no(port_name)
-                        if port_no is not None:
-                            output_values['port'] = port_no
-
         def resolve_names_in_acls():
             for acl in list(self.acls.values()):
                 for rule_conf in acl.rules:
                     for attrib, attrib_value in list(rule_conf.items()):
                         if attrib == 'actions':
-                            resolve_names_in_acl_actions(attrib_value)
+                            if 'meter' in attrib_value:
+                                meter_name = attrib_value['meter']
+                                assert meter_name in self.meters
+                            if 'mirror' in attrib_value:
+                                port_name = attrib_value['mirror']
+                                port_no = resolve_port_no(port_name)
+                                # in V2 config, we might have an ACL that does
+                                # not apply to a DP.
+                                if port_no is not None:
+                                    attrib_value['mirror'] = port_no
+                                    port = self.ports[port_no]
+                                    port.mirror_destination = True
+                            if 'output' in attrib_value:
+                                output_values = attrib_value['output']
+                                if 'port' in output_values:
+                                    port_name = output_values['port']
+                                    port_no = resolve_port_no(port_name)
+                                    if port_no is not None:
+                                        output_values['port'] = port_no
 
         def resolve_vlan_names_in_routers():
             for router_name in list(self.routers.keys()):

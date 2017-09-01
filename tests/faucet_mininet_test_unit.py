@@ -678,6 +678,9 @@ class FaucetZodiacUntaggedTest(FaucetUntaggedTest):
 class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
     """Test mixture of tagged and untagged hosts on the same VLAN."""
 
+    N_TAGGED = 1
+    N_UNTAGGED = 3
+
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -1795,6 +1798,9 @@ vlans:
 
 
 class FaucetTaggedAndUntaggedTest(FaucetTest):
+
+    N_TAGGED = 2
+    N_UNTAGGED = 4
 
     CONFIG_GLOBAL = """
 vlans:

@@ -16,12 +16,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from prometheus_client import start_http_server
 from prometheus_client import Gauge as PromGauge # avoid collision
+
 try:
     from gauge_pollers import GaugePortStatsPoller
+    from prom_client import PromClient
 except ImportError:
     from faucet.gauge_pollers import GaugePortStatsPoller
+    from faucet.prom_client import PromClient
+
 
 PROM_PREFIX_DELIM = '_'
 PROM_PORT_PREFIX = 'of_port'
@@ -35,10 +38,9 @@ PROM_PORT_VARS = (
     'rx_errors')
 
 
-class GaugePrometheusClient(object):
+class GaugePrometheusClient(PromClient):
     """Wrapper for Prometheus client that is shared between all pollers."""
 
-    running = False
     metrics = {}
 
     def __init__(self):
@@ -52,12 +54,6 @@ class GaugePrometheusClient(object):
             self.metrics[exported_prom_var] = PromGauge(
                 exported_prom_var, '', ['dp_id', 'port_name'])
 
-    def start(self, addr, port):
-        """Start Prometheus client if not already running."""
-        if not self.running:
-            start_http_server(int(port), addr)
-            self.running = True
-
 
 class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
     """Exports port stats to Prometheus."""
@@ -65,9 +61,8 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
     def __init__(self, conf, logger, prom_client):
         super(GaugePortStatsPrometheusPoller, self).__init__(
             conf, logger, prom_client)
-        if not self.prom_client.running:
-            self.prom_client.start(
-                self.conf.prometheus_addr, self.conf.prometheus_port)
+        self.prom_client.start(
+            self.conf.prometheus_port, self.conf.prometheus_addr)
 
     def _format_port_stats(self, delim, stat):
         formatted_port_stats = []
