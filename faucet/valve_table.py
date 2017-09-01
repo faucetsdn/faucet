@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ryu.ofproto import ofproto_v1_3 as ofp
 
 try:
     import valve_of
@@ -49,3 +50,61 @@ class ValveTable(object):
                 assert match_type in self.restricted_match_types, '%s match in table %s' % (
                     match_type, self.name)
         return match
+
+    def flowmod(self, match=None, priority=None,
+                inst=None, command=ofp.OFPFC_ADD, out_port=0,
+                out_group=0, hard_timeout=0, idle_timeout=0):
+        """Helper function to construct a flow mod message with cookie."""
+        if match is None:
+            match = self.match()
+        if priority is None:
+            priority = 0 # self.dp.lowest_priority
+        if inst is None:
+            inst = []
+        flags = 0
+        #if self.dp.use_idle_timeout:
+        #    flags = ofp.OFPFF_SEND_FLOW_REM
+        cookie = 0
+        return valve_of.flowmod(
+            cookie,
+            command,
+            self.table_id,
+            priority,
+            out_port,
+            out_group,
+            match,
+            inst,
+            hard_timeout,
+            idle_timeout,
+            flags)
+
+    def flowdel(self, match=None, priority=None, out_port=ofp.OFPP_ANY, strict=False):
+        """Delete matching flows from a table."""
+        command = ofp.OFPFC_DELETE
+        if strict:
+            command = ofp.OFPFC_DELETE_STRICT
+        return [
+            self.flowmod(
+                match=match,
+                priority=priority,
+                command=command,
+                out_port=out_port,
+                out_group=ofp.OFPG_ANY)]
+
+    def flowdrop(self, match=None, priority=None, hard_timeout=0):
+        """Add drop matching flow to a table."""
+        return self.flowmod(
+            match=match,
+            priority=priority,
+            hard_timeout=hard_timeout,
+            inst=[])
+
+    def flowcontroller(self, match=None, priority=None, inst=None, max_len=96):
+        """Add flow outputting to controller."""
+        if inst is None:
+            inst = []
+        return self.flowmod(
+            match=match,
+            priority=priority,
+            inst=[valve_of.apply_actions(
+                [valve_of.output_controller(max_len)])] + inst)

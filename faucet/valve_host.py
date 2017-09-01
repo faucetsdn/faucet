@@ -41,7 +41,7 @@ class ValveHostManager(object):
 
     def __init__(self, logger, eth_src_table, eth_dst_table,
                  learn_timeout, learn_jitter, learn_ban_timeout, low_priority, host_priority,
-                 valve_flowmod, valve_flowdel, valve_flowdrop, use_idle_timeout):
+                 use_idle_timeout):
         self.logger = logger
         self.eth_src_table = eth_src_table
         self.eth_dst_table = eth_dst_table
@@ -50,21 +50,16 @@ class ValveHostManager(object):
         self.learn_ban_timeout = learn_ban_timeout
         self.low_priority = low_priority
         self.host_priority = host_priority
-        self.valve_flowmod = valve_flowmod
-        self.valve_flowdel = valve_flowdel
-        self.valve_flowdrop = valve_flowdrop
         self.use_idle_timeout = use_idle_timeout
 
     def temp_ban_host_learning_on_port(self, port):
-        return self.valve_flowdrop(
-            self.eth_src_table.table_id,
+        return self.eth_src_table.flowdrop(
             self.eth_src_table.match(in_port=port.number),
             priority=(self.low_priority + 1),
             hard_timeout=self.learn_ban_timeout)
 
     def temp_ban_host_learning_on_vlan(self, vlan):
-        return self.valve_flowdrop(
-            self.eth_src_table.table_id,
+        return self.eth_src_table.flowdrop(
             self.eth_src_table.match(vlan=vlan),
             priority=(self.low_priority + 1),
             hard_timeout=self.learn_ban_timeout)
@@ -87,14 +82,12 @@ class ValveHostManager(object):
         ofmsgs = []
         # delete any existing ofmsgs for this vlan/mac combination on the
         # src mac table
-        ofmsgs.extend(self.valve_flowdel(
-            self.eth_src_table.table_id,
+        ofmsgs.extend(self.eth_src_table.flowdel(
             self.eth_src_table.match(vlan=vlan, eth_src=eth_src)))
 
         # delete any existing ofmsgs for this vlan/mac combination on the dst
         # mac table
-        ofmsgs.extend(self.valve_flowdel(
-            self.eth_dst_table.table_id,
+        ofmsgs.extend(self.eth_dst_table.flowdel(
             self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src)))
 
         return ofmsgs
@@ -139,8 +132,7 @@ class ValveHostManager(object):
             learn_timeout = 0
 
             # antispoof this host
-            ofmsgs.append(self.valve_flowdrop(
-                self.eth_src_table.table_id,
+            ofmsgs.append(self.eth_src_table.flowdrop(
                 self.eth_src_table.match(vlan=vlan, eth_src=eth_src),
                 priority=(self.host_priority - 2)))
         else:
@@ -171,8 +163,7 @@ class ValveHostManager(object):
             src_rule_hard_timeout = learn_timeout
             dst_rule_idle_timeout = learn_timeout
 
-        ofmsgs.append(self.valve_flowmod(
-            self.eth_src_table.table_id,
+        ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
                 in_port=in_port, vlan=vlan, eth_src=eth_src),
             priority=(self.host_priority - 1),
@@ -181,16 +172,14 @@ class ValveHostManager(object):
             idle_timeout=src_rule_idle_timeout))
 
         # update datapath to output packets to this mac via the associated port
-        ofmsgs.append(self.valve_flowmod(
-            self.eth_dst_table.table_id,
+        ofmsgs.append(self.eth_dst_table.flowmod(
             self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
             priority=self.host_priority,
             inst=self.build_port_out_inst(vlan, port),
             idle_timeout=dst_rule_idle_timeout))
 
         if port.hairpin:
-            ofmsgs.append(self.valve_flowmod(
-                self.eth_dst_table.table_id,
+            ofmsgs.append(self.eth_dst_table.flowmod(
                 self.eth_dst_table.match(in_port=in_port, vlan=vlan, eth_dst=eth_src),
                 priority=(self.host_priority + 1),
                 inst=self.build_port_out_inst(vlan, port, port_number=valve_of.OFP_IN_PORT),

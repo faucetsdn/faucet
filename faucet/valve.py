@@ -154,20 +154,17 @@ class Valve(object):
                 fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
                 self.dp.tables['eth_dst'], self.dp.tables['flood'],
                 self.dp.highest_priority,
-                self.valve_flowdel, self.valve_flowmod,
-                self.valve_flowcontroller,
                 self.dp.group_table_routing, self.dp.routers)
             self.route_manager_by_ipv[route_manager.IPV] = route_manager
         self.flood_manager = valve_flood.ValveFloodManager(
-            self.dp.tables['flood'], self.dp.low_priority, self.valve_flowmod,
+            self.dp.tables['flood'], self.dp.low_priority,
             self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root,
             self.dp.group_table)
         self.host_manager = valve_host.ValveHostManager(
             self.logger, self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
             self.dp.low_priority, self.dp.highest_priority,
-            self.valve_flowmod, self.valve_flowdel,
-            self.valve_flowdrop, self.dp.use_idle_timeout)
+            self.dp.use_idle_timeout)
 
     def switch_features(self, dp_id, msg):
         """Send configuration flows necessary for the switch implementation.
@@ -208,69 +205,6 @@ class Valve(object):
             self.logger.error('Unknown %s' % valve_util.dpid_log(dp_id))
             return True
         return False
-
-    def valve_flowmod(self, table_id, match=None, priority=None,
-                      inst=None, command=ofp.OFPFC_ADD, out_port=0,
-                      out_group=0, hard_timeout=0, idle_timeout=0):
-        """Helper function to construct a flow mod message with cookie."""
-        if match is None:
-           match = self.dp.wildcard_table.match()
-        if priority is None:
-            priority = self.dp.lowest_priority
-        if inst is None:
-            inst = []
-        flags = 0
-        if self.dp.use_idle_timeout:
-            flags = ofp.OFPFF_SEND_FLOW_REM
-        return valve_of.flowmod(
-            self.dp.cookie,
-            command,
-            table_id,
-            priority,
-            out_port,
-            out_group,
-            match,
-            inst,
-            hard_timeout,
-            idle_timeout,
-            flags)
-
-    def valve_flowdel(self, table_id, match=None, priority=None,
-                      out_port=ofp.OFPP_ANY, strict=False):
-        """Delete matching flows from a table."""
-        command = ofp.OFPFC_DELETE
-        if strict:
-            command = ofp.OFPFC_DELETE_STRICT
-        return [
-            self.valve_flowmod(
-                table_id,
-                match=match,
-                priority=priority,
-                command=command,
-                out_port=out_port,
-                out_group=ofp.OFPG_ANY)]
-
-    def valve_flowdrop(self, table_id, match=None, priority=None,
-                       hard_timeout=0):
-        """Add drop matching flow to a table."""
-        return self.valve_flowmod(
-            table_id,
-            match=match,
-            priority=priority,
-            hard_timeout=hard_timeout,
-            inst=[])
-
-    def valve_flowcontroller(self, table_id, match=None, priority=None,
-                             inst=None, max_len=96):
-        """Add flow outputting to controller."""
-        if inst is None:
-            inst = []
-        return self.valve_flowmod(
-            table_id,
-            match=match,
-            priority=priority,
-            inst=[valve_of.apply_actions(
-                [valve_of.output_controller(max_len)])] + inst)
 
     def valve_flowreorder(self, input_ofmsgs):
         """Reorder flows for better OFA performance."""
@@ -317,7 +251,7 @@ class Valve(object):
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
         ofmsgs = []
-        ofmsgs.extend(self.valve_flowdel(self.dp.wildcard_table.table_id))
+        ofmsgs.extend(self.dp.wildcard_table.flowdel())
         if self.dp.meters:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
@@ -328,8 +262,8 @@ class Valve(object):
         """Delete all flows that match an input port from all FAUCET tables."""
         ofmsgs = []
         for table in self.dp.in_port_tables():
-            in_port_match = table.match(in_port=port.number)
-            ofmsgs.extend(self.valve_flowdel(table.table_id, in_port_match))
+            ofmsgs.extend(table.flowdel(
+                match=table.match(in_port=port.number)))
         return ofmsgs
 
     def _add_default_drop_flows(self):
@@ -338,15 +272,12 @@ class Valve(object):
 
         # default drop on all tables.
         ofmsgs = []
-        for table in self.dp.all_valve_tableids():
-            ofmsgs.append(self.valve_flowdrop(
-                table,
-                priority=self.dp.lowest_priority))
+        for table in self.dp.all_valve_tables():
+            ofmsgs.append(table.flowdrop(priority=self.dp.lowest_priority))
 
         # drop broadcast sources
         if self.dp.drop_broadcast_source_address:
-            ofmsgs.append(self.valve_flowdrop(
-                vlan_table.table_id,
+            ofmsgs.append(vlan_table.flowdrop(
                 vlan_table.match(eth_src=mac.BROADCAST_STR),
                 priority=self.dp.highest_priority))
 
@@ -354,8 +285,7 @@ class Valve(object):
         # TODO: antispoof for controller IPs on this VLAN, too.
         if self.dp.drop_spoofed_faucet_mac:
             for vlan in list(self.dp.vlans.values()):
-                ofmsgs.append(self.valve_flowdrop(
-                    vlan_table.table_id,
+                ofmsgs.append(vlan_table.flowdrop(
                     vlan_table.match(eth_src=vlan.faucet_mac),
                     priority=self.dp.high_priority))
 
@@ -363,15 +293,13 @@ class Valve(object):
         # TODO: compatible bridge loop detection/mitigation.
         if self.dp.drop_bpdu:
             for bpdu_mac in ('01:80:C2:00:00:00', '01:00:0C:CC:CC:CD'):
-                ofmsgs.append(self.valve_flowdrop(
-                    vlan_table.table_id,
+                ofmsgs.append(vlan_table.flowdrop(
                     vlan_table.match(eth_dst=bpdu_mac),
                     priority=self.dp.highest_priority))
 
         # drop LLDP, if configured to.
         if self.dp.drop_lldp:
-            ofmsgs.append(self.valve_flowdrop(
-                vlan_table.table_id,
+            ofmsgs.append(vlan_table.flowdrop(
                 vlan_table.match(eth_type=ether.ETH_TYPE_LLDP),
                 priority=self.dp.highest_priority))
 
@@ -386,8 +314,7 @@ class Valve(object):
             for rule_conf in self.dp.acls[acl_num].rules:
                 acl_match, acl_inst = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, self.dp.meters, vlan_vid=vid)
-                ofmsgs.append(self.valve_flowmod(
-                    self.dp.tables['vlan_acl'].table_id,
+                ofmsgs.append(self.dp.tables['vlan_acl'].flowmod(
                     acl_match,
                     priority=acl_rule_priority,
                     inst=acl_inst))
@@ -396,17 +323,15 @@ class Valve(object):
 
     def _add_vlan_flood_flow(self):
         """Add a flow to flood packets for unknown destinations."""
-        return [self.valve_flowmod(
-            self.dp.tables['eth_dst'].table_id,
+        return [self.dp.tables['eth_dst'].flowmod(
             priority=self.dp.low_priority,
             inst=[valve_of.goto_table(self.dp.tables['flood'].table_id)])]
 
     def _add_controller_learn_flow(self):
         """Add a flow for controller to learn/add flows for destinations."""
-        return [self.valve_flowcontroller(
-            self.dp.tables['eth_src'].table_id,
+        return [self.dp.tables['eth_src'].flowcontroller(
             priority=self.dp.low_priority,
-            inst=[valve_of.goto_table(self.dp.tables['eth_dst'].table_id,)])]
+            inst=[valve_of.goto_table(self.dp.tables['eth_dst'].table_id)])]
 
     def _add_packetin_meter(self):
         """Add rate limiting of packet in pps (not supported by many DPs)."""
@@ -454,8 +379,7 @@ class Valve(object):
         vlan_table = self.dp.tables['vlan']
         for table in self.dp.vlan_match_tables():
             if table != vlan_table:
-                ofmsgs.extend(self.valve_flowdel(
-                    table.table_id, match=table.match(vlan=vlan)))
+                ofmsgs.extend(table.flowdel(match=table.match(vlan=vlan)))
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs
 
@@ -546,7 +470,7 @@ class Valve(object):
         port_acl_table = self.dp.tables['port_acl']
         in_port_match = port_acl_table.match(in_port=port_num)
         if cold_start:
-            ofmsgs.extend(self.valve_flowdel(port_acl_table.table_id, in_port_match))
+            ofmsgs.extend(port_acl_table.flowdel(in_port_match))
         acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'].table_id)
         if port_num in self.dp.port_acl_in:
             acl_num = self.dp.port_acl_in[port_num]
@@ -554,15 +478,13 @@ class Valve(object):
             for rule_conf in self.dp.acls[acl_num].rules:
                 acl_match, acl_inst = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, self.dp.meters, port_num)
-                ofmsgs.append(self.valve_flowmod(
-                    port_acl_table.table_id,
+                ofmsgs.append(port_acl_table.flowmod(
                     acl_match,
                     priority=acl_rule_priority,
                     inst=acl_inst))
                 acl_rule_priority -= 1
         else:
-            ofmsgs.append(self.valve_flowmod(
-                port_acl_table.table_id,
+            ofmsgs.append(port_acl_table.flowmod(
                 in_port_match,
                 priority=self.dp.highest_priority,
                 inst=[acl_allow_inst]))
@@ -571,8 +493,7 @@ class Valve(object):
     def _port_add_vlan_rules(self, port, vlan_vid, vlan_inst):
         vlan_table = self.dp.tables['vlan']
         ofmsgs = []
-        ofmsgs.append(self.valve_flowmod(
-            vlan_table.table_id,
+        ofmsgs.append(vlan_table.flowmod(
             vlan_table.match(in_port=port.number, vlan=vlan_vid),
             priority=self.dp.low_priority,
             inst=vlan_inst))
@@ -615,13 +536,11 @@ class Valve(object):
     def _port_delete_flows(self, port, old_eth_srcs):
         ofmsgs = []
         ofmsgs.extend(self._delete_all_port_match_flows(port))
-        ofmsgs.extend(self.valve_flowdel(
-            self.dp.tables['eth_dst'].table_id, out_port=port.number))
+        ofmsgs.extend(self.dp.tables['eth_dst'].flowdel(out_port=port.number))
         if port.permanent_learn:
             for eth_src in old_eth_srcs:
                 eth_src_table = self.dp.tables['eth_src']
-                ofmsgs.extend(self.valve_flowdel(
-                    eth_src_table.table_id,
+                ofmsgs.extend(eth_src_table.flowdel(
                     match=eth_src_table.match(eth_src=eth_src)))
         return ofmsgs
 
@@ -660,7 +579,7 @@ class Valve(object):
 
             # Port is a mirror destination; drop all input packets
             if port.mirror_destination:
-                ofmsgs.append(self.valve_flowdrop(
+                ofmsgs.append(vlan_table.flowdrop(
                     vlan_table.table_id,
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.highest_priority))
@@ -677,11 +596,10 @@ class Valve(object):
 
             # If this is a stacking port, accept all VLANs (came from another FAUCET)
             if port.stack is not None:
-                ofmsgs.append(self.valve_flowmod(
-                    vlan_table.table_id,
+                ofmsgs.append(vlan_table.flowmod(
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
-                    inst=[valve_of.goto_table(self.dp.eth_src_tables.table_id)]))
+                    inst=[valve_of.goto_table(eth_src_table.table_id)]))
                 port_vlans = list(self.dp.vlans.values())
             else:
                 mirror_act = []

@@ -41,12 +41,10 @@ class ValveFloodManager(object):
     )
 
     def __init__(self, flood_table, flood_priority,
-                 valve_flowmod,
                  dp_stack, dp_ports, dp_shortest_path_to_root,
                  use_group_table):
         self.flood_table = flood_table
         self.flood_priority = flood_priority
-        self.valve_flowmod = valve_flowmod
         self.stack = dp_stack
         self.use_group_table = use_group_table
         self.stack_ports = [
@@ -179,8 +177,7 @@ class ValveFloodManager(object):
             eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
         flood_acts = self._build_flood_rule_actions(
             vlan, exclude_unicast, port)
-        ofmsgs.append(self.valve_flowmod(
-            self.flood_table.table_id,
+        ofmsgs.append(self.flood_table.flowmod(
             match=match,
             command=command,
             inst=[valve_of.apply_actions(preflood_acts + flood_acts)],

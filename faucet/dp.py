@@ -246,13 +246,13 @@ class DP(Conf):
         """Return list of tables that specify vlan_vid as a match."""
         return self.match_tables('vlan_vid')
 
-    def all_valve_tableids(self):
+    def all_valve_tables(self):
         """Return all Valve tables.
 
         Returns:
-            tuple: all Valve tables as ints.
+            list: all ValveTables.
         """
-        return list(self.tables_by_id.keys())
+        return list(self.tables_by_id.values())
 
     def add_acl(self, acl_ident, acl):
         self.acls[acl_ident] = acl
