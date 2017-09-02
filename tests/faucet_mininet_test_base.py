@@ -313,7 +313,8 @@ class FaucetTestBase(unittest.TestCase):
             self.net.start()
             if (self._wait_controllers_logging() and
                     self.wait_dp_status(1) and
-                    self._wait_until_ofctl_up()):
+                    self._wait_until_ofctl_up() and
+                    (not self.RUN_GAUGE or self.wait_gauge_up())):
                 self._config_tableids()
                 return
             self.net.stop()
@@ -801,18 +802,20 @@ dbs:
                 return results[0][1]
         return default
 
-    def wait_gauge_up(self, timeout=60):
+    def wait_gauge_up(self, timeout=20):
         gauge_log = self.env['gauge']['GAUGE_LOG']
-        log_content = ''
         for _ in range(timeout):
             if os.path.exists(gauge_log):
                 log_content = open(gauge_log).read()
                 if re.search('DPID %u.+up' % int(self.dpid), log_content):
-                    return
+                    return True
             self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
             time.sleep(1)
-        self.fail('%s does not exist or does not have DPID up (%s)' % (
-            gauge_log, log_content))
+        return False
+
+    def require_gauge_up(self, timeout=20):
+        if not wait_gauge_up(timeout):
+            self.fail('gauge.log does not exist or does not have DPID up (%s)')
 
     def gauge_smoke_test(self):
         watcher_files = set([

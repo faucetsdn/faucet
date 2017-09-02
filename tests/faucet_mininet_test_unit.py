@@ -444,7 +444,6 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
         self._start_influx(InfluxPostHandler)
         self.ping_all_when_learned()
-        self.wait_gauge_up()
         self.hup_gauge()
         self.flap_all_switch_ports()
         self._wait_influx_log(influx_log)
@@ -537,7 +536,6 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
         self._start_influx(InfluxPostHandler)
         self.ping_all_when_learned()
-        self.wait_gauge_up()
         self._wait_influx_log(influx_log)
         self._stop_influx()
         self.assertTrue(os.path.exists(influx_log))
