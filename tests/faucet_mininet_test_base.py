@@ -318,7 +318,7 @@ class FaucetTestBase(unittest.TestCase):
                 self._config_tableids()
                 return
             self.net.stop()
-            time.sleep(1)
+            time.sleep(7)
         log_txt = self._report_controller_log()
         self.fail('could not start FAUCET or switch not connected: %s' % log_txt)
 
