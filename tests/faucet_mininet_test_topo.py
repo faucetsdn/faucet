@@ -165,6 +165,7 @@ class BaseFAUCET(Controller):
 
     controller_intf = None
     tmpdir = None
+    ofcap = None
     BASE_CARGS = ' '.join((
         '--verbose',
         '--use-stderr',
@@ -186,6 +187,7 @@ class BaseFAUCET(Controller):
         return ' '.join((self.BASE_CARGS, ipv4_host, cargs))
 
     def _start_tcpdump(self):
+        self.ofcap = os.path.join(self.tmpdir, self.name)
         tcpdump_args = ' '.join((
             '-s 0',
             '-e',
@@ -193,7 +195,7 @@ class BaseFAUCET(Controller):
             '-U',
             '-q',
             '-i %s' % self.controller_intf,
-            '-w %s/%s-of.cap' % (self.tmpdir, self.name),
+            '-w %s' % self.ofcap,
             'tcp and port %u' % self.port,
             '>/dev/null',
             '2>/dev/null',
@@ -226,6 +228,10 @@ class BaseFAUCET(Controller):
     def start(self):
         self._start_tcpdump()
         super(BaseFAUCET, self).start()
+
+    def stop(self):
+        self.cmd(' '.join(['fuser', '-1', '-m', self.ofcap]))
+        super(BaseFAUCET, self).stop()
 
 
 class FAUCET(BaseFAUCET):
