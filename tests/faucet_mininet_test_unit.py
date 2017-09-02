@@ -327,11 +327,12 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         labels = {'port_name': '1', 'dp_id': '0x%x' % long(self.dpid)}
         last_p1_bytes_in = 0
         for poll in range(2):
-            self.ping_all_when_learned()
             updated_counters = False
             for _ in range(self.DB_TIMEOUT * 3):
+                self.ping_all_when_learned()
                 p1_bytes_in = self.scrape_prometheus_var(
-                    'of_port_rx_bytes', labels=labels, controller='gauge', dpid=False)
+                    'of_port_rx_bytes', labels=labels, controller='gauge',
+                    dpid=False)
                 if p1_bytes_in is not None and p1_bytes_in > last_p1_bytes_in:
                     updated_counters = True
                     last_p1_bytes_in = p1_bytes_in
