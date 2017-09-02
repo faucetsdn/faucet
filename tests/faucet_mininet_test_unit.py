@@ -28,6 +28,8 @@ import faucet_mininet_test_topo
 
 class QuietHTTPServer(HTTPServer):
 
+    allow_reuse_address = True
+
     def handle_error(self, _request, _client_address):
         return
 
