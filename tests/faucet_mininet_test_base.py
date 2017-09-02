@@ -315,7 +315,11 @@ class FaucetTestBase(unittest.TestCase):
                     self.wait_dp_status(1) and
                     self._wait_until_ofctl_up()):
                 self._config_tableids()
-                return
+                if self.RUN_GAUGE:
+                    if self.tcp_port_free(self.gauge_controller, self.gauge_of_port) is None:
+                        return
+                else:
+                    return
             self.net.stop()
             time.sleep(1)
         log_txt = self._report_controller_log()
