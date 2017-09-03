@@ -1082,8 +1082,8 @@ acls:
         super(FaucetConfigReloadTest, self).setUp()
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         open(self.acl_config_file, 'w').write(self.ACL)
-        open(self.faucet_config_path, 'a').write(
-            'include:\n     - %s' % self.acl_config_file)
+        self.CONFIG = '\n'.join(
+            (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid,
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)

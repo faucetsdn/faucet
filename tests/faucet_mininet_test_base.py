@@ -112,7 +112,7 @@ class FaucetTestBase(unittest.TestCase):
         self._set_var(name, 'FAUCET_PROMETHEUS_PORT', str(self.prom_port))
         self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', faucet_mininet_test_util.LOCALHOST)
 
-    def _set_vars(self):
+    def _set_static_vars(self):
         self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
         self._set_var_path('faucet', 'FAUCET_LOG', 'faucet.log')
         self._set_var_path('faucet', 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
@@ -121,7 +121,6 @@ class FaucetTestBase(unittest.TestCase):
         self._set_var_path('gauge', 'GAUGE_EXCEPTION_LOG', 'gauge-exception.log')
         self.faucet_config_path = self.env['faucet']['FAUCET_CONFIG']
         self.gauge_config_path = self.env['gauge']['GAUGE_CONFIG']
-        self._set_prom_port()
         self.debug_log_path = os.path.join(
             self.tmpdir, 'ofchannel.log')
         self.monitor_stats_file = os.path.join(
@@ -130,6 +129,9 @@ class FaucetTestBase(unittest.TestCase):
             self.tmpdir, 'state.txt')
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
+
+    def _set_vars(self):
+        self._set_prom_port()
         if self.config is not None:
             if 'hw_switch' in self.config:
                 self.hw_switch = self.config['hw_switch']
@@ -223,6 +225,7 @@ class FaucetTestBase(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
+        self._set_static_vars()
 
         if self.hw_switch:
             self.topo_class = faucet_mininet_test_topo.FaucetHwSwitchTopo
