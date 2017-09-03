@@ -5,11 +5,14 @@
 import collections
 import os
 import socket
+import subprocess
 import time
 
 
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
+MIN_PORT_AGE = max(int(open(
+        '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2, 30)
 
 
 def mininet_dpid(int_dpid):
@@ -32,6 +35,10 @@ def receive_sock_line(sock):
     return buf.strip()
 
 
+def tcp_listening(port):
+    return subprocess.call(['fuser', '-s', '%u/tcp' % port]) == 0
+
+
 def find_free_port(ports_socket, name):
     """Retrieve a free TCP port from test server."""
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -52,8 +59,6 @@ def serve_ports(ports_socket, min_free_ports):
     ports_q = collections.deque()
     free_ports = set()
     port_age = {}
-    min_port_age = max(int(open(
-        '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2, 30)
 
     def get_port():
         while True:
@@ -99,7 +104,7 @@ def serve_ports(ports_socket, min_free_ports):
                 queue_free_ports()
             while True:
                 port = ports_q.popleft()
-                if time.time() - port_age[port] > min_port_age:
+                if time.time() - port_age[port] > MIN_PORT_AGE:
                     break
                 ports_q.append(port)
                 time.sleep(1)
