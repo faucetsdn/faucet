@@ -238,15 +238,19 @@ class BaseFAUCET(Controller):
             return int(open(self.pid_file).read())
         return None
 
-    def _listen_port(self, port):
+    def _listen_port(self, port, state='LISTEN'):
         listening_out = self.cmd(
-            faucet_mininet_test_util.tcp_listening_cmd(port))
-        if listening_out and int(listening_out) == self.ryu_pid():
-            return True
+            faucet_mininet_test_util.tcp_listening_cmd(port, state=state)).split()
+        for pid in listening_out:
+            if int(pid) == self.ryu_pid():
+                return True
         return False
 
     def listening(self):
         return self._listen_port(self.port)
+
+    def connected(self):
+        return self.healthy() and self._listen_port(self.port, state='ESTABLISHED')
 
     def logname(self):
         return os.path.join('/tmp', self.name + '.log')

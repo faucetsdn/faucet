@@ -287,7 +287,7 @@ class FaucetTestBase(unittest.TestCase):
         return self.net.controllers[0]
 
     def _start_faucet(self, controller_intf):
-        dump_txt = ''
+        last_error_txt = ''
         for _ in range(3):
             self._wait_load()
             self._allocate_ports()
@@ -316,15 +316,18 @@ class FaucetTestBase(unittest.TestCase):
                 self.net.addController(self.gauge_controller)
             self.net.start()
             if self._wait_controllers_healthy():
-                if (self.wait_dp_status(1) and
-                        self._wait_until_ofctl_up() and
-                        (not self.RUN_GAUGE or self.wait_gauge_up())):
+                if self._wait_controllers_connected():
                     self._config_tableids()
                     return
+                else:
+                    last_error_txt = 'not all controllers connected to switch'
+            else:
+                last_error_txt = 'not all controllers healthy'
             self.net.stop()
-            dump_txt += self._dump_controller_logs()
+            last_error_txt += '\n\n' + self._dump_controller_logs()
+            print(last_error_txt)
             time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
-        self.fail('could not start all controllers and/or switch did not connect to controllers: %s' % dump_txt)
+        self.fail(last_error_txt)
 
     def _ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""
@@ -393,6 +396,7 @@ class FaucetTestBase(unittest.TestCase):
                 basename = os.path.basename(test_log)
                 if basename.startswith(controller.name):
                     dump_txt += '\n'.join((
+                        '',
                         basename,
                         '=' * len(basename),
                         '',
@@ -406,9 +410,22 @@ class FaucetTestBase(unittest.TestCase):
                 return False
         return True
 
+    def _controllers_connected(self):
+        for controller in self.net.controllers:
+            if not controller.connected():
+                return False
+        return True
+
     def _wait_controllers_healthy(self, timeout=10):
         for _ in range(timeout):
             if self._controllers_healthy():
+                return True
+            time.sleep(1)
+        return False
+
+    def _wait_controllers_connected(self, timeout=30):
+        for _ in range(timeout):
+            if self._controllers_connected():
                 return True
             time.sleep(1)
         return False
@@ -819,21 +836,6 @@ dbs:
             else:
                 return results[0][1]
         return default
-
-    def wait_gauge_up(self, timeout=20):
-        gauge_log = self.env['gauge']['GAUGE_LOG']
-        for _ in range(timeout):
-            if os.path.exists(gauge_log):
-                log_content = open(gauge_log).read()
-                if re.search('DPID %u.+up' % int(self.dpid), log_content):
-                    return True
-            self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
-            time.sleep(1)
-        return False
-
-    def require_gauge_up(self, timeout=20):
-        if not self.wait_gauge_up(timeout):
-            self.fail('gauge.log does not exist or does not have DPID up (%s)')
 
     def gauge_smoke_test(self):
         watcher_files = set([
