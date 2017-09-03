@@ -311,7 +311,7 @@ class FaucetTestBase(unittest.TestCase):
                     port=self.gauge_of_port)
                 self.net.addController(self.gauge_controller)
             self.net.start()
-            if (self._wait_controllers_logging() and
+            if (self._wait_controllers_healthy() and
                     self.wait_dp_status(1) and
                     self._wait_until_ofctl_up() and
                     (not self.RUN_GAUGE or self.wait_gauge_up())):
@@ -388,11 +388,15 @@ class FaucetTestBase(unittest.TestCase):
             controller_txt += open(log).read()
         return controller_txt
 
-    def _wait_controllers_logging(self, timeout=10):
-        controller_count = len(self.net.controllers)
+    def _controllers_healthy(self):
+        for controller in self.net.controllers:
+            if not controller.healthy():
+                return False
+        return True
+
+    def _wait_controllers_healthy(self, timeout=10):
         for _ in range(timeout):
-            lognames_count = len(self._controller_lognames())
-            if controller_count == lognames_count:
+            if self._controllers_healthy():
                 return True
             time.sleep(1)
         return False

@@ -284,7 +284,7 @@ class FAUCET(BaseFAUCET):
             **kwargs)
 
     def listening(self):
-        return self._listen_portself.ofctl_port) and super(FAUCET, self).listening()
+        return self._listen_port(self.ofctl_port) and super(FAUCET, self).listening()
 
 
 class Gauge(BaseFAUCET):
