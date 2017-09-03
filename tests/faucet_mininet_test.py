@@ -507,22 +507,6 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
                             shutil.rmtree(test_dir)
 
 
-def decode_of_pcaps(root_tmpdir):
-    decoded_pcap_logs = []
-    test_ofcaps = glob.glob(os.path.join(
-        os.path.join(root_tmpdir, '*'), '*of.cap'))
-    for test_ofcap in test_ofcaps:
-        decoded_pcap_log = '%stxt' % test_ofcap
-        text_test_ofcap = open(decoded_pcap_log, 'w')
-        decoded_pcap_logs.append(decoded_pcap_log)
-        subprocess.call(
-            ['tshark', '-d', 'tcp.port==1-65535,openflow',
-             '-O', 'openflow_v4', '-Y', 'openflow_v4', '-n',
-             '-r', test_ofcap],
-            stdout=text_test_ofcap, stderr=open(os.devnull, 'w'))
-    return decoded_pcap_logs
-
-
 def run_tests(hw_config, requested_test_classes, dumpfail,
               keep_logs, serial, excluded_test_classes):
     """Actually run the test suites, potentially in parallel."""
@@ -539,7 +523,8 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
     sanity, all_successful, failures = run_test_suites(
         sanity_tests, single_tests, parallel_tests)
     os.remove(ports_sock)
-    decoded_pcap_logs = decode_of_pcaps(root_tmpdir)
+    decoded_pcap_logs = test_ofcaps = glob.glob(os.path.join(
+        os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
     pipeline_superset_report(decoded_pcap_logs)
     clean_test_dirs(
         root_tmpdir, all_successful, sanity,

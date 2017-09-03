@@ -3,6 +3,8 @@
 import os
 import socket
 import string
+import shutil
+import subprocess
 
 import netifaces
 
@@ -193,7 +195,7 @@ class BaseFAUCET(Controller):
             self.BASE_CARGS, pid_file_arg, ofp_listen_host_arg, cargs))
 
     def _start_tcpdump(self):
-        self.ofcap = os.path.join(self.tmpdir, '-'.join(self.name + 'of.cap'))
+        self.ofcap = os.path.join(self.tmpdir, '-'.join((self.name, 'of.cap')))
         tcpdump_args = ' '.join((
             '-s 0',
             '-e',
@@ -231,13 +233,16 @@ class BaseFAUCET(Controller):
         script_wrapper.close()
         return '/bin/sh %s' % script_wrapper_name
 
+    def ryu_pid(self):
+        if os.path.exists(self.pid_file) and os.path.getsize(self.pid_file) > 0:
+            return int(open(self.pid_file).read())
+        return None
+
     def _listen_port(self, port):
-        if os.path.exists(self.pid_file):
-            pid = int(open(self.pid_file).read())
-            fuser_out = self.cmd('fuser %u/tcp' % port).split(':')
-            if len(fuser_out) == 2:
-                if int(fuser_out[1]) == pid:
-                    return True
+        fuser_out = self.cmd('fuser %u/tcp' % port).split(':')
+        if len(fuser_out) == 2:
+            if int(fuser_out[1]) == self.ryu_pid():
+                return True
         return False
 
     def listening(self):
@@ -257,9 +262,24 @@ class BaseFAUCET(Controller):
         self._start_tcpdump()
         super(BaseFAUCET, self).start()
 
+    def _stop_cap(self):
+        if os.path.exists(self.ofcap):
+            self.cmd(' '.join(['fuser', '-1', '-m', self.ofcap]))
+            text_ofcap_log = '%s.txt' % self.ofcap
+            text_ofcap = open(text_ofcap_log, 'w')
+            subprocess.call(
+                ['tshark', '-d', 'tcp.port==%u,openflow' % self.port,
+                 '-O', 'openflow_v4', '-Y', 'openflow_v4', '-n',
+                 '-r', self.ofcap],
+                stdout=text_ofcap, stderr=open(os.devnull, 'w'))
+
     def stop(self):
-        self.cmd(' '.join(['fuser', '-1', '-m', self.ofcap]))
+        if self.healthy():
+            os.kill(self.ryu_pid(), 15)
+        self._stop_cap()
         super(BaseFAUCET, self).stop()
+        if os.path.exists(self.logname()):
+            shutil.move(self.logname(), self.tmpdir)
 
 
 class FAUCET(BaseFAUCET):

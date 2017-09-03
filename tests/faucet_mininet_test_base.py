@@ -230,18 +230,12 @@ class FaucetTestBase(unittest.TestCase):
         """Clean up after a test."""
         open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
             self.scrape_prometheus())
-        logs = self._controller_lognames()
         if self.net is not None:
             self.net.stop()
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
         # must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        # Associate controller log with test results, if we are keeping
-        # the temporary directory, or effectively delete it if not.
-        # mininet doesn't have a way to change its log name for the controller.
-        for log in logs:
-            shutil.move(log, self.tmpdir)
         for _, debug_log in self._get_ofchannel_logs():
             self.assertFalse(
                 re.search('OFPErrorMsg', open(debug_log).read()),
