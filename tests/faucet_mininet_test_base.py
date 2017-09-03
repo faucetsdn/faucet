@@ -1205,7 +1205,7 @@ dbs:
 
     def tcp_port_free(self, host, port, ipv=4):
         listen_out = host.cmd(
-            faucet_mininet_util.tcp_listening_cmd(port, ipv))
+            faucet_mininet_test_util.tcp_listening_cmd(port, ipv))
         if listen_out:
             return listen_out
         return None
