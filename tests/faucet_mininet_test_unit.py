@@ -28,6 +28,8 @@ import faucet_mininet_test_topo
 
 class QuietHTTPServer(HTTPServer):
 
+    allow_reuse_address = True
+
     def handle_error(self, _request, _client_address):
         return
 
@@ -86,7 +88,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
             try:
                 with open(self.results_file, 'r') as results:
                     result = results.read().strip()
-                    self.assertEquals('pass', result, result)
+                    self.assertEqual('pass', result, result)
                     return
             except IOError:
                 time.sleep(1)
@@ -303,10 +305,9 @@ class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
     def test_portmap(self):
-        test_ports = self.N_TAGGED + self.N_UNTAGGED
         for i, host in enumerate(self.net.hosts):
             in_port = 'port_%u' % (i + 1)
-            print 'verifying host/port mapping for %s' % in_port
+            print('verifying host/port mapping for %s' % in_port)
             self.require_host_learned(host, in_port=self.port_map[in_port])
 
 
@@ -326,7 +327,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         self.wait_dp_status(1, controller='gauge')
         labels = {'port_name': '1', 'dp_id': '0x%x' % long(self.dpid)}
         last_p1_bytes_in = 0
-        for poll in range(2):
+        for _ in range(2):
             updated_counters = False
             for _ in range(self.DB_TIMEOUT * 3):
                 self.ping_all_when_learned()
@@ -383,7 +384,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         observed_vars = set()
         for point_line in open(influx_log).readlines():
             point_fields = point_line.strip().split()
-            self.assertEquals(3, len(point_fields), msg=point_fields)
+            self.assertEqual(3, len(point_fields), msg=point_fields)
             ts_name, value_field, timestamp_str = point_fields
             timestamp = int(timestamp_str)
             value = float(value_field.split('=')[1])
@@ -395,12 +396,12 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
                 label, value = label_value.split('=')
                 label_values[label] = value
             if ts_name.startswith('flow'):
-                self.assertTrue('inst_count' in label_values,msg=point_line)
+                self.assertTrue('inst_count' in label_values, msg=point_line)
                 if 'vlan_vid' in label_values:
-                    self.assertEquals(
+                    self.assertEqual(
                         int(label_values['vlan']), int(value) ^ 0x1000)
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
-        self.assertEquals(set([
+        self.assertEqual(set([
             'dropped_in', 'dropped_out', 'bytes_out', 'flow_packet_count',
             'errors_in', 'bytes_in', 'flow_byte_count', 'port_state_reason',
             'packets_in', 'packets_out']), observed_vars)
@@ -416,7 +417,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         for _ in range(3):
             try:
                 self.server = QuietHTTPServer(
-                    ('127.0.0.1', self.influx_port), handler)
+                    (faucet_mininet_test_util.LOCALHOST, self.influx_port), handler)
                 break
             except socket.error:
                 time.sleep(7)
@@ -777,8 +778,8 @@ vlans:
         self.net.pingAll()
         learned_hosts = [
             host for host in self.net.hosts if self.host_learned(host)]
-        self.assertEquals(2, len(learned_hosts))
-        self.assertEquals(2, self.scrape_prometheus_var(
+        self.assertEqual(2, len(learned_hosts))
+        self.assertEqual(2, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
         self.assertGreater(
             self.scrape_prometheus_var(
@@ -825,8 +826,8 @@ vlans:
             self.dpid,
             {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
             table_id=self.ETH_SRC_TABLE)
-        self.assertEquals(self.MAX_HOSTS, len(flows))
-        self.assertEquals(
+        self.assertEqual(self.MAX_HOSTS, len(flows))
+        self.assertEqual(
             self.MAX_HOSTS,
             len(self.scrape_prometheus_var(
                 'learned_macs',
@@ -1080,8 +1081,8 @@ acls:
         super(FaucetConfigReloadTest, self).setUp()
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         open(self.acl_config_file, 'w').write(self.ACL)
-        open(self.faucet_config_path, 'a').write(
-            'include:\n     - %s' % self.acl_config_file)
+        self.CONFIG = '\n'.join(
+            (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
         self.topo = self.topo_class(
             self.ports_sock, dpid=self.dpid,
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
@@ -1102,11 +1103,11 @@ acls:
             new_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
             if change_expected:
-                self.assertEquals(
+                self.assertEqual(
                     old_count + 1, new_count,
                     msg='%s did not increment: %u' % (var, new_count))
             else:
-                self.assertEquals(
+                self.assertEqual(
                     old_count, new_count,
                     msg='%s incremented: %u' % (var, new_count))
 
@@ -1242,9 +1243,11 @@ vlans:
     }
 """
     exabgp_log = None
+    exabgp_err = None
 
     def pre_start_net(self):
-        exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
+        exabgp_conf = self.get_exabgp_conf(
+            faucet_mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
@@ -1254,7 +1257,8 @@ vlans:
         first_host_alias_host_ip = ipaddress.ip_interface(
             ipaddress.ip_network(first_host_alias_ip.ip))
         self.host_ipv4_alias(first_host, first_host_alias_ip)
-        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
+        self.wait_bgp_up(
+            faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1313,9 +1317,11 @@ vlans:
    }
 """
     exabgp_log = None
+    exabgp_err = None
 
     def pre_start_net(self):
-        exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
+        exabgp_conf = self.get_exabgp_conf(
+            faucet_mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
@@ -1324,7 +1330,8 @@ vlans:
         # wait until 10.0.0.1 has been resolved
         self.wait_for_route_as_flow(
             first_host.MAC(), ipaddress.IPv4Network(u'10.99.99.0/24'))
-        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
+        self.wait_bgp_up(
+            faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1385,9 +1392,10 @@ vlans:
 """
 
     exabgp_log = None
+    exabgp_err = None
 
     def pre_start_net(self):
-        exabgp_conf = self.get_exabgp_conf('127.0.0.1')
+        exabgp_conf = self.get_exabgp_conf(faucet_mininet_test_util.LOCALHOST)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
@@ -1395,7 +1403,8 @@ vlans:
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
-        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
+        self.wait_bgp_up(
+            faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1550,7 +1559,7 @@ class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
                 (first_host, self.port_map['port_1']),
                 (second_host, self.port_map['port_2'])):
             self.require_host_learned(host, in_port=in_port)
-        self.assertEquals(0, self.net.ping((first_host, second_host)))
+        self.assertEqual(0, self.net.ping((first_host, second_host)))
 
 
 class FaucetUntaggedHostPermanentLearnTest(FaucetUntaggedTest):
@@ -1635,15 +1644,15 @@ vlans:
         self.one_ipv4_controller_ping(first_host)
         packets = 1000
         for fuzz_cmd in (
-            ('python -c \"from scapy.all import * ;'
-             'scapy.all.send(IP(dst=\'%s\')/'
-             'fuzz(%s(type=0)),count=%u)\"' % ('10.0.0.254', 'ICMP', packets)),
-            ('python -c \"from scapy.all import * ;'
-             'scapy.all.send(IP(dst=\'%s\')/'
-             'fuzz(%s(type=8)),count=%u)\"' % ('10.0.0.254', 'ICMP', packets)),
-            ('python -c \"from scapy.all import * ;'
-             'scapy.all.send(fuzz(%s(pdst=\'%s\')),'
-             'count=%u)\"' % ('ARP', '10.0.0.254', packets))):
+                ('python -c \"from scapy.all import * ;'
+                 'scapy.all.send(IP(dst=\'%s\')/'
+                 'fuzz(%s(type=0)),count=%u)\"' % ('10.0.0.254', 'ICMP', packets)),
+                ('python -c \"from scapy.all import * ;'
+                 'scapy.all.send(IP(dst=\'%s\')/'
+                 'fuzz(%s(type=8)),count=%u)\"' % ('10.0.0.254', 'ICMP', packets)),
+                ('python -c \"from scapy.all import * ;'
+                 'scapy.all.send(fuzz(%s(pdst=\'%s\')),'
+                 'count=%u)\"' % ('ARP', '10.0.0.254', packets))):
             self.assertTrue(
                 re.search('Sent %u packets' % packets, first_host.cmd(fuzz_cmd)))
         self.one_ipv4_controller_ping(first_host)
@@ -1681,7 +1690,7 @@ vlans:
     def test_ndisc6(self):
         first_host = self.net.hosts[0]
         for vip in ('fe80::1:254', 'fc00::1:254', 'fc00::2:254'):
-            self.assertEquals(
+            self.assertEqual(
                 self.FAUCET_MAC.upper(),
                 first_host.cmd('ndisc6 -q %s %s' % (vip, first_host.defaultIntf())).strip())
 
@@ -1689,7 +1698,7 @@ vlans:
         first_host = self.net.hosts[0]
         rdisc6_results = sorted(list(set(first_host.cmd(
             'rdisc6 -q %s' % first_host.defaultIntf()).splitlines())))
-        self.assertEquals(
+        self.assertEqual(
             ['fc00::1:0/112', 'fc00::2:0/112'],
             rdisc6_results)
 
@@ -1790,7 +1799,7 @@ vlans:
                     'scapy.all.send(IPv6(dst=\'%s\')/'
                     'fuzz(%s()),count=%u)\"' % ('fc00::1:254', fuzz_class, packets))
                 if re.search('Sent %u packets' % packets, first_host.cmd(fuzz_cmd)):
-                    print fuzz_class
+                    print(fuzz_class)
                     fuzz_success = True
         self.assertTrue(fuzz_success)
         self.one_ipv6_controller_ping(first_host)
@@ -1839,10 +1848,10 @@ vlans:
         self.verify_vlan_flood_limited(
             untagged_host_pair[0], untagged_host_pair[1], tagged_host_pair[0])
         # hosts within VLANs can ping each other
-        self.assertEquals(0, self.net.ping(tagged_host_pair))
-        self.assertEquals(0, self.net.ping(untagged_host_pair))
+        self.assertEqual(0, self.net.ping(tagged_host_pair))
+        self.assertEqual(0, self.net.ping(untagged_host_pair))
         # hosts cannot ping hosts in other VLANs
-        self.assertEquals(
+        self.assertEqual(
             100, self.net.ping([tagged_host_pair[0], untagged_host_pair[0]]))
 
 
@@ -2670,9 +2679,9 @@ routers:
         self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
         self.one_ipv4_ping(first_host, second_host_ip.ip)
         self.one_ipv4_ping(second_host, first_host_ip.ip)
-        self.assertEquals(
+        self.assertEqual(
             self._ip_neigh(first_host, first_faucet_vip.ip, 4), self.FAUCET_MAC)
-        self.assertEquals(
+        self.assertEqual(
             self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
 
 
@@ -2956,6 +2965,7 @@ vlans:
 """
 
     exabgp_log = None
+    exabgp_err = None
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
@@ -3023,6 +3033,7 @@ vlans:
     }
 """
     exabgp_log = None
+    exabgp_err = None
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
@@ -3144,6 +3155,7 @@ vlans:
 """
 
     exabgp_log = None
+    exabgp_err = None
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1')
@@ -3423,7 +3435,7 @@ class FaucetStringOfDPTest(FaucetTest):
             loss = self.net.pingAll()
             if loss == 0:
                 break
-        self.assertEquals(0, loss)
+        self.assertEqual(0, loss)
 
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
@@ -3438,7 +3450,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in multi switch topology can reach one another."""
-        self.assertEquals(0, self.net.pingAll())
+        self.assertEqual(0, self.net.pingAll())
 
 
 class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
@@ -3453,7 +3465,7 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def test_tagged(self):
         """All tagged hosts in multi switch topology can reach one another."""
-        self.assertEquals(0, self.net.pingAll())
+        self.assertEqual(0, self.net.pingAll())
 
 
 class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
@@ -3909,7 +3921,7 @@ vlans:
         for _ in range(timeout):
             if not self.host_learned(host, in_port=in_port, timeout=1):
                 return
-        self.fail('flow matching %s still exists' % match)
+        self.fail('host %s still learned' % host)
 
     def wait_for_flowremoved_msg(self, src_mac=None, dst_mac=None, timeout=30):
         pattern = "OFPFlowRemoved"
@@ -3920,7 +3932,7 @@ vlans:
         if dst_mac:
             pattern = "OFPFlowRemoved(.*)'eth_dst': '%s'" % dst_mac
             mac = dst_mac
-        for i in range(timeout):
+        for _ in range(timeout):
             for _, debug_log in self._get_ofchannel_logs():
                 if re.search(pattern, open(debug_log).read()):
                     return
@@ -3936,8 +3948,8 @@ vlans:
             if int(count) != 0:
                 break
             time.sleep(1)
-        self.assertGreaterEqual(int(count), 1,
-            'log msg "%s" for host %s not found' % (msg, host_mac))
+        self.assertGreaterEqual(
+            int(count), 1, 'log msg "%s" for host %s not found' % (msg, host_mac))
 
     def test_untagged(self):
         self.ping_all_when_learned()

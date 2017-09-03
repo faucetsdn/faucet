@@ -5,11 +5,19 @@
 import collections
 import os
 import socket
+import subprocess
 import time
 
 
+LOCALHOST = u'127.0.0.1'
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
+MIN_PORT_AGE = max(int(open(
+    '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2, 30)
+
+
+def tcp_listening_cmd(port, ipv=4, state='LISTEN'):
+    return 'lsof -b -P -n -t -sTCP:%s -i %u -a -i tcp:%u' % (state, ipv, port)
 
 
 def mininet_dpid(int_dpid):
@@ -32,6 +40,12 @@ def receive_sock_line(sock):
     return buf.strip()
 
 
+def tcp_listening(port):
+    DEVNULL = open(os.devnull, 'w')
+    return subprocess.call(
+        tcp_listening_cmd(port).split(), stdout=DEVNULL, stderr=DEVNULL, close_fds=True) == 0
+
+
 def find_free_port(ports_socket, name):
     """Retrieve a free TCP port from test server."""
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -47,13 +61,11 @@ def return_free_ports(ports_socket, name):
     sock.sendall('PUT,%s\n' % name)
 
 
-def serve_ports(ports_socket, min_free_ports):
+def serve_ports(ports_socket, start_free_ports, min_free_ports):
     """Implement a TCP server to dispense free TCP ports."""
     ports_q = collections.deque()
     free_ports = set()
     port_age = {}
-    min_port_age = max(int(open(
-        '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2, 30)
 
     def get_port():
         while True:
@@ -72,14 +84,14 @@ def serve_ports(ports_socket, min_free_ports):
         port_age[free_port] = time.time()
         return free_port
 
-    def queue_free_ports():
-        while len(ports_q) < min_free_ports:
+    def queue_free_ports(min_queue_size):
+        while len(ports_q) < min_queue_size:
             port = get_port()
             ports_q.append(port)
             port_age[port] = time.time()
             time.sleep(0.1)
 
-    queue_free_ports()
+    queue_free_ports(start_free_ports)
     ports_served = 0
     ports_by_name = collections.defaultdict(set)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -87,6 +99,9 @@ def serve_ports(ports_socket, min_free_ports):
     sock.listen(1)
 
     while True:
+        if len(ports_q) < min_free_ports:
+            queue_free_ports(len(ports_q) + 1)
+
         connection, _ = sock.accept()
         command, name = receive_sock_line(connection).split(',')
         if command == 'PUT':
@@ -95,11 +110,9 @@ def serve_ports(ports_socket, min_free_ports):
                 port_age[port] = time.time()
             del ports_by_name[name]
         else:
-            if len(ports_q) == 0:
-                queue_free_ports()
             while True:
                 port = ports_q.popleft()
-                if time.time() - port_age[port] > min_port_age:
+                if time.time() - port_age[port] > MIN_PORT_AGE:
                     break
                 ports_q.append(port)
                 time.sleep(1)

@@ -61,6 +61,8 @@ EXTERNAL_DEPENDENCIES = (
     ('2to3', ['--help'], 'Usage: 2to3', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
+    ('lsof', ['-v'], r'lsof version',
+     r'revision: (\d+\.\d+)\n', "4.89"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
      r'(\d+\.\d+).\d+', "2.2"),
     ('exabgp', ['--version'], 'ExaBGP',
@@ -247,13 +249,13 @@ def pipeline_superset_report(decoded_pcap_logs):
             if depth == 1:
                 if flow_line.startswith('Type: OFPT_'):
                     if not (flow_line.startswith('Type: OFPT_FLOW_MOD') or
-                              flow_line.startswith('Type: OFPT_GROUP_MOD')):
+                            flow_line.startswith('Type: OFPT_GROUP_MOD')):
                         return
                 if flow_line.startswith('Table ID'):
                     if not flow_line.startswith('Table ID: OFPTT_ALL'):
-                       table_id = int(flow_line.split()[-1])
+                        table_id = int(flow_line.split()[-1])
                     else:
-                       return
+                        return
                 if flow_line.startswith('Group ID'):
                     if not flow_line.startswith('Group ID: OFPG_ALL'):
                         group_id = int(flow_line.split()[-1])
@@ -271,7 +273,7 @@ def pipeline_superset_report(decoded_pcap_logs):
                                 last_oxm_match = oxm_match.group(1)
                                 matches_count += 1
                                 if matches_count > table_matches_max[table_id]:
-                                   table_matches_max[table_id] = matches_count
+                                    table_matches_max[table_id] = matches_count
                             else:
                                 oxm_mask_match = re.match(r'.*Has mask: True.*', flow_line)
                                 if oxm_mask_match:
@@ -283,12 +285,12 @@ def pipeline_superset_report(decoded_pcap_logs):
                                 table_instructions[table_id].add(type_match.group(1))
                                 instructions_count += 1
                                 if instructions_count > table_instructions_max[table_id]:
-                                   table_instructions_max[table_id] = instructions_count
+                                    table_instructions_max[table_id] = instructions_count
                             elif section_name == 'Action':
                                 table_actions[table_id].add(type_match.group(1))
                                 actions_count += 1
                                 if actions_count > table_actions_max[table_id]:
-                                   table_actions_max[table_id] = actions_count
+                                    table_actions_max[table_id] = actions_count
                 elif group_id is not None:
                     if 'Bucket' in section_stack:
                         type_match = re.match(r'Type: (\S+).+', flow_line)
@@ -458,11 +460,11 @@ def run_test_suites(sanity_tests, single_tests, parallel_tests):
     return (sanity, all_successful, failures)
 
 
-def start_port_server(root_tmpdir, min_free_ports):
+def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
     ports_sock = os.path.join(root_tmpdir, '.ports-server')
     ports_server = threading.Thread(
         target=faucet_mininet_test_util.serve_ports,
-        args=(ports_sock, min_free_ports))
+        args=(ports_sock, start_free_ports, min_free_ports))
     ports_server.setDaemon(True)
     ports_server.start()
     for _ in range(min_free_ports / 2):
@@ -476,15 +478,16 @@ def start_port_server(root_tmpdir, min_free_ports):
 
 
 def dump_failed_test(test_name, test_dir):
-    print test_name
-    print
-    print
+    print(test_name)
+    print()
+    print()
     test_files = glob.glob(os.path.join(test_dir, '*'))
     for test_file in test_files:
         if not test_file.endswith('.cap'):
-            print test_file
-            print
-            print open(test_file).read()
+            print(test_file)
+            print('=' * len(test_file))
+            print()
+            print(open(test_file).read())
 
 
 def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
@@ -493,7 +496,7 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
         if not keep_logs:
             shutil.rmtree(root_tmpdir)
     else:
-        print 'log/debug files for failed tests are in %s' % root_tmpdir
+        print('\nlog/debug files for failed tests are in %s\n' % root_tmpdir)
         if not keep_logs:
             if sanity:
                 if not single_tests:
@@ -507,22 +510,6 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
                             shutil.rmtree(test_dir)
 
 
-def decode_of_pcaps(root_tmpdir):
-    decoded_pcap_logs = []
-    test_ofcaps = glob.glob(os.path.join(
-        os.path.join(root_tmpdir, '*'), '*of.cap'))
-    for test_ofcap in test_ofcaps:
-        decoded_pcap_log = '%stxt' % test_ofcap
-        text_test_ofcap = open(decoded_pcap_log, 'w')
-        decoded_pcap_logs.append(decoded_pcap_log)
-        subprocess.call(
-            ['tshark', '-d', 'tcp.port==1-65535,openflow',
-             '-O', 'openflow_v4', '-Y', 'openflow_v4', '-n',
-             '-r', test_ofcap],
-            stdout=text_test_ofcap, stderr=open(os.devnull, 'w'))
-    return decoded_pcap_logs
-
-
 def run_tests(hw_config, requested_test_classes, dumpfail,
               keep_logs, serial, excluded_test_classes):
     """Actually run the test suites, potentially in parallel."""
@@ -530,8 +517,9 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
         print('Testing hardware, forcing test serialization')
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
+    start_free_ports = 5
     min_free_ports = 100
-    ports_sock = start_port_server(root_tmpdir, min_free_ports)
+    ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
     print('test ports server started')
     total_tests, sanity_tests, single_tests, parallel_tests = expand_tests(
         requested_test_classes, excluded_test_classes,
@@ -539,7 +527,8 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
     sanity, all_successful, failures = run_test_suites(
         sanity_tests, single_tests, parallel_tests)
     os.remove(ports_sock)
-    decoded_pcap_logs = decode_of_pcaps(root_tmpdir)
+    decoded_pcap_logs = glob.glob(os.path.join(
+        os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
     pipeline_superset_report(decoded_pcap_logs)
     clean_test_dirs(
         root_tmpdir, all_successful, sanity,
@@ -589,7 +578,7 @@ def test_main():
     """Test main."""
     setLogLevel('info')
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
-       serial, excluded_test_classes) = parse_args()
+     serial, excluded_test_classes) = parse_args()
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '

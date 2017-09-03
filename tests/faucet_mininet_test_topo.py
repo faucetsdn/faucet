@@ -3,6 +3,8 @@
 import os
 import socket
 import string
+import shutil
+import subprocess
 
 import netifaces
 
@@ -164,8 +166,11 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
 class BaseFAUCET(Controller):
 
     controller_intf = None
+    controller_ip = None
+    pid_file = None
     tmpdir = None
     ofcap = None
+
     BASE_CARGS = ' '.join((
         '--verbose',
         '--use-stderr',
@@ -176,18 +181,21 @@ class BaseFAUCET(Controller):
         self.tmpdir = tmpdir
         self.controller_intf = controller_intf
         super(BaseFAUCET, self).__init__(
-            name, cargs=self._add_cargs(cargs), **kwargs)
+            name, cargs=self._add_cargs(cargs, name), **kwargs)
 
-    def _add_cargs(self, cargs):
-        ipv4_host = ''
+    def _add_cargs(self, cargs, name):
+        ofp_listen_host_arg = ''
         if self.controller_intf is not None:
-            # pylint: disable=no-member
-            ipv4_host = '--ofp-listen-host=%s' % netifaces.ifaddresses(
+            self.controller_ip = netifaces.ifaddresses(
                 self.controller_intf)[socket.AF_INET][0]['addr']
-        return ' '.join((self.BASE_CARGS, ipv4_host, cargs))
+            ofp_listen_host_arg = '--ofp-listen-host=%s' % self.controller_ip
+        self.pid_file = os.path.join(self.tmpdir, name + '.pid')
+        pid_file_arg = '--pid-file=%s' % self.pid_file
+        return ' '.join((
+            self.BASE_CARGS, pid_file_arg, ofp_listen_host_arg, cargs))
 
     def _start_tcpdump(self):
-        self.ofcap = os.path.join(self.tmpdir, self.name)
+        self.ofcap = os.path.join(self.tmpdir, '-'.join((self.name, 'of.cap')))
         tcpdump_args = ' '.join((
             '-s 0',
             '-e',
@@ -225,13 +233,61 @@ class BaseFAUCET(Controller):
         script_wrapper.close()
         return '/bin/sh %s' % script_wrapper_name
 
+    def ryu_pid(self):
+        if os.path.exists(self.pid_file) and os.path.getsize(self.pid_file) > 0:
+            return int(open(self.pid_file).read())
+        return None
+
+    def _listen_port(self, port, state='LISTEN'):
+        listening_out = self.cmd(
+            faucet_mininet_test_util.tcp_listening_cmd(port, state=state)).split()
+        for pid in listening_out:
+            if int(pid) == self.ryu_pid():
+                return True
+        return False
+
+    def listening(self):
+        return self._listen_port(self.port)
+
+    def connected(self):
+        return self.healthy() and self._listen_port(self.port, state='ESTABLISHED')
+
+    def logname(self):
+        return os.path.join('/tmp', self.name + '.log')
+
+    def healthy(self):
+        if (os.path.exists(self.logname()) and
+                os.path.getsize(self.logname()) and
+                self.listening()):
+            return True
+        return False
+
     def start(self):
         self._start_tcpdump()
         super(BaseFAUCET, self).start()
 
+    def _stop_cap(self):
+        if os.path.exists(self.ofcap):
+            self.cmd(' '.join(['fuser', '-1', '-m', self.ofcap]))
+            text_ofcap_log = '%s.txt' % self.ofcap
+            text_ofcap = open(text_ofcap_log, 'w')
+            subprocess.call(
+                ['tshark', '-d', 'tcp.port==%u,openflow' % self.port,
+                 '-O', 'openflow_v4', '-Y', 'openflow_v4', '-n',
+                 '-r', self.ofcap],
+                stdout=text_ofcap, stderr=open(os.devnull, 'w'))
+
     def stop(self):
-        self.cmd(' '.join(['fuser', '-1', '-m', self.ofcap]))
+        if self.healthy():
+            os.kill(self.ryu_pid(), 15)
+        self._stop_cap()
         super(BaseFAUCET, self).stop()
+        if os.path.exists(self.logname()):
+            tmpdir_logname = os.path.join(
+                self.tmpdir, os.path.basename(self.logname()))
+            if os.path.exists(tmpdir_logname):
+                os.remove(tmpdir_logname)
+            shutil.move(self.logname(), tmpdir_logname)
 
 
 class FAUCET(BaseFAUCET):
@@ -243,7 +299,7 @@ class FAUCET(BaseFAUCET):
         self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
             ports_sock, test_name)
         cargs = ' '.join((
-            '--wsapi-host=127.0.0.1',
+            '--wsapi-host=%s' % faucet_mininet_test_util.LOCALHOST,
             '--wsapi-port=%u' % self.ofctl_port,
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super(FAUCET, self).__init__(
@@ -254,6 +310,9 @@ class FAUCET(BaseFAUCET):
             command=self._command(env, tmpdir, name, 'ryu.app.ofctl_rest faucet.faucet'),
             port=port,
             **kwargs)
+
+    def listening(self):
+        return self._listen_port(self.ofctl_port) and super(FAUCET, self).listening()
 
 
 class Gauge(BaseFAUCET):
