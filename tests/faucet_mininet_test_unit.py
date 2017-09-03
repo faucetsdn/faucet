@@ -418,7 +418,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         for _ in range(3):
             try:
                 self.server = QuietHTTPServer(
-                    ('127.0.0.1', self.influx_port), handler)
+                    (faucet_mininet_test_util.LOCALHOST, self.influx_port), handler)
                 break
             except socket.error:
                 time.sleep(7)
@@ -1246,7 +1246,8 @@ vlans:
     exabgp_log = None
 
     def pre_start_net(self):
-        exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
+        exabgp_conf = self.get_exabgp_conf(
+            faucet_mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
@@ -1256,7 +1257,8 @@ vlans:
         first_host_alias_host_ip = ipaddress.ip_interface(
             ipaddress.ip_network(first_host_alias_ip.ip))
         self.host_ipv4_alias(first_host, first_host_alias_ip)
-        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
+        self.wait_bgp_up(
+            faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1317,7 +1319,8 @@ vlans:
     exabgp_log = None
 
     def pre_start_net(self):
-        exabgp_conf = self.get_exabgp_conf('127.0.0.1', self.exabgp_peer_conf)
+        exabgp_conf = self.get_exabgp_conf(
+            faucet_mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
@@ -1326,7 +1329,8 @@ vlans:
         # wait until 10.0.0.1 has been resolved
         self.wait_for_route_as_flow(
             first_host.MAC(), ipaddress.IPv4Network(u'10.99.99.0/24'))
-        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
+        self.wait_bgp_up(
+            faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1389,7 +1393,7 @@ vlans:
     exabgp_log = None
 
     def pre_start_net(self):
-        exabgp_conf = self.get_exabgp_conf('127.0.0.1')
+        exabgp_conf = self.get_exabgp_conf(faucet_mininet_test_util.LOCALHOST)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
@@ -1397,7 +1401,8 @@ vlans:
         self.verify_ipv4_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
-        self.wait_bgp_up('127.0.0.1', 100, self.exabgp_log, self.exabgp_err)
+        self.wait_bgp_up(
+            faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),

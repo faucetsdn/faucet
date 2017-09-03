@@ -113,7 +113,7 @@ class FaucetTestBase(unittest.TestCase):
         prom_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock, self._test_name())
         self._set_var(name, 'FAUCET_PROMETHEUS_PORT', str(prom_port))
-        self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', u'127.0.0.1')
+        self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', faucet_mininet_test_util.LOCALHOST)
 
     def _set_vars(self):
         self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
@@ -193,7 +193,7 @@ class FaucetTestBase(unittest.TestCase):
     def _controller_lognames(self):
         lognames = []
         for controller in self.net.controllers:
-            logname = '/tmp/%s.log' % controller.name
+            logname = controller.logname()
             if os.path.exists(logname) and os.path.getsize(logname) > 0:
                 lognames.append(logname)
         return lognames
@@ -318,13 +318,14 @@ class FaucetTestBase(unittest.TestCase):
                 self._config_tableids()
                 return
             self.net.stop()
-            time.sleep(7)
+            time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
         log_txt = self._report_controller_log()
         self.fail('could not start FAUCET or switch not connected: %s' % log_txt)
 
     def _ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""
-        return 'http://127.0.0.1:%u' % self._get_controller().ofctl_port
+        return 'http://%s:%u' % (
+            faucet_mininet_test_util.LOCALHOST, self._get_controller().ofctl_port)
 
     def _ofctl(self, req):
         try:
@@ -503,12 +504,12 @@ dbs:
         file: %s
     prometheus:
         type: 'prometheus'
+        prometheus_addr: '%s'
         prometheus_port: %u
-        prometheus_addr: '127.0.0.1'
     influx:
         type: 'influx'
         influx_db: 'faucet'
-        influx_host: 'localhost'
+        influx_host: '%s'
         influx_port: %u
         influx_user: 'faucet'
         influx_pwd: ''
@@ -535,7 +536,9 @@ dbs:
        monitor_stats_file,
        monitor_state_file,
        monitor_flow_table_file,
+       faucet_mininet_test_util.LOCALHOST,
        prometheus_port,
+       faucet_mininet_test_util.LOCALHOST,
        influx_port,
        self.DB_TIMEOUT,
        self.DB_TIMEOUT + 1)
