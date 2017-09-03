@@ -82,7 +82,7 @@ class FaucetTestBase(unittest.TestCase):
     net = None
     topo = None
     cpn_intf = None
-    config_ports = {'bgp_port': None}
+    config_ports = None
     env = collections.defaultdict(dict)
     rand_dpids = set()
 
@@ -198,6 +198,7 @@ class FaucetTestBase(unittest.TestCase):
     def _allocate_ports(self):
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
+        self.config_ports = {'bgp_port': None}
 
         if self.hw_switch:
             self.of_port = self.config['of_port']
