@@ -300,9 +300,10 @@ class FaucetTestBase(unittest.TestCase):
             return 'prometheus port not up'
         if self.config_ports:
             for port_name, port in list(self.config_ports.items()):
-                if not self._get_controller().listen_port(port):
-                    return 'faucet not listening on %u (%s)' % (
-                        port, port_name)
+                if port is not None:
+                    if not self._get_controller().listen_port(port):
+                        return 'faucet not listening on %u (%s)' % (
+                            port, port_name)
         return None
 
     def _start_faucet(self, controller_intf):
