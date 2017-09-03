@@ -25,6 +25,7 @@ RUN \
     libpython2.7-dev \
     libpython3-dev \
     libyaml-dev \
+    lsof \
     ndisc6 \
     net-tools \
     netcat-openbsd \

@@ -61,6 +61,8 @@ EXTERNAL_DEPENDENCIES = (
     ('2to3', ['--help'], 'Usage: 2to3', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
+    ('lsof', ['-v'], r'lsof version',
+     r'revision: (\d+\.\d+)\n', "4.89"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
      r'(\d+\.\d+).\d+', "2.2"),
     ('exabgp', ['--version'], 'ExaBGP',
