@@ -105,8 +105,9 @@ def serve_ports(ports_socket, min_free_ports):
                 queue_free_ports()
             while True:
                 port = ports_q.popleft()
-                if time.time() - port_age[port] > MIN_PORT_AGE:
-                    break
+                if not tcp_listening(port):
+                    if time.time() - port_age[port] > MIN_PORT_AGE:
+                        break
                 ports_q.append(port)
                 time.sleep(1)
             ports_served += 1
