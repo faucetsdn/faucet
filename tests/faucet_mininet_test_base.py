@@ -321,6 +321,7 @@ class FaucetTestBase(unittest.TestCase):
             if self._wait_controllers_healthy():
                 if self._wait_controllers_connected():
                     self._config_tableids()
+                    self._wait_load()
                     return
                 else:
                     last_error_txt = 'not all controllers connected to switch'
