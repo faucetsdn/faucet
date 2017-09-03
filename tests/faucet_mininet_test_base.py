@@ -289,7 +289,6 @@ class FaucetTestBase(unittest.TestCase):
     def _start_faucet(self, controller_intf):
         last_error_txt = ''
         for _ in range(3):
-            self._wait_load()
             self._allocate_ports()
             self._set_vars()
             self._write_controller_configs()
@@ -315,6 +314,7 @@ class FaucetTestBase(unittest.TestCase):
                     port=self.gauge_of_port)
                 self.net.addController(self.gauge_controller)
             self.net.start()
+            self._wait_load()
             if self._wait_controllers_healthy():
                 if self._wait_controllers_connected():
                     self._config_tableids()
