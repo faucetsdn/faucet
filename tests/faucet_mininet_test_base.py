@@ -5,13 +5,12 @@
 # pylint: disable=missing-docstring
 
 import collections
+import glob
 import json
 import os
 import random
 import re
-import shutil
 import subprocess
-import tempfile
 import time
 import unittest
 import yaml
@@ -137,8 +136,6 @@ class FaucetTestBase(unittest.TestCase):
             if self.hw_switch:
                 self.dpid = self.config['dpid']
                 self.cpn_intf = self.config['cpn_intf']
-                self.of_port = self.config['of_port']
-                self.gauge_of_port = self.config['gauge_of_port']
                 self.hardware = self.config['hardware']
                 if 'ctl_privkey' in self.config:
                     self.ctl_privkey = self.config['ctl_privkey']
@@ -199,22 +196,30 @@ class FaucetTestBase(unittest.TestCase):
     def _allocate_ports(self):
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
-        self.of_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-        self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
+
+        if self.hw_switch:
+            self.of_port = self.config['of_port']
+            self.gauge_of_port = self.config['gauge_of_port']
+        else:
+            self.of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock, self._test_name())
+            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock, self._test_name())
+
         self.influx_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock, self._test_name())
         self.prom_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock, self._test_name())
         self.gauge_prom_port, _ = faucet_mininet_test_util.find_free_port(
             self.ports_sock, self._test_name())
+
         for port_name in list(self.config_ports.keys()):
-            if re.search(port_name, self.CONFIG):
-                port, _ = faucet_mininet_test_util.find_free_port(
-                    self.ports_sock, self._test_name())
-                self.config_ports[port_name] = port
-                print('allocating port %u for %s' % (port, port_name))
+            for config in (self.CONFIG, self.CONFIG_GLOBAL):
+                if re.search(port_name, config):
+                    port, _ = faucet_mininet_test_util.find_free_port(
+                        self.ports_sock, self._test_name())
+                    self.config_ports[port_name] = port
+                    print('allocating port %u for %s' % (port, port_name))
 
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
@@ -282,6 +287,7 @@ class FaucetTestBase(unittest.TestCase):
         return self.net.controllers[0]
 
     def _start_faucet(self, controller_intf):
+        dump_txt = ''
         for _ in range(3):
             self._wait_load()
             self._allocate_ports()
@@ -316,9 +322,9 @@ class FaucetTestBase(unittest.TestCase):
                 self._config_tableids()
                 return
             self.net.stop()
+            dump_txt += self._dump_controller_logs()
             time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
-        log_txt = self._report_controller_log()
-        self.fail('could not start FAUCET or switch not connected: %s' % log_txt)
+        self.fail('could not start all controllers and/or switch did not connect to controllers: %s' % dump_txt)
 
     def _ofctl_rest_url(self):
         """Return control URL for Ryu ofctl module."""
@@ -379,12 +385,20 @@ class FaucetTestBase(unittest.TestCase):
                 ofchannel_logs.append((dp_name, debug_log))
         return ofchannel_logs
 
-    def _report_controller_log(self):
-        self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        controller_txt = ''
-        for log in self._controller_lognames():
-            controller_txt += open(log).read()
-        return controller_txt
+    def _dump_controller_logs(self):
+        dump_txt = ''
+        test_logs = glob.glob(os.path.join(self.tmpdir, '*.log'))
+        for controller in self.net.controllers:
+            for test_log in test_logs:
+                basename = os.path.basename(test_log)
+                if basename.startswith(controller.name):
+                    dump_txt += '\n'.join((
+                        basename,
+                        '=' * len(basename),
+                        '',
+                        open(test_log).read()))
+                    break
+        dump_txt
 
     def _controllers_healthy(self):
         for controller in self.net.controllers:
@@ -546,7 +560,7 @@ dbs:
        self.DB_TIMEOUT + 1)
 
     def get_exabgp_conf(self, peer, peer_config=''):
-       return """
+        return """
   neighbor %s {
     router-id 2.2.2.2;
     local-address %s;
@@ -633,8 +647,7 @@ dbs:
             actions=actions, match_exact=match_exact)
         if flow_dicts:
             return flow_dicts[0]
-        else:
-            return []
+        return []
 
     def get_matching_flow(self, match, timeout=10, table_id=None,
                           actions=None, match_exact=None):
@@ -890,7 +903,7 @@ dbs:
             fping_cli, timeout))
         print(fping_out)
         self.assertTrue(
-            not re.search('\s+0 ICMP Echo Replies received', fping_out),
+            not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
 
     def verify_vlan_flood_limited(self, vlan_first_host, vlan_second_host,
