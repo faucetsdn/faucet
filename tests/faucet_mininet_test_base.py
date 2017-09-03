@@ -290,22 +290,20 @@ class FaucetTestBase(unittest.TestCase):
         return self.net.controllers[0]
 
     def _start_check(self):
-        if self._wait_controllers_healthy():
-            if self._wait_controllers_connected():
-                if self._wait_ofctl_up():
-                    if self.wait_dp_status(1):
-                        if self.config_ports:
-                            for port_name, port in list(self.config_ports.items()):
-                                if not self._get_controller().listen_port(port):
-                                    return 'faucet not listening on %u (%s)' % (
-                                        port, port_name)
-                        self._config_tableids()
-                        self._wait_load()
-                        return None
-                    return 'prometheus port not up'
-                return 'ofctl not up'
+        if not self._wait_controllers_healthy():
+            return 'not all controllers healthy'
+        if not self._wait_controllers_connected():
             return 'not all controllers connected to switch'
-        return 'not all controllers healthy'
+        if not self._wait_ofctl_up():
+            return 'ofctl not up'
+        if not self.wait_dp_status(1):
+            return 'prometheus port not up'
+        if self.config_ports:
+            for port_name, port in list(self.config_ports.items()):
+                if not self._get_controller().listen_port(port):
+                    return 'faucet not listening on %u (%s)' % (
+                        port, port_name)
+        return None
 
     def _start_faucet(self, controller_intf):
         last_error_txt = ''
