@@ -246,6 +246,11 @@ class BaseFAUCET(Controller):
                 return True
         return False
 
+    def checkListening(self):
+        # Mininet's checkListening() causes occasional false positives (with
+        # exceptions we can't catch), and we handle port conflicts ourselves anyway.
+        return
+
     def listening(self):
         return self.listen_port(self.port)
 
