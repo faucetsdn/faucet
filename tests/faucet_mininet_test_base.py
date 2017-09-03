@@ -815,7 +815,7 @@ dbs:
         return False
 
     def require_gauge_up(self, timeout=20):
-        if not wait_gauge_up(timeout):
+        if not self.wait_gauge_up(timeout):
             self.fail('gauge.log does not exist or does not have DPID up (%s)')
 
     def gauge_smoke_test(self):
@@ -1066,7 +1066,7 @@ dbs:
                     start_port_stats[host], end_port_stats[host], 'rx_bytes', seconds)
                 of_tx_mbps = self.of_bytes_mbps(
                     start_port_stats[host], end_port_stats[host], 'tx_bytes', seconds)
-                print of_rx_mbps, of_tx_mbps
+                print(of_rx_mbps, of_tx_mbps)
                 max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
                 iperf_to_max = iperf_mbps / max_of_mbps
                 msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
