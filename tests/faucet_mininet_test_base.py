@@ -315,12 +315,12 @@ class FaucetTestBase(unittest.TestCase):
                     port=self.gauge_of_port)
                 self.net.addController(self.gauge_controller)
             self.net.start()
-            if (self._wait_controllers_healthy() and
-                    self.wait_dp_status(1) and
-                    self._wait_until_ofctl_up() and
-                    (not self.RUN_GAUGE or self.wait_gauge_up())):
-                self._config_tableids()
-                return
+            if self._wait_controllers_healthy():
+                if (self.wait_dp_status(1) and
+                        self._wait_until_ofctl_up() and
+                        (not self.RUN_GAUGE or self.wait_gauge_up())):
+                    self._config_tableids()
+                    return
             self.net.stop()
             dump_txt += self._dump_controller_logs()
             time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
@@ -398,7 +398,7 @@ class FaucetTestBase(unittest.TestCase):
                         '',
                         open(test_log).read()))
                     break
-        dump_txt
+        return dump_txt
 
     def _controllers_healthy(self):
         for controller in self.net.controllers:
