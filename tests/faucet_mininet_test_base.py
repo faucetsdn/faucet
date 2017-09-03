@@ -129,9 +129,6 @@ class FaucetTestBase(unittest.TestCase):
             self.tmpdir, 'state.txt')
         self.monitor_flow_table_file = os.path.join(
             self.tmpdir, 'flow.txt')
-
-    def _set_vars(self):
-        self._set_prom_port()
         if self.config is not None:
             if 'hw_switch' in self.config:
                 self.hw_switch = self.config['hw_switch']
@@ -152,6 +149,9 @@ class FaucetTestBase(unittest.TestCase):
                     test_port_name = 'port_%u' % (i + 1)
                     self.port_map[test_port_name] = switch_port
                     self.switch_map[test_port_name] = dp_ports[switch_port]
+
+    def _set_vars(self):
+        self._set_prom_port()
 
     def _write_controller_configs(self):
         faucet_config = '\n'.join((
@@ -320,9 +320,15 @@ class FaucetTestBase(unittest.TestCase):
             self._wait_load()
             if self._wait_controllers_healthy():
                 if self._wait_controllers_connected():
-                    self._config_tableids()
-                    self._wait_load()
-                    return
+                    if self._wait_ofctl_up():
+                        if self.wait_dp_status(1):
+                            self._config_tableids()
+                            self._wait_load()
+                            return
+                        else:
+                            last_error_txt = 'prometheus port not up'
+                    else:
+                        last_error_txt = 'ofctl not up'
                 else:
                     last_error_txt = 'not all controllers connected to switch'
             else:
@@ -349,7 +355,7 @@ class FaucetTestBase(unittest.TestCase):
         switches = self._ofctl('%s/stats/switches' % self._ofctl_rest_url())
         return switches is not None and re.search(r'^\[[^\]]+\]$', switches)
 
-    def _wait_until_ofctl_up(self, timeout=10):
+    def _wait_ofctl_up(self, timeout=10):
         for _ in range(timeout):
             if self._ofctl_up():
                 return True
