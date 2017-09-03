@@ -416,7 +416,7 @@ class FaucetTestBase(unittest.TestCase):
                 return False
         return True
 
-    def _wait_controllers_healthy(self, timeout=10):
+    def _wait_controllers_healthy(self, timeout=30):
         for _ in range(timeout):
             if self._controllers_healthy():
                 return True
