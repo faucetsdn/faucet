@@ -239,10 +239,10 @@ class BaseFAUCET(Controller):
         return None
 
     def _listen_port(self, port):
-        fuser_out = self.cmd('fuser %u/tcp' % port).split(':')
-        if len(fuser_out) == 2:
-            if int(fuser_out[1]) == self.ryu_pid():
-                return True
+        listening_out = self.cmd(
+            faucet_mininet_test_util.tcp_listening_cmd(port))
+        if listening_out and int(listening_out) == self.ryu_pid():
+            return True
         return False
 
     def listening(self):
@@ -279,7 +279,11 @@ class BaseFAUCET(Controller):
         self._stop_cap()
         super(BaseFAUCET, self).stop()
         if os.path.exists(self.logname()):
-            shutil.move(self.logname(), self.tmpdir)
+            tmpdir_logname = os.path.join(
+                self.tmpdir, os.path.basename(self.logname()))
+            if os.path.exists(tmpdir_logname):
+                os.remove(tmpdir_logname)
+            shutil.move(self.logname(), tmpdir_logname)
 
 
 class FAUCET(BaseFAUCET):

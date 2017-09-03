@@ -16,6 +16,10 @@ MIN_PORT_AGE = max(int(open(
         '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2, 30)
 
 
+def tcp_listening_cmd(port, ipv=4):
+    return 'lsof -P -n -t -sTCP:LISTEN -i %u -a -i tcp:%u' % (ipv, port)
+
+
 def mininet_dpid(int_dpid):
     """Return stringified hex version, of int DPID for mininet."""
     return str('%x' % int(int_dpid))
@@ -37,7 +41,7 @@ def receive_sock_line(sock):
 
 
 def tcp_listening(port):
-    return subprocess.call(['fuser', '-s', '%u/tcp' % port]) == 0
+    return subprocess.call(tcp_listening_cmd(port).split(' ')) == 0
 
 
 def find_free_port(ports_socket, name):
@@ -105,8 +109,9 @@ def serve_ports(ports_socket, min_free_ports):
                 queue_free_ports()
             while True:
                 port = ports_q.popleft()
-                if time.time() - port_age[port] > MIN_PORT_AGE:
-                    break
+                if not tcp_listening(port):
+                    if time.time() - port_age[port] > MIN_PORT_AGE:
+                        break
                 ports_q.append(port)
                 time.sleep(1)
             ports_served += 1

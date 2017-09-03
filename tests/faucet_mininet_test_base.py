@@ -1204,28 +1204,26 @@ dbs:
             host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
     def tcp_port_free(self, host, port, ipv=4):
-        fuser_cmd = 'fuser -%u -n tcp %u' % (ipv, port)
-        fuser_out = host.cmd(fuser_cmd)
-        if fuser_out:
-            for fuser_line in fuser_out.splitlines():
-                if re.search(r'^%u\/tcp:.+$' % port, fuser_line):
-                    return fuser_out
+        listen_out = host.cmd(
+            faucet_mininet_util.tcp_listening_cmd(port, ipv))
+        if listen_out:
+            return listen_out
         return None
 
     def wait_for_tcp_free(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
         for _ in range(timeout):
-            fuser_out = self.tcp_port_free(host, port, ipv)
-            if fuser_out is None:
+            listen_out = self.tcp_port_free(host, port, ipv)
+            if listen_out is None:
                 return
             time.sleep(1)
-        self.fail('%s busy on port %u (%s)' % (host, port, fuser_out))
+        self.fail('%s busy on port %u (%s)' % (host, port, listen_out))
 
     def wait_for_tcp_listen(self, host, port, timeout=10, ipv=4):
         """Wait for a host to start listening on a port."""
         for _ in range(timeout):
-            fuser_out = self.tcp_port_free(host, port, ipv)
-            if fuser_out is not None:
+            listen_out = self.tcp_port_free(host, port, ipv)
+            if listen_out is not None:
                 return
             time.sleep(1)
         self.fail('%s never listened on port %u' % (host, port))
