@@ -13,7 +13,7 @@ LOCALHOST = u'127.0.0.1'
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
 MIN_PORT_AGE = max(int(open(
-    'proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2, 30)
+    '/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_time_wait').read()) / 2, 30)
 
 
 def tcp_listening_cmd(port, ipv=4, state='LISTEN'):
