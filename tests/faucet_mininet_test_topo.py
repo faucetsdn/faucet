@@ -238,7 +238,7 @@ class BaseFAUCET(Controller):
             return int(open(self.pid_file).read())
         return None
 
-    def _listen_port(self, port, state='LISTEN'):
+    def listen_port(self, port, state='LISTEN'):
         listening_out = self.cmd(
             faucet_mininet_test_util.tcp_listening_cmd(port, state=state)).split()
         for pid in listening_out:
@@ -247,10 +247,10 @@ class BaseFAUCET(Controller):
         return False
 
     def listening(self):
-        return self._listen_port(self.port)
+        return self.listen_port(self.port)
 
     def connected(self):
-        return self.healthy() and self._listen_port(self.port, state='ESTABLISHED')
+        return self.healthy() and self.listen_port(self.port, state='ESTABLISHED')
 
     def logname(self):
         return os.path.join('/tmp', self.name + '.log')
@@ -312,7 +312,7 @@ class FAUCET(BaseFAUCET):
             **kwargs)
 
     def listening(self):
-        return self._listen_port(self.ofctl_port) and super(FAUCET, self).listening()
+        return self.listen_port(self.ofctl_port) and super(FAUCET, self).listening()
 
 
 class Gauge(BaseFAUCET):

@@ -289,6 +289,24 @@ class FaucetTestBase(unittest.TestCase):
         """Return first controller."""
         return self.net.controllers[0]
 
+    def _start_check(self):
+        if self._wait_controllers_healthy():
+            if self._wait_controllers_connected():
+                if self._wait_ofctl_up():
+                    if self.wait_dp_status(1):
+                        if self.config_ports:
+                            for port_name, port in list(self.config_ports.items()):
+                                if not self._get_controller().listen_port(port):
+                                    return 'faucet not listening on %u (%s)' % (
+                                        port, port_name)
+                        self._config_tableids()
+                        self._wait_load()
+                        return None
+                    return 'prometheus port not up'
+                return 'ofctl not up'
+            return 'not all controllers connected to switch'
+        return 'not all controllers healthy'
+
     def _start_faucet(self, controller_intf):
         last_error_txt = ''
         for _ in range(3):
@@ -318,21 +336,11 @@ class FaucetTestBase(unittest.TestCase):
                 self.net.addController(self.gauge_controller)
             self.net.start()
             self._wait_load()
-            if self._wait_controllers_healthy():
-                if self._wait_controllers_connected():
-                    if self._wait_ofctl_up():
-                        if self.wait_dp_status(1):
-                            self._config_tableids()
-                            self._wait_load()
-                            return
-                        else:
-                            last_error_txt = 'prometheus port not up'
-                    else:
-                        last_error_txt = 'ofctl not up'
-                else:
-                    last_error_txt = 'not all controllers connected to switch'
-            else:
-                last_error_txt = 'not all controllers healthy'
+            last_error_txt = self._start_check()
+            if last_error_txt is None:
+                self._config_tableids()
+                self._wait_load()
+                return
             self.net.stop()
             last_error_txt += '\n\n' + self._dump_controller_logs()
             print(last_error_txt)

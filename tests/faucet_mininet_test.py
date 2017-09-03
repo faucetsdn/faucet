@@ -499,15 +499,14 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
         print('\nlog/debug files for failed tests are in %s\n' % root_tmpdir)
         if not keep_logs:
             if sanity:
-                if not single_tests:
-                    test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
-                    for test_dir in test_dirs:
-                        test_name = os.path.basename(test_dir)
-                        if test_name in failures:
-                            if dumpfail:
-                                dump_failed_test(test_name, test_dir)
-                        else:
-                            shutil.rmtree(test_dir)
+                test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
+                for test_dir in test_dirs:
+                    test_name = os.path.basename(test_dir)
+                    if test_name in failures:
+                        if dumpfail:
+                            dump_failed_test(test_name, test_dir)
+                    else:
+                        shutil.rmtree(test_dir)
 
 
 def run_tests(hw_config, requested_test_classes, dumpfail,
