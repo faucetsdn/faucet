@@ -61,7 +61,7 @@ def return_free_ports(ports_socket, name):
     sock.sendall('PUT,%s\n' % name)
 
 
-def serve_ports(ports_socket, min_free_ports):
+def serve_ports(ports_socket, start_free_ports, min_free_ports):
     """Implement a TCP server to dispense free TCP ports."""
     ports_q = collections.deque()
     free_ports = set()
@@ -84,14 +84,14 @@ def serve_ports(ports_socket, min_free_ports):
         port_age[free_port] = time.time()
         return free_port
 
-    def queue_free_ports():
-        while len(ports_q) < min_free_ports:
+    def queue_free_ports(min_queue_size):
+        while len(ports_q) < min_queue_size:
             port = get_port()
             ports_q.append(port)
             port_age[port] = time.time()
             time.sleep(0.1)
 
-    queue_free_ports()
+    queue_free_ports(start_free_ports)
     ports_served = 0
     ports_by_name = collections.defaultdict(set)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -99,6 +99,9 @@ def serve_ports(ports_socket, min_free_ports):
     sock.listen(1)
 
     while True:
+        if len(ports_q) < min_free_ports:
+            queue_free_ports(len(ports_q) + 1)
+
         connection, _ = sock.accept()
         command, name = receive_sock_line(connection).split(',')
         if command == 'PUT':
@@ -107,8 +110,6 @@ def serve_ports(ports_socket, min_free_ports):
                 port_age[port] = time.time()
             del ports_by_name[name]
         else:
-            if len(ports_q) == 0:
-                queue_free_ports()
             while True:
                 port = ports_q.popleft()
                 if not tcp_listening(port):

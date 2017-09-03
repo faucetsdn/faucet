@@ -836,8 +836,7 @@ dbs:
         if results:
             if multiple:
                 return results
-            else:
-                return results[0][1]
+            return results[0][1]
         return default
 
     def gauge_smoke_test(self):
