@@ -17,7 +17,7 @@ MIN_PORT_AGE = max(int(open(
 
 
 def tcp_listening_cmd(port, ipv=4):
-    return 'lsof -P -n -t -sTCP:LISTEN -i %u -a -i tcp:%u' % (ipv, port)
+    return 'lsof -b -P -n -t -sTCP:LISTEN -i %u -a -i tcp:%u' % (ipv, port)
 
 
 def mininet_dpid(int_dpid):
@@ -41,7 +41,9 @@ def receive_sock_line(sock):
 
 
 def tcp_listening(port):
-    return subprocess.call(tcp_listening_cmd(port).split(' ')) == 0
+    DEVNULL = open(os.devnull, 'w')
+    return subprocess.call(
+        tcp_listening_cmd(port).split(), stdout=DEVNULL, stderr=DEVNULL, close_fds=True) == 0
 
 
 def find_free_port(ports_socket, name):
@@ -109,8 +111,9 @@ def serve_ports(ports_socket, min_free_ports):
                 queue_free_ports()
             while True:
                 port = ports_q.popleft()
-                if time.time() - port_age[port] > MIN_PORT_AGE:
-                    break
+                if not tcp_listening(port):
+                    if time.time() - port_age[port] > MIN_PORT_AGE:
+                        break
                 ports_q.append(port)
                 time.sleep(1)
             ports_served += 1
