@@ -24,13 +24,13 @@ try:
     from conf import Conf
     from port import Port
     from vlan import VLAN
-    from valve_table import ValveTable
+    from valve_table import ValveTable, ValveGroupTable
 except ImportError:
     from faucet.acl import ACL
     from faucet.conf import Conf
     from faucet.port import Port
     from faucet.vlan import VLAN
-    from faucet.valve_table import ValveTable
+    from faucet.valve_table import ValveTable, ValveGroupTable
 
 
 # Documentation generated using documentation_generator.py
@@ -58,6 +58,7 @@ class DP(Conf):
     drop_spoofed_faucet_mac = None
     drop_bpdu = None
     drop_lldp = None
+    groups = None
     group_table = False
     group_table_routing = False
     max_hosts_per_resolve_cycle = None
@@ -205,6 +206,7 @@ class DP(Conf):
 
     def _configure_tables(self):
         """Configure FAUCET pipeline of tables with matches."""
+        self.groups = ValveGroupTable()
         for table_id, table_config in enumerate((
                 ('port_acl', None),
                 ('vlan', ('eth_dst', 'eth_src', 'eth_type', 'in_port', 'vlan_vid')),

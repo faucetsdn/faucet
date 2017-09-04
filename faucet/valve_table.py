@@ -34,7 +34,7 @@ class ValveTable(object):
         if restricted_match_types:
             self.restricted_match_types = set(restricted_match_types)
         self.flow_cookie = flow_cookie
-        self.notify_flow_removed = False
+        self.notify_flow_removed = notify_flow_removed
 
     def match(self, in_port=None, vlan=None,
               eth_type=None, eth_src=None,
@@ -109,3 +109,20 @@ class ValveTable(object):
             priority=priority,
             inst=[valve_of.apply_actions(
                 [valve_of.output_controller(max_len)])] + inst)
+
+
+class ValveGroupTable(object):
+    """Wrap access to group table."""
+    # TODO: manage group_ids to prevent conflicts.
+
+    def groupadd(self, group_id, buckets):
+        return valve_of.groupadd(group_id=group_id, buckets=buckets)
+
+    def groupmod(self, group_id, buckets):
+        return valve_of.groupmod(group_id=group_id, buckets=buckets)
+
+    def groupdel(self, group_id):
+        return valve_of.groupdel(group_id=group_id)
+
+    def delete_all(self):
+        return valve_of.groupdel()

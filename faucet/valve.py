@@ -153,13 +153,13 @@ class Valve(object):
                 self.dp.max_resolve_backoff_time, self.dp.proactive_learn, self.DEC_TTL,
                 fib_table, self.dp.tables['vip'], self.dp.tables['eth_src'],
                 self.dp.tables['eth_dst'], self.dp.tables['flood'],
-                self.dp.highest_priority,
-                self.dp.group_table_routing, self.dp.routers)
+                self.dp.highest_priority, self.dp.routers,
+                self.dp.group_table_routing, self.dp.groups)
             self.route_manager_by_ipv[route_manager.IPV] = route_manager
         self.flood_manager = valve_flood.ValveFloodManager(
             self.dp.tables['flood'], self.dp.low_priority,
             self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root,
-            self.dp.group_table)
+            self.dp.group_table, self.dp.groups)
         self.host_manager = valve_host.ValveHostManager(
             self.logger, self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
             self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
@@ -213,7 +213,7 @@ class Valve(object):
         if self.dp.meters:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
-            ofmsgs.append(valve_of.groupdel())
+            ofmsgs.append(self.dp.groups.delete_all())
         return ofmsgs
 
     def _delete_all_port_match_flows(self, port):
