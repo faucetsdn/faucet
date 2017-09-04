@@ -21,6 +21,10 @@ dbs:
     ft_file:
         type: 'text'
         file: 'flow_table.JSON'
+    prometheus:
+        type: 'prometheus'
+        prometheus_addr: 'localhost'
+        prometheus_port: 9303
     influx:
         type: 'influx'
         influx_db: 'faucet'
