@@ -213,7 +213,7 @@ class Valve(object):
         if self.dp.meters:
             ofmsgs.append(valve_of.meterdel())
         if self.dp.group_table:
-            ofmsgs.append(valve_of.groupdel())
+            ofmsgs.append(self.dp.groups.delete_all())
         return ofmsgs
 
     def _delete_all_port_match_flows(self, port):
