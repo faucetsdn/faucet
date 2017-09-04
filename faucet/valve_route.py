@@ -58,7 +58,7 @@ class ValveRouteManager(object):
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
                  max_resolve_backoff_time, proactive_learn, dec_ttl,
                  fib_table, vip_table, eth_src_table, eth_dst_table, flood_table,
-                 route_priority, use_group_table, routers):
+                 route_priority, routers, use_group_table, groups):
         self.logger = logger
         self.arp_neighbor_timeout = arp_neighbor_timeout
         self.max_hosts_per_resolve_cycle = max_hosts_per_resolve_cycle
@@ -72,8 +72,9 @@ class ValveRouteManager(object):
         self.eth_dst_table = eth_dst_table
         self.flood_table = flood_table
         self.route_priority = route_priority
-        self.use_group_table = use_group_table
         self.routers = routers
+        self.use_group_table = use_group_table
+        self.groups = groups
         self.ip_gw_to_group_id = {}
 
     @staticmethod
@@ -218,15 +219,14 @@ class ValveRouteManager(object):
         buckets = self._nexthop_group_buckets(vlan, port, eth_src)
         ofmsgs = []
         if is_updated:
-            group_mod_method = valve_of.groupmod
+            group_mod_method = self.groups.groupmod
             group_id = self.ip_gw_to_group_id[resolved_ip_gw]
         else:
-            group_mod_method = valve_of.groupadd
+            group_mod_method = self.groups.groupadd
             group_id = self._group_id_from_ip_gw(resolved_ip_gw)
             self.ip_gw_to_group_id[resolved_ip_gw] = group_id
-            ofmsgs.append(valve_of.groupdel(group_id=group_id))
-        ofmsgs.append(
-            group_mod_method(group_id=group_id, buckets=buckets))
+            ofmsgs.append(self.groups.groupdel(group_id))
+        ofmsgs.append(group_mod_method(group_id, buckets))
         return ofmsgs
 
     def _update_nexthop(self, vlan, port, eth_src, resolved_ip_gw):
