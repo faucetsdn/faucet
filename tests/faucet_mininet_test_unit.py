@@ -882,7 +882,7 @@ vlans:
                 macs_learned.append(mac_int)
         return macs_learned
 
-    def verify_hosts_learned(self, hosts):
+    def hosts_learned(self, hosts):
         """Check that hosts are learned by FAUCET on the expected ports."""
         mac_ints_on_port_learned = {}
         for mac, port in hosts.items():
@@ -893,7 +893,17 @@ vlans:
             mac_ints_on_port_learned[port].update(macs_learned)
         for mac, port in hosts.items():
             mac_int = self.mac_as_int(mac)
-            self.assertTrue(mac_int in mac_ints_on_port_learned[port])
+            if not mac_int in mac_ints_on_port_learned[port]:
+                return False
+        return True
+
+    def verify_hosts_learned(self, first_host, mac_ips, hosts):
+        for _ in range(3):
+            first_host.cmd('fping -c3 %s' % ' '.join(mac_ips))
+            if self.hosts_learned(hosts):
+                return
+            time.sleep(1)
+        self.fail('%s cannot be learned' % mac_ips)
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -904,15 +914,12 @@ vlans:
 
         for i in range(10, 16):
             if i == 14:
-                first_host.cmd('fping -c3 %s' % ' '.join(mac_ips))
-                # check first 4 are learnt
-                self.verify_hosts_learned(learned_mac_ports)
+                self.verify_hosts_learned(first_host, mac_ips, learned_mac_ports)
                 learned_mac_ports = {}
                 mac_intfs = []
                 mac_ips = []
                 # wait for first lot to time out.
-                # Adding 11 covers the random variation when a rule is added
-                time.sleep(self.TIMEOUT + 11)
+                time.sleep(self.TIMEOUT * 2)
             mac_intf = 'mac%u' % i
             mac_intfs.append(mac_intf)
             mac_ipv4 = '10.0.0.%u' % i
@@ -928,9 +935,9 @@ vlans:
                     'xargs echo -n')))
             learned_mac_ports[address] = self.port_map['port_2']
 
-        first_host.cmd('fping -c3 %s' % ' '.join(mac_ips))
         learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
-        self.verify_hosts_learned(learned_mac_ports)
+        self.verify_hosts_learned(first_host, mac_ips, learned_mac_ports)
+
         # Verify same or less number of hosts on a port reported by Prometheus
         self.assertTrue((
             len(self.macs_learned_on_port(self.port_map['port_1'])) <=
