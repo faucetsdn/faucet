@@ -112,7 +112,17 @@ class ValveTable(object):
 
 
 class ValveGroupTable(object):
+    """Wrap access to group table."""
+    # TODO: manage group_ids to prevent conflicts.
 
+    def groupadd(self, group_id, buckets):
+        return valve_of.groupadd(group_id=group_id, buckets=buckets)
+
+    def groupmod(self, group_id, buckets):
+        return valve_of.groupmod(group_id=group_id, buckets=buckets)
+
+    def groupdel(self, group_id):
+        return valve_of.groupdel(group_id=group_id)
 
     def delete_all(self):
         return valve_of.groupdel()
