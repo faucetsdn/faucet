@@ -27,6 +27,7 @@ except ImportError:
 
 
 class WatcherConf(Conf):
+    """Gauge watcher configuration."""
 
     db = None
     dp = None
@@ -73,10 +74,12 @@ class WatcherConf(Conf):
         self.name = str(self._id)
 
     def add_db(self, db_conf):
+        """Add database config to this watcher."""
         db_conf = deepcopy(db_conf)
         db_type = db_conf.pop('type')
         db_conf['db_type'] = db_type
         self.update(db_conf)
 
     def add_dp(self, dp):
+        """Add a datapath to this watcher."""
         self.dp = dp

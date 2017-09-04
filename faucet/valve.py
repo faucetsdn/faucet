@@ -578,6 +578,14 @@ class Valve(object):
         return ofmsgs
 
     def port_add(self, dp_id, port_num):
+        """Handle addition of a single port.
+
+        Args:
+            dp_id (int): datapath ID.
+            port_num (list): list of port numbers.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
         return self.ports_add(dp_id, [port_num])
 
     def ports_delete(self, dp_id, port_nums):
