@@ -50,9 +50,11 @@ class FaucetAPI(object):
         self.faucet = None
 
     def is_registered(self):
+        """Return True if registered and ready to serve API requests."""
         return self.faucet is not None
 
     def _register(self, faucet):
+        """Register with FAUCET RyuApp."""
         if self.faucet is None:
             self.faucet = faucet
 
@@ -68,23 +70,27 @@ class FaucetAPI(object):
         return None
 
     def get_tables(self, dp_id):
-        """Get the current table structure used by faucet as a dict of table name: table no."""
+        """Get current FAUCET tables as a dict of table name: table no."""
         if self.faucet is not None:
             return self.faucet.get_tables(dp_id)
         return None
 
-    # TODO: here are some other features I would like to see sometime:
     def push_config(self, config):
+        """Push supplied config to FAUCET."""
         raise NotImplementedError
 
     def add_port_acl(self, port, acl):
+        """Add an ACL to a port."""
         raise NotImplementedError
 
     def add_vlan_acl(self, vlan, acl):
+        """Add an ACL to a VLAN."""
         raise NotImplementedError
 
     def delete_port_acl(self, port, acl):
+        """Delete an ACL from a port."""
         raise NotImplementedError
 
     def delete_vlan_acl(self, vlan, acl):
+        """Delete an ACL from a VLAN."""
         raise NotImplementedError
