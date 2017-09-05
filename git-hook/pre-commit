@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# To install:
+#
+#    pip3 install git-pylint-commit-hook
+#    chmod +x git-commit
+#    cp git-commit ../.git/hooks
+
+git-pylint-commit-hook
