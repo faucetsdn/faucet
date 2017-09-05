@@ -3,7 +3,7 @@
 # To install:
 #
 #    pip3 install git-pylint-commit-hook
-#    chmod +x git-commit
-#    cp git-commit ../.git/hooks
+#    chmod +x pre-commit
+#    cp pre-commit ../.git/hooks
 
 git-pylint-commit-hook
