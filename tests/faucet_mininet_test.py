@@ -421,7 +421,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class CleanupResult(unittest.TestResult):
+class CleanupResult(unittest.runner.TextTestResult):
 
     root_tmpdir = None
     successes = []
@@ -564,9 +564,9 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
     sanity_tests, single_tests, parallel_tests = expand_tests(
         requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    resultclass = unittest.TestResult
-    if not keep_logs:
-        resultclass = CleanupResult
+    resultclass = CleanupResult
+    if keep_logs:
+        resultclass = resultclass.__bases__[0]
     all_successful = False
     sanity = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
     if sanity:
