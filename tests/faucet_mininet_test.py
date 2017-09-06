@@ -483,9 +483,9 @@ def report_results(results):
         print('\n')
         for result in results:
             for test_status, test_list in (
-                        ('OK', result.successes),
-                        ('ERROR', result.errors),
-                        ('FAIL', result.failures)):
+                    ('OK', result.successes),
+                    ('ERROR', result.errors),
+                    ('FAIL', result.failures)):
                 report_tests(test_status, test_list)
         print('\n')
 
@@ -560,8 +560,14 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
     sanity_tests, single_tests, parallel_tests = expand_tests(
         requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    sanity, all_successful = run_test_suites(
-        keep_logs, root_tmpdir, sanity_tests, single_tests, parallel_tests)
+    resultclass = unittest.TestResult
+    if keep_logs:
+        resultclass = CleanupResult
+    all_successful = False
+    sanity = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
+    if sanity:
+        all_successful = run_test_suites(
+            root_tmpdir, resultclass, single_tests, parallel_tests)
     os.remove(ports_sock)
     decoded_pcap_logs = glob.glob(os.path.join(
         os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
