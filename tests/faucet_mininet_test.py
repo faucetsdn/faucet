@@ -421,7 +421,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class CleanupResult(unittest.result.TestResult):
+class CleanupResult(unittest.TestResult):
 
     root_tmpdir = None
     successes = []
