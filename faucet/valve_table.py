@@ -118,6 +118,7 @@ class ValveGroupTable(object):
     # TODO: manage group_ids to prevent conflicts.
 
     def groupid_from_buckets(self, buckets):
+        # pytype: disable=wrong-keyword-args
         return zlib.adler32(bytes(str(buckets), encoding='UTF-8'))
 
     def groupadd(self, group_id, buckets):
