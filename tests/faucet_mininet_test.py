@@ -348,7 +348,7 @@ def pipeline_superset_report(decoded_pcap_logs):
         print('  %s' % sorted(group_actions))
 
 
-def filter_test_hardware(test_name, test_obj, hw_config):
+def filter_test_hardware(test_obj, hw_config):
     test_hosts = test_obj.N_TAGGED + test_obj.N_UNTAGGED
     if hw_config is not None:
         test_hardware = hw_config['hardware']
@@ -385,7 +385,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
         if excluded_test_classes and test_name in excluded_test_classes:
             continue
         if test_name.endswith('Test') and test_name.startswith('Faucet'):
-            if not filter_test_hardware(test_name, test_obj, hw_config):
+            if not filter_test_hardware(test_obj, hw_config):
                 continue
             print('adding test %s' % test_name)
             test_suite = make_suite(
@@ -417,47 +417,72 @@ def expand_tests(requested_test_classes, excluded_test_classes,
         sanity_tests.addTest(test_suite)
     for test_suite in single_test_suites:
         single_tests.addTest(test_suite)
-    total_tests = len(single_test_suites) + len(parallel_test_suites)
-    return (total_tests, sanity_tests, single_tests, parallel_tests)
+    return (sanity_tests, single_tests, parallel_tests)
 
 
-def run_test_suites(sanity_tests, single_tests, parallel_tests):
+class CleanupResult(unittest.result.TestResult):
+
+    root_tmpdir = None
+
+    def addSuccess(self, test):
+        test_tmpdir = os.path.join(
+            self.root_tmpdir, faucet_mininet_test_util.flat_test_name(test.id()))
+        shutil.rmtree(test_tmpdir)
+        super(CleanupResult, self).addSuccess(test)
+
+
+def test_runner(resultclass, root_tmpdir, failfast=False):
+    resultclass.root_tmpdir = root_tmpdir
+    return unittest.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
+
+
+def run_parallel_test_suites(parallel_tests, root_tmpdir, resultclass):
+    results = []
+    if parallel_tests.countTestCases():
+        max_parallel_tests = min(
+            parallel_tests.countTestCases(), multiprocessing.cpu_count() * 3)
+        print('running maximum of %u of parallel tests' % max_parallel_tests)
+        parallel_runner = test_runner(resultclass, root_tmpdir)
+        parallel_suite = ConcurrentTestSuite(
+            parallel_tests, fork_for_tests(max_parallel_tests))
+        results.append(parallel_runner.run(parallel_suite))
+    return results
+
+
+def run_single_test_suites(single_tests, root_tmpdir, resultclass):
+    results = []
+    # TODO: Tests that are serialized generally depend on hardcoded ports.
+    # Make them use dynamic ports.
+    if single_tests.countTestCases():
+        single_runner = test_runner(resultclass, root_tmpdir)
+        results.append(single_runner.run(single_tests))
+    return results
+
+
+def run_test_suites(keep_logs, root_tmpdir, sanity_tests, single_tests, parallel_tests):
     sanity = False
     all_successful = False
-    failures = []
-    sanity_runner = unittest.TextTestRunner(verbosity=255, failfast=True)
+    if keep_logs:
+        resultclass = unittest.result.TestResult
+    else:
+        resultclass = CleanupResult
+    sanity_runner = test_runner(resultclass, root_tmpdir, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
-    max_parallel_tests = multiprocessing.cpu_count() * 3
     if sanity_result.wasSuccessful():
         sanity = True
         print('running %u tests in parallel and %u tests serial' % (
             parallel_tests.countTestCases(), single_tests.countTestCases()))
         results = []
-        if parallel_tests.countTestCases():
-            print('running maximum of %u of parallel tests' % max_parallel_tests)
-            max_parallel_tests = min(parallel_tests.countTestCases(), max_parallel_tests)
-            parallel_runner = unittest.TextTestRunner(verbosity=255)
-            parallel_suite = ConcurrentTestSuite(
-                parallel_tests, fork_for_tests(max_parallel_tests))
-            results.append(parallel_runner.run(parallel_suite))
-        # TODO: Tests that are serialized generally depend on hardcoded ports.
-        # Make them use dynamic ports.
-        if single_tests.countTestCases():
-            single_runner = unittest.TextTestRunner(verbosity=255)
-            results.append(single_runner.run(single_tests))
+        results.extend(run_parallel_test_suites(parallel_tests, root_tmpdir, resultclass))
+        results.extend(run_single_test_suites(single_tests, root_tmpdir, resultclass))
         all_successful = True
         for result in results:
             if not result.wasSuccessful():
-                for failure in result.failures + result.errors:
-                    description = failure[0].shortDescription()
-                    if description:
-                        failed_name = '-'.join(description.split('.')[1:])
-                        failures.append(failed_name)
                 all_successful = False
                 print(result.printErrors())
     else:
         print('sanity tests failed - test environment not correct')
-    return (sanity, all_successful, failures)
+    return (sanity, all_successful)
 
 
 def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
@@ -490,8 +515,7 @@ def dump_failed_test(test_name, test_dir):
             print(open(test_file).read())
 
 
-def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
-                    failures, dumpfail, single_tests):
+def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
     if all_successful:
         if not keep_logs:
             shutil.rmtree(root_tmpdir)
@@ -502,11 +526,8 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs,
                 test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
                 for test_dir in test_dirs:
                     test_name = os.path.basename(test_dir)
-                    if test_name in failures:
-                        if dumpfail:
-                            dump_failed_test(test_name, test_dir)
-                    else:
-                        shutil.rmtree(test_dir)
+                    if dumpfail:
+                        dump_failed_test(test_name, test_dir)
 
 
 def run_tests(hw_config, requested_test_classes, dumpfail,
@@ -520,18 +541,16 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
     min_free_ports = 100
     ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
     print('test ports server started')
-    total_tests, sanity_tests, single_tests, parallel_tests = expand_tests(
+    sanity_tests, single_tests, parallel_tests = expand_tests(
         requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    sanity, all_successful, failures = run_test_suites(
-        sanity_tests, single_tests, parallel_tests)
+    sanity, all_successful = run_test_suites(
+        keep_logs, root_tmpdir, sanity_tests, single_tests, parallel_tests)
     os.remove(ports_sock)
     decoded_pcap_logs = glob.glob(os.path.join(
         os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
     pipeline_superset_report(decoded_pcap_logs)
-    clean_test_dirs(
-        root_tmpdir, all_successful, sanity,
-        keep_logs, failures, dumpfail, single_tests)
+    clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail)
     if not all_successful:
         sys.exit(-1)
 

@@ -171,7 +171,7 @@ class FaucetTestBase(unittest.TestCase):
         open(self.gauge_config_path, 'w').write(gauge_config)
 
     def _test_name(self):
-        return '-'.join(self.id().split('.')[1:])
+        return faucet_mininet_test_util.flat_test_name(self.id())
 
     def _tmpdir_name(self):
         tmpdir = os.path.join(self.root_tmpdir, self._test_name())
