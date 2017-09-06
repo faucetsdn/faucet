@@ -6,6 +6,7 @@
 
 import collections
 import glob
+import ipaddress
 import json
 import os
 import random
@@ -15,11 +16,11 @@ import time
 import unittest
 import yaml
 
-import ipaddress
 import requests
 
 from requests.exceptions import ConnectionError
 
+# pylint: disable=import-error
 from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
@@ -71,6 +72,9 @@ class FaucetTestBase(unittest.TestCase):
     hw_switch = False
     gauge_controller = None
     gauge_of_port = None
+    prom_port = None
+    gauge_prom_port = None
+    influx_port = None
     net = None
     of_port = None
     ctl_privkey = None
@@ -463,7 +467,7 @@ class FaucetTestBase(unittest.TestCase):
         if not os.path.exists(exception_log_name):
             return
         exception_contents = open(exception_log_name, 'r').read()
-        self.assertEquals(
+        self.assertEqual(
             '',
             exception_contents,
             msg='%s log contains %s' % (exception_log_name, exception_contents))
@@ -838,7 +842,7 @@ dbs:
         prom_lines = self.scrape_prometheus(controller)
         for prom_line in prom_lines.splitlines():
             prom_var_data = prom_line.split(' ')
-            self.assertEquals(
+            self.assertEqual(
                 2, len(prom_var_data),
                 msg='invalid prometheus line in %s' % prom_lines)
             var, value = prom_var_data
@@ -945,7 +949,7 @@ dbs:
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
             self.require_host_learned(host)
-        self.assertEquals(0, self.net.ping((first_host, second_host)))
+        self.assertEqual(0, self.net.ping((first_host, second_host)))
         mirror_mac = mirror_host.MAC()
         tcpdump_filter = (
             'not ether src %s and '
@@ -965,7 +969,7 @@ dbs:
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
             self.require_host_learned(host)
-        self.assertEquals(0, self.net.ping((first_host, second_host)))
+        self.assertEqual(0, self.net.ping((first_host, second_host)))
         mirror_mac = mirror_host.MAC()
         tmp_eap_conf = os.path.join(self.tmpdir, 'eap.conf')
         tcpdump_filter = (
@@ -1001,14 +1005,14 @@ dbs:
 
     def verify_port1_unicast(self, unicast_status):
         # Unicast flooding rule for from port 1
-        self.assertEquals(
+        self.assertEqual(
             self.matching_flow_present(
                 {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_1'])},
                 table_id=self.FLOOD_TABLE,
                 match_exact=True),
             unicast_status)
         #  Unicast flood rule exists that output to port 1
-        self.assertEquals(
+        self.assertEqual(
             self.matching_flow_present(
                 {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
                 table_id=self.FLOOD_TABLE,
@@ -1117,7 +1121,7 @@ dbs:
         self.fail(msg=msg)
 
     def set_port_down(self, port_no):
-        self.assertEquals(
+        self.assertEqual(
             0,
             os.system(self._curl_portmod(
                 self.dpid,
@@ -1126,7 +1130,7 @@ dbs:
                 ofp.OFPPC_PORT_DOWN)))
 
     def set_port_up(self, port_no):
-        self.assertEquals(
+        self.assertEqual(
             0,
             os.system(self._curl_portmod(
                 self.dpid,
@@ -1190,7 +1194,7 @@ dbs:
         """Add an IPv6 address to a Mininet host."""
         if intf is None:
             intf = host.intf()
-        self.assertEquals(
+        self.assertEqual(
             '',
             host.cmd('ip -6 addr add %s dev %s' % (ip_v6, intf)))
 
@@ -1201,7 +1205,7 @@ dbs:
         add_cmd = 'ip -%u route add %s via %s' % (
             ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)
         results = host.cmd(add_cmd)
-        self.assertEquals(
+        self.assertEqual(
             '', results, msg='%s: %s' % (add_cmd, results))
 
     def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned):
@@ -1285,7 +1289,7 @@ dbs:
     def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
-        self.assertEquals(
+        self.assertEqual(
             '', first_host.cmd(faucet_mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10)))
         if table_id is not None:
@@ -1299,7 +1303,7 @@ dbs:
     def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is NOT blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
-        self.assertEquals(
+        self.assertEqual(
             'hello\r\n',
             first_host.cmd('nc -w 5 %s %u' % (second_host.IP(), port)))
         if table_id is not None:
@@ -1388,7 +1392,7 @@ dbs:
                 self.require_host_learned(host)
             if loss == 0:
                 return
-        self.assertEquals(0, loss)
+        self.assertEqual(0, loss)
 
     def wait_for_route_as_flow(self, nexthop, prefix, vlan_vid=None, timeout=10,
                                with_group_table=False, nonzero_packets=False):
@@ -1420,15 +1424,15 @@ dbs:
                     actions=[nexthop_action])
 
     def host_ipv4_alias(self, host, alias_ip, intf=None):
+        """Add an IPv4 alias address to a host."""
         if intf is None:
             intf = host.intf()
-        """Add an IPv4 alias address to a host."""
         del_cmd = 'ip addr del %s dev %s' % (
             alias_ip.with_prefixlen, intf)
         add_cmd = 'ip addr add %s dev %s label %s:1' % (
             alias_ip.with_prefixlen, intf, intf)
         host.cmd(del_cmd)
-        self.assertEquals('', host.cmd(add_cmd))
+        self.assertEqual('', host.cmd(add_cmd))
 
     def _ip_neigh(self, host, ipa, ip_ver):
         neighbors = host.cmd('ip -%u neighbor show %s' % (ip_ver, ipa))

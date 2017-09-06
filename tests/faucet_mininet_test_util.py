@@ -40,6 +40,7 @@ def str_int_dpid(str_dpid):
 
 
 def receive_sock_line(sock):
+    """Receive a \n terminated line from a socket."""
     buf = ''
     while buf.find('\n') <= -1:
         buf = buf + sock.recv(1024)
@@ -131,8 +132,10 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
 
 
 def timeout_cmd(cmd, timeout):
+    """Return a command line prefaced with a timeout wrappers and stdout/err unbuffered."""
     return 'timeout -sKILL %us stdbuf -o0 -e0 %s' % (timeout, cmd)
 
 
 def timeout_soft_cmd(cmd, timeout):
+    """Same as timeout_cmd buf using SIGTERM on timeout."""
     return 'timeout %us stdbuf -o0 -e0 %s' % (timeout, cmd)

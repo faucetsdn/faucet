@@ -33,6 +33,7 @@ import unittest
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
+# pylint: disable=import-error
 from mininet.log import setLogLevel
 from mininet.clean import Cleanup
 from packaging import version
@@ -441,7 +442,7 @@ def run_parallel_test_suites(parallel_tests, root_tmpdir, resultclass):
     if parallel_tests.countTestCases():
         max_parallel_tests = min(
             parallel_tests.countTestCases(), multiprocessing.cpu_count() * 3)
-        print('running maximum of %u of parallel tests' % max_parallel_tests)
+        print('running maximum of %u parallel tests' % max_parallel_tests)
         parallel_runner = test_runner(resultclass, root_tmpdir)
         parallel_suite = ConcurrentTestSuite(
             parallel_tests, fork_for_tests(max_parallel_tests))
@@ -459,6 +460,12 @@ def run_single_test_suites(single_tests, root_tmpdir, resultclass):
     return results
 
 
+def run_sanity_test_suites(sanity_tests, root_tmpdir, resultclass):
+    sanity_runner = test_runner(resultclass, root_tmpdir, failfast=True)
+    sanity_result = sanity_runner.run(sanity_tests)
+    return sanity_result.wasSuccessful()
+
+
 def run_test_suites(keep_logs, root_tmpdir, sanity_tests, single_tests, parallel_tests):
     sanity = False
     all_successful = False
@@ -466,10 +473,8 @@ def run_test_suites(keep_logs, root_tmpdir, sanity_tests, single_tests, parallel
         resultclass = unittest.result.TestResult
     else:
         resultclass = CleanupResult
-    sanity_runner = test_runner(resultclass, root_tmpdir, failfast=True)
-    sanity_result = sanity_runner.run(sanity_tests)
-    if sanity_result.wasSuccessful():
-        sanity = True
+    sanity = run_sanity_test_suites(sanity_tests, root_tmpdir, resultclass)
+    if sanity:
         print('running %u tests in parallel and %u tests serial' % (
             parallel_tests.countTestCases(), single_tests.countTestCases()))
         results = []
