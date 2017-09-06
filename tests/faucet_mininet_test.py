@@ -424,70 +424,81 @@ def expand_tests(requested_test_classes, excluded_test_classes,
 class CleanupResult(unittest.result.TestResult):
 
     root_tmpdir = None
+    successes = []
 
     def addSuccess(self, test):
+        self.successes.append((test, ''))
         test_tmpdir = os.path.join(
             self.root_tmpdir, faucet_mininet_test_util.flat_test_name(test.id()))
         shutil.rmtree(test_tmpdir)
         super(CleanupResult, self).addSuccess(test)
 
 
-def test_runner(resultclass, root_tmpdir, failfast=False):
+def test_runner(root_tmpdir, resultclass, failfast=False):
     resultclass.root_tmpdir = root_tmpdir
     return unittest.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
 
 
-def run_parallel_test_suites(parallel_tests, root_tmpdir, resultclass):
+def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests):
     results = []
     if parallel_tests.countTestCases():
         max_parallel_tests = min(
             parallel_tests.countTestCases(), multiprocessing.cpu_count() * 3)
         print('running maximum of %u parallel tests' % max_parallel_tests)
-        parallel_runner = test_runner(resultclass, root_tmpdir)
+        parallel_runner = test_runner(root_tmpdir, resultclass)
         parallel_suite = ConcurrentTestSuite(
             parallel_tests, fork_for_tests(max_parallel_tests))
         results.append(parallel_runner.run(parallel_suite))
     return results
 
 
-def run_single_test_suites(single_tests, root_tmpdir, resultclass):
+def run_single_test_suites(root_tmpdir, resultclass, single_tests):
     results = []
     # TODO: Tests that are serialized generally depend on hardcoded ports.
     # Make them use dynamic ports.
     if single_tests.countTestCases():
-        single_runner = test_runner(resultclass, root_tmpdir)
+        single_runner = test_runner(root_tmpdir, resultclass)
         results.append(single_runner.run(single_tests))
     return results
 
 
-def run_sanity_test_suites(sanity_tests, root_tmpdir, resultclass):
-    sanity_runner = test_runner(resultclass, root_tmpdir, failfast=True)
+def run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests):
+    sanity_runner = test_runner(root_tmpdir, resultclass, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
     return sanity_result.wasSuccessful()
 
 
-def run_test_suites(keep_logs, root_tmpdir, sanity_tests, single_tests, parallel_tests):
-    sanity = False
-    all_successful = False
-    if keep_logs:
-        resultclass = unittest.result.TestResult
-    else:
-        resultclass = CleanupResult
-    sanity = run_sanity_test_suites(sanity_tests, root_tmpdir, resultclass)
-    if sanity:
-        print('running %u tests in parallel and %u tests serial' % (
-            parallel_tests.countTestCases(), single_tests.countTestCases()))
-        results = []
-        results.extend(run_parallel_test_suites(parallel_tests, root_tmpdir, resultclass))
-        results.extend(run_single_test_suites(single_tests, root_tmpdir, resultclass))
-        all_successful = True
+def report_tests(test_status, test_list):
+    for test_class, test_text in test_list:
+        test_text = test_text.replace('\n', '\t')
+        print('\t'.join((test_class.id(), test_status, test_text)))
+
+
+def report_results(results):
+    if results:
+        report_title = 'test results'
+        print('\n')
+        print(report_title)
+        print('=' * len(report_title))
+        print('\n')
         for result in results:
-            if not result.wasSuccessful():
-                all_successful = False
-                print(result.printErrors())
-    else:
-        print('sanity tests failed - test environment not correct')
-    return (sanity, all_successful)
+            for test_status, test_list in (
+                        ('OK', result.successes),
+                        ('ERROR', result.errors),
+                        ('FAIL', result.failures)):
+                report_tests(test_status, test_list)
+        print('\n')
+
+
+def run_test_suites(root_tmpdir, resultclass, single_tests, parallel_tests):
+    print('running %u tests in parallel and %u tests serial' % (
+        parallel_tests.countTestCases(), single_tests.countTestCases()))
+    results = []
+    results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
+    results.extend(run_single_test_suites(root_tmpdir, resultclass, single_tests))
+    report_results(results)
+    successful_results = [result for result in results if result.wasSuccessful()]
+    return len(results) == len(successful_results)
 
 
 def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
