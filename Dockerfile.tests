@@ -2,6 +2,11 @@ FROM osrg/ryu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+###
+### When apt-get'ing, make sure apt-update always run first per RUN
+### to ensure Docker layer cache doesn't use a stale apt database.
+###
+
 RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends software-properties-common && \
@@ -13,7 +18,7 @@ RUN \
   apt-get -yq install apt-fast
 
 RUN \
-  apt-fast install -qy --no-install-recommends \
+  apt-get update && apt-fast install -qy --no-install-recommends \
     bc \
     fping \
     gcc \
