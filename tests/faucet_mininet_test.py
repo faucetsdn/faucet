@@ -482,10 +482,14 @@ def report_results(results):
         print('=' * len(report_title))
         print('\n')
         for result in results:
-            for test_status, test_list in (
-                    ('OK', result.successes),
-                    ('ERROR', result.errors),
-                    ('FAIL', result.failures)):
+            test_lists = [
+                ('ERROR', result.errors),
+                ('FAIL', result.failures),
+            ]
+            if hasattr(result, 'successes'):
+                test_lists.append(
+                    ('OK', result.successes))
+            for test_status, test_list in test_lists:
                 report_tests(test_status, test_list)
         print('\n')
 
@@ -561,7 +565,7 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
         requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
     resultclass = unittest.TestResult
-    if keep_logs:
+    if not keep_logs:
         resultclass = CleanupResult
     all_successful = False
     sanity = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
