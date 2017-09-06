@@ -54,8 +54,12 @@ To pull and run the latest git version of Gauge:
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/gauge/:/var/log/ryu/faucet/ \
       -p 6654:6653 \
+      -p 9303:9303 \
       faucet/gauge
 ```
+
+Port 6654 is used for OpenFlow, port 9303 is used for Prometheus - port 9303 may be omitted if
+you do not need Prometheus.
 
 ### Dockerfile
 
