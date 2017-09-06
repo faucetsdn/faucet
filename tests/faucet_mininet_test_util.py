@@ -90,10 +90,7 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
                 continue
             break
         free_ports.add(free_port)
-        if free_port in port_age:
-            port_age[free_port] = time.time()
-        else:
-            port_age[free_port] = 0
+        port_age[free_port] = time.time()
         return free_port
 
     def queue_free_ports(min_queue_size):
