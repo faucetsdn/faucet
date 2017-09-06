@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import zlib
+
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 try:
@@ -114,6 +116,9 @@ class ValveTable(object):
 class ValveGroupTable(object):
     """Wrap access to group table."""
     # TODO: manage group_ids to prevent conflicts.
+
+    def groupid_from_buckets(self, buckets):
+        return zlib.adler32(bytes(str(buckets), encoding='UTF-8'))
 
     def groupadd(self, group_id, buckets):
         return valve_of.groupadd(group_id=group_id, buckets=buckets)

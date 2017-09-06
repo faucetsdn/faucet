@@ -226,24 +226,24 @@ class ValveFloodManager(object):
     def _build_group_flood_rules(self, vlan, modify, command):
         flood_priority = self.flood_priority
         broadcast_buckets = self._build_group_buckets(vlan, False)
+        broadcast_groupid = self.groups.groupid_from_buckets(broadcast_buckets)
         unicast_buckets = self._build_group_buckets(vlan, vlan.unicast_flood)
-        group_id = vlan.vid
+        unicast_groupid = self.groups.groupid_from_buckets(unicast_buckets)
         ofmsgs = []
         group_mod_method = self.groups.groupadd
         if modify:
             group_mod_method = self.groups.groupmod
         else:
-            ofmsgs.append(self.groups.groupdel(group_id))
-            ofmsgs.append(self.groups.groupdel(group_id + valve_of.VLAN_GROUP_OFFSET))
-        ofmsgs.append(group_mod_method(group_id, broadcast_buckets))
-        ofmsgs.append(group_mod_method(
-            group_id + valve_of.VLAN_GROUP_OFFSET, unicast_buckets))
+            ofmsgs.append(self.groups.groupdel(unicast_groupid))
+            ofmsgs.append(self.groups.groupdel(broadcast_groupid))
+        ofmsgs.append(group_mod_method(broadcast_groupid, broadcast_buckets))
+        ofmsgs.append(group_mod_method(unicast_groupid, unicast_buckets))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst and not vlan.unicast_flood:
                 continue
-            group_id = vlan.vid
+            group_id = unicast_groupid
             if not eth_dst:
-                group_id = group_id + valve_of.VLAN_GROUP_OFFSET
+                group_id = broadcast_groupid
             match = self.flood_table.match(
                 vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
             ofmsgs.append(self.flood_table.flowmod(
