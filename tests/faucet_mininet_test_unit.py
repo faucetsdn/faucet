@@ -3635,7 +3635,7 @@ class FaucetGroupTableTest(FaucetUntaggedTest):
 
     def test_group_exist(self):
         self.assertEqual(
-            4292399155,
+            100,
             self.get_group_id_for_matching_flow(
                 {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
                 table_id=self.FLOOD_TABLE))
@@ -3662,7 +3662,7 @@ class FaucetTaggedGroupTableTest(FaucetTaggedTest):
 
     def test_group_exist(self):
         self.assertEqual(
-            4292399155,
+            100,
             self.get_group_id_for_matching_flow(
                 {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
                 table_id=self.FLOOD_TABLE))
