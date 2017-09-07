@@ -38,6 +38,7 @@ class Port(Conf):
     stack = {}
     max_hosts = None
     hairpin = None
+    learn_ban_count = 0
 
     defaults = {
         'number': None,
@@ -64,17 +65,29 @@ class Port(Conf):
         # if True, then switch between hosts on this port (eg WiFi radio).
     }
 
+    defaults_types = {
+        'number': int,
+        'name': str,
+        'description': str,
+        'enabled': bool,
+        'permanent_learn': bool,
+        'unicast_flood': bool,
+        'mirror': (str, int),
+        'mirror_destination': bool,
+        'native_vlan': (str, int),
+        'tagged_vlans': list,
+        'acl_in': (str, int),
+        'stack': dict,
+        'max_hosts': int,
+        'hairpin': bool,
+    }
+
     def __init__(self, _id, conf=None):
-        if conf is None:
-            conf = {}
-        self._id = _id
-        self.update(conf)
-        self.set_defaults()
+        super(Port, self).__init__(_id, conf)
         self.dyn_phys_up = False
 
     def set_defaults(self):
-        for key, value in list(self.defaults.items()):
-            self._set_default(key, value)
+        super(Port, self).set_defaults()
         self._set_default('number', self._id)
         self._set_default('name', str(self._id))
         self._set_default('description', self.name)
@@ -94,9 +107,10 @@ class Port(Conf):
     def to_conf(self):
         result = super(Port, self).to_conf()
         if 'stack' in result and result['stack'] is not None:
-            result['stack'] = {
-                'dp': str(self.stack['dp']),
-                'port': str(self.stack['port'])
+            if 'dp' in self.stack and 'port' in self.stack:
+                result['stack'] = {
+                    'dp': str(self.stack['dp']),
+                    'port': str(self.stack['port'])
                 }
         return result
 

@@ -17,7 +17,7 @@
 # limitations under the License.
 
 import logging
-from logging.handlers import TimedRotatingFileHandler
+from logging.handlers import WatchedFileHandler
 import os
 import signal
 import sys
@@ -34,7 +34,7 @@ def kill_on_exception(logname):
                 func(*args, **kwargs)
             except:
                 logging.getLogger(logname).exception(
-                    "Unhandled exception, killing RYU")
+                    'Unhandled exception, killing RYU')
                 logging.shutdown()
                 os.kill(os.getpid(), signal.SIGTERM)
         return __koe
@@ -50,9 +50,9 @@ def get_sys_prefix():
     # original path in sys.real_prefix. If this value exists, and is
     # different from sys.prefix, then we are most likely running in a
     # virtualenv. Also check for Py3.3+ pyvenv.
-    sysprefix = ""
-    if (getattr(sys, "real_prefix", sys.prefix) != sys.prefix or
-            getattr(sys, "base_prefix", sys.prefix) != sys.prefix):
+    sysprefix = ''
+    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix or
+            getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
         sysprefix = sys.prefix
 
     return sysprefix
@@ -60,8 +60,7 @@ def get_sys_prefix():
 
 def get_logger(logname, logfile, loglevel, propagate):
     logger = logging.getLogger(logname)
-    logger_handler = TimedRotatingFileHandler(
-        logfile, when='midnight')
+    logger_handler = WatchedFileHandler(logfile)
     log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
     logger_handler.setFormatter(
         logging.Formatter(log_fmt, '%b %d %H:%M:%S'))

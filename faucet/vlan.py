@@ -29,6 +29,9 @@ except ImportError:
     from faucet import valve_of
 
 
+FAUCET_MAC = '0e:00:00:00:00:01'
+
+
 class VLAN(Conf):
     """Implement FAUCET configuration for a VLAN."""
 
@@ -36,6 +39,7 @@ class VLAN(Conf):
     untagged = None
     vid = None
     faucet_vips = None
+    faucet_mac = None
     bgp_as = None
     bgp_local_address = None
     bgp_port = None
@@ -48,26 +52,31 @@ class VLAN(Conf):
     max_hosts = None
     unicast_flood = None
     acl_in = None
+    proactive_arp_limit = None
+    proactive_nd_limit = None
     # Define dynamic variables with prefix dyn_ to distinguish from variables set
     # configuration
     dyn_host_cache = None
     dyn_faucet_vips_by_ipv = None
     dyn_routes_by_ipv = None
     dyn_neigh_cache_by_ipv = None
+    learn_ban_count = 0
 
     defaults = {
         'name': None,
         'description': None,
         'acl_in': None,
         'faucet_vips': None,
+        'faucet_mac': FAUCET_MAC,
+        # set MAC for FAUCET VIPs on this VLAN
         'unicast_flood': True,
-        'bgp_as': 0,
+        'bgp_as': None,
         'bgp_local_address': None,
         'bgp_port': 9179,
-        'bgp_routerid': '',
+        'bgp_routerid': None,
         'bgp_neighbour_addresses': [],
         'bgp_neighbor_addresses': [],
-        'bgp_neighbour_as': 0,
+        'bgp_neighbour_as': None,
         'bgp_neighbor_as': None,
         'routes': None,
         'max_hosts': 255,
@@ -79,14 +88,31 @@ class VLAN(Conf):
         # Don't proactively ND for hosts if over this limit (None unlimited)
         }
 
+    defaults_types = {
+        'name': str,
+        'description': str,
+        'acl_in': (int, str),
+        'faucet_vips': list,
+        'faucet_mac': str,
+        'unicast_flood': bool,
+        'bgp_as': int,
+        'bgp_local_address': str,
+        'bgp_port': int,
+        'bgp_routerid': str,
+        'bgp_neighbour_addresses': list,
+        'bgp_neighbor_addresses': list,
+        'bgp_neighbour_as': int,
+        'bgp_neighbor_as': int,
+        'routes': list,
+        'max_hosts': int,
+        'vid': int,
+        'proactive_arp_limit': int,
+        'proactive_nd_limit': int,
+    }
+
     def __init__(self, _id, dp_id, conf=None):
-        if conf is None:
-            conf = {}
-        self._id = _id
+        super(VLAN, self).__init__(_id, conf)
         self.dp_id = dp_id
-        self.update(conf)
-        self.set_defaults()
-        self._id = _id
         self.tagged = []
         self.untagged = []
         self.dyn_host_cache = {}
@@ -150,8 +176,7 @@ class VLAN(Conf):
         self.dyn_host_cache = value
 
     def set_defaults(self):
-        for key, value in list(self.defaults.items()):
-            self._set_default(key, value)
+        super(VLAN, self).set_defaults()
         self._set_default('vid', self._id)
         self._set_default('name', str(self._id))
         self._set_default('faucet_vips', [])
@@ -162,7 +187,7 @@ class VLAN(Conf):
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
         ports = ','.join(port_list)
-        return 'VLAN vid:%s ports:%s' % (self.vid, ports)
+        return 'VLAN %s vid:%s ports:%s' % (self.name, self.vid, ports)
 
     def __repr__(self):
         return self.__str__()
@@ -202,7 +227,7 @@ class VLAN(Conf):
                 (self.vid, self.tagged_flood_ports(False)),
                 (None, self.untagged_flood_ports(False))):
             if ports:
-                pkt = packet_builder(vid, *args)
+                pkt = packet_builder(self, vid, *args)
                 for port in ports:
                     ofmsgs.append(valve_of.packetout(port.number, pkt.data))
         return ofmsgs
@@ -223,16 +248,19 @@ class VLAN(Conf):
         return False
 
     def ip_in_vip_subnet(self, ipa):
-        """Return True if IP in same IP network as a VIP on this VLAN."""
+        """Return faucet_vip if IP in same IP network as a VIP on this VLAN."""
         for faucet_vip in self.faucet_vips_by_ipv(ipa.version):
             if ipa in faucet_vip.network:
-                return True
-        return False
+                if ipa not in (
+                        faucet_vip.network.network_address,
+                        faucet_vip.network.broadcast_address):
+                    return faucet_vip
+        return None
 
     def ips_in_vip_subnet(self, ips):
         """Return True if all IPs are on same subnet as VIP on this VLAN."""
         for ipa in ips:
-            if not self.ip_in_vip_subnet(ipa):
+            if self.ip_in_vip_subnet(ipa) is None:
                 return False
         return True
 

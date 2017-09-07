@@ -127,10 +127,10 @@ class Faucet(app_manager.RyuApp):
         self.valves = {}
 
         # Start Prometheus
-        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9244'))
+        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9302'))
         prom_addr = os.getenv('FAUCET_PROMETHEUS_ADDR', '')
-        self.metrics = faucet_metrics.FaucetMetrics(
-            prom_port, prom_addr)
+        self.metrics = faucet_metrics.FaucetMetrics()
+        self.metrics.start(prom_port, prom_addr)
 
         # Start BGP
         self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
@@ -173,10 +173,10 @@ class Faucet(app_manager.RyuApp):
                     self._send_flow_msgs(new_dp.dp_id, flowmods)
                     if cold_start:
                         self.metrics.faucet_config_reload_cold.labels(
-                            dpid=hex(dp_id)).inc()
+                            dp_id=hex(dp_id)).inc()
                     else:
                         self.metrics.faucet_config_reload_warm.labels(
-                            dpid=hex(dp_id)).inc()
+                            dp_id=hex(dp_id)).inc()
             else:
                 # pylint: disable=no-member
                 valve_cl = valve_factory(new_dp)
@@ -215,14 +215,35 @@ class Faucet(app_manager.RyuApp):
                 return
 
         valve = self.valves[dp_id]
-        reordered_flow_msgs = valve.valve_flowreorder(flow_msgs)
+        reordered_flow_msgs = valve_of.valve_flowreorder(flow_msgs)
         valve.ofchannel_log(reordered_flow_msgs)
         for flow_msg in reordered_flow_msgs:
             # pylint: disable=no-member
             self.metrics.of_flowmsgs_sent.labels(
-                dpid=hex(dp_id)).inc()
+                dp_id=hex(dp_id)).inc()
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
+
+    def _get_valve(self, ryu_dp, handler_name, msg=None):
+        """Get Valve instance to response to an event.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+            handler_name (string): handler name to log if datapath unknown.
+            msg (ryu.controller.ofp_event.EventOFPMsgBase): message from datapath.
+        Returns:
+            Valve instance or None.
+        """
+        dp_id = ryu_dp.id
+        if dp_id in self.valves:
+            valve = self.valves[dp_id]
+            if msg:
+                valve.ofchannel_log([msg])
+            return valve
+        ryu_dp.close()
+        self.logger.error(
+            '%s: unknown datapath %s', handler_name, dpid_log(dp_id))
+        return None
 
     def _signal_handler(self, sigid, _):
         """Handle any received signals.
@@ -288,6 +309,14 @@ class Faucet(app_manager.RyuApp):
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
 
+    def get_config(self):
+        """FAUCET API: return config for all Valves."""
+        return get_config_for_api(self.valves)
+
+    def get_tables(self, dp_id):
+        """FAUCET API: return config tables for one Valve."""
+        return self.valves[dp_id].dp.get_tables()
+
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def reload_config(self, _):
@@ -304,7 +333,7 @@ class Faucet(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
-    def _packet_in_handler(self, ryu_event):
+    def packet_in_handler(self, ryu_event):
         """Handle a packet in event from the dataplane.
 
         Args:
@@ -313,30 +342,29 @@ class Faucet(app_manager.RyuApp):
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
-
-        if not dp_id in self.valves:
-            self.logger.error('_packet_in_handler: unknown %s', dpid_log(dp_id))
-            return
-
-        valve = self.valves[dp_id]
-        valve.ofchannel_log([msg])
-
-        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg)
-        if pkt is None or vlan_vid is None:
+        valve = self._get_valve(ryu_dp, 'packet_in_handler', msg)
+        if valve is None:
             return
 
         in_port = msg.match['in_port']
+        # eth/VLAN header only
+        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg.data, max_len=(14 + 4))
+        if pkt is None or vlan_vid is None:
+            self.logger.info(
+                'unparseable packet from %s port %s', dpid_log(dp_id), in_port)
+            return
+        pkt_meta = valve.parse_rcv_packet(in_port, vlan_vid, msg.data, pkt)
+
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
-            dpid=hex(dp_id)).inc()
-        flowmods = valve.rcv_packet(
-            dp_id, self.valves, in_port, vlan_vid, pkt)
+            dp_id=hex(dp_id)).inc()
+        flowmods = valve.rcv_packet(dp_id, self.valves, pkt_meta)
         self._send_flow_msgs(dp_id, flowmods)
         valve.update_metrics(self.metrics)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
-    def _error_handler(self, ryu_event):
+    def error_handler(self, ryu_event):
         """Handle an OFPError from a datapath.
 
         Args:
@@ -345,16 +373,16 @@ class Faucet(app_manager.RyuApp):
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
-        if dp_id in self.valves:
-            # pylint: disable=no-member
-            self.metrics.of_errors.labels(
-                dpid=hex(dp_id)).inc()
-            self.valves[dp_id].ofchannel_log([msg])
+        valve = self._get_valve(ryu_dp, 'error_handler', msg)
+        if valve is None:
+            return
+        # pylint: disable=no-member
+        self.metrics.of_errors.labels(dp_id=hex(dp_id)).inc()
         self.logger.error('OFError %s from %s', msg, dpid_log(dp_id))
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
-    def handler_features(self, ryu_event):
+    def features_handler(self, ryu_event):
         """Handle receiving a switch features message from a datapath.
 
         Args:
@@ -363,36 +391,51 @@ class Faucet(app_manager.RyuApp):
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
-        if dp_id in self.valves:
-            valve = self.valves[dp_id]
-            flowmods = valve.switch_features(dp_id, msg)
-            self._send_flow_msgs(dp_id, flowmods, ryu_dp=ryu_dp)
-        else:
-            self.logger.error('handler_features: unknown %s', dpid_log(dp_id))
-            ryu_dp.close()
+        valve = self._get_valve(ryu_dp, 'features_handler', msg)
+        if valve is None:
+            return
+        flowmods = valve.switch_features(dp_id, msg)
+        self._send_flow_msgs(dp_id, flowmods, ryu_dp=ryu_dp)
 
     @kill_on_exception(exc_logname)
-    def _handler_datapath(self, ryu_dp):
-        """Handle any/all re/dis/connection of a datapath.
+    def _datapath_connect(self, ryu_dp):
+        """Handle any/all re/connection of a datapath.
 
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
         dp_id = ryu_dp.id
-        if dp_id in self.valves:
-            discovered_up_port_nums = [
-                port.port_no for port in list(ryu_dp.ports.values()) if port.state == 0]
-            valve = self.valves[dp_id]
-            flowmods = valve.datapath_connect(
-                dp_id, discovered_up_port_nums)
-            self._send_flow_msgs(dp_id, flowmods)
-        else:
-            self.logger.error('handler_datapath: unknown %s', dpid_log(dp_id))
-            ryu_dp.close()
+        valve = self._get_valve(ryu_dp, '_datapath_connect')
+        if valve is None:
+            return
+        discovered_up_port_nums = [
+            port.port_no for port in list(ryu_dp.ports.values()) if port.state == 0]
+        flowmods = valve.datapath_connect(
+            dp_id, discovered_up_port_nums)
+        self._send_flow_msgs(dp_id, flowmods)
+        # pylint: disable=no-member
+        self.metrics.of_dp_connections.labels(dp_id=hex(dp_id)).inc()
+        self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(1)
+
+    @kill_on_exception(exc_logname)
+    def _datapath_disconnect(self, ryu_dp):
+        """Handle any/all disconnection of a datapath.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+        """
+        dp_id = ryu_dp.id
+        valve = self._get_valve(ryu_dp, '_datapath_disconnect')
+        if valve is None:
+            return
+        valve.datapath_disconnect(dp_id)
+        # pylint: disable=no-member
+        self.metrics.of_dp_disconnections.labels(dp_id=hex(dp_id)).inc()
+        self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(0)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
-    def handler_connect_or_disconnect(self, ryu_event):
+    def connect_or_disconnect_handler(self, ryu_event):
         """Handle connection or disconnection of a datapath.
 
         Args:
@@ -400,33 +443,19 @@ class Faucet(app_manager.RyuApp):
         """
         ryu_dp = ryu_event.dp
         dp_id = ryu_dp.id
-        if dp_id in self.valves:
-            valve = self.valves[dp_id]
-            # pylint: disable=no-member
-            if ryu_event.enter:
-                self.metrics.of_dp_connections.labels(
-                    dpid=hex(dp_id)).inc()
-                self.logger.debug('%s connected', dpid_log(dp_id))
-                self._handler_datapath(ryu_dp)
-                # pylint: disable=no-member
-                self.metrics.dp_status.labels(
-                    dpid=hex(dp_id)).set(1)
-            else:
-                self.metrics.of_dp_disconnections.labels(
-                    dpid=hex(dp_id)).inc()
-                # pylint: disable=no-member
-                self.metrics.dp_status.labels(
-                    dpid=hex(dp_id)).set(0)
-                self.logger.debug('%s disconnected', dpid_log(dp_id))
-                valve.datapath_disconnect(dp_id)
+        valve = self._get_valve(ryu_dp, 'handler_connect_or_disconnect')
+        if valve is None:
+            return
+        if ryu_event.enter:
+            self.logger.debug('%s connected', dpid_log(dp_id))
+            self._datapath_connect(ryu_dp)
         else:
-            self.logger.error(
-                'handler_connect_or_disconnect: unknown %s', dpid_log(dp_id))
-            ryu_dp.close()
+            self.logger.debug('%s disconnected', dpid_log(dp_id))
+            self._datapath_disconnect(ryu_dp)
 
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
-    def handler_reconnect(self, ryu_event):
+    def reconnect_handler(self, ryu_event):
         """Handle reconnection of a datapath.
 
         Args:
@@ -434,11 +463,11 @@ class Faucet(app_manager.RyuApp):
         """
         ryu_dp = ryu_event.dp
         dp_id = ryu_dp.id
+        valve = self._get_valve(ryu_dp, 'reconnect_handler')
+        if valve is None:
+            return
         self.logger.debug('%s reconnected', dpid_log(dp_id))
-        # pylint: disable=no-member
-        self.metrics.dp_status.labels(
-            dpid=hex(dp_id)).set(1)
-        self._handler_datapath(ryu_dp)
+        self._datapath_connect(ryu_dp)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -451,28 +480,32 @@ class Faucet(app_manager.RyuApp):
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
+        valve = self._get_valve(ryu_dp, 'port_status_handler', msg)
+        if valve is None:
+            return
         ofp = msg.datapath.ofproto
         reason = msg.reason
         port_no = msg.desc.port_no
         port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN
         port_status = not port_down
-        if dp_id in self.valves:
-            valve = self.valves[dp_id]
-            flowmods = valve.port_status_handler(
-                dp_id, port_no, reason, port_status)
-            self._send_flow_msgs(dp_id, flowmods)
-            # pylint: disable=no-member
-            self.metrics.port_status.labels(
-                dpid=hex(dp_id), port=port_no).set(port_status)
-        else:
-            self.logger.error(
-                'port_status_handler: unknown %s', dpid_log(dp_id))
-            ryu_dp.close()
+        flowmods = valve.port_status_handler(
+            dp_id, port_no, reason, port_status)
+        self._send_flow_msgs(dp_id, flowmods)
+        # pylint: disable=no-member
+        self.metrics.port_status.labels(
+            dp_id=hex(dp_id), port=port_no).set(port_status)
 
-    def get_config(self):
-        """FAUCET API: return config for all Valves."""
-        return get_config_for_api(self.valves)
-
-    def get_tables(self, dp_id):
-        """FAUCET API: return config tables for one Valve."""
-        return self.valves[dp_id].dp.get_tables()
+    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
+    @kill_on_exception(exc_logname)
+    def flowremoved_handler(self, ryu_event):
+        msg = ryu_event.msg
+        ryu_dp = msg.datapath
+        valve = self._get_valve(ryu_dp, 'flowremoved_handler', msg)
+        if valve is None:
+            return
+        ofp = msg.datapath.ofproto
+        reason = msg.reason
+        if reason == ofp.OFPRR_IDLE_TIMEOUT:
+            flowmods = valve.flow_timeout(msg.table_id, msg.match)
+            if flowmods:
+                self._send_flow_msgs(ryu_dp.id, flowmods)

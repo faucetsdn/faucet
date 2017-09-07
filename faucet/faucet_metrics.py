@@ -18,69 +18,79 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from prometheus_client import Counter, Gauge
 
-from prometheus_client import Counter, Gauge, start_http_server
+try:
+    from prom_client import PromClient
+except ImportError:
+    from faucet.prom_client import PromClient
 
 
-class FaucetMetrics(object):
+class FaucetMetrics(PromClient):
     """Container class for objects that can be exported to Prometheus."""
 
-    def __init__(self, prom_port, prom_addr):
+    def __init__(self):
         self.of_packet_ins = Counter(
             'of_packet_ins',
-            'number of OF packet_ins received from DP', ['dpid'])
+            'number of OF packet_ins received from DP', ['dp_id'])
         self.of_flowmsgs_sent = Counter(
             'of_flowmsgs_sent',
-            'number of OF flow messages (and packet outs) sent to DP', ['dpid'])
+            'number of OF flow messages (and packet outs) sent to DP', ['dp_id'])
         self.of_errors = Counter(
             'of_errors',
-            'number of OF errors received from DP', ['dpid'])
+            'number of OF errors received from DP', ['dp_id'])
         self.of_dp_connections = Counter(
             'of_dp_connections',
-            'number of OF connections from a DP', ['dpid'])
+            'number of OF connections from a DP', ['dp_id'])
         self.of_dp_disconnections = Counter(
             'of_dp_disconnections',
-            'number of OF connections from a DP', ['dpid'])
+            'number of OF connections from a DP', ['dp_id'])
         self.faucet_config_reload_requests = Counter(
             'faucet_config_reload_requests',
             'number of config reload requests', [])
         self.faucet_config_reload_warm = Counter(
             'faucet_config_reload_warm',
             'number of warm, differences only config reloads executed',
-            ['dpid'])
+            ['dp_id'])
         self.faucet_config_reload_cold = Counter(
             'faucet_config_reload_cold',
             'number of cold, complete reprovision config reloads executed',
-            ['dpid'])
+            ['dp_id'])
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
-            'number of hosts learned on a vlan', ['dpid', 'vlan'])
+            'number of hosts learned on a VLAN', ['dp_id', 'vlan'])
         self.vlan_neighbors = Gauge(
             'vlan_neighbors',
-            'number of neighbors on a vlan', ['dpid', 'vlan', 'ipv'])
+            'number of neighbors on a VLAN', ['dp_id', 'vlan', 'ipv'])
+        self.vlan_learn_bans = Gauge(
+            'vlan_learn_bans',
+            'number of times learning was banned on a VLAN', ['dp_id', 'vlan'])
         self.faucet_config_table_names = Gauge(
             'faucet_config_table_names',
-            'number to names map of FAUCET pipeline tables', ['dpid', 'name'])
+            'number to names map of FAUCET pipeline tables', ['dp_id', 'name'])
         self.faucet_config_dp_name = Gauge(
             'faucet_config_dp_name',
-            'map of DP name to DP ID', ['dpid', 'name'])
+            'map of DP name to DP ID', ['dp_id', 'name'])
         self.bgp_neighbor_uptime_seconds = Gauge(
             'bgp_neighbor_uptime',
-            'BGP neighbor uptime in seconds', ['dpid', 'vlan', 'neighbor'])
+            'BGP neighbor uptime in seconds', ['dp_id', 'vlan', 'neighbor'])
         self.bgp_neighbor_routes = Gauge(
             'bgp_neighbor_routes',
-            'BGP neighbor route count', ['dpid', 'vlan', 'neighbor', 'ipv'])
+            'BGP neighbor route count', ['dp_id', 'vlan', 'neighbor', 'ipv'])
         self.learned_macs = Gauge(
             'learned_macs',
             ('max address stored as 64bit number to DP ID, port, VLAN, '
              'and n (maximum number of hosts on the port)'),
-            ['dpid', 'port', 'vlan', 'n'])
+            ['dp_id', 'port', 'vlan', 'n'])
         self.port_status = Gauge(
             'port_status',
             'status of switch ports',
-            ['dpid', 'port'])
+            ['dp_id', 'port'])
+        self.port_learn_bans = Gauge(
+            'port_learn_bans',
+            'number of times learning was banned on a port',
+            ['dp_id', 'port'])
         self.dp_status = Gauge(
             'dp_status',
             'status of datapaths',
-            ['dpid'])
-        start_http_server(prom_port, prom_addr)
+            ['dp_id'])

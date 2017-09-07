@@ -13,6 +13,9 @@ This directory contains three docker files: **Dockerfile**,
 
 See README_install.rst and README_config.rst for configuration options.
 
+** In particular, see vendor specific docs for additional files that may be
+necessary in /etc/ryu/faucet to configure the switch pipeline. **
+
 ### Official builds
 
 We provide official automated builds on Docker Hub so that you can run Faucet
@@ -34,11 +37,11 @@ To pull and run the latest git version of Faucet:
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
       -p 6653:6653 \
-      -p 9244:9244 \
+      -p 9302:9302 \
       faucet/faucet
 ```
 
-Port 6653 is used for OpenFlow, port 9244 is used for Prometheus - port 9244 may be omitted if
+Port 6653 is used for OpenFlow, port 9302 is used for Prometheus - port 9302 may be omitted if
 you do not need Prometheus.
 
 To pull and run the latest git version of Gauge:
@@ -51,8 +54,12 @@ To pull and run the latest git version of Gauge:
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/gauge/:/var/log/ryu/faucet/ \
       -p 6654:6653 \
+      -p 9303:9303 \
       faucet/gauge
 ```
+
+Port 6654 is used for OpenFlow, port 9303 is used for Prometheus - port 9303 may be omitted if
+you do not need Prometheus.
 
 ### Dockerfile
 

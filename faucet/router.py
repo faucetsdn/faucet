@@ -28,11 +28,9 @@ class Router(Conf):
     vlans = None
 
     defaults = {
-        'vlans': None
+        'vlans': None,
     }
 
-    def __init__(self, _id, conf=None):
-        if conf is None:
-            conf = {}
-        self.update(conf)
-        self._id = _id
+    defaults_type = {
+        'vlans': list,
+    }

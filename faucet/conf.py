@@ -21,6 +21,20 @@ class Conf(object):
     """Base class for FAUCET configuration."""
 
     defaults = {}
+    defaults_types = {}
+
+    def __init__(self, _id, conf=None):
+        if conf is None:
+            conf = {}
+        self._id = _id
+        # TODO: handle conf as a sequence.
+        if isinstance(conf, dict):
+            self.update(conf)
+            self.set_defaults()
+
+    def set_defaults(self):
+        for key, value in list(self.defaults.items()):
+            self._set_default(key, value)
 
     def _check_unknown_conf(self, conf):
         """Check that supplied conf dict doesn't specify keys not defined."""
@@ -28,9 +42,20 @@ class Conf(object):
         unknown_conf_names = sub_conf_names - set(self.defaults.keys())
         assert not unknown_conf_names, 'unknown config items: %s' % unknown_conf_names
 
+    def _check_defaults_types(self, conf):
+        """Check that conf value is of the correct type."""
+        #  assert set(list(self.defaults_types.keys())) == set(list(conf.keys()))
+        for conf_key, conf_value in list(conf.items()):
+            if conf_key in self.defaults_types and conf_value is not None:
+                default_type = self.defaults_types[conf_key]
+                assert isinstance(conf_value, default_type), '%s value %s must be %s not %s' % (
+                    conf_key, conf_value, default_type, type(conf_value))
+
     def update(self, conf):
+        """Parse supplied YAML config and sanity check."""
         self.__dict__.update(conf)
         self._check_unknown_conf(conf)
+        self._check_defaults_types(conf)
 
     def _set_default(self, key, value):
         if key not in self.__dict__ or self.__dict__[key] is None:

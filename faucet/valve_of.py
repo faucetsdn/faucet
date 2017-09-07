@@ -12,19 +12,19 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASISo
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple
 import ipaddress
 
 from ryu.lib import ofctl_v1_3 as ofctl
+from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil
 from ryu.ofproto import ether
+from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
-
 
 VLAN_GROUP_OFFSET = 4096
 ROUTE_GROUP_OFFSET = VLAN_GROUP_OFFSET * 2
@@ -109,6 +109,11 @@ def is_groupadd(ofmsg):
     return False
 
 
+def apply_meter(meter_id):
+    """Return instruction to apply a meter."""
+    return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
+
+
 def apply_actions(actions):
     """Return instruction that applies action list.
 
@@ -120,15 +125,15 @@ def apply_actions(actions):
     return parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)
 
 
-def goto_table(table_id):
+def goto_table(table):
     """Return instruction to goto table.
 
     Args:
-        table_id (int): table to goto.
+        table (ValveTable): table to goto.
     Returns:
         ryu.ofproto.ofproto_v1_3_parser.OFPInstruction: goto instruction.
     """
-    return parser.OFPInstructionGotoTable(table_id)
+    return parser.OFPInstructionGotoTable(table.table_id)
 
 
 def set_eth_src(eth_src):
@@ -162,6 +167,17 @@ def vid_present(vid):
         int: VLAN VID with VID_PRESENT.
     """
     return vid | ofp.OFPVID_PRESENT
+
+
+def devid_present(vid):
+    """Return VLAN VID without VID_PRESENT flag set.
+
+    Args:
+        vid (int): VLAN VID with VID_PRESENT.
+    Returns:
+        int: VLAN VID.
+    """
+    return vid ^ ofp.OFPVID_PRESENT
 
 
 def set_vlan_vid(vlan_vid):
@@ -281,11 +297,106 @@ def match(match_fields):
     return parser.OFPMatch(**match_fields)
 
 
+def valve_match_vid(value):
+    return to_match_vid(value, ofp.OFPVID_PRESENT)
+
+
 def match_from_dict(match_dict):
-    null_dp = namedtuple('null_dp', 'ofproto_parser')
-    null_dp.ofproto_parser = parser
-    acl_match = ofctl.to_match(null_dp, match_dict)
-    return acl_match
+    convert = {
+        'in_port': OFCtlUtil(ofp).ofp_port_from_user,
+        'in_phy_port': str_to_int,
+        'metadata': to_match_masked_int,
+        'dl_dst': to_match_eth,
+        'dl_src': to_match_eth,
+        'eth_dst': to_match_eth,
+        'eth_src': to_match_eth,
+        'dl_type': str_to_int,
+        'eth_type': str_to_int,
+        'dl_vlan': valve_match_vid,
+        'vlan_vid': valve_match_vid,
+        'vlan_pcp': str_to_int,
+        'ip_dscp': str_to_int,
+        'ip_ecn': str_to_int,
+        'nw_proto': str_to_int,
+        'ip_proto': str_to_int,
+        'nw_src': to_match_ip,
+        'nw_dst': to_match_ip,
+        'ipv4_src': to_match_ip,
+        'ipv4_dst': to_match_ip,
+        'tp_src': to_match_masked_int,
+        'tp_dst': to_match_masked_int,
+        'tcp_src': to_match_masked_int,
+        'tcp_dst': to_match_masked_int,
+        'udp_src': to_match_masked_int,
+        'udp_dst': to_match_masked_int,
+        'sctp_src': to_match_masked_int,
+        'sctp_dst': to_match_masked_int,
+        'icmpv4_type': str_to_int,
+        'icmpv4_code': str_to_int,
+        'arp_op': str_to_int,
+        'arp_spa': to_match_ip,
+        'arp_tpa': to_match_ip,
+        'arp_sha': to_match_eth,
+        'arp_tha': to_match_eth,
+        'ipv6_src': to_match_ip,
+        'ipv6_dst': to_match_ip,
+        'ipv6_flabel': str_to_int,
+        'icmpv6_type': str_to_int,
+        'icmpv6_code': str_to_int,
+        'ipv6_nd_target': to_match_ip,
+        'ipv6_nd_sll': to_match_eth,
+        'ipv6_nd_tll': to_match_eth,
+        'mpls_label': str_to_int,
+        'mpls_tc': str_to_int,
+        'mpls_bos': str_to_int,
+        'pbb_isid': to_match_masked_int,
+        'tunnel_id': to_match_masked_int,
+        'ipv6_exthdr': to_match_masked_int
+    }
+
+    keys = {
+        'dl_dst': 'eth_dst',
+        'dl_src': 'eth_src',
+        'dl_type': 'eth_type',
+        'dl_vlan': 'vlan_vid',
+        'nw_src': 'ipv4_src',
+        'nw_dst': 'ipv4_dst',
+        'nw_proto': 'ip_proto'
+    }
+
+    if (match_dict.get('dl_type') == ether.ETH_TYPE_ARP or
+            match_dict.get('eth_type') == ether.ETH_TYPE_ARP):
+        if 'nw_src' in match_dict and 'arp_spa' not in match_dict:
+            match_dict['arp_spa'] = match_dict['nw_src']
+            del match_dict['nw_src']
+        if 'nw_dst' in match_dict and 'arp_tpa' not in match_dict:
+            match_dict['arp_tpa'] = match_dict['nw_dst']
+            del match_dict['nw_dst']
+
+    kwargs = {}
+    for key, value in list(match_dict.items()):
+        if key in keys:
+            # For old field name
+            key = keys[key]
+        if key in convert:
+            value = convert[key](value)
+            if key == 'tp_src' or key == 'tp_dst':
+                # TCP/UDP port
+                conv = {inet.IPPROTO_TCP: {'tp_src': 'tcp_src',
+                                           'tp_dst': 'tcp_dst'},
+                        inet.IPPROTO_UDP: {'tp_src': 'udp_src',
+                                           'tp_dst': 'udp_dst'}}
+                ip_proto = match_dict.get(
+                    'nw_proto', match_dict.get('ip_proto', 0))
+                key = conv[ip_proto][key]
+                kwargs[key] = value
+            else:
+                # others
+                kwargs[key] = value
+        else:
+            assert 'Unknown match field: %s' % key
+
+    return parser.OFPMatch(**kwargs)
 
 
 def _match_ip_masked(ipa):
@@ -305,7 +416,7 @@ def build_match_dict(in_port=None, vlan=None,
         match_dict['in_port'] = in_port
     if vlan is not None:
         if vlan.vid == ofp.OFPVID_NONE:
-            match_dict['vlan_vid'] = ofp.OFPVID_NONE
+            match_dict['vlan_vid'] = int(ofp.OFPVID_NONE)
         elif vlan.vid == ofp.OFPVID_PRESENT:
             match_dict['vlan_vid'] = (ofp.OFPVID_PRESENT, ofp.OFPVID_PRESENT)
         else:
@@ -339,7 +450,7 @@ def build_match_dict(in_port=None, vlan=None,
 
 
 def flowmod(cookie, command, table_id, priority, out_port, out_group,
-            match_fields, inst, hard_timeout, idle_timeout):
+            match_fields, inst, hard_timeout, idle_timeout, flags=0):
     return parser.OFPFlowMod(
         datapath=None,
         cookie=cookie,
@@ -351,15 +462,18 @@ def flowmod(cookie, command, table_id, priority, out_port, out_group,
         match=match_fields,
         instructions=inst,
         hard_timeout=hard_timeout,
-        idle_timeout=idle_timeout)
+        idle_timeout=idle_timeout,
+        flags=flags)
 
 
 def group_act(group_id):
+    """Return an action to run a group."""
     return parser.OFPActionGroup(group_id)
 
 
 def bucket(weight=0, watch_port=ofp.OFPP_ANY,
            watch_group=ofp.OFPG_ANY, actions=None):
+    """Return a group action bucket with provided actions."""
     return parser.OFPBucket(
         weight=weight,
         watch_port=watch_port,
@@ -368,6 +482,7 @@ def bucket(weight=0, watch_port=ofp.OFPP_ANY,
 
 
 def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
+    """Modify a group."""
     return parser.OFPGroupMod(
         datapath,
         ofp.OFPGC_MODIFY,
@@ -377,6 +492,7 @@ def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
 
 
 def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
+    """Add a group."""
     return parser.OFPGroupMod(
         datapath,
         ofp.OFPGC_ADD,
@@ -386,6 +502,7 @@ def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
 
 
 def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
+    """Delete a group (default all groups)."""
     return parser.OFPGroupMod(
         datapath,
         ofp.OFPGC_DELETE,
@@ -393,7 +510,44 @@ def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
         group_id)
 
 
+def meterdel(datapath=None, meter_id=ofp.OFPM_ALL):
+    """Delete a meter (default all meters)."""
+    return parser.OFPMeterMod(
+        datapath,
+        ofp.OFPMC_DELETE,
+        0,
+        meter_id)
+
+
+def meteradd(meter_conf):
+    """Add a meter based on YAML configuration."""
+
+    class NoopDP(object):
+        """Fake DP to be able to use ofctl to parse meter config."""
+
+        id = 0
+        msg = None
+        ofproto = ofp
+        ofproto_parser = parser
+
+        def send_msg(self, msg):
+            """Save msg only."""
+            self.msg = msg
+
+        @staticmethod
+        def set_xid(msg):
+            """Clear msg XID."""
+            msg.xid = 0
+
+    noop_dp = NoopDP()
+    ofctl.mod_meter_entry(noop_dp, meter_conf, ofp.OFPMC_ADD)
+    noop_dp.msg.xid = None
+    noop_dp.msg.datapath = None
+    return noop_dp.msg
+
+
 def controller_pps_meteradd(datapath=None, pps=0):
+    """Add a PPS meter towards controller."""
     return parser.OFPMeterMod(
         datapath=datapath,
         command=ofp.OFPMC_ADD,
@@ -403,8 +557,52 @@ def controller_pps_meteradd(datapath=None, pps=0):
 
 
 def controller_pps_meterdel(datapath=None):
+    """Delete a PPS meter towards controller."""
     return parser.OFPMeterMod(
         datapath=datapath,
         command=ofp.OFPMC_DELETE,
         flags=ofp.OFPMF_PKTPS,
         meter_id=ofp.OFPM_CONTROLLER)
+
+
+def valve_flowreorder(input_ofmsgs):
+    """Reorder flows for better OFA performance."""
+    # Move all deletes to be first, and add one barrier,
+    # while preserving order. Platforms that do parallel delete
+    # will perform better and platforms that don't will have
+    # at most only one barrier to deal with.
+    # TODO: further optimizations may be possible - for example,
+    # reorder adds to be in priority order.
+    delete_ofmsgs = []
+    groupadd_ofmsgs = []
+    nondelete_ofmsgs = []
+    for ofmsg in input_ofmsgs:
+        if is_flowdel(ofmsg) or is_groupdel(ofmsg):
+            delete_ofmsgs.append(ofmsg)
+        elif is_groupadd(ofmsg):
+            # The same group_id may be deleted/added multiple times
+            # To avoid group_mod_failed/group_exists error, if the
+            # same group_id is already in groupadd_ofmsgs I replace
+            # it instead of appending it (the last groupadd in
+            # input_ofmsgs is the only one sent to the switch)
+            # TODO: optimize the provisioning to avoid having the
+            # same group_id multiple times in input_ofmsgs
+            new_group_id = True
+            for i, groupadd_ofmsg in enumerate(groupadd_ofmsgs):
+                if groupadd_ofmsg.group_id == ofmsg.group_id:
+                    groupadd_ofmsgs[i] = ofmsg
+                    new_group_id = False
+                    break
+            if new_group_id:
+                groupadd_ofmsgs.append(ofmsg)
+        else:
+            nondelete_ofmsgs.append(ofmsg)
+    output_ofmsgs = []
+    if delete_ofmsgs:
+        output_ofmsgs.extend(delete_ofmsgs)
+        output_ofmsgs.append(barrier())
+    if groupadd_ofmsgs:
+        output_ofmsgs.extend(groupadd_ofmsgs)
+        output_ofmsgs.append(barrier())
+    output_ofmsgs.extend(nondelete_ofmsgs)
+    return output_ofmsgs

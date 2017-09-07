@@ -12,7 +12,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASISo
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -32,6 +32,10 @@ def rewrite_vlan(output_dict):
     if 'vlan_vid' in output_dict:
         vlan_actions.extend(
             valve_of.push_vlan_act(output_dict['vlan_vid']))
+    # swap existing VID
+    elif 'swap_vid' in output_dict:
+        vlan_actions.append(
+            valve_of.set_vlan_vid(output_dict['swap_vid']))
     # or, if a list, push them all (all with type Q).
     elif 'vlan_vids' in output_dict:
         for vid in output_dict['vlan_vids']:
@@ -41,7 +45,7 @@ def rewrite_vlan(output_dict):
 
 # TODO: change this, maybe this can be rewritten easily
 # possibly replace with a class for ACLs
-def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
+def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=None):
     acl_inst = []
     match_dict = {}
     for attrib, attrib_value in list(rule_conf.items()):
@@ -54,6 +58,9 @@ def build_acl_entry(rule_conf, acl_allow_inst, port_num=None, vlan_vid=None):
                 allow_specified = True
                 if attrib_value['allow'] == 1:
                     allow = True
+            if 'meter' in attrib_value:
+                meter_name = attrib_value['meter']
+                acl_inst.append(valve_of.apply_meter(meters[meter_name].meter_id))
             if 'mirror' in attrib_value:
                 port_no = attrib_value['mirror']
                 acl_inst.append(

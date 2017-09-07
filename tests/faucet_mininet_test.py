@@ -14,11 +14,14 @@ all dependencies correctly installed. See ../docs/.
 # pylint: disable=unused-wildcard-import
 
 import collections
+import copy
 import glob
 import inspect
 import os
 import sys
 import getopt
+import multiprocessing
+import random
 import re
 import shutil
 import subprocess
@@ -30,6 +33,7 @@ import unittest
 import yaml
 
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
+# pylint: disable=import-error
 from mininet.log import setLogLevel
 from mininet.clean import Cleanup
 from packaging import version
@@ -38,6 +42,12 @@ import faucet_mininet_test_util
 
 # pylint: disable=wildcard-import
 from faucet_mininet_test_unit import *
+
+# Only these hardware types will be tested with meters.
+SUPPORTS_METERS = (
+    'Aruba',
+    'NoviFlow',
+)
 
 
 EXTERNAL_DEPENDENCIES = (
@@ -52,6 +62,8 @@ EXTERNAL_DEPENDENCIES = (
     ('2to3', ['--help'], 'Usage: 2to3', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
+    ('lsof', ['-v'], r'lsof version',
+     r'revision: (\d+\.\d+)\n', "4.89"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
      r'(\d+\.\d+).\d+', "2.2"),
     ('exabgp', ['--version'], 'ExaBGP',
@@ -70,6 +82,9 @@ EXTERNAL_DEPENDENCIES = (
      r'fping: Version (\d+\.\d+)', "3.13"),
     ('rdisc6', ['-V'], 'ndisc6',
      r'ndisc6.+tool (\d+\.\d+)', "1.0"),
+    ('tshark', ['-v'], 'tshark',
+     r'TShark.+(\d+\.\d+)', "2.2"),
+    ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
 
 # Must pass with 0 lint errors
@@ -77,9 +92,6 @@ FAUCET_LINT_SRCS = glob.glob(
     os.path.join(faucet_mininet_test_util.FAUCET_DIR, '*py'))
 FAUCET_TEST_LINT_SRCS = glob.glob(
     os.path.join(os.path.dirname(__file__), 'faucet_mininet_test*py'))
-
-# Maximum number of parallel tests to run at once
-MAX_PARALLEL_TESTS = 6
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
@@ -213,111 +225,294 @@ def lint_check():
     return True
 
 
-def make_suite(tc_class, hw_config, root_tmpdir, ports_sock):
+def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
     """Compose test suite based on test class names."""
     testloader = unittest.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
     suite = unittest.TestSuite()
     for name in testnames:
-        suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock))
+        suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock, max_test_load))
     return suite
 
 
-def pipeline_superset_report(root_tmpdir):
-    ofchannel_logs = glob.glob(
-        os.path.join(root_tmpdir, '*/ofchannel.log'))
-    match_re = re.compile(
-        r'^.+types table: (\d+) match: (.+) instructions: (.+) actions: (.+)')
+def pipeline_superset_report(decoded_pcap_logs):
+    """Report on matches, instructions, and actions by table from tshark logs."""
+
+    def parse_flow(flow_lines):
+        table_id = None
+        group_id = None
+        last_oxm_match = ''
+        matches_count = 0
+        actions_count = 0
+        instructions_count = 0
+
+        for flow_line, depth, section_stack in flow_lines:
+            if depth == 1:
+                if flow_line.startswith('Type: OFPT_'):
+                    if not (flow_line.startswith('Type: OFPT_FLOW_MOD') or
+                            flow_line.startswith('Type: OFPT_GROUP_MOD')):
+                        return
+                if flow_line.startswith('Table ID'):
+                    if not flow_line.startswith('Table ID: OFPTT_ALL'):
+                        table_id = int(flow_line.split()[-1])
+                    else:
+                        return
+                if flow_line.startswith('Group ID'):
+                    if not flow_line.startswith('Group ID: OFPG_ALL'):
+                        group_id = int(flow_line.split()[-1])
+                    else:
+                        return
+                continue
+            elif depth > 1:
+                section_name = section_stack[-1]
+                if table_id is not None:
+                    if 'Match' in section_stack:
+                        if section_name == 'OXM field':
+                            oxm_match = re.match(r'.*Field: (\S+).*', flow_line)
+                            if oxm_match:
+                                table_matches[table_id].add(oxm_match.group(1))
+                                last_oxm_match = oxm_match.group(1)
+                                matches_count += 1
+                                if matches_count > table_matches_max[table_id]:
+                                    table_matches_max[table_id] = matches_count
+                            else:
+                                oxm_mask_match = re.match(r'.*Has mask: True.*', flow_line)
+                                if oxm_mask_match:
+                                    table_matches[table_id].add(last_oxm_match + '/Mask')
+                    elif 'Instruction' in section_stack:
+                        type_match = re.match(r'Type: (\S+).+', flow_line)
+                        if type_match:
+                            if section_name == 'Instruction':
+                                table_instructions[table_id].add(type_match.group(1))
+                                instructions_count += 1
+                                if instructions_count > table_instructions_max[table_id]:
+                                    table_instructions_max[table_id] = instructions_count
+                            elif section_name == 'Action':
+                                table_actions[table_id].add(type_match.group(1))
+                                actions_count += 1
+                                if actions_count > table_actions_max[table_id]:
+                                    table_actions_max[table_id] = actions_count
+                elif group_id is not None:
+                    if 'Bucket' in section_stack:
+                        type_match = re.match(r'Type: (\S+).+', flow_line)
+                        if type_match:
+                            if section_name == 'Action':
+                                group_actions.add(type_match.group(1))
+
+    group_actions = set()
     table_matches = collections.defaultdict(set)
+    table_matches_max = collections.defaultdict(lambda: 0)
     table_instructions = collections.defaultdict(set)
+    table_instructions_max = collections.defaultdict(lambda: 0)
     table_actions = collections.defaultdict(set)
-    for log in ofchannel_logs:
-        for log_line in open(log).readlines():
-            match = match_re.match(log_line)
-            if match:
-                table, matches, instructions, actions = match.groups()
-                table = int(table)
-                table_matches[table].update(eval(matches))
-                table_instructions[table].update(eval(instructions))
-                table_actions[table].update(eval(actions))
-    print('')
+    table_actions_max = collections.defaultdict(lambda: 0)
+
+    for log in decoded_pcap_logs:
+        packets = re.compile(r'\n{2,}').split(open(log).read())
+        for packet in packets:
+            last_packet_line = None
+            indent_count = 0
+            last_indent_count = 0
+            section_stack = []
+            flow_lines = []
+
+            for packet_line in packet.splitlines():
+                orig_packet_line = len(packet_line)
+                packet_line = packet_line.lstrip()
+                indent_count = orig_packet_line - len(packet_line)
+                if indent_count == 0:
+                    parse_flow(flow_lines)
+                    flow_lines = []
+                    section_stack = []
+                elif indent_count > last_indent_count:
+                    section_stack.append(last_packet_line)
+                elif indent_count < last_indent_count:
+                    if section_stack:
+                        section_stack.pop()
+                depth = len(section_stack)
+                last_indent_count = indent_count
+                last_packet_line = packet_line
+                flow_lines.append((packet_line, depth, copy.copy(section_stack)))
+            parse_flow(flow_lines)
+
+
     for table in sorted(table_matches):
         print('table: %u' % table)
-        print('  matches: %s' % sorted(table_matches[table]))
-        print('  table_instructions: %s' % sorted(table_instructions[table]))
-        print('  table_actions: %s' % sorted(table_actions[table]))
+        print('  matches: %s (max %u)' % (
+            sorted(table_matches[table]), table_matches_max[table]))
+        print('  table_instructions: %s (max %u)' % (
+            sorted(table_instructions[table]), table_instructions_max[table]))
+        print('  table_actions: %s (max %u)' % (
+            sorted(table_actions[table]), table_actions_max[table]))
+    if group_actions:
+        print('group bucket actions:')
+        print('  %s' % sorted(group_actions))
+
+
+def filter_test_hardware(test_obj, hw_config):
+    test_hosts = test_obj.N_TAGGED + test_obj.N_UNTAGGED
+    if hw_config is not None:
+        test_hardware = hw_config['hardware']
+        if test_obj.NUM_DPS != 1:
+            return False
+        if test_hosts < REQUIRED_TEST_PORTS:
+            if test_hardware == 'ZodiacFX':
+                return True
+            return False
+        if test_obj.REQUIRES_METERS:
+            if test_hardware not in SUPPORTS_METERS:
+                return False
+    else:
+        if test_hosts < REQUIRED_TEST_PORTS:
+            return False
+        # TODO: OVS does not support meters
+        if test_obj.REQUIRES_METERS:
+            return False
+    return True
 
 
 def expand_tests(requested_test_classes, excluded_test_classes,
                  hw_config, root_tmpdir, ports_sock, serial):
-    total_tests = 0
+    sanity_test_suites = []
+    single_test_suites = []
+    parallel_test_suites = []
+    max_loadavg = multiprocessing.cpu_count() + 1
+
+    for test_name, test_obj in inspect.getmembers(sys.modules[__name__]):
+        if not inspect.isclass(test_obj):
+            continue
+        if requested_test_classes and test_name not in requested_test_classes:
+            continue
+        if excluded_test_classes and test_name in excluded_test_classes:
+            continue
+        if test_name.endswith('Test') and test_name.startswith('Faucet'):
+            if not filter_test_hardware(test_obj, hw_config):
+                continue
+            print('adding test %s' % test_name)
+            test_suite = make_suite(
+                test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg)
+            if test_name.startswith('FaucetSanity'):
+                sanity_test_suites.append(test_suite)
+            else:
+                if serial or test_name.startswith('FaucetSingle'):
+                    single_test_suites.append(test_suite)
+                else:
+                    parallel_test_suites.append(test_suite)
+
     sanity_tests = unittest.TestSuite()
     single_tests = unittest.TestSuite()
     parallel_tests = unittest.TestSuite()
-    for name, obj in inspect.getmembers(sys.modules[__name__]):
-        if not inspect.isclass(obj):
-            continue
-        if requested_test_classes and name not in requested_test_classes:
-            continue
-        if excluded_test_classes and name in excluded_test_classes:
-            continue
-        if name.endswith('Test') and name.startswith('Faucet'):
-            # TODO: hardware testing should have a way to configure
-            # which switch in a string is the hardware switch to test.
-            if re.search(r'Faucet.*String', name) and hw_config is not None:
-                print(
-                    'skipping %s as string tests not supported for hardware' % name)
-                continue
-            print('adding test %s' % name)
-            test_suite = make_suite(obj, hw_config, root_tmpdir, ports_sock)
-            if name.startswith('FaucetSanity'):
-                sanity_tests.addTest(test_suite)
-            else:
-                if serial or name.startswith('FaucetSingle'):
-                    single_tests.addTest(test_suite)
-                    total_tests += 1
-                else:
-                    parallel_tests.addTest(test_suite)
-                    total_tests += 1
-    return (total_tests, sanity_tests, single_tests, parallel_tests)
+
+    if len(parallel_test_suites) == 1:
+        single_test_suites.extend(parallel_test_suites)
+        parallel_test_suites = []
+    if len(parallel_test_suites) > 0:
+        seed = time.time()
+        print('seeding parallel test shuffle with %f' % seed)
+        random.seed(seed)
+        random.shuffle(parallel_test_suites)
+        for test_suite in parallel_test_suites:
+            parallel_tests.addTest(test_suite)
+
+    for test_suite in sanity_test_suites:
+        sanity_tests.addTest(test_suite)
+    for test_suite in single_test_suites:
+        single_tests.addTest(test_suite)
+    return (sanity_tests, single_tests, parallel_tests)
 
 
-def run_test_suites(sanity_tests, single_tests, parallel_tests):
-    all_successful = False
-    sanity_runner = unittest.TextTestRunner(verbosity=255, failfast=True)
+class CleanupResult(unittest.runner.TextTestResult):
+
+    root_tmpdir = None
+    successes = []
+
+    def addSuccess(self, test):
+        self.successes.append((test, ''))
+        test_tmpdir = os.path.join(
+            self.root_tmpdir, faucet_mininet_test_util.flat_test_name(test.id()))
+        shutil.rmtree(test_tmpdir)
+        super(CleanupResult, self).addSuccess(test)
+
+
+def test_runner(root_tmpdir, resultclass, failfast=False):
+    resultclass.root_tmpdir = root_tmpdir
+    return unittest.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
+
+
+def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests):
+    results = []
+    if parallel_tests.countTestCases():
+        max_parallel_tests = min(
+            parallel_tests.countTestCases(), multiprocessing.cpu_count() * 3)
+        print('running maximum of %u parallel tests' % max_parallel_tests)
+        parallel_runner = test_runner(root_tmpdir, resultclass)
+        parallel_suite = ConcurrentTestSuite(
+            parallel_tests, fork_for_tests(max_parallel_tests))
+        results.append(parallel_runner.run(parallel_suite))
+    return results
+
+
+def run_single_test_suites(root_tmpdir, resultclass, single_tests):
+    results = []
+    # TODO: Tests that are serialized generally depend on hardcoded ports.
+    # Make them use dynamic ports.
+    if single_tests.countTestCases():
+        single_runner = test_runner(root_tmpdir, resultclass)
+        results.append(single_runner.run(single_tests))
+    return results
+
+
+def run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests):
+    sanity_runner = test_runner(root_tmpdir, resultclass, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
-    if sanity_result.wasSuccessful():
-        print('running %u tests in parallel and %u tests serial' % (
-            parallel_tests.countTestCases(), single_tests.countTestCases()))
-        results = []
-        if parallel_tests.countTestCases():
-            max_parallel_tests = min(parallel_tests.countTestCases(), MAX_PARALLEL_TESTS)
-            parallel_runner = unittest.TextTestRunner(verbosity=255)
-            parallel_suite = ConcurrentTestSuite(
-                parallel_tests, fork_for_tests(max_parallel_tests))
-            results.append(parallel_runner.run(parallel_suite))
-        # TODO: Tests that are serialized generally depend on hardcoded ports.
-        # Make them use dynamic ports.
-        if single_tests.countTestCases():
-            single_runner = unittest.TextTestRunner(verbosity=255)
-            results.append(single_runner.run(single_tests))
-        all_successful = True
+    return sanity_result.wasSuccessful()
+
+
+def report_tests(test_status, test_list):
+    for test_class, test_text in test_list:
+        test_text = test_text.replace('\n', '\t')
+        print('\t'.join((test_class.id(), test_status, test_text)))
+
+
+def report_results(results):
+    if results:
+        report_title = 'test results'
+        print('\n')
+        print(report_title)
+        print('=' * len(report_title))
+        print('\n')
         for result in results:
-            if not result.wasSuccessful():
-                all_successful = False
-                print(result.printErrors())
-    else:
-        print('sanity tests failed - test environment not correct')
-    return all_successful
+            test_lists = [
+                ('ERROR', result.errors),
+                ('FAIL', result.failures),
+            ]
+            if hasattr(result, 'successes'):
+                test_lists.append(
+                    ('OK', result.successes))
+            for test_status, test_list in test_lists:
+                report_tests(test_status, test_list)
+        print('\n')
 
 
-def start_port_server(root_tmpdir):
+def run_test_suites(root_tmpdir, resultclass, single_tests, parallel_tests):
+    print('running %u tests in parallel and %u tests serial' % (
+        parallel_tests.countTestCases(), single_tests.countTestCases()))
+    results = []
+    results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
+    results.extend(run_single_test_suites(root_tmpdir, resultclass, single_tests))
+    report_results(results)
+    successful_results = [result for result in results if result.wasSuccessful()]
+    return len(results) == len(successful_results)
+
+
+def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
     ports_sock = os.path.join(root_tmpdir, '.ports-server')
     ports_server = threading.Thread(
-        target=faucet_mininet_test_util.serve_ports, args=(ports_sock,))
+        target=faucet_mininet_test_util.serve_ports,
+        args=(ports_sock, start_free_ports, min_free_ports))
     ports_server.setDaemon(True)
     ports_server.start()
-    for _ in range(10):
+    for _ in range(min_free_ports / 2):
         if os.path.exists(ports_sock):
             break
         time.sleep(1)
@@ -327,26 +522,61 @@ def start_port_server(root_tmpdir):
     return ports_sock
 
 
-def run_tests(requested_test_classes,
-              excluded_test_classes,
-              keep_logs,
-              serial,
-              hw_config):
+def dump_failed_test(test_name, test_dir):
+    print(test_name)
+    print()
+    print()
+    test_files = glob.glob(os.path.join(test_dir, '*'))
+    for test_file in test_files:
+        if not test_file.endswith('.cap'):
+            print(test_file)
+            print('=' * len(test_file))
+            print()
+            print(open(test_file).read())
+
+
+def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
+    if all_successful:
+        if not keep_logs:
+            shutil.rmtree(root_tmpdir)
+    else:
+        print('\nlog/debug files for failed tests are in %s\n' % root_tmpdir)
+        if not keep_logs:
+            if sanity:
+                test_dirs = glob.glob(os.path.join(root_tmpdir, '*'))
+                for test_dir in test_dirs:
+                    test_name = os.path.basename(test_dir)
+                    if dumpfail:
+                        dump_failed_test(test_name, test_dir)
+
+
+def run_tests(hw_config, requested_test_classes, dumpfail,
+              keep_logs, serial, excluded_test_classes):
     """Actually run the test suites, potentially in parallel."""
     if hw_config is not None:
         print('Testing hardware, forcing test serialization')
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
-    ports_sock = start_port_server(root_tmpdir)
-    total_tests, sanity_tests, single_tests, parallel_tests = expand_tests(
+    start_free_ports = 5
+    min_free_ports = 100
+    ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
+    print('test ports server started')
+    sanity_tests, single_tests, parallel_tests = expand_tests(
         requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    all_successful = run_test_suites(
-        sanity_tests, single_tests, parallel_tests)
-    pipeline_superset_report(root_tmpdir)
+    resultclass = CleanupResult
+    if keep_logs:
+        resultclass = resultclass.__bases__[0]
+    all_successful = False
+    sanity = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
+    if sanity:
+        all_successful = run_test_suites(
+            root_tmpdir, resultclass, single_tests, parallel_tests)
     os.remove(ports_sock)
-    if not keep_logs and all_successful:
-        shutil.rmtree(root_tmpdir)
+    decoded_pcap_logs = glob.glob(os.path.join(
+        os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
+    pipeline_superset_report(decoded_pcap_logs)
+    clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail)
     if not all_successful:
         sys.exit(-1)
 
@@ -356,13 +586,14 @@ def parse_args():
     try:
         opts, args = getopt.getopt(
             sys.argv[1:],
-            'cknsx:',
-            ['clean', 'nocheck', 'keep_logs', 'serial'])
+            'cdknsx:',
+            ['clean', 'dumpfail', 'keep_logs', 'nocheck', 'serial'])
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
 
     clean = False
+    dumpfail = False
     keep_logs = False
     nocheck = False
     serial = False
@@ -371,22 +602,27 @@ def parse_args():
     for opt, arg in opts:
         if opt in ('-c', '--clean'):
             clean = True
-        if opt in ('-n', '--nocheck'):
-            nocheck = True
+        if opt in ('-d', '--dumpfail'):
+            dumpfail = True
         if opt in ('-k', '--keep_logs'):
             keep_logs = True
+        if opt in ('-n', '--nocheck'):
+            nocheck = True
         if opt in ('-s', '--serial'):
             serial = True
         if opt == '-x':
             excluded_test_classes.append(arg)
 
-    return (args, clean, keep_logs, nocheck, serial, excluded_test_classes)
+    return (
+        args, clean, dumpfail, keep_logs, nocheck,
+        serial, excluded_test_classes)
 
 
 def test_main():
     """Test main."""
     setLogLevel('info')
-    args, clean, keep_logs, nocheck, serial, excluded_test_classes = parse_args()
+    (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
+     serial, excluded_test_classes) = parse_args()
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
@@ -404,7 +640,9 @@ def test_main():
             print('pylint must pass with no errors')
             sys.exit(-1)
     hw_config = import_hw_config()
-    run_tests(args, excluded_test_classes, keep_logs, serial, hw_config)
+    run_tests(
+        hw_config, requested_test_classes, dumpfail,
+        keep_logs, serial, excluded_test_classes)
 
 
 if __name__ == '__main__':

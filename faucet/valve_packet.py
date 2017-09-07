@@ -12,7 +12,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASISo
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -34,18 +34,7 @@ IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
 IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
-
-
-def mac_addr_is_unicast(mac_addr):
-    """Returns True if mac_addr is a unicast Ethernet address.
-
-    Args:
-        mac_addr (str): MAC address.
-    Returns:
-        bool: True if a unicast Ethernet address.
-    """
-    msb = mac_addr.split(':')[0]
-    return msb[-1] in '02468aAcCeE'
+IPV6_MAX_HOP_LIM = 255
 
 
 def parse_pkt(pkt):
@@ -59,16 +48,28 @@ def parse_pkt(pkt):
     return pkt.get_protocol(ethernet.ethernet)
 
 
-def parse_packet_in_pkt(msg):
+def parse_packet_in_pkt(data, max_len):
+    """Parse a packet received via packet in from the dataplane.
+
+    Args:
+        data (bytearray): packet data from dataplane.
+        max_len (int): max number of packet data bytes to parse.
+    Returns:
+        ryu.lib.packet.ethernet: Ethernet packet.
+        int: VLAN VID.
+    """
     pkt = None
     vlan_vid = None
 
+    if max_len:
+        data = data[:max_len]
+
     try:
-        pkt = packet.Packet(msg.data)
+        pkt = packet.Packet(data)
     except stream_parser.StreamParser.TooSmallException:
         return (pkt, vlan_vid)
 
-    eth_pkt = pkt.get_protocols(ethernet.ethernet)[0]
+    eth_pkt = parse_pkt(pkt)
     eth_type = eth_pkt.ethertype
     # Packet ins, can only come when a VLAN header has already been pushed
     # (ie. when we have progressed past the VLAN table). This gaurantees
@@ -79,6 +80,18 @@ def parse_packet_in_pkt(msg):
         vlan_proto = pkt.get_protocols(vlan.vlan)[0]
         vlan_vid = vlan_proto.vid
     return (pkt, vlan_vid)
+
+
+def mac_addr_is_unicast(mac_addr):
+    """Returns True if mac_addr is a unicast Ethernet address.
+
+    Args:
+        mac_addr (str): MAC address.
+    Returns:
+        bool: True if a unicast Ethernet address.
+    """
+    msb = mac_addr.split(':')[0]
+    return msb[-1] in '02468aAcCeE'
 
 
 def build_pkt_header(vid, eth_src, eth_dst, dl_type):
@@ -235,7 +248,7 @@ def nd_request(vid, eth_src, src_ip, dst_ip):
     return pkt
 
 
-def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit):
+def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
     """Return IPv6 neighbor avertisement packet.
 
     Args:
@@ -244,7 +257,6 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit):
         eth_dst (str): destination Ethernet MAC address.
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         dst_ip (ipaddress.IPv6Address): destination IPv6 address.
-        hop_limit (int): IPv6 hop limit.
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 neighbor discovery packet.
     """
@@ -254,7 +266,7 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit):
         src=src_ip,
         dst=dst_ip,
         nxt=inet.IPPROTO_ICMPV6,
-        hop_limit=hop_limit)
+        hop_limit=IPV6_MAX_HOP_LIM)
     pkt.add_protocol(ipv6_icmp6)
     icmpv6_nd_advert = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_ADVERT,
@@ -299,17 +311,17 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
     return pkt
 
 
-def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
-                  vips, hop_limit=255, pi_flags=0x6):
+def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
+                  vips, pi_flags=0x6):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
+        _vlan (VLAN): VLAN instance.
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): dest Ethernet MAC address.
         src_ip (ipaddress.IPv6Address): source IPv6 address.
         vips (list): prefixes (ipaddress.IPv6Address) to advertise.
-        hop_limit (int): IPv6 hop limit.
         pi_flags (int): flags to set in prefix information field (default set A and L)
     Returns:
         ryu.lib.packet.ethernet: Serialized IPv6 ICMP RA packet.
@@ -320,7 +332,7 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         src=src_ip,
         dst=dst_ip,
         nxt=inet.IPPROTO_ICMPV6,
-        hop_limit=hop_limit)
+        hop_limit=IPV6_MAX_HOP_LIM)
     pkt.add_protocol(ipv6_pkt)
     options = []
     for vip in vips:
@@ -338,7 +350,7 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
         type_=icmpv6.ND_ROUTER_ADVERT,
         data=icmpv6.nd_router_advert(
             rou_l=1800,
-            ch_l=hop_limit,
+            ch_l=IPV6_MAX_HOP_LIM,
             options=options))
     pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()

@@ -12,7 +12,7 @@
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASISo
+# distributed under the License is distributed on an "AS IS" BASIS
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -41,15 +41,13 @@ class ValveFloodManager(object):
     )
 
     def __init__(self, flood_table, flood_priority,
-                 valve_in_match, valve_flowmod,
                  dp_stack, dp_ports, dp_shortest_path_to_root,
-                 use_group_table):
+                 use_group_table, groups):
         self.flood_table = flood_table
         self.flood_priority = flood_priority
-        self.valve_in_match = valve_in_match
-        self.valve_flowmod = valve_flowmod
         self.stack = dp_stack
         self.use_group_table = use_group_table
+        self.groups = groups
         self.stack_ports = [
             port for port in list(dp_ports.values()) if port.stack is not None]
         self.towards_root_stack_ports = []
@@ -152,7 +150,7 @@ class ValveFloodManager(object):
             self.away_from_root_stack_ports, in_port)
         toward_flood_actions = self._build_flood_port_outputs(
             self.towards_root_stack_ports, in_port)
-        flood_all_except_self = local_flood_actions + away_flood_actions
+        flood_all_except_self = away_flood_actions + local_flood_actions
 
         # If we're the root of a distributed switch..
         if self._dp_is_root():
@@ -175,13 +173,12 @@ class ValveFloodManager(object):
                                    exclude_unicast, command, flood_priority,
                                    port, preflood_acts):
         ofmsgs = []
-        match = self.valve_in_match(
-            self.flood_table, vlan=vlan, in_port=port.number,
+        match = self.flood_table.match(
+            vlan=vlan, in_port=port.number,
             eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
         flood_acts = self._build_flood_rule_actions(
             vlan, exclude_unicast, port)
-        ofmsgs.append(self.valve_flowmod(
-            self.flood_table,
+        ofmsgs.append(self.flood_table.flowmod(
             match=match,
             command=command,
             inst=[valve_of.apply_actions(preflood_acts + flood_acts)],
@@ -232,30 +229,24 @@ class ValveFloodManager(object):
         unicast_buckets = self._build_group_buckets(vlan, vlan.unicast_flood)
         group_id = vlan.vid
         ofmsgs = []
-        group_mod_method = valve_of.groupadd
+        group_mod_method = self.groups.groupadd
         if modify:
-            group_mod_method = valve_of.groupmod
+            group_mod_method = self.groups.groupmod
         else:
-            ofmsgs.append(
-                valve_of.groupdel(group_id=group_id))
-            ofmsgs.append(
-                valve_of.groupdel(group_id=group_id+valve_of.VLAN_GROUP_OFFSET))
-        ofmsgs.append(
-            group_mod_method(group_id=group_id, buckets=broadcast_buckets))
-        ofmsgs.append(
-            group_mod_method(group_id=group_id+valve_of.VLAN_GROUP_OFFSET,
-                             buckets=unicast_buckets))
+            ofmsgs.append(self.groups.groupdel(group_id))
+            ofmsgs.append(self.groups.groupdel(group_id + valve_of.VLAN_GROUP_OFFSET))
+        ofmsgs.append(group_mod_method(group_id, broadcast_buckets))
+        ofmsgs.append(group_mod_method(
+            group_id + valve_of.VLAN_GROUP_OFFSET, unicast_buckets))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst and not vlan.unicast_flood:
                 continue
             group_id = vlan.vid
             if not eth_dst:
                 group_id = group_id + valve_of.VLAN_GROUP_OFFSET
-            match = self.valve_in_match(
-                self.flood_table, vlan=vlan,
-                eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
-            ofmsgs.append(self.valve_flowmod(
-                self.flood_table,
+            match = self.flood_table.match(
+                vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
+            ofmsgs.append(self.flood_table.flowmod(
                 match=match,
                 command=command,
                 inst=[valve_of.apply_actions([valve_of.group_act(group_id)])],

@@ -1,3 +1,5 @@
+"""Configuration for a datapath."""
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
@@ -15,17 +17,20 @@
 # limitations under the License.
 
 import networkx
+from ryu.ofproto import ofproto_v1_3 as ofp
 
 try:
-    from conf import Conf
-    from vlan import VLAN
-    from port import Port
     from acl import ACL
+    from conf import Conf
+    from port import Port
+    from vlan import VLAN
+    from valve_table import ValveTable, ValveGroupTable
 except ImportError:
     from faucet.acl import ACL
     from faucet.conf import Conf
     from faucet.port import Port
     from faucet.vlan import VLAN
+    from faucet.valve_table import ValveTable, ValveGroupTable
 
 
 # Documentation generated using documentation_generator.py
@@ -43,16 +48,6 @@ class DP(Conf):
     name = None
     dp_id = None
     configured = False
-    table_offset = None
-    port_acl_table = None
-    vlan_table = None
-    vlan_acl_table = None
-    eth_src_table = None
-    ipv4_fib_table = None
-    ipv6_fib_table = None
-    vip_table = None
-    eth_dst_table = None
-    flood_table = None
     priority_offset = None
     low_priority = None
     high_priority = None
@@ -63,6 +58,7 @@ class DP(Conf):
     drop_spoofed_faucet_mac = None
     drop_bpdu = None
     drop_lldp = None
+    groups = None
     group_table = False
     group_table_routing = False
     max_hosts_per_resolve_cycle = None
@@ -74,6 +70,10 @@ class DP(Conf):
     advertise_interval = None
     proactive_learn = None
     pipeline_config_dir = None
+    use_idle_timeout = None
+    tables = {}
+    tables_by_id = {}
+    meters = {}
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -82,17 +82,6 @@ class DP(Conf):
         # Name for this dp, used for stats reporting and configuration
         'name': None,
         'interfaces': {},
-        'table_offset': 0,
-        'port_acl_table': None,
-        # The table for internally associating vlans
-        'vlan_table': None,
-        'vlan_acl_table': None,
-        'eth_src_table': None,
-        'ipv4_fib_table': None,
-        'ipv6_fib_table': None,
-        'vip_table': None,
-        'eth_dst_table': None,
-        'flood_table': None,
         # How much to offset default priority by
         'priority_offset': 0,
         # Some priority values
@@ -115,9 +104,11 @@ class DP(Conf):
         'stack': None,
         # stacking config, when cross connecting multiple DPs
         'ignore_learn_ins': 3,
-        # Ignore every approx nth packet for learning. 2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
+        # Ignore every approx nth packet for learning.
+        #2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
         # This limits control plane activity when learning new hosts rapidly.
-        # Flooding will still be done by the dataplane even with a packet is ignored for learning purposes.
+        # Flooding will still be done by the dataplane even with a packet
+        # is ignored for learning purposes.
         'drop_broadcast_source_address': True,
         # By default drop packets with a broadcast source address
         'drop_spoofed_faucet_mac': True,
@@ -148,13 +139,51 @@ class DP(Conf):
         # whether proactive learning is enabled for IP nexthops
         'pipeline_config_dir': '/etc/ryu/faucet',
         # where config files for pipeline are stored (if any).
+        'use_idle_timeout': False,
+        #Turn on/off the use of idle timeout for src_table, default OFF.
         }
+
+    defaults_types = {
+        'dp_id': int,
+        'name': str,
+        'interfaces': dict,
+        'priority_offset': int,
+        'lowest_priority': int,
+        'low_priority': int,
+        'high_priority': int,
+        'highest_priority': int,
+        'cookie': int,
+        'timeout': int,
+        'description': str,
+        'hardware': str,
+        'arp_neighbor_timeout': int,
+        'ofchannel_log': str,
+        'stack': dict,
+        'ignore_learn_ins': int,
+        'drop_broadcast_source_address': bool,
+        'drop_spoofed_faucet_mac': bool,
+        'drop_bpdu': bool,
+        'drop_lldp': bool,
+        'group_table': bool,
+        'group_table_routing': bool,
+        'max_hosts_per_resolve_cycle': int,
+        'max_host_fib_retry_count': int,
+        'max_resolve_backoff_time': int,
+        'packetin_pps': int,
+        'learn_jitter': int,
+        'learn_ban_timeout': int,
+        'advertise_interval': int,
+        'proactive_learn': bool,
+        'pipeline_config_dir': str,
+        'use_idle_timeout': bool,
+    }
+
+    wildcard_table = ValveTable(ofp.OFPTT_ALL, 'all', None, flow_cookie=0)
+
 
     def __init__(self, _id, conf):
         """Constructs a new DP object"""
-        self._id = _id
-        self.update(conf)
-        self.set_defaults()
+        super(DP, self).__init__(_id, conf)
         self.acls = {}
         self.vlans = {}
         self.ports = {}
@@ -166,38 +195,72 @@ class DP(Conf):
     def sanity_check(self):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
-        assert not isinstance(self.dp_id, str)
         assert str(self.dp_id).isdigit()
-        for vid, vlan in list(self.vlans.items()):
-            assert isinstance(vid, int)
+        for vlan in list(self.vlans.values()):
             assert isinstance(vlan, VLAN)
             assert all(isinstance(p, Port) for p in vlan.get_ports())
-        for portnum, port in list(self.ports.items()):
-            assert isinstance(portnum, int)
+        for port in list(self.ports.values()):
             assert isinstance(port, Port)
         for acl in list(self.acls.values()):
             assert isinstance(acl, ACL)
 
+    def _configure_tables(self):
+        """Configure FAUCET pipeline of tables with matches."""
+        self.groups = ValveGroupTable()
+        for table_id, table_config in enumerate((
+                ('port_acl', None),
+                ('vlan', ('eth_dst', 'eth_src', 'eth_type', 'in_port', 'vlan_vid')),
+                ('vlan_acl', None),
+                ('eth_src', ('eth_dst', 'eth_src', 'eth_type',
+                             'icmpv6_type', 'in_port', 'ip_proto', 'vlan_vid')),
+                ('ipv4_fib', ('eth_type', 'ipv4_dst', 'vlan_vid')),
+                ('ipv6_fib', ('eth_type', 'ipv6_dst', 'vlan_vid')),
+                ('vip', ('arp_tpa', 'eth_dst', 'eth_type', 'ip_proto')),
+                ('eth_dst', ('eth_dst', 'in_port', 'vlan_vid')),
+                ('flood', ('eth_dst', 'in_port', 'vlan_vid')))):
+            table_name, restricted_match_types = table_config
+            self.tables[table_name] = ValveTable(
+                table_id, table_name, restricted_match_types,
+                self.cookie, notify_flow_removed=self.use_idle_timeout)
+            self.tables_by_id[table_id] = self.tables[table_name]
+
     def set_defaults(self):
-        for key, value in list(self.defaults.items()):
-            self._set_default(key, value)
-        # fix special cases
+        super(DP, self).set_defaults()
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
-        self._set_default('port_acl_table', self.table_offset)
-        self._set_default('vlan_table', self.port_acl_table + 1)
-        self._set_default('vlan_acl_table', self.vlan_table + 1)
-        self._set_default('eth_src_table', self.vlan_acl_table + 1)
-        self._set_default('ipv4_fib_table', self.eth_src_table + 1)
-        self._set_default('ipv6_fib_table', self.ipv4_fib_table + 1)
-        self._set_default('vip_table', self.ipv6_fib_table + 1)
-        self._set_default('eth_dst_table', self.vip_table + 1)
-        self._set_default('flood_table', self.eth_dst_table + 1)
-        self._set_default('lowest_priority', self.priority_offset)
-        self._set_default('low_priority', self.priority_offset + 9000)
-        self._set_default('high_priority', self.low_priority + 1)
-        self._set_default('highest_priority', self.high_priority + 98)
+        self._set_default('lowest_priority', self.priority_offset) # pytype: disable=none-attr
+        self._set_default('low_priority', self.priority_offset + 9000) # pytype: disable=none-attr
+        self._set_default('high_priority', self.low_priority + 1) # pytype: disable=none-attr
+        self._set_default('highest_priority', self.high_priority + 98) # pytype: disable=none-attr
         self._set_default('description', self.name)
+        self._configure_tables()
+
+    def match_tables(self, match_type):
+        """Return list of tables with matches of a specific match type."""
+        match_tables = []
+        for table in list(self.tables_by_id.values()):
+            if table.restricted_match_types is not None:
+                if match_type in table.restricted_match_types:
+                    match_tables.append(table)
+            else:
+                match_tables.append(table)
+        return match_tables
+
+    def in_port_tables(self):
+        """Return list of tables that specify in_port as a match."""
+        return self.match_tables('in_port')
+
+    def vlan_match_tables(self):
+        """Return list of tables that specify vlan_vid as a match."""
+        return self.match_tables('vlan_vid')
+
+    def all_valve_tables(self):
+        """Return all Valve tables.
+
+        Returns:
+            list: all ValveTables.
+        """
+        return list(self.tables_by_id.values())
 
     def add_acl(self, acl_ident, acl):
         self.acls[acl_ident] = acl
@@ -284,10 +347,19 @@ class DP(Conf):
             self.stack['graph'] = graph
 
     def shortest_path(self, dest_dp):
+        """Return shortest path to a DP, as a list of DPs."""
         if self.stack is None:
             return None
         return networkx.shortest_path(
             self.stack['graph'], self.name, dest_dp)
+
+    def shortest_path_to_root(self):
+        """Return shortest path to root DP, as list of DPs."""
+        if self.stack is not None:
+            root_dp = self.stack['root_dp']
+            if root_dp != self:
+                return self.shortest_path(root_dp.name)
+        return []
 
     def shortest_path_port(self, dest_dp):
         """Return port on our DP, that is the shortest path towards dest DP."""
@@ -301,13 +373,6 @@ class DP(Conf):
             return peer_dp_ports[0]
         return None
 
-    def shortest_path_to_root(self):
-        if self.stack is not None:
-            root_dp = self.stack['root_dp']
-            if root_dp != self:
-                return self.shortest_path(root_dp.name)
-        return []
-
     def finalize_config(self, dps):
 
         def resolve_port_no(port_name):
@@ -315,6 +380,13 @@ class DP(Conf):
                 return port_by_name[port_name].number
             elif port_name in self.ports:
                 return port_name
+            return None
+
+        def resolve_vlan(vlan_name):
+            if vlan_name in vlan_by_name:
+                return vlan_by_name[vlan_name]
+            elif vlan_name in self.vlans:
+                return self.vlans[vlan_name]
             return None
 
         def resolve_stack_dps():
@@ -340,11 +412,14 @@ class DP(Conf):
                 port.mirror = mirror_destination_port.number
                 mirror_destination_port.mirror_destination = True
 
-        def resolve_port_names_in_acls():
+        def resolve_names_in_acls():
             for acl in list(self.acls.values()):
                 for rule_conf in acl.rules:
                     for attrib, attrib_value in list(rule_conf.items()):
                         if attrib == 'actions':
+                            if 'meter' in attrib_value:
+                                meter_name = attrib_value['meter']
+                                assert meter_name in self.meters
                             if 'mirror' in attrib_value:
                                 port_name = attrib_value['mirror']
                                 port_no = resolve_port_no(port_name)
@@ -362,16 +437,30 @@ class DP(Conf):
                                     if port_no is not None:
                                         output_values['port'] = port_no
 
+        def resolve_vlan_names_in_routers():
+            for router_name in list(self.routers.keys()):
+                router = self.routers[router_name]
+                vlans = []
+                for vlan_name in router.vlans:
+                    vlan = resolve_vlan(vlan_name)
+                    if vlan is not None:
+                        vlans.append(vlan)
+                self.routers[router_name].vlans = vlans
+
         port_by_name = {}
         for port in list(self.ports.values()):
             port_by_name[port.name] = port
         dp_by_name = {}
         for dp in dps:
             dp_by_name[dp.name] = dp
+        vlan_by_name = {}
+        for vlan in list(self.vlans.values()):
+            vlan_by_name[vlan.name] = vlan
 
         resolve_stack_dps()
         resolve_mirror_destinations()
-        resolve_port_names_in_acls()
+        resolve_names_in_acls()
+        resolve_vlan_names_in_routers()
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
@@ -387,9 +476,8 @@ class DP(Conf):
 
     def get_tables(self):
         result = {}
-        for k in self.defaults:
-            if k.endswith('table'):
-                result[k] = self.__dict__[k]
+        for table_name, table in list(self.dp.tables.items()):
+            result[table_name] = table.table_id
         return result
 
     def to_conf(self):

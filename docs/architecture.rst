@@ -23,23 +23,23 @@ Faucet Openflow Switch Pipeline
 
     PACKETS IN                  +---------------------------+
       +                         |                           |
-      |                         |                           |        CONTROLLER
-      |                         |                           |             ^
-      |                         |                           v       +-----+----+
-      |     +----------+  +-----+----+  +----------+  +-----+----+  |4:IPv4_FIB|  +----------+  +----------+
-      |     |0:PORT_ACL|  |1:VLAN    |  |2:VLAN_ACL|  |3:ETH_SRC +->+          +->+6:ETH_DST |  |7:FLOOD   |
-      +---->+          |  |          |  |          |  |          |  |          |  |          |  |          |
-            |          |  |          |  |          |  |          |  +----------+  |          |  |          |
-            |          |  |          |  |          |  |          |                |          |  |          |
-            |          +->+          +->+          +->+          +--------------->+          +->+          |
-            |          |  |          |  |          |  |          |                |          |  |          |
-            |          |  |          |  |          |  |          |  +----------+  |          |  |          |
-            |          |  |          |  |          |  |          |  |5:IPv6_FIB|  |          |  |          |
-            |          |  |          |  |          |  |          +->+          +->+          |  |          |
-            +----------+  +----------+  +----------+  +-----+----+  |          |  +------+---+  +--+-------+
-                                                            |       +-----+----+         |         |
-                                                            v             v              v         v
-                                                       CONTROLLER    CONTROLLER          PACKETS OUT
+      |                         |                           |             +---------------------------+
+      |                         |                           |             |              +------------|----------+
+      |                         |                           v       +-----+----+         |            V          V
+      |     +----------+  +-----+----+  +----------+  +-----+----+  |4:IPv4_FIB|  +------+---+  +----------+  +----------+
+      |     |0:PORT_ACL|  |1:VLAN    |  |2:VLAN_ACL|  |3:ETH_SRC +->+          +->+6:VIP     +->|7:ETH_DST |  |8:FLOOD   |
+      +---->+          |  |          |  |          |  |          |  |          |  |          |  |          |  |          |
+            |          |  |          |  |          |  |          |  +----------+  |          |  |          |  |          |
+            |          |  |          |  |          |  |          |                |          |  |          |  |          |
+            |          +->+          +->+          +->+          +--------------->+          |  |          +->+          |
+            |          |  |          |  |          |  |          |                |          |  |          |  |          |
+            |          |  |          |  |          |  |          |  +----------+  |          |  |          |  |          |
+            |          |  |          |  |          |  |          |  |5:IPv6_FIB|  |          |  |          |  |          |
+            |          |  |          |  |          |  |          +->+          +->+          |  |          |  |          |
+            +----------+  +----------+  +----------+  +-----+----+  |          |  +----------+  +------+---+  +--+-------+
+                                                            |       +-----+----+                     ^ |         |
+                                                            v             |                          | v         v
+                                                       CONTROLLER         +--------------------------+ PACKETS OUT
 ------------
 Table 0: PORT_ACL
 ------------
@@ -69,19 +69,17 @@ Table 2: VLAN_ACL
 ----------------
 Table 3: ETH_SRC
 ----------------
-- Match fields: ``in_port, vlan_vid, eth_src, eth_dst, eth_type, ip_proto, icmpv6_type, ipv6_nd_target, arp_tpa, ipv4_src``
+- Match fields: ``in_port, vlan_vid, eth_src, eth_dst, eth_type, ip_proto, icmpv6_type, arp_tpa``
 - Operations:
     - Handle layer 3 traffic by sending to IPv4 or IPv6 FIB table
-    - Send traffic destined for Faucet via packet in message
     - For source MAC addresses we have learned send to ETH_DST
-        - Unknown traffic is
-        - Sent to controller via packet in (for learning)
+        - Unknown traffic is sent to controller via packet in (for learning)
         - Sent to ETH_DST table
 
 -----------------
 Table 4: IPV4_FIB
 -----------------
-- Match fields: ``vlan_vid, eth_type, ip_proto, ipv4_src, ipv4_dst``
+- Match fields: ``vlan_vid, eth_type, ip_proto, ipv4_dst``
 - Operations:
     - Route IP traffic to a next-hop for each route we have learned
     - Set eth_src to Faucet's magic MAC address
@@ -93,7 +91,7 @@ Table 4: IPV4_FIB
 -----------------
 Table 5: IPV6_FIB
 -----------------
-- Match fields: ``vlan_vid, eth_type, ip_proto, icmpv6_type, ipv6_dst``
+- Match fields: ``vlan_vid, eth_type, ip_proto, ipv6_dst``
 - Operations:
     - Route IP traffic to a next-hop for each route we have learned
     - Set eth_src to Faucet's magic MAC address
@@ -103,7 +101,14 @@ Table 5: IPV6_FIB
     - Unknown traffic is dropped
 
 ----------------
-Table 6: ETH_DST
+Table 6: VIP
+----------------
+
+- Operations:
+    - Send traffic destined for FAUCET VIPs to the controller
+
+----------------
+Table 7: ETH_DST
 ----------------
 - Match fields: ``vlan_vid, eth_dst``
 - Operations:
@@ -111,7 +116,7 @@ Table 6: ETH_DST
     - Unknown traffic is sent to FLOOD table
 
 --------------
-Table 7: FLOOD
+Table 8: FLOOD
 --------------
 - Match fields: ``vlan_vid, eth_dst``
 - Operations:

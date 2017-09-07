@@ -47,13 +47,15 @@ class FaucetBgp(object):
         nexthop = ipaddress.ip_address(btos(path_change.nexthop))
         withdraw = path_change.is_withdraw
         flowmods = []
+        if not self._valves or vlan.dp_id not in self._valves:
+            return
         valve = self._valves[vlan.dp_id]
         if vlan.is_faucet_vip(nexthop):
             self.logger.error(
                 'BGP nexthop %s for prefix %s cannot be us',
                 nexthop, prefix)
             return
-        if not vlan.ip_in_vip_subnet(nexthop):
+        if vlan.ip_in_vip_subnet(nexthop) is None:
             self.logger.error(
                 'BGP nexthop %s for prefix %s is not a connected network',
                 nexthop, prefix)
@@ -125,10 +127,10 @@ class FaucetBgp(object):
                     for neighbor, neighbor_state in neighbor_states:
                         # pylint: disable=no-member
                         self._metrics.bgp_neighbor_uptime_seconds.labels(
-                            dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
+                            dp_id=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
                                 neighbor_state['info']['uptime'])
                         for ipv in vlan.ipvs():
                             # pylint: disable=no-member
                             self._metrics.bgp_neighbor_routes.labels(
-                                dpid=hex(dp_id), vlan=vlan.vid, neighbor=neighbor, ipv=ipv).set(
+                                dp_id=hex(dp_id), vlan=vlan.vid, neighbor=neighbor, ipv=ipv).set(
                                     len(vlan.routes_by_ipv(ipv)))

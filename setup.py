@@ -3,21 +3,12 @@
 from __future__ import print_function
 
 import errno
-import io
 import os
-import re
 import shutil
 import sys
 
 from pkg_resources import resource_filename
 from setuptools import setup
-
-def parse_version():
-    """ Parse version from README.rst """
-    setup_dir = os.path.dirname(__file__)
-    readme_contents = io.open(os.path.join(setup_dir, 'README.rst'), encoding="utf-8").read()
-    faucet_version = re.match(r'.+version: ([0-9\.]+)', readme_contents).group(1)
-    return faucet_version
 
 def install_configs():
     """ Install configuration files to /etc """
@@ -54,8 +45,6 @@ def install_configs():
                   % exception.filename)
         else:
             raise
-
-os.environ["PBR_VERSION"] = parse_version()
 
 setup(
     name='faucet',

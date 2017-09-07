@@ -1,25 +1,37 @@
 sudo: required
 group: edge
 language: python
+python:
+  - "3.5"
 services:
   - docker
 addons:
   apt:
     packages:
+      - parallel
       - openvswitch-switch
-python:
-  - "3.5"
+cache:
+  pip: true
+  directories:
+    - /home/travis/docker/
+env:
+  global:
+    - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
+    - FAUCET_TEST_IMG=reannz/faucet-tests
 install:
-  - "pip3 install -r requirements.txt -r test-requirements.txt"
-  - "python3 setup.py sdist"
-  - "pip3 install dist/*tar.gz"
-  - "pip3 show faucet"
+  - pip3 install -r requirements.txt -r test-requirements.txt
+  - python3 setup.py sdist
+  - pip3 install dist/*tar.gz
+  - pip3 show faucet
 script:
-  - "cd ./tests"
-  - "PYTHONPATH='../faucet' ./test_min_pylint.sh"
-  - "python3 ./test_config.py"
-  - "python3 ./test_check_config.py"
-  - "python3 ./test_valve.py"
-  - "cd .."
-  - "docker build -t reannz/faucet-tests -f Dockerfile.tests ."
-  - "sudo docker run --privileged -ti reannz/faucet-tests"
+  - touch ~/.pylintrc
+  - cd ./tests
+  - PYTHONPATH="../faucet" ./test_min_pylint.sh
+  - py.test ./test_check_config.py ./test_config.py ./test_valve.py --cov faucet --doctest-modules -v --cov-report term-missing
+  - coveralls || true
+  - cd ..
+  - ls -l `dirname ${DOCKER_CACHE_FILE}`
+  - if [[ $(find ${DOCKER_CACHE_FILE} -type f -size +100c 2>/dev/null) ]] ; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
+  - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(/bin/echo -e "osrg/ryu:latest\nreannz/faucet-tests:latest"| xargs -n 1 docker history -q|grep -v missing) | gzip > ${DOCKER_CACHE_FILE} ; fi
+  - sudo docker run --privileged -ti -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}
