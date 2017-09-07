@@ -28,29 +28,52 @@ Switch
 
 **VLAN/PORT configuration**
 
-To ensure any sort of port/vlan configuration specified in the *faucet.yaml* file works, one needs to create all the vlans that is planned to be used in the configuration on the switch tagging every dataplane port on the switch to each of those.
+To ensure any port/vlan configuration specified in the *faucet.yaml* file works, one needs to pre-configure all vlans on the switch. Every dataplane port on the switch is made a tagged member of every vlan. This permits FAUCET to perform flow matching and packet-out on any port/vlan combination. The control-plane port (either OOBM or a front-panel port) is kept separate, so that FAUCET does not attempt to modify the control-plane port state.
+
+* Using OOBM control-plane (3810, 5400R)
 
 ::
 
-	// Increase the maximum number of allowed VLANs on the box to 4094 and save the configuration.
-	// NOTE: On 2930F, the maximum number of VLANs allowed is 2048
+	// Increase the maximum number of allowed VLANs on the box and save the configuration.
 	switch (config)# max-vlans 4094
 	switch (config)# write mem
 
 	// Reboot the box for the new max-vlan configuration to take affect.
 	switch (config)# boot system
+	
+	// Configure the control-plane IP address
+	switch (config)# oobm ip address 20.0.0.1/24 
 
-	// Create VLANs 2 to 4094 and tag every dataplane port available to each of those (Takes up to 30 minutes)
+	// Create maximum number of VLANs and tag every dataplane port available to each vlan. Takes up to 30 minutes.
 	switch (config)# vlan 2-4094 tagged all
+
+* Using VLAN control-plane (2930)
+
+::
+
+	// Increase the maximum number of allowed VLANs on the box and save the configuration.
+	switch (config)# max-vlans 2048
+	switch (config)# write mem
+
+	// Reboot the box for the new max-vlan configuration to take affect.
+	switch (config)# boot system
+
+	// Create a control-plane vlan and add a single control-plane port (port 48)
+	switch (config)# vlan 2048 untagged 48
+	
+	// Configure the control-plane IP address
+	switch (config)# vlan 2048 ip address 20.0.0.1/24
+
+	// Create maximum number of VLANs and tag every dataplane port available to each vlan,
+	// except for the control-plane vlan (above). Note that the command below assumes it
+	// is run on a 52-port switch, with port 48 as the control-plane. Takes up to 20 minutes.
+	switch (config)# vlan 2-2047 tagged 1-47,49-52
 
 **OpenFlow configuration**
 
-Aruba switches support OpenFlow instance of 2 types:
+Aruba switches reference a controller by ID, so first configure the controllers which will be used. The controller-interface matches the control-plane configuration above.
 
-- **Aggregate** - Every VLAN on the switch apart from the controller/management VLANs are OpenFlow manageed.
-- **Virtualization** - A set of VLANs configured as members are OpenFlow managed.
-
-Since FAUCET is desgined for a pure OpenFlow switch, we choose the "**aggregate**" instance type.
+* Using OOBM control-plane (3810, 5400R)
 
 ::
 
@@ -58,11 +81,32 @@ Since FAUCET is desgined for a pure OpenFlow switch, we choose the "**aggregate*
 	switch (config)# openflow
 
 	// Configure an OpenFlow controller connection for FAUCET over tcp-port 6653
-	NOTE: We choose to connect the controller over the out of band management port in this example.
 	switch(openflow)# controller-id 1 ip 20.0.0.2 port 6653 controller-interface oobm
 
-	// Configure an OpenFlow controller connection for Gauge (required for tests) over tcp-port 6654
+	// Configure an OpenFlow controller connection for Gauge over tcp-port 6654
 	switch(openflow)# controller-id 2 ip 20.0.0.2 port 6654 controller-interface oobm
+
+* Using VLAN control-plane (2930)
+
+::
+
+	// Enter OpenFlow context
+	switch (config)# openflow
+
+	// Configure an OpenFlow controller connection for FAUCET over tcp-port 6653
+	switch(openflow)# controller-id 1 ip 20.0.0.2 port 6653 controller-interface vlan 2048
+
+	// Configure an OpenFlow controller connection for Gauge over tcp-port 6654
+	switch(openflow)# controller-id 2 ip 20.0.0.2 port 6654 controller-interface vlan 2048
+
+Aruba switches support two OpenFlow instance types:
+
+- **Aggregate** - Every VLAN on the switch apart from the controller/management VLANs are OpenFlow managed.
+- **Virtualization** - A set of VLANs configured as members are OpenFlow managed.
+
+Since FAUCET is designed for a pure OpenFlow environment, we choose the "**aggregate**" instance type.
+
+::
 
 	// Enter the OpenFlow instance context
 	switch(openflow)# instance aggregate
