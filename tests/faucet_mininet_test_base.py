@@ -783,21 +783,18 @@ dbs:
     def require_host_learned(self, host, retries=3, in_port=None):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
-        ping_cmd = 'fping'
+        ping_cmd = 'ping'
         if not host_ip_net:
             host_ip_net = self.host_ipv6(host)
         broadcast = (ipaddress.ip_interface(
             unicode(host_ip_net)).network.broadcast_address)
         if broadcast.version == 6:
-            ping_cmd = 'fping6'
+            ping_cmd = 'ping6'
         for _ in range(retries):
             if self.host_learned(host, timeout=1, in_port=in_port):
                 return
             # stimulate host learning with a broadcast ping
-            count = 3
-            interval = 50
-            ping_cli = '%s -c%u -i%u -t%u %s' % (
-                ping_cmd, count, interval, interval * count, broadcast)
+            ping_cli = '%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast)
             ping_result = host.cmd(ping_cli)
         self.fail('host %s (%s) could not be learned (%s: %s)' % (
             host, host.MAC(), ping_cli, ping_result))
