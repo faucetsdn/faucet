@@ -794,7 +794,7 @@ dbs:
             if self.host_learned(host, timeout=1, in_port=in_port):
                 return
             # stimulate host learning with a broadcast ping
-            ping_cli = '%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast)
+            ping_cli = '%s -W 1 -c 1 -b %s' % (ping_cmd, broadcast)
             ping_result = host.cmd(ping_cli)
         self.fail('host %s (%s) could not be learned (%s: %s)' % (
             host, host.MAC(), ping_cli, ping_result))
