@@ -783,19 +783,31 @@ dbs:
     def require_host_learned(self, host, retries=3, in_port=None):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
-        ping_cmd = 'ping'
         if not host_ip_net:
             host_ip_net = self.host_ipv6(host)
-        broadcast = (ipaddress.ip_interface(
-            unicode(host_ip_net)).network.broadcast_address)
+        broadcast = ipaddress.ip_interface(
+            unicode(host_ip_net)).network.broadcast_address
+        broadcast_str = str(broadcast)
+
+        packets = 1
+        if broadcast.version == 4:
+            ping_cmd = 'ping -b'
         if broadcast.version == 6:
             ping_cmd = 'ping6'
+            broadcast_str = 'ff02::1'
+
+        # stimulate host learning with a broadcast ping
+        ping_cli = faucet_mininet_test_util.timeout_cmd(
+            '%s -I%s -W1 -c%u %s' % (
+                ping_cmd, host.defaultIntf().name, packets, broadcast_str), 3)
+
         for _ in range(retries):
             if self.host_learned(host, timeout=1, in_port=in_port):
                 return
-            # stimulate host learning with a broadcast ping
-            ping_cli = '%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast)
             ping_result = host.cmd(ping_cli)
+            self.assertTrue(re.search(
+                r'%u packets transmitted' % packets, ping_result), msg='%s: %s' % (
+                    ping_cli, ping_result))
         self.fail('host %s (%s) could not be learned (%s: %s)' % (
             host, host.MAC(), ping_cli, ping_result))
 
