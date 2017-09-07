@@ -898,12 +898,13 @@ vlans:
         return True
 
     def verify_hosts_learned(self, first_host, mac_ips, hosts):
+        fping_out = None
         for _ in range(3):
-            first_host.cmd('fping -c3 %s' % ' '.join(mac_ips))
+            fping_out = first_host.cmd('fping -i1 -p1 -c3 %s' % ' '.join(mac_ips))
             if self.hosts_learned(hosts):
                 return
             time.sleep(1)
-        self.fail('%s cannot be learned' % mac_ips)
+        self.fail('%s cannot be learned (%s)' % (mac_ips, fping_out))
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
