@@ -19,6 +19,7 @@ env:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
     - FAUCET_TEST_IMG=reannz/faucet-tests
 install:
+  - sudo perl -pi -e "s/dockerd/dockerd --ipv6 --fixed-cidr-v6=fd00::1\/64/" /lib/systemd/system/docker.service && systemctl daemon-reload && service docker restart
   - pip3 install -r requirements.txt -r test-requirements.txt
   - python3 setup.py sdist
   - pip3 install dist/*tar.gz
@@ -31,7 +32,6 @@ script:
   - coveralls || true
   - cd ..
   - ls -l `dirname ${DOCKER_CACHE_FILE}`
-  - sudo perl -pi -e "s/dockerd/dockerd --ipv6 --fixed-cidr-v6=fd00::1\/64" /lib/systemd/system/docker.service && systemctl daemon-reload && service docker restart
   - if [[ $(find ${DOCKER_CACHE_FILE} -type f -size +100c 2>/dev/null) ]] ; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
   - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(/bin/echo -e "osrg/ryu:latest\nreannz/faucet-tests:latest"| xargs -n 1 docker history -q|grep -v missing) | gzip > ${DOCKER_CACHE_FILE} ; fi
