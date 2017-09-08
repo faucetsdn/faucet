@@ -19,7 +19,7 @@ env:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
     - FAUCET_TEST_IMG=reannz/faucet-tests
 install:
-  - sudo find /etc -name \*docker\*
+  - sudo find /etc -name \*docker\* -print -exec cat {} \;
   - sudo ps aux|grep docker
   - pip3 install -r requirements.txt -r test-requirements.txt
   - python3 setup.py sdist
