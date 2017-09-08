@@ -987,13 +987,20 @@ class Valve(object):
                 self.logger.info('VLAN %s added' % vid)
             else:
                 old_vlan = self.dp.vlans[vid]
+                vlan_config_changed = False
                 if old_vlan != new_vlan:
                     old_vlan_new_ports = copy.deepcopy(old_vlan)
                     old_vlan_new_ports.tagged = new_vlan.tagged
                     old_vlan_new_ports.untagged = new_vlan.untagged
                     if old_vlan_new_ports != new_vlan:
-                        changed_vlans.add(vid)
-                        self.logger.info('VLAN %s config changed' % vid)
+                        vlan_config_changed = True
+                if vlan_config_changed:
+                    changed_vlans.add(vid)
+                    self.logger.info('VLAN %s config changed' % vid)
+                else:
+                    # Preserve current VLAN including current
+                    # dynamic state like caches.
+                    new_dp.vlans[vid].merge_dyn(old_vlan)
 
         if not deleted_vlans and not changed_vlans:
             self.logger.info('no VLAN config changes')
