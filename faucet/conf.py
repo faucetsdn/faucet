@@ -60,10 +60,10 @@ class Conf(object):
     def _conf_keys(self, conf, dyn=False):
         """Return a list of key/values of attributes with dyn attributes/filtered."""
         conf_keys = []
-        for k, v in sorted(list(conf.__dict__.items())):
+        for k, v in list(conf.__dict__.items()):
             if k.startswith('dyn') == dyn:
                 conf_keys.append((k, v))
-        return conf_keys
+        return sorted(conf_keys)
 
     def merge_dyn(self, other_conf):
         """Merge dynamic state from other conf object."""
@@ -83,8 +83,8 @@ class Conf(object):
         return result
 
     def __hash__(self):
-        items = self._conf_keys(self, dyn=False)
-        return hash(frozenset(list(map(str, items))))
+        return hash(frozenset(list(map(
+            str, self._conf_keys(self, dyn=False)))))
 
     def __eq__(self, other):
         return hash(self) == hash(other)
