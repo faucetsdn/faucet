@@ -117,7 +117,6 @@ class ValveHostManager(object):
         in_port = port.number
         ofmsgs = []
 
-        print(port, vlan, eth_src)
         # Don't relearn same host on same port if recently learned.
         # TODO: this is a good place to detect and react to a loop,
         # if we detect a host moving rapidly between ports.
