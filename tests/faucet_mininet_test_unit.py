@@ -1100,7 +1100,8 @@ acls:
     def _get_conf(self):
         return yaml.load(open(self.faucet_config_path, 'r').read())
 
-    def _reload_conf(self, conf, restart, cold_start, change_expected=True):
+    def _reload_conf(self, conf, restart, cold_start,
+                     change_expected=True, host_cache=None):
         open(self.faucet_config_path, 'w').write(yaml.dump(conf))
         if restart:
             var = 'faucet_config_reload_warm'
@@ -1108,9 +1109,21 @@ acls:
                 var = 'faucet_config_reload_cold'
             old_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
+            old_mac_table = self.scrape_prometheus_var(
+                'learned_macs', labels={'vlan': host_cache}, multiple=True)
             self.verify_hup_faucet()
             new_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
+            new_mac_table = self.scrape_prometheus_var(
+                'learned_macs', labels={'vlan': host_cache}, multiple=True)
+            if host_cache:
+                self.assertFalse(
+                    cold_start, msg='host cache is not maintained with cold start')
+                self.assertTrue(
+                    new_mac_table, msg='no host cache for vlan %u' % host_cache)
+                self.assertEqual(
+                    old_mac_table, new_mac_table,
+                    msg='host cache for vlan %u not same over reload' % host_cache)
             if change_expected:
                 self.assertEqual(
                     old_count + 1, new_count,
@@ -1187,7 +1200,7 @@ acls:
             table_id=self.PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
-        self._reload_conf(orig_conf, True, cold_start=False)
+        self._reload_conf(orig_conf, True, cold_start=False, host_cache=100)
         self.verify_tp_dst_notblocked(
             5001, first_host, second_host, table_id=None)
         self.verify_tp_dst_notblocked(
