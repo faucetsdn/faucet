@@ -19,7 +19,7 @@ env:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
     - FAUCET_TEST_IMG=reannz/faucet-tests
 install:
-  - sudo perl -pi -e "s/dockerd/dockerd --ipv6 --fixed-cidr-v6=fd00::1\/64/" /lib/systemd/system/docker.service && systemctl daemon-reload && service docker restart
+  - sudo perl -pi -e "s/dockerd/dockerd --ipv6 --fixed-cidr-v6=fd00::1\/64/" /lib/systemd/system/docker.service && sudo systemctl daemon-reload && sudo service docker restart
   - pip3 install -r requirements.txt -r test-requirements.txt
   - python3 setup.py sdist
   - pip3 install dist/*tar.gz
