@@ -309,6 +309,9 @@ class FaucetTestBase(unittest.TestCase):
                     if not self._get_controller().listen_port(port):
                         return 'faucet not listening on %u (%s)' % (
                             port, port_name)
+        if (self.RUN_GAUGE and
+            self.tcp_port_free(self.gauge_controller, self.influx_port) is not None):
+            return 'influx port %u is not free' % self.influx_port
         return None
 
     def _start_faucet(self, controller_intf):

@@ -1,5 +1,8 @@
 sudo: required
-group: edge
+dist: trusty
+# https://blog.travis-ci.com/2017-08-29-trusty-image-updates
+# new release includes a docker version with broken IPv6
+group: deprecated-2017Q3
 language: python
 python:
   - "3.5"
