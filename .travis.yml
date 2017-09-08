@@ -1,5 +1,6 @@
 sudo: required
-group: edge
+dist: trusty
+group: deprecated-2017Q3
 language: python
 python:
   - "3.5"
@@ -19,8 +20,6 @@ env:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
     - FAUCET_TEST_IMG=reannz/faucet-tests
 install:
-  - sudo perl -pi -e "s/DOCKEROPTS=/DOCKEROPTS=\"--ipv6 --fixed-cidr-v6=fd00::1\/64\"/" /etc/default/docker && service docker restart
-  - sudo ps aux|grep docker
   - pip3 install -r requirements.txt -r test-requirements.txt
   - python3 setup.py sdist
   - pip3 install dist/*tar.gz
