@@ -186,6 +186,7 @@ class Faucet(app_manager.RyuApp):
                     valve = valve_cl(new_dp, self.logname)
                     self.valves[dp_id] = valve
                 self.logger.info('Add new datapath %s', dpid_log(dp_id))
+            self.metrics.reset_dpid(dp_id)
             valve.update_config_metrics(self.metrics)
         for deleted_valve_dpid in deleted_valve_dpids:
             self.logger.info(

@@ -903,10 +903,11 @@ dbs:
             self.assertTrue(
                 re.search(r'%s\S+\s+[1-9]+' % nonzero_var, prom_out),
                 msg='expected %s to be nonzero (%s)' % (nonzero_var, prom_out))
-        for notpresent_var in (
+        for zero_var in (
                 'of_errors', 'of_dp_disconnections'):
-            self.assertIsNone(
-                re.search(notpresent_var, prom_out), msg=prom_out)
+            self.assertTrue(
+                re.search(r'%s\S+\s+0' % zero_var, prom_out),
+                msg='expected %s to be present and zero (%s)' % (zero_var, prom_out))
 
     def get_configure_count(self):
         """Return the number of times FAUCET has processed a reload request."""
