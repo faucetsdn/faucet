@@ -29,33 +29,51 @@ except ImportError:
 class FaucetMetrics(PromClient):
     """Container class for objects that can be exported to Prometheus."""
 
+    _dpid_counters = {}
+    _dpid_gauges = {}
+
+    def _dpid_counter(self, var, var_help):
+        counter = Counter(var, var_help, ['dp_id'])
+        self._dpid_counters[var] = counter
+        return counter
+
+    def _dpid_gauge(self, var, var_help):
+        gauge = Gauge(var, var_help, ['dp_id'])
+        self._dpid_gauges[var] = gauge
+        return gauge
+
+    def reset_dpid(self, dp_id):
+        """Set all DPID-only counter/gauges to 0."""
+        for counter in list(self._dpid_counters.values()):
+            counter.labels(dp_id=hex(dp_id)).inc(0)
+        for gauge in list(self._dpid_gauges.values()):
+            gauge.labels(dp_id=hex(dp_id)).set(0)
+
     def __init__(self):
-        self.of_packet_ins = Counter(
+        self.of_packet_ins = self._dpid_counter(
             'of_packet_ins',
-            'number of OF packet_ins received from DP', ['dp_id'])
-        self.of_flowmsgs_sent = Counter(
+            'number of OF packet_ins received from DP')
+        self.of_flowmsgs_sent = self._dpid_counter(
             'of_flowmsgs_sent',
-            'number of OF flow messages (and packet outs) sent to DP', ['dp_id'])
-        self.of_errors = Counter(
+            'number of OF flow messages (and packet outs) sent to DP')
+        self.of_errors = self._dpid_counter(
             'of_errors',
-            'number of OF errors received from DP', ['dp_id'])
-        self.of_dp_connections = Counter(
+            'number of OF errors received from DP')
+        self.of_dp_connections = self._dpid_counter(
             'of_dp_connections',
-            'number of OF connections from a DP', ['dp_id'])
-        self.of_dp_disconnections = Counter(
+            'number of OF connections from a DP')
+        self.of_dp_disconnections = self._dpid_counter(
             'of_dp_disconnections',
-            'number of OF connections from a DP', ['dp_id'])
+            'number of OF connections from a DP')
         self.faucet_config_reload_requests = Counter(
             'faucet_config_reload_requests',
             'number of config reload requests', [])
-        self.faucet_config_reload_warm = Counter(
+        self.faucet_config_reload_warm = self._dpid_counter(
             'faucet_config_reload_warm',
-            'number of warm, differences only config reloads executed',
-            ['dp_id'])
-        self.faucet_config_reload_cold = Counter(
+            'number of warm, differences only config reloads executed')
+        self.faucet_config_reload_cold = self._dpid_counter(
             'faucet_config_reload_cold',
-            'number of cold, complete reprovision config reloads executed',
-            ['dp_id'])
+            'number of cold, complete reprovision config reloads executed')
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
             'number of hosts learned on a VLAN', ['dp_id', 'vlan'])
@@ -90,7 +108,6 @@ class FaucetMetrics(PromClient):
             'port_learn_bans',
             'number of times learning was banned on a port',
             ['dp_id', 'port'])
-        self.dp_status = Gauge(
+        self.dp_status = self._dpid_gauge(
             'dp_status',
-            'status of datapaths',
-            ['dp_id'])
+            'status of datapaths')
