@@ -840,18 +840,21 @@ dbs:
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
 
-    def scrape_prometheus_var(self, var, labels=None, default=None,
+    def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet'):
-        label_values_re = ''
-        if labels is None:
-            labels = {}
-        if dpid:
-            labels.update({'dp_id': '0x%x' % long(self.dpid)})
-        if labels:
-            label_values = []
-            for label, value in sorted(list(labels.items())):
-                label_values.append('%s="%s"' % (label, value))
-            label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
+        label_values_re = r''
+        if any_labels:
+            label_values_re = r'\{[^\}]+\}'
+        else:
+            if labels is None:
+                labels = {}
+            if dpid:
+                labels.update({'dp_id': '0x%x' % long(self.dpid)})
+            if labels:
+                label_values = []
+                for label, value in sorted(list(labels.items())):
+                    label_values.append('%s="%s"' % (label, value))
+                label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         results = []
         var_re = r'^%s%s$' % (var, label_values_re)
         prom_lines = self.scrape_prometheus(controller)
@@ -899,7 +902,7 @@ dbs:
         prom_out = self.scrape_prometheus()
         for nonzero_var in (
                 r'of_packet_ins', r'of_flowmsgs_sent', r'of_dp_connections',
-                r'faucet_config\S+name=\"flood\"'):
+                r'faucet_config\S+name=\"flood\"', r'faucet_pbr_version\S+version='):
             self.assertTrue(
                 re.search(r'%s\S+\s+[1-9]+' % nonzero_var, prom_out),
                 msg='expected %s to be nonzero (%s)' % (nonzero_var, prom_out))
