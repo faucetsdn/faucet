@@ -113,6 +113,11 @@ vlans:
         self.table.apply_ofmsgs(self.valve.datapath_connect(
             self.DP_ID, range(1, self.NUM_PORTS + 1)))
 
+    def apply_new_config(self, config):
+        new_dp = self.update_config(config)
+        _, ofmsgs = self.valve.reload_config(new_dp)
+        self.table.apply_ofmsgs(ofmsgs)
+
     def learn_hosts(self):
         """Learn some hosts."""
         self.rcv_packet(1, 0x100, {
@@ -485,11 +490,7 @@ acls:
                 self.table.is_output(match, port=3, vid=self.V200),
                 msg='Packet not output before adding ACL')
 
-        # reload the config
-        new_dp = self.update_config(acl_config)
-        _, ofmsgs = self.valve.reload_config(new_dp)
-        self.table.apply_ofmsgs(ofmsgs)
-
+        self.apply_new_config(acl_config)
         self.assertFalse(
             self.table.is_output(drop_match),
             msg='packet not blocked by acl')
@@ -559,12 +560,9 @@ acls:
                 self.table.is_output(match, port=3, vid=self.V200),
                 msg='Packet not output before adding ACL')
 
-        # reload the config
-        new_dp = self.update_config(acl_config)
-        _, ofmsgs = self.valve.reload_config(new_dp)
-        self.table.apply_ofmsgs(ofmsgs)
+        self.apply_new_config(acl_config)
         self.valve.port_delete(1, 2)
-        ofmsgs = self.valve.port_add(1, 2)
+        self.valve.port_add(1, 2)
         self.assertFalse(
             self.table.is_output(drop_match),
             msg='Packet not blocked by ACL')
@@ -614,10 +612,7 @@ vlans:
         self.connect_dp()
         self.learn_hosts()
 
-        # reload the config
-        new_dp = self.update_config(self.CONFIG)
-        _, ofmsgs = self.valve.reload_config(new_dp)
-        self.table.apply_ofmsgs(ofmsgs)
+        self.apply_new_config(self.CONFIG)
         self.learn_hosts()
 
 
