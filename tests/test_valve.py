@@ -105,6 +105,13 @@ vlans:
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
 
+    def setup_valve(self, config):
+        self.tmpdir = tempfile.mkdtemp()
+        self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
+        self.table = FakeOFTable(self.NUM_TABLES)
+        dp = self.update_config(config)
+        self.valve = valve_factory(dp)(dp, 'test_valve')
+
     def update_config(self, config):
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
@@ -135,11 +142,7 @@ vlans:
             'vid': 0x200})
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
-        self.table = FakeOFTable(self.NUM_TABLES)
-        dp = self.update_config(self.CONFIG)
-        self.valve = valve_factory(dp)(dp, 'test_valve')
+        self.setup_valve(self.CONFIG)
         self.connect_dp()
         self.learn_hosts()
 
@@ -607,11 +610,7 @@ vlans:
 """
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.config_file = os.path.join(self.tmpdir, 'valve_reload_unit.yaml')
-        self.table = FakeOFTable(self.NUM_TABLES)
-        dp = self.update_config(self.OLD_CONFIG)
-        self.valve = valve_factory(dp)(dp, 'test_valve')
+        self.setup_valve(self.OLD_CONFIG)
         self.connect_dp()
         self.learn_hosts()
 
