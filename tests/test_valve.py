@@ -89,8 +89,10 @@ dps:
 vlans:
     v100:
         vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
     v200:
         vid: 0x200
+        faucet_vips: ['fc00::1:254/112']
 """
 
     DP_ID = 1
@@ -333,14 +335,14 @@ class ValveTestCase(ValveTestBase):
             self.assertTrue(
                 self.table.is_output(
                     match, result['out_port'], vid=result['vlan_vid']),
-                msg="packet not output to port correctly when eth dst is known")
+                msg='packet not output to port correctly when eth dst is known')
             incorrect_ports = set(range(1, self.NUM_PORTS + 1))
             incorrect_ports.remove(result['out_port'])
             for port in incorrect_ports:
                 self.assertFalse(
                     self.table.is_output(match, port=port),
-                    msg="packet: {0} output to incorrect port ({1}) when eth "
-                    "dst is known".format(match, port))
+                    msg=('packet %s output to incorrect port %u when eth_dst '
+                         'is known' % (match, port)))
 
     def test_mac_learning_vlan_separation(self):
         """Test that when a mac is seen on a second vlan the original vlan
@@ -388,21 +390,22 @@ class ValveTestCase(ValveTestBase):
         """Test that when a port is disabled packets are correctly output. """
         match = {'in_port': 2, 'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}
 
-        vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
+        valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
         ofmsgs = self.valve.port_delete(dp_id=self.DP_ID, port_num=1)
         self.table.apply_ofmsgs(ofmsgs)
 
         # Check packets are output to each port on vlan
-        for port in vlan.get_ports():
+        for port in valve_vlan.get_ports():
             if port.number != match['in_port'] and port.running():
-                if vlan.port_is_tagged(port):
-                    vid = vlan.vid|ofp.OFPVID_PRESENT
+                if valve_vlan.port_is_tagged(port):
+                    vid = valve_vlan.vid|ofp.OFPVID_PRESENT
                 else:
                     vid = 0
                 self.assertTrue(
                     self.table.is_output(match, port=port.number, vid=vid),
                     msg=('packet %s with eth dst learnt on deleted port not output '
-                         'correctly on vlan %u to port %u' % (match, vlan.vid, port.number)))
+                         'correctly on vlan %u to port %u' % (
+                             match, valve_vlan.vid, port.number)))
 
     def test_port_down_eth_src_removal(self):
         """Test that when a port goes down and comes back up learnt mac
