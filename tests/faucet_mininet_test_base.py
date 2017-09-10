@@ -841,7 +841,7 @@ dbs:
         return '\n'.join(prom_vars)
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
-                              dpid=True, multiple=False, controller='faucet'):
+                              dpid=True, multiple=False, controller='faucet', retries=1):
         label_values_re = r''
         if any_labels:
             label_values_re = r'\{[^\}]+\}'
@@ -855,25 +855,26 @@ dbs:
                 for label, value in sorted(list(labels.items())):
                     label_values.append('%s="%s"' % (label, value))
                 label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
-        results = []
         var_re = r'^%s%s$' % (var, label_values_re)
-        prom_lines = self.scrape_prometheus(controller)
-        for prom_line in prom_lines.splitlines():
-            prom_var_data = prom_line.split(' ')
-            self.assertEqual(
-                2, len(prom_var_data),
-                msg='invalid prometheus line in %s' % prom_lines)
-            var, value = prom_var_data
-            var_match = re.search(var_re, var)
-            if var_match:
-                value_int = long(float(value))
-                results.append((var, value_int))
-                if not multiple:
-                    break
-        if results:
-            if multiple:
-                return results
-            return results[0][1]
+        for _ in range(retries):
+            results = []
+            prom_lines = self.scrape_prometheus(controller)
+            for prom_line in prom_lines.splitlines():
+                prom_var_data = prom_line.split(' ')
+                self.assertEqual(
+                    2, len(prom_var_data),
+                    msg='invalid prometheus line in %s' % prom_lines)
+                var, value = prom_var_data
+                var_match = re.search(var_re, var)
+                if var_match:
+                    value_int = long(float(value))
+                    results.append((var, value_int))
+                    if not multiple:
+                        break
+            if results:
+                if multiple:
+                    return results
+                return results[0][1]
         return default
 
     def gauge_smoke_test(self):
