@@ -27,7 +27,8 @@ except ImportError:
 class ValveTable(object):
     """Wrapper for an OpenFlow table."""
 
-    def __init__(self, table_id, name, restricted_match_types, flow_cookie, notify_flow_removed=False):
+    def __init__(self, table_id, name, restricted_match_types,
+                 flow_cookie, notify_flow_removed=False):
         self.table_id = table_id
         self.name = name
         self.restricted_match_types = None
@@ -113,16 +114,44 @@ class ValveTable(object):
 
 class ValveGroupTable(object):
     """Wrap access to group table."""
-    # TODO: manage group_ids to prevent conflicts.
+    buckets_to_id = None
+    id_to_buckets = None
+
+    def __init__(self):
+        self._clear_bucket_map()
+
+    def _clear_bucket_map(self):
+        self.buckets_to_id = {}
+        self.id_to_buckets = {}
+
+    def _update_bucket_map(self, group_id, buckets):
+        self.buckets_to_id[tuple(buckets)] = group_id
+        self.id_to_buckets[group_id] = tuple(buckets)
+
+    def _delete_bucket_map(self, group_id):
+        if group_id in self.id_to_buckets:
+            buckets = self.id_to_buckets[group_id]
+            del self.buckets_to_id[buckets]
+            del self.id_to_buckets[group_id]
 
     def groupadd(self, group_id, buckets):
+        """Add a new group."""
+        assert not group_id in self.id_to_buckets
+        self._update_bucket_map(group_id, buckets)
         return valve_of.groupadd(group_id=group_id, buckets=buckets)
 
     def groupmod(self, group_id, buckets):
+        """Modify an existing group."""
+        assert group_id in self.id_to_buckets
+        self._update_bucket_map(group_id, buckets)
         return valve_of.groupmod(group_id=group_id, buckets=buckets)
 
     def groupdel(self, group_id):
+        """Delete a group if it exists."""
+        self._delete_bucket_map(group_id)
         return valve_of.groupdel(group_id=group_id)
 
     def delete_all(self):
+        """Delete all groups."""
+        self._clear_bucket_map()
         return valve_of.groupdel()
