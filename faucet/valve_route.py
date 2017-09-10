@@ -75,7 +75,6 @@ class ValveRouteManager(object):
         self.routers = routers
         self.use_group_table = use_group_table
         self.groups = groups
-        self.ip_gw_to_group_id = {}
 
     @staticmethod
     def _vlan_vid(vlan, port):
@@ -95,6 +94,12 @@ class ValveRouteManager(object):
         if ip_gw in nexthop_cache:
             return nexthop_cache[ip_gw]
         return None
+
+    @staticmethod
+    def _group_id_from_ip_gw(vlan, resolved_ip_gw):
+        # TODO: broken - collisions, and collisions with
+        # broadcast groups are possible.
+        return (hash((vlan, resolved_ip_gw)) + valve_of.ROUTE_GROUP_OFFSET) & ((1<<32) -1)
 
     def _neighbor_resolver_pkt(self, vlan, vid, faucet_vip, ip_gw):
         pass
@@ -184,7 +189,7 @@ class ValveRouteManager(object):
                     ip_dst, ip_gw, eth_dst, vlan.vid))
         if self.use_group_table:
             inst = [valve_of.apply_actions([valve_of.group_act(
-                group_id=self.ip_gw_to_group_id[ip_gw])])]
+                group_id=self._group_id_from_ip_gw(vlan, ip_gw))])]
         else:
             inst = [valve_of.apply_actions(self._nexthop_actions(eth_dst, vlan)),
                     valve_of.goto_table(self.eth_dst_table)]
@@ -193,10 +198,6 @@ class ValveRouteManager(object):
             ofmsgs.append(self.fib_table.flowmod(
                 in_match, priority=self._route_priority(ip_dst), inst=inst))
         return ofmsgs
-
-    @staticmethod
-    def _group_id_from_ip_gw(resolved_ip_gw):
-        return (hash(str(resolved_ip_gw)) + valve_of.ROUTE_GROUP_OFFSET) & ((1<<32) -1)
 
     def _update_nexthop_cache(self, vlan, eth_src, ip_gw):
         now = time.time()
@@ -214,18 +215,14 @@ class ValveRouteManager(object):
 
     def _update_nexthop_group(self, is_updated, resolved_ip_gw,
                               vlan, port, eth_src):
+        group_id = self._group_id_from_ip_gw(vlan, resolved_ip_gw)
         buckets = self._nexthop_group_buckets(vlan, port, eth_src)
+        nexthop_group = self.groups.get_entry(
+            group_id, buckets)
         ofmsgs = []
         if is_updated:
-            group_id = self.ip_gw_to_group_id[resolved_ip_gw]
-            nexthop_group = self.groups.get_entry(
-                group_id, buckets)
             ofmsgs.append(nexthop_group.modify())
         else:
-            group_id = self._group_id_from_ip_gw(resolved_ip_gw)
-            self.ip_gw_to_group_id[resolved_ip_gw] = group_id
-            nexthop_group = self.groups.get_entry(
-                group_id, buckets)
             ofmsgs.extend(nexthop_group.add())
         return ofmsgs
 
