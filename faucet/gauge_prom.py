@@ -44,6 +44,7 @@ class GaugePrometheusClient(PromClient):
     metrics = {}
 
     def __init__(self):
+        super(GaugePrometheusClient, self).__init__()
         self.dp_status = PromGauge(
             'dp_status',
             'status of datapaths',

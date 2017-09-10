@@ -18,14 +18,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from prometheus_client import start_http_server
+from pbr.version import VersionInfo
+from prometheus_client import start_http_server, Gauge
 
 
 class PromClient(object):
     """Prometheus client."""
 
     running = False
+
+    def __init__(self):
+        version = VersionInfo('faucet').semantic_version().release_string()
+        self.faucet_version = Gauge('faucet_pbr_version', 'Faucet PBR version', ['version'])
+        # pylint: disable=no-member
+        self.faucet_version.labels(version=version).set(1)
 
     def start(self, prom_port, prom_addr):
         """Start webserver if not already running."""

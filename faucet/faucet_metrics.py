@@ -50,6 +50,7 @@ class FaucetMetrics(PromClient):
             gauge.labels(dp_id=hex(dp_id)).set(0)
 
     def __init__(self):
+        super(FaucetMetrics, self).__init__()
         self.of_packet_ins = self._dpid_counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP')
