@@ -225,31 +225,31 @@ class ValveFloodManager(object):
 
     def _build_group_flood_rules(self, vlan, modify, command):
         flood_priority = self.flood_priority
-        broadcast_buckets = self._build_group_buckets(vlan, False)
-        unicast_buckets = self._build_group_buckets(vlan, vlan.unicast_flood)
-        group_id = vlan.vid
+        broadcast_group = self.groups.get_entry(
+            vlan.vid,
+            self._build_group_buckets(vlan, False))
+        unicast_group = self.groups.get_entry(
+            vlan.vid + valve_of.VLAN_GROUP_OFFSET,
+            self._build_group_buckets(vlan, vlan.unicast_flood))
         ofmsgs = []
-        group_mod_method = self.groups.groupadd
         if modify:
-            group_mod_method = self.groups.groupmod
+            ofmsgs.append(broadcast_group.modify())
+            ofmsgs.append(unicast_group.modify())
         else:
-            ofmsgs.append(self.groups.groupdel(group_id))
-            ofmsgs.append(self.groups.groupdel(group_id + valve_of.VLAN_GROUP_OFFSET))
-        ofmsgs.append(group_mod_method(group_id, broadcast_buckets))
-        ofmsgs.append(group_mod_method(
-            group_id + valve_of.VLAN_GROUP_OFFSET, unicast_buckets))
+            ofmsgs.extend(broadcast_group.add())
+            ofmsgs.extend(unicast_group.add())
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst and not vlan.unicast_flood:
                 continue
-            group_id = vlan.vid
+            group = broadcast_group
             if not eth_dst:
-                group_id = group_id + valve_of.VLAN_GROUP_OFFSET
+                group = unicast_group
             match = self.flood_table.match(
                 vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
             ofmsgs.append(self.flood_table.flowmod(
                 match=match,
                 command=command,
-                inst=[valve_of.apply_actions([valve_of.group_act(group_id)])],
+                inst=[valve_of.apply_actions([valve_of.group_act(group.group_id)])],
                 priority=flood_priority))
             flood_priority += 1
         return ofmsgs

@@ -112,46 +112,49 @@ class ValveTable(object):
                 [valve_of.output_controller(max_len)])] + inst)
 
 
+class ValveGroupEntry(object):
+
+    def __init__(self, table, group_id, buckets):
+        self.table = table
+        self.group_id = group_id
+        self.update_buckets(buckets)
+
+    def update_buckets(self, buckets):
+        self.buckets = tuple(buckets)
+
+    def add(self):
+        ofmsgs = []
+        ofmsgs.append(self.delete())
+        ofmsgs.append(valve_of.groupadd(
+            group_id=self.group_id, buckets=self.buckets))
+        self.table.entries[self.group_id] = self
+        return ofmsgs
+
+    def modify(self):
+        assert self.group_id in self.table.entries
+        self.table.entries[self.group_id] = self
+        return valve_of.groupmod(group_id=self.group_id, buckets=self.buckets)
+
+    def delete(self):
+        if self.group_id in self.table.entries:
+            del self.table.entries[self.group_id]
+        return valve_of.groupdel(group_id=self.group_id)
+
+
 class ValveGroupTable(object):
     """Wrap access to group table."""
-    buckets_to_id = None
-    id_to_buckets = None
 
-    def __init__(self):
-        self._clear_bucket_map()
+    entries = {}
 
-    def _clear_bucket_map(self):
-        self.buckets_to_id = {}
-        self.id_to_buckets = {}
-
-    def _update_bucket_map(self, group_id, buckets):
-        self.buckets_to_id[tuple(buckets)] = group_id
-        self.id_to_buckets[group_id] = tuple(buckets)
-
-    def _delete_bucket_map(self, group_id):
-        if group_id in self.id_to_buckets:
-            buckets = self.id_to_buckets[group_id]
-            del self.buckets_to_id[buckets]
-            del self.id_to_buckets[group_id]
-
-    def groupadd(self, group_id, buckets):
-        """Add a new group."""
-        assert not group_id in self.id_to_buckets
-        self._update_bucket_map(group_id, buckets)
-        return valve_of.groupadd(group_id=group_id, buckets=buckets)
-
-    def groupmod(self, group_id, buckets):
-        """Modify an existing group."""
-        assert group_id in self.id_to_buckets
-        self._update_bucket_map(group_id, buckets)
-        return valve_of.groupmod(group_id=group_id, buckets=buckets)
-
-    def groupdel(self, group_id):
-        """Delete a group if it exists."""
-        self._delete_bucket_map(group_id)
-        return valve_of.groupdel(group_id=group_id)
+    def get_entry(self, group_id, buckets):
+        if group_id in self.entries:
+            self.entries[group_id].update_buckets(buckets)
+        else:
+            self.entries[group_id] = ValveGroupEntry(
+                self, group_id, buckets)
+        return self.entries[group_id]
 
     def delete_all(self):
         """Delete all groups."""
-        self._clear_bucket_map()
+        self.entries = {}
         return valve_of.groupdel()

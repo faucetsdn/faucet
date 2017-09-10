@@ -214,19 +214,19 @@ class ValveRouteManager(object):
 
     def _update_nexthop_group(self, is_updated, resolved_ip_gw,
                               vlan, port, eth_src):
-        group_mod_method = None
-        group_id = None
         buckets = self._nexthop_group_buckets(vlan, port, eth_src)
         ofmsgs = []
         if is_updated:
-            group_mod_method = self.groups.groupmod
             group_id = self.ip_gw_to_group_id[resolved_ip_gw]
+            nexthop_group = self.groups.get_entry(
+                group_id, buckets)
+            ofmsgs.append(nexthop_group.modify())
         else:
-            group_mod_method = self.groups.groupadd
             group_id = self._group_id_from_ip_gw(resolved_ip_gw)
             self.ip_gw_to_group_id[resolved_ip_gw] = group_id
-            ofmsgs.append(self.groups.groupdel(group_id))
-        ofmsgs.append(group_mod_method(group_id, buckets))
+            nexthop_group = self.groups.get_entry(
+                group_id, buckets)
+            ofmsgs.extend(nexthop_group.add())
         return ofmsgs
 
     def _update_nexthop(self, vlan, port, eth_src, resolved_ip_gw):
