@@ -875,6 +875,7 @@ dbs:
                 if multiple:
                     return results
                 return results[0][1]
+            time.sleep(1)
         return default
 
     def gauge_smoke_test(self):
