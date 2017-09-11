@@ -24,6 +24,7 @@ except ImportError:
 
 
 def rewrite_vlan(output_dict):
+    """Implement actions to rewrite VLAN headers."""
     vlan_actions = []
     if 'pop_vlans' in output_dict:
         for _ in range(output_dict['pop_vlans']):
@@ -41,6 +42,28 @@ def rewrite_vlan(output_dict):
         for vid in output_dict['vlan_vids']:
             vlan_actions.extend(valve_of.push_vlan_act(vid))
     return vlan_actions
+
+
+def build_output_actions(output_dict):
+    """Implement actions to alter packet/output."""
+    output_actions = []
+    output_port = None
+    if 'port' in output_dict:
+        output_port = output_dict['port']
+
+    # if destination rewriting selected, rewrite it.
+    if 'dl_dst' in output_dict:
+        output_actions.append(
+            valve_of.set_eth_dst(output_dict['dl_dst']))
+    # rewrite any VLAN headers.
+    vlan_actions = rewrite_vlan(output_dict)
+    if vlan_actions:
+        output_actions.extend(vlan_actions)
+    # output to a port if specified.
+    if output_port is not None:
+        output_actions.append(valve_of.output_port(output_port))
+
+    return (output_port, output_actions)
 
 
 # TODO: change this, maybe this can be rewritten easily
@@ -68,24 +91,7 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
                 if not allow_specified:
                     allow = True
             if 'output' in attrib_value:
-                output_dict = attrib_value['output']
-                output_actions = []
-                output_port = None
-                if 'port' in output_dict:
-                    output_port = output_dict['port']
-
-                # if destination rewriting selected, rewrite it.
-                if 'dl_dst' in output_dict:
-                    output_actions.append(
-                        valve_of.set_eth_dst(output_dict['dl_dst']))
-                # rewrite any VLAN headers.
-                vlan_actions = rewrite_vlan(output_dict)
-                if vlan_actions:
-                    output_actions.extend(vlan_actions)
-                # output to a port if specified.
-                if output_port is not None:
-                    output_actions.append(valve_of.output_port(output_port))
-
+                output_port, output_actions = build_output_actions(attrib_value['output'])
                 acl_inst.append(valve_of.apply_actions(output_actions))
 
                 # if port specified, output packet now and exit pipeline.
