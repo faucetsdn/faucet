@@ -106,9 +106,9 @@ def _dp_add_vlan(vid_dp, dp, vlan):
         vid_dp[vlan.vid] = set()
 
     if len(vid_dp[vlan.vid]) > 1:
-        assert not vlan.bgp_routerid, \
-                'DPs %s sharing a BGP speaker VLAN is unsupported' % (
-                    str.join(", ", vid_dp[vlan.vid]))
+        assert not vlan.bgp_routerid, (
+            'DPs %s sharing a BGP speaker VLAN is unsupported' % (
+                str.join(', ', vid_dp[vlan.vid])))
 
     if vlan not in dp.vlans:
         dp.add_vlan(vlan)
