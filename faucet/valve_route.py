@@ -95,11 +95,9 @@ class ValveRouteManager(object):
             return nexthop_cache[ip_gw]
         return None
 
-    @staticmethod
-    def _group_id_from_ip_gw(vlan, resolved_ip_gw):
-        # TODO: broken - collisions, and collisions with
-        # broadcast groups are possible.
-        return (hash((vlan, resolved_ip_gw)) + valve_of.ROUTE_GROUP_OFFSET) & ((1<<32) -1)
+    def _group_id_from_ip_gw(self, vlan, resolved_ip_gw):
+        return self.groups.group_id_from_str(
+            ''.join((str(vlan), str(resolved_ip_gw))))
 
     def _neighbor_resolver_pkt(self, vlan, vid, faucet_vip, ip_gw):
         pass

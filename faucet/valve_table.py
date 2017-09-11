@@ -16,6 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
+import struct
+
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 try:
@@ -145,6 +148,13 @@ class ValveGroupTable(object):
     """Wrap access to group table."""
 
     entries = {}
+
+    @staticmethod
+    def group_id_from_str(key_str):
+        """Return a group ID based on a string key."""
+        # TODO: does not handle collisions
+        digest = hashlib.sha256(key_str.encode('utf-8')).digest()
+        return struct.unpack('<L', digest[:4])[0]
 
     def get_entry(self, group_id, buckets):
         if group_id in self.entries:
