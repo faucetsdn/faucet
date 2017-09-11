@@ -16,6 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
+import struct
+
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 try:
@@ -27,7 +30,8 @@ except ImportError:
 class ValveTable(object):
     """Wrapper for an OpenFlow table."""
 
-    def __init__(self, table_id, name, restricted_match_types, flow_cookie, notify_flow_removed=False):
+    def __init__(self, table_id, name, restricted_match_types,
+                 flow_cookie, notify_flow_removed=False):
         self.table_id = table_id
         self.name = name
         self.restricted_match_types = None
@@ -111,18 +115,56 @@ class ValveTable(object):
                 [valve_of.output_controller(max_len)])] + inst)
 
 
+class ValveGroupEntry(object):
+
+    def __init__(self, table, group_id, buckets):
+        self.table = table
+        self.group_id = group_id
+        self.update_buckets(buckets)
+
+    def update_buckets(self, buckets):
+        self.buckets = tuple(buckets)
+
+    def add(self):
+        ofmsgs = []
+        ofmsgs.append(self.delete())
+        ofmsgs.append(valve_of.groupadd(
+            group_id=self.group_id, buckets=self.buckets))
+        self.table.entries[self.group_id] = self
+        return ofmsgs
+
+    def modify(self):
+        assert self.group_id in self.table.entries
+        self.table.entries[self.group_id] = self
+        return valve_of.groupmod(group_id=self.group_id, buckets=self.buckets)
+
+    def delete(self):
+        if self.group_id in self.table.entries:
+            del self.table.entries[self.group_id]
+        return valve_of.groupdel(group_id=self.group_id)
+
+
 class ValveGroupTable(object):
     """Wrap access to group table."""
-    # TODO: manage group_ids to prevent conflicts.
 
-    def groupadd(self, group_id, buckets):
-        return valve_of.groupadd(group_id=group_id, buckets=buckets)
+    entries = {}
 
-    def groupmod(self, group_id, buckets):
-        return valve_of.groupmod(group_id=group_id, buckets=buckets)
+    @staticmethod
+    def group_id_from_str(key_str):
+        """Return a group ID based on a string key."""
+        # TODO: does not handle collisions
+        digest = hashlib.sha256(key_str.encode('utf-8')).digest()
+        return struct.unpack('<L', digest[:4])[0]
 
-    def groupdel(self, group_id):
-        return valve_of.groupdel(group_id=group_id)
+    def get_entry(self, group_id, buckets):
+        if group_id in self.entries:
+            self.entries[group_id].update_buckets(buckets)
+        else:
+            self.entries[group_id] = ValveGroupEntry(
+                self, group_id, buckets)
+        return self.entries[group_id]
 
     def delete_all(self):
+        """Delete all groups."""
+        self.entries = {}
         return valve_of.groupdel()
