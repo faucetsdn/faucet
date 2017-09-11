@@ -491,6 +491,11 @@ def groupmod(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
         buckets)
 
 
+def groupmod_ff(datapath=None, group_id=0, buckets=None):
+    """Modify a fast failover group."""
+    return groupmod(datapath, type_=ofp.OFPGT_FF, group_id=group_id, buckets=buckets)
+
+
 def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
     """Add a group."""
     return parser.OFPGroupMod(
@@ -499,6 +504,11 @@ def groupadd(datapath=None, type_=ofp.OFPGT_ALL, group_id=0, buckets=None):
         type_,
         group_id,
         buckets)
+
+
+def groupadd_ff(datapath=None, group_id=0, buckets=None):
+    """Add a fast failover group."""
+    return groupadd(datapath, type_=ofp.OFPGT_FF, group_id=group_id, buckets=buckets)
 
 
 def groupdel(datapath=None, group_id=ofp.OFPG_ALL):
