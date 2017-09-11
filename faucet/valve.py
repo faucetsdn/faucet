@@ -270,8 +270,9 @@ class Valve(object):
             acl_rule_priority = self.dp.highest_priority
             acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
             for rule_conf in self.dp.acls[acl_num].rules:
-                acl_match, acl_inst = valve_acl.build_acl_entry(
+                acl_match, acl_inst, acl_ofmsgs = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, self.dp.meters, vlan_vid=vid)
+                ofmsgs.extend(acl_ofmsgs)
                 ofmsgs.append(self.dp.tables['vlan_acl'].flowmod(
                     acl_match,
                     priority=acl_rule_priority,
@@ -434,8 +435,9 @@ class Valve(object):
             acl_num = self.dp.port_acl_in[port_num]
             acl_rule_priority = self.dp.highest_priority
             for rule_conf in self.dp.acls[acl_num].rules:
-                acl_match, acl_inst = valve_acl.build_acl_entry(
+                acl_match, acl_inst, acl_ofmsgs = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, self.dp.meters, port_num)
+                ofmsgs.extend(acl_ofmsgs)
                 ofmsgs.append(port_acl_table.flowmod(
                     acl_match,
                     priority=acl_rule_priority,
