@@ -624,7 +624,6 @@ acls:
             second_host, first_host.IP(), require_host_learned=False)
 
 
-@unittest.skip('failover groups experimental')
 class FaucetNailedFailoverForwardingTest(FaucetNailedForwardingTest):
 
     CONFIG_GLOBAL = """
@@ -639,7 +638,7 @@ acls:
                 output:
                     failover:
                         group_id: 999
-                        ports: [2, 3]
+                        ports: [b2]
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
