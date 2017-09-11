@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
+
 try:
     import config_parser_util
     from acl import ACL
@@ -56,72 +58,74 @@ def dp_parser(config_file, logname):
             logger.fatal('Only config version 2 is supported')
 
         config_hashes, dps = _config_parser_v2(config_file, logname)
-        if dps is not None:
-            for dp in dps:
-                try:
-                    dp.finalize_config(dps)
-                except AssertionError as err:
-                    logger.exception('Error finalizing datapath configs: %s', err)
-            for dp in dps:
-                dp.resolve_stack_topology(dps)
     return config_hashes, dps
-
-
-def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
-    """v_identifier can be a name or anything used to identify a vlan.
-       v_identifier will be used as vid when vid is omitted in vlan config
-    """
-    if vlan_ident in vlans:
-        return vlans[vlan_ident]
-    for vlan in list(vlans.values()):
-        if int(vlan_ident) == vlan.vid:
-            return vlan
-    try:
-        vid = int(vlan_ident, 0)
-    except:
-        assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
-
-    return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
-
-
-def port_parser(dp_id, p_identifier, port_conf, vlans):
-    port = Port(p_identifier, port_conf)
-
-    if port.mirror is not None:
-        # ignore other config
-        return port
-    if port.native_vlan is not None:
-        v_identifier = port.native_vlan
-        vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
-        vlan.add_untagged(port)
-    for v_identifier in port.tagged_vlans:
-        vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
-        vlan.add_tagged(port)
-
-    return port
-
-
-def _dp_add_vlan(vid_dp, dp, vlan):
-    if vlan.vid not in vid_dp:
-        vid_dp[vlan.vid] = set()
-
-    if len(vid_dp[vlan.vid]) > 1:
-        assert not vlan.bgp_routerid, (
-            'DPs %s sharing a BGP speaker VLAN is unsupported' % (
-                str.join(', ', vid_dp[vlan.vid])))
-
-    if vlan not in dp.vlans:
-        dp.add_vlan(vlan)
-
-    vid_dp[vlan.vid].add(dp.name)
 
 
 def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
                   routers_conf, vlans_conf):
     dps = []
-    vid_dp = {}
-    for identifier, dp_conf in list(dps_conf.items()):
+    vid_dp = collections.defaultdict(set)
+
+    def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
+        if vlan_ident in vlans:
+            return vlans[vlan_ident]
+        for vlan in list(vlans.values()):
+            if int(vlan_ident) == vlan.vid:
+                return vlan
         try:
+            vid = int(vlan_ident, 0)
+        except ValueError:
+            assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
+
+        return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
+
+    def _dp_add_vlan(dp, vlan):
+        if vlan not in dp.vlans:
+            dp.add_vlan(vlan)
+            vid_dp[vlan.vid].add(dp.name)
+
+            if len(vid_dp[vlan.vid]) > 1:
+                assert not vlan.bgp_routerid, (
+                    'DPs %s sharing a BGP speaker VLAN is unsupported' % (
+                        str.join(', ', vid_dp[vlan.vid])))
+
+    def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
+        port = Port(p_identifier, port_conf)
+
+        if port.mirror is not None:
+            # ignore other config
+            return port
+        if port.native_vlan is not None:
+            v_identifier = port.native_vlan
+            vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
+            vlan.add_untagged(port)
+        for v_identifier in port.tagged_vlans:
+            vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
+            vlan.add_tagged(port)
+        if port.native_vlan is not None:
+            vlan = _get_vlan_by_identifier(dp_id, port.native_vlan, vlans)
+            port.native_vlan = vlan
+            _dp_add_vlan(dp, vlan)
+        if port.tagged_vlans is not None:
+            tagged_vlans = []
+            for vlan_ident in port.tagged_vlans:
+                vlan = _get_vlan_by_identifier(dp_id, vlan_ident, vlans)
+                tagged_vlans.append(vlan)
+                _dp_add_vlan(dp, vlan)
+            port.tagged_vlans = tagged_vlans
+        return port
+
+    def _dp_add_ports(dp, dp_conf, dp_id, vlans):
+        ports_conf = dp_conf.pop('interfaces', {})
+        # as users can config port vlan by using vlan name, we store vid in
+        # Port instance instead of vlan name for data consistency
+        for port_num, port_conf in list(ports_conf.items()):
+            port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
+            dp.add_port(port)
+
+
+    try:
+        for identifier, dp_conf in list(dps_conf.items()):
             dp = DP(identifier, dp_conf)
             dp.sanity_check()
             dp_id = dp.dp_id
@@ -137,32 +141,20 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
                 dp.add_router(router_ident, router)
             for meter_ident, meter_conf in list(meters_conf.items()):
                 dp.meters[meter_ident] = Meter(meter_ident, meter_conf)
-            ports_conf = dp_conf.pop('interfaces', {})
-            ports = {}
-            # as users can config port vlan by using vlan name, we store vid in
-            # Port instance instead of vlan name for data consistency
-            for port_num, port_conf in list(ports_conf.items()):
-                port = port_parser(dp_id, port_num, port_conf, vlans)
-                ports[port_num] = port
-                if port.native_vlan is not None:
-                    vlan = _get_vlan_by_identifier(dp_id, port.native_vlan, vlans)
-                    port.native_vlan = vlan
-                    _dp_add_vlan(vid_dp, dp, vlan)
-                if port.tagged_vlans is not None:
-                    tagged_vlans = []
-                    for vlan_ident in port.tagged_vlans:
-                        vlan = _get_vlan_by_identifier(dp_id, vlan_ident, vlans)
-                        tagged_vlans.append(vlan)
-                        _dp_add_vlan(vid_dp, dp, vlan)
-                    port.tagged_vlans = tagged_vlans
-        except AssertionError as err:
-            logger.exception('Error in config file: %s', err)
-            return None
-        for port in list(ports.values()):
-            dp.add_port(port)
-        for acl_ident, acl in acls:
-            dp.add_acl(acl_ident, acl)
-        dps.append(dp)
+            _dp_add_ports(dp, dp_conf, dp_id, vlans)
+            for acl_ident, acl in acls:
+                dp.add_acl(acl_ident, acl)
+            dps.append(dp)
+
+        for dp in dps:
+            dp.finalize_config(dps)
+        for dp in dps:
+            dp.resolve_stack_topology(dps)
+
+    except AssertionError as err:
+        logger.exception('Error in config file: %s', err)
+        return None
+
     return dps
 
 

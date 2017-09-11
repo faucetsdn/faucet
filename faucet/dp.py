@@ -196,6 +196,8 @@ class DP(Conf):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
         assert str(self.dp_id).isdigit()
+        assert not (self.group_table and self.group_table_routing), (
+            'groups for routing and other functions simultaneously not supported')
         for vlan in list(self.vlans.values()):
             assert isinstance(vlan, VLAN)
             assert all(isinstance(p, Port) for p in vlan.get_ports())
