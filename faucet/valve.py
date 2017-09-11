@@ -987,7 +987,6 @@ class Valve(object):
                 self.logger.info('VLAN %s added' % vid)
             else:
                 old_vlan = self.dp.vlans[vid]
-                vlan_config_changed = False
                 if old_vlan != new_vlan:
                     old_vlan_new_ports = copy.deepcopy(old_vlan)
                     old_vlan_new_ports.tagged = new_vlan.tagged
