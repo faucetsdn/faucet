@@ -618,13 +618,13 @@ acls:
         first_host, second_host = self.net.hosts[0:2]
         first_host.setMAC('0e:00:00:00:01:01')
         second_host.setMAC('0e:00:00:00:02:02')
+        third_host.setMAC('0e:00:00:00:02:02')
         self.one_ipv4_ping(
             first_host, second_host.IP(), require_host_learned=False)
         self.one_ipv4_ping(
             second_host, first_host.IP(), require_host_learned=False)
 
 
-@unittest.skip('failover groups experimental')
 class FaucetNailedFailoverForwardingTest(FaucetNailedForwardingTest):
 
     CONFIG_GLOBAL = """
@@ -638,15 +638,17 @@ acls:
             actions:
                 output:
                     failover:
-                        group_id: 999
-                        ports: [2, 3]
+                        group_id: 1001
+                        ports: [b2, b3]
         - rule:
             dl_type: 0x806
             dl_dst: "ff:ff:ff:ff:ff:ff"
             arp_tpa: "10.0.0.2"
             actions:
                 output:
-                    port: b2
+                    failover:
+                        group_id: 1002
+                        ports: [b2, b3]
         - rule:
             actions:
                 allow: 0
@@ -668,6 +670,18 @@ acls:
                 allow: 0
     3:
         - rule:
+            dl_dst: "0e:00:00:00:01:01"
+            actions:
+                output:
+                    port: b1
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.1"
+            actions:
+                output:
+                    port: b1
+        - rule:
             actions:
                 allow: 0
     4:
@@ -675,6 +689,22 @@ acls:
             actions:
                 allow: 0
 """
+
+    def test_untagged(self):
+        first_host, second_host, third_host = self.net.hosts[0:3]
+        first_host.setMAC('0e:00:00:00:01:01')
+        second_host.setMAC('0e:00:00:00:02:02')
+        third_host.setMAC('0e:00:00:00:02:02')
+        third_host.setIP(second_host.IP())
+        self.one_ipv4_ping(
+            first_host, second_host.IP(), require_host_learned=False)
+        self.one_ipv4_ping(
+            second_host, first_host.IP(), require_host_learned=False)
+        self.set_port_down(self.port_map['port_2'])
+        self.one_ipv4_ping(
+            first_host, third_host.IP(), require_host_learned=False)
+        self.one_ipv4_ping(
+            third_host, first_host.IP(), require_host_learned=False)
 
 
 class FaucetUntaggedLLDPBlockedTest(FaucetUntaggedTest):
