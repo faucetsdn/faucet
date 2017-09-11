@@ -624,6 +624,58 @@ acls:
             second_host, first_host.IP(), require_host_learned=False)
 
 
+@unittest.skip('failover groups experimental')
+class FaucetNailedFailoverForwardingTest(FaucetNailedForwardingTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+                output:
+                    failover:
+                        group_id: 999
+                        ports: [2, 3]
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.2"
+            actions:
+                output:
+                    port: b2
+        - rule:
+            actions:
+                allow: 0
+    2:
+        - rule:
+            dl_dst: "0e:00:00:00:01:01"
+            actions:
+                output:
+                    port: b1
+        - rule:
+            dl_type: 0x806
+            dl_dst: "ff:ff:ff:ff:ff:ff"
+            arp_tpa: "10.0.0.1"
+            actions:
+                output:
+                    port: b1
+        - rule:
+            actions:
+                allow: 0
+    3:
+        - rule:
+            actions:
+                allow: 0
+    4:
+        - rule:
+            actions:
+                allow: 0
+"""
+
 
 class FaucetUntaggedLLDPBlockedTest(FaucetUntaggedTest):
 
