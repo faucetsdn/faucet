@@ -48,28 +48,6 @@ except ImportError:
     from faucet import valve_util
 
 
-def valve_factory(dp):
-    """Return a Valve object based dp's hardware configuration field.
-
-    Args:
-        dp (DP): DP instance with the configuration for this Valve.
-    """
-    SUPPORTED_HARDWARE = {
-        'Allied-Telesis': Valve,
-        'Aruba': ArubaValve,
-        'GenericTFM': TfmValve,
-        'Lagopus': Valve,
-        'Netronome': Valve,
-        'NoviFlow': Valve,
-        'Open vSwitch': Valve,
-        'ZodiacFX': Valve,
-    }
-
-    if dp.hardware in SUPPORTED_HARDWARE:
-        return SUPPORTED_HARDWARE[dp.hardware]
-    return None
-
-
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
@@ -1293,3 +1271,26 @@ class ArubaValve(TfmValve):
 
     PIPELINE_CONF = 'aruba_pipeline.json'
     DEC_TTL = False
+
+
+SUPPORTED_HARDWARE = {
+    'Allied-Telesis': Valve,
+    'Aruba': ArubaValve,
+    'GenericTFM': TfmValve,
+    'Lagopus': Valve,
+    'Netronome': Valve,
+    'NoviFlow': Valve,
+    'Open vSwitch': Valve,
+    'ZodiacFX': Valve,
+}
+
+
+def valve_factory(dp):
+    """Return a Valve object based dp's hardware configuration field.
+
+    Args:
+        dp (DP): DP instance with the configuration for this Valve.
+    """
+    if dp.hardware in SUPPORTED_HARDWARE:
+        return SUPPORTED_HARDWARE[dp.hardware]
+    return None
