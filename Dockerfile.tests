@@ -60,9 +60,7 @@ RUN \
 
 RUN \
   apt-fast purge -qy pylint && \
-  pip install --upgrade pip && \
   easy_install -U pip && \
-  pip3 install --upgrade pip && \
   pip install setuptools wheel virtualenv --upgrade && \
   pip install multiprocessing && \
   pip install scapy==2.3.2 && \
