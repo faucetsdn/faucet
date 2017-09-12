@@ -60,6 +60,8 @@ RUN \
 
 RUN \
   apt-fast purge -qy pylint && \
+  pip3 install --upgrade pip && \
+  easy_install -U pip && \
   pip install --upgrade pip && \
   pip install setuptools wheel virtualenv --upgrade && \
   pip install multiprocessing && \
