@@ -36,7 +36,7 @@ try:
     from config_parser import dp_parser, get_config_for_api
     from config_parser_util import config_changed
     from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    from valve import valve_factory
+    from valve import valve_factory, SUPPORTED_HARDWARE
     import faucet_api
     import faucet_bgp
     import faucet_metrics
@@ -46,7 +46,7 @@ except ImportError:
     from faucet.config_parser import dp_parser, get_config_for_api
     from faucet.config_parser_util import config_changed
     from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    from faucet.valve import valve_factory
+    from faucet.valve import valve_factory, SUPPORTED_HARDWARE
     from faucet import faucet_api
     from faucet import faucet_bgp
     from faucet import faucet_metrics
@@ -181,7 +181,12 @@ class Faucet(app_manager.RyuApp):
                 # pylint: disable=no-member
                 valve_cl = valve_factory(new_dp)
                 if valve_cl is None:
-                    self.logger.fatal('Could not configure %s', new_dp.name)
+                    self.logger.error(
+                        '%s hardware %s must be one of %s',
+                        new_dp.name,
+                        new_dp.hardware,
+                        sorted(list(SUPPORTED_HARDWARE.keys())))
+                    continue
                 else:
                     valve = valve_cl(new_dp, self.logname)
                     self.valves[dp_id] = valve
