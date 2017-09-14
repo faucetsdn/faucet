@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+rule_files:
+  - "faucet.rules"
+scrape_configs:
+  - job_name: 'faucet'
+    static_configs:
+      - targets: ['faucet:9302']
+  - job_name: 'gauge'
+    static_configs:
+      - targets: ['gauge:9303']

@@ -1,50 +1,56 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
+
+from __future__ import print_function
+
+import errno
 import os
-from os import path
+import shutil
+import sys
+
+from pkg_resources import resource_filename
 from setuptools import setup
 
-with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme:
-    README = readme.read()
+def install_configs():
+    """ Install configuration files to /etc """
 
-    # allow setup.py to be run from any path
-    os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__),
-                                           os.pardir)))
+    dst_ryu_conf_dir = '/etc/ryu/'
+    dst_ryu_conf = os.path.join(dst_ryu_conf_dir, 'ryu.conf')
+    dst_faucet_conf_dir = '/etc/ryu/faucet/'
+    src_ryu_conf = resource_filename(__name__, "etc/ryu/ryu.conf")
+    src_faucet_conf_dir = resource_filename(__name__, "etc/ryu/faucet/")
+    faucet_log_dir = '/var/log/ryu/faucet/'
 
-    setup(
-        name='ryu-faucet',
-        version='1.0',
-        packages=['ryu_faucet'],
-        package_dir={'ryu_faucet': 'src/ryu_faucet'},
-        data_files=[('/etc/ryu/faucet', ['src/cfg/etc/ryu/faucet/gauge.conf',
-                                         'src/cfg/etc/ryu/faucet/faucet.yaml']),
-                    ('/etc/ryu/faucet/upstart', ['src/cfg/etc/ryu/faucet/upstart/gauge.conf',
-                                         'src/cfg/etc/ryu/faucet/upstart/faucet.conf',
-                                         'src/cfg/etc/ryu/faucet/upstart/gauge',
-                                         'src/cfg/etc/ryu/faucet/upstart/faucet'])
-                    ],
-        include_package_data=True,
-        install_requires=['ryu', 'pyyaml', 'influxdb', 'ipaddr'],
-        license='Apache License 2.0',
-        description='Ryu application to perform Layer 2 switching with VLANs.',
-        long_description=README,
-        url='http://onfsdn.github.io/faucet',
-        author='Christopher Lorier',
-        author_email='chris.lorier@reannz.co.nz',
-        maintainer='Shivaram Mysore, ONFSDN.Org',
-        maintainer_email='shivaram.mysore@gmail.com, faucet-dev@OpenflowSDN.Org',
-        classifiers=[
-            'Development Status :: 5 - Production/Stable',
-            'Environment :: Console',
-            'Framework :: Buildout',
-            'Intended Audience :: Developers',
-            'Intended Audience :: Information Technology',
-            'Intended Audience :: System Administrators',
-            'License :: OSI Approved :: Apache Software License',
-            'Operating System :: OS Independent',
-            'Programming Language :: Python',
-            'Programming Language :: Python :: 2.7',
-            'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.2',
-            'Topic :: System :: Networking',
-        ],)
+    try:
+        if not os.path.exists(dst_ryu_conf_dir):
+            print("Creating %s" % dst_ryu_conf_dir)
+            os.makedirs(dst_ryu_conf_dir)
+        if not os.path.isfile(dst_ryu_conf):
+            print("Copying %s to %s" % (src_ryu_conf, dst_ryu_conf))
+            shutil.copy(src_ryu_conf, dst_ryu_conf)
+        if not os.path.exists(dst_faucet_conf_dir):
+            print("Creating %s" % dst_faucet_conf_dir)
+            os.makedirs(dst_faucet_conf_dir)
+        for file_name in os.listdir(src_faucet_conf_dir):
+            src_file = os.path.join(src_faucet_conf_dir, file_name)
+            dst_file = os.path.join(dst_faucet_conf_dir, file_name)
+            if os.path.isfile(src_file) and not os.path.isfile(dst_file):
+                print("Copying %s to %s" % (src_file, dst_file))
+                shutil.copy(src_file, dst_file)
+        if not os.path.exists(faucet_log_dir):
+            print("Creating %s" % faucet_log_dir)
+            os.makedirs(faucet_log_dir)
+    except OSError as exception:
+        if exception.errno == errno.EACCES:
+            print("Permission denied creating %s, skipping copying configs"
+                  % exception.filename)
+        else:
+            raise
+
+setup(
+    name='faucet',
+    setup_requires=['pbr>=1.9', 'setuptools>=17.1'],
+    pbr=True
+)
+
+if 'install' in sys.argv or 'bdist_wheel' in sys.argv:
+    install_configs()

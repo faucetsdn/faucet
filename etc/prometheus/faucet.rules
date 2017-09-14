@@ -1,0 +1,16 @@
+# Convert OF stats to rates
+instance_dpid:of_packet_ins:rate1m = rate(of_packet_ins[1m])
+instance_dpid:of_flowmsgs_sent:rate1m = rate(of_flowmsgs_sent[1m])
+
+# Sum hosts learned on VLANs
+instance:vlan_hosts_learned:sum = sum(vlan_hosts_learned) by (instance,vlan)
+instance:learned_macs:sum = count(count_values("mac", learned_macs{} != 0) by (vlan)) by (vlan)
+
+# Convert Port stats to rates
+instance_port:of_port_rx_packets:rate1m = rate(of_port_rx_packets[1m])
+instance_port:of_port_tx_packets:rate1m = rate(of_port_tx_packets[1m])
+instance_port:of_port_rx_bits:rate1m = rate(of_port_rx_bytes[1m]) * 8
+instance_port:of_port_tx_bits:rate1m = rate(of_port_tx_bytes[1m]) * 8
+instance_port:of_port_rx_dropped:rate1m = rate(of_port_rx_dropped[1m])
+instance_port:of_port_tx_dropped:rate1m = rate(of_port_tx_dropped[1m])
+instance_port:of_port_rx_errors:rate1m = rate(of_port_rx_errors[1m])

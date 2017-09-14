@@ -1,0 +1,12 @@
+vlans:
+    100:
+        name: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                tagged_vlans: [100]
+            2:
+                native_vlan: 100

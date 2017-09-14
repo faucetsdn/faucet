@@ -1,6 +1,0 @@
-# This file to be available as /etc/sysconfig/network/routes
-# assume default gateway of 10.10.10.1 for all destinations
-#
-# Destination     Dummy/Gateway     Netmask            Device
-#default 10.10.10.1  0.0.0.0 eth0
-default 10.10.10.1

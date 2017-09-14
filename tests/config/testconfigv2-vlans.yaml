@@ -1,0 +1,26 @@
+---
+vlans:
+    v40:
+        vid: 40
+        unicast_flood: False
+        max_hosts: 20
+    41:
+        name: 'v41'
+        acl_in: 'acl1'
+        faucet_vips: ['10.0.0.253/24']
+        bgp_port: 9179
+        bgp_as: 1
+        bgp_routerid: '1.1.1.1'
+        bgp_neighbor_addresses: ['127.0.0.1']
+        bgp_neighbor_as: 2
+        max_hosts: 255
+        routes:
+            - route:
+                ip_dst: '10.0.1.0/24'
+                ip_gw: '10.0.0.1'
+            - route:
+                ip_dst: '10.0.2.0/24'
+                ip_gw: '10.0.0.2'
+            - route:
+                ip_dst: '10.0.3.0/24'
+                ip_gw: '10.0.0.2'

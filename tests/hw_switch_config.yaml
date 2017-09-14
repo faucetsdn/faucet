@@ -1,0 +1,29 @@
+# if set to True, map a hardware OpenFlow switch to ports on this machine.
+# Otherwise, run tests against OVS locally.
+hw_switch: False
+hardware: 'Open vSwitch'
+# Map ports on the hardware switch, to physical ports on this machine.
+# If using a switch with less than 4 dataplane ports available, run
+# FaucetZodiac tests only. A 4th port must still be defined here and
+# must exist, but will not be used.
+dp_ports:
+  1: enp1s0f0
+  2: enp1s0f1
+  3: enp1s0f2
+  4: enp1s0f3
+# Hardware switch's DPID
+dpid: 0xeccd6d9936ed
+# Port on this machine that connects to hardware switch's CPN port.
+# Hardware switch must use IP address of this port as controller IP.
+cpn_intf: enp5s0
+# There must be two controllers configured on the hardware switch,
+# with same IP (see cpn_intf), but different ports - one for FAUCET,
+# one for Gauge.
+of_port: 6636
+gauge_of_port: 6637
+# If you wish to test OF over TLS to the hardware switch,
+# set the following parameters per Ryu documentation.
+# https://github.com/osrg/ryu/blob/master/doc/source/tls.rst
+# ctl_privkey: ctl-privkey.pem
+# ctl_cert: ctl-cert.pem
+# ca_certs: /usr/local/var/lib/openvswitch/pki/switchca/cacert.pem

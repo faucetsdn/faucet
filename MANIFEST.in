@@ -1,7 +1,0 @@
-include LICENSE
-include README.rst
-include faucet_deployment.png
-recursive-include src/cfg *
-recursive-include src/ryu_faucet *.py
-recursive-include src/docs *
-recursive-include src/tests *

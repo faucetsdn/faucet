@@ -1,0 +1,22 @@
+---
+version: 2
+
+# test include
+include:
+    - testconfigv2-dps.yaml
+
+# test include-optional
+include-optional:
+    - testconfigv2-acls.yaml
+
+# overwritten in testconfigv2-acls.yaml
+acls:
+    acl1:
+        - rule:
+            nw_dst: '10.0.0.0/8'
+            dl_type: 0x800
+            actions:
+                allow: 1
+        - rule:
+            actions:
+                allow: 0

@@ -1,21 +1,40 @@
+sudo: required
+dist: trusty
+# https://blog.travis-ci.com/2017-08-29-trusty-image-updates
+# new release includes a docker version with broken IPv6
+group: deprecated-2017Q3
 language: python
 python:
-  - "2.7"
-#  - "3.2"
-#  - "3.3"
-#  - "3.4"
-#  - "3.5"
-#  - "3.5-dev" # 3.5 development branch
-#  - "nightly" # currently points to 3.6-dev
-# sudo: required
-# command to install dependencies
+  - "3.5"
+services:
+  - docker
+addons:
+  apt:
+    packages:
+      - parallel
+      - openvswitch-switch
+cache:
+  pip: true
+  directories:
+    - /home/travis/docker/
+env:
+  global:
+    - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
+    - FAUCET_TEST_IMG=reannz/faucet-tests
 install:
-  - "sudo pip install ryu pyyaml pylint"
-#  - "pip install -r requirements.txt"
-#
-# install our package into the environment
-  - sudo python setup.py install
-# # command to run tests
-# removed uml from make target as python package pyreverse was not found
+  - pip3 install -r requirements.txt -r test-requirements.txt
+  - python3 setup.py sdist
+  - pip3 install dist/*tar.gz
+  - pip3 show faucet
 script:
-  - "sudo make sdist"
+  - touch ~/.pylintrc
+  - cd ./tests
+  - PYTHONPATH="../faucet" ./test_min_pylint.sh
+  - py.test ./test_check_config.py ./test_config.py ./test_valve.py --cov faucet --doctest-modules -v --cov-report term-missing
+  - coveralls || true
+  - cd ..
+  - ls -l `dirname ${DOCKER_CACHE_FILE}`
+  - if [[ $(find ${DOCKER_CACHE_FILE} -type f -size +100c 2>/dev/null) ]] ; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
+  - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(/bin/echo -e "osrg/ryu:latest\nreannz/faucet-tests:latest"| xargs -n 1 docker history -q|grep -v missing) | gzip > ${DOCKER_CACHE_FILE} ; fi
+  - sudo docker run --privileged -ti -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}

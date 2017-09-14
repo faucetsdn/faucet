@@ -1,0 +1,86 @@
+FROM osrg/ryu
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+###
+### When apt-get'ing, make sure apt-update always run first per RUN
+### to ensure Docker layer cache doesn't use a stale apt database.
+###
+
+RUN \
+  apt-get update && \
+  apt-get install -qy --no-install-recommends software-properties-common && \
+  add-apt-repository ppa:saiarcot895/myppa && \
+  apt-get update && \
+  echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections && \
+  echo debconf apt-fast/dlflag boolean true | debconf-set-selections && \
+  echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections && \
+  apt-get -yq install apt-fast
+
+RUN \
+  apt-get update && apt-fast install -qy --no-install-recommends \
+    bc \
+    fping \
+    gcc \
+    git \
+    influxdb \
+    iperf \
+    iputils-ping \
+    ladvd \
+    libpython2.7-dev \
+    libpython3-dev \
+    libyaml-dev \
+    lsof \
+    ndisc6 \
+    net-tools \
+    netcat-openbsd \
+    parallel \
+    psmisc \
+    python-pip \
+    python3-pip \
+    sudo \
+    tcpdump \
+    tshark \
+    vlan \
+    wpasupplicant
+
+###
+### TODO: pytype may be slightly stale due to Docker caching.
+### Specify versions as we do for mininet if possible.
+###
+
+RUN \
+  git config --global url.https://github.com/.insteadOf git://github.com/ && \
+  /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" |parallel --bar git clone
+
+RUN \
+  cd mininet && git checkout 2.2.2 && cd .. && \
+  perl -pi -e "s/apt-get/apt-fast/g" mininet/util/install.sh && \
+  mininet/util/install.sh -nfv
+
+RUN \
+  apt-fast purge -qy pylint && \
+  pip3 install --upgrade pip && \
+  easy_install -U pip && \
+  pip install --upgrade pip && \
+  pip install setuptools wheel virtualenv --upgrade && \
+  pip install multiprocessing && \
+  pip install scapy==2.3.2 && \
+  pip3 install setuptools wheel virtualenv --upgrade
+
+RUN \
+  cd pytype && git submodule init && git submodule update && python2 setup.py install && cd ..
+
+###
+### To maximize Docker caching, try to keep invariant dependencies above this line.
+###
+
+COPY ./ /faucet-src/
+
+RUN \
+  pip install -r /faucet-src/test-requirements.txt && \
+  pip3 install -r /faucet-src/requirements.txt && \
+  pip3 install -r /faucet-src/test-requirements.txt && \
+  pip3 install /faucet-src
+
+CMD ["/faucet-src/docker/runtests.sh"]

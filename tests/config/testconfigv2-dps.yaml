@@ -1,0 +1,50 @@
+---
+# test recursive include
+include:
+    - testconfigv2-vlans.yaml
+
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        stack:
+            priority: 1
+        interfaces:
+            port1:
+                number: 1
+                tagged_vlans: ['v40', 41]
+                acl_in: 'acl1'
+            2:
+                native_vlan: 'v40'
+            port3:
+                number: 3
+                native_vlan: 'v40'
+                tagged_vlans: [41]
+            port4:
+                number: 4
+                native_vlan: 41
+            port5:
+                number: 5
+                native_vlan: 41
+                permanent_learn: True
+            port6:
+                number: 6
+                mirror: 'port1'
+            port7:
+                number: 7
+                stack:
+                     dp: switch2
+                     port: 1
+    switch2:
+        dp_id: 0xdeadbeef
+        hardware: 'Open vSwitch'
+        interfaces:
+            port1:
+                number: 1
+                stack:
+                     dp: switch1
+                     port: 7
+
+routers:
+    router1:
+        vlans: ['v40', 41]
