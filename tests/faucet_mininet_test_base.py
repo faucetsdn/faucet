@@ -286,7 +286,7 @@ class FaucetTestBase(unittest.TestCase):
             self._attach_physical_switch()
         self._wait_debug_log()
         for port_no in self._dp_ports():
-            self.set_port_up(port_no)
+            self.set_port_up(port_no, wait=False)
         dumpNodeConnections(self.net.hosts)
         self.reset_all_ipv4_prefix(prefix=24)
 
@@ -1141,24 +1141,6 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def set_port_down(self, port_no):
-        self.assertEqual(
-            0,
-            os.system(self._curl_portmod(
-                self.dpid,
-                port_no,
-                ofp.OFPPC_PORT_DOWN,
-                ofp.OFPPC_PORT_DOWN)))
-
-    def set_port_up(self, port_no):
-        self.assertEqual(
-            0,
-            os.system(self._curl_portmod(
-                self.dpid,
-                port_no,
-                0,
-                ofp.OFPPC_PORT_DOWN)))
-
     def wait_port_status(self, port_no, expected_status, timeout=10):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
@@ -1168,6 +1150,26 @@ dbs:
             time.sleep(1)
         self.fail('port %s status %s != expected %u' % (
             port_no, port_status, expected_status))
+
+    def set_port_status(self, port_no, status, wait):
+        self.assertEqual(
+            0,
+            os.system(self._curl_portmod(
+                self.dpid,
+                port_no,
+                status,
+                ofp.OFPPC_PORT_DOWN)))
+        if wait:
+            expected_status = 1
+            if status == ofp.OFPPC_PORT_DOWN:
+                expected_status = 0
+            self.wait_port_status(port_no, expected_status)
+
+    def set_port_down(self, port_no, wait=True):
+        self.set_port_status(port_no, ofp.OFPPC_PORT_DOWN, wait)
+
+    def set_port_up(self, port_no, wait=True):
+        self.set_port_status(port_no, 0, wait)
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=60):
         for _ in range(timeout):
@@ -1201,10 +1203,8 @@ dbs:
         """Flap all ports on switch."""
         for port_no in self._dp_ports():
             self.set_port_down(port_no)
-            self.wait_port_status(port_no, 0)
             time.sleep(flap_time)
             self.set_port_up(port_no)
-            self.wait_port_status(port_no, 1)
 
     def add_macvlan(self, host, macvlan_intf):
         host.cmd('ip link add link %s %s type macvlan' % (
