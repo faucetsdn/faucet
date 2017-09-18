@@ -36,11 +36,26 @@ class QuietHTTPServer(HTTPServer):
 
 class PostHandler(SimpleHTTPRequestHandler):
 
-    def _log_post(self, influx_log):
+    def _log_post(self):
         content_len = int(self.headers.getheader('content-length', 0))
         content = self.rfile.read(content_len).strip()
-        if content:
-            open(influx_log, 'a').write(content + '\n')
+        if content and hasattr(self.server, 'influx_log'):
+            open(self.server.influx_log, 'a').write(content + '\n')
+
+
+class InfluxPostHandler(PostHandler):
+
+    def do_POST(self):
+        self._log_post()
+        return self.send_response(204)
+
+
+class SlowInfluxPostHandler(PostHandler):
+
+    def do_POST(self):
+        self._log_post()
+        time.sleep(20)
+        return self.send_response(500)
 
 
 class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
@@ -377,8 +392,16 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     server = None
 
     def setUp(self):
+        self.handler = InfluxPostHandler
         super(FaucetUntaggedInfluxTest, self).setUp()
         self.influx_log = os.path.join(self.tmpdir, 'influx.log')
+        self.server.influx_log = self.influx_log
+
+    def tearDown(self):
+        if self.server:
+            self.server.shutdown()
+            self.server.socket.close()
+        super(FaucetUntaggedInfluxTest, self).tearDown()
 
     def get_gauge_watcher_config(self):
         return """
@@ -444,47 +467,31 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             time.sleep(1)
         return
 
-    def _start_influx(self, handler):
+    def _start_gauge_check(self):
         influx_port = self.config_ports['gauge_influx_port']
-        for _ in range(3):
-            try:
-                self.server = QuietHTTPServer(
-                    (faucet_mininet_test_util.LOCALHOST, influx_port), handler)
-                break
-            except socket.error:
-                time.sleep(7)
-        self.assertIsNotNone(
-            self.server,
-            msg='could not start test Influx server on %u' % influx_port)
-        self.server_thread = threading.Thread(
-            target=self.server.serve_forever)
-        self.server_thread.daemon = True
-        self.server_thread.start()
-
-    def _stop_influx(self):
-        self.server.shutdown()
-        self.server.socket.close()
+        try:
+            self.server = QuietHTTPServer(
+                (faucet_mininet_test_util.LOCALHOST, influx_port), self.handler)
+            self.server_thread = threading.Thread(
+                target=self.server.serve_forever)
+            self.server_thread.daemon = True
+            self.server_thread.start()
+            return None
+        except socket.error:
+            return 'cannot start Influx test server'
 
     def test_untagged(self):
-        influx_log = self.influx_log
-
-        class InfluxPostHandler(PostHandler):
-
-            def do_POST(self):
-                self._log_post(influx_log)
-                return self.send_response(204)
-
-
-        self._start_influx(InfluxPostHandler)
         self.ping_all_when_learned()
         self.hup_gauge()
         self.flap_all_switch_ports()
         self._wait_influx_log()
-        self._stop_influx()
         self._verify_influx_log()
 
 
 class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
+
+    def _start_gauge_check(self):
+        return None
 
     def test_untagged(self):
         self.ping_all_when_learned()
@@ -504,6 +511,9 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
         influx_pwd: ''
         influx_timeout: 2
 """
+
+    def _start_gauge_check(self):
+        return None
 
     def test_untagged(self):
         self.gauge_controller.cmd(
@@ -529,22 +539,15 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
         db: 'influx'
 """
 
+    def setUp(self):
+        self.handler = InfluxPostHandler
+        super(FaucetUntaggedInfluxTooSlowTest, self).setUp()
+        self.influx_log = os.path.join(self.tmpdir, 'influx.log')
+        self.server.influx_log = self.influx_log
+
     def test_untagged(self):
-        influx_log = self.influx_log
-
-        class InfluxPostHandler(PostHandler):
-
-            DB_TIMEOUT = self.DB_TIMEOUT
-
-            def do_POST(self):
-                self._log_post(influx_log)
-                time.sleep(self.DB_TIMEOUT * 2)
-                return self.send_response(500)
-
-        self._start_influx(InfluxPostHandler)
         self.ping_all_when_learned()
         self._wait_influx_log()
-        self._stop_influx()
         self.assertTrue(os.path.exists(self.influx_log))
         self._wait_error_shipping()
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
