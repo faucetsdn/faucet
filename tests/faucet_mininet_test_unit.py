@@ -331,6 +331,11 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         db: 'prometheus'
 """
 
+    def _start_gauge_check(self):
+        if not self.gauge_controller.listen_port(self.config_ports['gauge_prom_port']):
+            return 'gauge not listening on prometheus port'
+        return None
+
     def test_untagged(self):
         self.wait_dp_status(1, controller='gauge')
         self.assertIsNotNone(self.scrape_prometheus_var(
