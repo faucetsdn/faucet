@@ -372,8 +372,13 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         interval: 5
 """
     config_ports = {'gauge_influx_port': None}
+    influx_log = None
     server_thread = None
     server = None
+
+    def setUp(self):
+        super(FaucetUntaggedInfluxTest, self).setUp()
+        self.influx_log = os.path.join(self.tmpdir, 'influx.log')
 
     def get_gauge_watcher_config(self):
         return """
@@ -405,10 +410,10 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             time.sleep(1)
         self.fail('Influx error not noted in %s: %s' % (gauge_log, log_content))
 
-    def _verify_influx_log(self, influx_log):
-        self.assertTrue(os.path.exists(influx_log))
+    def _verify_influx_log(self):
+        self.assertTrue(os.path.exists(self.influx_log))
         observed_vars = set()
-        for point_line in open(influx_log).readlines():
+        for point_line in open(self.influx_log).readlines():
             point_fields = point_line.strip().split()
             self.assertEqual(3, len(point_fields), msg=point_fields)
             ts_name, value_field, timestamp_str = point_fields
@@ -432,9 +437,9 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             'errors_in', 'bytes_in', 'flow_byte_count', 'port_state_reason',
             'packets_in', 'packets_out']), observed_vars)
 
-    def _wait_influx_log(self, influx_log):
+    def _wait_influx_log(self):
         for _ in range(self.DB_TIMEOUT * 3):
-            if os.path.exists(influx_log):
+            if os.path.exists(self.influx_log):
                 return
             time.sleep(1)
         return
@@ -461,7 +466,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self.server.socket.close()
 
     def test_untagged(self):
-        influx_log = os.path.join(self.tmpdir, 'influx.log')
+        influx_log = self.influx_log
 
         class InfluxPostHandler(PostHandler):
 
@@ -474,9 +479,9 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self.ping_all_when_learned()
         self.hup_gauge()
         self.flap_all_switch_ports()
-        self._wait_influx_log(influx_log)
+        self._wait_influx_log()
         self._stop_influx()
-        self._verify_influx_log(influx_log)
+        self._verify_influx_log()
 
 
 class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
@@ -525,7 +530,7 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 """
 
     def test_untagged(self):
-        influx_log = os.path.join(self.tmpdir, 'influx.log')
+        influx_log = self.influx_log
 
         class InfluxPostHandler(PostHandler):
 
@@ -538,9 +543,9 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
         self._start_influx(InfluxPostHandler)
         self.ping_all_when_learned()
-        self._wait_influx_log(influx_log)
+        self._wait_influx_log()
         self._stop_influx()
-        self.assertTrue(os.path.exists(influx_log))
+        self.assertTrue(os.path.exists(self.influx_log))
         self._wait_error_shipping()
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
