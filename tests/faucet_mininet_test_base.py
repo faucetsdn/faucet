@@ -47,7 +47,7 @@ class FaucetTestBase(unittest.TestCase):
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
-    GAUGE_CONFIG = ''
+    GAUGE_CONFIG_DBS = ''
 
     N_UNTAGGED = 0
     N_TAGGED = 0
@@ -73,8 +73,6 @@ class FaucetTestBase(unittest.TestCase):
     gauge_controller = None
     gauge_of_port = None
     prom_port = None
-    gauge_prom_port = None
-    influx_port = None
     net = None
     of_port = None
     ctl_privkey = None
@@ -171,9 +169,9 @@ class FaucetTestBase(unittest.TestCase):
             self.faucet_config_path,
             self.monitor_stats_file,
             self.monitor_state_file,
-            self.monitor_flow_table_file,
-            self.gauge_prom_port,
-            self.influx_port)
+            self.monitor_flow_table_file)
+        if self.config_ports:
+            gauge_config = gauge_config % self.config_ports
         open(self.gauge_config_path, 'w').write(gauge_config)
 
     def _test_name(self):
@@ -204,7 +202,7 @@ class FaucetTestBase(unittest.TestCase):
     def _allocate_config_ports(self):
         for port_name in list(self.config_ports.keys()):
             self.config_ports[port_name] = None
-            for config in (self.CONFIG, self.CONFIG_GLOBAL):
+            for config in (self.CONFIG, self.CONFIG_GLOBAL, self.GAUGE_CONFIG_DBS):
                 if re.search(port_name, config):
                     port, _ = faucet_mininet_test_util.find_free_port(
                         self.ports_sock, self._test_name())
@@ -227,10 +225,6 @@ class FaucetTestBase(unittest.TestCase):
         else:
             self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
-        self.influx_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-        self.gauge_prom_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
 
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
@@ -312,7 +306,7 @@ class FaucetTestBase(unittest.TestCase):
             return 'prometheus port not up'
         if self.config_ports:
             for port_name, port in list(self.config_ports.items()):
-                if port is not None:
+                if port is not None and not port_name.startswith('gauge'):
                     if not self._get_controller().listen_port(port):
                         return 'faucet not listening on %u (%s)' % (
                             port, port_name)
@@ -550,9 +544,7 @@ dps:
     def get_gauge_config(self, faucet_config_file,
                          monitor_stats_file,
                          monitor_state_file,
-                         monitor_flow_table_file,
-                         prometheus_port,
-                         influx_port):
+                         monitor_flow_table_file):
         """Build Gauge config."""
         return """
 faucet_configs:
@@ -569,19 +561,6 @@ dbs:
     flow_file:
         type: 'text'
         file: %s
-    prometheus:
-        type: 'prometheus'
-        prometheus_addr: '%s'
-        prometheus_port: %u
-    influx:
-        type: 'influx'
-        influx_db: 'faucet'
-        influx_host: '%s'
-        influx_port: %u
-        influx_user: 'faucet'
-        influx_pwd: ''
-        influx_timeout: %u
-        interval: %u
     couchdb:
         type: gaugedb
         gdb_type: nosql
@@ -598,17 +577,13 @@ dbs:
         switches_doc: 'switches_bak'
         flows_doc: 'flows_bak'
         db_update_counter: 2
+%s
 """ % (faucet_config_file,
        self.get_gauge_watcher_config(),
        monitor_stats_file,
        monitor_state_file,
        monitor_flow_table_file,
-       faucet_mininet_test_util.LOCALHOST,
-       prometheus_port,
-       faucet_mininet_test_util.LOCALHOST,
-       influx_port,
-       self.DB_TIMEOUT,
-       self.DB_TIMEOUT + 1)
+       self.GAUGE_CONFIG_DBS)
 
     def get_exabgp_conf(self, peer, peer_config=''):
         return """
@@ -835,7 +810,7 @@ dbs:
                 self.get_prom_addr(), self.get_prom_port())
         elif controller == 'gauge':
             return 'http://%s:%u' % (
-                self.get_prom_addr(), self.gauge_prom_port)
+                self.get_prom_addr(), self.config_ports['gauge_prom_port'])
 
     def scrape_prometheus(self, controller='faucet'):
         url = self._prometheus_url(controller)

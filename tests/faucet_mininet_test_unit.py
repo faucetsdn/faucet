@@ -314,6 +314,14 @@ class FaucetSanityTest(FaucetUntaggedTest):
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     """Testing Gauge Prometheus"""
 
+    GAUGE_CONFIG_DBS = """
+    prometheus:
+        type: 'prometheus'
+        prometheus_addr: '127.0.0.1'
+        prometheus_port: %(gauge_prom_port)d
+"""
+    config_ports = {'gauge_prom_port': None}
+
     def get_gauge_watcher_config(self):
         return """
     port_stats:
@@ -347,6 +355,18 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     """Basic untagged VLAN test with Influx."""
 
+    GAUGE_CONFIG_DBS = """
+    influx:
+        type: 'influx'
+        influx_db: 'faucet'
+        influx_host: '127.0.0.1'
+        influx_port: %(gauge_influx_port)d
+        influx_user: 'faucet'
+        influx_pwd: ''
+        influx_timeout: 5
+        interval: 5
+"""
+    config_ports = {'gauge_influx_port': None}
     server_thread = None
     server = None
 
@@ -415,16 +435,17 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         return
 
     def _start_influx(self, handler):
+        influx_port = self.config_ports['gauge_influx_port']
         for _ in range(3):
             try:
                 self.server = QuietHTTPServer(
-                    (faucet_mininet_test_util.LOCALHOST, self.influx_port), handler)
+                    (faucet_mininet_test_util.LOCALHOST, influx_port), handler)
                 break
             except socket.error:
                 time.sleep(7)
         self.assertIsNotNone(
             self.server,
-            msg='could not start test Influx server on %u' % self.influx_port)
+            msg='could not start test Influx server on %u' % influx_port)
         self.server_thread = threading.Thread(
             target=self.server.serve_forever)
         self.server_thread.daemon = True
@@ -463,42 +484,16 @@ class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
 
 class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
 
-    def get_gauge_config(self, faucet_config_file,
-                         monitor_stats_file,
-                         monitor_state_file,
-                         monitor_flow_table_file,
-                         prometheus_port,
-                         influx_port):
-        """Build Gauge config."""
-        return """
-faucet_configs:
-    - %s
-watchers:
-    %s
-dbs:
-    stats_file:
-        type: 'text'
-        file: %s
-    state_file:
-        type: 'text'
-        file: %s
-    flow_file:
-        type: 'text'
-        file: %s
+    GAUGE_CONFIG_DBS = """
     influx:
         type: 'influx'
         influx_db: 'faucet'
         influx_host: '127.0.0.2'
-        influx_port: %u
+        influx_port: %(gauge_influx_port)d
         influx_user: 'faucet'
         influx_pwd: ''
         influx_timeout: 2
-""" % (faucet_config_file,
-       self.get_gauge_watcher_config(),
-       monitor_stats_file,
-       monitor_state_file,
-       monitor_flow_table_file,
-       influx_port)
+"""
 
     def test_untagged(self):
         self.gauge_controller.cmd(
