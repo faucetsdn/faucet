@@ -38,9 +38,13 @@ class InfluxShipper(object):
     Inheritors must have a WatcherConf object as conf.
     """
     conf = None
+    ship_error_prefix = 'error shipping points: '
+    logger = None
+
 
     def ship_points(self, points):
         """Make a connection to InfluxDB and ship points."""
+
         if self.conf is None:
             return False
         try:
@@ -51,9 +55,12 @@ class InfluxShipper(object):
                 password=self.conf.influx_pwd,
                 database=self.conf.influx_db,
                 timeout=self.conf.influx_timeout)
-            client.write_points(points=points, time_precision='s')
+            if not client:
+                self.logger.warning('%s error connecting to InfluxDB' % self.ship_error_prefix)
+            if not client.write_points(points=points, time_precision='s'):
+                self.logger.warning('%s failed to update InfluxDB' % self.ship_error_prefix)
         except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError) as err:
-            self.logger.warning('error shipping points: %s', err)
+            self.logger.warning('%s %s' % (self.ship_error_prefix, err))
 
     def make_point(self, tags, rcv_time, stat_name, stat_val):
         """Make an InfluxDB point."""
