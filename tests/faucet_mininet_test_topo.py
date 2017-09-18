@@ -290,7 +290,7 @@ class BaseFAUCET(Controller):
     def _stop_cap(self):
         """Stop tcpdump for OF port and run tshark to decode it."""
         if os.path.exists(self.ofcap):
-            self.cmd(' '.join(['fuser', '-1', '-m', self.ofcap]))
+            self.cmd(' '.join(['fuser', '-15', '-m', self.ofcap]))
             text_ofcap_log = '%s.txt' % self.ofcap
             text_ofcap = open(text_ofcap_log, 'w')
             subprocess.call(
