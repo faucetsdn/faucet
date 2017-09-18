@@ -54,7 +54,7 @@ class SlowInfluxPostHandler(PostHandler):
 
     def do_POST(self):
         self._log_post()
-        time.sleep(10)
+        time.sleep(self.server.timeout * 3)
         return self.send_response(500)
 
 
@@ -383,8 +383,9 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         influx_port: %(gauge_influx_port)d
         influx_user: 'faucet'
         influx_pwd: ''
-        influx_timeout: 2
-"""
+""" + """
+        influx_timeout: %u
+""" % FaucetUntaggedTest.DB_TIMEOUT
     config_ports = {'gauge_influx_port': None}
     influx_log = None
     server_thread = None
@@ -413,6 +414,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self.influx_log = os.path.join(self.tmpdir, 'influx.log')
         if self.server:
             self.server.influx_log = self.influx_log
+            self.server.timeout = self.DB_TIMEOUT
 
     def setUp(self):
         self.handler = InfluxPostHandler
@@ -427,7 +429,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
     def _wait_error_shipping(self, timeout=None):
         if timeout is None:
-            timeout = self.DB_TIMEOUT * 2
+            timeout = self.DB_TIMEOUT * 3
         gauge_log = self.env['gauge']['GAUGE_LOG']
         for _ in range(timeout):
             log_content = open(gauge_log).read()

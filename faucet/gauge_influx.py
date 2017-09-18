@@ -27,11 +27,9 @@ from requests.exceptions import ConnectionError, ReadTimeout
 try:
     from gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
     from valve_of import devid_present
-    from valve_util import dpid_log
 except ImportError:
     from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
     from faucet.valve_of import devid_present
-    from faucet.valve_util import dpid_log
 
 
 class InfluxShipper(object):
@@ -40,9 +38,13 @@ class InfluxShipper(object):
     Inheritors must have a WatcherConf object as conf.
     """
     conf = None
+    ship_error_prefix = 'error shipping points: '
+    logger = None
+
 
     def ship_points(self, points):
         """Make a connection to InfluxDB and ship points."""
+
         if self.conf is None:
             return False
         try:
@@ -53,10 +55,12 @@ class InfluxShipper(object):
                 password=self.conf.influx_pwd,
                 database=self.conf.influx_db,
                 timeout=self.conf.influx_timeout)
-            return client.write_points(points=points, time_precision='s')
-        except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError):
-            return False
-        return True
+            if not client:
+                self.logger.warning('%s error connecting to InfluxDB' % self.ship_error_prefix)
+            if not client.write_points(points=points, time_precision='s'):
+                self.logger.warning('%s failed to update InfluxDB' % self.ship_error_prefix)
+        except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError) as err:
+            self.logger.warning('%s %s' % (self.ship_error_prefix, err))
 
     def make_point(self, tags, rcv_time, stat_name, stat_val):
         """Make an InfluxDB point."""
@@ -110,9 +114,7 @@ time                    dp_name                 port_name       value
             points = [
                 self.make_port_point(
                     self.dp.name, port_name, rcv_time, 'port_state_reason', reason)]
-            if not self.ship_points(points):
-                self.logger.warning(
-                    '%s error shipping port_state_reason points', dpid_log(dp_id))
+            self.ship_points(points)
 
 
 class GaugePortStatsInfluxDBLogger(GaugePortStatsPoller, InfluxShipper):
@@ -158,9 +160,7 @@ time                    dp_name                 port_name       value
                 points.append(
                     self.make_port_point(
                         self.dp.name, port_name, rcv_time, stat_name, stat_val))
-        if not self.ship_points(points):
-            self.logger.warning(
-                '%s error shipping port_stats points', dpid_log(dp_id))
+        self.ship_points(points)
 
 
 class GaugeFlowTableInfluxDBLogger(GaugeFlowTablePoller, InfluxShipper):
@@ -217,6 +217,4 @@ time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_t
                 self.make_point(tags, rcv_time, 'flow_packet_count', packet_count))
             points.append(
                 self.make_point(tags, rcv_time, 'flow_byte_count', byte_count))
-        if not self.ship_points(points):
-            self.logger.warning(
-                '%s error shipping flow_table points', dpid_log(dp_id))
+        self.ship_points(points)
