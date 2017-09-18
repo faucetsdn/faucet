@@ -11,16 +11,15 @@ services:
 addons:
   apt:
     packages:
-      - openvswitch-switch
       - parallel
-      - xz-utils
+      - openvswitch-switch
 cache:
   pip: true
   directories:
     - /home/travis/docker/
 env:
   global:
-    - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.xz
+    - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
     - FAUCET_TEST_IMG=reannz/faucet-tests
 install:
   - pip3 install -r requirements.txt -r test-requirements.txt
@@ -35,7 +34,7 @@ script:
   - coveralls || true
   - cd ..
   - ls -l `dirname ${DOCKER_CACHE_FILE}`
-  - if [[ $(find ${DOCKER_CACHE_FILE} -type f -size +100c 2>/dev/null) ]] ; then xz -c ${DOCKER_CACHE_FILE} | docker load; fi
+  - if [[ $(find ${DOCKER_CACHE_FILE} -type f -size +100c 2>/dev/null) ]] ; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
-  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(/bin/echo -e "osrg/ryu:latest\nreannz/faucet-tests:latest"| xargs -n 1 docker history -q|grep -v missing) | xz > ${DOCKER_CACHE_FILE} ; fi
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(/bin/echo -e "osrg/ryu:latest\nreannz/faucet-tests:latest"| xargs -n 1 docker history -q|grep -v missing) | gzip > ${DOCKER_CACHE_FILE} ; fi
   - sudo docker run --privileged -ti -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}
