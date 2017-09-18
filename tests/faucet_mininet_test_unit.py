@@ -54,7 +54,7 @@ class SlowInfluxPostHandler(PostHandler):
 
     def do_POST(self):
         self._log_post()
-        time.sleep(30)
+        time.sleep(10)
         return self.send_response(500)
 
 
@@ -390,22 +390,6 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     server_thread = None
     server = None
 
-    def setupInflux(self):
-        self.influx_log = os.path.join(self.tmpdir, 'influx.log')
-        if self.server:
-            self.server.influx_log = self.influx_log
-
-    def setUp(self):
-        self.handler = InfluxPostHandler
-        super(FaucetUntaggedInfluxTest, self).setUp()
-        self.setupInflux()
-
-    def tearDown(self):
-        if self.server:
-            self.server.shutdown()
-            self.server.socket.close()
-        super(FaucetUntaggedInfluxTest, self).tearDown()
-
     def get_gauge_watcher_config(self):
         return """
     port_stats:
@@ -424,6 +408,22 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         interval: 2
         db: 'influx'
 """
+
+    def setupInflux(self):
+        self.influx_log = os.path.join(self.tmpdir, 'influx.log')
+        if self.server:
+            self.server.influx_log = self.influx_log
+
+    def setUp(self):
+        self.handler = InfluxPostHandler
+        super(FaucetUntaggedInfluxTest, self).setUp()
+        self.setupInflux()
+
+    def tearDown(self):
+        if self.server:
+            self.server.shutdown()
+            self.server.socket.close()
+        super(FaucetUntaggedInfluxTest, self).tearDown()
 
     def _wait_error_shipping(self, timeout=None):
         if timeout is None:
@@ -527,20 +527,6 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
 
 
 class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
-
-    def get_gauge_watcher_config(self):
-        return """
-    port_stats:
-        dps: ['faucet-1']
-        type: 'port_stats'
-        interval: 2
-        db: 'influx'
-    port_state:
-        dps: ['faucet-1']
-        type: 'port_state'
-        interval: 2
-        db: 'influx'
-"""
 
     def setUp(self):
         self.handler = SlowInfluxPostHandler
