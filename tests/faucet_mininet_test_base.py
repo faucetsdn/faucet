@@ -86,7 +86,7 @@ class FaucetTestBase(unittest.TestCase):
     net = None
     topo = None
     cpn_intf = None
-    config_ports = None
+    config_ports = {}
     env = collections.defaultdict(dict)
     rand_dpids = set()
 
@@ -157,7 +157,7 @@ class FaucetTestBase(unittest.TestCase):
     def _set_vars(self):
         self._set_prom_port()
 
-    def _write_controller_configs(self):
+    def _write_faucet_config(self):
         faucet_config = '\n'.join((
             self.get_config_header(
                 self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
@@ -165,6 +165,8 @@ class FaucetTestBase(unittest.TestCase):
         if self.config_ports:
             faucet_config = faucet_config % self.config_ports
         open(self.faucet_config_path, 'w').write(faucet_config)
+
+    def _write_gauge_config(self):
         gauge_config = self.get_gauge_config(
             self.faucet_config_path,
             self.monitor_stats_file,
@@ -199,34 +201,36 @@ class FaucetTestBase(unittest.TestCase):
             print('load average too high %f, waiting' % load)
         self.fail('load average %f consistently too high' % load)
 
-    def _allocate_ports(self):
-        faucet_mininet_test_util.return_free_ports(
-            self.ports_sock, self._test_name())
-        self.config_ports = {'bgp_port': None}
-
-        if self.hw_switch:
-            self.of_port = self.config['of_port']
-            self.gauge_of_port = self.config['gauge_of_port']
-        else:
-            self.of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock, self._test_name())
-            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock, self._test_name())
-
-        self.influx_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-        self.prom_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-        self.gauge_prom_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-
+    def _allocate_config_ports(self):
         for port_name in list(self.config_ports.keys()):
+            self.config_ports[port_name] = None
             for config in (self.CONFIG, self.CONFIG_GLOBAL):
                 if re.search(port_name, config):
                     port, _ = faucet_mininet_test_util.find_free_port(
                         self.ports_sock, self._test_name())
                     self.config_ports[port_name] = port
                     print('allocating port %u for %s' % (port, port_name))
+
+    def _allocate_faucet_ports(self):
+        if self.hw_switch:
+            self.of_port = self.config['of_port']
+        else:
+            self.of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock, self._test_name())
+
+        self.prom_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
+
+    def _allocate_gauge_ports(self):
+        if self.hw_switch:
+            self.gauge_of_port = self.config['gauge_of_port']
+        else:
+            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
+                self.ports_sock, self._test_name())
+        self.influx_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
+        self.gauge_prom_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
 
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
@@ -294,6 +298,9 @@ class FaucetTestBase(unittest.TestCase):
         """Return first controller."""
         return self.net.controllers[0]
 
+    def _start_gauge_check(self):
+        return None
+
     def _start_check(self):
         if not self._wait_controllers_healthy():
             return 'not all controllers healthy'
@@ -309,17 +316,17 @@ class FaucetTestBase(unittest.TestCase):
                     if not self._get_controller().listen_port(port):
                         return 'faucet not listening on %u (%s)' % (
                             port, port_name)
-        if (self.RUN_GAUGE and
-            self.tcp_port_free(self.gauge_controller, self.influx_port) is not None):
-            return 'influx port %u is not free' % self.influx_port
-        return None
+        return self._start_gauge_check()
 
     def _start_faucet(self, controller_intf):
         last_error_txt = ''
         for _ in range(3):
-            self._allocate_ports()
+            faucet_mininet_test_util.return_free_ports(
+                self.ports_sock, self._test_name())
+            self._allocate_config_ports()
+            self._allocate_faucet_ports()
             self._set_vars()
-            self._write_controller_configs()
+            self._write_faucet_config()
             self.net = Mininet(
                 self.topo, controller=faucet_mininet_test_topo.FAUCET(
                     name='faucet', tmpdir=self.tmpdir,
@@ -332,6 +339,8 @@ class FaucetTestBase(unittest.TestCase):
                     port=self.of_port,
                     test_name=self._test_name()))
             if self.RUN_GAUGE:
+                self._allocate_gauge_ports()
+                self._write_gauge_config()
                 self.gauge_controller = faucet_mininet_test_topo.Gauge(
                     name='gauge', tmpdir=self.tmpdir,
                     env=self.env['gauge'],

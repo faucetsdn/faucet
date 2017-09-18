@@ -1348,6 +1348,8 @@ vlans:
 """
     exabgp_log = None
     exabgp_err = None
+    config_ports = {'bgp_port': None}
+
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
@@ -1422,6 +1424,8 @@ vlans:
 """
     exabgp_log = None
     exabgp_err = None
+    config_ports = {'bgp_port': None}
+
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
@@ -1497,6 +1501,8 @@ vlans:
 
     exabgp_log = None
     exabgp_err = None
+    config_ports = {'bgp_port': None}
+
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(faucet_mininet_test_util.LOCALHOST)
@@ -3070,6 +3076,8 @@ vlans:
 
     exabgp_log = None
     exabgp_err = None
+    config_ports = {'bgp_port': None}
+
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
@@ -3138,6 +3146,8 @@ vlans:
 """
     exabgp_log = None
     exabgp_err = None
+    config_ports = {'bgp_port': None}
+
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1', self.exabgp_peer_conf)
@@ -3260,6 +3270,8 @@ vlans:
 
     exabgp_log = None
     exabgp_err = None
+    config_ports = {'bgp_port': None}
+
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf('::1')
