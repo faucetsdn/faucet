@@ -54,7 +54,7 @@ class SlowInfluxPostHandler(PostHandler):
 
     def do_POST(self):
         self._log_post()
-        time.sleep(20)
+        time.sleep(30)
         return self.send_response(500)
 
 
@@ -383,19 +383,22 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         influx_port: %(gauge_influx_port)d
         influx_user: 'faucet'
         influx_pwd: ''
-        influx_timeout: 5
-        interval: 5
+        influx_timeout: 2
 """
     config_ports = {'gauge_influx_port': None}
     influx_log = None
     server_thread = None
     server = None
 
+    def setupInflux(self):
+        self.influx_log = os.path.join(self.tmpdir, 'influx.log')
+        if self.server:
+            self.server.influx_log = self.influx_log
+
     def setUp(self):
         self.handler = InfluxPostHandler
         super(FaucetUntaggedInfluxTest, self).setUp()
-        self.influx_log = os.path.join(self.tmpdir, 'influx.log')
-        self.server.influx_log = self.influx_log
+        self.setupInflux()
 
     def tearDown(self):
         if self.server:
@@ -540,10 +543,9 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 """
 
     def setUp(self):
-        self.handler = InfluxPostHandler
+        self.handler = SlowInfluxPostHandler
         super(FaucetUntaggedInfluxTooSlowTest, self).setUp()
-        self.influx_log = os.path.join(self.tmpdir, 'influx.log')
-        self.server.influx_log = self.influx_log
+        self.setupInflux()
 
     def test_untagged(self):
         self.ping_all_when_learned()
