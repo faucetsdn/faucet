@@ -52,6 +52,8 @@ class WatcherConf(Conf):
         # influx password
         'influx_timeout': 10,
         # timeout on influx requests
+        'influx_retries': 3,
+        # attempts to retry influx request
         # prometheus config
         'prometheus_port': 9303,
         'prometheus_addr': '127.0.0.1',
