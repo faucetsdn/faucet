@@ -533,7 +533,7 @@ class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
     def setUp(self):
         self.handler = SlowInfluxPostHandler
-        super(FaucetUntaggedInfluxTooSlowTest, self).setUp()
+        super(FaucetUntaggedInfluxTest, self).setUp()
         self.setupInflux()
 
     def test_untagged(self):
