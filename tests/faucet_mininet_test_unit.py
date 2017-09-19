@@ -383,7 +383,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         influx_port: %(gauge_influx_port)d
         influx_user: 'faucet'
         influx_pwd: ''
-        influx_retries: 2
+        influx_retries: 1
 """ + """
         influx_timeout: %u
 """ % FaucetUntaggedTest.DB_TIMEOUT
