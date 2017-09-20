@@ -1,3 +1,4 @@
+# TODO: Slim down
 FROM raspbian/jessie
 
 RUN \

@@ -1,4 +1,4 @@
-FROM osrg/ryu
+FROM python:3-slim
 
 RUN \
   apt-get update && \
