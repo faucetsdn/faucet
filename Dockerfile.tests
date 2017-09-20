@@ -1,5 +1,6 @@
 # TODO: Slim down
-FROM osrg/ryu
+FROM python:3-slim
+FROM python:2-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -10,16 +11,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends software-properties-common && \
-  add-apt-repository ppa:saiarcot895/myppa && \
-  apt-get update && \
-  echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections && \
-  echo debconf apt-fast/dlflag boolean true | debconf-set-selections && \
-  echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections && \
-  apt-get -yq install apt-fast
+  apt-get install -qy --no-install-recommends apt-transport-https build-essential curl software-properties-common && \
+  curl -sL https://repos.influxdata.com/influxdb.key | apt-key add - && \
+  echo "deb https://repos.influxdata.com/debian jessie stable" | tee /etc/apt/sources.list.d/influxdb.list && \
+  apt-get update
 
 RUN \
-  apt-get update && apt-fast install -qy --no-install-recommends \
+  apt-get update && apt-get install -qy --no-install-recommends \
     bc \
     fping \
     gcc \
@@ -36,6 +34,7 @@ RUN \
     net-tools \
     netcat-openbsd \
     parallel \
+    patch \
     psmisc \
     python-pip \
     python3-pip \
@@ -56,11 +55,10 @@ RUN \
 
 RUN \
   cd mininet && git checkout 2.2.2 && cd .. && \
-  perl -pi -e "s/apt-get/apt-fast/g" mininet/util/install.sh && \
   mininet/util/install.sh -nfv
 
 RUN \
-  apt-fast purge -qy pylint && \
+  apt-get purge -qy pylint && \
   pip3 install --upgrade pip && \
   easy_install -U pip && \
   pip install --upgrade pip && \
