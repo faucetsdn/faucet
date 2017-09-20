@@ -1,4 +1,4 @@
-FROM osrg/ryu
+FROM python
 
 RUN \
   apt-get update && \
