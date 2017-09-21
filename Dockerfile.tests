@@ -13,8 +13,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends apt-transport-https build-essential curl software-properties-common && \
-  curl -sL https://repos.influxdata.com/influxdb.key | apt-key add - && \
-  echo "deb https://repos.influxdata.com/debian jessie stable" | tee /etc/apt/sources.list.d/influxdb.list && \
   apt-get update
 
 RUN \
@@ -23,7 +21,6 @@ RUN \
     fping \
     gcc \
     git \
-    influxdb \
     iperf \
     iputils-ping \
     ladvd \
