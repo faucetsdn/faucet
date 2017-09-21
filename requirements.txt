@@ -2,7 +2,6 @@ couchdb
 influxdb
 ipaddress
 networkx==1.11
-numpy
 pbr>=1.9
 prometheus_client
 pyyaml
