@@ -63,9 +63,7 @@ RUN \
   pip3 install --upgrade pip && \
   easy_install -U pip && \
   pip install --upgrade pip && \
-  pip install setuptools wheel virtualenv --upgrade && \
-  pip install multiprocessing && \
-  pip install scapy==2.3.2 && \
+  pip --no-cache-dir install multiprocessing scapy==2.3.2 setuptools wheel virtualenv --upgrade && \
   pip3 install setuptools wheel virtualenv --upgrade
 
 RUN \
@@ -78,9 +76,9 @@ RUN \
 COPY ./ /faucet-src/
 
 RUN \
-  pip install -r /faucet-src/test-requirements.txt && \
-  pip3 install -r /faucet-src/requirements.txt && \
-  pip3 install -r /faucet-src/test-requirements.txt && \
-  pip3 install /faucet-src
+  pip --no-cache-dir install -r /faucet-src/test-requirements.txt && \
+  pip3 --no-cache-dir install -r /faucet-src/requirements.txt && \
+  pip3 --no-cache-dir install -r /faucet-src/test-requirements.txt && \
+  pip3 --no-cache-dir install /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]
