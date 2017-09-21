@@ -1,5 +1,8 @@
 FROM python:3-slim
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TESTDEPS="bitstring pytest setuptools wheel virtualenv"
+
 RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends git
@@ -8,10 +11,11 @@ COPY ./ /faucet-src/
 
 RUN \
   pip3 --no-cache-dir install --upgrade pip && \
-  pip3 --no-cache-dir install bitstring pytest setuptools wheel virtualenv --upgrade && \
+  pip3 --no-cache-dir install $TESTDEPS --upgrade && \
   pip3 --no-cache-dir install -r /faucet-src/requirements.txt && \
   pip3 --no-cache-dir install /faucet-src && \
-  python3 -m pytest /faucet-src/tests/test_valve.py
+  python3 -m pytest /faucet-src/tests/test_valve.py && \
+  pip3 --no-cache-dir uninstall -y $TESTDEPS
 
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 
