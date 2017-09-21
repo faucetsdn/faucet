@@ -2,21 +2,16 @@ FROM python:3-slim
 
 RUN \
   apt-get update && \
-  apt-get install -qy --no-install-recommends \
-    gcc \
-    git \
-    libpython3-all-dev \
-    libyaml-dev \
-    netbase \
-    python3-pip
+  apt-get install -qy --no-install-recommends git
 
 COPY ./ /faucet-src/
 
 RUN \
-  pip3 install --upgrade pip && \
-  pip3 install setuptools wheel virtualenv --upgrade && \
-  pip3 install -r /faucet-src/requirements.txt && \
-  pip3 install /faucet-src
+  pip3 --no-cache-dir install --upgrade pip && \
+  pip3 --no-cache-dir install bitstring pytest setuptools wheel virtualenv --upgrade && \
+  pip3 --no-cache-dir install -r /faucet-src/requirements.txt && \
+  pip3 --no-cache-dir install /faucet-src && \
+  python3 -m pytest /faucet-src/tests/test_valve.py
 
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 
