@@ -1,6 +1,7 @@
 # TODO: Slim down
-FROM python:3-slim
-FROM python:2-slim
+#FROM python:3-slim
+#FROM python:2-slim
+FROM osrg/ryu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
