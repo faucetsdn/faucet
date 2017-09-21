@@ -1,7 +1,4 @@
-# TODO: Slim down
-#FROM python:3-slim
-#FROM python:2-slim
-FROM osrg/ryu
+FROM ubuntu:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
