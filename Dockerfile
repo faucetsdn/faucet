@@ -8,9 +8,10 @@ COPY ./ /faucet-src/
 
 RUN \
   pip3 --no-cache-dir install --upgrade pip && \
-  pip3 --no-cache-dir install setuptools wheel virtualenv --upgrade && \
+  pip3 --no-cache-dir install bitstring pytest setuptools wheel virtualenv --upgrade && \
   pip3 --no-cache-dir install -r /faucet-src/requirements.txt && \
-  pip3 --no-cache-dir install /faucet-src
+  pip3 --no-cache-dir install /faucet-src && \
+  python3 -m pytest /faucet-src/tests/test_valve.py
 
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 
