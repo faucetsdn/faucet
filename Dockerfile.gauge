@@ -14,8 +14,7 @@ RUN \
   pip3 --no-cache-dir install $TESTDEPS --upgrade && \
   pip3 --no-cache-dir install -r /faucet-src/requirements.txt && \
   pip3 --no-cache-dir install /faucet-src && \
-  python3 -m pytest /faucet-src/tests/test_valve.py && \
-  pip3 --no-cache-dir uninstall -y $TESTDEPS 
+  python3 -m pytest /faucet-src/tests/test_valve.py
 
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 
