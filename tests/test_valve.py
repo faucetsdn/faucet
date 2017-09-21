@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Unit tests run as PYTHONPATH=.. ./test_valve.py."""
+
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
 #
@@ -15,7 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import os
 import unittest
 import tempfile
@@ -24,10 +25,6 @@ from fakeoftable import FakeOFTable
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
-
-testdir = os.path.dirname(__file__)
-srcdir = '../'
-sys.path.insert(0, os.path.abspath(os.path.join(testdir, srcdir)))
 
 from faucet.valve import valve_factory
 from faucet.config_parser import dp_parser
@@ -65,6 +62,7 @@ def build_pkt(pkt):
 
 
 class ValveTestBase(unittest.TestCase):
+
     CONFIG = """
 version: 2
 dps:
@@ -91,9 +89,12 @@ dps:
 vlans:
     v100:
         vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
     v200:
         vid: 0x200
+        faucet_vips: ['fc00::1:254/112']
 """
+
     DP_ID = 1
     NUM_PORTS = 5
     NUM_TABLES = 9
@@ -104,41 +105,46 @@ vlans:
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
 
-    def update_config(self, config):
-        with open(self.config_file, 'w') as f:
-            f.write(config)
-        _, dps = dp_parser(self.config_file, 'test_valve')
-        return dps[0]
-
-    def setUp(self):
+    def setup_valve(self, config):
         self.tmpdir = tempfile.mkdtemp()
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
         self.table = FakeOFTable(self.NUM_TABLES)
-        dp = self.update_config(self.CONFIG)
+        dp = self.update_config(config)
         self.valve = valve_factory(dp)(dp, 'test_valve')
 
-        # establish connection to datapath
-        ofmsgs = self.valve.datapath_connect(
-            self.DP_ID,
-            range(1, self.NUM_PORTS + 1)
-            )
+    def update_config(self, config):
+        with open(self.config_file, 'w') as config_file:
+            config_file.write(config)
+        _, dps = dp_parser(self.config_file, 'test_valve')
+        return dps[0]
+
+    def connect_dp(self):
+        self.table.apply_ofmsgs(self.valve.datapath_connect(
+            self.DP_ID, range(1, self.NUM_PORTS + 1)))
+
+    def apply_new_config(self, config):
+        new_dp = self.update_config(config)
+        _, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
-        # learn some mac addresses
+    def learn_hosts(self):
+        """Learn some hosts."""
         self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.UNKNOWN_MAC
-            })
+            'eth_dst': self.UNKNOWN_MAC})
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.P3_V200_MAC,
-            'vid': 0x200
-            })
+            'vid': 0x200})
         self.rcv_packet(3, 0x200, {
             'eth_src': self.P3_V200_MAC,
             'eth_dst': self.P2_V200_MAC,
-            'vid': 0x200
-            })
+            'vid': 0x200})
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+        self.connect_dp()
+        self.learn_hosts()
 
     def rcv_packet(self, port, vid, match):
         pkt = build_pkt(match)
@@ -146,10 +152,7 @@ vlans:
         pkt_meta = self.valve.parse_rcv_packet(
             port, vid, pkt.data, pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
-            dp_id=1,
-            valves={},
-            pkt_meta=pkt_meta,
-            )
+            dp_id=self.DP_ID, valves={}, pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
 
     def tearDown(self):
@@ -157,14 +160,14 @@ vlans:
 
 
 class ValveTestCase(ValveTestBase):
+
     def test_invalid_vlan(self):
         """Test that packets with incorrect vlan tagging get dropped."""
 
         matches = [
             {'in_port': 1, 'vlan_vid': 18|ofp.OFPVID_PRESENT},
             {'in_port': 1, 'vlan_vid': self.V100},
-            {'in_port': 3, 'vlan_vid': 0}
-            ]
+            {'in_port': 3, 'vlan_vid': 0}]
         for match in matches:
             self.assertFalse(
                 self.table.is_output(match),
@@ -245,29 +248,27 @@ class ValveTestCase(ValveTestBase):
             remaining_ports = set(range(1, 6))
 
             # Check packets are output to each port on vlan
-            for p in valve_vlan.get_ports():
-                remaining_ports.discard(p.number)
-                if p.number != in_port and p.running():
-                    if valve_vlan.port_is_tagged(p):
+            for port in valve_vlan.get_ports():
+                remaining_ports.discard(port.number)
+                if port.number != in_port and port.running():
+                    if valve_vlan.port_is_tagged(port):
                         vid = valve_vlan.vid|ofp.OFPVID_PRESENT
                     else:
                         vid = 0
                     self.assertTrue(
-                        self.table.is_output(match, port=p.number, vid=vid),
-                        msg="packet with unknown eth dst ({0}) not output "
-                            "correctly on vlan {1} to port {2}".format(
-                                match, valve_vlan.vid, p.number)
-                        )
+                        self.table.is_output(match, port=port.number, vid=vid),
+                        msg=('Packet %s with unknown eth_dst not output '
+                             'correctly on VLAN %u to port %u' % (
+                                 match, valve_vlan.vid, port.number)))
 
             # Check packets are not output to ports not on vlan
-            for p in remaining_ports:
+            for port in remaining_ports:
                 self.assertFalse(
-                    self.table.is_output(match, port=p),
-                    msg="packet with unkown eth dst output to port not on its"
-                    " vlan ({0})".format(p))
+                    self.table.is_output(match, port=port),
+                    msg=('Packet with unknown eth_dst output to non-VLAN port %u' % port))
 
     def test_known_eth_src_rule(self):
-        """test that packets with known eth src addrs are not sent to controller."""
+        """Test that packets with known eth src addrs are not sent to controller."""
         matches = [
             {
                 'in_port': 1,
@@ -292,7 +293,6 @@ class ValveTestCase(ValveTestBase):
                 msg="Packet ({0}) output to controller when eth_src address"
                     " is known".format(match))
 
-
     def test_known_eth_src_deletion(self):
         """Verify that when a mac changes port the old rules get deleted.
 
@@ -304,14 +304,9 @@ class ValveTestCase(ValveTestBase):
         self.rcv_packet(3, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.UNKNOWN_MAC,
-            'vlan_vid': 0x200
-            })
+            'vlan_vid': 0x200})
 
-        match = {
-            'in_port': 2,
-            'vlan_vid': 0,
-            'eth_src': self.P2_V200_MAC
-            }
+        match = {'in_port': 2, 'vlan_vid': 0, 'eth_src': self.P2_V200_MAC}
         self.assertTrue(
             self.table.is_output(match, port=ofp.OFPP_CONTROLLER),
             msg='eth src rule not deleted when mac seen on another port')
@@ -343,14 +338,14 @@ class ValveTestCase(ValveTestBase):
             self.assertTrue(
                 self.table.is_output(
                     match, result['out_port'], vid=result['vlan_vid']),
-                msg="packet not output to port correctly when eth dst is known")
+                msg='packet not output to port correctly when eth dst is known')
             incorrect_ports = set(range(1, self.NUM_PORTS + 1))
             incorrect_ports.remove(result['out_port'])
             for port in incorrect_ports:
                 self.assertFalse(
                     self.table.is_output(match, port=port),
-                    msg="packet: {0} output to incorrect port ({1}) when eth "
-                    "dst is known".format(match, port))
+                    msg=('packet %s output to incorrect port %u when eth_dst '
+                         'is known' % (match, port)))
 
     def test_mac_learning_vlan_separation(self):
         """Test that when a mac is seen on a second vlan the original vlan
@@ -358,122 +353,92 @@ class ValveTestCase(ValveTestBase):
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
-            'vlan_vid': 0x200
-            })
+            'vlan_vid': 0x200})
 
         # check eth_src rule
-        match1 = {
-            'in_port': 1,
-            'vlan_vid': 0,
-            'eth_src': self.P1_V100_MAC
-            }
+        match1 = {'in_port': 1, 'vlan_vid': 0, 'eth_src': self.P1_V100_MAC}
         self.assertFalse(
             self.table.is_output(match1, ofp.OFPP_CONTROLLER),
-            msg="mac address being seen on a vlan affects eth_src rule on"
-            " other vlan")
+            msg=('mac address being seen on a vlan affects eth_src rule on '
+                 'other vlan'))
 
         # check eth_dst rule
-        match2 = {
-            'in_port': 3,
-            'vlan_vid': self.V100,
-            'eth_dst': self.P1_V100_MAC
-            }
+        match2 = {'in_port': 3, 'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}
         self.assertTrue(
             self.table.is_output(match2, port=1, vid=0),
-            msg="mac address being seen on a vlan affects eth_dst rule on "
-            "other vlan")
+            msg=('mac address being seen on a vlan affects eth_dst rule on '
+                 'other vlan'))
         for port in (2, 4):
             self.assertFalse(
                 self.table.is_output(match2, port=port),
-                msg="mac address being seen on a vlan affects eth_dst rule on "
-                "other vlan")
+                msg=('mac address being seen on a vlan affects eth_dst rule on '
+                     'other vlan'))
 
     def test_known_eth_dst_rule_deletion(self):
-        """Test that eth dst rules are deleted when the mac is learned on
+        """Test that eth_dst rules are deleted when the mac is learned on
         another port.
 
         This should only occur when the mac is seen on the same vlan."""
         self.rcv_packet(2, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.UNKNOWN_MAC
-            })
-        match = {
-            'in_port': 3,
-            'vlan_vid': self.V100,
-            'eth_dst': self.P1_V100_MAC}
+            'eth_src': self.P1_V100_MAC, 'eth_dst': self.UNKNOWN_MAC})
+        match = {'in_port': 3, 'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}
         self.assertTrue(
             self.table.is_output(match, port=2, vid=self.V100),
-            msg="Packet not output correctly after mac is learnt on new port")
+            msg='Packet not output correctly after mac is learnt on new port')
         self.assertFalse(
             self.table.is_output(match, port=1),
-            msg="Packet output on old port after mac is learnt on new port")
+            msg='Packet output on old port after mac is learnt on new port')
 
     def test_port_delete_eth_dst_removal(self):
         """Test that when a port is disabled packets are correctly output. """
-        match = {
-            'in_port': 2,
-            'vlan_vid': self.V100,
-            'eth_dst': self.P1_V100_MAC}
+        match = {'in_port': 2, 'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}
 
-        vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
-
+        valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
         ofmsgs = self.valve.port_delete(dp_id=self.DP_ID, port_num=1)
         self.table.apply_ofmsgs(ofmsgs)
 
         # Check packets are output to each port on vlan
-        for p in vlan.get_ports():
-            if p.number != match['in_port'] and p.running():
-                if vlan.port_is_tagged(p):
-                    vid = vlan.vid|ofp.OFPVID_PRESENT
+        for port in valve_vlan.get_ports():
+            if port.number != match['in_port'] and port.running():
+                if valve_vlan.port_is_tagged(port):
+                    vid = valve_vlan.vid|ofp.OFPVID_PRESENT
                 else:
                     vid = 0
                 self.assertTrue(
-                    self.table.is_output(match, port=p.number, vid=vid),
-                    msg="packet ({0}) with eth dst learnt on deleted port not output "
-                        "correctly on vlan {1} to port {2}".format(match, vlan.vid, p.number))
+                    self.table.is_output(match, port=port.number, vid=vid),
+                    msg=('packet %s with eth dst learnt on deleted port not output '
+                         'correctly on vlan %u to port %u' % (
+                             match, valve_vlan.vid, port.number)))
 
     def test_port_down_eth_src_removal(self):
-        '''Test that when a port goes down and comes back up learnt mac
-        addresses are deleted.'''
-        match = {
-            'in_port': 1,
-            'vlan_vid': 0,
-            'eth_src': self.P1_V100_MAC
-            }
+        """Test that when a port goes down and comes back up learnt mac
+        addresses are deleted."""
 
-        ofmsgs = self.valve.port_delete(dp_id=self.DP_ID, port_num=1)
-        self.table.apply_ofmsgs(ofmsgs)
-
-        ofmsgs = self.valve.port_add(dp_id=self.DP_ID, port_num=1)
-        self.table.apply_ofmsgs(ofmsgs)
-
+        match = {'in_port': 1, 'vlan_vid': 0, 'eth_src': self.P1_V100_MAC}
+        self.table.apply_ofmsgs(self.valve.port_delete(dp_id=self.DP_ID, port_num=1))
+        self.table.apply_ofmsgs(self.valve.port_add(dp_id=self.DP_ID, port_num=1))
         self.assertTrue(
             self.table.is_output(match, port=ofp.OFPP_CONTROLLER),
-            msg="Packet not output to controller after port bounce")
+            msg='Packet not output to controller after port bounce')
 
     def test_port_add_input(self):
-        """test that when a port is enabled packets are input correctly."""
-        match = {
-            'in_port': 1,
-            'vlan_vid': 0,
-            }
+        """Test that when a port is enabled packets are input correctly."""
 
-        ofmsgs = self.valve.port_delete(dp_id=self.DP_ID, port_num=1)
-        self.table.apply_ofmsgs(ofmsgs)
-
+        match = {'in_port': 1, 'vlan_vid': 0}
+        self.table.apply_ofmsgs(
+            self.valve.port_delete(dp_id=self.DP_ID, port_num=1))
         self.assertFalse(
             self.table.is_output(match, port=2, vid=self.V100),
-            msg="Packet output after port delete")
+            msg='Packet output after port delete')
 
-        ofmsgs = self.valve.port_add(dp_id=self.DP_ID, port_num=1)
-        self.table.apply_ofmsgs(ofmsgs)
-
+        self.table.apply_ofmsgs(
+            self.valve.port_add(dp_id=self.DP_ID, port_num=1))
         self.assertTrue(
             self.table.is_output(match, port=2, vid=self.V100),
-            msg="Packet not output after port add")
+            msg='Packet not output after port add')
 
     def test_port_acl_deny(self):
-        acl_config = '''
+        acl_config = """
 version: 2
 dps:
     s1:
@@ -513,44 +478,37 @@ acls:
             dl_type: 0x800
             actions:
                 allow: 0
-'''
+"""
 
         drop_match = {
             'in_port': 2,
             'vlan_vid': 0,
             'eth_type': 0x800,
-            'ipv4_dst': '192.0.2.1'
-            }
+            'ipv4_dst': '192.0.2.1'}
         accept_match = {
             'in_port': 2,
             'vlan_vid': 0,
             'eth_type': 0x800,
-            'ipv4_dst': '224.0.0.5'
-            }
+            'ipv4_dst': '224.0.0.5'}
         # base case
         for match in (drop_match, accept_match):
             self.assertTrue(
                 self.table.is_output(match, port=3, vid=self.V200),
-                msg="Packet not output before adding ACL")
+                msg='Packet not output before adding ACL')
 
-        # reload the config
-        new_dp = self.update_config(acl_config)
-        cold_start, ofmsgs = self.valve.reload_config(new_dp)
-        self.table.apply_ofmsgs(ofmsgs)
-
+        self.apply_new_config(acl_config)
         self.assertFalse(
             self.table.is_output(drop_match),
-            msg='packet not blocked by acl'
-            )
+            msg='packet not blocked by acl')
         self.assertTrue(
             self.table.is_output(accept_match, port=3, vid=self.V200),
-            msg='packet not allowed by acl'
-            )
+            msg='packet not allowed by acl')
 
 
 class ValveACLTestCase(ValveTestBase):
+
     def test_vlan_acl_deny(self):
-        acl_config = '''
+        acl_config = """
 version: 2
 dps:
     s1:
@@ -590,43 +548,37 @@ acls:
             dl_type: 0x800
             actions:
                 allow: 0
-'''
+"""
 
         drop_match = {
             'in_port': 2,
             'vlan_vid': 0,
             'eth_type': 0x800,
-            'ipv4_dst': '192.0.2.1'
-            }
+            'ipv4_dst': '192.0.2.1'}
         accept_match = {
             'in_port': 2,
             'vlan_vid': 0,
             'eth_type': 0x800,
-            'ipv4_dst': '224.0.0.5'
-            }
+            'ipv4_dst': '224.0.0.5'}
         # base case
         for match in (drop_match, accept_match):
             self.assertTrue(
                 self.table.is_output(match, port=3, vid=self.V200),
-                msg="Packet not output before adding ACL")
+                msg='Packet not output before adding ACL')
 
-        # reload the config
-        new_dp = self.update_config(acl_config)
-        cold_start, ofmsgs = self.valve.reload_config(new_dp)
-        self.table.apply_ofmsgs(ofmsgs)
+        self.apply_new_config(acl_config)
         self.valve.port_delete(1, 2)
-        ofmsgs = self.valve.port_add(1, 2)
+        self.valve.port_add(1, 2)
         self.assertFalse(
             self.table.is_output(drop_match),
-            msg='packet not blocked by acl'
-            )
+            msg='Packet not blocked by ACL')
         self.assertTrue(
             self.table.is_output(accept_match, port=3, vid=self.V200),
-            msg='packet not allowed by acl'
-            )
+            msg='Packet not allowed by ACL')
+
 
 class ValveReloadConfigTestCase(ValveTestCase):
-    '''Repeats the tests after a config reload'''
+    """Repeats the tests after a config reload."""
 
     OLD_CONFIG = """
 version: 2
@@ -658,55 +610,12 @@ vlans:
 """
 
     def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.config_file = os.path.join(self.tmpdir, 'valve_reload_unit.yaml')
-        self.table = FakeOFTable(self.NUM_TABLES)
-        dp = self.update_config(self.OLD_CONFIG)
-        self.valve = valve_factory(dp)(dp, 'test_valve')
+        self.setup_valve(self.OLD_CONFIG)
+        self.connect_dp()
+        self.learn_hosts()
 
-        # establish connection to datapath
-        ofmsgs = self.valve.datapath_connect(
-            self.DP_ID,
-            range(1, self.NUM_PORTS + 1)
-            )
-        self.table.apply_ofmsgs(ofmsgs)
-
-        # learn some mac addresses
-        self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.UNKNOWN_MAC
-            })
-        self.rcv_packet(2, 0x100, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': self.P3_V200_MAC,
-            'vid': 0x200
-            })
-        self.rcv_packet(3, 0x100, {
-            'eth_src': self.P3_V200_MAC,
-            'eth_dst': self.P2_V200_MAC,
-            'vid': 0x200
-            })
-
-        # reload the config
-        new_dp = self.update_config(self.CONFIG)
-        cold_start, ofmsgs = self.valve.reload_config(new_dp)
-        self.table.apply_ofmsgs(ofmsgs)
-
-        # relearn some mac addresses
-        self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.UNKNOWN_MAC
-            })
-        self.rcv_packet(2, 0x200, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': self.P3_V200_MAC,
-            'vid': 0x200
-            })
-        self.rcv_packet(3, 0x200, {
-            'eth_src': self.P3_V200_MAC,
-            'eth_dst': self.P2_V200_MAC,
-            'vid': 0x200
-            })
+        self.apply_new_config(self.CONFIG)
+        self.learn_hosts()
 
 
 if __name__ == "__main__":

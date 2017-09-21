@@ -1,7 +1,7 @@
 couchdb
 influxdb
 ipaddress
-networkx
+networkx==1.11
 numpy
 pbr>=1.9
 prometheus_client

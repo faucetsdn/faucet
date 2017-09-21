@@ -48,28 +48,6 @@ except ImportError:
     from faucet import valve_util
 
 
-def valve_factory(dp):
-    """Return a Valve object based dp's hardware configuration field.
-
-    Args:
-        dp (DP): DP instance with the configuration for this Valve.
-    """
-    SUPPORTED_HARDWARE = {
-        'Allied-Telesis': Valve,
-        'Aruba': ArubaValve,
-        'GenericTFM': TfmValve,
-        'Lagopus': Valve,
-        'Netronome': Valve,
-        'NoviFlow': Valve,
-        'Open vSwitch': Valve,
-        'ZodiacFX': Valve,
-    }
-
-    if dp.hardware in SUPPORTED_HARDWARE:
-        return SUPPORTED_HARDWARE[dp.hardware]
-    return None
-
-
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
@@ -270,8 +248,9 @@ class Valve(object):
             acl_rule_priority = self.dp.highest_priority
             acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
             for rule_conf in self.dp.acls[acl_num].rules:
-                acl_match, acl_inst = valve_acl.build_acl_entry(
+                acl_match, acl_inst, acl_ofmsgs = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, self.dp.meters, vlan_vid=vid)
+                ofmsgs.extend(acl_ofmsgs)
                 ofmsgs.append(self.dp.tables['vlan_acl'].flowmod(
                     acl_match,
                     priority=acl_rule_priority,
@@ -434,8 +413,9 @@ class Valve(object):
             acl_num = self.dp.port_acl_in[port_num]
             acl_rule_priority = self.dp.highest_priority
             for rule_conf in self.dp.acls[acl_num].rules:
-                acl_match, acl_inst = valve_acl.build_acl_entry(
+                acl_match, acl_inst, acl_ofmsgs = valve_acl.build_acl_entry(
                     rule_conf, acl_allow_inst, self.dp.meters, port_num)
+                ofmsgs.extend(acl_ofmsgs)
                 ofmsgs.append(port_acl_table.flowmod(
                     acl_match,
                     priority=acl_rule_priority,
@@ -994,6 +974,11 @@ class Valve(object):
                     if old_vlan_new_ports != new_vlan:
                         changed_vlans.add(vid)
                         self.logger.info('VLAN %s config changed' % vid)
+                else:
+                    # Preserve current VLAN including current
+                    # dynamic state like caches, if VLAN and ports
+                    # did not change at all.
+                    new_dp.vlans[vid].merge_dyn(old_vlan)
 
         if not deleted_vlans and not changed_vlans:
             self.logger.info('no VLAN config changes')
@@ -1286,3 +1271,26 @@ class ArubaValve(TfmValve):
 
     PIPELINE_CONF = 'aruba_pipeline.json'
     DEC_TTL = False
+
+
+SUPPORTED_HARDWARE = {
+    'Allied-Telesis': Valve,
+    'Aruba': ArubaValve,
+    'GenericTFM': TfmValve,
+    'Lagopus': Valve,
+    'Netronome': Valve,
+    'NoviFlow': Valve,
+    'Open vSwitch': Valve,
+    'ZodiacFX': Valve,
+}
+
+
+def valve_factory(dp):
+    """Return a Valve object based dp's hardware configuration field.
+
+    Args:
+        dp (DP): DP instance with the configuration for this Valve.
+    """
+    if dp.hardware in SUPPORTED_HARDWARE:
+        return SUPPORTED_HARDWARE[dp.hardware]
+    return None

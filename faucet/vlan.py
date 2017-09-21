@@ -229,7 +229,8 @@ class VLAN(Conf):
             if ports:
                 pkt = packet_builder(self, vid, *args)
                 for port in ports:
-                    ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+                    if port.phys_up:
+                        ofmsgs.append(valve_of.packetout(port.number, pkt.data))
         return ofmsgs
 
     def port_is_tagged(self, port):

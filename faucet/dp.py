@@ -196,6 +196,8 @@ class DP(Conf):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
         assert str(self.dp_id).isdigit()
+        assert not (self.group_table and self.group_table_routing), (
+            'groups for routing and other functions simultaneously not supported')
         for vlan in list(self.vlans.values()):
             assert isinstance(vlan, VLAN)
             assert all(isinstance(p, Port) for p in vlan.get_ports())
@@ -436,6 +438,14 @@ class DP(Conf):
                                     port_no = resolve_port_no(port_name)
                                     if port_no is not None:
                                         output_values['port'] = port_no
+                                if 'failover' in output_values:
+                                    failover = output_values['failover']
+                                    resolved_ports = []
+                                    for port_name in failover['ports']:
+                                        port_no = resolve_port_no(port_name)
+                                        if port_no is not None:
+                                             resolved_ports.append(port_no)
+                                    failover['ports'] = resolved_ports
 
         def resolve_vlan_names_in_routers():
             for router_name in list(self.routers.keys()):
