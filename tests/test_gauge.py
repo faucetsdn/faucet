@@ -8,6 +8,7 @@ try:
 except ImportError:
     from unittest import mock  # Python 3
 
+import faucet.gauge_prom as gauge_prom
 from faucet.gauge_prom import GaugePrometheusClient, GaugePortStatsPrometheusPoller
 from ryu.ofproto.ofproto_v1_3_parser import OFPPortStatsReply, OFPPortStats
 
@@ -16,12 +17,13 @@ class GaugePrometheusTests(unittest.TestCase):
         parsed_output = {}
         for line in output.split("\n"):
             # discard comments and stats not related to port stats
-            if line.startswith("#") or not line.startswith("of_port"):
+            if line.startswith("#") or not line.startswith(gauge_prom.PROM_PORT_PREFIX):
                 continue
             
             index = line.find("{")
             #get the stat name e.g. of_port_rx_bytes and strip "of_port_" 
-            stat_name = line[0:index].replace("of_port_","")
+            prefix = gauge_prom.PROM_PORT_PREFIX + gauge_prom.PROM_PREFIX_DELIM
+            stat_name = line[0:index].replace(prefix,"")
             #get the labels within {}
             labels = line[index + 1:line.find("}")].split(",")
 
@@ -43,7 +45,7 @@ class GaugePrometheusTests(unittest.TestCase):
         return parsed_output
             
     def test_poller(self):
-        prom_client = GaugePrometheusClient()
+        prom_client = gauge_prom.GaugePrometheusClient()
 
         p1 = mock.Mock()
         p1_name = mock.PropertyMock(return_value="port1")
@@ -63,7 +65,7 @@ class GaugePrometheusTests(unittest.TestCase):
             prometheus_addr="localhost"
             )
 
-        prom_poller = GaugePortStatsPrometheusPoller(conf, "__name__", prom_client)
+        prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, "__name__", prom_client)
         port1 = OFPPortStats(1,1,1,1,1,1,1,1,1,1,1,1,1,100,50)
         port2 = OFPPortStats(2,2,2,2,2,2,2,2,2,2,2,2,2,100,50)
 
