@@ -30,6 +30,7 @@ RUN \
     libpython3-dev \
     libyaml-dev \
     lsof \
+    netcat \
     ndisc6 \
     net-tools \
     netcat-openbsd \
