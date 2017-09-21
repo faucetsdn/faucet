@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM buildpack-deps:xenial
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -8,16 +8,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 ###
 
 RUN \
-  apt-get update && \
-  apt-get install -qy --no-install-recommends apt-transport-https build-essential curl software-properties-common && \
-  apt-get update
-
-RUN \
   apt-get update && apt-get install -qy --no-install-recommends \
     bc \
     fping \
-    gcc \
-    git \
     iperf \
     iputils-ping \
     ladvd \
@@ -25,12 +18,10 @@ RUN \
     libpython3-dev \
     libyaml-dev \
     lsof \
-    netcat \
     ndisc6 \
     net-tools \
     netcat-openbsd \
     parallel \
-    patch \
     psmisc \
     python-pip \
     python3-pip \
