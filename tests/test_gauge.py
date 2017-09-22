@@ -1,15 +1,14 @@
-import unittest
-import time
-import requests
-import collections
+"""Unit tests for gauge"""
 
 try:
     import mock  # Python 2
 except ImportError:
     from unittest import mock  # Python 3
+import unittest
+import time
+import requests
 
 import faucet.gauge_prom as gauge_prom
-from faucet.gauge_prom import GaugePrometheusClient, GaugePortStatsPrometheusPoller
 from ryu.ofproto.ofproto_v1_3_parser import OFPPortStatsReply, OFPPortStats
 
 class GaugePrometheusTests(unittest.TestCase):
