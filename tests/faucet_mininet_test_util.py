@@ -70,6 +70,7 @@ def return_free_ports(ports_socket, name):
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
     sock.sendall('PUT,%s\n' % name)
+    print('returned all test ports allocated to %s' % name)
 
 
 def serve_ports(ports_socket, start_free_ports, min_free_ports):
