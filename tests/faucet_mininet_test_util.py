@@ -56,18 +56,23 @@ def tcp_listening(port):
 
 def find_free_port(ports_socket, name):
     """Retrieve a free TCP port from test server."""
+    assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
     sock.sendall('GET,%s\n' % name)
     buf = receive_sock_line(sock)
-    return [int(x) for x in buf.strip().split()]
+    allocated = [int(x) for x in buf.strip().split()]
+    print('allocated test port %u to %s' % (allocated[0], name))
+    return allocated
 
 
 def return_free_ports(ports_socket, name):
     """Notify test server that all ports under name are released."""
+    assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
     sock.sendall('PUT,%s\n' % name)
+    print('returned all test ports allocated to %s' % name)
 
 
 def serve_ports(ports_socket, start_free_ports, min_free_ports):

@@ -1,0 +1,4 @@
+faucet/*pyc
+tests/*pyc
+faucet/*/*pyc
+tests/*/*pyc
