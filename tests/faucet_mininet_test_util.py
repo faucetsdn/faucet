@@ -56,6 +56,7 @@ def tcp_listening(port):
 
 def find_free_port(ports_socket, name):
     """Retrieve a free TCP port from test server."""
+    assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
     sock.sendall('GET,%s\n' % name)
@@ -67,6 +68,7 @@ def find_free_port(ports_socket, name):
 
 def return_free_ports(ports_socket, name):
     """Notify test server that all ports under name are released."""
+    assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
     sock.sendall('PUT,%s\n' % name)

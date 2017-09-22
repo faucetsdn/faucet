@@ -140,7 +140,7 @@ vlans:
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid,
+            self.ports_sock, self._test_name(), dpid=self.dpid,
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
         self.start_net()
 
@@ -791,7 +791,8 @@ vlans:
     def setUp(self):
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid, n_tagged=1, n_untagged=3)
+            self.ports_sock, self._test_name(),
+            dpid=self.dpid, n_tagged=1, n_untagged=3)
         self.start_net()
 
     def test_untagged(self):
@@ -1178,8 +1179,8 @@ acls:
         self.CONFIG = '\n'.join(
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
         self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid,
-            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
+            self.ports_sock, self._test_name(),
+            dpid=self.dpid, n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
         self.start_net()
 
     def _get_conf(self):
@@ -1954,7 +1955,8 @@ vlans:
     def setUp(self):
         super(FaucetTaggedAndUntaggedTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid, n_tagged=2, n_untagged=2)
+            self.ports_sock, self._test_name(),
+            dpid=self.dpid, n_tagged=2, n_untagged=2)
         self.start_net()
 
     def test_seperate_untagged_tagged(self):
@@ -2376,7 +2378,8 @@ vlans:
     def setUp(self):
         super(FaucetTaggedTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, dpid=self.dpid, n_tagged=4)
+            self.ports_sock, self._test_name(),
+            dpid=self.dpid, n_tagged=4)
         self.start_net()
 
     def test_tagged(self):

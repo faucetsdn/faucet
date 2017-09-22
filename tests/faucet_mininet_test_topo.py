@@ -72,25 +72,23 @@ class FaucetSwitchTopo(Topo):
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
         return self.addHost(name=host_name)
 
-    def _add_faucet_switch(self, sid_prefix, port, dpid):
+    def _add_faucet_switch(self, sid_prefix, dpid):
         """Add a FAUCET switch."""
         switch_name = 's%s' % sid_prefix
         return self.addSwitch(
             name=switch_name,
             cls=FaucetSwitch,
-            listenPort=port,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
 
-    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0,
-              test_name=None):
-        port, ports_served = faucet_mininet_test_util.find_free_port(
+    def build(self, ports_sock, test_name, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
+        _, ports_served = faucet_mininet_test_util.find_free_port(
             ports_sock, test_name)
         sid_prefix = self._get_sid_prefix(ports_served)
         for host_n in range(n_tagged):
             self._add_tagged_host(sid_prefix, tagged_vid, host_n)
         for host_n in range(n_untagged):
             self._add_untagged_host(sid_prefix, host_n)
-        switch = self._add_faucet_switch(sid_prefix, port, dpid)
+        switch = self._add_faucet_switch(sid_prefix, dpid)
         for host in self.hosts():
             self.addLink(host, switch)
 
@@ -98,9 +96,8 @@ class FaucetSwitchTopo(Topo):
 class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
-    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0,
-              test_name=None):
-        port, ports_served = faucet_mininet_test_util.find_free_port(
+    def build(self, ports_sock, test_name, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
+        _, ports_served = faucet_mininet_test_util.find_free_port(
             ports_sock, test_name)
         sid_prefix = self._get_sid_prefix(ports_served)
         for host_n in range(n_tagged):
@@ -111,7 +108,7 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
         print('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
             dpid, int(dpid), remap_dpid, int(remap_dpid)))
         dpid = remap_dpid
-        switch = self._add_faucet_switch(sid_prefix, port, dpid)
+        switch = self._add_faucet_switch(sid_prefix, dpid)
         for host in self.hosts():
             self.addLink(host, switch)
 
@@ -119,8 +116,7 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
     """String of datapaths each with hosts with a single FAUCET controller."""
 
-    def build(self, ports_sock, dpids, n_tagged=0, tagged_vid=100, n_untagged=0,
-              test_name=None):
+    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
         """
 
                                Hosts
@@ -148,7 +144,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         """
         last_switch = None
         for dpid in dpids:
-            port, ports_served = faucet_mininet_test_util.find_free_port(
+            _, ports_served = faucet_mininet_test_util.find_free_port(
                 ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(ports_served)
             hosts = []
@@ -156,7 +152,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
             for host_n in range(n_untagged):
                 hosts.append(self._add_untagged_host(sid_prefix, host_n))
-            switch = self._add_faucet_switch(sid_prefix, port, dpid)
+            switch = self._add_faucet_switch(sid_prefix, dpid)
             for host in hosts:
                 self.addLink(host, switch)
             # Add a switch-to-switch link with the previous switch,
