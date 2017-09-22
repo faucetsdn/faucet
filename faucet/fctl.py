@@ -18,6 +18,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# pytype: disable=pyi-error
+# pytype: disable=import-error
 import sys
 import time
 import getopt
@@ -84,7 +86,7 @@ Examples:
     Status of all DPs
 
     {self} -n --endpoints=http://172.17.0.1:9244 --metrics=dp_status
-""".format(**usage_vars))
+""".format(**usage_vars)) # pytype: disable=duplicate-keyword-argument
     sys.exit(-1)
 
 
