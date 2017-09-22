@@ -3349,6 +3349,8 @@ vlans:
 
     def test_tagged(self):
         """Test IPv6 routing works."""
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
         first_host_ip = ipaddress.ip_interface(u'fc00::1:1/112')
@@ -3358,7 +3360,8 @@ vlans:
         for _ in range(5):
             self.verify_ipv6_routing_pair(
                 first_host, first_host_ip, first_host_routed_ip,
-                second_host, second_host_ip, second_host_routed_ip)
+                second_host, second_host_ip, second_host_routed_ip,
+                iperf_port)
             self.swap_host_macs(first_host, second_host)
 
 
