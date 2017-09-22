@@ -8,7 +8,9 @@ import socket
 import subprocess
 import time
 
-
+GETPORT = 'GETPORT'
+PUTPORTS = 'PUTPORT'
+GETSERIAL = 'GETSERIAL'
 LOCALHOST = u'127.0.0.1'
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
@@ -54,16 +56,27 @@ def tcp_listening(port):
         tcp_listening_cmd(port).split(), stdout=DEVNULL, stderr=DEVNULL, close_fds=True) == 0
 
 
+def get_serialno(ports_socket, name):
+    """Retrieve serial number from test server."""
+    assert name is not None
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(ports_socket)
+    sock.sendall('%s,%s\n' % (GETSERIAL, name))
+    buf = receive_sock_line(sock)
+    serialno = int(buf.strip())
+    return serialno
+
+
 def find_free_port(ports_socket, name):
     """Retrieve a free TCP port from test server."""
     assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
-    sock.sendall('GET,%s\n' % name)
+    sock.sendall('%s,%s\n' % (GETPORT, name))
     buf = receive_sock_line(sock)
-    allocated = [int(x) for x in buf.strip().split()]
-    print('allocated test port %u to %s' % (allocated[0], name))
-    return allocated
+    port = int(buf.strip())
+    print('allocated test port %u to %s' % (port, name))
+    return port
 
 
 def return_free_ports(ports_socket, name):
@@ -71,7 +84,7 @@ def return_free_ports(ports_socket, name):
     assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
-    sock.sendall('PUT,%s\n' % name)
+    sock.sendall('%s,%s\n' % (PUTPORTS, name))
     print('returned all test ports allocated to %s' % name)
 
 
@@ -80,6 +93,7 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
     ports_q = collections.deque()
     free_ports = set()
     port_age = {}
+    serialno = 1
 
     def get_port():
         while True:
@@ -106,7 +120,6 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             time.sleep(0.1)
 
     queue_free_ports(start_free_ports)
-    ports_served = 0
     ports_by_name = collections.defaultdict(set)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(ports_socket)
@@ -115,12 +128,15 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
     while True:
         connection, _ = sock.accept()
         command, name = receive_sock_line(connection).split(',')
-        if command == 'PUT':
+        if command == GETSERIAL:
+            # pylint: disable=no-member
+            connection.sendall('%u\n' % ++serialno)
+        if command == PUTPORTS:
             for port in ports_by_name[name]:
                 ports_q.append(port)
                 port_age[port] = time.time()
             del ports_by_name[name]
-        else:
+        elif command == GETPORT:
             if len(ports_q) < min_free_ports:
                 queue_free_ports(len(ports_q) + 1)
             while True:
@@ -129,10 +145,9 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
                     break
                 ports_q.append(port)
                 time.sleep(1)
-            ports_served += 1
             ports_by_name[name].add(port)
             # pylint: disable=no-member
-            connection.sendall('%u %u\n' % (port, ports_served))
+            connection.sendall('%u\n' % port)
         connection.close()
 
 

@@ -204,7 +204,7 @@ class FaucetTestBase(unittest.TestCase):
             self.config_ports[port_name] = None
             for config in (self.CONFIG, self.CONFIG_GLOBAL, self.GAUGE_CONFIG_DBS):
                 if re.search(port_name, config):
-                    port, _ = faucet_mininet_test_util.find_free_port(
+                    port = faucet_mininet_test_util.find_free_port(
                         self.ports_sock, self._test_name())
                     self.config_ports[port_name] = port
                     print('allocating port %u for %s' % (port, port_name))
@@ -213,17 +213,17 @@ class FaucetTestBase(unittest.TestCase):
         if self.hw_switch:
             self.of_port = self.config['of_port']
         else:
-            self.of_port, _ = faucet_mininet_test_util.find_free_port(
+            self.of_port = faucet_mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
 
-        self.prom_port, _ = faucet_mininet_test_util.find_free_port(
+        self.prom_port = faucet_mininet_test_util.find_free_port(
             self.ports_sock, self._test_name())
 
     def _allocate_gauge_ports(self):
         if self.hw_switch:
             self.gauge_of_port = self.config['gauge_of_port']
         else:
-            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
+            self.gauge_of_port = faucet_mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
 
     def setUp(self):
