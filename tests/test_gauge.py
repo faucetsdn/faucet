@@ -43,20 +43,26 @@ class GaugePrometheusTests(unittest.TestCase):
             parsed_output[key].append((stat_name, float(stat_val)))
 
         return parsed_output
-            
+
+    def create_mock_datapath(self,num_ports):
+        ports = {}
+        for i in range(1, num_ports + 1):
+            port = mock.Mock()
+            port_name = mock.PropertyMock(return_value="port" + str(i))
+            type(port).name = port_name
+
+        return mock.Mock(ports=ports)
+
+    def get_prometheus_stats(self, addr, port):
+        url = "http://{}:{}".format(addr, port)
+        session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(max_retries=10)
+        session.mount("http://", adapter)
+        return session.get(url).text
+
     def test_poller(self):
         prom_client = gauge_prom.GaugePrometheusClient()
-
-        p1 = mock.Mock()
-        p1_name = mock.PropertyMock(return_value="port1")
-        type(p1).name = p1_name
-
-        p2 = mock.Mock(name="port2")
-        p2_name = mock.PropertyMock(return_value="port2")
-        type(p2).name = p2_name
-
-        ports = {1 : p1, 2 : p2}
-        datapath = mock.Mock(ports=ports)
+        datapath = self.create_mock_datapath(2)
 
         conf = mock.Mock(dp=datapath,
             type="",
@@ -65,22 +71,18 @@ class GaugePrometheusTests(unittest.TestCase):
             prometheus_addr="localhost"
             )
 
+
         prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, "__name__", prom_client)
         port1 = OFPPortStats(1,1,1,1,1,1,1,1,1,1,1,1,1,100,50)
         port2 = OFPPortStats(2,2,2,2,2,2,2,2,2,2,2,2,2,100,50)
-
         message = OFPPortStatsReply(datapath, body=[port1,port2])
-
         dp_id = 1
         prom_poller.update(time.time(), dp_id, message)
-        url = "http://localhost:9303"
-        session = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(max_retries=10)
-        session.mount("http://", adapter)
-        prom_lines = session.get(url).text
+
+        prom_lines = self.get_prometheus_stats(conf.prometheus_addr,conf.prometheus_port)
         prom_lines = self.parse_prom_output(prom_lines)
 
-        for port_num, port in ports.items():
+        for port_num, port in datapath.ports.items():
             stats = prom_lines[(dp_id,port.name)]
             for stat_name, stat_val in stats:
                 self.assertAlmostEqual(stat_val, port_num)
