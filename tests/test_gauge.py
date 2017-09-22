@@ -18,28 +18,28 @@ class GaugePrometheusTests(unittest.TestCase):
         """Parses the port stats from prometheus into a dictionary"""
 
         parsed_output = {}
-        for line in output.split("\n"):
+        for line in output.split('\n'):
             # discard comments and stats not related to port stats
-            if line.startswith("#") or not line.startswith(gauge_prom.PROM_PORT_PREFIX):
+            if line.startswith('#') or not line.startswith(gauge_prom.PROM_PORT_PREFIX):
                 continue
 
-            index = line.find("{")
-            #get the stat name e.g. of_port_rx_bytes and strip "of_port_"
+            index = line.find('{')
+            #get the stat name e.g. of_port_rx_bytes and strip 'of_port_'
             prefix = gauge_prom.PROM_PORT_PREFIX + gauge_prom.PROM_PREFIX_DELIM
-            stat_name = line[0:index].replace(prefix, "")
+            stat_name = line[0:index].replace(prefix, '')
             #get the labels within {}
-            labels = line[index + 1:line.find("}")].split(",")
+            labels = line[index + 1:line.find('}')].split(',')
 
             for label in labels:
-                lab_name, lab_val = label.split("=")
+                lab_name, lab_val = label.split('=')
                 lab_val = lab_val.replace('"', '')
-                if lab_name == "dp_id":
+                if lab_name == 'dp_id':
                     dp_id = int(lab_val, 16)
-                elif lab_name == "port_name":
+                elif lab_name == 'port_name':
                     port_name = lab_val
 
             key = (dp_id, port_name)
-            stat_val = line.split(" ")[1]
+            stat_val = line.split(' ')[1]
             if key not in parsed_output:
                 parsed_output[key] = []
 
@@ -52,7 +52,7 @@ class GaugePrometheusTests(unittest.TestCase):
         ports = {}
         for i in range(1, num_ports + 1):
             port = mock.Mock()
-            port_name = mock.PropertyMock(return_value="port" + str(i))
+            port_name = mock.PropertyMock(return_value='port' + str(i))
             type(port).name = port_name
 
         return mock.Mock(ports=ports)
@@ -61,10 +61,10 @@ class GaugePrometheusTests(unittest.TestCase):
         """Attempts to contact the prometheus server
         at the address to grab port stats."""
 
-        url = "http://{}:{}".format(addr, port)
+        url = 'http://{}:{}'.format(addr, port)
         session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(max_retries=10)
-        session.mount("http://", adapter)
+        session.mount('http://', adapter)
         return session.get(url).text
 
     def test_poller(self):
@@ -74,14 +74,14 @@ class GaugePrometheusTests(unittest.TestCase):
         datapath = self.create_mock_datapath(2)
 
         conf = mock.Mock(dp=datapath,
-                         type="",
+                         type='',
                          interval=1,
                          prometheus_port=9303,
-                         prometheus_addr="localhost"
+                         prometheus_addr='localhost'
                         )
 
 
-        prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, "__name__", prom_client)
+        prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', prom_client)
         port1 = OFPPortStats(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100, 50)
         port2 = OFPPortStats(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 100, 50)
         message = OFPPortStatsReply(datapath, body=[port1, port2])
