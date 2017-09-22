@@ -286,6 +286,8 @@ class FaucetUntaggedGroupHairpinTest(FaucetUntaggedHairpinTest):
 class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
         first_host, second_host = self.net.hosts[:2]
         second_host_ip = ipaddress.ip_address(unicode(second_host.IP()))
         for _ in range(3):
@@ -294,13 +296,15 @@ class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                1, second_host_ip)
+                1, second_host_ip, iperf_port)
             self.flap_all_switch_ports()
 
 
 class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
         first_host, second_host = self.net.hosts[:2]
         first_host_ip = ipaddress.ip_interface(u'fc00::1:1/112')
         second_host_ip = ipaddress.ip_interface(u'fc00::1:2/112')
@@ -312,7 +316,7 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
             self.verify_iperf_min(
                 ((first_host, self.port_map['port_1']),
                  (second_host, self.port_map['port_2'])),
-                1, second_host_ip.ip)
+                1, second_host_ip.ip, iperf_port)
             self.flap_all_switch_ports()
 
 
@@ -1433,6 +1437,8 @@ vlans:
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes received."""
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
         first_host, second_host = self.net.hosts[:2]
         # wait until 10.0.0.1 has been resolved
         self.wait_for_route_as_flow(
@@ -1448,9 +1454,9 @@ vlans:
         self.verify_invalid_bgp_route('10.0.0.5/24 is not a connected network')
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv4Network(u'10.0.3.0/24'))
-        self.verify_ipv4_routing_mesh()
+        self.verify_ipv4_routing_mesh(iperf_port)
         self.flap_all_switch_ports()
-        self.verify_ipv4_routing_mesh()
+        self.verify_ipv4_routing_mesh(iperf_port)
         for host in first_host, second_host:
             self.one_ipv4_controller_ping(host)
 
@@ -1509,9 +1515,11 @@ vlans:
 
     def test_untagged(self):
         """Test IPv4 routing, and BGP routes sent."""
-        self.verify_ipv4_routing_mesh()
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
+        self.verify_ipv4_routing_mesh(iperf_port)
         self.flap_all_switch_ports()
-        self.verify_ipv4_routing_mesh()
+        self.verify_ipv4_routing_mesh(iperf_port)
         self.wait_bgp_up(
             faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
@@ -2635,6 +2643,8 @@ vlans:
 """
 
     def test_tagged(self):
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
@@ -2642,7 +2652,7 @@ vlans:
         for _ in range(3):
             self.verify_ipv4_routing(
                 first_host, first_host_routed_ip,
-                second_host, second_host_routed_ip)
+                second_host, second_host_routed_ip, iperf_port)
             self.swap_host_macs(first_host, second_host)
 
 
@@ -3153,6 +3163,8 @@ vlans:
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
         first_host, second_host = self.net.hosts[:2]
         self.wait_bgp_up('::1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
@@ -3162,9 +3174,9 @@ vlans:
         self.wait_exabgp_sent_updates(self.exabgp_log)
         self.verify_invalid_bgp_route('fc00::40:1/112 cannot be us')
         self.verify_invalid_bgp_route('fc00::50:1/112 is not a connected network')
-        self.verify_ipv6_routing_mesh()
+        self.verify_ipv6_routing_mesh(iperf_port)
         self.flap_all_switch_ports()
-        self.verify_ipv6_routing_mesh()
+        self.verify_ipv6_routing_mesh(iperf_port)
         for host in first_host, second_host:
             self.one_ipv6_controller_ping(host)
 
@@ -3277,12 +3289,14 @@ vlans:
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
-        self.verify_ipv6_routing_mesh()
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
+        self.verify_ipv6_routing_mesh(iperf_port)
         second_host = self.net.hosts[1]
         self.flap_all_switch_ports()
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv6Network(u'fc00::30:0/112'))
-        self.verify_ipv6_routing_mesh()
+        self.verify_ipv6_routing_mesh(iperf_port)
         self.wait_bgp_up('::1', 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
@@ -3814,6 +3828,8 @@ vlans:
 """
 
     def test_untagged(self):
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
@@ -3821,12 +3837,12 @@ vlans:
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
-            with_group_table=True)
+            iperf_port, with_group_table=True)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
-            with_group_table=True)
+            iperf_port, with_group_table=True)
 
 
 class FaucetGroupUntaggedIPv6RouteTest(FaucetUntaggedTest):
@@ -3868,6 +3884,8 @@ vlans:
 """
 
     def test_untagged(self):
+        iperf_port, _ = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
         first_host_ip = ipaddress.ip_interface(u'fc00::1:1/112')
@@ -3877,12 +3895,12 @@ vlans:
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=True)
+            iperf_port, with_group_table=True)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=True)
+            iperf_port, with_group_table=True)
 
 
 class FaucetEthSrcMaskTest(FaucetUntaggedTest):

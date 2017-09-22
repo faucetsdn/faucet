@@ -60,7 +60,9 @@ def find_free_port(ports_socket, name):
     sock.connect(ports_socket)
     sock.sendall('GET,%s\n' % name)
     buf = receive_sock_line(sock)
-    return [int(x) for x in buf.strip().split()]
+    allocated = [int(x) for x in buf.strip().split()]
+    print('allocated test port %u to %s' % (allocated[0], name))
+    return allocated
 
 
 def return_free_ports(ports_socket, name):
