@@ -62,12 +62,12 @@ def report_label_match_metrics(report_metrics, metrics,
                         value = VAL_DECODE[metric.name](value)
                     except KeyError:
                         pass
-                    print(delim.join((metric.name, str(labels), str(value))))
+                    print((delim.join((metric.name, str(labels), str(value)))))
 
 
 def usage():
     usage_vars = {'self': sys.argv[0]}
-    print("""
+    print(("""
 Retrieve FAUCET/Gauge state using Prometheus.
 
     {self} [-n] <-e|--endpoints=http://prometheus:port> [-m|--metrics=prometheus_metrics,] [-l|--labels=name:value,]
@@ -86,7 +86,7 @@ Examples:
     Status of all DPs
 
     {self} -n --endpoints=http://172.17.0.1:9244 --metrics=dp_status
-""".format(**usage_vars)) # pytype: disable=duplicate-keyword-argument
+""".format(**usage_vars))) # pytype: disable=duplicate-keyword-argument
     sys.exit(-1)
 
 
