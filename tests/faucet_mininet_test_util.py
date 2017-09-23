@@ -78,7 +78,7 @@ def find_free_port(ports_socket, name):
         port = test_server_request(ports_socket, name, GETPORT)
         if not tcp_listening(port):
             return port
-        print('port %u is busy, try another' % port) 
+        print('port %u is busy, try another' % port)
 
 
 def return_free_ports(ports_socket, name):
