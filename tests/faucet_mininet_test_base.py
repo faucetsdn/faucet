@@ -204,7 +204,7 @@ class FaucetTestBase(unittest.TestCase):
             self.config_ports[port_name] = None
             for config in (self.CONFIG, self.CONFIG_GLOBAL, self.GAUGE_CONFIG_DBS):
                 if re.search(port_name, config):
-                    port, _ = faucet_mininet_test_util.find_free_port(
+                    port = faucet_mininet_test_util.find_free_port(
                         self.ports_sock, self._test_name())
                     self.config_ports[port_name] = port
                     print('allocating port %u for %s' % (port, port_name))
@@ -213,17 +213,17 @@ class FaucetTestBase(unittest.TestCase):
         if self.hw_switch:
             self.of_port = self.config['of_port']
         else:
-            self.of_port, _ = faucet_mininet_test_util.find_free_port(
+            self.of_port = faucet_mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
 
-        self.prom_port, _ = faucet_mininet_test_util.find_free_port(
+        self.prom_port = faucet_mininet_test_util.find_free_port(
             self.ports_sock, self._test_name())
 
     def _allocate_gauge_ports(self):
         if self.hw_switch:
             self.gauge_of_port = self.config['gauge_of_port']
         else:
-            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
+            self.gauge_of_port = faucet_mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
 
     def setUp(self):
@@ -1088,12 +1088,10 @@ dbs:
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip, iperf_port):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1
-        iperf_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = []
         for host, _ in hosts_switch_ports:
@@ -1509,7 +1507,7 @@ dbs:
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip,
-                            with_group_table=False):
+                            iperf_port, with_group_table=False):
         """Verify one host can IPV4 route to another via FAUCET."""
         self.host_ipv4_alias(first_host, first_host_routed_ip)
         self.host_ipv4_alias(second_host, second_host_routed_ip)
@@ -1532,8 +1530,6 @@ dbs:
         for client_host, server_host, server_ip in (
                 (first_host, second_host, second_host_routed_ip.ip),
                 (second_host, first_host, first_host_routed_ip.ip)):
-            iperf_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock, self._test_name())
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
             print('%u mbps to %s' % (iperf_mbps, server_ip))
@@ -1548,7 +1544,7 @@ dbs:
             with_group_table=with_group_table,
             nonzero_packets=True)
 
-    def verify_ipv4_routing_mesh(self, with_group_table=False):
+    def verify_ipv4_routing_mesh(self, iperf_port, with_group_table=False):
         """Verify hosts can route to each other via FAUCET."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
@@ -1558,20 +1554,20 @@ dbs:
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
 
     def host_drop_all_ips(self, host):
         for ipv in (4, 6):
@@ -1593,7 +1589,7 @@ dbs:
     def verify_ipv6_routing(self, first_host, first_host_ip,
                             first_host_routed_ip, second_host,
                             second_host_ip, second_host_routed_ip,
-                            with_group_table=False):
+                            iperf_port, with_group_table=False):
         """Verify one host can IPV6 route to another via FAUCET."""
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
@@ -1614,8 +1610,6 @@ dbs:
         for client_host, server_host, server_ip in (
                 (first_host, second_host, second_host_routed_ip.ip),
                 (second_host, first_host, first_host_routed_ip.ip)):
-            iperf_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock, self._test_name())
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
             print('%u mbps to %s' % (iperf_mbps, server_ip))
@@ -1630,7 +1624,7 @@ dbs:
     def verify_ipv6_routing_pair(self, first_host, first_host_ip,
                                  first_host_routed_ip, second_host,
                                  second_host_ip, second_host_routed_ip,
-                                 with_group_table=False):
+                                 iperf_port, with_group_table=False):
         """Verify hosts can route IPv6 to each other via FAUCET."""
         self.setup_ipv6_hosts_addresses(
             first_host, first_host_ip, first_host_routed_ip,
@@ -1638,9 +1632,9 @@ dbs:
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
 
-    def verify_ipv6_routing_mesh(self, with_group_table=False):
+    def verify_ipv6_routing_mesh(self, iperf_port, with_group_table=False):
         """Verify IPv6 routing between hosts and multiple subnets."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
@@ -1652,20 +1646,20 @@ dbs:
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
 
     def verify_invalid_bgp_route(self, pattern):
         """Check if we see the pattern in Faucet's log"""

@@ -27,12 +27,13 @@ script:
   - touch ~/.pylintrc
   - cd ./tests
   - PYTHONPATH="../faucet" ./test_min_pylint.sh
-  - py.test ./test_check_config.py ./test_config.py ./test_valve.py --cov faucet --doctest-modules -v --cov-report term-missing
+  - py.test ./test_check_config.py ./test_config.py ./test_valve.py ./test_gauge.py --cov faucet --doctest-modules -v --cov-report term-missing
   - coveralls || true
   - cd ..
   - ls -l `dirname ${DOCKER_CACHE_FILE}`
   - if [[ $(find ${DOCKER_CACHE_FILE} -type f -size +100c 2>/dev/null) ]] ; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
   - docker images
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
-  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save python:2-slim python:3-slim reannz/faucet-tests:latest | gzip > ${DOCKER_CACHE_FILE} ; fi
+  - docker images
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save ubuntu:latest reannz/faucet-tests:latest | gzip > ${DOCKER_CACHE_FILE} ; fi
   - sudo docker run --privileged -ti -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}

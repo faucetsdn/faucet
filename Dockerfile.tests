@@ -1,7 +1,4 @@
-# TODO: Slim down
-#FROM python:3-slim
-#FROM python:2-slim
-FROM osrg/ryu
+FROM ubuntu:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -13,8 +10,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN \
   apt-get update && \
   apt-get install -qy --no-install-recommends apt-transport-https build-essential curl software-properties-common && \
-  curl -sL https://repos.influxdata.com/influxdb.key | apt-key add - && \
-  echo "deb https://repos.influxdata.com/debian jessie stable" | tee /etc/apt/sources.list.d/influxdb.list && \
   apt-get update
 
 RUN \
@@ -23,7 +18,6 @@ RUN \
     fping \
     gcc \
     git \
-    influxdb \
     iperf \
     iputils-ping \
     ladvd \
@@ -55,8 +49,11 @@ RUN \
   git config --global url.https://github.com/.insteadOf git://github.com/ && \
   /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" |parallel --bar git clone
 
+
+### slim down mininet dependencies (to avoid installing X11)
 RUN \
   cd mininet && git checkout 2.2.2 && cd .. && \
+  for i in xterm ssh python-pexpect pylint ; do perl -pi -e s/${i}//g mininet/util/install.sh ; done && \
   mininet/util/install.sh -nfv
 
 RUN \

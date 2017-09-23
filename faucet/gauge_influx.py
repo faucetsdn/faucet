@@ -16,8 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy
-
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 # pytype: disable=pyi-error
@@ -72,7 +70,7 @@ class InfluxShipper(object):
             'tags': tags,
             'time': int(rcv_time),
             # pylint: disable=no-member
-            'fields': {'value': numpy.float64(stat_val)}}
+            'fields': {'value': float(stat_val)}}
         return point
 
     def make_port_point(self, dp_name, port_name, rcv_time, stat_name, stat_val):
