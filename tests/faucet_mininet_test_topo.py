@@ -80,37 +80,39 @@ class FaucetSwitchTopo(Topo):
             cls=FaucetSwitch,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
 
-    def build(self, ports_sock, test_name, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        _, ports_served = faucet_mininet_test_util.find_free_port(
-            ports_sock, test_name)
-        sid_prefix = self._get_sid_prefix(ports_served)
-        for host_n in range(n_tagged):
-            self._add_tagged_host(sid_prefix, tagged_vid, host_n)
-        for host_n in range(n_untagged):
-            self._add_untagged_host(sid_prefix, host_n)
-        switch = self._add_faucet_switch(sid_prefix, dpid)
-        for host in self.hosts():
-            self.addLink(host, switch)
+    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+        for dpid in dpids:
+            serialno = faucet_mininet_test_util.get_serialno(
+                ports_sock, test_name)
+            sid_prefix = self._get_sid_prefix(serialno)
+            for host_n in range(n_tagged):
+                self._add_tagged_host(sid_prefix, tagged_vid, host_n)
+            for host_n in range(n_untagged):
+                self._add_untagged_host(sid_prefix, host_n)
+            switch = self._add_faucet_switch(sid_prefix, dpid)
+            for host in self.hosts():
+                self.addLink(host, switch)
 
 
 class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
-    def build(self, ports_sock, test_name, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0):
-        _, ports_served = faucet_mininet_test_util.find_free_port(
-            ports_sock, test_name)
-        sid_prefix = self._get_sid_prefix(ports_served)
-        for host_n in range(n_tagged):
-            self._add_tagged_host(sid_prefix, tagged_vid, host_n)
-        for host_n in range(n_untagged):
-            self._add_untagged_host(sid_prefix, host_n)
-        remap_dpid = str(int(dpid) + 1)
-        print('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
-            dpid, int(dpid), remap_dpid, int(remap_dpid)))
-        dpid = remap_dpid
-        switch = self._add_faucet_switch(sid_prefix, dpid)
-        for host in self.hosts():
-            self.addLink(host, switch)
+    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+        for dpid in dpids:
+            serialno = faucet_mininet_test_util.get_serialno(
+                ports_sock, test_name)
+            sid_prefix = self._get_sid_prefix(serialno)
+            for host_n in range(n_tagged):
+                self._add_tagged_host(sid_prefix, tagged_vid, host_n)
+            for host_n in range(n_untagged):
+                self._add_untagged_host(sid_prefix, host_n)
+            remap_dpid = str(int(dpid) + 1)
+            print('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
+                dpid, int(dpid), remap_dpid, int(remap_dpid)))
+            dpid = remap_dpid
+            switch = self._add_faucet_switch(sid_prefix, dpid)
+            for host in self.hosts():
+                self.addLink(host, switch)
 
 
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
@@ -144,9 +146,9 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         """
         last_switch = None
         for dpid in dpids:
-            _, ports_served = faucet_mininet_test_util.find_free_port(
+            serialno = faucet_mininet_test_util.get_serialno(
                 ports_sock, test_name)
-            sid_prefix = self._get_sid_prefix(ports_served)
+            sid_prefix = self._get_sid_prefix(serialno)
             hosts = []
             for host_n in range(n_tagged):
                 hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
@@ -315,7 +317,7 @@ class FAUCET(BaseFAUCET):
     def __init__(self, name, tmpdir, controller_intf, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, port, test_name, **kwargs):
-        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
+        self.ofctl_port = faucet_mininet_test_util.find_free_port(
             ports_sock, test_name)
         cargs = ' '.join((
             '--wsapi-host=%s' % faucet_mininet_test_util.LOCALHOST,
