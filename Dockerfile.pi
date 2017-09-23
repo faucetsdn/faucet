@@ -1,23 +1,25 @@
-FROM resin/raspberry-pi-python:3-slim
+FROM hypriot/rpi-alpine
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV BUILDDEPS="gcc musl-dev python3-dev"
 ENV TESTDEPS="bitstring pytest setuptools wheel virtualenv"
-
-RUN \
-  apt-get update && \
-  apt-get install -qy --no-install-recommends git
 
 COPY ./ /faucet-src/
 
 RUN \
-  pip3 --no-cache-dir install --upgrade pip && \
-  pip3 --no-cache-dir install $TESTDEPS --upgrade && \
-  pip3 --no-cache-dir install -r /faucet-src/requirements.txt && \
-  pip3 --no-cache-dir install /faucet-src && \
-  python3 -m pytest /faucet-src/tests/test_valve.py && \
-  find / -name \*pyc -delete && \
-  apt-get -y purge gcc libc6-dev && \
-  apt-get -y autoremove
+    apk add -U \
+    python3 \
+    py-pip \
+    py-virtualenv \
+    git \
+    $BUILDDEPS && \
+    python3 -m ensurepip && \
+    pip3 --no-cache-dir install --upgrade pip && \
+    pip3 --no-cache-dir install $TESTDEPS --upgrade && \
+    pip3 --no-cache-dir install -r /faucet-src/requirements.txt && \
+    pip3 --no-cache-dir install /faucet-src && \
+    python3 -m pytest /faucet-src/tests/test_valve.py && \
+    for i in $BUILDDEPS ; do apk del $i ; done && \
+    find / -name \*pyc -delete
 
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 
