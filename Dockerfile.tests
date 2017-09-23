@@ -50,10 +50,10 @@ RUN \
   /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" |parallel --bar git clone
 
 
-### prevent xterm/X11 dependencies from being installed
+### slim down mininet dependencies (to avoid installing X11)
 RUN \
   cd mininet && git checkout 2.2.2 && cd .. && \
-  perl -pi -e s/xterm//g mininet/util/install.sh && \
+  for i in xterm ssh python-pexpect pylint ; do perl -pi -e s/${i}//g mininet/util/install.sh ; done && \
   mininet/util/install.sh -nfv
 
 RUN \
