@@ -620,7 +620,7 @@ def parse_args():
 
 def test_main():
     """Test main."""
-    setLogLevel('info')
+    setLogLevel('error')
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
      serial, excluded_test_classes) = parse_args()
 
