@@ -19,7 +19,9 @@ import ipaddress
 import scapy.all
 import yaml
 
+from mininet.log import output
 from mininet.net import Mininet
+
 
 import faucet_mininet_test_base
 import faucet_mininet_test_util
@@ -326,7 +328,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
     def test_portmap(self):
         for i, host in enumerate(self.net.hosts):
             in_port = 'port_%u' % (i + 1)
-            print('verifying host/port mapping for %s' % in_port)
+            error('verifying host/port mapping for %s' % in_port)
             self.require_host_learned(host, in_port=self.port_map[in_port])
 
 
@@ -1917,7 +1919,7 @@ vlans:
                     'scapy.all.send(IPv6(dst=\'%s\')/'
                     'fuzz(%s()),count=%u)\"' % ('fc00::1:254', fuzz_class, packets))
                 if re.search('Sent %u packets' % packets, first_host.cmd(fuzz_cmd)):
-                    print(fuzz_class)
+                    output(fuzz_class)
                     fuzz_success = True
         self.assertTrue(fuzz_success)
         self.one_ipv6_controller_ping(first_host)
