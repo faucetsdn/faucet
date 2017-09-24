@@ -19,7 +19,7 @@ import ipaddress
 import scapy.all
 import yaml
 
-from mininet.log import output
+from mininet.log import error, output
 from mininet.net import Mininet
 
 
