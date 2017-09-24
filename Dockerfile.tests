@@ -72,7 +72,7 @@ RUN \
   $PIP3 setuptools wheel virtualenv
 
 RUN \
-  cd pytype && git submodule init && git submodule update && python2 setup.py install && cd ..
+  cd pytype && git submodule init && git submodule update && python2 setup.py -q install && cd ..
 
 ###
 ### To maximize Docker caching, try to keep invariant dependencies above this line.
