@@ -1,6 +1,9 @@
 FROM ubuntu:latest
 
+ENV AG="apt-get -qqy --no-install-recommends"
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP="pip -q --no-cache-dir install --update"
+ENV PIP3="pip3 -q --no-cache-dir install --update"
 
 ###
 ### When apt-get'ing, make sure apt-update always run first per RUN
@@ -8,13 +11,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 ###
 
 RUN \
-  apt-get update && \
-  apt-get install -qy --no-install-recommends apt-transport-https build-essential curl software-properties-common && \
-  apt-get update
-
-RUN \
-  apt-get update && apt-get install -qy --no-install-recommends \
+  $AG update && \
+  $AG install \
+    autoconf \
+    apt-transport-https \
     bc \
+    build-essential \
+    curl \
     fping \
     gcc \
     git \
@@ -29,11 +32,13 @@ RUN \
     ndisc6 \
     net-tools \
     netcat-openbsd \
+    openvswitch-common \
     parallel \
     patch \
     psmisc \
     python-pip \
     python3-pip \
+    software-properties-common \
     sudo \
     tcpdump \
     tshark \
@@ -52,17 +57,19 @@ RUN \
 
 ### slim down mininet dependencies (to avoid installing X11)
 RUN \
+  $AG update && \
   cd mininet && git checkout 2.2.2 && cd .. && \
   for i in xterm ssh python-pexpect pylint ; do perl -pi -e s/${i}//g mininet/util/install.sh ; done && \
   mininet/util/install.sh -nv
 
 RUN \
-  apt-get purge -qy pylint && \
-  pip3 install --upgrade pip && \
+  $AG update && \
+  $AG purge pylint && \
+  $PIP3 pip && \
   easy_install -U pip && \
-  pip install --upgrade pip && \
-  pip --no-cache-dir install multiprocessing scapy==2.3.2 setuptools wheel virtualenv --upgrade && \
-  pip3 install setuptools wheel virtualenv --upgrade
+  $PIP pip && \
+  $PIP multiprocessing scapy==2.3.2 setuptools wheel virtualenv && \
+  $PIP3 setuptools wheel virtualenv
 
 RUN \
   cd pytype && git submodule init && git submodule update && python2 setup.py install && cd ..
@@ -74,9 +81,9 @@ RUN \
 COPY ./ /faucet-src/
 
 RUN \
-  pip --no-cache-dir install -r /faucet-src/test-requirements.txt && \
-  pip3 --no-cache-dir install -r /faucet-src/requirements.txt && \
-  pip3 --no-cache-dir install -r /faucet-src/test-requirements.txt && \
-  pip3 --no-cache-dir install /faucet-src
+  $PIP -r /faucet-src/test-requirements.txt && \
+  $PIP3 -r /faucet-src/requirements.txt && \
+  $PIP3 -r /faucet-src/test-requirements.txt && \
+  $PIP3 /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]
