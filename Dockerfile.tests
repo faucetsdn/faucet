@@ -60,7 +60,6 @@ RUN \
   $AG update && \
   cd mininet && git checkout 2.2.2 && cd .. && \
   perl -pi -e "s/setup.py/setup.py -q/g" mininet/Makefile && \
-  perl -pi -e s/apt-get/${AG}/g mininet/util/install.sh && \
   for i in xterm ssh python-pexpect pylint ; do perl -pi -e s/${i}//g mininet/util/install.sh ; done && \
   mininet/util/install.sh -nv
 
