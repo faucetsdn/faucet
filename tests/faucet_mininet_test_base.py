@@ -354,7 +354,7 @@ class FaucetTestBase(unittest.TestCase):
                 return
             self.net.stop()
             last_error_txt += '\n\n' + self._dump_controller_logs()
-            error(last_error_txt)
+            error('%s: %s' % (self._test_name(), last_error_txt))
             time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
         self.fail(last_error_txt)
 
