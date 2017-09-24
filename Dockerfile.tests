@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-ENV AG="apt-get -qqy --no-install-recommends -o=Dpkg::Use-Pty=0"
+ENV AG="apt-get -qqy --no-install-recommends"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
@@ -52,13 +52,15 @@ RUN \
 
 RUN \
   git config --global url.https://github.com/.insteadOf git://github.com/ && \
-  /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" |parallel --bar git clone
+  /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" | parallel git clone
 
 
 ### slim down mininet dependencies (to avoid installing X11)
 RUN \
   $AG update && \
   cd mininet && git checkout 2.2.2 && cd .. && \
+  perl -pi -e "s/setup.py/setup.py -q/g" mininet/Makefile && \
+  perl -pi -e s/apt-get/${AG}/g mininet/util/install.sh && \
   for i in xterm ssh python-pexpect pylint ; do perl -pi -e s/${i}//g mininet/util/install.sh ; done && \
   mininet/util/install.sh -nv
 
