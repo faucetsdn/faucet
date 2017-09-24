@@ -54,7 +54,7 @@ RUN \
 RUN \
   cd mininet && git checkout 2.2.2 && cd .. && \
   for i in xterm ssh python-pexpect pylint ; do perl -pi -e s/${i}//g mininet/util/install.sh ; done && \
-  mininet/util/install.sh -nfv
+  mininet/util/install.sh -nv
 
 RUN \
   apt-get purge -qy pylint && \
