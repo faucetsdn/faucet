@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-ENV AG="apt-get -qqy --no-install-recommends"
+ENV AG="apt-get -qqy --no-install-recommends -o=Dpkg::Use-Pty=0"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
