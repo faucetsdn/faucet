@@ -24,9 +24,9 @@
 
 # pytype: disable=pyi-error
 # pytype: disable=import-error
+import getopt
 import sys
 import time
-import getopt
 import urllib
 import requests
 from prometheus_client import parser
@@ -78,7 +78,8 @@ def report_label_match_metrics(report_metrics, metrics,
                         value = VAL_DECODE[metric.name](value)
                     except KeyError:
                         pass
-                    print((delim.join((metric.name, str(labels), str(value)))))
+                    sorted_labels = [(k, v) for k, v in sorted(labels.items())]
+                    print((delim.join((metric.name, str(sorted_labels), str(value)))))
 
 
 def usage():

@@ -39,7 +39,7 @@ if [ "$DEPCHECK" == 1 ] ; then
 fi
 
 echo "========== Running faucet unit tests =========="
-python3 -m pytest ./test_check_config.py ./test_config.py ./test_valve.py ./test_gauge.py --cov faucet --doctest-modules -v --cov-report term-missing || exit 1
+python3 -m pytest ./test_check_config.py ./test_config.py ./test_fctl.py ./test_gauge.py ./test_valve.py --cov faucet --doctest-modules -v --cov-report term-missing || exit 1
 
 echo "========== Running faucet system tests =========="
 python2 ./faucet_mininet_test.py -c
