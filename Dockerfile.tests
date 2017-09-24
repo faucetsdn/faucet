@@ -2,8 +2,8 @@ FROM ubuntu:latest
 
 ENV AG="apt-get -qqy --no-install-recommends"
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PIP="pip -q --no-cache-dir install --update"
-ENV PIP3="pip3 -q --no-cache-dir install --update"
+ENV PIP="pip -q --no-cache-dir install --upgrade"
+ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 
 ###
 ### When apt-get'ing, make sure apt-update always run first per RUN
