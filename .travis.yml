@@ -19,15 +19,15 @@ env:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
     - FAUCET_TEST_IMG=reannz/faucet-tests
 install:
-  - pip3 install -r requirements.txt -r test-requirements.txt
-  - python3 setup.py sdist
-  - pip3 install dist/*tar.gz
+  - pip3 install -q -r requirements.txt -r test-requirements.txt
+  - python3 setup.py -q sdist
+  - pip3 install -q dist/*tar.gz
   - pip3 show faucet
 script:
   - touch ~/.pylintrc
   - cd ./tests
   - PYTHONPATH="../faucet" ./test_min_pylint.sh
-  - py.test ./test_check_config.py ./test_config.py ./test_fctl.py ./test_gauge.py ./test_valve.py --cov faucet --doctest-modules -v --cov-report term-missing
+  - py.test ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
   - coveralls || true
   - cd ..
   - ls -l `dirname ${DOCKER_CACHE_FILE}`
