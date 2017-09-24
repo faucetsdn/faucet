@@ -28,7 +28,7 @@ import getopt
 import sys
 import time
 import urllib
-import requests
+import urllib.request, urllib.parse, urllib.error
 from prometheus_client import parser
 
 # TODO: byte/packet counters could be per second (given multiple samples)
