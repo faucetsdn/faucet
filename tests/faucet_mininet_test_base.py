@@ -21,6 +21,7 @@ import requests
 from requests.exceptions import ConnectionError
 
 # pylint: disable=import-error
+from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
@@ -196,7 +197,7 @@ class FaucetTestBase(unittest.TestCase):
             time.sleep(random.randint(1, 7))
             if load < self.max_test_load:
                 return
-            print('load average too high %f, waiting' % load)
+            output('load average too high %f, waiting' % load)
         self.fail('load average %f consistently too high' % load)
 
     def _allocate_config_ports(self):
@@ -207,7 +208,7 @@ class FaucetTestBase(unittest.TestCase):
                     port = faucet_mininet_test_util.find_free_port(
                         self.ports_sock, self._test_name())
                     self.config_ports[port_name] = port
-                    print('allocating port %u for %s' % (port, port_name))
+                    output('allocating port %u for %s' % (port, port_name))
 
     def _allocate_faucet_ports(self):
         if self.hw_switch:
@@ -353,7 +354,7 @@ class FaucetTestBase(unittest.TestCase):
                 return
             self.net.stop()
             last_error_txt += '\n\n' + self._dump_controller_logs()
-            print(last_error_txt)
+            error('%s: %s' % (self._test_name(), last_error_txt))
             time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
         self.fail(last_error_txt)
 
@@ -502,7 +503,7 @@ class FaucetTestBase(unittest.TestCase):
                         for func in funcs:
                             func()
                 else:
-                    print('tcpdump_helper: %s' % line)
+                    error('tcpdump_helper: %s' % line)
         self.assertTrue(tcpdump_started, msg='%s did not start' % tcpdump_cmd)
         return tcpdump_txt
 
@@ -929,7 +930,7 @@ dbs:
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(faucet_mininet_test_util.timeout_cmd(
             fping_cli, timeout))
-        print(fping_out)
+        error('%s: %s' % (self._test_name(), fping_out))
         self.assertTrue(
             not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
@@ -1109,12 +1110,12 @@ dbs:
                     start_port_stats[host], end_port_stats[host], 'rx_bytes', seconds)
                 of_tx_mbps = self.of_bytes_mbps(
                     start_port_stats[host], end_port_stats[host], 'tx_bytes', seconds)
-                print(of_rx_mbps, of_tx_mbps)
+                output(of_rx_mbps, of_tx_mbps)
                 max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
                 iperf_to_max = iperf_mbps / max_of_mbps
                 msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
                     iperf_mbps, max_of_mbps, iperf_to_max)
-                print(msg)
+                output(msg)
                 if ((iperf_to_max < (1.0 - prop)) or
                         (iperf_to_max > (1.0 + prop))):
                     approx_match = False
@@ -1532,7 +1533,7 @@ dbs:
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
-            print('%u mbps to %s' % (iperf_mbps, server_ip))
+            error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         # verify packets matched routing flows
         self.wait_for_route_as_flow(
@@ -1612,7 +1613,7 @@ dbs:
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
-            print('%u mbps to %s' % (iperf_mbps, server_ip))
+            error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.verify_ipv6_host_learned_mac(

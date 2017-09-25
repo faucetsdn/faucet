@@ -8,6 +8,10 @@ import socket
 import subprocess
 import time
 
+# pylint: disable=import-error
+from mininet.log import error, output
+
+
 GETPORT = 'GETPORT'
 PUTPORTS = 'PUTPORTS'
 GETSERIAL = 'GETSERIAL'
@@ -63,7 +67,7 @@ def test_server_request(ports_socket, name, command):
     sock.sendall('%s,%s\n' % (command, name))
     buf = receive_sock_line(sock)
     response = int(buf.strip())
-    print('%s %s: %u' % (name, command, response))
+    output('%s %s: %u' % (name, command, response))
     return response
 
 
@@ -78,7 +82,7 @@ def find_free_port(ports_socket, name):
         port = test_server_request(ports_socket, name, GETPORT)
         if not tcp_listening(port):
             return port
-        print('port %u is busy, try another' % port)
+        error('port %u is busy, try another' % port)
 
 
 def return_free_ports(ports_socket, name):
