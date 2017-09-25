@@ -12,6 +12,7 @@ import time
 from mininet.log import error, output
 
 
+DEVNULL = open(os.devnull, 'wb')
 GETPORT = 'GETPORT'
 PUTPORTS = 'PUTPORTS'
 GETSERIAL = 'GETSERIAL'
@@ -55,9 +56,12 @@ def receive_sock_line(sock):
 
 def tcp_listening(port):
     """Return True if any process listening on a port."""
-    DEVNULL = open(os.devnull, 'w')
     return subprocess.call(
-        tcp_listening_cmd(port).split(), stdout=DEVNULL, stderr=DEVNULL, close_fds=True) == 0
+        tcp_listening_cmd(port).split(),
+        stdin=DEVNULL,
+        stdout=DEVNULL,
+        stderr=DEVNULL,
+        close_fds=True) == 0
 
 
 def test_server_request(ports_socket, name, command):
@@ -67,6 +71,7 @@ def test_server_request(ports_socket, name, command):
     sock.sendall('%s,%s\n' % (command, name))
     buf = receive_sock_line(sock)
     response = int(buf.strip())
+    sock.close()
     output('%s %s: %u' % (name, command, response))
     return response
 

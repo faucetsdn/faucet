@@ -166,7 +166,11 @@ def check_dependencies():
             ' '.join(binary_args))
         try:
             proc = subprocess.Popen(
-                binary_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                binary_args,
+                stdin=faucet_mininet_test_util.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                close_fds=True)
             proc_out, proc_err = proc.communicate()
             binary_output = proc_out
             if proc_err is not None:
@@ -210,14 +214,18 @@ def lint_check():
              'PYTHONPATH=%s' % faucet_mininet_test_util.FAUCET_DIR,
              'pylint',
              '--rcfile=/dev/null',
-             '-E', faucet_src])
+             '-E', faucet_src],
+            stdin=faucet_mininet_test_util.DEVNULL,
+            close_fds=True)
         if ret:
             print(('pylint of %s returns an error' % faucet_src))
             return False
     for faucet_src in FAUCET_LINT_SRCS:
         output_2to3 = subprocess.check_output(
             ['2to3', '--nofix=import', faucet_src],
-            stderr=open(os.devnull, 'wb'))
+            stdin=faucet_mininet_test_util.DEVNULL,
+            stderr=faucet_mininet_test_util.DEVNULL,
+            close_fds=True)
         if output_2to3:
             print(('2to3 of %s returns a diff (not python3 compatible)' % faucet_src))
             print(output_2to3)
@@ -557,8 +565,8 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
         print('Testing hardware, forcing test serialization')
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
-    start_free_ports = 5
-    min_free_ports = 100
+    start_free_ports = 10
+    min_free_ports = 200
     ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
     print('test ports server started')
     sanity_tests, single_tests, parallel_tests = expand_tests(
