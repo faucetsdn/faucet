@@ -328,7 +328,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
     def test_portmap(self):
         for i, host in enumerate(self.net.hosts):
             in_port = 'port_%u' % (i + 1)
-            error('verifying host/port mapping for %s' % in_port)
+            error('verifying host/port mapping for %s\n' % in_port)
             self.require_host_learned(host, in_port=self.port_map[in_port])
 
 

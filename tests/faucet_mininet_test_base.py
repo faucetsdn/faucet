@@ -1532,7 +1532,7 @@ dbs:
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
-            error('%u mbps to %s' % (iperf_mbps, server_ip))
+            error('%u mbps to %s\n' % (iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         # verify packets matched routing flows
         self.wait_for_route_as_flow(
