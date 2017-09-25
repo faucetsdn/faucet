@@ -10,7 +10,7 @@ A docker image that facilitates testing the gNMI protocol using Openconfig model
 From FAUCET root:
 
 ```
-docker build -t reannz/gnmi -f Dockerfile.gnmi .
+docker build -t faucet/gnmi -f Dockerfile.gnmi .
 ```
 
 When building the image, a set of helper certificates is generated and added to `$HOME/certs/` folder:
@@ -22,7 +22,7 @@ When building the image, a set of helper certificates is generated and added to 
 ## How to run
 
 ```
-docker run -ti reannz/gnmi:latest
+docker run -ti faucet/gnmi:latest
 ```
 
 When running the docker image a default test gNMI target is initiated:
