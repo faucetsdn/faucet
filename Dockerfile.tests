@@ -46,6 +46,7 @@ RUN \
     python-pip \
     python3-pip \
     software-properties-common \
+    ssl-dev \
     sudo \
     tcpdump \
     tshark \
