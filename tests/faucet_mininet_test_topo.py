@@ -297,7 +297,9 @@ class BaseFAUCET(Controller):
                  '-O', 'openflow_v4',
                  '-Y', 'openflow_v4',
                  '-r', self.ofcap],
-                stdout=text_ofcap, stderr=open(os.devnull, 'w'), close_fds=True)
+                stdout=text_ofcap,
+                stderr=open(os.devnull, 'w'),
+                close_fds=True)
 
     def stop(self):
         """Stop controller."""

@@ -166,7 +166,10 @@ def check_dependencies():
             ' '.join(binary_args))
         try:
             proc = subprocess.Popen(
-                binary_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                binary_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                close_fds=True)
             proc_out, proc_err = proc.communicate()
             binary_output = proc_out
             if proc_err is not None:
@@ -210,14 +213,16 @@ def lint_check():
              'PYTHONPATH=%s' % faucet_mininet_test_util.FAUCET_DIR,
              'pylint',
              '--rcfile=/dev/null',
-             '-E', faucet_src])
+             '-E', faucet_src],
+            close_fds=True)
         if ret:
             print(('pylint of %s returns an error' % faucet_src))
             return False
     for faucet_src in FAUCET_LINT_SRCS:
         output_2to3 = subprocess.check_output(
             ['2to3', '--nofix=import', faucet_src],
-            stderr=open(os.devnull, 'wb'))
+            stderr=open(os.devnull, 'wb'),
+            close_fds=True)
         if output_2to3:
             print(('2to3 of %s returns a diff (not python3 compatible)' % faucet_src))
             print(output_2to3)
