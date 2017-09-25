@@ -154,6 +154,9 @@ vlans:
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             dp_id=self.DP_ID, valves={}, pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
+        self.valve.resolve_gateways()
+        self.valve.advertise()
+        self.valve.host_expire()
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
