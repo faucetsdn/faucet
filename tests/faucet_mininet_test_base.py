@@ -1352,14 +1352,14 @@ dbs:
         controller = self._get_controller()
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
             'exabgp %s -d 2> %s > /dev/null &' % (
-                exabgp_conf_file, exabgp_err), 600)
+                exabgp_conf_file_name, exabgp_err), 600)
         exabgp_cli = 'env %s %s' % (exabgp_env, exabgp_cmd)
         controller.cmd(exabgp_cli)
         for _ in range(timeout):
             if os.path.exists(exabgp_log):
                 return (exabgp_log, exabgp_err)
             time.sleep(1)
-        self.fail('exabgp did not start')
+        self.fail('exabgp (%s) did not start' % exabgp_cli)
 
     def wait_bgp_up(self, neighbor, vlan, exabgp_log, exabgp_err):
         """Wait for BGP to come up."""
