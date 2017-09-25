@@ -19,7 +19,7 @@ ping6 -c 1 ::1 || exit 1
 ping -c 1 127.0.0.1 || exit 1
 
 echo "========== Starting OVS ========================="
-service openvswitch-switch start
+/usr/local/share/openvswitch/scripts/ovs-ctl start || exit 1
 ovs-vsctl show || exit 1
 
 # enable fast reuse of ports.
