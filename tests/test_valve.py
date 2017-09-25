@@ -30,7 +30,7 @@ from faucet.valve import valve_factory
 from faucet.config_parser import dp_parser
 from faucet.faucet_metrics import FaucetMetrics
 
-METRICS = FaucetMetrics(0, '127.0.0.1')
+METRICS = FaucetMetrics()
 
 
 def build_pkt(pkt):
