@@ -300,5 +300,5 @@ References
 
 - `Aruba OpenFlow Administrator Guide (16.03) <http://h20565.www2.hpe.com/hpsc/doc/public/display?sp4ts.oid=1008605435&docLocale=en_US&docId=emr_na-c05365339>`_
 - `Aruba Switches <http://www.arubanetworks.com/products/networking/switches/>`_
-- `FAUCET <https://github.com/REANNZ/faucet>`_
+- `FAUCET <https://github.com/faucetsdn/faucet>`_
 

@@ -17,7 +17,7 @@ cache:
 env:
   global:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
-    - FAUCET_TEST_IMG=reannz/faucet-tests
+    - FAUCET_TEST_IMG=faucet/tests
 install:
   - pip3 install -q -r requirements.txt -r test-requirements.txt
   - python3 setup.py -q sdist
