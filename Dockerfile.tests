@@ -71,7 +71,9 @@ RUN \
   perl -pi -e "s/setup.py/${SETUPQ}/g" mininet/Makefile && \
   perl -pi -e "s/apt-get/${AG}/g" mininet/util/install.sh && \
   for i in ssh pep8 pyflakes python-pexpect pylint xterm ; do perl -pi -e "s/${i}//g" mininet/util/install.sh ; done && \
-  mininet/util/install.sh -n
+  mininet/util/install.sh -n && \
+  rm -rf mininet
+
 
 RUN \
   $AG update && \
@@ -93,7 +95,7 @@ RUN \
   $PIP3 $PIPDEPS
 
 RUN \
-  cd pytype && git submodule init && git submodule update && python2 $SETUPQ install && cd ..
+  cd pytype && git submodule init && git submodule update && python2 $SETUPQ install && cd .. && rm -rf pytype
 
 ###
 ### To maximize Docker caching, try to keep invariant dependencies above this line.
