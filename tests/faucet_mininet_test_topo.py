@@ -229,21 +229,23 @@ class BaseFAUCET(Controller):
 
     def _command(self, env, tmpdir, name, args):
         """Wrap controller startup command in shell script with environment."""
-        script_wrapper_name = os.path.join(tmpdir, 'start-%s.sh' % name)
-        script_wrapper = open(script_wrapper_name, 'w')
         env_vars = []
         for var, val in list(sorted(env.items())):
             env_vars.append('='.join((var, val)))
-        script_wrapper.write(
-            'PYTHONPATH=.:..:../faucet %s exec ryu-manager %s $*\n' % (
-                ' '.join(env_vars), args))
-        script_wrapper.close()
+        script_wrapper_name = os.path.join(tmpdir, 'start-%s.sh' % name)
+        with open(script_wrapper_name, 'w') as script_wrapper:
+            script_wrapper.write(
+                'PYTHONPATH=.:..:../faucet %s exec ryu-manager %s $*\n' % (
+                    ' '.join(env_vars), args))
         return '/bin/sh %s' % script_wrapper_name
 
     def ryu_pid(self):
         """Return PID of ryu-manager process."""
         if os.path.exists(self.pid_file) and os.path.getsize(self.pid_file) > 0:
-            return int(open(self.pid_file).read())
+            pid = None
+            with open(self.pid_file) as pid_file:
+                pid = int(pid_file.read())
+            return pid
         return None
 
     def listen_port(self, port, state='LISTEN'):
@@ -291,17 +293,17 @@ class BaseFAUCET(Controller):
         if os.path.exists(self.ofcap):
             self.cmd(' '.join(['fuser', '-15', '-m', self.ofcap]))
             text_ofcap_log = '%s.txt' % self.ofcap
-            text_ofcap = open(text_ofcap_log, 'w')
-            subprocess.call(
-                ['tshark', '-l', '-n', '-Q',
-                 '-d', 'tcp.port==%u,openflow' % self.port,
-                 '-O', 'openflow_v4',
-                 '-Y', 'openflow_v4',
-                 '-r', self.ofcap],
-                stdout=text_ofcap,
-                stdin=faucet_mininet_test_util.DEVNULL,
-                stderr=faucet_mininet_test_util.DEVNULL,
-                close_fds=True)
+            with open(text_ofcap_log, 'w') as text_ofcap:
+                subprocess.call(
+                    ['tshark', '-l', '-n', '-Q',
+                     '-d', 'tcp.port==%u,openflow' % self.port,
+                     '-O', 'openflow_v4',
+                     '-Y', 'openflow_v4',
+                     '-r', self.ofcap],
+                    stdout=text_ofcap,
+                    stdin=faucet_mininet_test_util.DEVNULL,
+                    stderr=faucet_mininet_test_util.DEVNULL,
+                    close_fds=True)
 
     def stop(self):
         """Stop controller."""
