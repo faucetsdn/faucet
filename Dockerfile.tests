@@ -1,6 +1,11 @@
-FROM osrg/ryu
+FROM ubuntu:latest
 
+ENV AG="apt-get -qqy --no-install-recommends"
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PIPDEPS="setuptools wheel virtualenv"
+ENV PIP="pip -q --no-cache-dir install --upgrade"
+ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
+ENV SETUPQ="setup.py -q"
 
 ###
 ### When apt-get'ing, make sure apt-update always run first per RUN
@@ -8,22 +13,16 @@ ENV DEBIAN_FRONTEND=noninteractive
 ###
 
 RUN \
-  apt-get update && \
-  apt-get install -qy --no-install-recommends software-properties-common && \
-  add-apt-repository ppa:saiarcot895/myppa && \
-  apt-get update && \
-  echo debconf apt-fast/maxdownloads string 16 | debconf-set-selections && \
-  echo debconf apt-fast/dlflag boolean true | debconf-set-selections && \
-  echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections && \
-  apt-get -yq install apt-fast
-
-RUN \
-  apt-get update && apt-fast install -qy --no-install-recommends \
+  $AG update && \
+  $AG install \
+    autoconf \
+    apt-transport-https \
     bc \
+    build-essential \
+    curl \
     fping \
     gcc \
     git \
-    influxdb \
     iperf \
     iputils-ping \
     ladvd \
@@ -31,13 +30,17 @@ RUN \
     libpython3-dev \
     libyaml-dev \
     lsof \
+    netcat \
     ndisc6 \
     net-tools \
     netcat-openbsd \
+    openvswitch-common \
     parallel \
+    patch \
     psmisc \
     python-pip \
     python3-pip \
+    software-properties-common \
     sudo \
     tcpdump \
     tshark \
@@ -51,25 +54,29 @@ RUN \
 
 RUN \
   git config --global url.https://github.com/.insteadOf git://github.com/ && \
-  /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" |parallel --bar git clone
+  /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" | parallel git clone
 
+
+### slim down mininet dependencies (to avoid installing X11)
 RUN \
+  $AG update && \
   cd mininet && git checkout 2.2.2 && cd .. && \
-  perl -pi -e "s/apt-get/apt-fast/g" mininet/util/install.sh && \
-  mininet/util/install.sh -nfv
+  perl -pi -e "s/setup.py/${SETUPQ}/g" mininet/Makefile && \
+  perl -pi -e "s/apt-get/${AG}/g" mininet/util/install.sh && \
+  for i in ssh pep8 pyflakes python-pexpect pylint xterm ; do perl -pi -e "s/${i}//g" mininet/util/install.sh ; done && \
+  mininet/util/install.sh -nv
 
 RUN \
-  apt-fast purge -qy pylint && \
-  pip3 install --upgrade pip && \
-  easy_install -U pip && \
-  pip install --upgrade pip && \
-  pip install setuptools wheel virtualenv --upgrade && \
-  pip install multiprocessing && \
-  pip install scapy==2.3.2 && \
-  pip3 install setuptools wheel virtualenv --upgrade
+  $AG update && \
+  $AG purge pylint && \
+  $PIP3 pip && \
+  easy_install -q -U pip && \
+  $PIP pip && \
+  $PIP multiprocessing scapy==2.3.2 $PIPDEPS && \
+  $PIP3 $PIPDEPS
 
 RUN \
-  cd pytype && git submodule init && git submodule update && python2 setup.py install && cd ..
+  cd pytype && git submodule init && git submodule update && python2 $SETUPQ install && cd ..
 
 ###
 ### To maximize Docker caching, try to keep invariant dependencies above this line.
@@ -78,9 +85,9 @@ RUN \
 COPY ./ /faucet-src/
 
 RUN \
-  pip install -r /faucet-src/test-requirements.txt && \
-  pip3 install -r /faucet-src/requirements.txt && \
-  pip3 install -r /faucet-src/test-requirements.txt && \
-  pip3 install /faucet-src
+  $PIP -r /faucet-src/test-requirements.txt && \
+  $PIP3 -r /faucet-src/requirements.txt && \
+  $PIP3 -r /faucet-src/test-requirements.txt && \
+  $PIP3 /faucet-src
 
 CMD ["/faucet-src/docker/runtests.sh"]

@@ -68,7 +68,7 @@ All that is needed to run faucet.
 It can be built as following:
 
 ```
-  docker build -t reannz/faucet .
+  docker build -t faucet/faucet .
 ```
 
 It can be run as following:
@@ -80,7 +80,7 @@ It can be run as following:
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
       -p 6653:6653 \
-      reannz/faucet
+      faucet/faucet
 ```
 
 By default it listens on port 6653 for an OpenFlow switch to connect. Faucet
@@ -93,10 +93,10 @@ FAUCET\_LOG, FAUCET\_EXCEPTION\_LOG, FAUCET\_CONFIG environment variables.
 This runs the mininet tests from the docker entry-point:
 
 ```
-  docker build -t reannz/faucet-tests -f Dockerfile.tests .
+  docker build -t faucet/tests -f Dockerfile.tests .
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   modprobe openvswitch
-  sudo docker run --privileged -ti reannz/faucet-tests
+  sudo docker run --privileged -ti faucet/tests
 ```
 
 The apparmor command is currently required on Ubuntu hosts to allow the use of
@@ -109,7 +109,7 @@ Runs Gauge.
 It can be built as following:
 
 ```
-  docker build -t reannz/gauge -f Dockerfile.gauge .
+  docker build -t faucet/gauge -f Dockerfile.gauge .
 ```
 
 It can be run as following:
@@ -121,7 +121,7 @@ It can be run as following:
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/gauge/:/var/log/ryu/gauge/ \
       -p 6654:6653 \
-      reannz/gauge
+      faucet/gauge
 ```
 
 By default listens on port 6653. If you are running this with

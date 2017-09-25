@@ -1,11 +1,8 @@
 sudo: required
 dist: trusty
-# https://blog.travis-ci.com/2017-08-29-trusty-image-updates
-# new release includes a docker version with broken IPv6
-group: deprecated-2017Q3
 language: python
 python:
-  - "3.5"
+  - "3.6"
 services:
   - docker
 addons:
@@ -20,21 +17,23 @@ cache:
 env:
   global:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
-    - FAUCET_TEST_IMG=reannz/faucet-tests
+    - FAUCET_TEST_IMG=faucet/tests
 install:
-  - pip3 install -r requirements.txt -r test-requirements.txt
-  - python3 setup.py sdist
-  - pip3 install dist/*tar.gz
+  - pip3 install -q -r requirements.txt -r test-requirements.txt
+  - python3 setup.py -q sdist
+  - pip3 install -q dist/*tar.gz
   - pip3 show faucet
 script:
   - touch ~/.pylintrc
   - cd ./tests
   - PYTHONPATH="../faucet" ./test_min_pylint.sh
-  - py.test ./test_check_config.py ./test_config.py ./test_valve.py --cov faucet --doctest-modules -v --cov-report term-missing
+  - py.test ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
   - coveralls || true
   - cd ..
   - ls -l `dirname ${DOCKER_CACHE_FILE}`
   - if [[ $(find ${DOCKER_CACHE_FILE} -type f -size +100c 2>/dev/null) ]] ; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
+  - docker images
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
-  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(/bin/echo -e "osrg/ryu:latest\nreannz/faucet-tests:latest"| xargs -n 1 docker history -q|grep -v missing) | gzip > ${DOCKER_CACHE_FILE} ; fi
+  - docker images
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save ubuntu:latest | gzip > ${DOCKER_CACHE_FILE} ; fi
   - sudo docker run --privileged -ti -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}

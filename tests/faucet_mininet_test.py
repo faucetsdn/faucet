@@ -57,17 +57,17 @@ EXTERNAL_DEPENDENCIES = (
      r'ovs-vsctl\s+\(Open vSwitch\)\s+(\d+\.\d+)\.\d+\n', "2.3"),
     ('tcpdump', ['-h'], 'tcpdump',
      r'tcpdump\s+version\s+(\d+\.\d+)\.\d+\n', "4.5"),
-    ('nc', [], 'nc from the netcat-openbsd', '', 0),
+    ('nc', ['-h'], 'OpenBSD netcat', '', 0),
     ('vconfig', [], 'the VLAN you are talking about', '', 0),
     ('2to3', ['--help'], 'Usage: 2to3', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
     ('lsof', ['-v'], r'lsof version',
-     r'revision: (\d+\.\d+)\n', "4.89"),
+     r'revision: (\d+\.\d+)\n', "4.86"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
      r'(\d+\.\d+).\d+', "2.2"),
     ('exabgp', ['--version'], 'ExaBGP',
-     r'ExaBGP : (\d+\.\d+).\d+', "3.4"),
+     r'ExaBGP : (\d+\.\d+).\d+', "4.0"),
     ('pip', ['show', 'influxdb'], 'influxdb',
      r'Version:\s+(\d+\.\d+)\.\d+', "3.0"),
     ('pylint', ['--version'], 'pylint',
@@ -75,15 +75,15 @@ EXTERNAL_DEPENDENCIES = (
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', "7.3"),
     ('ladvd', ['-h'], 'ladvd',
-     r'ladvd version (\d+\.\d+)\.\d+', "1.1"),
+     r'ladvd version (\d+\.\d+)\.\d+', "0.9"),
     ('iperf', ['--version'], 'iperf',
      r'iperf version (\d+\.\d+)\.\d+', "2.0"),
     ('fping', ['-v'], 'fping',
-     r'fping: Version (\d+\.\d+)', "3.13"),
+     r'fping: Version (\d+\.\d+)', "3.10"),
     ('rdisc6', ['-V'], 'ndisc6',
      r'ndisc6.+tool (\d+\.\d+)', "1.0"),
     ('tshark', ['-v'], 'tshark',
-     r'TShark.+(\d+\.\d+)', "2.2"),
+     r'TShark.+(\d+\.\d+)', "2.1"),
     ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
 
@@ -179,8 +179,8 @@ def check_dependencies():
             return False
         present_match = re.search(binary_present_re, binary_output)
         if not present_match:
-            print('%s not present or did not return expected string %s' % (
-                required_binary, binary_present_re))
+            print('%s not present or did not return expected string %s (%s)' % (
+                required_binary, binary_present_re, binary_output))
             return False
         if binary_version_re:
             version_match = re.search(binary_version_re, binary_output)
@@ -376,7 +376,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
     sanity_test_suites = []
     single_test_suites = []
     parallel_test_suites = []
-    max_loadavg = multiprocessing.cpu_count() + 1
+    max_loadavg = multiprocessing.cpu_count()
 
     for test_name, test_obj in inspect.getmembers(sys.modules[__name__]):
         if not inspect.isclass(test_obj):
@@ -620,7 +620,7 @@ def parse_args():
 
 def test_main():
     """Test main."""
-    setLogLevel('info')
+    setLogLevel('error')
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
      serial, excluded_test_classes) = parse_args()
 
