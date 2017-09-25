@@ -484,6 +484,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         try:
             self.server = QuietHTTPServer(
                 (faucet_mininet_test_util.LOCALHOST, influx_port), self.handler)
+            self.server.timeout = self.DB_TIMEOUT
             self.server_thread = threading.Thread(
                 target=self.server.serve_forever)
             self.server_thread.daemon = True
