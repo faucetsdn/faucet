@@ -39,6 +39,9 @@ class QuietHTTPServer(HTTPServer):
 
 class PostHandler(SimpleHTTPRequestHandler):
 
+    def log_message(self, _format, *_args):
+        return
+
     def _log_post(self):
         content_len = int(self.headers.getheader('content-length', 0))
         content = self.rfile.read(content_len).strip()
