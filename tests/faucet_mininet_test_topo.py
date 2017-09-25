@@ -292,10 +292,12 @@ class BaseFAUCET(Controller):
             text_ofcap_log = '%s.txt' % self.ofcap
             text_ofcap = open(text_ofcap_log, 'w')
             subprocess.call(
-                ['tshark', '-d', 'tcp.port==%u,openflow' % self.port,
-                 '-O', 'openflow_v4', '-Y', 'openflow_v4', '-n',
+                ['tshark', '-l', '-n', '-Q',
+                 '-d', 'tcp.port==%u,openflow' % self.port,
+                 '-O', 'openflow_v4',
+                 '-Y', 'openflow_v4',
                  '-r', self.ofcap],
-                stdout=text_ofcap, stderr=open(os.devnull, 'w'))
+                stdout=text_ofcap, stderr=open(os.devnull, 'w'), close_fds=True)
 
     def stop(self):
         """Stop controller."""
