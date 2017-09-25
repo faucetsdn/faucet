@@ -9,6 +9,7 @@ import subprocess
 import netifaces
 
 # pylint: disable=import-error
+from mininet.log import output
 from mininet.topo import Topo
 from mininet.node import Controller
 from mininet.node import Host
@@ -107,7 +108,7 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
             for host_n in range(n_untagged):
                 self._add_untagged_host(sid_prefix, host_n)
             remap_dpid = str(int(dpid) + 1)
-            print('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
+            output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
                 dpid, int(dpid), remap_dpid, int(remap_dpid)))
             dpid = remap_dpid
             switch = self._add_faucet_switch(sid_prefix, dpid)
