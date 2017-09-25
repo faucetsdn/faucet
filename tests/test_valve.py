@@ -90,9 +90,17 @@ vlans:
     v100:
         vid: 0x100
         faucet_vips: ['10.0.0.254/24']
+        routes:
+            - route:
+                ip_dst: 10.99.99.0/24
+                ip_gw: 10.0.0.1
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112']
+        routes:
+            - route:
+                ip_dst: "fc00::10:0/112"
+                ip_gw: "fc00::1:1"
 """
 
     DP_ID = 1
@@ -154,7 +162,8 @@ vlans:
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             dp_id=self.DP_ID, valves={}, pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
-        self.valve.resolve_gateways()
+        resolve_ofmsgs = self.valve.resolve_gateways()
+        self.table.apply_ofmsgs(resolve_ofmsgs)
         self.valve.advertise()
         self.valve.host_expire()
 
