@@ -28,9 +28,6 @@ from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
 
 from faucet.valve import valve_factory
 from faucet.config_parser import dp_parser
-from faucet.faucet_metrics import FaucetMetrics
-
-METRICS = FaucetMetrics(0, '127.0.0.1')
 
 
 def build_pkt(pkt):
@@ -156,10 +153,6 @@ vlans:
             port, vid, pkt.data, pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             dp_id=self.DP_ID, valves={}, pkt_meta=pkt_meta)
-        self.valve.update_metrics(METRICS)
-        self.valve.host_expire()
-        self.valve.advertise()
-        self.valve.resolve_gateways()
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
 
     def tearDown(self):
