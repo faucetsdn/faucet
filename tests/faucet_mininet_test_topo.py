@@ -298,7 +298,8 @@ class BaseFAUCET(Controller):
                  '-Y', 'openflow_v4',
                  '-r', self.ofcap],
                 stdout=text_ofcap,
-                stderr=open(os.devnull, 'w'),
+                stdin=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 close_fds=True)
 
     def stop(self):

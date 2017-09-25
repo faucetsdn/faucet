@@ -55,11 +55,11 @@ def receive_sock_line(sock):
 
 def tcp_listening(port):
     """Return True if any process listening on a port."""
-    DEVNULL = open(os.devnull, 'w')
     return subprocess.call(
         tcp_listening_cmd(port).split(),
-        stdout=DEVNULL,
-        stderr=DEVNULL,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
         close_fds=True) == 0
 
 

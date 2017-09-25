@@ -489,7 +489,10 @@ class FaucetTestBase(unittest.TestCase):
                 intf, vflags, packets, tcpdump_filter),
             timeout)
         tcpdump_out = tcpdump_host.popen(
-            tcpdump_cmd, stderr=subprocess.STDOUT, closefds=True)
+            tcpdump_cmd,
+            stdin=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+            close_fds=True)
         popens = {tcpdump_host: tcpdump_out}
         tcpdump_started = False
         tcpdump_txt = ''
@@ -1490,7 +1493,10 @@ dbs:
         server_start_exp = r'Server listening on TCP port %u' % port
         for _ in range(3):
             server_out = server_host.popen(
-                iperf_server_cmd, stderr=subprocess.STDOUT, closefds=True)
+                iperf_server_cmd,
+                stdin=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+                close_fds=True)
             popens = {server_host: server_out}
             lines = []
             for host, line in pmonitor(popens):
