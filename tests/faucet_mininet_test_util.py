@@ -12,6 +12,7 @@ import time
 from mininet.log import error, output
 
 
+DEVNULL = open(os.devnull, 'wb')
 GETPORT = 'GETPORT'
 PUTPORTS = 'PUTPORTS'
 GETSERIAL = 'GETSERIAL'
@@ -57,9 +58,9 @@ def tcp_listening(port):
     """Return True if any process listening on a port."""
     return subprocess.call(
         tcp_listening_cmd(port).split(),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdin=DEVNULL,
+        stdout=DEVNULL,
+        stderr=DEVNULL,
         close_fds=True) == 0
 
 

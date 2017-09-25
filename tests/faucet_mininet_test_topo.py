@@ -298,8 +298,8 @@ class BaseFAUCET(Controller):
                  '-Y', 'openflow_v4',
                  '-r', self.ofcap],
                 stdout=text_ofcap,
-                stdin=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdin=faucet_mininet_test_util.DEVNULL,
+                stderr=faucet_mininet_test_util.DEVNULL,
                 close_fds=True)
 
     def stop(self):

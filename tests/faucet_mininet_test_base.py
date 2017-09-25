@@ -490,7 +490,7 @@ class FaucetTestBase(unittest.TestCase):
             timeout)
         tcpdump_out = tcpdump_host.popen(
             tcpdump_cmd,
-            stdin=subprocess.DEVNULL,
+            stdin=faucet_mininet_test_util.DEVNULL,
             stderr=subprocess.STDOUT,
             close_fds=True)
         popens = {tcpdump_host: tcpdump_out}
@@ -1494,7 +1494,7 @@ dbs:
         for _ in range(3):
             server_out = server_host.popen(
                 iperf_server_cmd,
-                stdin=subprocess.DEVNULL,
+                stdin=faucet_mininet_test_util.DEVNULL,
                 stderr=subprocess.STDOUT,
                 close_fds=True)
             popens = {server_host: server_out}
