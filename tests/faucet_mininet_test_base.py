@@ -930,6 +930,7 @@ dbs:
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(faucet_mininet_test_util.timeout_cmd(
             fping_cli, timeout))
+        error(fping_out)
         self.assertTrue(
             not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
@@ -1612,7 +1613,7 @@ dbs:
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
-            error('%u mbps to %s' % (iperf_mbps, server_ip))
+            error('%u mbps to %s\n' % (iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.verify_ipv6_host_learned_mac(
