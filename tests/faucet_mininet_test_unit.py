@@ -35,7 +35,7 @@ class QuietHTTPServer(HTTPServer):
     def handle_error(self, _request, _client_address):
         return
 
-    def log_message(self, format, *args):
+    def log_message(self, _, *args):
         return
 
 
@@ -45,7 +45,8 @@ class PostHandler(SimpleHTTPRequestHandler):
         content_len = int(self.headers.getheader('content-length', 0))
         content = self.rfile.read(content_len).strip()
         if content and hasattr(self.server, 'influx_log'):
-            open(self.server.influx_log, 'a').write(content + '\n')
+            with open(self.server.influx_log, 'a') as influx_log:
+                influx_log.write(content + '\n')
 
 
 class InfluxPostHandler(PostHandler):
@@ -440,9 +441,10 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     def _wait_error_shipping(self, timeout=None):
         if timeout is None:
             timeout = self.DB_TIMEOUT * 3
-        gauge_log = self.env['gauge']['GAUGE_LOG']
+        gauge_log_name = self.env['gauge']['GAUGE_LOG']
         for _ in range(timeout):
-            log_content = open(gauge_log).read()
+            with open(gauge_log_name) as gauge_log:
+                log_content = gauge_log.read()
             if re.search('error shipping', log_content):
                 return
             time.sleep(1)
@@ -451,7 +453,9 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     def _verify_influx_log(self):
         self.assertTrue(os.path.exists(self.influx_log))
         observed_vars = set()
-        for point_line in open(self.influx_log).readlines():
+        with open(self.influx_log) as influx_log:
+            influx_log_lines = influx_log.readlines()
+        for point_line in influx_log_lines:
             point_fields = point_line.strip().split()
             self.assertEqual(3, len(point_fields), msg=point_fields)
             ts_name, value_field, timestamp_str = point_fields
@@ -1181,7 +1185,8 @@ acls:
     def setUp(self):
         super(FaucetConfigReloadTest, self).setUp()
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
-        open(self.acl_config_file, 'w').write(self.ACL)
+        with open(self.acl_config_file, 'w') as config_file:
+            config_file.write(self.ACL)
         self.CONFIG = '\n'.join(
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
         self.topo = self.topo_class(
@@ -1190,11 +1195,14 @@ acls:
         self.start_net()
 
     def _get_conf(self):
-        return yaml.load(open(self.faucet_config_path, 'r').read())
+        with open(self.faucet_config_path) as config_file:
+            config = yaml.load(config_file.read())
+        return config
 
     def _reload_conf(self, conf, restart, cold_start,
                      change_expected=True, host_cache=None):
-        open(self.faucet_config_path, 'w').write(yaml.dump(conf))
+        with open(self.faucet_config_path, 'w') as config_file:
+            config_file.write(yaml.dump(conf))
         if restart:
             var = 'faucet_config_reload_warm'
             if cold_start:
@@ -3399,7 +3407,8 @@ class FaucetStringOfDPTest(FaucetTest):
             acls,
             acl_in_dp,
         )
-        open(self.faucet_config_path, 'w').write(self.CONFIG)
+        with open(self.faucet_config_path, 'w') as config_file:
+            config_file.write(self.CONFIG)
         self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
             self.ports_sock,
             dpids=self.dpids,
@@ -3734,7 +3743,8 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
-        open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
+        with open(self.acls_config, 'w') as config_file:
+            config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
         self.verify_hup_faucet()
         self.verify_tp_dst_blocked(5001, first_host, second_host)
 
@@ -3743,7 +3753,8 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.ping_all_when_learned()
         first_host, second_host = self.net.hosts[0:2]
         self.verify_tp_dst_blocked(5002, first_host, second_host)
-        open(self.acls_config, 'w').write(self.get_config(acls=self.ACLS_OVERRIDE))
+        with open(self.acls_config, 'w') as config_file:
+            config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
         self.verify_hup_faucet()
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
@@ -4078,8 +4089,10 @@ vlans:
             pattern = "OFPFlowRemoved(.*)'eth_dst': '%s'" % dst_mac
             mac = dst_mac
         for _ in range(timeout):
-            for _, debug_log in self._get_ofchannel_logs():
-                if re.search(pattern, open(debug_log).read()):
+            for _, debug_log_name in self._get_ofchannel_logs():
+                with open(debug_log_name) as debug_log:
+                    debug = debug_log.read()
+                if re.search(pattern, debug):
                     return
             time.sleep(1)
         self.fail('Not received OFPFlowRemoved for host %s' % mac)

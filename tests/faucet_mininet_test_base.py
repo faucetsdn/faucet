@@ -163,7 +163,8 @@ class FaucetTestBase(unittest.TestCase):
             self.CONFIG % self.port_map))
         if self.config_ports:
             faucet_config = faucet_config % self.config_ports
-        open(self.faucet_config_path, 'w').write(faucet_config)
+        with open(self.faucet_config_path, 'w') as faucet_config_file:
+            faucet_config_file.write(faucet_config)
 
     def _write_gauge_config(self):
         gauge_config = self.get_gauge_config(
@@ -173,7 +174,8 @@ class FaucetTestBase(unittest.TestCase):
             self.monitor_flow_table_file)
         if self.config_ports:
             gauge_config = gauge_config % self.config_ports
-        open(self.gauge_config_path, 'w').write(gauge_config)
+        with open(self.gauge_config_path, 'w') as gauge_config_file:
+            gauge_config_file.write(gauge_config)
 
     def _test_name(self):
         return faucet_mininet_test_util.flat_test_name(self.id())
@@ -240,18 +242,19 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
-            self.scrape_prometheus())
+        with open(os.path.join(self.tmpdir, 'prometheus.log'), 'w') as prom_log:
+            prom_log.write(self.scrape_prometheus())
         if self.net is not None:
             self.net.stop()
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
         # must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        for _, debug_log in self._get_ofchannel_logs():
-            self.assertFalse(
-                re.search('OFPErrorMsg', open(debug_log).read()),
-                msg='debug log has OFPErrorMsgs')
+        for _, debug_log_name in self._get_ofchannel_logs():
+            with open(debug_log_name) as debug_log:
+                self.assertFalse(
+                    re.search('OFPErrorMsg', debug_log.read()),
+                    msg='debug log has OFPErrorMsgs')
 
     def _attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
@@ -409,7 +412,8 @@ class FaucetTestBase(unittest.TestCase):
         return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
 
     def _get_ofchannel_logs(self):
-        config = yaml.load(open(self.env['faucet']['FAUCET_CONFIG']))
+        with open(self.env['faucet']['FAUCET_CONFIG']) as config_file:
+            config = yaml.load(config_file)
         ofchannel_logs = []
         for dp_name, dp_config in config['dps'].items():
             if 'ofchannel_log' in dp_config:
@@ -421,15 +425,16 @@ class FaucetTestBase(unittest.TestCase):
         dump_txt = ''
         test_logs = glob.glob(os.path.join(self.tmpdir, '*.log'))
         for controller in self.net.controllers:
-            for test_log in test_logs:
-                basename = os.path.basename(test_log)
+            for test_log_name in test_logs:
+                basename = os.path.basename(test_log_name)
                 if basename.startswith(controller.name):
-                    dump_txt += '\n'.join((
-                        '',
-                        basename,
-                        '=' * len(basename),
-                        '',
-                        open(test_log).read()))
+                    with open(test_log_name) as test_log:
+                        dump_txt += '\n'.join((
+                            '',
+                            basename,
+                            '=' * len(basename),
+                            '',
+                            test_log.read()))
                     break
         return dump_txt
 
@@ -473,11 +478,13 @@ class FaucetTestBase(unittest.TestCase):
     def verify_no_exception(self, exception_log_name):
         if not os.path.exists(exception_log_name):
             return
-        exception_contents = open(exception_log_name, 'r').read()
-        self.assertEqual(
-            '',
-            exception_contents,
-            msg='%s log contains %s' % (exception_log_name, exception_contents))
+        with open(exception_log_name) as exception_log:
+            exception_contents = exception_log.read()
+            self.assertEqual(
+                '',
+                exception_contents,
+                msg='%s log contains %s' % (
+                    exception_log_name, exception_contents))
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=None,
                        vflags='-v', timeout=10, packets=2, root_intf=False):
@@ -632,43 +639,43 @@ dbs:
         groupdump = os.path.join(self.tmpdir, 'groupdump-%s.txt' % self.dpid)
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
-            groupdump_file = open(groupdump, 'w')
-            for group_desc in group_dump:
-                group_dict = json.loads(group_desc)
-                groupdump_file.write(str(group_dict) + '\n')
-                if group_dict['group_id'] == group_id:
-                    actions = set(group_dict['buckets'][0]['actions'])
-                    if set([action]).issubset(actions):
-                        return True
+            with open(groupdump, 'w') as groupdump_file:
+                for group_desc in group_dump:
+                    group_dict = json.loads(group_desc)
+                    groupdump_file.write(str(group_dict) + '\n')
+                    if group_dict['group_id'] == group_id:
+                        actions = set(group_dict['buckets'][0]['actions'])
+                        if set([action]).issubset(actions):
+                            return True
             time.sleep(1)
         return False
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                    actions=None, match_exact=False):
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
-        for _ in range(timeout):
-            flow_dicts = []
-            flow_dump = self.get_all_flows_from_dpid(dpid)
-            flowdump_file = open(flowdump, 'w')
-            for flow in flow_dump:
-                flow_dict = json.loads(flow)
-                flowdump_file.write(str(flow_dict) + '\n')
-                if (table_id is not None and
-                        flow_dict['table_id'] != table_id):
-                    continue
-                if actions is not None:
-                    if not set(actions).issubset(set(flow_dict['actions'])):
+        with open(flowdump, 'w') as flowdump_file:
+            for _ in range(timeout):
+                flow_dicts = []
+                flow_dump = self.get_all_flows_from_dpid(dpid)
+                for flow in flow_dump:
+                    flow_dict = json.loads(flow)
+                    flowdump_file.write(str(flow_dict) + '\n')
+                    if (table_id is not None and
+                            flow_dict['table_id'] != table_id):
                         continue
-                if match is not None:
-                    if match_exact:
-                        if match.items() != flow_dict['match'].items():
+                    if actions is not None:
+                        if not set(actions).issubset(set(flow_dict['actions'])):
                             continue
-                    elif not set(match.items()).issubset(set(flow_dict['match'].items())):
-                        continue
-                flow_dicts.append(flow_dict)
-            if flow_dicts:
-                return flow_dicts
-            time.sleep(1)
+                    if match is not None:
+                        if match_exact:
+                            if match.items() != flow_dict['match'].items():
+                                continue
+                        elif not set(match.items()).issubset(set(flow_dict['match'].items())):
+                            continue
+                    flow_dicts.append(flow_dict)
+                if flow_dicts:
+                    return flow_dicts
+                time.sleep(1)
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
@@ -1081,7 +1088,8 @@ dbs:
 
     def force_faucet_reload(self, new_config):
         """Force FAUCET to reload by adding new line to config file."""
-        open(self.env['faucet']['FAUCET_CONFIG'], 'a').write(new_config)
+        with open(self.env['faucet']['FAUCET_CONFIG'], 'a') as config_file:
+            config_file.write(new_config)
         self.verify_hup_faucet()
 
     def get_host_port_stats(self, hosts_switch_ports):
@@ -1327,7 +1335,7 @@ dbs:
 
     def start_exabgp(self, exabgp_conf, timeout=30):
         """Start exabgp process on controller host."""
-        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
+        exabgp_conf_file_name = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
         exabgp_env = ' '.join((
@@ -1338,7 +1346,8 @@ dbs:
         ))
         bgp_port = self.config_ports['bgp_port']
         exabgp_conf = exabgp_conf % {'bgp_port': bgp_port}
-        open(exabgp_conf_file, 'w').write(exabgp_conf)
+        with open(exabgp_conf_file_name, 'w') as exabgp_conf_file:
+            exabgp_conf_file.write(exabgp_config)
         controller = self._get_controller()
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
             'exabgp %s -d 2> %s > /dev/null &' % (
@@ -1364,9 +1373,10 @@ dbs:
                 return
             time.sleep(1)
         exabgp_log_content = []
-        for log in (exabgp_log, exabgp_err):
-            if os.path.exists(log):
-                exabgp_log_content.append(open(log).read())
+        for log_name in (exabgp_log, exabgp_err):
+            if os.path.exists(log_name):
+                with open(log_name) as log:
+                    exabgp_log_content.append(log.read())
         self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
     def exabgp_updates(self, exabgp_log):
@@ -1381,10 +1391,11 @@ dbs:
             time.sleep(1)
         self.fail('exabgp did not receive BGP updates')
 
-    def wait_exabgp_sent_updates(self, exabgp_log):
+    def wait_exabgp_sent_updates(self, exabgp_log_name):
         """Verify that exabgp process has sent BGP updates."""
         for _ in range(60):
-            exabgp_log_content = open(exabgp_log).read()
+            with open(exabgp_log_name) as exabgp_log:
+                exabgp_log_content = exabgp_log.read()
             if re.search(r'>> [1-9]+[0-9]* UPDATE', exabgp_log_content):
                 return
             time.sleep(1)
