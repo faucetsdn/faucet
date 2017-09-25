@@ -19,7 +19,7 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import addrconv
 
 
-class FakeOFTable():
+class FakeOFTable(object):
     """Fake OFTable is a virtual openflow pipeline used for testing openflow controllers.
 
     The tables are populated using apply_ofmsgs and can be queried with
