@@ -21,6 +21,7 @@ ping -c 1 127.0.0.1 || exit 1
 echo "========== Starting OVS ========================="
 /usr/local/share/openvswitch/scripts/ovs-ctl start || exit 1
 ovs-vsctl show || exit 1
+ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000
 
 # enable fast reuse of ports.
 sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=10

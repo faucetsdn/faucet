@@ -32,6 +32,7 @@ RUN \
     linux-headers-generic \
     libpython2.7-dev \
     libpython3-dev \
+    libssl-dev \
     libtool \
     libyaml-dev \
     lsof \
@@ -70,14 +71,16 @@ RUN \
   perl -pi -e "s/setup.py/${SETUPQ}/g" mininet/Makefile && \
   perl -pi -e "s/apt-get/${AG}/g" mininet/util/install.sh && \
   for i in ssh pep8 pyflakes python-pexpect pylint xterm ; do perl -pi -e "s/${i}//g" mininet/util/install.sh ; done && \
-  mininet/util/install.sh -n
+  mininet/util/install.sh -n && \
+  rm -rf mininet
+
 
 RUN \
   $AG update && \
   wget -q http://openvswitch.org/releases/openvswitch-$OVSV.tar.gz && \
   tar xf openvswitch-$OVSV.tar.gz && \
   cd openvswitch-$OVSV && \
-  ./boot.sh && ./configure && make -s install && \
+  ./boot.sh && ./configure --enable-silent-rules && make -s install && \
   cd .. && \
   rm -rf openvswitch-$OVSV*
 
@@ -92,7 +95,7 @@ RUN \
   $PIP3 $PIPDEPS
 
 RUN \
-  cd pytype && git submodule init && git submodule update && python2 $SETUPQ install && cd ..
+  cd pytype && git submodule init && git submodule update && python2 $SETUPQ install && cd .. && rm -rf pytype
 
 ###
 ### To maximize Docker caching, try to keep invariant dependencies above this line.

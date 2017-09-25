@@ -27,7 +27,7 @@ script:
   - touch ~/.pylintrc
   - cd ./tests
   - PYTHONPATH="../faucet" ./test_min_pylint.sh
-  - py.test ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
+  - python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
   - coveralls || true
   - cd ..
   - ls -l `dirname ${DOCKER_CACHE_FILE}`
