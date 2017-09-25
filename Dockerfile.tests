@@ -32,6 +32,7 @@ RUN \
     linux-headers-generic \
     libpython2.7-dev \
     libpython3-dev \
+    libssl-dev \
     libtool \
     libyaml-dev \
     lsof \
@@ -46,7 +47,6 @@ RUN \
     python-pip \
     python3-pip \
     software-properties-common \
-    ssl-dev \
     sudo \
     tcpdump \
     tshark \
