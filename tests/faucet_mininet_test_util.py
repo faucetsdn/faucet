@@ -148,8 +148,6 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             del ports_by_name[name]
             response = ports_returned
         elif command == GETPORT:
-            if len(ports_q) < min_free_ports:
-                queue_free_ports(len(ports_q) + 1)
             while True:
                 port = ports_q.popleft()
                 if time.time() - port_age[port] > MIN_PORT_AGE:
@@ -162,6 +160,8 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             # pylint: disable=no-member
             connection.sendall('%u\n' % response)
         connection.close()
+        if len(ports_q) < min_free_ports:
+            queue_free_ports(len(ports_q) + 1)
 
 
 def timeout_cmd(cmd, timeout):
