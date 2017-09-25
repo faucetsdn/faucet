@@ -78,7 +78,8 @@ RUN \
   tar xf openvswitch-$OVSV.tar.gz && \
   cd openvswitch-$OVSV && \
   ./boot.sh && ./configure && make install && \
-  cd ..
+  cd .. && \
+  rm -rf openvswitch-$OVSV*
 
 
 RUN \
