@@ -1101,20 +1101,16 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
         init_config_count = self.get_configure_count()
-        init_disc_count = self.scrape_prometheus_var(
-            'of_dp_disconnections', default=0)
-        init_conn_count = self.scrape_prometheus_var(
-            'of_dp_connections', default=0)
         for i in range(init_config_count, init_config_count+3):
             self._configure_count_with_retry(i)
             self.verify_hup_faucet()
             self._configure_count_with_retry(i+1)
             self.assertEqual(
                 self.scrape_prometheus_var('of_dp_disconnections', default=0),
-                init_disc_count)
+                0)
             self.assertEqual(
                 self.scrape_prometheus_var('of_dp_connections', default=0),
-                init_conn_count)
+                1)
             self.wait_until_controller_flow()
             self.ping_all_when_learned()
 
