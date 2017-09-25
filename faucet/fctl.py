@@ -71,7 +71,8 @@ def report_label_match_metrics(report_metrics, metrics,
     for metric in metrics:
         if not report_metrics or metric.name in report_metrics:
             for _, labels, value in metric.samples:
-                if label_matches and set(label_matches.items()).issubset(set(labels.items())):
+                if label_matches is None or \
+                    (label_matches and set(label_matches.items()).issubset(set(labels.items()))):
                     if nonzero_only and int(value) == 0:
                         continue
                     try:
@@ -116,7 +117,7 @@ def main():
 
     endpoints = []
     report_metrics = []
-    label_matches = {}
+    label_matches = None
     nonzero_only = False
 
     for opt, arg in opts:
@@ -129,6 +130,8 @@ def main():
         elif opt in ('-l', '--labels'):
             for label_value in arg.split(','):
                 label, value = label_value.split(':')
+                if label_matches is None:
+                    label_matches = {}
                 label_matches[label] = value
         else:
             usage()
