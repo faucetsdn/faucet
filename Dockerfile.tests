@@ -1,5 +1,7 @@
 FROM ubuntu:latest
 
+ENV OVSV="2.8.0"
+
 ENV AG="apt-get -qqy --no-install-recommends"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIPDEPS="setuptools wheel virtualenv"
@@ -16,6 +18,7 @@ RUN \
   $AG update && \
   $AG install \
     autoconf \
+    automake \
     apt-transport-https \
     bc \
     build-essential \
@@ -26,8 +29,10 @@ RUN \
     iperf \
     iputils-ping \
     ladvd \
+    linux-headers-generic \
     libpython2.7-dev \
     libpython3-dev \
+    libtool \
     libyaml-dev \
     lsof \
     netcat \
@@ -45,6 +50,7 @@ RUN \
     tcpdump \
     tshark \
     vlan \
+    wget \
     wpasupplicant
 
 ###
@@ -64,7 +70,16 @@ RUN \
   perl -pi -e "s/setup.py/${SETUPQ}/g" mininet/Makefile && \
   perl -pi -e "s/apt-get/${AG}/g" mininet/util/install.sh && \
   for i in ssh pep8 pyflakes python-pexpect pylint xterm ; do perl -pi -e "s/${i}//g" mininet/util/install.sh ; done && \
-  mininet/util/install.sh -nv
+  mininet/util/install.sh -n
+
+RUN \
+  $AG update && \
+  wget -q http://openvswitch.org/releases/openvswitch-$OVSV.tar.gz && \
+  tar xf openvswitch-$OVSV.tar.gz && \
+  cd openvswitch-$OVSV && \
+  ./boot.sh && ./configure && make install && \
+  cd ..
+
 
 RUN \
   $AG update && \
