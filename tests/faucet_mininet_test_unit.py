@@ -3,6 +3,7 @@
 """Mininet tests for FAUCET."""
 
 # pylint: disable=missing-docstring
+# pylint: disable=too-many-arguments
 
 import os
 import re
@@ -33,9 +34,6 @@ class QuietHTTPServer(HTTPServer):
     allow_reuse_address = True
 
     def handle_error(self, _request, _client_address):
-        return
-
-    def log_message(self, _, *args):
         return
 
 
@@ -3388,9 +3386,17 @@ class FaucetStringOfDPTest(FaucetTest):
     def build_net(self, stack=False, n_dps=1,
                   n_tagged=0, tagged_vid=100,
                   n_untagged=0, untagged_vid=100,
-                  include=[], include_optional=[], acls={}, acl_in_dp={}):
+                  include=None, include_optional=None,
+                  acls=None, acl_in_dp=None):
         """Set up Mininet and Faucet for the given topology."""
-
+        if include is None:
+            include = []
+        if include_optional is None:
+            include_optional = []
+        if acls is None:
+            acls = {}
+        if acl_in_dp is None:
+            acl_in_dp = {}
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpid = self.dpids[0]
         self.CONFIG = self.get_config(

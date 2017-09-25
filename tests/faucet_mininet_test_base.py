@@ -3,6 +3,7 @@
 """Base class for all FAUCET unit tests."""
 
 # pylint: disable=missing-docstring
+# pylint: disable=too-many-arguments
 
 import collections
 import glob
