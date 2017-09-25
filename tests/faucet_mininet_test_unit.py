@@ -35,6 +35,9 @@ class QuietHTTPServer(HTTPServer):
     def handle_error(self, _request, _client_address):
         return
 
+    def log_message(self, format, *args):
+        return
+
 
 class PostHandler(SimpleHTTPRequestHandler):
 
