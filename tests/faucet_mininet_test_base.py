@@ -1347,7 +1347,7 @@ dbs:
         bgp_port = self.config_ports['bgp_port']
         exabgp_conf = exabgp_conf % {'bgp_port': bgp_port}
         with open(exabgp_conf_file_name, 'w') as exabgp_conf_file:
-            exabgp_conf_file.write(exabgp_config)
+            exabgp_conf_file.write(exabgp_conf)
         controller = self._get_controller()
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
             'exabgp %s -d 2> %s > /dev/null &' % (
