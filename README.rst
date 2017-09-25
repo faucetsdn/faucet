@@ -1,5 +1,8 @@
 :version: 1.6.4
 
+.. image:: https://travis-ci.org/faucetsdn/faucet.svg?branch=master
+    :target: https://travis-ci.org/faucetsdn/faucet
+
 .. meta::
    :keywords: OpenFlow, Ryu, Faucet, VLAN, SDN
 
