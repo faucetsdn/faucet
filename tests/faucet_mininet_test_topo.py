@@ -23,7 +23,7 @@ import faucet_mininet_test_util
 # override as necessary close them. Transclude overridden methods
 # to avoid multiple inheritance complexity.
 
-class FaucetHost(Host):
+class FaucetHostCleanup(object):
     """TODO: Mininet host implemenation leaks ptys."""
 
     master = None
@@ -70,12 +70,17 @@ class FaucetHost(Host):
         self.cleanup()
 
 
-class FaucetSwitch(OVSSwitch):
+class FaucetHost(FaucetHostCleanup, Host):
+
+    pass
+
+
+class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
 
     def __init__(self, name, **params):
-        OVSSwitch.__init__(
-            self, name=name, datapath='kernel', **params)
+        super(FaucetSwitch).__init__(
+            name=name, datapath='kernel', **params)
 
 
 class VLANHost(FaucetHost):
