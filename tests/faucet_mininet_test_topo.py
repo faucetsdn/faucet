@@ -64,6 +64,7 @@ class FaucetHostCleanup(object):
 
     def terminate(self):
         if self.shell is not None:
+            # print(self.name)
             self.shell.kill()
             os.close(self.master)
             os.close(self.slave)
@@ -219,7 +220,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
             last_switch = switch
 
 
-class BaseFAUCET(FaucetHostCleanup, Controller):
+class BaseFAUCET(Controller):
     """Base class for FAUCET and Gauge controllers."""
 
     controller_intf = None
