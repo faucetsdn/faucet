@@ -73,9 +73,52 @@ class FaucetHost(Host):
 class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
 
+    master = None
+    shell = None
+    slave = None
+
     def __init__(self, name, **params):
         OVSSwitch.__init__(
             self, name=name, datapath='kernel', **params)
+
+    def startShell(self, mnopts=None):
+        if self.shell:
+            error('%s: shell is already running\n' % self.name)
+            return
+        opts = '-cd' if mnopts is None else mnopts
+        if self.inNamespace:
+            opts += 'n'
+        cmd = ['mnexec', opts, 'env', 'PS1=' + chr(127),
+               'bash', '--norc', '-is', 'mininet:' + self.name]
+        self.master, self.slave = pty.openpty()
+        self.shell = self._popen(
+            cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
+            close_fds=False)
+        self.stdin = os.fdopen(self.master, 'rw')
+        self.stdout = self.stdin
+        self.pid = self.shell.pid
+        self.pollOut = select.poll()
+        self.pollOut.register(self.stdout)
+        self.outToNode[self.stdout.fileno()] = self
+        self.inToNode[self.stdin.fileno()] = self
+        self.execed = False
+        self.lastCmd = None
+        self.lastPid = None
+        self.readbuf = ''
+        while True:
+            data = self.read(1024)
+            if data[-1] == chr(127):
+                break
+            self.pollOut.poll()
+        self.waiting = False
+        self.cmd('unset HISTFILE; stty -echo; set +m')
+
+    def terminate(self):
+        if self.shell is not None:
+            self.shell.kill()
+            os.close(self.master)
+            os.close(self.slave)
+        self.cleanup()
 
 
 class VLANHost(FaucetHost):
