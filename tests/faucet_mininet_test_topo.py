@@ -64,7 +64,7 @@ class FaucetHostCleanup(object):
 
     def terminate(self):
         if self.shell is not None:
-            print(self.name)
+            # print(self.name)
             self.shell.kill()
             os.close(self.master)
             os.close(self.slave)
