@@ -247,6 +247,7 @@ class FaucetTestBase(unittest.TestCase):
             prom_log.write(self.scrape_prometheus())
         if self.net is not None:
             self.net.stop()
+            self.net = None
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
         # must not be any controller exception.

@@ -1,6 +1,8 @@
 """Topology components for FAUCET Mininet unit tests."""
 
 import os
+import pty
+import select
 import socket
 import string
 import shutil
@@ -9,7 +11,7 @@ import subprocess
 import netifaces
 
 # pylint: disable=import-error
-from mininet.log import output
+from mininet.log import error, output
 from mininet.topo import Topo
 from mininet.node import Controller
 from mininet.node import Host
@@ -17,16 +19,109 @@ from mininet.node import OVSSwitch
 
 import faucet_mininet_test_util
 
+# TODO: mininet 2.2.2 leaks ptys (master slave assigned in startShell)
+# override as necessary close them. Transclude overridden methods
+# to avoid multiple inheritance complexity.
+
+class FaucetHost(Host):
+    """TODO: Mininet host implemenation leaks ptys."""
+
+    master = None
+    shell = None
+    slave = None
+
+    def startShell(self, mnopts=None):
+        if self.shell:
+            error('%s: shell is already running\n' % self.name)
+            return
+        opts = '-cd' if mnopts is None else mnopts
+        if self.inNamespace:
+            opts += 'n'
+        cmd = ['mnexec', opts, 'env', 'PS1=' + chr(127),
+               'bash', '--norc', '-is', 'mininet:' + self.name]
+        self.master, self.slave = pty.openpty()
+        self.shell = self._popen(
+            cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
+            close_fds=False)
+        self.stdin = os.fdopen(self.master, 'rw')
+        self.stdout = self.stdin
+        self.pid = self.shell.pid
+        self.pollOut = select.poll()
+        self.pollOut.register(self.stdout)
+        self.outToNode[self.stdout.fileno()] = self
+        self.inToNode[self.stdin.fileno()] = self
+        self.execed = False
+        self.lastCmd = None
+        self.lastPid = None
+        self.readbuf = ''
+        while True:
+            data = self.read(1024)
+            if data[-1] == chr(127):
+                break
+            self.pollOut.poll()
+        self.waiting = False
+        self.cmd('unset HISTFILE; stty -echo; set +m')
+
+    def terminate(self):
+        if self.shell is not None:
+            self.shell.kill()
+            os.close(self.master)
+            os.close(self.slave)
+        self.cleanup()
+
 
 class FaucetSwitch(OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
+
+    master = None
+    shell = None
+    slave = None
 
     def __init__(self, name, **params):
         OVSSwitch.__init__(
             self, name=name, datapath='kernel', **params)
 
+    def startShell(self, mnopts=None):
+        if self.shell:
+            error('%s: shell is already running\n' % self.name)
+            return
+        opts = '-cd' if mnopts is None else mnopts
+        if self.inNamespace:
+            opts += 'n'
+        cmd = ['mnexec', opts, 'env', 'PS1=' + chr(127),
+               'bash', '--norc', '-is', 'mininet:' + self.name]
+        self.master, self.slave = pty.openpty()
+        self.shell = self._popen(
+            cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
+            close_fds=False)
+        self.stdin = os.fdopen(self.master, 'rw')
+        self.stdout = self.stdin
+        self.pid = self.shell.pid
+        self.pollOut = select.poll()
+        self.pollOut.register(self.stdout)
+        self.outToNode[self.stdout.fileno()] = self
+        self.inToNode[self.stdin.fileno()] = self
+        self.execed = False
+        self.lastCmd = None
+        self.lastPid = None
+        self.readbuf = ''
+        while True:
+            data = self.read(1024)
+            if data[-1] == chr(127):
+                break
+            self.pollOut.poll()
+        self.waiting = False
+        self.cmd('unset HISTFILE; stty -echo; set +m')
 
-class VLANHost(Host):
+    def terminate(self):
+        if self.shell is not None:
+            self.shell.kill()
+            os.close(self.master)
+            os.close(self.slave)
+        self.cleanup()
+
+
+class VLANHost(FaucetHost):
     """Implementation of a Mininet host on a tagged VLAN."""
 
     def config(self, vlan=100, **params):
@@ -63,15 +158,12 @@ class FaucetSwitchTopo(Topo):
     def _add_tagged_host(self, sid_prefix, tagged_vid, host_n):
         """Add a single tagged test host."""
         host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(
-            name=host_name,
-            cls=VLANHost,
-            vlan=tagged_vid)
+        return self.addHost(name=host_name, cls=VLANHost, vlan=tagged_vid)
 
     def _add_untagged_host(self, sid_prefix, host_n):
         """Add a single untagged test host."""
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(name=host_name)
+        return self.addHost(name=host_name, cls=FaucetHost)
 
     def _add_faucet_switch(self, sid_prefix, dpid):
         """Add a FAUCET switch."""
