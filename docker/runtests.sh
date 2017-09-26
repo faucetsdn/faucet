@@ -19,8 +19,9 @@ ping6 -c 1 ::1 || exit 1
 ping -c 1 127.0.0.1 || exit 1
 
 echo "========== Starting OVS ========================="
-service openvswitch-switch start
+/usr/local/share/openvswitch/scripts/ovs-ctl start || exit 1
 ovs-vsctl show || exit 1
+ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000
 
 # enable fast reuse of ports.
 sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=10
@@ -35,11 +36,11 @@ cd /faucet-src/tests
 if [ "$DEPCHECK" == 1 ] ; then
     echo "============ Running pytype analyzer ============"
     # TODO: pytype doesn't completely understand py3 yet.
-    ls -1 ../faucet/*py | parallel --bar pytype -d import-error || exit 1
+    ls -1 ../faucet/*py | parallel pytype -d import-error || exit 1
 fi
 
 echo "========== Running faucet unit tests =========="
-python3 -m pytest ./test_check_config.py ./test_config.py ./test_valve.py ./test_gauge.py --cov faucet --doctest-modules -v --cov-report term-missing || exit 1
+python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing || exit 1
 
 echo "========== Running faucet system tests =========="
 python2 ./faucet_mininet_test.py -c

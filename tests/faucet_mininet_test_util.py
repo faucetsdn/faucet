@@ -8,6 +8,11 @@ import socket
 import subprocess
 import time
 
+# pylint: disable=import-error
+from mininet.log import error, output
+
+
+DEVNULL = open(os.devnull, 'wb')
 GETPORT = 'GETPORT'
 PUTPORTS = 'PUTPORTS'
 GETSERIAL = 'GETSERIAL'
@@ -51,9 +56,12 @@ def receive_sock_line(sock):
 
 def tcp_listening(port):
     """Return True if any process listening on a port."""
-    DEVNULL = open(os.devnull, 'w')
     return subprocess.call(
-        tcp_listening_cmd(port).split(), stdout=DEVNULL, stderr=DEVNULL, close_fds=True) == 0
+        tcp_listening_cmd(port).split(),
+        stdin=DEVNULL,
+        stdout=DEVNULL,
+        stderr=DEVNULL,
+        close_fds=True) == 0
 
 
 def test_server_request(ports_socket, name, command):
@@ -63,7 +71,8 @@ def test_server_request(ports_socket, name, command):
     sock.sendall('%s,%s\n' % (command, name))
     buf = receive_sock_line(sock)
     response = int(buf.strip())
-    print('%s %s: %u' % (name, command, response))
+    sock.close()
+    output('%s %s: %u' % (name, command, response))
     return response
 
 
@@ -78,7 +87,7 @@ def find_free_port(ports_socket, name):
         port = test_server_request(ports_socket, name, GETPORT)
         if not tcp_listening(port):
             return port
-        print('port %u is busy, try another' % port)
+        error('port %u is busy, try another' % port)
 
 
 def return_free_ports(ports_socket, name):
@@ -139,8 +148,6 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             del ports_by_name[name]
             response = ports_returned
         elif command == GETPORT:
-            if len(ports_q) < min_free_ports:
-                queue_free_ports(len(ports_q) + 1)
             while True:
                 port = ports_q.popleft()
                 if time.time() - port_age[port] > MIN_PORT_AGE:
@@ -153,6 +160,8 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             # pylint: disable=no-member
             connection.sendall('%u\n' % response)
         connection.close()
+        if len(ports_q) < min_free_ports:
+            queue_free_ports(len(ports_q) + 1)
 
 
 def timeout_cmd(cmd, timeout):

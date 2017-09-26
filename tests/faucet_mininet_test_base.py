@@ -3,6 +3,7 @@
 """Base class for all FAUCET unit tests."""
 
 # pylint: disable=missing-docstring
+# pylint: disable=too-many-arguments
 
 import collections
 import glob
@@ -21,6 +22,7 @@ import requests
 from requests.exceptions import ConnectionError
 
 # pylint: disable=import-error
+from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
@@ -162,7 +164,8 @@ class FaucetTestBase(unittest.TestCase):
             self.CONFIG % self.port_map))
         if self.config_ports:
             faucet_config = faucet_config % self.config_ports
-        open(self.faucet_config_path, 'w').write(faucet_config)
+        with open(self.faucet_config_path, 'w') as faucet_config_file:
+            faucet_config_file.write(faucet_config)
 
     def _write_gauge_config(self):
         gauge_config = self.get_gauge_config(
@@ -172,7 +175,8 @@ class FaucetTestBase(unittest.TestCase):
             self.monitor_flow_table_file)
         if self.config_ports:
             gauge_config = gauge_config % self.config_ports
-        open(self.gauge_config_path, 'w').write(gauge_config)
+        with open(self.gauge_config_path, 'w') as gauge_config_file:
+            gauge_config_file.write(gauge_config)
 
     def _test_name(self):
         return faucet_mininet_test_util.flat_test_name(self.id())
@@ -196,7 +200,7 @@ class FaucetTestBase(unittest.TestCase):
             time.sleep(random.randint(1, 7))
             if load < self.max_test_load:
                 return
-            print('load average too high %f, waiting' % load)
+            output('load average too high %f, waiting' % load)
         self.fail('load average %f consistently too high' % load)
 
     def _allocate_config_ports(self):
@@ -207,7 +211,7 @@ class FaucetTestBase(unittest.TestCase):
                     port = faucet_mininet_test_util.find_free_port(
                         self.ports_sock, self._test_name())
                     self.config_ports[port_name] = port
-                    print('allocating port %u for %s' % (port, port_name))
+                    output('allocating port %u for %s' % (port, port_name))
 
     def _allocate_faucet_ports(self):
         if self.hw_switch:
@@ -239,18 +243,20 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
-            self.scrape_prometheus())
+        with open(os.path.join(self.tmpdir, 'prometheus.log'), 'w') as prom_log:
+            prom_log.write(self.scrape_prometheus())
         if self.net is not None:
             self.net.stop()
+            self.net = None
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
         # must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        for _, debug_log in self._get_ofchannel_logs():
-            self.assertFalse(
-                re.search('OFPErrorMsg', open(debug_log).read()),
-                msg='debug log has OFPErrorMsgs')
+        for _, debug_log_name in self._get_ofchannel_logs():
+            with open(debug_log_name) as debug_log:
+                self.assertFalse(
+                    re.search('OFPErrorMsg', debug_log.read()),
+                    msg='debug log has OFPErrorMsgs')
 
     def _attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
@@ -353,7 +359,7 @@ class FaucetTestBase(unittest.TestCase):
                 return
             self.net.stop()
             last_error_txt += '\n\n' + self._dump_controller_logs()
-            print(last_error_txt)
+            error('%s: %s' % (self._test_name(), last_error_txt))
             time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
         self.fail(last_error_txt)
 
@@ -408,7 +414,8 @@ class FaucetTestBase(unittest.TestCase):
         return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
 
     def _get_ofchannel_logs(self):
-        config = yaml.load(open(self.env['faucet']['FAUCET_CONFIG']))
+        with open(self.env['faucet']['FAUCET_CONFIG']) as config_file:
+            config = yaml.load(config_file)
         ofchannel_logs = []
         for dp_name, dp_config in config['dps'].items():
             if 'ofchannel_log' in dp_config:
@@ -420,15 +427,16 @@ class FaucetTestBase(unittest.TestCase):
         dump_txt = ''
         test_logs = glob.glob(os.path.join(self.tmpdir, '*.log'))
         for controller in self.net.controllers:
-            for test_log in test_logs:
-                basename = os.path.basename(test_log)
+            for test_log_name in test_logs:
+                basename = os.path.basename(test_log_name)
                 if basename.startswith(controller.name):
-                    dump_txt += '\n'.join((
-                        '',
-                        basename,
-                        '=' * len(basename),
-                        '',
-                        open(test_log).read()))
+                    with open(test_log_name) as test_log:
+                        dump_txt += '\n'.join((
+                            '',
+                            basename,
+                            '=' * len(basename),
+                            '',
+                            test_log.read()))
                     break
         return dump_txt
 
@@ -472,11 +480,13 @@ class FaucetTestBase(unittest.TestCase):
     def verify_no_exception(self, exception_log_name):
         if not os.path.exists(exception_log_name):
             return
-        exception_contents = open(exception_log_name, 'r').read()
-        self.assertEqual(
-            '',
-            exception_contents,
-            msg='%s log contains %s' % (exception_log_name, exception_contents))
+        with open(exception_log_name) as exception_log:
+            exception_contents = exception_log.read()
+            self.assertEqual(
+                '',
+                exception_contents,
+                msg='%s log contains %s' % (
+                    exception_log_name, exception_contents))
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=None,
                        vflags='-v', timeout=10, packets=2, root_intf=False):
@@ -487,7 +497,11 @@ class FaucetTestBase(unittest.TestCase):
             'tcpdump -i %s -e -n -U %s -c %u %s' % (
                 intf, vflags, packets, tcpdump_filter),
             timeout)
-        tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
+        tcpdump_out = tcpdump_host.popen(
+            tcpdump_cmd,
+            stdin=faucet_mininet_test_util.DEVNULL,
+            stderr=subprocess.STDOUT,
+            close_fds=True)
         popens = {tcpdump_host: tcpdump_out}
         tcpdump_started = False
         tcpdump_txt = ''
@@ -502,7 +516,7 @@ class FaucetTestBase(unittest.TestCase):
                         for func in funcs:
                             func()
                 else:
-                    print('tcpdump_helper: %s' % line)
+                    error('tcpdump_helper: %s' % line)
         self.assertTrue(tcpdump_started, msg='%s did not start' % tcpdump_cmd)
         return tcpdump_txt
 
@@ -627,43 +641,43 @@ dbs:
         groupdump = os.path.join(self.tmpdir, 'groupdump-%s.txt' % self.dpid)
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
-            groupdump_file = open(groupdump, 'w')
-            for group_desc in group_dump:
-                group_dict = json.loads(group_desc)
-                groupdump_file.write(str(group_dict) + '\n')
-                if group_dict['group_id'] == group_id:
-                    actions = set(group_dict['buckets'][0]['actions'])
-                    if set([action]).issubset(actions):
-                        return True
+            with open(groupdump, 'w') as groupdump_file:
+                for group_desc in group_dump:
+                    group_dict = json.loads(group_desc)
+                    groupdump_file.write(str(group_dict) + '\n')
+                    if group_dict['group_id'] == group_id:
+                        actions = set(group_dict['buckets'][0]['actions'])
+                        if set([action]).issubset(actions):
+                            return True
             time.sleep(1)
         return False
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                    actions=None, match_exact=False):
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
-        for _ in range(timeout):
-            flow_dicts = []
-            flow_dump = self.get_all_flows_from_dpid(dpid)
-            flowdump_file = open(flowdump, 'w')
-            for flow in flow_dump:
-                flow_dict = json.loads(flow)
-                flowdump_file.write(str(flow_dict) + '\n')
-                if (table_id is not None and
-                        flow_dict['table_id'] != table_id):
-                    continue
-                if actions is not None:
-                    if not set(actions).issubset(set(flow_dict['actions'])):
+        with open(flowdump, 'w') as flowdump_file:
+            for _ in range(timeout):
+                flow_dicts = []
+                flow_dump = self.get_all_flows_from_dpid(dpid)
+                for flow in flow_dump:
+                    flow_dict = json.loads(flow)
+                    flowdump_file.write(str(flow_dict) + '\n')
+                    if (table_id is not None and
+                            flow_dict['table_id'] != table_id):
                         continue
-                if match is not None:
-                    if match_exact:
-                        if match.items() != flow_dict['match'].items():
+                    if actions is not None:
+                        if not set(actions).issubset(set(flow_dict['actions'])):
                             continue
-                    elif not set(match.items()).issubset(set(flow_dict['match'].items())):
-                        continue
-                flow_dicts.append(flow_dict)
-            if flow_dicts:
-                return flow_dicts
-            time.sleep(1)
+                    if match is not None:
+                        if match_exact:
+                            if match.items() != flow_dict['match'].items():
+                                continue
+                        elif not set(match.items()).issubset(set(flow_dict['match'].items())):
+                            continue
+                    flow_dicts.append(flow_dict)
+                if flow_dicts:
+                    return flow_dicts
+                time.sleep(1)
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
@@ -929,7 +943,7 @@ dbs:
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(faucet_mininet_test_util.timeout_cmd(
             fping_cli, timeout))
-        print(fping_out)
+        error('%s: %s' % (self._test_name(), fping_out))
         self.assertTrue(
             not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
@@ -1076,7 +1090,8 @@ dbs:
 
     def force_faucet_reload(self, new_config):
         """Force FAUCET to reload by adding new line to config file."""
-        open(self.env['faucet']['FAUCET_CONFIG'], 'a').write(new_config)
+        with open(self.env['faucet']['FAUCET_CONFIG'], 'a') as config_file:
+            config_file.write(new_config)
         self.verify_hup_faucet()
 
     def get_host_port_stats(self, hosts_switch_ports):
@@ -1109,12 +1124,12 @@ dbs:
                     start_port_stats[host], end_port_stats[host], 'rx_bytes', seconds)
                 of_tx_mbps = self.of_bytes_mbps(
                     start_port_stats[host], end_port_stats[host], 'tx_bytes', seconds)
-                print(of_rx_mbps, of_tx_mbps)
+                output(of_rx_mbps, of_tx_mbps)
                 max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
                 iperf_to_max = iperf_mbps / max_of_mbps
                 msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
                     iperf_mbps, max_of_mbps, iperf_to_max)
-                print(msg)
+                output(msg)
                 if ((iperf_to_max < (1.0 - prop)) or
                         (iperf_to_max > (1.0 + prop))):
                     approx_match = False
@@ -1322,7 +1337,7 @@ dbs:
 
     def start_exabgp(self, exabgp_conf, timeout=30):
         """Start exabgp process on controller host."""
-        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
+        exabgp_conf_file_name = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
         exabgp_env = ' '.join((
@@ -1333,18 +1348,19 @@ dbs:
         ))
         bgp_port = self.config_ports['bgp_port']
         exabgp_conf = exabgp_conf % {'bgp_port': bgp_port}
-        open(exabgp_conf_file, 'w').write(exabgp_conf)
+        with open(exabgp_conf_file_name, 'w') as exabgp_conf_file:
+            exabgp_conf_file.write(exabgp_conf)
         controller = self._get_controller()
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
             'exabgp %s -d 2> %s > /dev/null &' % (
-                exabgp_conf_file, exabgp_err), 600)
+                exabgp_conf_file_name, exabgp_err), 600)
         exabgp_cli = 'env %s %s' % (exabgp_env, exabgp_cmd)
         controller.cmd(exabgp_cli)
         for _ in range(timeout):
             if os.path.exists(exabgp_log):
                 return (exabgp_log, exabgp_err)
             time.sleep(1)
-        self.fail('exabgp did not start')
+        self.fail('exabgp (%s) did not start' % exabgp_cli)
 
     def wait_bgp_up(self, neighbor, vlan, exabgp_log, exabgp_err):
         """Wait for BGP to come up."""
@@ -1359,9 +1375,10 @@ dbs:
                 return
             time.sleep(1)
         exabgp_log_content = []
-        for log in (exabgp_log, exabgp_err):
-            if os.path.exists(log):
-                exabgp_log_content.append(open(log).read())
+        for log_name in (exabgp_log, exabgp_err):
+            if os.path.exists(log_name):
+                with open(log_name) as log:
+                    exabgp_log_content.append(log.read())
         self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
     def exabgp_updates(self, exabgp_log):
@@ -1376,10 +1393,11 @@ dbs:
             time.sleep(1)
         self.fail('exabgp did not receive BGP updates')
 
-    def wait_exabgp_sent_updates(self, exabgp_log):
+    def wait_exabgp_sent_updates(self, exabgp_log_name):
         """Verify that exabgp process has sent BGP updates."""
         for _ in range(60):
-            exabgp_log_content = open(exabgp_log).read()
+            with open(exabgp_log_name) as exabgp_log:
+                exabgp_log_content = exabgp_log.read()
             if re.search(r'>> [1-9]+[0-9]* UPDATE', exabgp_log_content):
                 return
             time.sleep(1)
@@ -1488,7 +1506,10 @@ dbs:
         server_start_exp = r'Server listening on TCP port %u' % port
         for _ in range(3):
             server_out = server_host.popen(
-                iperf_server_cmd, stderr=subprocess.STDOUT)
+                iperf_server_cmd,
+                stdin=faucet_mininet_test_util.DEVNULL,
+                stderr=subprocess.STDOUT,
+                close_fds=True)
             popens = {server_host: server_out}
             lines = []
             for host, line in pmonitor(popens):
@@ -1532,7 +1553,7 @@ dbs:
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
-            print('%u mbps to %s' % (iperf_mbps, server_ip))
+            error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         # verify packets matched routing flows
         self.wait_for_route_as_flow(
@@ -1612,7 +1633,7 @@ dbs:
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
-            print('%u mbps to %s' % (iperf_mbps, server_ip))
+            error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.verify_ipv6_host_learned_mac(

@@ -96,7 +96,7 @@ Shouldn’t be an issue, if another controller is the master then my understandi
 --------------------------------------------
 How does the L2 Mac learning algorithm work?
 --------------------------------------------
-When the controller sees a new mac (on a per VLAN basis) it deletes any existing rules for that mac that may exist on that vlan (the controller does not keep a record of them) and installs new ones. See also this comment: https://github.com/REANNZ/Faucet/blob/master/valve.py#L512 It explains the timeout.
+When the controller sees a new mac (on a per VLAN basis) it deletes any existing rules for that mac that may exist on that vlan (the controller does not keep a record of them) and installs new ones.
 
 ------------------------------
 Does Faucet send LLDP packets?

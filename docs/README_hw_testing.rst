@@ -108,13 +108,13 @@ Running the tests
 
 .. code:: bash
 
-  docker build -t reannz/faucet-tests -f Dockerfile.tests .
+  docker build -t faucet/tests -f Dockerfile.tests .
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   modprobe openvswitch
   sudo docker run --privileged --net=host \
       -v /etc/ryu/faucet:/etc/ryu/faucet \
       -v /tmp:/tmp \
-      -ti reannz/faucet-tests
+      -ti faucet/tests
 
 Running a single test
 ---------------------
@@ -125,7 +125,7 @@ Running a single test
       -e FAUCET_TESTS="FaucetUntaggedTest" \
       -v /etc/ryu/faucet:/etc/ryu/faucet \
       -v /tmp:/tmp \
-      -ti reannz/faucet-tests
+      -ti faucet/tests
 
 Checking test results
 ---------------------

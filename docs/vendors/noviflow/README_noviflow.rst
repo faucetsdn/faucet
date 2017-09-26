@@ -1,8 +1,8 @@
 :Authors: - Josh Bailey
 
-=======================
-FAUCET on NoviFlow 1248
-=======================
+==================
+FAUCET on NoviFlow
+==================
 
 ------------
 Introduction
@@ -10,8 +10,10 @@ Introduction
 
 NoviFlow provide a range of switches known to work with FAUCET.
 
-These instructions are known to work with a NoviFlow 1248 and NS-2116, software NW400.1.8 and NW400.2.1, running with FAUCET 1.5.2.
-In theory later versions should work, taking care to update the table configuration.
+These instructions have been tested on NS1248, NS1132, NS2116, NS2128, NS2122, NS2150, NS21100 switches,
+using software versions NW400.1.8 to NW400.3.1, running with FAUCET v1.6.4.
+
+When using a more recent FAUCET version, different table configurations may be required.
 
 
 -----
@@ -29,7 +31,7 @@ In this example, the server running FAUCET is 10.0.1.8; configuration for CPN in
 
 **Configure the tables**
 
-  These matches are known to pass the unit tests as of FAUCET 1.5.2, but take care to adjust
+  These matches are known to pass the unit tests as of FAUCET 1.6.4, but take care to adjust
   ACL table matches and any changes for future versions.
 
 .. code:: bash
@@ -37,7 +39,7 @@ In this example, the server running FAUCET is 10.0.1.8; configuration for CPN in
    set config pipeline tablesizes 1024 1024 1024 1024 1024 1024 1024 1024 1024 tablewidths 80 40 40 40 40 40 40 40 40
    set config table tableid 0 matchfields 0 3 4 5 6 10 14 23 29 31
    set config table tableid 1 matchfields 0 3 4 5 6
-   set config table tableid 2 matchfields 0 5 6 10 14
+   set config table tableid 2 matchfields 0 5 6 10 11 12 14
    set config table tableid 3 matchfields 0 3 4 5 6 10 29
    set config table tableid 4 matchfields 5 6 12
    set config table tableid 5 matchfields 5 6 27
