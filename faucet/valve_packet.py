@@ -20,7 +20,7 @@
 import ipaddress
 
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
+from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
@@ -30,6 +30,7 @@ except ImportError:
     from faucet.valve_util import btos
 
 
+BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))

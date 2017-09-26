@@ -228,7 +228,8 @@ class Valve(object):
         # drop STP BPDU
         # TODO: compatible bridge loop detection/mitigation.
         if self.dp.drop_bpdu:
-            for bpdu_mac in ('01:80:C2:00:00:00', '01:00:0C:CC:CC:CD'):
+            for bpdu_mac in (
+                    valve_packet.BRIDGE_GROUP_ADDRESS, '01:00:0C:CC:CC:CD'):
                 ofmsgs.append(vlan_table.flowdrop(
                     vlan_table.match(eth_dst=bpdu_mac),
                     priority=self.dp.highest_priority))
