@@ -72,6 +72,7 @@ class FaucetTestBase(unittest.TestCase):
     dpid = None
     hardware = 'Open vSwitch'
     hw_switch = False
+    faucet_controller = None
     gauge_controller = None
     gauge_of_port = None
     prom_port = None
@@ -329,17 +330,19 @@ class FaucetTestBase(unittest.TestCase):
             self._allocate_faucet_ports()
             self._set_vars()
             self._write_faucet_config()
+            self.faucet_controller = faucet_mininet_test_topo.FAUCET(
+                name='faucet', tmpdir=self.tmpdir,
+                controller_intf=controller_intf,
+                env=self.env['faucet'],
+                ctl_privkey=self.ctl_privkey,
+                ctl_cert=self.ctl_cert,
+                ca_certs=self.ca_certs,
+                ports_sock=self.ports_sock,
+                port=self.of_port,
+                test_name=self._test_name())
             self.net = Mininet(
-                self.topo, controller=faucet_mininet_test_topo.FAUCET(
-                    name='faucet', tmpdir=self.tmpdir,
-                    controller_intf=controller_intf,
-                    env=self.env['faucet'],
-                    ctl_privkey=self.ctl_privkey,
-                    ctl_cert=self.ctl_cert,
-                    ca_certs=self.ca_certs,
-                    ports_sock=self.ports_sock,
-                    port=self.of_port,
-                    test_name=self._test_name()))
+                self.topo, controller=None)
+            self.net.addController(self.faucet_controller)
             if self.RUN_GAUGE:
                 self._allocate_gauge_ports()
                 self._write_gauge_config()
