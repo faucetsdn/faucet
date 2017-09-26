@@ -79,7 +79,7 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
 
     def __init__(self, name, **params):
-        super(FaucetSwitch).__init__(
+        super(FaucetSwitch, self).__init__(
             name=name, datapath='kernel', **params)
 
 
