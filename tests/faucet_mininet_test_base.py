@@ -968,7 +968,7 @@ dbs:
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
             self.require_host_learned(host)
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.retry_net_ping(hosts=(first_host, second_host))
         mirror_mac = mirror_host.MAC()
         tcpdump_filter = (
             'not ether src %s and '
@@ -988,7 +988,7 @@ dbs:
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
             self.require_host_learned(host)
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.retry_net_ping(hosts=(first_host, second_host))
         mirror_mac = mirror_host.MAC()
         tmp_eap_conf = os.path.join(self.tmpdir, 'eap.conf')
         tcpdump_filter = (
@@ -1260,6 +1260,18 @@ dbs:
         self.one_ipv6_ping(host, self.FAUCET_VIPV6.ip)
         self.verify_ipv6_host_learned_mac(
             host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
+
+    def retry_net_ping(self, hosts=None, required_loss=0, retries=3):
+        loss = None
+        for _ in range(retries):
+            if hosts is None:
+                loss = self.net.pingAll()
+            else:
+                loss = self.net.ping(hosts)
+            if loss <= required_loss:
+                return
+            time.sleep(1)
+        self.fail('ping %f loss > required loss %f' % (loss, required_loss))
 
     def tcp_port_free(self, host, port, ipv=4):
         listen_out = host.cmd(
