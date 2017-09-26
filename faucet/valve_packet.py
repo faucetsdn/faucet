@@ -66,7 +66,7 @@ def parse_packet_in_pkt(data, max_len):
 
     try:
         pkt = packet.Packet(data)
-    except stream_parser.StreamParser.TooSmallException:
+    except (AssertionError, stream_parser.StreamParser.TooSmallException):
         return (pkt, vlan_vid)
 
     eth_pkt = parse_pkt(pkt)
