@@ -246,8 +246,6 @@ class FaucetTestBase(unittest.TestCase):
         with open(os.path.join(self.tmpdir, 'prometheus.log'), 'w') as prom_log:
             prom_log.write(self.scrape_prometheus())
         if self.net is not None:
-            for switch in self.net.switches:
-                switch.terminate()
             self.net.stop()
             self.net = None
         faucet_mininet_test_util.return_free_ports(
