@@ -22,8 +22,10 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 
 try:
     import valve_of
+    import valve_packet
 except ImportError:
     from faucet import valve_of
+    from faucet import valve_packet
 
 
 class ValveFloodManager(object):
@@ -34,7 +36,7 @@ class ValveFloodManager(object):
     # then we flood all destination eth_dsts).
     FLOOD_DSTS = (
         (True, None, None),
-        (False, '01:80:C2:00:00:00', 'ff:ff:ff:00:00:00'), # 802.x
+        (False, valve_packet.BRIDGE_GROUP_ADDRESS, 'ff:ff:ff:00:00:00'), # 802.x
         (False, '01:00:5E:00:00:00', 'ff:ff:ff:00:00:00'), # IPv4 multicast
         (False, '33:33:00:00:00:00', 'ff:ff:00:00:00:00'), # IPv6 multicast
         (False, mac.BROADCAST_STR, None), # flood on ethernet broadcasts

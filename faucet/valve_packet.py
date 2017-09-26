@@ -20,7 +20,7 @@
 import ipaddress
 
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, stream_parser, packet, vlan
+from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
@@ -30,6 +30,7 @@ except ImportError:
     from faucet.valve_util import btos
 
 
+BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
@@ -117,6 +118,38 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
         vlan_header = vlan.vlan(vid=vid, ethertype=dl_type)
         pkt_header.add_protocol(vlan_header)
     return pkt_header
+
+
+def lacp_reqreply(vid, eth_src,
+                  actor_system, actor_key, actor_port,
+                  partner_system, partner_key, partner_port):
+    """Return a LACP frame.
+
+    Args:
+        vid (int or None): VLAN VID to use (or None).
+        eth_src (str): source Ethernet MAC address.
+        actor_system (str): actor system ID (MAC address)
+        actor_key (int): actor's LACP key assigned to this port.
+        actor_port (int): actor port number.
+        partner_system (str): partner system ID (MAC address)
+        partner_key (int): partner's LACP key assigned to this port.
+        partner_port (int): partner port number.
+    Returns:
+        ryu.lib.packet.ethernet: Ethernet packet with header.
+    """
+    pkt = build_pkt_header(
+        vid, eth_src, slow.SLOW_PROTOCOL_MULTICAST, ether.ETH_TYPE_SLOW)
+    lacp_pkt = slow.lacp(
+        actor_system=actor_system,
+        actor_port=actor_port,
+        partner_system=partner_system,
+        partner_port=partner_port,
+        actor_key=actor_key,
+        partner_key=partner_key,
+        version=1)
+    pkt.add_protocol(lacp_pkt)
+    pkt.serialize()
+    return pkt
 
 
 def arp_request(vid, eth_src, src_ip, dst_ip):
