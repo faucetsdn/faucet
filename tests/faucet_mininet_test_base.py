@@ -246,11 +246,7 @@ class FaucetTestBase(unittest.TestCase):
         """Clean up after a test."""
         with open(os.path.join(self.tmpdir, 'prometheus.log'), 'w') as prom_log:
             prom_log.write(self.scrape_prometheus())
-        if self.net is not None:
-            for switch in self.net.switches:
-                switch.terminate()
-            self.net.stop()
-            self.net = None
+        self.stop_net()
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
         # must not be any controller exception.
@@ -296,6 +292,15 @@ class FaucetTestBase(unittest.TestCase):
             self.set_port_up(port_no, wait=False)
         dumpNodeConnections(self.net.hosts)
         self.reset_all_ipv4_prefix(prefix=24)
+
+    def stop_net(self):
+        if self.net is not None:
+            for controller in self.net.controllers:
+                controller.terminate()
+            for switch in self.net.switches:
+                switch.terminate()
+            for host in self.net.hosts:
+                host.terminate()
 
     def _get_controller(self):
         """Return first controller."""
@@ -362,7 +367,7 @@ class FaucetTestBase(unittest.TestCase):
                 self._config_tableids()
                 self._wait_load()
                 return
-            self.net.stop()
+            self.stop_net()
             last_error_txt += '\n\n' + self._dump_controller_logs()
             error('%s: %s' % (self._test_name(), last_error_txt))
             time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
