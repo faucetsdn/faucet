@@ -30,6 +30,7 @@ except ImportError:
     from faucet.valve_util import btos
 
 
+ETH_VLAN_HEADER_SIZE = 14 + 4
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
@@ -396,3 +397,33 @@ def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
     pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()
     return pkt
+
+
+class PacketMeta(object):
+    """Original, and parsed Ethernet packet metadata."""
+
+    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
+        self.data = data
+        self.pkt = pkt
+        self.eth_pkt = eth_pkt
+        self.port = port
+        self.vlan = vlan
+        self.eth_src = eth_src
+        self.eth_dst = eth_dst
+
+    def reparse(self, max_len):
+        pkt, vlan_vid = parse_packet_in_pkt(
+            self.data, max_len)
+        if pkt is None or vlan_vid is None:
+            return
+        self.pkt = pkt
+        self.eth_pkt = parse_pkt(self.pkt)
+
+    def reparse_all(self):
+        self.reparse(0)
+
+    def reparse_ip(self, eth_type, payload=0):
+        ip_header = build_pkt_header(
+            1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
+        ip_header.serialize()
+        self.reparse(len(ip_header.data) + payload)
