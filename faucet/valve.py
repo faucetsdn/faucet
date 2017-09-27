@@ -596,11 +596,10 @@ class Valve(object):
         if (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac or
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for route_manager in list(self.route_manager_by_ipv.values()):
-                if pkt_meta.eth_type in route_manager.CONTROL_ETH_TYPES:
-                    pkt_meta.reparse_ip(route_manager.ETH_TYPE)
-                    ofmsgs = route_manager.control_plane_handler(pkt_meta)
-                    if ofmsgs:
-                        return ofmsgs
+                pkt_meta.reparse_ip(route_manager.ETH_TYPE)
+                ofmsgs = route_manager.control_plane_handler(pkt_meta)
+                if ofmsgs:
+                    return ofmsgs
         return []
 
     def _known_up_dpid_and_port(self, dp_id, in_port):
@@ -702,13 +701,13 @@ class Valve(object):
         Returns:
             PacketMeta instance.
         """
-        eth_pkt, vlan_pkt = valve_packet.parse_pkt(pkt)
+        eth_pkt = valve_packet.parse_pkt(pkt)
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         return valve_packet.PacketMeta(
-            data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, vlan_pkt.ethertype)
+            data, pkt, eth_pkt, port, vlan, eth_src, eth_dst)
 
     def _port_learn_ban_rules(self, pkt_meta):
         """Limit learning to a maximum configured on this port.

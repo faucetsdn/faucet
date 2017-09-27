@@ -55,9 +55,7 @@ def parse_pkt(pkt):
     Returns:
         ryu.lib.packet.ethernet: Ethernet packet.
     """
-    return (
-        pkt.get_protocol(ethernet.ethernet),
-        pkt.get_protocol(vlan.vlan))
+    return pkt.get_protocol(ethernet.ethernet)
 
 
 def parse_packet_in_pkt(data, max_len):
@@ -78,9 +76,16 @@ def parse_packet_in_pkt(data, max_len):
 
     try:
         pkt = packet.Packet(data)
-        eth_pkt, vlan_pkt = parse_pkt(pkt)
-        if eth_pkt and vlan_pkt:
-            vlan_vid = vlan_pkt.vid
+        eth_pkt = parse_pkt(pkt)
+        eth_type = eth_pkt.ethertype
+        # Packet ins, can only come when a VLAN header has already been pushed
+        # (ie. when we have progressed past the VLAN table). This gaurantees
+        # a VLAN header will always be present, so we know which VLAN the packet
+        # belongs to.
+        if eth_type == ether.ETH_TYPE_8021Q:
+            vlan_pkt = pkt.get_protocol(vlan.vlan)
+            if vlan_pkt:
+                vlan_vid = vlan_pkt.vid
     except (AssertionError, stream_parser.StreamParser.TooSmallException):
         pass
 
@@ -404,7 +409,7 @@ def ip_header_size(eth_type):
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
-    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type):
+    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
         self.data = data
         self.pkt = pkt
         self.eth_pkt = eth_pkt
@@ -412,7 +417,6 @@ class PacketMeta(object):
         self.vlan = vlan
         self.eth_src = eth_src
         self.eth_dst = eth_dst
-        self.eth_type = eth_type
 
     def reparse(self, max_len):
         pkt, vlan_vid = parse_packet_in_pkt(
@@ -420,7 +424,7 @@ class PacketMeta(object):
         if pkt is None or vlan_vid is None:
             return
         self.pkt = pkt
-        self.eth_pkt, _ = parse_pkt(self.pkt)
+        self.eth_pkt = parse_pkt(self.pkt)
 
     def reparse_all(self):
         self.reparse(0)
