@@ -1,14 +1,20 @@
 """Unit tests for gauge"""
 
 try:
-    import mock  # Python 2
+    # Python 2
+    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+    import mock
 except ImportError:
-    from unittest import mock  # Python 3
+    # Python 3
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from unittest import mock
 import unittest
 import time
+import math
+import threading
 import requests
 
-import faucet.gauge_prom as gauge_prom
+from faucet import gauge_prom, gauge_influx
 from ryu.ofproto.ofproto_v1_3_parser import OFPPortStatsReply, OFPPortStats
 
 class GaugePrometheusTests(unittest.TestCase):
@@ -100,6 +106,91 @@ class GaugePrometheusTests(unittest.TestCase):
                 stats_found.add(stat_name)
 
             self.assertEqual(stats_found, set(gauge_prom.PROM_PORT_VARS))
+
+class GaugeInfluxShipperTest(unittest.TestCase):
+
+    def create_config_obj(self):
+        conf = mock.Mock(influx_host='localhost',
+            influx_port=12345,
+            influx_user='gauge',
+            influx_pwd='',
+            influx_db='gauge',
+            influx_timeout=10
+            )
+        return conf
+
+    def get_values(self, dict_to_unpack):
+        values = []
+        for value in dict_to_unpack.values():
+            if isinstance(value, dict):
+                values.extend(self.get_values(value))
+            else:
+                values.append(value)
+        return values
+
+    def test_ship_success(self):
+        try: 
+            class PretendInflux(BaseHTTPRequestHandler):
+
+                def do_POST(self):
+                    self.send_response(204)
+                    self.end_headers()
+
+                def log_message(self, format, *args):
+                    return
+
+            server = HTTPServer(('', 12345), PretendInflux)
+            server_thread = threading.Thread(target=server.serve_forever)
+            server_thread.daemon = True
+            server_thread.start()
+
+            shipper = gauge_influx.InfluxShipper()
+            shipper.conf = self.create_config_obj()
+            points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
+            shipper.ship_points(points)
+
+        except Exception as err:
+            self.fail("Code threw an exception: {}".format(err))
+
+
+    def test_ship_connection_err(self):
+        try:
+            shipper = gauge_influx.InfluxShipper()
+            shipper.conf = self.create_config_obj()
+            shipper.logger = mock.Mock()
+            points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
+            shipper.ship_points(points)
+
+        except Exception as err:
+            self.fail("Code threw an exception: {}".format(err))
+
+    def test_ship_no_config(self):
+        try:
+            shipper = gauge_influx.InfluxShipper()
+            points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
+            shipper.ship_points(points)
+
+        except Exception as err:
+            self.fail("Code threw an exception: {}".format(err))
+
+    def test_point(self):
+        shipper = gauge_influx.InfluxShipper()
+        dp_name = 'windscale-faucet-1'
+        port_name = 'port1.0.1'
+        rcv_time = int(time.time())
+        stat_name = 'test_stat_name'
+        #max uint64 number
+        stat_val = math.pow(2,64) - 1
+
+        port_point = shipper.make_port_point(dp_name, port_name, rcv_time, stat_name, stat_val)
+        values = {dp_name, port_name, rcv_time, stat_name, stat_val}
+        port_vals = self.get_values(port_point)
+        self.assertEqual(set(port_vals), values)
+        
+        point = shipper.make_point({'dp_name': dp_name, 'port_name': port_name}, rcv_time, stat_name, stat_val)
+        point_vals = self.get_values(point)
+        self.assertEqual(set(point_vals), values)
+
 
 
 if __name__ == "__main__":
