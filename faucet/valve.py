@@ -51,7 +51,7 @@ except ImportError:
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
-    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
+    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type):
         self.data = data
         self.pkt = pkt
         self.eth_pkt = eth_pkt
@@ -59,6 +59,7 @@ class PacketMeta(object):
         self.vlan = vlan
         self.eth_src = eth_src
         self.eth_dst = eth_dst
+        self.eth_type = eth_type
 
     def reparse(self, max_len):
         pkt, vlan_vid = valve_packet.parse_packet_in_pkt(
@@ -66,7 +67,9 @@ class PacketMeta(object):
         if pkt is None or vlan_vid is None:
             return
         self.pkt = pkt
-        self.eth_pkt = valve_packet.parse_pkt(self.pkt)
+        eth_pkt, vlan_pkt = valve_packet.parse_pkt(self.pkt)
+        self.eth_pkt = eth_pkt
+        self.eth_type = vlan_pkt.ethertype
 
     def reparse_all(self):
         self.reparse(0)
@@ -731,12 +734,13 @@ class Valve(object):
         Returns:
             PacketMeta instance.
         """
-        eth_pkt = valve_packet.parse_pkt(pkt)
+        eth_pkt, vlan_pkt  = valve_packet.parse_pkt(pkt)
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
+        eth_type = vlan_pkt.ethertype
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
-        return PacketMeta(data, pkt, eth_pkt, port, vlan, eth_src, eth_dst)
+        return PacketMeta(data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
 
     def _port_learn_ban_rules(self, pkt_meta):
         """Limit learning to a maximum configured on this port.
