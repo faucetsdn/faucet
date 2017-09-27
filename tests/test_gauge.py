@@ -108,18 +108,23 @@ class GaugePrometheusTests(unittest.TestCase):
             self.assertEqual(stats_found, set(gauge_prom.PROM_PORT_VARS))
 
 class GaugeInfluxShipperTest(unittest.TestCase):
+    """Tests the InfluxShipper"""
 
     def create_config_obj(self):
+        """Create a mock config object that contains the necessary InfluxDB config"""
+
         conf = mock.Mock(influx_host='localhost',
-            influx_port=12345,
-            influx_user='gauge',
-            influx_pwd='',
-            influx_db='gauge',
-            influx_timeout=10
-            )
+                         influx_port=12345,
+                         influx_user='gauge',
+                         influx_pwd='',
+                         influx_db='gauge',
+                         influx_timeout=10
+                        )
         return conf
 
     def get_values(self, dict_to_unpack):
+        """Get all the values from a nested dictionary"""
+
         values = []
         for value in dict_to_unpack.values():
             if isinstance(value, dict):
@@ -129,14 +134,17 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         return values
 
     def test_ship_success(self):
-        try: 
+        """Checks that the shipper successsfully connects
+        to a HTTP server when the points are shipped"""
+
+        try:
             class PretendInflux(BaseHTTPRequestHandler):
 
                 def do_POST(self):
                     self.send_response(204)
                     self.end_headers()
 
-                def log_message(self, format, *args):
+                def log_message(self, format_, *args):
                     return
 
             server = HTTPServer(('', 12345), PretendInflux)
@@ -154,6 +162,9 @@ class GaugeInfluxShipperTest(unittest.TestCase):
 
 
     def test_ship_connection_err(self):
+        """Checks that even when there is a connection error,
+        there is no exception thrown"""
+
         try:
             shipper = gauge_influx.InfluxShipper()
             shipper.conf = self.create_config_obj()
@@ -165,6 +176,9 @@ class GaugeInfluxShipperTest(unittest.TestCase):
             self.fail("Code threw an exception: {}".format(err))
 
     def test_ship_no_config(self):
+        """Check that no exceptions are thrown when
+        there is no config"""
+
         try:
             shipper = gauge_influx.InfluxShipper()
             points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
@@ -174,20 +188,23 @@ class GaugeInfluxShipperTest(unittest.TestCase):
             self.fail("Code threw an exception: {}".format(err))
 
     def test_point(self):
+        """Checks that the points produced still have the variables given to it"""
+
         shipper = gauge_influx.InfluxShipper()
         dp_name = 'windscale-faucet-1'
         port_name = 'port1.0.1'
         rcv_time = int(time.time())
         stat_name = 'test_stat_name'
         #max uint64 number
-        stat_val = math.pow(2,64) - 1
+        stat_val = math.pow(2, 64) - 1
 
         port_point = shipper.make_port_point(dp_name, port_name, rcv_time, stat_name, stat_val)
         values = {dp_name, port_name, rcv_time, stat_name, stat_val}
         port_vals = self.get_values(port_point)
         self.assertEqual(set(port_vals), values)
-        
-        point = shipper.make_point({'dp_name': dp_name, 'port_name': port_name}, rcv_time, stat_name, stat_val)
+
+        tags = {'dp_name': dp_name, 'port_name': port_name}
+        point = shipper.make_point(tags, rcv_time, stat_name, stat_val)
         point_vals = self.get_values(point)
         self.assertEqual(set(point_vals), values)
 
