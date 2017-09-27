@@ -399,6 +399,13 @@ def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
     return pkt
 
 
+def ip_header_size(eth_type):
+    ip_header = build_pkt_header(
+        1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
+    ip_header.serialize()
+    return len(ip_header.data)
+
+
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
@@ -423,7 +430,4 @@ class PacketMeta(object):
         self.reparse(0)
 
     def reparse_ip(self, eth_type, payload=0):
-        ip_header = build_pkt_header(
-            1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
-        ip_header.serialize()
-        self.reparse(len(ip_header.data) + payload)
+        self.reparse(ip_header_size(eth_type) + payload)
