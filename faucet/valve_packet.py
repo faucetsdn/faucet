@@ -30,12 +30,21 @@ except ImportError:
     from faucet.valve_util import btos
 
 
+ETH_VLAN_HEADER_SIZE = 14 + 4
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
+CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
 IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
+
+
+
+def mac_byte_mask(mask_bytes=0):
+    """Return a MAC address mask with n bytes masked out."""
+    assert mask_bytes <= 6
+    return ':'.join(['ff'] * mask_bytes + (['00'] * (6 - mask_bytes)))
 
 
 def parse_pkt(pkt):
@@ -46,7 +55,12 @@ def parse_pkt(pkt):
     Returns:
         ryu.lib.packet.ethernet: Ethernet packet.
     """
-    return pkt.get_protocol(ethernet.ethernet)
+    eth_pkt = pkt.get_protocol(ethernet.ethernet)
+    if eth_pkt.ethertype == ether.ETH_TYPE_8021Q:
+        vlan_pkt = pkt.get_protocol(vlan.vlan)
+        if vlan_pkt:
+            return (eth_pkt, vlan_pkt)
+    return (None, None)
 
 
 def parse_packet_in_pkt(data, max_len):
@@ -67,19 +81,12 @@ def parse_packet_in_pkt(data, max_len):
 
     try:
         pkt = packet.Packet(data)
+        eth_pkt, vlan_pkt = parse_pkt(pkt)
+        if eth_pkt and vlan_pkt:
+            vlan_vid = vlan_pkt.vid
     except (AssertionError, stream_parser.StreamParser.TooSmallException):
-        return (pkt, vlan_vid)
+        pass
 
-    eth_pkt = parse_pkt(pkt)
-    eth_type = eth_pkt.ethertype
-    # Packet ins, can only come when a VLAN header has already been pushed
-    # (ie. when we have progressed past the VLAN table). This gaurantees
-    # a VLAN header will always be present, so we know which VLAN the packet
-    # belongs to.
-    if eth_type == ether.ETH_TYPE_8021Q:
-        # tagged packet
-        vlan_proto = pkt.get_protocols(vlan.vlan)[0]
-        vlan_vid = vlan_proto.vid
     return (pkt, vlan_vid)
 
 
@@ -388,3 +395,36 @@ def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
     pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()
     return pkt
+
+
+class PacketMeta(object):
+    """Original, and parsed Ethernet packet metadata."""
+
+    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type):
+        self.data = data
+        self.pkt = pkt
+        self.eth_pkt = eth_pkt
+        self.port = port
+        self.vlan = vlan
+        self.eth_src = eth_src
+        self.eth_dst = eth_dst
+        self.eth_type = eth_type
+
+    def reparse(self, max_len):
+        pkt, vlan_vid = parse_packet_in_pkt(
+            self.data, max_len)
+        if pkt is None or vlan_vid is None:
+            return
+        self.pkt = pkt
+        eth_pkt, vlan_pkt = parse_pkt(self.pkt)
+        self.eth_pkt = eth_pkt
+        self.eth_type = vlan_pkt.ethertype
+
+    def reparse_all(self):
+        self.reparse(0)
+
+    def reparse_ip(self, eth_type, payload=0):
+        ip_header = build_pkt_header(
+            1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
+        ip_header.serialize()
+        self.reparse(len(ip_header.data) + payload)
