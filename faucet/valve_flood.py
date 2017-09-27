@@ -36,9 +36,9 @@ class ValveFloodManager(object):
     # then we flood all destination eth_dsts).
     FLOOD_DSTS = (
         (True, None, None),
-        (False, valve_packet.BRIDGE_GROUP_ADDRESS, 'ff:ff:ff:00:00:00'), # 802.x
-        (False, '01:00:5E:00:00:00', 'ff:ff:ff:00:00:00'), # IPv4 multicast
-        (False, '33:33:00:00:00:00', 'ff:ff:00:00:00:00'), # IPv6 multicast
+        (False, valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.mac_byte_mask(3)), # 802.x
+        (False, '01:00:5E:00:00:00', valve_packet.mac_byte_mask(3)), # IPv4 multicast
+        (False, '33:33:00:00:00:00', valve_packet.mac_byte_mask(2)), # IPv6 multicast
         (False, mac.BROADCAST_STR, None), # flood on ethernet broadcasts
     )
 

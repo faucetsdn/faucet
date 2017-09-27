@@ -229,7 +229,8 @@ class Valve(object):
         # TODO: compatible bridge loop detection/mitigation.
         if self.dp.drop_bpdu:
             for bpdu_mac in (
-                    valve_packet.BRIDGE_GROUP_ADDRESS, '01:00:0C:CC:CC:CD'):
+                    valve_packet.BRIDGE_GROUP_ADDRESS,
+                    valve_packet.CISCO_SPANNING_GROUP_ADDRESS):
                 ofmsgs.append(vlan_table.flowdrop(
                     vlan_table.match(eth_dst=bpdu_mac),
                     priority=self.dp.highest_priority))

@@ -31,11 +31,19 @@ except ImportError:
 
 
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
+CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
 IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
+
+
+
+def mac_byte_mask(mask_bytes=0):
+    """Return a MAC address mask with n bytes masked out."""
+    assert mask_bytes <= 6
+    return ':'.join(['ff'] * mask_bytes + (['00'] * (6 - mask_bytes)))
 
 
 def parse_pkt(pkt):
