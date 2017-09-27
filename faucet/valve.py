@@ -48,36 +48,6 @@ except ImportError:
     from faucet import valve_util
 
 
-class PacketMeta(object):
-    """Original, and parsed Ethernet packet metadata."""
-
-    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
-        self.data = data
-        self.pkt = pkt
-        self.eth_pkt = eth_pkt
-        self.port = port
-        self.vlan = vlan
-        self.eth_src = eth_src
-        self.eth_dst = eth_dst
-
-    def reparse(self, max_len):
-        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(
-            self.data, max_len)
-        if pkt is None or vlan_vid is None:
-            return
-        self.pkt = pkt
-        self.eth_pkt = valve_packet.parse_pkt(self.pkt)
-
-    def reparse_all(self):
-        self.reparse(0)
-
-    def reparse_ip(self, eth_type, payload=0):
-        ip_header = valve_packet.build_pkt_header(
-            1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
-        ip_header.serialize()
-        self.reparse(len(ip_header.data) + payload)
-
-
 class ValveLogger(object):
 
     def __init__(self, logger, dp_id):
@@ -228,7 +198,9 @@ class Valve(object):
         # drop STP BPDU
         # TODO: compatible bridge loop detection/mitigation.
         if self.dp.drop_bpdu:
-            for bpdu_mac in ('01:80:C2:00:00:00', '01:00:0C:CC:CC:CD'):
+            for bpdu_mac in (
+                    valve_packet.BRIDGE_GROUP_ADDRESS,
+                    valve_packet.CISCO_SPANNING_GROUP_ADDRESS):
                 ofmsgs.append(vlan_table.flowdrop(
                     vlan_table.match(eth_dst=bpdu_mac),
                     priority=self.dp.highest_priority))
@@ -624,10 +596,11 @@ class Valve(object):
         if (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac or
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for route_manager in list(self.route_manager_by_ipv.values()):
-                pkt_meta.reparse_ip(route_manager.ETH_TYPE)
-                ofmsgs = route_manager.control_plane_handler(pkt_meta)
-                if ofmsgs:
-                    return ofmsgs
+                if pkt_meta.eth_type in route_manager.CONTROL_ETH_TYPES:
+                    pkt_meta.reparse_ip(route_manager.ETH_TYPE)
+                    ofmsgs = route_manager.control_plane_handler(pkt_meta)
+                    if ofmsgs:
+                        return ofmsgs
         return []
 
     def _known_up_dpid_and_port(self, dp_id, in_port):
@@ -718,12 +691,13 @@ class Valve(object):
 
         return ofmsgs
 
-    def parse_rcv_packet(self, in_port, vlan_vid, data, pkt):
+    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, pkt):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
             in_port (int): port packet was received on.
             vlan_vid (int): VLAN VID of port packet was received on.
+            eth_type (int): Ethernet type of packet.
             data (bytes): Raw packet data.
             pkt (ryu.lib.packet.packet): parsed packet received.
         Returns:
@@ -734,7 +708,8 @@ class Valve(object):
         eth_dst = eth_pkt.dst
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
-        return PacketMeta(data, pkt, eth_pkt, port, vlan, eth_src, eth_dst)
+        return valve_packet.PacketMeta(
+            data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
 
     def _port_learn_ban_rules(self, pkt_meta):
         """Limit learning to a maximum configured on this port.

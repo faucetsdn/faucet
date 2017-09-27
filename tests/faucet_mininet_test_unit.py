@@ -1320,7 +1320,7 @@ acls:
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
         self.assertEqual(100.0, self.net.ping((second_host, third_host)))
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.retry_net_ping(hosts=(first_host, second_host))
         third_host.setMAC(original_third_host_mac)
         self.ping_all_when_learned()
         self.change_port_config(
@@ -1690,14 +1690,14 @@ class FaucetUntaggedHostMoveTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.retry_net_ping(hosts=(first_host, second_host))
         self.swap_host_macs(first_host, second_host)
         self.net.ping((first_host, second_host))
         for host, in_port in (
                 (first_host, self.port_map['port_1']),
                 (second_host, self.port_map['port_2'])):
             self.require_host_learned(host, in_port=in_port)
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.retry_net_ping(hosts=(first_host, second_host))
 
 
 class FaucetUntaggedHostPermanentLearnTest(FaucetUntaggedTest):
@@ -1732,7 +1732,7 @@ vlans:
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
         self.assertEqual(100.0, self.net.ping((second_host, third_host)))
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.retry_net_ping(hosts=(first_host, second_host))
         # 3rd host stops impersonating, now everything fine again.
         third_host.setMAC(original_third_host_mac)
         self.ping_all_when_learned()
@@ -1987,8 +1987,8 @@ vlans:
         self.verify_vlan_flood_limited(
             untagged_host_pair[0], untagged_host_pair[1], tagged_host_pair[0])
         # hosts within VLANs can ping each other
-        self.assertEqual(0, self.net.ping(tagged_host_pair))
-        self.assertEqual(0, self.net.ping(untagged_host_pair))
+        self.retry_net_ping(hosts=tagged_host_pair)
+        self.retry_net_ping(hosts=untagged_host_pair)
         # hosts cannot ping hosts in other VLANs
         self.assertEqual(
             100, self.net.ping([tagged_host_pair[0], untagged_host_pair[0]]))
@@ -3593,14 +3593,6 @@ class FaucetStringOfDPTest(FaucetTest):
                 return True
         return False
 
-    def eventually_all_reachable(self, retries=3):
-        """Allow time for distributed learning to happen."""
-        for _ in range(retries):
-            loss = self.net.pingAll()
-            if loss == 0:
-                break
-        self.assertEqual(0, loss)
-
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
@@ -3614,7 +3606,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in multi switch topology can reach one another."""
-        self.assertEqual(0, self.net.pingAll())
+        self.retry_net_ping()
 
 
 class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
@@ -3629,7 +3621,7 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def test_tagged(self):
         """All tagged hosts in multi switch topology can reach one another."""
-        self.assertEqual(0, self.net.pingAll())
+        self.retry_net_ping()
 
 
 class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
@@ -3648,7 +3640,7 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
-        self.eventually_all_reachable()
+        self.retry_net_ping()
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
@@ -3668,7 +3660,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
-        self.eventually_all_reachable()
+        self.retry_net_ping()
 
 
 class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
@@ -3976,7 +3968,7 @@ acls:
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         first_host.setMAC('0e:0d:00:00:00:99')
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.retry_net_ping(hosts=(first_host, second_host))
         self.wait_nonzero_packet_count_flow(
             {u'dl_src': u'0e:0d:00:00:00:00/ff:ff:00:00:00:00'},
             table_id=self.PORT_ACL_TABLE)

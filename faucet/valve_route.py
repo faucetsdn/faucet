@@ -53,6 +53,7 @@ class ValveRouteManager(object):
     ETH_TYPE = None
     ICMP_TYPE = None
     MAX_LEN = 96
+    CONTROL_ETH_TYPES = None
 
     def __init__(self, logger, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
@@ -577,6 +578,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
     IPV = 4
     ETH_TYPE = ether.ETH_TYPE_IP
     ICMP_TYPE = inet.IPPROTO_ICMP
+    CONTROL_ETH_TYPES = (ether.ETH_TYPE_IP, ether.ETH_TYPE_ARP)
+
 
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_arp_limit
@@ -692,6 +695,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
     ETH_TYPE = ether.ETH_TYPE_IPV6
     ICMP_TYPE = inet.IPPROTO_ICMPV6
     MAX_LEN = 128
+    CONTROL_ETH_TYPES = (ether.ETH_TYPE_IPV6,)
+
 
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_nd_limit
