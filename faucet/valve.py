@@ -596,10 +596,11 @@ class Valve(object):
         if (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac or
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for route_manager in list(self.route_manager_by_ipv.values()):
-                pkt_meta.reparse_ip(route_manager.ETH_TYPE)
-                ofmsgs = route_manager.control_plane_handler(pkt_meta)
-                if ofmsgs:
-                    return ofmsgs
+                if pkt_meta.eth_type in route_manager.CONTROL_ETH_TYPES:
+                    pkt_meta.reparse_ip(route_manager.ETH_TYPE)
+                    ofmsgs = route_manager.control_plane_handler(pkt_meta)
+                    if ofmsgs:
+                        return ofmsgs
         return []
 
     def _known_up_dpid_and_port(self, dp_id, in_port):
@@ -690,12 +691,13 @@ class Valve(object):
 
         return ofmsgs
 
-    def parse_rcv_packet(self, in_port, vlan_vid, data, pkt):
+    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, pkt):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
             in_port (int): port packet was received on.
             vlan_vid (int): VLAN VID of port packet was received on.
+            eth_type (int): Ethernet type of packet.
             data (bytes): Raw packet data.
             pkt (ryu.lib.packet.packet): parsed packet received.
         Returns:
@@ -707,7 +709,7 @@ class Valve(object):
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         return valve_packet.PacketMeta(
-            data, pkt, eth_pkt, port, vlan, eth_src, eth_dst)
+            data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
 
     def _port_learn_ban_rules(self, pkt_meta):
         """Limit learning to a maximum configured on this port.

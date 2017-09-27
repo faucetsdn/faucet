@@ -58,7 +58,7 @@ def build_pkt(pkt):
     result = packet.Packet()
     for layer in layers:
         result.add_protocol(layer)
-    return result
+    return (result, ethertype)
 
 
 class ValveTestBase(unittest.TestCase):
@@ -155,10 +155,10 @@ vlans:
         self.learn_hosts()
 
     def rcv_packet(self, port, vid, match):
-        pkt = build_pkt(match)
+        pkt, eth_type = build_pkt(match)
         pkt.serialize()
         pkt_meta = self.valve.parse_rcv_packet(
-            port, vid, pkt.data, pkt)
+            port, vid, eth_type, pkt.data, pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             dp_id=self.DP_ID, valves={}, pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
