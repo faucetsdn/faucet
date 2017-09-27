@@ -93,8 +93,13 @@ class GaugePrometheusTests(unittest.TestCase):
 
         for port_num, port in datapath.ports.items():
             stats = prom_lines[(dp_id, port.name)]
-            for _, stat_val in stats:
+            stats_found = set()
+
+            for stat_name, stat_val in stats:
                 self.assertAlmostEqual(stat_val, port_num)
+                stats_found.add(stat_name)
+
+            self.assertEqual(stats_found, set(gauge_prom.PROM_PORT_VARS))
 
 
 if __name__ == "__main__":
