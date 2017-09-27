@@ -48,36 +48,6 @@ except ImportError:
     from faucet import valve_util
 
 
-class PacketMeta(object):
-    """Original, and parsed Ethernet packet metadata."""
-
-    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst):
-        self.data = data
-        self.pkt = pkt
-        self.eth_pkt = eth_pkt
-        self.port = port
-        self.vlan = vlan
-        self.eth_src = eth_src
-        self.eth_dst = eth_dst
-
-    def reparse(self, max_len):
-        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(
-            self.data, max_len)
-        if pkt is None or vlan_vid is None:
-            return
-        self.pkt = pkt
-        self.eth_pkt = valve_packet.parse_pkt(self.pkt)
-
-    def reparse_all(self):
-        self.reparse(0)
-
-    def reparse_ip(self, eth_type, payload=0):
-        ip_header = valve_packet.build_pkt_header(
-            1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
-        ip_header.serialize()
-        self.reparse(len(ip_header.data) + payload)
-
-
 class ValveLogger(object):
 
     def __init__(self, logger, dp_id):
@@ -736,7 +706,8 @@ class Valve(object):
         eth_dst = eth_pkt.dst
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
-        return PacketMeta(data, pkt, eth_pkt, port, vlan, eth_src, eth_dst)
+        return valve_packet.PacketMeta(
+            data, pkt, eth_pkt, port, vlan, eth_src, eth_dst)
 
     def _port_learn_ban_rules(self, pkt_meta):
         """Limit learning to a maximum configured on this port.
