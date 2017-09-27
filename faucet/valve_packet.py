@@ -54,12 +54,7 @@ def parse_pkt(pkt):
     Returns:
         ryu.lib.packet.ethernet: Ethernet packet.
     """
-    eth_pkt = pkt.get_protocol(ethernet.ethernet)
-    if eth_pkt.ethertype == ether.ETH_TYPE_8021Q:
-        vlan_pkt = pkt.get_protocol(vlan.vlan)
-        if vlan_pkt:
-            return (eth_pkt, vlan_pkt)
-    return (None, None)
+    return pkt.get_protocol(ethernet.ethernet)
 
 
 def parse_packet_in_pkt(data, max_len):
@@ -80,12 +75,19 @@ def parse_packet_in_pkt(data, max_len):
 
     try:
         pkt = packet.Packet(data)
-        eth_pkt, vlan_pkt = parse_pkt(pkt)
-        if eth_pkt and vlan_pkt:
-            vlan_vid = vlan_pkt.vid
     except (AssertionError, stream_parser.StreamParser.TooSmallException):
-        pass
+        return (pkt, vlan_vid)
 
+    eth_pkt = parse_pkt(pkt)
+    eth_type = eth_pkt.ethertype
+    # Packet ins, can only come when a VLAN header has already been pushed
+    # (ie. when we have progressed past the VLAN table). This gaurantees
+    # a VLAN header will always be present, so we know which VLAN the packet
+    # belongs to.
+    if eth_type == ether.ETH_TYPE_8021Q:
+        # tagged packet
+        vlan_proto = pkt.get_protocols(vlan.vlan)[0]
+        vlan_vid = vlan_proto.vid
     return (pkt, vlan_vid)
 
 
