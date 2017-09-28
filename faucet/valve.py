@@ -236,6 +236,15 @@ class Valve(object):
             priority=self.dp.low_priority,
             inst=[valve_of.goto_table(self.dp.tables['flood'])])]
 
+    def _add_controller_lacp_flow(self):
+        """Add a flow for controller to learn/add flows for destinations."""
+        eth_src_table = self.dp.tables['eth_src']
+        return [eth_src_table.flowcontroller(
+            eth_src_table.match(
+                eth_type=ether.ETH_TYPE_SLOW,
+                eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
+            priority=self.dp.high_priority)]
+
     def _add_controller_learn_flow(self):
         """Add a flow for controller to learn/add flows for destinations."""
         return [self.dp.tables['eth_src'].flowcontroller(
