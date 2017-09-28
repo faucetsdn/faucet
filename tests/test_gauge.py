@@ -15,7 +15,10 @@ import threading
 import requests
 
 from faucet import gauge_prom, gauge_influx
-from ryu.ofproto.ofproto_v1_3_parser import OFPPortStatsReply, OFPPortStats
+from ryu.ofproto import ofproto_v1_3 as ofproto
+from ryu.ofproto import ofproto_v1_3_parser as parser
+
+
 def create_mock_datapath(num_ports):
     """Mock a datapath by creating mocked datapath ports."""
     ports = {}
@@ -104,9 +107,9 @@ class GaugePrometheusTests(unittest.TestCase):
 
 
         prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', prom_client)
-        port1 = OFPPortStats(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100, 50)
-        port2 = OFPPortStats(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 100, 50)
-        message = OFPPortStatsReply(datapath, body=[port1, port2])
+        port1 = parser.OFPPortStats(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100, 50)
+        port2 = parser.OFPPortStats(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 100, 50)
+        message = parser.OFPPortStatsReply(datapath, body=[port1, port2])
         dp_id = 1
         prom_poller.update(time.time(), dp_id, message)
 
