@@ -502,7 +502,7 @@ class Valve(object):
                         in_port=port.number,
                         eth_type=ether.ETH_TYPE_SLOW,
                         eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
-                    priority=self.dp.high_priority))
+                    priority=self.dp.highest_priority))
 
             # Add ACL if any.
             acl_ofmsgs = self._port_add_acl(port_num)
@@ -593,6 +593,35 @@ class Valve(object):
     def port_delete(self, dp_id, port_num):
         return self.ports_delete(dp_id, [port_num])
 
+    def lacp_handler(self, pkt_meta):
+        """Handle a LACP packet.
+
+        We are a currently a passive, non-aggregateable LACP partner.
+
+        Args:
+            pkt_meta (PacketMeta): packet for control plane.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
+        ofmsgs = []
+        if pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST:
+            pkt_meta.reparse_all()
+            lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
+            pkt = valve_packet.lacp_reqreply(pkt_meta.vlan.vid, pkt_meta.eth_src,
+                pkt_meta.vlan.faucet_mac, pkt_meta.port.number, pkt_meta.port.number,
+                lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
+                lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
+                lacp_pkt.actor_state_defaulted,
+                lacp_pkt.actor_state_expired,
+                lacp_pkt.actor_state_timeout,
+                lacp_pkt.actor_state_collecting,
+                lacp_pkt.actor_state_distributing,
+                lacp_pkt.actor_state_aggregation,
+                lacp_pkt.actor_state_synchronization,
+                lacp_pkt.actor_state_activity)
+            ofmsgs = [valve_of.packetout(pkt_meta.port.number, pkt.data)]
+        return ofmsgs
+
     def control_plane_handler(self, pkt_meta):
         """Handle a packet probably destined to FAUCET's route managers.
 
@@ -603,6 +632,7 @@ class Valve(object):
         Returns:
             list: OpenFlow messages, if any.
         """
+        ofmsgs = []
         if (pkt_meta.eth_dst == pkt_meta.vlan.faucet_mac or
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for route_manager in list(self.route_manager_by_ipv.values()):
@@ -610,8 +640,8 @@ class Valve(object):
                     pkt_meta.reparse_ip(route_manager.ETH_TYPE)
                     ofmsgs = route_manager.control_plane_handler(pkt_meta)
                     if ofmsgs:
-                        return ofmsgs
-        return []
+                        break
+        return ofmsgs
 
     def _known_up_dpid_and_port(self, dp_id, in_port):
         """Returns True if datapath and port are known and running.
@@ -849,6 +879,7 @@ class Valve(object):
 
         ofmsgs = []
         control_plane_handled = False
+        learn_from_pkt = True
 
         if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.debug(
@@ -857,7 +888,12 @@ class Valve(object):
                     pkt_meta.port.number,
                     pkt_meta.vlan.vid))
 
-            if self.L3:
+            lacp_ofmsgs = self.lacp_handler(pkt_meta)
+            if lacp_ofmsgs:
+                learn_from_pkt = False
+                ofmsgs.extend(lacp_ofmsgs)
+
+            elif self.L3:
                 control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
                 if control_plane_ofmsgs:
                     control_plane_handled = True
@@ -876,14 +912,15 @@ class Valve(object):
             ofmsgs.extend(ban_vlan_rules)
             return ofmsgs
 
-        ofmsgs.extend(
-            self._learn_host(valves, dp_id, pkt_meta))
+        if learn_from_pkt:
+            ofmsgs.extend(
+                self._learn_host(valves, dp_id, pkt_meta))
 
-        # Add FIB entries, if routing is active and not already handled
-        # by control plane.
-        if self.L3 and not control_plane_handled:
-            for route_manager in list(self.route_manager_by_ipv.values()):
-                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
+            # Add FIB entries, if routing is active and not already handled
+            # by control plane.
+            if self.L3 and not control_plane_handled:
+                for route_manager in list(self.route_manager_by_ipv.values()):
+                    ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         return ofmsgs
 

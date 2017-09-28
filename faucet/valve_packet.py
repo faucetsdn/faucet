@@ -157,7 +157,16 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
 
 def lacp_reqreply(vid, eth_src,
                   actor_system, actor_key, actor_port,
-                  partner_system, partner_key, partner_port):
+                  partner_system, partner_key, partner_port,
+                  partner_system_priority, partner_port_priority,
+                  partner_state_defaulted,
+                  partner_state_expired,
+                  partner_state_timeout,
+                  partner_state_collecting,
+                  partner_state_distributing,
+                  partner_state_aggregation,
+                  partner_state_synchronization,
+                  partner_state_activity):
     """Return a LACP frame.
 
     Args:
@@ -169,6 +178,16 @@ def lacp_reqreply(vid, eth_src,
         partner_system (str): partner system ID (MAC address)
         partner_key (int): partner's LACP key assigned to this port.
         partner_port (int): partner port number.
+        partner_system_priority (int): partner's system priority.
+        partner_port_priority (int): partner's port priority.
+        partner_state_defaulted (int): 1 if partner reverted to defaults.
+        partner_state_expired (int): 1 if partner thinks LACP expired.
+        partner_state_timeout (int): 1 if partner has short timeout.
+        partner_state_collecting (int): 1 if partner receiving on this link.
+        partner_state_distributing (int): 1 if partner transmitting on this link.
+        partner_state_aggregation (int): 1 if partner can aggregate this link.
+        partner_state_synchronization (int): 1 if partner will use this link.
+        partner_state_activity (int): 1 if partner actively sends LACP.
     Returns:
         ryu.lib.packet.ethernet: Ethernet packet with header.
     """
@@ -182,26 +201,26 @@ def lacp_reqreply(vid, eth_src,
         partner_port=partner_port,
         actor_key=actor_key,
         partner_key=partner_key,
-        actor_state_defaulted=0,
-        partner_state_defaulted=0,
-        actor_state_expired=0,
-        partner_state_expired=0,
-        actor_state_timeout=1,
-        partner_state_timeout=1,
-        actor_state_collecting=1,
-        partner_state_collecting=1,
-        actor_state_distributing=1,
-        partner_state_distributing=1,
-        actor_state_aggregation=0,
-        partner_state_aggregation=1,
-        actor_state_synchronization=1,
-        partner_state_synchronization=1,
-        actor_state_activity=0,
-        partner_state_activity=1,
         actor_system_priority=65535,
-        partner_system_priority=65535,
+        partner_system_priority=partner_system_priority,
         actor_port_priority=255,
-        partner_port_priority=255)
+        partner_port_priority=partner_port_priority,
+        actor_state_defaulted=0,
+        partner_state_defaulted=partner_state_defaulted,
+        actor_state_expired=0,
+        partner_state_expired=partner_state_expired,
+        actor_state_timeout=1,
+        partner_state_timeout=partner_state_timeout,
+        actor_state_collecting=1,
+        partner_state_collecting=partner_state_collecting,
+        actor_state_distributing=1,
+        partner_state_distributing=partner_state_distributing,
+        actor_state_aggregation=0,
+        partner_state_aggregation=partner_state_aggregation,
+        actor_state_synchronization=1,
+        partner_state_synchronization=partner_state_synchronization,
+        actor_state_activity=0,
+        partner_state_activity=partner_state_activity)
     pkt.add_protocol(lacp_pkt)
     pkt.serialize()
     return pkt
