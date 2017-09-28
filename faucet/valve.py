@@ -236,15 +236,6 @@ class Valve(object):
             priority=self.dp.low_priority,
             inst=[valve_of.goto_table(self.dp.tables['flood'])])]
 
-    def _add_controller_lacp_flow(self):
-        """Add a flow for controller to learn/add flows for destinations."""
-        eth_src_table = self.dp.tables['eth_src']
-        return [eth_src_table.flowcontroller(
-            eth_src_table.match(
-                eth_type=ether.ETH_TYPE_SLOW,
-                eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
-            priority=self.dp.high_priority)]
-
     def _add_controller_learn_flow(self):
         """Add a flow for controller to learn/add flows for destinations."""
         return [self.dp.tables['eth_src'].flowcontroller(
@@ -503,6 +494,16 @@ class Valve(object):
                     priority=self.dp.highest_priority))
                 continue
 
+            # Port has LACP processing enabled.
+            if port.lacp:
+                eth_src_table = self.dp.tables['eth_src']
+                ofmsgs.append(eth_src_table.flowcontroller(
+                    eth_src_table.match(
+                        in_port=port.number,
+                        eth_type=ether.ETH_TYPE_SLOW,
+                        eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
+                    priority=self.dp.high_priority))
+
             # Add ACL if any.
             acl_ofmsgs = self._port_add_acl(port_num)
             ofmsgs.extend(acl_ofmsgs)
@@ -712,7 +713,7 @@ class Valve(object):
         Returns:
             PacketMeta instance.
         """
-        eth_pkt = valve_packet.parse_pkt(pkt)
+        eth_pkt = valve_packet.parse_eth_pkt(pkt)
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
         vlan = self.dp.vlans[vlan_vid]

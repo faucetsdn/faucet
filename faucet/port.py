@@ -63,6 +63,8 @@ class Port(Conf):
         # maximum number of hosts
         'hairpin': False,
         # if True, then switch between hosts on this port (eg WiFi radio).
+        'lacp': False,
+        # if True, experimental LACP support enabled on this port.
     }
 
     defaults_types = {
