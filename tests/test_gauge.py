@@ -26,8 +26,12 @@ def create_mock_datapath(num_ports):
         port = mock.Mock()
         port_name = mock.PropertyMock(return_value='port' + str(i))
         type(port).name = port_name
+        ports[i] = port
 
-    return mock.Mock(ports=ports, id=1)
+    datapath = mock.Mock(ports=ports, id=1)
+    dp_name = mock.PropertyMock(return_value='datapath')
+    type(datapath).name = dp_name
+    return datapath
 
 def start_server():
     server = HTTPServer(('', 0), PretendInflux)
