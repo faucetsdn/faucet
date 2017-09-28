@@ -44,6 +44,12 @@ def start_server():
 class PretendInflux(BaseHTTPRequestHandler):
 
     def do_POST(self):
+        if hasattr(self.server, 'output_file'):
+            content_length = int(self.headers['content-length'])
+            data = self.rfile.read(content_length)
+            self.server.output_file.write(data)
+            self.server.output_file.flush()
+
         self.send_response(204)
         self.end_headers()
 
