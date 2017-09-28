@@ -16,6 +16,22 @@ import requests
 
 from faucet import gauge_prom, gauge_influx
 from ryu.ofproto.ofproto_v1_3_parser import OFPPortStatsReply, OFPPortStats
+def start_server():
+    server = HTTPServer(('', 0), PretendInflux)
+    server_thread = threading.Thread(target=server.serve_forever)
+    server_thread.daemon = True
+    server_thread.start()
+    return server
+
+
+class PretendInflux(BaseHTTPRequestHandler):
+
+    def do_POST(self):
+        self.send_response(204)
+        self.end_headers()
+
+    def log_message(self, format_, *args):
+        return
 
 class GaugePrometheusTests(unittest.TestCase):
     """Tests the GaugePortStatsPrometheusPoller update method"""
@@ -110,11 +126,11 @@ class GaugePrometheusTests(unittest.TestCase):
 class GaugeInfluxShipperTest(unittest.TestCase):
     """Tests the InfluxShipper"""
 
-    def create_config_obj(self):
+    def create_config_obj(self, port=12345):
         """Create a mock config object that contains the necessary InfluxDB config"""
 
         conf = mock.Mock(influx_host='localhost',
-                         influx_port=12345,
+                         influx_port=port,
                          influx_user='gauge',
                          influx_pwd='',
                          influx_db='gauge',
@@ -138,27 +154,16 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         to a HTTP server when the points are shipped"""
 
         try:
-            class PretendInflux(BaseHTTPRequestHandler):
-
-                def do_POST(self):
-                    self.send_response(204)
-                    self.end_headers()
-
-                def log_message(self, format_, *args):
-                    return
-
-            server = HTTPServer(('', 12345), PretendInflux)
-            server_thread = threading.Thread(target=server.serve_forever)
-            server_thread.daemon = True
-            server_thread.start()
-
+            server = start_server()
             shipper = gauge_influx.InfluxShipper()
-            shipper.conf = self.create_config_obj()
+            shipper.conf = self.create_config_obj(server.server_port)
             points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
             shipper.ship_points(points)
 
         except Exception as err:
             self.fail("Code threw an exception: {}".format(err))
+        finally:
+            server.shutdown()
 
 
     def test_ship_connection_err(self):
