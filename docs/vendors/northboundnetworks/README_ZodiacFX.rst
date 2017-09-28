@@ -22,14 +22,31 @@ Caveats
 Applying recommended config
 ---------------------------
 
-From a serial connection:
+You can use the expect script in this directory to program the recommended configuration.
 
 ::
 
-    Zodiac_FX# config
-    Zodiac_FX(config)# set ethertype-filter enable
+    # ./conf-zodiac.sh 
+    spawn [open ...]
+    get initial prompt
+
+     _____             ___               _______  __
+    /__  /  ____  ____/ (_)___ ______   / ____/ |/ /
+      / /  / __ \/ __  / / __ `/ ___/  / /_   |   /
+     / /__/ /_/ / /_/ / / /_/ / /__   / __/  /   |  
+    /____/\____/\__,_/_/\__,_/\___/  /_/    /_/|_| 
+          	    by Northbound Networks
+
+
+    Type 'help' for a list of available commands
+
+    Zodiac_FX# 
+    Zodiac_FX# found initial prompt
+    config
+    Zodiac_FX(config)# setting ethertype-filter
+    set ethertype-filter enable
     EtherType Filtering Enabled
-    Zodiac_FX(config)# set of-port 6653
+    Zodiac_FX(config)# setting of-portset of-port 6653
     OpenFlow Port set to 6653
     Zodiac_FX(config)# save
     Writing Configuration to EEPROM (197 bytes)
