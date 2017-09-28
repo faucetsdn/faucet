@@ -12,6 +12,7 @@ import unittest
 import time
 import math
 import threading
+import tempfile
 import requests
 
 from faucet import gauge_prom, gauge_influx
@@ -225,6 +226,92 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         point = shipper.make_point(tags, rcv_time, stat_name, stat_val)
         point_vals = self.get_values(point)
         self.assertEqual(set(point_vals), values)
+
+class GaugeInfluxUpdateTest(unittest.TestCase):
+    def setUp(self):
+        self.server = start_server()
+        self.server.output_file = tempfile.TemporaryFile()
+        
+
+    def tearDown(self):
+        self.server.output_file.close()
+        self.server.shutdown()
+        print(threading.enumerate())
+    
+    def create_config_obj(self, datapath):
+        """Create a mock config object that contains the necessary InfluxDB config"""
+
+        conf = mock.Mock(influx_host='localhost',
+                         influx_port=self.server.server_port,
+                         influx_user='gauge',
+                         influx_pwd='',
+                         influx_db='gauge',
+                         influx_timeout=10,
+                         interval=5,
+                         dp=datapath
+                        )
+        return conf
+
+    def parse_key_value(self, dictionary, kv_list):
+        for key_val in kv_list:
+            if '=' in key_val:
+                key, val = key_val.split('=')
+
+                try:
+                    val = float(val)
+                    val = int(val)
+                except ValueError:
+                    pass
+
+                dictionary[key] = val
+
+
+    def parse_influx_output(self,line_num):
+        influx_data = dict()
+        self.server.output_file.seek(0)
+
+        output = self.server.output_file.readlines()[line_num]
+        output = output.decode('utf-8')
+
+        tags = output.split(',')
+        fields = tags[-1].split(' ')
+        tags[-1] = fields[0]
+        influx_data['timestamp'] = int(fields[-1])
+        fields = fields[1:-1]
+        
+        self.parse_key_value(influx_data, tags)
+        self.parse_key_value(influx_data, fields)
+
+        return influx_data
+
+
+
+    def test_port_state(self):
+        conf = self.create_config_obj(create_mock_datapath(3))
+        db_logger = gauge_influx.GaugePortStateInfluxDBLogger(conf, '__name__', mock.Mock())
+
+        statuses = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
+        for i in range(1, len(conf.dp.ports) + 1):
+            port = parser.OFPPort(i, 
+                                  '00:00:00:d0:00:0'+str(i),
+                                  conf.dp.ports[i].name,
+                                  0, 
+                                  0,
+                                  i,
+                                  i,
+                                  i,
+                                  i,
+                                  i,
+                                  i
+                                 )
+
+            message = parser.OFPPortStatus(conf.dp.id, statuses[i-1], port)
+            rcv_time = int(time.time())
+            db_logger.update(rcv_time, conf.dp.id, message)
+            
+            influx_data = self.parse_influx_output(i-1) 
+            data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, statuses[i-1]}
+            self.assertEqual(data, set(influx_data.values()))
 
 
 
