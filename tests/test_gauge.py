@@ -16,6 +16,16 @@ import requests
 
 from faucet import gauge_prom, gauge_influx
 from ryu.ofproto.ofproto_v1_3_parser import OFPPortStatsReply, OFPPortStats
+def create_mock_datapath(num_ports):
+    """Mock a datapath by creating mocked datapath ports."""
+    ports = {}
+    for i in range(1, num_ports + 1):
+        port = mock.Mock()
+        port_name = mock.PropertyMock(return_value='port' + str(i))
+        type(port).name = port_name
+
+    return mock.Mock(ports=ports, id=1)
+
 def start_server():
     server = HTTPServer(('', 0), PretendInflux)
     server_thread = threading.Thread(target=server.serve_forever)
@@ -69,16 +79,6 @@ class GaugePrometheusTests(unittest.TestCase):
 
         return parsed_output
 
-    def create_mock_datapath(self, num_ports):
-        """Mock a datapath by creating mocked datapath ports."""
-        ports = {}
-        for i in range(1, num_ports + 1):
-            port = mock.Mock()
-            port_name = mock.PropertyMock(return_value='port' + str(i))
-            type(port).name = port_name
-
-        return mock.Mock(ports=ports)
-
     def get_prometheus_stats(self, addr, port):
         """Attempts to contact the prometheus server
         at the address to grab port stats."""
@@ -93,7 +93,7 @@ class GaugePrometheusTests(unittest.TestCase):
         """Test the update method to see if it pushes port stats"""
 
         prom_client = gauge_prom.GaugePrometheusClient()
-        datapath = self.create_mock_datapath(2)
+        datapath = create_mock_datapath(2)
 
         conf = mock.Mock(dp=datapath,
                          type='',
