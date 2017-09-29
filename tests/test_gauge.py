@@ -266,14 +266,11 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
                 dictionary[key] = val
 
 
-    def parse_influx_output(self,line_num):
+    def parse_influx_output(self, output_to_parse):
         influx_data = dict()
-        self.server.output_file.seek(0)
+        output_to_parse = output_to_parse.decode('utf-8')
 
-        output = self.server.output_file.readlines()[line_num]
-        output = output.decode('utf-8')
-
-        tags = output.split(',')
+        tags = output_to_parse.split(',')
         fields = tags[-1].split(' ')
         tags[-1] = fields[0]
         influx_data['timestamp'] = int(fields[-1])
@@ -282,8 +279,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         self.parse_key_value(influx_data, tags)
         self.parse_key_value(influx_data, fields)
 
-        return influx_data
-
+        return (tags[0], influx_data)
 
 
     def test_port_state(self):
@@ -309,7 +305,9 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
             rcv_time = int(time.time())
             db_logger.update(rcv_time, conf.dp.id, message)
             
-            influx_data = self.parse_influx_output(i-1) 
+            self.server.output_file.seek(0)
+            output = self.server.output_file.readlines()[i-1]
+            influx_data = self.parse_influx_output(output)[1]
             data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, statuses[i-1]}
             self.assertEqual(data, set(influx_data.values()))
 
