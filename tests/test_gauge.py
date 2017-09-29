@@ -280,6 +280,16 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         self.parse_key_value(influx_data, fields)
 
         return (tags[0], influx_data)
+    
+    def get_stats(self, influx_stat_name, port_stats):
+        return {'packets_out': port_stats.tx_packets,
+                'packets_in': port_stats.rx_packets,
+                'bytes_out' : port_stats.tx_bytes,
+                'bytes_in' : port_stats.rx_bytes,
+                'dropped_out' : port_stats.tx_dropped,
+                'dropped_in' : port_stats.rx_dropped,
+                'errors_in' : port_stats.rx_errors
+               }.get(influx_stat_name)
 
 
     def test_port_state(self):
@@ -311,7 +321,29 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
             data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, statuses[i-1]}
             self.assertEqual(data, set(influx_data.values()))
 
+    def test_port_stats(self):
+        conf = self.create_config_obj(create_mock_datapath(2))
+        db_logger = gauge_influx.GaugePortStatsInfluxDBLogger(conf, '__name__', mock.Mock())
+        port_stats = [parser.OFPPortStats(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 100, 50),
+                      parser.OFPPortStats(2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 100, 50)]
+        
 
+        message = parser.OFPPortStatsReply(conf.dp, body=port_stats)
+        rcv_time = int(time.time())
+
+        db_logger.update(rcv_time, conf.dp.id, message)
+        self.server.output_file.seek(0)
+        for line in self.server.output_file.readlines():
+            database, influx_data = self.parse_influx_output(line)
+
+            #get the number at the end of the port_name
+            port_num = int(influx_data['port_name'][-1]) 
+            #get the original port stat value
+            port_stat_val = self.get_stats(database, port_stats[port_num - 1])
+
+            self.assertEqual(port_stat_val, influx_data['value']) 
+            self.assertEqual(conf.dp.name, influx_data['dp_name'])
+            self.assertEqual(rcv_time, influx_data['timestamp'])
 
 if __name__ == "__main__":
     unittest.main()
