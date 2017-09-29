@@ -781,7 +781,7 @@ dbs:
         for host in self.net.hosts:
             self.reset_ipv4_prefix(host, prefix)
 
-    def require_host_learned(self, host, retries=5, in_port=None):
+    def require_host_learned(self, host, retries=8, in_port=None):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
         if not host_ip_net:
