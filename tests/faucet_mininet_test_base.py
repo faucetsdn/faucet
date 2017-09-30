@@ -251,10 +251,11 @@ class FaucetTestBase(unittest.TestCase):
             self.net = None
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
-        ovs_log_dir = os.environ['OVS_LOGDIR']
-        if ovs_log_dir and os.path.exists(ovs_log_dir):
-            for ovs_log in glob.glob(os.path.join(ovs_log_dir, '*.log')):
-                shutil.copy(ovs_log, self.tmpdir)
+        if 'OVS_LOGDIR' in os.environ:
+            ovs_log_dir = os.environ['OVS_LOGDIR']
+            if ovs_log_dir and os.path.exists(ovs_log_dir):
+                for ovs_log in glob.glob(os.path.join(ovs_log_dir, '*.log')):
+                    shutil.copy(ovs_log, self.tmpdir)
         # must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         for _, debug_log_name in self._get_ofchannel_logs():
