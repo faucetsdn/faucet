@@ -2510,6 +2510,7 @@ vlans:
 
     def test_untagged(self):
         first_host, second_host, mirror_host = self.net.hosts[0:3]
+        self.flap_all_switch_ports()
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
 
 
