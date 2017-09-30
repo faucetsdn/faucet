@@ -13,6 +13,7 @@ Here is a list of some of our most popular switches:
 
 - `AT-x930 <http://www.alliedtelesis.com/products/x930-series/>`_
 - `AT-x510 <http://www.alliedtelesis.com/products/x510-series/>`_
+- `AT-x230 <http://www.alliedtelesis.com/products/x230-series/>`_
 
 -----
 Setup

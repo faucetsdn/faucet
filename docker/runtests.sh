@@ -19,6 +19,7 @@ ping6 -c 1 ::1 || exit 1
 ping -c 1 127.0.0.1 || exit 1
 
 echo "========== Starting OVS ========================="
+export OVS_LOGDIR=/usr/local/var/log/openvswitch
 /usr/local/share/openvswitch/scripts/ovs-ctl start || exit 1
 ovs-vsctl show || exit 1
 ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000

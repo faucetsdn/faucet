@@ -1738,6 +1738,99 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetSingleUntaggedIPv4LACPTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        faucet_vips: ["10.0.0.254/24"]
+"""
+
+    CONFIG = """
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                lacp: True
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+
+    def test_untagged(self):
+        host = self.net.hosts[0]
+        bond = 'bond0'
+        # Linux driver should have this state (0x3f/63)
+        #
+        #    Actor State: 0x3f, LACP Activity, LACP Timeout, Aggregation, Synchronization, Collecting, Distributing
+        #        .... ...1 = LACP Activity: Active
+        #        .... ..1. = LACP Timeout: Short Timeout
+        #        .... .1.. = Aggregation: Aggregatable
+        #        .... 1... = Synchronization: In Sync
+        #        ...1 .... = Collecting: Enabled
+        #        ..1. .... = Distributing: Enabled
+        #        .0.. .... = Defaulted: No
+        #        0... .... = Expired: No
+        #    [Actor State Flags: **DCSGSA]
+
+        # FAUCET should have this state (0x3a/58)
+        #
+        #    Partner State: 0x3a, LACP Timeout, Synchronization, Collecting, Distributing
+        #        .... ...0 = LACP Activity: Passive
+        #        .... ..1. = LACP Timeout: Short Timeout
+        #        .... .0.. = Aggregation: Individual
+        #        .... 1... = Synchronization: In Sync
+        #        ...1 .... = Collecting: Enabled
+        #        ..1. .... = Distributing: Enabled
+        #        .0.. .... = Defaulted: No
+        #        0... .... = Expired: No
+        #    [Partner State Flags: **DCS*S*]
+
+
+        synced_state_txt = """
+details actor lacp pdu:
+    system priority: 65535
+    system mac address: 0e:00:00:00:00:99
+    port key: 15
+    port priority: 255
+    port number: 1
+    port state: 63
+details partner lacp pdu:
+    system priority: 65535
+    system mac address: 0e:00:00:00:00:01
+    oper key: 1
+    port priority: 255
+    port number: 1
+    port state: 58
+""".strip()
+        for setup_cmd in (
+                'ip link set %s down' % host.defaultIntf(),
+                'ip address flush dev %s' % host.defaultIntf(),
+                'ip link add %s address 0e:00:00:00:00:99 type bond mode 802.3ad lacp_rate fast' % bond,
+                'ip link set dev %s master %s' % (host.defaultIntf(), bond),
+                'ip add add 10.0.0.1/24 dev %s' % bond,
+                'ip link set %s up' % bond):
+            result = host.cmd(setup_cmd)
+            self.assertEquals('', result)
+        for _ in range(10):
+            result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
+            result = '\n'.join([line.rstrip() for line in result.splitlines()])
+            if re.search(synced_state_txt, result):
+                return
+            time.sleep(1)
+        self.fail('LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
+            result, synced_state_txt))
+
+
 class FaucetSingleUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -2321,7 +2414,7 @@ acls:
                 description: "b4"
 """
 
-    @unittest.skip('needs OVS dev or > v2.8')
+    @unittest.skip('needs OVS dev >= v2.8')
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
@@ -2335,6 +2428,58 @@ acls:
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
             'vlan 456.+vlan 123', tcpdump_txt))
+
+
+class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    dl_dst: "06:06:06:06:06:06"
+                    vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
+                    port: acloutport
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: 1
+            acloutport:
+                number: %(port_2)d
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    @unittest.skip('needs OVS dev >= v2.8')
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[0:2]
+        # we expected to see the rewritten address and VLAN
+        tcpdump_filter = 'ether proto 0x88a8'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            'vlan 456.+ethertype 802.1Q-QinQ, vlan 123', tcpdump_txt))
 
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
