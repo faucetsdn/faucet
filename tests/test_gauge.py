@@ -18,6 +18,7 @@ import requests
 from faucet import gauge_prom, gauge_influx
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
+from ryu.lib import type_desc
 
 
 def create_mock_datapath(num_ports):
@@ -370,6 +371,69 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
             self.assertEqual(port_stat_val, influx_data['value'])
             self.assertEqual(conf.dp.name, influx_data['dp_name'])
             self.assertEqual(rcv_time, influx_data['timestamp'])
+
+
+    def generate_all_matches(self):
+        matches = dict()
+        for oxm_type in ofproto.oxm_types:
+            if oxm_type.type == type_desc.MacAddr:
+                value = 'ff:ff:ff:ff:ff:ff'
+            elif oxm_type.type == type_desc.IPv4Addr:
+                value = '255.255.255.255'
+            elif oxm_type.type == type_desc.IPv6Addr:
+                value = 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
+            elif isinstance(oxm_type.type, type_desc.IntDescr):
+                value = 2**oxm_type.type.size - 1
+            else:
+                continue
+            
+            matches[oxm_type.name] = value
+
+        return parser.OFPMatch(**matches)
+
+
+    def test_flow_stats(self):
+
+        conf = self.create_config_obj(create_mock_datapath(0))
+        db_logger = gauge_influx.GaugeFlowTableInfluxDBLogger(conf, '__name__', mock.Mock())
+
+        rcv_time = int(time.time())
+        matches = self.generate_all_matches()
+        instructions = [parser.OFPInstructionGotoTable(1)]
+        flow_stats = [parser.OFPFlowStats(0, 0, 0, 1, 0, 0, 0, 0, 1, 1, matches, instructions)]
+        message = parser.OFPFlowStatsReply(conf.dp, body=flow_stats)
+        db_logger.update(rcv_time, conf.dp.id, message)
+        self.server.output_file.seek(0)
+
+        other_fields = {'dp_name': conf.dp.name,
+                        'timestamp': rcv_time,
+                        'priority': flow_stats[0].priority,
+                        'table_id': flow_stats[0].table_id,
+                        'inst_count': len(flow_stats[0].instructions),
+                        'vlan': matches.get('vlan_vid') ^ ofproto.OFPVID_PRESENT
+        }
+
+        for line in self.server.output_file.readlines():
+            measurement, influx_data = self.parse_influx_output(line)
+
+            for stat_name, stat_val in influx_data.items():
+                if stat_name == 'value':
+                    if measurement == 'flow_packet_count':
+                        self.assertEqual(flow_stats[0].packet_count, stat_val)
+                    elif measurement == 'flow_byte_count':
+                        self.assertEqual(flow_stats[0].byte_count, stat_val)
+                    else:
+                        self.fail("Unknown measurement")
+
+                elif stat_name in other_fields:
+                    self.assertEqual(other_fields[stat_name], stat_val)
+
+                elif stat_name in matches:
+                    self.assertEqual(matches.get(stat_name), stat_val)
+
+                else:
+                    self.fail("Unknown key: {} and value: {}".format(stat_name, stat_val))
+
 
 if __name__ == "__main__":
     unittest.main()
