@@ -374,6 +374,12 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
 
 
     def generate_all_matches(self):
+        """
+        Generate all OpenFlow Extensible Matches (oxm) and return
+        a single OFPMatch with all of these oxms. The value for each
+        oxm is the largest value possible for the data type. For
+        example, the largest number for a 4 bit int is 15.
+        """
         matches = dict()
         for oxm_type in ofproto.oxm_types:
             if oxm_type.type == type_desc.MacAddr:
@@ -386,13 +392,14 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
                 value = 2**oxm_type.type.size - 1
             else:
                 continue
-            
+
             matches[oxm_type.name] = value
 
         return parser.OFPMatch(**matches)
 
 
     def test_flow_stats(self):
+        """Check the update method of the GaugeFlowTableInfluxDBLogger class"""
 
         conf = self.create_config_obj(create_mock_datapath(0))
         db_logger = gauge_influx.GaugeFlowTableInfluxDBLogger(conf, '__name__', mock.Mock())
@@ -403,7 +410,6 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         flow_stats = [parser.OFPFlowStats(0, 0, 0, 1, 0, 0, 0, 0, 1, 1, matches, instructions)]
         message = parser.OFPFlowStatsReply(conf.dp, body=flow_stats)
         db_logger.update(rcv_time, conf.dp.id, message)
-        self.server.output_file.seek(0)
 
         other_fields = {'dp_name': conf.dp.name,
                         'timestamp': rcv_time,
@@ -411,8 +417,9 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
                         'table_id': flow_stats[0].table_id,
                         'inst_count': len(flow_stats[0].instructions),
                         'vlan': matches.get('vlan_vid') ^ ofproto.OFPVID_PRESENT
-        }
+                       }
 
+        self.server.output_file.seek(0)
         for line in self.server.output_file.readlines():
             measurement, influx_data = self.parse_influx_output(line)
 
