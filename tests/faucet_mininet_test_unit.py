@@ -2414,7 +2414,7 @@ acls:
                 description: "b4"
 """
 
-    @unittest.skip('needs OVS dev or > v2.8')
+    @unittest.skip('needs OVS dev >= v2.8')
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
@@ -2428,6 +2428,58 @@ acls:
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
         self.assertTrue(re.search(
             'vlan 456.+vlan 123', tcpdump_txt))
+
+
+class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+acls:
+    1:
+        - rule:
+            dl_dst: "01:02:03:04:05:06"
+            actions:
+                output:
+                    dl_dst: "06:06:06:06:06:06"
+                    vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
+                    port: acloutport
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: 1
+            acloutport:
+                number: %(port_2)d
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    @unittest.skip('needs OVS dev >= v2.8')
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts[0:2]
+        # we expected to see the rewritten address and VLAN
+        tcpdump_filter = 'ether proto 0x88a8'
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        self.assertTrue(re.search(
+            'vlan 456.+ethertype 802.1Q-QinQ, vlan 123', tcpdump_txt))
 
 
 class FaucetUntaggedMirrorTest(FaucetUntaggedTest):
