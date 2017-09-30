@@ -432,15 +432,14 @@ class Valve(object):
             return self.dp.tables['vlan_acl']
         return self.dp.tables['eth_src']
 
-    def _port_add_vlans(self, port, mirror_act,
-                        tagged_vlans_with_port, untagged_vlans_with_port):
+    def _port_add_vlans(self, port, mirror_act):
         ofmsgs = []
-        for vlan in tagged_vlans_with_port:
+        for vlan in port.tagged_vlans:
             ofmsgs.extend(self._port_add_vlan_tagged(
                 port, vlan, self._find_forwarding_table(vlan), mirror_act))
-        for vlan in untagged_vlans_with_port:
+        if port.native_vlan is not None:
             ofmsgs.extend(self._port_add_vlan_untagged(
-                port, vlan, self._find_forwarding_table(vlan), mirror_act))
+                port, port.native_vlan, self._find_forwarding_table(port.native_vlan), mirror_act))
         return ofmsgs
 
     def _port_delete_flows(self, port, old_eth_srcs):
@@ -508,10 +507,7 @@ class Valve(object):
             acl_ofmsgs = self._port_add_acl(port_num)
             ofmsgs.extend(acl_ofmsgs)
 
-            tagged_vlans_with_port = port.tagged_vlans
-            untagged_vlans_with_port = [
-                vlan for vlan in [port.native_vlan] if vlan is not None]
-            port_vlans = tagged_vlans_with_port + untagged_vlans_with_port
+            port_vlans = port.vlans()
 
             # If this is a stacking port, accept all VLANs (came from another FAUCET)
             if port.stack is not None:
@@ -526,8 +522,7 @@ class Valve(object):
                 if port.mirror:
                     mirror_act = [valve_of.output_port(port.mirror)]
                 # Add port/to VLAN rules.
-                ofmsgs.extend(self._port_add_vlans(
-                    port, mirror_act, tagged_vlans_with_port, untagged_vlans_with_port))
+                ofmsgs.extend(self._port_add_vlans(port, mirror_act))
 
             for vlan in port_vlans:
                 vlans_with_ports_added.add(vlan)
@@ -578,10 +573,7 @@ class Valve(object):
                 self._port_delete_flows(
                     port,
                     self._get_eth_srcs_learned_on_port(self.dp, port.number)))
-            untagged_vlans_with_port = [
-                vlan for vlan in [port.native_vlan] if vlan is not None]
-            port_vlans = port.tagged_vlans + untagged_vlans_with_port
-            for vlan in port_vlans:
+            for vlan in port.vlans():
                 vlans_with_deleted_ports.add(vlan)
 
         for vlan in vlans_with_deleted_ports:
@@ -940,9 +932,7 @@ class Valve(object):
         old_eth_srcs = []
         if port_no in dp.ports:
             port = dp.ports[port_no]
-            for vlan in [port.native_vlan] + port.tagged_vlans:
-                if vlan is None:
-                    continue
+            for vlan in port.vlans():
                 for eth_src, host_cache_entry in list(vlan.host_cache.items()):
                     if host_cache_entry.port.number == port_no:
                         old_eth_srcs.append(eth_src)

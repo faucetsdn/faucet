@@ -87,6 +87,9 @@ class Port(Conf):
     def __init__(self, _id, conf=None):
         super(Port, self).__init__(_id, conf)
         self.dyn_phys_up = False
+        if self.mirror:
+            self.native_vlan = None
+            self.tagged_vlans = []
 
     def set_defaults(self):
         super(Port, self).set_defaults()
@@ -115,6 +118,13 @@ class Port(Conf):
                     'port': str(self.stack['port'])
                 }
         return result
+
+    def vlans(self):
+        vlans = []
+        if self.native_vlan is not None:
+            vlans.append(self.native_vlan)
+        vlans.extend(self.tagged_vlans)
+        return vlans
 
     def __str__(self):
         return 'Port %u' % self.number
