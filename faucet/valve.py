@@ -17,7 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import logging
 import time
 
@@ -953,10 +952,7 @@ class Valve(object):
             else:
                 old_vlan = self.dp.vlans[vid]
                 if old_vlan != new_vlan:
-                    old_vlan_new_ports = copy.deepcopy(old_vlan)
-                    old_vlan_new_ports.tagged = new_vlan.tagged
-                    old_vlan_new_ports.untagged = new_vlan.untagged
-                    if old_vlan_new_ports != new_vlan:
+                    if old_vlan.ignore_subconf(new_vlan):
                         changed_vlans.add(vid)
                         self.logger.info('VLAN %s config changed' % vid)
                 else:
@@ -997,10 +993,8 @@ class Valve(object):
                 old_port = self.dp.ports[port_no]
                 # An existing port has configs changed
                 if new_port != old_port:
-                    old_port_ignore_acl = copy.deepcopy(old_port)
-                    old_port_ignore_acl.acl_in = new_port.acl_in
                     # Did config other than ACL change
-                    if new_port != old_port_ignore_acl:
+                    if old_port.ignore_subconf(new_port):
                         changed_ports.add(port_no)
                         self.logger.info('port %s reconfigured' % port_no)
                     else:
