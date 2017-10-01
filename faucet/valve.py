@@ -1123,12 +1123,8 @@ class Valve(object):
         ofmsgs = []
         if self.dp.running:
             self.logger.info('reload configuration')
-            if not self.dp.ignore_subconf(new_dp):
-                self.logger.info('DP level config change')
-                cold_start = True
-            else:
-                cold_start, ofmsgs = self._apply_config_changes(
-                    new_dp, self._get_config_changes(new_dp))
+            cold_start, ofmsgs = self._apply_config_changes(
+                new_dp, self._get_config_changes(new_dp))
             if cold_start:
                 self.dp = new_dp
                 ofmsgs = self.datapath_connect(
