@@ -1819,11 +1819,11 @@ vlans:
         #    [Partner State Flags: **DCS*S*]
 
 
-        synced_state_txt = """
+        synced_state_txt = r"""
 details actor lacp pdu:
     system priority: 65535
     system mac address: 0e:00:00:00:00:99
-    port key: 15
+    port key: \d+
     port priority: 255
     port number: 1
     port state: 63

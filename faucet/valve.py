@@ -17,7 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import logging
 import time
 
@@ -953,10 +952,7 @@ class Valve(object):
             else:
                 old_vlan = self.dp.vlans[vid]
                 if old_vlan != new_vlan:
-                    old_vlan_new_ports = copy.deepcopy(old_vlan)
-                    old_vlan_new_ports.tagged = new_vlan.tagged
-                    old_vlan_new_ports.untagged = new_vlan.untagged
-                    if old_vlan_new_ports != new_vlan:
+                    if not old_vlan.ignore_subconf(new_vlan):
                         changed_vlans.add(vid)
                         self.logger.info('VLAN %s config changed' % vid)
                 else:
@@ -997,15 +993,14 @@ class Valve(object):
                 old_port = self.dp.ports[port_no]
                 # An existing port has configs changed
                 if new_port != old_port:
-                    old_port_ignore_acl = copy.deepcopy(old_port)
-                    old_port_ignore_acl.acl_in = new_port.acl_in
-                    # Did config other than ACL change
-                    if new_port != old_port_ignore_acl:
-                        changed_ports.add(port_no)
-                        self.logger.info('port %s reconfigured' % port_no)
-                    else:
+                    # TODO: we assume if port config had sub config
+                    # changed, it must have been the ACL.
+                    if old_port.ignore_subconf(new_port):
                         changed_acl_ports.add(port_no)
                         self.logger.info('port %s ACL changed' % port_no)
+                    else:
+                        changed_ports.add(port_no)
+                        self.logger.info('port %s reconfigured' % port_no)
                 elif new_port.acl_in in changed_acls:
                     # If the port has ACL changed.
                     changed_acl_ports.add(port_no)
@@ -1079,7 +1074,6 @@ class Valve(object):
 
         if all_ports_changed:
             self.dp = new_dp
-            ofmsgs.extend(self.datapath_connect(self.dp.dp_id, changed_ports))
         else:
             cold_start = False
             if deleted_ports:
@@ -1126,13 +1120,18 @@ class Valve(object):
                 cold_start (bool): whether cold starting.
                 ofmsgs (list): OpenFlow messages.
         """
+        cold_start = False
+        ofmsgs = []
         if self.dp.running:
             self.logger.info('reload configuration')
-            return self._apply_config_changes(
-                new_dp,
-                self._get_config_changes(new_dp))
+            cold_start, ofmsgs = self._apply_config_changes(
+                new_dp, self._get_config_changes(new_dp))
+            if cold_start:
+                self.dp = new_dp
+                ofmsgs = self.datapath_connect(
+                    self.dp.dp_id, list(self.dp.ports.keys()))
         self.logger.info('skipping configuration because datapath not up')
-        return (False, [])
+        return (cold_start, ofmsgs)
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
         ofmsgs = []
