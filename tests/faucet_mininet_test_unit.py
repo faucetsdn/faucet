@@ -341,9 +341,11 @@ class FaucetSanityTest(FaucetUntaggedTest):
             if port_speed_mbps <= min_mbps:
                 error('port speed %u below minimum %u mbps\n' % (
                     port_speed_mbps, min_mbps))
-            elif port_state or port_config:
-                error('port state %u and config %u must be 0 (all flags clear)\n' % (
-                    port_state, port_config))
+            elif port_config != 0:
+                error('port config %u must be 0 (all clear)' % port_config)
+            elif not (port_state == 0 or port_state == 4):
+                error('state %u must be 0 (all flags clear or live)\n' % (
+                    port_state))
             else:
                 return
             time.sleep(1)
