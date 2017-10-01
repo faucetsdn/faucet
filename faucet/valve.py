@@ -774,8 +774,7 @@ class Valve(object):
         ofmsgs = []
         vlan = pkt_meta.vlan
         eth_src = pkt_meta.eth_src
-        hosts_count = self.host_manager.hosts_learned_on_vlan_count(
-            vlan)
+        hosts_count = vlan.hosts_count()
         if (vlan.max_hosts is not None and
                 hosts_count == vlan.max_hosts and
                 eth_src not in vlan.host_cache):
@@ -815,8 +814,7 @@ class Valve(object):
                     port=label_dict['port'], n=label_dict['n']).set(0)
 
         for vlan in list(self.dp.vlans.values()):
-            hosts_count = self.host_manager.hosts_learned_on_vlan_count(
-                vlan)
+            hosts_count = vlan.hosts_count()
             metrics.vlan_hosts_learned.labels(
                 dp_id=dp_id, vlan=vlan.vid).set(hosts_count)
             metrics.vlan_learn_bans.labels(

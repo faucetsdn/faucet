@@ -171,6 +171,9 @@ class VLAN(Conf):
         """Return host (L2) cache for this VLAN."""
         return self.dyn_host_cache
 
+    def hosts_count(self):
+        return len(self.host_cache)
+
     @host_cache.setter
     def host_cache(self, value):
         self.dyn_host_cache = value
