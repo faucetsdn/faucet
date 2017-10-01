@@ -330,16 +330,37 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
+    def verify_dp_port_healthy(self, dp_port, retries=5, min_mbps=100):
+        for _ in range(retries):
+            port_desc = self.get_port_desc_from_dpid(self.dpid, dp_port)
+            port_name = port_desc['name']
+            port_state = port_desc['state']
+            port_config = port_desc['config']
+            port_speed_mbps = (port_desc['curr_speed'] * 1e3) / 1e6
+            error('DP %u is %s, at %u mbps\n' % (dp_port, port_name, port_speed_mbps))
+            if port_speed_mbps <= min_mbps:
+                error('port speed %u below minimum %u mbps\n' % (
+                    port_speed_mbps, min_mbps))
+            elif port_state or port_config:
+                error('port state %u and config %u must be 0 (all flags clear)\n' % (
+                    port_state, port_config))
+            else:
+                return
+            time.sleep(1)
+        self.fail('DP port %u not healthy (%s)' % (dp_port, port_desc))
+
     def test_portmap(self):
         for i, host in enumerate(self.net.hosts):
             in_port = 'port_%u' % (i + 1)
+            dp_port = self.port_map[in_port]
             if in_port in self.switch_map:
                 error('verifying cabling for %s: host %s -> dp %u\n' % (
-                    in_port, self.switch_map[in_port], self.port_map[in_port]))
+                    in_port, self.switch_map[in_port], dp_port))
             else:
                 error('verifying host %s -> dp %s\n' % (
-                    in_port, self.port_map[in_port]))
-            self.require_host_learned(host, in_port=self.port_map[in_port])
+                    in_port, dp_port))
+            self.verify_dp_port_healthy(dp_port)
+            self.require_host_learned(host, in_port=dp_port)
 
 
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):

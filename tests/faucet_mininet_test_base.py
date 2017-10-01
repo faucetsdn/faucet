@@ -369,10 +369,10 @@ class FaucetTestBase(unittest.TestCase):
             time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
         self.fail(last_error_txt)
 
-    def _ofctl_rest_url(self):
+    def _ofctl_rest_url(self, req):
         """Return control URL for Ryu ofctl module."""
-        return 'http://%s:%u' % (
-            faucet_mininet_test_util.LOCALHOST, self._get_controller().ofctl_port)
+        return 'http://%s:%u/%s' % (
+            faucet_mininet_test_util.LOCALHOST, self._get_controller().ofctl_port, req)
 
     def _ofctl(self, req):
         try:
@@ -382,7 +382,7 @@ class FaucetTestBase(unittest.TestCase):
         return ofctl_result
 
     def _ofctl_up(self):
-        switches = self._ofctl('%s/stats/switches' % self._ofctl_rest_url())
+        switches = self._ofctl(self._ofctl_rest_url('stats/switches'))
         return switches is not None and re.search(r'^\[[^\]]+\]$', switches)
 
     def _wait_ofctl_up(self, timeout=10):
@@ -394,25 +394,23 @@ class FaucetTestBase(unittest.TestCase):
 
     def _ofctl_get(self, int_dpid, req, timeout):
         for _ in range(timeout):
-            ofctl_result = self._ofctl(req)
-            if req is not None:
-                try:
-                    ofmsgs = json.loads(ofctl_result)[int_dpid]
-                    return [json.dumps(ofmsg) for ofmsg in ofmsgs]
-                except ValueError:
-                    # Didn't get valid JSON, try again
-                    time.sleep(1)
-                    continue
+            ofctl_result = self._ofctl(self._ofctl_rest_url(req))
+            try:
+                ofmsgs = json.loads(ofctl_result)[int_dpid]
+                return [json.dumps(ofmsg) for ofmsg in ofmsgs]
+            except ValueError:
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
         return []
 
     def _curl_portmod(self, int_dpid, port_no, config, mask):
         """Use curl to send a portmod command via the ofctl module."""
         curl_format = ' '.join((
-            'curl -X POST -d'
+            'curl -X POST -d',
             '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
-            '%s/stats/portdesc/modify'))
-        return curl_format % (
-            int_dpid, port_no, config, mask, self._ofctl_rest_url())
+            self._ofctl_rest_url('stats/portdesc/modify')))
+        return curl_format % (int_dpid, port_no, config, mask)
 
     def _signal_proc_on_port(self, host, port, signal):
         tcp_pattern = '%s/tcp' % port
@@ -620,28 +618,35 @@ dbs:
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         return self._ofctl_get(
-            int_dpid,
-            '%s/stats/groupdesc/%s' % (self._ofctl_rest_url(), int_dpid),
-            timeout)
+            int_dpid, 'stats/groupdesc/%s' % int_dpid, timeout)
 
     def get_all_flows_from_dpid(self, dpid, timeout=10):
         """Return all flows from DPID."""
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         return self._ofctl_get(
-            int_dpid,
-            '%s/stats/flow/%s' % (self._ofctl_rest_url(), int_dpid),
-            timeout)
+            int_dpid, 'stats/flow/%s' % int_dpid, timeout)
+
+    def _port_stat(self, port_stats, port):
+        if port_stats:
+            for port_stat in port_stats:
+                port_stat = json.loads(port_stat)
+                if port_stat['port_no'] == port:
+                    return port_stat
+        return None
 
     def get_port_stats_from_dpid(self, dpid, port, timeout=2):
-        """Return OFStats for a port."""
+        """Return port stats for a port."""
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         port_stats = self._ofctl_get(
-            int_dpid,
-            '%s/stats/port/%s/%s' % (self._ofctl_rest_url(), int_dpid, port),
-            timeout)
-        if port_stats:
-            return json.loads(port_stats[0])
-        return None
+            int_dpid, 'stats/port/%s' % int_dpid, timeout)
+        return self._port_stat(port_stats, port)
+
+    def get_port_desc_from_dpid(self, dpid, port, timeout=2):
+        """Return port desc for a port."""
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        port_stats = self._ofctl_get(
+            int_dpid, 'stats/portdesc/%s' % int_dpid, timeout)
+        return self._port_stat(port_stats, port)
 
     def wait_matching_in_group_table(self, action, group_id, timeout=10):
         groupdump = os.path.join(self.tmpdir, 'groupdump-%s.txt' % self.dpid)
