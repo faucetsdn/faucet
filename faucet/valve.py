@@ -569,6 +569,11 @@ class Valve(object):
             port.phys_up = False
             self.logger.info('%s down' % port)
 
+            # TODO: when mirroring an entire port, we install flows
+            # in eth_dst output a copy to the mirror port. If the mirror
+            # port goes down then those flows will be deleted stopping
+            # forwarding for that host. They are garbage collected by
+            # hard timeout anyway, but it would be good to "relearn them".
             if not port.mirror_destination:
                 ofmsgs.extend(
                     self._port_delete_flows(
