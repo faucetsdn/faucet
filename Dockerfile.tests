@@ -14,7 +14,10 @@ ENV SETUPQ="setup.py -q"
 ### to ensure Docker layer cache doesn't use a stale apt database.
 ###
 
+COPY ./docker/setupproxy.sh /
+
 RUN \
+  ./setupproxy.sh && \
   $AG update && \
   $AG install \
     autoconf \
@@ -66,6 +69,7 @@ RUN \
 
 ### slim down mininet dependencies (to avoid installing X11)
 RUN \
+  ./setupproxy.sh && \
   $AG update && \
   cd mininet && git checkout 2.2.2 && cd .. && \
   perl -pi -e "s/setup.py/${SETUPQ}/g" mininet/Makefile && \
@@ -76,6 +80,7 @@ RUN \
 
 
 RUN \
+  ./setupproxy.sh && \
   $AG update && \
   wget -q http://openvswitch.org/releases/openvswitch-$OVSV.tar.gz && \
   tar xf openvswitch-$OVSV.tar.gz && \
@@ -86,6 +91,7 @@ RUN \
 
 
 RUN \
+  ./setupproxy.sh && \
   $AG update && \
   $AG purge pylint && \
   $PIP3 pip && \
