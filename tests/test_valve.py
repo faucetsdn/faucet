@@ -135,6 +135,12 @@ vlans:
         _, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
+    def flap_port(self, port_no):
+        self.table.apply_ofmsgs(self.valve.port_status_handler(
+            self.DP_ID, port_no, ofp.OFPPR_DELETE, None))
+        self.table.apply_ofmsgs(self.valve.port_status_handler(
+            self.DP_ID, port_no, ofp.OFPPR_ADD, None))
+
     def learn_hosts(self):
         """Learn some hosts."""
         self.rcv_packet(1, 0x100, {
@@ -427,8 +433,7 @@ class ValveTestCase(ValveTestBase):
         addresses are deleted."""
 
         match = {'in_port': 1, 'vlan_vid': 0, 'eth_src': self.P1_V100_MAC}
-        self.table.apply_ofmsgs(self.valve.port_delete(dp_id=self.DP_ID, port_num=1))
-        self.table.apply_ofmsgs(self.valve.port_add(dp_id=self.DP_ID, port_num=1))
+        self.flap_port(1)
         self.assertTrue(
             self.table.is_output(match, port=ofp.OFPP_CONTROLLER),
             msg='Packet not output to controller after port bounce')
@@ -579,8 +584,7 @@ acls:
                 msg='Packet not output before adding ACL')
 
         self.apply_new_config(acl_config)
-        self.valve.port_delete(1, 2)
-        self.valve.port_add(1, 2)
+        self.flap_port(2)
         self.assertFalse(
             self.table.is_output(drop_match),
             msg='Packet not blocked by ACL')
@@ -624,6 +628,7 @@ vlans:
     def setUp(self):
         self.setup_valve(self.OLD_CONFIG)
         self.connect_dp()
+        self.flap_port(1)
         self.learn_hosts()
 
         self.apply_new_config(self.CONFIG)
