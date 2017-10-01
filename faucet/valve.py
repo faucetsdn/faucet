@@ -218,7 +218,7 @@ class Valve(object):
         if vid in self.dp.vlan_acl_in:
             acl_num = self.dp.vlan_acl_in[vid]
             acl = self.dp.acls[acl_num]
-            acl_table = self.dp.acls[acl_num]
+            acl_table = self.dp.tables['vlan_acl']
             acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 [acl], acl_table, acl_allow_inst,
