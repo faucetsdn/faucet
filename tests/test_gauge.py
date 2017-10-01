@@ -12,10 +12,15 @@ import unittest
 import time
 import math
 import threading
+import tempfile
 import requests
 
 from faucet import gauge_prom, gauge_influx
-from ryu.ofproto.ofproto_v1_3_parser import OFPPortStatsReply, OFPPortStats
+from ryu.ofproto import ofproto_v1_3 as ofproto
+from ryu.ofproto import ofproto_v1_3_parser as parser
+from ryu.lib import type_desc
+
+
 def create_mock_datapath(num_ports):
     """Mock a datapath by creating mocked datapath ports."""
     ports = {}
@@ -23,10 +28,16 @@ def create_mock_datapath(num_ports):
         port = mock.Mock()
         port_name = mock.PropertyMock(return_value='port' + str(i))
         type(port).name = port_name
+        ports[i] = port
 
-    return mock.Mock(ports=ports, id=1)
+    datapath = mock.Mock(ports=ports, id=1)
+    dp_name = mock.PropertyMock(return_value='datapath')
+    type(datapath).name = dp_name
+    return datapath
 
 def start_server():
+    """ Starts a HTTPServer and runs it as a daemon thread """
+
     server = HTTPServer(('', 0), PretendInflux)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
@@ -37,6 +48,12 @@ def start_server():
 class PretendInflux(BaseHTTPRequestHandler):
 
     def do_POST(self):
+        if hasattr(self.server, 'output_file'):
+            content_length = int(self.headers['content-length'])
+            data = self.rfile.read(content_length)
+            self.server.output_file.write(data)
+            self.server.output_file.flush()
+
         self.send_response(204)
         self.end_headers()
 
@@ -104,9 +121,9 @@ class GaugePrometheusTests(unittest.TestCase):
 
 
         prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', prom_client)
-        port1 = OFPPortStats(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100, 50)
-        port2 = OFPPortStats(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 100, 50)
-        message = OFPPortStatsReply(datapath, body=[port1, port2])
+        port1 = parser.OFPPortStats(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 100, 50)
+        port2 = parser.OFPPortStats(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 100, 50)
+        message = parser.OFPPortStatsReply(datapath, body=[port1, port2])
         dp_id = 1
         prom_poller.update(time.time(), dp_id, message)
 
@@ -213,6 +230,216 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         point_vals = self.get_values(point)
         self.assertEqual(set(point_vals), values)
 
+
+class GaugeInfluxUpdateTest(unittest.TestCase):
+
+    def setUp(self):
+        """ Starts up an HTTP server to mock InfluxDB.
+        Also opens a new temp file for the server to write to """
+
+        self.server = start_server()
+        self.server.output_file = tempfile.TemporaryFile()
+
+    def tearDown(self):
+        """ Close the temp file (which should delete it)
+        and stop the HTTP server """
+
+        self.server.output_file.close()
+        self.server.shutdown()
+
+    def create_config_obj(self, datapath):
+        """Create a mock config object that contains the necessary InfluxDB config"""
+
+        conf = mock.Mock(influx_host='localhost',
+                         influx_port=self.server.server_port,
+                         influx_user='gauge',
+                         influx_pwd='',
+                         influx_db='gauge',
+                         influx_timeout=10,
+                         interval=5,
+                         dp=datapath
+                        )
+        return conf
+
+    def parse_key_value(self, dictionary, kv_list):
+        """
+        When given a list consisting of strings such as: 'key1=val1',
+        add to the dictionary as dictionary['key1'] = 'val1'.
+        Ignore entries in the list which do not contain '='
+        """
+        for key_val in kv_list:
+            if '=' in key_val:
+                key, val = key_val.split('=')
+
+                try:
+                    val = float(val)
+                    val = int(val)
+                except ValueError:
+                    pass
+
+                dictionary[key] = val
+
+
+    def parse_influx_output(self, output_to_parse):
+        """
+        Parse the output from the mock InfluxDB server
+        The usual layout of the output is:
+        measurement,tag1=val1,tag2=val2 field1=val3 timestamp
+        The tags are separated with a comma and the fields
+        are separated with a space. The measurement always
+        appears first, and the timestamp is always last
+
+        """
+        influx_data = dict()
+        output_to_parse = output_to_parse.decode('utf-8')
+
+        tags = output_to_parse.split(',')
+        fields = tags[-1].split(' ')
+        tags[-1] = fields[0]
+        influx_data['timestamp'] = int(fields[-1])
+        fields = fields[1:-1]
+
+        self.parse_key_value(influx_data, tags)
+        self.parse_key_value(influx_data, fields)
+
+        return (tags[0], influx_data)
+
+    def get_stats(self, influx_stat_name, port_stats):
+        """ Translates between the stat name in Influx and the OpenFlow stat name"""
+
+        return {'packets_out': port_stats.tx_packets,
+                'packets_in': port_stats.rx_packets,
+                'bytes_out' : port_stats.tx_bytes,
+                'bytes_in' : port_stats.rx_bytes,
+                'dropped_out' : port_stats.tx_dropped,
+                'dropped_in' : port_stats.rx_dropped,
+                'errors_in' : port_stats.rx_errors
+               }.get(influx_stat_name)
+
+
+    def test_port_state(self):
+        """ Check the update method of the GaugePortStateInfluxDBLogger class"""
+
+        conf = self.create_config_obj(create_mock_datapath(3))
+        db_logger = gauge_influx.GaugePortStateInfluxDBLogger(conf, '__name__', mock.Mock())
+
+        statuses = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
+        for i in range(1, len(conf.dp.ports) + 1):
+            port = parser.OFPPort(i,
+                                  '00:00:00:d0:00:0'+str(i),
+                                  conf.dp.ports[i].name,
+                                  0,
+                                  0,
+                                  i,
+                                  i,
+                                  i,
+                                  i,
+                                  i,
+                                  i
+                                 )
+
+            message = parser.OFPPortStatus(conf.dp.id, statuses[i-1], port)
+            rcv_time = int(time.time())
+            db_logger.update(rcv_time, conf.dp.id, message)
+
+            self.server.output_file.seek(0)
+            output = self.server.output_file.readlines()[i-1]
+            influx_data = self.parse_influx_output(output)[1]
+            data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, statuses[i-1]}
+            self.assertEqual(data, set(influx_data.values()))
+
+    def test_port_stats(self):
+        """Check the update method of the GaugePortStatsInfluxDBLogger class"""
+        conf = self.create_config_obj(create_mock_datapath(2))
+        db_logger = gauge_influx.GaugePortStatsInfluxDBLogger(conf, '__name__', mock.Mock())
+        port_stats = [parser.OFPPortStats(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 100, 50),
+                      parser.OFPPortStats(2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 100, 50)]
+
+        message = parser.OFPPortStatsReply(conf.dp, body=port_stats)
+        rcv_time = int(time.time())
+
+        db_logger.update(rcv_time, conf.dp.id, message)
+        self.server.output_file.seek(0)
+        for line in self.server.output_file.readlines():
+            measurement, influx_data = self.parse_influx_output(line)
+
+            #get the number at the end of the port_name
+            port_num = int(influx_data['port_name'][-1])
+            #get the original port stat value
+            port_stat_val = self.get_stats(measurement, port_stats[port_num - 1])
+
+            self.assertEqual(port_stat_val, influx_data['value'])
+            self.assertEqual(conf.dp.name, influx_data['dp_name'])
+            self.assertEqual(rcv_time, influx_data['timestamp'])
+
+
+    def generate_all_matches(self):
+        """
+        Generate all OpenFlow Extensible Matches (oxm) and return
+        a single OFPMatch with all of these oxms. The value for each
+        oxm is the largest value possible for the data type. For
+        example, the largest number for a 4 bit int is 15.
+        """
+        matches = dict()
+        for oxm_type in ofproto.oxm_types:
+            if oxm_type.type == type_desc.MacAddr:
+                value = 'ff:ff:ff:ff:ff:ff'
+            elif oxm_type.type == type_desc.IPv4Addr:
+                value = '255.255.255.255'
+            elif oxm_type.type == type_desc.IPv6Addr:
+                value = 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
+            elif isinstance(oxm_type.type, type_desc.IntDescr):
+                value = 2**oxm_type.type.size - 1
+            else:
+                continue
+
+            matches[oxm_type.name] = value
+
+        return parser.OFPMatch(**matches)
+
+
+    def test_flow_stats(self):
+        """Check the update method of the GaugeFlowTableInfluxDBLogger class"""
+
+        conf = self.create_config_obj(create_mock_datapath(0))
+        db_logger = gauge_influx.GaugeFlowTableInfluxDBLogger(conf, '__name__', mock.Mock())
+
+        rcv_time = int(time.time())
+        matches = self.generate_all_matches()
+        instructions = [parser.OFPInstructionGotoTable(1)]
+        flow_stats = [parser.OFPFlowStats(0, 0, 0, 1, 0, 0, 0, 0, 1, 1, matches, instructions)]
+        message = parser.OFPFlowStatsReply(conf.dp, body=flow_stats)
+        db_logger.update(rcv_time, conf.dp.id, message)
+
+        other_fields = {'dp_name': conf.dp.name,
+                        'timestamp': rcv_time,
+                        'priority': flow_stats[0].priority,
+                        'table_id': flow_stats[0].table_id,
+                        'inst_count': len(flow_stats[0].instructions),
+                        'vlan': matches.get('vlan_vid') ^ ofproto.OFPVID_PRESENT
+                       }
+
+        self.server.output_file.seek(0)
+        for line in self.server.output_file.readlines():
+            measurement, influx_data = self.parse_influx_output(line)
+
+            for stat_name, stat_val in influx_data.items():
+                if stat_name == 'value':
+                    if measurement == 'flow_packet_count':
+                        self.assertEqual(flow_stats[0].packet_count, stat_val)
+                    elif measurement == 'flow_byte_count':
+                        self.assertEqual(flow_stats[0].byte_count, stat_val)
+                    else:
+                        self.fail("Unknown measurement")
+
+                elif stat_name in other_fields:
+                    self.assertEqual(other_fields[stat_name], stat_val)
+
+                elif stat_name in matches:
+                    self.assertEqual(matches.get(stat_name), stat_val)
+
+                else:
+                    self.fail("Unknown key: {} and value: {}".format(stat_name, stat_val))
 
 
 if __name__ == "__main__":
