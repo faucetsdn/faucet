@@ -1073,7 +1073,6 @@ class Valve(object):
 
         if all_ports_changed:
             self.dp = new_dp
-            ofmsgs.extend(self.datapath_connect(self.dp.dp_id, changed_ports))
         else:
             cold_start = False
             if deleted_ports:
@@ -1120,13 +1119,21 @@ class Valve(object):
                 cold_start (bool): whether cold starting.
                 ofmsgs (list): OpenFlow messages.
         """
+        cold_start = False
+        ofmsgs = []
         if self.dp.running:
             self.logger.info('reload configuration')
-            return self._apply_config_changes(
-                new_dp,
-                self._get_config_changes(new_dp))
+            if not self.dp.ignore_subconf(new_dp):
+                self.logger.info('DP level config change')
+                cold_start = True
+            else:
+                cold_start, ofmsgs = self._apply_config_changes(
+                    new_dp, self._get_config_changes(new_dp))
+            if cold_start:
+                self.dp = new_dp
+                ofmsgs = self.datapath_connect(self.dp.dp_id, self.dp.ports.keys())
         self.logger.info('skipping configuration because datapath not up')
-        return (False, [])
+        return (cold_start, ofmsgs)
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
         ofmsgs = []
