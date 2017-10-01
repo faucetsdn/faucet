@@ -1131,7 +1131,8 @@ class Valve(object):
                     new_dp, self._get_config_changes(new_dp))
             if cold_start:
                 self.dp = new_dp
-                ofmsgs = self.datapath_connect(self.dp.dp_id, self.dp.ports.keys())
+                ofmsgs = self.datapath_connect(
+                    self.dp.dp_id, list(self.dp.ports.keys()))
         self.logger.info('skipping configuration because datapath not up')
         return (cold_start, ofmsgs)
 
