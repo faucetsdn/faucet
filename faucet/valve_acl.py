@@ -33,8 +33,7 @@ def push_vlan(vlan_vid):
             vlan_eth_type = vlan_vid['eth_type']
     if vlan_eth_type is None:
         return valve_of.push_vlan_act(vid)
-    else:
-        return valve_of.push_vlan_act(vid, eth_type=vlan_eth_type)
+    return valve_of.push_vlan_act(vid, eth_type=vlan_eth_type)
 
 
 def rewrite_vlan(output_dict):
@@ -130,3 +129,19 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
         match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
     acl_match = valve_of.match_from_dict(match_dict)
     return (acl_match, acl_inst, ofmsgs)
+
+
+def build_acl_ofmsgs(acls, acl_table, acl_allow_inst,
+                     highest_priority, meters,
+                     port_num=None, vlan_vid=None):
+    ofmsgs = []
+    acl_rule_priority = highest_priority
+    for acl in acls:
+        for rule_conf in acl.rules:
+            acl_match, acl_inst, acl_ofmsgs = build_acl_entry(
+                rule_conf, acl_allow_inst, meters, port_num, vlan_vid)
+            ofmsgs.extend(acl_ofmsgs)
+            ofmsgs.append(acl_table.flowmod(
+                acl_match, priority=acl_rule_priority, inst=acl_inst))
+            acl_rule_priority -= 1
+    return ofmsgs

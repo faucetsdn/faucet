@@ -213,21 +213,17 @@ class Valve(object):
 
         return ofmsgs
 
-    def _add_vlan_acl(self, vid):
+    def _vlan_add_acl(self, vid):
         ofmsgs = []
         if vid in self.dp.vlan_acl_in:
             acl_num = self.dp.vlan_acl_in[vid]
-            acl_rule_priority = self.dp.highest_priority
+            acl = self.dp.acls[acl_num]
+            acl_table = self.dp.acls[acl_num]
             acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
-            for rule_conf in self.dp.acls[acl_num].rules:
-                acl_match, acl_inst, acl_ofmsgs = valve_acl.build_acl_entry(
-                    rule_conf, acl_allow_inst, self.dp.meters, vlan_vid=vid)
-                ofmsgs.extend(acl_ofmsgs)
-                ofmsgs.append(self.dp.tables['vlan_acl'].flowmod(
-                    acl_match,
-                    priority=acl_rule_priority,
-                    inst=acl_inst))
-                acl_rule_priority -= 1
+            ofmsgs = valve_acl.build_acl_ofmsgs(
+                [acl], acl_table, acl_allow_inst,
+                self.dp.highest_priority, self.dp.meters,
+                vlan_vid=vid)
         return ofmsgs
 
     def _add_vlan_flood_flow(self):
@@ -274,7 +270,7 @@ class Valve(object):
         # install eth_dst_table flood ofmsgs
         ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         # add acl rules
-        ofmsgs.extend(self._add_vlan_acl(vlan.vid))
+        ofmsgs.extend(self._vlan_add_acl(vlan.vid))
         # add controller IPs if configured.
         for ipv in vlan.ipvs():
             route_manager = self.route_manager_by_ipv[ipv]
@@ -376,25 +372,20 @@ class Valve(object):
 
     def _port_add_acl(self, port_num, cold_start=False):
         ofmsgs = []
-        port_acl_table = self.dp.tables['port_acl']
-        in_port_match = port_acl_table.match(in_port=port_num)
+        acl_table = self.dp.tables['port_acl']
+        in_port_match = acl_table.match(in_port=port_num)
         if cold_start:
-            ofmsgs.extend(port_acl_table.flowdel(in_port_match))
+            ofmsgs.extend(acl_table.flowdel(in_port_match))
         acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
         if port_num in self.dp.port_acl_in:
             acl_num = self.dp.port_acl_in[port_num]
-            acl_rule_priority = self.dp.highest_priority
-            for rule_conf in self.dp.acls[acl_num].rules:
-                acl_match, acl_inst, acl_ofmsgs = valve_acl.build_acl_entry(
-                    rule_conf, acl_allow_inst, self.dp.meters, port_num)
-                ofmsgs.extend(acl_ofmsgs)
-                ofmsgs.append(port_acl_table.flowmod(
-                    acl_match,
-                    priority=acl_rule_priority,
-                    inst=acl_inst))
-                acl_rule_priority -= 1
+            acl = self.dp.acls[acl_num]
+            ofmsgs.extend(valve_acl.build_acl_ofmsgs(
+                [acl], acl_table, acl_allow_inst,
+                self.dp.highest_priority, self.dp.meters,
+                port_num=port_num))
         else:
-            ofmsgs.append(port_acl_table.flowmod(
+            ofmsgs.append(acl_table.flowmod(
                 in_port_match,
                 priority=self.dp.highest_priority,
                 inst=[acl_allow_inst]))
@@ -605,7 +596,8 @@ class Valve(object):
         if pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST:
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
-            pkt = valve_packet.lacp_reqreply(pkt_meta.vlan.vid, pkt_meta.eth_src,
+            pkt = valve_packet.lacp_reqreply(
+                pkt_meta.vlan.vid, pkt_meta.eth_src,
                 pkt_meta.vlan.faucet_mac, pkt_meta.port.number, pkt_meta.port.number,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                 lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
