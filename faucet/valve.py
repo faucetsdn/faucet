@@ -486,7 +486,6 @@ class Valve(object):
 
             # Port has LACP processing enabled.
             if port.lacp:
-                eth_src_table = self.dp.tables['eth_src']
                 ofmsgs.append(eth_src_table.flowcontroller(
                     eth_src_table.match(
                         in_port=port.number,
