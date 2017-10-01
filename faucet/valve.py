@@ -569,7 +569,7 @@ class Valve(object):
                 ofmsgs.extend(
                     self._port_delete_flows(
                         port,
-                        self._get_eth_srcs_learned_on_port(self.dp, port.number)))
+                        self._get_eth_srcs_learned_on_port(port)))
             for vlan in port.vlans():
                 vlans_with_deleted_ports.add(vlan)
 
@@ -754,8 +754,8 @@ class Valve(object):
         port = pkt_meta.port
         eth_src = pkt_meta.eth_src
 
-        old_eth_srcs = self._get_eth_srcs_learned_on_port(self.dp, port.number)
-        if len(old_eth_srcs) == self.dp.ports[port.number].max_hosts:
+        old_eth_srcs = self._get_eth_srcs_learned_on_port(port)
+        if len(old_eth_srcs) == port.max_hosts:
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_port(
                 port))
             port.learn_ban_count += 1
@@ -926,14 +926,12 @@ class Valve(object):
         for vlan in list(self.dp.vlans.values()):
             self.host_manager.expire_hosts_from_vlan(vlan, now)
 
-    def _get_eth_srcs_learned_on_port(self, dp, port_no):
+    def _get_eth_srcs_learned_on_port(self, port):
         old_eth_srcs = []
-        if port_no in dp.ports:
-            port = dp.ports[port_no]
-            for vlan in port.vlans():
-                for eth_src, host_cache_entry in list(vlan.host_cache.items()):
-                    if host_cache_entry.port.number == port_no:
-                        old_eth_srcs.append(eth_src)
+        for vlan in port.vlans():
+            for eth_src, host_cache_entry in list(vlan.host_cache.items()):
+                if host_cache_entry.port == port:
+                    old_eth_srcs.append(eth_src)
         return old_eth_srcs
 
     def _get_acl_config_changes(self, new_dp):
