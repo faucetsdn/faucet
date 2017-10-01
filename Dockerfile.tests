@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-ENV OVSV="2.7.3"
+ENV OVSV="2.8.1"
 
 ENV AG="apt-get -qqy --no-install-recommends"
 ENV DEBIAN_FRONTEND=noninteractive
