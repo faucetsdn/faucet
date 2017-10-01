@@ -569,10 +569,11 @@ class Valve(object):
             port.phys_up = False
             self.logger.info('%s down' % port)
 
-            ofmsgs.extend(
-                self._port_delete_flows(
-                    port,
-                    self._get_eth_srcs_learned_on_port(self.dp, port.number)))
+            if not port.mirror_destination:
+                ofmsgs.extend(
+                    self._port_delete_flows(
+                        port,
+                        self._get_eth_srcs_learned_on_port(self.dp, port.number)))
             for vlan in port.vlans():
                 vlans_with_deleted_ports.add(vlan)
 
