@@ -152,16 +152,15 @@ class ValveHostManager(object):
         # the rule
         # NB: Must be lower than highest priority otherwise it can match
         # flows destined to controller
+        src_rule_idle_timeout = 0
+        dst_rule_idle_timeout = 0
+        src_rule_hard_timeout = learn_timeout
+
         if self.use_idle_timeout:
             # Disable hard_time, dst rule expires after src rule.
             src_rule_idle_timeout = learn_timeout
             src_rule_hard_timeout = 0
             dst_rule_idle_timeout = learn_timeout + 2
-        else:
-            # keep things as usual
-            src_rule_idle_timeout = 0
-            src_rule_hard_timeout = learn_timeout
-            dst_rule_idle_timeout = learn_timeout
 
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
