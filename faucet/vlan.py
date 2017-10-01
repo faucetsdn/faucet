@@ -172,6 +172,7 @@ class VLAN(Conf):
         return self.dyn_host_cache
 
     def hosts_count(self):
+        """Return number of hosts learned on this VLAN."""
         return len(self.host_cache)
 
     @host_cache.setter
