@@ -45,4 +45,4 @@ python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report ter
 
 echo "========== Running faucet system tests =========="
 python2 ./faucet_mininet_test.py -c
-time python2 ./faucet_mininet_test.py $FAUCET_TESTS || exit 1
+http_proxy="" time python2 ./faucet_mininet_test.py $FAUCET_TESTS || exit 1
