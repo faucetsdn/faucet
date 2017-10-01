@@ -433,13 +433,13 @@ class Valve(object):
                 port, port.native_vlan, self._find_forwarding_table(port.native_vlan), mirror_act))
         return ofmsgs
 
-    def _port_delete_flows(self, port, old_eth_srcs):
+    def _port_delete_flows(self, port, hosts):
         ofmsgs = []
         ofmsgs.extend(self._delete_all_port_match_flows(port))
         ofmsgs.extend(self.dp.tables['eth_dst'].flowdel(out_port=port.number))
         if port.permanent_learn:
             eth_src_table = self.dp.tables['eth_src']
-            for eth_src in old_eth_srcs:
+            for eth_src in hosts:
                 ofmsgs.extend(eth_src_table.flowdel(
                     match=eth_src_table.match(eth_src=eth_src)))
         return ofmsgs
@@ -565,10 +565,7 @@ class Valve(object):
             # forwarding for that host. They are garbage collected by
             # hard timeout anyway, but it would be good to "relearn them".
             if not port.mirror_destination:
-                ofmsgs.extend(
-                    self._port_delete_flows(
-                        port,
-                        self._get_eth_srcs_learned_on_port(port)))
+                ofmsgs.extend(self._port_delete_flows(port, port.hosts()))
             for vlan in port.vlans():
                 vlans_with_deleted_ports.add(vlan)
 
@@ -752,9 +749,9 @@ class Valve(object):
 
         port = pkt_meta.port
         eth_src = pkt_meta.eth_src
+        hosts = port.hosts()
 
-        old_eth_srcs = self._get_eth_srcs_learned_on_port(port)
-        if len(old_eth_srcs) == port.max_hosts:
+        if len(hosts) == port.max_hosts:
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_port(
                 port))
             port.learn_ban_count += 1
@@ -828,23 +825,14 @@ class Valve(object):
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
                     dp_id=dp_id, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
-            # Repopulate MAC learning.
-            hosts_on_port = {}
-            for eth_src, host_cache_entry in sorted(list(vlan.host_cache.items())):
-                port_num = str(host_cache_entry.port.number)
-                mac_int = int(eth_src.replace(':', ''), 16)
-                if port_num not in hosts_on_port:
-                    hosts_on_port[port_num] = []
-                hosts_on_port[port_num].append(mac_int)
-            for port_num, hosts in list(hosts_on_port.items()):
-                for i, mac_int in enumerate(hosts):
+            for port in vlan.get_ports():
+                for i, host in sorted(port.hosts(vlans=[vlan])):
+                    mac_int = int(host.replace(':', ''), 16)
                     metrics.learned_macs.labels(
                         dp_id=dp_id, vlan=vlan.vid,
-                        port=port_num, n=i).set(mac_int)
-            for port in list(self.dp.ports.values()):
+                        port=port.number, n=i).set(mac_int)
                 metrics.port_learn_bans.labels(
                     dp_id=dp_id, port=port.number).set(port.learn_ban_count)
-
 
     def rcv_packet(self, dp_id, valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
@@ -924,14 +912,6 @@ class Valve(object):
         now = time.time()
         for vlan in list(self.dp.vlans.values()):
             self.host_manager.expire_hosts_from_vlan(vlan, now)
-
-    def _get_eth_srcs_learned_on_port(self, port):
-        old_eth_srcs = []
-        for vlan in port.vlans():
-            for eth_src, host_cache_entry in list(vlan.host_cache.items()):
-                if host_cache_entry.port == port:
-                    old_eth_srcs.append(eth_src)
-        return old_eth_srcs
 
     def _get_acl_config_changes(self, new_dp):
         """Detect any config changes to ACLs.
