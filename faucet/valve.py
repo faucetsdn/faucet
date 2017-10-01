@@ -952,7 +952,7 @@ class Valve(object):
             else:
                 old_vlan = self.dp.vlans[vid]
                 if old_vlan != new_vlan:
-                    if old_vlan.ignore_subconf(new_vlan):
+                    if not old_vlan.ignore_subconf(new_vlan):
                         changed_vlans.add(vid)
                         self.logger.info('VLAN %s config changed' % vid)
                 else:
@@ -993,13 +993,14 @@ class Valve(object):
                 old_port = self.dp.ports[port_no]
                 # An existing port has configs changed
                 if new_port != old_port:
-                    # Did config other than ACL change
+                    # TODO: we assume if port config had sub config
+                    # changed, it must have been the ACL.
                     if old_port.ignore_subconf(new_port):
-                        changed_ports.add(port_no)
-                        self.logger.info('port %s reconfigured' % port_no)
-                    else:
                         changed_acl_ports.add(port_no)
                         self.logger.info('port %s ACL changed' % port_no)
+                    else:
+                        changed_ports.add(port_no)
+                        self.logger.info('port %s reconfigured' % port_no)
                 elif new_port.acl_in in changed_acls:
                     # If the port has ACL changed.
                     changed_acl_ports.add(port_no)
