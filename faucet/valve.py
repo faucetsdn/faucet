@@ -823,7 +823,7 @@ class Valve(object):
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
                     dp_id=dp_id, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
-            for port in sorted(vlan.get_ports()):
+            for port in vlan.get_ports():
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
                     metrics.learned_macs.labels(
