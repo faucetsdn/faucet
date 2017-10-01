@@ -813,7 +813,7 @@ class Valve(object):
                     dp_id=label_dict['dp_id'], vlan=label_dict['vlan'],
                     port=label_dict['port'], n=label_dict['n']).set(0)
 
-        for vlan in list(self.dp.vlans.values()):
+        for vlan in sorted(list(self.dp.vlans.values())):
             hosts_count = vlan.hosts_count()
             metrics.vlan_hosts_learned.labels(
                 dp_id=dp_id, vlan=vlan.vid).set(hosts_count)
@@ -823,7 +823,7 @@ class Valve(object):
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
                     dp_id=dp_id, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
-            for port in vlan.get_ports():
+            for port in sorted(vlan.get_ports()):
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
                     metrics.learned_macs.labels(
