@@ -92,27 +92,21 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
     def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
         port = Port(p_identifier, port_conf)
 
-        if port.mirror is not None:
-            # ignore other config
-            return port
         if port.native_vlan is not None:
             v_identifier = port.native_vlan
             vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
+            port.native_vlan = vlan
             vlan.add_untagged(port)
+        port_tagged_vlans = []
         for v_identifier in port.tagged_vlans:
             vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
+            port_tagged_vlans.append(vlan)
             vlan.add_tagged(port)
-        if port.native_vlan is not None:
-            vlan = _get_vlan_by_identifier(dp_id, port.native_vlan, vlans)
-            port.native_vlan = vlan
+        port.tagged_vlans = port_tagged_vlans
+
+        for vlan in port.vlans():
             _dp_add_vlan(dp, vlan)
-        if port.tagged_vlans is not None:
-            tagged_vlans = []
-            for vlan_ident in port.tagged_vlans:
-                vlan = _get_vlan_by_identifier(dp_id, vlan_ident, vlans)
-                tagged_vlans.append(vlan)
-                _dp_add_vlan(dp, vlan)
-            port.tagged_vlans = tagged_vlans
+
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):

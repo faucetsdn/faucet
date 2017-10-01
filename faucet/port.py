@@ -116,6 +116,13 @@ class Port(Conf):
                 }
         return result
 
+    def vlans(self):
+        vlans = []
+        if self.native_vlan is not None:
+            vlans.append(self.native_vlan)
+        vlans.extend(self.tagged_vlans)
+        return vlans
+
     def __str__(self):
         return 'Port %u' % self.number
 
