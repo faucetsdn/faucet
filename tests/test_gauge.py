@@ -453,7 +453,7 @@ class GaugeThreadPollerTest(unittest.TestCase):
 
     def setUp(self):
         """Creates a gauge poller and initialises class variables"""
-        self.interval = 3
+        self.interval = 1
         conf = mock.Mock(interval=self.interval)
         self.poller = gauge_pollers.GaugeThreadPoller(conf, '__name__', mock.Mock())
         self.send_called = False
