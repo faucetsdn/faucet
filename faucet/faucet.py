@@ -262,6 +262,7 @@ class Faucet(app_manager.RyuApp):
         if sigid == signal.SIGHUP:
             self.send_event('Faucet', EventFaucetReconfigure())
         elif sigid == signal.SIGINT:
+            self.close()
             sys.exit(0)
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):

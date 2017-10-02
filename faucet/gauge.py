@@ -155,6 +155,7 @@ class Gauge(app_manager.RyuApp):
         if sigid == signal.SIGHUP:
             self.send_event('Gauge', EventGaugeReconfigure())
         elif sigid == signal.SIGINT:
+            self.close()
             sys.exit(0)
 
     @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
