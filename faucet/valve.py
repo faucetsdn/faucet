@@ -212,17 +212,15 @@ class Valve(object):
 
         return ofmsgs
 
-    def _vlan_add_acl(self, vid):
+    def _vlan_add_acl(self, vlan):
         ofmsgs = []
-        if vid in self.dp.vlan_acl_in:
-            acl_num = self.dp.vlan_acl_in[vid]
-            acl = self.dp.acls[acl_num]
+        if vlan.acl_in:
             acl_table = self.dp.tables['vlan_acl']
             acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
             ofmsgs = valve_acl.build_acl_ofmsgs(
-                [acl], acl_table, acl_allow_inst,
+                [vlan.acl_in], acl_table, acl_allow_inst,
                 self.dp.highest_priority, self.dp.meters,
-                vlan_vid=vid)
+                vlan_vid=vlan.vid)
         return ofmsgs
 
     def _add_vlan_flood_flow(self):
@@ -269,7 +267,7 @@ class Valve(object):
         # install eth_dst_table flood ofmsgs
         ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         # add acl rules
-        ofmsgs.extend(self._vlan_add_acl(vlan.vid))
+        ofmsgs.extend(self._vlan_add_acl(vlan))
         # add controller IPs if configured.
         for ipv in vlan.ipvs():
             route_manager = self.route_manager_by_ipv[ipv]
@@ -369,20 +367,18 @@ class Valve(object):
             self.dp.running = False
             self.logger.warning('datapath down')
 
-    def _port_add_acl(self, port_num, cold_start=False):
+    def _port_add_acl(self, port, cold_start=False):
         ofmsgs = []
         acl_table = self.dp.tables['port_acl']
-        in_port_match = acl_table.match(in_port=port_num)
+        in_port_match = acl_table.match(in_port=port.number)
         if cold_start:
             ofmsgs.extend(acl_table.flowdel(in_port_match))
         acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
-        if port_num in self.dp.port_acl_in:
-            acl_num = self.dp.port_acl_in[port_num]
-            acl = self.dp.acls[acl_num]
+        if port.acl_in:
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
-                [acl], acl_table, acl_allow_inst,
+                [port.acl_in], acl_table, acl_allow_inst,
                 self.dp.highest_priority, self.dp.meters,
-                port_num=port_num))
+                port_num=port.number))
         else:
             ofmsgs.append(acl_table.flowmod(
                 in_port_match,
@@ -418,7 +414,7 @@ class Valve(object):
         return self._port_add_vlan_rules(port, vlan, vlan_inst)
 
     def _find_forwarding_table(self, vlan):
-        if vlan.vid in self.dp.vlan_acl_in:
+        if vlan.acl_in:
             return self.dp.tables['vlan_acl']
         return self.dp.tables['eth_src']
 
@@ -493,7 +489,7 @@ class Valve(object):
                     priority=self.dp.highest_priority))
 
             # Add ACL if any.
-            acl_ofmsgs = self._port_add_acl(port_num)
+            acl_ofmsgs = self._port_add_acl(port)
             ofmsgs.extend(acl_ofmsgs)
 
             port_vlans = port.vlans()
@@ -1130,7 +1126,8 @@ class Valve(object):
                 self.dp = new_dp
                 ofmsgs = self.datapath_connect(
                     self.dp.dp_id, list(self.dp.ports.keys()))
-        self.logger.info('skipping configuration because datapath not up')
+        else:
+            self.logger.info('skipping configuration because datapath not up')
         return (cold_start, ofmsgs)
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):

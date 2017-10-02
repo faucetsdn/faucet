@@ -65,9 +65,6 @@ class Conf(object):
                 continue
             if isinstance(value, Conf) and not subconf:
                 continue
-            # TODO: ACL should be Conf, not number.
-            if key.startswith('acl_in') and not subconf:
-                continue
             conf_keys.append((key, value))
         return sorted(conf_keys)
 
