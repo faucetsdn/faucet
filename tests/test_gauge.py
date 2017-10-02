@@ -500,47 +500,47 @@ class GaugeThreadPollerTest(unittest.TestCase):
         self.poller.stop()
         self.assertFalse(self.poller.running())
 
-class GaugePortStatsPollerTest(unittest.TestCase):
+class GaugePollerTest(unittest.TestCase):
+    
+    def check_send_req(self, poller, msg_class):
+        datapath = mock.Mock(ofproto=ofproto, ofproto_parser=parser)
+        poller.start(datapath)
+        poller.stop()
+        poller.send_req()
+        for method_call in datapath.mock_calls:
+            arg = method_call[1][0]
+            self.assertTrue(isinstance(arg, msg_class))
+
+    def check_no_response(self, poller):
+        try:
+            poller.no_response()
+        except Exception as err:
+            self.fail("Code threw an exception: {}".format(err))
+
+class GaugePortStatsPollerTest(GaugePollerTest):
 
     def test_send_req(self):
         conf = mock.Mock(interval=1)
         poller = gauge_pollers.GaugePortStatsPoller(conf, '__name__', mock.Mock())
         datapath = mock.Mock(ofproto=ofproto, ofproto_parser=parser)
-        poller.start(datapath)
-        poller.stop()
-        poller.send_req()
-        for method_call in datapath.mock_calls:
-            arg = method_call[1][0]
-            self.assertTrue(isinstance(arg,parser.OFPPortStatsRequest))
+        self.check_send_req(poller, parser.OFPPortStatsRequest)
 
     def test_no_response(self):
         poller = gauge_pollers.GaugePortStatsPoller(mock.Mock(), '__name__', mock.Mock())
-        try:
-            poller.no_response()
-        except Exception as err:
-            self.fail("Code threw an exception: {}".format(err))
+        self.check_no_response(poller)
 
-
-class GaugeFlowTablePollerTest(unittest.TestCase):
+class GaugeFlowTablePollerTest(GaugePollerTest):
 
     def test_send_req(self):
         conf = mock.Mock(interval=1)
         poller = gauge_pollers.GaugeFlowTablePoller(conf, '__name__', mock.Mock())
-        datapath = mock.Mock(ofproto=ofproto, ofproto_parser=parser)
-        poller.start(datapath)
-        poller.stop()
-        poller.send_req()
-        for method_call in datapath.mock_calls:
-            arg = method_call[1][0]
-            self.assertTrue(isinstance(arg,parser.OFPFlowStatsRequest))
+        self.check_send_req(poller, parser.OFPFlowStatsRequest)
 
 
     def test_no_response(self):
         poller = gauge_pollers.GaugeFlowTablePoller(mock.Mock(), '__name__', mock.Mock())
-        try:
-            poller.no_response()
-        except Exception as err:
-            self.fail("Code threw an exception: {}".format(err))
+        self.check_no_response(poller)
+
 
 if __name__ == "__main__":
     unittest.main()
