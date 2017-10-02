@@ -584,7 +584,9 @@ class Valve(object):
             list: OpenFlow messages, if any.
         """
         ofmsgs = []
-        if pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST:
+        if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
+                pkt_meta.eth_type == ether.ETH_TYPE_SLOW and
+                pkt_meta.port.lacp):
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             pkt = valve_packet.lacp_reqreply(
