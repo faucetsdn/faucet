@@ -15,10 +15,12 @@ import threading
 import tempfile
 import requests
 
-from faucet import gauge_prom, gauge_influx
+
+from faucet import gauge_prom, gauge_influx, gauge_pollers
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
+from ryu.lib import hub
 
 
 def create_mock_datapath(num_ports):
@@ -440,6 +442,48 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
 
                 else:
                     self.fail("Unknown key: {} and value: {}".format(stat_name, stat_val))
+
+class GaugePollerTest(unittest.TestCase):
+
+    def setUp(self):
+        self.interval = 3
+        self.poller = gauge_pollers.GaugeThreadPoller(mock.Mock(interval=self.interval), '__name__', mock.Mock())
+        self.send_called = False
+
+    def fake_send_req(self):
+        self.send_called = True
+
+    def fake_no_response(self):
+        pass
+
+    def test_start(self):
+        self.poller.send_req = self.fake_send_req
+        self.poller.no_response = self.fake_no_response
+
+        self.poller.start(mock.Mock())
+        poller_thread = self.poller.thread
+        hub.sleep(self.interval + 1)
+        self.assertTrue(self.send_called)
+        self.assertFalse(poller_thread.dead)
+
+    def test_stop(self):
+        self.poller.send_req = self.fake_send_req
+        self.poller.no_response = self.fake_no_response
+        
+        self.poller.start(mock.Mock())
+        poller_thread = self.poller.thread
+        self.poller.stop()
+        hub.sleep(self.interval)
+        
+        self.assertFalse(self.send_called)
+        self.assertTrue(poller_thread.dead)
+
+    def test_running(self):
+        self.assertFalse(self.poller.running())
+        self.poller.start(mock.Mock())
+        self.assertTrue(self.poller.running())         
+        self.poller.stop()
+        self.assertFalse(self.poller.running())
 
 
 if __name__ == "__main__":
