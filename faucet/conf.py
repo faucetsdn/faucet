@@ -61,12 +61,12 @@ class Conf(object):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
         for key, value in list(conf.__dict__.items()):
-            if key.startswith('dyn') and not dyn:
+            if not dyn and key.startswith('dyn'):
                 continue
-            if isinstance(value, Conf) and not subconf:
+            if not subconf and isinstance(value, Conf):
                 continue
             conf_keys.append((key, value))
-        return sorted(conf_keys)
+        return conf_keys
 
     def merge_dyn(self, other_conf):
         """Merge dynamic state from other conf object."""
