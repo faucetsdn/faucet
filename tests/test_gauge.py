@@ -521,5 +521,26 @@ class GaugePortStatsPollerTest(unittest.TestCase):
             self.fail("Code threw an exception: {}".format(err))
 
 
+class GaugeFlowTablePollerTest(unittest.TestCase):
+
+    def test_send_req(self):
+        conf = mock.Mock(interval=1)
+        poller = gauge_pollers.GaugeFlowTablePoller(conf, '__name__', mock.Mock())
+        datapath = mock.Mock(ofproto=ofproto, ofproto_parser=parser)
+        poller.start(datapath)
+        poller.stop()
+        poller.send_req()
+        for method_call in datapath.mock_calls:
+            arg = method_call[1][0]
+            self.assertTrue(isinstance(arg,parser.OFPFlowStatsRequest))
+
+
+    def test_no_response(self):
+        poller = gauge_pollers.GaugeFlowTablePoller(mock.Mock(), '__name__', mock.Mock())
+        try:
+            poller.no_response()
+        except Exception as err:
+            self.fail("Code threw an exception: {}".format(err))
+
 if __name__ == "__main__":
     unittest.main()
