@@ -48,8 +48,12 @@ def start_server():
 
 
 class PretendInflux(BaseHTTPRequestHandler):
+    """An HTTP Handler that receives InfluxDB messages."""
 
     def do_POST(self):
+        """ Write request contents to the HTTP server,
+        if there is an output file to write to. """
+
         if hasattr(self.server, 'output_file'):
             content_length = int(self.headers['content-length'])
             data = self.rfile.read(content_length)
@@ -234,6 +238,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
 
 
 class GaugeInfluxUpdateTest(unittest.TestCase):
+    """Test the Influx loggers update methods"""
 
     def setUp(self):
         """ Starts up an HTTP server to mock InfluxDB.
@@ -443,20 +448,28 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
                 else:
                     self.fail("Unknown key: {} and value: {}".format(stat_name, stat_val))
 
-class GaugePollerTest(unittest.TestCase):
+class GaugeThreadPollerTest(unittest.TestCase):
+    """Tests the methods in the GaugeThreadPoller class"""
 
     def setUp(self):
+        """Creates a gauge poller and initialises class variables"""
         self.interval = 3
-        self.poller = gauge_pollers.GaugeThreadPoller(mock.Mock(interval=self.interval), '__name__', mock.Mock())
+        conf = mock.Mock(interval=self.interval)
+        self.poller = gauge_pollers.GaugeThreadPoller(conf, '__name__', mock.Mock())
         self.send_called = False
 
     def fake_send_req(self):
+        """This should be called instead of the send_req method in the
+        GaugeThreadPoller class, which just throws an error"""
         self.send_called = True
 
     def fake_no_response(self):
+        """This should be called instead of the no_response method in the
+        GaugeThreadPoller class, which just throws an error"""
         pass
 
     def test_start(self):
+        """ Checks if the poller is started """
         self.poller.send_req = self.fake_send_req
         self.poller.no_response = self.fake_no_response
 
@@ -467,21 +480,23 @@ class GaugePollerTest(unittest.TestCase):
         self.assertFalse(poller_thread.dead)
 
     def test_stop(self):
+        """ Check if a poller can be stopped """
         self.poller.send_req = self.fake_send_req
         self.poller.no_response = self.fake_no_response
-        
+
         self.poller.start(mock.Mock())
         poller_thread = self.poller.thread
         self.poller.stop()
-        hub.sleep(self.interval)
-        
+        hub.sleep(self.interval + 1)
+
         self.assertFalse(self.send_called)
         self.assertTrue(poller_thread.dead)
 
     def test_running(self):
+        """ Check if running reflects the state of the poller """
         self.assertFalse(self.poller.running())
         self.poller.start(mock.Mock())
-        self.assertTrue(self.poller.running())         
+        self.assertTrue(self.poller.running())
         self.poller.stop()
         self.assertFalse(self.poller.running())
 
