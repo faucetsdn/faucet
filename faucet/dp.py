@@ -484,6 +484,7 @@ class DP(Conf):
             acl.dyn_finalized = True
         for router in list(self.routers.values()):
             router.dyn_finalized = True
+        self.dyn_finalized = True
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:
