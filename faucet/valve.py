@@ -1096,7 +1096,8 @@ class Valve(object):
                 ofmsgs.extend(self.ports_add(self.dp.dp_id, changed_ports))
             if changed_acl_ports:
                 self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
-                for port in changed_acl_ports:
+                for port_num in changed_acl_ports:
+                    port = self.dp.ports[port_num]
                     ofmsgs.extend(self._port_add_acl(port, cold_start=True))
 
         return cold_start, ofmsgs
