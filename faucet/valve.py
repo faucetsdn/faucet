@@ -715,7 +715,7 @@ class Valve(object):
 
         return ofmsgs
 
-    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, pkt):
+    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, pkt, eth_pkt):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
@@ -724,10 +724,10 @@ class Valve(object):
             eth_type (int): Ethernet type of packet.
             data (bytes): Raw packet data.
             pkt (ryu.lib.packet.packet): parsed packet received.
+            ekt_pkt (ryu.lib.packet.ethernet): parsed Ethernet header.
         Returns:
             PacketMeta instance.
         """
-        eth_pkt = valve_packet.parse_eth_pkt(pkt)
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
         vlan = self.dp.vlans[vlan_vid]
