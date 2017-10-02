@@ -66,6 +66,8 @@ class Gauge(app_manager.RyuApp):
         sysprefix = get_sys_prefix()
         self.config_file = os.getenv(
             'GAUGE_CONFIG', sysprefix + '/etc/ryu/faucet/gauge.yaml')
+        self.loglevel = os.getenv(
+            'GAUGE_LOG_LEVEL', logging.INFO)
         self.exc_logfile = os.getenv(
             'GAUGE_EXCEPTION_LOG',
             sysprefix + '/var/log/ryu/faucet/gauge_exception.log')
@@ -74,7 +76,7 @@ class Gauge(app_manager.RyuApp):
 
         # Setup logging
         self.logger = get_logger(
-            self.logname, self.logfile, logging.DEBUG, 0)
+            self.logname, self.logfile, self.loglevel, 0)
         # Set up separate logging for exceptions
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
