@@ -28,6 +28,7 @@ from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
 
 from faucet.valve import valve_factory
 from faucet.config_parser import dp_parser
+from faucet import valve_packet
 
 
 def build_pkt(pkt):
@@ -163,8 +164,9 @@ vlans:
     def rcv_packet(self, port, vid, match):
         pkt, eth_type = build_pkt(match)
         pkt.serialize()
+        eth_pkt = valve_packet.parse_eth_pkt(pkt)
         pkt_meta = self.valve.parse_rcv_packet(
-            port, vid, eth_type, pkt.data, pkt)
+            port, vid, eth_type, pkt.data, pkt, eth_pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             dp_id=self.DP_ID, valves={}, pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
