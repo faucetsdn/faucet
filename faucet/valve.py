@@ -588,7 +588,7 @@ class Valve(object):
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             pkt = valve_packet.lacp_reqreply(
-                pkt_meta.vlan.vid, pkt_meta.eth_src,
+                pkt_meta.vlan.faucet_mac,
                 pkt_meta.vlan.faucet_mac, pkt_meta.port.number, pkt_meta.port.number,
                 lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                 lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,

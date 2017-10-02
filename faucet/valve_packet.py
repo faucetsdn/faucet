@@ -155,7 +155,7 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
     return pkt_header
 
 
-def lacp_reqreply(vid, eth_src,
+def lacp_reqreply(eth_src,
                   actor_system, actor_key, actor_port,
                   partner_system, partner_key, partner_port,
                   partner_system_priority, partner_port_priority,
@@ -170,7 +170,6 @@ def lacp_reqreply(vid, eth_src,
     """Return a LACP frame.
 
     Args:
-        vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
         actor_system (str): actor system ID (MAC address)
         actor_key (int): actor's LACP key assigned to this port.
@@ -192,7 +191,7 @@ def lacp_reqreply(vid, eth_src,
         ryu.lib.packet.ethernet: Ethernet packet with header.
     """
     pkt = build_pkt_header(
-        vid, eth_src, slow.SLOW_PROTOCOL_MULTICAST, ether.ETH_TYPE_SLOW)
+        None, eth_src, slow.SLOW_PROTOCOL_MULTICAST, ether.ETH_TYPE_SLOW)
     lacp_pkt = slow.lacp(
         version=1,
         actor_system=actor_system,
