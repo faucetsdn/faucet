@@ -476,13 +476,13 @@ class DP(Conf):
         resolve_names_in_acls()
         resolve_acls()
 
-        for port in self.ports.values():
+        for port in list(self.ports.values()):
             port.dyn_finalized = True
-        for vlan in self.vlans.values():
+        for vlan in list(self.vlans.values()):
             vlan.dyn_finalized = True
-        for acl in self.acls.values():
+        for acl in list(self.acls.values()):
             acl.dyn_finalized = True
-        for router in self.routers.values():
+        for router in list(self.routers.values()):
             router.dyn_finalized = True
 
     def get_native_vlan(self, port_num):
