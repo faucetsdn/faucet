@@ -589,6 +589,8 @@ class Valve(object):
                 pkt_meta.port.lacp):
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
+            if not lacp_pkt:
+                return ofmsgs
             pkt = valve_packet.lacp_reqreply(
                 pkt_meta.vlan.faucet_mac,
                 pkt_meta.vlan.faucet_mac, pkt_meta.port.number, pkt_meta.port.number,
