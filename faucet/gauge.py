@@ -90,6 +90,7 @@ class Gauge(app_manager.RyuApp):
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)
 
     @kill_on_exception(exc_logname)
     def _load_config(self):
@@ -152,6 +153,8 @@ class Gauge(app_manager.RyuApp):
         """
         if sigid == signal.SIGHUP:
             self.send_event('Gauge', EventGaugeReconfigure())
+        elif sigid == signal.SIGINT:
+            sys.exit(0)
 
     @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):
