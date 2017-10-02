@@ -622,8 +622,7 @@ class Valve(object):
                 if pkt_meta.eth_type in route_manager.CONTROL_ETH_TYPES:
                     pkt_meta.reparse_ip(route_manager.ETH_TYPE)
                     ofmsgs = route_manager.control_plane_handler(pkt_meta)
-                    if ofmsgs:
-                        break
+                    break
         return ofmsgs
 
     def _known_up_dpid_and_port(self, dp_id, in_port):
