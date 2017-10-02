@@ -22,6 +22,8 @@ class Conf(object):
 
     defaults = {}
     defaults_types = {}
+    dyn_finalized = False
+    dyn_hash = None
 
     def __init__(self, _id, conf=None):
         if conf is None:
@@ -90,14 +92,19 @@ class Conf(object):
             str, self._conf_keys(self, dyn=dyn, subconf=subconf)))))
 
     def __hash__(self):
-        return self.conf_hash(dyn=False, subconf=True)
+        if self.dyn_finalized:
+            if self.dyn_hash is None:
+                self.dyn_hash = self.conf_hash(dyn=False, subconf=True)
+            return self.dyn_hash
+        else:
+            return self.conf_hash(dyn=False, subconf=True)
 
     def ignore_subconf(self, other):
         """Return True if this config same as other, ignoring sub config."""
         return self.conf_hash(dyn=False, subconf=False) == other.conf_hash(dyn=False, subconf=False)
 
     def __eq__(self, other):
-        return hash(self) == hash(other)
+        return self.__hash__() == other.__hash__()
 
     def __ne__(self, other):
         return not self.__eq__(other)

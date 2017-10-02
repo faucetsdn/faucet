@@ -22,6 +22,7 @@ import logging
 import os
 import random
 import signal
+import sys
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -153,6 +154,7 @@ class Faucet(app_manager.RyuApp):
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
 
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
@@ -261,6 +263,9 @@ class Faucet(app_manager.RyuApp):
         """
         if sigid == signal.SIGHUP:
             self.send_event('Faucet', EventFaucetReconfigure())
+        elif sigid == signal.SIGINT:
+            self.close()
+            sys.exit(0)
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.

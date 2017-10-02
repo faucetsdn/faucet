@@ -38,7 +38,8 @@ class Port(Conf):
     stack = {}
     max_hosts = None
     hairpin = None
-    learn_ban_count = 0
+    dyn_learn_ban_count = 0
+    dyn_phys_up = False
 
     defaults = {
         'number': None,

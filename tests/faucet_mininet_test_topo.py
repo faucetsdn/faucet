@@ -7,6 +7,7 @@ import socket
 import string
 import shutil
 import subprocess
+import time
 
 import netifaces
 
@@ -289,7 +290,7 @@ class BaseFAUCET(Controller):
         script_wrapper_name = os.path.join(tmpdir, 'start-%s.sh' % name)
         with open(script_wrapper_name, 'w') as script_wrapper:
             script_wrapper.write(
-                'PYTHONPATH=.:..:../faucet %s exec ryu-manager %s $*\n' % (
+                'PYTHONPATH=.:..:../faucet %s exec python3 -m cProfile -s time /usr/local/bin/ryu-manager %s $*\n' % (
                     ' '.join(env_vars), args))
         return '/bin/sh %s' % script_wrapper_name
 
@@ -361,8 +362,9 @@ class BaseFAUCET(Controller):
 
     def stop(self):
         """Stop controller."""
-        if self.healthy():
-            os.kill(self.ryu_pid(), 15)
+        while self.healthy():
+            os.kill(self.ryu_pid(), 2)
+            time.sleep(1)
         self._stop_cap()
         super(BaseFAUCET, self).stop()
         if os.path.exists(self.logname()):
