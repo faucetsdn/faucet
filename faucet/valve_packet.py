@@ -93,6 +93,7 @@ def parse_packet_in_pkt(data, max_len):
         int: Ethernet type of packet (inside VLAN)
     """
     pkt = None
+    eth_pkt = None
     vlan_vid = None
     eth_type = None
 
@@ -115,7 +116,7 @@ def parse_packet_in_pkt(data, max_len):
     except (AssertionError, stream_parser.StreamParser.TooSmallException):
         pass
 
-    return (pkt, vlan_vid, eth_type)
+    return (pkt, eth_pkt, vlan_vid, eth_type)
 
 
 def mac_addr_is_unicast(mac_addr):
@@ -484,12 +485,12 @@ class PacketMeta(object):
         self.eth_type = eth_type
 
     def reparse(self, max_len):
-        pkt, vlan_vid, eth_type = parse_packet_in_pkt(
+        pkt, eth_pkt, vlan_vid, eth_type = parse_packet_in_pkt(
             self.data, max_len)
         if pkt is None or vlan_vid is None or eth_type is None:
             return
         self.pkt = pkt
-        self.eth_pkt = parse_eth_pkt(self.pkt)
+        self.eth_pkt = eth_pkt
 
     def reparse_all(self):
         self.reparse(0)
