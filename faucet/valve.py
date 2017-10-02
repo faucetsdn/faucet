@@ -752,7 +752,7 @@ class Valve(object):
         if len(hosts) == port.max_hosts:
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_port(
                 port))
-            port.learn_ban_count += 1
+            port.dyn_learn_ban_count += 1
             self.logger.info(
                 'max hosts %u reached on port %u, '
                 'temporarily banning learning on this port, '
@@ -778,7 +778,7 @@ class Valve(object):
                 eth_src not in vlan.host_cache):
             ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
                 vlan))
-            vlan.learn_ban_count += 1
+            vlan.dyn_learn_ban_count += 1
             self.logger.info(
                 'max hosts %u reached on vlan %u, '
                 'temporarily banning learning on this vlan, '
@@ -816,7 +816,7 @@ class Valve(object):
             metrics.vlan_hosts_learned.labels(
                 dp_id=dp_id, vlan=vlan.vid).set(hosts_count)
             metrics.vlan_learn_bans.labels(
-                dp_id=dp_id, vlan=vlan.vid).set(vlan.learn_ban_count)
+                dp_id=dp_id, vlan=vlan.vid).set(vlan.dyn_learn_ban_count)
             for ipv in vlan.ipvs():
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
@@ -828,7 +828,7 @@ class Valve(object):
                         dp_id=dp_id, vlan=vlan.vid,
                         port=port.number, n=i).set(mac_int)
                 metrics.port_learn_bans.labels(
-                    dp_id=dp_id, port=port.number).set(port.learn_ban_count)
+                    dp_id=dp_id, port=port.number).set(port.dyn_learn_ban_count)
 
     def rcv_packet(self, dp_id, valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
