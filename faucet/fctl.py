@@ -33,7 +33,7 @@ from prometheus_client import parser
 
 # TODO: byte/packet counters could be per second (given multiple samples)
 VAL_DECODE = {
-    'learned_macs': lambda mac: "{:012x}".format(int(mac))
+    'learned_macs': lambda mac: ':'.join(format(octet, '02x') for octet in int(mac).to_bytes(6, byteorder='big'))
 }
 
 
