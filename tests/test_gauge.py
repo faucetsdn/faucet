@@ -501,8 +501,10 @@ class GaugeThreadPollerTest(unittest.TestCase):
         self.assertFalse(self.poller.running())
 
 class GaugePollerTest(unittest.TestCase):
-    
+    """Checks the send_req and no_response methods in a Gauge Poller"""
+
     def check_send_req(self, poller, msg_class):
+        """Check that the message being sent matches the expected one"""
         datapath = mock.Mock(ofproto=ofproto, ofproto_parser=parser)
         poller.start(datapath)
         poller.stop()
@@ -512,32 +514,38 @@ class GaugePollerTest(unittest.TestCase):
             self.assertTrue(isinstance(arg, msg_class))
 
     def check_no_response(self, poller):
+        """Check that no exception occurs when the no_response method is called"""
         try:
             poller.no_response()
         except Exception as err:
             self.fail("Code threw an exception: {}".format(err))
 
 class GaugePortStatsPollerTest(GaugePollerTest):
+    """Checks the GaugePortStatsPoller class"""
 
     def test_send_req(self):
+        """Check that the poller sends a port stats request"""
         conf = mock.Mock(interval=1)
         poller = gauge_pollers.GaugePortStatsPoller(conf, '__name__', mock.Mock())
-        datapath = mock.Mock(ofproto=ofproto, ofproto_parser=parser)
         self.check_send_req(poller, parser.OFPPortStatsRequest)
 
     def test_no_response(self):
+        """Check that the poller doesnt throw an exception"""
         poller = gauge_pollers.GaugePortStatsPoller(mock.Mock(), '__name__', mock.Mock())
         self.check_no_response(poller)
 
 class GaugeFlowTablePollerTest(GaugePollerTest):
+    """Checks the GaugeFlowTablePoller class"""
 
     def test_send_req(self):
+        """Check that the poller sends a flow stats request"""
         conf = mock.Mock(interval=1)
         poller = gauge_pollers.GaugeFlowTablePoller(conf, '__name__', mock.Mock())
         self.check_send_req(poller, parser.OFPFlowStatsRequest)
 
 
     def test_no_response(self):
+        """Check that the poller doesnt throw an exception"""
         poller = gauge_pollers.GaugeFlowTablePoller(mock.Mock(), '__name__', mock.Mock())
         self.check_no_response(poller)
 
