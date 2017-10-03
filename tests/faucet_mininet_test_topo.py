@@ -223,6 +223,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
 class BaseFAUCET(Controller):
     """Base class for FAUCET and Gauge controllers."""
 
+    CPROFILE = False
     controller_intf = None
     controller_ip = None
     pid_file = None
@@ -288,10 +289,13 @@ class BaseFAUCET(Controller):
         for var, val in list(sorted(env.items())):
             env_vars.append('='.join((var, val)))
         script_wrapper_name = os.path.join(tmpdir, 'start-%s.sh' % name)
+        cprofile_args = ''
+        if self.CPROFILE:
+            cprofile_args = 'python3 -m cProfile -s time'
         with open(script_wrapper_name, 'w') as script_wrapper:
             script_wrapper.write(
-                'PYTHONPATH=.:..:../faucet %s exec python3 -m cProfile -s time /usr/local/bin/ryu-manager %s $*\n' % (
-                    ' '.join(env_vars), args))
+                'PYTHONPATH=.:..:../faucet %s exec %s /usr/local/bin/ryu-manager %s $*\n' % (
+                    ' '.join(env_vars), cprofile_args, args))
         return '/bin/sh %s' % script_wrapper_name
 
     def ryu_pid(self):
