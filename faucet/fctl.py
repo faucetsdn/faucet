@@ -100,11 +100,11 @@ Examples:
 
     MACs learned on a DP.
 
-    {self} -n --endpoints=http://172.17.0.1:9244 --metrics=learned_macs --labels=dp_id:0xb827eb608918
+    {self} -n --endpoints=http://172.17.0.1:9302 --metrics=learned_macs --labels=dp_id:0xb827eb608918
 
     Status of all DPs
 
-    {self} -n --endpoints=http://172.17.0.1:9244 --metrics=dp_status
+    {self} -n --endpoints=http://172.17.0.1:9302 --metrics=dp_status
 """.format(**usage_vars))) # pytype: disable=duplicate-keyword-argument
     sys.exit(-1)
 
