@@ -55,7 +55,7 @@ class FctlTestCase(unittest.TestCase):
 learned_macs{dp_id="0xb827eb608918",n="3",port="17",vlan="2004"} 180725257428205.0
 """
         expected_output = """
-learned_macs	[('dp_id', '0xb827eb608918'), ('n', '3'), ('port', '17'), ('vlan', '2004')]	a45e60c55ced
+learned_macs	[('dp_id', '0xb827eb608918'), ('n', '3'), ('port', '17'), ('vlan', '2004')]	a4:5e:60:c5:5c:ed
 """
         self.run_fctl(
             prom_input,
