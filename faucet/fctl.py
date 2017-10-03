@@ -54,7 +54,8 @@ def scrape_prometheus(endpoints, retries=3):
                     response = urllib.request.urlopen(endpoint) # pytype: disable=module-attr
                     content = response.read().decode('utf-8', 'strict')
                     break
-            except requests.exceptions.ConnectionError as err:
+            except requests.exceptions.ConnectionError as exception:
+                err = exception
                 time.sleep(1)
         if err is not None:
             print(err)
