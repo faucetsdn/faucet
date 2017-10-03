@@ -223,6 +223,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
 class BaseFAUCET(Controller):
     """Base class for FAUCET and Gauge controllers."""
 
+    # Set to True to have cProfile output to controller log.
     CPROFILE = False
     controller_intf = None
     controller_ip = None
@@ -367,7 +368,10 @@ class BaseFAUCET(Controller):
     def stop(self):
         """Stop controller."""
         while self.healthy():
-            os.kill(self.ryu_pid(), 2)
+            if self.CPROFILE:
+                os.kill(self.ryu_pid(), 2)
+            else:
+                os.kill(self.ryu_pid(), 15)
             time.sleep(1)
         self._stop_cap()
         super(BaseFAUCET, self).stop()
