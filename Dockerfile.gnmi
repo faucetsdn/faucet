@@ -31,12 +31,16 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -qy --no-install-recommends \
 RUN mkdir -p \
       $GOPATH \
     && go get -u \
+      github.com/google/gnxi/gnmi_capabilities \
       github.com/google/gnxi/gnmi_get \
+      github.com/google/gnxi/gnmi_set \
       github.com/google/gnxi/gnmi_target
 
 RUN go install -v \
-       github.com/google/gnxi/gnmi_get \
-       github.com/google/gnxi/gnmi_target
+      github.com/google/gnxi/gnmi_capabilities \
+      github.com/google/gnxi/gnmi_get \
+      github.com/google/gnxi/gnmi_set \
+      github.com/google/gnxi/gnmi_target
 
 COPY gnmi .
 
@@ -44,8 +48,7 @@ RUN cd $HOME/certs/ \
     && ./generate.sh
 
 ENV GNMI_TARGET=localhost
-ENV GNMI_PORT=32123
-ENV GNMI_QUERY="system/openflow/controllers/controller[name=main]/connections/connection[aux-id=0]/state/address"
+ENV GNMI_PORT=10161
 
 CMD ./_startup.sh \
     && /bin/bash
