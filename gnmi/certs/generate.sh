@@ -24,7 +24,7 @@ openssl x509 \
         -req \
         -days 365 -out ca.crt 
 
-SUBJ="/C=/ST=/L=/O=/CN=server"
+SUBJ="/C=/ST=/L=/O=/CN=server.com"
 
 # Generate Server Private Key
 openssl req \
@@ -48,7 +48,7 @@ openssl x509 \
         -CAcreateserial \
         -out server.crt
 
-SUBJ="/C=/ST=/L=/O=/CN=client"
+SUBJ="/C=/ST=/L=/O=/CN=client.com"
 
 # Generate Client Private Key
 openssl req \
