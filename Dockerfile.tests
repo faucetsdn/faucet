@@ -32,7 +32,6 @@ RUN \
     iperf \
     iputils-ping \
     ladvd \
-    libffi \
     libffi-dev \
     libpython2.7-dev \
     libpython3-dev \
