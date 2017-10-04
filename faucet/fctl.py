@@ -33,7 +33,7 @@ from prometheus_client import parser
 
 # TODO: byte/packet counters could be per second (given multiple samples)
 VAL_DECODE = {
-    'learned_macs': lambda mac: "{:012x}".format(int(mac))
+    'learned_macs': lambda mac: ':'.join(format(octet, '02x') for octet in int(mac).to_bytes(6, byteorder='big')) # pytype: disable=attribute-error
 }
 
 
@@ -54,7 +54,8 @@ def scrape_prometheus(endpoints, retries=3):
                     response = urllib.request.urlopen(endpoint) # pytype: disable=module-attr
                     content = response.read().decode('utf-8', 'strict')
                     break
-            except requests.exceptions.ConnectionError as err:
+            except requests.exceptions.ConnectionError as exception:
+                err = exception
                 time.sleep(1)
         if err is not None:
             print(err)
@@ -99,11 +100,11 @@ Examples:
 
     MACs learned on a DP.
 
-    {self} -n --endpoints=http://172.17.0.1:9244 --metrics=learned_macs --labels=dp_id:0xb827eb608918
+    {self} -n --endpoints=http://172.17.0.1:9302 --metrics=learned_macs --labels=dp_id:0xb827eb608918
 
     Status of all DPs
 
-    {self} -n --endpoints=http://172.17.0.1:9244 --metrics=dp_status
+    {self} -n --endpoints=http://172.17.0.1:9302 --metrics=dp_status
 """.format(**usage_vars))) # pytype: disable=duplicate-keyword-argument
     sys.exit(-1)
 

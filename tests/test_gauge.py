@@ -15,10 +15,12 @@ import threading
 import tempfile
 import requests
 
-from faucet import gauge_prom, gauge_influx
+
+from faucet import gauge_prom, gauge_influx, gauge_pollers
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
+from ryu.lib import hub
 
 
 def create_mock_datapath(num_ports):
@@ -46,8 +48,12 @@ def start_server():
 
 
 class PretendInflux(BaseHTTPRequestHandler):
+    """An HTTP Handler that receives InfluxDB messages."""
 
     def do_POST(self):
+        """ Write request contents to the HTTP server,
+        if there is an output file to write to. """
+
         if hasattr(self.server, 'output_file'):
             content_length = int(self.headers['content-length'])
             data = self.rfile.read(content_length)
@@ -232,6 +238,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
 
 
 class GaugeInfluxUpdateTest(unittest.TestCase):
+    """Test the Influx loggers update methods"""
 
     def setUp(self):
         """ Starts up an HTTP server to mock InfluxDB.
@@ -440,6 +447,107 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
 
                 else:
                     self.fail("Unknown key: {} and value: {}".format(stat_name, stat_val))
+
+class GaugeThreadPollerTest(unittest.TestCase):
+    """Tests the methods in the GaugeThreadPoller class"""
+
+    def setUp(self):
+        """Creates a gauge poller and initialises class variables"""
+        self.interval = 1
+        conf = mock.Mock(interval=self.interval)
+        self.poller = gauge_pollers.GaugeThreadPoller(conf, '__name__', mock.Mock())
+        self.send_called = False
+
+    def fake_send_req(self):
+        """This should be called instead of the send_req method in the
+        GaugeThreadPoller class, which just throws an error"""
+        self.send_called = True
+
+    def fake_no_response(self):
+        """This should be called instead of the no_response method in the
+        GaugeThreadPoller class, which just throws an error"""
+        pass
+
+    def test_start(self):
+        """ Checks if the poller is started """
+        self.poller.send_req = self.fake_send_req
+        self.poller.no_response = self.fake_no_response
+
+        self.poller.start(mock.Mock())
+        poller_thread = self.poller.thread
+        hub.sleep(self.interval + 1)
+        self.assertTrue(self.send_called)
+        self.assertFalse(poller_thread.dead)
+
+    def test_stop(self):
+        """ Check if a poller can be stopped """
+        self.poller.send_req = self.fake_send_req
+        self.poller.no_response = self.fake_no_response
+
+        self.poller.start(mock.Mock())
+        poller_thread = self.poller.thread
+        self.poller.stop()
+        hub.sleep(self.interval + 1)
+
+        self.assertFalse(self.send_called)
+        self.assertTrue(poller_thread.dead)
+
+    def test_running(self):
+        """ Check if running reflects the state of the poller """
+        self.assertFalse(self.poller.running())
+        self.poller.start(mock.Mock())
+        self.assertTrue(self.poller.running())
+        self.poller.stop()
+        self.assertFalse(self.poller.running())
+
+class GaugePollerTest(unittest.TestCase):
+    """Checks the send_req and no_response methods in a Gauge Poller"""
+
+    def check_send_req(self, poller, msg_class):
+        """Check that the message being sent matches the expected one"""
+        datapath = mock.Mock(ofproto=ofproto, ofproto_parser=parser)
+        poller.start(datapath)
+        poller.stop()
+        poller.send_req()
+        for method_call in datapath.mock_calls:
+            arg = method_call[1][0]
+            self.assertTrue(isinstance(arg, msg_class))
+
+    def check_no_response(self, poller):
+        """Check that no exception occurs when the no_response method is called"""
+        try:
+            poller.no_response()
+        except Exception as err:
+            self.fail("Code threw an exception: {}".format(err))
+
+class GaugePortStatsPollerTest(GaugePollerTest):
+    """Checks the GaugePortStatsPoller class"""
+
+    def test_send_req(self):
+        """Check that the poller sends a port stats request"""
+        conf = mock.Mock(interval=1)
+        poller = gauge_pollers.GaugePortStatsPoller(conf, '__name__', mock.Mock())
+        self.check_send_req(poller, parser.OFPPortStatsRequest)
+
+    def test_no_response(self):
+        """Check that the poller doesnt throw an exception"""
+        poller = gauge_pollers.GaugePortStatsPoller(mock.Mock(), '__name__', mock.Mock())
+        self.check_no_response(poller)
+
+class GaugeFlowTablePollerTest(GaugePollerTest):
+    """Checks the GaugeFlowTablePoller class"""
+
+    def test_send_req(self):
+        """Check that the poller sends a flow stats request"""
+        conf = mock.Mock(interval=1)
+        poller = gauge_pollers.GaugeFlowTablePoller(conf, '__name__', mock.Mock())
+        self.check_send_req(poller, parser.OFPFlowStatsRequest)
+
+
+    def test_no_response(self):
+        """Check that the poller doesnt throw an exception"""
+        poller = gauge_pollers.GaugeFlowTablePoller(mock.Mock(), '__name__', mock.Mock())
+        self.check_no_response(poller)
 
 
 if __name__ == "__main__":

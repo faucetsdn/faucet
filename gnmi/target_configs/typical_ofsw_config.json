@@ -1,0 +1,67 @@
+{
+  "openconfig-system:openconfig-openflow:system": {
+    "openflow": {
+      "agent": {
+        "config": {
+          "backoff-interval": 5,
+          "datapath-id": "00:01:01:00:00:00:00:01",
+          "failure-mode": "SECURE",
+          "inactivity-probe": 10,
+          "max-backoff": 10
+        }
+      },
+      "controllers": {
+        "controller": [
+          {
+            "config": {
+              "name": "main"
+            },
+            "connections": {
+              "connection": [
+                {
+                  "aux-id": 0,
+                  "config": {
+                    "address": "192.0.2.10",
+                    "aux-id": 0,
+                    "port": 6633,
+                    "priority": 1,
+                    "source-interface": "admin",
+                    "transport": "TLS"
+                  }
+                }
+              ]
+            },
+            "name": "main"
+          }
+        ]
+      }
+    }
+  },
+  "openconfig-system:system": {
+    "aaa": {
+      "authentication": {
+        "admin-user": {
+          "config": {
+            "admin-password": "password"
+          }
+        },
+        "config": {
+          "authentication-method": [
+            "openconfig-aaa-types:LOCAL"
+          ]
+        }
+      }
+    },
+    "clock": {
+      "config": {
+        "timezone-name": "Europe/Stockholm"
+      }
+    },
+    "config": {
+      "domain-name": "google.com",
+      "hostname": "a_switch",
+      "login-banner": "Welcome!",
+      "motd-banner": "Gday!"
+    }
+  }
+}
