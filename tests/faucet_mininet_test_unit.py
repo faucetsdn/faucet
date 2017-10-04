@@ -2996,6 +2996,76 @@ routers:
             self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
 
 
+class FaucetUntaggedExpireIPv4InterVLANRouteTest(FaucetUntaggedTest):
+
+    FAUCET_MAC2 = '0e:00:00:00:00:02'
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        faucet_vips: ["10.100.0.254/24"]
+    vlanb:
+        vid: 200
+        faucet_vips: ["10.200.0.254/24"]
+        faucet_mac: "%s"
+    vlanc:
+        vid: 100
+        description: "not used"
+routers:
+    router-1:
+        vlans: [100, vlanb]
+""" % FAUCET_MAC2
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        proactive_learn: True
+        max_host_fib_retry_count: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: vlanb
+                description: "b2"
+            %(port_3)d:
+                native_vlan: vlanb
+                description: "b3"
+            %(port_4)d:
+                native_vlan: vlanb
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        first_host_ip = ipaddress.ip_interface(u'10.100.0.1/24')
+        first_faucet_vip = ipaddress.ip_interface(u'10.100.0.254/24')
+        second_host_ip = ipaddress.ip_interface(u'10.200.0.1/24')
+        second_faucet_vip = ipaddress.ip_interface(u'10.200.0.254/24')
+        first_host, second_host = self.net.hosts[:2]
+        first_host.setIP(str(first_host_ip.ip), prefixLen=24)
+        second_host.setIP(str(second_host_ip.ip), prefixLen=24)
+        self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
+        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
+        self.one_ipv4_ping(first_host, second_host_ip.ip)
+        self.one_ipv4_ping(second_host, first_host_ip.ip)
+        second_host.cmd('ifconfig %s down' % second_host.defaultIntf().name)
+        log_file_name = os.path.join(self.tmpdir, 'faucet.log')
+        expired_re = r'expiring dead host FIB route %s' % second_host_ip.ip
+        log_file_content = None
+        for _ in range(30):
+            with open(log_file_name) as log_file:
+                log_file_content = log_file.read()
+                if re.search(expired_re, log_file_content):
+                    break
+            time.sleep(1)
+        self.assertTrue(re.search(expired_re, log_file_content))
+        second_host.cmd('ifconfig %s up' % second_host.defaultIntf().name)
+        self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
+        self.one_ipv4_ping(second_host, first_host_ip.ip)
+        self.one_ipv4_ping(first_host, second_host_ip.ip)
+
+
 class FaucetUntaggedIPv6InterVLANRouteTest(FaucetUntaggedTest):
 
     FAUCET_MAC2 = '0e:00:00:00:00:02'
