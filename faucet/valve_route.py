@@ -370,7 +370,8 @@ class ValveRouteManager(object):
                         ip_gw,
                         now - nexthop_cache_entry.cache_time,
                         vlan.vid))
-                ofmsgs.extend(self._del_host_fib_route(vlan, ip_gw))
+                ofmsgs.extend(self._del_host_fib_route(
+                    vlan, ipaddress.ip_network(ip_gw.exploded)))
             else:
                 nexthop_cache_entry.last_retry_time = now
                 nexthop_cache_entry.resolve_retries += 1
