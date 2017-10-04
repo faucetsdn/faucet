@@ -1761,7 +1761,7 @@ vlans:
         self.ping_all_when_learned()
 
 
-class FaucetSingleUntaggedIPv4LACPTest(FaucetUntaggedTest):
+class FaucetUntaggedIPv4LACPTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:

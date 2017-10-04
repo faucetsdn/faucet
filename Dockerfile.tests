@@ -32,12 +32,13 @@ RUN \
     iperf \
     iputils-ping \
     ladvd \
-    linux-headers-generic \
+    libffi-dev \
     libpython2.7-dev \
     libpython3-dev \
     libssl-dev \
     libtool \
     libyaml-dev \
+    linux-headers-generic \
     lsof \
     netcat \
     ndisc6 \
