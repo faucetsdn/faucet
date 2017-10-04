@@ -14,9 +14,11 @@ import math
 import threading
 import tempfile
 import requests
+import os
+import re
+import json
 
-
-from faucet import gauge_prom, gauge_influx, gauge_pollers
+from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
@@ -548,6 +550,175 @@ class GaugeFlowTablePollerTest(GaugePollerTest):
         """Check that the poller doesnt throw an exception"""
         poller = gauge_pollers.GaugeFlowTablePoller(mock.Mock(), '__name__', mock.Mock())
         self.check_no_response(poller)
+
+class GaugeWatcherTest(unittest.TestCase):
+    def setUp(self):
+        self.temp_fd, self.temp_path = tempfile.mkstemp()
+        self.conf = mock.Mock(file=self.temp_path)
+
+    def tearDown(self):
+        os.close(self.temp_fd)
+        os.remove(self.temp_path)
+
+    def test_port_state(self):
+        """
+
+        class OFPPort(ofproto_parser.namedtuple('OFPPort', (
+                'port_no', 'hw_addr', 'name', 'config', 'state', 'curr',
+                'advertised', 'supported', 'peer', 'curr_speed', 'max_speed'))):
+        """
+        logger = watcher.GaugePortStateLogger(self.conf, '__name__', mock.Mock())
+        statuses = {'unknown' : 5,
+                    'add' : ofproto.OFPPR_ADD,
+                    'delete' : ofproto.OFPPR_DELETE,
+                    'up' : ofproto.OFPPR_MODIFY, 
+                    'down' : ofproto.OFPPR_MODIFY
+                    } 
+
+        dp = create_mock_datapath(1)
+        ofp_attr = {'ofproto': ofproto}
+        dp.configure_mock(**ofp_attr)
+        dp_id = 300195
+
+        for status in statuses:
+            state = 0
+            if status == 'down':
+                state = ofproto.OFPPS_LINK_DOWN
+
+            port = parser.OFPPort(1,
+                                  '00:00:00:d0:00:0'+str(1),
+                                  'port1',
+                                  0, 
+                                  state, 
+                                  1,
+                                  1,
+                                  1,
+                                  1,
+                                  1,
+                                  1
+                                 )
+
+            message = parser.OFPPortStatus(dp, statuses[status], port)
+            logger.update(time.time(), dp_id, message)
+            
+            with open(self.temp_path, 'r+') as f:
+                log_str = f.read().lower()
+                self.assertTrue(status in log_str)
+                self.assertTrue(port.name in log_str or 'port ' + str(port.port_no) in log_str)
+
+                hexs = re.findall(r'0x[0-9A-Fa-f]+',log_str)
+                hexs = [int(num, 16) for num in hexs]
+                self.assertTrue(dp_id in hexs or str(dp_id) in log_str)
+
+                f.seek(0,0)
+                f.truncate()
+
+
+    def get_stats(self, port_stats):
+        """ Translates between the stat name in Influx and the OpenFlow stat name"""
+
+        return {('packets', 'out'): port_stats.tx_packets,
+                ('packets','in') : port_stats.rx_packets,
+                ('bytes','out') : port_stats.tx_bytes,
+                ('bytes','in') : port_stats.rx_bytes,
+                ('dropped','out') : port_stats.tx_dropped,
+                ('dropped','in') : port_stats.rx_dropped,
+                ('errors','in') : port_stats.rx_errors
+               }
+
+    def test_port_stats(self):
+        dp = create_mock_datapath(2)
+        ofp_attr = {'ofproto': ofproto}
+        dp.configure_mock(**ofp_attr)
+
+        dp_attr = {'dp' : dp}
+        self.conf.configure_mock(**dp_attr)
+
+        logger = watcher.GaugePortStatsLogger(self.conf, '__name__', mock.Mock())
+        port_stats = [parser.OFPPortStats(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 100, 50),
+                      parser.OFPPortStats(2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 100, 50)]
+
+        text_mapping = []
+        for i in range(0, len(port_stats)):
+            text_mapping.append(self.get_stats(port_stats[i]))
+
+        message = parser.OFPPortStatsReply(dp, body=port_stats)
+        rcv_time = int(time.time())
+
+        logger.update(rcv_time, 300195, message)
+        with open(self.temp_path, 'r+') as f:
+            log_str = f.read()
+            for stat1, stat2 in text_mapping[0]:
+                list_ = re.findall(r'^.*{}.{}.*$'.format(stat1,stat2), log_str, re.MULTILINE)
+                for line in list_:
+                    self.assertTrue(dp.name in line)
+                    index = line.find('port')
+                    port_num = int(line[index + 4])
+                    value = int(re.search(r'(\d+)$', line).group())
+                    compare = text_mapping[port_num - 1][(stat1,stat2)]
+                    self.assertEqual(compare, value)
+
+    def generate_all_matches(self):
+        """
+        Generate all OpenFlow Extensible Matches (oxm) and return
+        a single OFPMatch with all of these oxms. The value for each
+        oxm is the largest value possible for the data type. For
+        example, the largest number for a 4 bit int is 15.
+        """
+        matches = dict()
+        for oxm_type in ofproto.oxm_types:
+            if oxm_type.type == type_desc.MacAddr:
+                value = 'ff:ff:ff:ff:ff:ff'
+            elif oxm_type.type == type_desc.IPv4Addr:
+                value = '255.255.255.255'
+            elif oxm_type.type == type_desc.IPv6Addr:
+                value = 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
+            elif isinstance(oxm_type.type, type_desc.IntDescr):
+                value = 2**oxm_type.type.size - 1
+            else:
+                continue
+
+            matches[oxm_type.name] = value
+
+        return parser.OFPMatch(**matches)
+
+    def test_flow_stats(self):
+        datapath = create_mock_datapath(0)
+        dp = create_mock_datapath(2)
+        ofp_attr = {'ofproto': ofproto}
+        dp.configure_mock(**ofp_attr)
+
+        dp_attr = {'dp' : dp}
+        self.conf.configure_mock(**dp_attr)
+
+        logger = watcher.GaugeFlowTableLogger(self.conf, '__name__', mock.Mock())
+        rcv_time = int(time.time())
+        matches = self.generate_all_matches()
+        instructions = [parser.OFPInstructionGotoTable(1)]
+        flow_stats = [parser.OFPFlowStats(0, 0, 0, 1, 0, 0, 0, 0, 1, 1, matches, instructions)]
+
+        message = parser.OFPFlowStatsReply(datapath, body=flow_stats)
+        logger.update(rcv_time, 300195, message)
+        with open(self.temp_path, 'r+') as f:
+            log_str = f.read()
+
+            str_to_find = "msg: "
+            index = log_str.find(str_to_find)
+            log_str = log_str[index + len(str_to_find):]
+            json_dict = json.loads(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
+
+            
+            for key, val in json_dict.items():
+                if key == 'match':
+                    set_t = {(entry['OXMTlv']['field'], entry['OXMTlv']['value']) for entry in val['OFPMatch']['oxm_fields']}
+                    self.assertEqual(set_t, set(matches.items()))
+                elif key == 'instructions':
+                    for key_inst, val_inst in val[0].items():
+                        self.assertEqual(instructions[0].__class__.__name__, key_inst)
+                        for attr_name, attr_val in val_inst.items():
+                            self.assertEqual(getattr(instructions[0], attr_name),attr_val)
+                else:
+                    self.assertEqual(getattr(flow_stats[0], key), val)
 
 
 if __name__ == "__main__":
