@@ -467,7 +467,7 @@ class Valve(object):
 
             port = self.dp.ports[port_num]
             port.phys_up = True
-            self.logger.info('Sending config for %s' % port)
+            self.logger.info('Port %s up, configuring' % port)
 
             if not port.running():
                 continue
