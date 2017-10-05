@@ -49,6 +49,99 @@ def start_server():
     server_thread.start()
     return server
 
+def port_state_msg(datapath, port_num, reason, status=0):
+    port = parser.OFPPort(port_num,
+                          '00:00:00:d0:00:0'+ str(port_num),
+                          datapath.ports[port_num].name,
+                          0,
+                          status,
+                          random.randint(1,10000),
+                          random.randint(1,10000),
+                          random.randint(1,10000),
+                          random.randint(1,10000),
+                          random.randint(1,10000),
+                          random.randint(1,10000)
+                         )
+
+    return parser.OFPPortStatus(datapath, reason, port)
+
+def port_stats_msg(datapath):
+    stats = []
+    sec = random.randint(1,10000)
+    nsec = random.randint(0,10000)
+    for port_num in datapath.ports:
+        port_stats = parser.OFPPortStats(port_num,
+                                         random.randint(1,10000),
+                                         random.randint(1,10000),
+                                         random.randint(1,10000),
+                                         random.randint(1,10000),
+                                         random.randint(0,10000),
+                                         random.randint(0,10000),
+                                         random.randint(0,10000),
+                                         random.randint(0,10000),
+                                         random.randint(0,10000),
+                                         random.randint(0,10000),
+                                         random.randint(0,10000),
+                                         random.randint(0,10000),
+                                         sec,
+                                         nsec
+                                        )
+        stats.append(port_stats)
+    return parser.OFPPortStatsReply(datapath, body=stats)
+
+def generate_all_matches():
+    """
+    Generate all OpenFlow Extensible Matches (oxm) and return
+    a single OFPMatch with all of these oxms. The value for each
+    oxm is the largest value possible for the data type. For
+    example, the largest number for a 4 bit int is 15.
+    """
+    matches = dict()
+    for oxm_type in ofproto.oxm_types:
+        if oxm_type.type == type_desc.MacAddr:
+            value = 'ff:ff:ff:ff:ff:ff'
+        elif oxm_type.type == type_desc.IPv4Addr:
+            value = '255.255.255.255'
+        elif oxm_type.type == type_desc.IPv6Addr:
+            value = 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
+        elif isinstance(oxm_type.type, type_desc.IntDescr):
+            value = 2**oxm_type.type.size - 1
+        else:
+            continue
+
+        matches[oxm_type.name] = value
+
+    return parser.OFPMatch(**matches)
+
+def flow_stats_msg(datapath, instructions):
+    matches = generate_all_matches()
+    flow_stats = parser.OFPFlowStats(random.randint(0,9),
+                                     random.randint(1,10000),
+                                     random.randint(0,10000),
+                                     random.randint(1,10000),
+                                     random.randint(1,10000),
+                                     random.randint(1,10000),
+                                     0,
+                                     random.randint(1,10000),
+                                     random.randint(1,10000),
+                                     random.randint(1,10000),
+                                     matches,
+                                     instructions
+                                    )
+
+    return parser.OFPFlowStatsReply(datapath, body=[flow_stats])
+
+def get_stats(port_stats):
+    """ Translates between the stat name and the OpenFlow stat name"""
+
+    return {'packets_out': port_stats.tx_packets,
+            'packets_in': port_stats.rx_packets,
+            'bytes_out' : port_stats.tx_bytes,
+            'bytes_in' : port_stats.rx_bytes,
+            'dropped_out' : port_stats.tx_dropped,
+            'dropped_in' : port_stats.rx_dropped,
+            'errors_in' : port_stats.rx_errors
+           }
 
 class PretendInflux(BaseHTTPRequestHandler):
     """An HTTP Handler that receives InfluxDB messages."""
@@ -69,103 +162,7 @@ class PretendInflux(BaseHTTPRequestHandler):
     def log_message(self, format_, *args):
         return
 
-class GaugeUpdateTests(unittest.TestCase):
-
-    def port_state_msg(self, datapath, port_num, reason, status=0):
-        port = parser.OFPPort(port_num,
-                              '00:00:00:d0:00:0'+ str(port_num),
-                              datapath.ports[port_num].name,
-                              0,
-                              status,
-                              random.randint(1,10000),
-                              random.randint(1,10000),
-                              random.randint(1,10000),
-                              random.randint(1,10000),
-                              random.randint(1,10000),
-                              random.randint(1,10000)
-                             )
-
-        return parser.OFPPortStatus(datapath, reason, port)
-
-    def port_stats_msg(self, datapath):
-        stats = []
-        sec = random.randint(1,10000)
-        nsec = random.randint(0,10000)
-        for port_num in datapath.ports:
-            port_stats = parser.OFPPortStats(port_num,
-                                             random.randint(1,10000),
-                                             random.randint(1,10000),
-                                             random.randint(1,10000),
-                                             random.randint(1,10000),
-                                             random.randint(0,10000),
-                                             random.randint(0,10000),
-                                             random.randint(0,10000),
-                                             random.randint(0,10000),
-                                             random.randint(0,10000),
-                                             random.randint(0,10000),
-                                             random.randint(0,10000),
-                                             random.randint(0,10000),
-                                             sec,
-                                             nsec
-                                            )
-            stats.append(port_stats)
-        return parser.OFPPortStatsReply(datapath, body=stats)
-    
-    def generate_all_matches(self):
-        """
-        Generate all OpenFlow Extensible Matches (oxm) and return
-        a single OFPMatch with all of these oxms. The value for each
-        oxm is the largest value possible for the data type. For
-        example, the largest number for a 4 bit int is 15.
-        """
-        matches = dict()
-        for oxm_type in ofproto.oxm_types:
-            if oxm_type.type == type_desc.MacAddr:
-                value = 'ff:ff:ff:ff:ff:ff'
-            elif oxm_type.type == type_desc.IPv4Addr:
-                value = '255.255.255.255'
-            elif oxm_type.type == type_desc.IPv6Addr:
-                value = 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'
-            elif isinstance(oxm_type.type, type_desc.IntDescr):
-                value = 2**oxm_type.type.size - 1
-            else:
-                continue
-
-            matches[oxm_type.name] = value
-
-        return parser.OFPMatch(**matches)
-
-    def flow_stats_msg(self, datapath, instructions):
-        matches = self.generate_all_matches()
-        flow_stats = parser.OFPFlowStats(random.randint(0,9),
-                                         random.randint(1,10000),
-                                         random.randint(0,10000),
-                                         random.randint(1,10000),
-                                         random.randint(1,10000),
-                                         random.randint(1,10000),
-                                         0,
-                                         random.randint(1,10000),
-                                         random.randint(1,10000),
-                                         random.randint(1,10000),
-                                         matches,
-                                         instructions
-                                        )
-
-        return parser.OFPFlowStatsReply(datapath, body=[flow_stats])
-
-    def get_stats(self, port_stats):
-        """ Translates between the stat name and the OpenFlow stat name"""
-
-        return {'packets_out': port_stats.tx_packets,
-                'packets_in': port_stats.rx_packets,
-                'bytes_out' : port_stats.tx_bytes,
-                'bytes_in' : port_stats.rx_bytes,
-                'dropped_out' : port_stats.tx_dropped,
-                'dropped_in' : port_stats.rx_dropped,
-                'errors_in' : port_stats.rx_errors
-               }
-
-class GaugePrometheusTests(GaugeUpdateTests):
+class GaugePrometheusTests(unittest.TestCase):
     """Tests the GaugePortStatsPrometheusPoller update method"""
 
     def parse_prom_output(self, output):
@@ -225,7 +222,7 @@ class GaugePrometheusTests(GaugeUpdateTests):
                         )
 
         prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', prom_client)
-        msg = self.port_stats_msg(datapath)
+        msg = port_stats_msg(datapath)
         prom_poller.update(time.time(), datapath.id, msg)
 
         prom_lines = self.get_prometheus_stats(conf.prometheus_addr, conf.prometheus_port)
@@ -333,7 +330,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         self.assertEqual(set(point_vals), values)
 
 
-class GaugeInfluxUpdateTest(GaugeUpdateTests):
+class GaugeInfluxUpdateTest(unittest.TestCase):
     """Test the Influx loggers update methods"""
 
     def setUp(self):
@@ -417,7 +414,7 @@ class GaugeInfluxUpdateTest(GaugeUpdateTests):
         statuses = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
         for i in range(1, len(conf.dp.ports) + 1):
 
-            msg = self.port_state_msg(conf.dp, i, statuses[i-1])
+            msg = port_state_msg(conf.dp, i, statuses[i-1])
             rcv_time = int(time.time())
             db_logger.update(rcv_time, conf.dp.id, msg)
 
@@ -432,7 +429,7 @@ class GaugeInfluxUpdateTest(GaugeUpdateTests):
         conf = self.create_config_obj(create_mock_datapath(2))
         db_logger = gauge_influx.GaugePortStatsInfluxDBLogger(conf, '__name__', mock.Mock())
 
-        msg = self.port_stats_msg(conf.dp)
+        msg = port_stats_msg(conf.dp)
         rcv_time = int(time.time())
 
         db_logger.update(rcv_time, conf.dp.id, msg)
@@ -443,7 +440,7 @@ class GaugeInfluxUpdateTest(GaugeUpdateTests):
             #get the number at the end of the port_name
             port_num = int(influx_data['port_name'][-1])
             #get the original port stat value
-            port_stat_val = self.get_stats(msg.body[port_num - 1])[measurement]
+            port_stat_val = get_stats(msg.body[port_num - 1])[measurement]
 
             self.assertEqual(port_stat_val, influx_data['value'])
             self.assertEqual(conf.dp.name, influx_data['dp_name'])
@@ -457,7 +454,7 @@ class GaugeInfluxUpdateTest(GaugeUpdateTests):
 
         rcv_time = int(time.time())
         instructions = [parser.OFPInstructionGotoTable(1)]
-        msg = self.flow_stats_msg(conf.dp, instructions)
+        msg = flow_stats_msg(conf.dp, instructions)
         db_logger.update(rcv_time, conf.dp.id, msg)
 
         other_fields = {'dp_name': conf.dp.name,
@@ -591,7 +588,7 @@ class GaugeFlowTablePollerTest(GaugePollerTest):
         poller = gauge_pollers.GaugeFlowTablePoller(mock.Mock(), '__name__', mock.Mock())
         self.check_no_response(poller)
 
-class GaugeWatcherTest(GaugeUpdateTests):
+class GaugeWatcherTest(unittest.TestCase):
     def setUp(self):
         self.temp_fd, self.temp_path = tempfile.mkstemp()
         self.conf = mock.Mock(file=self.temp_path)
@@ -619,7 +616,7 @@ class GaugeWatcherTest(GaugeUpdateTests):
             if status == 'down':
                 state = ofproto.OFPPS_LINK_DOWN
 
-            msg= self.port_state_msg(dp, 1, statuses[status], state)
+            msg= port_state_msg(dp, 1, statuses[status], state)
             logger.update(time.time(), dp_id, msg)
             
             with open(self.temp_path, 'r+') as f:
@@ -643,11 +640,11 @@ class GaugeWatcherTest(GaugeUpdateTests):
         self.conf.configure_mock(**dp_attr)
 
         logger = watcher.GaugePortStatsLogger(self.conf, '__name__', mock.Mock())
-        msg = self.port_stats_msg(dp)
+        msg = port_stats_msg(dp)
 
         text_mapping = []
         for i in range(0, len(msg.body)):
-            text_mapping.append(self.get_stats(msg.body[i]))
+            text_mapping.append(get_stats(msg.body[i]))
 
         rcv_time = int(time.time())
 
@@ -678,7 +675,7 @@ class GaugeWatcherTest(GaugeUpdateTests):
         rcv_time = int(time.time())
         instructions = [parser.OFPInstructionGotoTable(1)]
 
-        msg = self.flow_stats_msg(dp, instructions)
+        msg = flow_stats_msg(dp, instructions)
         logger.update(rcv_time, 300195, msg)
         with open(self.temp_path, 'r+') as f:
             log_str = f.read()
