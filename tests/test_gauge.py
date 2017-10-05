@@ -153,6 +153,18 @@ class GaugeUpdateTests(unittest.TestCase):
 
         return parser.OFPFlowStatsReply(datapath, body=[flow_stats])
 
+    def get_stats(self, port_stats):
+        """ Translates between the stat name and the OpenFlow stat name"""
+
+        return {'packets_out': port_stats.tx_packets,
+                'packets_in': port_stats.rx_packets,
+                'bytes_out' : port_stats.tx_bytes,
+                'bytes_in' : port_stats.rx_bytes,
+                'dropped_out' : port_stats.tx_dropped,
+                'dropped_in' : port_stats.rx_dropped,
+                'errors_in' : port_stats.rx_errors
+               }
+
 class GaugePrometheusTests(GaugeUpdateTests):
     """Tests the GaugePortStatsPrometheusPoller update method"""
 
@@ -395,17 +407,6 @@ class GaugeInfluxUpdateTest(GaugeUpdateTests):
 
         return (tags[0], influx_data)
 
-    def get_stats(self, influx_stat_name, port_stats):
-        """ Translates between the stat name in Influx and the OpenFlow stat name"""
-
-        return {'packets_out': port_stats.tx_packets,
-                'packets_in': port_stats.rx_packets,
-                'bytes_out' : port_stats.tx_bytes,
-                'bytes_in' : port_stats.rx_bytes,
-                'dropped_out' : port_stats.tx_dropped,
-                'dropped_in' : port_stats.rx_dropped,
-                'errors_in' : port_stats.rx_errors
-               }.get(influx_stat_name)
 
     def test_port_state(self):
         """ Check the update method of the GaugePortStateInfluxDBLogger class"""
@@ -442,7 +443,7 @@ class GaugeInfluxUpdateTest(GaugeUpdateTests):
             #get the number at the end of the port_name
             port_num = int(influx_data['port_name'][-1])
             #get the original port stat value
-            port_stat_val = self.get_stats(measurement, msg.body[port_num - 1])
+            port_stat_val = self.get_stats(msg.body[port_num - 1])[measurement]
 
             self.assertEqual(port_stat_val, influx_data['value'])
             self.assertEqual(conf.dp.name, influx_data['dp_name'])
@@ -633,19 +634,6 @@ class GaugeWatcherTest(GaugeUpdateTests):
                 f.seek(0,0)
                 f.truncate()
 
-
-    def get_stats(self, port_stats):
-        """ Translates between the stat name in Influx and the OpenFlow stat name"""
-
-        return {('packets', 'out'): port_stats.tx_packets,
-                ('packets','in') : port_stats.rx_packets,
-                ('bytes','out') : port_stats.tx_bytes,
-                ('bytes','in') : port_stats.rx_bytes,
-                ('dropped','out') : port_stats.tx_dropped,
-                ('dropped','in') : port_stats.rx_dropped,
-                ('errors','in') : port_stats.rx_errors
-               }
-
     def test_port_stats(self):
         dp = create_mock_datapath(2)
         ofp_attr = {'ofproto': ofproto}
@@ -666,14 +654,15 @@ class GaugeWatcherTest(GaugeUpdateTests):
         logger.update(rcv_time, 300195, msg)
         with open(self.temp_path, 'r+') as f:
             log_str = f.read()
-            for stat1, stat2 in text_mapping[0]:
-                list_ = re.findall(r'^.*{}.{}.*$'.format(stat1,stat2), log_str, re.MULTILINE)
+            for stat_name in text_mapping[0]:
+                stat_name = stat_name.split("_")
+                list_ = re.findall(r'^.*{}.{}.*$'.format(stat_name[0],stat_name[1]), log_str, re.MULTILINE)
                 for line in list_:
                     self.assertTrue(dp.name in line)
                     index = line.find('port')
                     port_num = int(line[index + 4])
                     value = int(re.search(r'(\d+)$', line).group())
-                    compare = text_mapping[port_num - 1][(stat1,stat2)]
+                    compare = text_mapping[port_num - 1]['_'.join((stat_name[0],stat_name[1]))]
                     self.assertEqual(compare, value)
 
     def test_flow_stats(self):
