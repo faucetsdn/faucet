@@ -157,10 +157,12 @@ class PretendInflux(BaseHTTPRequestHandler):
         if there is an output file to write to. """
 
         if hasattr(self.server, 'output_file'):
+
             content_length = int(self.headers['content-length'])
             data = self.rfile.read(content_length)
-            self.server.output_file.write(data)
-            self.server.output_file.flush()
+            data = data.decode('utf-8')
+            with open(self.server.output_file, 'w') as log:
+                log.write(data)
 
         self.send_response(204)
         self.end_headers()
@@ -345,13 +347,13 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         Also opens a new temp file for the server to write to """
 
         self.server = start_server()
-        self.server.output_file = tempfile.TemporaryFile()
+        self.temp_fd, self.server.output_file = tempfile.mkstemp()
 
     def tearDown(self):
         """ Close the temp file (which should delete it)
         and stop the HTTP server """
-
-        self.server.output_file.close()
+        os.close(self.temp_fd)
+        os.remove(self.server.output_file)
         self.server.shutdown()
 
     def create_config_obj(self, datapath):
@@ -398,7 +400,6 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
 
         """
         influx_data = dict()
-        output_to_parse = output_to_parse.decode('utf-8')
 
         tags = output_to_parse.split(',')
         fields = tags[-1].split(' ')
@@ -425,8 +426,9 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
             rcv_time = int(time.time())
             db_logger.update(rcv_time, conf.dp.id, msg)
 
-            self.server.output_file.seek(0)
-            output = self.server.output_file.readlines()[i-1]
+            with open(self.server.output_file, 'r') as log:
+                output = log.read()
+
             influx_data = self.parse_influx_output(output)[1]
             data = {conf.dp.name, conf.dp.ports[i].name, rcv_time, reasons[i-1]}
             self.assertEqual(data, set(influx_data.values()))
@@ -440,8 +442,10 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         rcv_time = int(time.time())
 
         db_logger.update(rcv_time, conf.dp.id, msg)
-        self.server.output_file.seek(0)
-        for line in self.server.output_file.readlines():
+        with open(self.server.output_file, 'r') as log:
+            output = log.readlines()
+
+        for line in output:
             measurement, influx_data = self.parse_influx_output(line)
 
             #get the number at the end of the port_name
@@ -472,8 +476,10 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
                         'vlan': msg.body[0].match.get('vlan_vid') ^ ofproto.OFPVID_PRESENT
                        }
 
-        self.server.output_file.seek(0)
-        for line in self.server.output_file.readlines():
+        with open(self.server.output_file, 'r') as log:
+            output = log.readlines()
+
+        for line in output:
             measurement, influx_data = self.parse_influx_output(line)
 
             for stat_name, stat_val in influx_data.items():
