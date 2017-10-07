@@ -10,7 +10,6 @@ except ImportError:
     from unittest import mock
 import unittest
 import time
-import math
 import threading
 import tempfile
 import os
@@ -326,17 +325,21 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         rcv_time = int(time.time())
         stat_name = 'test_stat_name'
         #max uint64 number
-        stat_val = math.pow(2, 64) - 1
+        stat_val = 2**64 - 1
 
         port_point = shipper.make_port_point(dp_name, port_name, rcv_time, stat_name, stat_val)
-        values = {dp_name, port_name, rcv_time, stat_name, stat_val}
-        port_vals = self.get_values(port_point)
-        self.assertEqual(set(port_vals), values)
+        values = {dp_name, port_name, rcv_time, stat_name}
+        port_vals = set(self.get_values(port_point))
+        port_vals_stat = port_vals.difference(values)
+        self.assertEqual(len(port_vals_stat), 1)
+        self.assertAlmostEqual(port_vals_stat.pop(), stat_val)
 
         tags = {'dp_name': dp_name, 'port_name': port_name}
         point = shipper.make_point(tags, rcv_time, stat_name, stat_val)
-        point_vals = self.get_values(point)
-        self.assertEqual(set(point_vals), values)
+        point_vals = set(self.get_values(point))
+        point_vals_stat = point_vals.difference(values)
+        self.assertEqual(len(point_vals_stat), 1)
+        self.assertAlmostEqual(point_vals_stat.pop(), stat_val)
 
 
 class GaugeInfluxUpdateTest(unittest.TestCase):
