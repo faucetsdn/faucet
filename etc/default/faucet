@@ -1,0 +1,6 @@
+FAUCET_RYU_CONF=/etc/ryu/ryu.conf
+FAUCET_LISTEN_PORT=6653
+FAUCET_PROMETHEUS_PORT=9302
+FAUCET_CONFIG=/etc/ryu/faucet/faucet.yaml
+FAUCET_LOG=/var/log/ryu/faucet/faucet.log
+FAUCET_EXCEPTION_LOG=/var/log/ryu/faucet/faucet_exception.log
