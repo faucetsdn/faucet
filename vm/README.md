@@ -6,9 +6,11 @@ is used to build the VM images in many formats (qcow2,tgz,squashfs,vhd,raw).
 
 We provide [DIB elements](elements) for configuring each component installed in the VM.
 
+Pre-built images are available on our build host [https://builder.faucet.nz](https://builder.faucet.nz).
+
 ## Building the images
 
-If you don't want to use our pre-built images, you can build them yourself:
+If you don't want to use our [pre-built images](https://builder.faucet.nz), you can build them yourself:
 
 1. [Install the latest disk-image-builder](https://docs.openstack.org/diskimage-builder/latest/user_guide/installation.html)
 2. [Install a patched vhd-util](https://launchpad.net/~openstack-ci-core/+archive/ubuntu/vhd-util)
