@@ -34,7 +34,7 @@ dps:
             2:
                 native_vlan: 100
                 name: "VLAN 2001"
-                acl_in: 100
+                acl_in: 101
     windscale-faucet-1:
         dp_id: 0x2
         description: "Josh's experimental AT-X930"
