@@ -10,7 +10,8 @@ watchers:
         type: 'port_stats'
         dps: ['windscale-faucet-1']
         interval: 10
-        db: 'influx'
+        #db: 'influx'
+        db: 'prometheus'
     flow_table_poller:
         type: 'flow_table'
         dps: ['windscale-faucet-1']
