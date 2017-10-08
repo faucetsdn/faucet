@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ ${DIB_DEBUG_TRACE:-1} -gt 0 ]; then
+    set -x
+fi
+set -eu
+set -o pipefail
+
+SCRIPTDIR=$(dirname $0)
+
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/faucet-src/etc/systemd/system/gauge.service /etc/systemd/system/gauge.service
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/faucet-src/etc/default/gauge /etc/default/gauge
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/faucet-src/etc/logrotate.d/gauge /etc/logrotate.d/gauge
+
+systemctl enable gauge
