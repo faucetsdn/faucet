@@ -1,0 +1,36 @@
+#!/bin/bash
+
+if [ ${DIB_DEBUG_TRACE:-1} -gt 0 ]; then
+    set -x
+fi
+set -eu
+set -o pipefail
+
+SCRIPTDIR=$(dirname $0)
+
+CWD=$(pwd)
+cd /usr/local/src/
+
+PROM_URL=$(wget -q https://github.com/prometheus/prometheus/releases/latest -O - | egrep -o "/prometheus/prometheus/releases/download/v[0-9\.]+/prometheus-[0-9\.]+.linux-amd64.tar.gz")
+PROM_URL="https://github.com$PROM_URL"
+
+wget $PROM_URL
+tar xvfz prometheus-*.tar.gz
+
+cp -r prometheus-*/console_libraries/ /etc/prometheus/
+cp -r prometheus-*/consoles/ /etc/prometheus/
+install -D -g root -o root -m 0755 prometheus-*/prometheus /usr/local/bin/prometheus
+install -D -g root -o root -m 0755 prometheus-*/promtool /usr/local/bin/promtool
+
+mkdir -p /var/lib/prometheus/data/
+chown -R faucet: /var/lib/prometheus/
+
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/prometheus.yml /etc/prometheus/prometheus.yml
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/prometheus.service /etc/systemd/system/prometheus.service
+
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/faucet-src/etc/prometheus/faucet.rules /etc/prometheus/faucet.rules
+
+systemctl enable prometheus
+
+rm -rf prometheus-*
+cd "$CWD"

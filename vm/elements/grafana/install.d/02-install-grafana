@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [ ${DIB_DEBUG_TRACE:-1} -gt 0 ]; then
+    set -x
+fi
+set -eu
+set -o pipefail
+
+SCRIPTDIR=$(dirname $0)
+
+echo "deb https://packagecloud.io/grafana/stable/debian/ jessie main" > /etc/apt/sources.list.d/grafana.list
+curl https://packagecloud.io/gpg.key | apt-key add -
+
+apt-get update
+apt-get -y install grafana
+systemctl daemon-reload
+systemctl enable grafana-server
