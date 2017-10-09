@@ -1,0 +1,15 @@
+[Unit]
+Description=Prometheus Server
+Documentation=https://prometheus.io/docs/introduction/overview/
+After=network-online.target
+
+[Service]
+User=faucet
+Group=faucet
+Restart=on-failure
+ExecStart=/usr/local/bin/prometheus \
+  -config.file=/etc/prometheus/prometheus.yml \
+  -storage.local.path=/var/lib/prometheus/data
+
+[Install]
+WantedBy=multi-user.target
