@@ -127,6 +127,6 @@ class Port(Conf):
         if vlans is None:
             vlans = self.vlans()
         for vlan in vlans:
-            hosts_on_vlan = [entry.eth_src for entry in vlan.host_cache.values() if entry.port == self]
+            hosts_on_vlan = [entry.eth_src for entry in list(vlan.host_cache.values()) if entry.port == self]
             hosts.extend(hosts_on_vlan)
         return hosts
