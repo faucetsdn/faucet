@@ -92,12 +92,12 @@ class Conf(object):
             str, self._conf_keys(self, dyn=dyn, subconf=subconf)))))
 
     def __hash__(self):
-        if self.dyn_finalized:
-            if self.dyn_hash is None:
-                self.dyn_hash = self.conf_hash(dyn=False, subconf=True)
+        if self.dyn_hash is not None:
             return self.dyn_hash
-        else:
-            return self.conf_hash(dyn=False, subconf=True)
+        dyn_hash = self.conf_hash(dyn=False, subconf=True)
+        if self.dyn_finalized:
+            self.dyn_hash = dyn_hash
+        return dyn_hash
 
     def ignore_subconf(self, other):
         """Return True if this config same as other, ignoring sub config."""
