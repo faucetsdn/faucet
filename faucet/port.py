@@ -89,6 +89,12 @@ class Port(Conf):
         super(Port, self).__init__(_id, conf)
         self.dyn_phys_up = False
 
+    def __str__(self):
+        return 'Port %u' % self.number
+
+    def __repr__(self):
+        return self.__str__()
+
     def set_defaults(self):
         super(Port, self).set_defaults()
         self._set_default('number', self._id)
@@ -96,16 +102,8 @@ class Port(Conf):
         self._set_default('description', self.name)
         self._set_default('tagged_vlans', [])
 
-    @property
-    def phys_up(self):
-        return self.dyn_phys_up
-
-    @phys_up.setter
-    def phys_up(self, status):
-        self.dyn_phys_up = status
-
     def running(self):
-        return self.enabled and self.phys_up
+        return self.enabled and self.dyn_phys_up
 
     def to_conf(self):
         result = super(Port, self).to_conf()
@@ -119,11 +117,9 @@ class Port(Conf):
 
     def vlans(self):
         """Return list of all VLANs this port is in."""
-        vlans = []
         if self.native_vlan is not None:
-            vlans.append(self.native_vlan)
-        vlans.extend(self.tagged_vlans)
-        return vlans
+            return [self.native_vlan] + self.tagged_vlans
+        return self.tagged_vlans
 
     def hosts(self, vlans=None):
         """Return all hosts this port has learned (on all or specified VLANs)."""
@@ -131,13 +127,6 @@ class Port(Conf):
         if vlans is None:
             vlans = self.vlans()
         for vlan in vlans:
-            for eth_src, host_cache_entry in list(vlan.host_cache.items()):
-                if host_cache_entry.port == self:
-                    hosts.append(eth_src)
+            hosts_on_vlan = [entry.eth_src for entry in vlan.host_cache.values() if entry.port == self]
+            hosts.extend(hosts_on_vlan)
         return hosts
-
-    def __str__(self):
-        return 'Port %u' % self.number
-
-    def __repr__(self):
-        return self.__str__()
