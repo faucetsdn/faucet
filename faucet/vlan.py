@@ -35,6 +35,7 @@ FAUCET_MAC = '0e:00:00:00:00:01'
 class VLAN(Conf):
     """Implement FAUCET configuration for a VLAN."""
 
+    name = None
     tagged = None
     untagged = None
     vid = None
