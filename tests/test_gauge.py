@@ -39,10 +39,10 @@ def create_mock_datapath(num_ports):
     type(datapath).name = dp_name
     return datapath
 
-def start_server():
+def start_server(handler):
     """ Starts a HTTPServer and runs it as a daemon thread """
 
-    server = HTTPServer(('', 0), PretendInflux)
+    server = HTTPServer(('', 0), handler)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
     server_thread.start()
@@ -170,6 +170,48 @@ class PretendInflux(BaseHTTPRequestHandler):
         """ Silence the handler """
         return
 
+class PretendCouchDB(BaseHTTPRequestHandler):
+
+    def _set_up_response(self, code, ctype, body):
+        self.send_response(code)
+        self.send_header('Content-type', ctype)
+        encoded = json.dumps(body).encode('utf-8')
+        self.send_header('content-length', len(encoded))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def do_PUT(self):
+        db_name = self.path.strip('/')
+        if db_name in self.server.db:
+            error = {'error':'file_exists', 'reason': 'cant be created'}
+            self._set_up_response(412, 'application/json', error)
+
+        else:
+            self.server.db.add(db_name)
+            resp = {'ok' : True}
+            self._set_up_response(201, 'application/json', resp)
+
+
+    def do_HEAD(self):
+        db_name = self.path.strip('/')
+        if db_name in self.server.db:
+            self.send_response(200)
+        else:
+            self.send_response(404)
+        self.end_headers()
+
+
+    def do_DELETE(self):
+        db_name = self.path.strip('/')
+        if db_name in self.server.db:
+            self.server.db.remove(db_name)
+            self.send_response(200)
+            self.end_headers()
+            return
+        
+        error = {'error':'not_found', 'reason': 'Database does not exist.'}
+        self._set_up_response(404, 'application/json', error)
+            
 class GaugePrometheusTests(unittest.TestCase):
     """Tests the GaugePortStatsPrometheusPoller update method"""
 
@@ -278,7 +320,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         to a HTTP server when the points are shipped"""
 
         try:
-            server = start_server()
+            server = start_server(PretendInflux)
             shipper = gauge_influx.InfluxShipper()
             shipper.conf = self.create_config_obj(server.server_port)
             points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
@@ -349,7 +391,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         """ Starts up an HTTP server to mock InfluxDB.
         Also opens a new temp file for the server to write to """
 
-        self.server = start_server()
+        self.server = start_server(PretendInflux)
         self.temp_fd, self.server.output_file = tempfile.mkstemp()
 
     def tearDown(self):
