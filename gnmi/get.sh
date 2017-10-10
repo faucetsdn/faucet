@@ -1,9 +1,10 @@
 #!/bin/sh
 gnmi_get \
-  -target_address $GNMI_TARGET:$GNMI_PORT \
+  -target_addr $GNMI_TARGET:$GNMI_PORT \
   -key $HOME/certs/client.key \
   -cert $HOME/certs/client.crt \
   -ca $HOME/certs/ca.crt \
-  -target_name server \
+  -target_name server.com \
   -alsologtostderr \
-  -query $GNMI_QUERY
+  -xpath "/system/openflow/agent/config/datapath-id" \
+  -xpath "/system/openflow/controllers/controller[name=main]/connections/connection[aux-id=0]/config/address"

@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import struct
 from bitstring import Bits
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import addrconv
 
-class FakeOFTable():
+
+class FakeOFTable(object):
     """Fake OFTable is a virtual openflow pipeline used for testing openflow controllers.
 
     The tables are populated using apply_ofmsgs and can be queried with
@@ -28,7 +28,7 @@ class FakeOFTable():
 
     def __init__(self, num_tables):
         self.tables = []
-        for i in range(0, num_tables):
+        for _ in range(0, num_tables):
             self.tables.append([])
 
     def apply_ofmsgs(self, ofmsgs):
@@ -213,11 +213,6 @@ class FakeOFTable():
             self.tables[table_id] = sorted(table, reverse=True)
         return self.tables
 
-    def parse_of_match(self, match):
-        values_dict = {}
-        masks_dict = {}
-
-        return (values_dict, masks_dict)
 
 class FlowMod(object):
     """Represents a flow modification message and its corresponding entry in

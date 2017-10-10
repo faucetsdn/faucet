@@ -1,14 +1,18 @@
 """Topology components for FAUCET Mininet unit tests."""
 
 import os
+import pty
+import select
 import socket
 import string
 import shutil
 import subprocess
+import time
 
 import netifaces
 
 # pylint: disable=import-error
+from mininet.log import error, output
 from mininet.topo import Topo
 from mininet.node import Controller
 from mininet.node import Host
@@ -16,16 +20,71 @@ from mininet.node import OVSSwitch
 
 import faucet_mininet_test_util
 
+# TODO: mininet 2.2.2 leaks ptys (master slave assigned in startShell)
+# override as necessary close them. Transclude overridden methods
+# to avoid multiple inheritance complexity.
 
-class FaucetSwitch(OVSSwitch):
+class FaucetHostCleanup(object):
+    """TODO: Mininet host implemenation leaks ptys."""
+
+    master = None
+    shell = None
+    slave = None
+
+    def startShell(self, mnopts=None):
+        if self.shell:
+            error('%s: shell is already running\n' % self.name)
+            return
+        opts = '-cd' if mnopts is None else mnopts
+        if self.inNamespace:
+            opts += 'n'
+        cmd = ['mnexec', opts, 'env', 'PS1=' + chr(127),
+               'bash', '--norc', '-is', 'mininet:' + self.name]
+        self.master, self.slave = pty.openpty()
+        self.shell = self._popen(
+            cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
+            close_fds=False)
+        self.stdin = os.fdopen(self.master, 'rw')
+        self.stdout = self.stdin
+        self.pid = self.shell.pid
+        self.pollOut = select.poll()
+        self.pollOut.register(self.stdout)
+        self.outToNode[self.stdout.fileno()] = self
+        self.inToNode[self.stdin.fileno()] = self
+        self.execed = False
+        self.lastCmd = None
+        self.lastPid = None
+        self.readbuf = ''
+        while True:
+            data = self.read(1024)
+            if data[-1] == chr(127):
+                break
+            self.pollOut.poll()
+        self.waiting = False
+        self.cmd('unset HISTFILE; stty -echo; set +m')
+
+    def terminate(self):
+        if self.shell is not None:
+            os.close(self.master)
+            os.close(self.slave)
+            self.shell.kill()
+        self.cleanup()
+
+
+class FaucetHost(FaucetHostCleanup, Host):
+
+    pass
+
+
+class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
 
     def __init__(self, name, **params):
-        OVSSwitch.__init__(
-            self, name=name, datapath='kernel', **params)
+        super(FaucetSwitch, self).__init__(
+            name=name, datapath='kernel', **params)
 
 
-class VLANHost(Host):
+class VLANHost(FaucetHost):
     """Implementation of a Mininet host on a tagged VLAN."""
 
     def config(self, vlan=100, **params):
@@ -62,65 +121,60 @@ class FaucetSwitchTopo(Topo):
     def _add_tagged_host(self, sid_prefix, tagged_vid, host_n):
         """Add a single tagged test host."""
         host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(
-            name=host_name,
-            cls=VLANHost,
-            vlan=tagged_vid)
+        return self.addHost(name=host_name, cls=VLANHost, vlan=tagged_vid)
 
     def _add_untagged_host(self, sid_prefix, host_n):
         """Add a single untagged test host."""
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(name=host_name)
+        return self.addHost(name=host_name, cls=FaucetHost)
 
-    def _add_faucet_switch(self, sid_prefix, port, dpid):
+    def _add_faucet_switch(self, sid_prefix, dpid):
         """Add a FAUCET switch."""
         switch_name = 's%s' % sid_prefix
         return self.addSwitch(
             name=switch_name,
             cls=FaucetSwitch,
-            listenPort=port,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
 
-    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0,
-              test_name=None):
-        port, ports_served = faucet_mininet_test_util.find_free_port(
-            ports_sock, test_name)
-        sid_prefix = self._get_sid_prefix(ports_served)
-        for host_n in range(n_tagged):
-            self._add_tagged_host(sid_prefix, tagged_vid, host_n)
-        for host_n in range(n_untagged):
-            self._add_untagged_host(sid_prefix, host_n)
-        switch = self._add_faucet_switch(sid_prefix, port, dpid)
-        for host in self.hosts():
-            self.addLink(host, switch)
+    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+        for dpid in dpids:
+            serialno = faucet_mininet_test_util.get_serialno(
+                ports_sock, test_name)
+            sid_prefix = self._get_sid_prefix(serialno)
+            for host_n in range(n_tagged):
+                self._add_tagged_host(sid_prefix, tagged_vid, host_n)
+            for host_n in range(n_untagged):
+                self._add_untagged_host(sid_prefix, host_n)
+            switch = self._add_faucet_switch(sid_prefix, dpid)
+            for host in self.hosts():
+                self.addLink(host, switch)
 
 
 class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
-    def build(self, ports_sock, dpid=0, n_tagged=0, tagged_vid=100, n_untagged=0,
-              test_name=None):
-        port, ports_served = faucet_mininet_test_util.find_free_port(
-            ports_sock, test_name)
-        sid_prefix = self._get_sid_prefix(ports_served)
-        for host_n in range(n_tagged):
-            self._add_tagged_host(sid_prefix, tagged_vid, host_n)
-        for host_n in range(n_untagged):
-            self._add_untagged_host(sid_prefix, host_n)
-        remap_dpid = str(int(dpid) + 1)
-        print('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
-            dpid, int(dpid), remap_dpid, int(remap_dpid)))
-        dpid = remap_dpid
-        switch = self._add_faucet_switch(sid_prefix, port, dpid)
-        for host in self.hosts():
-            self.addLink(host, switch)
+    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+        for dpid in dpids:
+            serialno = faucet_mininet_test_util.get_serialno(
+                ports_sock, test_name)
+            sid_prefix = self._get_sid_prefix(serialno)
+            for host_n in range(n_tagged):
+                self._add_tagged_host(sid_prefix, tagged_vid, host_n)
+            for host_n in range(n_untagged):
+                self._add_untagged_host(sid_prefix, host_n)
+            remap_dpid = str(int(dpid) + 1)
+            output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
+                dpid, int(dpid), remap_dpid, int(remap_dpid)))
+            dpid = remap_dpid
+            switch = self._add_faucet_switch(sid_prefix, dpid)
+            for host in self.hosts():
+                self.addLink(host, switch)
 
 
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
     """String of datapaths each with hosts with a single FAUCET controller."""
 
-    def build(self, ports_sock, dpids, n_tagged=0, tagged_vid=100, n_untagged=0,
-              test_name=None):
+    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
         """
 
                                Hosts
@@ -148,15 +202,15 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         """
         last_switch = None
         for dpid in dpids:
-            port, ports_served = faucet_mininet_test_util.find_free_port(
+            serialno = faucet_mininet_test_util.get_serialno(
                 ports_sock, test_name)
-            sid_prefix = self._get_sid_prefix(ports_served)
+            sid_prefix = self._get_sid_prefix(serialno)
             hosts = []
             for host_n in range(n_tagged):
                 hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
             for host_n in range(n_untagged):
                 hosts.append(self._add_untagged_host(sid_prefix, host_n))
-            switch = self._add_faucet_switch(sid_prefix, port, dpid)
+            switch = self._add_faucet_switch(sid_prefix, dpid)
             for host in hosts:
                 self.addLink(host, switch)
             # Add a switch-to-switch link with the previous switch,
@@ -169,6 +223,8 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
 class BaseFAUCET(Controller):
     """Base class for FAUCET and Gauge controllers."""
 
+    # Set to True to have cProfile output to controller log.
+    CPROFILE = False
     controller_intf = None
     controller_ip = None
     pid_file = None
@@ -230,21 +286,26 @@ class BaseFAUCET(Controller):
 
     def _command(self, env, tmpdir, name, args):
         """Wrap controller startup command in shell script with environment."""
-        script_wrapper_name = os.path.join(tmpdir, 'start-%s.sh' % name)
-        script_wrapper = open(script_wrapper_name, 'w')
         env_vars = []
         for var, val in list(sorted(env.items())):
             env_vars.append('='.join((var, val)))
-        script_wrapper.write(
-            'PYTHONPATH=.:..:../faucet %s exec ryu-manager %s $*\n' % (
-                ' '.join(env_vars), args))
-        script_wrapper.close()
+        script_wrapper_name = os.path.join(tmpdir, 'start-%s.sh' % name)
+        cprofile_args = ''
+        if self.CPROFILE:
+            cprofile_args = 'python3 -m cProfile -s time'
+        with open(script_wrapper_name, 'w') as script_wrapper:
+            script_wrapper.write(
+                'PYTHONPATH=.:..:../faucet %s exec %s /usr/local/bin/ryu-manager %s $*\n' % (
+                    ' '.join(env_vars), cprofile_args, args))
         return '/bin/sh %s' % script_wrapper_name
 
     def ryu_pid(self):
         """Return PID of ryu-manager process."""
         if os.path.exists(self.pid_file) and os.path.getsize(self.pid_file) > 0:
-            return int(open(self.pid_file).read())
+            pid = None
+            with open(self.pid_file) as pid_file:
+                pid = int(pid_file.read())
+            return pid
         return None
 
     def listen_port(self, port, state='LISTEN'):
@@ -290,19 +351,28 @@ class BaseFAUCET(Controller):
     def _stop_cap(self):
         """Stop tcpdump for OF port and run tshark to decode it."""
         if os.path.exists(self.ofcap):
-            self.cmd(' '.join(['fuser', '-1', '-m', self.ofcap]))
+            self.cmd(' '.join(['fuser', '-15', '-m', self.ofcap]))
             text_ofcap_log = '%s.txt' % self.ofcap
-            text_ofcap = open(text_ofcap_log, 'w')
-            subprocess.call(
-                ['tshark', '-d', 'tcp.port==%u,openflow' % self.port,
-                 '-O', 'openflow_v4', '-Y', 'openflow_v4', '-n',
-                 '-r', self.ofcap],
-                stdout=text_ofcap, stderr=open(os.devnull, 'w'))
+            with open(text_ofcap_log, 'w') as text_ofcap:
+                subprocess.call(
+                    ['tshark', '-l', '-n', '-Q',
+                     '-d', 'tcp.port==%u,openflow' % self.port,
+                     '-O', 'openflow_v4',
+                     '-Y', 'openflow_v4',
+                     '-r', self.ofcap],
+                    stdout=text_ofcap,
+                    stdin=faucet_mininet_test_util.DEVNULL,
+                    stderr=faucet_mininet_test_util.DEVNULL,
+                    close_fds=True)
 
     def stop(self):
         """Stop controller."""
-        if self.healthy():
-            os.kill(self.ryu_pid(), 15)
+        while self.healthy():
+            if self.CPROFILE:
+                os.kill(self.ryu_pid(), 2)
+            else:
+                os.kill(self.ryu_pid(), 15)
+            time.sleep(1)
         self._stop_cap()
         super(BaseFAUCET, self).stop()
         if os.path.exists(self.logname()):
@@ -319,7 +389,7 @@ class FAUCET(BaseFAUCET):
     def __init__(self, name, tmpdir, controller_intf, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, port, test_name, **kwargs):
-        self.ofctl_port, _ = faucet_mininet_test_util.find_free_port(
+        self.ofctl_port = faucet_mininet_test_util.find_free_port(
             ports_sock, test_name)
         cargs = ' '.join((
             '--wsapi-host=%s' % faucet_mininet_test_util.LOCALHOST,

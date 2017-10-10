@@ -22,6 +22,8 @@ class Conf(object):
 
     defaults = {}
     defaults_types = {}
+    dyn_finalized = False
+    dyn_hash = None
 
     def __init__(self, _id, conf=None):
         if conf is None:
@@ -57,6 +59,22 @@ class Conf(object):
         self._check_unknown_conf(conf)
         self._check_defaults_types(conf)
 
+    def _conf_keys(self, conf, dyn=False, subconf=True):
+        """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
+        conf_keys = []
+        for key, value in list(conf.__dict__.items()):
+            if not dyn and key.startswith('dyn'):
+                continue
+            if not subconf and isinstance(value, Conf):
+                continue
+            conf_keys.append((key, value))
+        return conf_keys
+
+    def merge_dyn(self, other_conf):
+        """Merge dynamic state from other conf object."""
+        for key, value in self._conf_keys(other_conf, dyn=True):
+            self.__dict__[key] = value
+
     def _set_default(self, key, value):
         if key not in self.__dict__ or self.__dict__[key] is None:
             self.__dict__[key] = value
@@ -64,17 +82,29 @@ class Conf(object):
     def to_conf(self):
         """Return configuration as a dict."""
         result = {}
-        for k in self.defaults:
-            if k != 'name':
-                result[k] = self.__dict__[str(k)]
+        for key in self.defaults:
+            if key != 'name':
+                result[key] = self.__dict__[str(key)]
         return result
 
+    def conf_hash(self, dyn=False, subconf=True):
+        return hash(frozenset(list(map(
+            str, self._conf_keys(self, dyn=dyn, subconf=subconf)))))
+
     def __hash__(self):
-        items = [(k, v) for k, v in sorted(list(self.__dict__.items())) if not k.startswith('dyn')]
-        return hash(frozenset(list(map(str, items))))
+        if self.dyn_hash is not None:
+            return self.dyn_hash
+        dyn_hash = self.conf_hash(dyn=False, subconf=True)
+        if self.dyn_finalized:
+            self.dyn_hash = dyn_hash
+        return dyn_hash
+
+    def ignore_subconf(self, other):
+        """Return True if this config same as other, ignoring sub config."""
+        return self.conf_hash(dyn=False, subconf=False) == other.conf_hash(dyn=False, subconf=False)
 
     def __eq__(self, other):
-        return hash(self) == hash(other)
+        return self.__hash__() == other.__hash__()
 
     def __ne__(self, other):
         return not self.__eq__(other)

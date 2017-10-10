@@ -13,6 +13,7 @@ Here is a list of some of our most popular switches:
 
 - `AT-x930 <http://www.alliedtelesis.com/products/x930-series/>`_
 - `AT-x510 <http://www.alliedtelesis.com/products/x510-series/>`_
+- `AT-x230 <http://www.alliedtelesis.com/products/x230-series/>`_
 
 -----
 Setup
@@ -135,7 +136,6 @@ The device type (hardware) should be set to **Allied-Telesis** in the configurat
 References
 ----------
 
-- `ONF Faucet Deployment <https://github.com/REANNZ/faucet/blob/master/docs/images/ONF_Faucet_deploy1.png>`_
 - `Allied Telesis x930 <https://www.sdxcentral.com/products/x930-gigabit-layer-3-stackable-switches/>`_
 - `OpenFlow Configuration Guide <http://www.alliedtelesis.com/documents/openflow-feature-overview-and-configuration-guide/>`_
 

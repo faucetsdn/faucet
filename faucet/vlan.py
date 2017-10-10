@@ -60,7 +60,7 @@ class VLAN(Conf):
     dyn_faucet_vips_by_ipv = None
     dyn_routes_by_ipv = None
     dyn_neigh_cache_by_ipv = None
-    learn_ban_count = 0
+    dyn_learn_ban_count = 0
 
     defaults = {
         'name': None,
@@ -171,6 +171,10 @@ class VLAN(Conf):
         """Return host (L2) cache for this VLAN."""
         return self.dyn_host_cache
 
+    def hosts_count(self):
+        """Return number of hosts learned on this VLAN."""
+        return len(self.host_cache)
+
     @host_cache.setter
     def host_cache(self, value):
         self.dyn_host_cache = value
@@ -205,15 +209,10 @@ class VLAN(Conf):
         return [port for port in self.get_ports() if port.mirror_destination]
 
     def flood_ports(self, configured_ports, exclude_unicast):
-        ports = []
-        for port in configured_ports:
-            if not port.running:
-                continue
-            if exclude_unicast:
-                if not port.unicast_flood:
-                    continue
-            ports.append(port)
-        return ports
+        if exclude_unicast:
+            return [port for port in configured_ports if port.unicast_flood]
+        else:
+            return configured_ports
 
     def tagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.tagged, exclude_unicast)
@@ -229,7 +228,8 @@ class VLAN(Conf):
             if ports:
                 pkt = packet_builder(self, vid, *args)
                 for port in ports:
-                    ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+                    if port.running():
+                        ofmsgs.append(valve_of.packetout(port.number, pkt.data))
         return ofmsgs
 
     def port_is_tagged(self, port):

@@ -20,7 +20,7 @@
 import ipaddress
 
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, stream_parser, packet, vlan
+from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
@@ -30,6 +30,10 @@ except ImportError:
     from faucet.valve_util import btos
 
 
+SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
+ETH_VLAN_HEADER_SIZE = 14 + 4
+BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
+CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
 IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
@@ -37,7 +41,14 @@ IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
 
 
-def parse_pkt(pkt):
+
+def mac_byte_mask(mask_bytes=0):
+    """Return a MAC address mask with n bytes masked out."""
+    assert mask_bytes <= 6
+    return ':'.join(['ff'] * mask_bytes + (['00'] * (6 - mask_bytes)))
+
+
+def parse_eth_pkt(pkt):
     """Return parsed Ethernet packet.
 
     Args:
@@ -46,6 +57,28 @@ def parse_pkt(pkt):
         ryu.lib.packet.ethernet: Ethernet packet.
     """
     return pkt.get_protocol(ethernet.ethernet)
+
+
+def parse_vlan_pkt(pkt):
+    """Return parsed VLAN header.
+
+    Args:
+        pkt (ryu.lib.packet.packet): packet received from dataplane.
+    Returns:
+        ryu.lib.packet.vlan: VLAN header.
+    """
+    return pkt.get_protocol(vlan.vlan)
+
+
+def parse_lacp_pkt(pkt):
+    """Return parsed LACP packet.
+
+    Args:
+        pkt (ryu.lib.packet.packet): packet received from dataplane.
+    Returns:
+        ryu.lib.packet.lacp: LACP packet.
+    """
+    return pkt.get_protocol(slow.lacp)
 
 
 def parse_packet_in_pkt(data, max_len):
@@ -57,29 +90,33 @@ def parse_packet_in_pkt(data, max_len):
     Returns:
         ryu.lib.packet.ethernet: Ethernet packet.
         int: VLAN VID.
+        int: Ethernet type of packet (inside VLAN)
     """
     pkt = None
+    eth_pkt = None
     vlan_vid = None
+    eth_type = None
 
     if max_len:
         data = data[:max_len]
 
     try:
         pkt = packet.Packet(data)
-    except stream_parser.StreamParser.TooSmallException:
-        return (pkt, vlan_vid)
+        eth_pkt = parse_eth_pkt(pkt)
+        eth_type = eth_pkt.ethertype
+        # Packet ins, can only come when a VLAN header has already been pushed
+        # (ie. when we have progressed past the VLAN table). This gaurantees
+        # a VLAN header will always be present, so we know which VLAN the packet
+        # belongs to.
+        if eth_type == ether.ETH_TYPE_8021Q:
+            vlan_pkt = parse_vlan_pkt(pkt)
+            if vlan_pkt:
+                vlan_vid = vlan_pkt.vid
+                eth_type = vlan_pkt.ethertype
+    except (AssertionError, stream_parser.StreamParser.TooSmallException):
+        pass
 
-    eth_pkt = parse_pkt(pkt)
-    eth_type = eth_pkt.ethertype
-    # Packet ins, can only come when a VLAN header has already been pushed
-    # (ie. when we have progressed past the VLAN table). This gaurantees
-    # a VLAN header will always be present, so we know which VLAN the packet
-    # belongs to.
-    if eth_type == ether.ETH_TYPE_8021Q:
-        # tagged packet
-        vlan_proto = pkt.get_protocols(vlan.vlan)[0]
-        vlan_vid = vlan_proto.vid
-    return (pkt, vlan_vid)
+    return (pkt, eth_pkt, vlan_vid, eth_type)
 
 
 def mac_addr_is_unicast(mac_addr):
@@ -117,6 +154,76 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
         vlan_header = vlan.vlan(vid=vid, ethertype=dl_type)
         pkt_header.add_protocol(vlan_header)
     return pkt_header
+
+
+def lacp_reqreply(eth_src,
+                  actor_system, actor_key, actor_port,
+                  partner_system, partner_key, partner_port,
+                  partner_system_priority, partner_port_priority,
+                  partner_state_defaulted,
+                  partner_state_expired,
+                  partner_state_timeout,
+                  partner_state_collecting,
+                  partner_state_distributing,
+                  partner_state_aggregation,
+                  partner_state_synchronization,
+                  partner_state_activity):
+    """Return a LACP frame.
+
+    Args:
+        eth_src (str): source Ethernet MAC address.
+        actor_system (str): actor system ID (MAC address)
+        actor_key (int): actor's LACP key assigned to this port.
+        actor_port (int): actor port number.
+        partner_system (str): partner system ID (MAC address)
+        partner_key (int): partner's LACP key assigned to this port.
+        partner_port (int): partner port number.
+        partner_system_priority (int): partner's system priority.
+        partner_port_priority (int): partner's port priority.
+        partner_state_defaulted (int): 1 if partner reverted to defaults.
+        partner_state_expired (int): 1 if partner thinks LACP expired.
+        partner_state_timeout (int): 1 if partner has short timeout.
+        partner_state_collecting (int): 1 if partner receiving on this link.
+        partner_state_distributing (int): 1 if partner transmitting on this link.
+        partner_state_aggregation (int): 1 if partner can aggregate this link.
+        partner_state_synchronization (int): 1 if partner will use this link.
+        partner_state_activity (int): 1 if partner actively sends LACP.
+    Returns:
+        ryu.lib.packet.ethernet: Ethernet packet with header.
+    """
+    pkt = build_pkt_header(
+        None, eth_src, slow.SLOW_PROTOCOL_MULTICAST, ether.ETH_TYPE_SLOW)
+    lacp_pkt = slow.lacp(
+        version=1,
+        actor_system=actor_system,
+        actor_port=actor_port,
+        partner_system=partner_system,
+        partner_port=partner_port,
+        actor_key=actor_key,
+        partner_key=partner_key,
+        actor_system_priority=65535,
+        partner_system_priority=partner_system_priority,
+        actor_port_priority=255,
+        partner_port_priority=partner_port_priority,
+        actor_state_defaulted=0,
+        partner_state_defaulted=partner_state_defaulted,
+        actor_state_expired=0,
+        partner_state_expired=partner_state_expired,
+        actor_state_timeout=1,
+        partner_state_timeout=partner_state_timeout,
+        actor_state_collecting=1,
+        partner_state_collecting=partner_state_collecting,
+        actor_state_distributing=1,
+        partner_state_distributing=partner_state_distributing,
+        actor_state_aggregation=0,
+        partner_state_aggregation=partner_state_aggregation,
+        actor_state_synchronization=1,
+        partner_state_synchronization=partner_state_synchronization,
+        actor_state_activity=0,
+        partner_state_activity=partner_state_activity)
+    pkt.add_protocol(lacp_pkt)
+    pkt.serialize()
+    return pkt
 
 
 def arp_request(vid, eth_src, src_ip, dst_ip):
@@ -355,3 +462,38 @@ def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
     pkt.add_protocol(icmpv6_ra_pkt)
     pkt.serialize()
     return pkt
+
+
+def ip_header_size(eth_type):
+    ip_header = build_pkt_header(
+        1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
+    ip_header.serialize()
+    return len(ip_header.data)
+
+
+class PacketMeta(object):
+    """Original, and parsed Ethernet packet metadata."""
+
+    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type):
+        self.data = data
+        self.pkt = pkt
+        self.eth_pkt = eth_pkt
+        self.port = port
+        self.vlan = vlan
+        self.eth_src = eth_src
+        self.eth_dst = eth_dst
+        self.eth_type = eth_type
+
+    def reparse(self, max_len):
+        pkt, eth_pkt, vlan_vid, eth_type = parse_packet_in_pkt(
+            self.data, max_len)
+        if pkt is None or vlan_vid is None or eth_type is None:
+            return
+        self.pkt = pkt
+        self.eth_pkt = eth_pkt
+
+    def reparse_all(self):
+        self.reparse(0)
+
+    def reparse_ip(self, eth_type, payload=0):
+        self.reparse(ip_header_size(eth_type) + payload)

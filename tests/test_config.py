@@ -16,17 +16,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import unittest
+
 import hashlib
 import logging
 import sys
 import os
 import ipaddress
 
-testdir = os.path.dirname(__file__)
-srcdir = '../'
-sys.path.insert(0, os.path.abspath(os.path.join(testdir, srcdir)))
-
-import unittest
 from faucet.config_parser import dp_parser, watcher_parser
 
 
@@ -215,18 +212,16 @@ class DistConfigTestCase(unittest.TestCase):
 
     def test_port_acl(self):
         for dp in (self.v2_dp,):
-            self.assertIn(1, dp.port_acl_in)
-            self.assertIn(dp.ports[1].acl_in, dp.acls)
+            self.assertIn(dp.ports[1].acl_in, dp.acls.values())
             self.assertEqual(
-                dp.acls[dp.ports[1].acl_in].rules[0]['nw_dst'],
+                dp.ports[1].acl_in.rules[0]['nw_dst'],
                 '172.0.0.0/8')
 
     def test_vlan_acl(self):
         for dp in (self.v2_dp,):
-            self.assertIn(41, dp.vlan_acl_in)
-            self.assertIn(dp.vlans[41].acl_in, dp.acls)
+            self.assertIn(dp.vlans[41].acl_in, dp.acls.values())
             self.assertEqual(
-                dp.acls[dp.vlans[41].acl_in].rules[0]['nw_dst'],
+                dp.vlans[41].acl_in.rules[0]['nw_dst'],
                 '172.0.0.0/8')
 
     def test_gauge_port_stats(self):

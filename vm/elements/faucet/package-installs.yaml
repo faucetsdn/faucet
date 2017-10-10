@@ -1,0 +1,16 @@
+linux-generic-hwe-16.04:
+netbase:
+iproute2:
+apt-transport-https:
+logrotate:
+tcpdump:
+less:
+curl:
+wget:
+git:
+python3-dev:
+  dib_python_version: 3
+python3-setuptools:
+  dib_python_version: 3
+python3-pip:
+  dib_python_version: 3

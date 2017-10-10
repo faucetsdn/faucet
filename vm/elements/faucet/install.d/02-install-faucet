@@ -1,0 +1,24 @@
+#!/bin/bash
+
+if [ ${DIB_DEBUG_TRACE:-1} -gt 0 ]; then
+    set -x
+fi
+set -eu
+set -o pipefail
+
+SCRIPTDIR=$(dirname $0)
+
+adduser --disabled-password --gecos "faucet user" faucet
+echo faucet:faucet | chpasswd
+gpasswd -a faucet sudo
+
+mkdir -p /var/log/ryu/faucet/
+chown -R faucet: /var/log/ryu/
+
+pip3 install ${SCRIPTDIR}/faucet-src/
+
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/faucet-src/etc/systemd/system/faucet.service /etc/systemd/system/faucet.service
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/faucet-src/etc/default/faucet /etc/default/faucet
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/faucet-src/etc/logrotate.d/faucet /etc/logrotate.d/faucet
+
+systemctl enable faucet

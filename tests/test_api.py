@@ -4,7 +4,7 @@ from ryu.base import app_manager
 from ryu.controller.handler import set_ev_cls
 
 from faucet.faucet import EventFaucetAPIRegistered
-from faucet_api import FaucetAPI
+from faucet.faucet_api import FaucetAPI
 
 
 class TestFaucetAPI(app_manager.RyuApp):

@@ -189,13 +189,13 @@ class DP(Conf):
         self.ports = {}
         self.routers = {}
         self.stack_ports = []
-        self.port_acl_in = {}
-        self.vlan_acl_in = {}
 
     def sanity_check(self):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
         assert str(self.dp_id).isdigit()
+        assert not (self.group_table and self.group_table_routing), (
+            'groups for routing and other functions simultaneously not supported')
         for vlan in list(self.vlans.values()):
             assert isinstance(vlan, VLAN)
             assert all(isinstance(p, Port) for p in vlan.get_ports())
@@ -274,15 +274,11 @@ class DP(Conf):
         if port.mirror is not None:
             # other configuration entries ignored
             return
-        if port.acl_in is not None:
-            self.port_acl_in[port_num] = port.acl_in
         if port.stack is not None:
             self.stack_ports.append(port)
 
     def add_vlan(self, vlan):
         self.vlans[vlan.vid] = vlan
-        if vlan.acl_in is not None:
-            self.vlan_acl_in[vlan.vid] = vlan.acl_in
 
     def resolve_stack_topology(self, dps):
 
@@ -374,6 +370,7 @@ class DP(Conf):
         return None
 
     def finalize_config(self, dps):
+        """Resolve any config items by name if necessary."""
 
         def resolve_port_no(port_name):
             if port_name in port_by_name:
@@ -436,6 +433,22 @@ class DP(Conf):
                                     port_no = resolve_port_no(port_name)
                                     if port_no is not None:
                                         output_values['port'] = port_no
+                                if 'failover' in output_values:
+                                    failover = output_values['failover']
+                                    resolved_ports = []
+                                    for port_name in failover['ports']:
+                                        port_no = resolve_port_no(port_name)
+                                        if port_no is not None:
+                                            resolved_ports.append(port_no)
+                                    failover['ports'] = resolved_ports
+
+        def resolve_acls():
+            for vlan in list(self.vlans.values()):
+                if vlan.acl_in:
+                    vlan.acl_in = self.acls[vlan.acl_in]
+            for port in list(self.ports.values()):
+                if port.acl_in:
+                    port.acl_in = self.acls[port.acl_in]
 
         def resolve_vlan_names_in_routers():
             for router_name in list(self.routers.keys()):
@@ -459,8 +472,19 @@ class DP(Conf):
 
         resolve_stack_dps()
         resolve_mirror_destinations()
-        resolve_names_in_acls()
         resolve_vlan_names_in_routers()
+        resolve_names_in_acls()
+        resolve_acls()
+
+        for port in list(self.ports.values()):
+            port.dyn_finalized = True
+        for vlan in list(self.vlans.values()):
+            vlan.dyn_finalized = True
+        for acl in list(self.acls.values()):
+            acl.dyn_finalized = True
+        for router in list(self.routers.values()):
+            router.dyn_finalized = True
+        self.dyn_finalized = True
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:

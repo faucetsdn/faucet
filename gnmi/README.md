@@ -1,4 +1,4 @@
-# gNMI
+# gNMI - gRPC Network Management Interface
 
 A docker image that facilitates testing the gNMI protocol using Openconfig models.
 
@@ -10,7 +10,7 @@ A docker image that facilitates testing the gNMI protocol using Openconfig model
 From FAUCET root:
 
 ```
-docker build -t reannz/gnmi -f Dockerfile.gnmi .
+docker build -t faucet/gnmi -f Dockerfile.gnmi .
 ```
 
 When building the image, a set of helper certificates is generated and added to `$HOME/certs/` folder:
@@ -22,10 +22,10 @@ When building the image, a set of helper certificates is generated and added to 
 ## How to run
 
 ```
-docker run -ti reannz/gnmi:latest
+docker run -ti faucet/gnmi:latest
 ```
 
-When running the docker image a default test gNMI target is initiated:
+When running the docker image a default test gNMI target is initiated with a default mock configuration defined in json:
 ```
 root@090fe3d66fe7:~# cat run_target.sh 
 #!/bin/sh
@@ -35,11 +35,10 @@ gnmi_target \
   -cert $HOME/certs/server.crt \
   -ca $HOME/certs/ca.crt \
   -alsologtostderr \
-  &
+  -config target_configs/typical_ofsw_config.json
 
 root@090fe3d66fe7:~# set | grep GNMI
 GNMI_PORT=32123
-GNMI_QUERY='system/openflow/controllers/controller[name=main]/connections/connection[aux-id=0]/state/address'
 GNMI_TARGET=localhost
 ```
 
@@ -48,18 +47,32 @@ Run a gNMI Get:
 root@090fe3d66fe7:~# cat get.sh 
 #!/bin/sh
 gnmi_get \
-  -target_address $GNMI_TARGET:$GNMI_PORT \
+  -target_addr $GNMI_TARGET:$GNMI_PORT \
   -key $HOME/certs/client.key \
   -cert $HOME/certs/client.crt \
   -ca $HOME/certs/ca.crt \
-  -target_name server \
+  -target_name server.com \
   -alsologtostderr \
-  -query $GNMI_QUERY
+  -xpath "/system/openflow/agent/config/datapath-id" \
+  -xpath "/system/openflow/controllers/controller[name=main]/connections/connection[aux-id=0]/config/address"
 ```
 
-Override GNMI_TARGET, GNMI_PORT and GNMI_QUERY to perform the gNMI Get against other targets.
+Run gNMI Capabilities:
+```
+root@090fe3d66fe7:~# cat capabilities.sh 
+#!/bin/sh
+gnmi_capabilities \
+  -target_addr $GNMI_TARGET:$GNMI_PORT \
+  -key $HOME/certs/client.key \
+  -cert $HOME/certs/client.crt \
+  -ca $HOME/certs/ca.crt \
+  -target_name server.com \
+  -alsologtostderr
+```
 
-## Used gNMI tools:
 
-*  [gNMI get](https://github.com/samribeiro/gnmi/tree/master/gnmi_get)
-*  [gNMI target](https://github.com/samribeiro/gnmi/tree/master/gnmi_target)
+Override GNMI_TARGET and GNMI_PORT to perform the gNMI Get against other targets, or use the binaries directly.
+
+## gNxI tools:
+
+*  [gNxI](https://github.com/google/gnxi)

@@ -22,6 +22,7 @@ import logging
 import os
 import random
 import signal
+import sys
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -36,7 +37,7 @@ try:
     from config_parser import dp_parser, get_config_for_api
     from config_parser_util import config_changed
     from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    from valve import valve_factory
+    from valve import valve_factory, SUPPORTED_HARDWARE
     import faucet_api
     import faucet_bgp
     import faucet_metrics
@@ -46,7 +47,7 @@ except ImportError:
     from faucet.config_parser import dp_parser, get_config_for_api
     from faucet.config_parser_util import config_changed
     from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    from faucet.valve import valve_factory
+    from faucet.valve import valve_factory, SUPPORTED_HARDWARE
     from faucet import faucet_api
     from faucet import faucet_bgp
     from faucet import faucet_metrics
@@ -108,6 +109,8 @@ class Faucet(app_manager.RyuApp):
         sysprefix = get_sys_prefix()
         self.config_file = os.getenv(
             'FAUCET_CONFIG', sysprefix + '/etc/ryu/faucet/faucet.yaml')
+        self.loglevel = os.getenv(
+            'FAUCET_LOG_LEVEL', logging.INFO)
         self.logfile = os.getenv(
             'FAUCET_LOG', sysprefix + '/var/log/ryu/faucet/faucet.log')
         self.exc_logfile = os.getenv(
@@ -119,7 +122,7 @@ class Faucet(app_manager.RyuApp):
 
         # Setup logging
         self.logger = get_logger(
-            self.logname, self.logfile, logging.DEBUG, 0)
+            self.logname, self.logfile, self.loglevel, 0)
         # Set up separate logging for exceptions
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
@@ -151,6 +154,7 @@ class Faucet(app_manager.RyuApp):
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
 
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
@@ -181,11 +185,17 @@ class Faucet(app_manager.RyuApp):
                 # pylint: disable=no-member
                 valve_cl = valve_factory(new_dp)
                 if valve_cl is None:
-                    self.logger.fatal('Could not configure %s', new_dp.name)
+                    self.logger.error(
+                        '%s hardware %s must be one of %s',
+                        new_dp.name,
+                        new_dp.hardware,
+                        sorted(list(SUPPORTED_HARDWARE.keys())))
+                    continue
                 else:
                     valve = valve_cl(new_dp, self.logname)
                     self.valves[dp_id] = valve
                 self.logger.info('Add new datapath %s', dpid_log(dp_id))
+            self.metrics.reset_dpid(dp_id)
             valve.update_config_metrics(self.metrics)
         for deleted_valve_dpid in deleted_valve_dpids:
             self.logger.info(
@@ -253,6 +263,9 @@ class Faucet(app_manager.RyuApp):
         """
         if sigid == signal.SIGHUP:
             self.send_event('Faucet', EventFaucetReconfigure())
+        elif sigid == signal.SIGINT:
+            self.close()
+            sys.exit(0)
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
@@ -348,12 +361,14 @@ class Faucet(app_manager.RyuApp):
 
         in_port = msg.match['in_port']
         # eth/VLAN header only
-        pkt, vlan_vid = valve_packet.parse_packet_in_pkt(msg.data, max_len=(14 + 4))
+        pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
+            msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
         if pkt is None or vlan_vid is None:
             self.logger.info(
                 'unparseable packet from %s port %s', dpid_log(dp_id), in_port)
             return
-        pkt_meta = valve.parse_rcv_packet(in_port, vlan_vid, msg.data, pkt)
+        pkt_meta = valve.parse_rcv_packet(
+            in_port, vlan_vid, eth_type, msg.data, pkt, eth_pkt)
 
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(

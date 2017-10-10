@@ -57,17 +57,17 @@ EXTERNAL_DEPENDENCIES = (
      r'ovs-vsctl\s+\(Open vSwitch\)\s+(\d+\.\d+)\.\d+\n', "2.3"),
     ('tcpdump', ['-h'], 'tcpdump',
      r'tcpdump\s+version\s+(\d+\.\d+)\.\d+\n', "4.5"),
-    ('nc', [], 'nc from the netcat-openbsd', '', 0),
+    ('nc', ['-h'], 'OpenBSD netcat', '', 0),
     ('vconfig', [], 'the VLAN you are talking about', '', 0),
     ('2to3', ['--help'], 'Usage: 2to3', '', 0),
     ('fuser', ['-V'], r'fuser \(PSmisc\)',
      r'fuser \(PSmisc\) (\d+\.\d+)\n', "22.0"),
     ('lsof', ['-v'], r'lsof version',
-     r'revision: (\d+\.\d+)\n', "4.89"),
+     r'revision: (\d+\.\d+)\n', "4.86"),
     ('mn', ['--version'], r'\d+\.\d+.\d+',
      r'(\d+\.\d+).\d+', "2.2"),
     ('exabgp', ['--version'], 'ExaBGP',
-     r'ExaBGP : (\d+\.\d+).\d+', "3.4"),
+     r'ExaBGP : (\d+\.\d+).\d+', "4.0"),
     ('pip', ['show', 'influxdb'], 'influxdb',
      r'Version:\s+(\d+\.\d+)\.\d+', "3.0"),
     ('pylint', ['--version'], 'pylint',
@@ -75,15 +75,15 @@ EXTERNAL_DEPENDENCIES = (
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', "7.3"),
     ('ladvd', ['-h'], 'ladvd',
-     r'ladvd version (\d+\.\d+)\.\d+', "1.1"),
+     r'ladvd version (\d+\.\d+)\.\d+', "0.9"),
     ('iperf', ['--version'], 'iperf',
      r'iperf version (\d+\.\d+)\.\d+', "2.0"),
     ('fping', ['-v'], 'fping',
-     r'fping: Version (\d+\.\d+)', "3.13"),
+     r'fping: Version (\d+\.\d+)', "3.10"),
     ('rdisc6', ['-V'], 'ndisc6',
      r'ndisc6.+tool (\d+\.\d+)', "1.0"),
     ('tshark', ['-v'], 'tshark',
-     r'TShark.+(\d+\.\d+)', "2.2"),
+     r'TShark.+(\d+\.\d+)', "2.1"),
     ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
 
@@ -166,7 +166,11 @@ def check_dependencies():
             ' '.join(binary_args))
         try:
             proc = subprocess.Popen(
-                binary_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                binary_args,
+                stdin=faucet_mininet_test_util.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                close_fds=True)
             proc_out, proc_err = proc.communicate()
             binary_output = proc_out
             if proc_err is not None:
@@ -179,8 +183,8 @@ def check_dependencies():
             return False
         present_match = re.search(binary_present_re, binary_output)
         if not present_match:
-            print('%s not present or did not return expected string %s' % (
-                required_binary, binary_present_re))
+            print('%s not present or did not return expected string %s (%s)' % (
+                required_binary, binary_present_re, binary_output))
             return False
         if binary_version_re:
             version_match = re.search(binary_version_re, binary_output)
@@ -210,14 +214,18 @@ def lint_check():
              'PYTHONPATH=%s' % faucet_mininet_test_util.FAUCET_DIR,
              'pylint',
              '--rcfile=/dev/null',
-             '-E', faucet_src])
+             '-E', faucet_src],
+            stdin=faucet_mininet_test_util.DEVNULL,
+            close_fds=True)
         if ret:
             print(('pylint of %s returns an error' % faucet_src))
             return False
     for faucet_src in FAUCET_LINT_SRCS:
         output_2to3 = subprocess.check_output(
             ['2to3', '--nofix=import', faucet_src],
-            stderr=open(os.devnull, 'wb'))
+            stdin=faucet_mininet_test_util.DEVNULL,
+            stderr=faucet_mininet_test_util.DEVNULL,
+            close_fds=True)
         if output_2to3:
             print(('2to3 of %s returns a diff (not python3 compatible)' % faucet_src))
             print(output_2to3)
@@ -376,7 +384,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
     sanity_test_suites = []
     single_test_suites = []
     parallel_test_suites = []
-    max_loadavg = multiprocessing.cpu_count() + 1
+    max_loadavg = multiprocessing.cpu_count()
 
     for test_name, test_obj in inspect.getmembers(sys.modules[__name__]):
         if not inspect.isclass(test_obj):
@@ -557,8 +565,8 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
         print('Testing hardware, forcing test serialization')
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
-    start_free_ports = 5
-    min_free_ports = 100
+    start_free_ports = 10
+    min_free_ports = 200
     ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
     print('test ports server started')
     sanity_tests, single_tests, parallel_tests = expand_tests(
@@ -620,7 +628,7 @@ def parse_args():
 
 def test_main():
     """Test main."""
-    setLogLevel('info')
+    setLogLevel('error')
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
      serial, excluded_test_classes) = parse_args()
 

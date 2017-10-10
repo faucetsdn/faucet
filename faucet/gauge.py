@@ -20,6 +20,7 @@ import logging
 import time
 import os
 import signal
+import sys
 
 from ryu.base import app_manager
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -66,6 +67,8 @@ class Gauge(app_manager.RyuApp):
         sysprefix = get_sys_prefix()
         self.config_file = os.getenv(
             'GAUGE_CONFIG', sysprefix + '/etc/ryu/faucet/gauge.yaml')
+        self.loglevel = os.getenv(
+            'GAUGE_LOG_LEVEL', logging.INFO)
         self.exc_logfile = os.getenv(
             'GAUGE_EXCEPTION_LOG',
             sysprefix + '/var/log/ryu/faucet/gauge_exception.log')
@@ -74,7 +77,7 @@ class Gauge(app_manager.RyuApp):
 
         # Setup logging
         self.logger = get_logger(
-            self.logname, self.logfile, logging.DEBUG, 0)
+            self.logname, self.logfile, self.loglevel, 0)
         # Set up separate logging for exceptions
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
@@ -90,6 +93,7 @@ class Gauge(app_manager.RyuApp):
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)
 
     @kill_on_exception(exc_logname)
     def _load_config(self):
@@ -152,6 +156,9 @@ class Gauge(app_manager.RyuApp):
         """
         if sigid == signal.SIGHUP:
             self.send_event('Gauge', EventGaugeReconfigure())
+        elif sigid == signal.SIGINT:
+            self.close()
+            sys.exit(0)
 
     @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):

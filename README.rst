@@ -1,4 +1,7 @@
-:version: 1.6.2
+:version: 1.6.7
+
+.. image:: https://travis-ci.org/faucetsdn/faucet.svg?branch=master
+    :target: https://travis-ci.org/faucetsdn/faucet
 
 .. meta::
    :keywords: OpenFlow, Ryu, Faucet, VLAN, SDN
@@ -78,7 +81,7 @@ Additional documentation is available under the `docs <docs>`_ directory.
 
 Faucet blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz.
 
-To create a issue, use `GitHub Issues <https://github.com/REANNZ/faucet/issues>`_.
+To create a issue, use `GitHub Issues <https://github.com/faucetsdn/faucet/issues>`_.
 
 
 ==================================

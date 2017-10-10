@@ -144,7 +144,7 @@ To install the latest code from git, via pip:
 
 .. code:: bash
 
-  pip install git+https://github.com/REANNZ/faucet.git
+  pip install git+https://github.com/faucetsdn/faucet.git
 
 You can then start FAUCET manually:
 

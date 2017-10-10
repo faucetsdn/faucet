@@ -1,0 +1,17 @@
+/var/log/ryu/faucet/gauge.log {
+    weekly
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    missingok
+}
+
+/var/log/ryu/faucet/gauge_exception.log {
+    weekly
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    missingok
+}

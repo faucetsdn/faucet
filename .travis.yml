@@ -1,8 +1,8 @@
 sudo: required
-group: edge
+dist: trusty
 language: python
 python:
-  - "3.5"
+  - "3.6"
 services:
   - docker
 addons:
@@ -17,21 +17,31 @@ cache:
 env:
   global:
     - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
-    - FAUCET_TEST_IMG=reannz/faucet-tests
+    - FAUCET_TEST_IMG=faucet/tests
 install:
-  - pip3 install -r requirements.txt -r test-requirements.txt
-  - python3 setup.py sdist
-  - pip3 install dist/*tar.gz
+  - pip3 install -q -r requirements.txt -r test-requirements.txt
+  - python3 setup.py -q sdist
+  - pip3 install -q dist/*tar.gz
   - pip3 show faucet
 script:
   - touch ~/.pylintrc
   - cd ./tests
   - PYTHONPATH="../faucet" ./test_min_pylint.sh
-  - py.test ./test_check_config.py ./test_config.py ./test_valve.py --cov faucet --doctest-modules -v --cov-report term-missing
+  - python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
   - coveralls || true
   - cd ..
   - ls -l `dirname ${DOCKER_CACHE_FILE}`
   - if [[ $(find ${DOCKER_CACHE_FILE} -type f -size +100c 2>/dev/null) ]] ; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
+  - docker images
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
-  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save $(/bin/echo -e "osrg/ryu:latest\nreannz/faucet-tests:latest"| xargs -n 1 docker history -q|grep -v missing) | gzip > ${DOCKER_CACHE_FILE} ; fi
-  - sudo docker run --privileged -ti -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}
+  - docker images
+  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save ubuntu:latest | gzip > ${DOCKER_CACHE_FILE} ; fi
+  - sudo docker run --privileged -t -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}
+deploy:
+  provider: pypi
+  user: faucet
+  password:
+    secure: I3vR7947jTkA5KWls6q/TZMvz8+9dvK5s+bfWvl9kT5WAVId4ym72nc22hLeSKQdwlYenxgVDnRT1XhJSYstTaLXHL6GbS10CFO838kbSb6Y1rzHiyuaaRBmlTj20drwGELIGMQj9fe8dY9XyVThQAX/FXsCQw3+71anQfH0a0use3eK8/o9HHWH5DJyuqiKSPmCG7m5hEHjmXeVSp2F9/yuO+xX/qbtAavSd7/3lP65U32AtZJLAr7d/yYobfrXKV/AYiYCl5uk+tYXHvwHp0pLwFA9pQ230IfKQsSNlS71vypWeTFG31chfmsLBDl/B3L2t0euiOdMaI5qLpW8vIYjDncjATxBeiHBWdumdPEnzTr8RtdeCV8TFBbgPa0Mg9CuEFAOs1bJvwz3JLwjSbGYggXFBdv+iKDXtHsu8zXZDrCTsRd0W7XjrJ5pjMpzhEmBPd8sUS6NYZtJUbnhtIYQqJZx4scQ9Ikw2mAyOQl2tqcaYF6lKjqwqSSl7Pd0LK+YPShSzqOCacSGFqybe8EbwJWdnGzV6RmIlcnHu56qyya/Q1lkvQo4/9yYjNdWA+qP42WWtLC0Ua5wt2h69TD2fuf0xkRiwaojFpNQRP892dUu4r+fUkdGCgJZOt22kP18387o/7T6GY0ka/j2srch1I13alv/+Xx/mNiupQk=
+  on:
+    repo: faucetsdn/faucet
+    tags: true

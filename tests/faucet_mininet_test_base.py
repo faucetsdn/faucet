@@ -3,6 +3,7 @@
 """Base class for all FAUCET unit tests."""
 
 # pylint: disable=missing-docstring
+# pylint: disable=too-many-arguments
 
 import collections
 import glob
@@ -11,6 +12,7 @@ import json
 import os
 import random
 import re
+import shutil
 import subprocess
 import time
 import unittest
@@ -21,6 +23,7 @@ import requests
 from requests.exceptions import ConnectionError
 
 # pylint: disable=import-error
+from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
@@ -47,7 +50,7 @@ class FaucetTestBase(unittest.TestCase):
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
-    GAUGE_CONFIG = ''
+    GAUGE_CONFIG_DBS = ''
 
     N_UNTAGGED = 0
     N_TAGGED = 0
@@ -73,8 +76,6 @@ class FaucetTestBase(unittest.TestCase):
     gauge_controller = None
     gauge_of_port = None
     prom_port = None
-    gauge_prom_port = None
-    influx_port = None
     net = None
     of_port = None
     ctl_privkey = None
@@ -86,7 +87,7 @@ class FaucetTestBase(unittest.TestCase):
     net = None
     topo = None
     cpn_intf = None
-    config_ports = None
+    config_ports = {}
     env = collections.defaultdict(dict)
     rand_dpids = set()
 
@@ -157,22 +158,26 @@ class FaucetTestBase(unittest.TestCase):
     def _set_vars(self):
         self._set_prom_port()
 
-    def _write_controller_configs(self):
+    def _write_faucet_config(self):
         faucet_config = '\n'.join((
             self.get_config_header(
                 self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
             self.CONFIG % self.port_map))
         if self.config_ports:
             faucet_config = faucet_config % self.config_ports
-        open(self.faucet_config_path, 'w').write(faucet_config)
+        with open(self.faucet_config_path, 'w') as faucet_config_file:
+            faucet_config_file.write(faucet_config)
+
+    def _write_gauge_config(self):
         gauge_config = self.get_gauge_config(
             self.faucet_config_path,
             self.monitor_stats_file,
             self.monitor_state_file,
-            self.monitor_flow_table_file,
-            self.gauge_prom_port,
-            self.influx_port)
-        open(self.gauge_config_path, 'w').write(gauge_config)
+            self.monitor_flow_table_file)
+        if self.config_ports:
+            gauge_config = gauge_config % self.config_ports
+        with open(self.gauge_config_path, 'w') as gauge_config_file:
+            gauge_config_file.write(gauge_config)
 
     def _test_name(self):
         return faucet_mininet_test_util.flat_test_name(self.id())
@@ -196,37 +201,35 @@ class FaucetTestBase(unittest.TestCase):
             time.sleep(random.randint(1, 7))
             if load < self.max_test_load:
                 return
-            print('load average too high %f, waiting' % load)
+            output('load average too high %f, waiting' % load)
         self.fail('load average %f consistently too high' % load)
 
-    def _allocate_ports(self):
-        faucet_mininet_test_util.return_free_ports(
-            self.ports_sock, self._test_name())
-        self.config_ports = {'bgp_port': None}
-
-        if self.hw_switch:
-            self.of_port = self.config['of_port']
-            self.gauge_of_port = self.config['gauge_of_port']
-        else:
-            self.of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock, self._test_name())
-            self.gauge_of_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock, self._test_name())
-
-        self.influx_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-        self.prom_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-        self.gauge_prom_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-
+    def _allocate_config_ports(self):
         for port_name in list(self.config_ports.keys()):
-            for config in (self.CONFIG, self.CONFIG_GLOBAL):
+            self.config_ports[port_name] = None
+            for config in (self.CONFIG, self.CONFIG_GLOBAL, self.GAUGE_CONFIG_DBS):
                 if re.search(port_name, config):
-                    port, _ = faucet_mininet_test_util.find_free_port(
+                    port = faucet_mininet_test_util.find_free_port(
                         self.ports_sock, self._test_name())
                     self.config_ports[port_name] = port
-                    print('allocating port %u for %s' % (port, port_name))
+                    output('allocating port %u for %s' % (port, port_name))
+
+    def _allocate_faucet_ports(self):
+        if self.hw_switch:
+            self.of_port = self.config['of_port']
+        else:
+            self.of_port = faucet_mininet_test_util.find_free_port(
+                self.ports_sock, self._test_name())
+
+        self.prom_port = faucet_mininet_test_util.find_free_port(
+            self.ports_sock, self._test_name())
+
+    def _allocate_gauge_ports(self):
+        if self.hw_switch:
+            self.gauge_of_port = self.config['gauge_of_port']
+        else:
+            self.gauge_of_port = faucet_mininet_test_util.find_free_port(
+                self.ports_sock, self._test_name())
 
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
@@ -241,18 +244,25 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        open(os.path.join(self.tmpdir, 'prometheus.log'), 'w').write(
-            self.scrape_prometheus())
+        with open(os.path.join(self.tmpdir, 'prometheus.log'), 'w') as prom_log:
+            prom_log.write(self.scrape_prometheus())
         if self.net is not None:
             self.net.stop()
+            self.net = None
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
+        if 'OVS_LOGDIR' in os.environ:
+            ovs_log_dir = os.environ['OVS_LOGDIR']
+            if ovs_log_dir and os.path.exists(ovs_log_dir):
+                for ovs_log in glob.glob(os.path.join(ovs_log_dir, '*.log')):
+                    shutil.copy(ovs_log, self.tmpdir)
         # must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        for _, debug_log in self._get_ofchannel_logs():
-            self.assertFalse(
-                re.search('OFPErrorMsg', open(debug_log).read()),
-                msg='debug log has OFPErrorMsgs')
+        for _, debug_log_name in self._get_ofchannel_logs():
+            with open(debug_log_name) as debug_log:
+                self.assertFalse(
+                    re.search('OFPErrorMsg', debug_log.read()),
+                    msg='debug log has OFPErrorMsgs')
 
     def _attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
@@ -286,13 +296,16 @@ class FaucetTestBase(unittest.TestCase):
             self._attach_physical_switch()
         self._wait_debug_log()
         for port_no in self._dp_ports():
-            self.set_port_up(port_no)
+            self.set_port_up(port_no, wait=False)
         dumpNodeConnections(self.net.hosts)
         self.reset_all_ipv4_prefix(prefix=24)
 
     def _get_controller(self):
         """Return first controller."""
         return self.net.controllers[0]
+
+    def _start_gauge_check(self):
+        return None
 
     def _start_check(self):
         if not self._wait_controllers_healthy():
@@ -305,18 +318,21 @@ class FaucetTestBase(unittest.TestCase):
             return 'prometheus port not up'
         if self.config_ports:
             for port_name, port in list(self.config_ports.items()):
-                if port is not None:
+                if port is not None and not port_name.startswith('gauge'):
                     if not self._get_controller().listen_port(port):
                         return 'faucet not listening on %u (%s)' % (
                             port, port_name)
-        return None
+        return self._start_gauge_check()
 
     def _start_faucet(self, controller_intf):
         last_error_txt = ''
         for _ in range(3):
-            self._allocate_ports()
+            faucet_mininet_test_util.return_free_ports(
+                self.ports_sock, self._test_name())
+            self._allocate_config_ports()
+            self._allocate_faucet_ports()
             self._set_vars()
-            self._write_controller_configs()
+            self._write_faucet_config()
             self.net = Mininet(
                 self.topo, controller=faucet_mininet_test_topo.FAUCET(
                     name='faucet', tmpdir=self.tmpdir,
@@ -329,6 +345,8 @@ class FaucetTestBase(unittest.TestCase):
                     port=self.of_port,
                     test_name=self._test_name()))
             if self.RUN_GAUGE:
+                self._allocate_gauge_ports()
+                self._write_gauge_config()
                 self.gauge_controller = faucet_mininet_test_topo.Gauge(
                     name='gauge', tmpdir=self.tmpdir,
                     env=self.env['gauge'],
@@ -347,14 +365,14 @@ class FaucetTestBase(unittest.TestCase):
                 return
             self.net.stop()
             last_error_txt += '\n\n' + self._dump_controller_logs()
-            print(last_error_txt)
+            error('%s: %s' % (self._test_name(), last_error_txt))
             time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
         self.fail(last_error_txt)
 
-    def _ofctl_rest_url(self):
+    def _ofctl_rest_url(self, req):
         """Return control URL for Ryu ofctl module."""
-        return 'http://%s:%u' % (
-            faucet_mininet_test_util.LOCALHOST, self._get_controller().ofctl_port)
+        return 'http://%s:%u/%s' % (
+            faucet_mininet_test_util.LOCALHOST, self._get_controller().ofctl_port, req)
 
     def _ofctl(self, req):
         try:
@@ -364,7 +382,7 @@ class FaucetTestBase(unittest.TestCase):
         return ofctl_result
 
     def _ofctl_up(self):
-        switches = self._ofctl('%s/stats/switches' % self._ofctl_rest_url())
+        switches = self._ofctl(self._ofctl_rest_url('stats/switches'))
         return switches is not None and re.search(r'^\[[^\]]+\]$', switches)
 
     def _wait_ofctl_up(self, timeout=10):
@@ -376,25 +394,23 @@ class FaucetTestBase(unittest.TestCase):
 
     def _ofctl_get(self, int_dpid, req, timeout):
         for _ in range(timeout):
-            ofctl_result = self._ofctl(req)
-            if req is not None:
-                try:
-                    ofmsgs = json.loads(ofctl_result)[int_dpid]
-                    return [json.dumps(ofmsg) for ofmsg in ofmsgs]
-                except ValueError:
-                    # Didn't get valid JSON, try again
-                    time.sleep(1)
-                    continue
+            ofctl_result = self._ofctl(self._ofctl_rest_url(req))
+            try:
+                ofmsgs = json.loads(ofctl_result)[int_dpid]
+                return [json.dumps(ofmsg) for ofmsg in ofmsgs]
+            except ValueError:
+                # Didn't get valid JSON, try again
+                time.sleep(1)
+                continue
         return []
 
     def _curl_portmod(self, int_dpid, port_no, config, mask):
         """Use curl to send a portmod command via the ofctl module."""
         curl_format = ' '.join((
-            'curl -X POST -d'
+            'curl -X POST -d',
             '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
-            '%s/stats/portdesc/modify'))
-        return curl_format % (
-            int_dpid, port_no, config, mask, self._ofctl_rest_url())
+            self._ofctl_rest_url('stats/portdesc/modify')))
+        return curl_format % (int_dpid, port_no, config, mask)
 
     def _signal_proc_on_port(self, host, port, signal):
         tcp_pattern = '%s/tcp' % port
@@ -402,7 +418,8 @@ class FaucetTestBase(unittest.TestCase):
         return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
 
     def _get_ofchannel_logs(self):
-        config = yaml.load(open(self.env['faucet']['FAUCET_CONFIG']))
+        with open(self.env['faucet']['FAUCET_CONFIG']) as config_file:
+            config = yaml.load(config_file)
         ofchannel_logs = []
         for dp_name, dp_config in config['dps'].items():
             if 'ofchannel_log' in dp_config:
@@ -414,15 +431,16 @@ class FaucetTestBase(unittest.TestCase):
         dump_txt = ''
         test_logs = glob.glob(os.path.join(self.tmpdir, '*.log'))
         for controller in self.net.controllers:
-            for test_log in test_logs:
-                basename = os.path.basename(test_log)
+            for test_log_name in test_logs:
+                basename = os.path.basename(test_log_name)
                 if basename.startswith(controller.name):
-                    dump_txt += '\n'.join((
-                        '',
-                        basename,
-                        '=' * len(basename),
-                        '',
-                        open(test_log).read()))
+                    with open(test_log_name) as test_log:
+                        dump_txt += '\n'.join((
+                            '',
+                            basename,
+                            '=' * len(basename),
+                            '',
+                            test_log.read()))
                     break
         return dump_txt
 
@@ -466,11 +484,13 @@ class FaucetTestBase(unittest.TestCase):
     def verify_no_exception(self, exception_log_name):
         if not os.path.exists(exception_log_name):
             return
-        exception_contents = open(exception_log_name, 'r').read()
-        self.assertEqual(
-            '',
-            exception_contents,
-            msg='%s log contains %s' % (exception_log_name, exception_contents))
+        with open(exception_log_name) as exception_log:
+            exception_contents = exception_log.read()
+            self.assertEqual(
+                '',
+                exception_contents,
+                msg='%s log contains %s' % (
+                    exception_log_name, exception_contents))
 
     def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=None,
                        vflags='-v', timeout=10, packets=2, root_intf=False):
@@ -481,7 +501,11 @@ class FaucetTestBase(unittest.TestCase):
             'tcpdump -i %s -e -n -U %s -c %u %s' % (
                 intf, vflags, packets, tcpdump_filter),
             timeout)
-        tcpdump_out = tcpdump_host.popen(tcpdump_cmd, stderr=subprocess.STDOUT)
+        tcpdump_out = tcpdump_host.popen(
+            tcpdump_cmd,
+            stdin=faucet_mininet_test_util.DEVNULL,
+            stderr=subprocess.STDOUT,
+            close_fds=True)
         popens = {tcpdump_host: tcpdump_out}
         tcpdump_started = False
         tcpdump_txt = ''
@@ -496,7 +520,7 @@ class FaucetTestBase(unittest.TestCase):
                         for func in funcs:
                             func()
                 else:
-                    print('tcpdump_helper: %s' % line)
+                    error('tcpdump_helper: %s' % line)
         self.assertTrue(tcpdump_started, msg='%s did not start' % tcpdump_cmd)
         return tcpdump_txt
 
@@ -538,9 +562,7 @@ dps:
     def get_gauge_config(self, faucet_config_file,
                          monitor_stats_file,
                          monitor_state_file,
-                         monitor_flow_table_file,
-                         prometheus_port,
-                         influx_port):
+                         monitor_flow_table_file):
         """Build Gauge config."""
         return """
 faucet_configs:
@@ -557,19 +579,6 @@ dbs:
     flow_file:
         type: 'text'
         file: %s
-    prometheus:
-        type: 'prometheus'
-        prometheus_addr: '%s'
-        prometheus_port: %u
-    influx:
-        type: 'influx'
-        influx_db: 'faucet'
-        influx_host: '%s'
-        influx_port: %u
-        influx_user: 'faucet'
-        influx_pwd: ''
-        influx_timeout: %u
-        interval: %u
     couchdb:
         type: gaugedb
         gdb_type: nosql
@@ -586,17 +595,13 @@ dbs:
         switches_doc: 'switches_bak'
         flows_doc: 'flows_bak'
         db_update_counter: 2
+%s
 """ % (faucet_config_file,
        self.get_gauge_watcher_config(),
        monitor_stats_file,
        monitor_state_file,
        monitor_flow_table_file,
-       faucet_mininet_test_util.LOCALHOST,
-       prometheus_port,
-       faucet_mininet_test_util.LOCALHOST,
-       influx_port,
-       self.DB_TIMEOUT,
-       self.DB_TIMEOUT + 1)
+       self.GAUGE_CONFIG_DBS)
 
     def get_exabgp_conf(self, peer, peer_config=''):
         return """
@@ -613,70 +618,77 @@ dbs:
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         return self._ofctl_get(
-            int_dpid,
-            '%s/stats/groupdesc/%s' % (self._ofctl_rest_url(), int_dpid),
-            timeout)
+            int_dpid, 'stats/groupdesc/%s' % int_dpid, timeout)
 
     def get_all_flows_from_dpid(self, dpid, timeout=10):
         """Return all flows from DPID."""
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         return self._ofctl_get(
-            int_dpid,
-            '%s/stats/flow/%s' % (self._ofctl_rest_url(), int_dpid),
-            timeout)
+            int_dpid, 'stats/flow/%s' % int_dpid, timeout)
+
+    def _port_stat(self, port_stats, port):
+        if port_stats:
+            for port_stat in port_stats:
+                port_stat = json.loads(port_stat)
+                if port_stat['port_no'] == port:
+                    return port_stat
+        return None
 
     def get_port_stats_from_dpid(self, dpid, port, timeout=2):
-        """Return OFStats for a port."""
+        """Return port stats for a port."""
         int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
         port_stats = self._ofctl_get(
-            int_dpid,
-            '%s/stats/port/%s/%s' % (self._ofctl_rest_url(), int_dpid, port),
-            timeout)
-        if port_stats:
-            return json.loads(port_stats[0])
-        return None
+            int_dpid, 'stats/port/%s' % int_dpid, timeout)
+        return self._port_stat(port_stats, port)
+
+    def get_port_desc_from_dpid(self, dpid, port, timeout=2):
+        """Return port desc for a port."""
+        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        port_stats = self._ofctl_get(
+            int_dpid, 'stats/portdesc/%s' % int_dpid, timeout)
+        return self._port_stat(port_stats, port)
 
     def wait_matching_in_group_table(self, action, group_id, timeout=10):
         groupdump = os.path.join(self.tmpdir, 'groupdump-%s.txt' % self.dpid)
         for _ in range(timeout):
             group_dump = self.get_all_groups_desc_from_dpid(self.dpid, 1)
-            groupdump_file = open(groupdump, 'w')
-            for group_desc in group_dump:
-                group_dict = json.loads(group_desc)
-                groupdump_file.write(str(group_dict) + '\n')
-                if group_dict['group_id'] == group_id:
-                    actions = set(group_dict['buckets'][0]['actions'])
-                    if set([action]).issubset(actions):
-                        return True
+            with open(groupdump, 'w') as groupdump_file:
+                for group_desc in group_dump:
+                    group_dict = json.loads(group_desc)
+                    groupdump_file.write(str(group_dict) + '\n')
+                    if group_dict['group_id'] == group_id:
+                        actions = set(group_dict['buckets'][0]['actions'])
+                        if set([action]).issubset(actions):
+                            return True
             time.sleep(1)
         return False
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                    actions=None, match_exact=False):
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
-        for _ in range(timeout):
-            flow_dicts = []
-            flow_dump = self.get_all_flows_from_dpid(dpid)
-            flowdump_file = open(flowdump, 'w')
-            for flow in flow_dump:
-                flow_dict = json.loads(flow)
-                flowdump_file.write(str(flow_dict) + '\n')
-                if (table_id is not None and
-                        flow_dict['table_id'] != table_id):
-                    continue
-                if actions is not None:
-                    if not set(actions).issubset(set(flow_dict['actions'])):
+        with open(flowdump, 'w') as flowdump_file:
+            for _ in range(timeout):
+                flow_dicts = []
+                flow_dump = self.get_all_flows_from_dpid(dpid)
+                for flow in flow_dump:
+                    flow_dict = json.loads(flow)
+                    flowdump_file.write(str(flow_dict) + '\n')
+                    if (table_id is not None and
+                            flow_dict['table_id'] != table_id):
                         continue
-                if match is not None:
-                    if match_exact:
-                        if match.items() != flow_dict['match'].items():
+                    if actions is not None:
+                        if not set(actions).issubset(set(flow_dict['actions'])):
                             continue
-                    elif not set(match.items()).issubset(set(flow_dict['match'].items())):
-                        continue
-                flow_dicts.append(flow_dict)
-            if flow_dicts:
-                return flow_dicts
-            time.sleep(1)
+                    if match is not None:
+                        if match_exact:
+                            if match.items() != flow_dict['match'].items():
+                                continue
+                        elif not set(match.items()).issubset(set(flow_dict['match'].items())):
+                            continue
+                    flow_dicts.append(flow_dict)
+                if flow_dicts:
+                    return flow_dicts
+                time.sleep(1)
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
@@ -780,22 +792,34 @@ dbs:
         for host in self.net.hosts:
             self.reset_ipv4_prefix(host, prefix)
 
-    def require_host_learned(self, host, retries=3, in_port=None):
+    def require_host_learned(self, host, retries=8, in_port=None):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
-        ping_cmd = 'ping'
         if not host_ip_net:
             host_ip_net = self.host_ipv6(host)
-        broadcast = (ipaddress.ip_interface(
-            unicode(host_ip_net)).network.broadcast_address)
+        broadcast = ipaddress.ip_interface(
+            unicode(host_ip_net)).network.broadcast_address
+        broadcast_str = str(broadcast)
+
+        packets = 1
+        if broadcast.version == 4:
+            ping_cmd = 'ping -b'
         if broadcast.version == 6:
             ping_cmd = 'ping6'
+            broadcast_str = 'ff02::1'
+
+        # stimulate host learning with a broadcast ping
+        ping_cli = faucet_mininet_test_util.timeout_cmd(
+            '%s -I%s -W1 -c%u %s' % (
+                ping_cmd, host.defaultIntf().name, packets, broadcast_str), 3)
+
         for _ in range(retries):
             if self.host_learned(host, timeout=1, in_port=in_port):
                 return
-            # stimulate host learning with a broadcast ping
-            ping_cli = '%s -i 0.2 -c 1 -b %s' % (ping_cmd, broadcast)
             ping_result = host.cmd(ping_cli)
+            self.assertTrue(re.search(
+                r'%u packets transmitted' % packets, ping_result), msg='%s: %s' % (
+                    ping_cli, ping_result))
         self.fail('host %s (%s) could not be learned (%s: %s)' % (
             host, host.MAC(), ping_cli, ping_result))
 
@@ -811,7 +835,7 @@ dbs:
                 self.get_prom_addr(), self.get_prom_port())
         elif controller == 'gauge':
             return 'http://%s:%u' % (
-                self.get_prom_addr(), self.gauge_prom_port)
+                self.get_prom_addr(), self.config_ports['gauge_prom_port'])
 
     def scrape_prometheus(self, controller='faucet'):
         url = self._prometheus_url(controller)
@@ -825,37 +849,42 @@ dbs:
                 prom_vars.append(prom_line)
         return '\n'.join(prom_vars)
 
-    def scrape_prometheus_var(self, var, labels=None, default=None,
-                              dpid=True, multiple=False, controller='faucet'):
-        label_values_re = ''
-        if labels is None:
-            labels = {}
-        if dpid:
-            labels.update({'dp_id': '0x%x' % long(self.dpid)})
-        if labels:
-            label_values = []
-            for label, value in sorted(list(labels.items())):
-                label_values.append('%s="%s"' % (label, value))
-            label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
-        results = []
+    def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
+                              dpid=True, multiple=False, controller='faucet', retries=1):
+        label_values_re = r''
+        if any_labels:
+            label_values_re = r'\{[^\}]+\}'
+        else:
+            if labels is None:
+                labels = {}
+            if dpid:
+                labels.update({'dp_id': '0x%x' % long(self.dpid)})
+            if labels:
+                label_values = []
+                for label, value in sorted(list(labels.items())):
+                    label_values.append('%s="%s"' % (label, value))
+                label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         var_re = r'^%s%s$' % (var, label_values_re)
-        prom_lines = self.scrape_prometheus(controller)
-        for prom_line in prom_lines.splitlines():
-            prom_var_data = prom_line.split(' ')
-            self.assertEqual(
-                2, len(prom_var_data),
-                msg='invalid prometheus line in %s' % prom_lines)
-            var, value = prom_var_data
-            var_match = re.search(var_re, var)
-            if var_match:
-                value_int = long(float(value))
-                results.append((var, value_int))
-                if not multiple:
-                    break
-        if results:
-            if multiple:
-                return results
-            return results[0][1]
+        for _ in range(retries):
+            results = []
+            prom_lines = self.scrape_prometheus(controller)
+            for prom_line in prom_lines.splitlines():
+                prom_var_data = prom_line.split(' ')
+                self.assertEqual(
+                    2, len(prom_var_data),
+                    msg='invalid prometheus line in %s' % prom_lines)
+                var, value = prom_var_data
+                var_match = re.search(var_re, var)
+                if var_match:
+                    value_int = long(float(value))
+                    results.append((var, value_int))
+                    if not multiple:
+                        break
+            if results:
+                if multiple:
+                    return results
+                return results[0][1]
+            time.sleep(1)
         return default
 
     def gauge_smoke_test(self):
@@ -884,14 +913,15 @@ dbs:
         prom_out = self.scrape_prometheus()
         for nonzero_var in (
                 r'of_packet_ins', r'of_flowmsgs_sent', r'of_dp_connections',
-                r'faucet_config\S+name=\"flood\"'):
+                r'faucet_config\S+name=\"flood\"', r'faucet_pbr_version\S+version='):
             self.assertTrue(
                 re.search(r'%s\S+\s+[1-9]+' % nonzero_var, prom_out),
                 msg='expected %s to be nonzero (%s)' % (nonzero_var, prom_out))
-        for notpresent_var in (
+        for zero_var in (
                 'of_errors', 'of_dp_disconnections'):
-            self.assertIsNone(
-                re.search(notpresent_var, prom_out), msg=prom_out)
+            self.assertTrue(
+                re.search(r'%s\S+\s+0' % zero_var, prom_out),
+                msg='expected %s to be present and zero (%s)' % (zero_var, prom_out))
 
     def get_configure_count(self):
         """Return the number of times FAUCET has processed a reload request."""
@@ -924,7 +954,7 @@ dbs:
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
         fping_out = host.cmd(faucet_mininet_test_util.timeout_cmd(
             fping_cli, timeout))
-        print(fping_out)
+        error('%s: %s' % (self._test_name(), fping_out))
         self.assertTrue(
             not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
@@ -949,7 +979,7 @@ dbs:
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
             self.require_host_learned(host)
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.retry_net_ping(hosts=(first_host, second_host))
         mirror_mac = mirror_host.MAC()
         tcpdump_filter = (
             'not ether src %s and '
@@ -969,7 +999,7 @@ dbs:
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
             self.require_host_learned(host)
-        self.assertEqual(0, self.net.ping((first_host, second_host)))
+        self.retry_net_ping(hosts=(first_host, second_host))
         mirror_mac = mirror_host.MAC()
         tmp_eap_conf = os.path.join(self.tmpdir, 'eap.conf')
         tcpdump_filter = (
@@ -1071,7 +1101,8 @@ dbs:
 
     def force_faucet_reload(self, new_config):
         """Force FAUCET to reload by adding new line to config file."""
-        open(self.env['faucet']['FAUCET_CONFIG'], 'a').write(new_config)
+        with open(self.env['faucet']['FAUCET_CONFIG'], 'a') as config_file:
+            config_file.write(new_config)
         self.verify_hup_faucet()
 
     def get_host_port_stats(self, hosts_switch_ports):
@@ -1083,12 +1114,10 @@ dbs:
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip, iperf_port):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1
-        iperf_port, _ = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
         start_port_stats = self.get_host_port_stats(hosts_switch_ports)
         hosts = []
         for host, _ in hosts_switch_ports:
@@ -1106,12 +1135,12 @@ dbs:
                     start_port_stats[host], end_port_stats[host], 'rx_bytes', seconds)
                 of_tx_mbps = self.of_bytes_mbps(
                     start_port_stats[host], end_port_stats[host], 'tx_bytes', seconds)
-                print(of_rx_mbps, of_tx_mbps)
+                output(of_rx_mbps, of_tx_mbps)
                 max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
                 iperf_to_max = iperf_mbps / max_of_mbps
                 msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
                     iperf_mbps, max_of_mbps, iperf_to_max)
-                print(msg)
+                output(msg)
                 if ((iperf_to_max < (1.0 - prop)) or
                         (iperf_to_max > (1.0 + prop))):
                     approx_match = False
@@ -1119,24 +1148,6 @@ dbs:
                 return
             time.sleep(1)
         self.fail(msg=msg)
-
-    def set_port_down(self, port_no):
-        self.assertEqual(
-            0,
-            os.system(self._curl_portmod(
-                self.dpid,
-                port_no,
-                ofp.OFPPC_PORT_DOWN,
-                ofp.OFPPC_PORT_DOWN)))
-
-    def set_port_up(self, port_no):
-        self.assertEqual(
-            0,
-            os.system(self._curl_portmod(
-                self.dpid,
-                port_no,
-                0,
-                ofp.OFPPC_PORT_DOWN)))
 
     def wait_port_status(self, port_no, expected_status, timeout=10):
         for _ in range(timeout):
@@ -1147,6 +1158,26 @@ dbs:
             time.sleep(1)
         self.fail('port %s status %s != expected %u' % (
             port_no, port_status, expected_status))
+
+    def set_port_status(self, port_no, status, wait):
+        self.assertEqual(
+            0,
+            os.system(self._curl_portmod(
+                self.dpid,
+                port_no,
+                status,
+                ofp.OFPPC_PORT_DOWN)))
+        if wait:
+            expected_status = 1
+            if status == ofp.OFPPC_PORT_DOWN:
+                expected_status = 0
+            self.wait_port_status(port_no, expected_status)
+
+    def set_port_down(self, port_no, wait=True):
+        self.set_port_status(port_no, ofp.OFPPC_PORT_DOWN, wait)
+
+    def set_port_up(self, port_no, wait=True):
+        self.set_port_status(port_no, 0, wait)
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=60):
         for _ in range(timeout):
@@ -1180,10 +1211,8 @@ dbs:
         """Flap all ports on switch."""
         for port_no in self._dp_ports():
             self.set_port_down(port_no)
-            self.wait_port_status(port_no, 0)
             time.sleep(flap_time)
             self.set_port_up(port_no)
-            self.wait_port_status(port_no, 1)
 
     def add_macvlan(self, host, macvlan_intf):
         host.cmd('ip link add link %s %s type macvlan' % (
@@ -1242,6 +1271,18 @@ dbs:
         self.one_ipv6_ping(host, self.FAUCET_VIPV6.ip)
         self.verify_ipv6_host_learned_mac(
             host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
+
+    def retry_net_ping(self, hosts=None, required_loss=0, retries=3):
+        loss = None
+        for _ in range(retries):
+            if hosts is None:
+                loss = self.net.pingAll()
+            else:
+                loss = self.net.ping(hosts)
+            if loss <= required_loss:
+                return
+            time.sleep(1)
+        self.fail('ping %f loss > required loss %f' % (loss, required_loss))
 
     def tcp_port_free(self, host, port, ipv=4):
         listen_out = host.cmd(
@@ -1319,7 +1360,7 @@ dbs:
 
     def start_exabgp(self, exabgp_conf, timeout=30):
         """Start exabgp process on controller host."""
-        exabgp_conf_file = os.path.join(self.tmpdir, 'exabgp.conf')
+        exabgp_conf_file_name = os.path.join(self.tmpdir, 'exabgp.conf')
         exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
         exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
         exabgp_env = ' '.join((
@@ -1330,18 +1371,19 @@ dbs:
         ))
         bgp_port = self.config_ports['bgp_port']
         exabgp_conf = exabgp_conf % {'bgp_port': bgp_port}
-        open(exabgp_conf_file, 'w').write(exabgp_conf)
+        with open(exabgp_conf_file_name, 'w') as exabgp_conf_file:
+            exabgp_conf_file.write(exabgp_conf)
         controller = self._get_controller()
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
             'exabgp %s -d 2> %s > /dev/null &' % (
-                exabgp_conf_file, exabgp_err), 600)
+                exabgp_conf_file_name, exabgp_err), 600)
         exabgp_cli = 'env %s %s' % (exabgp_env, exabgp_cmd)
         controller.cmd(exabgp_cli)
         for _ in range(timeout):
             if os.path.exists(exabgp_log):
                 return (exabgp_log, exabgp_err)
             time.sleep(1)
-        self.fail('exabgp did not start')
+        self.fail('exabgp (%s) did not start' % exabgp_cli)
 
     def wait_bgp_up(self, neighbor, vlan, exabgp_log, exabgp_err):
         """Wait for BGP to come up."""
@@ -1356,9 +1398,10 @@ dbs:
                 return
             time.sleep(1)
         exabgp_log_content = []
-        for log in (exabgp_log, exabgp_err):
-            if os.path.exists(log):
-                exabgp_log_content.append(open(log).read())
+        for log_name in (exabgp_log, exabgp_err):
+            if os.path.exists(log_name):
+                with open(log_name) as log:
+                    exabgp_log_content.append(log.read())
         self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
     def exabgp_updates(self, exabgp_log):
@@ -1373,10 +1416,11 @@ dbs:
             time.sleep(1)
         self.fail('exabgp did not receive BGP updates')
 
-    def wait_exabgp_sent_updates(self, exabgp_log):
+    def wait_exabgp_sent_updates(self, exabgp_log_name):
         """Verify that exabgp process has sent BGP updates."""
         for _ in range(60):
-            exabgp_log_content = open(exabgp_log).read()
+            with open(exabgp_log_name) as exabgp_log:
+                exabgp_log_content = exabgp_log.read()
             if re.search(r'>> [1-9]+[0-9]* UPDATE', exabgp_log_content):
                 return
             time.sleep(1)
@@ -1485,7 +1529,10 @@ dbs:
         server_start_exp = r'Server listening on TCP port %u' % port
         for _ in range(3):
             server_out = server_host.popen(
-                iperf_server_cmd, stderr=subprocess.STDOUT)
+                iperf_server_cmd,
+                stdin=faucet_mininet_test_util.DEVNULL,
+                stderr=subprocess.STDOUT,
+                close_fds=True)
             popens = {server_host: server_out}
             lines = []
             for host, line in pmonitor(popens):
@@ -1504,7 +1551,7 @@ dbs:
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip,
-                            with_group_table=False):
+                            iperf_port, with_group_table=False):
         """Verify one host can IPV4 route to another via FAUCET."""
         self.host_ipv4_alias(first_host, first_host_routed_ip)
         self.host_ipv4_alias(second_host, second_host_routed_ip)
@@ -1527,11 +1574,9 @@ dbs:
         for client_host, server_host, server_ip in (
                 (first_host, second_host, second_host_routed_ip.ip),
                 (second_host, first_host, first_host_routed_ip.ip)):
-            iperf_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock, self._test_name())
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
-            print('%u mbps to %s' % (iperf_mbps, server_ip))
+            error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         # verify packets matched routing flows
         self.wait_for_route_as_flow(
@@ -1543,7 +1588,7 @@ dbs:
             with_group_table=with_group_table,
             nonzero_packets=True)
 
-    def verify_ipv4_routing_mesh(self, with_group_table=False):
+    def verify_ipv4_routing_mesh(self, iperf_port, with_group_table=False):
         """Verify hosts can route to each other via FAUCET."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
@@ -1553,20 +1598,20 @@ dbs:
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
 
     def host_drop_all_ips(self, host):
         for ipv in (4, 6):
@@ -1588,7 +1633,7 @@ dbs:
     def verify_ipv6_routing(self, first_host, first_host_ip,
                             first_host_routed_ip, second_host,
                             second_host_ip, second_host_routed_ip,
-                            with_group_table=False):
+                            iperf_port, with_group_table=False):
         """Verify one host can IPV6 route to another via FAUCET."""
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
@@ -1609,11 +1654,9 @@ dbs:
         for client_host, server_host, server_ip in (
                 (first_host, second_host, second_host_routed_ip.ip),
                 (second_host, first_host, first_host_routed_ip.ip)):
-            iperf_port, _ = faucet_mininet_test_util.find_free_port(
-                self.ports_sock, self._test_name())
             iperf_mbps = self.iperf(
                 client_host, server_host, server_ip, iperf_port, 5)
-            print('%u mbps to %s' % (iperf_mbps, server_ip))
+            error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.verify_ipv6_host_learned_mac(
@@ -1625,7 +1668,7 @@ dbs:
     def verify_ipv6_routing_pair(self, first_host, first_host_ip,
                                  first_host_routed_ip, second_host,
                                  second_host_ip, second_host_routed_ip,
-                                 with_group_table=False):
+                                 iperf_port, with_group_table=False):
         """Verify hosts can route IPv6 to each other via FAUCET."""
         self.setup_ipv6_hosts_addresses(
             first_host, first_host_ip, first_host_routed_ip,
@@ -1633,9 +1676,9 @@ dbs:
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
 
-    def verify_ipv6_routing_mesh(self, with_group_table=False):
+    def verify_ipv6_routing_mesh(self, iperf_port, with_group_table=False):
         """Verify IPv6 routing between hosts and multiple subnets."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
@@ -1647,20 +1690,20 @@ dbs:
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2,
-            with_group_table=with_group_table)
+            iperf_port, with_group_table=with_group_table)
 
     def verify_invalid_bgp_route(self, pattern):
         """Check if we see the pattern in Faucet's log"""
