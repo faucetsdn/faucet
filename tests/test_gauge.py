@@ -17,8 +17,9 @@ import re
 import json
 import random
 import requests
+import couchdb
 
-from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher
+from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher, nsodbc
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
@@ -789,6 +790,47 @@ class GaugeWatcherTest(unittest.TestCase):
                 self.check_instructions(instructions, stat_val)
             else:
                 self.assertEqual(getattr(msg.body[0], stat_name), stat_val)
+
+class GaugeConnectionCouchTest(unittest.TestCase):
+    def setUp(self):
+        self.server = start_server(PretendCouchDB)
+        self.server.db = set()
+        url = 'http://127.0.0.1:{}/'.format(self.server.server_port)
+        credentials = ('couch', '123')
+        self.conn = nsodbc.ConnectionCouch(couchdb.Server(url), credentials)
+
+    def tearDown(self):
+        self.server.shutdown()
+
+    def test_create(self):
+        _, exists = self.conn.create('test_db')
+        self.assertFalse(exists)
+        self.assertTrue('test_db' in self.server.db)
+
+    def test_no_create(self):
+        self.server.db.add('test_db')
+        _, exists = self.conn.create('test_db')
+        self.assertTrue(exists)
+        self.assertEqual(1, len(self.server.db))
+
+    def test_database(self):
+        self.server.db.add('test_db')
+        self.assertEqual(0, len(self.conn.connected_databases()))
+        self.conn.create('test_db')
+        self.assertEqual(1, len(self.conn.connected_databases()))
+
+    def test_delete(self):
+        self.conn.create('test_db')
+        self.assertTrue('test_db' in self.server.db)
+        self.conn.delete('test_db')
+        self.assertFalse('test_db' in self.server.db)
+
+    def test_no_delete(self):
+        try:
+            self.conn.delete('hello')
+            self.fail('Database should not exist, should have thrown exception')
+        except couchdb.http.ResourceNotFound:
+            pass
 
 
 if __name__ == "__main__":
