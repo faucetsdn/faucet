@@ -583,29 +583,28 @@ class Valve(object):
         Returns:
             list: OpenFlow messages, if any.
         """
-        ofmsgs = []
         if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
                 pkt_meta.eth_type == ether.ETH_TYPE_SLOW and
                 pkt_meta.port.lacp):
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
-            if not lacp_pkt:
-                return ofmsgs
-            pkt = valve_packet.lacp_reqreply(
-                pkt_meta.vlan.faucet_mac,
-                pkt_meta.vlan.faucet_mac, pkt_meta.port.number, pkt_meta.port.number,
-                lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
-                lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
-                lacp_pkt.actor_state_defaulted,
-                lacp_pkt.actor_state_expired,
-                lacp_pkt.actor_state_timeout,
-                lacp_pkt.actor_state_collecting,
-                lacp_pkt.actor_state_distributing,
-                lacp_pkt.actor_state_aggregation,
-                lacp_pkt.actor_state_synchronization,
-                lacp_pkt.actor_state_activity)
-            ofmsgs = [valve_of.packetout(pkt_meta.port.number, pkt.data)]
-        return ofmsgs
+            if lacp_pkt:
+                pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
+                pkt = valve_packet.lacp_reqreply(
+                    pkt_meta.vlan.faucet_mac,
+                    pkt_meta.vlan.faucet_mac, pkt_meta.port.number, pkt_meta.port.number,
+                    lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
+                    lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
+                    lacp_pkt.actor_state_defaulted,
+                    lacp_pkt.actor_state_expired,
+                    lacp_pkt.actor_state_timeout,
+                    lacp_pkt.actor_state_collecting,
+                    lacp_pkt.actor_state_distributing,
+                    lacp_pkt.actor_state_aggregation,
+                    lacp_pkt.actor_state_synchronization,
+                    lacp_pkt.actor_state_activity)
+                return [valve_of.packetout(pkt_meta.port.number, pkt.data)]
+        return []
 
     def control_plane_handler(self, pkt_meta):
         """Handle a packet probably destined to FAUCET's route managers.

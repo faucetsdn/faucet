@@ -40,6 +40,7 @@ class Port(Conf):
     hairpin = None
     dyn_learn_ban_count = 0
     dyn_phys_up = False
+    dyn_last_lacp_pkt = None
 
     defaults = {
         'number': None,
