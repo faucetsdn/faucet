@@ -128,19 +128,28 @@ vlans:
         return dps[0]
 
     def connect_dp(self):
+        port_nos = range(1, self.NUM_PORTS + 1)
         self.table.apply_ofmsgs(self.valve.datapath_connect(
-            self.DP_ID, range(1, self.NUM_PORTS + 1)))
+            self.DP_ID, port_nos))
+        for port_no in port_nos:
+            self.set_port_up(port_no)
 
     def apply_new_config(self, config):
         new_dp = self.update_config(config)
         _, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
-    def flap_port(self, port_no):
+    def set_port_down(self, port_no):
         self.table.apply_ofmsgs(self.valve.port_status_handler(
             self.DP_ID, port_no, ofp.OFPPR_DELETE, None))
+
+    def set_port_up(self, port_no):
         self.table.apply_ofmsgs(self.valve.port_status_handler(
             self.DP_ID, port_no, ofp.OFPPR_ADD, None))
+
+    def flap_port(self, port_no):
+        self.set_port_down(port_no)
+        self.set_port_up(port_no)
 
     def learn_hosts(self):
         """Learn some hosts."""
