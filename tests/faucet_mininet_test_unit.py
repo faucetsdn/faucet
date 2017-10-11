@@ -1805,19 +1805,17 @@ vlans:
         #        0... .... = Expired: No
         #    [Actor State Flags: **DCSGSA]
 
-        # FAUCET should have this state (0x3a/58)
-        #
-        #    Partner State: 0x3a, LACP Timeout, Synchronization, Collecting, Distributing
+        # FAUCET should have this state (0x3e/62)
+        #    Actor State: 0x3e, LACP Timeout, Aggregation, Synchronization, Collecting, Distributing
         #        .... ...0 = LACP Activity: Passive
         #        .... ..1. = LACP Timeout: Short Timeout
-        #        .... .0.. = Aggregation: Individual
+        #        .... .1.. = Aggregation: Aggregatable
         #        .... 1... = Synchronization: In Sync
         #        ...1 .... = Collecting: Enabled
         #        ..1. .... = Distributing: Enabled
         #        .0.. .... = Defaulted: No
         #        0... .... = Expired: No
-        #    [Partner State Flags: **DCS*S*]
-
+        #    [Actor State Flags: **DCSGS*]
 
         synced_state_txt = r"""
 details actor lacp pdu:
@@ -1833,14 +1831,16 @@ details partner lacp pdu:
     oper key: 1
     port priority: 255
     port number: 1
-    port state: 58
+    port state: 62
 """.strip()
+        orig_ip = host.IP()
         for setup_cmd in (
                 'ip link set %s down' % host.defaultIntf(),
                 'ip address flush dev %s' % host.defaultIntf(),
-                'ip link add %s address 0e:00:00:00:00:99 type bond mode 802.3ad lacp_rate fast' % bond,
+                ('ip link add %s address 0e:00:00:00:00:99 '
+                 'type bond mode 802.3ad lacp_rate fast miimon 100') % bond,
                 'ip link set dev %s master %s' % (host.defaultIntf(), bond),
-                'ip add add 10.0.0.1/24 dev %s' % bond,
+                'ip add add %s/24 dev %s' % (orig_ip, bond),
                 'ip link set %s up' % bond):
             result = host.cmd(setup_cmd)
             self.assertEquals('', result)
