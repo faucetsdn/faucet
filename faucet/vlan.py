@@ -166,7 +166,7 @@ class VLAN(Conf):
             eth_src, port, port.stack is None, cache_time)
 
     def cached_hosts_on_port(self, port):
-        return [entry for entry in self.dyn_host_cache.values() if entry.port == port]
+        return [entry for entry in list(self.dyn_host_cache.values()) if entry.port == port]
 
     def ipvs(self):
         """Return list of IP versions configured on this VLAN."""
