@@ -210,11 +210,10 @@ class VLAN(Conf):
         return [port for port in self.get_ports() if port.mirror_destination]
 
     def flood_ports(self, configured_ports, exclude_unicast):
-        up_configured_ports = [port for port in configured_ports if port.running()]
         if exclude_unicast:
-            return [port for port in up_configured_ports if port.unicast_flood]
+            return [port for port in configured_ports if port.unicast_flood]
         else:
-            return up_configured_ports
+            return configured_ports
 
     def tagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.tagged, exclude_unicast)
@@ -229,7 +228,7 @@ class VLAN(Conf):
                 (None, self.untagged_flood_ports(False))):
             if ports:
                 pkt = packet_builder(self, vid, *args)
-                flood_ofmsgs = [valve_of.packetout(port.number, pkt.data) for port in ports]
+                flood_ofmsgs = [valve_of.packetout(port.number, pkt.data) for port in ports if port.running()]
                 ofmsgs.extend(flood_ofmsgs)
         return ofmsgs
 
