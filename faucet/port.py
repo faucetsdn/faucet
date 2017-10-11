@@ -123,10 +123,9 @@ class Port(Conf):
 
     def hosts(self, vlans=None):
         """Return all hosts this port has learned (on all or specified VLANs)."""
-        hosts = []
         if vlans is None:
             vlans = self.vlans()
+        hosts = []
         for vlan in vlans:
-            hosts_on_vlan = [entry.eth_src for entry in list(vlan.host_cache.values()) if entry.port == self]
-            hosts.extend(hosts_on_vlan)
+            hosts.extend([entry.eth_src for entry in list(vlan.cached_hosts_on_port(self))])
         return hosts
