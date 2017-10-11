@@ -683,7 +683,7 @@ class Valve(object):
             other_dp_host_cache = other_dp.vlans[vlan_vid].host_cache
             if eth_src in other_dp_host_cache:
                 host = other_dp_host_cache[eth_src]
-                if host.edge:
+                if host.port.stack is None:
                     return other_dp
         return None
 

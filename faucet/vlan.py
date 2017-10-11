@@ -34,11 +34,10 @@ FAUCET_MAC = '0e:00:00:00:00:01'
 
 class HostCacheEntry(object):
 
-    def __init__(self, eth_src, port, edge, now):
+    def __init__(self, eth_src, port, cache_time):
         self.eth_src = eth_src
         self.port = port
-        self.edge = edge
-        self.cache_time = now
+        self.cache_time = cache_time
         self.expired = False
 
 
@@ -163,7 +162,7 @@ class VLAN(Conf):
 
     def add_cache_host(self, eth_src, port, cache_time):
         self.dyn_host_cache[eth_src] = HostCacheEntry(
-            eth_src, port, port.stack is None, cache_time)
+            eth_src, port, cache_time)
 
     def cached_hosts_on_port(self, port):
         return [entry for entry in list(self.dyn_host_cache.values()) if entry.port == port]
