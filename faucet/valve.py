@@ -545,7 +545,13 @@ class Valve(object):
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
             if lacp_pkt:
+                last_lacp_up = pkt_meta.port.dyn_lacp_up
                 pkt_meta.port.dyn_last_lacp_pkt = lacp_pkt
+                pkt_meta.port.dyn_lacp_up = lacp_pkt.actor_state_synchronization
+                pkt_meta.port.dyn_lacp_updated_time = time.time()
+                if last_lacp_up != pkt_meta.port.dyn_lacp_up:
+                    self.logger.info('LACP state change from %s to %s on %s' % (
+                        last_lacp_up, pkt_meta.port.dyn_lacp_up, pkt_meta.port))
                 pkt = valve_packet.lacp_reqreply(
                     pkt_meta.vlan.faucet_mac,
                     pkt_meta.vlan.faucet_mac, pkt_meta.port.number, pkt_meta.port.number,

@@ -41,6 +41,8 @@ class Port(Conf):
     dyn_learn_ban_count = 0
     dyn_phys_up = False
     dyn_last_lacp_pkt = None
+    dyn_lacp_up = None
+    dyn_lacp_updated_time = None
 
     defaults = {
         'number': None,
