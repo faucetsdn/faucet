@@ -19,9 +19,14 @@
 import collections
 import ipaddress
 
-from faucet.conf import Conf
-from faucet.valve_util import btos
-from faucet import valve_of
+try:
+    from conf import Conf
+    from valve_util import btos
+    import valve_of
+except ImportError:
+    from faucet.conf import Conf
+    from faucet.valve_util import btos
+    from faucet import valve_of
 
 
 FAUCET_MAC = '0e:00:00:00:00:01'

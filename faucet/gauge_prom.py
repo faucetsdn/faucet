@@ -18,8 +18,12 @@
 
 from prometheus_client import Gauge as PromGauge # avoid collision
 
-from faucet.gauge_pollers import GaugePortStatsPoller
-from faucet.prom_client import PromClient
+try:
+    from gauge_pollers import GaugePortStatsPoller
+    from prom_client import PromClient
+except ImportError:
+    from faucet.gauge_pollers import GaugePortStatsPoller
+    from faucet.prom_client import PromClient
 
 
 PROM_PREFIX_DELIM = '_'

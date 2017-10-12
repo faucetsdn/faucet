@@ -26,9 +26,14 @@ from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
-from faucet import valve_of
-from faucet import valve_packet
-from faucet.valve_util import btos
+try:
+    import valve_of
+    import valve_packet
+    from valve_util import btos
+except ImportError:
+    from faucet import valve_of
+    from faucet import valve_packet
+    from faucet.valve_util import btos
 
 
 class NextHop(object):

@@ -16,8 +16,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from faucet.conf import Conf
-from faucet.valve_of import meteradd
+try:
+    from conf import Conf
+    from valve_of import meteradd
+except ImportError:
+    from faucet.conf import Conf
+    from faucet.valve_of import meteradd
 
 
 class Meter(Conf):
@@ -25,8 +29,6 @@ class Meter(Conf):
 
     name = None
     entry_msg = None
-    meter_id = None
-    entry = None
 
     defaults = {
         'meter_id': None,

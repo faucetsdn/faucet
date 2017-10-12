@@ -29,11 +29,18 @@ from ryu.controller import dpset
 from ryu.controller import event
 from ryu.controller import ofp_event
 
-from faucet import valve_of
-from faucet.config_parser import watcher_parser
-from faucet.gauge_prom import GaugePrometheusClient
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-from faucet.watcher import watcher_factory
+try:
+    import valve_of
+    from config_parser import watcher_parser
+    from gauge_prom import GaugePrometheusClient
+    from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+    from watcher import watcher_factory
+except ImportError:
+    from faucet import valve_of
+    from faucet.config_parser import watcher_parser
+    from faucet.gauge_prom import GaugePrometheusClient
+    from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+    from faucet.watcher import watcher_factory
 
 
 class EventGaugeReconfigure(event.EventBase):
@@ -169,7 +176,6 @@ class Gauge(app_manager.RyuApp):
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
             self.logger.info('%s up', dpid_log(dp_id))
-            # pylint: disable=no-member
             self.prom_client.dp_status.labels(dp_id=hex(dp_id)).set(1)
             for watcher in list(self.watchers[dp_id].values()):
                 self.logger.info(
@@ -188,7 +194,6 @@ class Gauge(app_manager.RyuApp):
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
             self.logger.info('%s down', dpid_log(dp_id))
-            # pylint: disable=no-member
             self.prom_client.dp_status.labels(dp_id=hex(dp_id)).set(0)
             for watcher in list(self.watchers[dp_id].values()):
                 self.logger.info(

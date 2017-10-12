@@ -20,8 +20,12 @@
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
 
-from faucet import valve_of
-from faucet import valve_packet
+try:
+    import valve_of
+    import valve_packet
+except ImportError:
+    from faucet import valve_of
+    from faucet import valve_packet
 
 
 class ValveFloodManager(object):

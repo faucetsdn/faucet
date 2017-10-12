@@ -20,7 +20,10 @@
 
 from prometheus_client import Counter, Gauge
 
-from faucet.prom_client import PromClient
+try:
+    from prom_client import PromClient
+except ImportError:
+    from faucet.prom_client import PromClient
 
 
 class FaucetMetrics(PromClient):

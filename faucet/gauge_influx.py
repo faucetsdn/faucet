@@ -21,8 +21,13 @@ from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 # pytype: disable=pyi-error
 from requests.exceptions import ConnectionError, ReadTimeout
 
-from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
-from faucet.valve_of import devid_present
+
+try:
+    from gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
+    from valve_of import devid_present
+except ImportError:
+    from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
+    from faucet.valve_of import devid_present
 
 
 class InfluxShipper(object):

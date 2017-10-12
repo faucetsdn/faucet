@@ -21,7 +21,10 @@ import random
 
 from ryu.lib import hub
 
-from faucet.valve_util import dpid_log
+try:
+    from valve_util import dpid_log
+except ImportError:
+    from faucet.valve_util import dpid_log
 
 
 class GaugePoller(object):

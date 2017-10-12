@@ -16,8 +16,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from faucet.gauge_pollers import GaugeFlowTablePoller
-from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+try:
+    from gauge_pollers import GaugeFlowTablePoller
+    from nsodbc import nsodbc_factory, init_switch_db, init_flow_db
+except ImportError:
+    from faucet.gauge_pollers import GaugeFlowTablePoller
+    from faucet.nsodbc import nsodbc_factory, init_switch_db, init_flow_db
 
 
 class GaugeNsODBC(object):

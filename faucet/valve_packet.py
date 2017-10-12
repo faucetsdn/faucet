@@ -24,7 +24,10 @@ from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, 
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
-from faucet.valve_util import btos
+try:
+    from valve_util import btos
+except ImportError:
+    from faucet.valve_util import btos
 
 
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
