@@ -23,7 +23,6 @@ import os
 import random
 import signal
 import sys
-import time
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -133,7 +132,6 @@ class Faucet(app_manager.RyuApp):
         # Start Prometheus
         prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9302'))
         prom_addr = os.getenv('FAUCET_PROMETHEUS_ADDR', '')
-        self.last_metric_update = None
         self.metrics = faucet_metrics.FaucetMetrics()
         self.metrics.start(prom_port, prom_addr)
 
@@ -305,19 +303,18 @@ class Faucet(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def state_expire(self, _):
         """Handle a request expire host state in the controller."""
-        for valve in list(self.valves.values()):
-            valve.state_expire()
+        for dp_id, valve in list(self.valves.items()):
+            flowmods = valve.state_expire()
+            if flowmods:
+                self._send_flow_msgs(dp_id, flowmods)
 
     @set_ev_cls(EventFaucetMetricUpdate, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
-        if self.last_metric_update == time.time():
-            return
         self._bgp.update_metrics()
         for valve in list(self.valves.values()):
             valve.update_metrics(self.metrics)
-        self.last_metric_update = time.time()
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
