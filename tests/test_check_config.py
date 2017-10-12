@@ -28,10 +28,11 @@ SRC_DIR = '../faucet'
 
 class CheckConfigTestCase(unittest.TestCase):
 
-    CHECK_CONFIG = os.path.join(SRC_DIR, 'check_faucet_config.py')
+    CHECK_CONFIG = 'check_faucet_config.py'
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
+        shutil.copy(os.path.join(SRC_DIR, self.CHECK_CONFIG), self.tmpdir)
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
@@ -40,7 +41,7 @@ class CheckConfigTestCase(unittest.TestCase):
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
         with open(conf_file_name, 'w') as conf_file:
             conf_file.write(config)
-        check_cli = ['python3', self.CHECK_CONFIG, conf_file_name]
+        check_cli = ['python3', os.path.join(self.tmpdir, self.CHECK_CONFIG), conf_file_name]
         result_ok = False
         try:
             subprocess.check_output(

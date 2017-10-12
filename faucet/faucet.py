@@ -33,26 +33,15 @@ from ryu.controller import event
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
-try:
-    from config_parser import dp_parser, get_config_for_api
-    from config_parser_util import config_changed
-    from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    from valve import valve_factory, SUPPORTED_HARDWARE
-    import faucet_api
-    import faucet_bgp
-    import faucet_metrics
-    import valve_packet
-    import valve_of
-except ImportError:
-    from faucet.config_parser import dp_parser, get_config_for_api
-    from faucet.config_parser_util import config_changed
-    from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    from faucet.valve import valve_factory, SUPPORTED_HARDWARE
-    from faucet import faucet_api
-    from faucet import faucet_bgp
-    from faucet import faucet_metrics
-    from faucet import valve_packet
-    from faucet import valve_of
+from faucet.config_parser import dp_parser, get_config_for_api
+from faucet.config_parser_util import config_changed
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+from faucet.valve import valve_factory, SUPPORTED_HARDWARE
+from faucet import faucet_api
+from faucet import faucet_bgp
+from faucet import faucet_metrics
+from faucet import valve_packet
+from faucet import valve_of
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -385,8 +374,9 @@ class Faucet(app_manager.RyuApp):
         self.metrics.of_packet_ins.labels(
             dp_id=hex(dp_id)).inc()
         flowmods = valve.rcv_packet(self.valves, pkt_meta)
-        self._send_flow_msgs(dp_id, flowmods)
-        self.send_event('Faucet', EventFaucetMetricUpdate())
+        if flowmods:
+            self._send_flow_msgs(dp_id, flowmods)
+            self.valve.update_metrics(self.metrics)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

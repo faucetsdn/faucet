@@ -16,12 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    from conf import Conf
-    from valve_of import meteradd
-except ImportError:
-    from faucet.conf import Conf
-    from faucet.valve_of import meteradd
+from faucet.conf import Conf
+from faucet.valve_of import meteradd
 
 
 class Meter(Conf):

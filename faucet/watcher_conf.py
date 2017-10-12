@@ -20,10 +20,7 @@
 
 
 from copy import deepcopy
-try:
-    from conf import Conf
-except ImportError:
-    from faucet.conf import Conf
+from faucet.conf import Conf
 
 
 class WatcherConf(Conf):
