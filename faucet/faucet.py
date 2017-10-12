@@ -358,8 +358,12 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, 'packet_in_handler', msg)
         if valve is None:
             return
-
+        if not valve.dp.running:
+            return
         in_port = msg.match['in_port']
+        if valve_of.ignore_port(in_port):
+            return
+
         # eth/VLAN header only
         pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
@@ -367,13 +371,17 @@ class Faucet(app_manager.RyuApp):
             self.logger.info(
                 'unparseable packet from %s port %s', dpid_log(dp_id), in_port)
             return
+        if vlan_vid not in valve.dp.vlans:
+            self.logger.info(
+                'packet for unknown VLAN %u from %s', vlan_vid, dpid_log(dp_id))
+            return
         pkt_meta = valve.parse_rcv_packet(
             in_port, vlan_vid, eth_type, msg.data, pkt, eth_pkt)
 
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
             dp_id=hex(dp_id)).inc()
-        flowmods = valve.rcv_packet(dp_id, self.valves, pkt_meta)
+        flowmods = valve.rcv_packet(self.valves, pkt_meta)
         self._send_flow_msgs(dp_id, flowmods)
         valve.update_metrics(self.metrics)
 
@@ -409,7 +417,7 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, 'features_handler', msg)
         if valve is None:
             return
-        flowmods = valve.switch_features(dp_id, msg)
+        flowmods = valve.switch_features(msg)
         self._send_flow_msgs(dp_id, flowmods, ryu_dp=ryu_dp)
 
     @kill_on_exception(exc_logname)
@@ -419,14 +427,16 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
+        def port_up_valid(port):
+            return port.state == 0 and not valve_of.ignore_port(port.port_no)
+
         dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, '_datapath_connect')
         if valve is None:
             return
         discovered_up_port_nums = [
-            port.port_no for port in list(ryu_dp.ports.values()) if port.state == 0]
-        flowmods = valve.datapath_connect(
-            dp_id, discovered_up_port_nums)
+            port.port_no for port in list(ryu_dp.ports.values()) if port_up_valid(port)]
+        flowmods = valve.datapath_connect(discovered_up_port_nums)
         self._send_flow_msgs(dp_id, flowmods)
         # pylint: disable=no-member
         self.metrics.of_dp_connections.labels(dp_id=hex(dp_id)).inc()
@@ -443,7 +453,7 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, '_datapath_disconnect')
         if valve is None:
             return
-        valve.datapath_disconnect(dp_id)
+        valve.datapath_disconnect()
         # pylint: disable=no-member
         self.metrics.of_dp_disconnections.labels(dp_id=hex(dp_id)).inc()
         self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(0)
@@ -498,13 +508,17 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, 'port_status_handler', msg)
         if valve is None:
             return
+        if not valve.dp.running:
+            return
+        port_no = msg.desc.port_no
+        if valve_of.ignore_port(port_no):
+            return
         ofp = msg.datapath.ofproto
         reason = msg.reason
-        port_no = msg.desc.port_no
         port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN
         port_status = not port_down
         flowmods = valve.port_status_handler(
-            dp_id, port_no, reason, port_status)
+            port_no, reason, port_status)
         self._send_flow_msgs(dp_id, flowmods)
         # pylint: disable=no-member
         self.metrics.port_status.labels(

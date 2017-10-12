@@ -99,6 +99,10 @@ class Conf(object):
             self.dyn_hash = dyn_hash
         return dyn_hash
 
+    def finalize(self):
+        """Configuration parsing marked complete."""
+        self.dyn_finalized = True
+
     def ignore_subconf(self, other):
         """Return True if this config same as other, ignoring sub config."""
         return self.conf_hash(dyn=False, subconf=False) == other.conf_hash(dyn=False, subconf=False)

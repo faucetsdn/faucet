@@ -97,12 +97,11 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
             vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
             port.native_vlan = vlan
             vlan.add_untagged(port)
-        port_tagged_vlans = []
-        for v_identifier in port.tagged_vlans:
-            vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
-            port_tagged_vlans.append(vlan)
-            vlan.add_tagged(port)
+        port_tagged_vlans = [
+            _get_vlan_by_identifier(dp_id, v_identifier, vlans) for v_identifier in port.tagged_vlans]
         port.tagged_vlans = port_tagged_vlans
+        for vlan in port.tagged_vlans:
+            vlan.add_tagged(port)
 
         for vlan in port.vlans():
             _dp_add_vlan(dp, vlan)

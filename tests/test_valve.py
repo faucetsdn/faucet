@@ -129,8 +129,7 @@ vlans:
 
     def connect_dp(self):
         port_nos = range(1, self.NUM_PORTS + 1)
-        self.table.apply_ofmsgs(self.valve.datapath_connect(
-            self.DP_ID, port_nos))
+        self.table.apply_ofmsgs(self.valve.datapath_connect(port_nos))
         for port_no in port_nos:
             self.set_port_up(port_no)
 
@@ -141,11 +140,11 @@ vlans:
 
     def set_port_down(self, port_no):
         self.table.apply_ofmsgs(self.valve.port_status_handler(
-            self.DP_ID, port_no, ofp.OFPPR_DELETE, None))
+            port_no, ofp.OFPPR_DELETE, None))
 
     def set_port_up(self, port_no):
         self.table.apply_ofmsgs(self.valve.port_status_handler(
-            self.DP_ID, port_no, ofp.OFPPR_ADD, None))
+            port_no, ofp.OFPPR_ADD, None))
 
     def flap_port(self, port_no):
         self.set_port_down(port_no)
@@ -177,7 +176,7 @@ vlans:
         pkt_meta = self.valve.parse_rcv_packet(
             port, vid, eth_type, pkt.data, pkt, eth_pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
-            dp_id=self.DP_ID, valves={}, pkt_meta=pkt_meta)
+            valves={}, pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
         resolve_ofmsgs = self.valve.resolve_gateways()
         self.table.apply_ofmsgs(resolve_ofmsgs)
@@ -423,7 +422,7 @@ class ValveTestCase(ValveTestBase):
         match = {'in_port': 2, 'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}
 
         valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
-        ofmsgs = self.valve.port_delete(dp_id=self.DP_ID, port_num=1)
+        ofmsgs = self.valve.port_delete(port_num=1)
         self.table.apply_ofmsgs(ofmsgs)
 
         # Check packets are output to each port on vlan
@@ -454,13 +453,13 @@ class ValveTestCase(ValveTestBase):
 
         match = {'in_port': 1, 'vlan_vid': 0}
         self.table.apply_ofmsgs(
-            self.valve.port_delete(dp_id=self.DP_ID, port_num=1))
+            self.valve.port_delete(port_num=1))
         self.assertFalse(
             self.table.is_output(match, port=2, vid=self.V100),
             msg='Packet output after port delete')
 
         self.table.apply_ofmsgs(
-            self.valve.port_add(dp_id=self.DP_ID, port_num=1))
+            self.valve.port_add(port_num=1))
         self.assertTrue(
             self.table.is_output(match, port=2, vid=self.V100),
             msg='Packet not output after port add')
