@@ -25,6 +25,8 @@ class Meter(Conf):
 
     name = None
     entry_msg = None
+    meter_id = None
+    entry = None
 
     defaults = {
         'meter_id': None,
