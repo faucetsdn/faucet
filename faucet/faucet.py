@@ -132,6 +132,7 @@ class Faucet(app_manager.RyuApp):
         # Start Prometheus
         prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9302'))
         prom_addr = os.getenv('FAUCET_PROMETHEUS_ADDR', '')
+        self.last_metric_update = None
         self.metrics = faucet_metrics.FaucetMetrics()
         self.metrics.start(prom_port, prom_addr)
 
@@ -310,9 +311,12 @@ class Faucet(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
+        if self.last_metric_update == time.time():
+            return
         self._bgp.update_metrics()
         for valve in list(self.valves.values()):
             valve.update_metrics(self.metrics)
+        self.last_metric_update = time.time()
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -384,6 +388,7 @@ class Faucet(app_manager.RyuApp):
             dp_id=hex(dp_id)).inc()
         flowmods = valve.rcv_packet(self.valves, pkt_meta)
         self._send_flow_msgs(dp_id, flowmods)
+        self.send_event('Faucet', EventFaucetMetricUpdate())
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
