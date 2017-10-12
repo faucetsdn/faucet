@@ -181,7 +181,7 @@ vlans:
         resolve_ofmsgs = self.valve.resolve_gateways()
         self.table.apply_ofmsgs(resolve_ofmsgs)
         self.valve.advertise()
-        self.valve.host_expire()
+        self.valve.state_expire()
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
