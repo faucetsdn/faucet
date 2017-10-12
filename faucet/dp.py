@@ -477,14 +477,14 @@ class DP(Conf):
         resolve_acls()
 
         for port in list(self.ports.values()):
-            port.dyn_finalized = True
+            port.finalize()
         for vlan in list(self.vlans.values()):
-            vlan.dyn_finalized = True
+            vlan.finalize()
         for acl in list(self.acls.values()):
-            acl.dyn_finalized = True
+            acl.finalize()
         for router in list(self.routers.values()):
-            router.dyn_finalized = True
-        self.dyn_finalized = True
+            router.finalize()
+        self.finalize()
 
     def get_native_vlan(self, port_num):
         if port_num not in self.ports:

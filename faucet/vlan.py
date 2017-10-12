@@ -213,6 +213,11 @@ class VLAN(Conf):
     def __repr__(self):
         return self.__str__()
 
+    def finalize(self):
+        self.tagged = set(self.tagged)
+        self.untagged = set(self.untagged)
+        super(VLAN, self).finalize()
+
     def get_ports(self):
         """Return list of all ports on this VLAN."""
         return list(self.tagged) + list(self.untagged)
