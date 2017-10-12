@@ -26,17 +26,6 @@ except ImportError:
     from faucet import valve_of
 
 
-class HostCacheEntry(object):
-
-    def __init__(self, eth_src, port, edge, permanent, now, expired=False):
-        self.eth_src = eth_src
-        self.port = port
-        self.edge = edge
-        self.permanent = permanent
-        self.cache_time = now
-        self.expired = expired
-
-
 class ValveHostManager(object):
 
     def __init__(self, logger, eth_src_table, eth_dst_table,
@@ -95,7 +84,7 @@ class ValveHostManager(object):
     def expire_hosts_from_vlan(self, vlan, now):
         expired_hosts = []
         for eth_src, host_cache_entry in list(vlan.host_cache.items()):
-            if not host_cache_entry.permanent:
+            if not host_cache_entry.port.permanent_learn:
                 host_cache_entry_age = now - host_cache_entry.cache_time
                 if host_cache_entry_age > self.learn_timeout:
                     if not self.use_idle_timeout or host_cache_entry.expired:
@@ -182,13 +171,7 @@ class ValveHostManager(object):
                 inst=self.build_port_out_inst(vlan, port, port_number=valve_of.OFP_IN_PORT),
                 idle_timeout=learn_timeout))
 
-        host_cache_entry = HostCacheEntry(
-            eth_src,
-            port,
-            port.stack is None,
-            port.permanent_learn,
-            now)
-        vlan.host_cache[eth_src] = host_cache_entry
+        vlan.add_cache_host(eth_src, port, now)
 
         self.logger.info(
             'learned %s on %s on VLAN %u (%u hosts total)' % (

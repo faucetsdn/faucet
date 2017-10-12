@@ -491,16 +491,11 @@ class DP(Conf):
             return None
 
         port = self.ports[port_num]
-
-        for vlan in list(self.vlans.values()):
-            if port in vlan.untagged:
-                return vlan
-
-        return None
+        return port.native_vlan
 
     def get_tables(self):
         result = {}
-        for table_name, table in list(self.dp.tables.items()):
+        for table_name, table in list(self.tables.items()):
             result[table_name] = table.table_id
         return result
 

@@ -32,6 +32,15 @@ except ImportError:
 FAUCET_MAC = '0e:00:00:00:00:01'
 
 
+class HostCacheEntry(object):
+
+    def __init__(self, eth_src, port, cache_time):
+        self.eth_src = eth_src
+        self.port = port
+        self.cache_time = cache_time
+        self.expired = False
+
+
 class VLAN(Conf):
     """Implement FAUCET configuration for a VLAN."""
 
@@ -151,6 +160,13 @@ class VLAN(Conf):
     def add_untagged(self, port):
         self.untagged.append(port)
 
+    def add_cache_host(self, eth_src, port, cache_time):
+        self.dyn_host_cache[eth_src] = HostCacheEntry(
+            eth_src, port, cache_time)
+
+    def cached_hosts_on_port(self, port):
+        return [entry for entry in list(self.dyn_host_cache.values()) if entry.port == port]
+
     def ipvs(self):
         """Return list of IP versions configured on this VLAN."""
         return self.dyn_ipvs
@@ -228,9 +244,8 @@ class VLAN(Conf):
                 (None, self.untagged_flood_ports(False))):
             if ports:
                 pkt = packet_builder(self, vid, *args)
-                for port in ports:
-                    if port.running():
-                        ofmsgs.append(valve_of.packetout(port.number, pkt.data))
+                flood_ofmsgs = [valve_of.packetout(port.number, pkt.data) for port in ports if port.running()]
+                ofmsgs.extend(flood_ofmsgs)
         return ofmsgs
 
     def port_is_tagged(self, port):
