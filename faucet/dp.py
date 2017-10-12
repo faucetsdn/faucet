@@ -495,7 +495,7 @@ class DP(Conf):
 
     def get_tables(self):
         result = {}
-        for table_name, table in list(self.dp.tables.items()):
+        for table_name, table in list(self.tables.items()):
             result[table_name] = table.table_id
         return result
 
