@@ -21,12 +21,8 @@
 import logging
 import sys
 
-try:
-    import valve
-    from config_parser import dp_parser
-except ImportError:
-    from faucet import valve
-    from faucet.config_parser import dp_parser
+from faucet import valve
+from faucet.config_parser import dp_parser
 
 
 def check_config(conf_files):
