@@ -12,8 +12,6 @@ addons:
       - openvswitch-switch
 cache:
   pip: true
-  directories:
-    - /home/travis/docker/
 env:
   global:
     - FAUCET_TEST_IMG=faucet/tests
@@ -25,8 +23,8 @@ install:
 script:
   - touch ~/.pylintrc
   - cd ./tests
-  - PYTHONPATH="../faucet" ./test_min_pylint.sh
-  - python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
+  - PYTHONPATH=~/faucet ./test_min_pylint.sh
+  - PYTHONPATH=~/faucet python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
   - coveralls || true
   - cd ..
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
