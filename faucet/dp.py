@@ -19,18 +19,11 @@
 import networkx
 from ryu.ofproto import ofproto_v1_3 as ofp
 
-try:
-    from acl import ACL
-    from conf import Conf
-    from port import Port
-    from vlan import VLAN
-    from valve_table import ValveTable, ValveGroupTable
-except ImportError:
-    from faucet.acl import ACL
-    from faucet.conf import Conf
-    from faucet.port import Port
-    from faucet.vlan import VLAN
-    from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet.acl import ACL
+from faucet.conf import Conf
+from faucet.port import Port
+from faucet.vlan import VLAN
+from faucet.valve_table import ValveTable, ValveGroupTable
 
 
 # Documentation generated using documentation_generator.py

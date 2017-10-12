@@ -29,18 +29,11 @@ from ryu.controller import dpset
 from ryu.controller import event
 from ryu.controller import ofp_event
 
-try:
-    import valve_of
-    from config_parser import watcher_parser
-    from gauge_prom import GaugePrometheusClient
-    from valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    from watcher import watcher_factory
-except ImportError:
-    from faucet import valve_of
-    from faucet.config_parser import watcher_parser
-    from faucet.gauge_prom import GaugePrometheusClient
-    from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
-    from faucet.watcher import watcher_factory
+from faucet import valve_of
+from faucet.config_parser import watcher_parser
+from faucet.gauge_prom import GaugePrometheusClient
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+from faucet.watcher import watcher_factory
 
 
 class EventGaugeReconfigure(event.EventBase):
