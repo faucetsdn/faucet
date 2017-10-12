@@ -1,10 +1,35 @@
 {
-  "openconfig-system:openconfig-openflow:system": {
-    "openflow": {
+  "openconfig-system:system": {
+    "aaa": {
+      "authentication": {
+        "admin-user": {
+          "config": {
+            "admin-password": "password"
+          }
+        },
+        "config": {
+          "authentication-method": [
+            "openconfig-aaa-types:LOCAL"
+          ]
+        }
+      }
+    },
+    "clock": {
+      "config": {
+        "timezone-name": "Europe/Stockholm"
+      }
+    },
+    "config": {
+      "domain-name": "google.com",
+      "hostname": "switch_a",
+      "login-banner": "Hello!",
+      "motd-banner": "Hi There!"
+    },
+    "openconfig-openflow:openflow": {
       "agent": {
         "config": {
           "backoff-interval": 5,
-          "datapath-id": "00:01:01:00:00:00:00:01",
+          "datapath-id": "00:16:3e:00:00:00:00:00",
           "failure-mode": "SECURE",
           "inactivity-probe": 10,
           "max-backoff": 10
@@ -35,33 +60,6 @@
           }
         ]
       }
-    }
-  },
-  "openconfig-system:system": {
-    "aaa": {
-      "authentication": {
-        "admin-user": {
-          "config": {
-            "admin-password": "password"
-          }
-        },
-        "config": {
-          "authentication-method": [
-            "openconfig-aaa-types:LOCAL"
-          ]
-        }
-      }
-    },
-    "clock": {
-      "config": {
-        "timezone-name": "Europe/Stockholm"
-      }
-    },
-    "config": {
-      "domain-name": "google.com",
-      "hostname": "a_switch",
-      "login-banner": "Welcome!",
-      "motd-banner": "Gday!"
     }
   }
 }
