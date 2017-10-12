@@ -18,24 +18,14 @@
 
 import collections
 
-try:
-    import config_parser_util
-    from acl import ACL
-    from dp import DP
-    from meter import Meter
-    from port import Port
-    from router import Router
-    from vlan import VLAN
-    from watcher_conf import WatcherConf
-except ImportError:
-    from faucet import config_parser_util
-    from faucet.acl import ACL
-    from faucet.dp import DP
-    from faucet.meter import Meter
-    from faucet.port import Port
-    from faucet.router import Router
-    from faucet.vlan import VLAN
-    from faucet.watcher_conf import WatcherConf
+from faucet import config_parser_util
+from faucet.acl import ACL
+from faucet.dp import DP
+from faucet.meter import Meter
+from faucet.port import Port
+from faucet.router import Router
+from faucet.vlan import VLAN
+from faucet.watcher_conf import WatcherConf
 
 
 V2_TOP_CONFS = (

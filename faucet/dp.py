@@ -19,18 +19,11 @@
 import networkx
 from ryu.ofproto import ofproto_v1_3 as ofp
 
-try:
-    from acl import ACL
-    from conf import Conf
-    from port import Port
-    from vlan import VLAN
-    from valve_table import ValveTable, ValveGroupTable
-except ImportError:
-    from faucet.acl import ACL
-    from faucet.conf import Conf
-    from faucet.port import Port
-    from faucet.vlan import VLAN
-    from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet.acl import ACL
+from faucet.conf import Conf
+from faucet.port import Port
+from faucet.vlan import VLAN
+from faucet.valve_table import ValveTable, ValveGroupTable
 
 
 # Documentation generated using documentation_generator.py
@@ -48,6 +41,7 @@ class DP(Conf):
     name = None
     dp_id = None
     configured = False
+    cookie = None
     priority_offset = None
     low_priority = None
     high_priority = None
@@ -486,21 +480,10 @@ class DP(Conf):
             router.dyn_finalized = True
         self.dyn_finalized = True
 
-    def get_native_vlan(self, port_num):
-        if port_num not in self.ports:
-            return None
-
-        port = self.ports[port_num]
-
-        for vlan in list(self.vlans.values()):
-            if port in vlan.untagged:
-                return vlan
-
-        return None
-
     def get_tables(self):
+        """API call for list of dict of table names/IDs."""
         result = {}
-        for table_name, table in list(self.dp.tables.items()):
+        for table_name, table in list(self.tables.items()):
             result[table_name] = table.table_id
         return result
 

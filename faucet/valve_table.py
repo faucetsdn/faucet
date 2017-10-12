@@ -21,10 +21,7 @@ import struct
 
 from ryu.ofproto import ofproto_v1_3 as ofp
 
-try:
-    import valve_of
-except ImportError:
-    from faucet import valve_of
+from faucet import valve_of
 
 
 class ValveTable(object):
