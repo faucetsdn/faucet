@@ -16,7 +16,6 @@ cache:
     - /home/travis/docker/
 env:
   global:
-    - DOCKER_CACHE_FILE=/home/travis/docker/cache.tar.gz
     - FAUCET_TEST_IMG=faucet/tests
 install:
   - pip3 install -q -r requirements.txt -r test-requirements.txt
@@ -30,12 +29,8 @@ script:
   - python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
   - coveralls || true
   - cd ..
-  - ls -l `dirname ${DOCKER_CACHE_FILE}`
-  - if [[ $(find ${DOCKER_CACHE_FILE} -type f -size +100c 2>/dev/null) ]] ; then gunzip -c ${DOCKER_CACHE_FILE} | docker load; fi
-  - docker images
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
   - docker images
-  - if [[ ${TRAVIS_BRANCH} == "master" ]] && [[ ${TRAVIS_PULL_REQUEST} == "false" ]]; then mkdir -p $(dirname ${DOCKER_CACHE_FILE}) ; docker save ubuntu:latest | gzip > ${DOCKER_CACHE_FILE} ; fi
   - sudo docker run --privileged -t -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}
 deploy:
   provider: pypi
