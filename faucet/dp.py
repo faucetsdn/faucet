@@ -501,5 +501,12 @@ class DP(Conf):
             result['interfaces'] = interface_dict
         return result
 
+    def get_native_vlan(self, port_num):
+        if port_num not in self.ports:
+            return None
+
+        port = self.ports[port_num]
+        return port.native_vlan
+
     def __str__(self):
         return self.name
