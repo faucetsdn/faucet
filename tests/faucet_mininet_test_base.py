@@ -1137,7 +1137,9 @@ dbs:
                     start_port_stats[host], end_port_stats[host], 'tx_bytes', seconds)
                 output(of_rx_mbps, of_tx_mbps)
                 max_of_mbps = float(max(of_rx_mbps, of_tx_mbps))
-                iperf_to_max = iperf_mbps / max_of_mbps
+                iperf_to_max = 0
+                if max_of_mbps:
+                    iperf_to_max = iperf_mbps / max_of_mbps
                 msg = 'iperf: %fmbps, of: %fmbps (%f)' % (
                     iperf_mbps, max_of_mbps, iperf_to_max)
                 output(msg)

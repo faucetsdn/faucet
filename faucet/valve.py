@@ -858,7 +858,7 @@ class Valve(object):
                         lacp_age = now - port.dyn_lacp_updated_time
                         # TODO: LACP timeout configurable.
                         if lacp_age > 10:
-                            self.logger.info('LACP on %s expired', port)
+                            self.logger.info('LACP on %s expired' % port)
                             self.lacp_down(port)
         return []
 
