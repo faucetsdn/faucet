@@ -373,7 +373,7 @@ class Faucet(app_manager.RyuApp):
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
             dp_id=hex(dp_id)).inc()
-        flowmods = valve.rcv_packet(dp_id, self.valves, pkt_meta)
+        flowmods = valve.rcv_packet(self.valves, pkt_meta)
         self._send_flow_msgs(dp_id, flowmods)
         valve.update_metrics(self.metrics)
 
@@ -409,7 +409,7 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, 'features_handler', msg)
         if valve is None:
             return
-        flowmods = valve.switch_features(dp_id, msg)
+        flowmods = valve.switch_features(msg)
         self._send_flow_msgs(dp_id, flowmods, ryu_dp=ryu_dp)
 
     @kill_on_exception(exc_logname)
@@ -425,8 +425,7 @@ class Faucet(app_manager.RyuApp):
             return
         discovered_up_port_nums = [
             port.port_no for port in list(ryu_dp.ports.values()) if port.state == 0]
-        flowmods = valve.datapath_connect(
-            dp_id, discovered_up_port_nums)
+        flowmods = valve.datapath_connect(discovered_up_port_nums)
         self._send_flow_msgs(dp_id, flowmods)
         # pylint: disable=no-member
         self.metrics.of_dp_connections.labels(dp_id=hex(dp_id)).inc()
@@ -443,7 +442,7 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, '_datapath_disconnect')
         if valve is None:
             return
-        valve.datapath_disconnect(dp_id)
+        valve.datapath_disconnect()
         # pylint: disable=no-member
         self.metrics.of_dp_disconnections.labels(dp_id=hex(dp_id)).inc()
         self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(0)
@@ -504,7 +503,7 @@ class Faucet(app_manager.RyuApp):
         port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN
         port_status = not port_down
         flowmods = valve.port_status_handler(
-            dp_id, port_no, reason, port_status)
+            port_no, reason, port_status)
         self._send_flow_msgs(dp_id, flowmods)
         # pylint: disable=no-member
         self.metrics.port_status.labels(
