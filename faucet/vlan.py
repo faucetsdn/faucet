@@ -217,6 +217,10 @@ class VLAN(Conf):
         """Return list of all ports on this VLAN."""
         return list(self.tagged) + list(self.untagged)
 
+    def lacp_ports(self):
+        """Return list of ports with LACP enabled."""
+        return [port for port in self.get_ports() if port.lacp]
+
     def mirrored_ports(self):
         """Return list of ports that are mirrored on this VLAN."""
         return [port for port in self.get_ports() if port.mirror]

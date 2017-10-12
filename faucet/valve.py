@@ -430,6 +430,7 @@ class Valve(object):
 
             port = self.dp.ports[port_num]
             port.dyn_phys_up = True
+            self.lacp_down(port)
             self.logger.info('Port %s up, configuring' % port)
 
             if not port.running():
@@ -507,7 +508,7 @@ class Valve(object):
             if port_num not in self.dp.ports:
                 continue
             port = self.dp.ports[port_num]
-            port.dyn_phys_up = False
+            self.lacp_down(port)
             self.logger.info('%s down' % port)
 
             # TODO: when mirroring an entire port, we install flows
@@ -528,6 +529,10 @@ class Valve(object):
 
     def port_delete(self, port_num):
         return self.ports_delete([port_num])
+
+    def lacp_down(self, port):
+        if port.lacp:
+            port.dyn_lacp_up = 0
 
     def lacp_handler(self, pkt_meta):
         """Handle a LACP packet.
@@ -840,12 +845,22 @@ class Valve(object):
 
         Expire state from the host manager only; the switch does its own flow
         expiry.
+
+        Return:
+            list: OpenFlow messages, if any.
         """
-        if not self.dp.running:
-            return
-        now = time.time()
-        for vlan in list(self.dp.vlans.values()):
-            self.host_manager.expire_hosts_from_vlan(vlan, now)
+        if self.dp.running:
+            now = time.time()
+            for vlan in list(self.dp.vlans.values()):
+                self.host_manager.expire_hosts_from_vlan(vlan, now)
+                for port in vlan.lacp_ports():
+                    if port.dyn_lacp_up:
+                        lacp_age = now - port.dyn_lacp_updated_time
+                        # TODO: LACP timeout configurable.
+                        if lacp_age > 10:
+                            self.logger.info('LACP on %s expired', port)
+                            self.lacp_down(port)
+        return []
 
     def _get_acl_config_changes(self, new_dp):
         """Detect any config changes to ACLs.
