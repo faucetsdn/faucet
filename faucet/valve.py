@@ -829,8 +829,8 @@ class Valve(object):
 
         return ofmsgs
 
-    def host_expire(self):
-        """Expire hosts not recently re/learned.
+    def state_expire(self):
+        """Expire controller caches/state (e.g. hosts learned).
 
         Expire state from the host manager only; the switch does its own flow
         expiry.

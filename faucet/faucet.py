@@ -65,8 +65,8 @@ class EventFaucetResolveGateways(event.EventBase):
     pass
 
 
-class EventFaucetHostExpire(event.EventBase):
-    """Event used to trigger expiration of host state in controller."""
+class EventFaucetStateExpire(event.EventBase):
+    """Event used to trigger expiration of state in controller."""
     pass
 
 
@@ -144,7 +144,7 @@ class Faucet(app_manager.RyuApp):
         # Start all threads
         self._threads = [
             hub.spawn(thread) for thread in (
-                self._gateway_resolve_request, self._host_expire_request,
+                self._gateway_resolve_request, self._state_expire_request,
                 self._metric_update_request, self._advertise_request)]
 
         # Register to API
@@ -281,8 +281,8 @@ class Faucet(app_manager.RyuApp):
     def _gateway_resolve_request(self):
         self._thread_reschedule(EventFaucetResolveGateways(), 2)
 
-    def _host_expire_request(self):
-        self._thread_reschedule(EventFaucetHostExpire(), 5)
+    def _state_expire_request(self):
+        self._thread_reschedule(EventFaucetStateExpire(), 5)
 
     def _metric_update_request(self):
         self._thread_reschedule(EventFaucetMetricUpdate(), 5)
@@ -299,19 +299,20 @@ class Faucet(app_manager.RyuApp):
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
 
-    @set_ev_cls(EventFaucetHostExpire, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
-    def host_expire(self, _):
+    def state_expire(self, _):
         """Handle a request expire host state in the controller."""
         for valve in list(self.valves.values()):
-            valve.host_expire()
-            valve.update_metrics(self.metrics)
+            valve.state_expire()
 
     @set_ev_cls(EventFaucetMetricUpdate, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
         self._bgp.update_metrics()
+        for valve in list(self.valves.values()):
+            valve.update_metrics(self.metrics)
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -383,7 +384,6 @@ class Faucet(app_manager.RyuApp):
             dp_id=hex(dp_id)).inc()
         flowmods = valve.rcv_packet(self.valves, pkt_meta)
         self._send_flow_msgs(dp_id, flowmods)
-        valve.update_metrics(self.metrics)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

@@ -23,6 +23,7 @@ import tempfile
 import shutil
 from fakeoftable import FakeOFTable
 
+from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
 
@@ -33,9 +34,9 @@ from faucet import valve_packet
 
 def build_pkt(pkt):
     layers = []
-    if 'arp_target_ip' in pkt:
+    if 'arp_target_ip' in pkt and 'arp_source_ip' in pkt:
         ethertype = 0x806
-        layers.append(arp.arp(dst_ip=pkt['arp_target_ip']))
+        layers.append(arp.arp(src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip']))
     elif 'ipv6_src' in pkt:
         ethertype = 0x86DD
         layers.append(ipv6.ipv6(src=pkt['ipv6_src'], dst=pkt['ipv6_src']))
@@ -150,8 +151,16 @@ vlans:
         self.set_port_down(port_no)
         self.set_port_up(port_no)
 
+    def arp_for_controller(self):
+        self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': mac.BROADCAST_STR,
+            'arp_source_ip': '10.0.0.1',
+            'arp_destination_ip': '10.0.0.254'})
+
     def learn_hosts(self):
         """Learn some hosts."""
+        self.arp_for_controller()
         self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC})
@@ -181,7 +190,7 @@ vlans:
         resolve_ofmsgs = self.valve.resolve_gateways()
         self.table.apply_ofmsgs(resolve_ofmsgs)
         self.valve.advertise()
-        self.valve.host_expire()
+        self.valve.state_expire()
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
