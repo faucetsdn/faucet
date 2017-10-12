@@ -40,6 +40,7 @@ class DP(Conf):
     running = False
     name = None
     dp_id = None
+    cookie = None
     configured = False
     priority_offset = None
     low_priority = None
