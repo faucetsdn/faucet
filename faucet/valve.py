@@ -241,15 +241,10 @@ class Valve(object):
         ofmsgs.extend(self._add_vlan_flood_flow())
         return ofmsgs
 
-    def _add_vlan(self, vlan, all_port_nums):
+    def _add_vlan(self, vlan):
         """Configure a VLAN."""
         ofmsgs = []
         self.logger.info('Configuring %s' % vlan)
-        for port in vlan.get_ports():
-            all_port_nums.add(port.number)
-        # add mirror destination ports.
-        for port in vlan.mirror_destination_ports():
-            all_port_nums.add(port.number)
         # install eth_dst_table flood ofmsgs
         ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         # add acl rules
@@ -274,7 +269,7 @@ class Valve(object):
     def _add_ports_and_vlans(self, discovered_port_nums):
         """Add all configured and discovered ports and VLANs."""
         ofmsgs = []
-        all_port_nums = set()
+        all_port_nums = set(discovered_port_nums)
 
         # add stack ports
         for port in self.dp.stack_ports:
@@ -282,14 +277,11 @@ class Valve(object):
 
         # add vlan ports
         for vlan in list(self.dp.vlans.values()):
-            ofmsgs.extend(self._add_vlan(vlan, all_port_nums))
-
-        # add any ports discovered but not configured
-        for port_num in discovered_port_nums:
-            if valve_of.ignore_port(port_num):
-                continue
-            if port_num not in all_port_nums:
-                all_port_nums.add(port_num)
+            for port in vlan.get_ports():
+                all_port_nums.add(port.number)
+            for port in vlan.mirror_destination_ports():
+                all_port_nums.add(port.number)
+            ofmsgs.extend(self._add_vlan(vlan))
 
         # now configure all ports
         ofmsgs.extend(self.ports_add(all_port_nums, cold_start=True))
@@ -1054,7 +1046,7 @@ class Valve(object):
                 for vid in changed_vlans:
                     vlan = self.dp.vlans[vid]
                     ofmsgs.extend(self._del_vlan(vlan))
-                    ofmsgs.extend(self._add_vlan(vlan, set()))
+                    ofmsgs.extend(self._add_vlan(vlan))
             if changed_ports:
                 self.logger.info('ports changed/added: %s' % changed_ports)
                 ofmsgs.extend(self.ports_add(changed_ports))

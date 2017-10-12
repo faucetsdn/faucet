@@ -419,12 +419,15 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
+        def port_up_valid(port):
+            return port.state == 0 and not valve_of.ignore_port(port.port_no)
+
         dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, '_datapath_connect')
         if valve is None:
             return
         discovered_up_port_nums = [
-            port.port_no for port in list(ryu_dp.ports.values()) if port.state == 0]
+            port.port_no for port in list(ryu_dp.ports.values()) if port_up_valid(port)]
         flowmods = valve.datapath_connect(discovered_up_port_nums)
         self._send_flow_msgs(dp_id, flowmods)
         # pylint: disable=no-member
