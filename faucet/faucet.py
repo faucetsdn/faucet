@@ -358,14 +358,22 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, 'packet_in_handler', msg)
         if valve is None:
             return
-
+        if not valve.dp.running:
+            return
         in_port = msg.match['in_port']
+        if valve_of.ignore_port(in_port):
+            return
+
         # eth/VLAN header only
         pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
         if pkt is None or vlan_vid is None:
             self.logger.info(
                 'unparseable packet from %s port %s', dpid_log(dp_id), in_port)
+            return
+        if vlan_vid not in valve.dp.vlans:
+            self.logger.info(
+                'packet for unknown VLAN %u from %s', vlan_vid, dpid_log(dp_id))
             return
         pkt_meta = valve.parse_rcv_packet(
             in_port, vlan_vid, eth_type, msg.data, pkt, eth_pkt)
@@ -500,9 +508,13 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, 'port_status_handler', msg)
         if valve is None:
             return
+        if not valve.dp.running:
+            return
+        port_no = msg.desc.port_no
+        if valve_of.ignore_port(port_no):
+            return
         ofp = msg.datapath.ofproto
         reason = msg.reason
-        port_no = msg.desc.port_no
         port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN
         port_status = not port_down
         flowmods = valve.port_status_handler(

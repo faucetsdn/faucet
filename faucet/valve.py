@@ -423,8 +423,6 @@ class Valve(object):
         vlan_table = self.dp.tables['vlan']
 
         for port_num in port_nums:
-            if valve_of.ignore_port(port_num):
-                continue
             if port_num not in self.dp.ports:
                 self.logger.info(
                     'Ignoring port:%u not present in configuration file' % port_num)
@@ -506,8 +504,6 @@ class Valve(object):
         vlans_with_deleted_ports = set()
 
         for port_num in port_nums:
-            if valve_of.ignore_port(port_num):
-                continue
             if port_num not in self.dp.ports:
                 continue
             port = self.dp.ports[port_num]
@@ -585,19 +581,6 @@ class Valve(object):
                     ofmsgs = route_manager.control_plane_handler(pkt_meta)
                     break
         return ofmsgs
-
-    def _known_up_dpid_and_port(self, in_port):
-        """Returns True if datapath and port are known and running.
-
-        Args:
-            in_port (int): port number.
-        Returns:
-            bool: True if datapath and port are known and running.
-        """
-        if (not valve_of.ignore_port(in_port) and
-                self.dp.running and in_port in self.dp.ports):
-            return True
-        return False
 
     def _rate_limit_packet_ins(self):
         """Return True if too many packet ins this second."""
@@ -800,12 +783,6 @@ class Valve(object):
         Return:
             list: OpenFlow messages, if any.
         """
-        if not self._known_up_dpid_and_port(pkt_meta.port.number):
-            return []
-        if not pkt_meta.vlan.vid in self.dp.vlans:
-            self.logger.warning('Packet_in for unexpected VLAN %s' % pkt_meta.vlan.vid)
-            return []
-
         ofmsgs = []
         control_plane_handled = False
         learn_from_pkt = True
