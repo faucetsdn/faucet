@@ -2,7 +2,7 @@ FROM ubuntu:latest
 
 ENV OVSV="2.7.3"
 
-ENV AG="apt-get -qqy --no-install-recommends"
+ENV AG="apt-get -qqy --no-install-recommends -o=Dpkg::Use-Pty=0"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIPDEPS="setuptools wheel virtualenv"
 ENV PIP="pip -q --no-cache-dir install --upgrade"
