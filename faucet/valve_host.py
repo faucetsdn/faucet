@@ -93,16 +93,15 @@ class ValveHostManager(object):
 
     def learn_host_on_vlan_port(self, port, vlan, eth_src, clear=True):
         now = time.time()
-        in_port = port.number
         ofmsgs = []
 
         # Don't relearn same host on same port if recently learned.
         # TODO: this is a good place to detect and react to a loop,
         # if we detect a host moving rapidly between ports.
         if eth_src in vlan.host_cache:
-            host_cache_entry = vlan.host_cache[eth_src]
-            if host_cache_entry.port.number == in_port:
-                cache_age = now - host_cache_entry.cache_time
+            entry = vlan.host_cache[eth_src]
+            if entry.port == port:
+                cache_age = now - entry.cache_time
                 if cache_age < 2:
                     return ofmsgs
 
@@ -144,7 +143,7 @@ class ValveHostManager(object):
 
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
-                in_port=in_port, vlan=vlan, eth_src=eth_src),
+                in_port=port.number, vlan=vlan, eth_src=eth_src),
             priority=(self.host_priority - 1),
             inst=[valve_of.goto_table(self.eth_dst_table)],
             hard_timeout=src_rule_hard_timeout,
@@ -159,7 +158,7 @@ class ValveHostManager(object):
 
         if port.hairpin:
             ofmsgs.append(self.eth_dst_table.flowmod(
-                self.eth_dst_table.match(in_port=in_port, vlan=vlan, eth_dst=eth_src),
+                self.eth_dst_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
                 priority=(self.host_priority + 1),
                 inst=self.build_port_out_inst(vlan, port, port_number=valve_of.OFP_IN_PORT),
                 idle_timeout=learn_timeout))
@@ -178,9 +177,9 @@ class ValveHostManager(object):
         """
         ofmsgs = []
         if eth_src in vlan.host_cache:
-            host_cache_entry = vlan.host_cache[eth_src]
-            if host_cache_entry.port.number == in_port:
-                host_cache_entry.expired = True
+            entry = vlan.host_cache[eth_src]
+            if entry.port.number == in_port:
+                entry.expired = True
                 self.logger.info('expired src_rule for host %s' % eth_src)
         return ofmsgs
 
@@ -191,10 +190,10 @@ class ValveHostManager(object):
         """
         ofmsgs = []
         if eth_dst in vlan.host_cache:
-            host_cache_entry = vlan.host_cache[eth_dst]
-            if not host_cache_entry.expired:
+            entry = vlan.host_cache[eth_dst]
+            if not entry.expired:
                 ofmsgs.extend(self.learn_host_on_vlan_port(
-                    host_cache_entry.port, vlan, eth_dst, False))
+                    entry.port, vlan, eth_dst, False))
                 self.logger.info(
                     'refreshing host %s from vlan %u' % (eth_dst, vlan.vid))
         return ofmsgs
