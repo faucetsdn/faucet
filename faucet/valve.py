@@ -440,7 +440,7 @@ class Valve(object):
                         eth_type=ether.ETH_TYPE_SLOW,
                         eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
                     priority=self.dp.highest_priority))
-                ofmsgs.append(self.lacp_down(port))
+                ofmsgs.extend(self.lacp_down(port))
 
             # Add ACL if any.
             acl_ofmsgs = self._port_add_acl(port)
@@ -506,7 +506,7 @@ class Valve(object):
             # forwarding for that host. They are garbage collected by
             # hard timeout anyway, but it would be good to "relearn them".
             if port.lacp:
-                ofmsgs.append(self.lacp_down(port))
+                ofmsgs.extend(self.lacp_down(port))
             elif not port.mirror_destination:
                 ofmsgs.extend(self._port_delete_flows(port, port.hosts()))
             for vlan in port.vlans():
@@ -524,9 +524,11 @@ class Valve(object):
     def lacp_down(self, port):
         port.dyn_lacp_up = 0
         eth_src_table = self.dp.tables['eth_src']
-        return eth_src_table.flowdrop(
+        ofmsgs = [eth_src_table.flowdrop(
             match=eth_src_table.match(in_port=port.number),
-            priority=self.dp.high_priority)
+            priority=self.dp.high_priority)]
+        ofmsgs.extend(self._port_delete_flows(port, port.hosts()))
+        return ofmsgs
 
     def lacp_handler(self, pkt_meta):
         """Handle a LACP packet.
