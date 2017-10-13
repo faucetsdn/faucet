@@ -1848,6 +1848,7 @@ details partner lacp pdu:
             result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
             result = '\n'.join([line.rstrip() for line in result.splitlines()])
             if re.search(synced_state_txt, result):
+                self.one_ipv4_ping(host, '10.0.0.254', require_host_learned=False, intf=bond)
                 return
             time.sleep(1)
         self.fail('LACP did not synchronize: %s\n\nexpected:\n\n%s' % (

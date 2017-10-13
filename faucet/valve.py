@@ -420,7 +420,6 @@ class Valve(object):
 
             port = self.dp.ports[port_num]
             port.dyn_phys_up = True
-            self.lacp_down(port)
             self.logger.info('Port %s up, configuring' % port)
 
             if not port.running():
@@ -435,12 +434,7 @@ class Valve(object):
 
             # Port has LACP processing enabled.
             if port.lacp:
-                ofmsgs.append(eth_src_table.flowcontroller(
-                    eth_src_table.match(
-                        in_port=port.number,
-                        eth_type=ether.ETH_TYPE_SLOW,
-                        eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
-                    priority=self.dp.highest_priority))
+                ofmsgs.extend(self.lacp_down(port))
 
             # Add ACL if any.
             acl_ofmsgs = self._port_add_acl(port)
@@ -498,7 +492,6 @@ class Valve(object):
             if port_num not in self.dp.ports:
                 continue
             port = self.dp.ports[port_num]
-            self.lacp_down(port)
             self.logger.info('%s down' % port)
 
             # TODO: when mirroring an entire port, we install flows
@@ -506,7 +499,9 @@ class Valve(object):
             # port goes down then those flows will be deleted stopping
             # forwarding for that host. They are garbage collected by
             # hard timeout anyway, but it would be good to "relearn them".
-            if not port.mirror_destination:
+            if port.lacp:
+                ofmsgs.extend(self.lacp_down(port))
+            elif not port.mirror_destination:
                 ofmsgs.extend(self._port_delete_flows(port, port.hosts()))
             for vlan in port.vlans():
                 vlans_with_deleted_ports.add(vlan)
@@ -521,8 +516,28 @@ class Valve(object):
         return self.ports_delete([port_num])
 
     def lacp_down(self, port):
-        if port.lacp:
-            port.dyn_lacp_up = 0
+        port.dyn_lacp_up = 0
+        eth_src_table = self.dp.tables['eth_src']
+        ofmsgs = []
+        ofmsgs.extend(self._port_delete_flows(port, port.hosts()))
+        ofmsgs.append(eth_src_table.flowdrop(
+            match=eth_src_table.match(in_port=port.number),
+            priority=self.dp.high_priority))
+        ofmsgs.append(eth_src_table.flowcontroller(
+            eth_src_table.match(
+                in_port=port.number,
+                eth_type=ether.ETH_TYPE_SLOW,
+                eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
+            priority=self.dp.highest_priority))
+        return ofmsgs
+
+    def lacp_up(self, port):
+        eth_src_table = self.dp.tables['eth_src']
+        ofmsgs = []
+        ofmsgs.extend(eth_src_table.flowdel(
+            match=eth_src_table.match(in_port=port.number),
+            priority=self.dp.high_priority))
+        return ofmsgs
 
     def lacp_handler(self, pkt_meta):
         """Handle a LACP packet.
@@ -534,6 +549,7 @@ class Valve(object):
         Returns:
             list: OpenFlow messages, if any.
         """
+        ofmsgs = []
         if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
                 pkt_meta.eth_type == ether.ETH_TYPE_SLOW and
                 pkt_meta.port.lacp):
@@ -547,6 +563,8 @@ class Valve(object):
                 if last_lacp_up != pkt_meta.port.dyn_lacp_up:
                     self.logger.info('LACP state change from %s to %s on %s' % (
                         last_lacp_up, pkt_meta.port.dyn_lacp_up, pkt_meta.port))
+                    if pkt_meta.port.dyn_lacp_up:
+                        ofmsgs.extend(self.lacp_up(pkt_meta.port))
                 pkt = valve_packet.lacp_reqreply(
                     pkt_meta.vlan.faucet_mac,
                     pkt_meta.vlan.faucet_mac, pkt_meta.port.number, pkt_meta.port.number,
@@ -560,8 +578,8 @@ class Valve(object):
                     lacp_pkt.actor_state_aggregation,
                     lacp_pkt.actor_state_synchronization,
                     lacp_pkt.actor_state_activity)
-                return [valve_of.packetout(pkt_meta.port.number, pkt.data)]
-        return []
+                ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
+        return ofmsgs
 
     def control_plane_handler(self, pkt_meta):
         """Handle a packet probably destined to FAUCET's route managers.
@@ -795,12 +813,15 @@ class Valve(object):
                     pkt_meta.port.number,
                     pkt_meta.vlan.vid))
 
-            lacp_ofmsgs = self.lacp_handler(pkt_meta)
-            if lacp_ofmsgs:
-                learn_from_pkt = False
-                ofmsgs.extend(lacp_ofmsgs)
+            if pkt_meta.port.lacp:
+                lacp_ofmsgs = self.lacp_handler(pkt_meta)
+                if lacp_ofmsgs:
+                    learn_from_pkt = False
+                    ofmsgs.extend(lacp_ofmsgs)
+                if not pkt_meta.port.dyn_lacp_up:
+                    return ofmsgs
 
-            elif self.L3:
+            if self.L3:
                 control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
                 if control_plane_ofmsgs:
                     control_plane_handled = True
@@ -839,6 +860,7 @@ class Valve(object):
         Return:
             list: OpenFlow messages, if any.
         """
+        ofmsgs = []
         if self.dp.running:
             now = time.time()
             for vlan in list(self.dp.vlans.values()):
@@ -849,8 +871,8 @@ class Valve(object):
                         # TODO: LACP timeout configurable.
                         if lacp_age > 10:
                             self.logger.info('LACP on %s expired' % port)
-                            self.lacp_down(port)
-        return []
+                            ofmsgs.extend(self.lacp_down(port))
+        return ofmsgs
 
     def _get_acl_config_changes(self, new_dp):
         """Detect any config changes to ACLs.
