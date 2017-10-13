@@ -952,6 +952,83 @@ class GaugeConnectionCouchTest(unittest.TestCase):
         except couchdb.http.ResourceNotFound:
             pass
 
+class GaugeDatabaseCouchTest(unittest.TestCase):
+    def setUp(self):
+        self.server = start_server(PretendCouchDB)
+        self.server.db = {'test_db'}
+        self.server.docs = dict()
+        url = 'http://127.0.0.1:{}/'.format(self.server.server_port)
+        cdbs = couchdb.Server(url)
+        cdbs.resource.credentials = ('couch', '123') 
+        self.db = nsodbc.DatabaseCouch(cdbs['test_db'])
+
+    def tearDown(self):
+        self.server.shutdown()
+
+    def _check_equal(self, doc_name, original_doc):
+        for key, value in original_doc.items():
+            self.assertEqual(self.server.docs[doc_name][key], value)
+
+    def _setup_update(self):
+        doc = {'key1': 'value1', 'key2':'value2', '_id':'test_id', '_rev': '1'}
+        self.server.docs['test_db/test_id'] = doc
+        new_doc = dict(doc)
+        del new_doc['_rev']
+        return new_doc
+
+    def test_insert_doc(self): 
+        doc = {'key1': 'value1', 'key2':'value2'}
+        doc_id = self.db.insert_update_doc(doc)
+        doc_name = '/'.join(('test_db',doc_id))
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal(doc_name, doc)
+
+    def test_insert_doc_id(self):
+        doc = {'key1': 'value1', 'key2':'value2', '_id':'test_id'}
+        doc_id = self.db.insert_update_doc(doc)
+        doc_name = '/'.join(('test_db',doc_id))
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal(doc_name, doc)
+
+    def test_update_doc(self):
+        new_doc = self._setup_update()
+        new_doc['key1'] = 'modifiedvalue1'
+
+        self.db.insert_update_doc(new_doc, 'key1')
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal('test_db/test_id', new_doc)
+
+    def test_update_doc_new_key(self):
+        new_doc = self._setup_update()
+        new_doc['key3'] = 'value3'
+
+        self.db.insert_update_doc(new_doc, 'key3')
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal('test_db/test_id', new_doc)
+
+    def test_no_update_doc(self):
+        new_doc = self._setup_update()
+        not_updated_doc = dict(new_doc)
+        new_doc['key1'] = 'modifiedvalue1'
+
+        self.db.insert_update_doc(new_doc, 'key2')
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal('test_db/test_id', not_updated_doc)
+        
+    def test_delete_doc(self):
+        doc = {'key1': 'value1', 'key2':'value2', '_id':'test_id', '_rev': '1'}
+        self.server.docs['test_db/test_id'] = doc
+        self.db.delete_doc('test_id')
+        self.assertEqual(0, len(self.server.docs))
+
+    def test_create_view(self):
+        view = {}
+        view['view1'] = {}
+        view['view1']['map'] = 'function(doc) ' + \
+                                '{\n  emit(doc._id, doc);\n}'
+        self.db.create_view('test_view', view)
+        self.assertEqual(1, len(self.server.docs))
+        self.assertEqual(self.server.docs['test_db/_design/test_view']['views'], view)
 
 if __name__ == "__main__":
     unittest.main()
