@@ -849,6 +849,7 @@ class Valve(object):
         Return:
             list: OpenFlow messages, if any.
         """
+        ofmsgs = []
         if self.dp.running:
             now = time.time()
             for vlan in list(self.dp.vlans.values()):
@@ -859,8 +860,8 @@ class Valve(object):
                         # TODO: LACP timeout configurable.
                         if lacp_age > 10:
                             self.logger.info('LACP on %s expired' % port)
-                            self.lacp_down(port)
-        return []
+                            ofmsgs.extend(self.lacp_down(port))
+        return ofmsgs
 
     def _get_acl_config_changes(self, new_dp):
         """Detect any config changes to ACLs.
