@@ -531,6 +531,14 @@ class Valve(object):
             priority=self.dp.highest_priority))
         return ofmsgs
 
+    def lacp_up(self, port):
+        eth_src_table = self.dp.tables['eth_src']
+        ofmsgs = []
+        ofmsgs.extend(eth_src_table.flowdel(
+            match=eth_src_table.match(in_port=port.number),
+            priority=self.dp.high_priority))
+        return ofmsgs
+
     def lacp_handler(self, pkt_meta):
         """Handle a LACP packet.
 
@@ -541,6 +549,7 @@ class Valve(object):
         Returns:
             list: OpenFlow messages, if any.
         """
+        ofmsgs = []
         if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
                 pkt_meta.eth_type == ether.ETH_TYPE_SLOW and
                 pkt_meta.port.lacp):
@@ -554,6 +563,8 @@ class Valve(object):
                 if last_lacp_up != pkt_meta.port.dyn_lacp_up:
                     self.logger.info('LACP state change from %s to %s on %s' % (
                         last_lacp_up, pkt_meta.port.dyn_lacp_up, pkt_meta.port))
+                    if pkt_meta.port.dyn_lacp_up:
+                        ofmsgs.extend(self.lacp_up(pkt_meta.port))
                 pkt = valve_packet.lacp_reqreply(
                     pkt_meta.vlan.faucet_mac,
                     pkt_meta.vlan.faucet_mac, pkt_meta.port.number, pkt_meta.port.number,
@@ -567,8 +578,8 @@ class Valve(object):
                     lacp_pkt.actor_state_aggregation,
                     lacp_pkt.actor_state_synchronization,
                     lacp_pkt.actor_state_activity)
-                return [valve_of.packetout(pkt_meta.port.number, pkt.data)]
-        return []
+                ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
+        return ofmsgs
 
     def control_plane_handler(self, pkt_meta):
         """Handle a packet probably destined to FAUCET's route managers.
@@ -807,10 +818,10 @@ class Valve(object):
                 if lacp_ofmsgs:
                     learn_from_pkt = False
                     ofmsgs.extend(lacp_ofmsgs)
-                else:
+                if not pkt_meta.port.dyn_lacp_up:
                     return ofmsgs
 
-            elif self.L3:
+            if self.L3:
                 control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
                 if control_plane_ofmsgs:
                     control_plane_handled = True
