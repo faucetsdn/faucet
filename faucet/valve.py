@@ -249,10 +249,8 @@ class Valve(object):
     def _del_vlan(self, vlan):
         """Delete a configured VLAN."""
         ofmsgs = []
-        vlan_table = self.dp.tables['vlan']
         for table in self.dp.vlan_match_tables():
-            if table != vlan_table:
-                ofmsgs.extend(table.flowdel(match=table.match(vlan=vlan)))
+            ofmsgs.extend(table.flowdel(match=table.match(vlan=vlan)))
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs
 
@@ -387,15 +385,18 @@ class Valve(object):
                 port, port.native_vlan, self._find_forwarding_table(port.native_vlan), mirror_act))
         return ofmsgs
 
-    def _port_delete_flows(self, port, hosts):
+    def _port_delete_flows_state(self, port):
+        """Delete flows/state for a port."""
         ofmsgs = []
         ofmsgs.extend(self._delete_all_port_match_flows(port))
         ofmsgs.extend(self.dp.tables['eth_dst'].flowdel(out_port=port.number))
         if port.permanent_learn:
             eth_src_table = self.dp.tables['eth_src']
-            for eth_src in hosts:
+            for eth_src in port.hosts():
                 ofmsgs.extend(eth_src_table.flowdel(
                     match=eth_src_table.match(eth_src=eth_src)))
+        for vlan in port.vlans():
+            vlan.expire_cache_hosts_on_port(port)
         return ofmsgs
 
     def ports_add(self, port_nums, cold_start=False):
@@ -502,7 +503,7 @@ class Valve(object):
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
             elif not port.mirror_destination:
-                ofmsgs.extend(self._port_delete_flows(port, port.hosts()))
+                ofmsgs.extend(self._port_delete_flows_state(port))
             for vlan in port.vlans():
                 vlans_with_deleted_ports.add(vlan)
 
@@ -519,7 +520,7 @@ class Valve(object):
         port.dyn_lacp_up = 0
         eth_src_table = self.dp.tables['eth_src']
         ofmsgs = []
-        ofmsgs.extend(self._port_delete_flows(port, port.hosts()))
+        ofmsgs.extend(self._port_delete_flows_state(port))
         ofmsgs.append(eth_src_table.flowdrop(
             match=eth_src_table.match(in_port=port.number),
             priority=self.dp.high_priority))

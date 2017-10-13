@@ -160,7 +160,13 @@ class VLAN(Conf):
             eth_src, port, cache_time)
 
     def cached_hosts_on_port(self, port):
+        """Return all hosts learned on a port."""
         return [entry for entry in list(self.dyn_host_cache.values()) if entry.port == port]
+
+    def expire_cache_hosts_on_port(self, port):
+        """Expire all hosts learned on a port."""
+        for entry in self.cached_hosts_on_port(port):
+            del self.dyn_host_cache[entry.eth_src]
 
     def ipvs(self):
         """Return list of IP versions configured on this VLAN."""
@@ -227,8 +233,7 @@ class VLAN(Conf):
     def flood_ports(self, configured_ports, exclude_unicast):
         if exclude_unicast:
             return [port for port in configured_ports if port.unicast_flood]
-        else:
-            return configured_ports
+        return configured_ports
 
     def tagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.tagged, exclude_unicast)
