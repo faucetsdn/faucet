@@ -434,12 +434,6 @@ class Valve(object):
 
             # Port has LACP processing enabled.
             if port.lacp:
-                ofmsgs.append(eth_src_table.flowcontroller(
-                    eth_src_table.match(
-                        in_port=port.number,
-                        eth_type=ether.ETH_TYPE_SLOW,
-                        eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
-                    priority=self.dp.highest_priority))
                 ofmsgs.extend(self.lacp_down(port))
 
             # Add ACL if any.
@@ -524,10 +518,17 @@ class Valve(object):
     def lacp_down(self, port):
         port.dyn_lacp_up = 0
         eth_src_table = self.dp.tables['eth_src']
-        ofmsgs = [eth_src_table.flowdrop(
-            match=eth_src_table.match(in_port=port.number),
-            priority=self.dp.high_priority)]
+        ofmsgs = []
         ofmsgs.extend(self._port_delete_flows(port, port.hosts()))
+        ofmsgs.append(eth_src_table.flowdrop(
+            match=eth_src_table.match(in_port=port.number),
+            priority=self.dp.high_priority))
+        ofmsgs.append(eth_src_table.flowcontroller(
+            eth_src_table.match(
+                in_port=port.number,
+                eth_type=ether.ETH_TYPE_SLOW,
+                eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
+            priority=self.dp.highest_priority))
         return ofmsgs
 
     def lacp_handler(self, pkt_meta):
@@ -801,10 +802,13 @@ class Valve(object):
                     pkt_meta.port.number,
                     pkt_meta.vlan.vid))
 
-            lacp_ofmsgs = self.lacp_handler(pkt_meta)
-            if lacp_ofmsgs:
-                learn_from_pkt = False
-                ofmsgs.extend(lacp_ofmsgs)
+            if pkt_meta.port.lacp:
+                lacp_ofmsgs = self.lacp_handler(pkt_meta)
+                if lacp_ofmsgs:
+                    learn_from_pkt = False
+                    ofmsgs.extend(lacp_ofmsgs)
+                else:
+                    return ofmsgs
 
             elif self.L3:
                 control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
