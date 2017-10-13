@@ -65,35 +65,31 @@ class ValveHostManager(object):
         return [valve_of.apply_actions(dst_act)]
 
     def delete_host_from_vlan(self, eth_src, vlan):
+        """Delete a host from a VLAN."""
         ofmsgs = []
-        # delete any existing ofmsgs for this vlan/mac combination on the
-        # src mac table
         ofmsgs.extend(self.eth_src_table.flowdel(
             self.eth_src_table.match(vlan=vlan, eth_src=eth_src)))
-
-        # delete any existing ofmsgs for this vlan/mac combination on the dst
-        # mac table
         ofmsgs.extend(self.eth_dst_table.flowdel(
             self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src)))
-
         return ofmsgs
 
     def expire_hosts_from_vlan(self, vlan, now):
-        expired_hosts = []
-        for eth_src, host_cache_entry in list(vlan.host_cache.items()):
-            if not host_cache_entry.port.permanent_learn:
-                host_cache_entry_age = now - host_cache_entry.cache_time
-                if host_cache_entry_age > self.learn_timeout:
-                    if not self.use_idle_timeout or host_cache_entry.expired:
-                        expired_hosts.append(eth_src)
-        if expired_hosts:
-            for eth_src in expired_hosts:
-                del vlan.host_cache[eth_src]
+        """Expire hosts from VLAN cache."""
+        if not self.use_idle_timeout:
+            min_cache_time = now - self.learn_timeout
+            expired_hosts = []
+            for entry in list(vlan.host_cache.values()):
+                if not entry.port.permanent_learn:
+                    if entry.cache_time < min_cache_time or entry.expired:
+                        expired_hosts.append(entry.eth_src)
+            if expired_hosts:
+                for eth_src in expired_hosts:
+                    del vlan.host_cache[eth_src]
+                    self.logger.info(
+                        'expiring host %s from VLAN %u' % (eth_src, vlan.vid))
                 self.logger.info(
-                    'expiring host %s from VLAN %u' % (eth_src, vlan.vid))
-            self.logger.info(
-                '%u recently active hosts on VLAN %u' % (
-                    vlan.hosts_count(), vlan.vid))
+                    '%u recently active hosts on VLAN %u' % (
+                        vlan.hosts_count(), vlan.vid))
 
     def learn_host_on_vlan_port(self, port, vlan, eth_src, clear=True):
         now = time.time()
