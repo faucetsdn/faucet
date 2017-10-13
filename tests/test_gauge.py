@@ -18,6 +18,7 @@ import json
 import random
 import requests
 import couchdb
+import urllib
 
 from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher, nsodbc
 from ryu.ofproto import ofproto_v1_3 as ofproto
@@ -173,25 +174,140 @@ class PretendInflux(BaseHTTPRequestHandler):
 
 class PretendCouchDB(BaseHTTPRequestHandler):
 
-    def _set_up_response(self, code, ctype, body):
+    def _set_up_response(self, code, body):
         self.send_response(code)
-        self.send_header('Content-type', ctype)
+        self.send_header('Content-type', 'application/json')
         encoded = json.dumps(body).encode('utf-8')
         self.send_header('content-length', len(encoded))
         self.end_headers()
         self.wfile.write(encoded)
 
+    def _read_req_body(self):
+        content_length = int(self.headers['content-length'])
+        data = self.rfile.read(content_length)
+        return json.loads(data.decode('utf-8'))
+
+    def _get_rand_id(self, db_name):
+        num = random.randint(0, 100000)
+        return '/'.join((db_name, str(num)))
+
+    def _to_dict_access(self, func):
+        variables = func.split(',')
+
+        for i in range(0, len(variables)):
+            attributes = variables[i].split('.')
+            
+            for j in range(1, len(attributes)):
+                attr = re.search(r'[0-9A-Za-z_]+', attributes[j]).group()
+                new_attr = 'get("' + attr + '")'
+                index = attributes[j].find(attr)
+                attributes[j] = new_attr + attributes[j][index + len(attr):]
+            
+            variables[i] = '.'.join(attributes)
+        return '(doc.get("_id"),' + ','.join(variables) + ')'
+
+    def _run_func_on_docs(self, func):
+        results = []
+        for name, doc in self.server.docs.items():
+            if '_design' in name:
+                continue
+            results.append(eval(func)) 
+        return results
+
+    def _run_view(self, js_str, key):
+        results = []
+
+        emit_funcs = re.findall(r'emit\((.*)\)', js_str)
+        for func in emit_funcs:
+            dict_eq = self._to_dict_access(func)
+            results += self._run_func_on_docs(dict_eq)
+
+        rows = []
+        for row_id, row_key, row_val in results:
+            print('key: {} row_key: {}'.format(key,row_key))
+            if row_key != key:
+                continue
+            row = {'id': row_id, 'key': row_key, 'value': row_val}
+            rows.append(row)
+
+        resp = {'total_rows' : len(rows), 'offset': 0, 'rows': rows}
+        self._set_up_response(200, resp)
+
+
+    def _handle_view(self, path):
+        path = urllib.parse.unquote(path)
+        path = path.split('/')
+        view_query = path[-1].split('?')
+        doc_name = '/'.join(path[:3])
+        view = self.server.docs[doc_name]['views'][view_query[0]]
+        key = re.search(r'key="(.*)"', view_query[1]).group(1)
+
+        self._run_view(view['map'], key)
+
+    def _handle_doc_mod(self, doc_name):
+        doc_data = self._read_req_body()
+        if doc_name in self.server.docs:
+            if '_rev' not in doc_data:
+                error = {'error':'id_conflict', 'reason': 'id conflict'}
+                self._set_up_response(409, error)
+                return
+                
+            doc_data['_rev'] = int(doc_data['_rev']) + 1
+        else: 
+            doc_data['_rev'] = 1
+
+        self.server.docs[doc_name] = doc_data
+        resp = {'id' : doc_data['_id'], 'rev': doc_data['_rev']}
+        self._set_up_response(201, resp)
+
+    def _handle_doc_delete(self, doc_name):
+        doc_name = doc_name.split('?')[0]
+        doc_data = self.server.docs[doc_name]
+        del self.server.docs[doc_name]
+        resp = {'ok': True, 'id': doc_data['_id'], 'rev':int(doc_data['_rev'])+1}
+        self._set_up_response(200, resp)
+
+    def do_GET(self):
+        doc = self.path.strip('/')
+        if '_design' in doc:
+            self._handle_view(doc)
+            return
+
+        if doc in self.server.docs:
+            self._set_up_response(200, self.server.docs[doc])
+        else:
+            self._set_up_response(404, {'error': 'err', 'reason': 'reason'})
+
     def do_PUT(self):
         db_name = self.path.strip('/')
+        index = db_name.find('/')
+        if index > -1:
+            self._handle_doc_mod(db_name)
+            return
+
         if db_name in self.server.db:
             error = {'error':'file_exists', 'reason': 'cant be created'}
-            self._set_up_response(412, 'application/json', error)
+            self._set_up_response(412, error)
 
         else:
             self.server.db.add(db_name)
             resp = {'ok' : True}
-            self._set_up_response(201, 'application/json', resp)
+            self._set_up_response(201, resp)
 
+    def do_POST(self):
+        db_name = self.path.strip('/')
+        doc_name = self._get_rand_id(db_name)
+        while(doc_name in self.server.docs):
+            doc_name = self._get_rand_id(db_name)
+
+        doc_id = doc_name.split('/')[1]
+        doc_data = self._read_req_body()
+        doc_data['_id'] = doc_id
+        doc_data['_rev'] = 1
+        
+        self.server.docs[doc_name] = doc_data
+        resp = {'ok' : True, 'id': doc_id, 'rev': 1}
+        self._set_up_response(201, resp)
 
     def do_HEAD(self):
         db_name = self.path.strip('/')
@@ -201,9 +317,13 @@ class PretendCouchDB(BaseHTTPRequestHandler):
             self.send_response(404)
         self.end_headers()
 
-
     def do_DELETE(self):
         db_name = self.path.strip('/')
+        index = db_name.find('/')
+        if index > -1:
+            self._handle_doc_delete(db_name)
+            return
+
         if db_name in self.server.db:
             self.server.db.remove(db_name)
             self.send_response(200)
@@ -211,7 +331,7 @@ class PretendCouchDB(BaseHTTPRequestHandler):
             return
         
         error = {'error':'not_found', 'reason': 'Database does not exist.'}
-        self._set_up_response(404, 'application/json', error)
+        self._set_up_response(404, error)
             
 class GaugePrometheusTests(unittest.TestCase):
     """Tests the GaugePortStatsPrometheusPoller update method"""
