@@ -420,7 +420,6 @@ class Valve(object):
 
             port = self.dp.ports[port_num]
             port.dyn_phys_up = True
-            self.lacp_down(port)
             self.logger.info('Port %s up, configuring' % port)
 
             if not port.running():
@@ -441,6 +440,7 @@ class Valve(object):
                         eth_type=ether.ETH_TYPE_SLOW,
                         eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
                     priority=self.dp.highest_priority))
+                ofmsgs.append(self.lacp_down(port))
 
             # Add ACL if any.
             acl_ofmsgs = self._port_add_acl(port)
@@ -498,7 +498,6 @@ class Valve(object):
             if port_num not in self.dp.ports:
                 continue
             port = self.dp.ports[port_num]
-            self.lacp_down(port)
             self.logger.info('%s down' % port)
 
             # TODO: when mirroring an entire port, we install flows
@@ -506,7 +505,9 @@ class Valve(object):
             # port goes down then those flows will be deleted stopping
             # forwarding for that host. They are garbage collected by
             # hard timeout anyway, but it would be good to "relearn them".
-            if not port.mirror_destination:
+            if port.lacp:
+                ofmsgs.append(self.lacp_down(port))
+            elif not port.mirror_destination:
                 ofmsgs.extend(self._port_delete_flows(port, port.hosts()))
             for vlan in port.vlans():
                 vlans_with_deleted_ports.add(vlan)
@@ -521,8 +522,11 @@ class Valve(object):
         return self.ports_delete([port_num])
 
     def lacp_down(self, port):
-        if port.lacp:
-            port.dyn_lacp_up = 0
+        port.dyn_lacp_up = 0
+        eth_src_table = self.dp.tables['eth_src']
+        return eth_src_table.flowdrop(
+            match=eth_src_table.match(in_port=port.number),
+            priority=self.dp.high_priority)
 
     def lacp_handler(self, pkt_meta):
         """Handle a LACP packet.
