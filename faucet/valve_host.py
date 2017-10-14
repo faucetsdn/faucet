@@ -38,13 +38,50 @@ class ValveHostManager(object):
         self.low_priority = low_priority
         self.host_priority = host_priority
 
-    def temp_ban_host_learning_on_port(self, port):
+    def ban_rules(self, pkt_meta):
+        """Limit learning to a maximum configured on this port/VLAN.
+
+        Args:
+            pkt_meta: PacketMeta instance.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
+        ofmsgs = []
+
+        port = pkt_meta.port
+        eth_src = pkt_meta.eth_src
+        vlan = pkt_meta.vlan
+
+        if eth_src not in vlan.host_cache:
+            if port.max_hosts:
+                hosts = port.hosts()
+                if len(hosts) == port.max_hosts:
+                    ofmsgs.append(self._temp_ban_host_learning_on_port(port))
+                    port.dyn_learn_ban_count += 1
+                    self.logger.info(
+                        'max hosts %u reached on %s, '
+                        'temporarily banning learning on this port, '
+                        'and not learning %s' % (
+                            port.max_hosts, port, eth_src))
+            if vlan.max_hosts:
+                hosts_count = vlan.hosts_count()
+                if hosts_count == vlan.max_hosts:
+                    ofmsgs.append(self._temp_ban_host_learning_on_vlan(vlan))
+                    vlan.dyn_learn_ban_count += 1
+                    self.logger.info(
+                        'max hosts %u reached on VLAN %u, '
+                        'temporarily banning learning on this vlan, '
+                        'and not learning %s on %s' % (
+                            vlan.max_hosts, vlan.vid, eth_src, port))
+        return ofmsgs
+
+    def _temp_ban_host_learning_on_port(self, port):
         return self.eth_src_table.flowdrop(
             self.eth_src_table.match(in_port=port.number),
             priority=(self.low_priority + 1),
             hard_timeout=self.learn_ban_timeout)
 
-    def temp_ban_host_learning_on_vlan(self, vlan):
+    def _temp_ban_host_learning_on_vlan(self, vlan):
         return self.eth_src_table.flowdrop(
             self.eth_src_table.match(vlan=vlan),
             priority=(self.low_priority + 1),

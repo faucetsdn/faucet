@@ -702,57 +702,6 @@ class Valve(object):
         return valve_packet.PacketMeta(
             data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
 
-    def _port_learn_ban_rules(self, pkt_meta):
-        """Limit learning to a maximum configured on this port.
-
-        Args:
-            pkt_meta: PacketMeta instance.
-        Returns:
-            list: OpenFlow messages, if any.
-        """
-        ofmsgs = []
-
-        port = pkt_meta.port
-        eth_src = pkt_meta.eth_src
-        hosts = port.hosts()
-
-        if len(hosts) == port.max_hosts:
-            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_port(
-                port))
-            port.dyn_learn_ban_count += 1
-            self.logger.info(
-                'max hosts %u reached on port %u, '
-                'temporarily banning learning on this port, '
-                'and not learning %s' % (
-                    port.max_hosts, port.number, eth_src))
-            return ofmsgs
-        return ofmsgs
-
-    def _vlan_learn_ban_rules(self, pkt_meta):
-        """Limit learning to a maximum configured on this VLAN.
-
-        Args:
-            pkt_meta: PacketMeta instance.
-        Returns:
-            list: OpenFlow messages, if any.
-        """
-        ofmsgs = []
-        vlan = pkt_meta.vlan
-        eth_src = pkt_meta.eth_src
-        hosts_count = vlan.hosts_count()
-        if (vlan.max_hosts is not None and
-                hosts_count == vlan.max_hosts and
-                eth_src not in vlan.host_cache):
-            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
-                vlan))
-            vlan.dyn_learn_ban_count += 1
-            self.logger.info(
-                'max hosts %u reached on vlan %u, '
-                'temporarily banning learning on this vlan, '
-                'and not learning %s' % (
-                    vlan.max_hosts, vlan.vid, eth_src))
-        return ofmsgs
-
     def update_config_metrics(self, metrics):
         """Update gauge/metrics for configuration.
 
@@ -838,14 +787,9 @@ class Valve(object):
         if self._rate_limit_packet_ins():
             return ofmsgs
 
-        ban_port_rules = self._port_learn_ban_rules(pkt_meta)
-        if ban_port_rules:
-            ofmsgs.extend(ban_port_rules)
-            return ofmsgs
-
-        ban_vlan_rules = self._vlan_learn_ban_rules(pkt_meta)
-        if ban_vlan_rules:
-            ofmsgs.extend(ban_vlan_rules)
+        ban_rules = self.host_manager.ban_rules(pkt_meta)
+        if ban_rules:
+            ofmsgs.extend(ban_rules)
             return ofmsgs
 
         if learn_from_pkt:
@@ -1111,7 +1055,6 @@ class Valve(object):
         for faucet_vip in faucet_vips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
             ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
-            self.L3 = True
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
