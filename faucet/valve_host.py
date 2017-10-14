@@ -51,6 +51,7 @@ class ValveHostManager(object):
             hard_timeout=self.learn_ban_timeout)
 
     def build_port_out_inst(self, vlan, port, port_number=None):
+        """Return instructions to output a packet on a given port."""
         if port_number is None:
             port_number = port.number
         dst_act = []
@@ -76,20 +77,11 @@ class ValveHostManager(object):
     def expire_hosts_from_vlan(self, vlan, now):
         """Expire hosts from VLAN cache."""
         if not self.use_idle_timeout:
-            min_cache_time = now - self.learn_timeout
-            expired_hosts = []
-            for entry in list(vlan.host_cache.values()):
-                if not entry.port.permanent_learn:
-                    if entry.cache_time < min_cache_time or entry.expired:
-                        expired_hosts.append(entry.eth_src)
+            expired_hosts = vlan.expire_cache_hosts(now, self.learn_timeout)
             if expired_hosts:
-                for eth_src in expired_hosts:
-                    del vlan.host_cache[eth_src]
-                    self.logger.info(
-                        'expiring host %s from VLAN %u' % (eth_src, vlan.vid))
                 self.logger.info(
-                    '%u recently active hosts on VLAN %u' % (
-                        vlan.hosts_count(), vlan.vid))
+                    '%u recently active hosts on VLAN %u, expired %s' % (
+                        vlan.hosts_count(), vlan.vid, expired_hosts))
 
     def learn_host_timeouts(self, port):
         """Calculate flow timeouts for learning on a port."""
@@ -177,12 +169,11 @@ class ValveHostManager(object):
         # Don't relearn same host on same port if recently learned.
         # TODO: this is a good place to detect and react to a loop,
         # if we detect a host moving rapidly between ports.
-        if eth_src in vlan.host_cache:
-            entry = vlan.host_cache[eth_src]
-            if port == entry.port:
-                cache_age = now - entry.cache_time
-                if cache_age < 2:
-                    return ofmsgs
+        entry = vlan.cached_host_on_port(eth_src, port)
+        if entry is not None:
+            cache_age = now - entry.cache_time
+            if cache_age < 2:
+                return ofmsgs
 
         (src_rule_idle_timeout,
          src_rule_hard_timeout,
@@ -206,11 +197,10 @@ class ValveHostManager(object):
         receiving but not sending. We mark just mark the host as expired
         """
         ofmsgs = []
-        if eth_src in vlan.host_cache:
-            entry = vlan.host_cache[eth_src]
-            if port == entry.port:
-                entry.expired = True
-                self.logger.info('expired src_rule for host %s' % eth_src)
+        entry = vlan.cached_host_on_port(eth_src, port)
+        if entry is not None:
+            entry.expired = True
+            self.logger.info('expired src_rule for host %s' % eth_src)
         return ofmsgs
 
     def dst_rule_expire(self, vlan, eth_dst):

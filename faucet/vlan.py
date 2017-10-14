@@ -163,10 +163,33 @@ class VLAN(Conf):
         """Return all hosts learned on a port."""
         return [entry for entry in list(self.dyn_host_cache.values()) if port == entry.port]
 
+    def cached_host_on_port(self, eth_src, port):
+        """Return host cache entry if host in cache and on specified port."""
+        if eth_src in self.dyn_host_cache:
+            entry = self.dyn_host_cache[eth_src]
+            if port == entry.port:
+                return entry
+        return None
+
     def clear_cache_hosts_on_port(self, port):
         """Clear all hosts learned on a port."""
         for entry in self.cached_hosts_on_port(port):
             del self.dyn_host_cache[entry.eth_src]
+
+    def expire_cache_hosts(self, now, learn_timeout):
+        """Expire stale host entries."""
+        min_cache_time = now - learn_timeout
+
+        def entry_expired(entry):
+            return (not entry.port.permanent_learn and (
+                entry.cache_time < min_cache_time or entry.expired))
+
+        expired_hosts = [
+            entry.eth_src for entry in list(self.host_cache.values()) if entry_expired(entry)]
+        if expired_hosts:
+            for eth_src in expired_hosts:
+                del self.host_cache[eth_src]
+        return expired_hosts
 
     def ipvs(self):
         """Return list of IP versions configured on this VLAN."""
