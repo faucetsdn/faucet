@@ -507,5 +507,26 @@ class DP(Conf):
             result['interfaces'] = interface_dict
         return result
 
+    def get_config_dict(self):
+        """Render configuration as a dict, suitable for returning via API call.
+
+        Returns:
+            dict: current configuration.
+        """
+        dps_dict = {
+            self.name: self.to_conf()
+            }
+        vlans_dict = {}
+        for vlan in list(self.vlans.values()):
+            vlans_dict[vlan.name] = vlan.to_conf()
+        acls_dict = {}
+        for acl_id, acl in list(self.acls.items()):
+            acls_dict[acl_id] = acl.to_conf()
+        return {
+            'dps': dps_dict,
+            'vlans': vlans_dict,
+            'acls': acls_dict,
+            }
+
     def __str__(self):
         return self.name

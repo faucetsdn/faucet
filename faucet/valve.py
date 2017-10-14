@@ -97,11 +97,18 @@ class Valve(object):
             self.dp.tables['flood'], self.dp.low_priority,
             self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root,
             self.dp.group_table, self.dp.groups)
-        self.host_manager = valve_host.ValveHostManager(
-            self.logger, self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
-            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.low_priority, self.dp.highest_priority,
-            self.dp.use_idle_timeout)
+        if self.dp.use_idle_timeout:
+            self.host_manager = valve_host.ValveHostFlowRemovedManager(
+                self.logger, self.dp.ports, self.dp.vlans,
+                self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
+                self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
+                self.dp.low_priority, self.dp.highest_priority)
+        else:
+            self.host_manager = valve_host.ValveHostManager(
+                self.logger, self.dp.ports, self.dp.vlans,
+                self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
+                self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
+                self.dp.low_priority, self.dp.highest_priority)
 
     def switch_features(self, _msg):
         """Send configuration flows necessary for the switch implementation.
@@ -1132,55 +1139,11 @@ class Valve(object):
                 ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
-    def get_config_dict(self):
-        """Render configuration as a dict, suitable for returning via API call.
-
-        Returns:
-            dict: current configuration.
-        """
-        dps_dict = {
-            self.dp.name: self.dp.to_conf()
-            }
-        vlans_dict = {}
-        for vlan in list(self.dp.vlans.values()):
-            vlans_dict[vlan.name] = vlan.to_conf()
-        acls_dict = {}
-        for acl_id, acl in list(self.dp.acls.items()):
-            acls_dict[acl_id] = acl.to_conf()
-        return {
-            'dps': dps_dict,
-            'vlans': vlans_dict,
-            'acls': acls_dict,
-            }
-
     def flow_timeout(self, table_id, match):
-        ofmsgs = []
-        if table_id in (
-                self.dp.tables['eth_src'].table_id,
-                self.dp.tables['eth_dst'].table_id):
-            in_port = None
-            eth_src = None
-            eth_dst = None
-            vid = None
-            for field, value in list(match.items()):
-                if field == 'in_port':
-                    in_port = value
-                elif field == 'eth_src':
-                    eth_src = value
-                elif field == 'eth_dst':
-                    eth_dst = value
-                elif field == 'vlan_vid':
-                    vid = value & ~ofp.OFPVID_PRESENT
-            if vid:
-                vlan = self.dp.vlans[vid]
-                if eth_src and in_port:
-                    port = self.dp.ports[in_port]
-                    ofmsgs.extend(
-                        self.host_manager.src_rule_expire(vlan, port, eth_src))
-                elif eth_dst:
-                    ofmsgs.extend(
-                        self.host_manager.dst_rule_expire(vlan, eth_dst))
-        return ofmsgs
+        return self.host_manager(table_id, match)
+
+    def get_config_dict(self):
+        return self.dp.config_dict()
 
 
 class TfmValve(Valve):
