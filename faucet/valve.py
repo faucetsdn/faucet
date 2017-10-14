@@ -1155,30 +1155,31 @@ class Valve(object):
 
     def flow_timeout(self, table_id, match):
         ofmsgs = []
-        if table_id in (self.dp.tables['eth_src'].table_id, self.dp.tables['eth_dst'].table_id):
+        if table_id in (
+                self.dp.tables['eth_src'].table_id,
+                self.dp.tables['eth_dst'].table_id):
             in_port = None
             eth_src = None
             eth_dst = None
             vid = None
-            match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
-            for field in match_oxm_fields:
-                if isinstance(field, dict):
-                    value = field['OXMTlv']
-                    if value['field'] == 'eth_src':
-                        eth_src = value['value']
-                    if value['field'] == 'eth_dst':
-                        eth_dst = value['value']
-                    if value['field'] == 'vlan_vid':
-                        vid = value['value'] & ~ofp.OFPVID_PRESENT
-                    if value['field'] == 'in_port':
-                        in_port = value['value']
-            if eth_src and vid and in_port:
+            for field, value in list(match.items()):
+                if field == 'in_port':
+                    in_port = value
+                elif field == 'eth_src':
+                    eth_src = value
+                elif field == 'eth_dst':
+                    eth_dst = value
+                elif field == 'vlan_vid':
+                    vid = value & ~ofp.OFPVID_PRESENT
+            if vid:
                 vlan = self.dp.vlans[vid]
-                ofmsgs.extend(
-                    self.host_manager.src_rule_expire(vlan, in_port, eth_src))
-            elif eth_dst and vid:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(self.host_manager.dst_rule_expire(vlan, eth_dst))
+                if eth_src and in_port:
+                    port = self.dp.ports[in_port]
+                    ofmsgs.extend(
+                        self.host_manager.src_rule_expire(vlan, port, eth_src))
+                elif eth_dst:
+                    ofmsgs.extend(
+                        self.host_manager.dst_rule_expire(vlan, eth_dst))
         return ofmsgs
 
 

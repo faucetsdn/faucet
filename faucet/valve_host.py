@@ -100,7 +100,7 @@ class ValveHostManager(object):
         # if we detect a host moving rapidly between ports.
         if eth_src in vlan.host_cache:
             entry = vlan.host_cache[eth_src]
-            if entry.port == port:
+            if port == entry.port:
                 cache_age = now - entry.cache_time
                 if cache_age < 2:
                     return ofmsgs
@@ -171,14 +171,14 @@ class ValveHostManager(object):
 
         return ofmsgs
 
-    def src_rule_expire(self, vlan, in_port, eth_src):
+    def src_rule_expire(self, vlan, port, eth_src):
         """When a src rule expires, the host is probably inactive or active in
         receiving but not sending. We mark just mark the host as expired
         """
         ofmsgs = []
         if eth_src in vlan.host_cache:
             entry = vlan.host_cache[eth_src]
-            if entry.port.number == in_port:
+            if port == entry.port:
                 entry.expired = True
                 self.logger.info('expired src_rule for host %s' % eth_src)
         return ofmsgs
