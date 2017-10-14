@@ -396,7 +396,7 @@ class Valve(object):
                 ofmsgs.extend(eth_src_table.flowdel(
                     match=eth_src_table.match(eth_src=eth_src)))
         for vlan in port.vlans():
-            vlan.expire_cache_hosts_on_port(port)
+            vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
 
     def ports_add(self, port_nums, cold_start=False):
@@ -670,7 +670,7 @@ class Valve(object):
             self.logger.info(
                 'host learned via stack port to %s' % edge_dp.name)
 
-        ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
+        ofmsgs.extend(self.host_manager.learn_host_on_vlan_ports(
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
         return ofmsgs
