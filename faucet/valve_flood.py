@@ -59,26 +59,12 @@ class ValveFloodManager(object):
             elif peer_root_distance < my_root_distance:
                 self.towards_root_stack_ports.append(port)
 
-    def _build_flood_port_outputs(self, ports, in_port):
-        flood_acts = []
-        for port in ports:
-            if port == in_port:
-                if port.hairpin:
-                    flood_acts.append(valve_of.output_in_port())
-            else:
-                flood_acts.append(valve_of.output_port(port.number))
-        return flood_acts
-
     def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port):
         flood_acts = []
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
-        flood_acts.extend(self._build_flood_port_outputs(
-            tagged_ports, in_port))
+        flood_acts.extend(valve_of.flood_tagged_port_outputs(tagged_ports, in_port))
         untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
-        if untagged_ports:
-            flood_acts.append(valve_of.pop_vlan())
-            flood_acts.extend(self._build_flood_port_outputs(
-                untagged_ports, in_port))
+        flood_acts.extend(valve_of.flood_untagged_port_outputs(untagged_ports, in_port))
         return flood_acts
 
     def _port_is_dp_local(self, port):
@@ -144,9 +130,9 @@ class ValveFloodManager(object):
         if self.stack is None:
             return local_flood_actions
 
-        away_flood_actions = self._build_flood_port_outputs(
+        away_flood_actions = valve_of.flood_tagged_port_outputs(
             self.away_from_root_stack_ports, in_port)
-        toward_flood_actions = self._build_flood_port_outputs(
+        toward_flood_actions = valve_of.flood_tagged_port_outputs(
             self.towards_root_stack_ports, in_port)
         flood_all_except_self = away_flood_actions + local_flood_actions
 
