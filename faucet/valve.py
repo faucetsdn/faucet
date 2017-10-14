@@ -428,7 +428,7 @@ class Valve(object):
 
             port = self.dp.ports[port_num]
             port.dyn_phys_up = True
-            self.logger.info('Port %s up, configuring' % port)
+            self.logger.info('%s up, configuring' % port)
 
             if not port.running():
                 continue
@@ -1055,6 +1055,7 @@ class Valve(object):
         for faucet_vip in faucet_vips:
             assert self.dp.stack is None, 'stacking + routing not yet supported'
             ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
+            self.L3 = True
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):
