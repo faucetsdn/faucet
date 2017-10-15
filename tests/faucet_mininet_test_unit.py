@@ -806,7 +806,7 @@ class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
 
     N_TAGGED = 1
     N_UNTAGGED = 3
-    LINKS_PER_HOSTS = 1
+    LINKS_PER_HOST = 1
     CONFIG_GLOBAL = """
 vlans:
     100:
