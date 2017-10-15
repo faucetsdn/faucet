@@ -68,8 +68,8 @@ class GaugeNsODBC(object):
 class GaugeFlowTableDBLogger(GaugeFlowTablePoller, GaugeNsODBC):
     """Periodically dumps the current datapath flow table to ODBC DB."""
 
-    def __init__(self, conf, logname):
-        super(GaugeFlowTableDBLogger, self).__init__(conf, logname)
+    def __init__(self, conf, logname, prom_client):
+        super(GaugeFlowTableDBLogger, self).__init__(conf, logname, prom_client)
         self.setup()
 
     def update(self, rcv_time, dp_id, msg):

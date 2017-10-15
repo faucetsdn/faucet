@@ -6,4 +6,4 @@ gnmi_set \
   -ca $HOME/certs/ca.crt \
   -target_name server.com \
   -alsologtostderr \
-  -config target_configs/typical_ofsw_config.json
+  -json_update target_configs/typical_ofsw_config.json

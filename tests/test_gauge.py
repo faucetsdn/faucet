@@ -16,9 +16,11 @@ import os
 import re
 import json
 import random
+import urllib
 import requests
+import couchdb
 
-from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher
+from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher, nsodbc
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
@@ -39,10 +41,10 @@ def create_mock_datapath(num_ports):
     type(datapath).name = dp_name
     return datapath
 
-def start_server():
+def start_server(handler):
     """ Starts a HTTPServer and runs it as a daemon thread """
 
-    server = HTTPServer(('', 0), PretendInflux)
+    server = HTTPServer(('', 0), handler)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
     server_thread.start()
@@ -170,6 +172,203 @@ class PretendInflux(BaseHTTPRequestHandler):
         """ Silence the handler """
         return
 
+class PretendCouchDB(BaseHTTPRequestHandler):
+    """An HTTP Handler that receives CouchDB messages"""
+
+    def _set_up_response(self, code, body):
+        """
+        Set up response message.
+        The code is the HTTP response code.
+        The body should be a dict which will be turned into json_dict
+        """
+        self.send_response(code)
+        self.send_header('Content-type', 'application/json')
+        encoded = json.dumps(body).encode('utf-8')
+        self.send_header('content-length', len(encoded))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def _read_req_body(self):
+        """Decode the request message body into a dict."""
+        content_length = int(self.headers['content-length'])
+        data = self.rfile.read(content_length)
+        return json.loads(data.decode('utf-8'))
+
+    def _get_rand_id(self, db_name):
+        """Generate a random _id for a doc"""
+        num = random.randint(0, 100000)
+        return '/'.join((db_name, str(num)))
+
+    def _convert_to_get(self, func):
+        """
+        Convert the javascript attribute accesses to get().
+        For example the following: 'doc._id, doc.key1'
+        This would be converted to 'doc.get("_id"), doc.get("key1")'
+        """
+        variables = func.split(',')
+
+        for i in range(0, len(variables)):
+            #separate each attribute access
+            attributes = variables[i].split('.')
+
+            for j in range(1, len(attributes)):
+                #only grab the attribute name
+                attr = re.search(r'[0-9A-Za-z_]+', attributes[j]).group()
+                new_attr = 'get("' + attr + '")'
+                #find the original place of the attribute
+                index = attributes[j].find(attr)
+                #replace the attribute with the new one
+                attributes[j] = new_attr + attributes[j][index + len(attr):]
+
+            variables[i] = '.'.join(attributes)
+        return '(doc.get("_id"),' + ','.join(variables) + ')'
+
+    def _run_func_on_docs(self, func):
+        """
+        Run the emit function on the non-view docs. This
+        should produce a tuple consisting of the doc id,
+        the key for the view, and the value for the view.
+        """
+        results = []
+        for name, doc in self.server.docs.items():
+            if '_design' in name:
+                continue
+            results.append(eval(func))
+        return results
+
+    def _run_view(self, js_str, key):
+        """
+        Extract the emit function(s) from the Javascript function
+        in the view string. Only send rows where the key matches
+        the provided key.
+        """
+        results = []
+        emit_funcs = re.findall(r'emit\((.*)\)', js_str)
+        for func in emit_funcs:
+            converted_func = self._convert_to_get(func)
+            results += self._run_func_on_docs(converted_func)
+
+        rows = []
+        for row_id, row_key, row_val in results:
+            if row_key != key:
+                continue
+            row = {'id': row_id, 'key': row_key, 'value': row_val}
+            rows.append(row)
+
+        resp = {'total_rows' : len(rows), 'offset': 0, 'rows': rows}
+        self._set_up_response(200, resp)
+
+
+    def _handle_view(self, path):
+        """
+        Run the specified view on the docs. Only return rows that
+        match the key provided in the path.
+        """
+        path = urllib.parse.unquote(path)
+        path = path.split('/')
+        view_query = path[-1].split('?')
+        doc_name = '/'.join(path[:3])
+        view = self.server.docs[doc_name]['views'][view_query[0]]
+        key = re.search(r'key="(.*)"', view_query[1]).group(1)
+
+        self._run_view(view['map'], key)
+
+    def _handle_doc_mod(self, doc_name):
+        """ Modify an existing doc or create a new doc """
+        doc_data = self._read_req_body()
+        if doc_name in self.server.docs:
+            if '_rev' not in doc_data:
+                error = {'error':'id_conflict', 'reason': 'id conflict'}
+                self._set_up_response(409, error)
+                return
+
+            doc_data['_rev'] = int(doc_data['_rev']) + 1
+        else:
+            doc_data['_rev'] = 1
+
+        self.server.docs[doc_name] = doc_data
+        resp = {'id' : doc_data['_id'], 'rev': doc_data['_rev']}
+        self._set_up_response(201, resp)
+
+    def _handle_doc_delete(self, doc_name):
+        """ Remove a specified doc """
+        doc_name = doc_name.split('?')[0]
+        doc_data = self.server.docs[doc_name]
+        del self.server.docs[doc_name]
+        resp = {'ok': True, 'id': doc_data['_id'], 'rev':int(doc_data['_rev'])+1}
+        self._set_up_response(200, resp)
+
+    def do_GET(self):
+        """ Returns a doc or a view if it is contained in the server """
+        doc = self.path.strip('/')
+        if '_design' in doc:
+            self._handle_view(doc)
+            return
+
+        if doc in self.server.docs:
+            self._set_up_response(200, self.server.docs[doc])
+        else:
+            self._set_up_response(404, {'error': 'err', 'reason': 'reason'})
+
+    def do_PUT(self):
+        """ Create a new database or modify a doc """
+        db_name = self.path.strip('/')
+        index = db_name.find('/')
+        if index > -1:
+            self._handle_doc_mod(db_name)
+            return
+
+        if db_name in self.server.db:
+            error = {'error':'file_exists', 'reason': 'cant be created'}
+            self._set_up_response(412, error)
+
+        else:
+            self.server.db.add(db_name)
+            resp = {'ok' : True}
+            self._set_up_response(201, resp)
+
+    def do_POST(self):
+        """ Add a new doc with a randomly generated id"""
+        db_name = self.path.strip('/')
+        doc_name = self._get_rand_id(db_name)
+        while doc_name in self.server.docs:
+            doc_name = self._get_rand_id(db_name)
+
+        doc_id = doc_name.split('/')[1]
+        doc_data = self._read_req_body()
+        doc_data['_id'] = doc_id
+        doc_data['_rev'] = 1
+
+        self.server.docs[doc_name] = doc_data
+        resp = {'ok' : True, 'id': doc_id, 'rev': 1}
+        self._set_up_response(201, resp)
+
+    def do_HEAD(self):
+        """ Check if a database has been created """
+        db_name = self.path.strip('/')
+        if db_name in self.server.db:
+            self.send_response(200)
+        else:
+            self.send_response(404)
+        self.end_headers()
+
+    def do_DELETE(self):
+        """ Delete a doc or database """
+        db_name = self.path.strip('/')
+        index = db_name.find('/')
+        if index > -1:
+            self._handle_doc_delete(db_name)
+            return
+
+        if db_name in self.server.db:
+            self.server.db.remove(db_name)
+            self.send_response(200)
+            self.end_headers()
+            return
+
+        error = {'error':'not_found', 'reason': 'Database does not exist.'}
+        self._set_up_response(404, error)
+
 class GaugePrometheusTests(unittest.TestCase):
     """Tests the GaugePortStatsPrometheusPoller update method"""
 
@@ -278,7 +477,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         to a HTTP server when the points are shipped"""
 
         try:
-            server = start_server()
+            server = start_server(PretendInflux)
             shipper = gauge_influx.InfluxShipper()
             shipper.conf = self.create_config_obj(server.server_port)
             points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
@@ -349,7 +548,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         """ Starts up an HTTP server to mock InfluxDB.
         Also opens a new temp file for the server to write to """
 
-        self.server = start_server()
+        self.server = start_server(PretendInflux)
         self.temp_fd, self.server.output_file = tempfile.mkstemp()
 
     def tearDown(self):
@@ -748,6 +947,152 @@ class GaugeWatcherTest(unittest.TestCase):
             else:
                 self.assertEqual(getattr(msg.body[0], stat_name), stat_val)
 
+class GaugeConnectionCouchTest(unittest.TestCase):
+    """ Check the ConnectionCouch class from nsodbc"""
+
+    def setUp(self):
+        """ Start up the pretend server and create a connection object"""
+        self.server = start_server(PretendCouchDB)
+        self.server.db = set()
+        url = 'http://127.0.0.1:{}/'.format(self.server.server_port)
+        credentials = ('couch', '123')
+        self.conn = nsodbc.ConnectionCouch(couchdb.Server(url), credentials)
+
+    def tearDown(self):
+        """ Shutdown the pretend server """
+        self.server.shutdown()
+
+    def test_create(self):
+        """Check that a database can be created"""
+        _, exists = self.conn.create('test_db')
+        self.assertFalse(exists)
+        self.assertTrue('test_db' in self.server.db)
+
+    def test_no_create(self):
+        """Check that a new database with the same name as another cant be created."""
+        self.server.db.add('test_db')
+        _, exists = self.conn.create('test_db')
+        self.assertTrue(exists)
+        self.assertEqual(1, len(self.server.db))
+
+    def test_database(self):
+        """
+        Check that the number of connected databases doesn't increase
+        until the create command is issued.
+        """
+        self.server.db.add('test_db')
+        self.assertEqual(0, len(self.conn.connected_databases()))
+        self.conn.create('test_db')
+        self.assertEqual(1, len(self.conn.connected_databases()))
+
+    def test_delete(self):
+        """Check that we can delete an existing database"""
+        self.conn.create('test_db')
+        self.assertTrue('test_db' in self.server.db)
+        self.conn.delete('test_db')
+        self.assertFalse('test_db' in self.server.db)
+
+    def test_no_delete(self):
+        """Check that a database that doesn't exist, doesn't get deleted."""
+        try:
+            self.conn.delete('hello')
+            self.fail('Database should not exist, should have thrown exception')
+        except couchdb.http.ResourceNotFound:
+            pass
+
+class GaugeDatabaseCouchTest(unittest.TestCase):
+    """ Tests for the DatabaseCouch class """
+
+    def setUp(self):
+        """ Start up pretend server and create database object """
+        self.server = start_server(PretendCouchDB)
+        self.server.db = {'test_db'}
+        self.server.docs = dict()
+        url = 'http://127.0.0.1:{}/'.format(self.server.server_port)
+        cdbs = couchdb.Server(url)
+        cdbs.resource.credentials = ('couch', '123')
+        self.db = nsodbc.DatabaseCouch(cdbs['test_db'])
+
+    def tearDown(self):
+        """ Shutdown pretend server """
+        self.server.shutdown()
+
+    def _check_equal(self, doc_name, original_doc):
+        """
+        Check that everything from the original doc still matches
+        the data from the new doc
+        """
+        for key, value in original_doc.items():
+            self.assertEqual(self.server.docs[doc_name][key], value)
+
+    def _setup_update(self):
+        """ Create an existing doc, and return a replica of it to modify """
+        doc = {'key1': 'value1', 'key2':'value2', '_id':'test_id', '_rev': '1'}
+        self.server.docs['test_db/test_id'] = doc
+        new_doc = dict(doc)
+        del new_doc['_rev']
+        return new_doc
+
+    def test_insert_doc(self):
+        """Check we can add a new doc"""
+        doc = {'key1': 'value1', 'key2':'value2'}
+        doc_id = self.db.insert_update_doc(doc)
+        doc_name = '/'.join(('test_db', doc_id))
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal(doc_name, doc)
+
+    def test_insert_doc_id(self):
+        """Check that we can add a new doc with an id"""
+        doc = {'key1': 'value1', 'key2':'value2', '_id':'test_id'}
+        doc_id = self.db.insert_update_doc(doc)
+        doc_name = '/'.join(('test_db', doc_id))
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal(doc_name, doc)
+
+    def test_update_doc(self):
+        """Check that we can update an existing doc's attribute"""
+        new_doc = self._setup_update()
+        new_doc['key1'] = 'modifiedvalue1'
+
+        self.db.insert_update_doc(new_doc, 'key1')
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal('test_db/test_id', new_doc)
+
+    def test_update_doc_new_key(self):
+        """Check we can add a new attribute to an existing doc"""
+        new_doc = self._setup_update()
+        new_doc['key3'] = 'value3'
+
+        self.db.insert_update_doc(new_doc, 'key3')
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal('test_db/test_id', new_doc)
+
+    def test_no_update_doc(self):
+        """Check that only the given field will be modified in the doc"""
+        new_doc = self._setup_update()
+        not_updated_doc = dict(new_doc)
+        new_doc['key1'] = 'modifiedvalue1'
+
+        self.db.insert_update_doc(new_doc, 'key2')
+        self.assertEqual(1, len(self.server.docs))
+        self._check_equal('test_db/test_id', not_updated_doc)
+
+    def test_delete_doc(self):
+        """Check that an exisiting doc can be deleted"""
+        doc = {'key1': 'value1', 'key2':'value2', '_id':'test_id', '_rev': '1'}
+        self.server.docs['test_db/test_id'] = doc
+        self.db.delete_doc('test_id')
+        self.assertEqual(0, len(self.server.docs))
+
+    def test_create_view(self):
+        """Check that a view can be added"""
+        view = {}
+        view['view1'] = {}
+        view['view1']['map'] = 'function(doc) ' + \
+                                '{\n  emit(doc._id, doc);\n}'
+        self.db.create_view('test_view', view)
+        self.assertEqual(1, len(self.server.docs))
+        self.assertEqual(self.server.docs['test_db/_design/test_view']['views'], view)
 
 if __name__ == "__main__":
     unittest.main()
