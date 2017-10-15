@@ -354,7 +354,7 @@ def match_from_dict(match_dict):
         'ipv6_exthdr': to_match_masked_int
     }
 
-    keys = {
+    old_keys = {
         'dl_dst': 'eth_dst',
         'dl_src': 'eth_src',
         'dl_type': 'eth_type',
@@ -375,26 +375,21 @@ def match_from_dict(match_dict):
 
     kwargs = {}
     for key, value in list(match_dict.items()):
-        if key in keys:
+        if key in old_keys:
             # For old field name
-            key = keys[key]
-        if key in convert:
-            value = convert[key](value)
-            if key == 'tp_src' or key == 'tp_dst':
-                # TCP/UDP port
-                conv = {inet.IPPROTO_TCP: {'tp_src': 'tcp_src',
-                                           'tp_dst': 'tcp_dst'},
-                        inet.IPPROTO_UDP: {'tp_src': 'udp_src',
-                                           'tp_dst': 'udp_dst'}}
-                ip_proto = match_dict.get(
-                    'nw_proto', match_dict.get('ip_proto', 0))
-                key = conv[ip_proto][key]
-                kwargs[key] = value
-            else:
-                # others
-                kwargs[key] = value
-        else:
-            assert 'Unknown match field: %s' % key
+            key = old_keys[key]
+        assert key in convert, 'Unknown match field: %s' % key
+        value = convert[key](value)
+        if key == 'tp_src' or key == 'tp_dst':
+            # TCP/UDP port
+            conv = {inet.IPPROTO_TCP: {'tp_src': 'tcp_src',
+                                       'tp_dst': 'tcp_dst'},
+                    inet.IPPROTO_UDP: {'tp_src': 'udp_src',
+                                       'tp_dst': 'udp_dst'}}
+            ip_proto = match_dict.get(
+                'nw_proto', match_dict.get('ip_proto', 0))
+            key = conv[ip_proto][key]
+        kwargs[key] = value
 
     return parser.OFPMatch(**kwargs)
 

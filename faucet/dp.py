@@ -24,6 +24,8 @@ from faucet.conf import Conf
 from faucet.port import Port
 from faucet.vlan import VLAN
 from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet import valve_acl
+from faucet import valve_of
 
 
 # Documentation generated using documentation_generator.py
@@ -313,7 +315,7 @@ class DP(Conf):
                         assert vlan.faucet_vips == [], 'routing + stacking not supported'
 
         if root_dp is None:
-            assert len(stack_dps) == 0, 'stacking enabled but no root_dp'
+            assert not stack_dps, 'stacking enabled but no root_dp'
             return
 
         edge_count = {}
@@ -442,12 +444,23 @@ class DP(Conf):
                                     failover['ports'] = resolved_ports
 
         def resolve_acls():
+
+            def build_acl(acl, vid=None):
+                assert valve_acl.build_acl_ofmsgs(
+                    [acl], self.wildcard_table,
+                    valve_of.goto_table(self.wildcard_table),
+                    2**16, self.meters, vlan_vid=vid)
+
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
                     vlan.acl_in = self.acls[vlan.acl_in]
+                    # Check ACL can be build from VLAN config.
+                    build_acl(vlan.acl_in, vid=1)
             for port in list(self.ports.values()):
                 if port.acl_in:
                     port.acl_in = self.acls[port.acl_in]
+                    # Check ACL can be built from port config.
+                    build_acl(port.acl_in)
 
         def resolve_vlan_names_in_routers():
             for router_name in list(self.routers.keys()):
