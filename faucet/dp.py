@@ -550,3 +550,146 @@ class DP(Conf):
 
     def __str__(self):
         return self.name
+
+    def _get_acl_config_changes(self, logger, new_dp):
+        """Detect any config changes to ACLs.
+
+        Args:
+            logger (ValveLogger): logger instance.
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changed_acls (dict): ACL ID map to new/changed ACLs.
+        """
+        changed_acls = {}
+        for acl_id, new_acl in list(new_dp.acls.items()):
+            if acl_id not in self.acls:
+                changed_acls[acl_id] = new_acl
+                logger.info('ACL %s new' % acl_id)
+            else:
+                if new_acl != self.acls[acl_id]:
+                    changed_acls[acl_id] = new_acl
+                    logger.info('ACL %s changed' % acl_id)
+        return changed_acls
+
+    def _get_vlan_config_changes(self, logger, new_dp):
+        """Detect any config changes to VLANs.
+
+        Args:
+            logger (ValveLogger): logger instance.
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changes (tuple) of:
+                deleted_vlans (set): deleted VLAN IDs.
+                changed_vlans (set): changed/added VLAN IDs.
+        """
+        deleted_vlans = set([])
+        for vid in list(self.vlans.keys()):
+            if vid not in new_dp.vlans:
+                deleted_vlans.add(vid)
+
+        changed_vlans = set([])
+        for vid, new_vlan in list(new_dp.vlans.items()):
+            if vid not in self.vlans:
+                changed_vlans.add(vid)
+                logger.info('VLAN %s added' % vid)
+            else:
+                old_vlan = self.vlans[vid]
+                if old_vlan != new_vlan:
+                    if not old_vlan.ignore_subconf(new_vlan):
+                        changed_vlans.add(vid)
+                        logger.info('VLAN %s config changed' % vid)
+                else:
+                    # Preserve current VLAN including current
+                    # dynamic state like caches, if VLAN and ports
+                    # did not change at all.
+                    new_dp.vlans[vid].merge_dyn(old_vlan)
+
+        if not deleted_vlans and not changed_vlans:
+            logger.info('no VLAN config changes')
+
+        return (deleted_vlans, changed_vlans)
+
+    def _get_port_config_changes(self, logger, new_dp, changed_vlans, changed_acls):
+        """Detect any config changes to ports.
+
+        Args:
+            logger (ValveLogger): logger instance.
+            new_dp (DP): new dataplane configuration.
+            changed_vlans (set): changed/added VLAN IDs.
+            changed_acls (dict): ACL ID map to new/changed ACLs.
+        Returns:
+            changes (tuple) of:
+                all_ports_changed (bool): True if all ports changed.
+                deleted_ports (set): deleted port numbers.
+                changed_ports (set): changed/added port numbers.
+                changed_acl_ports (set): changed ACL only port numbers.
+        """
+        all_ports_changed = False
+        changed_ports = set([])
+        changed_acl_ports = set([])
+
+        for port_no, new_port in list(new_dp.ports.items()):
+            if port_no not in self.ports:
+                # Detected a newly configured port
+                changed_ports.add(port_no)
+                logger.info('port %s added' % port_no)
+            else:
+                old_port = self.ports[port_no]
+                # An existing port has configs changed
+                if new_port != old_port:
+                    # TODO: we assume if port config had sub config
+                    # changed, it must have been the ACL.
+                    if old_port.ignore_subconf(new_port):
+                        changed_acl_ports.add(port_no)
+                        logger.info('port %s ACL changed' % port_no)
+                    else:
+                        changed_ports.add(port_no)
+                        logger.info('port %s reconfigured' % port_no)
+                elif new_port.acl_in in changed_acls:
+                    # If the port has ACL changed.
+                    changed_acl_ports.add(port_no)
+                    logger.info('port %s ACL changed' % port_no)
+
+        # TODO: optimize case where only VLAN ACL changed.
+        for vid in changed_vlans:
+            for port in new_dp.vlans[vid].get_ports():
+                changed_ports.add(port.number)
+
+        deleted_ports = set([])
+        for port_no in list(self.ports.keys()):
+            if port_no not in new_dp.ports:
+                deleted_ports.add(port_no)
+
+        if changed_ports == set(new_dp.ports.keys()):
+            logger.info('all ports config changed')
+            all_ports_changed = True
+        elif (not changed_ports and
+              not deleted_ports and
+              not changed_acl_ports):
+            logger.info('no port config changes')
+
+        return (all_ports_changed, deleted_ports,
+                changed_ports, changed_acl_ports)
+
+    def get_config_changes(self, logger, new_dp):
+        """Detect any config changes.
+
+        Args:
+            logger (ValveLogger): logger instance
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changes (tuple) of:
+                deleted_ports (set): deleted port numbers.
+                changed_ports (set): changed/added port numbers.
+                changed_acl_ports (set): changed ACL only port numbers.
+                deleted_vlans (set): deleted VLAN IDs.
+                changed_vlans (set): changed/added VLAN IDs.
+                all_ports_changed (bool): True if all ports changed.
+        """
+        changed_acls = self._get_acl_config_changes(logger, new_dp)
+        deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
+        (all_ports_changed, deleted_ports,
+         changed_ports, changed_acl_ports) = self._get_port_config_changes(
+             logger, new_dp, changed_vlans, changed_acls)
+        return (deleted_ports, changed_ports, changed_acl_ports,
+                deleted_vlans, changed_vlans, all_ports_changed)
