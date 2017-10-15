@@ -1788,6 +1788,7 @@ vlans:
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
+                lacp: 1
             %(port_3)d:
                 native_vlan: 100
                 description: "b3"
@@ -1832,12 +1833,24 @@ vlans:
         #    [Actor State Flags: **DCSGS*]
 
         synced_state_txt = r"""
+Slave Interface: \S+-eth0
+MII Status: up
+Speed: \d+ Mbps
+Duplex: full
+Link Failure Count: 0
+Permanent HW addr: \S+
+Slave queue ID: 0
+Aggregator ID: 1
+Actor Churn State: monitoring
+Partner Churn State: monitoring
+Actor Churned Count: 0
+Partner Churned Count: 0
 details actor lacp pdu:
     system priority: 65535
     system mac address: 0e:00:00:00:00:99
     port key: \d+
     port priority: 255
-    port number: 1
+    port number: \d+
     port state: 63
 details partner lacp pdu:
     system priority: 65535
@@ -1845,6 +1858,33 @@ details partner lacp pdu:
     oper key: 1
     port priority: 255
     port number: 1
+    port state: 62
+
+Slave Interface: \S+-eth1
+MII Status: up
+Speed: \d+ Mbps
+Duplex: full
+Link Failure Count: 0
+Permanent HW addr: \S+
+Slave queue ID: 0
+Aggregator ID: 1
+Actor Churn State: monitoring
+Partner Churn State: monitoring
+Actor Churned Count: 0
+Partner Churned Count: 0
+details actor lacp pdu:
+    system priority: 65535
+    system mac address: 0e:00:00:00:00:99
+    port key: \d+
+    port priority: 255
+    port number: 2
+    port state: 63
+details partner lacp pdu:
+    system priority: 65535
+    system mac address: 0e:00:00:00:00:01
+    oper key: 1
+    port priority: 255
+    port number: 2
     port state: 62
 """.strip()
         orig_ip = host.IP()
