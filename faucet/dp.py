@@ -311,7 +311,7 @@ class DP(Conf):
                 if 'priority' in dp.stack:
                     assert root_dp is None, 'multiple stack roots'
                     root_dp = dp
-                    for vlan in dp.vlans.values():
+                    for vlan in list(dp.vlans.values()):
                         assert vlan.faucet_vips == [], 'routing + stacking not supported'
 
         if root_dp is None:
@@ -469,12 +469,12 @@ class DP(Conf):
                 for vlan_name in router.vlans:
                     vlan = resolve_vlan(vlan_name)
                     assert vlan is not None, 'could not resolve VLAN %s, %s' % (
-                        vlan_name, self.vlans.values())
+                        vlan_name, list(self.vlans.values()))
                     vlans.append(vlan)
                 self.routers[router_name].vlans = vlans
 
-        assert self.ports, 'no interfaces defined'
-        assert self.vlans, 'no VLANs referenced by interfaces'
+        assert self.ports, 'no interfaces defined for %s' % self.name
+        assert self.vlans, 'no VLANs referenced by interfaces in %s' % self.name
 
         port_by_name = {}
         for port in list(self.ports.values()):
