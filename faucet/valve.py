@@ -563,6 +563,7 @@ class Valve(object):
         Returns:
             list: OpenFlow messages, if any.
         """
+        # TODO: ensure config consistent between LAG ports.
         ofmsgs = []
         if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
                 pkt_meta.eth_type == ether.ETH_TYPE_SLOW and

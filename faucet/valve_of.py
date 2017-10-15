@@ -621,6 +621,7 @@ def flood_tagged_port_outputs(ports, in_port):
             if in_port and port == in_port:
                 if port.hairpin:
                     flood_acts.append(output_in_port())
+            # TODO: exclude ports in same LAG
             else:
                 flood_acts.append(output_port(port.number))
     return flood_acts
