@@ -623,12 +623,11 @@ def flood_tagged_port_outputs(ports, in_port):
     flood_acts = []
     if ports:
         for port in ports:
-
-                if in_port and port == in_port:
-                    if port.hairpin:
-                        flood_acts.append(output_in_port())
-                else:
-                    flood_acts.append(output_port(port.number))
+            if in_port and port == in_port:
+                if port.hairpin:
+                    flood_acts.append(output_in_port())
+            else:
+                flood_acts.append(output_port(port.number))
     return flood_acts
 
 
