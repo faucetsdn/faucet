@@ -3739,6 +3739,7 @@ class FaucetStringOfDPTest(FaucetTest):
             n_tagged=n_tagged,
             tagged_vid=tagged_vid,
             n_untagged=n_untagged,
+            links_per_host=self.LINKS_PER_HOST,
             test_name=self._test_name(),
         )
 
