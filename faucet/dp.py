@@ -302,13 +302,18 @@ class DP(Conf):
                 'dp_z': edge_z_dp, 'port_z': edge_z_port}
 
         root_dp = None
+        stack_dps = []
         for dp in dps:
             if dp.stack is not None:
+                stack_dps.append(dp)
                 if 'priority' in dp.stack:
                     assert root_dp is None, 'multiple stack roots'
                     root_dp = dp
+                    for vlan in dp.vlans.values():
+                        assert vlan.faucet_vips == [], 'routing + stacking not supported'
 
         if root_dp is None:
+            assert len(stack_dps) == 0, 'stacking enabled but no root_dp'
             return
 
         edge_count = {}
@@ -450,9 +455,13 @@ class DP(Conf):
                 vlans = []
                 for vlan_name in router.vlans:
                     vlan = resolve_vlan(vlan_name)
-                    if vlan is not None:
-                        vlans.append(vlan)
+                    assert vlan is not None, 'could not resolve VLAN %s, %s' % (
+                        vlan_name, self.vlans.values())
+                    vlans.append(vlan)
                 self.routers[router_name].vlans = vlans
+
+        assert self.ports, 'no interfaces defined'
+        assert self.vlans, 'no VLANs referenced by interfaces'
 
         port_by_name = {}
         for port in list(self.ports.values()):

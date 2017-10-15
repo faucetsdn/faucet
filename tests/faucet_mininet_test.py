@@ -371,7 +371,7 @@ def filter_test_hardware(test_obj, hw_config):
             if test_hardware not in SUPPORTS_METERS:
                 return False
     else:
-        if test_hosts < REQUIRED_TEST_PORTS:
+        if test_obj.NUM_DPS == 1 and test_hosts < REQUIRED_TEST_PORTS:
             return False
         # TODO: OVS does not support meters
         if test_obj.REQUIRES_METERS:

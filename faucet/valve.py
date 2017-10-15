@@ -93,10 +93,16 @@ class Valve(object):
                 self.dp.highest_priority, self.dp.routers,
                 self.dp.group_table_routing, self.dp.groups)
             self.route_manager_by_ipv[route_manager.IPV] = route_manager
-        self.flood_manager = valve_flood.ValveFloodManager(
-            self.dp.tables['flood'], self.dp.low_priority,
-            self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root,
-            self.dp.group_table, self.dp.groups)
+        if self.dp.stack:
+            self.flood_manager = valve_flood.ValveFloodStackManager(
+                self.dp.tables['flood'], self.dp.low_priority,
+                self.dp.group_table, self.dp.groups,
+                self.dp.stack, self.dp.stack_ports,
+                self.dp.shortest_path_to_root, dp.shortest_path_port)
+        else:
+            self.flood_manager = valve_flood.ValveFloodManager(
+                self.dp.tables['flood'], self.dp.low_priority,
+                self.dp.group_table, self.dp.groups)
         if self.dp.use_idle_timeout:
             self.host_manager = valve_host.ValveHostFlowRemovedManager(
                 self.logger, self.dp.ports, self.dp.vlans,
@@ -621,41 +627,7 @@ class Valve(object):
                 return True
         return False
 
-    def _edge_dp_for_host(self, valves, dp_id, pkt_meta):
-        """Simple distributed unicast learning.
-
-        Args:
-            valves (list): of all Valves (datapaths).
-            dp_id (int): DPID of datapath packet received on.
-            pkt_meta (PacketMeta): PacketMeta instance for packet received.
-        Returns:
-            Valve instance or None (of edge datapath where packet received)
-        """
-        # TODO: simplest possible unicast learning.
-        # We find just one port that is the shortest unicast path to
-        # the destination. We could use other factors (eg we could
-        # load balance over multiple ports based on destination MAC).
-        # TODO: each DP learns independently. An edge DP could
-        # call other valves so they learn immediately without waiting
-        # for packet in.
-        # TODO: edge DPs could use a different forwarding algorithm
-        # (for example, just default switch to a neighbor).
-        # Find port that forwards closer to destination DP that
-        # has already learned this host (if any).
-        eth_src = pkt_meta.eth_src
-        vlan_vid = pkt_meta.vlan.vid
-        for other_dpid, other_valve in list(valves.items()):
-            if other_dpid == dp_id:
-                continue
-            other_dp = other_valve.dp
-            other_dp_host_cache = other_dp.vlans[vlan_vid].host_cache
-            if eth_src in other_dp_host_cache:
-                host = other_dp_host_cache[eth_src]
-                if host.port.stack is None:
-                    return other_dp
-        return None
-
-    def _learn_host(self, valves, pkt_meta):
+    def _learn_host(self, other_valves, pkt_meta):
         """Possibly learn a host on a port.
 
         Args:
@@ -664,22 +636,12 @@ class Valve(object):
         Returns:
             list: OpenFlow messages, if any.
         """
-        learn_port = pkt_meta.port
+        learn_port = self.flood_manager.edge_learn_port(
+            other_valves, pkt_meta)
         ofmsgs = []
-
-        if learn_port.stack is not None:
-            edge_dp = self._edge_dp_for_host(valves, self.dp.dp_id, pkt_meta)
-            # No edge DP may have learned this host yet.
-            if edge_dp is None:
-                return ofmsgs
-
-            learn_port = self.dp.shortest_path_port(edge_dp.name)
-            self.logger.info(
-                'host learned via stack port to %s' % edge_dp.name)
-
-        ofmsgs.extend(self.host_manager.learn_host_on_vlan_ports(
-            learn_port, pkt_meta.vlan, pkt_meta.eth_src))
-
+        if learn_port is not None:
+            ofmsgs.extend(self.host_manager.learn_host_on_vlan_ports(
+                learn_port, pkt_meta.vlan, pkt_meta.eth_src))
         return ofmsgs
 
     def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, pkt, eth_pkt):
@@ -746,7 +708,7 @@ class Valve(object):
                 metrics.port_learn_bans.labels(
                     dp_id=dp_id, port=port.number).set(port.dyn_learn_ban_count)
 
-    def rcv_packet(self, valves, pkt_meta):
+    def rcv_packet(self, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
 
         The packet may be sent to us also in response to FAUCET
@@ -754,7 +716,7 @@ class Valve(object):
         a nexthop.
 
         Args:
-            valves (dict): all datapaths, indexed by datapath ID.
+            other_valves (list): all Valves other than this one.
             pkt_meta (PacketMeta): packet for control plane.
         Return:
             list: OpenFlow messages, if any.
@@ -793,7 +755,7 @@ class Valve(object):
             return ofmsgs
 
         if learn_from_pkt:
-            ofmsgs.extend(self._learn_host(valves, pkt_meta))
+            ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
 
             # Add FIB entries, if routing is active and not already handled
             # by control plane.
@@ -1053,7 +1015,6 @@ class Valve(object):
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
         ofmsgs = []
         for faucet_vip in faucet_vips:
-            assert self.dp.stack is None, 'stacking + routing not yet supported'
             ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
             self.L3 = True
         return ofmsgs

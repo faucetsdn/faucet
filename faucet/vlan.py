@@ -241,6 +241,10 @@ class VLAN(Conf):
         """Return list of all ports on this VLAN."""
         return list(self.tagged) + list(self.untagged)
 
+    def hairpin_ports(self):
+        """Return all ports with hairpin enabled."""
+        return [port for port in self.get_ports() if port.hairpin]
+
     def lacp_ports(self):
         """Return list of ports with LACP enabled."""
         return [port for port in self.get_ports() if port.lacp]
