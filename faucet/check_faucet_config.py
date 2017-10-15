@@ -39,6 +39,8 @@ def check_config(conf_files):
             return False
         else:
             _, dps = parse_result
+            if dps is None:
+                return False
             for dp in dps:
                 valve_dp = valve.valve_factory(dp)
                 if valve_dp is None:

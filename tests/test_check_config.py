@@ -64,24 +64,43 @@ class CheckConfigTestCase(unittest.TestCase):
         minimal_conf = """
 vlans:
     100:
-        name: "100"
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_success(minimal_conf)
+
+    def test_no_interfaces(self):
+        """Test DP has no interfaces."""
+        no_interfaces_conf = """
+vlans:
+    100:
+        description: "100"
 dps:
     switch1:
         dp_id: 0xcafef00d
         hardware: 'Open vSwitch'
 """
-        self.check_config_success(minimal_conf)
+        self.check_config_failure(no_interfaces_conf)
 
     def test_tabs(self):
         """Test that config with tabs is rejected."""
         tab_conf = """
 vlans:
     100:
-        	name: "100"
+        	description: "100"
 dps:
     switch1:
         dp_id: 0xcafef00d
         hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
 """
         self.check_config_failure(tab_conf)
 
@@ -90,12 +109,15 @@ dps:
         unknown_dp_config_item = """
 vlans:
     100:
-        name: "100"
+        description: "100"
 dps:
     switch1:
         dp_id: 0xcafef00d
         hardware: 'Open vSwitch'
         broken: something
+        interfaces:
+            1:
+                native_vlan: 100
 """
         self.check_config_failure(unknown_dp_config_item)
 
@@ -104,11 +126,14 @@ dps:
         toplevel_unknown_config = """
 vlans:
     100:
-        name: "100"
+        description: "100"
 dps:
     switch1:
         dp_id: 0xcafef00d
         hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
 unknown_thing: 1
 """
         self.check_config_failure(toplevel_unknown_config)
@@ -118,11 +143,14 @@ unknown_thing: 1
         unknown_hardware_config = """
 vlans:
     100:
-        name: "100"
+        description: "100"
 dps:
     switch1:
         dp_id: 0xcafef00d
         hardware: 'NOTSUPPORTED'
+        interfaces:
+            1:
+                native_vlan: 100
 """
         self.check_config_failure(unknown_hardware_config)
 
@@ -134,15 +162,57 @@ routers:
         vlans: [100, 101]
 vlans:
     100:
-        name: "100"
+        description: "100"
     200:
-        name: "200"
+        description: "200"
 dps:
     switch1:
         dp_id: 0xcafef00d
         hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                 native_vlan: 100
+            2:
+                 native_vlan: 200
 """
         self.check_config_failure(unknown_router_vlan_config)
+
+    def test_routing_stacking(self):
+        """Test that routing and stacking cannot be enabled together."""
+        routing_stacking_config = """
+vlans:
+    100:
+        description: "100"
+        faucet_vips: ['1.2.3.4/24']
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_failure(routing_stacking_config)
+
+    def test_stacking_noroot(self):
+        """Test that a stacking root is defined."""
+        stacking_config = """
+vlans:
+    100:
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        stack:
+            priority: 0
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_failure(stacking_config)
 
 
 if __name__ == "__main__":
