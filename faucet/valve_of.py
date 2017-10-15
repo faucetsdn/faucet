@@ -616,3 +616,25 @@ def valve_flowreorder(input_ofmsgs):
         output_ofmsgs.append(barrier())
     output_ofmsgs.extend(nondelete_ofmsgs)
     return output_ofmsgs
+
+
+def flood_tagged_port_outputs(ports, in_port):
+    """Return list of actions necessary to flood to list of tagged ports."""
+    flood_acts = []
+    if ports:
+        for port in ports:
+            if in_port and port == in_port:
+                if port.hairpin:
+                    flood_acts.append(output_in_port())
+            else:
+                flood_acts.append(output_port(port.number))
+    return flood_acts
+
+
+def flood_untagged_port_outputs(ports, in_port):
+    """Return list of actions necessary to flood to list of untagged ports."""
+    flood_acts = []
+    if ports:
+        flood_acts.append(pop_vlan())
+        flood_acts.extend(flood_tagged_port_outputs(ports, in_port))
+    return flood_acts

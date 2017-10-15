@@ -97,11 +97,18 @@ class Valve(object):
             self.dp.tables['flood'], self.dp.low_priority,
             self.dp.stack, self.dp.ports, self.dp.shortest_path_to_root,
             self.dp.group_table, self.dp.groups)
-        self.host_manager = valve_host.ValveHostManager(
-            self.logger, self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
-            self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
-            self.dp.low_priority, self.dp.highest_priority,
-            self.dp.use_idle_timeout)
+        if self.dp.use_idle_timeout:
+            self.host_manager = valve_host.ValveHostFlowRemovedManager(
+                self.logger, self.dp.ports, self.dp.vlans,
+                self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
+                self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
+                self.dp.low_priority, self.dp.highest_priority)
+        else:
+            self.host_manager = valve_host.ValveHostManager(
+                self.logger, self.dp.ports, self.dp.vlans,
+                self.dp.tables['eth_src'], self.dp.tables['eth_dst'],
+                self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
+                self.dp.low_priority, self.dp.highest_priority)
 
     def switch_features(self, _msg):
         """Send configuration flows necessary for the switch implementation.
@@ -396,7 +403,7 @@ class Valve(object):
                 ofmsgs.extend(eth_src_table.flowdel(
                     match=eth_src_table.match(eth_src=eth_src)))
         for vlan in port.vlans():
-            vlan.expire_cache_hosts_on_port(port)
+            vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
 
     def ports_add(self, port_nums, cold_start=False):
@@ -421,7 +428,7 @@ class Valve(object):
 
             port = self.dp.ports[port_num]
             port.dyn_phys_up = True
-            self.logger.info('Port %s up, configuring' % port)
+            self.logger.info('%s up, configuring' % port)
 
             if not port.running():
                 continue
@@ -670,7 +677,7 @@ class Valve(object):
             self.logger.info(
                 'host learned via stack port to %s' % edge_dp.name)
 
-        ofmsgs.extend(self.host_manager.learn_host_on_vlan_port(
+        ofmsgs.extend(self.host_manager.learn_host_on_vlan_ports(
             learn_port, pkt_meta.vlan, pkt_meta.eth_src))
 
         return ofmsgs
@@ -694,57 +701,6 @@ class Valve(object):
         port = self.dp.ports[in_port]
         return valve_packet.PacketMeta(
             data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
-
-    def _port_learn_ban_rules(self, pkt_meta):
-        """Limit learning to a maximum configured on this port.
-
-        Args:
-            pkt_meta: PacketMeta instance.
-        Returns:
-            list: OpenFlow messages, if any.
-        """
-        ofmsgs = []
-
-        port = pkt_meta.port
-        eth_src = pkt_meta.eth_src
-        hosts = port.hosts()
-
-        if len(hosts) == port.max_hosts:
-            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_port(
-                port))
-            port.dyn_learn_ban_count += 1
-            self.logger.info(
-                'max hosts %u reached on port %u, '
-                'temporarily banning learning on this port, '
-                'and not learning %s' % (
-                    port.max_hosts, port.number, eth_src))
-            return ofmsgs
-        return ofmsgs
-
-    def _vlan_learn_ban_rules(self, pkt_meta):
-        """Limit learning to a maximum configured on this VLAN.
-
-        Args:
-            pkt_meta: PacketMeta instance.
-        Returns:
-            list: OpenFlow messages, if any.
-        """
-        ofmsgs = []
-        vlan = pkt_meta.vlan
-        eth_src = pkt_meta.eth_src
-        hosts_count = vlan.hosts_count()
-        if (vlan.max_hosts is not None and
-                hosts_count == vlan.max_hosts and
-                eth_src not in vlan.host_cache):
-            ofmsgs.append(self.host_manager.temp_ban_host_learning_on_vlan(
-                vlan))
-            vlan.dyn_learn_ban_count += 1
-            self.logger.info(
-                'max hosts %u reached on vlan %u, '
-                'temporarily banning learning on this vlan, '
-                'and not learning %s' % (
-                    vlan.max_hosts, vlan.vid, eth_src))
-        return ofmsgs
 
     def update_config_metrics(self, metrics):
         """Update gauge/metrics for configuration.
@@ -831,14 +787,9 @@ class Valve(object):
         if self._rate_limit_packet_ins():
             return ofmsgs
 
-        ban_port_rules = self._port_learn_ban_rules(pkt_meta)
-        if ban_port_rules:
-            ofmsgs.extend(ban_port_rules)
-            return ofmsgs
-
-        ban_vlan_rules = self._vlan_learn_ban_rules(pkt_meta)
-        if ban_vlan_rules:
-            ofmsgs.extend(ban_vlan_rules)
+        ban_rules = self.host_manager.ban_rules(pkt_meta)
+        if ban_rules:
+            ofmsgs.extend(ban_rules)
             return ofmsgs
 
         if learn_from_pkt:
@@ -1132,54 +1083,11 @@ class Valve(object):
                 ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
-    def get_config_dict(self):
-        """Render configuration as a dict, suitable for returning via API call.
-
-        Returns:
-            dict: current configuration.
-        """
-        dps_dict = {
-            self.dp.name: self.dp.to_conf()
-            }
-        vlans_dict = {}
-        for vlan in list(self.dp.vlans.values()):
-            vlans_dict[vlan.name] = vlan.to_conf()
-        acls_dict = {}
-        for acl_id, acl in list(self.dp.acls.items()):
-            acls_dict[acl_id] = acl.to_conf()
-        return {
-            'dps': dps_dict,
-            'vlans': vlans_dict,
-            'acls': acls_dict,
-            }
-
     def flow_timeout(self, table_id, match):
-        ofmsgs = []
-        if table_id in (self.dp.tables['eth_src'].table_id, self.dp.tables['eth_dst'].table_id):
-            in_port = None
-            eth_src = None
-            eth_dst = None
-            vid = None
-            match_oxm_fields = match.to_jsondict()['OFPMatch']['oxm_fields']
-            for field in match_oxm_fields:
-                if isinstance(field, dict):
-                    value = field['OXMTlv']
-                    if value['field'] == 'eth_src':
-                        eth_src = value['value']
-                    if value['field'] == 'eth_dst':
-                        eth_dst = value['value']
-                    if value['field'] == 'vlan_vid':
-                        vid = value['value'] & ~ofp.OFPVID_PRESENT
-                    if value['field'] == 'in_port':
-                        in_port = value['value']
-            if eth_src and vid and in_port:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(
-                    self.host_manager.src_rule_expire(vlan, in_port, eth_src))
-            elif eth_dst and vid:
-                vlan = self.dp.vlans[vid]
-                ofmsgs.extend(self.host_manager.dst_rule_expire(vlan, eth_dst))
-        return ofmsgs
+        return self.host_manager(table_id, match)
+
+    def get_config_dict(self):
+        return self.dp.config_dict()
 
 
 class TfmValve(Valve):
