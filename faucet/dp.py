@@ -450,8 +450,8 @@ class DP(Conf):
                 vlans = []
                 for vlan_name in router.vlans:
                     vlan = resolve_vlan(vlan_name)
-                    if vlan is not None:
-                        vlans.append(vlan)
+                    assert vlan is not None, 'could not resolve VLAN %s' % vlan_name
+                    vlans.append(vlan)
                 self.routers[router_name].vlans = vlans
 
         port_by_name = {}
