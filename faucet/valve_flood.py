@@ -164,7 +164,7 @@ class ValveFloodManager(object):
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
         if self.use_group_table:
-            hairpin_ports = vlan.hairpin_port()
+            hairpin_ports = vlan.hairpin_ports()
             # TODO: hairpin flooding modes.
             if not hairpin_ports:
                 return self._build_group_flood_rules(vlan, modify, command)
@@ -174,20 +174,33 @@ class ValveFloodManager(object):
         return self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port)
 
+    def edge_learn_port(self, _other_valves, pkt_meta):
+        """Possibly learn a host on a port.
+
+        Args:
+            other_valves (list): All Valves other than this one.
+            pkt_meta (PacketMeta): PacketMeta instance for packet received.
+        Returns:
+            port to learn host on.
+        """
+        return pkt_meta.port
+
 
 class ValveFloodStackManager(ValveFloodManager):
     """Implement dataplane based flooding for stacked dataplanes."""
 
     def __init__(self, flood_table, flood_priority,
                  use_group_table, groups,
-                 stack, stack_ports, dp_shortest_path_to_root):
+                 stack, stack_ports,
+                 dp_shortest_path_to_root, shortest_path_port):
         super(ValveFloodStackManager, self).__init__(
             flood_table, flood_priority, use_group_table, groups)
         self.stack = stack
         self.stack_ports = stack_ports
+        my_root_distance = dp_shortest_path_to_root()
+        self.shortest_path_port = shortest_path_port
         self.towards_root_stack_ports = []
         self.away_from_root_stack_ports = []
-        my_root_distance = dp_shortest_path_to_root()
         for port in self.stack_ports:
             peer_dp = port.stack['dp']
             peer_root_distance = peer_dp.shortest_path_to_root()
@@ -296,3 +309,51 @@ class ValveFloodStackManager(ValveFloodManager):
                 port in self.towards_root_stack_ports):
             return False
         return True
+
+    def _edge_dp_for_host(self, other_valves, pkt_meta):
+        """Simple distributed unicast learning.
+
+        Args:
+            other_valves (list): All Valves other than this one.
+            pkt_meta (PacketMeta): PacketMeta instance for packet received.
+        Returns:
+            Valve instance or None (of edge datapath where packet received)
+        """
+        # TODO: simplest possible unicast learning.
+        # We find just one port that is the shortest unicast path to
+        # the destination. We could use other factors (eg we could
+        # load balance over multiple ports based on destination MAC).
+        # TODO: each DP learns independently. An edge DP could
+        # call other valves so they learn immediately without waiting
+        # for packet in.
+        # TODO: edge DPs could use a different forwarding algorithm
+        # (for example, just default switch to a neighbor).
+        # Find port that forwards closer to destination DP that
+        # has already learned this host (if any).
+        eth_src = pkt_meta.eth_src
+        vlan_vid = pkt_meta.vlan.vid
+        for other_valve in other_valves:
+            other_dp_host_cache = other_valve.dp.vlans[vlan_vid].host_cache
+            if eth_src in other_dp_host_cache:
+                host = other_dp_host_cache[eth_src]
+                if host.port.stack is None:
+                    return other_valve.dp
+        return None
+
+    def edge_learn_port(self, other_valves, pkt_meta):
+        """Possibly learn a host on a port.
+
+        Args:
+            other_valves (list): All Valves other than this one.
+            pkt_meta (PacketMeta): PacketMeta instance for packet received.
+        Returns:
+            port to learn host on, or None.
+        """
+        if pkt_meta.port.stack is None:
+            return super(ValveFloodStackManager, self).edge_learn_port(
+                other_valves, pkt_meta)
+        edge_dp = self._edge_dp_for_host(other_valves, pkt_meta)
+        # No edge DP may have learned this host yet.
+        if edge_dp is None:
+            return None
+        return self.shortest_path_port(edge_dp.name)
