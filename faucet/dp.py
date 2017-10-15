@@ -24,6 +24,7 @@ from faucet.conf import Conf
 from faucet.port import Port
 from faucet.vlan import VLAN
 from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet import valve_acl
 
 
 # Documentation generated using documentation_generator.py
@@ -445,9 +446,15 @@ class DP(Conf):
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
                     vlan.acl_in = self.acls[vlan.acl_in]
+                    # Check ACL can be build from VLAN config.
+                    assert valve_acl.build_acl_ofmsgs(
+                        [vlan.acl_in], self.wildcard_table, [], 2**16, self.meters, vlan_vid=1)
             for port in list(self.ports.values()):
                 if port.acl_in:
                     port.acl_in = self.acls[port.acl_in]
+                    # Check ACL can be built from port config.
+                    assert valve_acl.build_acl_ofmsgs(
+                        [port.acl_in], self.wildcard_table, [], 2**16, self.meters)
 
         def resolve_vlan_names_in_routers():
             for router_name in list(self.routers.keys()):
