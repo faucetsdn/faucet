@@ -522,7 +522,7 @@ class DP(Conf):
 
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
-        lacp_ports = [port for port in self.ports.values() if port.lacp]
+        lacp_ports = [port for port in list(self.ports.values()) if port.lacp]
         lags = collections.defaultdict(list)
         for port in lacp_ports:
             lags[port.lacp].append(port)
