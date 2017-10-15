@@ -36,7 +36,7 @@ def create_mock_datapath(num_ports):
         type(port).name = port_name
         ports[i] = port
 
-    datapath = mock.Mock(ports=ports, id=random.randint(1, 5000))
+    datapath = mock.Mock(ports=ports, dp_id=random.randint(1, 5000))
     dp_name = mock.PropertyMock(return_value='datapath')
     type(datapath).name = dp_name
     return datapath
@@ -430,14 +430,14 @@ class GaugePrometheusTests(unittest.TestCase):
 
         prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', prom_client)
         msg = port_stats_msg(datapath)
-        prom_poller.update(time.time(), datapath.id, msg)
+        prom_poller.update(time.time(), datapath.dp_id, msg)
 
         prom_lines = self.get_prometheus_stats(conf.prometheus_addr, conf.prometheus_port)
         prom_lines = self.parse_prom_output(prom_lines)
 
         for port_num, port in datapath.ports.items():
             port_stats = msg.body[int(port_num) - 1]
-            stats = prom_lines[(datapath.id, port.name)]
+            stats = prom_lines[(datapath.dp_id, port.name)]
             stats_found = set()
 
             for stat_name, stat_val in stats:
@@ -626,7 +626,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
 
             msg = port_state_msg(conf.dp, i, reasons[i-1])
             rcv_time = int(time.time())
-            db_logger.update(rcv_time, conf.dp.id, msg)
+            db_logger.update(rcv_time, conf.dp.dp_id, msg)
 
             with open(self.server.output_file, 'r') as log:
                 output = log.read()
@@ -643,7 +643,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         msg = port_stats_msg(conf.dp)
         rcv_time = int(time.time())
 
-        db_logger.update(rcv_time, conf.dp.id, msg)
+        db_logger.update(rcv_time, conf.dp.dp_id, msg)
         with open(self.server.output_file, 'r') as log:
             output = log.readlines()
 
@@ -668,7 +668,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         rcv_time = int(time.time())
         instructions = [parser.OFPInstructionGotoTable(1)]
         msg = flow_stats_msg(conf.dp, instructions)
-        db_logger.update(rcv_time, conf.dp.id, msg)
+        db_logger.update(rcv_time, conf.dp.dp_id, msg)
 
         other_fields = {'dp_name': conf.dp.name,
                         'timestamp': rcv_time,
@@ -862,7 +862,7 @@ class GaugeWatcherTest(unittest.TestCase):
                 state = ofproto.OFPPS_LINK_DOWN
 
             msg = port_state_msg(datapath, 1, reasons[reason], state)
-            logger.update(time.time(), datapath.id, msg)
+            logger.update(time.time(), datapath.dp_id, msg)
 
             log_str = self.get_file_contents().lower()
             self.assertTrue(reason in log_str)
@@ -870,7 +870,7 @@ class GaugeWatcherTest(unittest.TestCase):
 
             hexs = re.findall(r'0x[0-9A-Fa-f]+', log_str)
             hexs = [int(num, 16) for num in hexs]
-            self.assertTrue(datapath.id in hexs or str(datapath.id) in log_str)
+            self.assertTrue(datapath.dp_id in hexs or str(datapath.dp_id) in log_str)
 
     def test_port_stats(self):
         """Check the update method in the GaugePortStatsLogger class"""
@@ -891,7 +891,7 @@ class GaugeWatcherTest(unittest.TestCase):
         for i in range(0, len(msg.body)):
             original_stats.append(logger_to_ofp(msg.body[i]))
 
-        logger.update(time.time(), datapath.id, msg)
+        logger.update(time.time(), datapath.dp_id, msg)
 
         log_str = self.get_file_contents()
         for stat_name in original_stats[0]:
@@ -928,7 +928,7 @@ class GaugeWatcherTest(unittest.TestCase):
         instructions = [parser.OFPInstructionGotoTable(1)]
 
         msg = flow_stats_msg(datapath, instructions)
-        logger.update(time.time(), datapath.id, msg)
+        logger.update(time.time(), datapath.dp_id, msg)
         log_str = self.get_file_contents()
 
         #only parse the message part of the log text
