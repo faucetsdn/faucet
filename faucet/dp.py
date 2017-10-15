@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import networkx
 from ryu.ofproto import ofproto_v1_3 as ofp
 
