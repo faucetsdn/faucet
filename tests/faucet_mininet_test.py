@@ -363,7 +363,7 @@ def filter_test_hardware(test_obj, hw_config):
         test_hardware = hw_config['hardware']
         if test_obj.NUM_DPS != 1:
             return False
-        if test_hosts < REQUIRED_TEST_PORTS:
+        if test_links < REQUIRED_TEST_PORTS:
             if test_hardware == 'ZodiacFX':
                 return True
             return False
