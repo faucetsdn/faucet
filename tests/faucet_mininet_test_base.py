@@ -55,6 +55,7 @@ class FaucetTestBase(unittest.TestCase):
     N_UNTAGGED = 0
     N_TAGGED = 0
     NUM_DPS = 1
+    LINKS_PER_HOSTS = 1
 
     RUN_GAUGE = True
     REQUIRES_METERS = False

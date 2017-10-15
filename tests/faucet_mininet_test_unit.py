@@ -122,6 +122,7 @@ class FaucetUntaggedTest(FaucetTest):
 
     N_UNTAGGED = 4
     N_TAGGED = 0
+    LINKS_PER_HOST = 1
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -148,7 +149,7 @@ vlans:
         super(FaucetUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
     def test_untagged(self):
@@ -804,7 +805,7 @@ class FaucetTaggedAndUntaggedVlanTest(FaucetTest):
 
     N_TAGGED = 1
     N_UNTAGGED = 3
-
+    LINKS_PER_HOSTS = 1
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -831,7 +832,7 @@ vlans:
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = self.topo_class(
             self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=1, n_untagged=3)
+            n_tagged=1, n_untagged=3, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
     def test_untagged(self):
@@ -1153,6 +1154,7 @@ class FaucetConfigReloadTest(FaucetTest):
 
     N_UNTAGGED = 4
     N_TAGGED = 0
+    LINKS_PER_HOST = 1
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -1220,7 +1222,7 @@ acls:
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
         self.topo = self.topo_class(
             self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED)
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
     def _get_conf(self):
@@ -1761,7 +1763,12 @@ vlans:
         self.ping_all_when_learned()
 
 
-class FaucetUntaggedIPv4LACPTest(FaucetUntaggedTest):
+class FaucetUntaggedIPv4LACPTest(FaucetTest):
+
+    NUM_DPS = 1
+    N_TAGGED = 0
+    N_UNTAGGED = 2
+    LINKS_PER_HOST = 2
 
     CONFIG_GLOBAL = """
 vlans:
@@ -1788,6 +1795,12 @@ vlans:
                 description: "b4"
 """
 
+    def setUp(self):
+        super(FaucetUntaggedIPv4LACPTest, self).setUp()
+        self.topo = self.topo_class(
+            self.ports_sock, self._test_name(), [self.dpid],
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
+        self.start_net()
 
     def test_untagged(self):
         host = self.net.hosts[0]
@@ -1834,19 +1847,34 @@ details partner lacp pdu:
     port state: 62
 """.strip()
         orig_ip = host.IP()
+        switch = self.net.switches[0]
+        bond_members = [pair[0].name for pair in host.connectionsTo(switch)]
+        # Deconfigure bond members
+        for bond_member in bond_members:
+            for setup_cmd in (
+                    'ip link set %s down' % bond_member,
+                    'ip address flush dev %s' % bond_member):
+                result = host.cmd(setup_cmd)
+                self.assertEquals('', result)
+        # Configure bond interface
         for setup_cmd in (
-                'ip link set %s down' % host.defaultIntf(),
-                'ip address flush dev %s' % host.defaultIntf(),
                 ('ip link add %s address 0e:00:00:00:00:99 '
                  'type bond mode 802.3ad lacp_rate fast miimon 100') % bond,
-                'ip link set dev %s master %s' % (host.defaultIntf(), bond),
                 'ip add add %s/24 dev %s' % (orig_ip, bond),
                 'ip link set %s up' % bond):
             result = host.cmd(setup_cmd)
             self.assertEquals('', result)
+        # Add bond members
+        for bond_member in bond_members:
+            for setup_cmd in (
+                    'ip link set dev %s master %s' % (bond_member, bond),):
+                result = host.cmd(setup_cmd)
+                self.assertEquals('', result)
+        # LACP should come up and we can pass traffic.
         for _ in range(10):
             result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
             result = '\n'.join([line.rstrip() for line in result.splitlines()])
+            open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w').write(result)
             if re.search(synced_state_txt, result):
                 self.one_ipv4_ping(host, '10.0.0.254', require_host_learned=False, intf=bond)
                 return
@@ -2064,7 +2092,7 @@ class FaucetTaggedAndUntaggedTest(FaucetTest):
 
     N_TAGGED = 2
     N_UNTAGGED = 4
-
+    LINKS_PER_HOST = 1
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -2093,7 +2121,7 @@ vlans:
         super(FaucetTaggedAndUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=2, n_untagged=2)
+            n_tagged=2, n_untagged=2, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
     def test_seperate_untagged_tagged(self):
@@ -2542,7 +2570,7 @@ class FaucetTaggedTest(FaucetTest):
 
     N_UNTAGGED = 0
     N_TAGGED = 4
-
+    LINKS_PER_HOST = 1
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -2569,7 +2597,7 @@ vlans:
         super(FaucetTaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=4)
+            n_tagged=4, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
     def test_tagged(self):
