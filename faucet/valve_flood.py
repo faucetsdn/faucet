@@ -46,13 +46,24 @@ class ValveFloodManager(object):
         self.use_group_table = use_group_table
         self.groups = groups
 
-    def _build_flood_local_rule_actions(self, vlan, exclude_unicast, in_port):
+    @staticmethod
+    def _vlan_all_ports(vlan, exclude_unicast):
+        """Return list of all ports that should be flooded to on a VLAN."""
+        return vlan.flood_ports(vlan.get_ports(), exclude_unicast)
+
+    @staticmethod
+    def _build_flood_local_rule_actions(vlan, exclude_unicast, in_port):
+        """Return a list of flood actions to flood packets from a port."""
         flood_acts = []
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
         flood_acts.extend(valve_of.flood_tagged_port_outputs(tagged_ports, in_port))
         untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
         flood_acts.extend(valve_of.flood_untagged_port_outputs(untagged_ports, in_port))
         return flood_acts
+
+    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
+        return self._build_flood_local_rule_actions(
+            vlan, exclude_unicast, in_port)
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask,
                                    exclude_unicast, command, flood_priority,
@@ -69,11 +80,6 @@ class ValveFloodManager(object):
             inst=[valve_of.apply_actions(preflood_acts + flood_acts)],
             priority=flood_priority))
         return ofmsgs
-
-    def _vlan_all_ports(self, vlan, exclude_unicast):
-        vlan_all_ports = []
-        vlan_all_ports.extend(vlan.flood_ports(vlan.get_ports(), exclude_unicast))
-        return vlan_all_ports
 
     def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
                                       exclude_unicast, command, flood_priority):
@@ -97,7 +103,25 @@ class ValveFloodManager(object):
                 port, mirror_acts))
         return ofmsgs
 
-    def _build_group_buckets(self, vlan, unicast_flood):
+    def _build_multiout_flood_rules(self, vlan, command):
+        """Build flooding rules for a VLAN without using groups."""
+        flood_priority = self.flood_priority
+        ofmsgs = []
+        for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
+            if unicast_eth_dst and not vlan.unicast_flood:
+                continue
+            ofmsgs.extend(self._build_unmirrored_flood_rules(
+                vlan, eth_dst, eth_dst_mask,
+                unicast_eth_dst, command, flood_priority))
+            flood_priority += 1
+            ofmsgs.extend(self._build_mirrored_flood_rules(
+                vlan, eth_dst, eth_dst_mask,
+                unicast_eth_dst, command, flood_priority))
+            flood_priority += 1
+        return ofmsgs
+
+    @staticmethod
+    def _build_group_buckets(vlan, unicast_flood):
         buckets = []
         for port in vlan.tagged_flood_ports(unicast_flood):
             buckets.append(valve_of.bucket(
@@ -110,6 +134,7 @@ class ValveFloodManager(object):
         return buckets
 
     def _build_group_flood_rules(self, vlan, modify, command):
+        """Build flooding rules for a VLAN using groups."""
         flood_priority = self.flood_priority
         broadcast_group = self.groups.get_entry(
             vlan.vid,
@@ -140,22 +165,6 @@ class ValveFloodManager(object):
             flood_priority += 1
         return ofmsgs
 
-    def _build_multiout_flood_rules(self, vlan, command):
-        flood_priority = self.flood_priority
-        ofmsgs = []
-        for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
-            if unicast_eth_dst and not vlan.unicast_flood:
-                continue
-            ofmsgs.extend(self._build_unmirrored_flood_rules(
-                vlan, eth_dst, eth_dst_mask,
-                unicast_eth_dst, command, flood_priority))
-            flood_priority += 1
-            ofmsgs.extend(self._build_mirrored_flood_rules(
-                vlan, eth_dst, eth_dst_mask,
-                unicast_eth_dst, command, flood_priority))
-            flood_priority += 1
-        return ofmsgs
-
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
         # TODO: group table support is still fairly uncommon, so
@@ -170,11 +179,8 @@ class ValveFloodManager(object):
                 return self._build_group_flood_rules(vlan, modify, command)
         return self._build_multiout_flood_rules(vlan, command)
 
-    def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
-        return self._build_flood_local_rule_actions(
-            vlan, exclude_unicast, in_port)
-
-    def edge_learn_port(self, _other_valves, pkt_meta):
+    @staticmethod
+    def edge_learn_port(_other_valves, pkt_meta):
         """Possibly learn a host on a port.
 
         Args:
@@ -284,8 +290,6 @@ class ValveFloodStackManager(ValveFloodManager):
 
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
-        # TODO: group table support is still fairly uncommon, so
-        # group tables are currently optional.
         command = ofp.OFPFC_ADD
         if modify:
             command = ofp.OFPFC_MODIFY_STRICT
@@ -310,7 +314,8 @@ class ValveFloodStackManager(ValveFloodManager):
             return False
         return True
 
-    def _edge_dp_for_host(self, other_valves, pkt_meta):
+    @staticmethod
+    def _edge_dp_for_host(other_valves, pkt_meta):
         """Simple distributed unicast learning.
 
         Args:
@@ -323,6 +328,7 @@ class ValveFloodStackManager(ValveFloodManager):
         # We find just one port that is the shortest unicast path to
         # the destination. We could use other factors (eg we could
         # load balance over multiple ports based on destination MAC).
+        # TODO: react to topology changes.
         # TODO: each DP learns independently. An edge DP could
         # call other valves so they learn immediately without waiting
         # for packet in.

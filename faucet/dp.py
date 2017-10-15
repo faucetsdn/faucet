@@ -186,6 +186,9 @@ class DP(Conf):
         self.routers = {}
         self.stack_ports = []
 
+    def __str__(self):
+        return self.name
+
     def sanity_check(self):
         # TODO: this shouldnt use asserts
         assert 'dp_id' in self.__dict__
@@ -251,20 +254,19 @@ class DP(Conf):
         return self.match_tables('vlan_vid')
 
     def all_valve_tables(self):
-        """Return all Valve tables.
-
-        Returns:
-            list: all ValveTables.
-        """
+        """Return list of all Valve tables."""
         return list(self.tables_by_id.values())
 
     def add_acl(self, acl_ident, acl):
+        """Add an ACL to this DP."""
         self.acls[acl_ident] = acl
 
     def add_router(self, router_ident, router):
+        """Add a router to this DP."""
         self.routers[router_ident] = router
 
     def add_port(self, port):
+        """Add a port to this DP."""
         port_num = port.number
         self.ports[port_num] = port
         if port.mirror is not None:
@@ -274,9 +276,11 @@ class DP(Conf):
             self.stack_ports.append(port)
 
     def add_vlan(self, vlan):
+        """Add a VLAN to this datapath."""
         self.vlans[vlan.vid] = vlan
 
     def resolve_stack_topology(self, dps):
+        """Resolve inter-DP config for stacking."""
 
         def canonical_edge(dp, port):
             peer_dp = port.stack['dp']
@@ -309,7 +313,7 @@ class DP(Conf):
             if dp.stack is not None:
                 stack_dps.append(dp)
                 if 'priority' in dp.stack:
-                    assert root_dp is None, 'multiple stack roots'
+                    assert root_dp is None, 'cannot have multiple stack roots'
                     root_dp = dp
                     for vlan in list(dp.vlans.values()):
                         assert vlan.faucet_vips == [], 'routing + stacking not supported'
@@ -371,9 +375,10 @@ class DP(Conf):
         return None
 
     def finalize_config(self, dps):
-        """Resolve any config items by name if necessary."""
+        """Perform consistency checks after initial config parsing."""
 
         def resolve_port_no(port_name):
+            """Resolve port by name or number."""
             if port_name in port_by_name:
                 return port_by_name[port_name].number
             elif port_name in self.ports:
@@ -381,6 +386,7 @@ class DP(Conf):
             return None
 
         def resolve_vlan(vlan_name):
+            """Resolve VLAN by name or VID."""
             if vlan_name in vlan_by_name:
                 return vlan_by_name[vlan_name]
             elif vlan_name in self.vlans:
@@ -388,6 +394,7 @@ class DP(Conf):
             return None
 
         def resolve_stack_dps():
+            """Resolve DP references in stacking config."""
             port_stack_dp = {}
             for port in self.stack_ports:
                 stack_dp = port.stack['dp']
@@ -398,7 +405,7 @@ class DP(Conf):
                 port.stack['port'] = dp.ports[stack_port_name]
 
         def resolve_mirror_destinations():
-            # Associate mirrored ports, with their destinations.
+            """Resolve mirror port references and destinations."""
             mirror_from_port = {}
             for port in list(self.ports.values()):
                 if port.mirror is not None:
@@ -411,6 +418,7 @@ class DP(Conf):
                 mirror_destination_port.mirror_destination = True
 
         def resolve_names_in_acls():
+            """Resolve config references in ACLs."""
             for acl in list(self.acls.values()):
                 for rule_conf in acl.rules:
                     for attrib, attrib_value in list(rule_conf.items()):
@@ -444,8 +452,10 @@ class DP(Conf):
                                     failover['ports'] = resolved_ports
 
         def resolve_acls():
+            """Resolve ACL references in config."""
 
             def build_acl(acl, vid=None):
+                """Check that ACL can be built from config."""
                 assert valve_acl.build_acl_ofmsgs(
                     [acl], self.wildcard_table,
                     valve_of.goto_table(self.wildcard_table),
@@ -454,15 +464,14 @@ class DP(Conf):
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
                     vlan.acl_in = self.acls[vlan.acl_in]
-                    # Check ACL can be build from VLAN config.
                     build_acl(vlan.acl_in, vid=1)
             for port in list(self.ports.values()):
                 if port.acl_in:
                     port.acl_in = self.acls[port.acl_in]
-                    # Check ACL can be built from port config.
                     build_acl(port.acl_in)
 
         def resolve_vlan_names_in_routers():
+            """Resolve VLAN references in routers."""
             for router_name in list(self.routers.keys()):
                 router = self.routers[router_name]
                 vlans = []
@@ -503,19 +512,15 @@ class DP(Conf):
         self.finalize()
 
     def get_native_vlan(self, port_num):
+        """Return native VLAN for a port by number, or None."""
         if port_num not in self.ports:
             return None
 
         port = self.ports[port_num]
         return port.native_vlan
 
-    def get_tables(self):
-        result = {}
-        for table_name, table in list(self.tables.items()):
-            result[table_name] = table.table_id
-        return result
-
     def to_conf(self):
+        """Return DP config as dict."""
         result = super(DP, self).to_conf()
         if result is not None:
             if 'stack' in result:
@@ -529,12 +534,15 @@ class DP(Conf):
             result['interfaces'] = interface_dict
         return result
 
-    def get_config_dict(self):
-        """Render configuration as a dict, suitable for returning via API call.
+    def get_tables(self):
+        """Return tables as dict for API call."""
+        result = {}
+        for table_name, table in list(self.tables.items()):
+            result[table_name] = table.table_id
+        return result
 
-        Returns:
-            dict: current configuration.
-        """
+    def get_config_dict(self):
+        """Return DP config as a dict for API call."""
         if self.name:
             vlans_dict = {}
             for vlan in list(self.vlans.values()):
@@ -548,5 +556,145 @@ class DP(Conf):
                 'acls': acls_dict}
         return {}
 
-    def __str__(self):
-        return self.name
+    def _get_acl_config_changes(self, logger, new_dp):
+        """Detect any config changes to ACLs.
+
+        Args:
+            logger (ValveLogger): logger instance.
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changed_acls (dict): ACL ID map to new/changed ACLs.
+        """
+        changed_acls = {}
+        for acl_id, new_acl in list(new_dp.acls.items()):
+            if acl_id not in self.acls:
+                changed_acls[acl_id] = new_acl
+                logger.info('ACL %s new' % acl_id)
+            else:
+                if new_acl != self.acls[acl_id]:
+                    changed_acls[acl_id] = new_acl
+                    logger.info('ACL %s changed' % acl_id)
+        return changed_acls
+
+    def _get_vlan_config_changes(self, logger, new_dp):
+        """Detect any config changes to VLANs.
+
+        Args:
+            logger (ValveLogger): logger instance.
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changes (tuple) of:
+                deleted_vlans (set): deleted VLAN IDs.
+                changed_vlans (set): changed/added VLAN IDs.
+        """
+        deleted_vlans = set([])
+        for vid in list(self.vlans.keys()):
+            if vid not in new_dp.vlans:
+                deleted_vlans.add(vid)
+
+        changed_vlans = set([])
+        for vid, new_vlan in list(new_dp.vlans.items()):
+            if vid not in self.vlans:
+                changed_vlans.add(vid)
+                logger.info('VLAN %s added' % vid)
+            else:
+                old_vlan = self.vlans[vid]
+                if old_vlan != new_vlan:
+                    if not old_vlan.ignore_subconf(new_vlan):
+                        changed_vlans.add(vid)
+                        logger.info('VLAN %s config changed' % vid)
+                else:
+                    # Preserve current VLAN including current
+                    # dynamic state like caches, if VLAN and ports
+                    # did not change at all.
+                    new_dp.vlans[vid].merge_dyn(old_vlan)
+
+        if not deleted_vlans and not changed_vlans:
+            logger.info('no VLAN config changes')
+
+        return (deleted_vlans, changed_vlans)
+
+    def _get_port_config_changes(self, logger, new_dp, changed_vlans, changed_acls):
+        """Detect any config changes to ports.
+
+        Args:
+            logger (ValveLogger): logger instance.
+            new_dp (DP): new dataplane configuration.
+            changed_vlans (set): changed/added VLAN IDs.
+            changed_acls (dict): ACL ID map to new/changed ACLs.
+        Returns:
+            changes (tuple) of:
+                all_ports_changed (bool): True if all ports changed.
+                deleted_ports (set): deleted port numbers.
+                changed_ports (set): changed/added port numbers.
+                changed_acl_ports (set): changed ACL only port numbers.
+        """
+        all_ports_changed = False
+        changed_ports = set([])
+        changed_acl_ports = set([])
+
+        for port_no, new_port in list(new_dp.ports.items()):
+            if port_no not in self.ports:
+                # Detected a newly configured port
+                changed_ports.add(port_no)
+                logger.info('port %s added' % port_no)
+            else:
+                old_port = self.ports[port_no]
+                # An existing port has configs changed
+                if new_port != old_port:
+                    # TODO: we assume if port config had sub config
+                    # changed, it must have been the ACL.
+                    if old_port.ignore_subconf(new_port):
+                        changed_acl_ports.add(port_no)
+                        logger.info('port %s ACL changed' % port_no)
+                    else:
+                        changed_ports.add(port_no)
+                        logger.info('port %s reconfigured' % port_no)
+                elif new_port.acl_in in changed_acls:
+                    # If the port has ACL changed.
+                    changed_acl_ports.add(port_no)
+                    logger.info('port %s ACL changed' % port_no)
+
+        # TODO: optimize case where only VLAN ACL changed.
+        for vid in changed_vlans:
+            for port in new_dp.vlans[vid].get_ports():
+                changed_ports.add(port.number)
+
+        deleted_ports = set([])
+        for port_no in list(self.ports.keys()):
+            if port_no not in new_dp.ports:
+                deleted_ports.add(port_no)
+
+        if changed_ports == set(new_dp.ports.keys()):
+            logger.info('all ports config changed')
+            all_ports_changed = True
+        elif (not changed_ports and
+              not deleted_ports and
+              not changed_acl_ports):
+            logger.info('no port config changes')
+
+        return (all_ports_changed, deleted_ports,
+                changed_ports, changed_acl_ports)
+
+    def get_config_changes(self, logger, new_dp):
+        """Detect any config changes.
+
+        Args:
+            logger (ValveLogger): logger instance
+            new_dp (DP): new dataplane configuration.
+        Returns:
+            changes (tuple) of:
+                deleted_ports (set): deleted port numbers.
+                changed_ports (set): changed/added port numbers.
+                changed_acl_ports (set): changed ACL only port numbers.
+                deleted_vlans (set): deleted VLAN IDs.
+                changed_vlans (set): changed/added VLAN IDs.
+                all_ports_changed (bool): True if all ports changed.
+        """
+        changed_acls = self._get_acl_config_changes(logger, new_dp)
+        deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
+        (all_ports_changed, deleted_ports,
+         changed_ports, changed_acl_ports) = self._get_port_config_changes(
+             logger, new_dp, changed_vlans, changed_acls)
+        return (deleted_ports, changed_ports, changed_acl_ports,
+                deleted_vlans, changed_vlans, all_ports_changed)
