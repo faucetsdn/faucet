@@ -185,7 +185,7 @@ vlans:
         pkt_meta = self.valve.parse_rcv_packet(
             port, vid, eth_type, pkt.data, pkt, eth_pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
-            valves={}, pkt_meta=pkt_meta)
+            other_valves=[], pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
         resolve_ofmsgs = self.valve.resolve_gateways()
         self.table.apply_ofmsgs(resolve_ofmsgs)
