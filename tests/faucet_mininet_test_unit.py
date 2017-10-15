@@ -75,6 +75,7 @@ class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
     """Test the Faucet API."""
 
     NUM_DPS = 0
+    LINKS_PER_HOST = 0
 
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
@@ -1783,7 +1784,7 @@ vlans:
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
-                lacp: True
+                lacp: 1
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"

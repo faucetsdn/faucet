@@ -64,8 +64,8 @@ class Port(Conf):
         # maximum number of hosts
         'hairpin': False,
         # if True, then switch between hosts on this port (eg WiFi radio).
-        'lacp': False,
-        # if True, experimental LACP support enabled on this port.
+        'lacp': 0,
+        # if non 0 (LAG ID), experimental LACP support enabled on this port.
     }
 
     defaults_types = {
@@ -83,6 +83,7 @@ class Port(Conf):
         'stack': dict,
         'max_hosts': int,
         'hairpin': bool,
+        'lacp': int,
     }
 
     def __init__(self, _id, conf=None):
