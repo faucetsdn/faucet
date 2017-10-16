@@ -1184,5 +1184,49 @@ class GaugeNsODBCTest(unittest.TestCase):
         self.assertFalse(test_file in self.server.docs)
         self.assertTrue(self.conf.flows_doc in self.server.db)
 
+class GaugeNsodbcPollerTest(unittest.TestCase):
+    def setUp(self):
+        self.server = start_server(PretendCouchDB)
+        self.server.db = set()
+        self.server.docs = dict()
+        datapath = create_mock_datapath(1)
+        self.conf = mock.Mock(dp=datapath,
+                         driver='couchdb',
+                         db_ip='127.0.0.1',
+                         db_port=self.server.server_port,
+                         db_username='couch',
+                         db_password='123',
+                         switches_doc='switches_bak',
+                         flows_doc='flows_bak',
+                         db_update_counter=2,
+                         nosql_db='couch',
+                         views={
+                             'switch_view': '_design/switches/_view/switch',
+                             'match_view': '_design/flows/_view/match',
+                             }
+                            )
+
+    def tearDown(self):
+        """ Shutdown pretend server """
+        self.server.shutdown()
+
+    def test_update(self):
+        db_logger = gauge_nsodbc.GaugeFlowTableDBLogger(self.conf, '__name__', mock.Mock())
+        rcv_time = int(time.time())
+        instructions = [parser.OFPInstructionGotoTable(1)]
+        msg = flow_stats_msg(self.conf.dp, instructions)
+        db_logger.update(rcv_time, self.conf.dp.dp_id, msg)
+
+        for doc in self.server.docs:
+            if doc.startswith(self.conf.flows_doc) and '_design' not in doc:
+                flow_doc = self.server.docs[doc]
+            elif doc.startswith(self.conf.switches_doc) and '_design' not in doc:
+                switch_doc = self.server.docs[doc]
+
+        self.assertEqual(switch_doc['data']['flows'][0], flow_doc['_id'])
+        flow_doc = flow_doc['data']['OFPFlowStats']
+
+        compare_flow_msg(msg, flow_doc, self)
+
 if __name__ == "__main__":
     unittest.main()
