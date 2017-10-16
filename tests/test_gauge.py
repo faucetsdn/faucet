@@ -166,6 +166,10 @@ def check_instructions(original_inst, logger_inst, test):
             test.assertEqual(original_val, attr_val)
 
 def compare_flow_msg(flow_msg, flow_dict, test):
+    """
+    Compare the body section of an OFPFlowStatsReply
+    message to a dict representation of it
+    """
     for stat_name, stat_val in flow_dict.items():
         if stat_name == 'match':
             match_set = get_matches(stat_val['OFPMatch']['oxm_fields'])
@@ -1102,27 +1106,33 @@ class GaugeDatabaseCouchTest(unittest.TestCase):
         self.assertEqual(self.server.docs['test_db/_design/test_view']['views'], view)
 
 class GaugeNsODBCTest(unittest.TestCase):
+    """ Tests for the GaugeNsODBC helper class in gauge_nsodbc"""
+
     def setUp(self):
+        """
+        Start up the pretend couchdb server
+        and create a config object
+        """
         self.server = start_server(PretendCouchDB)
         self.server.db = set()
         self.server.docs = dict()
         self.couch = gauge_nsodbc.GaugeNsODBC()
         datapath = create_mock_datapath(0)
         self.conf = mock.Mock(dp=datapath,
-                         driver='couchdb',
-                         db_ip='127.0.0.1',
-                         db_port=self.server.server_port,
-                         db_username='couch',
-                         db_password='123',
-                         switches_doc='switches_bak',
-                         flows_doc='flows_bak',
-                         db_update_counter=2,
-                         nosql_db='couch',
-                         views={
-                             'switch_view': '_design/switches/_view/switch',
-                             'match_view': '_design/flows/_view/match',
-                             }
-                        )
+                              driver='couchdb',
+                              db_ip='127.0.0.1',
+                              db_port=self.server.server_port,
+                              db_username='couch',
+                              db_password='123',
+                              switches_doc='switches_bak',
+                              flows_doc='flows_bak',
+                              db_update_counter=2,
+                              nosql_db='couch',
+                              views={
+                                  'switch_view': '_design/switches/_view/switch',
+                                  'match_view': '_design/flows/_view/match',
+                                  }
+                             )
         self.couch.conf = self.conf
         self.credentials = {'driver': self.conf.driver,
                             'uid': self.conf.db_username,
@@ -1135,11 +1145,13 @@ class GaugeNsODBCTest(unittest.TestCase):
         self.server.shutdown()
 
     def get_doc_name(self, db_name, view_name):
+        """ Creates a string that corresponds to the view's doc name in the server """
         view = self.conf.views[view_name]
         doc_name = re.search(r'_design/(.*)/_view', view).group(1)
         return db_name + '/_design/' + doc_name
 
     def test_setup(self):
+        """Check that the setup method creates new databases and views"""
         self.couch.setup()
         self.assertTrue(self.conf.switches_doc in self.server.db)
         self.assertTrue(self.conf.flows_doc in self.server.db)
@@ -1150,6 +1162,10 @@ class GaugeNsODBCTest(unittest.TestCase):
         self.assertTrue(flow_doc in self.server.docs)
 
     def test_setup_existing(self):
+        """
+        Check that setup does not try to create new databases
+        when there are existing ones.
+        """
         self.server.db.add(self.conf.switches_doc)
         self.server.db.add(self.conf.flows_doc)
         self.couch.setup()
@@ -1157,6 +1173,11 @@ class GaugeNsODBCTest(unittest.TestCase):
         self.assertFalse(self.server.docs)
 
     def test_refresh_switch(self):
+        """
+        Check that it refreshes the data related to the switch
+        by deleting the existing switch database, replacing it
+        with a new one.
+        """
         g_db = nsodbc.nsodbc_factory()
         self.couch.conn = g_db.connect(**self.credentials)
 
@@ -1171,6 +1192,11 @@ class GaugeNsODBCTest(unittest.TestCase):
         self.assertTrue(self.conf.switches_doc in self.server.db)
 
     def test_refresh_flow(self):
+        """
+        Check that it refreshes the data related to the flows
+        by deleting the existing flow database, and replacing it
+        with a new one.
+        """
         g_db = nsodbc.nsodbc_factory()
         self.couch.conn = g_db.connect(**self.credentials)
 
@@ -1178,39 +1204,46 @@ class GaugeNsODBCTest(unittest.TestCase):
         test_file = self.conf.flows_doc + '/test_file'
         self.server.docs[test_file] = {'key1' : 'val1'}
         self.couch.refresh_flowdb()
-        
+
         flow_doc = self.get_doc_name(self.conf.flows_doc, 'match_view')
         self.assertTrue(flow_doc in self.server.docs)
         self.assertFalse(test_file in self.server.docs)
         self.assertTrue(self.conf.flows_doc in self.server.db)
 
 class GaugeNsodbcPollerTest(unittest.TestCase):
+    """Checks the update method of GaugeNsodbcPoller"""
+
     def setUp(self):
+        """
+        Start up the pretend couchdb server
+        and create a config object
+        """
         self.server = start_server(PretendCouchDB)
         self.server.db = set()
         self.server.docs = dict()
         datapath = create_mock_datapath(1)
         self.conf = mock.Mock(dp=datapath,
-                         driver='couchdb',
-                         db_ip='127.0.0.1',
-                         db_port=self.server.server_port,
-                         db_username='couch',
-                         db_password='123',
-                         switches_doc='switches_bak',
-                         flows_doc='flows_bak',
-                         db_update_counter=2,
-                         nosql_db='couch',
-                         views={
-                             'switch_view': '_design/switches/_view/switch',
-                             'match_view': '_design/flows/_view/match',
-                             }
-                            )
+                              driver='couchdb',
+                              db_ip='127.0.0.1',
+                              db_port=self.server.server_port,
+                              db_username='couch',
+                              db_password='123',
+                              switches_doc='switches_bak',
+                              flows_doc='flows_bak',
+                              db_update_counter=2,
+                              nosql_db='couch',
+                              views={
+                                  'switch_view': '_design/switches/_view/switch',
+                                  'match_view': '_design/flows/_view/match',
+                                  }
+                             )
 
     def tearDown(self):
         """ Shutdown pretend server """
         self.server.shutdown()
 
     def test_update(self):
+        """Compares the data writtten to the CouchDB server and the original flow message"""
         db_logger = gauge_nsodbc.GaugeFlowTableDBLogger(self.conf, '__name__', mock.Mock())
         rcv_time = int(time.time())
         instructions = [parser.OFPInstructionGotoTable(1)]
