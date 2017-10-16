@@ -1857,7 +1857,7 @@ details partner lacp pdu:
     system mac address: 0e:00:00:00:00:01
     oper key: 1
     port priority: 255
-    port number: 1
+    port number: %d
     port state: 62
 
 Slave Interface: \S+-eth1
@@ -1884,9 +1884,9 @@ details partner lacp pdu:
     system mac address: 0e:00:00:00:00:01
     oper key: 1
     port priority: 255
-    port number: 2
+    port number: %d
     port state: 62
-""".strip()
+""".strip() % (self.port_map['port_1'], self.port_map['port_2'])
         orig_ip = host.IP()
         switch = self.net.switches[0]
         bond_members = [pair[0].name for pair in host.connectionsTo(switch)]
