@@ -362,6 +362,9 @@ class PretendCouchDB(BaseHTTPRequestHandler):
 
         if db_name in self.server.db:
             self.server.db.remove(db_name)
+            for doc_name in list(self.server.docs.keys()):
+                if doc_name.startswith(db_name):
+                    del self.server.docs[doc_name]
             self.send_response(200)
             self.end_headers()
             return
@@ -954,6 +957,7 @@ class GaugeConnectionCouchTest(unittest.TestCase):
         """ Start up the pretend server and create a connection object"""
         self.server = start_server(PretendCouchDB)
         self.server.db = set()
+        self.server.docs = dict()
         url = 'http://127.0.0.1:{}/'.format(self.server.server_port)
         credentials = ('couch', '123')
         self.conn = nsodbc.ConnectionCouch(couchdb.Server(url), credentials)
