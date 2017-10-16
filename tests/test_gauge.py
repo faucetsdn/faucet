@@ -20,7 +20,7 @@ import urllib
 import requests
 import couchdb
 
-from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher, nsodbc
+from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher, nsodbc, gauge_nsodbc
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
@@ -1093,6 +1093,89 @@ class GaugeDatabaseCouchTest(unittest.TestCase):
         self.db.create_view('test_view', view)
         self.assertEqual(1, len(self.server.docs))
         self.assertEqual(self.server.docs['test_db/_design/test_view']['views'], view)
+
+class GaugeNsODBCTest(unittest.TestCase):
+    def setUp(self):
+        self.server = start_server(PretendCouchDB)
+        self.server.db = set()
+        self.server.docs = dict()
+        self.couch = gauge_nsodbc.GaugeNsODBC()
+        datapath = create_mock_datapath(0)
+        self.conf = mock.Mock(dp=datapath,
+                         driver='couchdb',
+                         db_ip='127.0.0.1',
+                         db_port=self.server.server_port,
+                         db_username='couch',
+                         db_password='123',
+                         switches_doc='switches_bak',
+                         flows_doc='flows_bak',
+                         db_update_counter=2,
+                         nosql_db='couch',
+                         views={
+                             'switch_view': '_design/switches/_view/switch',
+                             'match_view': '_design/flows/_view/match',
+                             }
+                        )
+        self.couch.conf = self.conf
+        self.credentials = {'driver': self.conf.driver,
+                            'uid': self.conf.db_username,
+                            'pwd': self.conf.db_password,
+                            'server': self.conf.db_ip,
+                            'port': self.conf.db_port}
+
+    def tearDown(self):
+        """ Shutdown pretend server """
+        self.server.shutdown()
+
+    def get_doc_name(self, db_name, view_name):
+        view = self.conf.views[view_name]
+        doc_name = re.search(r'_design/(.*)/_view', view).group(1)
+        return db_name + '/_design/' + doc_name
+
+    def test_setup(self):
+        self.couch.setup()
+        self.assertTrue(self.conf.switches_doc in self.server.db)
+        self.assertTrue(self.conf.flows_doc in self.server.db)
+
+        switch_doc = self.get_doc_name(self.conf.switches_doc, 'switch_view')
+        self.assertTrue(switch_doc in self.server.docs)
+        flow_doc = self.get_doc_name(self.conf.flows_doc, 'match_view')
+        self.assertTrue(flow_doc in self.server.docs)
+
+    def test_setup_existing(self):
+        self.server.db.add(self.conf.switches_doc)
+        self.server.db.add(self.conf.flows_doc)
+        self.couch.setup()
+        self.assertEqual(len(self.server.db), 2)
+        self.assertFalse(self.server.docs)
+
+    def test_refresh_switch(self):
+        g_db = nsodbc.nsodbc_factory()
+        self.couch.conn = g_db.connect(**self.credentials)
+
+        self.server.db.add(self.conf.switches_doc)
+        test_file = self.conf.switches_doc + '/test_file'
+        self.server.docs[test_file] = {'key1' : 'val1'}
+        self.couch.refresh_switchdb()
+
+        switch_doc = self.get_doc_name(self.conf.switches_doc, 'switch_view')
+        self.assertTrue(switch_doc in self.server.docs)
+        self.assertFalse(test_file in self.server.docs)
+        self.assertTrue(self.conf.switches_doc in self.server.db)
+
+    def test_refresh_flow(self):
+        g_db = nsodbc.nsodbc_factory()
+        self.couch.conn = g_db.connect(**self.credentials)
+
+        self.server.db.add(self.conf.flows_doc)
+        test_file = self.conf.flows_doc + '/test_file'
+        self.server.docs[test_file] = {'key1' : 'val1'}
+        self.couch.refresh_flowdb()
+        
+        flow_doc = self.get_doc_name(self.conf.flows_doc, 'match_view')
+        self.assertTrue(flow_doc in self.server.docs)
+        self.assertFalse(test_file in self.server.docs)
+        self.assertTrue(self.conf.flows_doc in self.server.db)
 
 if __name__ == "__main__":
     unittest.main()
