@@ -150,6 +150,31 @@ def logger_to_ofp(port_stats):
             'errors_in' : port_stats.rx_errors
            }
 
+def get_matches(match_dict):
+    """Create a set of match name and value tuples"""
+    return {(entry['OXMTlv']['field'], entry['OXMTlv']['value']) for entry in match_dict}
+
+def check_instructions(original_inst, logger_inst, test):
+    """
+    Check that the original instructions matches the
+    instructions from the logger
+    """
+    for inst_type, inst in logger_inst[0].items():
+        test.assertEqual(original_inst[0].__class__.__name__, inst_type)
+        for attr_name, attr_val in inst.items():
+            original_val = getattr(original_inst[0], attr_name)
+            test.assertEqual(original_val, attr_val)
+
+def compare_flow_msg(flow_msg, flow_dict, test):
+    for stat_name, stat_val in flow_dict.items():
+        if stat_name == 'match':
+            match_set = get_matches(stat_val['OFPMatch']['oxm_fields'])
+            test.assertEqual(match_set, set(flow_msg.body[0].match.items()))
+        elif stat_name == 'instructions':
+            check_instructions(flow_msg.body[0].instructions, stat_val, test)
+        else:
+            test.assertEqual(getattr(flow_msg.body[0], stat_name), stat_val)
+
 class PretendInflux(BaseHTTPRequestHandler):
     """An HTTP Handler that receives InfluxDB messages."""
 
@@ -828,21 +853,6 @@ class GaugeWatcherTest(unittest.TestCase):
 
         return contents
 
-    def get_matches(self, match_dict):
-        """Create a set of match name and value tuples"""
-        return {(entry['OXMTlv']['field'], entry['OXMTlv']['value']) for entry in match_dict}
-
-    def check_instructions(self, original_inst, logger_inst):
-        """
-        Check that the original instructions matches the
-        instructions from the logger
-        """
-        for inst_type, inst in logger_inst[0].items():
-            self.assertEqual(original_inst[0].__class__.__name__, inst_type)
-            for attr_name, attr_val in inst.items():
-                original_val = getattr(original_inst[0], attr_name)
-                self.assertEqual(original_val, attr_val)
-
     def test_port_state(self):
         """Check the update method in the GaugePortStateLogger class"""
 
@@ -941,14 +951,7 @@ class GaugeWatcherTest(unittest.TestCase):
         log_str = log_str[index + len(str_to_find):]
         json_dict = json.loads(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
 
-        for stat_name, stat_val in json_dict.items():
-            if stat_name == 'match':
-                match_set = self.get_matches(stat_val['OFPMatch']['oxm_fields'])
-                self.assertEqual(match_set, set(msg.body[0].match.items()))
-            elif stat_name == 'instructions':
-                self.check_instructions(instructions, stat_val)
-            else:
-                self.assertEqual(getattr(msg.body[0], stat_name), stat_val)
+        compare_flow_msg(msg, json_dict, self)
 
 class GaugeConnectionCouchTest(unittest.TestCase):
     """ Check the ConnectionCouch class from nsodbc"""
