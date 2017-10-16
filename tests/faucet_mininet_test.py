@@ -358,12 +358,12 @@ def pipeline_superset_report(decoded_pcap_logs):
 
 
 def filter_test_hardware(test_obj, hw_config):
-    test_hosts = test_obj.N_TAGGED + test_obj.N_UNTAGGED
+    test_links = (test_obj.N_TAGGED + test_obj.N_UNTAGGED) * test_obj.LINKS_PER_HOST
     if hw_config is not None:
         test_hardware = hw_config['hardware']
         if test_obj.NUM_DPS != 1:
             return False
-        if test_hosts < REQUIRED_TEST_PORTS:
+        if test_links < REQUIRED_TEST_PORTS:
             if test_hardware == 'ZodiacFX':
                 return True
             return False
@@ -371,7 +371,7 @@ def filter_test_hardware(test_obj, hw_config):
             if test_hardware not in SUPPORTS_METERS:
                 return False
     else:
-        if test_obj.NUM_DPS == 1 and test_hosts < REQUIRED_TEST_PORTS:
+        if test_obj.NUM_DPS == 1 and test_links < REQUIRED_TEST_PORTS:
             return False
         # TODO: OVS does not support meters
         if test_obj.REQUIRES_METERS:

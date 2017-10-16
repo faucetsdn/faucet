@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import networkx
 from ryu.ofproto import ofproto_v1_3 as ofp
 
@@ -101,7 +102,7 @@ class DP(Conf):
         # stacking config, when cross connecting multiple DPs
         'ignore_learn_ins': 3,
         # Ignore every approx nth packet for learning.
-        #2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
+        # 2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
         # This limits control plane activity when learning new hosts rapidly.
         # Flooding will still be done by the dataplane even with a packet
         # is ignored for learning purposes.
@@ -136,7 +137,7 @@ class DP(Conf):
         'pipeline_config_dir': '/etc/ryu/faucet',
         # where config files for pipeline are stored (if any).
         'use_idle_timeout': False,
-        #Turn on/off the use of idle timeout for src_table, default OFF.
+        # Turn on/off the use of idle timeout for src_table, default OFF.
         }
 
     defaults_types = {
@@ -518,6 +519,13 @@ class DP(Conf):
 
         port = self.ports[port_num]
         return port.native_vlan
+
+    def lags(self):
+        """Return dict of LAGs mapped to member ports."""
+        lacp_ports = [port for port in list(self.ports.values()) if port.lacp]
+        lags = collections.defaultdict(list)
+        for port in lacp_ports:
+            lags[port.lacp].append(port)
 
     def to_conf(self):
         """Return DP config as dict."""

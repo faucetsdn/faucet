@@ -136,7 +136,12 @@ class FaucetSwitchTopo(Topo):
             cls=FaucetSwitch,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
 
-    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+    def _add_links(self, switch, hosts, links_per_host):
+        for host in hosts:
+            for _ in range(links_per_host):
+                self.addLink(host, switch)
+
+    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         for dpid in dpids:
             serialno = faucet_mininet_test_util.get_serialno(
                 ports_sock, test_name)
@@ -146,14 +151,13 @@ class FaucetSwitchTopo(Topo):
             for host_n in range(n_untagged):
                 self._add_untagged_host(sid_prefix, host_n)
             switch = self._add_faucet_switch(sid_prefix, dpid)
-            for host in self.hosts():
-                self.addLink(host, switch)
+            self._add_links(switch, self.hosts(), links_per_host)
 
 
 class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
-    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         for dpid in dpids:
             serialno = faucet_mininet_test_util.get_serialno(
                 ports_sock, test_name)
@@ -167,14 +171,13 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
                 dpid, int(dpid), remap_dpid, int(remap_dpid)))
             dpid = remap_dpid
             switch = self._add_faucet_switch(sid_prefix, dpid)
-            for host in self.hosts():
-                self.addLink(host, switch)
+            self._add_links(switch, self.hosts(), links_per_host)
 
 
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
     """String of datapaths each with hosts with a single FAUCET controller."""
 
-    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0):
+    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         """
 
                                Hosts
@@ -211,8 +214,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
             for host_n in range(n_untagged):
                 hosts.append(self._add_untagged_host(sid_prefix, host_n))
             switch = self._add_faucet_switch(sid_prefix, dpid)
-            for host in hosts:
-                self.addLink(host, switch)
+            self._add_links(switch, hosts, links_per_host)
             # Add a switch-to-switch link with the previous switch,
             # if this isn't the first switch in the topology.
             if last_switch is not None:
