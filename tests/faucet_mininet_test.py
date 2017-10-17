@@ -531,11 +531,11 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
 
 
 def dump_failed_test_file(test_file, ignore_exts, require_ext):
-    if ext in ignore_exts:
+    for ext in ignore_exts:
         if test_file.endswith(ext):
             return
-    if ext in require_ext:
-        if not test_file.endswith(ext):
+    if require_ext:
+        if not test_file.endswith(require_ext):
             return
     print(test_file)
     print('=' * len(test_file))
@@ -544,6 +544,9 @@ def dump_failed_test_file(test_file, ignore_exts, require_ext):
 
 
 def dump_failed_test(test_name, test_dir):
+    print(test_name)
+    print('=' * len(test_name))
+    print()
     test_files = glob.glob(os.path.join(test_dir, '*'))
     for test_file in test_files:
         dump_failed_test_file(test_file, ['.cap', '.cap.txt'], None)
