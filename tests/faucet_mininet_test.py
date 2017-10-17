@@ -530,17 +530,25 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
     return ports_sock
 
 
+def dump_failed_test_file(test_file, ignore_exts, require_ext):
+    if ext in ignore_exts:
+        if test_file.endswith(ext):
+            return
+    if ext in require_ext:
+        if not test_file.endswith(ext):
+            return
+    print(test_file)
+    print('=' * len(test_file))
+    print()
+    print(open(test_file).read())
+
+
 def dump_failed_test(test_name, test_dir):
-    print(test_name)
-    print()
-    print()
     test_files = glob.glob(os.path.join(test_dir, '*'))
     for test_file in test_files:
-        if not test_file.endswith('.cap'):
-            print(test_file)
-            print('=' * len(test_file))
-            print()
-            print(open(test_file).read())
+        dump_failed_test_file(test_file, ['.cap', '.cap.txt'], None)
+    for test_file in test_files:
+        dump_failed_test_file(test_file, [], '.cap.txt')
 
 
 def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
