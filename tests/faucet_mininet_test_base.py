@@ -1218,9 +1218,13 @@ dbs:
             self.set_port_up(port_no)
 
     def add_macvlan(self, host, macvlan_intf):
-        host.cmd('ip link add link %s %s type macvlan' % (
-            host.defaultIntf(), macvlan_intf))
-        host.cmd('ip link set dev %s up' % macvlan_intf)
+        self.assertEqual(
+            '',
+            host.cmd('ip link add link %s %s type macvlan' % (
+                host.defaultIntf(), macvlan_intf)))
+        self.assertEqual(
+            '',
+            host.cmd('ip link set dev %s up' % macvlan_intf))
 
     def add_host_ipv6_address(self, host, ip_v6, intf=None):
         """Add an IPv6 address to a Mininet host."""
