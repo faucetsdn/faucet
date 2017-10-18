@@ -981,6 +981,7 @@ vlans:
 
     CONFIG = """
         timeout: 10
+        ignore_learn_ins: 0
         interfaces:
             %(port_1)d:
                 native_vlan: 100
