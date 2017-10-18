@@ -58,20 +58,13 @@ RUN \
     wget \
     wpasupplicant
 
-###
-### TODO: pytype may be slightly stale due to Docker caching.
-### Specify versions as we do for mininet if possible.
-###
-
-RUN \
-  git config --global url.https://github.com/.insteadOf git://github.com/ && \
-  /bin/echo -e "https://github.com/mininet/mininet\nhttps://github.com/google/pytype.git" | parallel git clone
-
 
 ### slim down mininet dependencies (to avoid installing X11)
 RUN \
+  git config --global url.https://github.com/.insteadOf git://github.com/ && \
   ./setupproxy.sh && \
   $AG update && \
+  git clone https://github.com/mininet/mininet && \
   cd mininet && git checkout 2.2.2 && cd .. && \
   perl -pi -e "s/setup.py/${SETUPQ}/g" mininet/Makefile && \
   perl -pi -e "s/apt-get/${AG}/g" mininet/util/install.sh && \
@@ -102,6 +95,10 @@ RUN \
   $PIP3 $PIPDEPS
 
 RUN \
+  git config --global url.https://github.com/.insteadOf git://github.com/ && \
+  ./setupproxy.sh && \
+  $AG update && \
+  git clone https://github.com/google/pytype.git && \
   cd pytype && git submodule init && git submodule update && python2 $SETUPQ install && cd .. && rm -rf pytype
 
 ###
