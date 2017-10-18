@@ -1877,7 +1877,7 @@ details actor lacp pdu:
     system mac address: 0e:00:00:00:00:99
     port key: \d+
     port priority: 255
-    port number: 2
+    port number: \d+
     port state: 63
 details partner lacp pdu:
     system priority: 65535
