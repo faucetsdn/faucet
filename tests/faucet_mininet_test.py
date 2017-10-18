@@ -530,28 +530,32 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
     return ports_sock
 
 
-def dump_failed_test_file(test_file, ignore_exts, require_ext):
-    for ext in ignore_exts:
+def dump_failed_test_file(test_file, only_exts):
+    for ext in only_exts:
         if test_file.endswith(ext):
-            return
-    if require_ext:
-        if not test_file.endswith(require_ext):
-            return
-    print(test_file)
-    print('=' * len(test_file))
-    print()
-    print(open(test_file).read())
+            test_file_content = open(test_file).read()
+            if test_file_content:
+                print(test_file)
+                print('=' * len(test_file))
+                print('\n')
+                print(test_file_content)
+            return True
+    return False
 
 
 def dump_failed_test(test_name, test_dir):
     print(test_name)
     print('=' * len(test_name))
-    print()
-    test_files = glob.glob(os.path.join(test_dir, '*'))
-    for test_file in test_files:
-        dump_failed_test_file(test_file, ['.cap', '.cap.txt'], None)
-    for test_file in test_files:
-        dump_failed_test_file(test_file, [], '.cap.txt')
+    print('\n')
+    test_files = set(glob.glob(os.path.join(test_dir, '*')))
+    dumped_test_files = set()
+
+    for only_exts in (['.yaml'], ['.log'], []):
+        for test_file in test_files:
+            if test_file in dumped_test_files:
+                continue
+            if dump_failed_test_file(test_file, only_exts):
+                dumped_test_files.add(test_file)
 
 
 def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
