@@ -128,7 +128,7 @@ class FaucetTestBase(unittest.TestCase):
         self.faucet_config_path = self.env['faucet']['FAUCET_CONFIG']
         self.gauge_config_path = self.env['gauge']['GAUGE_CONFIG']
         self.debug_log_path = os.path.join(
-            self.tmpdir, 'ofchannel.log')
+            self.tmpdir, 'ofchannel.txt')
         self.monitor_stats_file = os.path.join(
             self.tmpdir, 'ports.txt')
         self.monitor_state_file = os.path.join(
