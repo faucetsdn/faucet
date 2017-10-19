@@ -1110,7 +1110,7 @@ vlans:
             self.add_macvlan(second_host, mac_intf)
             second_host.cmd('ip address add %s/24 brd + dev %s' % (
                 mac_ipv4, mac_intf))
-            second_host.cmd('ping -c1 -I%s %s &' % (mac_intf, first_host.IP()))
+            second_host.cmd('ping -c1 -I%s %s > /dev/null &' % (mac_intf, first_host.IP()))
         # verify connectivity
         for mac_intf, _ in mac_intf_ipv4s:
             self.one_ipv4_ping(
