@@ -1029,7 +1029,7 @@ vlans:
         fping_out = None
         for _ in range(3):
             fping_out = first_host.cmd(faucet_mininet_test_util.timeout_cmd(
-                'fping -i1 -p1 -c3 %s' % ' '.join(mac_ips), 5))
+                'fping -i300 -c3 %s' % ' '.join(mac_ips), 5))
             if self.hosts_learned(hosts):
                 return
             time.sleep(1)

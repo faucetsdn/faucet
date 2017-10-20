@@ -551,7 +551,7 @@ def dump_failed_test(test_name, test_dir):
     dumped_test_files = set()
 
     for only_exts in (['.yaml'], ['.log'], []):
-        for test_file in test_files:
+        for test_file in sorted(test_files):
             if test_file in dumped_test_files:
                 continue
             if dump_failed_test_file(test_file, only_exts):
