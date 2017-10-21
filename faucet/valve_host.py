@@ -125,10 +125,12 @@ class ValveHostManager(object):
         if port.permanent_learn:
             learn_timeout = 0
         else:
-            # Add a jitter to avoid whole bunch of hosts timeout simultaneously
-            learn_timeout = int(max(abs(
-                self.learn_timeout -
-                (self.learn_jitter / 2) + random.randint(0, self.learn_jitter)), 2))
+            learn_timeout = self.learn_timeout
+            if self.learn_timeout:
+                # Add a jitter to avoid whole bunch of hosts timeout simultaneously
+                learn_timeout = int(max(abs(
+                    self.learn_timeout -
+                    (self.learn_jitter / 2) + random.randint(0, self.learn_jitter)), 2))
 
         # Update datapath to no longer send packets from this mac to controller
         # note the use of hard_timeout here and idle_timeout for the dst table
