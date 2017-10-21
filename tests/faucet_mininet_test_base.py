@@ -120,8 +120,8 @@ class FaucetTestBase(unittest.TestCase):
         self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', faucet_mininet_test_util.LOCALHOST)
 
     def _set_static_vars(self):
-        self._set_var('faucet', 'FAUCET_LOG_LEVEL', logging.DEBUG)
-        self._set_var('gauge', 'GAUGE_LOG_LEVEL', logging.DEBUG)
+        self._set_var('faucet', 'FAUCET_LOG_LEVEL', str(logging.DEBUG))
+        self._set_var('gauge', 'GAUGE_LOG_LEVEL', str(logging.DEBUG))
         self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
         self._set_var_path('faucet', 'FAUCET_LOG', 'faucet.log')
         self._set_var_path('faucet', 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
