@@ -1033,7 +1033,10 @@ vlans:
             if self.hosts_learned(hosts):
                 return
             time.sleep(1)
-        self.fail('%s cannot be learned (%s)' % (mac_ips, fping_out))
+        first_host_diag = first_host.cmd('ifconfig -a ; arp -an')
+        second_host_diag = second_host.cmd('ifconfig -a ; arp -an')
+        self.fail('%s cannot be learned (%s)\nfirst host %s\nsecond host %s\n' % (
+            mac_ips, fping_out, first_host_diag, second_host_diag))
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
