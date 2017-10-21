@@ -1210,12 +1210,15 @@ dbs:
         port_count = self.N_TAGGED + self.N_UNTAGGED
         return list(sorted(self.port_map.values()))[:port_count]
 
+    def flap_port(self, port_no, flap_time=1):
+        self.set_port_down(port_no)
+        time.sleep(flap_time)
+        self.set_port_up(port_no)
+
     def flap_all_switch_ports(self, flap_time=1):
         """Flap all ports on switch."""
         for port_no in self._dp_ports():
-            self.set_port_down(port_no)
-            time.sleep(flap_time)
-            self.set_port_up(port_no)
+            self.flap_port(port_no, flap_time=flap_time)
 
     def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24):
         self.assertEqual(

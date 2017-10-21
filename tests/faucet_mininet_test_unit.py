@@ -1047,6 +1047,7 @@ vlans:
         mac_intfs = []
         mac_ips = []
 
+        self.flap_port(self.port_map['port_2'])
         for i in range(10, 16):
             if i == 14:
                 self.verify_hosts_learned(first_host, second_host, mac_ips, learned_mac_ports)
