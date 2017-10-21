@@ -9,7 +9,6 @@ import collections
 import glob
 import ipaddress
 import json
-import logging
 import os
 import random
 import re
@@ -1218,7 +1217,7 @@ dbs:
             time.sleep(flap_time)
             self.set_port_up(port_no)
 
-    def add_macvlan(self, host, macvlan_intf):
+    def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24):
         self.assertEqual(
             '',
             host.cmd('ip link add link %s %s type macvlan' % (
@@ -1226,6 +1225,11 @@ dbs:
         self.assertEqual(
             '',
             host.cmd('ip link set dev %s up' % macvlan_intf))
+        if ipa:
+            self.assertEqual(
+                '',
+                host.cmd('ip address add %s/%s brd + dev %s' % (
+                    ipa, ipm, macvlan_intf)))
 
     def add_host_ipv6_address(self, host, ip_v6, intf=None):
         """Add an IPv6 address to a Mininet host."""

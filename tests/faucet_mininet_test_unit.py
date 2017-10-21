@@ -248,8 +248,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         macvlan2_intf = 'macvlan2'
         macvlan2_ipv4 = '10.0.0.101'
         netns = first_host.name
-        self.add_macvlan(first_host, macvlan1_intf)
-        first_host.cmd('ip address add %s/24 brd + dev %s' % (macvlan1_ipv4, macvlan1_intf))
+        self.add_macvlan(first_host, macvlan1_intf, ipa=macvlan1_ipv4)
         self.add_macvlan(first_host, macvlan2_intf)
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
         first_host.cmd('ip netns add %s' % netns)
@@ -945,9 +944,7 @@ vlans:
         for i in range(10, 10+(self.MAX_HOSTS*2)):
             mac_intf = 'mac%u' % i
             mac_ipv4 = '10.0.0.%u' % i
-            self.add_macvlan(second_host, mac_intf)
-            second_host.cmd('ip address add %s/24 brd + dev %s' % (
-                mac_ipv4, mac_intf))
+            self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
             second_host.cmd('ping -c1 -I%s %s > /dev/null &' % (mac_intf, first_host.IP()))
         flows = self.get_matching_flows_on_dpid(
             self.dpid,
@@ -1019,24 +1016,28 @@ vlans:
                 mac_ints_on_port_learned[port] = set()
             macs_learned = self.macs_learned_on_port(port)
             mac_ints_on_port_learned[port].update(macs_learned)
+        mac_ints_learned = []
         for mac, port in hosts.items():
             mac_int = self.mac_as_int(mac)
-            if not mac_int in mac_ints_on_port_learned[port]:
-                return False
-        return True
+            if mac_int in mac_ints_on_port_learned[port]:
+                mac_ints_learned.append(mac_int)
+        return mac_ints_learned
 
     def verify_hosts_learned(self, first_host, second_host, mac_ips, hosts):
         fping_out = None
+        mac_ints_learned = None
         for _ in range(3):
+            mac_ints_learned = []
             fping_out = first_host.cmd(faucet_mininet_test_util.timeout_cmd(
                 'fping -i300 -c3 %s' % ' '.join(mac_ips), 5))
-            if self.hosts_learned(hosts):
+            mac_ints_learned = self.hosts_learned(hosts)
+            if len(mac_ints_learned) == len(hosts):
                 return
             time.sleep(1)
         first_host_diag = first_host.cmd('ifconfig -a ; arp -an')
         second_host_diag = second_host.cmd('ifconfig -a ; arp -an')
-        self.fail('%s cannot be learned (%s)\nfirst host %s\nsecond host %s\n' % (
-            mac_ips, fping_out, first_host_diag, second_host_diag))
+        self.fail('%s cannot be learned (%s != %s)\nfirst host %s\nsecond host %s\n' % (
+            mac_ips, mac_ints_learned, fping_out, first_host_diag, second_host_diag))
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
@@ -1057,9 +1058,7 @@ vlans:
             mac_intfs.append(mac_intf)
             mac_ipv4 = '10.0.0.%u' % i
             mac_ips.append(mac_ipv4)
-            self.add_macvlan(second_host, mac_intf)
-            second_host.cmd('ip address add %s/24 brd + dev %s' % (
-                mac_ipv4, mac_intf))
+            self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
             address = second_host.cmd(
                 '|'.join((
                     'ip link show %s' % mac_intf,
@@ -1110,9 +1109,7 @@ vlans:
             mac_intf_ipv4s.append(('mac%u' % i, '10.0.0.%u' % i))
         # configure macvlan interfaces and stimulate learning
         for mac_intf, mac_ipv4 in mac_intf_ipv4s:
-            self.add_macvlan(second_host, mac_intf)
-            second_host.cmd('ip address add %s/24 brd + dev %s' % (
-                mac_ipv4, mac_intf))
+            self.add_macvlan(second_host, mac_intf, mac_ipv4)
             second_host.cmd('ping -c1 -I%s %s > /dev/null &' % (mac_intf, first_host.IP()))
         # verify connectivity
         for mac_intf, _ in mac_intf_ipv4s:
