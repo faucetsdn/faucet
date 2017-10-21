@@ -1025,7 +1025,7 @@ vlans:
                 return False
         return True
 
-    def verify_hosts_learned(self, first_host, mac_ips, hosts):
+    def verify_hosts_learned(self, first_host, second_host, mac_ips, hosts):
         fping_out = None
         for _ in range(3):
             fping_out = first_host.cmd(faucet_mininet_test_util.timeout_cmd(
@@ -1047,7 +1047,7 @@ vlans:
 
         for i in range(10, 16):
             if i == 14:
-                self.verify_hosts_learned(first_host, mac_ips, learned_mac_ports)
+                self.verify_hosts_learned(first_host, second_host, mac_ips, learned_mac_ports)
                 learned_mac_ports = {}
                 mac_intfs = []
                 mac_ips = []
@@ -1069,7 +1069,7 @@ vlans:
             learned_mac_ports[address] = self.port_map['port_2']
 
         learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
-        self.verify_hosts_learned(first_host, mac_ips, learned_mac_ports)
+        self.verify_hosts_learned(first_host, second_host, mac_ips, learned_mac_ports)
 
         # Verify same or less number of hosts on a port reported by Prometheus
         self.assertTrue((

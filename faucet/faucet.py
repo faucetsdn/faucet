@@ -99,7 +99,7 @@ class Faucet(app_manager.RyuApp):
         self.config_file = os.getenv(
             'FAUCET_CONFIG', sysprefix + '/etc/ryu/faucet/faucet.yaml')
         self.loglevel = os.getenv(
-            'FAUCET_LOG_LEVEL', logging.INFO)
+            'FAUCET_LOG_LEVEL', logging.DEBUG)
         self.logfile = os.getenv(
             'FAUCET_LOG', sysprefix + '/var/log/ryu/faucet/faucet.log')
         self.exc_logfile = os.getenv(
