@@ -20,7 +20,7 @@ import urllib
 import requests
 import couchdb
 
-from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher, nsodbc
+from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher, nsodbc, gauge_nsodbc
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
@@ -36,7 +36,7 @@ def create_mock_datapath(num_ports):
         type(port).name = port_name
         ports[i] = port
 
-    datapath = mock.Mock(ports=ports, id=random.randint(1, 5000))
+    datapath = mock.Mock(ports=ports, dp_id=random.randint(1, 5000))
     dp_name = mock.PropertyMock(return_value='datapath')
     type(datapath).name = dp_name
     return datapath
@@ -149,6 +149,35 @@ def logger_to_ofp(port_stats):
             'dropped_in' : port_stats.rx_dropped,
             'errors_in' : port_stats.rx_errors
            }
+
+def get_matches(match_dict):
+    """Create a set of match name and value tuples"""
+    return {(entry['OXMTlv']['field'], entry['OXMTlv']['value']) for entry in match_dict}
+
+def check_instructions(original_inst, logger_inst, test):
+    """
+    Check that the original instructions matches the
+    instructions from the logger
+    """
+    for inst_type, inst in logger_inst[0].items():
+        test.assertEqual(original_inst[0].__class__.__name__, inst_type)
+        for attr_name, attr_val in inst.items():
+            original_val = getattr(original_inst[0], attr_name)
+            test.assertEqual(original_val, attr_val)
+
+def compare_flow_msg(flow_msg, flow_dict, test):
+    """
+    Compare the body section of an OFPFlowStatsReply
+    message to a dict representation of it
+    """
+    for stat_name, stat_val in flow_dict.items():
+        if stat_name == 'match':
+            match_set = get_matches(stat_val['OFPMatch']['oxm_fields'])
+            test.assertEqual(match_set, set(flow_msg.body[0].match.items()))
+        elif stat_name == 'instructions':
+            check_instructions(flow_msg.body[0].instructions, stat_val, test)
+        else:
+            test.assertEqual(getattr(flow_msg.body[0], stat_name), stat_val)
 
 class PretendInflux(BaseHTTPRequestHandler):
     """An HTTP Handler that receives InfluxDB messages."""
@@ -362,6 +391,9 @@ class PretendCouchDB(BaseHTTPRequestHandler):
 
         if db_name in self.server.db:
             self.server.db.remove(db_name)
+            for doc_name in list(self.server.docs.keys()):
+                if doc_name.startswith(db_name):
+                    del self.server.docs[doc_name]
             self.send_response(200)
             self.end_headers()
             return
@@ -430,14 +462,14 @@ class GaugePrometheusTests(unittest.TestCase):
 
         prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', prom_client)
         msg = port_stats_msg(datapath)
-        prom_poller.update(time.time(), datapath.id, msg)
+        prom_poller.update(time.time(), datapath.dp_id, msg)
 
         prom_lines = self.get_prometheus_stats(conf.prometheus_addr, conf.prometheus_port)
         prom_lines = self.parse_prom_output(prom_lines)
 
         for port_num, port in datapath.ports.items():
             port_stats = msg.body[int(port_num) - 1]
-            stats = prom_lines[(datapath.id, port.name)]
+            stats = prom_lines[(datapath.dp_id, port.name)]
             stats_found = set()
 
             for stat_name, stat_val in stats:
@@ -626,7 +658,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
 
             msg = port_state_msg(conf.dp, i, reasons[i-1])
             rcv_time = int(time.time())
-            db_logger.update(rcv_time, conf.dp.id, msg)
+            db_logger.update(rcv_time, conf.dp.dp_id, msg)
 
             with open(self.server.output_file, 'r') as log:
                 output = log.read()
@@ -643,7 +675,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         msg = port_stats_msg(conf.dp)
         rcv_time = int(time.time())
 
-        db_logger.update(rcv_time, conf.dp.id, msg)
+        db_logger.update(rcv_time, conf.dp.dp_id, msg)
         with open(self.server.output_file, 'r') as log:
             output = log.readlines()
 
@@ -668,7 +700,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         rcv_time = int(time.time())
         instructions = [parser.OFPInstructionGotoTable(1)]
         msg = flow_stats_msg(conf.dp, instructions)
-        db_logger.update(rcv_time, conf.dp.id, msg)
+        db_logger.update(rcv_time, conf.dp.dp_id, msg)
 
         other_fields = {'dp_name': conf.dp.name,
                         'timestamp': rcv_time,
@@ -825,21 +857,6 @@ class GaugeWatcherTest(unittest.TestCase):
 
         return contents
 
-    def get_matches(self, match_dict):
-        """Create a set of match name and value tuples"""
-        return {(entry['OXMTlv']['field'], entry['OXMTlv']['value']) for entry in match_dict}
-
-    def check_instructions(self, original_inst, logger_inst):
-        """
-        Check that the original instructions matches the
-        instructions from the logger
-        """
-        for inst_type, inst in logger_inst[0].items():
-            self.assertEqual(original_inst[0].__class__.__name__, inst_type)
-            for attr_name, attr_val in inst.items():
-                original_val = getattr(original_inst[0], attr_name)
-                self.assertEqual(original_val, attr_val)
-
     def test_port_state(self):
         """Check the update method in the GaugePortStateLogger class"""
 
@@ -862,7 +879,7 @@ class GaugeWatcherTest(unittest.TestCase):
                 state = ofproto.OFPPS_LINK_DOWN
 
             msg = port_state_msg(datapath, 1, reasons[reason], state)
-            logger.update(time.time(), datapath.id, msg)
+            logger.update(time.time(), datapath.dp_id, msg)
 
             log_str = self.get_file_contents().lower()
             self.assertTrue(reason in log_str)
@@ -870,7 +887,7 @@ class GaugeWatcherTest(unittest.TestCase):
 
             hexs = re.findall(r'0x[0-9A-Fa-f]+', log_str)
             hexs = [int(num, 16) for num in hexs]
-            self.assertTrue(datapath.id in hexs or str(datapath.id) in log_str)
+            self.assertTrue(datapath.dp_id in hexs or str(datapath.dp_id) in log_str)
 
     def test_port_stats(self):
         """Check the update method in the GaugePortStatsLogger class"""
@@ -891,7 +908,7 @@ class GaugeWatcherTest(unittest.TestCase):
         for i in range(0, len(msg.body)):
             original_stats.append(logger_to_ofp(msg.body[i]))
 
-        logger.update(time.time(), datapath.id, msg)
+        logger.update(time.time(), datapath.dp_id, msg)
 
         log_str = self.get_file_contents()
         for stat_name in original_stats[0]:
@@ -928,7 +945,7 @@ class GaugeWatcherTest(unittest.TestCase):
         instructions = [parser.OFPInstructionGotoTable(1)]
 
         msg = flow_stats_msg(datapath, instructions)
-        logger.update(time.time(), datapath.id, msg)
+        logger.update(time.time(), datapath.dp_id, msg)
         log_str = self.get_file_contents()
 
         #only parse the message part of the log text
@@ -938,14 +955,7 @@ class GaugeWatcherTest(unittest.TestCase):
         log_str = log_str[index + len(str_to_find):]
         json_dict = json.loads(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
 
-        for stat_name, stat_val in json_dict.items():
-            if stat_name == 'match':
-                match_set = self.get_matches(stat_val['OFPMatch']['oxm_fields'])
-                self.assertEqual(match_set, set(msg.body[0].match.items()))
-            elif stat_name == 'instructions':
-                self.check_instructions(instructions, stat_val)
-            else:
-                self.assertEqual(getattr(msg.body[0], stat_name), stat_val)
+        compare_flow_msg(msg, json_dict, self)
 
 class GaugeConnectionCouchTest(unittest.TestCase):
     """ Check the ConnectionCouch class from nsodbc"""
@@ -954,6 +964,7 @@ class GaugeConnectionCouchTest(unittest.TestCase):
         """ Start up the pretend server and create a connection object"""
         self.server = start_server(PretendCouchDB)
         self.server.db = set()
+        self.server.docs = dict()
         url = 'http://127.0.0.1:{}/'.format(self.server.server_port)
         credentials = ('couch', '123')
         self.conn = nsodbc.ConnectionCouch(couchdb.Server(url), credentials)
@@ -1093,6 +1104,162 @@ class GaugeDatabaseCouchTest(unittest.TestCase):
         self.db.create_view('test_view', view)
         self.assertEqual(1, len(self.server.docs))
         self.assertEqual(self.server.docs['test_db/_design/test_view']['views'], view)
+
+class GaugeNsODBCTest(unittest.TestCase):
+    """ Tests for the GaugeNsODBC helper class in gauge_nsodbc"""
+
+    def setUp(self):
+        """
+        Start up the pretend couchdb server
+        and create a config object
+        """
+        self.server = start_server(PretendCouchDB)
+        self.server.db = set()
+        self.server.docs = dict()
+        self.couch = gauge_nsodbc.GaugeNsODBC()
+        datapath = create_mock_datapath(0)
+        self.conf = mock.Mock(dp=datapath,
+                              driver='couchdb',
+                              db_ip='127.0.0.1',
+                              db_port=self.server.server_port,
+                              db_username='couch',
+                              db_password='123',
+                              switches_doc='switches_bak',
+                              flows_doc='flows_bak',
+                              db_update_counter=2,
+                              nosql_db='couch',
+                              views={
+                                  'switch_view': '_design/switches/_view/switch',
+                                  'match_view': '_design/flows/_view/match',
+                                  }
+                             )
+        self.couch.conf = self.conf
+        self.credentials = {'driver': self.conf.driver,
+                            'uid': self.conf.db_username,
+                            'pwd': self.conf.db_password,
+                            'server': self.conf.db_ip,
+                            'port': self.conf.db_port}
+
+    def tearDown(self):
+        """ Shutdown pretend server """
+        self.server.shutdown()
+
+    def get_doc_name(self, db_name, view_name):
+        """ Creates a string that corresponds to the view's doc name in the server """
+        view = self.conf.views[view_name]
+        doc_name = re.search(r'_design/(.*)/_view', view).group(1)
+        return db_name + '/_design/' + doc_name
+
+    def test_setup(self):
+        """Check that the setup method creates new databases and views"""
+        self.couch.setup()
+        self.assertTrue(self.conf.switches_doc in self.server.db)
+        self.assertTrue(self.conf.flows_doc in self.server.db)
+
+        switch_doc = self.get_doc_name(self.conf.switches_doc, 'switch_view')
+        self.assertTrue(switch_doc in self.server.docs)
+        flow_doc = self.get_doc_name(self.conf.flows_doc, 'match_view')
+        self.assertTrue(flow_doc in self.server.docs)
+
+    def test_setup_existing(self):
+        """
+        Check that setup does not try to create new databases
+        when there are existing ones.
+        """
+        self.server.db.add(self.conf.switches_doc)
+        self.server.db.add(self.conf.flows_doc)
+        self.couch.setup()
+        self.assertEqual(len(self.server.db), 2)
+        self.assertFalse(self.server.docs)
+
+    def test_refresh_switch(self):
+        """
+        Check that it refreshes the data related to the switch
+        by deleting the existing switch database, replacing it
+        with a new one.
+        """
+        g_db = nsodbc.nsodbc_factory()
+        self.couch.conn = g_db.connect(**self.credentials)
+
+        self.server.db.add(self.conf.switches_doc)
+        test_file = self.conf.switches_doc + '/test_file'
+        self.server.docs[test_file] = {'key1' : 'val1'}
+        self.couch.refresh_switchdb()
+
+        switch_doc = self.get_doc_name(self.conf.switches_doc, 'switch_view')
+        self.assertTrue(switch_doc in self.server.docs)
+        self.assertFalse(test_file in self.server.docs)
+        self.assertTrue(self.conf.switches_doc in self.server.db)
+
+    def test_refresh_flow(self):
+        """
+        Check that it refreshes the data related to the flows
+        by deleting the existing flow database, and replacing it
+        with a new one.
+        """
+        g_db = nsodbc.nsodbc_factory()
+        self.couch.conn = g_db.connect(**self.credentials)
+
+        self.server.db.add(self.conf.flows_doc)
+        test_file = self.conf.flows_doc + '/test_file'
+        self.server.docs[test_file] = {'key1' : 'val1'}
+        self.couch.refresh_flowdb()
+
+        flow_doc = self.get_doc_name(self.conf.flows_doc, 'match_view')
+        self.assertTrue(flow_doc in self.server.docs)
+        self.assertFalse(test_file in self.server.docs)
+        self.assertTrue(self.conf.flows_doc in self.server.db)
+
+class GaugeNsodbcPollerTest(unittest.TestCase):
+    """Checks the update method of GaugeNsodbcPoller"""
+
+    def setUp(self):
+        """
+        Start up the pretend couchdb server
+        and create a config object
+        """
+        self.server = start_server(PretendCouchDB)
+        self.server.db = set()
+        self.server.docs = dict()
+        datapath = create_mock_datapath(1)
+        self.conf = mock.Mock(dp=datapath,
+                              driver='couchdb',
+                              db_ip='127.0.0.1',
+                              db_port=self.server.server_port,
+                              db_username='couch',
+                              db_password='123',
+                              switches_doc='switches_bak',
+                              flows_doc='flows_bak',
+                              db_update_counter=2,
+                              nosql_db='couch',
+                              views={
+                                  'switch_view': '_design/switches/_view/switch',
+                                  'match_view': '_design/flows/_view/match',
+                                  }
+                             )
+
+    def tearDown(self):
+        """ Shutdown pretend server """
+        self.server.shutdown()
+
+    def test_update(self):
+        """Compares the data writtten to the CouchDB server and the original flow message"""
+        db_logger = gauge_nsodbc.GaugeFlowTableDBLogger(self.conf, '__name__', mock.Mock())
+        rcv_time = int(time.time())
+        instructions = [parser.OFPInstructionGotoTable(1)]
+        msg = flow_stats_msg(self.conf.dp, instructions)
+        db_logger.update(rcv_time, self.conf.dp.dp_id, msg)
+
+        for doc in self.server.docs:
+            if doc.startswith(self.conf.flows_doc) and '_design' not in doc:
+                flow_doc = self.server.docs[doc]
+            elif doc.startswith(self.conf.switches_doc) and '_design' not in doc:
+                switch_doc = self.server.docs[doc]
+
+        self.assertEqual(switch_doc['data']['flows'][0], flow_doc['_id'])
+        flow_doc = flow_doc['data']['OFPFlowStats']
+
+        compare_flow_msg(msg, flow_doc, self)
 
 if __name__ == "__main__":
     unittest.main()
