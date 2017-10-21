@@ -1058,7 +1058,7 @@ vlans:
             mac_ipv4 = '10.0.0.%u' % i
             mac_ips.append(mac_ipv4)
             self.add_macvlan(second_host, mac_intf)
-            second_host.cmd('ip address add %s/24 dev brd + %s' % (
+            second_host.cmd('ip address add %s/24 brd + dev %s' % (
                 mac_ipv4, mac_intf))
             address = second_host.cmd(
                 '|'.join((
