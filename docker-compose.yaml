@@ -7,7 +7,7 @@ services:
             - '8086'
             - '8083'
         volumes:
-            - '/opt/influxdb/shared/data/db:/var/lib/influxdb'
+            - '${FAUCET_PREFIX}/opt/influxdb/shared/data/db:/var/lib/influxdb'
         environment:
             INFLUXDB_DB: 'faucet'
             INFLUXDB_HTTP_AUTH_ENABLED: 'true'
@@ -18,7 +18,7 @@ services:
         restart: always
         image: 'couchdb:1.6'
         volumes:
-            - '/opt/couchdb:/usr/local/var/lib/couchdb'
+            - '${FAUCET_PREFIX}/opt/couchdb:/usr/local/var/lib/couchdb'
         environment:
             COUCHDB_USER: 'couch'
             COUCHDB_PASSWORD: '123'
@@ -29,7 +29,7 @@ services:
         ports:
             - '9090:9090'
         volumes:
-            - '/opt/prometheus/:/prometheus'
+            - '$FAUCET_PREFIX/opt/prometheus/:/prometheus'
             - './etc/prometheus/prometheus-docker-compose.yml:/etc/prometheus/prometheus.yml'
             - './etc/prometheus/faucet.rules:/etc/prometheus/faucet.rules'
         links:
@@ -42,7 +42,7 @@ services:
         ports:
             - '3000:3000'
         volumes:
-            - '/opt/grafana:/var/lib/grafana'
+            - '$FAUCET_PREFIX/opt/grafana:/var/lib/grafana'
         links:
             - influxdb
             - prometheus
@@ -56,8 +56,8 @@ services:
         environment:
            - GAUGE_CONFIG=/etc/ryu/faucet/gauge.yaml
         volumes:
-            - '/var/log/ryu/faucet:/var/log/ryu/faucet'
-            - '/etc/ryu/faucet:/etc/ryu/faucet'
+            - '$FAUCET_PREFIX/var/log/ryu/faucet:/var/log/ryu/faucet'
+            - '$FAUCET_PREFIX/etc/ryu/faucet:/etc/ryu/faucet'
         ports:
             - '6654:6653'
             - '9303'
@@ -72,8 +72,8 @@ services:
             dockerfile: Dockerfile
         image: 'faucet/faucet:1.6.7'
         volumes:
-            - '/var/log/ryu/faucet:/var/log/ryu/faucet'
-            - '/etc/ryu/faucet:/etc/ryu/faucet'
+            - '$FAUCET_PREFIX/var/log/ryu/faucet:/var/log/ryu/faucet'
+            - '$FAUCET_PREFIX/etc/ryu/faucet:/etc/ryu/faucet'
         ports:
             - '6653:6653'
             - '9302'

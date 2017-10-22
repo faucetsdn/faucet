@@ -139,6 +139,15 @@ It can be run with ```docker-compose up```
 
 The database will write to ```/opt/influxdb/shared/data/db```
 
+On OSX, some of the default shared paths are not accessible, so to overwrite
+the location that volumes are written to on your host, export an environment
+varible name `FAUCET_PREFIX` and it will get prepended to the host paths.
+For example:
+
+```
+export FAUCET_PREFIX=/opt/faucet
+```
+
 Grafana First login to grafana using default credentials of
 User:admin Password:admin.
 
