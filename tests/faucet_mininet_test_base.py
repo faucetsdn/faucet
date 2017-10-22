@@ -761,6 +761,25 @@ dbs:
                 return False
         return True
 
+    def mac_as_int(self, mac):
+        return long(mac.replace(':', ''), 16)
+
+    def mac_from_int(self, mac_int):
+        return ':'.join(s.encode('hex') for s in str('%012d' % long(mac)).decode('hex'))
+
+    def prom_macs_learned(self, port=None, vlan=None):
+        labels = {}
+        if port:
+            labels['port'] = str(port)
+        if vlan:
+            labels['vlan'] = str(vlan)
+        port_learned_macs_prom = self.scrape_prometheus_var(
+            'learned_macs', labels, default=[], multiple=True)
+        return [self.mac_from_int(mac_int) for _, mac_int in port_learned_macs_prom if mac_int]
+
+    def prom_mac_learned(self, mac, port=None, vlan=None):
+        return mac in self.prom_macs_learned(port=port, vlan=vlan)
+
     def host_learned(self, host, timeout=10, in_port=None):
         """Return True if a host has been learned on default DPID."""
         return self.mac_learned(host.MAC(), timeout, in_port)
