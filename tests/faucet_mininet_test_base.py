@@ -761,6 +761,31 @@ dbs:
                 return False
         return True
 
+    def mac_as_int(self, mac):
+        return long(mac.replace(':', ''), 16)
+
+    def mac_from_int(self, mac_int):
+        mac_int_str = '%012x' % long(mac_int)
+        return ':'.join([x.encode('hex') for x in str(mac_int_str).decode('hex')])
+
+    def prom_macs_learned(self, port=None, vlan=None):
+        labels = {
+            'n': r'\d+',
+            'port': r'\d+',
+            'vlan': r'\d+',
+        }
+        if port:
+            labels['port'] = str(port)
+        if vlan:
+            labels['vlan'] = str(vlan)
+        port_learned_macs_prom = self.scrape_prometheus_var(
+            'learned_macs', labels=labels, default=[], multiple=True, dpid=True)
+        macs = [self.mac_from_int(mac_int) for _, mac_int in port_learned_macs_prom if mac_int]
+        return macs
+
+    def prom_mac_learned(self, mac, port=None, vlan=None):
+        return mac in self.prom_macs_learned(port=port, vlan=vlan)
+
     def host_learned(self, host, timeout=10, in_port=None):
         """Return True if a host has been learned on default DPID."""
         return self.mac_learned(host.MAC(), timeout, in_port)
@@ -873,14 +898,15 @@ dbs:
                 prom_var_data = prom_line.split(' ')
                 self.assertEqual(
                     2, len(prom_var_data),
-                    msg='invalid prometheus line in %s' % prom_lines)
-                var, value = prom_var_data
-                var_match = re.search(var_re, var)
-                if var_match:
-                    value_int = long(float(value))
-                    results.append((var, value_int))
-                    if not multiple:
-                        break
+                    msg='Invalid prometheus line in %s' % prom_lines)
+                prom_var, value = prom_var_data
+                if prom_var.startswith(var):
+                    var_match = re.search(var_re, prom_var)
+                    if var_match:
+                        value_int = long(float(value))
+                        results.append((var, value_int))
+                        if not multiple:
+                            break
             if results:
                 if multiple:
                     return results
@@ -1219,6 +1245,15 @@ dbs:
         """Flap all ports on switch."""
         for port_no in self._dp_ports():
             self.flap_port(port_no, flap_time=flap_time)
+
+    def get_mac_of_intf(self, host, intf):
+        """Get MAC address of a port."""
+        return host.cmd(
+            '|'.join((
+                'ip link show %s' % intf,
+                'grep -o "..:..:..:..:..:.."',
+                'head -1',
+                'xargs echo -n'))).lower()
 
     def add_macvlan(self, host, macvlan_intf, ipa=None, ipm=24):
         self.assertEqual(

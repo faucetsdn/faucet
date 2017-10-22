@@ -962,7 +962,7 @@ vlans:
                 'port_learn_bans', {'port': self.port_map['port_2']}), 0)
 
 
-class FaucetSingleHostsTimeoutPrometheusTest(FaucetUntaggedTest):
+class FaucetHostsTimeoutPrometheusTest(FaucetUntaggedTest):
     """Test for hosts that have been learnt are exported via prometheus.
        Hosts should timeout, and the exported prometheus values should
        be overwritten.
@@ -995,87 +995,72 @@ vlans:
                 description: "b4"
 """
 
-    def mac_as_int(self, mac):
-        return long(mac.replace(':', ''), 16)
-
-    def macs_learned_on_port(self, port):
-        port_learned_macs_prom = self.scrape_prometheus_var(
-            'learned_macs', {'port': str(port), 'vlan': '100'},
-            default=[], multiple=True)
-        macs_learned = []
-        for _, mac_int in port_learned_macs_prom:
-            if mac_int:
-                macs_learned.append(mac_int)
-        return macs_learned
-
     def hosts_learned(self, hosts):
         """Check that hosts are learned by FAUCET on the expected ports."""
-        mac_ints_on_port_learned = {}
+        macs_learned = []
         for mac, port in hosts.items():
-            self.mac_learned(mac)
-            if port not in mac_ints_on_port_learned:
-                mac_ints_on_port_learned[port] = set()
-            macs_learned = self.macs_learned_on_port(port)
-            mac_ints_on_port_learned[port].update(macs_learned)
-        mac_ints_learned = []
-        for mac, port in hosts.items():
-            mac_int = self.mac_as_int(mac)
-            if mac_int in mac_ints_on_port_learned[port]:
-                mac_ints_learned.append(mac_int)
-        return mac_ints_learned
+            if self.prom_mac_learned(mac, port=port):
+                self.mac_learned(mac, in_port=port)
+                macs_learned.append(mac)
+        return macs_learned
 
     def verify_hosts_learned(self, first_host, second_host, mac_ips, hosts):
-        fping_out = None
-        mac_ints_learned = None
         for _ in range(3):
-            mac_ints_learned = []
             fping_out = first_host.cmd(faucet_mininet_test_util.timeout_cmd(
                 'fping -i300 -c3 %s' % ' '.join(mac_ips), 5))
-            mac_ints_learned = self.hosts_learned(hosts)
-            if len(mac_ints_learned) == len(hosts):
+            macs_learned = self.hosts_learned(hosts)
+            if len(macs_learned) == len(hosts):
                 return
             time.sleep(1)
         first_host_diag = first_host.cmd('ifconfig -a ; arp -an')
         second_host_diag = second_host.cmd('ifconfig -a ; arp -an')
         self.fail('%s cannot be learned (%s != %s)\nfirst host %s\nsecond host %s\n' % (
-            mac_ips, mac_ints_learned, fping_out, first_host_diag, second_host_diag))
+            mac_ips, macs_learned, fping_out, first_host_diag, second_host_diag))
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
-        learned_mac_ports = {}
-        learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
-        mac_intfs = []
-        mac_ips = []
+        all_learned_mac_ports = {}
 
-        self.flap_port(self.port_map['port_2'])
-        for i in range(10, 16):
-            if i == 14:
+        # learn batches of hosts, then down them
+        for base in (10, 20, 30):
+            mac_intfs = []
+            mac_ips = []
+            learned_mac_ports = {}
+
+            def add_macvlans(base, count):
+                for i in range(base, base + count):
+                    mac_intf = 'mac%u' % i
+                    mac_intfs.append(mac_intf)
+                    mac_ipv4 = '10.0.0.%u' % i
+                    mac_ips.append(mac_ipv4)
+                    self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
+                    macvlan_mac = self.get_mac_of_intf(second_host, mac_intf)
+                    learned_mac_ports[macvlan_mac] = self.port_map['port_2']
+
+            def down_macvlans(macvlans):
+                for macvlan in macvlans:
+                    second_host.cmd('ip link set dev %s down' % macvlan)
+
+            def learn_then_down_hosts(base, count):
+                add_macvlans(base, count)
                 self.verify_hosts_learned(first_host, second_host, mac_ips, learned_mac_ports)
-                learned_mac_ports = {}
-                mac_intfs = []
-                mac_ips = []
-                # wait for first lot to time out.
-                time.sleep(self.TIMEOUT * 2)
-            mac_intf = 'mac%u' % i
-            mac_intfs.append(mac_intf)
-            mac_ipv4 = '10.0.0.%u' % i
-            mac_ips.append(mac_ipv4)
-            self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
-            address = second_host.cmd(
-                '|'.join((
-                    'ip link show %s' % mac_intf,
-                    'grep -o "..:..:..:..:..:.."',
-                    'head -1',
-                    'xargs echo -n')))
-            learned_mac_ports[address] = self.port_map['port_2']
+                down_macvlans(mac_intfs)
 
-        learned_mac_ports[first_host.MAC()] = self.port_map['port_1']
-        self.verify_hosts_learned(first_host, second_host, mac_ips, learned_mac_ports)
+            learn_then_down_hosts(base, 5)
+            all_learned_mac_ports.update(learned_mac_ports)
 
-        # Verify same or less number of hosts on a port reported by Prometheus
-        self.assertTrue((
-            len(self.macs_learned_on_port(self.port_map['port_1'])) <=
-            len(learned_mac_ports)))
+        # make sure at least one host still learned
+        learned_macs = self.hosts_learned(all_learned_mac_ports)
+        self.assertTrue(learned_macs)
+
+        # make sure they all eventually expire
+        for _ in range(self.TIMEOUT * 2):
+            learned_macs = self.hosts_learned(all_learned_mac_ports)
+            if not learned_macs:
+                return
+            time.sleep(1)
+
+        self.fail('MACs did not expire: %s' % learned_macs)
 
 
 class FaucetLearn50MACsOnPortTest(FaucetUntaggedTest):
