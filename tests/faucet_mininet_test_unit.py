@@ -958,7 +958,7 @@ vlans:
                 'port_learn_bans', {'port': self.port_map['port_2']}), 0)
 
 
-class FaucetHostsTimeoutPrometheusTest(FaucetUntaggedTest):
+class FaucetSingleHostsTimeoutPrometheusTest(FaucetUntaggedTest):
     """Test for hosts that have been learnt are exported via prometheus.
        Hosts should timeout, and the exported prometheus values should
        be overwritten.
@@ -1819,8 +1819,12 @@ vlans:
             self.assertEqual('', second_host.cmd(cmd))
 
         # Flood some traffic into the loop
-        first_host.cmd('ping -c3 10.0.0.254')
-        end_bans = self.total_port_bans()
+        for _ in range(3):
+            first_host.cmd('fping -i10 -c3 10.0.0.254')
+            end_bans = self.total_port_bans()
+            if end_bans > start_bans:
+                return
+            time.sleep(1)
         self.assertGreater(end_bans, start_bans)
 
 
