@@ -1141,7 +1141,7 @@ dbs:
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip, iperf_port):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1
@@ -1151,7 +1151,7 @@ dbs:
             hosts.append(host)
         client_host, server_host = hosts
         iperf_mbps = self.iperf(
-            client_host, server_host, server_ip, iperf_port, seconds)
+            client_host, server_host, server_ip, seconds)
         self.assertTrue(iperf_mbps > min_mbps)
         # TODO: account for drops.
         for _ in range(3):
@@ -1566,18 +1566,20 @@ dbs:
             time.sleep(1)
         self.fail('%s: %s' % (iperf_client_cmd, iperf_results))
 
-    def iperf(self, client_host, server_host, server_ip, port, seconds):
-        iperf_base_cmd = 'iperf -f M -p %u' % port
-        if server_ip.version == 6:
-            iperf_base_cmd += ' -V'
-        iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
-        iperf_server_cmd = faucet_mininet_test_util.timeout_cmd(
-            iperf_server_cmd, (seconds * 3) + 5)
-        iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
-            '%s -y c -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
-            seconds + 5)
-        server_start_exp = r'Server listening on TCP port %u' % port
+    def iperf(self, client_host, server_host, server_ip, seconds):
         for _ in range(3):
+            port = faucet_mininet_test_util.find_free_port(
+                self.ports_sock, self._test_name())   
+            iperf_base_cmd = 'iperf -f M -p %u' % port
+            if server_ip.version == 6:
+                iperf_base_cmd += ' -V'
+            iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
+            iperf_server_cmd = faucet_mininet_test_util.timeout_cmd(
+                iperf_server_cmd, (seconds * 3) + 5)
+            iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
+                '%s -y c -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
+                 seconds + 5)
+            server_start_exp = r'Server listening on TCP port %u' % port
             server_out = server_host.popen(
                 iperf_server_cmd,
                 stdin=faucet_mininet_test_util.DEVNULL,
@@ -1601,7 +1603,7 @@ dbs:
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip,
-                            iperf_port, with_group_table=False):
+                            with_group_table=False):
         """Verify one host can IPV4 route to another via FAUCET."""
         self.host_ipv4_alias(first_host, first_host_routed_ip)
         self.host_ipv4_alias(second_host, second_host_routed_ip)
@@ -1625,7 +1627,7 @@ dbs:
                 (first_host, second_host, second_host_routed_ip.ip),
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
-                client_host, server_host, server_ip, iperf_port, 5)
+                client_host, server_host, server_ip, 5)
             error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         # verify packets matched routing flows
@@ -1638,7 +1640,7 @@ dbs:
             with_group_table=with_group_table,
             nonzero_packets=True)
 
-    def verify_ipv4_routing_mesh(self, iperf_port, with_group_table=False):
+    def verify_ipv4_routing_mesh(self, with_group_table=False):
         """Verify hosts can route to each other via FAUCET."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
@@ -1648,20 +1650,20 @@ dbs:
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
-            iperf_port, with_group_table=with_group_table)
+            with_group_table=with_group_table)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip2,
-            iperf_port, with_group_table=with_group_table)
+            with_group_table=with_group_table)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip,
-            iperf_port, with_group_table=with_group_table)
+            with_group_table=with_group_table)
         self.verify_ipv4_routing(
             first_host, first_host_routed_ip,
             second_host, second_host_routed_ip2,
-            iperf_port, with_group_table=with_group_table)
+            with_group_table=with_group_table)
 
     def host_drop_all_ips(self, host):
         for ipv in (4, 6):
@@ -1683,7 +1685,7 @@ dbs:
     def verify_ipv6_routing(self, first_host, first_host_ip,
                             first_host_routed_ip, second_host,
                             second_host_ip, second_host_routed_ip,
-                            iperf_port, with_group_table=False):
+                            with_group_table=False):
         """Verify one host can IPV6 route to another via FAUCET."""
         self.one_ipv6_ping(first_host, second_host_ip.ip)
         self.one_ipv6_ping(second_host, first_host_ip.ip)
@@ -1705,7 +1707,7 @@ dbs:
                 (first_host, second_host, second_host_routed_ip.ip),
                 (second_host, first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
-                client_host, server_host, server_ip, iperf_port, 5)
+                client_host, server_host, server_ip, 5)
             error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         self.one_ipv6_ping(first_host, second_host_ip.ip)
@@ -1718,7 +1720,7 @@ dbs:
     def verify_ipv6_routing_pair(self, first_host, first_host_ip,
                                  first_host_routed_ip, second_host,
                                  second_host_ip, second_host_routed_ip,
-                                 iperf_port, with_group_table=False):
+                                 with_group_table=False):
         """Verify hosts can route IPv6 to each other via FAUCET."""
         self.setup_ipv6_hosts_addresses(
             first_host, first_host_ip, first_host_routed_ip,
@@ -1726,9 +1728,9 @@ dbs:
         self.verify_ipv6_routing(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            iperf_port, with_group_table=with_group_table)
+            with_group_table=with_group_table)
 
-    def verify_ipv6_routing_mesh(self, iperf_port, with_group_table=False):
+    def verify_ipv6_routing_mesh(self, with_group_table=False):
         """Verify IPv6 routing between hosts and multiple subnets."""
         host_pair = self.net.hosts[:2]
         first_host, second_host = host_pair
@@ -1740,20 +1742,20 @@ dbs:
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            iperf_port, with_group_table=with_group_table)
+            with_group_table=with_group_table)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2,
-            iperf_port, with_group_table=with_group_table)
+            with_group_table=with_group_table)
         self.swap_host_macs(first_host, second_host)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip,
-            iperf_port, with_group_table=with_group_table)
+            with_group_table=with_group_table)
         self.verify_ipv6_routing_pair(
             first_host, first_host_ip, first_host_routed_ip,
             second_host, second_host_ip, second_host_routed_ip2,
-            iperf_port, with_group_table=with_group_table)
+            with_group_table=with_group_table)
 
     def verify_invalid_bgp_route(self, pattern):
         """Check if we see the pattern in Faucet's log"""
