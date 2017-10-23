@@ -197,14 +197,37 @@ class ValveHostManager(object):
         now = time.time()
         ofmsgs = []
 
-        # Don't relearn same host on same port if recently learned.
-        # TODO: this is a good place to detect and react to a loop,
-        # if we detect a host moving rapidly between ports.
-        entry = vlan.cached_host_on_port(eth_src, port)
-        if entry is not None:
-            cache_age = now - entry.cache_time
-            if cache_age < 2:
-                return ofmsgs
+        ban_age = None
+        learn_ban = False
+
+        if port.loop_protect:
+            if port.dyn_last_ban_time:
+                ban_age = now - port.dyn_last_ban_time
+            if ban_age and ban_age < 2:
+                learn_ban = True
+
+        if not learn_ban:
+            entry = vlan.cached_host(eth_src)
+            if entry is not None:
+                cache_age = now - entry.cache_time
+                if cache_age < 2:
+                    # Don't relearn same host on same port if recently learned.
+                    if entry.port == port:
+                        return ofmsgs
+                    elif port.loop_protect:
+                        # Ban learning on a port if a host rapidly moves to another port.
+                        if ban_age is None or ban_age > 2:
+                            learn_ban = True
+                            port.dyn_learn_ban_count += 1
+                            ofmsgs.append(self._temp_ban_host_learning_on_port(port))
+                            self.logger.info('rapid move of %s from %s to %s, temp loop ban %s' % (
+                                eth_src, entry.port, port, port))
+                        elif ban_age < 2:
+                            learn_ban = True
+
+        if learn_ban:
+            port.dyn_last_ban_time = now
+            return ofmsgs
 
         (src_rule_idle_timeout,
          src_rule_hard_timeout,

@@ -1744,6 +1744,86 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetUntaggedLoopTest(FaucetTest):
+
+    NUM_DPS = 1
+    N_TAGGED = 0
+    N_UNTAGGED = 2
+    LINKS_PER_HOST = 2
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b2"
+                loop_protect: True
+            %(port_4)d:
+                native_vlan: 100
+                description: "b2"
+                loop_protect: True
+"""
+
+    def setUp(self):
+        super(FaucetUntaggedLoopTest, self).setUp()
+        self.topo = self.topo_class(
+            self.ports_sock, self._test_name(), [self.dpid],
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
+        self.start_net()
+
+    def total_port_bans(self):
+        total_bans = 0
+        for i in range(self.LINKS_PER_HOST * self.N_UNTAGGED):
+            in_port = 'port_%u' % (i + 1)
+            dp_port = self.port_map[in_port]
+            total_bans += self.scrape_prometheus_var(
+                'port_learn_bans', {'port': str(dp_port)}, dpid=True, default=0)
+        return total_bans
+
+    def test_untagged(self):
+        first_host, second_host = self.net.hosts
+        start_bans = self.total_port_bans()
+        # Create a loop between interfaces on second host - a veth pair,
+        # with two bridges, each connecting one leg of the pair to a host
+        # interface.
+        for cmd in (
+                'ip link add name veth-loop1 type veth peer name veth-loop2',
+                'ip link set veth-loop1 up',
+                'ip link set veth-loop2 up',
+                # TODO: tune for loop mitigation performance.
+                'tc qdisc add dev veth-loop1 root tbf rate 1000kbps latency 10ms burst 1000',
+                'tc qdisc add dev veth-loop2 root tbf rate 1000kbps latency 10ms burst 1000',
+                # Connect one leg of veth pair to first host interface.
+                'brctl addbr br-loop1',
+                'brctl setfd br-loop1 0',
+                'ip link set br-loop1 up',
+                'brctl addif br-loop1 veth-loop1',
+                'brctl addif br-loop1 %s-eth0' % second_host.name,
+                # Connect other leg of veth pair.
+                'brctl addbr br-loop2',
+                'brctl setfd br-loop2 0',
+                'ip link set br-loop2 up',
+                'brctl addif br-loop2 veth-loop2',
+                'brctl addif br-loop2 %s-eth1' % second_host.name):
+            self.assertEqual('', second_host.cmd(cmd))
+
+        # Flood some traffic into the loop
+        first_host.cmd('ping -c3 10.0.0.254')
+        end_bans = self.total_port_bans()
+        self.assertGreater(end_bans, start_bans)
+
+
 class FaucetUntaggedIPv4LACPTest(FaucetTest):
 
     NUM_DPS = 1
@@ -1767,14 +1847,14 @@ vlans:
                 lacp: 1
             %(port_2)d:
                 native_vlan: 100
-                description: "b2"
+                description: "b1"
                 lacp: 1
             %(port_3)d:
                 native_vlan: 100
-                description: "b3"
+                description: "b2"
             %(port_4)d:
                 native_vlan: 100
-                description: "b4"
+                description: "b2"
 """
 
     def setUp(self):
