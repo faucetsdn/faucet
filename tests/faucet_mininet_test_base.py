@@ -1569,7 +1569,7 @@ dbs:
     def iperf(self, client_host, server_host, server_ip, seconds):
         for _ in range(3):
             port = faucet_mininet_test_util.find_free_port(
-                self.ports_sock, self._test_name())   
+                self.ports_sock, self._test_name())
             iperf_base_cmd = 'iperf -f M -p %u' % port
             if server_ip.version == 6:
                 iperf_base_cmd += ' -V'
