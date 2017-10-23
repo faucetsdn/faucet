@@ -1819,8 +1819,12 @@ vlans:
             self.assertEqual('', second_host.cmd(cmd))
 
         # Flood some traffic into the loop
-        first_host.cmd('ping -c3 10.0.0.254')
-        end_bans = self.total_port_bans()
+        for _ in range(3):
+            first_host.cmd('fping -i10 -c3 10.0.0.254')
+            end_bans = self.total_port_bans()
+            if end_bans > start_bans:
+                return
+            time.sleep(1)
         self.assertGreater(end_bans, start_bans)
 
 
