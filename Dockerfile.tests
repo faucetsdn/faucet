@@ -31,6 +31,7 @@ RUN \
     git \
     iperf \
     iputils-ping \
+    iproute2 \
     ladvd \
     libffi-dev \
     libpython2.7-dev \
