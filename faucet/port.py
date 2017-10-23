@@ -35,11 +35,13 @@ class Port(Conf):
     stack = {}
     max_hosts = None
     hairpin = None
+    loop_protect = None
     dyn_learn_ban_count = 0
     dyn_phys_up = False
     dyn_last_lacp_pkt = None
     dyn_lacp_up = None
     dyn_lacp_updated_time = None
+    dyn_last_ban_time = None
 
     defaults = {
         'number': None,
@@ -66,6 +68,8 @@ class Port(Conf):
         # if True, then switch between hosts on this port (eg WiFi radio).
         'lacp': 0,
         # if non 0 (LAG ID), experimental LACP support enabled on this port.
+        'loop_protect': False,
+        # if True, do simple loop protection on this port.
     }
 
     defaults_types = {
@@ -84,6 +88,7 @@ class Port(Conf):
         'max_hosts': int,
         'hairpin': bool,
         'lacp': int,
+        'loop_protect': bool,
     }
 
     def __init__(self, _id, conf=None):
