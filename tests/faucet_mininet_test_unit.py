@@ -958,7 +958,7 @@ vlans:
                 'port_learn_bans', {'port': self.port_map['port_2']}), 0)
 
 
-class FaucetHostsTimeoutPrometheusTest(FaucetUntaggedTest):
+class FaucetSingleHostsTimeoutPrometheusTest(FaucetUntaggedTest):
     """Test for hosts that have been learnt are exported via prometheus.
        Hosts should timeout, and the exported prometheus values should
        be overwritten.
