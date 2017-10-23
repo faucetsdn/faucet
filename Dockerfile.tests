@@ -24,6 +24,7 @@ RUN \
     automake \
     apt-transport-https \
     bc \
+    bridge-utils \
     build-essential \
     curl \
     fping \
