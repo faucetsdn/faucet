@@ -1797,26 +1797,25 @@ vlans:
         # Create a loop between interfaces on second host - a veth pair,
         # with two bridges, each connecting one leg of the pair to a host
         # interface.
-        for cmd in (
-                'ip link add name veth-loop1 type veth peer name veth-loop2',
-                'ip link set veth-loop1 up',
-                'ip link set veth-loop2 up',
-                # TODO: tune for loop mitigation performance.
-                'tc qdisc add dev veth-loop1 root tbf rate 1000kbps latency 10ms burst 1000',
-                'tc qdisc add dev veth-loop2 root tbf rate 1000kbps latency 10ms burst 1000',
-                # Connect one leg of veth pair to first host interface.
-                'brctl addbr br-loop1',
-                'brctl setfd br-loop1 0',
-                'ip link set br-loop1 up',
-                'brctl addif br-loop1 veth-loop1',
-                'brctl addif br-loop1 %s-eth0' % second_host.name,
-                # Connect other leg of veth pair.
-                'brctl addbr br-loop2',
-                'brctl setfd br-loop2 0',
-                'ip link set br-loop2 up',
-                'brctl addif br-loop2 veth-loop2',
-                'brctl addif br-loop2 %s-eth1' % second_host.name):
-            self.assertEqual('', second_host.cmd(cmd))
+        self.quiet_commands(second_host, (
+            'ip link add name veth-loop1 type veth peer name veth-loop2',
+            'ip link set veth-loop1 up',
+            'ip link set veth-loop2 up',
+            # TODO: tune for loop mitigation performance.
+            'tc qdisc add dev veth-loop1 root tbf rate 1000kbps latency 10ms burst 1000',
+            'tc qdisc add dev veth-loop2 root tbf rate 1000kbps latency 10ms burst 1000',
+            # Connect one leg of veth pair to first host interface.
+            'brctl addbr br-loop1',
+            'brctl setfd br-loop1 0',
+            'ip link set br-loop1 up',
+            'brctl addif br-loop1 veth-loop1',
+            'brctl addif br-loop1 %s-eth0' % second_host.name,
+            # Connect other leg of veth pair.
+            'brctl addbr br-loop2',
+            'brctl setfd br-loop2 0',
+            'ip link set br-loop2 up',
+            'brctl addif br-loop2 veth-loop2',
+            'brctl addif br-loop2 %s-eth1' % second_host.name))
 
         # Flood some traffic into the loop
         for _ in range(3):
@@ -1865,7 +1864,8 @@ vlans:
         super(FaucetUntaggedIPv4LACPTest, self).setUp()
         self.topo = self.topo_class(
             self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
+            links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
     def test_untagged(self):
@@ -1956,25 +1956,19 @@ details partner lacp pdu:
         bond_members = [pair[0].name for pair in host.connectionsTo(switch)]
         # Deconfigure bond members
         for bond_member in bond_members:
-            for setup_cmd in (
-                    'ip link set %s down' % bond_member,
-                    'ip address flush dev %s' % bond_member):
-                result = host.cmd(setup_cmd)
-                self.assertEquals('', result)
+            self.quiet_commands(host, (
+                'ip link set %s down' % bond_member,
+                'ip address flush dev %s' % bond_member))
         # Configure bond interface
-        for setup_cmd in (
+        self.quiet_commands(host, (
                 ('ip link add %s address 0e:00:00:00:00:99 '
                  'type bond mode 802.3ad lacp_rate fast miimon 100') % bond,
                 'ip add add %s/24 dev %s' % (orig_ip, bond),
-                'ip link set %s up' % bond):
-            result = host.cmd(setup_cmd)
-            self.assertEquals('', result)
+                'ip link set %s up' % bond))
         # Add bond members
         for bond_member in bond_members:
-            for setup_cmd in (
-                    'ip link set dev %s master %s' % (bond_member, bond),):
-                result = host.cmd(setup_cmd)
-                self.assertEquals('', result)
+            self.quiet_commands(host, (
+                    'ip link set dev %s master %s' % (bond_member, bond),))
         # LACP should come up and we can pass traffic.
         for _ in range(10):
             result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
