@@ -469,12 +469,10 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             timeout = self.DB_TIMEOUT * 3
         gauge_log_name = self.env['gauge']['GAUGE_LOG']
         for _ in range(timeout):
-            with open(gauge_log_name) as gauge_log:
-                log_content = gauge_log.read()
-            if re.search('error shipping', log_content):
+            if self.matching_lines_from_file(r'error shipping', gauge_log_name):
                 return
             time.sleep(1)
-        self.fail('Influx error not noted in %s: %s' % (gauge_log, log_content))
+        self.fail('Influx error not noted in %s' % gauge_log)
 
     def _verify_influx_log(self):
         self.assertTrue(os.path.exists(self.influx_log))
@@ -1555,10 +1553,10 @@ vlans:
             0)
         # exabgp should have received our BGP updates
         updates = self.exabgp_updates(self.exabgp_log)
-        assert re.search('10.0.0.0/24 next-hop 10.0.0.254', updates)
-        assert re.search('10.0.1.0/24 next-hop 10.0.0.1', updates)
-        assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
-        assert re.search('10.0.2.0/24 next-hop 10.0.0.2', updates)
+        self.assertTrue(re.search('10.0.0.0/24 next-hop 10.0.0.254', updates))
+        self.assertTrue(re.search('10.0.1.0/24 next-hop 10.0.0.1', updates))
+        self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
+        self.assertTrue(re.search('10.0.2.0/24 next-hop 10.0.0.2', updates))
 
 
 class FaucetZodiacUntaggedIPv4RouteTest(FaucetUntaggedIPv4RouteTest):
@@ -3178,14 +3176,13 @@ routers:
         second_host.cmd('ifconfig %s down' % second_host.defaultIntf().name)
         log_file_name = os.path.join(self.tmpdir, 'faucet.log')
         expired_re = r'expiring dead host FIB route %s' % second_host_ip.ip
-        log_file_content = None
+        found_expired = False
         for _ in range(30):
-            with open(log_file_name) as log_file:
-                log_file_content = log_file.read()
-                if re.search(expired_re, log_file_content):
-                    break
+            if self.matching_lines_from_file(expired_re, log_file_name):
+                found_expired = True
+                break
             time.sleep(1)
-        self.assertTrue(re.search(expired_re, log_file_content))
+        self.assertTrue(found_expired, msg=expired_re)
         second_host.cmd('ifconfig %s up' % second_host.defaultIntf().name)
         self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
         self.one_ipv4_ping(second_host, first_host_ip.ip)
@@ -3687,10 +3684,10 @@ vlans:
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         updates = self.exabgp_updates(self.exabgp_log)
-        assert re.search('fc00::1:0/112 next-hop fc00::1:254', updates)
-        assert re.search('fc00::10:0/112 next-hop fc00::1:1', updates)
-        assert re.search('fc00::20:0/112 next-hop fc00::1:2', updates)
-        assert re.search('fc00::30:0/112 next-hop fc00::1:2', updates)
+        self.assertTrue(re.search('fc00::1:0/112 next-hop fc00::1:254', updates))
+        self.assertTrue(re.search('fc00::10:0/112 next-hop fc00::1:1', updates))
+        self.assertTrue(re.search('fc00::20:0/112 next-hop fc00::1:2', updates))
+        self.assertTrue(re.search('fc00::30:0/112 next-hop fc00::1:2', updates))
 
 
 class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):

@@ -247,6 +247,7 @@ class FaucetTestBase(unittest.TestCase):
         """Clean up after a test."""
         with open(os.path.join(self.tmpdir, 'prometheus.log'), 'w') as prom_log:
             prom_log.write(self.scrape_prometheus())
+        switch_names = [switch.name for switch in self.net.switches]
         if self.net is not None:
             self.net.stop()
             self.net = None
@@ -256,7 +257,13 @@ class FaucetTestBase(unittest.TestCase):
             ovs_log_dir = os.environ['OVS_LOGDIR']
             if ovs_log_dir and os.path.exists(ovs_log_dir):
                 for ovs_log in glob.glob(os.path.join(ovs_log_dir, '*.log')):
-                    shutil.copy(ovs_log, self.tmpdir)
+                    lines = []
+                    for name in switch_names:
+                        lines.extend(self.matching_lines_from_file(name, ovs_log))
+                    if lines:
+                        switch_ovs_log_name = os.path.join(self.tmpdir, os.path.basename(ovs_log))
+                        with open(switch_ovs_log_name, 'w') as switch_ovs_log:
+                            switch_ovs_log.write('\n'.join(lines))
         # must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
         for _, debug_log_name in self._get_ofchannel_logs():
@@ -1458,6 +1465,11 @@ dbs:
                     exabgp_log_content.append(log.read())
         self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
+    def matching_lines_from_file(self, exp, log_name):
+        with open(log_name) as log_file:
+            return [log_line for log_line in log_file if re.search(exp, log_line)]
+        return []
+
     def exabgp_updates(self, exabgp_log):
         """Verify that exabgp process has received BGP updates."""
         controller = self._get_controller()
@@ -1473,9 +1485,7 @@ dbs:
     def wait_exabgp_sent_updates(self, exabgp_log_name):
         """Verify that exabgp process has sent BGP updates."""
         for _ in range(60):
-            with open(exabgp_log_name) as exabgp_log:
-                exabgp_log_content = exabgp_log.read()
-            if re.search(r'>> [1-9]+[0-9]* UPDATE', exabgp_log_content):
+            if self.matching_lines_from_file(r'>> [1-9]+[0-9]* UPDATE', exabgp_log_name):
                 return
             time.sleep(1)
         self.fail('exabgp did not send BGP updates')
