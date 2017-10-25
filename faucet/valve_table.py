@@ -19,8 +19,6 @@
 import hashlib
 import struct
 
-from ryu.ofproto import ofproto_v1_3 as ofp
-
 from faucet import valve_of
 
 
@@ -55,7 +53,7 @@ class ValveTable(object):
         return match
 
     def flowmod(self, match=None, priority=None,
-                inst=None, command=ofp.OFPFC_ADD, out_port=0,
+                inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
                 out_group=0, hard_timeout=0, idle_timeout=0):
         """Helper function to construct a flow mod message with cookie."""
         if match is None:
@@ -66,7 +64,7 @@ class ValveTable(object):
             inst = []
         flags = 0
         if self.notify_flow_removed:
-            flags = ofp.OFPFF_SEND_FLOW_REM
+            flags = valve_of.ofp.OFPFF_SEND_FLOW_REM
         return valve_of.flowmod(
             self.flow_cookie,
             command,
@@ -80,18 +78,18 @@ class ValveTable(object):
             idle_timeout,
             flags)
 
-    def flowdel(self, match=None, priority=None, out_port=ofp.OFPP_ANY, strict=False):
+    def flowdel(self, match=None, priority=None, out_port=valve_of.ofp.OFPP_ANY, strict=False):
         """Delete matching flows from a table."""
-        command = ofp.OFPFC_DELETE
+        command = valve_of.ofp.OFPFC_DELETE
         if strict:
-            command = ofp.OFPFC_DELETE_STRICT
+            command = valve_of.ofp.OFPFC_DELETE_STRICT
         return [
             self.flowmod(
                 match=match,
                 priority=priority,
                 command=command,
                 out_port=out_port,
-                out_group=ofp.OFPG_ANY)]
+                out_group=valve_of.ofp.OFPG_ANY)]
 
     def flowdrop(self, match=None, priority=None, hard_timeout=0):
         """Add drop matching flow to a table."""

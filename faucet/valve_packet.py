@@ -19,12 +19,10 @@
 
 import ipaddress
 
-from ryu.lib import mac
 from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
-from ryu.ofproto import ether
-from ryu.ofproto import inet
 
 from faucet.valve_util import btos
+from faucet import valve_of
 
 
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
@@ -105,7 +103,7 @@ def parse_packet_in_pkt(data, max_len):
         # (ie. when we have progressed past the VLAN table). This gaurantees
         # a VLAN header will always be present, so we know which VLAN the packet
         # belongs to.
-        if eth_type == ether.ETH_TYPE_8021Q:
+        if eth_type == valve_of.ether.ETH_TYPE_8021Q:
             vlan_pkt = parse_vlan_pkt(pkt)
             if vlan_pkt:
                 vlan_vid = vlan_pkt.vid
@@ -146,7 +144,7 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
         pkt_header.add_protocol(eth_header)
     else:
         eth_header = ethernet.ethernet(
-            eth_dst, eth_src, ether.ETH_TYPE_8021Q)
+            eth_dst, eth_src, valve_of.ether.ETH_TYPE_8021Q)
         pkt_header.add_protocol(eth_header)
         vlan_header = vlan.vlan(vid=vid, ethertype=dl_type)
         pkt_header.add_protocol(vlan_header)
@@ -189,7 +187,7 @@ def lacp_reqreply(eth_src,
         ryu.lib.packet.ethernet: Ethernet packet with header.
     """
     pkt = build_pkt_header(
-        None, eth_src, slow.SLOW_PROTOCOL_MULTICAST, ether.ETH_TYPE_SLOW)
+        None, eth_src, slow.SLOW_PROTOCOL_MULTICAST, valve_of.ether.ETH_TYPE_SLOW)
     lacp_pkt = slow.lacp(
         version=1,
         actor_system=actor_system,
@@ -234,10 +232,11 @@ def arp_request(vid, eth_src, src_ip, dst_ip):
     Returns:
         ryu.lib.packet.arp: serialized ARP request packet.
     """
-    pkt = build_pkt_header(vid, eth_src, mac.BROADCAST_STR, ether.ETH_TYPE_ARP)
+    pkt = build_pkt_header(
+        vid, eth_src, valve_of.mac.BROADCAST_STR, valve_of.ether.ETH_TYPE_ARP)
     arp_pkt = arp.arp(
         opcode=arp.ARP_REQUEST, src_mac=eth_src,
-        src_ip=str(src_ip), dst_mac=mac.DONTCARE_STR, dst_ip=str(dst_ip))
+        src_ip=str(src_ip), dst_mac=valve_of.mac.DONTCARE_STR, dst_ip=str(dst_ip))
     pkt.add_protocol(arp_pkt)
     pkt.serialize()
     return pkt
@@ -255,7 +254,7 @@ def arp_reply(vid, eth_src, eth_dst, src_ip, dst_ip):
     Returns:
         ryu.lib.packet.arp: serialized ARP reply packet.
     """
-    pkt = build_pkt_header(vid, eth_src, eth_dst, ether.ETH_TYPE_ARP)
+    pkt = build_pkt_header(vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_ARP)
     arp_pkt = arp.arp(
         opcode=arp.ARP_REPLY, src_mac=eth_src,
         src_ip=src_ip, dst_mac=eth_dst, dst_ip=dst_ip)
@@ -276,9 +275,9 @@ def echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, data):
     Returns:
         ryu.lib.packet.icmp: serialized ICMP echo reply packet.
     """
-    pkt = build_pkt_header(vid, eth_src, eth_dst, ether.ETH_TYPE_IP)
+    pkt = build_pkt_header(vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_IP)
     ipv4_pkt = ipv4.ipv4(
-        dst=dst_ip, src=src_ip, proto=inet.IPPROTO_ICMP)
+        dst=dst_ip, src=src_ip, proto=valve_of.inet.IPPROTO_ICMP)
     pkt.add_protocol(ipv4_pkt)
     icmp_pkt = icmp.icmp(
         type_=icmp.ICMP_ECHO_REPLY, code=icmp.ICMP_ECHO_REPLY_CODE,
@@ -338,9 +337,9 @@ def nd_request(vid, eth_src, src_ip, dst_ip):
     """
     nd_mac = ipv6_link_eth_mcast(dst_ip)
     ip_gw_mcast = ipv6_solicited_node_from_ucast(dst_ip)
-    pkt = build_pkt_header(vid, eth_src, nd_mac, ether.ETH_TYPE_IPV6)
+    pkt = build_pkt_header(vid, eth_src, nd_mac, valve_of.ether.ETH_TYPE_IPV6)
     ipv6_pkt = ipv6.ipv6(
-        src=str(src_ip), dst=ip_gw_mcast, nxt=inet.IPPROTO_ICMPV6)
+        src=str(src_ip), dst=ip_gw_mcast, nxt=valve_of.inet.IPPROTO_ICMPV6)
     pkt.add_protocol(ipv6_pkt)
     icmpv6_pkt = icmpv6.icmpv6(
         type_=icmpv6.ND_NEIGHBOR_SOLICIT,
@@ -365,11 +364,11 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
         ryu.lib.packet.ethernet: Serialized IPv6 neighbor discovery packet.
     """
     pkt = build_pkt_header(
-        vid, eth_src, eth_dst, ether.ETH_TYPE_IPV6)
+        vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_IPV6)
     ipv6_icmp6 = ipv6.ipv6(
         src=src_ip,
         dst=dst_ip,
-        nxt=inet.IPPROTO_ICMPV6,
+        nxt=valve_of.inet.IPPROTO_ICMPV6,
         hop_limit=IPV6_MAX_HOP_LIM)
     pkt.add_protocol(ipv6_icmp6)
     icmpv6_nd_advert = icmpv6.icmpv6(
@@ -400,11 +399,11 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
         ryu.lib.packet.ethernet: Serialized IPv6 ICMP echo reply packet.
     """
     pkt = build_pkt_header(
-        vid, eth_src, eth_dst, ether.ETH_TYPE_IPV6)
+        vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_IPV6)
     ipv6_reply = ipv6.ipv6(
         src=src_ip,
         dst=dst_ip,
-        nxt=inet.IPPROTO_ICMPV6,
+        nxt=valve_of.inet.IPPROTO_ICMPV6,
         hop_limit=hop_limit)
     pkt.add_protocol(ipv6_reply)
     icmpv6_reply = icmpv6.icmpv6(
@@ -431,11 +430,11 @@ def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
         ryu.lib.packet.ethernet: Serialized IPv6 ICMP RA packet.
     """
     pkt = build_pkt_header(
-        vid, eth_src, eth_dst, ether.ETH_TYPE_IPV6)
+        vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_IPV6)
     ipv6_pkt = ipv6.ipv6(
         src=src_ip,
         dst=dst_ip,
-        nxt=inet.IPPROTO_ICMPV6,
+        nxt=valve_of.inet.IPPROTO_ICMPV6,
         hop_limit=IPV6_MAX_HOP_LIM)
     pkt.add_protocol(ipv6_pkt)
     options = []
@@ -463,7 +462,7 @@ def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
 
 def ip_header_size(eth_type):
     ip_header = build_pkt_header(
-        1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
+        1, valve_of.mac.BROADCAST_STR, valve_of.mac.BROADCAST_STR, eth_type)
     ip_header.serialize()
     return len(ip_header.data)
 

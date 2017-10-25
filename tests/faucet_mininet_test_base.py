@@ -1221,6 +1221,11 @@ dbs:
         return self.scrape_prometheus_var(
             'faucet_config_table_names', {'name': name})
 
+    def quiet_commands(self, host, commands):
+        for command in commands:
+            result = host.cmd(command)
+            self.assertEqual('', result, msg='%s: %s' % (command, result))
+
     def _config_tableids(self):
         self.PORT_ACL_TABLE = self._get_tableid('port_acl')
         self.VLAN_TABLE = self._get_tableid('vlan')
@@ -1283,9 +1288,7 @@ dbs:
             ip_dst.version, ip_dst.network.with_prefixlen))
         add_cmd = 'ip -%u route add %s via %s' % (
             ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)
-        results = host.cmd(add_cmd)
-        self.assertEqual(
-            '', results, msg='%s: %s' % (add_cmd, results))
+        self.quiet_commands(host, (add_cmd,))
 
     def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned):
         if require_host_learned:
@@ -1380,9 +1383,10 @@ dbs:
     def verify_tp_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a TCP port on a host is blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
-        self.assertEqual(
-            '', first_host.cmd(faucet_mininet_test_util.timeout_cmd(
-                'nc %s %u' % (second_host.IP(), port), 10)))
+        self.quiet_commands(
+            first_host,
+            (faucet_mininet_test_util.timeout_cmd(
+                'nc %s %u' % (second_host.IP(), port), 10), ))
         if table_id is not None:
             if mask is None:
                 match_port = int(port)
@@ -1526,7 +1530,7 @@ dbs:
         add_cmd = 'ip addr add %s dev %s label %s:1' % (
             alias_ip.with_prefixlen, intf, intf)
         host.cmd(del_cmd)
-        self.assertEqual('', host.cmd(add_cmd))
+        self.quiet_commands(host, (add_cmd,))
 
     def _ip_neigh(self, host, ipa, ip_ver):
         neighbors = host.cmd('ip -%u neighbor show %s' % (ip_ver, ipa))

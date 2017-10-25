@@ -1,7 +1,7 @@
 import json
 import os
 
-from ryu.ofproto import ofproto_v1_3_parser as parser
+from faucet import valve_of
 
 
 class LoadRyuTables(object):
@@ -30,7 +30,7 @@ class LoadRyuTables(object):
         table_array = []
         for table in tables_information:
             for table_class_name, table_attr in list(table.items()):
-                table_class = getattr(parser, table_class_name,)
+                table_class = getattr(valve_of.parser, table_class_name,)
                 properties = self._create_features(table_attr['properties'])
                 table_attr['properties'] = properties
                 table_attr['name'] = table_attr['name'].encode('utf-8')
@@ -43,7 +43,7 @@ class LoadRyuTables(object):
         for feature in table_features_information:
             for feature_class_name, feature_attr in list(feature.items()):
                 name_id = self._CLASS_NAME_TO_NAME_IDS[feature_class_name]
-                feature_class = getattr(parser, feature_class_name)
+                feature_class = getattr(valve_of.parser, feature_class_name)
                 instruction_ids = self._create_instructions(feature_attr[name_id])
                 feature_attr[name_id] = instruction_ids
                 feature_attr['type_'] = feature_attr.pop('type')
@@ -56,7 +56,7 @@ class LoadRyuTables(object):
         for instruction in instruction_ids_information:
             if isinstance(instruction, dict):
                 for instruction_class_name, instruction_attr in list(instruction.items()):
-                    instruction_class = getattr(parser, instruction_class_name)
+                    instruction_class = getattr(valve_of.parser, instruction_class_name)
                     instruction_attr['type_'] = instruction_attr.pop('type')
                     new_instruction = instruction_class(**instruction_attr)
                     instruction_array.append(new_instruction)
