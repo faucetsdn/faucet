@@ -55,7 +55,8 @@ class InfluxShipper(object):
         except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError) as err:
             self.logger.warning('%s %s' % (self.ship_error_prefix, err))
 
-    def make_point(self, tags, rcv_time, stat_name, stat_val):
+    @staticmethod
+    def make_point(tags, rcv_time, stat_name, stat_val):
         """Make an InfluxDB point."""
         # InfluxDB has only one integer type, int64. We are logging OF
         # stats that are uint64. Use float64 to prevent an overflow.
@@ -157,6 +158,7 @@ time                    dp_name                 port_name       value
 
 
 class GaugeFlowTableInfluxDBLogger(GaugeFlowTablePoller, InfluxShipper):
+    # pylint: disable=line-too-long
     """
 > use faucet
 Using database faucet

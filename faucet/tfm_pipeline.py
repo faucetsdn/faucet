@@ -1,3 +1,5 @@
+"""Parse JSON for TFM based table config."""
+
 import json
 import os
 
@@ -17,14 +19,12 @@ class LoadRyuTables(object):
             cfgpath, pipeline_conf)
 
     def load_tables(self):
-        tables = None
         try:
             tables = self.ryu_table_translator.create_ryu_structure()
-        except (ValueError, IOError) as e:
-            print(e)
-        if tables is None:
-            return
-        return self._create_tables(tables)
+            return self._create_tables(tables)
+        except (ValueError, IOError) as err:
+            print(err)
+        return []
 
     def _create_tables(self, tables_information):
         table_array = []
@@ -51,7 +51,8 @@ class LoadRyuTables(object):
                 features_array.append(new_feature)
         return features_array
 
-    def _create_instructions(self, instruction_ids_information):
+    @staticmethod
+    def _create_instructions(instruction_ids_information):
         instruction_array = []
         for instruction in instruction_ids_information:
             if isinstance(instruction, dict):

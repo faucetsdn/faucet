@@ -776,7 +776,8 @@ class Valve(object):
             now = time.time()
             for vlan in list(self.dp.vlans.values()):
                 self.host_manager.expire_hosts_from_vlan(vlan, now)
-                for port in vlan.lacp_ports():
+            for _, ports in list(self.dp.lags().items()):
+                for port in ports:
                     if port.dyn_lacp_up:
                         lacp_age = now - port.dyn_lacp_updated_time
                         # TODO: LACP timeout configurable.

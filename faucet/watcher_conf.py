@@ -26,8 +26,8 @@ from faucet.conf import Conf
 class WatcherConf(Conf):
     """Gauge watcher configuration."""
 
-    db = None
-    dp = None
+    db = None # pylint: disable=invalid-name
+    dp = None # pylint: disable=invalid-name
     prom_client = None
 
     defaults = {
@@ -79,6 +79,6 @@ class WatcherConf(Conf):
         db_conf['db_type'] = db_type
         self.update(db_conf)
 
-    def add_dp(self, dp):
+    def add_dp(self, dp): # pylint: disable=invalid-name
         """Add a datapath to this watcher."""
-        self.dp = dp
+        self.dp = dp # pylint: disable=invalid-name

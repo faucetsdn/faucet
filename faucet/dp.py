@@ -514,11 +514,9 @@ class DP(Conf):
 
     def get_native_vlan(self, port_num):
         """Return native VLAN for a port by number, or None."""
-        if port_num not in self.ports:
-            return None
-
-        port = self.ports[port_num]
-        return port.native_vlan
+        if port_num in self.ports:
+            return self.ports[port_num].native_vlan
+        return None
 
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
@@ -526,6 +524,7 @@ class DP(Conf):
         lags = collections.defaultdict(list)
         for port in lacp_ports:
             lags[port.lacp].append(port)
+        return lags
 
     def to_conf(self):
         """Return DP config as dict."""

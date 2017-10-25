@@ -461,6 +461,7 @@ def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
 
 
 def ip_header_size(eth_type):
+    """Return size of a packet header with specified ether type."""
     ip_header = build_pkt_header(
         1, valve_of.mac.BROADCAST_STR, valve_of.mac.BROADCAST_STR, eth_type)
     ip_header.serialize()
@@ -470,17 +471,18 @@ def ip_header_size(eth_type):
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
-    def __init__(self, data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type):
+    def __init__(self, data, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
         self.data = data
         self.pkt = pkt
         self.eth_pkt = eth_pkt
         self.port = port
-        self.vlan = vlan
+        self.vlan = valve_vlan
         self.eth_src = eth_src
         self.eth_dst = eth_dst
         self.eth_type = eth_type
 
     def reparse(self, max_len):
+        """Reparse packet using data up to the specified maximum length."""
         pkt, eth_pkt, vlan_vid, eth_type = parse_packet_in_pkt(
             self.data, max_len)
         if pkt is None or vlan_vid is None or eth_type is None:
@@ -489,7 +491,9 @@ class PacketMeta(object):
         self.eth_pkt = eth_pkt
 
     def reparse_all(self):
+        """Reparse packet with all available data."""
         self.reparse(0)
 
     def reparse_ip(self, eth_type, payload=0):
+        """Reparse packet with specified IP header type and optionally payload."""
         self.reparse(ip_header_size(eth_type) + payload)
