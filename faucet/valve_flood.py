@@ -17,9 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ryu.lib import mac
-from ryu.ofproto import ofproto_v1_3 as ofp
-
 from faucet import valve_of
 from faucet import valve_packet
 
@@ -36,7 +33,7 @@ class ValveFloodManager(object):
         (False, valve_packet.BRIDGE_GROUP_ADDRESS, valve_packet.mac_byte_mask(3)), # 802.x
         (False, '01:00:5E:00:00:00', valve_packet.mac_byte_mask(3)), # IPv4 multicast
         (False, '33:33:00:00:00:00', valve_packet.mac_byte_mask(2)), # IPv6 multicast
-        (False, mac.BROADCAST_STR, None), # flood on ethernet broadcasts
+        (False, valve_of.mac.BROADCAST_STR, None), # flood on ethernet broadcasts
     )
 
     def __init__(self, flood_table, flood_priority,
@@ -169,9 +166,9 @@ class ValveFloodManager(object):
         """Add flows to flood packets to unknown destinations on a VLAN."""
         # TODO: group table support is still fairly uncommon, so
         # group tables are currently optional.
-        command = ofp.OFPFC_ADD
+        command = valve_of.ofp.OFPFC_ADD
         if modify:
-            command = ofp.OFPFC_MODIFY_STRICT
+            command = valve_of.ofp.OFPFC_MODIFY_STRICT
         if self.use_group_table:
             hairpin_ports = vlan.hairpin_ports()
             # TODO: hairpin flooding modes.
@@ -290,9 +287,9 @@ class ValveFloodStackManager(ValveFloodManager):
 
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
-        command = ofp.OFPFC_ADD
+        command = valve_of.ofp.OFPFC_ADD
         if modify:
-            command = ofp.OFPFC_MODIFY_STRICT
+            command = valve_of.ofp.OFPFC_MODIFY_STRICT
         # TODO: group tables for stacking
         return self._build_multiout_flood_rules(vlan, command)
 

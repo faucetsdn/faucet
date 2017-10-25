@@ -22,10 +22,7 @@ import time
 
 from collections import namedtuple
 
-from ryu.lib import mac
 from ryu.ofproto import ether
-from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from faucet import tfm_pipeline
 from faucet import valve_acl
@@ -172,7 +169,7 @@ class Valve(object):
         # drop broadcast sources
         if self.dp.drop_broadcast_source_address:
             ofmsgs.append(vlan_table.flowdrop(
-                vlan_table.match(eth_src=mac.BROADCAST_STR),
+                vlan_table.match(eth_src=valve_of.mac.BROADCAST_STR),
                 priority=self.dp.highest_priority))
 
         # antispoof for FAUCET's MAC address
@@ -290,11 +287,11 @@ class Valve(object):
         return ofmsgs
 
     def port_status_handler(self, port_no, reason, port_status):
-        if reason == ofp.OFPPR_ADD:
+        if reason == valve_of.ofp.OFPPR_ADD:
             return self.port_add(port_no)
-        elif reason == ofp.OFPPR_DELETE:
+        elif reason == valve_of.ofp.OFPPR_DELETE:
             return self.port_delete(port_no)
-        elif reason == ofp.OFPPR_MODIFY:
+        elif reason == valve_of.ofp.OFPPR_MODIFY:
             ofmsgs = []
             ofmsgs.extend(self.port_delete(port_no))
             if port_status:
@@ -372,7 +369,7 @@ class Valve(object):
             valve_of.goto_table(forwarding_table)
         ]
         null_vlan = namedtuple('null_vlan', 'vid')
-        null_vlan.vid = ofp.OFPVID_NONE
+        null_vlan.vid = valve_of.ofp.OFPVID_NONE
         return self._port_add_vlan_rules(port, null_vlan, push_vlan_inst)
 
     def _port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
@@ -928,7 +925,7 @@ class TfmValve(Valve):
             if table.restricted_match_types is None:
                 continue
             for prop in tfm_table.properties:
-                if not (isinstance(prop, parser.OFPTableFeaturePropOxm) and prop.type == 8):
+                if not (isinstance(prop, valve_of.parser.OFPTableFeaturePropOxm) and prop.type == 8):
                     continue
                 tfm_matches = set(sorted([oxm.type for oxm in prop.oxm_ids]))
                 if tfm_matches != table.restricted_match_types:

@@ -21,7 +21,6 @@ import time
 
 import ipaddress
 
-from ryu.lib import mac
 from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 from ryu.ofproto import ether
 from ryu.ofproto import inet
@@ -599,7 +598,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             inst=[valve_of.goto_table(self.eth_dst_table)]))
         priority += 1
         ofmsgs.append(self.vip_table.flowmod(
-            self.vip_table.match(eth_type=ether.ETH_TYPE_ARP, eth_dst=mac.BROADCAST_STR),
+            self.vip_table.match(eth_type=ether.ETH_TYPE_ARP, eth_dst=valve_of.mac.BROADCAST_STR),
             priority=priority,
             inst=[valve_of.goto_table(self.flood_table)]))
         priority += 1

@@ -19,12 +19,12 @@
 
 import ipaddress
 
-from ryu.lib import mac
 from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
 from faucet.valve_util import btos
+from faucet import valve_of
 
 
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
@@ -234,10 +234,10 @@ def arp_request(vid, eth_src, src_ip, dst_ip):
     Returns:
         ryu.lib.packet.arp: serialized ARP request packet.
     """
-    pkt = build_pkt_header(vid, eth_src, mac.BROADCAST_STR, ether.ETH_TYPE_ARP)
+    pkt = build_pkt_header(vid, eth_src, valve_of.mac.BROADCAST_STR, ether.ETH_TYPE_ARP)
     arp_pkt = arp.arp(
         opcode=arp.ARP_REQUEST, src_mac=eth_src,
-        src_ip=str(src_ip), dst_mac=mac.DONTCARE_STR, dst_ip=str(dst_ip))
+        src_ip=str(src_ip), dst_mac=valve_of.mac.DONTCARE_STR, dst_ip=str(dst_ip))
     pkt.add_protocol(arp_pkt)
     pkt.serialize()
     return pkt
@@ -463,7 +463,7 @@ def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
 
 def ip_header_size(eth_type):
     ip_header = build_pkt_header(
-        1, mac.BROADCAST_STR, mac.BROADCAST_STR, eth_type)
+        1, valve_of.mac.BROADCAST_STR, valve_of.mac.BROADCAST_STR, eth_type)
     ip_header.serialize()
     return len(ip_header.data)
 

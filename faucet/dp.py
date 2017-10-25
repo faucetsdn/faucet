@@ -18,7 +18,6 @@
 
 import collections
 import networkx
-from ryu.ofproto import ofproto_v1_3 as ofp
 
 from faucet.acl import ACL
 from faucet.conf import Conf
@@ -175,7 +174,8 @@ class DP(Conf):
         'use_idle_timeout': bool,
     }
 
-    wildcard_table = ValveTable(ofp.OFPTT_ALL, 'all', None, flow_cookie=0)
+    wildcard_table = ValveTable(
+        valve_of.ofp.OFPTT_ALL, 'all', None, flow_cookie=0)
 
 
     def __init__(self, _id, conf):
