@@ -247,7 +247,11 @@ class FaucetTestBase(unittest.TestCase):
         """Clean up after a test."""
         with open(os.path.join(self.tmpdir, 'prometheus.log'), 'w') as prom_log:
             prom_log.write(self.scrape_prometheus())
-        switch_names = [switch.name for switch in self.net.switches]
+        switch_names = []
+        for switch in self.net.switches:
+            switch_dump_name = os.path.join(self.tmpdir, '%s-dumpflows.txt' % switch.name)
+            switch_names.append(switch.name)
+            switch.cmd('%s dump-flows %s > %s' % (self.OFCTL, switch.name, switch_dump_name))
         if self.net is not None:
             self.net.stop()
             self.net = None
