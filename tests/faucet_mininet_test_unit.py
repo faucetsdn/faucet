@@ -3555,8 +3555,8 @@ vlans:
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
-        self.verify_invalid_bgp_route(r'fc00::40:1\/112 cannot be us')
-        self.verify_invalid_bgp_route(r'fc00::50:1\/112 is not a connected network')
+        self.verify_invalid_bgp_route(r'fc00::40:0\/112 cannot be us')
+        self.verify_invalid_bgp_route(r'fc00::50:0\/112 is not a connected network')
         self.verify_ipv6_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
