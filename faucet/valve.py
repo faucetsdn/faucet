@@ -22,8 +22,6 @@ import time
 
 from collections import namedtuple
 
-from ryu.ofproto import ether
-
 from faucet import tfm_pipeline
 from faucet import valve_acl
 from faucet import valve_flood
@@ -193,7 +191,7 @@ class Valve(object):
         # drop LLDP, if configured to.
         if self.dp.drop_lldp:
             ofmsgs.append(vlan_table.flowdrop(
-                vlan_table.match(eth_type=ether.ETH_TYPE_LLDP),
+                vlan_table.match(eth_type=valve_of.ether.ETH_TYPE_LLDP),
                 priority=self.dp.highest_priority))
 
         return ofmsgs
@@ -537,7 +535,7 @@ class Valve(object):
         ofmsgs.append(eth_src_table.flowcontroller(
             eth_src_table.match(
                 in_port=port.number,
-                eth_type=ether.ETH_TYPE_SLOW,
+                eth_type=valve_of.ether.ETH_TYPE_SLOW,
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
             priority=self.dp.highest_priority))
         return ofmsgs
@@ -563,7 +561,7 @@ class Valve(object):
         # TODO: ensure config consistent between LAG ports.
         ofmsgs = []
         if (pkt_meta.eth_dst == valve_packet.SLOW_PROTOCOL_MULTICAST and
-                pkt_meta.eth_type == ether.ETH_TYPE_SLOW and
+                pkt_meta.eth_type == valve_of.ether.ETH_TYPE_SLOW and
                 pkt_meta.port.lacp):
             pkt_meta.reparse_all()
             lacp_pkt = valve_packet.parse_lacp_pkt(pkt_meta.pkt)
