@@ -25,9 +25,10 @@ from faucet.valve_util import dpid_log
 
 
 class GaugePoller(object):
+    """Abstraction for a poller for statistics."""
 
     def __init__(self, conf, logname, prom_client):
-        self.dp = conf.dp
+        self.dp = conf.dp # pylint: disable=invalid-name
         self.conf = conf
         self.prom_client = prom_client
         self.reply_pending = False
@@ -35,17 +36,29 @@ class GaugePoller(object):
             logname + '.{0}'.format(self.conf.type)
             )
 
-    def start(self, _ryudp):
+    @staticmethod
+    def start(_ryudp):
+        """Start the poller."""
         return
 
-    def stop(self):
+    @staticmethod
+    def stop():
+        """Stop the poller."""
         return
 
-    def running(self):
+    @staticmethod
+    def running():
+        """Return True if the poller is running."""
         return True
 
-    def send_req(self):
+    @staticmethod
+    def send_req():
         """Send a stats request to a datapath."""
+        raise NotImplementedError
+
+    @staticmethod
+    def no_response():
+        """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError
 
     def update(self, rcv_time, dp_id, msg):
@@ -66,11 +79,8 @@ class GaugePoller(object):
         # response before doing this
         self.reply_pending = False
 
-    def no_response(self):
-        """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError
-
     def _stat_port_name(self, msg, stat, dp_id):
+        """Return port name as string based on port number."""
         if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
             return 'CONTROLLER'
         elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
@@ -81,7 +91,8 @@ class GaugePoller(object):
                          dpid_log(dp_id), stat.port_no)
         return None
 
-    def _format_port_stats(self, delim, stat):
+    @staticmethod
+    def _format_port_stats(delim, stat):
         formatted_port_stats = []
         for stat_name_list, stat_val in (
                 (('packets', 'out'), stat.tx_packets),
@@ -144,6 +155,16 @@ class GaugeThreadPoller(GaugePoller):
             if self.reply_pending:
                 self.no_response()
 
+    @staticmethod
+    def send_req():
+        """Send a stats request to a datapath."""
+        raise NotImplementedError
+
+    @staticmethod
+    def no_response():
+        """Called when a polling cycle passes without receiving a response."""
+        raise NotImplementedError
+
 
 class GaugePortStatsPoller(GaugeThreadPoller):
     """Periodically sends a port stats request to the datapath and parses
@@ -186,5 +207,14 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
 
 
 class GaugePortStateBaseLogger(GaugePoller):
+    """Abstraction for port state poller."""
 
-    pass
+    @staticmethod
+    def send_req():
+        """Send a stats request to a datapath."""
+        raise NotImplementedError
+
+    @staticmethod
+    def no_response():
+        """Called when a polling cycle passes without receiving a response."""
+        raise NotImplementedError
