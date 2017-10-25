@@ -1,0 +1,84 @@
+acls:
+    office-vlan-protect:
+        # Prevent IPv4 communication betwen Office/Guest networks
+        - rule:
+            dl_type: 0x800      # ipv4
+            ipv4_src: 10.0.100.0/24
+            ipv4_src: 10.0.200.0/24
+            actions:
+                allow: 0        # drop
+        - rule:
+            actions:
+                allow: 1        # allow
+
+    access-port-protect:
+        # Drop dhcp servers
+        - rule:
+            dl_type: 0x800      # ipv4
+            nw_proto: 17        # udp
+            udp_src: 67         # bootps
+            udp_dst: 68         # bootpc
+            actions:
+                allow: 0        # drop
+        # Drop dhcpv6 servers
+        - rule:
+            dl_type: 0x86dd     # ipv6
+            nw_proto: 17        # udp
+            udp_src: 547        # dhcpv6-server
+            udp_dst: 546        # dhcpv6-client
+            actions:
+                allow: 0        # drop
+        # Drop icmpv6 RAs
+        - rule:
+            dl_type: 0x86dd     # ipv6
+            nw_proto: 58        # icmpv6
+            icmpv6_type: 134    # router advertisement
+            actions:
+                allow: 0        # drop
+        # Drop SMTP
+        - rule:
+            dl_type: 0x800      # ipv4
+            nw_proto: 6         # tcp
+            tcp_dst: 25         # smtp
+            actions:
+                allow: 0        # drop
+        # Force DNS to our DNS server
+        - rule:
+            dl_type: 0x800      # ipv4
+            nw_proto: 17        # udp
+            udp_dst: 53         # dns
+            actions:
+                output:
+                    dl_dst: "72:b8:3c:4c:dc:4d"
+                    port: 5     # s1 container
+        # Force DNS to our DNS server
+        - rule:
+            dl_type: 0x800      # ipv4
+            nw_proto: 6         # tcp
+            tcp_dst: 53         # dns
+            actions:
+                output:
+                    dl_dst: "72:b8:3c:4c:dc:4d"
+                    port: 5     # s1 container
+        - rule:
+            actions:
+                allow: 1        # allow
+
+    service-port-protect:
+        # Drop icmpv6 RAs
+        - rule:
+            dl_type: 0x86dd     # ipv6
+            nw_proto: 58        # icmpv6
+            icmpv6_type: 134    # router advertisement
+            actions:
+                allow: 0        # drop
+        # Drop SMTP
+        - rule:
+            dl_type: 0x800      # ipv4
+            nw_proto: 6         # tcp
+            tcp_dst: 25         # smtp
+            actions:
+                allow: 0        # drop
+        - rule:
+            actions:
+                allow: 1        # allow

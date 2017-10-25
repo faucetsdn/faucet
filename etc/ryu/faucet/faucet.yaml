@@ -1,58 +1,68 @@
-version: 2
+include:
+    - acls.yaml
+
 vlans:
-    100:
-        name: "clock"
-        unicast_flood: True
-        max_hosts: 3
-    2001:
-        name: "trusted network"
-        unicast_flood: True
-    2002:
-        name: "untrusted network"
-        unicast_flood: False
-    2003:
-        name: "roof network"
-        unicast_flood: True
-        max_hosts: 10
-acls:
-    101:
-        - rule:
-            dl_src: "ae:ad:61:7d:02:2f"
-            actions:
-                allow: 1
-        - rule:
-            actions:
-                allow: 0
+    office:
+        vid: 100
+        description: "office network"
+        acl_in: office-vlan-protect
+        faucet_mac: "0e:00:00:00:10:01"
+        faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
+        routes:
+            - route:
+                ip_dst: '192.168.0.0/24'
+                ip_gw: '10.0.100.2'
+    guest:
+        vid: 200
+        description: "guest network"
+        faucet_mac: "0e:00:00:00:20:01"
+        faucet_vips: ['10.0.200.254/24', '2001:200::1/64', 'fe80::c00:00ff:fe00:2001/64']
+
+routers:
+    router-office-guest:
+        vlans: [office, guest]
+
 dps:
-    zodiac-fx-1:
+    sw1:
         dp_id: 0x1
-        hardware: "ZodiacFX"
+        hardware: "Open vSwitch"
+        proactive_learn: True
         interfaces:
             1:
-                native_vlan: 100
-                name: "clock"
+                name: "h1"
+                description: "host1 container"
+                native_vlan: office
+                acl_in: access-port-protect
             2:
-                native_vlan: 100
-                name: "VLAN 2001"
-                acl_in: 101
-    windscale-faucet-1:
+                name: "h2"
+                description: "host2 container"
+                native_vlan: office
+                acl_in: access-port-protect
+            3:
+                name: "g1"
+                description: "guest1 container"
+                native_vlan: guest
+                acl_in: access-port-protect
+            4:
+                name: "s1"
+                description: "services1 container"
+                native_vlan: office
+                acl_in: service-port-protect
+            5:
+                name: "trunk"
+                description: "VLAN trunk to sw2"
+                tagged_vlans: [office]
+                acl_in: access-port-protect
+    sw2:
         dp_id: 0x2
-        description: "Josh's experimental AT-X930"
         hardware: "Allied-Telesis"
         interfaces:
             1:
-                tagged_vlans: [2001,2002,2003]
-                name: "port1.0.1"
-                description: "windscale"
-            2:
-                native_vlan: 2001
-                name: "port1.0.2"
-                description: "vek-x"
-            12:
-                native_vlan: 2002
-                name: "port1.0.12"
-                acl_in: 101
-            23:
-                native_vlan: 2003
-                name: "port1.0.23"
-                description: "roof switch"
+                name: "pi"
+                description: "Raspberry Pi"
+                native_vlan: office
+                acl_in: access-port-protect
+            24:
+                name: "trunk"
+                description: "VLAN trunk to sw1"
+                tagged_vlans: [office]
