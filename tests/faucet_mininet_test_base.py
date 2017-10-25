@@ -1772,8 +1772,6 @@ dbs:
             with_group_table=with_group_table)
 
     def verify_invalid_bgp_route(self, pattern):
-        """Check if we see the pattern in Faucet's log"""
-        controller = self._get_controller()
-        count = controller.cmd(
-            'grep -c "%s" %s' % (pattern, self.env['faucet']['FAUCET_LOG']))
-        self.assertGreater(count, 0)
+        """Check if we see the pattern in Faucet's log."""
+        lines = self.matching_lines_from_file(pattern, self.env['faucet']['FAUCET_LOG'])
+        self.assertGreater(len(lines), 0, msg='%s not found' % pattern)
