@@ -59,6 +59,7 @@ def get_sys_prefix():
 
 
 def get_logger(logname, logfile, loglevel, propagate):
+    """Create and return a logger object."""
     logger = logging.getLogger(logname)
     logger_handler = WatchedFileHandler(logfile)
     log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
@@ -71,8 +72,10 @@ def get_logger(logname, logfile, loglevel, propagate):
 
 
 def dpid_log(dpid):
+    """Log a DP ID as hex/decimal."""
     return 'DPID %u (0x%x)' % (dpid, dpid)
 
 
 def btos(b_str):
+    """Return byte array/string as string."""
     return b_str.encode('utf-8').decode('utf-8', 'strict')
