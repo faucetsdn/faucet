@@ -1876,7 +1876,7 @@ vlans:
         self.start_net()
 
     def test_untagged(self):
-        host = self.net.hosts[0]
+        first_host, second_host = self.net.hosts[:2]
         bond = 'bond0'
         # Linux driver should have this state (0x3f/63)
         #
@@ -1958,35 +1958,36 @@ details partner lacp pdu:
     port number: %d
     port state: 62
 """.strip() % (self.port_map['port_1'], self.port_map['port_2'])
-        orig_ip = host.IP()
+        orig_ip = first_host.IP()
         switch = self.net.switches[0]
-        bond_members = [pair[0].name for pair in host.connectionsTo(switch)]
+        bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
         # Deconfigure bond members
         for bond_member in bond_members:
-            self.quiet_commands(host, (
+            self.quiet_commands(first_host, (
                 'ip link set %s down' % bond_member,
                 'ip address flush dev %s' % bond_member))
         # Configure bond interface
-        self.quiet_commands(host, (
+        self.quiet_commands(first_host, (
                 ('ip link add %s address 0e:00:00:00:00:99 '
                  'type bond mode 802.3ad lacp_rate fast miimon 100') % bond,
                 'ip add add %s/24 dev %s' % (orig_ip, bond),
                 'ip link set %s up' % bond))
         # Add bond members
         for bond_member in bond_members:
-            self.quiet_commands(host, (
+            self.quiet_commands(first_host, (
                     'ip link set dev %s master %s' % (bond_member, bond),))
         # LACP should come up and we can pass traffic.
         for _ in range(10):
-            result = host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
+            result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
             result = '\n'.join([line.rstrip() for line in result.splitlines()])
             open(os.path.join(self.tmpdir, 'bonding-state.txt'), 'w').write(result)
             if re.search(synced_state_txt, result):
-                self.one_ipv4_ping(host, '10.0.0.254', require_host_learned=False, intf=bond)
+                self.one_ipv4_ping(first_host, '10.0.0.254', require_host_learned=False, intf=bond)
                 return
             time.sleep(1)
         self.fail('LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
             result, synced_state_txt))
+        self.one_ipv4_ping(first_host, second_host.IP())
 
 
 class FaucetSingleUntaggedIPv4ControlPlaneTest(FaucetUntaggedTest):
