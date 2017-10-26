@@ -776,14 +776,14 @@ class Valve(object):
             now = time.time()
             for vlan in list(self.dp.vlans.values()):
                 self.host_manager.expire_hosts_from_vlan(vlan, now)
-            for _, ports in list(self.dp.lags().items()):
-                for port in ports:
-                    if port.dyn_lacp_up:
-                        lacp_age = now - port.dyn_lacp_updated_time
-                        # TODO: LACP timeout configurable.
-                        if lacp_age > 10:
-                            self.logger.info('LACP on %s expired' % port)
-                            ofmsgs.extend(self.lacp_down(port))
+                for _, ports in list(vlan.lags().items()):
+                    for port in ports:
+                        if port.dyn_lacp_up:
+                            lacp_age = now - port.dyn_lacp_updated_time
+                            # TODO: LACP timeout configurable.
+                            if lacp_age > 10:
+                                self.logger.info('LACP on %s expired' % port)
+                                ofmsgs.extend(self.lacp_down(port))
         return ofmsgs
 
     def _apply_config_changes(self, new_dp, changes):
