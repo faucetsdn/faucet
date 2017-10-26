@@ -257,6 +257,14 @@ class VLAN(Conf):
         """Return list of ports that are mirrored to, on this VLAN."""
         return [port for port in self.get_ports() if port.mirror_destination]
 
+    def lags(self):
+        """Return dict of LAGs mapped to member ports."""
+        lacp_ports = [port for port in self.get_ports() if port.lacp]
+        lags = collections.defaultdict(list)
+        for port in lacp_ports:
+            lags[port.lacp].append(port)
+        return lags
+
     def flood_ports(self, configured_ports, exclude_unicast):
         if exclude_unicast:
             return [port for port in configured_ports if port.unicast_flood]
