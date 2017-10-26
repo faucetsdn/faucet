@@ -52,10 +52,16 @@ class ValveFloodManager(object):
     def _build_flood_local_rule_actions(vlan, exclude_unicast, in_port):
         """Return a list of flood actions to flood packets from a port."""
         flood_acts = []
+        exclude_ports = []
+        if in_port.lacp:
+            lags = vlan.lags()
+            exclude_ports = lags[in_port.lacp]
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
-        flood_acts.extend(valve_of.flood_tagged_port_outputs(tagged_ports, in_port))
+        flood_acts.extend(valve_of.flood_tagged_port_outputs(
+            tagged_ports, in_port, exclude_ports=exclude_ports))
         untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
-        flood_acts.extend(valve_of.flood_untagged_port_outputs(untagged_ports, in_port))
+        flood_acts.extend(valve_of.flood_untagged_port_outputs(
+            untagged_ports, in_port, exclude_ports=exclude_ports))
         return flood_acts
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
@@ -172,6 +178,7 @@ class ValveFloodManager(object):
         if self.use_group_table:
             hairpin_ports = vlan.hairpin_ports()
             # TODO: hairpin flooding modes.
+            # TODO: avoid loopback flood on LAG ports
             if not hairpin_ports:
                 return self._build_group_flood_rules(vlan, modify, command)
         return self._build_multiout_flood_rules(vlan, command)
