@@ -1791,6 +1791,9 @@ vlans:
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts
+        # Normal learning works
+        self.one_ipv4_ping(first_host, second_host.IP())
+
         start_bans = self.total_port_bans()
         # Create a loop between interfaces on second host - a veth pair,
         # with two bridges, each connecting one leg of the pair to a host
@@ -1823,6 +1826,12 @@ vlans:
                 return
             time.sleep(1)
         self.assertGreater(end_bans, start_bans)
+
+        # Break the loop, and learning should work again
+        self.quiet_commands(second_host, (
+            'ip link set veth-loop1 down',
+            'ip link set veth-loop2 down',))
+        self.one_ipv4_ping(first_host, second_host.IP())
 
 
 class FaucetUntaggedIPv4LACPTest(FaucetTest):
