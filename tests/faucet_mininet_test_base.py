@@ -249,10 +249,9 @@ class FaucetTestBase(unittest.TestCase):
             prom_log.write(self.scrape_prometheus())
         switch_names = []
         for switch in self.net.switches:
-            switch_dump_name = os.path.join(self.tmpdir, '%s-dumpflows.txt' % switch.name)
             switch_names.append(switch.name)
             for dump_cmd in ('dump-flows', 'dump-tables', 'dump-groups', 'dump-meters', 'dump-group-stats', 'dump-ports'):
-                switch_dump_name = os.path.join(self.tmpdir, '%s-%s.txt' % (switch.name, dump_cmd))
+                switch_dump_name = os.path.join(self.tmpdir, '%s-%s.log' % (switch.name, dump_cmd))
                 switch.cmd('%s %s %s > %s' % (self.OFCTL, dump_cmd, switch.name, switch_dump_name))
         if self.net is not None:
             self.net.stop()
