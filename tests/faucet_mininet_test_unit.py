@@ -1911,7 +1911,7 @@ Duplex: full
 Link Failure Count: 0
 Permanent HW addr: \S+
 Slave queue ID: 0
-Aggregator ID: 1
+Aggregator ID: \d+
 Actor Churn State: monitoring
 Partner Churn State: monitoring
 Actor Churned Count: 0
@@ -1938,7 +1938,7 @@ Duplex: full
 Link Failure Count: 0
 Permanent HW addr: \S+
 Slave queue ID: 0
-Aggregator ID: 1
+Aggregator ID: \d+
 Actor Churn State: monitoring
 Partner Churn State: monitoring
 Actor Churned Count: 0
