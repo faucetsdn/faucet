@@ -579,14 +579,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "ip_proto",
-                        "type": "ip_proto"
-                    },
-                    {
-                        "name": "icmpv6_type",
-                        "type": "icmpv6_type"
                     }
                 ]
             },
@@ -613,14 +605,6 @@
                     {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
-                    },
-                    {
-                        "name": "ip_proto",
-                        "type": "ip_proto"
-                    },
-                    {
-                        "name": "icmpv6_type",
-                        "type": "icmpv6_type"
                     }
                 ]
             },
@@ -929,6 +913,10 @@
                     {
                         "name": "arp_tpa",
                         "type": "arp_tpa"
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
                     }
                 ]
             },
@@ -951,6 +939,10 @@
                     {
                         "name": "arp_tpa",
                         "type": "arp_tpa"
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
                     }
                 ]
             },
