@@ -787,9 +787,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                             solicited_ip, src_ip, eth_src, vlan.vid))
             elif icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT:
                 target_ip = btos(icmpv6_pkt.data.dst)
-                hw_src = icmpv6_pkt.data.option.hw_src
-                if (vlan.ip_in_vip_subnet(ipaddress.ip_address(target_ip)) and
-                        hw_src == eth_src):
+                if vlan.ip_in_vip_subnet(ipaddress.ip_address(target_ip)):
                     ofmsgs.extend(self._update_nexthop(
                         vlan, port, eth_src, target_ip))
                     self.logger.info(
