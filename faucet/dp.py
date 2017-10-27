@@ -212,10 +212,10 @@ class DP(Conf):
                 ('vlan', ('eth_dst', 'eth_type', 'in_port', 'vlan_vid')),
                 ('vlan_acl', None),
                 ('eth_src', ('eth_dst', 'eth_src', 'eth_type',
-                             'icmpv6_type', 'in_port', 'ip_proto', 'vlan_vid')),
+                             'in_port', 'vlan_vid')),
                 ('ipv4_fib', ('eth_type', 'ipv4_dst', 'vlan_vid')),
                 ('ipv6_fib', ('eth_type', 'ipv6_dst', 'vlan_vid')),
-                ('vip', ('arp_tpa', 'eth_dst', 'eth_type', 'ip_proto')),
+                ('vip', ('arp_tpa', 'eth_dst', 'eth_type', 'icmpv6_type', 'ip_proto')),
                 ('eth_dst', ('eth_dst', 'in_port', 'vlan_vid')),
                 ('flood', ('eth_dst', 'in_port', 'vlan_vid')))):
             table_name, restricted_match_types = table_config
