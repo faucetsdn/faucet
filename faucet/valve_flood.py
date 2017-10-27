@@ -126,14 +126,10 @@ class ValveFloodManager(object):
     @staticmethod
     def _build_group_buckets(vlan, unicast_flood):
         buckets = []
-        for port in vlan.tagged_flood_ports(unicast_flood):
-            buckets.append(valve_of.bucket(
-                actions=[valve_of.output_port(port.number)]))
-        for port in vlan.untagged_flood_ports(unicast_flood):
-            buckets.append(valve_of.bucket(
-                actions=[
-                    valve_of.pop_vlan(),
-                    valve_of.output_port(port.number)]))
+        tagged_flood_ports = vlan.tagged_flood_ports(unicast_flood)
+        buckets.extend(valve_of.group_flood_buckets(tagged_flood_ports, False))
+        untagged_flood_ports = vlan.untagged_flood_ports(unicast_flood)
+        buckets.extend(valve_of.group_flood_buckets(untagged_flood_ports, True))
         return buckets
 
     def _build_group_flood_rules(self, vlan, modify, command):

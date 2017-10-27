@@ -614,6 +614,17 @@ def valve_flowreorder(input_ofmsgs):
     return output_ofmsgs
 
 
+def group_flood_buckets(ports, untagged):
+    buckets = []
+    for port in ports:
+        out_actions = []
+        if untagged:
+            out_actions.append(pop_vlan())
+        out_actions.append(output_port(port.number))
+        buckets.append(bucket(actions=out_actions))
+    return buckets
+
+
 def flood_tagged_port_outputs(ports, in_port, exclude_ports=None):
     """Return list of actions necessary to flood to list of tagged ports."""
     flood_acts = []
