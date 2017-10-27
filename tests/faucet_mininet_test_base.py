@@ -1440,9 +1440,10 @@ dbs:
         with open(exabgp_conf_file_name, 'w') as exabgp_conf_file:
             exabgp_conf_file.write(exabgp_conf)
         controller = self._get_controller()
+        # Ensure exabgp only attempts one connection.
         exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
-            'exabgp %s -d 2> %s > /dev/null &' % (
-                exabgp_conf_file_name, exabgp_err), 600)
+            'exabgp %s --once -d 2> %s > /dev/null &' % (
+                exabgp_conf_file_name, exabgp_err), 300)
         exabgp_cli = 'env %s %s' % (exabgp_env, exabgp_cmd)
         controller.cmd(exabgp_cli)
         for _ in range(timeout):

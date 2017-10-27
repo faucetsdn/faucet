@@ -47,6 +47,7 @@ class VLAN(Conf):
     faucet_mac = None
     bgp_as = None
     bgp_local_address = None
+    bgp_server_addresses = []
     bgp_port = None
     bgp_routerid = None
     bgp_neighbor_addresses = []
@@ -78,6 +79,7 @@ class VLAN(Conf):
         'bgp_as': None,
         'bgp_local_address': None,
         'bgp_port': 9179,
+        'bgp_server_addresses': ['0.0.0.0', '::'],
         'bgp_routerid': None,
         'bgp_neighbour_addresses': [],
         'bgp_neighbor_addresses': [],
@@ -103,6 +105,7 @@ class VLAN(Conf):
         'bgp_as': int,
         'bgp_local_address': str,
         'bgp_port': int,
+        'bgp_server_addresses': list,
         'bgp_routerid': str,
         'bgp_neighbour_addresses': list,
         'bgp_neighbor_addresses': list,

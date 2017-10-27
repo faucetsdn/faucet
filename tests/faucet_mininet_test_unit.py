@@ -1349,6 +1349,7 @@ vlans:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
         bgp_port: %(bgp_port)d
+        bgp_server_addresses: ["127.0.0.1"]
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
@@ -1417,6 +1418,7 @@ vlans:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
         bgp_port: %(bgp_port)d
+        bgp_server_addresses: ["127.0.0.1"]
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
@@ -1497,6 +1499,7 @@ vlans:
         description: "untagged"
         faucet_vips: ["10.0.0.254/24"]
         bgp_port: %(bgp_port)d
+        bgp_server_addresses: ["127.0.0.1"]
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
@@ -3448,6 +3451,7 @@ vlans:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
         bgp_port: %(bgp_port)d
+        bgp_server_addresses: ["::1"]
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
@@ -3515,6 +3519,7 @@ vlans:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
         bgp_port: %(bgp_port)d
+        bgp_server_addresses: ["::1"]
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
@@ -3638,6 +3643,7 @@ vlans:
         description: "untagged"
         faucet_vips: ["fc00::1:254/112"]
         bgp_port: %(bgp_port)d
+        bgp_server_addresses: ["::1"]
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
