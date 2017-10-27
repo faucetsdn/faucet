@@ -209,7 +209,7 @@ class DP(Conf):
         self.groups = ValveGroupTable()
         for table_id, table_config in enumerate((
                 ('port_acl', None),
-                ('vlan', ('eth_dst', 'eth_src', 'eth_type', 'in_port', 'vlan_vid')),
+                ('vlan', ('eth_dst', 'eth_type', 'in_port', 'vlan_vid')),
                 ('vlan_acl', None),
                 ('eth_src', ('eth_dst', 'eth_src', 'eth_type',
                              'icmpv6_type', 'in_port', 'ip_proto', 'vlan_vid')),
