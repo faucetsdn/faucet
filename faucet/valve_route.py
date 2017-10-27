@@ -716,6 +716,13 @@ class ValveIPv6RouteManager(ValveRouteManager):
             valve_of.apply_actions([valve_of.output_controller()]),
             valve_of.goto_table(self.flood_table)]
         ofmsgs = []
+        for echo_type in (icmpv6.ICMPV6_ECHO_REQUEST, icmpv6.ICMPV6_ECHO_REPLY):
+            ofmsgs.append(self.vip_table.flowcontroller(
+                self.vip_table.match(
+                    eth_type=self.ETH_TYPE,
+                    nw_proto=valve_of.inet.IPPROTO_ICMPV6,
+                    icmpv6_type=echo_type),
+                priority=priority))
         # IPv6 ND for FAUCET VIP
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
