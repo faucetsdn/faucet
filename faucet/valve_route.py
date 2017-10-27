@@ -46,6 +46,7 @@ class ValveRouteManager(object):
     ICMP_TYPE = None
     MAX_LEN = 96
     CONTROL_ETH_TYPES = None
+    CATCHALL_CONTROLLER_ICMP = True
 
     def __init__(self, logger, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
@@ -137,10 +138,11 @@ class ValveRouteManager(object):
             self.fib_table.match(eth_type=self.ETH_TYPE, vlan=vlan, nw_dst=faucet_vip_host),
             priority=priority,
             inst=[valve_of.goto_table(self.vip_table)]))
-        ofmsgs.append(self.vip_table.flowcontroller(
-            self.vip_table.match(eth_type=self.ETH_TYPE, nw_proto=self.ICMP_TYPE),
-            priority=priority,
-            max_len=self.MAX_LEN))
+        if self.CATCHALL_CONTROLLER_ICMP:
+            ofmsgs.append(self.vip_table.flowcontroller(
+                self.vip_table.match(eth_type=self.ETH_TYPE, nw_proto=self.ICMP_TYPE),
+                priority=priority,
+                max_len=self.MAX_LEN))
         if self.proactive_learn:
             for routed_vlan in self._routed_vlans(vlan):
                 ofmsgs.append(self.fib_table.flowmod(
@@ -697,6 +699,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
     MAX_LEN = 128
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,)
+    CATCHALL_CONTROLLER_ICMP = False
 
 
     def _vlan_nexthop_cache_limit(self, vlan):
