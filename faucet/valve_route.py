@@ -786,11 +786,15 @@ class ValveIPv6RouteManager(ValveRouteManager):
                         'Responded to ND solicit for %s to %s (%s) on VLAN %u' % (
                             solicited_ip, src_ip, eth_src, vlan.vid))
             elif icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT:
-                ofmsgs.extend(self._update_nexthop(
-                    vlan, port, eth_src, src_ip))
-                self.logger.info(
-                    'ND advert %s (%s) on VLAN %u' % (
-                        src_ip, eth_src, vlan.vid))
+                target_ip = btos(icmpv6_pkt.data.dst)
+                hw_src = icmpv6_pkt.data.option.hw_src
+                if (vlan.ip_in_vip_subnet(ipaddress.ip_address(target_ip)) and
+                        hw_src == eth_src):
+                    ofmsgs.extend(self._update_nexthop(
+                        vlan, port, eth_src, target_ip))
+                    self.logger.info(
+                        'ND advert %s (%s) on VLAN %u' % (
+                            target_ip, eth_src, vlan.vid))
             elif icmpv6_type == icmpv6.ND_ROUTER_SOLICIT:
                 link_local_vips, other_vips = self._link_and_other_vips(vlan)
                 for vip in link_local_vips:
