@@ -81,7 +81,7 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
 
     def __init__(self, name, **params):
         super(FaucetSwitch, self).__init__(
-            name=name, datapath='kernel', **params)
+            name=name, datapath='kernel', reconnectms=8000, **params)
 
 
 class VLANHost(FaucetHost):
