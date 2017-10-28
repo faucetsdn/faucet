@@ -245,11 +245,6 @@
                         "hasmask": true
                     },
                     {
-                        "name": "eth_src",
-                        "type": "eth_src",
-                        "hasmask": true
-                    },
-                    {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
@@ -270,11 +265,6 @@
                     {
                         "name": "eth_dst",
                         "type": "eth_dst",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "eth_src",
-                        "type": "eth_src",
                         "hasmask": true
                     },
                     {
