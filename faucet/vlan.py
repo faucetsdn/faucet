@@ -152,6 +152,9 @@ class VLAN(Conf):
                 assert ip_gw.version == ip_dst.version
                 self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
 
+    def reset_host_cache(self):
+        self.dyn_host_cache = {}
+
     def add_tagged(self, port):
         self.tagged.append(port)
 
