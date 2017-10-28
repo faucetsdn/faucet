@@ -46,7 +46,6 @@ class ValveRouteManager(object):
     ICMP_TYPE = None
     MAX_LEN = 96
     CONTROL_ETH_TYPES = None
-    CATCHALL_CONTROLLER_ICMP = True
 
     def __init__(self, logger, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
@@ -138,11 +137,6 @@ class ValveRouteManager(object):
             self.fib_table.match(eth_type=self.ETH_TYPE, vlan=vlan, nw_dst=faucet_vip_host),
             priority=priority,
             inst=[valve_of.goto_table(self.vip_table)]))
-        if self.CATCHALL_CONTROLLER_ICMP:
-            ofmsgs.append(self.vip_table.flowcontroller(
-                self.vip_table.match(eth_type=self.ETH_TYPE, nw_proto=self.ICMP_TYPE),
-                priority=priority,
-                max_len=self.MAX_LEN))
         if self.proactive_learn:
             for routed_vlan in self._routed_vlans(vlan):
                 ofmsgs.append(self.fib_table.flowmod(
@@ -151,7 +145,7 @@ class ValveRouteManager(object):
                     inst=[valve_of.goto_table(self.vip_table)]))
             ofmsgs.append(self.vip_table.flowcontroller(
                 self.vip_table.match(eth_type=self.ETH_TYPE),
-                priority=priority,
+                priority=priority-1,
                 max_len=self.MAX_LEN))
         return ofmsgs
 
@@ -699,7 +693,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
     MAX_LEN = 128
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,)
-    CATCHALL_CONTROLLER_ICMP = False
 
 
     def _vlan_nexthop_cache_limit(self, vlan):
@@ -719,13 +712,12 @@ class ValveIPv6RouteManager(ValveRouteManager):
             valve_of.apply_actions([valve_of.output_controller()]),
             valve_of.goto_table(self.flood_table)]
         ofmsgs = []
-        for echo_type in (icmpv6.ICMPV6_ECHO_REQUEST, icmpv6.ICMPV6_ECHO_REPLY):
-            ofmsgs.append(self.vip_table.flowcontroller(
-                self.vip_table.match(
-                    eth_type=self.ETH_TYPE,
-                    nw_proto=valve_of.inet.IPPROTO_ICMPV6,
-                    icmpv6_type=echo_type),
-                priority=priority))
+        ofmsgs.append(self.vip_table.flowcontroller(
+            self.vip_table.match(
+                eth_type=self.ETH_TYPE,
+                nw_proto=valve_of.inet.IPPROTO_ICMPV6,
+                icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
+            priority=priority))
         # IPv6 ND for FAUCET VIP
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
