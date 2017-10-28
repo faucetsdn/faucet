@@ -1,37 +1,36 @@
-version: 2
 faucet_configs:
     - '/etc/ryu/faucet/faucet.yaml'
 watchers:
     port_status_poller:
         type: 'port_state'
-        dps: ['windscale-faucet-1']
+        dps: ['sw1', 'sw2']
         db: 'influx'
     port_stats_poller:
         type: 'port_stats'
-        dps: ['windscale-faucet-1']
+        dps: ['sw1', 'sw2']
         interval: 10
         #db: 'influx'
         db: 'prometheus'
     flow_table_poller:
         type: 'flow_table'
-        dps: ['windscale-faucet-1']
-        interval: 40
+        interval: 60
+        dps: ['sw1', 'sw2']
         #db: 'couchdb'
-        db: 'ft_file'
+        db: 'influx'
 dbs:
     ft_file:
         type: 'text'
-        file: 'flow_table.JSON'
+        file: 'flow_table.json'
     prometheus:
         type: 'prometheus'
-        prometheus_addr: 'localhost'
+        prometheus_addr: '0.0.0.0'
         prometheus_port: 9303
     influx:
         type: 'influx'
         influx_db: 'faucet'
-        influx_host: 'localhost'
+        influx_host: 'influxdb'
         influx_port: 8086
-        influx_user: 'grafana'
+        influx_user: 'faucet'
         influx_pwd: 'faucet'
         influx_timeout: 10
     couchdb:
@@ -50,4 +49,3 @@ dbs:
         switches_doc: 'switches_bak'
         flows_doc: 'flows_bak'
         db_update_counter: 2
-
