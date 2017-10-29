@@ -1,0 +1,69 @@
+version: '2'
+services:
+    influxdb:
+        restart: always
+        image: 'hypriot/rpi-influxdb:latest'
+        ports:
+            - '8086'
+            - '8083'
+        volumes:
+            - '${FAUCET_PREFIX}/opt/influxdb/shared/data/db:/var/lib/influxdb'
+        environment:
+            INFLUXDB_DB: 'faucet'
+            INFLUXDB_HTTP_AUTH_ENABLED: 'true'
+            INFLUXDB_ADMIN_USER: 'faucet'
+            INFLUXDB_ADMIN_PASSWORD: 'faucet'
+
+    prometheus:
+        restart: always
+        image: 'alexellis2/prometheus-armhf:1.5.2'
+        ports:
+            - '9090:9090'
+        volumes:
+            - '$FAUCET_PREFIX/opt/prometheus/:/prometheus'
+            - './etc/prometheus/prometheus-docker-compose.yml:/etc/prometheus/prometheus.yml'
+            - './etc/prometheus/faucet.rules:/etc/prometheus/faucet.rules'
+        links:
+            - faucet
+            - gauge
+
+    grafana:
+        restart: always
+        image: 'fg2it/grafana-armhf:v4.5.2'
+        ports:
+            - '3000:3000'
+        volumes:
+            - '$FAUCET_PREFIX/opt/grafana:/var/lib/grafana'
+        links:
+            - influxdb
+            - prometheus
+
+    gauge:
+        restart: always
+        build:
+            context: .
+            dockerfile: Dockerfile.pi-gauge
+        image: 'faucet/gauge:1.6.7'
+        environment:
+           - GAUGE_CONFIG=/etc/ryu/faucet/gauge.yaml
+        volumes:
+            - '$FAUCET_PREFIX/var/log/ryu/faucet:/var/log/ryu/faucet'
+            - '$FAUCET_PREFIX/etc/ryu/faucet:/etc/ryu/faucet'
+        ports:
+            - '6654:6653'
+            - '9303'
+        links:
+            - influxdb
+
+    faucet:
+        restart: always
+        build:
+            context: .
+            dockerfile: Dockerfile.pi
+        image: 'faucet/faucet:1.6.7'
+        volumes:
+            - '$FAUCET_PREFIX/var/log/ryu/faucet:/var/log/ryu/faucet'
+            - '$FAUCET_PREFIX/etc/ryu/faucet:/etc/ryu/faucet'
+        ports:
+            - '6653:6653'
+            - '9302'
