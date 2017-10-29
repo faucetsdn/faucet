@@ -906,7 +906,7 @@ class Valve(object):
         return ofmsgs
 
     def flow_timeout(self, table_id, match):
-        return self.host_manager(table_id, match)
+        return self.host_manager.flow_timeout(table_id, match)
 
     def get_config_dict(self):
         return self.dp.config_dict()
