@@ -10,11 +10,15 @@ RM := rm
 MKDIR := mkdir -p
 MV := mv
 DOT := dot
+SED := sed
+UNAME_S := $(shell uname -s)
 ## Git version 2.11+ is required
 GIT := git
 GIT_REL_TAG := $(shell $(GIT) describe --abbrev=0 --tags)
 GIT_NUM_COMMITS := $(shell $(GIT) rev-list  `$(GIT) rev-list --tags --no-walk --max-count=1`..HEAD --count)
 GIT_LOC := $(shell $(GIT) diff --shortstat `$(GIT) rev-list --tags --no-walk --max-count=1`)
+GIT_BRANCH := $(shell $(GIT) rev-parse --abbrev-ref HEAD)
+GIT_REMOTE := $(shell $(GIT) remote
 
 PROJECT_NAME = faucet
 
@@ -53,4 +57,35 @@ stats:
 	@echo
 	@echo 'Listing all commits since last tag ...'
 	@$(GIT) log $(GIT_REL_TAG)..HEAD --oneline
-	
+
+release:
+	@echo '"version" and "next_version" variables need to be passed in to perform release...'
+	@echo 'e.g. make release version=1.6.8 next_version=1.6.9'
+	@echo
+	@test $(version)
+	@test $(next_version)
+	@echo 'Looks good, performing release'
+	@echo
+	@echo 'Current release tag $(value GIT_REL_TAG)'
+	@echo 'Releasing version $(version)'
+	@echo
+ifeq ($(UNAME_S),Darwin)
+	@$(SED) -i "" -e s/$(value GIT_REL_TAG)/$(version)/ docker-compose.yaml
+	@$(SED) -i "" -e s/$(value GIT_REL_TAG)/$(version)/ docker-compose-pi.yaml
+	@$(SED) -i "" -e s/$(value GIT_REL_TAG)/$(version)/ README.rst
+else
+	@$(SED) -i s/$(value GIT_REL_TAG)/$(version)/ docker-compose.yaml
+	@$(SED) -i s/$(value GIT_REL_TAG)/$(version)/ docker-compose-pi.yaml
+	@$(SED) -i s/$(value GIT_REL_TAG)/$(version)/ README.rst
+endif
+	@$(GIT) commit -a -m "$(version)"
+	@$(GIT) tag -a $(version) -m "$(version)"
+ifeq ($(UNAME_S),Darwin)
+	@$(SED) -i "" -e s/$(version)/$(next_version)/ setup.cfg
+else
+	@$(SED) -i s/$(version)/$(next_version)/ setup.cfg
+endif
+	@$(GIT) commit -a -m "$(version)"
+	@$(GIT) push $(GIT_REMOTE) $(GIT_BRANCH)
+	@$(GIT) push $(GIT_REMOTE) $(version)
+	@echo 'Done releasing version $(version)'
