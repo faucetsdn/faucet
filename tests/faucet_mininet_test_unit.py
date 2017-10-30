@@ -3840,6 +3840,7 @@ class FaucetStringOfDPTest(FaucetTest):
             second_dp = i == 1
             last_dp = i == dpid_count - 1
             end_dp = first_dp or last_dp
+            first_stack_port = port
             num_switch_links = 0
             if dpid_count > 1:
                 if end_dp:
@@ -3847,42 +3848,59 @@ class FaucetStringOfDPTest(FaucetTest):
                 else:
                     num_switch_links = self.topo.SWITCH_TO_SWITCH_LINKS * 2
 
-            if stack and first_dp:
-                dp_config['stack'] = {
-                    'priority': 1
-                }
-
-            first_stack_port = port
-
-            for stack_dp_port in range(num_switch_links):
-                tagged_vlans = None
-
-                peer_dp = None
-                if stack_dp_port == 0:
-                    if first_dp:
+            if stack:
+                # TODO: make the stacking root configurable
+                if first_dp:
+                    dp_config['stack'] = {
+                        'priority': 1
+                    }
+                for stack_dp_port in range(num_switch_links):
+                    peer_dp = None
+                    if stack_dp_port == 0:
+                        if first_dp:
+                            peer_dp = i + 1
+                        else:
+                            peer_dp = i - 1
+                        if first_dp or second_dp:
+                            peer_port = first_stack_port
+                        else:
+                            peer_port = first_stack_port + 1
+                    else:
                         peer_dp = i + 1
-                    else:
-                        peer_dp = i - 1
-                    if first_dp or second_dp:
                         peer_port = first_stack_port
-                    else:
-                        peer_port = first_stack_port + 1
-                else:
-                    peer_dp = i + 1
-                    peer_port = first_stack_port
 
-                description = 'to %s' % dp_name(peer_dp)
-
-                interfaces_config[port] = {
-                    'description': description,
-                }
-
-                if stack:
+                    description = 'to %s' % dp_name(peer_dp)
+                    interfaces_config[port] = {
+                        'description': description,
+                    }
                     interfaces_config[port]['stack'] = {
                         'dp': dp_name(peer_dp),
                         'port': peer_port,
                     }
-                else:
+                    add_acl_to_port(name, port, interfaces_config)
+                    port += 1
+            else:
+                for stack_dp_port in range(num_switch_links):
+                    tagged_vlans = None
+                    peer_dp = None
+                    if stack_dp_port == 0:
+                        if first_dp:
+                            peer_dp = i + 1
+                        else:
+                            peer_dp = i - 1
+                        if first_dp or second_dp:
+                            peer_port = first_stack_port
+                        else:
+                            peer_port = first_stack_port + 1
+                    else:
+                        peer_dp = i + 1
+                        peer_port = first_stack_port
+
+                    description = 'to %s' % dp_name(peer_dp)
+                    interfaces_config[port] = {
+                        'description': description,
+                    }
+
                     if n_tagged and n_untagged and n_tagged != n_untagged:
                         tagged_vlans = [tagged_vid, untagged_vid]
                     elif ((n_tagged and not n_untagged) or
@@ -3894,8 +3912,8 @@ class FaucetStringOfDPTest(FaucetTest):
                     if tagged_vlans:
                         interfaces_config[port]['tagged_vlans'] = tagged_vlans
 
-                add_acl_to_port(name, port, interfaces_config)
-                port += 1
+                    add_acl_to_port(name, port, interfaces_config)
+                    port += 1
 
         def add_dp(name, dpid, i, dpid_count, stack,
                    n_tagged, tagged_vid, n_untagged, untagged_vid):
