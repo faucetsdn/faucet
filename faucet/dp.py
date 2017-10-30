@@ -338,7 +338,8 @@ class DP(Conf):
                     edge_count[edge_name] = 0
                 edge_count[edge_name] += 1
                 graph.add_edge(
-                    edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
+                    edge_a_dp.name, edge_z_dp.name,
+                    key=edge_name, port_map=edge_attr)
         if graph.size():
             for edge_name, count in list(edge_count.items()):
                 assert count == 2, '%s defined only in one direction' % edge_name
