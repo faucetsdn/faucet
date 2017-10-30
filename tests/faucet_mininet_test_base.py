@@ -765,19 +765,19 @@ dbs:
     def wait_until_controller_flow(self):
         self.wait_until_matching_flow(None, actions=[u'OUTPUT:CONTROLLER'])
 
-    def mac_learned(self, mac, timeout=10, in_port=None):
+    def mac_learned(self, mac, timeout=10, in_port=None, hard_timeout=1):
         """Return True if a MAC has been learned on default DPID."""
         for eth_field, table_id in (
                 (u'dl_src', self.ETH_SRC_TABLE),
                 (u'dl_dst', self.ETH_DST_TABLE)):
             match = {eth_field: u'%s' % mac}
-            hard_timeout = 0
+            match_hard_timeout = 0
             if table_id == self.ETH_SRC_TABLE:
                 if in_port is not None:
                     match[u'in_port'] = in_port
-                hard_timeout = 1
+                match_hard_timeout = hard_timeout
             if not self.matching_flow_present(
-                    match, timeout=timeout, table_id=table_id, hard_timeout=hard_timeout):
+                    match, timeout=timeout, table_id=table_id, hard_timeout=match_hard_timeout):
                 return False
         return True
 
@@ -806,9 +806,9 @@ dbs:
     def prom_mac_learned(self, mac, port=None, vlan=None):
         return mac in self.prom_macs_learned(port=port, vlan=vlan)
 
-    def host_learned(self, host, timeout=10, in_port=None):
+    def host_learned(self, host, timeout=10, in_port=None, hard_timeout=1):
         """Return True if a host has been learned on default DPID."""
-        return self.mac_learned(host.MAC(), timeout, in_port)
+        return self.mac_learned(host.MAC(), timeout, in_port, hard_timeout=hard_timeout)
 
     def get_host_intf_mac(self, host, intf):
         return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
@@ -838,7 +838,7 @@ dbs:
         for host in self.net.hosts:
             self.reset_ipv4_prefix(host, prefix)
 
-    def require_host_learned(self, host, retries=8, in_port=None):
+    def require_host_learned(self, host, retries=8, in_port=None, hard_timeout=1):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
         if not host_ip_net:
@@ -860,7 +860,7 @@ dbs:
                 ping_cmd, host.defaultIntf().name, packets, broadcast_str), 3)
 
         for _ in range(retries):
-            if self.host_learned(host, timeout=1, in_port=in_port):
+            if self.host_learned(host, timeout=1, in_port=in_port, hard_timeout=hard_timeout):
                 return
             ping_result = host.cmd(ping_cli)
             self.assertTrue(re.search(
@@ -1504,14 +1504,14 @@ dbs:
             time.sleep(1)
         self.fail('exabgp did not send BGP updates')
 
-    def ping_all_when_learned(self, retries=3):
+    def ping_all_when_learned(self, retries=3, hard_timeout=1):
         """Verify all hosts can ping each other once FAUCET has learned all."""
         # Cause hosts to send traffic that FAUCET can use to learn them.
         for _ in range(retries):
             loss = self.net.pingAll()
             # we should have learned all hosts now, so should have no loss.
             for host in self.net.hosts:
-                self.require_host_learned(host)
+                self.require_host_learned(host, hard_timeout=hard_timeout)
             if loss == 0:
                 return
         self.assertEqual(0, loss)
