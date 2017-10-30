@@ -677,7 +677,7 @@ dbs:
         return False
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                   actions=None, match_exact=False):
+                                   actions=None, match_exact=False, hard_timeout=0):
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
         with open(flowdump, 'w') as flowdump_file:
             for _ in range(timeout):
@@ -689,6 +689,11 @@ dbs:
                     if (table_id is not None and
                             flow_dict['table_id'] != table_id):
                         continue
+                    if hard_timeout:
+                        if not 'hard_timeout' in flow_dict:
+                            continue
+                        if flow_dict['hard_timeout'] < hard_timeout:
+                            continue
                     if actions is not None:
                         if not set(actions).issubset(set(flow_dict['actions'])):
                             continue
@@ -705,19 +710,19 @@ dbs:
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                  actions=None, match_exact=None):
+                                  actions=None, match_exact=None, hard_timeout=0):
         flow_dicts = self.get_matching_flows_on_dpid(
             dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact)
+            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
         if flow_dicts:
             return flow_dicts[0]
         return []
 
     def get_matching_flow(self, match, timeout=10, table_id=None,
-                          actions=None, match_exact=None):
+                          actions=None, match_exact=None, hard_timeout=0):
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact)
+            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
         for _ in range(timeout):
@@ -733,28 +738,28 @@ dbs:
             'Cannot find group_id for matching flow %s' % match)
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                      actions=None, match_exact=None):
+                                      actions=None, match_exact=None, hard_timeout=0):
         """Return True if matching flow is present on a DPID."""
         if self.get_matching_flow_on_dpid(
                 dpid, match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact):
+                actions=actions, match_exact=match_exact, hard_timeout=hard_timeout):
             return True
         return False
 
     def matching_flow_present(self, match, timeout=10, table_id=None,
-                              actions=None, match_exact=None):
+                              actions=None, match_exact=None, hard_timeout=0):
         """Return True if matching flow is present on default DPID."""
         return self.matching_flow_present_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact)
+            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
 
     def wait_until_matching_flow(self, match, timeout=10, table_id=None,
-                                 actions=None, match_exact=False):
+                                 actions=None, match_exact=False, hard_timeout=0):
         """Wait (require) for flow to be present on default DPID."""
         self.assertTrue(
             self.matching_flow_present(
                 match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact),
+                actions=actions, match_exact=match_exact, hard_timeout=hard_timeout),
             msg=match)
 
     def wait_until_controller_flow(self):
@@ -766,10 +771,13 @@ dbs:
                 (u'dl_src', self.ETH_SRC_TABLE),
                 (u'dl_dst', self.ETH_DST_TABLE)):
             match = {eth_field: u'%s' % mac}
-            if in_port is not None and table_id == self.ETH_SRC_TABLE:
-                match[u'in_port'] = in_port
+            hard_timeout = 0
+            if table_id == self.ETH_SRC_TABLE:
+                if in_port is not None:
+                    match[u'in_port'] = in_port
+                hard_timeout = 1
             if not self.matching_flow_present(
-                    match, timeout=timeout, table_id=table_id):
+                    match, timeout=timeout, table_id=table_id, hard_timeout=hard_timeout):
                 return False
         return True
 

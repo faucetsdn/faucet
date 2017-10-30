@@ -147,7 +147,7 @@ class ValveHostManager(object):
         return (src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout)
 
     def learn_host_on_vlan_port_flows(self, port, vlan, eth_src, delete_existing,
-                                      src_rule_hard_timeout, src_rule_idle_timeout,
+                                      src_rule_idle_timeout, src_rule_hard_timeout,
                                       dst_rule_idle_timeout):
         """Return flows that implement learning a host on a port."""
         ofmsgs = []
