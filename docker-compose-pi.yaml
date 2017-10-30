@@ -9,10 +9,9 @@ services:
         volumes:
             - '${FAUCET_PREFIX}/opt/influxdb/shared/data/db:/var/lib/influxdb'
         environment:
-            INFLUXDB_DB: 'faucet'
-            INFLUXDB_HTTP_AUTH_ENABLED: 'true'
-            INFLUXDB_ADMIN_USER: 'faucet'
-            INFLUXDB_ADMIN_PASSWORD: 'faucet'
+            PRE_CREATE_DB: 'faucet'
+            ADMIN_USER: 'faucet'
+            INFLUXDB_INIT_PWD: 'faucet'
 
     prometheus:
         restart: always
