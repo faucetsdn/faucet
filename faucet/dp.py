@@ -368,10 +368,8 @@ class DP(Conf):
         shortest_path = self.shortest_path(dest_dp)
         if shortest_path is not None:
             peer_dp = shortest_path[1]
-            peer_dp_ports = []
-            for port in self.stack_ports:
-                if port.stack['dp'].name == peer_dp:
-                    peer_dp_ports.append(port)
+            peer_dp_ports = [
+                port for port in self.stack_ports if port.running() and port.stack['dp'].name == peer_dp]
             return peer_dp_ports[0]
         return None
 
