@@ -108,7 +108,8 @@ class VLANHost(FaucetHost):
 class FaucetSwitchTopo(Topo):
     """FAUCET switch topology that contains a software switch."""
 
-    def _get_sid_prefix(self, ports_served):
+    @staticmethod
+    def _get_sid_prefix(ports_served):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
         # pylint: disable=no-member
@@ -177,6 +178,8 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
     """String of datapaths each with hosts with a single FAUCET controller."""
 
+    SWITCH_TO_SWITCH_LINKS = 1
+
     def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         """
 
@@ -215,10 +218,11 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 hosts.append(self._add_untagged_host(sid_prefix, host_n))
             switch = self._add_faucet_switch(sid_prefix, dpid)
             self._add_links(switch, hosts, links_per_host)
-            # Add a switch-to-switch link with the previous switch,
-            # if this isn't the first switch in the topology.
             if last_switch is not None:
-                self.addLink(last_switch, switch)
+                # Add a switch-to-switch link with the previous switch,
+                # if this isn't the first switch in the topology.
+                for _ in range(self.SWITCH_TO_SWITCH_LINKS):
+                    self.addLink(last_switch, switch)
             last_switch = switch
 
 
@@ -274,7 +278,8 @@ class BaseFAUCET(Controller):
         ))
         self.cmd('tcpdump %s &' % tcpdump_args)
 
-    def _tls_cargs(self, ofctl_port, ctl_privkey, ctl_cert, ca_certs):
+    @staticmethod
+    def _tls_cargs(ofctl_port, ctl_privkey, ctl_cert, ca_certs):
         """Add TLS/cert parameters to Ryu."""
         tls_cargs = []
         for carg_val, carg_key in ((ctl_privkey, 'ctl-privkey'),
@@ -320,7 +325,8 @@ class BaseFAUCET(Controller):
         return False
 
     # pylint: disable=invalid-name
-    def checkListening(self):
+    @staticmethod
+    def checkListening():
         """Mininet's checkListening() causes occasional false positives (with
            exceptions we can't catch), and we handle port conflicts ourselves anyway."""
         return

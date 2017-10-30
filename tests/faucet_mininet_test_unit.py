@@ -472,7 +472,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             if self.matching_lines_from_file(r'error shipping', gauge_log_name):
                 return
             time.sleep(1)
-        self.fail('Influx error not noted in %s' % gauge_log)
+        self.fail('Influx error not noted in %s' % gauge_log_name)
 
     def _verify_influx_log(self):
         self.assertTrue(os.path.exists(self.influx_log))
@@ -482,8 +482,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         for point_line in influx_log_lines:
             point_fields = point_line.strip().split()
             self.assertEqual(3, len(point_fields), msg=point_fields)
-            ts_name, value_field, timestamp_str = point_fields
-            timestamp = int(timestamp_str)
+            ts_name, value_field, _ = point_fields
             value = float(value_field.split('=')[1])
             ts_name_fields = ts_name.split(',')
             self.assertGreater(len(ts_name_fields), 1)
@@ -1971,14 +1970,14 @@ details partner lacp pdu:
                 'ip address flush dev %s' % bond_member))
         # Configure bond interface
         self.quiet_commands(first_host, (
-                ('ip link add %s address 0e:00:00:00:00:99 '
-                 'type bond mode 802.3ad lacp_rate fast miimon 100') % bond,
-                'ip add add %s/24 dev %s' % (orig_ip, bond),
-                'ip link set %s up' % bond))
+            ('ip link add %s address 0e:00:00:00:00:99 '
+             'type bond mode 802.3ad lacp_rate fast miimon 100') % bond,
+            'ip add add %s/24 dev %s' % (orig_ip, bond),
+            'ip link set %s up' % bond))
         # Add bond members
         for bond_member in bond_members:
             self.quiet_commands(first_host, (
-                    'ip link set dev %s master %s' % (bond_member, bond),))
+                'ip link set dev %s master %s' % (bond_member, bond),))
         # LACP should come up and we can pass traffic.
         for _ in range(10):
             result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
@@ -3779,6 +3778,15 @@ class FaucetStringOfDPTest(FaucetTest):
             acl_in_dp = {}
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpid = self.dpids[0]
+        self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
+            self.ports_sock,
+            dpids=self.dpids,
+            n_tagged=n_tagged,
+            tagged_vid=tagged_vid,
+            n_untagged=n_untagged,
+            links_per_host=self.LINKS_PER_HOST,
+            test_name=self._test_name(),
+        )
         self.CONFIG = self.get_config(
             self.dpids,
             stack,
@@ -3795,15 +3803,6 @@ class FaucetStringOfDPTest(FaucetTest):
         )
         with open(self.faucet_config_path, 'w') as config_file:
             config_file.write(self.CONFIG)
-        self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
-            self.ports_sock,
-            dpids=self.dpids,
-            n_tagged=n_tagged,
-            tagged_vid=tagged_vid,
-            n_untagged=n_untagged,
-            links_per_host=self.LINKS_PER_HOST,
-            test_name=self._test_name(),
-        )
 
     def get_config(self, dpids=[], stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
@@ -3843,9 +3842,9 @@ class FaucetStringOfDPTest(FaucetTest):
             num_switch_links = 0
             if dpid_count > 1:
                 if end_dp:
-                    num_switch_links = 1
+                    num_switch_links = self.topo.SWITCH_TO_SWITCH_LINKS
                 else:
-                    num_switch_links = 2
+                    num_switch_links = self.topo.SWITCH_TO_SWITCH_LINKS * 2
 
             if stack and first_dp:
                 dp_config['stack'] = {
