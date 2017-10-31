@@ -328,7 +328,6 @@ class ValveFloodStackManager(ValveFloodManager):
         # We find just one port that is the shortest unicast path to
         # the destination. We could use other factors (eg we could
         # load balance over multiple ports based on destination MAC).
-        # TODO: react to topology changes.
         # TODO: each DP learns independently. An edge DP could
         # call other valves so they learn immediately without waiting
         # for packet in.
@@ -336,6 +335,9 @@ class ValveFloodStackManager(ValveFloodManager):
         # (for example, just default switch to a neighbor).
         # Find port that forwards closer to destination DP that
         # has already learned this host (if any).
+        # TODO: stacking handles failure of redundant links between DPs,
+        # but not failure of an entire DP (should be able to find
+        # shortest path via alternate DP).
         eth_src = pkt_meta.eth_src
         vlan_vid = pkt_meta.vlan.vid
         for other_valve in other_valves:
