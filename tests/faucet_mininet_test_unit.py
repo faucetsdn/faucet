@@ -3767,7 +3767,7 @@ class FaucetStringOfDPTest(FaucetTest):
                   n_tagged=0, tagged_vid=100,
                   n_untagged=0, untagged_vid=100,
                   include=None, include_optional=None,
-                  acls=None, acl_in_dp=None):
+                  acls=None, acl_in_dp=None, switch_to_switch_links=1):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -3786,7 +3786,8 @@ class FaucetStringOfDPTest(FaucetTest):
             tagged_vid=tagged_vid,
             n_untagged=n_untagged,
             links_per_host=self.LINKS_PER_HOST,
-            test_name=self._test_name(),
+            switch_to_switch_links=switch_to_switch_links,
+            test_name=self._test_name()
         )
         self.CONFIG = self.get_config(
             self.dpids,
@@ -3879,7 +3880,7 @@ class FaucetStringOfDPTest(FaucetTest):
                             if n_tagged and n_untagged and n_tagged != n_untagged:
                                 tagged_vlans = [tagged_vid, untagged_vid]
                             elif ((n_tagged and not n_untagged) or
-                                 (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                                  (n_tagged and n_untagged and tagged_vid == untagged_vid)):
                                 tagged_vlans = [tagged_vid]
                             elif n_untagged and not n_tagged:
                                 tagged_vlans = [untagged_vid]
@@ -3999,7 +4000,8 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             stack=True,
             n_dps=self.NUM_DPS,
             n_tagged=self.NUM_HOSTS,
-            tagged_vid=self.VID)
+            tagged_vid=self.VID,
+            switch_to_switch_links=2)
         self.start_net()
 
     def test_tagged(self):
@@ -4019,7 +4021,8 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID)
+            untagged_vid=self.VID,
+            switch_to_switch_links=2)
         self.start_net()
 
     def test_untagged(self):
