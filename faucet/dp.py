@@ -363,14 +363,18 @@ class DP(Conf):
                 return self.shortest_path(root_dp.name)
         return []
 
+    def peer_stack_up_ports(self, peer_dp):
+        """Return list of stack ports that are up towards a peer."""
+        return [port for port in self.stack_ports if port.running() and port.stack['dp'].name == peer_dp]
+
     def shortest_path_port(self, dest_dp):
-        """Return port on our DP, that is the shortest path towards dest DP."""
+        """Return first port on our DP, that is the shortest path towards dest DP."""
         shortest_path = self.shortest_path(dest_dp)
         if shortest_path is not None:
             peer_dp = shortest_path[1]
-            peer_dp_ports = [
-                port for port in self.stack_ports if port.running() and port.stack['dp'].name == peer_dp]
-            return peer_dp_ports[0]
+            peer_dp_ports = self.peer_stack_up_ports(peer_dp)
+            if peer_dp_ports:
+                return peer_dp_ports[0]
         return None
 
     def finalize_config(self, dps):

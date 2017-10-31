@@ -3841,79 +3841,52 @@ class FaucetStringOfDPTest(FaucetTest):
             last_dp = i == dpid_count - 1
             end_dp = first_dp or last_dp
             first_stack_port = port
-            num_switch_links = 0
+            peer_dps = []
             if dpid_count > 1:
                 if end_dp:
-                    num_switch_links = self.topo.SWITCH_TO_SWITCH_LINKS
+                    if first_dp:
+                        peer_dps = [i + 1]
+                    else:
+                        peer_dps = [i - 1]
                 else:
-                    num_switch_links = self.topo.SWITCH_TO_SWITCH_LINKS * 2
+                    peer_dps = [i - 1, i + 1]
 
-            if stack:
                 # TODO: make the stacking root configurable
-                if first_dp:
+                if stack and first_dp:
                     dp_config['stack'] = {
                         'priority': 1
                     }
-                for stack_dp_port in range(num_switch_links):
-                    peer_dp = None
-                    if stack_dp_port == 0:
-                        if first_dp:
-                            peer_dp = i + 1
-                        else:
-                            peer_dp = i - 1
-                        if first_dp or second_dp:
-                            peer_port = first_stack_port
-                        else:
-                            peer_port = first_stack_port + 1
+                for peer_dp in peer_dps:
+                    if first_dp or second_dp:
+                        peer_stack_port_base = first_stack_port
                     else:
-                        peer_dp = i + 1
-                        peer_port = first_stack_port
-
-                    description = 'to %s' % dp_name(peer_dp)
-                    interfaces_config[port] = {
-                        'description': description,
-                    }
-                    interfaces_config[port]['stack'] = {
-                        'dp': dp_name(peer_dp),
-                        'port': peer_port,
-                    }
-                    add_acl_to_port(name, port, interfaces_config)
-                    port += 1
-            else:
-                for stack_dp_port in range(num_switch_links):
-                    tagged_vlans = None
-                    peer_dp = None
-                    if stack_dp_port == 0:
-                        if first_dp:
-                            peer_dp = i + 1
+                        peer_stack_port_base = first_stack_port + self.topo.switch_to_switch_links
+                    for stack_dp_port in range(self.topo.switch_to_switch_links):
+                        peer_port = peer_stack_port_base + stack_dp_port
+                        description = 'to %s port %u' % (dp_name(peer_dp), peer_port)
+                        interfaces_config[port] = {
+                            'description': description,
+                        }
+                        if stack:
+                            # make this a stacking link.
+                            interfaces_config[port]['stack'] = {
+                                'dp': dp_name(peer_dp),
+                                'port': peer_port,
+                            }
                         else:
-                            peer_dp = i - 1
-                        if first_dp or second_dp:
-                            peer_port = first_stack_port
-                        else:
-                            peer_port = first_stack_port + 1
-                    else:
-                        peer_dp = i + 1
-                        peer_port = first_stack_port
-
-                    description = 'to %s' % dp_name(peer_dp)
-                    interfaces_config[port] = {
-                        'description': description,
-                    }
-
-                    if n_tagged and n_untagged and n_tagged != n_untagged:
-                        tagged_vlans = [tagged_vid, untagged_vid]
-                    elif ((n_tagged and not n_untagged) or
-                          (n_tagged and n_untagged and tagged_vid == untagged_vid)):
-                        tagged_vlans = [tagged_vid]
-                    elif n_untagged and not n_tagged:
-                        tagged_vlans = [untagged_vid]
-
-                    if tagged_vlans:
-                        interfaces_config[port]['tagged_vlans'] = tagged_vlans
-
-                    add_acl_to_port(name, port, interfaces_config)
-                    port += 1
+                            # not a stack - make this a trunk.
+                            tagged_vlans = []
+                            if n_tagged and n_untagged and n_tagged != n_untagged:
+                                tagged_vlans = [tagged_vid, untagged_vid]
+                            elif ((n_tagged and not n_untagged) or
+                                 (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                                tagged_vlans = [tagged_vid]
+                            elif n_untagged and not n_tagged:
+                                tagged_vlans = [untagged_vid]
+                            if tagged_vlans:
+                                interfaces_config[port]['tagged_vlans'] = tagged_vlans
+                        add_acl_to_port(name, port, interfaces_config)
+                        port += 1
 
         def add_dp(name, dpid, i, dpid_count, stack,
                    n_tagged, tagged_vid, n_untagged, untagged_vid):
