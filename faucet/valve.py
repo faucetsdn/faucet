@@ -503,6 +503,7 @@ class Valve(object):
             if port_num not in self.dp.ports:
                 continue
             port = self.dp.ports[port_num]
+            port.dyn_phys_up = False
             self.logger.info('%s down' % port)
 
             # TODO: when mirroring an entire port, we install flows

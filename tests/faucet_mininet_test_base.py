@@ -897,6 +897,11 @@ dbs:
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet', retries=1):
+        if dpid:
+            if dpid is True:
+                dpid = long(self.dpid)
+            else:
+                dpid = long(dpid)
         label_values_re = r''
         if any_labels:
             label_values_re = r'\{[^\}]+\}'
@@ -904,7 +909,7 @@ dbs:
             if labels is None:
                 labels = {}
             if dpid:
-                labels.update({'dp_id': '0x%x' % long(self.dpid)})
+                labels.update({'dp_id': '0x%x' % dpid})
             if labels:
                 label_values = []
                 for label, value in sorted(list(labels.items())):
@@ -1198,21 +1203,23 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def wait_port_status(self, port_no, expected_status, timeout=10):
+    def wait_port_status(self, dpid, port_no, expected_status, timeout=10):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
-                'port_status', {'port': port_no}, default=None)
+                'port_status', {'port': port_no}, default=None, dpid=dpid)
             if port_status is not None and port_status == expected_status:
                 return
             time.sleep(1)
-        self.fail('port %s status %s != expected %u' % (
-            port_no, port_status, expected_status))
+        self.fail('dpid %x port %s status %s != expected %u' % (
+            dpid, port_no, port_status, expected_status))
 
-    def set_port_status(self, port_no, status, wait):
+    def set_port_status(self, dpid, port_no, status, wait):
+        if dpid is None:
+            dpid = self.dpid
         self.assertEqual(
             0,
             os.system(self._curl_portmod(
-                self.dpid,
+                dpid,
                 port_no,
                 status,
                 ofp.OFPPC_PORT_DOWN)))
@@ -1220,13 +1227,13 @@ dbs:
             expected_status = 1
             if status == ofp.OFPPC_PORT_DOWN:
                 expected_status = 0
-            self.wait_port_status(port_no, expected_status)
+            self.wait_port_status(long(dpid), port_no, expected_status)
 
-    def set_port_down(self, port_no, wait=True):
-        self.set_port_status(port_no, ofp.OFPPC_PORT_DOWN, wait)
+    def set_port_down(self, port_no, dpid=None, wait=True):
+        self.set_port_status(dpid, port_no, ofp.OFPPC_PORT_DOWN, wait)
 
-    def set_port_up(self, port_no, wait=True):
-        self.set_port_status(port_no, 0, wait)
+    def set_port_up(self, port_no, dpid=None, wait=True):
+        self.set_port_status(dpid, port_no, 0, wait)
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=60):
         for _ in range(timeout):
