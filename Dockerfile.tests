@@ -79,9 +79,9 @@ RUN \
   ./setupproxy.sh && \
   $AG update && \
   wget -q http://openvswitch.org/releases/openvswitch-$OVSV.tar.gz && \
-  tar xf openvswitch-$OVSV.tar.gz && \
+  tar xvf openvswitch-$OVSV.tar.gz && \
   cd openvswitch-$OVSV && \
-  ./boot.sh && ./configure --enable-silent-rules && make -s install && \
+  ./boot.sh && ./configure && make -s install && \
   cd .. && \
   rm -rf openvswitch-$OVSV*
 
