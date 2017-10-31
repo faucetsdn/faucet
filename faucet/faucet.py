@@ -359,7 +359,11 @@ class Faucet(app_manager.RyuApp):
         # eth/VLAN header only
         pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
-        if pkt is None or vlan_vid is None:
+        if vlan_vid is None:
+            self.logger.info(
+                'packet without VLAN header from %s port %s', dpid_log(dp_id), in_port)
+            return
+        if pkt is None:
             self.logger.info(
                 'unparseable packet from %s port %s', dpid_log(dp_id), in_port)
             return

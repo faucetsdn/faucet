@@ -338,7 +338,8 @@ class DP(Conf):
                     edge_count[edge_name] = 0
                 edge_count[edge_name] += 1
                 graph.add_edge(
-                    edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
+                    edge_a_dp.name, edge_z_dp.name,
+                    key=edge_name, port_map=edge_attr)
         if graph.size():
             for edge_name, count in list(edge_count.items()):
                 assert count == 2, '%s defined only in one direction' % edge_name
@@ -362,16 +363,18 @@ class DP(Conf):
                 return self.shortest_path(root_dp.name)
         return []
 
+    def peer_stack_up_ports(self, peer_dp):
+        """Return list of stack ports that are up towards a peer."""
+        return [port for port in self.stack_ports if port.running() and port.stack['dp'].name == peer_dp]
+
     def shortest_path_port(self, dest_dp):
-        """Return port on our DP, that is the shortest path towards dest DP."""
+        """Return first port on our DP, that is the shortest path towards dest DP."""
         shortest_path = self.shortest_path(dest_dp)
         if shortest_path is not None:
             peer_dp = shortest_path[1]
-            peer_dp_ports = []
-            for port in self.stack_ports:
-                if port.stack['dp'].name == peer_dp:
-                    peer_dp_ports.append(port)
-            return peer_dp_ports[0]
+            peer_dp_ports = self.peer_stack_up_ports(peer_dp)
+            if peer_dp_ports:
+                return peer_dp_ports[0]
         return None
 
     def finalize_config(self, dps):

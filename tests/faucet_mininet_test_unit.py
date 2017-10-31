@@ -32,6 +32,7 @@ import faucet_mininet_test_topo
 class QuietHTTPServer(HTTPServer):
 
     allow_reuse_address = True
+    timeout = None
 
     def handle_error(self, _request, _client_address):
         return
@@ -472,7 +473,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             if self.matching_lines_from_file(r'error shipping', gauge_log_name):
                 return
             time.sleep(1)
-        self.fail('Influx error not noted in %s' % gauge_log)
+        self.fail('Influx error not noted in %s' % gauge_log_name)
 
     def _verify_influx_log(self):
         self.assertTrue(os.path.exists(self.influx_log))
@@ -482,8 +483,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         for point_line in influx_log_lines:
             point_fields = point_line.strip().split()
             self.assertEqual(3, len(point_fields), msg=point_fields)
-            ts_name, value_field, timestamp_str = point_fields
-            timestamp = int(timestamp_str)
+            ts_name, value_field, _ = point_fields
             value = float(value_field.split('=')[1])
             ts_name_fields = ts_name.split(',')
             self.assertGreater(len(ts_name_fields), 1)
@@ -1971,14 +1971,14 @@ details partner lacp pdu:
                 'ip address flush dev %s' % bond_member))
         # Configure bond interface
         self.quiet_commands(first_host, (
-                ('ip link add %s address 0e:00:00:00:00:99 '
-                 'type bond mode 802.3ad lacp_rate fast miimon 100') % bond,
-                'ip add add %s/24 dev %s' % (orig_ip, bond),
-                'ip link set %s up' % bond))
+            ('ip link add %s address 0e:00:00:00:00:99 '
+             'type bond mode 802.3ad lacp_rate fast miimon 100') % bond,
+            'ip add add %s/24 dev %s' % (orig_ip, bond),
+            'ip link set %s up' % bond))
         # Add bond members
         for bond_member in bond_members:
             self.quiet_commands(first_host, (
-                    'ip link set dev %s master %s' % (bond_member, bond),))
+                'ip link set dev %s master %s' % (bond_member, bond),))
         # LACP should come up and we can pass traffic.
         for _ in range(10):
             result = first_host.cmd('cat /proc/net/bonding/%s|sed "s/[ \t]*$//g"' % bond)
@@ -3767,7 +3767,7 @@ class FaucetStringOfDPTest(FaucetTest):
                   n_tagged=0, tagged_vid=100,
                   n_untagged=0, untagged_vid=100,
                   include=None, include_optional=None,
-                  acls=None, acl_in_dp=None):
+                  acls=None, acl_in_dp=None, switch_to_switch_links=1):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -3779,6 +3779,16 @@ class FaucetStringOfDPTest(FaucetTest):
             acl_in_dp = {}
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpid = self.dpids[0]
+        self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
+            self.ports_sock,
+            dpids=self.dpids,
+            n_tagged=n_tagged,
+            tagged_vid=tagged_vid,
+            n_untagged=n_untagged,
+            links_per_host=self.LINKS_PER_HOST,
+            switch_to_switch_links=switch_to_switch_links,
+            test_name=self._test_name()
+        )
         self.CONFIG = self.get_config(
             self.dpids,
             stack,
@@ -3795,15 +3805,6 @@ class FaucetStringOfDPTest(FaucetTest):
         )
         with open(self.faucet_config_path, 'w') as config_file:
             config_file.write(self.CONFIG)
-        self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
-            self.ports_sock,
-            dpids=self.dpids,
-            n_tagged=n_tagged,
-            tagged_vid=tagged_vid,
-            n_untagged=n_untagged,
-            links_per_host=self.LINKS_PER_HOST,
-            test_name=self._test_name(),
-        )
 
     def get_config(self, dpids=[], stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
@@ -3840,62 +3841,53 @@ class FaucetStringOfDPTest(FaucetTest):
             second_dp = i == 1
             last_dp = i == dpid_count - 1
             end_dp = first_dp or last_dp
-            num_switch_links = 0
+            first_stack_port = port
+            peer_dps = []
             if dpid_count > 1:
                 if end_dp:
-                    num_switch_links = 1
-                else:
-                    num_switch_links = 2
-
-            if stack and first_dp:
-                dp_config['stack'] = {
-                    'priority': 1
-                }
-
-            first_stack_port = port
-
-            for stack_dp_port in range(num_switch_links):
-                tagged_vlans = None
-
-                peer_dp = None
-                if stack_dp_port == 0:
                     if first_dp:
-                        peer_dp = i + 1
+                        peer_dps = [i + 1]
                     else:
-                        peer_dp = i - 1
-                    if first_dp or second_dp:
-                        peer_port = first_stack_port
-                    else:
-                        peer_port = first_stack_port + 1
+                        peer_dps = [i - 1]
                 else:
-                    peer_dp = i + 1
-                    peer_port = first_stack_port
+                    peer_dps = [i - 1, i + 1]
 
-                description = 'to %s' % dp_name(peer_dp)
-
-                interfaces_config[port] = {
-                    'description': description,
-                }
-
-                if stack:
-                    interfaces_config[port]['stack'] = {
-                        'dp': dp_name(peer_dp),
-                        'port': peer_port,
+                # TODO: make the stacking root configurable
+                if stack and first_dp:
+                    dp_config['stack'] = {
+                        'priority': 1
                     }
-                else:
-                    if n_tagged and n_untagged and n_tagged != n_untagged:
-                        tagged_vlans = [tagged_vid, untagged_vid]
-                    elif ((n_tagged and not n_untagged) or
-                          (n_tagged and n_untagged and tagged_vid == untagged_vid)):
-                        tagged_vlans = [tagged_vid]
-                    elif n_untagged and not n_tagged:
-                        tagged_vlans = [untagged_vid]
-
-                    if tagged_vlans:
-                        interfaces_config[port]['tagged_vlans'] = tagged_vlans
-
-                add_acl_to_port(name, port, interfaces_config)
-                port += 1
+                for peer_dp in peer_dps:
+                    if first_dp or second_dp:
+                        peer_stack_port_base = first_stack_port
+                    else:
+                        peer_stack_port_base = first_stack_port + self.topo.switch_to_switch_links
+                    for stack_dp_port in range(self.topo.switch_to_switch_links):
+                        peer_port = peer_stack_port_base + stack_dp_port
+                        description = 'to %s port %u' % (dp_name(peer_dp), peer_port)
+                        interfaces_config[port] = {
+                            'description': description,
+                        }
+                        if stack:
+                            # make this a stacking link.
+                            interfaces_config[port]['stack'] = {
+                                'dp': dp_name(peer_dp),
+                                'port': peer_port,
+                            }
+                        else:
+                            # not a stack - make this a trunk.
+                            tagged_vlans = []
+                            if n_tagged and n_untagged and n_tagged != n_untagged:
+                                tagged_vlans = [tagged_vid, untagged_vid]
+                            elif ((n_tagged and not n_untagged) or
+                                  (n_tagged and n_untagged and tagged_vid == untagged_vid)):
+                                tagged_vlans = [tagged_vid]
+                            elif n_untagged and not n_tagged:
+                                tagged_vlans = [untagged_vid]
+                            if tagged_vlans:
+                                interfaces_config[port]['tagged_vlans'] = tagged_vlans
+                        add_acl_to_port(name, port, interfaces_config)
+                        port += 1
 
         def add_dp(name, dpid, i, dpid_count, stack,
                    n_tagged, tagged_vid, n_untagged, untagged_vid):
@@ -4008,7 +4000,8 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             stack=True,
             n_dps=self.NUM_DPS,
             n_tagged=self.NUM_HOSTS,
-            tagged_vid=self.VID)
+            tagged_vid=self.VID,
+            switch_to_switch_links=2)
         self.start_net()
 
     def test_tagged(self):
@@ -4028,7 +4021,8 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
             stack=True,
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
-            untagged_vid=self.VID)
+            untagged_vid=self.VID,
+            switch_to_switch_links=2)
         self.start_net()
 
     def test_untagged(self):
