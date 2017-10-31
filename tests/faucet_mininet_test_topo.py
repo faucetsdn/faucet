@@ -178,10 +178,10 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
 class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
     """String of datapaths each with hosts with a single FAUCET controller."""
 
-    switch_to_switch_links = 2
+    switch_to_switch_links = 1
 
     def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0,
-              links_per_host=0, switch_to_switch_links=2):
+              links_per_host=0, switch_to_switch_links=1):
         """
 
                                Hosts
