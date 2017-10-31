@@ -4007,6 +4007,15 @@ class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
         self.retry_net_ping()
+        self.set_port_down(self.NUM_HOSTS + 1)
+        self.set_port_down(self.NUM_HOSTS + 1, self.dpids[1])
+        self.retry_net_ping()
+
+    def test_other_untagged(self):
+        self.retry_net_ping()
+        self.set_port_down(self.NUM_HOSTS + 2)
+        self.set_port_down(self.NUM_HOSTS + 2, self.dpids[1])
+        self.retry_net_ping()
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
