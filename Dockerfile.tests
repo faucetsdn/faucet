@@ -78,7 +78,7 @@ RUN \
 RUN \
   ./setupproxy.sh && \
   $AG update && \
-  git clone https://github.com/openvswitch/ovs -b v{$OVSV} && \
+  git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
   cd ovs && \
   ./boot.sh && ./configure && make -s install && \
   cd .. && \
