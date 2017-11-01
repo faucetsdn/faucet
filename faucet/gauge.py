@@ -94,10 +94,12 @@ class Gauge(app_manager.RyuApp):
         self.config_file = os.getenv('GAUGE_CONFIG', self.config_file)
         new_confs = watcher_parser(self.config_file, self.logname, self.prom_client)
         new_watchers = {}
+        configured_dpids = set()
 
         for conf in new_confs:
             watcher = watcher_factory(conf)(conf, self.logname, self.prom_client)
             watcher_dpid = watcher.dp.dp_id
+            configured_dpids.add(watcher_dpid)
             ryu_dp = self.dpset.get(watcher_dpid)
             watcher_type = watcher.conf.type
             watcher_msg = '%s %s watcher' % (dpid_log(watcher_dpid), watcher_type)
@@ -126,6 +128,12 @@ class Gauge(app_manager.RyuApp):
                     self.logger.info(
                         '%s %s deconfigured', dpid_log(watcher_dpid), watcher_type)
                     watcher.stop()
+
+        for dpid in configured_dpids:
+            if self.dpset.get(dpid):
+                self._report_dp_status(dpid, 1)
+            else:
+                self._report_dp_status(dpid, 0)
 
         self.watchers = new_watchers
         self.logger.info('config complete')
@@ -159,6 +167,13 @@ class Gauge(app_manager.RyuApp):
         self.logger.warning('reload config requested')
         self._load_config()
 
+    def _report_dp_status(self, dp_id, dp_status):
+        self.prom_client.dp_status.labels(dp_id=hex(dp_id)).set(dp_status) # pylint: disable=no-member
+        if dp_status:
+            self.logger.info('%s is up', dpid_log(dp_id))
+        else:
+            self.logger.info('%s is down', dpid_log(dp_id))
+
     @kill_on_exception(exc_logname)
     def _handler_datapath_up(self, ryu_dp):
         """Handle DP up.
@@ -168,8 +183,7 @@ class Gauge(app_manager.RyuApp):
         """
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
-            self.logger.info('%s up', dpid_log(dp_id))
-            self.prom_client.dp_status.labels(dp_id=hex(dp_id)).set(1) # pylint: disable=no-member
+            self._report_dp_status(dp_id, 1)
             for watcher in list(self.watchers[dp_id].values()):
                 self.logger.info(
                     '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
@@ -186,8 +200,7 @@ class Gauge(app_manager.RyuApp):
         """
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
-            self.logger.info('%s down', dpid_log(dp_id))
-            self.prom_client.dp_status.labels(dp_id=hex(dp_id)).set(0) # pylint: disable=no-member
+            self._report_dp_status(dp_id, 0)
             for watcher in list(self.watchers[dp_id].values()):
                 self.logger.info(
                     '%s %s watcher stopping', dpid_log(dp_id), watcher.conf.type)

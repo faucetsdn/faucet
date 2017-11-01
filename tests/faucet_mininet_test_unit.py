@@ -392,7 +392,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         self.wait_dp_status(1, controller='gauge')
         self.assertIsNotNone(self.scrape_prometheus_var(
             'faucet_pbr_version', any_labels=True, controller='gauge', retries=3))
-        labels = {'port_name': self.port_map["port_1"]}
+        labels = {'port_name': self.port_map['port_1']}
         last_p1_bytes_in = 0
         for _ in range(2):
             updated_counters = False
