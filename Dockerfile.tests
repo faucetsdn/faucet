@@ -78,12 +78,11 @@ RUN \
 RUN \
   ./setupproxy.sh && \
   $AG update && \
-  wget -q http://openvswitch.org/releases/openvswitch-$OVSV.tar.gz && \
-  tar xvf openvswitch-$OVSV.tar.gz && \
-  cd openvswitch-$OVSV && \
+  git clone https://github.com/openvswitch/ovs -b v{$OVSV} && \
+  cd ovs && \
   ./boot.sh && ./configure && make -s install && \
   cd .. && \
-  rm -rf openvswitch-$OVSV*
+  rm -rf ovs
 
 
 RUN \
