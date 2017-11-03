@@ -35,7 +35,7 @@ from ryu.lib import hub
 
 from faucet.config_parser import dp_parser, get_config_for_api
 from faucet.config_parser_util import config_changed
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_api
 from faucet import faucet_bgp
@@ -95,16 +95,10 @@ class Faucet(app_manager.RyuApp):
         # options into ryu apps. Instead I am using the environment variable
         # FAUCET_CONFIG to allow this to be set, if it is not set it will
         # default to valve.yaml
-        sysprefix = get_sys_prefix()
-        self.config_file = os.getenv(
-            'FAUCET_CONFIG', sysprefix + '/etc/ryu/faucet/faucet.yaml')
-        self.loglevel = os.getenv(
-            'FAUCET_LOG_LEVEL', logging.INFO)
-        self.logfile = os.getenv(
-            'FAUCET_LOG', sysprefix + '/var/log/ryu/faucet/faucet.log')
-        self.exc_logfile = os.getenv(
-            'FAUCET_EXCEPTION_LOG',
-            sysprefix + '/var/log/ryu/faucet/faucet_exception.log')
+        self.config_file = get_setting('FAUCET_CONFIG')
+        self.loglevel = get_setting('FAUCET_LOG_LEVEL')
+        self.logfile = get_setting('FAUCET_LOG')
+        self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
 
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
@@ -119,8 +113,8 @@ class Faucet(app_manager.RyuApp):
         self.valves = {}
 
         # Start Prometheus
-        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9302'))
-        prom_addr = os.getenv('FAUCET_PROMETHEUS_ADDR', '')
+        prom_port = int(get_setting('FAUCET_PROMETHEUS_PORT'))
+        prom_addr = get_setting('FAUCET_PROMETHEUS_ADDR')
         self.metrics = faucet_metrics.FaucetMetrics()
         self.metrics.start(prom_port, prom_addr)
 
@@ -327,7 +321,7 @@ class Faucet(app_manager.RyuApp):
     def reload_config(self, _):
         """Handle a request to reload configuration."""
         self.logger.info('request to reload configuration')
-        new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
+        new_config_file = self.config_file
         if config_changed(self.config_file, new_config_file, self.config_hashes):
             self.logger.info('configuration %s changed', new_config_file)
             self._load_configs(new_config_file)

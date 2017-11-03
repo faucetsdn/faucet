@@ -32,7 +32,7 @@ from ryu.controller import ofp_event
 from faucet import valve_of
 from faucet.config_parser import watcher_parser
 from faucet.gauge_prom import GaugePrometheusClient
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
 from faucet.watcher import watcher_factory
 
 
@@ -57,16 +57,10 @@ class Gauge(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
-        sysprefix = get_sys_prefix()
-        self.config_file = os.getenv(
-            'GAUGE_CONFIG', sysprefix + '/etc/ryu/faucet/gauge.yaml')
-        self.loglevel = os.getenv(
-            'GAUGE_LOG_LEVEL', logging.INFO)
-        self.exc_logfile = os.getenv(
-            'GAUGE_EXCEPTION_LOG',
-            sysprefix + '/var/log/ryu/faucet/gauge_exception.log')
-        self.logfile = os.getenv(
-            'GAUGE_LOG', sysprefix + '/var/log/ryu/faucet/gauge.log')
+        self.config_file = get_setting('GAUGE_CONFIG')
+        self.loglevel = get_setting('GAUGE_LOG_LEVEL')
+        self.exc_logfile = get_setting('GAUGE_EXCEPTION_LOG')
+        self.logfile = get_setting('GAUGE_LOG')
 
         # Setup logging
         self.logger = get_logger(
@@ -91,7 +85,6 @@ class Gauge(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def _load_config(self):
         """Load Gauge config."""
-        self.config_file = os.getenv('GAUGE_CONFIG', self.config_file)
         new_confs = watcher_parser(self.config_file, self.logname, self.prom_client)
         new_watchers = {}
         configured_dpids = set()
