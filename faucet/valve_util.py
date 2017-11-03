@@ -58,6 +58,27 @@ def get_sys_prefix():
     return sysprefix
 
 
+_PREFIX = get_sys_prefix()
+DEFAULTS = {
+    'FAUCET_CONFIG': _PREFIX + '/etc/ryu/faucet/faucet.yaml',
+    'FAUCET_LOG_LEVEL': 'INFO',
+    'FAUCET_LOG': _PREFIX + '/var/log/ryu/faucet/faucet.log',
+    'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/faucet_exception.log',
+    'FAUCET_PROMETHEUS_PORT': '9302',
+    'FAUCET_PROMETHEUS_ADDR': '',
+    'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/ryu/faucet',
+    'GAUGE_CONFIG': _PREFIX + '/etc/ryu/faucet/gauge.yaml',
+    'GAUGE_LOG_LEVEL': 'INFO',
+    'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/gauge_exception.log',
+    'GAUGE_LOG': _PREFIX + '/var/log/ryu/faucet/gauge.log',
+}
+
+
+def get_setting(name):
+    """Returns value of specified configuration setting."""
+    return os.getenv(name, DEFAULTS[name])
+
+
 def get_logger(logname, logfile, loglevel, propagate):
     """Create and return a logger object."""
     logger = logging.getLogger(logname)
