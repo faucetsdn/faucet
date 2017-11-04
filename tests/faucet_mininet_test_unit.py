@@ -4049,13 +4049,13 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.retry_net_ping()
 
 
-class FaucetStackStringOfDPTaggedTest(FaucetStringOfDPTest):
+class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
     """Test topology of stacked datapaths with tagged hosts."""
 
     NUM_DPS = 3
 
     def setUp(self):
-        super(FaucetStackStringOfDPTaggedTest, self).setUp()
+        super(FaucetSingleStackStringOfDPTaggedTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
