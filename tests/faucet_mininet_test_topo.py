@@ -319,11 +319,12 @@ class BaseFAUCET(Controller):
 
     def listen_port(self, port, state='LISTEN'):
         """Return True if port in specified TCP state."""
-        listening_out = self.cmd(
-            faucet_mininet_test_util.tcp_listening_cmd(port, state=state)).split()
-        for pid in listening_out:
-            if int(pid) == self.ryu_pid():
-                return True
+        for ipv in (4, 6):
+            listening_out = self.cmd(
+                faucet_mininet_test_util.tcp_listening_cmd(port, ipv=ipv, state=state)).split()
+            for pid in listening_out:
+                if int(pid) == self.ryu_pid():
+                    return True
         return False
 
     # pylint: disable=invalid-name
