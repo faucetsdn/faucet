@@ -83,8 +83,7 @@ class FaucetBgp(object):
             as_number=vlan.bgp_as,
             router_id=vlan.bgp_routerid,
             bgp_server_port=vlan.bgp_port,
-            # TODO: ryu 4.19
-            # bgp_server_hosts=vlan.bgp_server_addresses,
+            bgp_server_hosts=vlan.bgp_server_addresses,
             best_path_change_handler=handler)
         for faucet_vip in vlan.faucet_vips:
             bgp_speaker.prefix_add(
