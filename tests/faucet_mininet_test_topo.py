@@ -244,6 +244,12 @@ class BaseFAUCET(Controller):
         '--use-stderr',
         '--ofp-tcp-listen-port=%s'))
 
+    RYU_CONF = """
+[DEFAULT]
+echo_request_interval=3
+maximum_unreplied_echo_requests=5
+"""
+
     def __init__(self, name, tmpdir, controller_intf=None, cargs='', **kwargs):
         name = '%s-%u' % (name, os.getpid())
         self.tmpdir = tmpdir
@@ -260,8 +266,12 @@ class BaseFAUCET(Controller):
             ofp_listen_host_arg = '--ofp-listen-host=%s' % self.controller_ip
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
         pid_file_arg = '--pid-file=%s' % self.pid_file
+        ryu_conf_file = os.path.join(self.tmpdir, 'ryu.conf')
+        with open(ryu_conf_file, 'w') as ryu_conf:
+            ryu_conf.write(self.RYU_CONF)
+        ryu_conf_arg = '--config-file=%s' % ryu_conf_file
         return ' '.join((
-            self.BASE_CARGS, pid_file_arg, ofp_listen_host_arg, cargs))
+            self.BASE_CARGS, pid_file_arg, ryu_conf_arg, ofp_listen_host_arg, cargs))
 
     def _start_tcpdump(self):
         """Start a tcpdump for OF port."""
