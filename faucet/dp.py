@@ -24,6 +24,7 @@ from faucet.conf import Conf
 from faucet.port import Port
 from faucet.vlan import VLAN
 from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet.valve_util import get_setting
 from faucet import valve_acl
 from faucet import valve_of
 
@@ -133,7 +134,7 @@ class DP(Conf):
         # How often to advertise (eg. IPv6 RAs)
         'proactive_learn': True,
         # whether proactive learning is enabled for IP nexthops
-        'pipeline_config_dir': '/etc/ryu/faucet',
+        'pipeline_config_dir': get_setting('FAUCET_PIPELINE_DIR'),
         # where config files for pipeline are stored (if any).
         'use_idle_timeout': False,
         # Turn on/off the use of idle timeout for src_table, default OFF.
