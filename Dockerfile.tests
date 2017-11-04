@@ -1,6 +1,7 @@
 FROM ubuntu:latest
 
 ENV OVSV="2.7.3"
+ENV OVSDEPS="autoconf automake libtool libssl-dev linux-headers-generic libffi-dev"
 
 ENV AG="apt-get -qqy --no-install-recommends -o=Dpkg::Use-Pty=0"
 ENV DEBIAN_FRONTEND=noninteractive
@@ -20,8 +21,7 @@ RUN \
   ./setupproxy.sh && \
   $AG update && \
   $AG install \
-    autoconf \
-    automake \
+    $OVSDEPS \
     apt-transport-https \
     bc \
     bridge-utils \
@@ -34,13 +34,9 @@ RUN \
     iputils-ping \
     iproute2 \
     ladvd \
-    libffi-dev \
     libpython2.7-dev \
     libpython3-dev \
-    libssl-dev \
-    libtool \
     libyaml-dev \
-    linux-headers-generic \
     lsof \
     netcat \
     ndisc6 \
@@ -61,13 +57,11 @@ RUN \
     wpasupplicant && \
   git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
   cd ovs && \
-  ./boot.sh && ./configure && make -s install && \
+  ./boot.sh && ./configure --enable-silent-rules && make -s V=0 install && \
   cd .. && \
   rm -rf ovs && \
-  $AG purge autoconf automake libtool linux-headers-generic && \
-  apt -qqy autoremove && \
-  $AG install build-essential
-
+  $AG purge $OVSDEPS && \
+  $AG autoremove
 
 ### slim down mininet dependencies (to avoid installing X11)
 RUN \
