@@ -1,4 +1,5 @@
 couchdb
+dpkt
 influxdb
 ipaddress
 networkx
