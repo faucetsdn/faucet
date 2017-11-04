@@ -58,7 +58,15 @@ RUN \
     tshark \
     vlan \
     wget \
-    wpasupplicant
+    wpasupplicant && \
+  git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
+  cd ovs && \
+  ./boot.sh && ./configure && make -s install && \
+  cd .. && \
+  rm -rf ovs && \
+  $AG purge autoconf automake libtool linux-headers-generic && \
+  apt -qqy autoremove && \
+  $AG install build-essential
 
 
 ### slim down mininet dependencies (to avoid installing X11)
@@ -73,17 +81,6 @@ RUN \
   for i in ssh pep8 pyflakes python-pexpect pylint xterm ; do perl -pi -e "s/${i}//g" mininet/util/install.sh ; done && \
   mininet/util/install.sh -n && \
   rm -rf mininet
-
-
-RUN \
-  ./setupproxy.sh && \
-  $AG update && \
-  git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
-  cd ovs && \
-  ./boot.sh && ./configure && make -s install && \
-  cd .. && \
-  rm -rf ovs
-
 
 RUN \
   ./setupproxy.sh && \

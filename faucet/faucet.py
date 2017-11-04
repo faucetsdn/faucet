@@ -366,7 +366,7 @@ class Faucet(app_manager.RyuApp):
                 'packet for unknown VLAN %u from %s', vlan_vid, dpid_log(dp_id))
             return
         pkt_meta = valve.parse_rcv_packet(
-            in_port, vlan_vid, eth_type, msg.data, pkt, eth_pkt)
+            in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
         other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
 
         # pylint: disable=no-member
