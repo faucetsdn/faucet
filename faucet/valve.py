@@ -723,9 +723,6 @@ class Valve(object):
         """
         ofmsgs = []
 
-        if not pkt_meta.port.running():
-            return ofmsgs
-
         control_plane_handled = False
         learn_from_pkt = True
 
