@@ -18,7 +18,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from prometheus_client import Counter, Gauge
+from prometheus_client import Counter, Gauge, Histogram
 
 from faucet.prom_client import PromClient
 
@@ -87,6 +87,10 @@ class FaucetMetrics(PromClient):
         self.faucet_config_dp_name = Gauge(
             'faucet_config_dp_name',
             'map of DP name to DP ID', ['dp_id', 'name'])
+        self.faucet_packet_in_secs = Histogram(
+            'faucet_packet_in_secs',
+            'FAUCET packet in processing time', ['dp_id'],
+            buckets=(0.0001, 0.001, 0.01, 0.1, 1))
         self.bgp_neighbor_uptime_seconds = Gauge(
             'bgp_neighbor_uptime',
             'BGP neighbor uptime in seconds', ['dp_id', 'vlan', 'neighbor'])

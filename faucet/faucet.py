@@ -19,10 +19,10 @@
 # limitations under the License.
 
 import logging
-import os
 import random
 import signal
 import sys
+import time
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -372,7 +372,11 @@ class Faucet(app_manager.RyuApp):
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
             dp_id=hex(dp_id)).inc()
+        packet_in_start = time.time()
         flowmods = valve.rcv_packet(other_valves, pkt_meta)
+        packet_in_stop = time.time()
+        self.metrics.faucet_packet_in_secs.labels(
+            dp_id=hex(dp_id)).observe(packet_in_stop - packet_in_start)
         self._send_flow_msgs(dp_id, flowmods)
         valve.update_metrics(self.metrics)
 
