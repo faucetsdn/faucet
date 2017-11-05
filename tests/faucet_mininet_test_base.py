@@ -342,8 +342,6 @@ class FaucetTestBase(unittest.TestCase):
         for _ in range(3):
             faucet_mininet_test_util.return_free_ports(
                 self.ports_sock, self._test_name())
-            shutil.rmtree(self.tmpdir)
-            os.mkdir(self.tmpdir)
             self._allocate_config_ports()
             self._allocate_faucet_ports()
             self._set_vars()
