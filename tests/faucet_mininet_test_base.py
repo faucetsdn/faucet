@@ -417,13 +417,11 @@ class FaucetTestBase(unittest.TestCase):
                 continue
         return []
 
-    def _curl_portmod(self, int_dpid, port_no, config, mask):
-        """Use curl to send a portmod command via the ofctl module."""
-        curl_format = ' '.join((
-            'curl -X POST -d',
-            '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
-            self._ofctl_rest_url('stats/portdesc/modify')))
-        return curl_format % (int_dpid, port_no, config, mask)
+    def _portmod(self, int_dpid, port_no, config, mask):
+        return requests.post(
+            self._ofctl_rest_url('stats/portdesc/modify'),
+            json={'dpid': str(int_dpid), 'port_no': str(port_no),
+                  'config': str(config), 'mask': str(mask)})
 
     def _signal_proc_on_port(self, host, port, signal):
         tcp_pattern = '%s/tcp' % port
@@ -1216,13 +1214,7 @@ dbs:
     def set_port_status(self, dpid, port_no, status, wait):
         if dpid is None:
             dpid = self.dpid
-        self.assertEqual(
-            0,
-            os.system(self._curl_portmod(
-                dpid,
-                port_no,
-                status,
-                ofp.OFPPC_PORT_DOWN)))
+        self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
         if wait:
             expected_status = 1
             if status == ofp.OFPPC_PORT_DOWN:

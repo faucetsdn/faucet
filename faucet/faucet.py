@@ -19,10 +19,10 @@
 # limitations under the License.
 
 import logging
-import os
 import random
 import signal
 import sys
+import time
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -35,7 +35,7 @@ from ryu.lib import hub
 
 from faucet.config_parser import dp_parser, get_config_for_api
 from faucet.config_parser_util import config_changed
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_sys_prefix
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_api
 from faucet import faucet_bgp
@@ -95,16 +95,10 @@ class Faucet(app_manager.RyuApp):
         # options into ryu apps. Instead I am using the environment variable
         # FAUCET_CONFIG to allow this to be set, if it is not set it will
         # default to valve.yaml
-        sysprefix = get_sys_prefix()
-        self.config_file = os.getenv(
-            'FAUCET_CONFIG', sysprefix + '/etc/ryu/faucet/faucet.yaml')
-        self.loglevel = os.getenv(
-            'FAUCET_LOG_LEVEL', logging.INFO)
-        self.logfile = os.getenv(
-            'FAUCET_LOG', sysprefix + '/var/log/ryu/faucet/faucet.log')
-        self.exc_logfile = os.getenv(
-            'FAUCET_EXCEPTION_LOG',
-            sysprefix + '/var/log/ryu/faucet/faucet_exception.log')
+        self.config_file = get_setting('FAUCET_CONFIG')
+        self.loglevel = get_setting('FAUCET_LOG_LEVEL')
+        self.logfile = get_setting('FAUCET_LOG')
+        self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
 
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
@@ -119,8 +113,8 @@ class Faucet(app_manager.RyuApp):
         self.valves = {}
 
         # Start Prometheus
-        prom_port = int(os.getenv('FAUCET_PROMETHEUS_PORT', '9302'))
-        prom_addr = os.getenv('FAUCET_PROMETHEUS_ADDR', '')
+        prom_port = int(get_setting('FAUCET_PROMETHEUS_PORT'))
+        prom_addr = get_setting('FAUCET_PROMETHEUS_ADDR')
         self.metrics = faucet_metrics.FaucetMetrics()
         self.metrics.start(prom_port, prom_addr)
 
@@ -327,7 +321,7 @@ class Faucet(app_manager.RyuApp):
     def reload_config(self, _):
         """Handle a request to reload configuration."""
         self.logger.info('request to reload configuration')
-        new_config_file = os.getenv('FAUCET_CONFIG', self.config_file)
+        new_config_file = self.config_file
         if config_changed(self.config_file, new_config_file, self.config_hashes):
             self.logger.info('configuration %s changed', new_config_file)
             self._load_configs(new_config_file)
@@ -372,13 +366,17 @@ class Faucet(app_manager.RyuApp):
                 'packet for unknown VLAN %u from %s', vlan_vid, dpid_log(dp_id))
             return
         pkt_meta = valve.parse_rcv_packet(
-            in_port, vlan_vid, eth_type, msg.data, pkt, eth_pkt)
+            in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
         other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
 
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
             dp_id=hex(dp_id)).inc()
+        packet_in_start = time.time()
         flowmods = valve.rcv_packet(other_valves, pkt_meta)
+        packet_in_stop = time.time()
+        self.metrics.faucet_packet_in_secs.labels(
+            dp_id=hex(dp_id)).observe(packet_in_stop - packet_in_start)
         self._send_flow_msgs(dp_id, flowmods)
         valve.update_metrics(self.metrics)
 

@@ -644,7 +644,7 @@ class Valve(object):
                 learn_port, pkt_meta.vlan, pkt_meta.eth_src))
         return ofmsgs
 
-    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, pkt, eth_pkt):
+    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
@@ -652,6 +652,7 @@ class Valve(object):
             vlan_vid (int): VLAN VID of port packet was received on.
             eth_type (int): Ethernet type of packet.
             data (bytes): Raw packet data.
+            orig_len (int): Original length of packet.
             pkt (ryu.lib.packet.packet): parsed packet received.
             ekt_pkt (ryu.lib.packet.ethernet): parsed Ethernet header.
         Returns:
@@ -662,7 +663,7 @@ class Valve(object):
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         return valve_packet.PacketMeta(
-            data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
+            data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
 
     def update_config_metrics(self, metrics):
         """Update gauge/metrics for configuration.
@@ -722,6 +723,7 @@ class Valve(object):
             list: OpenFlow messages, if any.
         """
         ofmsgs = []
+
         control_plane_handled = False
         learn_from_pkt = True
 

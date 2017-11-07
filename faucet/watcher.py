@@ -111,16 +111,15 @@ class GaugePortStatsLogger(GaugePortStatsPoller):
         rcv_time_str = _rcv_time(rcv_time)
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat, dp_id)
-            if port_name is not None:
-                with open(self.conf.file, 'a') as logfile:
-                    log_lines = []
-                    for stat_name, stat_val in self._format_port_stats('-', stat):
-                        dp_port_name = '-'.join((
-                            self.dp.name, port_name, stat_name))
-                        log_lines.append(
-                            self._update_line(
-                                rcv_time_str, dp_port_name, stat_val))
-                    logfile.writelines(log_lines)
+            with open(self.conf.file, 'a') as logfile:
+                log_lines = []
+                for stat_name, stat_val in self._format_port_stats('-', stat):
+                    dp_port_name = '-'.join((
+                        self.dp.name, port_name, stat_name))
+                    log_lines.append(
+                        self._update_line(
+                            rcv_time_str, dp_port_name, stat_val))
+                logfile.writelines(log_lines)
 
 
 class GaugeFlowTableLogger(GaugeFlowTablePoller):
