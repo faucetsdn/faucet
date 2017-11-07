@@ -994,6 +994,41 @@ dbs:
             self._signal_proc_on_port(
                 self.gauge_controller, int(self.gauge_of_port), 1))
 
+    def reload_conf(self, yaml_conf, conf_path, restart, cold_start,
+                    change_expected=True, host_cache=None):
+        if yaml_conf:
+            with open(conf_path, 'w') as config_file:
+                config_file.write(yaml.dump(yaml_conf))
+        if restart:
+            var = 'faucet_config_reload_warm'
+            if cold_start:
+                var = 'faucet_config_reload_cold'
+            old_count = int(
+                self.scrape_prometheus_var(var, dpid=True, default=0))
+            old_mac_table = self.scrape_prometheus_var(
+                'learned_macs', labels={'vlan': host_cache}, multiple=True)
+            self.verify_hup_faucet()
+            new_count = int(
+                self.scrape_prometheus_var(var, dpid=True, default=0))
+            new_mac_table = self.scrape_prometheus_var(
+                'learned_macs', labels={'vlan': host_cache}, multiple=True)
+            if host_cache:
+                self.assertFalse(
+                    cold_start, msg='host cache is not maintained with cold start')
+                self.assertTrue(
+                    new_mac_table, msg='no host cache for vlan %u' % host_cache)
+                self.assertEqual(
+                    old_mac_table, new_mac_table,
+                    msg='host cache for vlan %u not same over reload' % host_cache)
+            if change_expected:
+                self.assertEqual(
+                    old_count + 1, new_count,
+                    msg='%s did not increment: %u' % (var, new_count))
+            else:
+                self.assertEqual(
+                    old_count, new_count,
+                    msg='%s incremented: %u' % (var, new_count))
+
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
         fping_bin = 'fping'

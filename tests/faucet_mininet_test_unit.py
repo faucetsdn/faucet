@@ -5,6 +5,7 @@
 # pylint: disable=missing-docstring
 # pylint: disable=too-many-arguments
 
+import itertools
 import os
 import re
 import shutil
@@ -1132,6 +1133,93 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self.ping_all_when_learned()
 
 
+class FaucetIPv4TupleTest(FaucetTest):
+
+    MAX_RULES = 1024
+    ETH_TYPE = 0x0800
+    NET_BASE = ipaddress.IPv4Network(u'10.0.0.0/16')
+    N_UNTAGGED = 4
+    N_TAGGED = 0
+    LINKS_PER_HOST = 1
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: 1
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+    EMPTY_ACL_CONFIG = """
+acls:
+    1:
+       exact_match: True
+       rules: []
+"""
+
+    def setUp(self):
+        super(FaucetIPv4TupleTest, self).setUp()
+        self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
+        self.CONFIG = '\n'.join(
+            (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
+        open(self.acl_config_file, 'w').write(self.EMPTY_ACL_CONFIG)
+        self.topo = self.topo_class(
+            self.ports_sock, self._test_name(), [self.dpid],
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
+            links_per_host=self.LINKS_PER_HOST)
+        self.start_net()
+
+    def _push_tuples(self, eth_type, host_ips):
+        max_rules = len(host_ips)
+        rules = 1
+        while rules <= max_rules:
+            rules_yaml = []
+            for rule in range(rules):
+                host_ip = host_ips[rule]
+                ip_match = '%s/%u' % (str(host_ip), host_ip.max_prefixlen)
+                port = (rule + 1) % 2**16
+                rule_yaml = {
+                    'eth_type': eth_type,
+                    'nw_proto': 6,
+                    'tcp_src': port,
+                    'tcp_dst': port,
+                    'ipv%u_src' % host_ip.version: ip_match,
+                    'ipv%u_dst' % host_ip.version: ip_match,
+                    'actions': {'allow': 1},
+                }
+                rules_yaml.append({'rule': rule_yaml})
+            yaml_acl_conf = {'acls': {1: {'exact_match': True, 'rules': rules_yaml}}}
+            tuple_txt = '%u IPv%u tuples\n' % (len(rules_yaml), host_ip.version)
+            error('pushing %s' % tuple_txt)
+            self.reload_conf(yaml_acl_conf, self.acl_config_file, True, False)
+            error('pushed %s' % tuple_txt)
+            rules *= 2
+
+    def test_tuples(self):
+        host_ips = [host_ip for host_ip in itertools.islice(
+            self.NET_BASE.hosts(), self.MAX_RULES)]
+        self._push_tuples(self.ETH_TYPE, host_ips)
+
+
+class FaucetIPv6TupleTest(FaucetIPv4TupleTest):
+
+    MAX_RULES = 1024
+    ETH_TYPE = 0x86DD
+    NET_BASE = ipaddress.IPv6Network(u'fc00::00/64')
+
+
 class FaucetConfigReloadTest(FaucetTest):
     """Test handling HUP signal with config change."""
 
@@ -1213,40 +1301,6 @@ acls:
             config = yaml.load(config_file.read())
         return config
 
-    def _reload_conf(self, conf, restart, cold_start,
-                     change_expected=True, host_cache=None):
-        with open(self.faucet_config_path, 'w') as config_file:
-            config_file.write(yaml.dump(conf))
-        if restart:
-            var = 'faucet_config_reload_warm'
-            if cold_start:
-                var = 'faucet_config_reload_cold'
-            old_count = int(
-                self.scrape_prometheus_var(var, dpid=True, default=0))
-            old_mac_table = self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True)
-            self.verify_hup_faucet()
-            new_count = int(
-                self.scrape_prometheus_var(var, dpid=True, default=0))
-            new_mac_table = self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True)
-            if host_cache:
-                self.assertFalse(
-                    cold_start, msg='host cache is not maintained with cold start')
-                self.assertTrue(
-                    new_mac_table, msg='no host cache for vlan %u' % host_cache)
-                self.assertEqual(
-                    old_mac_table, new_mac_table,
-                    msg='host cache for vlan %u not same over reload' % host_cache)
-            if change_expected:
-                self.assertEqual(
-                    old_count + 1, new_count,
-                    msg='%s did not increment: %u' % (var, new_count))
-            else:
-                self.assertEqual(
-                    old_count, new_count,
-                    msg='%s incremented: %u' % (var, new_count))
-
     def get_port_match_flow(self, port_no, table_id=None):
         if table_id is None:
             table_id = self.ETH_SRC_TABLE
@@ -1260,30 +1314,32 @@ acls:
             'dp_id': int(self.rand_dpid()),
             'hardware': 'Open vSwitch',
         }
-        self._reload_conf(
-            conf, restart=True, cold_start=False, change_expected=False)
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=False)
 
     def change_port_config(self, port, config_name, config_value,
                            restart=True, conf=None, cold_start=False):
         if conf is None:
             conf = self._get_conf()
         conf['dps']['faucet-1']['interfaces'][port][config_name] = config_value
-        self._reload_conf(conf, restart, cold_start)
+        self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
 
     def change_vlan_config(self, vlan, config_name, config_value,
                            restart=True, conf=None, cold_start=False):
         if conf is None:
             conf = self._get_conf()
         conf['vlans'][vlan][config_name] = config_value
-        self._reload_conf(conf, restart, cold_start)
+        self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
 
     def test_tabs_are_bad(self):
         self.ping_all_when_learned()
         orig_conf = self._get_conf()
         self.force_faucet_reload('\t'.join(('tabs', 'are', 'bad')))
         self.ping_all_when_learned()
-        self._reload_conf(
-            orig_conf, restart=True, cold_start=False, change_expected=False)
+        self.reload_conf(
+            orig_conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=False)
 
     def test_port_change_vlan(self):
         first_host, second_host = self.net.hosts[:2]
@@ -1314,7 +1370,8 @@ acls:
             table_id=self.PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
-        self._reload_conf(orig_conf, True, cold_start=False, host_cache=100)
+        self.reload_conf(orig_conf, self.faucet_config_path,
+            True, cold_start=False, host_cache=100)
         self.verify_tp_dst_notblocked(
             5001, first_host, second_host, table_id=None)
         self.verify_tp_dst_notblocked(

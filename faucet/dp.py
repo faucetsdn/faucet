@@ -460,10 +460,12 @@ class DP(Conf):
 
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config."""
-                assert valve_acl.build_acl_ofmsgs(
-                    [acl], self.wildcard_table,
-                    valve_of.goto_table(self.wildcard_table),
-                    2**16, self.meters, vlan_vid=vid)
+                if acl.rules:
+                    assert valve_acl.build_acl_ofmsgs(
+                        [acl], self.wildcard_table,
+                        valve_of.goto_table(self.wildcard_table),
+                        2**16, self.meters, acl.exact_match,
+                        vlan_vid=vid)
 
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
