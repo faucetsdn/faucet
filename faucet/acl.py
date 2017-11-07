@@ -23,14 +23,25 @@ class ACL(Conf):
     """Implement FAUCET configuration for an ACL."""
 
     rules = None
+    exact_match = None
     defaults = {
-        rules: None,
+        'rules': None,
+        'exact_match': False,
+    }
+    defaults_types = {
+        'rules': list,
+        'exact_match': bool,
     }
 
     def __init__(self, _id, conf):
         super(ACL, self).__init__(_id, conf)
         # TODO: ACL rule content should be type checked.
-        self.rules = [x['rule'] for x in conf]
+        rules = conf
+        if isinstance(conf, dict):
+            if 'exact_match' in conf and conf['exact_match']:
+                self.exact_match = True
+            rules = conf['rules']
+        self.rules = [x['rule'] for x in rules]
 
     def to_conf(self):
         result = []

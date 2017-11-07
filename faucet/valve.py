@@ -205,7 +205,7 @@ class Valve(object):
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 [vlan.acl_in], acl_table, acl_allow_inst,
                 self.dp.highest_priority, self.dp.meters,
-                vlan_vid=vlan.vid)
+                vlan.acl_in.exact_match, vlan_vid=vlan.vid)
         return ofmsgs
 
     def _add_vlan_flood_flow(self):
@@ -345,7 +345,7 @@ class Valve(object):
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
                 [port.acl_in], acl_table, acl_allow_inst,
                 self.dp.highest_priority, self.dp.meters,
-                port_num=port.number))
+                port.acl_in.exact_match, port_num=port.number))
         else:
             ofmsgs.append(acl_table.flowmod(
                 in_port_match,

@@ -1165,9 +1165,8 @@ vlans:
     EMPTY_ACL_CONFIG = """
 acls:
     1:
-       - rule:
-            actions:
-                allow: 0
+       exact_match: True
+       rules: []
 """
 
     def setUp(self):
@@ -1178,7 +1177,8 @@ acls:
         open(self.acl_config_file, 'w').write(self.EMPTY_ACL_CONFIG)
         self.topo = self.topo_class(
             self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
+            links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
     def _push_tuples(self, eth_type, host_ips):
@@ -1200,7 +1200,7 @@ acls:
                     'actions': {'allow': 1},
                 }
                 rules_yaml.append({'rule': rule_yaml})
-            yaml_acl_conf = {'acls': {1: rules_yaml}}
+            yaml_acl_conf = {'acls': {1: {'exact_match': True, 'rules': rules_yaml}}}
             tuple_txt = '%u IPv%u tuples\n' % (len(rules_yaml), host_ip.version)
             error('pushing %s' % tuple_txt)
             self.reload_conf(yaml_acl_conf, self.acl_config_file, True, False)
@@ -1208,7 +1208,8 @@ acls:
             rules *= 2
 
     def test_tuples(self):
-        host_ips = [host_ip for host_ip in itertools.islice(self.NET_BASE.hosts(), self.MAX_RULES)]
+        host_ips = [host_ip for host_ip in itertools.islice(
+            self.NET_BASE.hosts(), self.MAX_RULES)]
         self._push_tuples(self.ETH_TYPE, host_ips)
 
 
