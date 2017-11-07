@@ -1205,6 +1205,7 @@ acls:
             error('pushing %s' % tuple_txt)
             self.reload_conf(yaml_acl_conf, self.acl_config_file, True, False)
             error('pushed %s' % tuple_txt)
+            self.wait_until_matching_flow({'tp_src': port}, table_id=0)
             rules *= 2
 
     def test_tuples(self):
