@@ -1205,7 +1205,7 @@ acls:
             error('pushing %s' % tuple_txt)
             self.reload_conf(yaml_acl_conf, self.acl_config_file, True, False)
             error('pushed %s' % tuple_txt)
-            rules *= 2 
+            rules *= 2
 
     def test_tuples(self):
         host_ips = [host_ip for host_ip in itertools.islice(self.NET_BASE.hosts(), self.MAX_RULES)]
