@@ -1221,7 +1221,7 @@ class FaucetIPv6TupleTest(FaucetIPv4TupleTest):
     NET_BASE = ipaddress.IPv6Network(u'fc00::00/64')
 
 
-class FaucetConfigReloadTest(FaucetTest):
+class FaucetConfigReloadTestBase(FaucetTest):
     """Test handling HUP signal with config change."""
 
     N_UNTAGGED = 4
@@ -1283,10 +1283,18 @@ acls:
         - rule:
             actions:
                 allow: 1
+    deny:
+        - rule:
+            actions:
+                allow: 0
+    allow:
+        - rule:
+            actions:
+               allow: 1
 """
 
     def setUp(self):
-        super(FaucetConfigReloadTest, self).setUp()
+        super(FaucetConfigReloadTestBase, self).setUp()
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         with open(self.acl_config_file, 'w') as config_file:
             config_file.write(self.ACL)
@@ -1294,7 +1302,8 @@ acls:
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
         self.topo = self.topo_class(
             self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
+            links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
     def _get_conf(self):
@@ -1309,16 +1318,6 @@ acls:
             self.dpid, {u'in_port': int(port_no)}, table_id)
         return flow
 
-    def test_add_unknown_dp(self):
-        conf = self._get_conf()
-        conf['dps']['unknown'] = {
-            'dp_id': int(self.rand_dpid()),
-            'hardware': 'Open vSwitch',
-        }
-        self.reload_conf(
-            conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=False)
-
     def change_port_config(self, port, config_name, config_value,
                            restart=True, conf=None, cold_start=False):
         if conf is None:
@@ -1332,6 +1331,19 @@ acls:
             conf = self._get_conf()
         conf['vlans'][vlan][config_name] = config_value
         self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
+
+
+class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
+
+    def test_add_unknown_dp(self):
+        conf = self._get_conf()
+        conf['dps']['unknown'] = {
+            'dp_id': int(self.rand_dpid()),
+            'hardware': 'Open vSwitch',
+        }
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=False, change_expected=False)
 
     def test_tabs_are_bad(self):
         self.ping_all_when_learned()
@@ -1396,6 +1408,41 @@ acls:
             table_id=self.PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
+
+
+class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: allow
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+                acl_in: allow
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+                acl_in: deny
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+                acl_in: deny
+"""
+
+    def test_port_acls(self):
+        first_host, second_host, third_host = self.net.hosts[:3]
+        self.net.ping((first_host, second_host))
+        self.net.ping((first_host, third_host))
+        self.assertEqual(2, self.scrape_prometheus_var(
+            'vlan_hosts_learned', {'vlan': '100'}))
+        self.change_port_config(
+            self.port_map['port_3'], 'acl_in', 'allow', restart=True)
+        self.net.ping((first_host, third_host))
+        self.assertEqual(3, self.scrape_prometheus_var(
+            'vlan_hosts_learned', {'vlan': '100'}))
 
 
 class FaucetUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
