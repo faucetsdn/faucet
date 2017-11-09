@@ -496,13 +496,19 @@ class PacketMeta(object):
         """Reparse packet with all available data."""
         self.reparse(0)
 
-    def reparse_ip(self, eth_type, payload=0):
-        """Reparse packet with specified IP header type and optionally payload."""
+    def isfragment(self):
+        """Return True if a fragment."""
         dpkt_ip = dpkt.ethernet.Ethernet(self.data)
-        # Ryu blows up on fragments
         if isinstance(dpkt_ip.data, dpkt.ip.IP):
             if bool(dpkt_ip.data.off & dpkt.ip.IP_MF) or dpkt_ip.data.off & dpkt.ip.IP_OFFMASK:
-                return
+                return True
+        return False
+
+    def reparse_ip(self, eth_type, payload=0):
+        """Reparse packet with specified IP header type and optionally payload."""
+        # Ryu blows up on fragments
+        if self.isfragment():
+            return
         self.reparse(ip_header_size(eth_type) + payload)
 
     def packet_complete(self):

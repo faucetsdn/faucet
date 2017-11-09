@@ -646,18 +646,19 @@ class DP(Conf):
                 old_port = self.ports[port_no]
                 # An existing port has configs changed
                 if new_port != old_port:
-                    # TODO: we assume if port config had sub config
-                    # changed, it must have been the ACL.
                     if old_port.ignore_subconf(new_port):
-                        changed_acl_ports.add(port_no)
-                        logger.info('port %s ACL changed' % port_no)
+                        if old_port.acl_in != new_port.acl_in:
+                            changed_acl_ports.add(port_no)
+                            logger.info('port %s ACL changed (ACL %s to %s)' % (
+                                port_no, old_port.acl_in._id, new_port.acl_in._id))
                     else:
                         changed_ports.add(port_no)
                         logger.info('port %s reconfigured' % port_no)
                 elif new_port.acl_in in changed_acls:
                     # If the port has ACL changed.
                     changed_acl_ports.add(port_no)
-                    logger.info('port %s ACL changed' % port_no)
+                    logger.info('port %s ACL changed (ACL %s changed)' % (
+                        port_no, new_port.acl_in._id))
 
         # TODO: optimize case where only VLAN ACL changed.
         for vid in changed_vlans:
