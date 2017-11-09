@@ -501,7 +501,8 @@ class PacketMeta(object):
         dpkt_ip = dpkt.ethernet.Ethernet(self.data)
         if isinstance(dpkt_ip.data, dpkt.ip.IP):
             if bool(dpkt_ip.data.off & dpkt.ip.IP_MF) or dpkt_ip.data.off & dpkt.ip.IP_OFFMASK:
-                return
+                return True
+        return False
 
     def reparse_ip(self, eth_type, payload=0):
         """Reparse packet with specified IP header type and optionally payload."""

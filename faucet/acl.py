@@ -44,7 +44,4 @@ class ACL(Conf):
         self.rules = [x['rule'] for x in rules]
 
     def to_conf(self):
-        result = []
-        for rule in self.rules:
-            result.append({'rule': rule})
-        return result
+        return [{'rule': rule} for rule in self.rules]
