@@ -700,14 +700,17 @@ class Valve(object):
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
                     dp_id=dp_id, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
+            learned_hosts_count = 0
             for port in vlan.get_ports():
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
                     metrics.learned_macs.labels(
                         dp_id=dp_id, vlan=vlan.vid,
                         port=port.number, n=i).set(mac_int)
+                    learned_hosts_count += 1
                 metrics.port_learn_bans.labels(
                     dp_id=dp_id, port=port.number).set(port.dyn_learn_ban_count)
+            assert hosts_count == learned_hosts_count
 
     def rcv_packet(self, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
