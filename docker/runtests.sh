@@ -37,8 +37,7 @@ cd /faucet-src/tests
 if [ "$DEPCHECK" == 1 ] ; then
     echo "============ Running pytype analyzer ============"
     # TODO: pytype doesn't completely understand py3 yet.
-    # TODO: pytype currently broken.
-    # ls -1 ../faucet/*py | parallel pytype -d import-error || exit 1
+    ls -1 ../faucet/*py | parallel pytype -d import-error || exit 1
 fi
 
 echo "========== Running faucet unit tests =========="

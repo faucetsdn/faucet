@@ -59,13 +59,15 @@ class Conf(object):
         self._check_unknown_conf(conf)
         self._check_defaults_types(conf)
 
-    def _conf_keys(self, conf, dyn=False, subconf=True):
+    def _conf_keys(self, conf, dyn=False, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
         for key, value in list(conf.__dict__.items()):
             if not dyn and key.startswith('dyn'):
                 continue
             if not subconf and isinstance(value, Conf):
+                continue
+            if ignore_keys and key in ignore_keys:
                 continue
             conf_keys.append((key, value))
         return conf_keys
@@ -87,9 +89,9 @@ class Conf(object):
                 result[key] = self.__dict__[str(key)]
         return result
 
-    def conf_hash(self, dyn=False, subconf=True):
+    def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
         return hash(frozenset(list(map(
-            str, self._conf_keys(self, dyn=dyn, subconf=subconf)))))
+            str, self._conf_keys(self, dyn=dyn, subconf=subconf, ignore_keys=ignore_keys)))))
 
     def __hash__(self):
         if self.dyn_hash is not None:
@@ -103,9 +105,10 @@ class Conf(object):
         """Configuration parsing marked complete."""
         self.dyn_finalized = True
 
-    def ignore_subconf(self, other):
+    def ignore_subconf(self, other, ignore_keys=None):
         """Return True if this config same as other, ignoring sub config."""
-        return self.conf_hash(dyn=False, subconf=False) == other.conf_hash(dyn=False, subconf=False)
+        return (self.conf_hash(dyn=False, subconf=False, ignore_keys=ignore_keys) 
+            == other.conf_hash(dyn=False, subconf=False, ignore_keys=ignore_keys))
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
