@@ -1005,13 +1005,13 @@ dbs:
                 var = 'faucet_config_reload_cold'
             old_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
-            old_mac_table = self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True)
+            old_mac_table = sorted(self.scrape_prometheus_var(
+                'learned_macs', labels={'vlan': host_cache}, multiple=True))
             self.verify_hup_faucet()
             new_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
-            new_mac_table = self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True)
+            new_mac_table = sorted(self.scrape_prometheus_var(
+                'learned_macs', labels={'vlan': host_cache}, multiple=True))
             if host_cache:
                 self.assertFalse(
                     cold_start, msg='host cache is not maintained with cold start')
@@ -1019,7 +1019,8 @@ dbs:
                     new_mac_table, msg='no host cache for vlan %u' % host_cache)
                 self.assertEqual(
                     old_mac_table, new_mac_table,
-                    msg='host cache for vlan %u not same over reload' % host_cache)
+                    msg='host cache for vlan %u not same over reload (old %s, new %s)' % (
+                        host_cache, old_mac_table, new_mac_table))
             if change_expected:
                 self.assertEqual(
                     old_count + 1, new_count,
