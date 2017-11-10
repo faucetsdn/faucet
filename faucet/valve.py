@@ -710,7 +710,6 @@ class Valve(object):
                     learned_hosts_count += 1
                 metrics.port_learn_bans.labels(
                     dp_id=dp_id, port=port.number).set(port.dyn_learn_ban_count)
-            assert hosts_count == learned_hosts_count
 
     def rcv_packet(self, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
