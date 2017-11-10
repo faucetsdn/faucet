@@ -1006,12 +1006,12 @@ dbs:
             old_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
             old_mac_table = sorted(self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True))
+                'learned_macs', labels={'vlan': host_cache}, multiple=True, default=[]))
             self.verify_hup_faucet()
             new_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
             new_mac_table = sorted(self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True))
+                'learned_macs', labels={'vlan': host_cache}, multiple=True, default=[]))
             if host_cache:
                 self.assertFalse(
                     cold_start, msg='host cache is not maintained with cold start')
