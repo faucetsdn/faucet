@@ -99,8 +99,8 @@ class FaucetMetrics(PromClient):
             'BGP neighbor route count', ['dp_id', 'vlan', 'neighbor', 'ipv'])
         self.learned_macs = Gauge(
             'learned_macs',
-            ('max address stored as 64bit number to DP ID, port, VLAN, '
-             'and n (maximum number of hosts on the port)'),
+            ('MAC address stored as 64bit number to DP ID, port, VLAN, '
+             'and n (discrete index)'),
             ['dp_id', 'port', 'vlan', 'n'])
         self.port_status = Gauge(
             'port_status',
