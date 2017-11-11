@@ -704,6 +704,9 @@ class DP(Conf):
                 changed_vlans (set): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
         """
+        if self.ignore_subconf(new_dp):
+            logger.info('DP base level config changed - requires cold start')
+            return (set(), set(), set(), set(), set(), True)
         changed_acls = self._get_acl_config_changes(logger, new_dp)
         deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
         (all_ports_changed, deleted_ports,
