@@ -242,7 +242,7 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
 """
 
     def test_untagged(self):
-        # Create macvlan interfaces, with one in a seperate namespace,
+        # Create macvlan interfaces, with one in a separate namespace,
         # to force traffic between them to be hairpinned via FAUCET.
         first_host, second_host = self.net.hosts[:2]
         macvlan1_intf = 'macvlan1'
@@ -2399,7 +2399,7 @@ vlans:
             n_tagged=2, n_untagged=2, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
-    def test_seperate_untagged_tagged(self):
+    def test_separate_untagged_tagged(self):
         tagged_host_pair = self.net.hosts[:2]
         untagged_host_pair = self.net.hosts[2:]
         self.verify_vlan_flood_limited(
