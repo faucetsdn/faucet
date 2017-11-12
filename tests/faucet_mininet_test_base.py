@@ -23,6 +23,7 @@ import requests
 from requests.exceptions import ConnectionError
 
 # pylint: disable=import-error
+from mininet.link import TCLink
 from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.node import Intf
@@ -347,7 +348,9 @@ class FaucetTestBase(unittest.TestCase):
             self._set_vars()
             self._write_faucet_config()
             self.net = Mininet(
-                self.topo, controller=faucet_mininet_test_topo.FAUCET(
+                self.topo,
+                link=TCLink,
+                controller=faucet_mininet_test_topo.FAUCET(
                     name='faucet', tmpdir=self.tmpdir,
                     controller_intf=controller_intf,
                     env=self.env['faucet'],

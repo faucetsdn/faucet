@@ -15,7 +15,7 @@ import netifaces
 from mininet.log import error, output
 from mininet.topo import Topo
 from mininet.node import Controller
-from mininet.node import Host
+from mininet.node import CPULimitedHost
 from mininet.node import OVSSwitch
 
 import faucet_mininet_test_util
@@ -71,7 +71,7 @@ class FaucetHostCleanup(object):
         self.cleanup()
 
 
-class FaucetHost(FaucetHostCleanup, Host):
+class FaucetHost(FaucetHostCleanup, CPULimitedHost):
 
     pass
 
@@ -108,6 +108,9 @@ class VLANHost(FaucetHost):
 class FaucetSwitchTopo(Topo):
     """FAUCET switch topology that contains a software switch."""
 
+    CPUF = 0.5
+    DELAY = '1ms'
+
     @staticmethod
     def _get_sid_prefix(ports_served):
         """Return a unique switch/host prefix for a test."""
@@ -122,12 +125,13 @@ class FaucetSwitchTopo(Topo):
     def _add_tagged_host(self, sid_prefix, tagged_vid, host_n):
         """Add a single tagged test host."""
         host_name = 't%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(name=host_name, cls=VLANHost, vlan=tagged_vid)
+        return self.addHost(
+            name=host_name, cls=VLANHost, vlan=tagged_vid, cpu=self.CPUF)
 
     def _add_untagged_host(self, sid_prefix, host_n):
         """Add a single untagged test host."""
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
-        return self.addHost(name=host_name, cls=FaucetHost)
+        return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF)
 
     def _add_faucet_switch(self, sid_prefix, dpid):
         """Add a FAUCET switch."""
@@ -140,7 +144,7 @@ class FaucetSwitchTopo(Topo):
     def _add_links(self, switch, hosts, links_per_host):
         for host in hosts:
             for _ in range(links_per_host):
-                self.addLink(host, switch)
+                self.addLink(host, switch, delay=self.DELAY, use_htb=True)
 
     def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         for dpid in dpids:
