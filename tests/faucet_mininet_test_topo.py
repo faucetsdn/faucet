@@ -30,8 +30,21 @@ class FaucetHostCleanup(object):
     master = None
     shell = None
     slave = None
+    name = None
+    inNamespace = None
+    pollOut = None
+    stdout = None
+    execed = None
+    lastCmd = None # pylint: disable=invalid-name
+    readbuf = None
+    lastPid = None
+    pid = None
+    waiting = None
+    stdin = None
 
-    def startShell(self, mnopts=None):
+
+    def startShell(self, mnopts=None): # pylint: disable=invalid-name
+        """Override Mininet startshell() to partially avoid pty leak."""
         if self.shell:
             error('%s: shell is already running\n' % self.name)
             return
@@ -41,37 +54,39 @@ class FaucetHostCleanup(object):
         cmd = ['mnexec', opts, 'env', 'PS1=' + chr(127),
                'bash', '--norc', '-is', 'mininet:' + self.name]
         self.master, self.slave = pty.openpty()
-        self.shell = self._popen(
+        self.shell = self._popen( # pylint: disable=no-member
             cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
             close_fds=False)
         self.stdin = os.fdopen(self.master, 'rw')
         self.stdout = self.stdin
         self.pid = self.shell.pid
-        self.pollOut = select.poll()
-        self.pollOut.register(self.stdout)
-        self.outToNode[self.stdout.fileno()] = self
-        self.inToNode[self.stdin.fileno()] = self
+        self.pollOut = select.poll() # pylint: disable=invalid-name
+        self.pollOut.register(self.stdout) # pylint: disable=no-member
+        self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member
+        self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member
         self.execed = False
-        self.lastCmd = None
-        self.lastPid = None
+        self.lastCmd = None # pylint: disable=invalid-name
+        self.lastPid = None # pylint: disable=invalid-name
         self.readbuf = ''
         while True:
-            data = self.read(1024)
+            data = self.read(1024) # pylint: disable=no-member
             if data[-1] == chr(127):
                 break
             self.pollOut.poll()
         self.waiting = False
-        self.cmd('unset HISTFILE; stty -echo; set +m')
+        self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member
 
     def terminate(self):
+        """Override Mininet terminate() to partially avoid pty leak."""
         if self.shell is not None:
             os.close(self.master)
             os.close(self.slave)
             self.shell.kill()
-        self.cleanup()
+        self.cleanup() # pylint: disable=no-member
 
 
 class FaucetHost(FaucetHostCleanup, CPULimitedHost):
+    """Base Mininet Host class, for Mininet-based tests."""
 
     pass
 
@@ -146,7 +161,8 @@ class FaucetSwitchTopo(Topo):
             for _ in range(links_per_host):
                 self.addLink(host, switch, delay=self.DELAY, use_htb=True)
 
-    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
+    def build(self, ports_sock, test_name, dpids,
+              n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         for dpid in dpids:
             serialno = faucet_mininet_test_util.get_serialno(
                 ports_sock, test_name)
@@ -162,7 +178,8 @@ class FaucetSwitchTopo(Topo):
 class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
-    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
+    def build(self, ports_sock, test_name, dpids,
+              n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         for dpid in dpids:
             serialno = faucet_mininet_test_util.get_serialno(
                 ports_sock, test_name)
