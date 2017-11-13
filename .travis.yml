@@ -27,6 +27,9 @@ script:
   - PYTHONPATH=~/faucet python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
   - coveralls || true
   - cd ..
+  - docker run --rm --privileged multiarch/qemu-user-static:register --reset
+  - docker build -t faucet-pi -f Dockerfile.pi .
+  - docker build -t gauge-pi -f Dockerfile.pi-gauge .
   - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
   - docker images
   - sudo docker run --privileged -t -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}
