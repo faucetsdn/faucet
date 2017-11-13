@@ -11,7 +11,7 @@ ENV PIPDEPS="setuptools wheel virtualenv"
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 ENV SETUPQ="setup.py -q"
-ENV MAKEFILES="-s -j4"
+ENV MAKEFLAGS="-s -j4"
 ENV BUILDDIR="/var/tmp/build"
 
 ###
