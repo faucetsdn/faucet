@@ -73,7 +73,7 @@ RUN \
       cd ovs && \
       ./boot.sh && \
       ./configure --enable-silent-rules --quiet --with-dpdk=$DPDK_DIR/$DPDK_TARGET && \
-      make ; make install-exec-recursive && \
+      make install && \
     cd .. && \
     git clone https://github.com/mininet/mininet -b $MININETV && \
       cd mininet && \
