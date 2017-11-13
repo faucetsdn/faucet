@@ -1,14 +1,18 @@
 FROM ubuntu:latest
 
-ENV OVSV="2.7.3"
-ENV OVSDEPS="autoconf automake libtool libssl-dev linux-headers-generic libffi-dev"
+ENV OVSV="2.8.1"
+ENV DPDK="17.05.2"
+ENV MININETV="2.2.2"
 
+ENV OVSDEPS="autoconf automake libpcap-dev libcap-ng-dev libnuma-dev libtool libssl-dev linux-headers-generic libffi-dev"
 ENV AG="apt-get -qqy --no-install-recommends -o=Dpkg::Use-Pty=0"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIPDEPS="setuptools wheel virtualenv"
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 ENV SETUPQ="setup.py -q"
+ENV MAKEFLAGS="-s -j -l 2.0"
+ENV BUILDDIR="/var/tmp/build"
 
 ###
 ### When apt-get'ing, make sure apt-update always run first per RUN
@@ -55,26 +59,39 @@ RUN \
     vlan \
     wget \
     wpasupplicant && \
-  git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
-  cd ovs && \
-  ./boot.sh && ./configure --enable-silent-rules && make -s V=0 install && \
-  cd .. && \
-  rm -rf ovs && \
-  $AG purge $OVSDEPS && \
-  $AG autoremove
-
-### slim down mininet dependencies (to avoid installing X11)
-RUN \
+  $AG install linux-headers-`uname -r` && \
   git config --global url.https://github.com/.insteadOf git://github.com/ && \
-  ./setupproxy.sh && \
-  $AG update && \
-  git clone https://github.com/mininet/mininet && \
-  cd mininet && git checkout 2.2.2 && cd .. && \
-  perl -pi -e "s/setup.py/${SETUPQ}/g" mininet/Makefile && \
-  perl -pi -e "s/apt-get/${AG}/g" mininet/util/install.sh && \
-  for i in ssh pep8 pyflakes python-pexpect pylint xterm ; do perl -pi -e "s/${i}//g" mininet/util/install.sh ; done && \
-  mininet/util/install.sh -n && \
-  rm -rf mininet
+    mkdir -p $BUILDDIR && \
+    cd $BUILDDIR && \
+    wget -q -O- http://fast.dpdk.org/rel/dpdk-$DPDK.tar.xz | tar -Jxf- && \
+      cd dpdk* && \
+      export DPDK_DIR=`pwd` && \
+      export DPDK_TARGET=x86_64-native-linuxapp-gcc && \
+      make install T=$DPDK_TARGET DESTDIR=install && \
+    cd .. && \
+    git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
+      cd ovs && \
+      ./boot.sh && \
+      ./configure --enable-silent-rules --quiet --with-dpdk=$DPDK_DIR/$DPDK_TARGET && \
+      make install && \
+    cd .. && \
+    git clone https://github.com/mininet/mininet -b $MININETV && \
+      cd mininet && \
+      perl -pi -e "s/setup.py/${SETUPQ}/g" Makefile && \
+      perl -pi -e "s/apt-get/${AG}/g" util/install.sh && \
+      for i in ssh pep8 pyflakes python-pexpect pylint xterm ; do \
+          perl -pi -e "s/${i}//g" util/install.sh ; done && \
+      util/install.sh -n && \
+    cd .. && \
+    git clone https://github.com/google/pytype.git && \
+      cd pytype && \
+      git submodule init && \
+      git submodule update && \
+      python2 $SETUPQ install && \
+    cd .. && \
+  cd / && rm -rf $BUILDDIR && \
+  $AG purge $OVSDEPS linux-headers-`uname -r` && \
+  $AG autoremove
 
 RUN \
   ./setupproxy.sh && \
@@ -85,13 +102,6 @@ RUN \
   $PIP pip && \
   $PIP multiprocessing scapy==2.3.2 $PIPDEPS && \
   $PIP3 $PIPDEPS
-
-RUN \
-  git config --global url.https://github.com/.insteadOf git://github.com/ && \
-  ./setupproxy.sh && \
-  $AG update && \
-  git clone https://github.com/google/pytype.git && \
-  cd pytype && git submodule init && git submodule update && python2 $SETUPQ install && cd .. && rm -rf pytype
 
 ###
 ### To maximize Docker caching, try to keep invariant dependencies above this line.
