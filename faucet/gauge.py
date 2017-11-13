@@ -181,6 +181,7 @@ class Gauge(app_manager.RyuApp):
                 self.logger.info(
                     '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
                 watcher.start(ryu_dp)
+            ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
             ryu_dp.send_msg(valve_of.gauge_async(datapath=ryu_dp))
         else:
             self.logger.info('%s up, unknown', dpid_log(dp_id))

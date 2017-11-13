@@ -650,6 +650,11 @@ def flood_untagged_port_outputs(ports, in_port, exclude_ports=None):
     return flood_acts
 
 
+def faucet_config(datapath=None):
+    """Return switch config for FAUCET."""
+    return parser.OFPSetConfig(datapath, ofp.OFPC_FRAG_NORMAL, 0)
+
+
 def faucet_async(datapath=None):
     """Return async message config for FAUCET."""
     packet_in_mask = 1 << ofp.OFPR_ACTION
