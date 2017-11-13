@@ -52,7 +52,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.gauge
-        image: 'faucet/gauge:1.6.8'
+        image: 'faucet/gauge:1.6.9'
         environment:
            - GAUGE_CONFIG=/etc/ryu/faucet/gauge.yaml
         volumes:
@@ -70,7 +70,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile
-        image: 'faucet/faucet:1.6.8'
+        image: 'faucet/faucet:1.6.9'
         volumes:
             - '$FAUCET_PREFIX/var/log/ryu/faucet:/var/log/ryu/faucet'
             - '$FAUCET_PREFIX/etc/ryu/faucet:/etc/ryu/faucet'
