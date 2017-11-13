@@ -316,6 +316,7 @@ class BaseFAUCET(Controller):
 [DEFAULT]
 echo_request_interval=3
 maximum_unreplied_echo_requests=5
+socket_timeout=15
 """
 
     def __init__(self, name, tmpdir, controller_intf=None, cargs='', **kwargs):
