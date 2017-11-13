@@ -1,8 +1,8 @@
 FROM ubuntu:latest
 
-ENV OVSV="2.7.3"
-ENV OVSDEPS="autoconf automake libtool libssl-dev linux-headers-generic libffi-dev"
-
+ENV OVSV="2.8.1"
+ENV DPDK="17.05.2"
+ENV OVSDEPS="autoconf automake libpcap-dev libcap-ng-dev libnuma-dev libtool libssl-dev linux-headers-generic libffi-dev"
 ENV AG="apt-get -qqy --no-install-recommends -o=Dpkg::Use-Pty=0"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIPDEPS="setuptools wheel virtualenv"
@@ -55,11 +55,19 @@ RUN \
     vlan \
     wget \
     wpasupplicant && \
-  git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
-  cd ovs && \
-  ./boot.sh && ./configure --enable-silent-rules && make -s V=0 install && \
-  cd .. && \
-  rm -rf ovs && \
+  $AG install linux-headers-`uname -r` && \
+    wget -q -O- http://fast.dpdk.org/rel/dpdk-$DPDK.tar.xz | tar -Jxf- && \
+      cd dpdk* && \
+      export DPDK_TARGET=x86_64-native-linuxapp-gcc && \
+      make -j8 install T=$DPDK_TARGET DESTDIR=install && \
+    cd .. && \
+    git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
+      cd ovs && \
+      ./boot.sh && \
+      ./configure --enable-silent-rules --quiet --with-dpdk=`ls -1d ../dpdk*`/$DPDK_TARGET && \
+      make -j8 -s install && \
+    cd .. && \
+  rm -rf ovs dpdk* && \
   $AG purge $OVSDEPS && \
   $AG autoremove
 
