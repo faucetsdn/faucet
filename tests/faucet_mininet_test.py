@@ -531,16 +531,23 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
 
 
 def dump_failed_test_file(test_file, only_exts):
-    for ext in only_exts:
-        if test_file.endswith(ext):
-            test_file_content = open(test_file).read()
-            if test_file_content:
-                print(test_file)
-                print('=' * len(test_file))
-                print('\n')
-                print(test_file_content)
-            return True
-    return False
+    dump_file = False
+    test_file_content = open(test_file).read()
+    if test_file_content:
+        if only_ext:
+            for ext in only_exts:
+                if test_file.endswith(ext):
+                    dump_file = True
+                    break
+        else:
+            dump_file = True
+
+    if dump_file:
+        print(test_file)
+        print('=' * len(test_file))
+        print('\n')
+        print(test_file_content)
+    return dump_file
 
 
 def dump_failed_test(test_name, test_dir):
