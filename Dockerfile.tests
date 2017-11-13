@@ -11,7 +11,7 @@ ENV PIPDEPS="setuptools wheel virtualenv"
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 ENV SETUPQ="setup.py -q"
-ENV MAKEFILES="-s -j2"
+ENV MAKEFILES="-s"
 ENV BUILDDIR="/var/tmp/build"
 
 ###
@@ -67,7 +67,7 @@ RUN \
       cd dpdk* && \
       export DPDK_DIR=`pwd` && \
       export DPDK_TARGET=x86_64-native-linuxapp-gcc && \
-      make install T=$DPDK_TARGET DESTDIR=install && \
+      make -j4 install T=$DPDK_TARGET DESTDIR=install && \
     cd .. && \
     git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
       cd ovs && \
