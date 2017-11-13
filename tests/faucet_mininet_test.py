@@ -557,7 +557,7 @@ def dump_failed_test(test_name, test_dir):
     test_files = set(glob.glob(os.path.join(test_dir, '*')))
     dumped_test_files = set()
 
-    for only_exts in (['.yaml'], ['.log'], []):
+    for only_exts in (['.yaml'], ['.log'], ['.cap.txt'], ['.txt']):
         for test_file in sorted(test_files):
             if test_file in dumped_test_files:
                 continue
