@@ -534,7 +534,7 @@ def dump_failed_test_file(test_file, only_exts):
     dump_file = False
     test_file_content = open(test_file).read()
     if test_file_content:
-        if only_ext:
+        if only_exts:
             for ext in only_exts:
                 if test_file.endswith(ext):
                     dump_file = True
