@@ -94,9 +94,56 @@ class FaucetHost(FaucetHostCleanup, CPULimitedHost):
 class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
     """Switch that will be used by all tests (kernel based OVS)."""
 
+    controller_params = {
+        'controller_burst_limit': 25,
+        'controller_rate_limit': 100,
+    }
+
     def __init__(self, name, **params):
         super(FaucetSwitch, self).__init__(
             name=name, datapath='kernel', reconnectms=8000, **params)
+
+    def start(self, controllers):
+        # Transcluded from Mininet source, since need to insert
+        # controller parameters at switch creation time.
+        if self.inNamespace:
+            raise Exception(
+                'OVS kernel switch does not work in a namespace')
+        int(self.dpid, 16)  # DPID must be a hex string
+        # Command to add interfaces
+        intfs = ''.join(' -- add-port %s %s' % (self, intf) +
+                        self.intfOpts(intf)
+                        for intf in self.intfList()
+                        if self.ports[intf] and not intf.IP())
+        # Command to create controller entries
+        clist = [(self.name + c.name, '%s:%s:%d' %
+                 (c.protocol, c.IP(), c.port))
+                 for c in controllers]
+        if self.listenPort:
+            clist.append((self.name + '-listen',
+                           'ptcp:%s' % self.listenPort))
+        ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
+        if self.reconnectms:
+            ccmd += ' max_backoff=%d' % self.reconnectms
+        for param, value in list(self.controller_params.items()):
+            ccmd += ' %s=%s' % (param, value)
+        cargs = ' '.join(ccmd % (name, target)
+                         for name, target in clist)
+        # Controller ID list
+        cids = ','.join('@%s' % name for name, _target in clist)
+        # Try to delete any existing bridges with the same name
+        if not self.isOldOVS():
+            cargs += ' -- --if-exists del-br %s' % self
+        # One ovs-vsctl command to rule them all!
+        self.vsctl(cargs +
+                   ' -- add-br %s' % self +
+                   ' -- set bridge %s controller=[%s]' % (self, cids) +
+                   self.bridgeOpts() +
+                   intfs )
+        # If necessary, restore TC config overwritten by OVS
+        if not self.batch:
+            for intf in self.intfList():
+                self.TCReapply(intf)
 
 
 class VLANHost(FaucetHost):
