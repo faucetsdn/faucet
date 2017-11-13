@@ -25,13 +25,14 @@ services:
 
     prometheus:
         restart: always
-        image: 'prom/prometheus:v1.8.0'
+        image: 'prom/prometheus:v2.0.0'
+        user: 'root'
         ports:
             - '9090:9090'
         volumes:
             - '$FAUCET_PREFIX/opt/prometheus/:/prometheus'
             - './etc/prometheus/prometheus-docker-compose.yml:/etc/prometheus/prometheus.yml'
-            - './etc/prometheus/faucet.rules:/etc/prometheus/faucet.rules'
+            - './etc/prometheus/faucet.rules.yml:/etc/prometheus/faucet.rules.yml'
         links:
             - faucet
             - gauge
