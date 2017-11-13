@@ -648,3 +648,28 @@ def flood_untagged_port_outputs(ports, in_port, exclude_ports=None):
         flood_acts.extend(flood_tagged_port_outputs(
             ports, in_port, exclude_ports=exclude_ports))
     return flood_acts
+
+
+def faucet_async(datapath=None):
+    """Return async message config for FAUCET."""
+    packet_in_mask = 1 << ofp.OFPR_ACTION
+    port_status_mask = (
+        1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
+    flow_removed_mask = (
+        1 << ofp.OFPRR_IDLE_TIMEOUT | 1 << ofp.OFPRR_HARD_TIMEOUT)
+    return parser.OFPSetAsync(datapath,
+        [packet_in_mask, packet_in_mask],
+        [port_status_mask, port_status_mask],
+        [flow_removed_mask, flow_removed_mask])
+
+
+def gauge_async(datapath=None):
+    """Return async message config for Gauge."""
+    packet_in_mask = 0
+    port_status_mask = (
+        1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
+    flow_removed_mask = 0
+    return parser.OFPSetAsync(datapath,
+        [packet_in_mask, packet_in_mask],
+        [port_status_mask, port_status_mask],
+        [flow_removed_mask, flow_removed_mask])

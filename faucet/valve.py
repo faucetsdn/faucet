@@ -323,6 +323,7 @@ class Valve(object):
         """
         self.logger.info('Cold start configuring DP')
         ofmsgs = []
+        ofmsgs.append(valve_of.faucet_async())
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
         ofmsgs.extend(self._add_controller_learn_flow())
