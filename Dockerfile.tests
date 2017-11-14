@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-ENV OVSV="2.8.0"
+ENV OVSV="master"
 ENV DPDK="17.05.2"
 ENV MININETV="2.2.2"
 
@@ -69,7 +69,7 @@ RUN \
       export DPDK_TARGET=x86_64-native-linuxapp-gcc && \
       make install T=$DPDK_TARGET DESTDIR=install && \
     cd .. && \
-    git clone https://github.com/openvswitch/ovs -b v${OVSV} && \
+    git clone https://github.com/openvswitch/ovs -b ${OVSV} && \
       cd ovs && \
       ./boot.sh && \
       ./configure --enable-silent-rules --quiet --with-dpdk=$DPDK_DIR/$DPDK_TARGET && \
