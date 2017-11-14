@@ -346,6 +346,8 @@ class Faucet(app_manager.RyuApp):
             return
         if not valve.dp.running:
             return
+        if valve.dp.cookie != msg.cookie:
+            return
         in_port = msg.match['in_port']
         if valve_of.ignore_port(in_port):
             return
