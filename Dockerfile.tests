@@ -1,6 +1,6 @@
 FROM ubuntu:latest
 
-ENV OVSV="2.8.1"
+ENV OVSV="2.8.0"
 ENV DPDK="17.05.2"
 ENV MININETV="2.2.2"
 
