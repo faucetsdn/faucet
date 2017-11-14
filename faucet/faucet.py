@@ -352,6 +352,9 @@ class Faucet(app_manager.RyuApp):
         if valve_of.ignore_port(in_port):
             return
 
+        # Truncate packet in data (OVS > 2.5 does not honor max_len)
+        msg.data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
+
         # eth/VLAN header only
         pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)

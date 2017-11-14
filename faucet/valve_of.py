@@ -31,6 +31,7 @@ VLAN_GROUP_OFFSET = 4096
 ROUTE_GROUP_OFFSET = VLAN_GROUP_OFFSET * 2
 OFP_VERSIONS = [ofp.OFP_VERSION]
 OFP_IN_PORT = ofp.OFPP_IN_PORT
+MAX_PACKET_IN_BYTES = 128
 
 
 def ignore_port(port_num):
@@ -245,7 +246,7 @@ def output_in_port():
     return output_port(OFP_IN_PORT)
 
 
-def output_controller(max_len=96):
+def output_controller(max_len=MAX_PACKET_IN_BYTES):
     """Return OpenFlow action to packet in to the controller.
 
     Args:
