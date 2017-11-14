@@ -43,6 +43,7 @@ class FaucetTestBase(unittest.TestCase):
     FAUCET_VIPV6 = ipaddress.ip_interface(u'fc00::1:254/64')
     FAUCET_VIPV6_2 = ipaddress.ip_interface(u'fc01::1:254/64')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
+    VSCTL = 'ovs-vsctl'
     BOGUS_MAC = '01:02:03:04:05:06'
     FAUCET_MAC = '0e:00:00:00:00:01'
     LADVD = 'ladvd -e lo -f'
@@ -251,9 +252,12 @@ class FaucetTestBase(unittest.TestCase):
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
-            for dump_cmd in ('dump-flows', 'dump-tables', 'dump-groups', 'dump-meters', 'dump-group-stats', 'dump-ports'):
+            for dump_cmd in ('dump-flows', 'dump-groups', 'dump-meters', 'dump-group-stats', 'dump-ports'):
                 switch_dump_name = os.path.join(self.tmpdir, '%s-%s.log' % (switch.name, dump_cmd))
                 switch.cmd('%s %s %s > %s' % (self.OFCTL, dump_cmd, switch.name, switch_dump_name))
+            for other_cmd in ('show', 'list controller', 'list manager'):
+                other_dump_name = os.path.join(self.tmpdir, '%s.log' % other_cmd.replace(' ', ''))
+                switch.cmd('%s %s > %s' % (self.VSCTL, other_cmd, other_dump_name))
         if self.net is not None:
             self.net.stop()
             self.net = None

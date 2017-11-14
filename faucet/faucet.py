@@ -467,10 +467,10 @@ class Faucet(app_manager.RyuApp):
         if valve is None:
             return
         if ryu_event.enter:
-            self.logger.debug('%s connected', dpid_log(dp_id))
+            self.logger.info('%s connected', dpid_log(dp_id))
             self._datapath_connect(ryu_dp)
         else:
-            self.logger.debug('%s disconnected', dpid_log(dp_id))
+            self.logger.info('%s disconnected', dpid_log(dp_id))
             self._datapath_disconnect(ryu_dp)
 
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
