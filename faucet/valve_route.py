@@ -44,7 +44,7 @@ class ValveRouteManager(object):
     IPV = None
     ETH_TYPE = None
     ICMP_TYPE = None
-    MAX_LEN = 96
+    MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = None
 
     def __init__(self, logger, arp_neighbor_timeout,
@@ -696,7 +696,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
     IPV = 6
     ETH_TYPE = valve_of.ether.ETH_TYPE_IPV6
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
-    MAX_LEN = 128
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,)
 
 
