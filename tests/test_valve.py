@@ -88,6 +88,16 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+    s2:
+        hardware: 'Open vSwitch'
+        dp_id: 0xdeadbeef
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+routers:
+    router1:
+        vlans: [v100, v200]
 vlans:
     v100:
         vid: 0x100

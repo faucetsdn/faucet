@@ -303,6 +303,32 @@ dps:
 """
         self.check_config_success(acl_config)
 
+    def test_router_resolved_vlans(self):
+        """Test that VLANs get resolved by routers."""
+        vlan_config = """
+vlans:
+    100:
+        description: "100"
+    200:
+        description: "200"
+routers:
+    router1:
+        vlans: [100, 200]
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+    switch2:
+        dp_id: 0xdeadbeef
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 200
+"""
+        self.check_config_success(vlan_config)
 
 if __name__ == "__main__":
     unittest.main()
