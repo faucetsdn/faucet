@@ -60,10 +60,10 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         if vlan_ident in vlans:
             return vlans[vlan_ident]
         for vlan in list(vlans.values()):
-            if int(vlan_ident) == vlan.vid:
+            if vlan_ident == str(vlan.vid):
                 return vlan
         try:
-            vid = int(vlan_ident, 0)
+            vid = int(str(vlan_ident), 0)
         except ValueError:
             assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
 

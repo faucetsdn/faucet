@@ -44,7 +44,7 @@ class ValveRouteManager(object):
     IPV = None
     ETH_TYPE = None
     ICMP_TYPE = None
-    MAX_LEN = 96
+    MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = None
 
     def __init__(self, logger, arp_neighbor_timeout,
@@ -612,6 +612,8 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _control_plane_arp_handler(self, pkt_meta):
         ofmsgs = []
+        if not pkt_meta.packet_complete():
+            return ofmsgs
         pkt_meta.reparse_ip(valve_of.ether.ETH_TYPE_ARP)
         arp_pkt = pkt_meta.pkt.get_protocol(arp.arp)
         if arp_pkt is None:
@@ -647,6 +649,9 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _control_plane_icmp_handler(self, pkt_meta, ipv4_pkt):
         ofmsgs = []
+        if not pkt_meta.packet_complete():
+            return ofmsgs
+
         src_ip = ipaddress.IPv4Address(btos(ipv4_pkt.src))
         dst_ip = ipaddress.IPv4Address(btos(ipv4_pkt.dst))
         vlan = pkt_meta.vlan
@@ -691,7 +696,6 @@ class ValveIPv6RouteManager(ValveRouteManager):
     IPV = 6
     ETH_TYPE = valve_of.ether.ETH_TYPE_IPV6
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
-    MAX_LEN = 128
     CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,)
 
 
@@ -770,6 +774,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def _control_plane_icmpv6_handler(self, pkt_meta, ipv6_pkt):
         ofmsgs = []
+        if not pkt_meta.packet_complete():
+            return ofmsgs
         src_ip = ipaddress.IPv6Address(btos(ipv6_pkt.src))
         dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
         vlan = pkt_meta.vlan

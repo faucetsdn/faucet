@@ -183,7 +183,7 @@ vlans:
         pkt.serialize()
         eth_pkt = valve_packet.parse_eth_pkt(pkt)
         pkt_meta = self.valve.parse_rcv_packet(
-            port, vid, eth_type, pkt.data, pkt, eth_pkt)
+            port, vid, eth_type, pkt.data, len(pkt.data), pkt, eth_pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             other_valves=[], pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)

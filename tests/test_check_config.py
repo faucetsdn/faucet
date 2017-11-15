@@ -75,6 +75,23 @@ dps:
 """
         self.check_config_success(minimal_conf)
 
+    def test_vlan_name(self):
+        """Test vlan referred by its name."""
+        vlan_name_conf = """
+vlans:
+    finance:
+        description: "FINANCE VLAN"
+        vid: 100
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: finance
+"""
+        self.check_config_success(vlan_name_conf)
+
     def test_no_interfaces(self):
         """Test DP has no interfaces."""
         no_interfaces_conf = """

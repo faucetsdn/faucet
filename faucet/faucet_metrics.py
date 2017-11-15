@@ -18,7 +18,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from prometheus_client import Counter, Gauge
+from prometheus_client import Counter, Gauge, Histogram
 
 from faucet.prom_client import PromClient
 
@@ -87,6 +87,10 @@ class FaucetMetrics(PromClient):
         self.faucet_config_dp_name = Gauge(
             'faucet_config_dp_name',
             'map of DP name to DP ID', ['dp_id', 'name'])
+        self.faucet_packet_in_secs = Histogram(
+            'faucet_packet_in_secs',
+            'FAUCET packet in processing time', ['dp_id'],
+            buckets=(0.0001, 0.001, 0.01, 0.1, 1))
         self.bgp_neighbor_uptime_seconds = Gauge(
             'bgp_neighbor_uptime',
             'BGP neighbor uptime in seconds', ['dp_id', 'vlan', 'neighbor'])
@@ -95,8 +99,8 @@ class FaucetMetrics(PromClient):
             'BGP neighbor route count', ['dp_id', 'vlan', 'neighbor', 'ipv'])
         self.learned_macs = Gauge(
             'learned_macs',
-            ('max address stored as 64bit number to DP ID, port, VLAN, '
-             'and n (maximum number of hosts on the port)'),
+            ('MAC address stored as 64bit number to DP ID, port, VLAN, '
+             'and n (discrete index)'),
             ['dp_id', 'port', 'vlan', 'n'])
         self.port_status = Gauge(
             'port_status',

@@ -24,6 +24,7 @@ from faucet.conf import Conf
 from faucet.port import Port
 from faucet.vlan import VLAN
 from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet.valve_util import get_setting
 from faucet import valve_acl
 from faucet import valve_of
 
@@ -133,7 +134,7 @@ class DP(Conf):
         # How often to advertise (eg. IPv6 RAs)
         'proactive_learn': True,
         # whether proactive learning is enabled for IP nexthops
-        'pipeline_config_dir': '/etc/ryu/faucet',
+        'pipeline_config_dir': get_setting('FAUCET_PIPELINE_DIR'),
         # where config files for pipeline are stored (if any).
         'use_idle_timeout': False,
         # Turn on/off the use of idle timeout for src_table, default OFF.
@@ -338,7 +339,8 @@ class DP(Conf):
                     edge_count[edge_name] = 0
                 edge_count[edge_name] += 1
                 graph.add_edge(
-                    edge_a_dp.name, edge_z_dp.name, edge_name, edge_attr)
+                    edge_a_dp.name, edge_z_dp.name,
+                    key=edge_name, port_map=edge_attr)
         if graph.size():
             for edge_name, count in list(edge_count.items()):
                 assert count == 2, '%s defined only in one direction' % edge_name
@@ -362,16 +364,18 @@ class DP(Conf):
                 return self.shortest_path(root_dp.name)
         return []
 
+    def peer_stack_up_ports(self, peer_dp):
+        """Return list of stack ports that are up towards a peer."""
+        return [port for port in self.stack_ports if port.running() and port.stack['dp'].name == peer_dp]
+
     def shortest_path_port(self, dest_dp):
-        """Return port on our DP, that is the shortest path towards dest DP."""
+        """Return first port on our DP, that is the shortest path towards dest DP."""
         shortest_path = self.shortest_path(dest_dp)
         if shortest_path is not None:
             peer_dp = shortest_path[1]
-            peer_dp_ports = []
-            for port in self.stack_ports:
-                if port.stack['dp'].name == peer_dp:
-                    peer_dp_ports.append(port)
-            return peer_dp_ports[0]
+            peer_dp_ports = self.peer_stack_up_ports(peer_dp)
+            if peer_dp_ports:
+                return peer_dp_ports[0]
         return None
 
     def finalize_config(self, dps):
@@ -456,10 +460,12 @@ class DP(Conf):
 
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config."""
-                assert valve_acl.build_acl_ofmsgs(
-                    [acl], self.wildcard_table,
-                    valve_of.goto_table(self.wildcard_table),
-                    2**16, self.meters, vlan_vid=vid)
+                if acl.rules:
+                    assert valve_acl.build_acl_ofmsgs(
+                        [acl], self.wildcard_table,
+                        valve_of.goto_table(self.wildcard_table),
+                        2**16, self.meters, acl.exact_match,
+                        vlan_vid=vid)
 
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
@@ -640,18 +646,27 @@ class DP(Conf):
                 old_port = self.ports[port_no]
                 # An existing port has configs changed
                 if new_port != old_port:
-                    # TODO: we assume if port config had sub config
-                    # changed, it must have been the ACL.
-                    if old_port.ignore_subconf(new_port):
-                        changed_acl_ports.add(port_no)
-                        logger.info('port %s ACL changed' % port_no)
+                    # ACL optimization - did the ACL, and only the ACL change.
+                    if old_port.ignore_subconf(new_port, ignore_keys=set(['acl_in'])):
+                        if old_port.acl_in != new_port.acl_in:
+                            changed_acl_ports.add(port_no)
+                            old_acl_id = old_port.acl_in
+                            if old_acl_id:
+                                old_acl_id = old_acl_id._id
+                            new_acl_id = new_port.acl_in
+                            if new_acl_id:
+                                new_acl_id = new_acl_id._id
+                            logger.info('port %s ACL changed (ACL %s to %s)' % (
+                                port_no, old_acl_id, new_acl_id))
                     else:
                         changed_ports.add(port_no)
-                        logger.info('port %s reconfigured' % port_no)
+                        logger.info('port %s reconfigured (%s -> %s)' % (
+                            port_no, old_port.to_conf(), new_port.to_conf()))
                 elif new_port.acl_in in changed_acls:
                     # If the port has ACL changed.
                     changed_acl_ports.add(port_no)
-                    logger.info('port %s ACL changed' % port_no)
+                    logger.info('port %s ACL changed (ACL %s content changed)' % (
+                        port_no, new_port.acl_in._id))
 
         # TODO: optimize case where only VLAN ACL changed.
         for vid in changed_vlans:
@@ -689,6 +704,9 @@ class DP(Conf):
                 changed_vlans (set): changed/added VLAN IDs.
                 all_ports_changed (bool): True if all ports changed.
         """
+        if self.ignore_subconf(new_dp):
+            logger.info('DP base level config changed - requires cold start')
+            return (set(), set(), set(), set(), set(), True)
         changed_acls = self._get_acl_config_changes(logger, new_dp)
         deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
         (all_ports_changed, deleted_ports,

@@ -205,7 +205,7 @@ class Valve(object):
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 [vlan.acl_in], acl_table, acl_allow_inst,
                 self.dp.highest_priority, self.dp.meters,
-                vlan_vid=vlan.vid)
+                vlan.acl_in.exact_match, vlan_vid=vlan.vid)
         return ofmsgs
 
     def _add_vlan_flood_flow(self):
@@ -323,6 +323,8 @@ class Valve(object):
         """
         self.logger.info('Cold start configuring DP')
         ofmsgs = []
+        ofmsgs.append(valve_of.faucet_config())
+        ofmsgs.append(valve_of.faucet_async())
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
         ofmsgs.extend(self._add_controller_learn_flow())
@@ -345,7 +347,7 @@ class Valve(object):
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
                 [port.acl_in], acl_table, acl_allow_inst,
                 self.dp.highest_priority, self.dp.meters,
-                port_num=port.number))
+                port.acl_in.exact_match, port_num=port.number))
         else:
             ofmsgs.append(acl_table.flowmod(
                 in_port_match,
@@ -503,6 +505,7 @@ class Valve(object):
             if port_num not in self.dp.ports:
                 continue
             port = self.dp.ports[port_num]
+            port.dyn_phys_up = False
             self.logger.info('%s down' % port)
 
             # TODO: when mirroring an entire port, we install flows
@@ -643,7 +646,7 @@ class Valve(object):
                 learn_port, pkt_meta.vlan, pkt_meta.eth_src))
         return ofmsgs
 
-    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, pkt, eth_pkt):
+    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
@@ -651,6 +654,7 @@ class Valve(object):
             vlan_vid (int): VLAN VID of port packet was received on.
             eth_type (int): Ethernet type of packet.
             data (bytes): Raw packet data.
+            orig_len (int): Original length of packet.
             pkt (ryu.lib.packet.packet): parsed packet received.
             ekt_pkt (ryu.lib.packet.ethernet): parsed Ethernet header.
         Returns:
@@ -661,7 +665,7 @@ class Valve(object):
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         return valve_packet.PacketMeta(
-            data, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
+            data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
 
     def update_config_metrics(self, metrics):
         """Update gauge/metrics for configuration.
@@ -698,12 +702,14 @@ class Valve(object):
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
                     dp_id=dp_id, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
+            learned_hosts_count = 0
             for port in vlan.get_ports():
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
                     metrics.learned_macs.labels(
                         dp_id=dp_id, vlan=vlan.vid,
                         port=port.number, n=i).set(mac_int)
+                    learned_hosts_count += 1
                 metrics.port_learn_bans.labels(
                     dp_id=dp_id, port=port.number).set(port.dyn_learn_ban_count)
 
@@ -721,6 +727,7 @@ class Valve(object):
             list: OpenFlow messages, if any.
         """
         ofmsgs = []
+
         control_plane_handled = False
         learn_from_pkt = True
 
@@ -906,7 +913,7 @@ class Valve(object):
         return ofmsgs
 
     def flow_timeout(self, table_id, match):
-        return self.host_manager(table_id, match)
+        return self.host_manager.flow_timeout(table_id, match)
 
     def get_config_dict(self):
         return self.dp.config_dict()
