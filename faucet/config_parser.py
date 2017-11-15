@@ -93,7 +93,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         for vlan in port.tagged_vlans:
             vlan.add_tagged(port)
 
-        for vlan in port.vlans():
+        for vlan in list(vlans.values()):
             _dp_add_vlan(dp, vlan)
 
         return port

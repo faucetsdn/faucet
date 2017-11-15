@@ -278,7 +278,8 @@ class Valve(object):
                 all_port_nums.add(port.number)
             for port in vlan.mirror_destination_ports():
                 all_port_nums.add(port.number)
-            ofmsgs.extend(self._add_vlan(vlan))
+            if vlan.get_ports():
+                ofmsgs.extend(self._add_vlan(vlan))
             vlan.reset_host_cache()
 
         # now configure all ports
