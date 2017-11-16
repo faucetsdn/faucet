@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import array
 import ipaddress
 
 import dpkt
@@ -87,11 +88,25 @@ def parse_packet_in_pkt(data, max_len):
         ryu.lib.packet.ethernet: Ethernet packet.
         int: VLAN VID.
         int: Ethernet type of packet (inside VLAN)
+        str: Source IP Address if exists, otherwise None
     """
     pkt = None
     eth_pkt = None
     vlan_vid = None
     eth_type = None
+    src_ip = None
+
+    for p in packet.Packet(array.array('B', data)):
+        # Grab the IP Address before removing it from the packet, if it exists
+        try:
+            if p.protocol_name == 'ipv4':
+                src_ip = p.src
+            elif p.protocol_name == 'ipv6':
+                src_ip = p.src
+            elif p.protocol_name == 'arp':
+                src_ip = p.src_ip
+        except Exception as e:
+            pass
 
     if max_len:
         data = data[:max_len]
@@ -112,7 +127,7 @@ def parse_packet_in_pkt(data, max_len):
     except (AssertionError, stream_parser.StreamParser.TooSmallException):
         pass
 
-    return (pkt, eth_pkt, vlan_vid, eth_type)
+    return (pkt, eth_pkt, vlan_vid, eth_type, src_ip)
 
 
 def mac_addr_is_unicast(mac_addr):
@@ -472,7 +487,7 @@ def ip_header_size(eth_type):
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
-    def __init__(self, data, orig_len, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
+    def __init__(self, data, orig_len, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type, src_ip):
         self.data = data
         self.orig_len = orig_len
         self.pkt = pkt
@@ -482,15 +497,17 @@ class PacketMeta(object):
         self.eth_src = eth_src
         self.eth_dst = eth_dst
         self.eth_type = eth_type
+        self.src_ip = src_ip
 
     def reparse(self, max_len):
         """Reparse packet using data up to the specified maximum length."""
-        pkt, eth_pkt, vlan_vid, eth_type = parse_packet_in_pkt(
+        pkt, eth_pkt, vlan_vid, eth_type, src_ip = parse_packet_in_pkt(
             self.data, max_len)
         if pkt is None or vlan_vid is None or eth_type is None:
             return
         self.pkt = pkt
         self.eth_pkt = eth_pkt
+        self.src_ip = src_ip
 
     def reparse_all(self):
         """Reparse packet with all available data."""

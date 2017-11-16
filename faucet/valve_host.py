@@ -192,7 +192,7 @@ class ValveHostManager(object):
 
         return ofmsgs
 
-    def learn_host_on_vlan_ports(self, port, vlan, eth_src, delete_existing=True):
+    def learn_host_on_vlan_ports(self, port, vlan, eth_src, src_ip, delete_existing=True):
         """Learn a host on a port."""
         now = time.time()
         ofmsgs = []
@@ -241,8 +241,8 @@ class ValveHostManager(object):
         vlan.add_cache_host(eth_src, port, now)
 
         self.logger.info(
-            'learned %s on %s on VLAN %u (%u hosts total)' % (
-                eth_src, port, vlan.vid, vlan.hosts_count()))
+            'learned %s on %s on VLAN %u with IP %s (%u hosts total)' % (
+                eth_src, port, vlan.vid, src_ip, vlan.hosts_count()))
 
         return ofmsgs
 
@@ -320,7 +320,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
             entry = vlan.host_cache[eth_dst]
             if not entry.expired:
                 ofmsgs.extend(self.learn_host_on_vlan_ports(
-                    entry.port, vlan, eth_dst, False))
+                    entry.port, vlan, eth_dst, None, False))
                 self.logger.info(
                     'refreshing host %s from vlan %u' % (eth_dst, vlan.vid))
         return ofmsgs
