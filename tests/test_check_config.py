@@ -171,29 +171,6 @@ dps:
 """
         self.check_config_failure(unknown_hardware_config)
 
-    def test_unknown_router_vlan(self):
-        """Test that a unknown router VLAN is rejected."""
-        unknown_router_vlan_config = """
-routers:
-    router-1:
-        vlans: [100, 101]
-vlans:
-    100:
-        description: "100"
-    200:
-        description: "200"
-dps:
-    switch1:
-        dp_id: 0xcafef00d
-        hardware: 'Open vSwitch'
-        interfaces:
-            1:
-                 native_vlan: 100
-            2:
-                 native_vlan: 200
-"""
-        self.check_config_failure(unknown_router_vlan_config)
-
     def test_routing_stacking(self):
         """Test that routing and stacking cannot be enabled together."""
         routing_stacking_config = """
