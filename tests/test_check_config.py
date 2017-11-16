@@ -325,7 +325,7 @@ dps:
                 native_vlan: guest
                 acl_in: access-port-protect
 """
-        self.check_config_success(acl_config)
+        self.check_config_failure(acl_config)
 
 if __name__ == "__main__":
     unittest.main()

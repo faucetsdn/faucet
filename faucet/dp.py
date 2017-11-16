@@ -477,6 +477,8 @@ class DP(Conf):
                     if port.acl_in in self.acls:
                         port.acl_in = self.acls[port.acl_in]
                         build_acl(port.acl_in)
+                    else:
+                        assert False, 'Unconfigured acl for %s' % self.name
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
