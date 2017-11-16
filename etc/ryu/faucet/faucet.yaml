@@ -62,7 +62,12 @@ dps:
                 description: "Raspberry Pi"
                 native_vlan: office
                 acl_in: access-port-protect
+            2:
+                name: "laptop"
+                description: "Guest Laptop"
+                native_vlan: guest
+                acl_in: access-port-protect
             24:
                 name: "trunk"
                 description: "VLAN trunk to sw1"
-                tagged_vlans: [office]
+                tagged_vlans: [office, guest]

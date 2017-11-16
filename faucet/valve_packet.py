@@ -19,6 +19,7 @@
 
 import ipaddress
 
+import dpkt
 from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
 
 from faucet.valve_util import btos
@@ -471,8 +472,9 @@ def ip_header_size(eth_type):
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
-    def __init__(self, data, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
+    def __init__(self, data, orig_len, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
         self.data = data
+        self.orig_len = orig_len
         self.pkt = pkt
         self.eth_pkt = eth_pkt
         self.port = port
@@ -494,6 +496,21 @@ class PacketMeta(object):
         """Reparse packet with all available data."""
         self.reparse(0)
 
+    def isfragment(self):
+        """Return True if a fragment."""
+        dpkt_ip = dpkt.ethernet.Ethernet(self.data)
+        if isinstance(dpkt_ip.data, dpkt.ip.IP):
+            if bool(dpkt_ip.data.off & dpkt.ip.IP_MF) or dpkt_ip.data.off & dpkt.ip.IP_OFFMASK:
+                return True
+        return False
+
     def reparse_ip(self, eth_type, payload=0):
         """Reparse packet with specified IP header type and optionally payload."""
+        # Ryu blows up on fragments
+        if self.isfragment():
+            return
         self.reparse(ip_header_size(eth_type) + payload)
+
+    def packet_complete(self):
+        """True if we have the complete packet."""
+        return len(self.data) == self.orig_len

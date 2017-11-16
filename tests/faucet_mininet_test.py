@@ -531,16 +531,23 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
 
 
 def dump_failed_test_file(test_file, only_exts):
-    for ext in only_exts:
-        if test_file.endswith(ext):
-            test_file_content = open(test_file).read()
-            if test_file_content:
-                print(test_file)
-                print('=' * len(test_file))
-                print('\n')
-                print(test_file_content)
-            return True
-    return False
+    dump_file = False
+    test_file_content = open(test_file).read()
+    if test_file_content:
+        if only_exts:
+            for ext in only_exts:
+                if test_file.endswith(ext):
+                    dump_file = True
+                    break
+        else:
+            dump_file = True
+
+    if dump_file:
+        print(test_file)
+        print('=' * len(test_file))
+        print('\n')
+        print(test_file_content)
+    return dump_file
 
 
 def dump_failed_test(test_name, test_dir):
@@ -550,7 +557,7 @@ def dump_failed_test(test_name, test_dir):
     test_files = set(glob.glob(os.path.join(test_dir, '*')))
     dumped_test_files = set()
 
-    for only_exts in (['.yaml'], ['.log'], []):
+    for only_exts in (['.yaml'], ['.log'], ['.cap.txt'], ['.txt']):
         for test_file in sorted(test_files):
             if test_file in dumped_test_files:
                 continue
@@ -579,9 +586,9 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
     if hw_config is not None:
         print('Testing hardware, forcing test serialization')
         serial = True
-    root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-')
+    root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-', dir='/var/tmp')
     start_free_ports = 10
-    min_free_ports = 200
+    min_free_ports = 500
     ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
     print('test ports server started')
     sanity_tests, single_tests, parallel_tests = expand_tests(

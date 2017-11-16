@@ -5,11 +5,11 @@ exabgp
 influxdb
 ipaddress
 netifaces
-networkx==1.11
+networkx
 packaging
 prometheus_client
 pylint
 pytest-cov
 pyyaml
 requests
-ryu==4.18
+ryu==4.19

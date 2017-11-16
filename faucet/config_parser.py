@@ -60,10 +60,10 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         if vlan_ident in vlans:
             return vlans[vlan_ident]
         for vlan in list(vlans.values()):
-            if int(vlan_ident) == vlan.vid:
+            if vlan_ident == str(vlan.vid):
                 return vlan
         try:
-            vid = int(vlan_ident, 0)
+            vid = int(str(vlan_ident), 0)
         except ValueError:
             assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
 
@@ -92,10 +92,6 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         port.tagged_vlans = port_tagged_vlans
         for vlan in port.tagged_vlans:
             vlan.add_tagged(port)
-
-        for vlan in port.vlans():
-            _dp_add_vlan(dp, vlan)
-
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
@@ -105,7 +101,9 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         for port_num, port_conf in list(ports_conf.items()):
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
-
+        for vlan in list(vlans.values()):
+            if vlan.get_ports():
+                _dp_add_vlan(dp, vlan)
 
     try:
         for identifier, dp_conf in list(dps_conf.items()):

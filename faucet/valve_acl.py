@@ -108,7 +108,8 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
                 if not allow_specified:
                     allow = True
             if 'output' in attrib_value:
-                output_port, output_actions, output_ofmsgs = build_output_actions(attrib_value['output'])
+                output_port, output_actions, output_ofmsgs = build_output_actions(
+                    attrib_value['output'])
                 acl_inst.append(valve_of.apply_actions(output_actions))
                 ofmsgs.extend(output_ofmsgs)
 
@@ -130,7 +131,7 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
 
 def build_acl_ofmsgs(acls, acl_table, acl_allow_inst,
                      highest_priority, meters,
-                     port_num=None, vlan_vid=None):
+                     exact_match, port_num=None, vlan_vid=None):
     ofmsgs = []
     acl_rule_priority = highest_priority
     for acl in acls:
@@ -138,7 +139,12 @@ def build_acl_ofmsgs(acls, acl_table, acl_allow_inst,
             acl_match, acl_inst, acl_ofmsgs = build_acl_entry(
                 rule_conf, acl_allow_inst, meters, port_num, vlan_vid)
             ofmsgs.extend(acl_ofmsgs)
-            ofmsgs.append(acl_table.flowmod(
-                acl_match, priority=acl_rule_priority, inst=acl_inst))
+            if exact_match:
+                flowmod = acl_table.flowmod(
+                    acl_match, priority=highest_priority, inst=acl_inst)
+            else:
+                flowmod = acl_table.flowmod(
+                    acl_match, priority=acl_rule_priority, inst=acl_inst)
+            ofmsgs.append(flowmod)
             acl_rule_priority -= 1
     return ofmsgs

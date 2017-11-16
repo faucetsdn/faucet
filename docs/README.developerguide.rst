@@ -37,6 +37,7 @@ can be used:
  - **codefmt**: Provides command line usage to "Code Style" the Python file
  - **codeerrors**: Uses ``pylint`` on all Python files to generate a code error report and is placed in ``dist`` directory.
  - **stats**: Provides a list of all commits since the last release tag.
+ - **release**: Used for releasing FAUCET to the next version, Requires ``version`` and ``next_version`` variables.
 
 To *directly install* faucet from the cloned git repo, you could use ``sudo python setup.py install`` command from the root of the directory.
 

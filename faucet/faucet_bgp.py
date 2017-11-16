@@ -21,6 +21,7 @@
 import json
 import ipaddress
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
+from ryu.services.protocols.bgp.api.base import CoreNotStarted
 
 from faucet.valve_util import btos
 
@@ -83,8 +84,7 @@ class FaucetBgp(object):
             as_number=vlan.bgp_as,
             router_id=vlan.bgp_routerid,
             bgp_server_port=vlan.bgp_port,
-            # TODO: ryu 4.19
-            # bgp_server_hosts=vlan.bgp_server_addresses,
+            bgp_server_hosts=vlan.bgp_server_addresses,
             best_path_change_handler=handler)
         for faucet_vip in vlan.faucet_vips:
             bgp_speaker.prefix_add(
@@ -123,7 +123,11 @@ class FaucetBgp(object):
         for dp_id, bgp_speakers in list(self._dp_bgp_speakers.items()):
             for vlan, bgp_speaker in list(bgp_speakers.items()):
                 if bgp_speaker is not None:
-                    neighbor_states = list(json.loads(bgp_speaker.neighbor_state_get()).items())
+                    try:
+                        neighbor_states = list(json.loads(
+                            bgp_speaker.neighbor_state_get()).items())
+                    except CoreNotStarted:
+                        continue
                     for neighbor, neighbor_state in neighbor_states:
                         # pylint: disable=no-member
                         self._metrics.bgp_neighbor_uptime_seconds.labels(

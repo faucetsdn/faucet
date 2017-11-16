@@ -87,9 +87,9 @@ class GaugePoller(object):
             return 'LOCAL'
         elif stat.port_no in self.dp.ports:
             return self.dp.ports[stat.port_no].name
-        self.logger.info('%s stats for unknown port %u',
+        self.logger.debug('%s stats for unknown port %u',
                          dpid_log(dp_id), stat.port_no)
-        return None
+        return str(stat.port_no)
 
     @staticmethod
     def _format_port_stats(delim, stat):

@@ -23,6 +23,7 @@ import requests
 from requests.exceptions import ConnectionError
 
 # pylint: disable=import-error
+from mininet.link import TCLink
 from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.node import Intf
@@ -42,6 +43,7 @@ class FaucetTestBase(unittest.TestCase):
     FAUCET_VIPV6 = ipaddress.ip_interface(u'fc00::1:254/64')
     FAUCET_VIPV6_2 = ipaddress.ip_interface(u'fc01::1:254/64')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
+    VSCTL = 'ovs-vsctl'
     BOGUS_MAC = '01:02:03:04:05:06'
     FAUCET_MAC = '0e:00:00:00:00:01'
     LADVD = 'ladvd -e lo -f'
@@ -250,9 +252,12 @@ class FaucetTestBase(unittest.TestCase):
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
-            for dump_cmd in ('dump-flows', 'dump-tables', 'dump-groups', 'dump-meters', 'dump-group-stats', 'dump-ports'):
+            for dump_cmd in ('dump-flows', 'dump-groups', 'dump-meters', 'dump-group-stats', 'dump-ports'):
                 switch_dump_name = os.path.join(self.tmpdir, '%s-%s.log' % (switch.name, dump_cmd))
                 switch.cmd('%s %s %s > %s' % (self.OFCTL, dump_cmd, switch.name, switch_dump_name))
+            for other_cmd in ('show', 'list controller', 'list manager'):
+                other_dump_name = os.path.join(self.tmpdir, '%s.log' % other_cmd.replace(' ', ''))
+                switch.cmd('%s %s > %s' % (self.VSCTL, other_cmd, other_dump_name))
         if self.net is not None:
             self.net.stop()
             self.net = None
@@ -347,7 +352,9 @@ class FaucetTestBase(unittest.TestCase):
             self._set_vars()
             self._write_faucet_config()
             self.net = Mininet(
-                self.topo, controller=faucet_mininet_test_topo.FAUCET(
+                self.topo,
+                link=TCLink,
+                controller=faucet_mininet_test_topo.FAUCET(
                     name='faucet', tmpdir=self.tmpdir,
                     controller_intf=controller_intf,
                     env=self.env['faucet'],
@@ -417,13 +424,11 @@ class FaucetTestBase(unittest.TestCase):
                 continue
         return []
 
-    def _curl_portmod(self, int_dpid, port_no, config, mask):
-        """Use curl to send a portmod command via the ofctl module."""
-        curl_format = ' '.join((
-            'curl -X POST -d',
-            '\'{"dpid": %s, "port_no": %u, "config": %u, "mask": %u}\'',
-            self._ofctl_rest_url('stats/portdesc/modify')))
-        return curl_format % (int_dpid, port_no, config, mask)
+    def _portmod(self, int_dpid, port_no, config, mask):
+        return requests.post(
+            self._ofctl_rest_url('stats/portdesc/modify'),
+            json={'dpid': str(int_dpid), 'port_no': str(port_no),
+                  'config': str(config), 'mask': str(mask)})
 
     def _signal_proc_on_port(self, host, port, signal):
         tcp_pattern = '%s/tcp' % port
@@ -677,7 +682,7 @@ dbs:
         return False
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                   actions=None, match_exact=False):
+                                   actions=None, match_exact=False, hard_timeout=0):
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
         with open(flowdump, 'w') as flowdump_file:
             for _ in range(timeout):
@@ -689,6 +694,11 @@ dbs:
                     if (table_id is not None and
                             flow_dict['table_id'] != table_id):
                         continue
+                    if hard_timeout:
+                        if not 'hard_timeout' in flow_dict:
+                            continue
+                        if flow_dict['hard_timeout'] < hard_timeout:
+                            continue
                     if actions is not None:
                         if not set(actions).issubset(set(flow_dict['actions'])):
                             continue
@@ -705,19 +715,19 @@ dbs:
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                  actions=None, match_exact=None):
+                                  actions=None, match_exact=None, hard_timeout=0):
         flow_dicts = self.get_matching_flows_on_dpid(
             dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact)
+            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
         if flow_dicts:
             return flow_dicts[0]
         return []
 
     def get_matching_flow(self, match, timeout=10, table_id=None,
-                          actions=None, match_exact=None):
+                          actions=None, match_exact=None, hard_timeout=0):
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact)
+            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
         for _ in range(timeout):
@@ -733,43 +743,46 @@ dbs:
             'Cannot find group_id for matching flow %s' % match)
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                      actions=None, match_exact=None):
+                                      actions=None, match_exact=None, hard_timeout=0):
         """Return True if matching flow is present on a DPID."""
         if self.get_matching_flow_on_dpid(
                 dpid, match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact):
+                actions=actions, match_exact=match_exact, hard_timeout=hard_timeout):
             return True
         return False
 
     def matching_flow_present(self, match, timeout=10, table_id=None,
-                              actions=None, match_exact=None):
+                              actions=None, match_exact=None, hard_timeout=0):
         """Return True if matching flow is present on default DPID."""
         return self.matching_flow_present_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact)
+            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
 
     def wait_until_matching_flow(self, match, timeout=10, table_id=None,
-                                 actions=None, match_exact=False):
+                                 actions=None, match_exact=False, hard_timeout=0):
         """Wait (require) for flow to be present on default DPID."""
         self.assertTrue(
             self.matching_flow_present(
                 match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact),
+                actions=actions, match_exact=match_exact, hard_timeout=hard_timeout),
             msg=match)
 
     def wait_until_controller_flow(self):
         self.wait_until_matching_flow(None, actions=[u'OUTPUT:CONTROLLER'])
 
-    def mac_learned(self, mac, timeout=10, in_port=None):
+    def mac_learned(self, mac, timeout=10, in_port=None, hard_timeout=1):
         """Return True if a MAC has been learned on default DPID."""
         for eth_field, table_id in (
                 (u'dl_src', self.ETH_SRC_TABLE),
                 (u'dl_dst', self.ETH_DST_TABLE)):
             match = {eth_field: u'%s' % mac}
-            if in_port is not None and table_id == self.ETH_SRC_TABLE:
-                match[u'in_port'] = in_port
+            match_hard_timeout = 0
+            if table_id == self.ETH_SRC_TABLE:
+                if in_port is not None:
+                    match[u'in_port'] = in_port
+                match_hard_timeout = hard_timeout
             if not self.matching_flow_present(
-                    match, timeout=timeout, table_id=table_id):
+                    match, timeout=timeout, table_id=table_id, hard_timeout=match_hard_timeout):
                 return False
         return True
 
@@ -798,9 +811,9 @@ dbs:
     def prom_mac_learned(self, mac, port=None, vlan=None):
         return mac in self.prom_macs_learned(port=port, vlan=vlan)
 
-    def host_learned(self, host, timeout=10, in_port=None):
+    def host_learned(self, host, timeout=10, in_port=None, hard_timeout=1):
         """Return True if a host has been learned on default DPID."""
-        return self.mac_learned(host.MAC(), timeout, in_port)
+        return self.mac_learned(host.MAC(), timeout, in_port, hard_timeout=hard_timeout)
 
     def get_host_intf_mac(self, host, intf):
         return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
@@ -830,7 +843,7 @@ dbs:
         for host in self.net.hosts:
             self.reset_ipv4_prefix(host, prefix)
 
-    def require_host_learned(self, host, retries=8, in_port=None):
+    def require_host_learned(self, host, retries=8, in_port=None, hard_timeout=1):
         """Require a host be learned on default DPID."""
         host_ip_net = self.host_ipv4(host)
         if not host_ip_net:
@@ -852,7 +865,7 @@ dbs:
                 ping_cmd, host.defaultIntf().name, packets, broadcast_str), 3)
 
         for _ in range(retries):
-            if self.host_learned(host, timeout=1, in_port=in_port):
+            if self.host_learned(host, timeout=1, in_port=in_port, hard_timeout=hard_timeout):
                 return
             ping_result = host.cmd(ping_cli)
             self.assertTrue(re.search(
@@ -889,6 +902,11 @@ dbs:
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet', retries=1):
+        if dpid:
+            if dpid is True:
+                dpid = long(self.dpid)
+            else:
+                dpid = long(dpid)
         label_values_re = r''
         if any_labels:
             label_values_re = r'\{[^\}]+\}'
@@ -896,7 +914,7 @@ dbs:
             if labels is None:
                 labels = {}
             if dpid:
-                labels.update({'dp_id': '0x%x' % long(self.dpid)})
+                labels.update({'dp_id': '0x%x' % dpid})
             if labels:
                 label_values = []
                 for label, value in sorted(list(labels.items())):
@@ -982,6 +1000,42 @@ dbs:
         self.assertTrue(
             self._signal_proc_on_port(
                 self.gauge_controller, int(self.gauge_of_port), 1))
+
+    def reload_conf(self, yaml_conf, conf_path, restart, cold_start,
+                    change_expected=True, host_cache=None):
+        if yaml_conf:
+            with open(conf_path, 'w') as config_file:
+                config_file.write(yaml.dump(yaml_conf))
+        if restart:
+            var = 'faucet_config_reload_warm'
+            if cold_start:
+                var = 'faucet_config_reload_cold'
+            old_count = int(
+                self.scrape_prometheus_var(var, dpid=True, default=0))
+            old_mac_table = sorted(self.scrape_prometheus_var(
+                'learned_macs', labels={'vlan': host_cache}, multiple=True, default=[]))
+            self.verify_hup_faucet()
+            new_count = int(
+                self.scrape_prometheus_var(var, dpid=True, default=0))
+            new_mac_table = sorted(self.scrape_prometheus_var(
+                'learned_macs', labels={'vlan': host_cache}, multiple=True, default=[]))
+            if host_cache:
+                self.assertFalse(
+                    cold_start, msg='host cache is not maintained with cold start')
+                self.assertTrue(
+                    new_mac_table, msg='no host cache for vlan %u' % host_cache)
+                self.assertEqual(
+                    old_mac_table, new_mac_table,
+                    msg='host cache for vlan %u not same over reload (old %s, new %s)' % (
+                        host_cache, old_mac_table, new_mac_table))
+            if change_expected:
+                self.assertEqual(
+                    old_count + 1, new_count,
+                    msg='%s did not increment: %u' % (var, new_count))
+            else:
+                self.assertEqual(
+                    old_count, new_count,
+                    msg='%s incremented: %u' % (var, new_count))
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
@@ -1190,35 +1244,31 @@ dbs:
             time.sleep(1)
         self.fail(msg=msg)
 
-    def wait_port_status(self, port_no, expected_status, timeout=10):
+    def wait_port_status(self, dpid, port_no, expected_status, timeout=10):
         for _ in range(timeout):
             port_status = self.scrape_prometheus_var(
-                'port_status', {'port': port_no}, default=None)
+                'port_status', {'port': port_no}, default=None, dpid=dpid)
             if port_status is not None and port_status == expected_status:
                 return
             time.sleep(1)
-        self.fail('port %s status %s != expected %u' % (
-            port_no, port_status, expected_status))
+        self.fail('dpid %x port %s status %s != expected %u' % (
+            dpid, port_no, port_status, expected_status))
 
-    def set_port_status(self, port_no, status, wait):
-        self.assertEqual(
-            0,
-            os.system(self._curl_portmod(
-                self.dpid,
-                port_no,
-                status,
-                ofp.OFPPC_PORT_DOWN)))
+    def set_port_status(self, dpid, port_no, status, wait):
+        if dpid is None:
+            dpid = self.dpid
+        self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
         if wait:
             expected_status = 1
             if status == ofp.OFPPC_PORT_DOWN:
                 expected_status = 0
-            self.wait_port_status(port_no, expected_status)
+            self.wait_port_status(long(dpid), port_no, expected_status)
 
-    def set_port_down(self, port_no, wait=True):
-        self.set_port_status(port_no, ofp.OFPPC_PORT_DOWN, wait)
+    def set_port_down(self, port_no, dpid=None, wait=True):
+        self.set_port_status(dpid, port_no, ofp.OFPPC_PORT_DOWN, wait)
 
-    def set_port_up(self, port_no, wait=True):
-        self.set_port_status(port_no, 0, wait)
+    def set_port_up(self, port_no, dpid=None, wait=True):
+        self.set_port_status(dpid, port_no, 0, wait)
 
     def wait_dp_status(self, expected_status, controller='faucet', timeout=60):
         for _ in range(timeout):
@@ -1496,14 +1546,14 @@ dbs:
             time.sleep(1)
         self.fail('exabgp did not send BGP updates')
 
-    def ping_all_when_learned(self, retries=3):
+    def ping_all_when_learned(self, retries=3, hard_timeout=1):
         """Verify all hosts can ping each other once FAUCET has learned all."""
         # Cause hosts to send traffic that FAUCET can use to learn them.
         for _ in range(retries):
             loss = self.net.pingAll()
             # we should have learned all hosts now, so should have no loss.
             for host in self.net.hosts:
-                self.require_host_learned(host)
+                self.require_host_learned(host, hard_timeout=hard_timeout)
             if loss == 0:
                 return
         self.assertEqual(0, loss)

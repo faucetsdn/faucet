@@ -75,6 +75,23 @@ dps:
 """
         self.check_config_success(minimal_conf)
 
+    def test_vlan_name(self):
+        """Test vlan referred by its name."""
+        vlan_name_conf = """
+vlans:
+    finance:
+        description: "FINANCE VLAN"
+        vid: 100
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: finance
+"""
+        self.check_config_success(vlan_name_conf)
+
     def test_no_interfaces(self):
         """Test DP has no interfaces."""
         no_interfaces_conf = """
@@ -153,29 +170,6 @@ dps:
                 native_vlan: 100
 """
         self.check_config_failure(unknown_hardware_config)
-
-    def test_unknown_router_vlan(self):
-        """Test that a unknown router VLAN is rejected."""
-        unknown_router_vlan_config = """
-routers:
-    router-1:
-        vlans: [100, 101]
-vlans:
-    100:
-        description: "100"
-    200:
-        description: "200"
-dps:
-    switch1:
-        dp_id: 0xcafef00d
-        hardware: 'Open vSwitch'
-        interfaces:
-            1:
-                 native_vlan: 100
-            2:
-                 native_vlan: 200
-"""
-        self.check_config_failure(unknown_router_vlan_config)
 
     def test_routing_stacking(self):
         """Test that routing and stacking cannot be enabled together."""
@@ -286,6 +280,32 @@ dps:
 """
         self.check_config_success(acl_config)
 
+    def test_router_resolved_vlans(self):
+        """Test that VLANs get resolved by routers."""
+        vlan_config = """
+vlans:
+    100:
+        description: "100"
+    200:
+        description: "200"
+routers:
+    router1:
+        vlans: [100, 200]
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+    switch2:
+        dp_id: 0xdeadbeef
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 200
+"""
+        self.check_config_success(vlan_config)
 
 if __name__ == "__main__":
     unittest.main()

@@ -88,6 +88,16 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+    s2:
+        hardware: 'Open vSwitch'
+        dp_id: 0xdeadbeef
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+routers:
+    router1:
+        vlans: [v100, v200]
 vlans:
     v100:
         vid: 0x100
@@ -126,7 +136,7 @@ vlans:
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
         _, dps = dp_parser(self.config_file, 'test_valve')
-        return dps[0]
+        return [dp for dp in dps if dp.name == 's1'][0]
 
     def connect_dp(self):
         port_nos = range(1, self.NUM_PORTS + 1)
@@ -183,7 +193,7 @@ vlans:
         pkt.serialize()
         eth_pkt = valve_packet.parse_eth_pkt(pkt)
         pkt_meta = self.valve.parse_rcv_packet(
-            port, vid, eth_type, pkt.data, pkt, eth_pkt)
+            port, vid, eth_type, pkt.data, len(pkt.data), pkt, eth_pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             other_valves=[], pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
