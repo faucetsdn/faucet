@@ -92,10 +92,6 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         port.tagged_vlans = port_tagged_vlans
         for vlan in port.tagged_vlans:
             vlan.add_tagged(port)
-
-        for vlan in list(vlans.values()):
-            _dp_add_vlan(dp, vlan)
-
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
@@ -105,7 +101,9 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         for port_num, port_conf in list(ports_conf.items()):
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
-
+        for vlan in list(vlans.values()):
+            if vlan.get_ports():
+                _dp_add_vlan(dp, vlan)
 
     try:
         for identifier, dp_conf in list(dps_conf.items()):
