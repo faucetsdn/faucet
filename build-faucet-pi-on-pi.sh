@@ -22,7 +22,7 @@ build_tag()
 {
     tag=$1
     branch=$2
-    echo building tag $tag (branch $branch)
+    echo "building tag $tag (branch $branch)"
     if [ "$branch" == "master" ] ; then
         git checkout $branch
     else
