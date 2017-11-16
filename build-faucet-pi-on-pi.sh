@@ -23,11 +23,7 @@ build_tag()
     tag=$1
     branch=$2
     echo "building tag $tag (branch $branch)"
-    if [ "$branch" == "master" ] ; then
-        git checkout $branch
-    else
-        git checkout -b $branch
-    fi
+    git checkout $branch
     $DOCKER build -t faucet-pi -f Dockerfile.pi .
     $DOCKER build -t gauge-pi -f Dockerfile.pi-gauge .
     $DOCKER tag -f faucet-pi $DOCKER_ID_USER/faucet-pi:$tag
