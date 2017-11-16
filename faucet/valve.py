@@ -644,10 +644,10 @@ class Valve(object):
         ofmsgs = []
         if learn_port is not None:
             ofmsgs.extend(self.host_manager.learn_host_on_vlan_ports(
-                learn_port, pkt_meta.vlan, pkt_meta.eth_src))
+                learn_port, pkt_meta.vlan, pkt_meta.eth_src, pkt_meta.src_ip))
         return ofmsgs
 
-    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
+    def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt, src_ip):
         """Parse a received packet into a PacketMeta instance.
 
         Args:
@@ -658,6 +658,7 @@ class Valve(object):
             orig_len (int): Original length of packet.
             pkt (ryu.lib.packet.packet): parsed packet received.
             ekt_pkt (ryu.lib.packet.ethernet): parsed Ethernet header.
+            src_ip (str): Source IP address if exists, otherwise None
         Returns:
             PacketMeta instance.
         """
@@ -666,7 +667,7 @@ class Valve(object):
         vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         return valve_packet.PacketMeta(
-            data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
+            data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type, src_ip)
 
     def update_config_metrics(self, metrics):
         """Update gauge/metrics for configuration.

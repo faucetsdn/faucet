@@ -192,8 +192,15 @@ vlans:
         pkt, eth_type = build_pkt(match)
         pkt.serialize()
         eth_pkt = valve_packet.parse_eth_pkt(pkt)
+        src_ip = None
+        for p in pkt:
+            try:
+                if p.protocol_name in 'arp':
+                    src_ip = p.src_ip
+            except Exception as e:
+                pass
         pkt_meta = self.valve.parse_rcv_packet(
-            port, vid, eth_type, pkt.data, len(pkt.data), pkt, eth_pkt)
+            port, vid, eth_type, pkt.data, len(pkt.data), pkt, eth_pkt, src_ip)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             other_valves=[], pkt_meta=pkt_meta)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
