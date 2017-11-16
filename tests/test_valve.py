@@ -136,7 +136,7 @@ vlans:
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
         _, dps = dp_parser(self.config_file, 'test_valve')
-        return dps[0]
+        return [dp for dp in dps if dp.name == 's1'][0]
 
     def connect_dp(self):
         port_nos = range(1, self.NUM_PORTS + 1)

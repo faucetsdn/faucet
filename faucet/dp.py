@@ -17,6 +17,7 @@
 # limitations under the License.
 
 import collections
+import copy
 import networkx
 
 from faucet.acl import ACL
@@ -479,15 +480,18 @@ class DP(Conf):
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
-            for router_name in list(self.routers.keys()):
-                router = self.routers[router_name]
+            dp_routers = {}
+            for router_name, router in list(self.routers.items()):
                 vlans = []
                 for vlan_name in router.vlans:
                     vlan = resolve_vlan(vlan_name)
-                    assert vlan is not None, 'could not resolve VLAN %s, %s' % (
-                        vlan_name, list(self.vlans.values()))
-                    vlans.append(vlan)
-                self.routers[router_name].vlans = vlans
+                    if vlan is not None:
+                        vlans.append(vlan)
+                if len(vlans) > 1:
+                    dp_router = copy.copy(router)
+                    dp_router.vlans = vlans
+                    dp_routers[router_name] = dp_router
+            self.routers = dp_routers
 
         assert self.ports, 'no interfaces defined for %s' % self.name
         assert self.vlans, 'no VLANs referenced by interfaces in %s' % self.name
