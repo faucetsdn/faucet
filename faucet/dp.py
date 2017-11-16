@@ -473,8 +473,9 @@ class DP(Conf):
                     build_acl(vlan.acl_in, vid=1)
             for port in list(self.ports.values()):
                 if port.acl_in:
-                    port.acl_in = self.acls[port.acl_in]
-                    build_acl(port.acl_in)
+                    if port.acl_in in self.acls:
+                        port.acl_in = self.acls[port.acl_in]
+                        build_acl(port.acl_in)
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
