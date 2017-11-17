@@ -69,6 +69,7 @@ DEFAULTS = {
     'FAUCET_PROMETHEUS_ADDR': '',
     'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/ryu/faucet',
     'GAUGE_CONFIG': _PREFIX + '/etc/ryu/faucet/gauge.yaml',
+    'GAUGE_CONFIG_STAT_RELOAD': '',
     'GAUGE_LOG_LEVEL': 'INFO',
     'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/gauge_exception.log',
     'GAUGE_LOG': _PREFIX + '/var/log/ryu/faucet/gauge.log',
