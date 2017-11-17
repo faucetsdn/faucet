@@ -43,7 +43,10 @@ def dp_parser(config_file, logname):
     dps = None
 
     if conf is not None:
-        version = conf.pop('version', 2)
+        try:
+            version = conf.pop('version', 2)
+        except:
+            return None, None
         if version != 2:
             logger.fatal('Only config version 2 is supported')
 

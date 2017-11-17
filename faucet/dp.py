@@ -470,8 +470,11 @@ class DP(Conf):
 
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
-                    vlan.acl_in = self.acls[vlan.acl_in]
-                    build_acl(vlan.acl_in, vid=1)
+                    if vlan.acl_in in self.acls:
+                        vlan.acl_in = self.acls[vlan.acl_in]
+                        build_acl(vlan.acl_in, vid=1)
+                    else:
+                        assert False, 'Unconfigured vlan for %s' % self.name
             for port in list(self.ports.values()):
                 if port.acl_in:
                     if port.acl_in in self.acls:
