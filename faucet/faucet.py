@@ -139,14 +139,8 @@ class Faucet(app_manager.RyuApp):
         signal.signal(signal.SIGHUP, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
 
-    @kill_on_exception(exc_logname)
-    def _load_configs(self, new_config_file):
-        self.config_file = new_config_file
-        self.config_hashes, new_dps = dp_parser(
-            new_config_file, self.logname)
-        if new_dps is None:
-            self.logger.error('new config bad - rejecting')
-            return
+    def _apply_configs(self, new_dps):
+        """Actually apply configs."""
         deleted_valve_dpids = (
             set(list(self.valves.keys())) -
             set([valve.dp_id for valve in new_dps]))
@@ -188,6 +182,18 @@ class Faucet(app_manager.RyuApp):
             if ryu_dp is not None:
                 ryu_dp.close()
         self._bgp.reset(self.valves, self.metrics)
+
+    @kill_on_exception(exc_logname)
+    def _load_configs(self, new_config_file):
+        new_config_hashes, new_dps = dp_parser(
+            new_config_file, self.logname)
+        if new_dps is None:
+            self.logger.error('new config bad - rejecting')
+            return
+
+        self.config_file = new_config_file
+        self.config_hashes = new_config_hashes
+        self._apply_configs(new_dps)
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
