@@ -1306,7 +1306,7 @@ acls:
             self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST)
-        self._set_var_path('faucet', 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
+        self._set_var('faucet', 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
         self.start_net()
 
     def _get_conf(self):
