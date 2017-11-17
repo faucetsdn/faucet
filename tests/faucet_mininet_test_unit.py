@@ -1292,6 +1292,8 @@ acls:
             actions:
                allow: 1
 """
+    STAT_RELOAD = ''
+
 
     def setUp(self):
         super(FaucetConfigReloadTestBase, self).setUp()
@@ -1304,6 +1306,7 @@ acls:
             self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST)
+        self._set_var_path('faucet', 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
         self.start_net()
 
     def _get_conf(self):
@@ -1433,16 +1436,23 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 """
 
     def test_port_acls(self):
+        restart = not self.STAT_RELOAD
         first_host, second_host, third_host = self.net.hosts[:3]
         self.net.ping((first_host, second_host))
         self.net.ping((first_host, third_host))
         self.assertEqual(2, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
         self.change_port_config(
-            self.port_map['port_3'], 'acl_in', 'allow', restart=True)
+            self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
         self.net.ping((first_host, third_host))
         self.assertEqual(3, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
+
+
+class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):
+
+    # Use the stat-based reload method.
+    STAT_RELOAD = '1'
 
 
 class FaucetUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
