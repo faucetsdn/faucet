@@ -102,6 +102,7 @@ class Faucet(app_manager.RyuApp):
         self.loglevel = get_setting('FAUCET_LOG_LEVEL')
         self.logfile = get_setting('FAUCET_LOG')
         self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
+        self.stat_reload = get_setting('FAUCET_CONFIG_STAT_RELOAD')
 
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
@@ -286,8 +287,8 @@ class Faucet(app_manager.RyuApp):
                 new_config_file_stats = valve_util.stat_config_files(
                     self.config_hashes)
                 if new_config_file_stats != self.config_file_stats:
-                    # TODO: send config reload request.
-                    # self.send_event('Faucet', EventFaucetReconfigure())
+                    if self.stat_reload:
+                        self.send_event('Faucet', EventFaucetReconfigure())
                     if self.config_file_stats and new_config_file_stats:
                         self.logger.info('config file(s) changed on disk: %s' % (
                             diff(self.config_file_stats, new_config_file_stats, context=1)))

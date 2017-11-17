@@ -61,6 +61,7 @@ def get_sys_prefix():
 _PREFIX = get_sys_prefix()
 DEFAULTS = {
     'FAUCET_CONFIG': _PREFIX + '/etc/ryu/faucet/faucet.yaml',
+    'FAUCET_CONFIG_STAT_RELOAD': '',
     'FAUCET_LOG_LEVEL': 'INFO',
     'FAUCET_LOG': _PREFIX + '/var/log/ryu/faucet/faucet.log',
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/faucet_exception.log',
@@ -108,7 +109,7 @@ def stat_config_files(config_hashes):
     for config_file in list(config_hashes.keys()):
         try:
             config_file_stat = os.stat(config_file)
-        except FileNotFoundError:
+        except OSError:
             continue
         config_files_stats[config_file] = (
             config_file_stat.st_size,
