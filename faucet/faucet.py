@@ -24,8 +24,6 @@ import signal
 import sys
 import time
 
-from datadiff import diff
-
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -37,7 +35,7 @@ from ryu.lib import hub
 
 from faucet.config_parser import dp_parser, get_config_for_api
 from faucet.config_parser_util import config_changed
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_bool_setting, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_api
 from faucet import faucet_bgp
@@ -102,7 +100,7 @@ class Faucet(app_manager.RyuApp):
         self.loglevel = get_setting('FAUCET_LOG_LEVEL')
         self.logfile = get_setting('FAUCET_LOG')
         self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
-        self.stat_reload = get_setting('FAUCET_CONFIG_STAT_RELOAD')
+        self.stat_reload = get_bool_setting('FAUCET_CONFIG_STAT_RELOAD')
 
         # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
@@ -128,6 +126,8 @@ class Faucet(app_manager.RyuApp):
         # Configure all Valves
         self.config_hashes = None
         self.config_file_stats = None
+        if self.stat_reload:
+            self.logger.info('will automatically reload new config on changes')
         self._load_configs(self.config_file)
 
         # Start all threads
@@ -263,7 +263,8 @@ class Faucet(app_manager.RyuApp):
             self.close()
             sys.exit(0)
 
-    def _thread_jitter(self, period, jitter=2):
+    @staticmethod
+    def _thread_jitter(period, jitter=2):
         """Reschedule another thread with a random jitter."""
         hub.sleep(period + random.randint(0, jitter))
 
@@ -286,15 +287,12 @@ class Faucet(app_manager.RyuApp):
             if self.config_hashes:
                 new_config_file_stats = valve_util.stat_config_files(
                     self.config_hashes)
-                if new_config_file_stats != self.config_file_stats:
-                    if self.stat_reload:
-                        self.send_event('Faucet', EventFaucetReconfigure())
-                    if self.config_file_stats and new_config_file_stats:
-                        self.logger.info('config file(s) changed on disk: %s' % (
-                            diff(self.config_file_stats, new_config_file_stats, context=1)))
-                    else:
-                        self.logger.info('all config files changed on disk')
-                    self.config_file_stats = new_config_file_stats
+                if self.config_file_stats:
+                    if new_config_file_stats != self.config_file_stats:
+                        if self.stat_reload:
+                            self.send_event('Faucet', EventFaucetReconfigure())
+                        self.logger.info('config file(s) changed on disk')
+                self.config_file_stats = new_config_file_stats
             self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
