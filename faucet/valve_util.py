@@ -61,7 +61,7 @@ def get_sys_prefix():
 _PREFIX = get_sys_prefix()
 DEFAULTS = {
     'FAUCET_CONFIG': _PREFIX + '/etc/ryu/faucet/faucet.yaml',
-    'FAUCET_CONFIG_STAT_RELOAD': '',
+    'FAUCET_CONFIG_STAT_RELOAD': '0',
     'FAUCET_LOG_LEVEL': 'INFO',
     'FAUCET_LOG': _PREFIX + '/var/log/ryu/faucet/faucet.log',
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/faucet_exception.log',
@@ -69,7 +69,7 @@ DEFAULTS = {
     'FAUCET_PROMETHEUS_ADDR': '',
     'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/ryu/faucet',
     'GAUGE_CONFIG': _PREFIX + '/etc/ryu/faucet/gauge.yaml',
-    'GAUGE_CONFIG_STAT_RELOAD': '',
+    'GAUGE_CONFIG_STAT_RELOAD': '0',
     'GAUGE_LOG_LEVEL': 'INFO',
     'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/gauge_exception.log',
     'GAUGE_LOG': _PREFIX + '/var/log/ryu/faucet/gauge.log',
@@ -79,6 +79,17 @@ DEFAULTS = {
 def get_setting(name):
     """Returns value of specified configuration setting."""
     return os.getenv(name, DEFAULTS[name])
+
+
+def get_bool_setting(name):
+    """Return True if setting is a non-zero int."""
+    str_setting = os.getenv(name, DEFAULTS[name])
+    try:
+        if int(str_setting):
+            return True
+    except ValueError:
+        pass
+    return False
 
 
 def get_logger(logname, logfile, loglevel, propagate):
