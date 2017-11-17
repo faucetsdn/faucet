@@ -172,9 +172,10 @@ class Gauge(app_manager.RyuApp):
         """Periodically stat config files for any changes."""
         # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         while True:
+            # TODO: also stat FAUCET config.
             if self.config_file:
-                new_config_file_stats = stat_config_files(
-                    {self.config_file: None})
+                config_hashes = {self.config_file: None}
+                new_config_file_stats = stat_config_files(config_hashes)
                 if new_config_file_stats != self.config_file_stats:
                     if self.stat_reload:
                         self.send_event('Gauge', EventGaugeReconfigure())
