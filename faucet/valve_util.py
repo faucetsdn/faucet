@@ -100,3 +100,18 @@ def dpid_log(dpid):
 def btos(b_str):
     """Return byte array/string as string."""
     return b_str.encode('utf-8').decode('utf-8', 'strict')
+
+
+def stat_config_files(config_hashes):
+    """Return dict of a subset of stat attributes on config files."""
+    config_files_stats = {}
+    for config_file in list(config_hashes.keys()):
+        try:
+            config_file_stat = os.stat(config_file)
+        except FileNotFoundError:
+            continue
+        config_files_stats[config_file] = (
+            config_file_stat.st_size,
+            config_file_stat.st_mtime,
+            config_file_stat.st_ctime)
+    return config_files_stats

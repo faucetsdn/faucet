@@ -18,6 +18,8 @@
 
 import collections
 import copy
+
+from datadiff import diff
 import networkx
 
 from faucet.acl import ACL
@@ -664,8 +666,8 @@ class DP(Conf):
                                 port_no, old_acl_id, new_acl_id))
                     else:
                         changed_ports.add(port_no)
-                        logger.info('port %s reconfigured (%s -> %s)' % (
-                            port_no, old_port.to_conf(), new_port.to_conf()))
+                        logger.info('port %s reconfigured (%s)' % (
+                            port_no, diff(old_port.to_conf(), new_port.to_conf(), context=1)))
                 elif new_port.acl_in in changed_acls:
                     # If the port has ACL changed.
                     changed_acl_ports.add(port_no)

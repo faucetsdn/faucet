@@ -24,6 +24,8 @@ import signal
 import sys
 import time
 
+from datadiff import diff
+
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -40,6 +42,7 @@ from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_api
 from faucet import faucet_bgp
 from faucet import faucet_metrics
+from faucet import valve_util
 from faucet import valve_packet
 from faucet import valve_of
 
@@ -122,13 +125,16 @@ class Faucet(app_manager.RyuApp):
         self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
 
         # Configure all Valves
+        self.config_hashes = None
+        self.config_file_stats = None
         self._load_configs(self.config_file)
 
         # Start all threads
         self._threads = [
             hub.spawn(thread) for thread in (
                 self._gateway_resolve_request, self._state_expire_request,
-                self._metric_update_request, self._advertise_request)]
+                self._metric_update_request, self._advertise_request,
+                self._config_file_stat)]
 
         # Register to API
         api = kwargs['faucet_api']
@@ -256,6 +262,10 @@ class Faucet(app_manager.RyuApp):
             self.close()
             sys.exit(0)
 
+    def _thread_jitter(self, period, jitter=2):
+        """Reschedule another thread with a random jitter."""
+        hub.sleep(period + random.randint(0, jitter))
+
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
 
@@ -265,7 +275,26 @@ class Faucet(app_manager.RyuApp):
         """
         while True:
             self.send_event('Faucet', ryu_event)
-            hub.sleep(period + random.randint(0, jitter))
+            self._thread_jitter(period, jitter)
+
+    @kill_on_exception(exc_logname)
+    def _config_file_stat(self):
+        """Periodically stat config files for any changes."""
+        # TODO: Better to use an inotify method that doesn't conflict with eventlets.
+        while True:
+            if self.config_hashes:
+                new_config_file_stats = valve_util.stat_config_files(
+                    self.config_hashes)
+                if new_config_file_stats != self.config_file_stats:
+                    # TODO: send config reload request.
+                    # self.send_event('Faucet', EventFaucetReconfigure())
+                    if self.config_file_stats and new_config_file_stats:
+                        self.logger.info('config file(s) changed on disk: %s' % (
+                            diff(self.config_file_stats, new_config_file_stats, context=1)))
+                    else:
+                        self.logger.info('all config files changed on disk')
+                    self.config_file_stats = new_config_file_stats
+            self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
         self._thread_reschedule(EventFaucetResolveGateways(), 2)
