@@ -37,12 +37,17 @@ from faucet.config_parser import dp_parser, get_config_for_api
 from faucet.config_parser_util import config_changed
 from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_bool_setting, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
-from faucet import faucet_api
+from faucet import faucet_experimental_api
 from faucet import faucet_bgp
 from faucet import faucet_metrics
 from faucet import valve_util
 from faucet import valve_packet
 from faucet import valve_of
+
+
+class EventFaucetExperimentalAPIRegistered(event.EventBase):
+    """Event used to notify that the API is registered with Faucet."""
+    pass
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -70,11 +75,6 @@ class EventFaucetAdvertise(event.EventBase):
     pass
 
 
-class EventFaucetAPIRegistered(event.EventBase):
-    """Event used to notify that the API is registered with Faucet."""
-    pass
-
-
 class Faucet(app_manager.RyuApp):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
@@ -84,8 +84,9 @@ class Faucet(app_manager.RyuApp):
     OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {
         'dpset': dpset.DPSet,
-        'faucet_api': faucet_api.FaucetAPI
+        'faucet_experimental_api': faucet_experimental_api.FaucetExperimentalAPI,
         }
+    _EVENTS = [EventFaucetExperimentalAPIRegistered]
     logname = 'faucet'
     exc_logname = logname + '.exception'
 
@@ -102,8 +103,8 @@ class Faucet(app_manager.RyuApp):
         self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
         self.stat_reload = get_bool_setting('FAUCET_CONFIG_STAT_RELOAD')
 
-        # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
+        self.api = kwargs['faucet_experimental_api']
 
         # Setup logging
         self.logger = get_logger(
@@ -113,34 +114,34 @@ class Faucet(app_manager.RyuApp):
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
         self.valves = {}
+        self.config_hashes = None
+        self.config_file_stats = None
+        self.metrics = faucet_metrics.FaucetMetrics()
+        self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
+
+    def start(self):
+        super(Faucet, self).start()
 
         # Start Prometheus
         prom_port = int(get_setting('FAUCET_PROMETHEUS_PORT'))
         prom_addr = get_setting('FAUCET_PROMETHEUS_ADDR')
-        self.metrics = faucet_metrics.FaucetMetrics()
         self.metrics.start(prom_port, prom_addr)
 
-        # Start BGP
-        self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
-
         # Configure all Valves
-        self.config_hashes = None
-        self.config_file_stats = None
         if self.stat_reload:
             self.logger.info('will automatically reload new config on changes')
         self._load_configs(self.config_file)
 
         # Start all threads
-        self._threads = [
+        self.threads.extend([
             hub.spawn(thread) for thread in (
                 self._gateway_resolve_request, self._state_expire_request,
                 self._metric_update_request, self._advertise_request,
-                self._config_file_stat)]
+                self._config_file_stat)])
 
         # Register to API
-        api = kwargs['faucet_api']
-        api._register(self)
-        self.send_event_to_observers(EventFaucetAPIRegistered())
+        self.api._register(self)
+        self.send_event_to_observers(EventFaucetExperimentalAPIRegistered())
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self._signal_handler)
@@ -343,11 +344,11 @@ class Faucet(app_manager.RyuApp):
                 self._send_flow_msgs(dp_id, flowmods)
 
     def get_config(self):
-        """FAUCET API: return config for all Valves."""
+        """FAUCET experimental API: return config for all Valves."""
         return get_config_for_api(self.valves)
 
     def get_tables(self, dp_id):
-        """FAUCET API: return config tables for one Valve."""
+        """FAUCET experimental API: return config tables for one Valve."""
         return self.valves[dp_id].dp.get_tables()
 
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)

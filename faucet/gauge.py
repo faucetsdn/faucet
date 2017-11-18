@@ -71,20 +71,23 @@ class Gauge(app_manager.RyuApp):
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
-        self.prom_client = GaugePrometheusClient()
-
-        # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
+
+        self.prom_client = GaugePrometheusClient()
 
         # dict of watchers/handlers, indexed by dp_id and then by name
         self.watchers = {}
         self.config_file_stats = None
+
+    def start(self):
+        super(Gauge, self).start()
+
         if self.stat_reload:
             self.logger.info('will automatically reload new config on changes')
         self._load_config()
 
-        self._threads = [
-            hub.spawn(thread) for thread in (self._config_file_stat,)]
+        self.threads.extend([
+            hub.spawn(thread) for thread in (self._config_file_stat,)])
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
