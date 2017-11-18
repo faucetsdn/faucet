@@ -476,6 +476,8 @@ socket_timeout=15
 class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
+    RYUAPPS = ['ryu.app.ofctl_rest', 'faucet.faucet']
+
     def __init__(self, name, tmpdir, controller_intf, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, port, test_name, **kwargs):
@@ -490,7 +492,7 @@ class FAUCET(BaseFAUCET):
             tmpdir,
             controller_intf,
             cargs=cargs,
-            command=self._command(env, tmpdir, name, 'ryu.app.ofctl_rest faucet.faucet'),
+            command=self._command(env, tmpdir, name, ' '.join(self.RYUAPPS)),
             port=port,
             **kwargs)
 
@@ -514,12 +516,7 @@ class Gauge(BaseFAUCET):
             **kwargs)
 
 
-class FaucetAPI(BaseFAUCET):
+class FaucetAPI(FAUCET):
     """Start a controller to run the Faucet API tests."""
 
-    def __init__(self, name, tmpdir, env, **kwargs):
-        super(FaucetAPI, self).__init__(
-            name,
-            tmpdir,
-            command=self._command(env, tmpdir, name, 'faucet.faucet test_api.py'),
-            **kwargs)
+    RYUAPPS = ['test_api.py', 'ryu.app.ofctl_rest', 'faucet.faucet']

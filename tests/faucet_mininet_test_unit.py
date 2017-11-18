@@ -72,54 +72,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     pass
 
 
-@unittest.skip('currently flaky')
-class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
-    """Test the Faucet API."""
-
-    NUM_DPS = 0
-    LINKS_PER_HOST = 0
-
-    def setUp(self):
-        self.tmpdir = self._tmpdir_name()
-        name = 'faucet'
-        self._set_var_path(name, 'FAUCET_CONFIG', 'config/testconfigv2-simple.yaml')
-        self._set_var_path(name, 'FAUCET_LOG', 'faucet.log')
-        self._set_var_path(name, 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
-        self._set_var_path(name, 'API_TEST_RESULT', 'result.txt')
-        self.results_file = self.env[name]['API_TEST_RESULT']
-        shutil.copytree('config', os.path.join(self.tmpdir, 'config'))
-        self.dpid = str(0xcafef00d)
-        self._set_prom_port(name)
-        self.of_port = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-        self.topo = faucet_mininet_test_topo.FaucetSwitchTopo(
-            self.ports_sock,
-            dpid=self.dpid,
-            n_untagged=7,
-            test_name=self._test_name())
-        self.net = Mininet(
-            self.topo,
-            controller=faucet_mininet_test_topo.FaucetAPI(
-                name=name,
-                tmpdir=self.tmpdir,
-                env=self.env[name],
-                port=self.of_port))
-        self.net.start()
-        self.reset_all_ipv4_prefix(prefix=24)
-        self.wait_for_tcp_listen(self._get_controller(), self.of_port)
-
-    def test_api(self):
-        for _ in range(10):
-            try:
-                with open(self.results_file, 'r') as results:
-                    result = results.read().strip()
-                    self.assertEqual('pass', result, result)
-                    return
-            except IOError:
-                time.sleep(1)
-        self.fail('no result from API test')
-
-
 class FaucetUntaggedTest(FaucetTest):
     """Basic untagged VLAN test."""
 
@@ -161,6 +113,30 @@ vlans:
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
         self.prometheus_smoke_test()
+
+
+class FaucetExperimentalAPITest(FaucetUntaggedTest):
+    """Test the experimental Faucet API."""
+
+    CONTROLLER_CLASS = faucet_mininet_test_topo.FaucetAPI
+
+    def _set_static_vars(self):
+        super(FaucetExperimentalAPITest, self)._set_static_vars()
+        self._set_var_path('faucet', 'API_TEST_RESULT', 'result.txt')
+        self.results_file = self.env['faucet']['API_TEST_RESULT']
+
+    def test_untagged(self):
+        result = None
+        for _ in range(10):
+            try:
+                with open(self.results_file, 'r') as results:
+                    result = results.read().strip()
+                    if result == 'pass':
+                        return
+            except IOError:
+                pass
+            time.sleep(1)
+        self.fail('incorrect result from API test: %s' % result)
 
 
 class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):

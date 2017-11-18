@@ -926,7 +926,7 @@ class Valve(object):
         return self.host_manager.flow_timeout(table_id, match)
 
     def get_config_dict(self):
-        return self.dp.config_dict()
+        return self.dp.get_config_dict()
 
 
 class TfmValve(Valve):
