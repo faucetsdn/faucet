@@ -2727,7 +2727,6 @@ acls:
                 description: "b4"
 """
 
-    @unittest.skip('needs OVS dev >= v2.8')
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
@@ -2779,7 +2778,6 @@ acls:
                 description: "b4"
 """
 
-    @unittest.skip('needs OVS dev >= v2.8')
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
