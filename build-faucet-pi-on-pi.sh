@@ -9,7 +9,7 @@ mkdir -p $TMPDIR
 date
 cd ~/faucet && \
 git stash && \
-git checkout master && \
+git checkout -q master && \
 git pull 2>&1 || exit 1
 
 export DOCKER_ID_USER="faucet"
@@ -23,7 +23,7 @@ build_tag()
     tag=$1
     branch=$2
     echo "building tag $tag (branch $branch)"
-    git checkout $branch
+    git checkout -q $branch
     $DOCKER build -t faucet-pi -f Dockerfile.pi .
     $DOCKER build -t gauge-pi -f Dockerfile.pi-gauge .
     $DOCKER tag -f faucet-pi $DOCKER_ID_USER/faucet-pi:$tag

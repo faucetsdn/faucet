@@ -1,7 +1,8 @@
 """Implement experimental API."""
 
 #### THIS API IS EXPERIMENTAL.
-#### Discuss with faucet-dev list before relying on this API.
+#### Discuss with faucet-dev list before relying on this API,
+#### review http://www.hyrumslaw.com/.
 #### It is subject to change without notice.
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
