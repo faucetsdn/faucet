@@ -30,7 +30,7 @@ services:
         ports:
             - '9090:9090'
         volumes:
-            - '$FAUCET_PREFIX/opt/prometheus/:/prometheus'
+            - '${FAUCET_PREFIX}/opt/prometheus/:/prometheus'
             - './etc/prometheus/prometheus-docker-compose.yml:/etc/prometheus/prometheus.yml'
             - './etc/prometheus/faucet.rules.yml:/etc/prometheus/faucet.rules.yml'
         links:
@@ -43,7 +43,7 @@ services:
         ports:
             - '3000:3000'
         volumes:
-            - '$FAUCET_PREFIX/opt/grafana:/var/lib/grafana'
+            - '${FAUCET_PREFIX}/opt/grafana:/var/lib/grafana'
         links:
             - influxdb
             - prometheus
@@ -55,10 +55,10 @@ services:
             dockerfile: Dockerfile.gauge
         image: 'faucet/gauge:1.6.9'
         environment:
-           - GAUGE_CONFIG=/etc/ryu/faucet/gauge.yaml
+            GAUGE_CONFIG: '/etc/ryu/faucet/gauge.yaml'
         volumes:
-            - '$FAUCET_PREFIX/var/log/ryu/faucet:/var/log/ryu/faucet'
-            - '$FAUCET_PREFIX/etc/ryu/faucet:/etc/ryu/faucet'
+            - '${FAUCET_PREFIX}/var/log/ryu/faucet:/var/log/ryu/faucet'
+            - '${FAUCET_PREFIX}/etc/ryu/faucet:/etc/ryu/faucet'
         ports:
             - '6654:6653'
             - '9303'
@@ -73,8 +73,10 @@ services:
             dockerfile: Dockerfile
         image: 'faucet/faucet:1.6.9'
         volumes:
-            - '$FAUCET_PREFIX/var/log/ryu/faucet:/var/log/ryu/faucet'
-            - '$FAUCET_PREFIX/etc/ryu/faucet:/etc/ryu/faucet'
+            - '${FAUCET_PREFIX}/var/log/ryu/faucet:/var/log/ryu/faucet'
+            - '${FAUCET_PREFIX}/etc/ryu/faucet:/etc/ryu/faucet'
         ports:
             - '6653:6653'
             - '9302'
+        environment:
+            FAUCET_CONFIG_STAT_RELOAD: '${FAUCET_CONFIG_STAT_RELOAD}'
