@@ -472,6 +472,12 @@ def ip_header_size(eth_type):
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
+    ETH_TYPES_PARSERS = {
+        valve_of.ether.ETH_TYPE_IP: ipv4.ipv4,
+        valve_of.ether.ETH_TYPE_ARP: arp.arp,
+        valve_of.ether.ETH_TYPE_IPV6: ipv6.ipv6,
+    }
+
     def __init__(self, data, orig_len, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
         self.data = data
         self.orig_len = orig_len
@@ -482,6 +488,8 @@ class PacketMeta(object):
         self.eth_src = eth_src
         self.eth_dst = eth_dst
         self.eth_type = eth_type
+        self.l3_pkt = None
+        self.l3_src = None
 
     def reparse(self, max_len):
         """Reparse packet using data up to the specified maximum length."""
@@ -510,6 +518,13 @@ class PacketMeta(object):
         if self.isfragment():
             return
         self.reparse(ip_header_size(eth_type) + payload)
+        if self.eth_type in self.ETH_TYPES_PARSERS:
+            self.l3_pkt = self.pkt.get_protocol(self.ETH_TYPES_PARSERS[self.eth_type])
+            if self.l3_pkt:
+                if hasattr(self.l3_pkt, 'src_ip'):
+                    self.l3_src = self.l3_pkt.src_ip
+                elif hasattr(self.l3_pkt, 'src'):
+                    self.l3_src = self.l3_pkt.src
 
     def packet_complete(self):
         """True if we have the complete packet."""

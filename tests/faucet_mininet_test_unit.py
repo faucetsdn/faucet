@@ -72,54 +72,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     pass
 
 
-@unittest.skip('currently flaky')
-class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
-    """Test the Faucet API."""
-
-    NUM_DPS = 0
-    LINKS_PER_HOST = 0
-
-    def setUp(self):
-        self.tmpdir = self._tmpdir_name()
-        name = 'faucet'
-        self._set_var_path(name, 'FAUCET_CONFIG', 'config/testconfigv2-simple.yaml')
-        self._set_var_path(name, 'FAUCET_LOG', 'faucet.log')
-        self._set_var_path(name, 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
-        self._set_var_path(name, 'API_TEST_RESULT', 'result.txt')
-        self.results_file = self.env[name]['API_TEST_RESULT']
-        shutil.copytree('config', os.path.join(self.tmpdir, 'config'))
-        self.dpid = str(0xcafef00d)
-        self._set_prom_port(name)
-        self.of_port = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-        self.topo = faucet_mininet_test_topo.FaucetSwitchTopo(
-            self.ports_sock,
-            dpid=self.dpid,
-            n_untagged=7,
-            test_name=self._test_name())
-        self.net = Mininet(
-            self.topo,
-            controller=faucet_mininet_test_topo.FaucetAPI(
-                name=name,
-                tmpdir=self.tmpdir,
-                env=self.env[name],
-                port=self.of_port))
-        self.net.start()
-        self.reset_all_ipv4_prefix(prefix=24)
-        self.wait_for_tcp_listen(self._get_controller(), self.of_port)
-
-    def test_api(self):
-        for _ in range(10):
-            try:
-                with open(self.results_file, 'r') as results:
-                    result = results.read().strip()
-                    self.assertEqual('pass', result, result)
-                    return
-            except IOError:
-                time.sleep(1)
-        self.fail('no result from API test')
-
-
 class FaucetUntaggedTest(FaucetTest):
     """Basic untagged VLAN test."""
 
@@ -161,6 +113,30 @@ vlans:
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
         self.prometheus_smoke_test()
+
+
+class FaucetExperimentalAPITest(FaucetUntaggedTest):
+    """Test the experimental Faucet API."""
+
+    CONTROLLER_CLASS = faucet_mininet_test_topo.FaucetExperimentalAPI
+
+    def _set_static_vars(self):
+        super(FaucetExperimentalAPITest, self)._set_static_vars()
+        self._set_var_path('faucet', 'API_TEST_RESULT', 'result.txt')
+        self.results_file = self.env['faucet']['API_TEST_RESULT']
+
+    def test_untagged(self):
+        result = None
+        for _ in range(10):
+            try:
+                with open(self.results_file, 'r') as results:
+                    result = results.read().strip()
+                    if result == 'pass':
+                        return
+            except IOError:
+                pass
+            time.sleep(1)
+        self.fail('incorrect result from API test: %s' % result)
 
 
 class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):
@@ -1292,6 +1268,8 @@ acls:
             actions:
                allow: 1
 """
+    STAT_RELOAD = ''
+
 
     def setUp(self):
         super(FaucetConfigReloadTestBase, self).setUp()
@@ -1304,6 +1282,7 @@ acls:
             self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST)
+        self._set_var('faucet', 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
         self.start_net()
 
     def _get_conf(self):
@@ -1433,16 +1412,23 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 """
 
     def test_port_acls(self):
+        restart = not self.STAT_RELOAD
         first_host, second_host, third_host = self.net.hosts[:3]
         self.net.ping((first_host, second_host))
         self.net.ping((first_host, third_host))
         self.assertEqual(2, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
         self.change_port_config(
-            self.port_map['port_3'], 'acl_in', 'allow', restart=True)
+            self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
         self.net.ping((first_host, third_host))
         self.assertEqual(3, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
+
+
+class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):
+
+    # Use the stat-based reload method.
+    STAT_RELOAD = '1'
 
 
 class FaucetUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
@@ -2741,7 +2727,6 @@ acls:
                 description: "b4"
 """
 
-    @unittest.skip('needs OVS dev >= v2.8')
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
@@ -2757,6 +2742,7 @@ acls:
             'vlan 456.+vlan 123', tcpdump_txt))
 
 
+@unittest.skip('broken in OVS master')
 class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -2793,7 +2779,6 @@ acls:
                 description: "b4"
 """
 
-    @unittest.skip('needs OVS dev >= v2.8')
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN

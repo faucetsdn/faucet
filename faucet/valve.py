@@ -613,7 +613,6 @@ class Valve(object):
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for route_manager in list(self.route_manager_by_ipv.values()):
                 if pkt_meta.eth_type in route_manager.CONTROL_ETH_TYPES:
-                    pkt_meta.reparse_ip(route_manager.ETH_TYPE)
                     ofmsgs = route_manager.control_plane_handler(pkt_meta)
                     break
         return ofmsgs
@@ -645,6 +644,11 @@ class Valve(object):
         if learn_port is not None:
             ofmsgs.extend(self.host_manager.learn_host_on_vlan_ports(
                 learn_port, pkt_meta.vlan, pkt_meta.eth_src))
+            self.logger.info(
+                'L2 learned %s (L2 type 0x%4.4x, L3 src %s) on %s on VLAN %u (%u hosts total)' % (
+                    pkt_meta.eth_src, pkt_meta.eth_type,
+                    pkt_meta.l3_src, pkt_meta.port,
+                    pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
         return ofmsgs
 
     def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
@@ -747,11 +751,16 @@ class Valve(object):
                 if not pkt_meta.port.dyn_lacp_up:
                     return ofmsgs
 
-            if self.L3:
-                control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
-                if control_plane_ofmsgs:
-                    control_plane_handled = True
-                    ofmsgs.extend(control_plane_ofmsgs)
+            for eth_types in list(valve_route.ETH_TYPES.values()):
+                if pkt_meta.eth_type in eth_types:
+                    pkt_meta.reparse_ip(pkt_meta.eth_type)
+                    if pkt_meta.l3_pkt:
+                        if self.L3:
+                            control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
+                            if control_plane_ofmsgs:
+                                control_plane_handled = True
+                                ofmsgs.extend(control_plane_ofmsgs)
+                        break
 
         if self._rate_limit_packet_ins():
             return ofmsgs
@@ -766,7 +775,7 @@ class Valve(object):
 
             # Add FIB entries, if routing is active and not already handled
             # by control plane.
-            if self.L3 and not control_plane_handled:
+            if self.L3 and pkt_meta.l3_pkt and not control_plane_handled:
                 for route_manager in list(self.route_manager_by_ipv.values()):
                     ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
@@ -917,7 +926,7 @@ class Valve(object):
         return self.host_manager.flow_timeout(table_id, match)
 
     def get_config_dict(self):
-        return self.dp.config_dict()
+        return self.dp.get_config_dict()
 
 
 class TfmValve(Valve):

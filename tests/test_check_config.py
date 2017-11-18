@@ -307,5 +307,25 @@ dps:
 """
         self.check_config_success(vlan_config)
 
+    def test_referencing_unconfigured_acl(self):
+        """Test that there is no unhandled exception when referencing unconfigured acl"""
+        acl_config = """
+vlans:
+    guest:
+        vid: 200
+
+dps:
+    sw2:
+        dp_id: 0x2
+        hardware: "Allied-Telesis"
+        interfaces:
+            1:
+                name: "pi"
+                description: "Raspberry Pi"
+                native_vlan: guest
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(acl_config)
+
 if __name__ == "__main__":
     unittest.main()

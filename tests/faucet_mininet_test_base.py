@@ -49,6 +49,7 @@ class FaucetTestBase(unittest.TestCase):
     LADVD = 'ladvd -e lo -f'
     ONEMBPS = (1024 * 1024)
     DB_TIMEOUT = 5
+    CONTROLLER_CLASS = faucet_mininet_test_topo.FAUCET
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -354,7 +355,7 @@ class FaucetTestBase(unittest.TestCase):
             self.net = Mininet(
                 self.topo,
                 link=TCLink,
-                controller=faucet_mininet_test_topo.FAUCET(
+                controller=self.CONTROLLER_CLASS(
                     name='faucet', tmpdir=self.tmpdir,
                     controller_intf=controller_intf,
                     env=self.env['faucet'],
