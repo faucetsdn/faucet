@@ -516,7 +516,7 @@ class Gauge(BaseFAUCET):
             **kwargs)
 
 
-class FaucetAPI(FAUCET):
-    """Start a controller to run the Faucet API tests."""
+class FaucetExperimentalAPI(FAUCET):
+    """Start a controller to run the Faucet experimental API tests."""
 
-    RYUAPPS = ['test_api.py', 'ryu.app.ofctl_rest', 'faucet.faucet']
+    RYUAPPS = ['test_experimental_api.py', 'ryu.app.ofctl_rest', 'faucet.faucet']

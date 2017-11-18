@@ -1,4 +1,8 @@
-"""Implement configuration API."""
+"""Implement experimental API."""
+
+#### THIS API IS EXPERIMENTAL.
+#### Discuss with faucet-dev list before relying on this API.
+#### It is subject to change without notice.
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -17,33 +21,12 @@
 # limitations under the License.
 
 
-class FaucetAPI(object):
-    """An API for communicating with Faucet.
+class FaucetExperimentalAPI(object):
+    """An experimental API for communicating with Faucet.
 
-    Contains methods for interacting with a running faucet controller from
-    within a RyuApp. This app should be run together with faucet in the same
+    Contains methods for interacting with a running Faucet controller from
+    within a RyuApp. This app should be run together with Faucet in the same
     ryu-manager process.
-
-    It can be accessed by use of the _CONTEXTS dictionary within a RyuApp.
-    eg.
-
-    class ExampleApp(app_manager.RyuApp):
-
-        _CONTEXTS = {
-            'faucet_api': FaucetAPI
-            }
-
-        def __init__(self, *args, **kwargs):
-            self.is_api_registered = False
-            self.faucet_api = kwargs['faucet_api']
-
-        @set_ev_cls(EventFaucetAPIRegistered, MAIN_DISPATCHER)
-        def _api_registered(self):
-            self.is_api_registered = True
-
-        def print_faucet_config(self):
-            if self.is_api_registered:
-                print(self.faucet_api.get_config())
     """
 
     def __init__(self, *args, **kwargs):

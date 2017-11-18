@@ -118,7 +118,7 @@ vlans:
 class FaucetExperimentalAPITest(FaucetUntaggedTest):
     """Test the experimental Faucet API."""
 
-    CONTROLLER_CLASS = faucet_mininet_test_topo.FaucetAPI
+    CONTROLLER_CLASS = faucet_mininet_test_topo.FaucetExperimentalAPI
 
     def _set_static_vars(self):
         super(FaucetExperimentalAPITest, self)._set_static_vars()
