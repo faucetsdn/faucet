@@ -16,11 +16,11 @@ PARALLELTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" tests/faucet_mininet
 echo single process tests: ${SINGLETESTS}
 echo parallelizable tests: ${PARALLELTESTS}
 
-case ${TRAVIS_MATRIX} in:
-  SINGLE):
+case ${TRAVIS_MATRIX} in
+  SINGLE)
     RUNTESTS=${SINGLETESTS}
     ;;
-  PARALLEL):
+  PARALLEL)
     RUNTESTS=${PARALLELTESTS}
     ;;
   *)
