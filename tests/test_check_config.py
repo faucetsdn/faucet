@@ -75,6 +75,22 @@ dps:
 """
         self.check_config_success(minimal_conf)
 
+    def test_invalid_vid(self):
+        """Test invalid VID."""
+        invalid_vid_conf = """
+vlans:
+    100:
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 4097
+"""
+        self.check_config_failure(invalid_vid_conf)
+
     def test_vlan_name(self):
         """Test vlan referred by its name."""
         vlan_name_conf = """
