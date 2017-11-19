@@ -356,6 +356,34 @@ dps:
 """
         self.check_config_failure(acl_config)
 
+    def test_referencing_unconfigured_vlan(self):
+        """Test that there is no unhandled exception when referencing an unconfigured vlan"""
+        vlan_config = """
+vlans:
+    office:
+        vid: 100
+        description: "office network"
+        acl_in: office-vlan-protect
+        faucet_mac: "0e:00:00:00:10:01"
+        faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
+        routes:
+            - route:
+                ip_dst: '192.168.0.0/24'
+                ip_gw: '10.0.100.2'
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        proactive_learn: True
+        interfaces:
+            1:
+                name: "h1"
+                description: "host1 container"
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(vlan_config)
+
     def test_config_contains_only_int(self):
         """Test that no unhandled exception when config only an int"""
         config = """5"""
