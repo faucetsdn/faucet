@@ -92,6 +92,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         port.tagged_vlans = port_tagged_vlans
         for vlan in port.tagged_vlans:
             vlan.add_tagged(port)
+        assert port.vlans() or port.stack, '%s must have a VLAN or be a stack port' % port
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
