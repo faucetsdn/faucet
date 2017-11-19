@@ -682,7 +682,7 @@ class DP(Conf):
             for port in new_dp.vlans[vid].get_ports():
                 changed_ports.add(port.number)
 
-        deleted_ports = set(list(self.ports.keys())) - set(list(self.new_dp.ports.keys()))
+        deleted_ports = set(list(self.ports.keys())) - set(list(new_dp.ports.keys()))
         if deleted_ports:
             logger.info('deleted ports: %s', deleted_ports)
 

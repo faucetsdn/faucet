@@ -88,6 +88,8 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+                tagged_vlans: [v300]
+
     s2:
         hardware: 'Open vSwitch'
         dp_id: 0xdeadbeef
@@ -113,6 +115,8 @@ vlans:
             - route:
                 ip_dst: "fc00::10:0/112"
                 ip_gw: "fc00::1:1"
+    v300:
+        vid: 0x300
 """
 
     DP_ID = 1
@@ -508,11 +512,14 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+                native_vlan: v300
 vlans:
     v100:
         vid: 0x100
     v200:
         vid: 0x200
+    v300:
+        vid: 0x300
 acls:
     drop_non_ospf_ipv4:
         - rule:
@@ -577,12 +584,15 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+                native_vlan: v300
 vlans:
     v100:
         vid: 0x100
     v200:
         vid: 0x200
         acl_in: drop_non_ospf_ipv4
+    v300:
+        vid: 0x300
 acls:
     drop_non_ospf_ipv4:
         - rule:
@@ -647,11 +657,14 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+                native_vlan: v300
 vlans:
     v100:
         vid: 0x100
     v200:
         vid: 0x200
+    v300:
+        vid: 0x300
 """
 
     def setUp(self):
