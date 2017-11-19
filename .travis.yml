@@ -15,7 +15,6 @@ cache:
 env:
   global:
     - FAUCET_TEST_IMG=faucet/tests
-  # See run-travis-test.sh
   - TRAVIS_MATRIX=SINGLE
   - TRAVIS_MATRIX=PARALLEL
 install:
