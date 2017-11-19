@@ -61,6 +61,7 @@ def get_sys_prefix():
 _PREFIX = get_sys_prefix()
 DEFAULTS = {
     'FAUCET_CONFIG': _PREFIX + '/etc/ryu/faucet/faucet.yaml',
+    'FAUCET_CONFIG_STAT_RELOAD': '0',
     'FAUCET_LOG_LEVEL': 'INFO',
     'FAUCET_LOG': _PREFIX + '/var/log/ryu/faucet/faucet.log',
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/faucet_exception.log',
@@ -68,6 +69,7 @@ DEFAULTS = {
     'FAUCET_PROMETHEUS_ADDR': '',
     'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/ryu/faucet',
     'GAUGE_CONFIG': _PREFIX + '/etc/ryu/faucet/gauge.yaml',
+    'GAUGE_CONFIG_STAT_RELOAD': '0',
     'GAUGE_LOG_LEVEL': 'INFO',
     'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/gauge_exception.log',
     'GAUGE_LOG': _PREFIX + '/var/log/ryu/faucet/gauge.log',
@@ -77,6 +79,17 @@ DEFAULTS = {
 def get_setting(name):
     """Returns value of specified configuration setting."""
     return os.getenv(name, DEFAULTS[name])
+
+
+def get_bool_setting(name):
+    """Return True if setting is a non-zero int."""
+    str_setting = os.getenv(name, DEFAULTS[name])
+    try:
+        if int(str_setting):
+            return True
+    except ValueError:
+        pass
+    return False
 
 
 def get_logger(logname, logfile, loglevel, propagate):
@@ -100,3 +113,18 @@ def dpid_log(dpid):
 def btos(b_str):
     """Return byte array/string as string."""
     return b_str.encode('utf-8').decode('utf-8', 'strict')
+
+
+def stat_config_files(config_hashes):
+    """Return dict of a subset of stat attributes on config files."""
+    config_files_stats = {}
+    for config_file in list(config_hashes.keys()):
+        try:
+            config_file_stat = os.stat(config_file)
+        except OSError:
+            continue
+        config_files_stats[config_file] = (
+            config_file_stat.st_size,
+            config_file_stat.st_mtime,
+            config_file_stat.st_ctime)
+    return config_files_stats

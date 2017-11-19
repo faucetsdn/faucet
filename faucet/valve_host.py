@@ -239,11 +239,6 @@ class ValveHostManager(object):
             dst_rule_idle_timeout))
 
         vlan.add_cache_host(eth_src, port, now)
-
-        self.logger.info(
-            'learned %s on %s on VLAN %u (%u hosts total)' % (
-                eth_src, port, vlan.vid, vlan.hosts_count()))
-
         return ofmsgs
 
     def flow_timeout(self, _table_id, _match):
@@ -322,5 +317,5 @@ class ValveHostFlowRemovedManager(ValveHostManager):
                 ofmsgs.extend(self.learn_host_on_vlan_ports(
                     entry.port, vlan, eth_dst, False))
                 self.logger.info(
-                    'refreshing host %s from vlan %u' % (eth_dst, vlan.vid))
+                    'refreshing host %s from VLAN %u' % (eth_dst, vlan.vid))
         return ofmsgs
