@@ -307,5 +307,55 @@ dps:
 """
         self.check_config_success(vlan_config)
 
+    def test_good_port_range_conf(self):
+        port_ranges_config = """
+vlans:
+    100:
+        description: "100"
+    200:
+        description: "200"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+        interface-ranges:
+            2-8:
+                native_vlan: 200
+    switch2:
+        dp_id: 0xdeadbeef
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                description: "port-1"
+        interface-ranges:
+            1-4,6,8:
+                native_vlan: 200
+"""
+        self.check_config_success(port_ranges_config)
+
+    def test_bad_port_range_conf(self):
+        port_ranges_config = """
+vlans:
+    100:
+        description: "100"
+    200:
+        description: "200"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+        interface-ranges:
+            2-1:
+                native_vlan: 200
+"""
+        self.check_config_failure(port_ranges_config)
+
+
 if __name__ == "__main__":
     unittest.main()

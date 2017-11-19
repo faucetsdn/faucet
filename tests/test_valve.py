@@ -663,6 +663,77 @@ vlans:
         self.apply_new_config(self.CONFIG)
         self.learn_hosts()
 
+class ValvePortRangeConfigTestCase(ValveTestCase):
+    """Repeats the tests after a config reload."""
+
+    PORT_RANGE_CONFIG = """
+version: 2
+dps:
+    s1:
+        ignore_learn_ins: 0
+        hardware: 'Open vSwitch'
+        dp_id: 1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+        interface-ranges:
+            1,4-5:
+                acl_in: drop_tcp_5001
+            2-3:
+                acl_in: drop_tcp_5001
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+acls:
+    drop_tcp_5001:
+        - rule:
+            dl_type: 0x800
+            nw_proto: 6
+            tp_dst: 5001
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+"""
+
+    def setUp(self):
+        self.setup_valve(self.PORT_RANGE_CONFIG)
+        self.connect_dp()
+        self.learn_hosts()
+
+    def test_port_acl_deny(self):
+        drop_match_tcp_5001 = {
+            'in_port': 1,
+            'vlan_vid': 0,
+            'eth_type': 0x800,
+            'ipv4_dst': '192.0.2.1',
+            'nw_proto': 6,
+            'tp_dst': 5001}
+
+        for port_no, vid in [
+                (1,self.V100), (2,self.V200), (3,self.V100), (4,self.V200)]:
+            drop_match_tcp_5001['in_port'] = port_no
+            self.assertFalse(
+                self.table.is_output(
+                    drop_match_tcp_5001, port=port_no, vid=vid),
+                msg='Packet not blocked by ACL')
+
 
 if __name__ == "__main__":
     unittest.main()
