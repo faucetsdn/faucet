@@ -80,6 +80,7 @@ class DP(Conf):
         # Name for this dp, used for stats reporting and configuration
         'name': None,
         'interfaces': {},
+        'interface-ranges': {},
         # How much to offset default priority by
         'priority_offset': 0,
         # Some priority values
@@ -145,6 +146,7 @@ class DP(Conf):
         'dp_id': int,
         'name': str,
         'interfaces': dict,
+        'interface-ranges': dict,
         'priority_offset': int,
         'lowest_priority': int,
         'low_priority': int,

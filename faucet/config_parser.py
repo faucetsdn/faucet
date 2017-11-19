@@ -17,6 +17,7 @@
 # limitations under the License.
 
 import collections
+import re
 
 from faucet import config_parser_util
 from faucet.acl import ACL
@@ -96,9 +97,41 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
         ports_conf = dp_conf.pop('interfaces', {})
+        port_ranges_conf = dp_conf.pop('interface-ranges', {})
         # as users can config port vlan by using vlan name, we store vid in
         # Port instance instead of vlan name for data consistency
-        for port_num, port_conf in list(ports_conf.items()):
+        port_num_to_port_conf = {}
+        for port_ident, port_conf in list(ports_conf.items()):
+            if 'number' in port_conf:
+                port_num = port_conf['number']
+            else:
+                port_num = port_ident
+            port_num_to_port_conf[port_num] = (port_ident, port_conf)
+        for port_range, port_conf in list(port_ranges_conf.items()):
+            # port range format: 1-6 OR 1-6,8-9 OR 1-3,5,7-9
+            port_nums = set()
+            if 'number' in port_conf:
+                del port_conf['number']
+            for range_ in re.findall(r'(\d+-\d+)', port_range):
+                start_num = end_num = 0
+                try:
+                    start_num, end_num = [int(num) for num in range_.split('-')]
+                except:
+                    assert False, "port range must be integer"
+                assert start_num < end_num, (
+                    'Incorrect port range (%d - %d)' % (start_num, end_num))
+                port_nums.update(list(range(start_num, end_num + 1)))
+                port_range = re.sub(range_, '', port_range)
+            other_nums = [int(p) for p in re.findall(r'\d+', port_range)]
+            port_nums.update(other_nums)
+            for port_num in port_nums:
+                if port_num in port_num_to_port_conf:
+                    # port range config has lower priority than individual port config
+                    for attr, value in list(port_conf.items()):
+                        port_num_to_port_conf[port_num][1].setdefault(attr, value)
+                else:
+                    port_num_to_port_conf[port_num] = (port_num, port_conf)
+        for port_num, port_conf in list(port_num_to_port_conf.values()):
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
         for vlan in list(vlans.values()):
