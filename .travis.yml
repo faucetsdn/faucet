@@ -21,7 +21,7 @@ install:
   - pip3 install -q dist/*tar.gz
   - pip3 show faucet
 script:
-  - ~/run-travis-tests.sh
+  - ~/faucet/run-travis-tests.sh
 deploy:
   provider: pypi
   user: faucet
