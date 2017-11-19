@@ -713,8 +713,12 @@ acls:
 """
 
     def setUp(self):
-        self.setup_valve(self.PORT_RANGE_CONFIG)
+        self.setup_valve(self.CONFIG)
         self.connect_dp()
+        self.flap_port(1)
+        self.learn_hosts()
+
+        self.apply_new_config(self.PORT_RANGE_CONFIG)
         self.learn_hosts()
 
     def test_port_acl_deny(self):
