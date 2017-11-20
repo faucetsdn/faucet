@@ -356,6 +356,34 @@ dps:
 """
         self.check_config_failure(acl_config)
 
+    def test_referencing_unconfigured_vlan_acl(self):
+        """Test that there is no unhandled exception when referencing an unconfigured acl"""
+        acl_config = """
+vlans:
+    office:
+        vid: 100
+        description: "office network"
+        acl_in: office-vlan-protect
+        faucet_mac: "0e:00:00:00:10:01"
+        faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
+        routes:
+            - route:
+                ip_dst: '192.168.0.0/24'
+                ip_gw: '10.0.100.2'
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        proactive_learn: True
+        interfaces:
+            1:
+                name: "h1"
+                description: "host1 container"
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(acl_config)
+
     def test_config_contains_only_int(self):
         """Test that no unhandled exception when config only an int"""
         config = """5"""
@@ -394,6 +422,96 @@ dps:
     def test_config_contains_only_empty_array(self):
         """Test no unhandled exception when config only []"""
         config = """[]"""
+        self.check_config_failure(config)
+
+    def test_config_routes_are_empty(self):
+        """Test that there is no unhandled exception when vlan routes are empty"""
+        config = """
+include:
+    - acls.yaml
+vlans:
+    office:
+        vid: 100
+        description: "office network"
+        acl_in: office-vlan-protect
+        faucet_mac: "0e:00:00:00:10:01"
+        faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
+        routes:
+            - route:
+                ip_dst: 
+                ip_gw: 
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        proactive_learn: True
+        interfaces:
+            5:
+                name: "trunk"
+                description: "VLAN trunk to sw2"
+                tagged_vlans: [office]
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config)
+
+    def test_config_routes_are_not_strings(self):
+        """Test that there is no unhandled exception when vlan routes are not strings"""
+        config = """
+include:
+    - acls.yaml
+vlans:
+    office:
+        vid: 100
+        description: "office network"
+        acl_in: office-vlan-protect
+        faucet_mac: "0e:00:00:00:10:01"
+        faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
+        routes:
+            - route:
+                ip_dst: []
+                ip_gw: 5.5
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        proactive_learn: True
+        interfaces:
+            5:
+                name: "trunk"
+                description: "VLAN trunk to sw2"
+                tagged_vlans: [office]
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config)
+
+    def test_config_vlan_vips_are_not_strings(self):
+        """Test that there is no unhandled exception when faucet_vips does not contain strings"""
+        config = """
+include:
+    - acls.yaml
+vlans:
+    office:
+        vid: 100
+        description: "office network"
+        acl_in: office-vlan-protect
+        faucet_mac: "0e:00:00:00:10:01"
+        faucet_vips: [False, 5.5, 4584594]
+        routes:
+            - route:
+                ip_dst: '192.168.0.0/24'
+                ip_gw: '10.0.100.2'
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        proactive_learn: True
+        interfaces:
+            5:
+                name: "trunk"
+                description: "VLAN trunk to sw2"
+                tagged_vlans: [office]
+                acl_in: access-port-protect
+"""
         self.check_config_failure(config)
 
 if __name__ == "__main__":
