@@ -10,26 +10,22 @@ cd ..
 docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
 docker images
 
-ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" tests/faucet_mininet_test_unit.py|cut -f2 -d" "`
-SINGLETESTS=`echo "$ALLTESTS" | grep -o -E "\b(FaucetSingle.+Test)\b"`
+ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" tests/faucet_mininet_test_unit.py|cut -f2 -d" "|sort`
 
-PARALLELTESTS=`echo "$ALLTESTS" | grep -v -E "\b(FaucetSingle.+Test)\b"`
-L3TESTS=`echo "$PARALLELTESTS" | grep -o -i -E "\b(.+(Rout|IPv).+)\b"`
-OTHERTESTS=`echo "$PARALLELTESTS" | grep -v -i -E "\b(.+(Rout|IPv).+)\b"`
+declare -A sharded
 
-case ${TRAVIS_MATRIX} in
-  SINGLE)
-    RUNTESTS=${SINGLETESTS}
-    ;;
-  L3TESTS)
-    RUNTESTS=${L3TESTS}
-    ;;
-  OTHERTESTS)
-    RUNTESTS=${OTHERTESTS}
-    ;;
-  *)
-    RUNTESTS=''
-    ;;
-esac
+function shard {
+  work=$1
+  workers=$2
+  i=0
+  for shard in $work ; do
+    i=$(expr $i % $workers)
+    sharded[$i]="${sharded[$i]} $shard"
+    i=$(expr $i + 1)
+  done
+}
+
+shard "$ALLTESTS" ${MATRIX_SHARDS}
+RUNTESTS="${sharded[${MATRIX_SHARD}]}"
 
 sudo docker run --privileged -t -e FAUCET_TESTS="-d ${RUNTESTS}" ${FAUCET_TEST_IMG} 

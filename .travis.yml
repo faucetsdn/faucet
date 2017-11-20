@@ -15,10 +15,13 @@ cache:
 env:
   global:
     - FAUCET_TEST_IMG=faucet/tests
+    - MATRIX_SHARDS=5
   matrix:
-    - TRAVIS_MATRIX=SINGLE
-    - TRAVIS_MATRIX=L3TESTS
-    - TRAVIS_MATRIX=OTHERTESTS
+    - MATRIX_SHARD=0
+    - MATRIX_SHARD=1
+    - MATRIX_SHARD=2
+    - MATRIX_SHARD=3
+    - MATRIX_SHARD=4
 install:
   - pip3 install -q -r requirements.txt -r test-requirements.txt
   - python3 setup.py -q sdist
