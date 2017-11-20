@@ -18,7 +18,7 @@ services:
         build:
             context: docker/prometheus
             dockerfile: Dockerfile
-        image: 'prometheus'
+        image: 'faucet/prometheus-pi:2.0.0'
         ports:
             - '9090:9090'
         volumes:
@@ -45,7 +45,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.pi-gauge
-        image: 'faucet/gauge:1.6.10'
+        image: 'faucet/gauge-pi:1.6.10'
         environment:
             GAUGE_CONFIG: '/etc/ryu/faucet/gauge.yaml'
         volumes:
@@ -62,7 +62,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.pi
-        image: 'faucet/faucet:1.6.10'
+        image: 'faucet/faucet-pi:1.6.10'
         volumes:
             - '${FAUCET_PREFIX}/var/log/ryu/faucet:/var/log/ryu/faucet'
             - '${FAUCET_PREFIX}/etc/ryu/faucet:/etc/ryu/faucet'
