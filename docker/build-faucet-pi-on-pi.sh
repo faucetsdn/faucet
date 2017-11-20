@@ -7,7 +7,8 @@ rm -rf $TMPDIR
 mkdir -p $TMPDIR
 
 date
-cd ~/faucet && \
+cd $(dirname $0) && \
+cd .. && \
 git stash && \
 git checkout -q master && \
 git pull 2>&1 || exit 1

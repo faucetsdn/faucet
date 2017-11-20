@@ -7,6 +7,7 @@ rm -rf $TMPDIR
 mkdir -p $TMPDIR
 
 date
+cd $(dirname $0) && \
 cd .. && \
 git stash && \
 git checkout -q master && \
