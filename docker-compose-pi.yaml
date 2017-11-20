@@ -21,7 +21,7 @@ services:
         volumes:
             - '${FAUCET_PREFIX}/opt/prometheus/:/prometheus'
             - './etc/prometheus/prometheus-docker-compose.yml:/etc/prometheus/prometheus.yml'
-            - './etc/prometheus/faucet.rules:/etc/prometheus/faucet.rules'
+            - './etc/prometheus/faucet.rules.yml:/etc/prometheus/faucet.rules.yml'
         links:
             - faucet
             - gauge
