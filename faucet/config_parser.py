@@ -141,7 +141,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         for dp in dps:
             dp.resolve_stack_topology(dps)
 
-    except AssertionError as err:
+    except (AssertionError, AttributeError) as err:
         logger.exception('Error in config file: %s', err)
         return None
 
