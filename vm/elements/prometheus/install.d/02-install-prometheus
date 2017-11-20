@@ -28,7 +28,7 @@ chown -R faucet: /var/lib/prometheus/
 install -D -g root -o root -m 0644 ${SCRIPTDIR}/prometheus.yml /etc/prometheus/prometheus.yml
 install -D -g root -o root -m 0644 ${SCRIPTDIR}/prometheus.service /etc/systemd/system/prometheus.service
 
-install -D -g root -o root -m 0644 ${SCRIPTDIR}/faucet-src/etc/prometheus/faucet.rules /etc/prometheus/faucet.rules
+install -D -g root -o root -m 0644 ${SCRIPTDIR}/faucet-src/etc/prometheus/faucet.rules.yml /etc/prometheus/faucet.rules.yml
 
 systemctl enable prometheus
 
