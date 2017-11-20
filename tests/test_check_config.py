@@ -75,6 +75,22 @@ dps:
 """
         self.check_config_success(minimal_conf)
 
+    def test_invalid_vid(self):
+        """Test invalid VID."""
+        invalid_vid_conf = """
+vlans:
+    100:
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 4097
+"""
+        self.check_config_failure(invalid_vid_conf)
+
     def test_vlan_name(self):
         """Test vlan referred by its name."""
         vlan_name_conf = """
@@ -120,6 +136,19 @@ dps:
                 native_vlan: 100
 """
         self.check_config_failure(tab_conf)
+
+    def test_no_vlan(self):
+        """Test port without a VLAN rejected."""
+        no_vlan_config = """
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'NOTSUPPORTED'
+        interfaces:
+            1:
+                description: 'vlanless'
+"""
+        self.check_config_failure(no_vlan_config)
 
     def test_unknown_dp_config_item(self):
         """Test that an unknown DP field is rejected."""

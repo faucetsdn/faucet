@@ -27,7 +27,9 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
-VLAN_GROUP_OFFSET = 4096
+MIN_VID = 1
+MAX_VID = 4095
+VLAN_GROUP_OFFSET = MAX_VID + 1
 ROUTE_GROUP_OFFSET = VLAN_GROUP_OFFSET * 2
 OFP_VERSIONS = [ofp.OFP_VERSION]
 OFP_IN_PORT = ofp.OFPP_IN_PORT
