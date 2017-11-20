@@ -476,7 +476,7 @@ class DP(Conf):
                         vlan.acl_in = self.acls[vlan.acl_in]
                         build_acl(vlan.acl_in, vid=1)
                     else:
-                        assert False, 'Unconfigured vlan for %s' % self.name
+                        assert False, 'Unconfigured acl for %s' % self.name
             for port in list(self.ports.values()):
                 if port.acl_in:
                     if port.acl_in in self.acls:

@@ -356,9 +356,9 @@ dps:
 """
         self.check_config_failure(acl_config)
 
-    def test_referencing_unconfigured_vlan(self):
-        """Test that there is no unhandled exception when referencing an unconfigured vlan"""
-        vlan_config = """
+    def test_referencing_unconfigured_vlan_acl(self):
+        """Test that there is no unhandled exception when referencing an unconfigured acl"""
+        acl_config = """
 vlans:
     office:
         vid: 100
@@ -382,7 +382,7 @@ dps:
                 native_vlan: office
                 acl_in: access-port-protect
 """
-        self.check_config_failure(vlan_config)
+        self.check_config_failure(acl_config)
 
     def test_config_contains_only_int(self):
         """Test that no unhandled exception when config only an int"""
