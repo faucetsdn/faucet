@@ -28,4 +28,4 @@ case ${TRAVIS_MATRIX} in
     ;;
 esac
 
-sudo docker run --privileged -t -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG} ${RUNTESTS}
+sudo docker run --privileged -t -e FAUCET_TESTS="-d ${RUNTESTS}" ${FAUCET_TEST_IMG} 
