@@ -12,17 +12,20 @@ docker images
 
 ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" tests/faucet_mininet_test_unit.py|cut -f2 -d" "`
 SINGLETESTS=`echo "$ALLTESTS" | grep -o -E "\b(FaucetSingle.+Test)\b"`
-PARALLELTESTS=`echo "$ALLTESTS" | grep -v -E "\b(FaucetSingle.+Test)\b"`
 
-echo single process tests: ${SINGLETESTS}
-echo parallelizable tests: ${PARALLELTESTS}
+PARALLELTESTS=`echo "$ALLTESTS" | grep -v -E "\b(FaucetSingle.+Test)\b"`
+L3TESTS=`echo "$PARALLELTESTS" | grep -o -i -E "\b(.+(Rout|IPv).+)\b"`
+OTHERTESTS=`echo "$PARALLELTESTS" | grep -v -i -E "\b(.+(Rout|IPv).+)\b"`
 
 case ${TRAVIS_MATRIX} in
   SINGLE)
     RUNTESTS=${SINGLETESTS}
     ;;
-  PARALLEL)
-    RUNTESTS=${PARALLELTESTS}
+  L3TESTS)
+    RUNTESTS=${L3TESTS}
+    ;;
+  OTHERTESTS)
+    RUNTESTS=${OTHERTESTS}
     ;;
   *)
     RUNTESTS=''

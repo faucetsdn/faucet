@@ -17,7 +17,8 @@ env:
     - FAUCET_TEST_IMG=faucet/tests
   matrix:
     - TRAVIS_MATRIX=SINGLE
-    - TRAVIS_MATRIX=PARALLEL
+    - TRAVIS_MATRIX=L3TESTS
+    - TRAVIS_MATRIX=OTHERTESTS
 install:
   - pip3 install -q -r requirements.txt -r test-requirements.txt
   - python3 setup.py -q sdist
