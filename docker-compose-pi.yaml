@@ -15,13 +15,16 @@ services:
 
     prometheus:
         restart: always
-        image: 'alexellis2/prometheus-armhf:1.5.2'
+        build:
+            context: docker/prometheus
+            dockerfile: Dockerfile
+        image: 'prometheus'
         ports:
             - '9090:9090'
         volumes:
             - '${FAUCET_PREFIX}/opt/prometheus/:/prometheus'
             - './etc/prometheus/prometheus-docker-compose.yml:/etc/prometheus/prometheus.yml'
-            - './etc/prometheus/faucet.rules:/etc/prometheus/faucet.rules'
+            - './etc/prometheus/faucet.rules.yml:/etc/prometheus/faucet.rules.yml'
         links:
             - faucet
             - gauge

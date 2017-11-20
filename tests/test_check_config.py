@@ -356,5 +356,45 @@ dps:
 """
         self.check_config_failure(acl_config)
 
+    def test_config_contains_only_int(self):
+        """Test that no unhandled exception when config only an int"""
+        config = """5"""
+        self.check_config_failure(config)
+
+    def test_config_contains_only_float(self):
+        """Test no unhandled exception when config only a float"""
+        config = """5.5"""
+        self.check_config_failure(config)
+
+    def test_config_contains_only_str(self):
+        """Test no unhandled exception when config only a string"""
+        config = """aaaa"""
+        self.check_config_failure(config)
+
+    def test_config_contains_only_boolean(self):
+        """Test no unhandled exception when config only a boolean"""
+        config = """False"""
+        self.check_config_failure(config)
+
+    def test_config_conains_only_datetime_object(self):
+        """Test no unhandled exception when config only a datetime object"""
+        config = """1967-07-31"""
+        self.check_config_failure(config)
+
+    def test_config_contains_only_dash(self):
+        """Test no unhandled exception when config only a -"""
+        config = """-"""
+        self.check_config_failure(config)
+
+    def test_config_contains_only_array(self):
+        """Test no unhandled exception when config only [2, 2]"""
+        config = """[2, 2]"""
+        self.check_config_failure(config)
+
+    def test_config_contains_only_empty_array(self):
+        """Test no unhandled exception when config only []"""
+        config = """[]"""
+        self.check_config_failure(config)
+
 if __name__ == "__main__":
     unittest.main()
