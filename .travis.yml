@@ -18,6 +18,7 @@ env:
     - FAUCET_TEST_IMG=faucet/tests
     - MATRIX_SHARDS=4
   matrix:
+    - MATRIX_SHARD=sanity
     - MATRIX_SHARD=0
     - MATRIX_SHARD=1
     - MATRIX_SHARD=2

@@ -590,7 +590,7 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-', dir='/var/tmp')
     start_free_ports = 10
-    min_free_ports = 500
+    min_free_ports = 200
     ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
     print('test ports server started')
     sanity_tests, single_tests, parallel_tests = expand_tests(
