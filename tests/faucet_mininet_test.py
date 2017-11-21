@@ -380,7 +380,7 @@ def filter_test_hardware(test_obj, hw_config):
 
 
 def max_loadavg():
-    return multiprocessing.cpu_count() + 1
+    return multiprocessing.cpu_count()
 
 
 def expand_tests(requested_test_classes, excluded_test_classes,
