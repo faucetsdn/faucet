@@ -337,12 +337,11 @@ dps:
         self.check_config_success(vlan_config)
 
     def test_referencing_unconfigured_acl(self):
-        """Test that there is no unhandled exception when referencing unconfigured acl"""
+        """Test that config is rejected when referencing unconfigured acl"""
         acl_config = """
 vlans:
     guest:
         vid: 200
-
 dps:
     sw2:
         dp_id: 0x2
@@ -357,85 +356,67 @@ dps:
         self.check_config_failure(acl_config)
 
     def test_referencing_unconfigured_vlan_acl(self):
-        """Test that there is no unhandled exception when referencing an unconfigured acl"""
+        """Test that config is rejected when referencing an unconfigured acl"""
         acl_config = """
 vlans:
     office:
         vid: 100
-        description: "office network"
         acl_in: office-vlan-protect
-        faucet_mac: "0e:00:00:00:10:01"
-        faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
-        routes:
-            - route:
-                ip_dst: '192.168.0.0/24'
-                ip_gw: '10.0.100.2'
 dps:
     sw1:
         dp_id: 0x1
-        hardware: "Open vSwitch"
-        proactive_learn: True
         interfaces:
             1:
-                name: "h1"
-                description: "host1 container"
                 native_vlan: office
                 acl_in: access-port-protect
 """
         self.check_config_failure(acl_config)
 
     def test_config_contains_only_int(self):
-        """Test that no unhandled exception when config only an int"""
+        """Test that config is rejected when config is only an int"""
         config = """5"""
         self.check_config_failure(config)
 
     def test_config_contains_only_float(self):
-        """Test no unhandled exception when config only a float"""
+        """Test that config is rejected when config is only a float"""
         config = """5.5"""
         self.check_config_failure(config)
 
     def test_config_contains_only_str(self):
-        """Test no unhandled exception when config only a string"""
+        """Test that config is rejected when config is only a string"""
         config = """aaaa"""
         self.check_config_failure(config)
 
     def test_config_contains_only_boolean(self):
-        """Test no unhandled exception when config only a boolean"""
+        """Test that config is rejected when config is only a boolean"""
         config = """False"""
         self.check_config_failure(config)
 
     def test_config_conains_only_datetime_object(self):
-        """Test no unhandled exception when config only a datetime object"""
+        """Test that config is rejected when config is only a datetime object"""
         config = """1967-07-31"""
         self.check_config_failure(config)
 
     def test_config_contains_only_dash(self):
-        """Test no unhandled exception when config only a -"""
+        """Test that config is rejected when config is only a -"""
         config = """-"""
         self.check_config_failure(config)
 
     def test_config_contains_only_array(self):
-        """Test no unhandled exception when config only [2, 2]"""
+        """Test that config is rejected when config is only [2, 2]"""
         config = """[2, 2]"""
         self.check_config_failure(config)
 
     def test_config_contains_only_empty_array(self):
-        """Test no unhandled exception when config only []"""
+        """Test that config is rejected when config is only []"""
         config = """[]"""
         self.check_config_failure(config)
 
     def test_config_routes_are_empty(self):
-        """Test that there is no unhandled exception when vlan routes are empty"""
+        """Test that config is rejected when vlan routes are empty"""
         config = """
-include:
-    - acls.yaml
 vlans:
     office:
-        vid: 100
-        description: "office network"
-        acl_in: office-vlan-protect
-        faucet_mac: "0e:00:00:00:10:01"
-        faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
         routes:
             - route:
                 ip_dst: 
@@ -443,29 +424,14 @@ vlans:
 dps:
     sw1:
         dp_id: 0x1
-        hardware: "Open vSwitch"
-        proactive_learn: True
-        interfaces:
-            5:
-                name: "trunk"
-                description: "VLAN trunk to sw2"
-                tagged_vlans: [office]
-                acl_in: access-port-protect
 """
         self.check_config_failure(config)
 
     def test_config_routes_are_not_strings(self):
-        """Test that there is no unhandled exception when vlan routes are not strings"""
+        """Test that config is rejected when vlan routes are not strings"""
         config = """
-include:
-    - acls.yaml
 vlans:
     office:
-        vid: 100
-        description: "office network"
-        acl_in: office-vlan-protect
-        faucet_mac: "0e:00:00:00:10:01"
-        faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
         routes:
             - route:
                 ip_dst: []
@@ -473,44 +439,46 @@ vlans:
 dps:
     sw1:
         dp_id: 0x1
-        hardware: "Open vSwitch"
-        proactive_learn: True
-        interfaces:
-            5:
-                name: "trunk"
-                description: "VLAN trunk to sw2"
-                tagged_vlans: [office]
-                acl_in: access-port-protect
 """
         self.check_config_failure(config)
 
     def test_config_vlan_vips_are_not_strings(self):
-        """Test that there is no unhandled exception when faucet_vips does not contain strings"""
+        """Test that config is rejected when faucet_vips does not contain any strings"""
         config = """
-include:
-    - acls.yaml
 vlans:
     office:
         vid: 100
-        description: "office network"
-        acl_in: office-vlan-protect
-        faucet_mac: "0e:00:00:00:10:01"
         faucet_vips: [False, 5.5, 4584594]
-        routes:
-            - route:
-                ip_dst: '192.168.0.0/24'
-                ip_gw: '10.0.100.2'
 dps:
     sw1:
         dp_id: 0x1
-        hardware: "Open vSwitch"
-        proactive_learn: True
-        interfaces:
-            5:
-                name: "trunk"
-                description: "VLAN trunk to sw2"
-                tagged_vlans: [office]
-                acl_in: access-port-protect
+"""
+        self.check_config_failure(config)
+
+    def test_config_vlan_route_contains_invalid_ip_addresses(self):
+        """Test that config is rejected when vlan routes does not contain valid ip addresses"""
+        config = """
+vlans:
+    office:
+        routes:
+            - route:
+                ip_dst: '0x985'
+                ip_gw: '0x12ca'
+dps:
+    sw1:
+        dp_id: 0x1
+"""
+        self.check_config_failure(config)
+
+    def test_config_faucet_vips_contains_invalid_ip_addresses(self):
+        """Test that config is rejected if faucet_vips does not contain valid ip addresses"""
+        config = """
+vlans:
+    office:
+        faucet_vips: ['aaaaa', '', '123421342']
+dps:
+    sw1:
+        dp_id: 0x1
 """
         self.check_config_failure(config)
 
