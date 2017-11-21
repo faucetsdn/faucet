@@ -43,17 +43,18 @@ def dp_parser(config_file, logname):
     config_hashes = None
     dps = None
 
-    if conf is not None:
-        if type(conf) is dict:
+    try:
+        if conf is not None:
             version = conf.pop('version', 2)
             if version != 2:
                 logger.fatal('Only config version 2 is supported')
+    
+            config_hashes, dps = _config_parser_v2(config_file, logname)
 
-        else:
-            logger.fatal('Config file does not form a dictionary')
-            return None, None
+    except (AttributeError, TypeError) as err:
+        logger.exception('Error in config file: %s', err)
+        return None, None
 
-        config_hashes, dps = _config_parser_v2(config_file, logname)
     return config_hashes, dps
 
 def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,

@@ -513,6 +513,13 @@ dps:
                 acl_in: access-port-protect
 """
         self.check_config_failure(config)
+    
+    def test_config_does_not_form_a_dict(self):
+        """Test that config is rejected when it does not form a dictionary"""
+        config = """
+vlans: 
+"""
+        self.check_config_failure(config)
 
 if __name__ == "__main__":
     unittest.main()
