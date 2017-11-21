@@ -514,5 +514,22 @@ dps:
 """
         self.check_config_failure(config)
 
+    def test_including_invalid_data_types(self):
+        """Test that config is rejected when including non-string data types"""
+        include_config = """
+include:
+    - False
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            5:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(include_config)
+
 if __name__ == "__main__":
     unittest.main()
