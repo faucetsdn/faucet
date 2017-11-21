@@ -44,13 +44,17 @@ def dp_parser(config_file, logname):
     dps = None
 
     if conf is not None:
-        version = conf.pop('version', 2)
-        if version != 2:
-            logger.fatal('Only config version 2 is supported')
+        if type(conf) is dict:
+            version = conf.pop('version', 2)
+            if version != 2:
+                logger.fatal('Only config version 2 is supported')
+
+        else:
+            logger.fatal('Config file does not form a dictionary')
+            return None, None
 
         config_hashes, dps = _config_parser_v2(config_file, logname)
     return config_hashes, dps
-
 
 def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
                   routers_conf, vlans_conf):
@@ -137,7 +141,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         for dp in dps:
             dp.resolve_stack_topology(dps)
 
-    except AssertionError as err:
+    except (AssertionError, AttributeError) as err:
         logger.exception('Error in config file: %s', err)
         return None
 
