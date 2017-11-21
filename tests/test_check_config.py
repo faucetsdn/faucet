@@ -482,5 +482,24 @@ dps:
 """
         self.check_config_failure(config)
 
+    def test_routes_with_invalid_ip_addresses(self):
+        """Test that config is rejected if routes do not contain valid ip addresses"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        routes:
+            - route:
+                ip_dst: 'aaaaa'
+                ip_gw: '111111'
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            5:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(config)
+
 if __name__ == "__main__":
     unittest.main()
