@@ -32,5 +32,4 @@ else
   RUNTESTS="-n ${sharded[${MATRIX_SHARD}]}"
 fi
 
-echo running tests ${RUNTESTS}
-travis_wait sudo docker run --privileged -t -e FAUCET_TESTS="-d ${RUNTESTS}" ${FAUCET_TEST_IMG}
+sudo docker run --privileged -t -e FAUCET_TESTS="-d ${RUNTESTS}" ${FAUCET_TEST_IMG} 
