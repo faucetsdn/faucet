@@ -76,12 +76,19 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     new_top_confs = {}
     for conf_name, curr_conf in list(top_confs.items()):
         new_top_confs[conf_name] = curr_conf.copy()
-        new_top_confs[conf_name].update(conf.pop(conf_name, {}))
+        try:
+            new_top_confs[conf_name].update(conf.pop(conf_name, {}))
+        except:
+            logger.error('%s not configured properly' % conf_name)
+            return False
 
     for include_directive, file_required in (
             ('include', True),
             ('include-optional', False)):
         for include_file in conf.pop(include_directive, []):
+            if type(include_file) is not str:
+                include_file = str(include_file)
+
             include_path = dp_config_path(include_file, parent_file=config_file)
             if include_path in config_hashes:
                 logger.error(
@@ -91,11 +98,11 @@ def dp_include(config_hashes, config_file, logname, top_confs):
             if not dp_include(
                     new_config_hashes, include_path, logname, new_top_confs):
                 if file_required:
-                    logger.error('unable to load required include file: %s', include_path)
+                    logger.error('unable to load required include file: %s' % include_path)
                     return False
                 else:
                     new_config_hashes[include_path] = None
-                    logger.warning('skipping optional include file: %s', include_path)
+                    logger.warning('skipping optional include file: %s' % include_path)
 
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.

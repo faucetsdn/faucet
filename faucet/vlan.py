@@ -130,8 +130,11 @@ class VLAN(Conf):
         self.dyn_ipvs = []
 
         if self.faucet_vips:
-            self.faucet_vips = [
-                ipaddress.ip_interface(btos(ip)) for ip in self.faucet_vips]
+            try:
+                self.faucet_vips = [
+                    ipaddress.ip_interface(btos(ip)) for ip in self.faucet_vips]
+            except (ValueError, AttributeError, TypeError) as err:
+                assert False, 'There is an invalid ip address in vlan faucet_vips'
             for faucet_vip in self.faucet_vips:
                 self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(
                     faucet_vip)
@@ -147,8 +150,11 @@ class VLAN(Conf):
         if self.routes:
             self.routes = [route['route'] for route in self.routes]
             for route in self.routes:
-                ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
-                ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
+                try:
+                    ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
+                    ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
+                except (ValueError, AttributeError, TypeError) as err:
+                    assert False, 'There is an invalid ip address in vlan routes'
                 assert ip_gw.version == ip_dst.version
                 self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
 

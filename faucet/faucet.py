@@ -200,8 +200,8 @@ class Faucet(app_manager.RyuApp):
             self._apply_configs(new_dps)
     
         except InvalidConfigError as err:
-            self.logger.error('New config bad - rejecting')
             self.logger.fatal('Error in config file: %s', err)
+            self.logger.error('New config bad - rejecting')
             return
 
     @kill_on_exception(exc_logname)

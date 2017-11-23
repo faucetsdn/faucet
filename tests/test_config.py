@@ -5,17 +5,21 @@ import unittest
 import tempfile
 import shutil
 import os
+import logging
+import sys
 from faucet import config_parser as cp
 
 SRC_DIR = '../faucet'
-LOGNAME = 'test_config'
+LOGNAME = '/dev/null'
 
 class TestConfig(unittest.TestCase): 
 
     def setUp(self):
+        logging.disable(logging.CRITICAL)
         self.tmpdir = tempfile.mkdtemp()
 
     def tearDown(self):
+        logging.disable(logging.NOTSET)
         shutil.rmtree(self.tmpdir)
 
     def create_config_file(self, config):
@@ -35,7 +39,6 @@ class TestConfig(unittest.TestCase):
 
     def check_config_failure(self, config, function):
         self.assertEqual(self.run_function_with_config(config, function), False)
-
 
     def test_config_contains_only_int(self):
         """Test that config is invalid when only an int"""
@@ -91,7 +94,7 @@ dps:
                 acl_in: access-port-protect
                 tagged_vlans: [office]
 """
-        self.check_config_failure(acl_config, cp._config_parser_v2)
+        self.check_config_failure(acl_config, cp.dp_parser)
 
     def test_referencing_unconfigured_vlan_acl(self):
         """Test that config is invalid when only there are unconfigured acls"""
@@ -107,7 +110,7 @@ dps:
             1:
                 tagged_vlans: [office]
 """
-        self.check_config_failure(acl_config, cp._config_parser_v2)
+        self.check_config_failure(acl_config, cp.dp_parser)
 
     def test_config_routes_are_empty(self):
         """Test that config is invalid when vlan routes are empty"""
@@ -126,7 +129,7 @@ dps:
             5:
                 tagged_vlans: [office]
 """
-        self.check_config_failure(config, cp._config_parser_v2)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_config_routes_are_not_strings(self):
         """Test config is invalid when vlan routes are not strings"""
@@ -145,7 +148,7 @@ dps:
             5:
                 tagged_vlans: [office]
 """
-        self.check_config_failure(config, cp._config_parser_v2)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_config_vlan_vips_are_not_strings(self):
         """Test that config is invalid when faucet_vips does not contain strings"""
@@ -161,8 +164,64 @@ dps:
             5:
                 tagged_vlans: [office]
 """
-        self.check_config_failure(config, cp._config_parser_v2)
+        self.check_config_failure(config, cp.dp_parser)
 
+    def test_config_faucet_vips_contains_invalid_ip_addresses(self):
+        """Test that config is rejected if faucet_vips does not contain valid ip addresses"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        faucet_vips: ['aaaaa', '', '123421342']
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            5:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+
+    def test_config_vlans_is_empty(self):
+        """Test that config is rejected when vlans is empty"""
+        config = """
+vlans:
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_config_dps_is_empty(self):
+        """Test that config is rejected when dps is empty"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_including_invalid_files(self):
+        """Test that config is rejected when including invalid files"""
+        include_config = """
+include: [-, False, 1967-06-07, 5.5, [5], {'5': 5}, testing]
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            5:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(include_config, cp.dp_parser)
 
 if __name__ == "__main__":
     unittest.main()
