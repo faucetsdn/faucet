@@ -351,6 +351,7 @@ socket_timeout=15
             '-n',
             '-U',
             '-q',
+            '-c %u' % 500,
             '-i %s' % self.controller_intf,
             '-w %s' % self.ofcap,
             'tcp and port %u' % self.port,
