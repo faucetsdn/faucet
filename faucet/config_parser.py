@@ -82,7 +82,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
 
         return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
 
-    def  _dp_add_vlan(dp, vlan):
+    def _dp_add_vlan(dp, vlan):
         if vlan not in dp.vlans:
             dp.add_vlan(vlan)
             vid_dp[vlan.vid].add(dp.name)

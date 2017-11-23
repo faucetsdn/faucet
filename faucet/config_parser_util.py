@@ -78,7 +78,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
         new_top_confs[conf_name] = curr_conf.copy()
         try:
             new_top_confs[conf_name].update(conf.pop(conf_name, {}))
-        except:
+        except TypeError:
             logger.error('%s not configured properly' % conf_name)
             return False
 
