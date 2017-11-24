@@ -54,7 +54,7 @@ def dp_parser(config_file, logname):
         version = conf.pop('version', 2)
         assert version == 2, 'Only config version 2 is supported'
         config_hashes, dps = _config_parser_v2(config_file, logname)
-        assert dps is not None, 'dps are not defined'
+        assert dps is not None, 'DPs are not defined'
     
     except AssertionError as err:
         raise InvalidConfigError(err)
@@ -72,21 +72,12 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         for vlan in list(vlans.values()):
             if vlan_ident == str(vlan.vid):
                 return vlan
-        try:
-            vid = int(str(vlan_ident), 0)
-        except ValueError:
-            assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
-
-        assert vid >= MIN_VID and vid <= MAX_VID, 'VLAN %s VID value %d is not in valid range' % (
-            vlan_ident, vid)
-
-        return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
+        assert False, 'VLANs not configured properly'
 
     def _dp_add_vlan(dp, vlan):
         if vlan not in dp.vlans:
             dp.add_vlan(vlan)
             vid_dp[vlan.vid].add(dp.name)
-
             if len(vid_dp[vlan.vid]) > 1:
                 assert not vlan.bgp_routerid, (
                     'DPs %s sharing a BGP speaker VLAN is unsupported' % (
@@ -116,6 +107,14 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
         for vlan in list(vlans.values()):
+            try:
+                vid = int(str(vlan.vid), 0)
+            except ValueError:
+                assert False, 'VLAN VID value (%s) is invalid' % vlan.vid
+
+            assert vid >= MIN_VID and vid <= MAX_VID, 'VLAN %s VID value %d is not in valid range' % (
+                    vlan.name, vid)
+
             if vlan.get_ports():
                 _dp_add_vlan(dp, vlan)
 

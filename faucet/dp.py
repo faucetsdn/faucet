@@ -490,10 +490,13 @@ class DP(Conf):
             dp_routers = {}
             for router_name, router in list(self.routers.items()):
                 vlans = []
-                for vlan_name in router.vlans:
-                    vlan = resolve_vlan(vlan_name)
-                    if vlan is not None:
-                        vlans.append(vlan)
+                try:
+                    for vlan_name in router.vlans:
+                        vlan = resolve_vlan(vlan_name)
+                        if vlan is not None:
+                            vlans.append(vlan)
+                except TypeError:
+                    assert False, 'Unconfigured vlan for %s' % router_name
                 if len(vlans) > 1:
                     dp_router = copy.copy(router)
                     dp_router.vlans = vlans

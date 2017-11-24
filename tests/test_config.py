@@ -224,6 +224,97 @@ dps:
 """
         self.check_config_failure(include_config, cp.dp_parser)
 
+    def test_router_vlan_is_not_valid(self):
+        """Test that config is rejected when router vlans is not valid"""
+        config = """
+vlans:
+    office:
+        vid: 100
+routers:
+    router-office-guest:
+        vlans:
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            5:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_vlan_vid_is_negative(self):
+        """Test that config is rejected when vlan vid is <= 0"""
+        vid_config = """
+vlans:
+    office:
+        vid: 0
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            5:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(vid_config, cp.dp_parser)
+
+    def test_vlan_vid_is_greater_than_4095(self):
+        """Test that config is rejected when vid is > 4095"""
+        vid_config = """
+vlans:
+    office:
+        vid: 4096
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            5:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(vid_config, cp.dp_parser)
+
+    def test_vlan_vid_is_not_an_int(self):
+        """Test that config is rejected when vid is not an integer"""
+        vid_config = """
+vlans:
+    office:
+        vid: aaaaa
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            5:
+                tagged_vlans: [office]
+"""
+        self.check_config_failure(vid_config, cp.dp_parser)
+
+    def test_include_directive_not_in_valid_format(self):
+        """Test that config is rejected if the include directive is not in a valid format"""
+        include_config = """
+include: False
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(include_config, cp.dp_parser)
+
+    def test_vlans_not_in_config(self):
+        """Test that config is rejected if vlans are not configured"""
+        vlan_config = """
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(vlan_config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()

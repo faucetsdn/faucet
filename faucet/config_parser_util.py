@@ -85,24 +85,28 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     for include_directive, file_required in (
             ('include', True),
             ('include-optional', False)):
-        for include_file in conf.pop(include_directive, []):
-            if type(include_file) is not str:
-                include_file = str(include_file)
+        try:
+            for include_file in conf.pop(include_directive, []):
+                if type(include_file) is not str:
+                    include_file = str(include_file)
 
-            include_path = dp_config_path(include_file, parent_file=config_file)
-            if include_path in config_hashes:
-                logger.error(
-                    'include file %s already loaded, include loop found in file: %s',
-                    include_path, config_file,)
-                return False
-            if not dp_include(
-                    new_config_hashes, include_path, logname, new_top_confs):
-                if file_required:
-                    logger.error('unable to load required include file: %s' % include_path)
+                include_path = dp_config_path(include_file, parent_file=config_file)
+                if include_path in config_hashes:
+                    logger.error(
+                        'include file %s already loaded, include loop found in file: %s',
+                        include_path, config_file,)
                     return False
-                else:
-                    new_config_hashes[include_path] = None
-                    logger.warning('skipping optional include file: %s' % include_path)
+                if not dp_include(
+                        new_config_hashes, include_path, logname, new_top_confs):
+                    if file_required:
+                        logger.error('unable to load required include file: %s' % include_path)
+                        return False
+                    else:
+                        new_config_hashes[include_path] = None
+                        logger.warning('skipping optional include file: %s' % include_path)
+        except TypeError:
+            logger.error('Include directive is not configured properly')
+            return False
 
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.
