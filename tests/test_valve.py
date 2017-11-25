@@ -679,7 +679,13 @@ vlans:
 class ValvePortRangeConfigTestCase(ValveTestCase):
     """Test if config under interface-ranges applied incrementally."""
 
-    PORT_RANGE_CONFIG = """
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+        self.connect_dp()
+        self.learn_hosts()
+
+    def test_port_range_config(self):
+        acl_config = """
 version: 2
 dps:
     s1:
@@ -690,6 +696,7 @@ dps:
             p1:
                 number: 1
                 native_vlan: v100
+                acl_in: allow_all
             p2:
                 number: 2
                 native_vlan: v200
@@ -700,63 +707,65 @@ dps:
             p4:
                 number: 4
                 tagged_vlans: [v200]
-                acl_in: allow_all
             p5:
                 number: 5
+                native_vlan: v300
         interface-ranges:
-            1,4-5:
-                acl_in: drop_tcp_5001
-            2-3:
-                acl_in: drop_tcp_5001
+            1-4:
+                acl_in: drop_non_ospf_ipv4
 vlans:
     v100:
         vid: 0x100
     v200:
         vid: 0x200
+    v300:
+        vid: 0x300
 acls:
-    drop_tcp_5001:
+    drop_non_ospf_ipv4:
         - rule:
+            nw_dst: '224.0.0.5'
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
-            actions:
-                allow: 0
-        - rule:
             actions:
                 allow: 1
+        - rule:
+            dl_type: 0x800
+            actions:
+                allow: 0
     allow_all:
         - rule:
             actions:
                 allow: 1
 """
 
-    def setUp(self):
-        self.setup_valve(self.CONFIG)
-        self.connect_dp()
-        self.flap_port(1)
-        self.learn_hosts()
-
-    def test_port_range_config_basic(self):
-        self.apply_new_config(self.PORT_RANGE_CONFIG)
-        self.learn_hosts()
-        drop_match_tcp_5001 = {
-            'in_port': 1,
+        drop_match = {
+            'in_port': 2,
             'vlan_vid': 0,
             'eth_type': 0x800,
-            'ipv4_dst': '192.0.2.1',
-            'nw_proto': 6,
-            'tp_dst': 5001}
-
-        for port_no, vid in [
-                (1,self.V100), (2,self.V200), (3,self.V100)]:
-            drop_match_tcp_5001['in_port'] = port_no
-            self.assertFalse(
-                self.table.is_output(drop_match_tcp_5001, port=port_no, vid=vid),
-                msg='Packet not blocked by ACL')
-            drop_match_tcp_5001['in_port'] = 4
+            'ipv4_dst': '192.0.2.1'}
+        accept_match = {
+            'in_port': 2,
+            'vlan_vid': 0,
+            'eth_type': 0x800,
+            'ipv4_dst': '224.0.0.5'}
+        # base case
+        for match in (drop_match, accept_match):
             self.assertTrue(
-                self.table.is_output(drop_match_tcp_5001, port=4, vid=self.V200),
-                msg='Packet is blocked by ACL')
+                self.table.is_output(match, port=3, vid=self.V200),
+                msg='Packet not output before adding ACL')
+
+        self.apply_new_config(acl_config)
+        # Port 3 should have drop_non_ospf_ipv4 acl now
+        self.assertFalse(
+            self.table.is_output(drop_match),
+            msg='Packet not blocked by ACL')
+        self.assertTrue(
+            self.table.is_output(accept_match, port=3, vid=self.V200),
+            msg='Packet not allowed by ACL')
+        # Port1 should apply allow_all acl, instead of drop_non_ospf_ipv4
+        drop_match['in_port'] = 1
+        self.assertTrue(
+            self.table.is_output(drop_match, port=3),
+            msg='Packet not allowed by ACL')
 
 if __name__ == "__main__":
     unittest.main()
