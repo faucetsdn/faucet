@@ -75,6 +75,22 @@ dps:
 """
         self.check_config_success(minimal_conf)
 
+    def test_invalid_vid(self):
+        """Test invalid VID."""
+        invalid_vid_conf = """
+vlans:
+    100:
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 4097
+"""
+        self.check_config_failure(invalid_vid_conf)
+
     def test_vlan_name(self):
         """Test vlan referred by its name."""
         vlan_name_conf = """
@@ -120,6 +136,19 @@ dps:
                 native_vlan: 100
 """
         self.check_config_failure(tab_conf)
+
+    def test_no_vlan(self):
+        """Test port without a VLAN rejected."""
+        no_vlan_config = """
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'NOTSUPPORTED'
+        interfaces:
+            1:
+                description: 'vlanless'
+"""
+        self.check_config_failure(no_vlan_config)
 
     def test_unknown_dp_config_item(self):
         """Test that an unknown DP field is rejected."""
@@ -326,58 +355,6 @@ dps:
                 acl_in: access-port-protect
 """
         self.check_config_failure(acl_config)
-
-    def test_good_port_range_conf(self):
-        """Test that proper port range config is accepted"""
-        port_ranges_config = """
-vlans:
-    100:
-        description: "100"
-    200:
-        description: "200"
-dps:
-    switch1:
-        dp_id: 0xcafef00d
-        hardware: 'Open vSwitch'
-        interfaces:
-            1:
-                native_vlan: 100
-        interface-ranges:
-            2-8:
-                native_vlan: 200
-    switch2:
-        dp_id: 0xdeadbeef
-        hardware: 'Open vSwitch'
-        interfaces:
-            1:
-                description: "port-1"
-        interface-ranges:
-            1-4,6,8:
-                native_vlan: 200
-"""
-        self.check_config_success(port_ranges_config)
-
-    def test_bad_port_range_conf(self):
-        """Test that improper port range config is rejected"""
-        port_ranges_config = """
-vlans:
-    100:
-        description: "100"
-    200:
-        description: "200"
-dps:
-    switch1:
-        dp_id: 0xcafef00d
-        hardware: 'Open vSwitch'
-        interfaces:
-            1:
-                native_vlan: 100
-        interface-ranges:
-            2-1:
-                native_vlan: 200
-"""
-        self.check_config_failure(port_ranges_config)
-
 
 if __name__ == "__main__":
     unittest.main()

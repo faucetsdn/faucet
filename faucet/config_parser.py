@@ -25,6 +25,7 @@ from faucet.dp import DP
 from faucet.meter import Meter
 from faucet.port import Port
 from faucet.router import Router
+from faucet.valve_of import MIN_VID, MAX_VID
 from faucet.vlan import VLAN
 from faucet.watcher_conf import WatcherConf
 
@@ -37,20 +38,29 @@ V2_TOP_CONFS = (
     'vlans')
 
 
+class InvalidConfigError(Exception):
+    """This error is thrown when the config file is not valid"""
+    pass
+
+
 def dp_parser(config_file, logname):
     logger = config_parser_util.get_logger(logname)
     conf = config_parser_util.read_config(config_file, logname)
     config_hashes = None
     dps = None
 
-    if conf is not None:
+    try:
+        assert conf is not None, 'Config file is empty'
+        assert type(conf) is dict, 'Config file does not have valid syntax'
         version = conf.pop('version', 2)
-        if version != 2:
-            logger.fatal('Only config version 2 is supported')
-
+        assert version == 2, 'Only config version 2 is supported'
         config_hashes, dps = _config_parser_v2(config_file, logname)
-    return config_hashes, dps
+        assert dps is not None, 'dps are not defined'
+    
+    except AssertionError as err:
+        raise InvalidConfigError(err)
 
+    return config_hashes, dps
 
 def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
                   routers_conf, vlans_conf):
@@ -67,6 +77,9 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
             vid = int(str(vlan_ident), 0)
         except ValueError:
             assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
+
+        assert vid >= MIN_VID and vid <= MAX_VID, 'VLAN %s VID value %d is not in valid range' % (
+            vlan_ident, vid)
 
         return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
 
@@ -93,6 +106,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         port.tagged_vlans = port_tagged_vlans
         for vlan in port.tagged_vlans:
             vlan.add_tagged(port)
+        assert port.vlans() or port.stack, '%s must have a VLAN or be a stack port' % port
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
@@ -138,36 +152,31 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
             if vlan.get_ports():
                 _dp_add_vlan(dp, vlan)
 
-    try:
-        for identifier, dp_conf in list(dps_conf.items()):
-            dp = DP(identifier, dp_conf)
-            dp.sanity_check()
-            dp_id = dp.dp_id
+    for identifier, dp_conf in list(dps_conf.items()):
+        dp = DP(identifier, dp_conf)
+        dp.sanity_check()
+        dp_id = dp.dp_id
 
-            vlans = {}
-            for vlan_ident, vlan_conf in list(vlans_conf.items()):
-                vlans[vlan_ident] = VLAN(vlan_ident, dp_id, vlan_conf)
-            acls = []
-            for acl_ident, acl_conf in list(acls_conf.items()):
-                acls.append((acl_ident, ACL(acl_ident, acl_conf)))
-            for router_ident, router_conf in list(routers_conf.items()):
-                router = Router(router_ident, router_conf)
-                dp.add_router(router_ident, router)
-            for meter_ident, meter_conf in list(meters_conf.items()):
-                dp.meters[meter_ident] = Meter(meter_ident, meter_conf)
-            _dp_add_ports(dp, dp_conf, dp_id, vlans)
-            for acl_ident, acl in acls:
-                dp.add_acl(acl_ident, acl)
-            dps.append(dp)
+        vlans = {}
+        for vlan_ident, vlan_conf in list(vlans_conf.items()):
+            vlans[vlan_ident] = VLAN(vlan_ident, dp_id, vlan_conf)
+        acls = []
+        for acl_ident, acl_conf in list(acls_conf.items()):
+            acls.append((acl_ident, ACL(acl_ident, acl_conf)))
+        for router_ident, router_conf in list(routers_conf.items()):
+            router = Router(router_ident, router_conf)
+            dp.add_router(router_ident, router)
+        for meter_ident, meter_conf in list(meters_conf.items()):
+            dp.meters[meter_ident] = Meter(meter_ident, meter_conf)
+        _dp_add_ports(dp, dp_conf, dp_id, vlans)
+        for acl_ident, acl in acls:
+            dp.add_acl(acl_ident, acl)
+        dps.append(dp)
 
-        for dp in dps:
-            dp.finalize_config(dps)
-        for dp in dps:
-            dp.resolve_stack_topology(dps)
-
-    except AssertionError as err:
-        logger.exception('Error in config file: %s', err)
-        return None
+    for dp in dps:
+        dp.finalize_config(dps)
+    for dp in dps:
+        dp.resolve_stack_topology(dps)
 
     return dps
 
@@ -183,9 +192,9 @@ def _config_parser_v2(config_file, logname):
 
     if not config_parser_util.dp_include(
             config_hashes, config_path, logname, top_confs):
-        logger.critical('error found while loading config file: %s', config_path)
+        assert False, 'Error found while loading config file: %s' % config_path 
     elif not top_confs['dps']:
-        logger.critical('DPs not configured in file: %s', config_path)
+        assert False, 'DPs not configured in file: %s' % config_path
     else:
         dps = _dp_parser_v2(
             logger,

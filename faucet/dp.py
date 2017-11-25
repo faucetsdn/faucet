@@ -474,8 +474,11 @@ class DP(Conf):
 
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
-                    vlan.acl_in = self.acls[vlan.acl_in]
-                    build_acl(vlan.acl_in, vid=1)
+                    if vlan.acl_in in self.acls:
+                        vlan.acl_in = self.acls[vlan.acl_in]
+                        build_acl(vlan.acl_in, vid=1)
+                    else:
+                        assert False, 'Unconfigured vlan acl for %s' % self.name
             for port in list(self.ports.values()):
                 if port.acl_in:
                     if port.acl_in in self.acls:
@@ -684,10 +687,9 @@ class DP(Conf):
             for port in new_dp.vlans[vid].get_ports():
                 changed_ports.add(port.number)
 
-        deleted_ports = set([])
-        for port_no in list(self.ports.keys()):
-            if port_no not in new_dp.ports:
-                deleted_ports.add(port_no)
+        deleted_ports = set(list(self.ports.keys())) - set(list(new_dp.ports.keys()))
+        if deleted_ports:
+            logger.info('deleted ports: %s', deleted_ports)
 
         if changed_ports == set(new_dp.ports.keys()):
             logger.info('all ports config changed')
