@@ -677,7 +677,7 @@ vlans:
         self.learn_hosts()
 
 class ValvePortRangeConfigTestCase(ValveTestCase):
-    """Repeats the tests after a config reload."""
+    """Test if config under interface-ranges applied incrementally."""
 
     PORT_RANGE_CONFIG = """
 version: 2
@@ -700,6 +700,7 @@ dps:
             p4:
                 number: 4
                 tagged_vlans: [v200]
+                acl_in: allow_all
             p5:
                 number: 5
         interface-ranges:
@@ -723,6 +724,10 @@ acls:
         - rule:
             actions:
                 allow: 1
+    allow_all:
+        - rule:
+            actions:
+                allow: 1
 """
 
     def setUp(self):
@@ -731,10 +736,9 @@ acls:
         self.flap_port(1)
         self.learn_hosts()
 
+    def test_port_range_config_basic(self):
         self.apply_new_config(self.PORT_RANGE_CONFIG)
         self.learn_hosts()
-
-    def test_port_acl_deny(self):
         drop_match_tcp_5001 = {
             'in_port': 1,
             'vlan_vid': 0,
@@ -744,13 +748,15 @@ acls:
             'tp_dst': 5001}
 
         for port_no, vid in [
-                (1,self.V100), (2,self.V200), (3,self.V100), (4,self.V200)]:
+                (1,self.V100), (2,self.V200), (3,self.V100)]:
             drop_match_tcp_5001['in_port'] = port_no
             self.assertFalse(
-                self.table.is_output(
-                    drop_match_tcp_5001, port=port_no, vid=vid),
+                self.table.is_output(drop_match_tcp_5001, port=port_no, vid=vid),
                 msg='Packet not blocked by ACL')
-
+            drop_match_tcp_5001['in_port'] = 4
+            self.assertTrue(
+                self.table.is_output(drop_match_tcp_5001, port=4, vid=self.V200),
+                msg='Packet is blocked by ACL')
 
 if __name__ == "__main__":
     unittest.main()
