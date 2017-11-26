@@ -237,7 +237,7 @@ dps:
 """
         self.check_config_failure(stacking_config)
 
-    def test_bad_acl_port(self):
+    def test_bad_acl_action(self):
         """Test that an ACL with a bad match field is rejected."""
         acl_config = """
 vlans:
@@ -246,7 +246,7 @@ vlans:
 acls:
     101:
         - rule:
-            nogood: "0e:00:00:00:02:02"
+            nogood: '0e:00:00:00:02:02'
             actions:
                 output:
                     port: 1
