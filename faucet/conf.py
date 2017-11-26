@@ -17,6 +17,11 @@
 # limitations under the License.
 
 
+class InvalidConfigError(Exception):
+    """This error is thrown when the config file is not valid."""
+    pass
+
+
 class Conf(object):
     """Base class for FAUCET configuration."""
 

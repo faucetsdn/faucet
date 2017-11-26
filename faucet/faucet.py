@@ -33,7 +33,8 @@ from ryu.controller import event
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
-from faucet.config_parser import dp_parser, get_config_for_api, InvalidConfigError
+from faucet.conf import InvalidConfigError
+from faucet.config_parser import dp_parser, get_config_for_api
 from faucet.config_parser_util import config_changed
 from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_bool_setting, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
@@ -200,8 +201,7 @@ class Faucet(app_manager.RyuApp):
             self._apply_configs(new_dps)
     
         except InvalidConfigError as err:
-            self.logger.fatal('Error in config file: %s', err)
-            self.logger.error('New config bad - rejecting')
+            self.logger.error('New config bad (%s) - rejecting' % err)
             return
 
     @kill_on_exception(exc_logname)

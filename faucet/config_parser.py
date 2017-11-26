@@ -20,6 +20,7 @@ import collections
 
 from faucet import config_parser_util
 from faucet.acl import ACL
+from faucet.conf import InvalidConfigError
 from faucet.dp import DP
 from faucet.meter import Meter
 from faucet.port import Port
@@ -37,31 +38,26 @@ V2_TOP_CONFS = (
     'vlans')
 
 
-class InvalidConfigError(Exception):
-    """This error is thrown when the config file is not valid"""
-    pass
-
-
 def dp_parser(config_file, logname):
-    logger = config_parser_util.get_logger(logname)
     conf = config_parser_util.read_config(config_file, logname)
     config_hashes = None
     dps = None
 
     try:
         assert conf is not None, 'Config file is empty'
-        assert type(conf) is dict, 'Config file does not have valid syntax'
+        assert isinstance(conf, dict), 'Config file does not have valid syntax'
         version = conf.pop('version', 2)
         assert version == 2, 'Only config version 2 is supported'
         config_hashes, dps = _config_parser_v2(config_file, logname)
         assert dps is not None, 'dps are not defined'
-    
+
     except AssertionError as err:
         raise InvalidConfigError(err)
 
     return config_hashes, dps
 
-def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
+
+def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                   routers_conf, vlans_conf):
     dps = []
     vid_dp = collections.defaultdict(set)
@@ -149,7 +145,6 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
 
 
 def _config_parser_v2(config_file, logname):
-    logger = config_parser_util.get_logger(logname)
     config_path = config_parser_util.dp_config_path(config_file)
     top_confs = {}
     config_hashes = {}
@@ -159,12 +154,11 @@ def _config_parser_v2(config_file, logname):
 
     if not config_parser_util.dp_include(
             config_hashes, config_path, logname, top_confs):
-        assert False, 'Error found while loading config file: %s' % config_path 
+        assert False, 'Error found while loading config file: %s' % config_path
     elif not top_confs['dps']:
         assert False, 'DPs not configured in file: %s' % config_path
     else:
         dps = _dp_parser_v2(
-            logger,
             top_confs['acls'],
             top_confs['dps'],
             top_confs['meters'],
