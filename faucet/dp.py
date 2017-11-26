@@ -687,7 +687,7 @@ class DP(Conf):
 
         deleted_ports = set(list(self.ports.keys())) - set(list(new_dp.ports.keys()))
         if deleted_ports:
-            logger.info('deleted ports: %s', deleted_ports)
+            logger.info('deleted ports: %s' % deleted_ports)
 
         if changed_ports == set(new_dp.ports.keys()):
             logger.info('all ports config changed')
