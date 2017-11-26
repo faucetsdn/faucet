@@ -296,6 +296,37 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_port_number(self):
+        """Test port number is valid."""
+        port_config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            testing:
+                native_vlan: office
+"""
+        self.check_config_failure(port_config, cp.dp_parser)
+
+    def test_one_port_dp(self):
+        """Test port number is valid."""
+        port_config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+"""
+        self.check_config_success(port_config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
