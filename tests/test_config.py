@@ -248,8 +248,14 @@ dps:
     sw1:
         dp_id: 0x1
         interface-ranges:
-            1-5:
+            a-b:
                 native_vlan: guest
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                native_vlan: office
+        interface-ranges:
 """
         self.check_config_failure(port_ranges_invalid_vlan, cp.dp_parser)
 
