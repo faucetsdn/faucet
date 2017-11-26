@@ -7,14 +7,13 @@ import tempfile
 import shutil
 import os
 import logging
-import sys
 from faucet import config_parser as cp
 
-SRC_DIR = '../faucet'
 LOGNAME = '/dev/null'
 
 
-class TestConfig(unittest.TestCase): 
+class TestConfig(unittest.TestCase):
+    """Test config parsing raises correct exception."""
 
     def setUp(self):
         logging.disable(logging.CRITICAL)
@@ -25,22 +24,25 @@ class TestConfig(unittest.TestCase):
         shutil.rmtree(self.tmpdir)
 
     def create_config_file(self, config):
-        """Returns the file path to the created file containing the config parameter"""
+        """Returns file path to file containing the config parameter."""
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
         with open(conf_file_name, 'w') as conf_file:
             conf_file.write(config)
         return conf_file_name
 
     def run_function_with_config(self, config, function):
+        """Return False if provided function raises InvalidConfigError."""
         conf_file = self.create_config_file(config)
         try:
-           function(conf_file, LOGNAME)
+            function(conf_file, LOGNAME)
         except cp.InvalidConfigError:
-           return False
+            return False
         return True
 
     def check_config_failure(self, config, function):
-        self.assertEqual(self.run_function_with_config(config, function), False)
+        """Ensure config parsing reported as failed."""
+        self.assertEqual(
+            self.run_function_with_config(config, function), False)
 
     def test_config_contains_only_int(self):
         """Test that config is invalid when only an int"""
@@ -57,12 +59,12 @@ class TestConfig(unittest.TestCase):
         config = """aaaa"""
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_config_contains_only_boolean(self):
+    def test_config_only_boolean(self):
         """Test config is invalid when only a boolean"""
         config = """False"""
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_config_conains_only_datetime_object(self):
+    def test_config_only_datetime_object(self):
         """Test that config is invalid when only a datetime object"""
         config = """1967-07-31"""
         self.check_config_failure(config, cp.dp_parser)
@@ -77,12 +79,12 @@ class TestConfig(unittest.TestCase):
         config = """[2, 2]"""
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_config_contains_only_empty_array(self):
+    def test_config_only_empty_array(self):
         """Test that config is invalid when only only []"""
         config = """[]"""
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_referencing_unconfigured_acl(self):
+    def test_unconfigured_acl(self):
         """Test that config is invalid when there are unconfigured acls"""
         acl_config = """
 vlans:
@@ -98,7 +100,7 @@ dps:
 """
         self.check_config_failure(acl_config, cp.dp_parser)
 
-    def test_referencing_unconfigured_vlan_acl(self):
+    def test_unconfigured_vlan_acl(self):
         """Test that config is invalid when only there are unconfigured acls"""
         acl_config = """
 vlans:
@@ -133,7 +135,7 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_config_routes_are_not_strings(self):
+    def test_config_routes_not_strings(self):
         """Test config is invalid when vlan routes are not strings"""
         config = """
 vlans:
@@ -152,7 +154,7 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_config_vlan_vips_are_not_strings(self):
+    def test_config_vlan_vips_not_strings(self):
         """Test that config is invalid when faucet_vips does not contain strings"""
         config = """
 vlans:
@@ -168,7 +170,7 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_config_faucet_vips_contains_invalid_ip_addresses(self):
+    def test_config_faucet_invalid_vips(self):
         """Test that config is rejected if faucet_vips does not contain valid ip addresses"""
         config = """
 vlans:
