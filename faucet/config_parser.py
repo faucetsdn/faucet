@@ -56,7 +56,7 @@ def dp_parser(config_file, logname):
         assert version == 2, 'Only config version 2 is supported'
         config_hashes, dps = _config_parser_v2(config_file, logname)
         assert dps is not None, 'dps are not defined'
-    
+
     except AssertionError as err:
         raise InvalidConfigError(err)
 
@@ -127,11 +127,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
             if 'number' in port_conf:
                 del port_conf['number']
             for range_ in re.findall(r'(\d+-\d+)', port_range):
-                start_num = end_num = 0
-                try:
-                    start_num, end_num = [int(num) for num in range_.split('-')]
-                except:
-                    assert False, "port range must be integer"
+                start_num, end_num = [int(num) for num in range_.split('-')]
                 assert start_num < end_num, (
                     'Incorrect port range (%d - %d)' % (start_num, end_num))
                 port_nums.update(list(range(start_num, end_num + 1)))
@@ -192,7 +188,7 @@ def _config_parser_v2(config_file, logname):
 
     if not config_parser_util.dp_include(
             config_hashes, config_path, logname, top_confs):
-        assert False, 'Error found while loading config file: %s' % config_path 
+        assert False, 'Error found while loading config file: %s' % config_path
     elif not top_confs['dps']:
         assert False, 'DPs not configured in file: %s' % config_path
     else:
