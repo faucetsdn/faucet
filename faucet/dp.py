@@ -406,6 +406,7 @@ class DP(Conf):
             for port in self.stack_ports:
                 stack_dp = port.stack['dp']
                 port_stack_dp[port] = dp_by_name[stack_dp]
+                assert not port.vlans(), 'cannot have VLANs configured on stack interface'
             for port, dp in list(port_stack_dp.items()):
                 port.stack['dp'] = dp
                 stack_port_name = port.stack['port']
@@ -432,7 +433,8 @@ class DP(Conf):
                         if attrib == 'actions':
                             if 'meter' in attrib_value:
                                 meter_name = attrib_value['meter']
-                                assert meter_name in self.meters
+                                assert meter_name in self.meters, (
+                                   'meter %s is not configured' % meter_name)
                             if 'mirror' in attrib_value:
                                 port_name = attrib_value['mirror']
                                 port_no = resolve_port_no(port_name)
@@ -472,18 +474,14 @@ class DP(Conf):
 
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
-                    if vlan.acl_in in self.acls:
-                        vlan.acl_in = self.acls[vlan.acl_in]
-                        build_acl(vlan.acl_in, vid=1)
-                    else:
-                        assert False, 'Unconfigured vlan acl for %s' % self.name
+                    assert vlan.acl_in in self.acls, (
+                        'Unconfigured VLAN ACL %s' % self.name)
+                    vlan.acl_in = self.acls[vlan.acl_in]
+                    build_acl(vlan.acl_in, vid=1)
             for port in list(self.ports.values()):
                 if port.acl_in:
-                    if port.acl_in in self.acls:
-                        port.acl_in = self.acls[port.acl_in]
-                        build_acl(port.acl_in)
-                    else:
-                        assert False, 'Unconfigured acl for %s' % self.name
+                    assert port.acl_in in self.acls, (
+                        'Unconfigured port ACL %s' % self.name)
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""

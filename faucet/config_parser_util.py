@@ -85,7 +85,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
         try:
             new_top_confs[conf_name].update(conf.pop(conf_name, {}))
         except TypeError:
-            logger.error('%s not configured properly' % conf_name)
+            logger.error('Invalid config for %s' % conf_name)
             return False
 
     for include_directive, file_required in (

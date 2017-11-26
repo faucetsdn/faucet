@@ -2,11 +2,11 @@
 
 """Test config parsing"""
 
-import unittest
-import tempfile
-import shutil
-import os
 import logging
+import shutil
+import tempfile
+import unittest
+import os
 from faucet import config_parser as cp
 
 LOGNAME = '/dev/null'
@@ -44,6 +44,11 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(
             self.run_function_with_config(config, function), False)
 
+    def check_config_success(self, config, function):
+        """Ensure config parsing reported succeeded."""
+        self.assertEqual(
+            self.run_function_with_config(config, function), True)
+
     def test_config_contains_only_int(self):
         """Test that config is invalid when only an int"""
         config = """5"""
@@ -64,7 +69,7 @@ class TestConfig(unittest.TestCase):
         config = """False"""
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_config_only_datetime_object(self):
+    def test_config_only_datetime(self):
         """Test that config is invalid when only a datetime object"""
         config = """1967-07-31"""
         self.check_config_failure(config, cp.dp_parser)
@@ -154,7 +159,7 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_config_vlan_vips_not_strings(self):
+    def test_config_vips_not_strings(self):
         """Test that config is invalid when faucet_vips does not contain strings"""
         config = """
 vlans:
@@ -225,6 +230,71 @@ dps:
                 tagged_vlans: [office]
 """
         self.check_config_failure(include_config, cp.dp_parser)
+
+    def test_config_vlans_on_stack(self):
+        """Test that config is rejected vlans on a stack interface."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                native_vlan: office
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_config_stack(self):
+        """Test valid stacking config."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
 
 
 if __name__ == "__main__":
