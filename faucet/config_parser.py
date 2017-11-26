@@ -25,7 +25,7 @@ from faucet.dp import DP
 from faucet.meter import Meter
 from faucet.port import Port
 from faucet.router import Router
-from faucet.valve_of import MIN_VID, MAX_VID
+from faucet.valve_of import ignore_port, MIN_VID, MAX_VID
 from faucet.vlan import VLAN
 from faucet.watcher_conf import WatcherConf
 
@@ -90,6 +90,8 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
     def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
         port = Port(p_identifier, port_conf)
+        assert isinstance(port.number, int) and port.number > 0 and not ignore_port(port.number), (
+            'Port number invalid: %s' % port.number)
 
         if port.native_vlan is not None:
             v_identifier = port.native_vlan
