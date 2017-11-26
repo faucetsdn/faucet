@@ -1,5 +1,6 @@
-""" """
 #!/usr/bin/env python3
+
+"""Test config parsing"""
 
 import unittest
 import tempfile
@@ -11,6 +12,7 @@ from faucet import config_parser as cp
 
 SRC_DIR = '../faucet'
 LOGNAME = '/dev/null'
+
 
 class TestConfig(unittest.TestCase): 
 
@@ -182,7 +184,6 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-
     def test_config_vlans_is_empty(self):
         """Test that config is rejected when vlans is empty"""
         config = """
@@ -222,6 +223,7 @@ dps:
                 tagged_vlans: [office]
 """
         self.check_config_failure(include_config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()

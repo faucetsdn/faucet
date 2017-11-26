@@ -1389,6 +1389,17 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
+class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
+
+    def test_delete_interface(self):
+        conf = self._get_conf()
+        first_interface = conf['dps']['faucet-1']['interfaces'].keys()[0]
+        del conf['dps']['faucet-1']['interfaces'][first_interface]
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=True, change_expected=True)
+
+
 class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 
     CONFIG = """
