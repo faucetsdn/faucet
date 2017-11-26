@@ -19,6 +19,7 @@
 
 import ipaddress
 
+from ryu.lib import mac
 from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil
 from ryu.ofproto import ether
