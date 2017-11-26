@@ -665,7 +665,8 @@ def faucet_async(datapath=None):
         1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
     flow_removed_mask = (
         1 << ofp.OFPRR_IDLE_TIMEOUT | 1 << ofp.OFPRR_HARD_TIMEOUT)
-    return parser.OFPSetAsync(datapath,
+    return parser.OFPSetAsync(
+        datapath,
         [packet_in_mask, packet_in_mask],
         [port_status_mask, port_status_mask],
         [flow_removed_mask, flow_removed_mask])
@@ -677,7 +678,8 @@ def gauge_async(datapath=None):
     port_status_mask = (
         1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
     flow_removed_mask = 0
-    return parser.OFPSetAsync(datapath,
+    return parser.OFPSetAsync(
+        datapath,
         [packet_in_mask, packet_in_mask],
         [port_status_mask, port_status_mask],
         [flow_removed_mask, flow_removed_mask])
