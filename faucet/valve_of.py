@@ -19,7 +19,6 @@
 
 import ipaddress
 
-from ryu.lib import mac
 from ryu.lib import ofctl_v1_3 as ofctl
 from ryu.lib.ofctl_utils import str_to_int, to_match_ip, to_match_masked_int, to_match_eth, to_match_vid, OFCtlUtil
 from ryu.ofproto import ether
@@ -665,7 +664,8 @@ def faucet_async(datapath=None):
         1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
     flow_removed_mask = (
         1 << ofp.OFPRR_IDLE_TIMEOUT | 1 << ofp.OFPRR_HARD_TIMEOUT)
-    return parser.OFPSetAsync(datapath,
+    return parser.OFPSetAsync(
+        datapath,
         [packet_in_mask, packet_in_mask],
         [port_status_mask, port_status_mask],
         [flow_removed_mask, flow_removed_mask])
@@ -677,7 +677,8 @@ def gauge_async(datapath=None):
     port_status_mask = (
         1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
     flow_removed_mask = 0
-    return parser.OFPSetAsync(datapath,
+    return parser.OFPSetAsync(
+        datapath,
         [packet_in_mask, packet_in_mask],
         [port_status_mask, port_status_mask],
         [flow_removed_mask, flow_removed_mask])
