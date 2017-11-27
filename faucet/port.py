@@ -25,6 +25,7 @@ class Port(Conf):
 
     name = None
     number = None
+    dp_id = None
     enabled = None
     permanent_learn = None
     unicast_flood = None
@@ -92,8 +93,8 @@ class Port(Conf):
         'loop_protect': bool,
     }
 
-    def __init__(self, _id, conf=None):
-        super(Port, self).__init__(_id, conf)
+    def __init__(self, _id, dp_id, conf=None):
+        super(Port, self).__init__(_id, dp_id, conf)
         self.dyn_phys_up = False
 
     def __str__(self):

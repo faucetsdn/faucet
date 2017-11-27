@@ -67,6 +67,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         for vlan in list(vlans.values()):
             if vlan_ident == str(vlan.vid):
                 return vlan
+        # Create VLAN with VID, if not defined.
         return vlans.setdefault(vlan_ident, VLAN(vlan_ident, dp_id))
 
     def _dp_add_vlan(dp, vlan):
@@ -80,7 +81,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                         str.join(', ', vid_dp[vlan.vid])))
 
     def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
-        port = Port(p_identifier, port_conf)
+        port = Port(p_identifier, dp_id, port_conf)
 
         if port.native_vlan is not None:
             v_identifier = port.native_vlan
@@ -95,8 +96,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
-        # as users can config port vlan by using vlan name, we store vid in
-        # Port instance instead of vlan name for data consistency
         for port_num, port_conf in list(dp_conf['interfaces'].items()):
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
@@ -105,23 +104,21 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                 _dp_add_vlan(dp, vlan)
 
     for identifier, dp_conf in list(dps_conf.items()):
-        dp = DP(identifier, dp_conf)
+        dp = DP(identifier, dp_conf.get('dp_id', None), dp_conf)
         dp_id = dp.dp_id
 
         vlans = {}
         for vlan_ident, vlan_conf in list(vlans_conf.items()):
             vlans[vlan_ident] = VLAN(vlan_ident, dp_id, vlan_conf)
-        acls = []
         for acl_ident, acl_conf in list(acls_conf.items()):
-            acls.append((acl_ident, ACL(acl_ident, acl_conf)))
+            acl = ACL(acl_ident, dp_id, acl_conf)
+            dp.add_acl(acl_ident, acl)
         for router_ident, router_conf in list(routers_conf.items()):
-            router = Router(router_ident, router_conf)
+            router = Router(router_ident, dp_id, router_conf)
             dp.add_router(router_ident, router)
         for meter_ident, meter_conf in list(meters_conf.items()):
-            dp.meters[meter_ident] = Meter(meter_ident, meter_conf)
+            dp.meters[meter_ident] = Meter(meter_ident, dp_id, meter_conf)
         _dp_add_ports(dp, dp_conf, dp_id, vlans)
-        for acl_ident, acl in acls:
-            dp.add_acl(acl_ident, acl)
         dps.append(dp)
 
     for dp in dps:
@@ -188,10 +185,10 @@ def _watcher_parser_v2(conf, logname, prom_client):
     for name, dictionary in list(conf['watchers'].items()):
         for dp_name in dictionary['dps']:
             if dp_name not in dps:
-                logger.error('dp %s metered but not configured', dp_name)
+                logger.error('DP %s metered but not configured', dp_name)
                 continue
             dp = dps[dp_name]
-            watcher = WatcherConf(name, dictionary, prom_client)
+            watcher = WatcherConf(name, dp.dp_id, dictionary, prom_client)
             watcher.add_db(dbs[watcher.db])
             watcher.add_dp(dp)
             result.append(watcher)

@@ -462,6 +462,72 @@ dps:
 """
         self.check_config_failure(interfaces_config, cp.dp_parser)
 
+    def test_unresolved_mirror_ports(self):
+        unresolved_mirror_port_config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: mirror_all
+acls:
+    mirror_all:
+        - rule:
+            actions:
+                mirror: UNRESOLVED
+                allow: 1
+"""
+        self.check_config_failure(unresolved_mirror_port_config, cp.dp_parser)
+
+    def test_unresolved_output_ports(self):
+        unresolved_output_port_config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: mirror_all
+acls:
+    mirror_all:
+        - rule:
+            actions:
+                output:
+                    port: UNRESOLVED
+                allow: 1
+"""
+        self.check_config_failure(unresolved_output_port_config, cp.dp_parser)
+
+    def test_unknown_output_ports(self):
+        unknown_output_port_config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: mirror_all
+acls:
+    mirror_all:
+        - rule:
+            actions:
+                output:
+                    port: 2
+                allow: 1
+"""
+        self.check_config_failure(unknown_output_port_config, cp.dp_parser)
+
+
 
 if __name__ == "__main__":
     unittest.main()

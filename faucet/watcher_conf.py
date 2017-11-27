@@ -68,8 +68,8 @@ class WatcherConf(Conf):
         'switches_doc': '',
     }
 
-    def __init__(self, _id, conf, prom_client):
-        super(WatcherConf, self).__init__(_id, conf)
+    def __init__(self, _id, dp_id, conf, prom_client):
+        super(WatcherConf, self).__init__(_id, dp_id, conf)
         self.prom_client = prom_client
         self.name = str(self._id)
 

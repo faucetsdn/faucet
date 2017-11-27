@@ -41,6 +41,7 @@ class VLAN(Conf):
     """Implement FAUCET configuration for a VLAN."""
 
     name = None
+    dp_id = None
     tagged = None
     untagged = None
     vid = None
@@ -120,7 +121,6 @@ class VLAN(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
-        self.dp_id = dp_id
         self.tagged = []
         self.untagged = []
         self.dyn_host_cache = {}
@@ -128,7 +128,7 @@ class VLAN(Conf):
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
         self.dyn_ipvs = []
-        super(VLAN, self).__init__(_id, conf)
+        super(VLAN, self).__init__(_id, dp_id, conf)
 
     def set_defaults(self):
         super(VLAN, self).set_defaults()
