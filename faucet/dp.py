@@ -454,6 +454,8 @@ class DP(Conf):
                                 resolved_ports.append(port_no)
                         if resolved_ports:
                             resolved_action_conf[output_action] = {'ports': resolved_ports}
+                    elif output_action in ('dl_dst', 'pop_vlans', 'swap_vid', 'vlan_vid', 'vlan_vids'):
+                        resolved_action_conf[output_action] = output_action_values
                     else:
                         assert False, 'unknown ACL output action: %s' % output_action
                 if resolved_action_conf:
