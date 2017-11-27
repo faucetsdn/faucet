@@ -21,10 +21,10 @@ build_tag()
     tag=$1
     branch=$2
     echo "building tag $tag (branch $branch)"
-    git checkout -q $branch
-    $DOCKER build -t $DOCKER_ID_USER/faucet-pi:$tag -f Dockerfile.pi .
-    $DOCKER build -t $DOCKER_ID_USER/gauge-pi:$tag -f Dockerfile.pi-gauge .
-    $DOCKER push $DOCKER_ID_USER/faucet-pi:$tag
+    git checkout -q $branch && \
+    $DOCKER build -t $DOCKER_ID_USER/faucet-pi:$tag -f Dockerfile.pi . && \
+    $DOCKER build -t $DOCKER_ID_USER/gauge-pi:$tag -f Dockerfile.pi-gauge . && \
+    $DOCKER push $DOCKER_ID_USER/faucet-pi:$tag && \
     $DOCKER push $DOCKER_ID_USER/gauge-pi:$tag
 }
 
