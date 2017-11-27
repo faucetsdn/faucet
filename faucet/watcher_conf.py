@@ -38,6 +38,7 @@ class WatcherConf(Conf):
         'db': None,
         'db_type': 'text',
         'file': None,
+        'compress': False,   # compress flow table file
         'influx_db': 'faucet',
         # influx database name
         'influx_host': 'localhost',
