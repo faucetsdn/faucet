@@ -28,12 +28,14 @@ class WatcherConf(Conf):
 
     db = None # pylint: disable=invalid-name
     dp = None # pylint: disable=invalid-name
+    all_dps = None
     prom_client = None
 
     defaults = {
         'name': None,
         'type': None,
         'dps': None,
+        'all_dps': False,
         'interval': 30,
         'db': None,
         'db_type': 'text',
