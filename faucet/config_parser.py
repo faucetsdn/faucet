@@ -48,9 +48,10 @@ def dp_parser(config_file, logname):
         version = conf.pop('version', 2)
         assert version == 2, 'Only config version 2 is supported'
         config_hashes, dps = _config_parser_v2(config_file, logname)
-        assert dps is not None, 'dps are not defined'
+        assert dps is not None, 'no DPs are not defined'
 
     except AssertionError as err:
+        print(err)
         raise InvalidConfigError(err)
 
     return config_hashes, dps
@@ -92,7 +93,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         port.tagged_vlans = port_tagged_vlans
         for vlan in port.tagged_vlans:
             vlan.add_tagged(port)
-        assert port.vlans() or port.stack, '%s must have a VLAN or be a stack port' % port
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
@@ -108,7 +108,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
     for identifier, dp_conf in list(dps_conf.items()):
         dp = DP(identifier, dp_conf)
-        dp.sanity_check()
         dp_id = dp.dp_id
 
         vlans = {}

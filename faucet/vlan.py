@@ -139,6 +139,15 @@ class VLAN(Conf):
         self._set_default(
             'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
+    @staticmethod
+    def _vid_valid(vid):
+        """Return True if VID valid."""
+        if isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID:
+            return True
+        return False
+
+    def check_config(self):
+        super(VLAN, self).check_config()
         assert self.vid_valid(self.vid), 'invalid VID %s' % self.vid
         assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
 

@@ -38,6 +38,7 @@ class Conf(object):
         if isinstance(conf, dict):
             self.update(conf)
             self.set_defaults()
+        self.check_config()
 
     def set_defaults(self):
         """Set default values and run any basic sanity checks."""
@@ -64,6 +65,10 @@ class Conf(object):
         self.__dict__.update(conf)
         self._check_unknown_conf(conf)
         self._check_defaults_types(conf)
+
+    def check_config(self):
+        """As far as possible, check config at instantiation time for errors, typically via assert."""
+        return
 
     def _conf_keys(self, conf, dyn=False, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
