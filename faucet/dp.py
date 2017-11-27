@@ -452,8 +452,8 @@ class DP(Conf):
                                 resolved_ports = []
                                 for port_name in failover_values:
                                     port_no = resolve_port_no(port_name)
-                                if port_no is not None:
-                                    resolved_ports.append(port_no)
+                                    if port_no is not None:
+                                        resolved_ports.append(port_no)
                                 resolved_action_conf[output_action][failover_name] = resolved_ports
                             else:
                                 resolved_action_conf[output_action][failover_name] = failover_values
