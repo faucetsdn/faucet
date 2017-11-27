@@ -129,6 +129,12 @@ class VLAN(Conf):
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
         self.dyn_ipvs = []
 
+    def update(self, conf):
+        super(VLAN, self).update(conf)
+        assert isinstance(self.vid, int) and self.vid >= valve_of.MIN_VID and self.vid <= valve_of.MAX_VID, (
+            'VLAN %s VID value %s is not int and valid range' % (
+                self.name, self.vid))
+
         if self.faucet_vips:
             try:
                 self.faucet_vips = [
