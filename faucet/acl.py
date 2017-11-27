@@ -22,6 +22,8 @@ from faucet.conf import Conf
 class ACL(Conf):
     """Implement FAUCET configuration for an ACL."""
 
+    # Resolved port numbers which are mirror action destinations.
+    mirror_destinations = set()
     rules = None
     exact_match = None
     defaults = {

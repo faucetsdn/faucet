@@ -417,24 +417,23 @@ class DP(Conf):
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
 
-            def resolve_meter(action_conf):
+            def resolve_meter(_acl, action_conf):
                 meter_name = action_conf
                 assert meter_name in self.meters, (
                     'meter %s is not configured' % meter_name)
                 return action_conf
 
-            def resolve_mirror(action_conf):
+            def resolve_mirror(acl, action_conf):
                 port_name = action_conf
                 port_no = resolve_port_no(port_name)
                 # If this DP does not have this port, do nothing.
                 if port_no is not None:
                     action_conf = port_no
-                    port = self.ports[port_no]
-                    port.mirror_destination = True
+                    acl.mirror_destinations.add(port_not)
                     return action_conf
                 return None
 
-            def resolve_output(action_conf):
+            def resolve_output(_acl, action_conf):
                 resolved_action_conf = {}
                 assert isinstance(action_conf, dict)
                 for output_action, output_action_values in list(action_conf.items()):
@@ -462,7 +461,7 @@ class DP(Conf):
                     return resolved_action_conf
                 return None
 
-            def resolve_allow(action_conf):
+            def resolve_allow(_acl, action_conf):
                 return action_conf
 
             action_resolvers = {
@@ -480,8 +479,10 @@ class DP(Conf):
                             for action_name, action_conf in list(attrib_value.items()):
                                 assert action_name in action_resolvers, (
                                     'unknown ACL action %s' % action_name)
-                                resolved_action_conf = action_resolvers[action_name](action_conf)
-                                assert resolved_action_conf is not None, 'cannot resolve ACL rule %s' % rule_conf
+                                resolved_action_conf = action_resolvers[action_name](
+                                    acl, action_conf)
+                                assert resolved_action_conf is not None, (
+                                    'cannot resolve ACL rule %s' % rule_conf)
                                 resolved_actions[action_name] = resolved_action_conf
                             rule_conf[attrib] = resolved_actions
 
@@ -489,13 +490,16 @@ class DP(Conf):
             """Resolve ACL references in config."""
 
             def build_acl(acl, vid=None):
-                """Check that ACL can be built from config."""
+                """Check that ACL can be built from config and mark mirror destinations."""
                 if acl.rules:
                     assert valve_acl.build_acl_ofmsgs(
                         [acl], self.wildcard_table,
                         valve_of.goto_table(self.wildcard_table),
                         2**16, self.meters, acl.exact_match,
                         vlan_vid=vid)
+                    for port_no in acl.mirror_destinations:
+                        port = self.ports[port_no]
+                        port.mirror_destination = True
 
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
