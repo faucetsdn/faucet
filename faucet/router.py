@@ -35,5 +35,5 @@ class Router(Conf):
 
     def set_defaults(self):
         super(Router, self).set_defaults()
-        assert isinstance(self.vlans, list) and len(self.vlans) == 2, (
-            'router %s must have 2 VLANs configured' % self.name)
+        assert isinstance(self.vlans, list) and len(self.vlans) > 1, (
+            'router %s must have at least 2 VLANs configured' % self.name)
