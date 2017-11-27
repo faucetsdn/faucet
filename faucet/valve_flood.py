@@ -341,11 +341,12 @@ class ValveFloodStackManager(ValveFloodManager):
         eth_src = pkt_meta.eth_src
         vlan_vid = pkt_meta.vlan.vid
         for other_valve in other_valves:
-            other_dp_host_cache = other_valve.dp.vlans[vlan_vid].host_cache
-            if eth_src in other_dp_host_cache:
-                host = other_dp_host_cache[eth_src]
-                if host.port.stack is None:
-                    return other_valve.dp
+            if vlan_vid in other_valve.dp.vlans:
+                other_dp_host_cache = other_valve.dp.vlans[vlan_vid].host_cache
+                if eth_src in other_dp_host_cache:
+                    host = other_dp_host_cache[eth_src]
+                    if host.port.stack is None:
+                        return other_valve.dp
         return None
 
     def edge_learn_port(self, other_valves, pkt_meta):
