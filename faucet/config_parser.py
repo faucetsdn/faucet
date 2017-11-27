@@ -184,7 +184,7 @@ def _watcher_parser_v2(conf, logname, prom_client):
 
     for watcher_name, watcher_conf in list(conf['watchers'].items()):
         watcher_dps = watcher_conf['dps']
-        if watcher_conf['all_dps']:
+        if watcher_conf.get('all_dps', False):
             watcher_dps = list(dps.keys())
         for dp_name in watcher_dps:
             if dp_name not in dps:
