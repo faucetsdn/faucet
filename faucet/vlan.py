@@ -18,6 +18,7 @@
 
 import collections
 import ipaddress
+import netaddr
 
 from faucet.conf import Conf
 from faucet.valve_util import btos
@@ -134,6 +135,8 @@ class VLAN(Conf):
         assert isinstance(self.vid, int) and self.vid >= valve_of.MIN_VID and self.vid <= valve_of.MAX_VID, (
             'VLAN %s VID value %s is not int and valid range' % (
                 self.name, self.vid))
+        if self.faucet_mac is not None:
+            assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
 
         if self.faucet_vips:
             try:
