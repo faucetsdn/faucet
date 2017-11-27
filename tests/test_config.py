@@ -462,6 +462,27 @@ dps:
 """
         self.check_config_failure(interfaces_config, cp.dp_parser)
 
+    def test_invalid_interfaces(self):
+        unresolved_mirror_port_config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: mirror_all
+acls:
+    mirror_all:
+        - rule:
+            actions:
+                mirror: UNRESOLVED
+                allow: 1
+"""
+        self.check_config_failure(unresolved_mirror_port_config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()

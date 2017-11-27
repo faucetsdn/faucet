@@ -477,12 +477,9 @@ class DP(Conf):
                                 assert action_name in action_resolvers, (
                                     'unknown ACL action %s' % action_name)
                                 resolved_action_conf = action_resolvers[action_name](action_conf)
-                                if resolved_action_conf is not None:
-                                    resolved_actions[action_name] = resolved_action_conf
-                            if resolved_actions:
-                                rule_conf[attrib] = resolved_actions
-                            else:
-                                assert False, 'cannot resolve ACL rule %s' % rule_conf
+                                assert resolved_action_conf is not None, 'cannot resolve ACL rule %s' % rule_conf
+                                resolved_actions[action_name] = resolved_action_conf
+                            rule_conf[attrib] = resolved_actions
 
         def resolve_acls():
             """Resolve ACL references in config."""
