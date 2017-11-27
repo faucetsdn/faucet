@@ -130,14 +130,6 @@ class VLAN(Conf):
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
         self.dyn_ipvs = []
 
-    def update(self, conf):
-        super(VLAN, self).update(conf)
-        assert isinstance(self.vid, int) and self.vid >= valve_of.MIN_VID and self.vid <= valve_of.MAX_VID, (
-            'VLAN %s VID value %s is not int and valid range' % (
-                self.name, self.vid))
-        if self.faucet_mac is not None:
-            assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
-
         if self.faucet_vips:
             try:
                 self.faucet_vips = [
@@ -166,6 +158,14 @@ class VLAN(Conf):
                     assert False, 'Invalid IP address in route: %s' % err
                 assert ip_gw.version == ip_dst.version
                 self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+
+    def update(self, conf):
+        super(VLAN, self).update(conf)
+        assert isinstance(self.vid, int) and self.vid >= valve_of.MIN_VID and self.vid <= valve_of.MAX_VID, (
+            'VLAN %s VID value %s is not int and valid range' % (
+                self.name, self.vid))
+        if self.faucet_mac is not None:
+            assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
 
     def reset_host_cache(self):
         self.dyn_host_cache = {}
