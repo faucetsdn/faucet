@@ -72,6 +72,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
             vid = int(str(vlan_ident), 0)
         except ValueError:
             assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
+        assert VLAN.vid_valid(vid)
 
         return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
 

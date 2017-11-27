@@ -159,11 +159,17 @@ class VLAN(Conf):
                 assert ip_gw.version == ip_dst.version
                 self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
 
+    @staticmethod
+    def vid_valid(vid):
+        """Return True if VID valid."""
+        if isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID:
+            return True
+        return False
+
     def update(self, conf):
         super(VLAN, self).update(conf)
-        assert isinstance(self.vid, int) and self.vid >= valve_of.MIN_VID and self.vid <= valve_of.MAX_VID, (
-            'VLAN %s VID value %s is not int and valid range' % (
-                self.name, self.vid))
+        if self.vid is not None:
+            assert self.vid_valid(self.vid), 'invalid VID %s' % self.vid
         if self.faucet_mac is not None:
             assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
 
