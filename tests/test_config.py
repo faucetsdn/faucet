@@ -407,6 +407,21 @@ dps:
 """
         self.check_config_failure(mac_config, cp.dp_parser)
 
+    def test_empty_vid(self):
+        """Test empty VID."""
+        vlan_config = """
+vlans:
+    office:
+        vid:
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(vlan_config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
