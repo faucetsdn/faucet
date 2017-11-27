@@ -340,7 +340,7 @@ dps:
             1:
                 native_vlan: office
 """
-        self.check_config_success(toobig_dp_id_config, cp.dp_parser)
+        self.check_config_failure(toobig_dp_id_config, cp.dp_parser)
 
     def test_invalid_vid(self):
         """Test VID is valid."""
@@ -446,6 +446,19 @@ vlans:
 dps:
     sw1:
         dp_id: 0x1
+"""
+        self.check_config_failure(interfaces_config, cp.dp_parser)
+
+    def test_invalid_interfaces(self):
+        """Test invalid interfaces."""
+        interfaces_config = """
+vlans:
+    office:
+        vid:
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces: {'5': 5}
 """
         self.check_config_failure(interfaces_config, cp.dp_parser)
 

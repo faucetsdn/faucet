@@ -51,7 +51,6 @@ def dp_parser(config_file, logname):
         assert dps is not None, 'no DPs are not defined'
 
     except AssertionError as err:
-        print(err)
         raise InvalidConfigError(err)
 
     return config_hashes, dps
