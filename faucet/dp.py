@@ -71,6 +71,8 @@ class DP(Conf):
     tables = {}
     tables_by_id = {}
     meters = {}
+    timeout = None
+    arp_neighbor_timeout = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
