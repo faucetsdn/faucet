@@ -185,10 +185,10 @@ def _watcher_parser_v2(conf, logname, prom_client):
     for name, dictionary in list(conf['watchers'].items()):
         for dp_name in dictionary['dps']:
             if dp_name not in dps:
-                logger.error('dp %s metered but not configured', dp_name)
+                logger.error('DP %s metered but not configured', dp_name)
                 continue
             dp = dps[dp_name]
-            watcher = WatcherConf(name, dictionary, prom_client)
+            watcher = WatcherConf(name, dp.dp_id, dictionary, prom_client)
             watcher.add_db(dbs[watcher.db])
             watcher.add_dp(dp)
             result.append(watcher)
