@@ -195,7 +195,7 @@ class DP(Conf):
         return self.name
 
     def check_config(self):
-        assert self.dp_id > 0 and self.dp_id <= 2**64-1
+        assert self.dp_id > 0 and self.dp_id <= 2**64-1, 'DP ID %s not in valid range' % self.dp_id
         assert not (self.group_table and self.group_table_routing), (
             'groups for routing and other functions simultaneously not supported')
         assert len(self.interfaces), 'DP %s must have at least one interface' % self

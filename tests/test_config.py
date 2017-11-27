@@ -327,6 +327,21 @@ dps:
 """
         self.check_config_success(port_config, cp.dp_parser)
 
+    def test_dp_id_too_big(self):
+        """Test DP ID is valid."""
+        toobig_dp_id_config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0xfffffffffffffffffffffffffffffffff
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(toobig_dp_id_config, cp.dp_parser)
+
     def test_invalid_vid(self):
         """Test VID is valid."""
         vlan_config = """
@@ -421,6 +436,18 @@ dps:
                 native_vlan: office
 """
         self.check_config_failure(vlan_config, cp.dp_parser)
+
+    def test_empty_interfaces(self):
+        """Test empty interfaces."""
+        interfaces_config = """
+vlans:
+    office:
+        vid:
+dps:
+    sw1:
+        dp_id: 0x1
+"""
+        self.check_config_failure(interfaces_config, cp.dp_parser)
 
 
 if __name__ == "__main__":
