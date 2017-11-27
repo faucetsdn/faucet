@@ -16,16 +16,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import collections
 import copy
 
 from datadiff import diff
 import networkx
 
-from faucet.acl import ACL
 from faucet.conf import Conf
-from faucet.port import Port
-from faucet.vlan import VLAN
 from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet.valve_util import get_setting
 from faucet import valve_acl
@@ -41,6 +37,7 @@ class DP(Conf):
 
     acls = None
     vlans = None
+    interfaces = None # config
     ports = None
     routers = None
     running = False
@@ -425,7 +422,7 @@ class DP(Conf):
                             if 'meter' in attrib_value:
                                 meter_name = attrib_value['meter']
                                 assert meter_name in self.meters, (
-                                   'meter %s is not configured' % meter_name)
+                                    'meter %s is not configured' % meter_name)
                             if 'mirror' in attrib_value:
                                 port_name = attrib_value['mirror']
                                 port_no = resolve_port_no(port_name)
