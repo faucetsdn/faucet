@@ -195,7 +195,7 @@ class DP(Conf):
         assert self.dp_id > 0 and self.dp_id <= 2**64-1, 'DP ID %s not in valid range' % self.dp_id
         assert not (self.group_table and self.group_table_routing), (
             'groups for routing and other functions simultaneously not supported')
-        assert len(self.interfaces), 'DP %s must have at least one interface' % self
+        assert self.interfaces, 'DP %s must have at least one interface' % self
 
     def _configure_tables(self):
         """Configure FAUCET pipeline of tables with matches."""
@@ -415,38 +415,74 @@ class DP(Conf):
 
         def resolve_names_in_acls():
             """Resolve config references in ACLs."""
+            # TODO: move this config validation to ACL object.
+
+            def resolve_meter(action_conf):
+                meter_name = action_conf
+                assert meter_name in self.meters, (
+                    'meter %s is not configured' % meter_name)
+                return action_conf
+
+            def resolve_mirror(action_conf):
+                port_name = action_conf
+                port_no = resolve_port_no(port_name)
+                # If this DP does not have this port, do nothing.
+                if port_no is not None:
+                    action_conf = port_no
+                    port = self.ports[port_no]
+                    port.mirror_destination = True
+                    return action_conf
+                return None
+
+            def resolve_output(action_conf):
+                resolved_action_conf = {}
+                for output_action, output_action_values in list(action_conf.items()):
+                    if output_action == 'port':
+                        port_name = output_action_values
+                        port_no = resolve_port_no(port_name)
+                        # If this DP does not have this port, do not output.
+                        if port_no is not None:
+                            resolved_action_conf[output_action] = port_no
+                    elif output_action == 'failover':
+                        failover = output_action_values
+                        resolved_ports = []
+                        for port_name in failover['ports']:
+                            port_no = resolve_port_no(port_name)
+                            if port_no is not None:
+                                resolved_ports.append(port_no)
+                        if resolved_ports:
+                            resolved_action_conf[output_action] = {'ports': resolved_ports}
+                    else:
+                        assert False, 'unknown ACL output action: %s' % output_action
+                if resolved_action_conf:
+                    return resolved_action_conf
+                return None
+
+            def resolve_allow(action_conf):
+                return action_conf
+
+            action_resolvers = {
+                'meter': resolve_meter,
+                'mirror': resolve_mirror,
+                'output': resolve_output,
+                'allow': resolve_allow,
+            }
+
             for acl in list(self.acls.values()):
                 for rule_conf in acl.rules:
                     for attrib, attrib_value in list(rule_conf.items()):
                         if attrib == 'actions':
-                            if 'meter' in attrib_value:
-                                meter_name = attrib_value['meter']
-                                assert meter_name in self.meters, (
-                                    'meter %s is not configured' % meter_name)
-                            if 'mirror' in attrib_value:
-                                port_name = attrib_value['mirror']
-                                port_no = resolve_port_no(port_name)
-                                # in V2 config, we might have an ACL that does
-                                # not apply to a DP.
-                                if port_no is not None:
-                                    attrib_value['mirror'] = port_no
-                                    port = self.ports[port_no]
-                                    port.mirror_destination = True
-                            if 'output' in attrib_value:
-                                output_values = attrib_value['output']
-                                if 'port' in output_values:
-                                    port_name = output_values['port']
-                                    port_no = resolve_port_no(port_name)
-                                    if port_no is not None:
-                                        output_values['port'] = port_no
-                                if 'failover' in output_values:
-                                    failover = output_values['failover']
-                                    resolved_ports = []
-                                    for port_name in failover['ports']:
-                                        port_no = resolve_port_no(port_name)
-                                        if port_no is not None:
-                                            resolved_ports.append(port_no)
-                                    failover['ports'] = resolved_ports
+                            resolved_actions = {}
+                            for action_name, action_conf in list(attrib_value.items()):
+                                assert action_name in action_resolvers, (
+                                    'unknown ACL action %s' % action_name)
+                                resolved_action_conf = action_resolvers[action_name](action_conf)
+                                if resolved_action_conf is not None:
+                                    resolved_actions[action_name] = resolved_action_conf
+                            if resolved_actions:
+                                rule_conf[attrib] = resolved_actions
+                            else:
+                                assert False, 'cannot resolve ACL rule %s' % rule_conf
 
         def resolve_acls():
             """Resolve ACL references in config."""
