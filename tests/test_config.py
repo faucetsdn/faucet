@@ -327,6 +327,23 @@ dps:
 """
         self.check_config_success(port_config, cp.dp_parser)
 
+    def test_routers_empty(self):
+        """Test with empty router config."""
+        router_config = """
+routers:
+    router-1:
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(router_config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
