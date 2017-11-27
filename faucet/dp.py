@@ -489,8 +489,6 @@ class DP(Conf):
             """Resolve VLAN references in routers."""
             dp_routers = {}
             for router_name, router in list(self.routers.items()):
-                assert isinstance(router.vlans, list) and len(router.vlans) == 2, (
-                    'router %s must have 2 VLANs configured' % router_name)
                 vlans = []
                 for vlan_name in router.vlans:
                     vlan = resolve_vlan(vlan_name)
