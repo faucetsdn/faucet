@@ -120,7 +120,6 @@ class VLAN(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
-        super(VLAN, self).__init__(_id, conf)
         self.dp_id = dp_id
         self.tagged = []
         self.untagged = []
@@ -129,6 +128,19 @@ class VLAN(Conf):
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
         self.dyn_ipvs = []
+        super(VLAN, self).__init__(_id, conf)
+
+    def set_defaults(self):
+        super(VLAN, self).set_defaults()
+        self._set_default('vid', self._id)
+        self._set_default('name', str(self._id))
+        self._set_default('faucet_vips', [])
+        self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
+        self._set_default(
+            'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
+
+        assert self.vid_valid(self.vid), 'invalid VID %s' % self.vid
+        assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
 
         if self.faucet_vips:
             try:
@@ -165,13 +177,6 @@ class VLAN(Conf):
         if isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID:
             return True
         return False
-
-    def update(self, conf):
-        super(VLAN, self).update(conf)
-        if self.vid is not None:
-            assert self.vid_valid(self.vid), 'invalid VID %s' % self.vid
-        if self.faucet_mac is not None:
-            assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
 
     def reset_host_cache(self):
         self.dyn_host_cache = {}
@@ -250,15 +255,6 @@ class VLAN(Conf):
     @host_cache.setter
     def host_cache(self, value):
         self.dyn_host_cache = value
-
-    def set_defaults(self):
-        super(VLAN, self).set_defaults()
-        self._set_default('vid', self._id)
-        self._set_default('name', str(self._id))
-        self._set_default('faucet_vips', [])
-        self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
-        self._set_default(
-            'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
