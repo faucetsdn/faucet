@@ -96,10 +96,9 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
-        ports_conf = dp_conf.pop('interfaces', {})
         # as users can config port vlan by using vlan name, we store vid in
         # Port instance instead of vlan name for data consistency
-        for port_num, port_conf in list(ports_conf.items()):
+        for port_num, port_conf in list(dp_conf['interfaces'].items()):
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
         for vlan in list(vlans.values()):

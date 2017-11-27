@@ -195,10 +195,10 @@ class DP(Conf):
         return self.name
 
     def check_config(self):
-        assert 'dp_id' in self.__dict__
-        assert str(self.dp_id).isdigit()
+        assert self.dp_id > 0 and self.dp_id <= 2**64-1
         assert not (self.group_table and self.group_table_routing), (
             'groups for routing and other functions simultaneously not supported')
+        assert len(self.interfaces), 'DP %s must have at least one interface' % self
 
     def _configure_tables(self):
         """Configure FAUCET pipeline of tables with matches."""
@@ -491,7 +491,6 @@ class DP(Conf):
                     dp_routers[router_name] = dp_router
             self.routers = dp_routers
 
-        assert self.ports, 'no interfaces defined for %s' % self.name
         assert self.vlans, 'no VLANs referenced by interfaces in %s' % self.name
 
         port_by_name = {}
