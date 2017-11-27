@@ -429,7 +429,7 @@ class DP(Conf):
                 # If this DP does not have this port, do nothing.
                 if port_no is not None:
                     action_conf = port_no
-                    acl.mirror_destinations.add(port_not)
+                    acl.mirror_destinations.add(port_no)
                     return action_conf
                 return None
 
