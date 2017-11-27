@@ -108,8 +108,16 @@ class Port(Conf):
         self._set_default('name', str(self._id))
         self._set_default('description', self.name)
         self._set_default('tagged_vlans', [])
+
+    def check_config(self):
+        super(Port, self).check_config()
         assert isinstance(self.number, int) and self.number > 0 and not ignore_port(self.number), (
             'Port number invalid: %s' % self.number)
+
+    def finalize(self):
+        assert self.vlans() or self.stack, '%s must have a VLAN or be a stack port' % self
+        assert not (self.vlans() and self.stack), '%s cannot have stack and VLANs on same port' % self
+        super(Port, self).finalize()
 
     def running(self):
         return self.enabled and self.dyn_phys_up

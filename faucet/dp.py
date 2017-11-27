@@ -194,19 +194,11 @@ class DP(Conf):
     def __str__(self):
         return self.name
 
-    def sanity_check(self):
-        # TODO: this shouldnt use asserts
-        assert 'dp_id' in self.__dict__
-        assert str(self.dp_id).isdigit()
+    def check_config(self):
+        assert self.dp_id > 0 and self.dp_id <= 2**64-1, 'DP ID %s not in valid range' % self.dp_id
         assert not (self.group_table and self.group_table_routing), (
             'groups for routing and other functions simultaneously not supported')
-        for vlan in list(self.vlans.values()):
-            assert isinstance(vlan, VLAN)
-            assert all(isinstance(p, Port) for p in vlan.get_ports())
-        for port in list(self.ports.values()):
-            assert isinstance(port, Port)
-        for acl in list(self.acls.values()):
-            assert isinstance(acl, ACL)
+        assert len(self.interfaces), 'DP %s must have at least one interface' % self
 
     def _configure_tables(self):
         """Configure FAUCET pipeline of tables with matches."""
@@ -406,7 +398,6 @@ class DP(Conf):
             for port in self.stack_ports:
                 stack_dp = port.stack['dp']
                 port_stack_dp[port] = dp_by_name[stack_dp]
-                assert not port.vlans(), 'cannot have VLANs configured on stack interface'
             for port, dp in list(port_stack_dp.items()):
                 port.stack['dp'] = dp
                 stack_port_name = port.stack['port']
@@ -475,13 +466,13 @@ class DP(Conf):
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
                     assert vlan.acl_in in self.acls, (
-                        'Unconfigured VLAN ACL %s' % self.name)
+                        'missing ACL %s on %s' % (self.name, vlan))
                     vlan.acl_in = self.acls[vlan.acl_in]
                     build_acl(vlan.acl_in, vid=1)
             for port in list(self.ports.values()):
                 if port.acl_in:
                     assert port.acl_in in self.acls, (
-                        'Unconfigured port ACL %s' % self.name)
+                        'missing ACL %s on %s' % (self.name, port))
                     port.acl_in = self.acls[port.acl_in]
                     build_acl(port.acl_in, vid=1)
 
@@ -500,7 +491,6 @@ class DP(Conf):
                     dp_routers[router_name] = dp_router
             self.routers = dp_routers
 
-        assert self.ports, 'no interfaces defined for %s' % self.name
         assert self.vlans, 'no VLANs referenced by interfaces in %s' % self.name
 
         port_by_name = {}
