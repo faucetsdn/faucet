@@ -15,6 +15,7 @@ import tempfile
 import os
 import re
 import json
+import yaml
 import random
 import urllib
 import requests
@@ -841,7 +842,7 @@ class GaugeWatcherTest(unittest.TestCase):
     def setUp(self):
         """Creates a temporary file and a mocked conf object"""
         self.temp_fd, self.temp_path = tempfile.mkstemp()
-        self.conf = mock.Mock(file=self.temp_path)
+        self.conf = mock.Mock(file=self.temp_path, compress=False)
 
     def tearDown(self):
         """Closes and deletes the temporary file"""
@@ -948,14 +949,9 @@ class GaugeWatcherTest(unittest.TestCase):
         logger.update(time.time(), datapath.dp_id, msg)
         log_str = self.get_file_contents()
 
-        #only parse the message part of the log text
-        str_to_find = "msg: "
-        index = log_str.find(str_to_find)
-        #discard the start of the log text
-        log_str = log_str[index + len(str_to_find):]
-        json_dict = json.loads(log_str)['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
+        yaml_dict = yaml.load(log_str)['msg']['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
 
-        compare_flow_msg(msg, json_dict, self)
+        compare_flow_msg(msg, yaml_dict, self)
 
 class GaugeConnectionCouchTest(unittest.TestCase):
     """ Check the ConnectionCouch class from nsodbc"""
