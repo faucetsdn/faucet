@@ -446,13 +446,17 @@ class DP(Conf):
                     elif output_action == 'failover':
                         failover = output_action_values
                         assert isinstance(failover, dict)
-                        resolved_ports = []
-                        for port_name in failover['ports']:
-                            port_no = resolve_port_no(port_name)
-                            if port_no is not None:
-                                resolved_ports.append(port_no)
-                        if resolved_ports:
-                            resolved_action_conf[output_action] = {'ports': resolved_ports}
+                        resolved_action_conf[output_action] = {}
+                        for failover_name, failover_values in list(failover.items()):
+                            if failover_name == 'ports':
+                                resolved_ports = []
+                                for port_name in failover_values:
+                                    port_no = resolve_port_no(port_name)
+                                if port_no is not None:
+                                    resolved_ports.append(port_no)
+                                resolved_action_conf[output_action][failover_name] = resolved_ports
+                            else:
+                                resolved_action_conf[output_action][failover_name] = failover_values
                     elif output_action in ('dl_dst', 'pop_vlans', 'swap_vid', 'vlan_vid', 'vlan_vids'):
                         resolved_action_conf[output_action] = output_action_values
                     else:
