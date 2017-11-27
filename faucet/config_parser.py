@@ -67,6 +67,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         for vlan in list(vlans.values()):
             if vlan_ident == str(vlan.vid):
                 return vlan
+        # Create VLAN with VID, if not defined.
         return vlans.setdefault(vlan_ident, VLAN(vlan_ident, dp_id))
 
     def _dp_add_vlan(dp, vlan):
@@ -95,8 +96,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
-        # as users can config port vlan by using vlan name, we store vid in
-        # Port instance instead of vlan name for data consistency
         for port_num, port_conf in list(dp_conf['interfaces'].items()):
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
@@ -111,17 +110,15 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         vlans = {}
         for vlan_ident, vlan_conf in list(vlans_conf.items()):
             vlans[vlan_ident] = VLAN(vlan_ident, dp_id, vlan_conf)
-        acls = []
         for acl_ident, acl_conf in list(acls_conf.items()):
-            acls.append((acl_ident, ACL(acl_ident, dp_id, acl_conf)))
+            acl = ACL(acl_ident, dp_id, acl_conf)
+            dp.add_acl(acl_ident, acl)
         for router_ident, router_conf in list(routers_conf.items()):
             router = Router(router_ident, dp_id, router_conf)
             dp.add_router(router_ident, router)
         for meter_ident, meter_conf in list(meters_conf.items()):
             dp.meters[meter_ident] = Meter(meter_ident, dp_id, meter_conf)
         _dp_add_ports(dp, dp_conf, dp_id, vlans)
-        for acl_ident, acl in acls:
-            dp.add_acl(acl_ident, acl)
         dps.append(dp)
 
     for dp in dps:
