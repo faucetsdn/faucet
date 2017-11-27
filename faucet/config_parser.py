@@ -182,13 +182,16 @@ def _watcher_parser_v2(conf, logname, prom_client):
 
     dbs = conf.pop('dbs')
 
-    for name, dictionary in list(conf['watchers'].items()):
-        for dp_name in dictionary['dps']:
+    for watcher_name, watcher_conf in list(conf['watchers'].items()):
+        watcher_dps = watcher_conf['dps']
+        if watcher_conf['all_dps']:
+            watcher_dps = list(dps.keys())
+        for dp_name in watcher_dps:
             if dp_name not in dps:
-                logger.error('DP %s metered but not configured', dp_name)
+                logger.error('DP %s in Gauge but not configured in FAUCET', dp_name)
                 continue
             dp = dps[dp_name]
-            watcher = WatcherConf(name, dp.dp_id, dictionary, prom_client)
+            watcher = WatcherConf(watcher_name, dp.dp_id, watcher_conf, prom_client)
             watcher.add_db(dbs[watcher.db])
             watcher.add_dp(dp)
             result.append(watcher)
