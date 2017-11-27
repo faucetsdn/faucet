@@ -25,7 +25,7 @@ from faucet.dp import DP
 from faucet.meter import Meter
 from faucet.port import Port
 from faucet.router import Router
-from faucet.valve_of import ignore_port, MIN_VID, MAX_VID
+from faucet.valve_of import ignore_port
 from faucet.vlan import VLAN
 from faucet.watcher_conf import WatcherConf
 
@@ -72,9 +72,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
             vid = int(str(vlan_ident), 0)
         except ValueError:
             assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
-
-        assert vid >= MIN_VID and vid <= MAX_VID, 'VLAN %s VID value %d is not in valid range' % (
-            vlan_ident, vid)
 
         return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
 

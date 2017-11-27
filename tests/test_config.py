@@ -327,6 +327,36 @@ dps:
 """
         self.check_config_success(port_config, cp.dp_parser)
 
+    def test_invalid_vid(self):
+        """Test VID is valid."""
+        vlan_config = """
+vlans:
+    office:
+        vid: 10000
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(vlan_config, cp.dp_parser)
+
+    def test_empty_vid(self):
+        """Test empty VID."""
+        vlan_config = """
+vlans:
+    office:
+        vid:
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(vlan_config, cp.dp_parser)
+
     def test_routers_empty(self):
         """Test with empty router config."""
         router_config = """
