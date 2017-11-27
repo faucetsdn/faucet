@@ -454,7 +454,7 @@ dps:
         interfaces_config = """
 vlans:
     office:
-        vid:
+        vid: 100
 dps:
     sw1:
         dp_id: 0x1
