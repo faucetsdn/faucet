@@ -17,6 +17,7 @@
 # limitations under the License.
 
 from faucet.conf import Conf
+from faucet.valve_of import ignore_port
 
 
 class Port(Conf):
@@ -107,6 +108,8 @@ class Port(Conf):
         self._set_default('name', str(self._id))
         self._set_default('description', self.name)
         self._set_default('tagged_vlans', [])
+        assert isinstance(self.number, int) and self.number > 0 and not ignore_port(self.number), (
+            'Port number invalid: %s' % self.number)
 
     def running(self):
         return self.enabled and self.dyn_phys_up

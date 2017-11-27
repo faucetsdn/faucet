@@ -40,6 +40,7 @@ class Conf(object):
             self.set_defaults()
 
     def set_defaults(self):
+        """Set default values and run any basic sanity checks."""
         for key, value in list(self.defaults.items()):
             self._set_default(key, value)
 
