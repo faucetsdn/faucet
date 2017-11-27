@@ -22,6 +22,7 @@ from faucet.conf import Conf
 class Router(Conf):
     """Implement FAUCET configuration for a router."""
 
+    name = None
     vlans = None
 
     defaults = {
@@ -31,3 +32,8 @@ class Router(Conf):
     defaults_type = {
         'vlans': list,
     }
+
+    def update(self, conf):
+        super(Router, self).update(conf)
+        assert isinstance(self.vlans, list) and len(self.vlans) == 2, (
+            'router %s must have 2 VLANs configured' % self.name)

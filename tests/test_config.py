@@ -374,6 +374,54 @@ dps:
 """
         self.check_config_failure(router_config, cp.dp_parser)
 
+    def test_valid_mac(self):
+        """Test with valid MAC."""
+        mac_config = """
+vlans:
+    office:
+        vid: 100
+        faucet_mac: '11:22:33:44:55:66'
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(mac_config, cp.dp_parser)
+
+    def test_invalid_mac(self):
+        """Test with invalid MAC."""
+        mac_config = """
+vlans:
+    office:
+        vid: 100
+        faucet_mac: '11:22:33:44:55:66:77:88'
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(mac_config, cp.dp_parser)
+
+    def test_empty_mac(self):
+        """Test with empty MAC."""
+        mac_config = """
+vlans:
+    office:
+        vid: 100
+        faucet_mac: ''
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(mac_config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
