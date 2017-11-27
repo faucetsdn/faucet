@@ -20,7 +20,8 @@ watchers:
 dbs:
     ft_file:
         type: 'text'
-        file: 'flow_table.json'
+        compress: True
+        file: 'flow_table.yaml.gz'
     prometheus:
         type: 'prometheus'
         prometheus_addr: '0.0.0.0'
