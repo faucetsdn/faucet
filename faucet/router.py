@@ -33,7 +33,7 @@ class Router(Conf):
         'vlans': list,
     }
 
-    def update(self, conf):
-        super(Router, self).update(conf)
+    def set_defaults(self):
+        super(Router, self).set_defaults()
         assert isinstance(self.vlans, list) and len(self.vlans) == 2, (
             'router %s must have 2 VLANs configured' % self.name)
