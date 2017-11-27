@@ -30,10 +30,11 @@ class Conf(object):
     dyn_finalized = False
     dyn_hash = None
 
-    def __init__(self, _id, conf=None):
+    def __init__(self, _id, dp_id, conf=None):
+        self._id = _id
+        self.dp_id = dp_id
         if conf is None:
             conf = {}
-        self._id = _id
         # TODO: handle conf as a sequence.
         if isinstance(conf, dict):
             self.update(conf)

@@ -38,8 +38,8 @@ class Meter(Conf):
         'meter_id': int,
     }
 
-    def __init__(self, _id, conf):
-        super(Meter, self).__init__(_id, conf)
+    def __init__(self, _id, dp_id, conf):
+        super(Meter, self).__init__(_id, dp_id, conf)
         assert conf['entry']
         assert conf['entry']['flags']
         assert conf['entry']['bands']

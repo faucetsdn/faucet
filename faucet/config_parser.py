@@ -80,7 +80,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                         str.join(', ', vid_dp[vlan.vid])))
 
     def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
-        port = Port(p_identifier, port_conf)
+        port = Port(p_identifier, dp_id, port_conf)
 
         if port.native_vlan is not None:
             v_identifier = port.native_vlan
@@ -105,7 +105,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                 _dp_add_vlan(dp, vlan)
 
     for identifier, dp_conf in list(dps_conf.items()):
-        dp = DP(identifier, dp_conf)
+        dp = DP(identifier, dp_conf.get('dp_id', None), dp_conf)
         dp_id = dp.dp_id
 
         vlans = {}
@@ -113,12 +113,12 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
             vlans[vlan_ident] = VLAN(vlan_ident, dp_id, vlan_conf)
         acls = []
         for acl_ident, acl_conf in list(acls_conf.items()):
-            acls.append((acl_ident, ACL(acl_ident, acl_conf)))
+            acls.append((acl_ident, ACL(acl_ident, dp_id, acl_conf)))
         for router_ident, router_conf in list(routers_conf.items()):
-            router = Router(router_ident, router_conf)
+            router = Router(router_ident, dp_id, router_conf)
             dp.add_router(router_ident, router)
         for meter_ident, meter_conf in list(meters_conf.items()):
-            dp.meters[meter_ident] = Meter(meter_ident, meter_conf)
+            dp.meters[meter_ident] = Meter(meter_ident, dp_id, meter_conf)
         _dp_add_ports(dp, dp_conf, dp_id, vlans)
         for acl_ident, acl in acls:
             dp.add_acl(acl_ident, acl)

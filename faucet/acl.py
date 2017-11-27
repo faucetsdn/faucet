@@ -33,8 +33,8 @@ class ACL(Conf):
         'exact_match': bool,
     }
 
-    def __init__(self, _id, conf):
-        super(ACL, self).__init__(_id, conf)
+    def __init__(self, _id, dp_id, conf):
+        super(ACL, self).__init__(_id, dp_id, conf)
         # TODO: ACL rule content should be type checked.
         rules = conf
         if isinstance(conf, dict):

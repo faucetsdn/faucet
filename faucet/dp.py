@@ -179,9 +179,9 @@ class DP(Conf):
         valve_of.ofp.OFPTT_ALL, 'all', None, flow_cookie=0)
 
 
-    def __init__(self, _id, conf):
+    def __init__(self, _id, dp_id, conf):
         """Constructs a new DP object"""
-        super(DP, self).__init__(_id, conf)
+        super(DP, self).__init__(_id, dp_id, conf)
         self.acls = {}
         self.vlans = {}
         self.ports = {}
