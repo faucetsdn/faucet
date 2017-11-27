@@ -436,6 +436,7 @@ class DP(Conf):
 
             def resolve_output(action_conf):
                 resolved_action_conf = {}
+                assert isinstance(action_conf, dict)
                 for output_action, output_action_values in list(action_conf.items()):
                     if output_action == 'port':
                         port_name = output_action_values
@@ -445,6 +446,7 @@ class DP(Conf):
                             resolved_action_conf[output_action] = port_no
                     elif output_action == 'failover':
                         failover = output_action_values
+                        assert isinstance(failover, dict)
                         resolved_ports = []
                         for port_name in failover['ports']:
                             port_no = resolve_port_no(port_name)
