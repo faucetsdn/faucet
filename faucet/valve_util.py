@@ -94,8 +94,18 @@ def get_bool_setting(name):
 
 def get_logger(logname, logfile, loglevel, propagate):
     """Create and return a logger object."""
+
+    stream_handlers = {
+        'STDOUT': sys.stdout,
+        'STDERR': sys.stderr,
+    }
+
+    try:
+        logger_handler = logging.StreamHandler(stream_handlers[logfile])
+    except KeyError:
+        logger_handler = WatchedFileHandler(logfile)
+
     logger = logging.getLogger(logname)
-    logger_handler = WatchedFileHandler(logfile)
     log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
     logger_handler.setFormatter(
         logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
