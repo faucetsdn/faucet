@@ -203,13 +203,13 @@ class ValveFloodStackManager(ValveFloodManager):
             flood_table, flood_priority, use_group_table, groups)
         self.stack = stack
         self.stack_ports = stack_ports
-        my_root_distance = dp_shortest_path_to_root()
+        my_root_distance = len(dp_shortest_path_to_root())
         self.shortest_path_port = shortest_path_port
         self.towards_root_stack_ports = []
         self.away_from_root_stack_ports = []
         for port in self.stack_ports:
             peer_dp = port.stack['dp']
-            peer_root_distance = peer_dp.shortest_path_to_root()
+            peer_root_distance = len(peer_dp.shortest_path_to_root())
             if peer_root_distance > my_root_distance:
                 self.away_from_root_stack_ports.append(port)
             elif peer_root_distance < my_root_distance:
