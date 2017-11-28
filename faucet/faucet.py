@@ -406,6 +406,10 @@ class Faucet(app_manager.RyuApp):
             self.logger.info(
                 'packet for unknown VLAN %u from %s', vlan_vid, dpid_log(dp_id))
             return
+        if in_port not in valve.dp.ports:
+            self.logger.info(
+                'packet for unknown port %u from %s', in_port, dpid_log(dp_id))
+            return
         pkt_meta = valve.parse_rcv_packet(
             in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
         other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
