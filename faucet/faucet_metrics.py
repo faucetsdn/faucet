@@ -26,16 +26,17 @@ from faucet.prom_client import PromClient
 class FaucetMetrics(PromClient):
     """Container class for objects that can be exported to Prometheus."""
 
+    REQUIRED_LABELS = ['dp_id']
     _dpid_counters = {}
     _dpid_gauges = {}
 
     def _dpid_counter(self, var, var_help):
-        counter = Counter(var, var_help, ['dp_id'])
+        counter = Counter(var, var_help, self.REQUIRED_LABELS)
         self._dpid_counters[var] = counter
         return counter
 
     def _dpid_gauge(self, var, var_help):
-        gauge = Gauge(var, var_help, ['dp_id'])
+        gauge = Gauge(var, var_help, self.REQUIRED_LABELS)
         self._dpid_gauges[var] = gauge
         return gauge
 
@@ -74,42 +75,42 @@ class FaucetMetrics(PromClient):
             'number of cold, complete reprovision config reloads executed')
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
-            'number of hosts learned on a VLAN', ['dp_id', 'vlan'])
+            'number of hosts learned on a VLAN', self.REQUIRED_LABELS + ['vlan'])
         self.vlan_neighbors = Gauge(
             'vlan_neighbors',
-            'number of neighbors on a VLAN', ['dp_id', 'vlan', 'ipv'])
+            'number of neighbors on a VLAN', self.REQUIRED_LABELS + ['vlan', 'ipv'])
         self.vlan_learn_bans = Gauge(
             'vlan_learn_bans',
-            'number of times learning was banned on a VLAN', ['dp_id', 'vlan'])
+            'number of times learning was banned on a VLAN', self.REQUIRED_LABELS + ['vlan'])
         self.faucet_config_table_names = Gauge(
             'faucet_config_table_names',
-            'number to names map of FAUCET pipeline tables', ['dp_id', 'name'])
+            'number to names map of FAUCET pipeline tables', self.REQUIRED_LABELS + ['name'])
         self.faucet_config_dp_name = Gauge(
             'faucet_config_dp_name',
-            'map of DP name to DP ID', ['dp_id', 'name'])
+            'map of DP name to DP ID', self.REQUIRED_LABELS + ['name'])
         self.faucet_packet_in_secs = Histogram(
             'faucet_packet_in_secs',
-            'FAUCET packet in processing time', ['dp_id'],
+            'FAUCET packet in processing time', self.REQUIRED_LABELS,
             buckets=(0.0001, 0.001, 0.01, 0.1, 1))
         self.bgp_neighbor_uptime_seconds = Gauge(
             'bgp_neighbor_uptime',
-            'BGP neighbor uptime in seconds', ['dp_id', 'vlan', 'neighbor'])
+            'BGP neighbor uptime in seconds', self.REQUIRED_LABELS + ['vlan', 'neighbor'])
         self.bgp_neighbor_routes = Gauge(
             'bgp_neighbor_routes',
-            'BGP neighbor route count', ['dp_id', 'vlan', 'neighbor', 'ipv'])
+            'BGP neighbor route count', self.REQUIRED_LABELS + ['vlan', 'neighbor', 'ipv'])
         self.learned_macs = Gauge(
             'learned_macs',
             ('MAC address stored as 64bit number to DP ID, port, VLAN, '
              'and n (discrete index)'),
-            ['dp_id', 'port', 'vlan', 'n'])
+            self.REQUIRED_LABELS + ['port', 'vlan', 'n'])
         self.port_status = Gauge(
             'port_status',
             'status of switch ports',
-            ['dp_id', 'port'])
+            self.REQUIRED_LABELS + ['port'])
         self.port_learn_bans = Gauge(
             'port_learn_bans',
             'number of times learning was banned on a port',
-            ['dp_id', 'port'])
+            self.REQUIRED_LABELS + ['port'])
         self.dp_status = self._dpid_gauge(
             'dp_status',
             'status of datapaths')
