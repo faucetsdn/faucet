@@ -153,6 +153,7 @@ def _config_parser_v2(config_file, logname):
 
 
 def get_config_for_api(valves):
+    """Return config as dict for all DPs."""
     config = {}
     for i in V2_TOP_CONFS:
         config[i] = {}
@@ -165,6 +166,7 @@ def get_config_for_api(valves):
 
 
 def watcher_parser(config_file, logname, prom_client):
+    """Return Watcher instances from config."""
     conf = config_parser_util.read_config(config_file, logname)
     return _watcher_parser_v2(conf, logname, prom_client)
 
@@ -186,6 +188,9 @@ def _watcher_parser_v2(conf, logname, prom_client):
         watcher_dps = watcher_conf['dps']
         if watcher_conf.get('all_dps', False):
             watcher_dps = list(dps.keys())
+        # Watcher config has a list of DPs, but actually a WatcherConf is
+        # created for each DP.
+        # TODO: refactor watcher_conf as a container.
         for dp_name in watcher_dps:
             if dp_name not in dps:
                 logger.error('DP %s in Gauge but not configured in FAUCET', dp_name)
