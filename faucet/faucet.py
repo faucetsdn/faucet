@@ -163,10 +163,10 @@ class Faucet(app_manager.RyuApp):
                     self._send_flow_msgs(new_dp.dp_id, flowmods)
                     if cold_start:
                         self.metrics.faucet_config_reload_cold.labels(
-                            dp_id=hex(dp_id)).inc()
+                            **valve.base_prom_labels).inc()
                     else:
                         self.metrics.faucet_config_reload_warm.labels(
-                            dp_id=hex(dp_id)).inc()
+                            **valve.base_prom_labels).inc()
             else:
                 # pylint: disable=no-member
                 valve_cl = valve_factory(new_dp)
@@ -228,7 +228,7 @@ class Faucet(app_manager.RyuApp):
         for flow_msg in reordered_flow_msgs:
             # pylint: disable=no-member
             self.metrics.of_flowmsgs_sent.labels(
-                dp_id=hex(dp_id)).inc()
+                **valve.base_prom_labels).inc()
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
 
@@ -406,18 +406,22 @@ class Faucet(app_manager.RyuApp):
             self.logger.info(
                 'packet for unknown VLAN %u from %s', vlan_vid, dpid_log(dp_id))
             return
+        if in_port not in valve.dp.ports:
+            self.logger.info(
+                'packet for unknown port %u from %s', in_port, dpid_log(dp_id))
+            return
         pkt_meta = valve.parse_rcv_packet(
             in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
         other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
 
         # pylint: disable=no-member
         self.metrics.of_packet_ins.labels(
-            dp_id=hex(dp_id)).inc()
+            **valve.base_prom_labels).inc()
         packet_in_start = time.time()
         flowmods = valve.rcv_packet(other_valves, pkt_meta)
         packet_in_stop = time.time()
         self.metrics.faucet_packet_in_secs.labels(
-            dp_id=hex(dp_id)).observe(packet_in_stop - packet_in_start)
+            **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
         self._send_flow_msgs(dp_id, flowmods)
         valve.update_metrics(self.metrics)
 
@@ -436,7 +440,8 @@ class Faucet(app_manager.RyuApp):
         if valve is None:
             return
         # pylint: disable=no-member
-        self.metrics.of_errors.labels(dp_id=hex(dp_id)).inc()
+        self.metrics.of_errors.labels(
+            **valve.base_prom_labels).inc()
         self.logger.error('OFError %s from %s', msg, dpid_log(dp_id))
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
@@ -475,8 +480,10 @@ class Faucet(app_manager.RyuApp):
         flowmods = valve.datapath_connect(discovered_up_port_nums)
         self._send_flow_msgs(dp_id, flowmods)
         # pylint: disable=no-member
-        self.metrics.of_dp_connections.labels(dp_id=hex(dp_id)).inc()
-        self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(1)
+        self.metrics.of_dp_connections.labels(
+            **valve.base_prom_labels).inc()
+        self.metrics.dp_status.labels(
+            **valve.base_prom_labels).set(1)
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_dp):
@@ -491,8 +498,10 @@ class Faucet(app_manager.RyuApp):
             return
         valve.datapath_disconnect()
         # pylint: disable=no-member
-        self.metrics.of_dp_disconnections.labels(dp_id=hex(dp_id)).inc()
-        self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(0)
+        self.metrics.of_dp_disconnections.labels(
+            **valve.base_prom_labels).inc()
+        self.metrics.dp_status.labels(
+            **valve.base_prom_labels).set(0)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -556,9 +565,10 @@ class Faucet(app_manager.RyuApp):
         flowmods = valve.port_status_handler(
             port_no, reason, port_status)
         self._send_flow_msgs(dp_id, flowmods)
+        port_labels = dict(valve.base_prom_labels, port=port_no)
         # pylint: disable=no-member
         self.metrics.port_status.labels(
-            dp_id=hex(dp_id), port=port_no).set(port_status)
+            **port_labels).set(port_status)
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

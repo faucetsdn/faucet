@@ -64,11 +64,13 @@ class Valve(object):
 
     DEC_TTL = True
     L3 = False
+    base_prom_labels = None
 
     def __init__(self, dp, logname):
         self.dp = dp
         self.logger = ValveLogger(
             logging.getLogger(logname + '.valve'), self.dp.dp_id)
+        self.base_prom_labels = {'dp_id': hex(self.dp.dp_id)}
         self.ofchannel_logger = None
         self._packet_in_count_sec = 0
         self._last_packet_in_sec = 0
@@ -678,11 +680,11 @@ class Valve(object):
         metrics (FaucetMetrics): container of Prometheus metrics.
         """
         metrics.faucet_config_dp_name.labels(
-            dp_id=hex(self.dp.dp_id), name=self.dp.name).set(
+            **dict(self.base_prom_labels, name=self.dp.name)).set(
                 self.dp.dp_id)
         for table_id, table in list(self.dp.tables_by_id.items()):
             metrics.faucet_config_table_names.labels(
-                dp_id=hex(self.dp.dp_id), name=table.name).set(table_id)
+                **dict(self.base_prom_labels, name=table.name)).set(table_id)
 
     def update_metrics(self, metrics):
         """Update Gauge/metrics.
@@ -694,29 +696,33 @@ class Valve(object):
         for _, label_dict, _ in metrics.learned_macs.collect()[0].samples:
             if label_dict['dp_id'] == dp_id:
                 metrics.learned_macs.labels(
-                    dp_id=label_dict['dp_id'], vlan=label_dict['vlan'],
-                    port=label_dict['port'], n=label_dict['n']).set(0)
+                    **dict(self.base_prom_labels, vlan=label_dict['vlan'],
+                           port=label_dict['port'], n=label_dict['n'])).set(0)
 
         for vlan in list(self.dp.vlans.values()):
             hosts_count = vlan.hosts_count()
             metrics.vlan_hosts_learned.labels(
-                dp_id=dp_id, vlan=vlan.vid).set(hosts_count)
+                **dict(self.base_prom_labels, vlan=vlan.vid)).set(
+                    hosts_count)
             metrics.vlan_learn_bans.labels(
-                dp_id=dp_id, vlan=vlan.vid).set(vlan.dyn_learn_ban_count)
+                **dict(self.base_prom_labels, vlan=vlan.vid)).set(
+                    vlan.dyn_learn_ban_count)
             for ipv in vlan.ipvs():
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
-                    dp_id=dp_id, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
+                    **dict(self.base_prom_labels, vlan=vlan.vid, ipv=ipv)).set(
+                        neigh_cache_size)
             learned_hosts_count = 0
             for port in vlan.get_ports():
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
                     metrics.learned_macs.labels(
-                        dp_id=dp_id, vlan=vlan.vid,
-                        port=port.number, n=i).set(mac_int)
+                        **dict(self.base_prom_labels, vlan=vlan.vid, port=port.number, n=i)).set(
+                            mac_int)
                     learned_hosts_count += 1
                 metrics.port_learn_bans.labels(
-                    dp_id=dp_id, port=port.number).set(port.dyn_learn_ban_count)
+                    **dict(self.base_prom_labels, port=port.number)).set(
+                        port.dyn_learn_ban_count)
 
     def rcv_packet(self, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
