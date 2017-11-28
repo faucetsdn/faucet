@@ -31,3 +31,11 @@ class Router(Conf):
     defaults_type = {
         'vlans': list,
     }
+
+    def __str__(self):
+        return self._id
+
+    def check_config(self):
+        super(Router, self).check_config()
+        assert isinstance(self.vlans, list) and len(self.vlans) > 1, (
+            'router %s must have at least 2 VLANs configured' % self)

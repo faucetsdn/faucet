@@ -1,4 +1,4 @@
-:version: 1.6.10
+:version: 1.6.11
 
 .. image:: https://travis-ci.org/faucetsdn/faucet.svg?branch=master
     :target: https://travis-ci.org/faucetsdn/faucet

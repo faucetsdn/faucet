@@ -237,7 +237,7 @@ dps:
 """
         self.check_config_failure(stacking_config)
 
-    def test_bad_acl_port(self):
+    def test_bad_acl_action(self):
         """Test that an ACL with a bad match field is rejected."""
         acl_config = """
 vlans:
@@ -246,7 +246,7 @@ vlans:
 acls:
     101:
         - rule:
-            nogood: "0e:00:00:00:02:02"
+            nogood: '0e:00:00:00:02:02'
             actions:
                 output:
                     port: 1
@@ -336,25 +336,6 @@ dps:
 """
         self.check_config_success(vlan_config)
 
-    def test_referencing_unconfigured_acl(self):
-        """Test that there is no unhandled exception when referencing unconfigured acl"""
-        acl_config = """
-vlans:
-    guest:
-        vid: 200
-
-dps:
-    sw2:
-        dp_id: 0x2
-        hardware: "Allied-Telesis"
-        interfaces:
-            1:
-                name: "pi"
-                description: "Raspberry Pi"
-                native_vlan: guest
-                acl_in: access-port-protect
-"""
-        self.check_config_failure(acl_config)
 
 if __name__ == "__main__":
     unittest.main()

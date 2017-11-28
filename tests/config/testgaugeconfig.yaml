@@ -19,7 +19,7 @@ watchers:
 dbs:
     ft_file:
         type: 'text'
-        file: 'flow_table.JSON'
+        file: 'flow_table.yaml'
     influx:
         type: 'influx'
         influx_db: 'faucet'

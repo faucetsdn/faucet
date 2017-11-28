@@ -28,16 +28,19 @@ class WatcherConf(Conf):
 
     db = None # pylint: disable=invalid-name
     dp = None # pylint: disable=invalid-name
+    all_dps = None
     prom_client = None
 
     defaults = {
         'name': None,
         'type': None,
         'dps': None,
+        'all_dps': False,
         'interval': 30,
         'db': None,
         'db_type': 'text',
         'file': None,
+        'compress': False,   # compress flow table file
         'influx_db': 'faucet',
         # influx database name
         'influx_host': 'localhost',
@@ -67,8 +70,8 @@ class WatcherConf(Conf):
         'switches_doc': '',
     }
 
-    def __init__(self, _id, conf, prom_client):
-        super(WatcherConf, self).__init__(_id, conf)
+    def __init__(self, _id, dp_id, conf, prom_client):
+        super(WatcherConf, self).__init__(_id, dp_id, conf)
         self.prom_client = prom_client
         self.name = str(self._id)
 

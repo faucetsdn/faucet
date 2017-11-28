@@ -21,11 +21,11 @@ import re
 
 from faucet import config_parser_util
 from faucet.acl import ACL
+from faucet.conf import InvalidConfigError
 from faucet.dp import DP
 from faucet.meter import Meter
 from faucet.port import Port
 from faucet.router import Router
-from faucet.valve_of import MIN_VID, MAX_VID
 from faucet.vlan import VLAN
 from faucet.watcher_conf import WatcherConf
 
@@ -38,31 +38,26 @@ V2_TOP_CONFS = (
     'vlans')
 
 
-class InvalidConfigError(Exception):
-    """This error is thrown when the config file is not valid"""
-    pass
-
-
 def dp_parser(config_file, logname):
-    logger = config_parser_util.get_logger(logname)
     conf = config_parser_util.read_config(config_file, logname)
     config_hashes = None
     dps = None
 
     try:
         assert conf is not None, 'Config file is empty'
-        assert type(conf) is dict, 'Config file does not have valid syntax'
+        assert isinstance(conf, dict), 'Config file does not have valid syntax'
         version = conf.pop('version', 2)
         assert version == 2, 'Only config version 2 is supported'
         config_hashes, dps = _config_parser_v2(config_file, logname)
-        assert dps is not None, 'dps are not defined'
+        assert dps is not None, 'no DPs are not defined'
 
     except AssertionError as err:
         raise InvalidConfigError(err)
 
     return config_hashes, dps
 
-def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
+
+def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                   routers_conf, vlans_conf):
     dps = []
     vid_dp = collections.defaultdict(set)
@@ -73,15 +68,8 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         for vlan in list(vlans.values()):
             if vlan_ident == str(vlan.vid):
                 return vlan
-        try:
-            vid = int(str(vlan_ident), 0)
-        except ValueError:
-            assert False, 'VLAN VID value (%s) is invalid' % vlan_ident
-
-        assert vid >= MIN_VID and vid <= MAX_VID, 'VLAN %s VID value %d is not in valid range' % (
-            vlan_ident, vid)
-
-        return vlans.setdefault(vlan_ident, VLAN(vid, dp_id))
+        # Create VLAN with VID, if not defined.
+        return vlans.setdefault(vlan_ident, VLAN(vlan_ident, dp_id))
 
     def _dp_add_vlan(dp, vlan):
         if vlan not in dp.vlans:
@@ -94,7 +82,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
                         str.join(', ', vid_dp[vlan.vid])))
 
     def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
-        port = Port(p_identifier, port_conf)
+        port = Port(p_identifier, dp_id, port_conf)
 
         if port.native_vlan is not None:
             v_identifier = port.native_vlan
@@ -106,25 +94,26 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
         port.tagged_vlans = port_tagged_vlans
         for vlan in port.tagged_vlans:
             vlan.add_tagged(port)
-        assert port.vlans() or port.stack, '%s must have a VLAN or be a stack port' % port
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
-        ports_conf = dp_conf.pop('interfaces', {})
-        port_ranges_conf = dp_conf.pop('interface-ranges', {})
+        ports_conf = dp_conf.get('interfaces', {})
+        port_ranges_conf = dp_conf.get('interface_ranges', {})
         # as users can config port vlan by using vlan name, we store vid in
         # Port instance instead of vlan name for data consistency
+        assert isinstance(ports_conf, dict), 'Invalid syntax in interface config '
+        assert isinstance(port_ranges_conf, dict), 'Invalid syntax in interface ranges config'
         port_num_to_port_conf = {}
         for port_ident, port_conf in list(ports_conf.items()):
+            assert isinstance(port_conf, dict), 'Invalid syntax in port config'
             if 'number' in port_conf:
                 port_num = port_conf['number']
             else:
                 port_num = port_ident
             port_num_to_port_conf[port_num] = (port_ident, port_conf)
-        assert port_ranges_conf is not None, 'interface-ranges config is empty'
         for port_range, port_conf in list(port_ranges_conf.items()):
             # port range format: 1-6 OR 1-6,8-9 OR 1-3,5,7-9
-            assert port_conf is not None, 'Port config is empty'
+            assert isinstance(port_conf, dict), 'Invalid syntax in port conig'
             port_nums = set()
             if 'number' in port_conf:
                 del port_conf['number']
@@ -136,7 +125,7 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
                 port_range = re.sub(range_, '', port_range)
             other_nums = [int(p) for p in re.findall(r'\d+', port_range)]
             port_nums.update(other_nums)
-            assert len(port_nums) > 0, 'interface-ranges contain no valid configs'
+            assert len(port_nums) > 0, 'interface-ranges contain invalid config'
             for port_num in port_nums:
                 if port_num in port_num_to_port_conf:
                     # port range config has lower priority than individual port config
@@ -152,24 +141,21 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
                 _dp_add_vlan(dp, vlan)
 
     for identifier, dp_conf in list(dps_conf.items()):
-        dp = DP(identifier, dp_conf)
-        dp.sanity_check()
+        dp = DP(identifier, dp_conf.get('dp_id', None), dp_conf)
         dp_id = dp.dp_id
 
         vlans = {}
         for vlan_ident, vlan_conf in list(vlans_conf.items()):
             vlans[vlan_ident] = VLAN(vlan_ident, dp_id, vlan_conf)
-        acls = []
         for acl_ident, acl_conf in list(acls_conf.items()):
-            acls.append((acl_ident, ACL(acl_ident, acl_conf)))
+            acl = ACL(acl_ident, dp_id, acl_conf)
+            dp.add_acl(acl_ident, acl)
         for router_ident, router_conf in list(routers_conf.items()):
-            router = Router(router_ident, router_conf)
+            router = Router(router_ident, dp_id, router_conf)
             dp.add_router(router_ident, router)
         for meter_ident, meter_conf in list(meters_conf.items()):
-            dp.meters[meter_ident] = Meter(meter_ident, meter_conf)
+            dp.meters[meter_ident] = Meter(meter_ident, dp_id, meter_conf)
         _dp_add_ports(dp, dp_conf, dp_id, vlans)
-        for acl_ident, acl in acls:
-            dp.add_acl(acl_ident, acl)
         dps.append(dp)
 
     for dp in dps:
@@ -181,7 +167,6 @@ def _dp_parser_v2(logger, acls_conf, dps_conf, meters_conf,
 
 
 def _config_parser_v2(config_file, logname):
-    logger = config_parser_util.get_logger(logname)
     config_path = config_parser_util.dp_config_path(config_file)
     top_confs = {}
     config_hashes = {}
@@ -196,7 +181,6 @@ def _config_parser_v2(config_file, logname):
         assert False, 'DPs not configured in file: %s' % config_path
     else:
         dps = _dp_parser_v2(
-            logger,
             top_confs['acls'],
             top_confs['dps'],
             top_confs['meters'],
@@ -235,13 +219,16 @@ def _watcher_parser_v2(conf, logname, prom_client):
 
     dbs = conf.pop('dbs')
 
-    for name, dictionary in list(conf['watchers'].items()):
-        for dp_name in dictionary['dps']:
+    for watcher_name, watcher_conf in list(conf['watchers'].items()):
+        watcher_dps = watcher_conf['dps']
+        if watcher_conf.get('all_dps', False):
+            watcher_dps = list(dps.keys())
+        for dp_name in watcher_dps:
             if dp_name not in dps:
-                logger.error('dp %s metered but not configured', dp_name)
+                logger.error('DP %s in Gauge but not configured in FAUCET', dp_name)
                 continue
             dp = dps[dp_name]
-            watcher = WatcherConf(name, dictionary, prom_client)
+            watcher = WatcherConf(watcher_name, dp.dp_id, watcher_conf, prom_client)
             watcher.add_db(dbs[watcher.db])
             watcher.add_dp(dp)
             result.append(watcher)

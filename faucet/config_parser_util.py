@@ -1,3 +1,5 @@
+"""Utility functions supporting FAUCET/Gauge config parsing."""
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
@@ -22,10 +24,12 @@ import yaml
 
 
 def get_logger(logname):
+    """Return logger instance for config parsing."""
     return logging.getLogger(logname + '.config')
 
 
 def read_config(config_file, logname):
+    """Return a parsed YAML config file or None."""
     logger = get_logger(logname)
     try:
         with open(config_file, 'r') as stream:
@@ -37,11 +41,13 @@ def read_config(config_file, logname):
 
 
 def config_file_hash(config_file_name):
+    """Return hash of YAML config file contents."""
     with open(config_file_name) as config_file:
         return hashlib.sha256(config_file.read().encode('utf-8')).hexdigest()
 
 
 def dp_config_path(config_file, parent_file=None):
+    """Return full path to config file."""
     if parent_file and not os.path.isabs(config_file):
         return os.path.realpath(os.path.join(os.path.dirname(parent_file), config_file))
     return os.path.realpath(config_file)
@@ -79,14 +85,14 @@ def dp_include(config_hashes, config_file, logname, top_confs):
         try:
             new_top_confs[conf_name].update(conf.pop(conf_name, {}))
         except TypeError:
-            logger.error('%s not configured properly' % conf_name)
+            logger.error('Invalid config for "%s"' % conf_name)
             return False
 
     for include_directive, file_required in (
             ('include', True),
             ('include-optional', False)):
         for include_file in conf.pop(include_directive, []):
-            if type(include_file) is not str:
+            if not isinstance(include_file, str):
                 include_file = str(include_file)
 
             include_path = dp_config_path(include_file, parent_file=config_file)
