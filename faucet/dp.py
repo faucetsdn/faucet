@@ -72,6 +72,8 @@ class DP(Conf):
     tables = {}
     tables_by_id = {}
     meters = {}
+    timeout = None
+    arp_neighbor_timeout = None
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -96,7 +98,7 @@ class DP(Conf):
         # description, strictly informational
         'hardware': 'Open vSwitch',
         # The hardware maker (for chosing an openflow driver)
-        'arp_neighbor_timeout': 500,
+        'arp_neighbor_timeout': 250,
         # ARP and neighbor timeout (seconds)
         'ofchannel_log': None,
         # OF channel log
@@ -200,6 +202,8 @@ class DP(Conf):
             'groups for routing and other functions simultaneously not supported')
         assert (self.interfaces or self.interface_ranges), (
             'DP %s must have at least one interface' % self)
+        # To prevent L2 learning from timing out before L3 can refresh
+        assert self.timeout >= self.arp_neighbor_timeout, 'L2 timeout must be >= L3 timeout'
 
     def _configure_tables(self):
         """Configure FAUCET pipeline of tables with matches."""
