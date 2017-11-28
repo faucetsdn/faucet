@@ -39,7 +39,7 @@ class GaugePoller(object):
     def report_dp_status(self, dp_status):
         """Report DP status."""
         self.prom_client.dp_status.labels(
-            dp_id=hex(self.dp.dp_id)).set(dp_status) # pylint: disable=no-member
+            **(self.prom_client.labels(self.dp.dp_id))).set(dp_status) # pylint: disable=no-member
 
     @staticmethod
     def start(_ryudp):

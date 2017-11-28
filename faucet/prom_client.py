@@ -33,6 +33,13 @@ class PromClient(object):
         # pylint: disable=no-member
         self.faucet_version.labels(version=version).set(1)
 
+    def labels(self, dpid, other_labels=None):
+        """Return kwargs suitable for labels on a Prometheus metric."""
+        kwargs_labels = {'dp_id': hex(dpid)}
+        if other_labels:
+            kwargs_labels.update(other_labels)
+        return kwargs_labels
+
     def start(self, prom_port, prom_addr):
         """Start webserver if not already running."""
         if not self.running:
