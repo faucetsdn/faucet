@@ -70,7 +70,10 @@ class Valve(object):
         self.dp = dp
         self.logger = ValveLogger(
             logging.getLogger(logname + '.valve'), self.dp.dp_id)
-        self.base_prom_labels = {'dp_id': hex(self.dp.dp_id)}
+        self.base_prom_labels = {
+            'dp_id': hex(self.dp.dp_id),
+            'dp_name': self.dp.name,
+        }
         self.ofchannel_logger = None
         self._packet_in_count_sec = 0
         self._last_packet_in_sec = 0
@@ -679,12 +682,9 @@ class Valve(object):
 
         metrics (FaucetMetrics): container of Prometheus metrics.
         """
-        metrics.faucet_config_dp_name.labels(
-            **dict(self.base_prom_labels, name=self.dp.name)).set(
-                self.dp.dp_id)
         for table_id, table in list(self.dp.tables_by_id.items()):
             metrics.faucet_config_table_names.labels(
-                **dict(self.base_prom_labels, name=table.name)).set(table_id)
+                **dict(self.base_prom_labels, table_name=table.name)).set(table_id)
 
     def update_metrics(self, metrics):
         """Update Gauge/metrics.

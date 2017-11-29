@@ -26,7 +26,6 @@ from faucet.prom_client import PromClient
 class FaucetMetrics(PromClient):
     """Container class for objects that can be exported to Prometheus."""
 
-    REQUIRED_LABELS = ['dp_id']
     _dpid_counters = {}
     _dpid_gauges = {}
 
@@ -40,12 +39,12 @@ class FaucetMetrics(PromClient):
         self._dpid_gauges[var] = gauge
         return gauge
 
-    def reset_dpid(self, dp_id):
+    def reset_dpid(self, dp_labels):
         """Set all DPID-only counter/gauges to 0."""
         for counter in list(self._dpid_counters.values()):
-            counter.labels(dp_id=hex(dp_id)).inc(0)
+            counter.labels(**dp_labels).inc(0)
         for gauge in list(self._dpid_gauges.values()):
-            gauge.labels(dp_id=hex(dp_id)).set(0)
+            gauge.labels(**dp_labels).set(0)
 
     def __init__(self):
         super(FaucetMetrics, self).__init__()
@@ -84,10 +83,7 @@ class FaucetMetrics(PromClient):
             'number of times learning was banned on a VLAN', self.REQUIRED_LABELS + ['vlan'])
         self.faucet_config_table_names = Gauge(
             'faucet_config_table_names',
-            'number to names map of FAUCET pipeline tables', self.REQUIRED_LABELS + ['name'])
-        self.faucet_config_dp_name = Gauge(
-            'faucet_config_dp_name',
-            'map of DP name to DP ID', self.REQUIRED_LABELS + ['name'])
+            'number to names map of FAUCET pipeline tables', self.REQUIRED_LABELS + ['table_name'])
         self.faucet_packet_in_secs = Histogram(
             'faucet_packet_in_secs',
             'FAUCET packet in processing time', self.REQUIRED_LABELS,

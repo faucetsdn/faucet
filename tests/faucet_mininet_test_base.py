@@ -1011,15 +1011,17 @@ dbs:
             var = 'faucet_config_reload_warm'
             if cold_start:
                 var = 'faucet_config_reload_cold'
+            dp_labels = {'dp_id': self.dpid, 'dp_name': 'faucet-1'}
+            vlan_labels = dict(dp_labels, vlan=host_cache)
             old_count = int(
-                self.scrape_prometheus_var(var, dpid=True, default=0))
+                self.scrape_prometheus_var(var, labels=dp_labels, default=0))
             old_mac_table = sorted(self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True, default=[]))
+                'learned_macs', vlan_labels, multiple=True, default=[]))
             self.verify_hup_faucet()
             new_count = int(
-                self.scrape_prometheus_var(var, dpid=True, default=0))
+                self.scrape_prometheus_var(var, labels=dp_labels, default=0))
             new_mac_table = sorted(self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True, default=[]))
+                'learned_macs', vlan_labels, multiple=True, default=[]))
             if host_cache:
                 self.assertFalse(
                     cold_start, msg='host cache is not maintained with cold start')
@@ -1271,10 +1273,10 @@ dbs:
     def set_port_up(self, port_no, dpid=None, wait=True):
         self.set_port_status(dpid, port_no, 0, wait)
 
-    def wait_dp_status(self, expected_status, controller='faucet', timeout=60):
+    def wait_dp_status(self, expected_status, controller='faucet', timeout=30):
         for _ in range(timeout):
             dp_status = self.scrape_prometheus_var(
-                'dp_status', {}, controller=controller, default=None)
+                'dp_status', any_labels=True, controller=controller, default=None)
             if dp_status is not None and dp_status == expected_status:
                 return True
             time.sleep(1)
@@ -1282,7 +1284,7 @@ dbs:
 
     def _get_tableid(self, name):
         return self.scrape_prometheus_var(
-            'faucet_config_table_names', {'name': name})
+            'faucet_config_table_names', {'table_name': name})
 
     def quiet_commands(self, host, commands):
         for command in commands:
