@@ -129,7 +129,7 @@ vlans:
         vid: 100
         routes:
             - route:
-                ip_dst: 
+                ip_dst:
                 ip_gw:
 dps:
     sw1:
@@ -527,6 +527,52 @@ acls:
 """
         self.check_config_failure(unknown_output_port_config, cp.dp_parser)
 
+    def test_port_range_valid_config(self):
+        """Test if port range config applied correctly"""
+        config = """
+vlans:
+    office:
+        vid: 100
+    guest:
+        vid: 200
+dps:
+    sw1:
+        dp_id: 0x1
+        interface_ranges:
+            1-4,6,port8:
+                native_vlan: office
+                max_hosts: 2
+                permanent_learn: True
+            port10-11:
+                native_vlan: guest
+                max_hosts: 2
+        interfaces:
+            1:
+                max_hosts: 4
+                description: "video conf"
+"""
+        conf_file = self.create_config_file(config)
+        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        dp = dps[0]
+        self.assertEqual(len(dp.ports), 8)
+        self.assertTrue(all([p.permanent_learn for p in dp.ports.values() if p.number < 9]))
+        self.assertTrue(all([p.max_hosts==2 for p in dp.ports.values() if p.number > 1]))
+        self.assertTrue(dp.ports[1].max_hosts == 4)
+        self.assertEqual(dp.ports[1].description, "video conf")
+
+    def test_port_range_invalid_config(self):
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interface_ranges:
+            abc:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
 
 
 if __name__ == "__main__":

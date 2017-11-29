@@ -38,6 +38,7 @@ class DP(Conf):
     acls = None
     vlans = None
     interfaces = None # config
+    interface_ranges = None
     ports = None
     routers = None
     running = False
@@ -81,6 +82,7 @@ class DP(Conf):
         # Name for this dp, used for stats reporting and configuration
         'name': None,
         'interfaces': {},
+        'interface_ranges': {},
         # How much to offset default priority by
         'priority_offset': 0,
         # Some priority values
@@ -146,6 +148,7 @@ class DP(Conf):
         'dp_id': int,
         'name': str,
         'interfaces': dict,
+        'interface_ranges': dict,
         'priority_offset': int,
         'lowest_priority': int,
         'low_priority': int,
@@ -197,7 +200,8 @@ class DP(Conf):
         assert self.dp_id > 0 and self.dp_id <= 2**64-1, 'DP ID %s not in valid range' % self.dp_id
         assert not (self.group_table and self.group_table_routing), (
             'groups for routing and other functions simultaneously not supported')
-        assert self.interfaces, 'DP %s must have at least one interface' % self
+        assert (self.interfaces or self.interface_ranges), (
+            'DP %s must have at least one interface' % self)
         # To prevent L2 learning from timing out before L3 can refresh
         assert self.timeout >= self.arp_neighbor_timeout, 'L2 timeout must be >= L3 timeout'
 
