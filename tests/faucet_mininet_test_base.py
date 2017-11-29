@@ -923,15 +923,17 @@ dbs:
                     label_values.append('%s="%s"' % (label, value))
                 label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         var_re = r'^%s%s$' % (var, label_values_re)
+        prom_line_re = re.compile(r'^(.+)\s+([0-9\.]+)$')
         for _ in range(retries):
             results = []
             prom_lines = self.scrape_prometheus(controller)
             for prom_line in prom_lines.splitlines():
-                prom_var_data = prom_line.split(' ')
-                self.assertEqual(
-                    2, len(prom_var_data),
-                    msg='Invalid prometheus line in %s' % prom_lines)
-                prom_var, value = prom_var_data
+                prom_line_match = prom_line_re.match(prom_line)
+                self.assertIsNotNone(
+                    prom_line_match,
+                    msg='Invalid prometheus line %s in %s' % (prom_line, prom_lines))
+                prom_var = prom_line_match.group(1)
+                value = prom_line_match.group(2)
                 if prom_var.startswith(var):
                     var_match = re.search(var_re, prom_var)
                     if var_match:

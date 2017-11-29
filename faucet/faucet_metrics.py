@@ -110,3 +110,7 @@ class FaucetMetrics(PromClient):
         self.dp_status = self._dpid_gauge(
             'dp_status',
             'status of datapaths')
+        self.of_dp_desc_stats = Gauge(
+            'of_dp_desc_stats',
+            'DP description (OFPDescStatsReply)',
+            self.REQUIRED_LABELS + ['mfr_desc', 'hw_desc', 'sw_desc', 'serial_num', 'dp_desc'])
