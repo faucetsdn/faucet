@@ -37,7 +37,6 @@ PROM_PORT_VARS = (
 class GaugePrometheusClient(PromClient):
     """Wrapper for Prometheus client that is shared between all pollers."""
 
-    REQUIRED_LABELS = ['dp_id']
     metrics = {}
 
     def __init__(self):
@@ -75,8 +74,7 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
         super(GaugePortStatsPrometheusPoller, self).update(rcv_time, dp_id, msg)
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat, dp_id)
-            other_labels = {'port_name': port_name}
+            port_labels = dict(dp_id=hex(dp_id), dp_name=self.dp.name, port_name=port_name)
             for stat_name, stat_val in self._format_port_stats(
                     PROM_PREFIX_DELIM, stat):
-                self.prom_client.metrics[stat_name].labels(
-                    **(self.prom_client.labels(dp_id, other_labels))).set(stat_val)
+                self.prom_client.metrics[stat_name].labels(**port_labels).set(stat_val)
