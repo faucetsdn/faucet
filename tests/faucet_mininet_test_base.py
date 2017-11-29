@@ -923,7 +923,7 @@ dbs:
                     label_values.append('%s="%s"' % (label, value))
                 label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         var_re = r'^%s%s$' % (var, label_values_re)
-        prom_line_re = re.compile(r'^(.+)\s+([0-9\.]+)$')
+        prom_line_re = re.compile(r'^(.+)\s+([0-9\.\-]+)$')
         for _ in range(retries):
             results = []
             prom_lines = self.scrape_prometheus(controller)
