@@ -25,7 +25,6 @@ routers:
 dps:
     sw1:
         dp_id: 0x1
-        dp_name: 'sw1'
         hardware: "Open vSwitch"
         proactive_learn: True
         interfaces:
@@ -56,7 +55,6 @@ dps:
                 acl_in: access-port-protect
     sw2:
         dp_id: 0x2
-        dp_name: 'sw2'
         hardware: "Allied-Telesis"
         interfaces:
             1:
