@@ -1129,11 +1129,12 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self._configure_count_with_retry(i)
             self.verify_hup_faucet()
             self._configure_count_with_retry(i+1)
+            dp_labels = {'dp_id': self.dpid, 'dp_name': 'faucet-1'}
             self.assertEqual(
-                self.scrape_prometheus_var('of_dp_disconnections', default=0),
+                self.scrape_prometheus_var('of_dp_disconnections', labels=dp_labels, default=None),
                 0)
             self.assertEqual(
-                self.scrape_prometheus_var('of_dp_connections', default=0),
+                self.scrape_prometheus_var('of_dp_connections', labels=dp_labels, default=None),
                 1)
             self.wait_until_controller_flow()
             self.ping_all_when_learned()
