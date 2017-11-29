@@ -129,12 +129,13 @@ class FaucetBgp(object):
                     except CoreNotStarted:
                         continue
                     for neighbor, neighbor_state in neighbor_states:
+                        base_labels = self._valves[dp_id].base_prom_labels
                         # pylint: disable=no-member
                         self._metrics.bgp_neighbor_uptime_seconds.labels(
-                            dp_id=hex(dp_id), vlan=vlan.vid, neighbor=neighbor).set(
+                            **dict(base_labels, vlan=vlan.vid, neighbor=neighbor)).set(
                                 neighbor_state['info']['uptime'])
                         for ipv in vlan.ipvs():
                             # pylint: disable=no-member
                             self._metrics.bgp_neighbor_routes.labels(
-                                dp_id=hex(dp_id), vlan=vlan.vid, neighbor=neighbor, ipv=ipv).set(
+                                **dict(base_labels, vlan=vlan.vid, neighbor=neighbor, ipv=ipv)).set(
                                     len(vlan.routes_by_ipv(ipv)))
