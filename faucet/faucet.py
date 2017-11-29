@@ -199,7 +199,6 @@ class Faucet(app_manager.RyuApp):
             self.config_file = new_config_file
             self.config_hashes = new_config_hashes
             self._apply_configs(new_dps)
-    
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting' % err)
             return
@@ -469,6 +468,7 @@ class Faucet(app_manager.RyuApp):
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
         def port_up_valid(port):
+            """Return True if port is up and in valid range."""
             return port.state == 0 and not valve_of.ignore_port(port.port_no)
 
         dp_id = ryu_dp.id
@@ -492,7 +492,6 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
-        dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, '_datapath_disconnect')
         if valve is None:
             return
@@ -539,6 +538,29 @@ class Faucet(app_manager.RyuApp):
         self.logger.debug('%s reconnected', dpid_log(dp_id))
         self._datapath_connect(ryu_dp)
 
+    @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
+    @kill_on_exception(exc_logname)
+    def desc_stats_reply_handler(self, ryu_event):
+        """Handle OFPDescStatsReply from datapath.
+
+        Args:
+            ryu_event (ryu.controller.ofp_event.EventOFPDescStatsReply): trigger.
+        """
+        ryu_dp = ryu_event.msg.datapath
+        dp_id = ryu_dp.id
+        valve = self._get_valve(ryu_dp, 'desc_stats_reply_handler')
+        if valve is None:
+            return
+        body = ryu_event.msg.body
+        # pylint: disable=no-member
+        self.metrics.of_dp_desc_stats.labels(
+            **dict(valve.base_prom_labels,
+                   mfr_desc=body.mfr_desc,
+                   hw_desc=body.hw_desc,
+                   sw_desc=body.sw_desc,
+                   serial_num=body.serial_num,
+                   dp_desc=body.dp_desc)).set(dp_id)
+
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ryu_event):
@@ -573,6 +595,11 @@ class Faucet(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def flowremoved_handler(self, ryu_event):
+        """Handle a flow removed event.
+
+        Args:
+            ryu_event (ryu.controller.ofp_event.EventOFPFlowRemoved): trigger.
+        """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         valve = self._get_valve(ryu_dp, 'flowremoved_handler', msg)

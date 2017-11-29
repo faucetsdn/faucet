@@ -683,3 +683,8 @@ def gauge_async(datapath=None):
         [packet_in_mask, packet_in_mask],
         [port_status_mask, port_status_mask],
         [flow_removed_mask, flow_removed_mask])
+
+
+def desc_stats_request(datapath=None):
+    """Query switch description."""
+    return parser.OFPDescStatsRequest(datapath, 0)
