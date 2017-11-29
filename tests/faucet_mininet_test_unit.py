@@ -354,11 +354,11 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     def get_gauge_watcher_config(self):
         return """
     port_stats:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_stats'
         interval: 5
         db: 'prometheus'
-"""
+""" % self.DP_NAME
 
     def _start_gauge_check(self):
         if not self.gauge_controller.listen_port(self.config_ports['gauge_prom_port']):
@@ -369,7 +369,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         port_counters = {}
         port_labels = {
             'dp_id': self.dpid,
-            'dp_name': 'faucet-1',
+            'dp_name': self.DP_NAME,
             'port_name': self.port_map['port_%u' % port],
         }
         for port_var in port_vars:
@@ -438,21 +438,21 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     def get_gauge_watcher_config(self):
         return """
     port_stats:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_stats'
         interval: 2
         db: 'influx'
     port_state:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_state'
         interval: 2
         db: 'influx'
     flow_table:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'flow_table'
         interval: 2
         db: 'influx'
-"""
+""" % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
     def setupInflux(self):
         self.influx_log = os.path.join(self.tmpdir, 'influx.log')
@@ -1129,7 +1129,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self._configure_count_with_retry(i)
             self.verify_hup_faucet()
             self._configure_count_with_retry(i+1)
-            dp_labels = {'dp_id': self.dpid, 'dp_name': 'faucet-1'}
+            dp_labels = {'dp_id': self.dpid, 'dp_name': self.DP_NAME}
             self.assertEqual(
                 self.scrape_prometheus_var('of_dp_disconnections', labels=dp_labels, default=None),
                 0)
@@ -1332,7 +1332,7 @@ acls:
                            restart=True, conf=None, cold_start=False):
         if conf is None:
             conf = self._get_conf()
-        conf['dps']['faucet-1']['interfaces'][port][config_name] = config_value
+        conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
         self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
 
     def change_vlan_config(self, vlan, config_name, config_value,
@@ -1424,8 +1424,8 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
 
     def test_delete_interface(self):
         conf = self._get_conf()
-        first_interface = conf['dps']['faucet-1']['interfaces'].keys()[0]
-        del conf['dps']['faucet-1']['interfaces'][first_interface]
+        first_interface = conf['dps'][self.DP_NAME]['interfaces'].keys()[0]
+        del conf['dps'][self.DP_NAME]['interfaces'][first_interface]
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=True, change_expected=True)
