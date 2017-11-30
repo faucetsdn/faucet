@@ -1,0 +1,10 @@
+vlans:
+    office:
+        vid: 100
+        faucet_mac: '11:22:33:44:55:66'
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
