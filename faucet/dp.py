@@ -730,7 +730,6 @@ class DP(Conf):
             logger.info('deleted ports: %s' % deleted_ports)
 
         if changed_ports == set(new_dp.ports.keys()):
-            logger.info('all ports config changed')
             all_ports_changed = True
         elif (not changed_ports and
               not deleted_ports and
