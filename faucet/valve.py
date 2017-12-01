@@ -831,40 +831,43 @@ class Valve(object):
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vlans, changed_vlans, all_ports_changed) = changes
         new_dp.running = True
-        cold_start = True
-        ofmsgs = []
 
         if all_ports_changed:
+            self.logger.info('all ports changed')
             self.dp = new_dp
-        else:
-            cold_start = False
-            if deleted_ports:
-                self.logger.info('ports deleted: %s' % deleted_ports)
-                ofmsgs.extend(self.ports_delete(deleted_ports))
-            if deleted_vlans:
-                self.logger.info('VLANs deleted: %s' % deleted_vlans)
-                for vid in deleted_vlans:
-                    vlan = self.dp.vlans[vid]
-                    ofmsgs.extend(self._del_vlan(vlan))
-            if changed_ports:
-                ofmsgs.extend(self.ports_delete(changed_ports))
-            self.dp = new_dp
-            if changed_vlans:
-                self.logger.info('VLANs changed/added: %s' % changed_vlans)
-                for vid in changed_vlans:
-                    vlan = self.dp.vlans[vid]
-                    ofmsgs.extend(self._del_vlan(vlan))
-                    ofmsgs.extend(self._add_vlan(vlan))
-            if changed_ports:
-                self.logger.info('ports changed/added: %s' % changed_ports)
-                ofmsgs.extend(self.ports_add(changed_ports))
-            if changed_acl_ports:
-                self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
-                for port_num in changed_acl_ports:
-                    port = self.dp.ports[port_num]
-                    ofmsgs.extend(self._port_add_acl(port, cold_start=True))
+            return True, []
 
-        return cold_start, ofmsgs
+        ofmsgs = []
+
+        if deleted_ports:
+            self.logger.info('ports deleted: %s' % deleted_ports)
+            ofmsgs.extend(self.ports_delete(deleted_ports))
+        if deleted_vlans:
+            self.logger.info('VLANs deleted: %s' % deleted_vlans)
+            for vid in deleted_vlans:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(self._del_vlan(vlan))
+        if changed_ports:
+            self.logger.info('ports changed/added: %s' % changed_ports)
+            ofmsgs.extend(self.ports_delete(changed_ports))
+
+        self.dp = new_dp
+
+        if changed_vlans:
+            self.logger.info('VLANs changed/added: %s' % changed_vlans)
+            for vid in changed_vlans:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(self._del_vlan(vlan))
+                ofmsgs.extend(self._add_vlan(vlan))
+        if changed_ports:
+            ofmsgs.extend(self.ports_add(changed_ports))
+        if changed_acl_ports:
+            self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
+            for port_num in changed_acl_ports:
+                port = self.dp.ports[port_num]
+                ofmsgs.extend(self._port_add_acl(port, cold_start=True))
+
+        return False, ofmsgs
 
     def reload_config(self, new_dp):
         """Reload configuration new_dp.
@@ -886,7 +889,6 @@ class Valve(object):
         cold_start = False
         ofmsgs = []
         if self.dp.running:
-            self.logger.info('reload configuration')
             cold_start, ofmsgs = self._apply_config_changes(
                 new_dp, self.dp.get_config_changes(self.logger, new_dp))
             if cold_start:
