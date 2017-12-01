@@ -37,5 +37,11 @@ fi
 
 build_tag latest master
 
-$DOCKER rmi -f $($DOCKER images --filter "dangling=true" -q --no-trunc) 2>&1
+for i in `$DOCKER ps --filter status=exited -q --no-trunc` ; do
+    $DOCKER rm -f $i
+done
+for i in `$DOCKER images --filter dangling=true -q --no-trunc` ; do
+    $DOCKER rmi -f $i
+done
+
 rm -rf "$TMPDIR"
