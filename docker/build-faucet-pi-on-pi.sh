@@ -37,8 +37,10 @@ fi
 
 build_tag latest master
 
-for i in `$DOCKER ps --filter status=exited -q --no-trunc` ; do
-    $DOCKER rm -f $i
+for s in created exited ; do
+    for i in `$DOCKER ps --filter status=$s -q --no-trunc` ; do
+        $DOCKER rm -f $i
+    done
 done
 for i in `$DOCKER images --filter dangling=true -q --no-trunc` ; do
     $DOCKER rmi -f $i
