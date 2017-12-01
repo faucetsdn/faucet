@@ -1138,13 +1138,17 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             'faucet_config_reload_warm', dpid=True, default=None)
         for i in range(init_config_count, init_config_count+3):
             self._configure_count_with_retry(i)
+            with open(self.faucet_config_path, 'a') as config_file:
+                config_file.write('\n')
             self.verify_hup_faucet()
             self._configure_count_with_retry(i+1)
             self.assertEqual(
-                self.scrape_prometheus_var('of_dp_disconnections', dpid=True, default=None),
+                self.scrape_prometheus_var(
+                    'of_dp_disconnections', dpid=True, default=None),
                 0)
             self.assertEqual(
-                self.scrape_prometheus_var('of_dp_connections', dpid=True, default=None),
+                self.scrape_prometheus_var(
+                    'of_dp_connections', dpid=True, default=None),
                 1)
             self.wait_until_controller_flow()
             self.ping_all_when_learned()
