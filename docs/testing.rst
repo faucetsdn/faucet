@@ -1,6 +1,27 @@
-===================================
+Testing
+=======
+
+.. _docker-testing:
+
+Software switch testing with docker
+-----------------------------------
+
+First, get yourself setup with docker based on our docker documentation.
+
+Then you can build and run the mininet tests from the docker entry-point:
+
+.. code:: bash
+
+  docker build -t faucet/tests -f Dockerfile.tests .
+  apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+  modprobe openvswitch
+  sudo docker run --privileged -ti faucet/tests
+
+The apparmor command is currently required on Ubuntu hosts to allow the use of
+tcpdump inside the container.
+
 Hardware switch testing with docker
-===================================
+-----------------------------------
 
 ::
 
@@ -46,7 +67,7 @@ Hardware switch testing with docker
 
 
 Requirements
-------------
+~~~~~~~~~~~~
 
 Your test host, requires at least 5 interfaces. 4 interfaces to connect
 to the dataplane, and one for the CPN for OpenFlow. You will need to assign
@@ -61,7 +82,7 @@ It is assumed that you execute all following commands from your FAUCET
 source code directory (eg one you have git cloned).
 
 Test configuration
-------------------
+~~~~~~~~~~~~~~~~~~
 
 Create a directory for the test configuration:
 
@@ -70,12 +91,12 @@ Create a directory for the test configuration:
   mkdir -p /etc/ryu/faucet
   $EDITOR /etc/ryu/faucet/hw_switch_config.yaml
 
-`hw_switch_config.yaml` should contain the correct configuration for your
+``hw_switch_config.yaml`` should contain the correct configuration for your
 switch:
 
 .. code:: yaml
 
-  hw_switch: True 
+  hw_switch: True
   hardware: 'Open vSwitch'
   # Map ports on the hardware switch, to physical ports on this machine.
   # If using a switch with less than 4 dataplane ports available, run
@@ -104,7 +125,7 @@ switch:
   # ca_certs: /usr/local/var/lib/openvswitch/pki/switchca/cacert.pem
 
 Running the tests
------------------
+~~~~~~~~~~~~~~~~~
 
 .. code:: bash
 
@@ -117,7 +138,7 @@ Running the tests
       -ti faucet/tests
 
 Running a single test
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: bash
 
@@ -128,9 +149,7 @@ Running a single test
       -ti faucet/tests
 
 Checking test results
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 If a test fails, you can look in /tmp - there will be subdirectories created for each test, which
 will contain all the logs and debug information (including tcpdumps).
-
-

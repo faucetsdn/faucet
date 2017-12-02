@@ -1,7 +1,7 @@
 :Authors: - Josh Bailey
 
 ==================
-FAUCET on NoviFlow
+Faucet on NoviFlow
 ==================
 
 ------------

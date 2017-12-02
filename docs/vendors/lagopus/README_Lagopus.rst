@@ -1,7 +1,7 @@
 :Authors: - Josh Bailey
 
 =================
-FAUCET on Lagopus 
+Faucet on Lagopus
 =================
 
 ------------

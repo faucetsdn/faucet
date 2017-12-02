@@ -1,14 +1,14 @@
-FAUCET developer guide
-----------------------
+Developer guide
+===============
 
 This file contains an overview of architecture, coding design/practices,
 testing and style.
 
 Before submitting a PR
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 -  All unit tests must pass (please use the docker based tests; see
-   README.docker.md).
+   :ref:`docker-testing`).
 -  It is strongly recommended to enable TravisCI testing on your
    repo. This enables the maintainers to quickly verify that your
    changes pass all tests in a pristine environment.
@@ -18,7 +18,7 @@ Before submitting a PR
 -  Code must conform to the style guide (see below).
 
 Code style
-~~~~~~~~~~
+----------
 
 Please use the coding style documented at
 http://google.github.io/styleguide/pyguide.html. Existing code not using
@@ -26,7 +26,7 @@ this style will be incrementally migrated to comply with it. New code
 should comply.
 
 Makefile
-~~~~~~~~
+--------
 
 Makefile is provided at the top level of the directory.  Output of ``make``
 is normally stored in ``dist`` directory. The following are the targets that
@@ -47,7 +47,7 @@ To *remove* any temporarily created directories and files, you could use ``rm -r
 
 
 Key architectural concepts/assumptions:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------------
 
 FAUCET's architecture depends on key assumptions, which must be kept in
 mind at all times.
