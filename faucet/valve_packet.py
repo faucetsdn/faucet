@@ -504,20 +504,23 @@ class PacketMeta(object):
         """Reparse packet with all available data."""
         self.reparse(0)
 
-    def isfragment(self):
+    def isfragment(self, eth_type, parse_limit):
         """Return True if a fragment."""
-        dpkt_ip = dpkt.ethernet.Ethernet(self.data)
-        if isinstance(dpkt_ip.data, dpkt.ip.IP):
-            if bool(dpkt_ip.data.off & dpkt.ip.IP_MF) or dpkt_ip.data.off & dpkt.ip.IP_OFFMASK:
-                return True
+        if eth_type == valve_of.ether.ETH_TYPE_IP:
+            dpkt_ip = dpkt.ethernet.Ethernet(self.data[:parse_limit])
+            if isinstance(dpkt_ip.data, dpkt.ip.IP):
+                if (bool(dpkt_ip.data.off & dpkt.ip.IP_MF) or
+                       dpkt_ip.data.off & dpkt.ip.IP_OFFMASK):
+                    return True
         return False
 
     def reparse_ip(self, eth_type, payload=0):
         """Reparse packet with specified IP header type and optionally payload."""
+        parse_limit = ip_header_size(eth_type) + payload
         # Ryu blows up on fragments
-        if self.isfragment():
+        if self.isfragment(eth_type, parse_limit):
             return
-        self.reparse(ip_header_size(eth_type) + payload)
+        self.reparse(parse_limit)
         if self.eth_type in self.ETH_TYPES_PARSERS:
             self.l3_pkt = self.pkt.get_protocol(self.ETH_TYPES_PARSERS[self.eth_type])
             if self.l3_pkt:
