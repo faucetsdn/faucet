@@ -1,7 +1,7 @@
 :Authors: - Josh Bailey
 
 =======================
-FAUCET on OVS with DPDK
+Faucet on OVS with DPDK
 =======================
 
 ------------
@@ -106,15 +106,6 @@ Still from the DPDK source directory:
     ovs-vsctl set-controller br0 tcp:127.0.0.1:6653
     ovs-vsctl show br0
     ovs-vsctl get bridge br0 datapath_id
-
-**Configure control channel rate limiting**
-
-Recommended: reduce the maximum rate OVS can send packet ins to FAUCET.
-
-::
-
-    ovs-vsctl add Controller br0 controller_burst_limit 25
-    ovs-vsctl add Controller br0 controller_rate_limit 100
 
 **Create faucet.yaml**
 
