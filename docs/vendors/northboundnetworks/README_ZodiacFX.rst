@@ -1,7 +1,7 @@
 :Authors: - Josh Bailey
 
 ==================
-FAUCET on ZodiacFX
+Faucet on ZodiacFX
 ==================
 
 ------------
@@ -22,7 +22,14 @@ Caveats
 Applying recommended config
 ---------------------------
 
-You can use the expect script in this directory to program the recommended configuration.
+You can use the following expect script to program the recommended configuration:
+
+.. literalinclude:: conf-zodiac.sh
+  :language: shell
+  :caption: conf-zodiac.sh
+  :name: conf-zodiac
+
+Example of running the script:
 
 ::
 
