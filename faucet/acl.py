@@ -43,7 +43,14 @@ class ACL(Conf):
             if 'exact_match' in conf and conf['exact_match']:
                 self.exact_match = True
             rules = conf['rules']
-        self.rules = [x['rule'] for x in rules]
+        self.rules = []
+        assert isinstance(rules, list)
+        for rule in rules:
+            assert isinstance(rule, dict)
+            for rule_key, rule_content in list(rule.items()):
+                assert rule_key == 'rule'
+                assert isinstance(rule_content, dict)
+                self.rules.append(rule_content)
 
     def to_conf(self):
         return [{'rule': rule} for rule in self.rules]
