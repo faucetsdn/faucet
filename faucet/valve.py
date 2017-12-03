@@ -19,6 +19,7 @@
 
 import logging
 import time
+import queue
 
 from collections import namedtuple
 
@@ -65,6 +66,7 @@ class Valve(object):
     DEC_TTL = True
     L3 = False
     base_prom_labels = None
+    recent_ofmsgs = queue.Queue(maxsize=32)
 
     def __init__(self, dp, logname):
         self.dp = dp
