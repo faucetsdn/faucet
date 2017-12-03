@@ -26,8 +26,11 @@ class TestConfig(unittest.TestCase):
     def create_config_file(self, config):
         """Returns file path to file containing the config parameter."""
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
-        with open(conf_file_name, 'w') as conf_file:
-            conf_file.write(config)
+        with open(conf_file_name, 'wb') as conf_file:
+            if isinstance(config, bytes):
+                conf_file.write(config)
+            else:
+                conf_file.write(config.encode('utf-8'))
         return conf_file_name
 
     def run_function_with_config(self, config, function):
@@ -91,7 +94,7 @@ class TestConfig(unittest.TestCase):
 
     def test_unconfigured_acl(self):
         """Test that config is invalid when there are unconfigured acls"""
-        acl_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -103,11 +106,11 @@ dps:
                 acl_in: access-port-protect
                 tagged_vlans: [office]
 """
-        self.check_config_failure(acl_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_unconfigured_vlan_acl(self):
         """Test that config is invalid when only there are unconfigured acls"""
-        acl_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -119,7 +122,7 @@ dps:
             1:
                 tagged_vlans: [office]
 """
-        self.check_config_failure(acl_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_config_routes_are_empty(self):
         """Test that config is invalid when vlan routes are empty"""
@@ -217,7 +220,7 @@ dps:
 
     def test_including_invalid_files(self):
         """Test that config is rejected when including invalid files"""
-        include_config = """
+        config = """
 include: [-, False, 1967-06-07, 5.5, [5], {'5': 5}, testing]
 vlans:
     office:
@@ -229,7 +232,7 @@ dps:
             5:
                 tagged_vlans: [office]
 """
-        self.check_config_failure(include_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_config_vlans_on_stack(self):
         """Test that config is rejected vlans on a stack interface."""
@@ -298,7 +301,7 @@ dps:
 
     def test_port_number(self):
         """Test port number is valid."""
-        port_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -309,11 +312,11 @@ dps:
             testing:
                 native_vlan: office
 """
-        self.check_config_failure(port_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_one_port_dp(self):
         """Test port number is valid."""
-        port_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -325,11 +328,11 @@ dps:
                 number: 1
                 native_vlan: office
 """
-        self.check_config_success(port_config, cp.dp_parser)
+        self.check_config_success(config, cp.dp_parser)
 
     def test_dp_id_too_big(self):
         """Test DP ID is valid."""
-        toobig_dp_id_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -340,11 +343,11 @@ dps:
             1:
                 native_vlan: office
 """
-        self.check_config_failure(toobig_dp_id_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_invalid_vid(self):
         """Test VID is valid."""
-        vlan_config = """
+        config = """
 vlans:
     office:
         vid: 10000
@@ -355,11 +358,11 @@ dps:
             1:
                 native_vlan: office
 """
-        self.check_config_failure(vlan_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_routers_empty(self):
         """Test with empty router config."""
-        router_config = """
+        config = """
 routers:
     router-1:
 vlans:
@@ -372,11 +375,11 @@ dps:
             1:
                 native_vlan: office
 """
-        self.check_config_failure(router_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_valid_mac(self):
         """Test with valid MAC."""
-        mac_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -388,11 +391,11 @@ dps:
             1:
                 native_vlan: office
 """
-        self.check_config_success(mac_config, cp.dp_parser)
+        self.check_config_success(config, cp.dp_parser)
 
     def test_invalid_mac(self):
         """Test with invalid MAC."""
-        mac_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -404,11 +407,11 @@ dps:
             1:
                 native_vlan: office
 """
-        self.check_config_failure(mac_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_empty_mac(self):
         """Test with empty MAC."""
-        mac_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -420,11 +423,11 @@ dps:
             1:
                 native_vlan: office
 """
-        self.check_config_failure(mac_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_empty_vid(self):
         """Test empty VID."""
-        vlan_config = """
+        config = """
 vlans:
     office:
         vid:
@@ -435,11 +438,11 @@ dps:
             1:
                 native_vlan: office
 """
-        self.check_config_failure(vlan_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_empty_interfaces(self):
         """Test empty interfaces."""
-        interfaces_config = """
+        config = """
 vlans:
     office:
         vid:
@@ -447,11 +450,11 @@ dps:
     sw1:
         dp_id: 0x1
 """
-        self.check_config_failure(interfaces_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_invalid_interfaces(self):
         """Test invalid interfaces."""
-        interfaces_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -460,10 +463,10 @@ dps:
         dp_id: 0x1
         interfaces: {'5': 5}
 """
-        self.check_config_failure(interfaces_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_unresolved_mirror_ports(self):
-        unresolved_mirror_port_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -481,10 +484,10 @@ acls:
                 mirror: UNRESOLVED
                 allow: 1
 """
-        self.check_config_failure(unresolved_mirror_port_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_unresolved_output_ports(self):
-        unresolved_output_port_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -503,10 +506,10 @@ acls:
                     port: UNRESOLVED
                 allow: 1
 """
-        self.check_config_failure(unresolved_output_port_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_unknown_output_ports(self):
-        unknown_output_port_config = """
+        config = """
 vlans:
     office:
         vid: 100
@@ -525,7 +528,7 @@ acls:
                     port: 2
                 allow: 1
 """
-        self.check_config_failure(unknown_output_port_config, cp.dp_parser)
+        self.check_config_failure(config, cp.dp_parser)
 
     def test_port_range_valid_config(self):
         """Test if port range config applied correctly"""
@@ -696,6 +699,10 @@ dps:
                 native_vlan: office
                 acl_in: access-port-protect
 """
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_invalid_char(self):
+        config = b'\x63\xe1'
         self.check_config_failure(config, cp.dp_parser)
 
 
