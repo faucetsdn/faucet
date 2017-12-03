@@ -26,8 +26,11 @@ class TestConfig(unittest.TestCase):
     def create_config_file(self, config):
         """Returns file path to file containing the config parameter."""
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
-        with open(conf_file_name, 'w') as conf_file:
-            conf_file.write(config)
+        with open(conf_file_name, 'wb') as conf_file:
+            if isinstance(config, bytes):
+                conf_file.write(config)
+            else:
+                conf_file.write(config.encode('utf-8'))
         return conf_file_name
 
     def run_function_with_config(self, config, function):
@@ -696,6 +699,10 @@ dps:
                 native_vlan: office
                 acl_in: access-port-protect
 """
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_invalid_char(self):
+        config = b'\x63\xe1'
         self.check_config_failure(config, cp.dp_parser)
 
 
