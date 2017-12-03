@@ -1,7 +1,7 @@
 :Authors: - Abhay B
 
 ============================
-FAUCET on HPE-Aruba Switches
+Faucet on HPE-Aruba Switches
 ============================
 
 ------------

@@ -1,14 +1,10 @@
+Faucet
+======
+
 :version: 1.6.11
 
 .. image:: https://travis-ci.org/faucetsdn/faucet.svg?branch=master
     :target: https://travis-ci.org/faucetsdn/faucet
-
-.. meta::
-   :keywords: OpenFlow, Ryu, Faucet, VLAN, SDN
-
-======
-Faucet
-======
 
 FAUCET is an OpenFlow controller for multi table OpenFlow 1.3 switches, that implements layer 2 switching, VLANs, ACLs, and layer 3 IPv4 and IPv6 routing, static and via BGP. It is based on Waikato University's `Valve <https://github.com/wandsdn/valve>`_ and the `Ryu OpenFlow Controller <http://osrg.github.io/ryu/>`_. FAUCET's design and background is described in `ACM Queue <https://queue.acm.org/detail.cfm?id=3015763>`_.
 
@@ -24,12 +20,10 @@ It supports:
 - Controller health and statistics via Prometheus
 - Unit and systems tests run under Travis based on mininet and OVS
 
-
-====================================
 Hardware and software switch support
-====================================
+------------------------------------
 
-Detailed guides for some switches are available in `docs/vendors <docs/vendors>`_.
+Detailed guides for some switches are available on `readthedocs <https://faucet.readthedocs.io/en/latest/vendors/index.html>`_.
 
 FAUCET has been tested against the following switches (see also SUPPORTED_HARDWARE in `faucet/valve.py <faucet/valve.py>`_):
 
@@ -45,31 +39,26 @@ Faucet's design principle is to be as hardware agnostic as possible and not requ
 
 If you are a hardware vendor wanting to support FAUCET, you need to support all the matches in `faucet/valve.py <faucet/valve.py>`_ valve_in_match() and pass all tests.
 
-
-============
 Installation
-============
+------------
 
-Please see `docs/README_install.rst <docs/README_install.rst>`_
+Please see the `installation guide <https://faucet.readthedocs.io/en/latest/installation.html>`_.
 
-
-=============
 Configuration
-=============
+-------------
 
-Please see `docs/README_config.rst <docs/README_config.rst>`_
+Please see the `configuration guide <https://faucet.readthedocs.io/en/latest/configuration.html>`_
+for documentation regarding the general configuration of faucet and the
+`recipe book <https://faucet.readthedocs.io/en/latest/recipe_book/index.html>`_
+for configuration snippets for common use cases.
 
-
-=======================
 Development and testing
-=======================
+-----------------------
 
-Please see `docs/README.developerguide.rst <docs/README.developerguide.rst>`_
+Please see the `developer guide <https://faucet.readthedocs.io/en/latest/developer_guide.html>`_.
 
-
-=======
 Support
-=======
+-------
 
 We run a number of mailing lists for communication between users and developers of Faucet, as well as a low traffic mailing list for announcements of new versions:
 
@@ -77,20 +66,11 @@ We run a number of mailing lists for communication between users and developers 
 - https://list.waikato.ac.nz/mailman/listinfo/faucet-dev
 - https://lists.geant.org/sympa/info/faucet-users
 
-Additional documentation is available under the `docs <docs>`_ directory.
-
 Faucet blog by Josh Bailey available at http://faucet-sdn.blogspot.co.nz.
 
 To create a issue, use `GitHub Issues <https://github.com/faucetsdn/faucet/issues>`_.
 
-
-==================================
 Faucet deployment around the world
-==================================
-   https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en
+----------------------------------
 
-.. raw:: html
-
-  <div class="figure">
-  <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s" width="640" height="480"></iframe>
-  </div>
+`Faucet deployment map <https://www.google.com/maps/d/u/0/viewer?mid=1MZ0M9ZtZOp2yHWS0S-BQH0d3e4s&hl=en>`_
