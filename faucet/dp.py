@@ -512,7 +512,7 @@ class DP(Conf):
                             valve_of.goto_table(self.wildcard_table),
                             2**16, self.meters, acl.exact_match,
                             vlan_vid=vid)
-                    except (AddrFormatError,) as err:
+                    except (AddrFormatError, ValueError) as err:
                         raise InvalidConfigError(err)
                     for port_no in acl.mirror_destinations:
                         port = self.ports[port_no]
