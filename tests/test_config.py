@@ -574,6 +574,130 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_acl_no_actions(self):
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            actions:
+          0     allow: 0
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_acl_invalid_ipv4(self):
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: q0.0.200.0/24
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_acl_invalid_ipv6(self):
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv6_src: zyx
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_acl_invalid_mask(self):
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: 10/0.200.0/24
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_acl_invalid_udp_port(self):
+        config = """
+acls:
+    access-port-protect:
+        - rule:
+            udp_src: v7
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_acl_invalid_rule_name(self):
+        config = """
+acls:
+    access-port-protect:
+        - xrule:
+            udp_src: v7
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
