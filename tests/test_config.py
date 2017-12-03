@@ -658,6 +658,27 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_acl_invalid_udp_port(self):
+        config = """
+acls:
+    access-port-protect:
+        - rule:
+            udp_src: v7
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+
 
 if __name__ == "__main__":
     unittest.main()
