@@ -3,10 +3,6 @@
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
-APIDOC        = sphinx-apidoc
-APIDOCOUTPUT  = source/apidoc
-APIDOCMODPATH = ../faucet
-APIDOCEXCLUDE =
 SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = faucet
 SOURCEDIR     = .
@@ -21,5 +17,4 @@ help:
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
-	@$(APIDOC) -o $(APIDOCOUTPUT) $(APIDOCMODPATH) $(APIDOCEXCLUDE)
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
