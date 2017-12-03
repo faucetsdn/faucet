@@ -1,6 +1,5 @@
 couchdb
 datadiff
-dpkt
 influxdb
 ipaddress
 networkx
