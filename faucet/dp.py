@@ -19,9 +19,10 @@
 import copy
 
 from datadiff import diff
+from netaddr.core import AddrFormatError
 import networkx
 
-from faucet.conf import Conf
+from faucet.conf import Conf, InvalidConfigError
 from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet.valve_util import get_setting
 from faucet import valve_acl
@@ -505,11 +506,14 @@ class DP(Conf):
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config and mark mirror destinations."""
                 if acl.rules:
-                    assert valve_acl.build_acl_ofmsgs(
-                        [acl], self.wildcard_table,
-                        valve_of.goto_table(self.wildcard_table),
-                        2**16, self.meters, acl.exact_match,
-                        vlan_vid=vid)
+                    try:
+                        assert valve_acl.build_acl_ofmsgs(
+                            [acl], self.wildcard_table,
+                            valve_of.goto_table(self.wildcard_table),
+                            2**16, self.meters, acl.exact_match,
+                            vlan_vid=vid)
+                    except (AddrFormatError,) as err:
+                        raise InvalidConfigError(err)
                     for port_no in acl.mirror_destinations:
                         port = self.ports[port_no]
                         port.mirror_destination = True

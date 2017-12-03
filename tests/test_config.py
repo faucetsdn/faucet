@@ -595,6 +595,49 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_acl_invalid_ipv4(self):
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: q0.0.200.0/24
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_acl_invalid_ipv6(self):
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv6_src: zyx
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: access-port-protect
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+
 
 if __name__ == "__main__":
     unittest.main()
