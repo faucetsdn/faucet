@@ -488,6 +488,7 @@ class DP(Conf):
                     for attrib, attrib_value in list(rule_conf.items()):
                         if attrib == 'actions':
                             resolved_actions = {}
+                            assert isinstance(attrib_value, dict)
                             for action_name, action_conf in list(attrib_value.items()):
                                 assert action_name in action_resolvers, (
                                     'unknown ACL action %s' % action_name)

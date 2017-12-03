@@ -574,6 +574,27 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_acl_no_actions(self):
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            actions:
+          0     allow: 0
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
