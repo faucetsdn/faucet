@@ -1,0 +1,18 @@
+vlans:
+    100:
+        description: "100"
+acls:
+    101:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+                output:
+                    port: 1
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: 101

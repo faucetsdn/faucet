@@ -24,6 +24,7 @@ Developer Documentation
    developer_guide
    architecture
    testing
+   fuzzing
    source/index
 
 Quick References
