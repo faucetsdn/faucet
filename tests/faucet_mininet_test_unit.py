@@ -3973,6 +3973,10 @@ class FaucetStringOfDPTest(FaucetTest):
     VID = 100
     dpids = None
 
+    def get_config_header(self, _config_global, _debug_log, _dpid, _hardware):
+        """Don't generate standard config file header."""
+        return ''
+
     def build_net(self, stack=False, n_dps=1,
                   n_tagged=0, tagged_vid=100,
                   n_untagged=0, untagged_vid=100,
