@@ -3366,9 +3366,8 @@ routers:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        proactive_learn: True
         max_host_fib_retry_count: 2
-        max_resolve_backoff_time: 1
+        proactive_learn: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
