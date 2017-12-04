@@ -368,7 +368,7 @@ socket_timeout=15
             if os.path.exists(self.ofcap):
                 return
             time.sleep(1)
-        assert False, 'tcpdump of OF channel did not start' 
+        assert False, 'tcpdump of OF channel did not start'
 
     @staticmethod
     def _tls_cargs(ofctl_port, ctl_privkey, ctl_cert, ca_certs):
