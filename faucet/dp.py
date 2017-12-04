@@ -34,7 +34,91 @@ from faucet import valve_of
 # have a default value, and their descriptor must come
 # immediately after being set. See below for example.
 class DP(Conf):
-    """Implement FAUCET configuration for a datapath."""
+    """Stores state related to a datapath controlled by Faucet, including
+configuration.
+
+Datapath Configuration
+======================
+
+DP configuration is entered in the 'dps' configuration block. The 'dps'
+configuration contains a dictionary of configuration blocks each
+containing the configuration for one datapath. The keys can either be
+string names given to the datapath, or the OFP datapath id.
+
+The following elements can be configured for each datapath (at the
+dps/<name or dp_id>/ level of the configuration file):
+
+* dp_id (int): the OFP datapath-id of this datapath. Defaults to the
+    configuration key
+* name (string): a name to reference the datapath by. Defaults to the
+    configuration key
+* hardware (string): the hardware model of the datapath. Defaults to "Open
+    vSwitch". Other options can be seen in the documentation for valve.py
+* ignore_learn_ins (int): Ignore every approx nth packet for learning.
+    2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.  This
+    limits control plane activity when learning new hosts rapidly.  Flooding
+    will still be done by the dataplane even with a packet is ignored for
+    learning purposes. Defaults to 3.
+* drop_broadcast_source_address (bool): If True, Faucet will drop any packet
+    from a broadcast source address: Defaults to True.
+* drop_bpdu (bool): If True, Faucet will drop all STP BPDUs arriving at
+    the datapath. NB: Faucet does not handle BPDUs itself, if you disable this
+    then you either need to configure an ACL to catch BDPUs or Faucet will
+    forward them as though they were normal traffic. Defaults to True.
+* drop_spoofed_faucet_mac (bool): If True, Faucet will drop any packet
+    it receives with an ethernet source address equal to a MAC address that
+    Faucet is using. Defaults to True.
+* drop_lldp (bool): If True, Faucet will drop all LLDP traffic arriving at
+    the datapath. NB: Faucet does not handle LLDP itself, if you disable this
+    then you either need to configure an ACL to handle LLDP packets or Faucet
+    will forward them as though they were normal traffic. Defaults to True.
+* group_table (bool): If True, Faucet will use the OpenFlow Group tables to
+    flood packets. This is an experimental feature that is not fully supported
+    by all devices and may not interoperate with all features of faucet.
+    Defaults to False
+* group_table_routing (bool): If True, Faucet will use the OpenFlow Group
+    tables to combine the actions for each next hop.
+* max_hosts_per_resolve_cycle (int): Limit the number of hosts resolved per
+    cycle. Defaults to 5.
+* max_host_fib_retry_count (int): Limit the number of times Faucet will attempt
+    to resolve a next-hop's l2 address. Defaults to 10.
+* max_resolve_backoff_time (int): When resolving next hop l2 addresses, Faucet
+    will back off exponentially until it reaches this value. Defaults to 32.
+* learn_jitter (int): In order to reduce load on the controller Faucet will
+    randomly vary the timeout for learnt mac addresses by up to this number of
+    seconds. Defaults to 10.
+* learn_ban_timeout (int): When a host is rapidly moving between ports Faucet
+    will stop learning mac addresses on one of the ports for this number of
+    seconds. Defaults to 10.
+* advertise_interval (int): Interval between sending IPv6 Router
+    Advertisements. Defaults to 30.
+* proactive_learn (bool): When False directly connected hosts are added to the
+    list of targets to resolve whenever Faucet sees a packet from them (eg a
+    neighbour solicitation or for l2 learning etc.). When
+    proactive_learn is True Faucet will forward all packets to unknown IPv6
+    addresses in directly connected subnets to the controller and then attempt
+    to resolve the destination addresses. This causes more controller traffic
+    and could be a DOS vector, but causes fewer lost packets when resolving
+    addresses. Defaults to True.
+* pipeline_config_dir (str): the location of the faucet pipeline file. By
+    default it will attempt to read from FAUCET_PIPELINE_DIR environment
+    variable.
+
+Further sublevels of configuration can be configured as follows:
+* interfaces: contains the config block for Port configuration
+    (documented in port.py)
+* interface_ranges: contains the config blocks for sets of multiple interfaces.
+    The configuration entered here will be used as the defaults for these
+    interfaces. This can be overwritten by configuring those interfaces
+    directly. The format for the configuration key is a comma separated string.
+    The elements can either be the name or number of an interface or a range
+    of port numbers eg: "1-6,8,port9".
+* stack: Contains the configuration block for stacking. Stacking is an
+    experimental approach to loop prevention that is still under development.
+    This can be configured as follows:
+    * priority (int): currently setting any value for stack priority indicates
+        that this datapath should be the root for the stacking topology.
+"""
 
     acls = None
     vlans = None

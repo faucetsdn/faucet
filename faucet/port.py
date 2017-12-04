@@ -21,7 +21,60 @@ from faucet.valve_of import ignore_port
 
 
 class Port(Conf):
-    """Implement FAUCET configuration for a port."""
+    """Stores state for ports, including the configuration.
+
+Interface Configuration
+==================
+
+Interface configuration is found under the 'interfaces' configuration block
+within the config for a datapath. IE:
+/dps/<dp name or dp_id>/interfaces/<port name or ofp port number>/
+
+The defaults for groups of interfaces can be configured under:
+/dps/<dp name or dp_id>/interface-ranges/<interface range specification>
+
+<interface range specification> is a string containing a comma separated list
+of port numbers, port names or port ranges (in the form of 2 integers separated
+by a dash).
+
+The following elements can be configured for each port:
+
+* number (int): the OFP port number for this port. Defaults to the
+    configuration key.
+* name (string): a name to reference this port by. Defaults to the
+    configuration key.
+* description (str): an arbitrary description for this port.
+* enabled (bool): Allow packets to be forwarded through this port. Defaults to
+    True.
+* native_vlan (int): The vlan associated with untagged packets arriving and
+    leaving this interface.
+* tagged_vlans (list of ints): The vlans associated with tagged packets
+    arriving and leaving this interfaces.
+* acl_in (int or string): The acl that should be applied to all packets
+    arriving on this port.
+* permanent_learn (bool): When True Faucet will only learn the first MAC
+    address on this interface. All packets with an ethernet src address not
+    equal to that MAC address will be dropped.
+* unicast_flood (bool): If False unicast packets will not be flooded to this
+    port. Defaults to True.
+* mirror (str or int): Mirror all packets recieved and transmitted on this port
+    to the port specified (by name or by port number)
+* max_hosts (int): the maximum number of mac addresses that can be learnt on
+    this port. Defaults to 255
+* hairpin (bool): If True it allows packets arriving on this port to be output
+    to this port. This is necessary to allow routing between two vlans on this
+    port, or for use with a WIFI radio port. Defaults to False.
+* lacp (int): If not 0 this will enable experimental passive LACP support for
+    this port. The value supplied will be the LAG ID. Defaults to 0.
+* loop_protect (bool): Experimental loop protection. TODO: explain how this
+    works.
+
+Further configuration sublevels can be configured as follows:
+stack:
+    * dp (str or int): the name or dp_id of the dp connected to this port
+    * port (str or int): the name or port number of the port on the remote dp
+        connected to this port
+    """
 
     name = None
     number = None
