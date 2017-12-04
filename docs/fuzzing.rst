@@ -10,7 +10,7 @@ Then you can build and run the afl-fuzz tests:
 
 .. code:: bash
 
-  docker build -t faucet/fuzzer -f dockerfile.fuzz .
+  docker build -t faucet/fuzzer -f Dockerfile.fuzz .
 
   docker run -d \
     -u $(id -u $USER) \
