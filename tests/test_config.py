@@ -23,9 +23,12 @@ class TestConfig(unittest.TestCase):
         logging.disable(logging.NOTSET)
         shutil.rmtree(self.tmpdir)
 
+    def conf_file_name(self):
+        return os.path.join(self.tmpdir, 'faucet.yaml')
+
     def create_config_file(self, config):
         """Returns file path to file containing the config parameter."""
-        conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
+        conf_file_name = self.conf_file_name()
         with open(conf_file_name, 'wb') as conf_file:
             if isinstance(config, bytes):
                 conf_file.write(config)
@@ -33,24 +36,26 @@ class TestConfig(unittest.TestCase):
                 conf_file.write(config.encode('utf-8'))
         return conf_file_name
 
-    def run_function_with_config(self, config, function):
+    def run_function_with_config(self, config, function, before_function=None):
         """Return False if provided function raises InvalidConfigError."""
         conf_file = self.create_config_file(config)
+        if before_function:
+            before_function()
         try:
             function(conf_file, LOGNAME)
         except cp.InvalidConfigError:
             return False
         return True
 
-    def check_config_failure(self, config, function):
+    def check_config_failure(self, config, function, before_function=None):
         """Ensure config parsing reported as failed."""
         self.assertEqual(
-            self.run_function_with_config(config, function), False)
+            self.run_function_with_config(config, function, before_function), False)
 
-    def check_config_success(self, config, function):
+    def check_config_success(self, config, function, before_function=None):
         """Ensure config parsing reported succeeded."""
         self.assertEqual(
-            self.run_function_with_config(config, function), True)
+            self.run_function_with_config(config, function, before_function), True)
 
     def test_config_contains_only_int(self):
         """Test that config is invalid when only an int"""
@@ -704,6 +709,14 @@ dps:
     def test_invalid_char(self):
         config = b'\x63\xe1'
         self.check_config_failure(config, cp.dp_parser)
+
+    def test_perm_denied(self):
+
+        def unreadable():
+            os.chmod(self.conf_file_name(), 0)
+
+        config = ''
+        self.check_config_failure(config, cp.dp_parser, before_function=unreadable)
 
 
 if __name__ == "__main__":
