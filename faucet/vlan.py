@@ -170,15 +170,18 @@ class VLAN(Conf):
             assert self.bgp_neighbor_as
 
         if self.routes:
-            self.routes = [route['route'] for route in self.routes]
-            for route in self.routes:
-                try:
-                    ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
-                    ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
-                except (ValueError, AttributeError, TypeError) as err:
-                    assert False, 'Invalid IP address in route: %s' % err
-                assert ip_gw.version == ip_dst.version
-                self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+            try:
+                self.routes = [route['route'] for route in self.routes]
+                for route in self.routes:
+                    try:
+                        ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
+                        ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
+                    except (ValueError, AttributeError, TypeError) as err:
+                        assert False, 'Invalid IP address in route: %s' % err
+                    assert ip_gw.version == ip_dst.version
+                    self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+            except KeyError:
+                assert False, 'missing route config'
 
     @staticmethod
     def vid_valid(vid):
