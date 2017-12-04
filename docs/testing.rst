@@ -6,7 +6,7 @@ Testing
 Software switch testing with docker
 -----------------------------------
 
-First, get yourself setup with docker based on our docker documentation.
+First, get yourself setup with docker based on our :doc:`docker` documentation.
 
 Then you can build and run the mininet tests from the docker entry-point:
 
