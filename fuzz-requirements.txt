@@ -1,0 +1,3 @@
+-r test-requirements.txt
+python-afl
+cython
