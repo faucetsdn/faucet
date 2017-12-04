@@ -564,7 +564,7 @@ dps:
         dp = dps[0]
         self.assertEqual(len(dp.ports), 8)
         self.assertTrue(all([p.permanent_learn for p in dp.ports.values() if p.number < 9]))
-        self.assertTrue(all([p.max_hosts==2 for p in dp.ports.values() if p.number > 1]))
+        self.assertTrue(all([p.max_hosts == 2 for p in dp.ports.values() if p.number > 1]))
         self.assertTrue(dp.ports[1].max_hosts == 4)
         self.assertEqual(dp.ports[1].description, "video conf")
 
@@ -713,10 +713,29 @@ dps:
     def test_perm_denied(self):
 
         def unreadable():
+            """Make config unreadable."""
             os.chmod(self.conf_file_name(), 0)
 
         config = ''
         self.check_config_failure(config, cp.dp_parser, before_function=unreadable)
+
+    def test_missing_route_config(self):
+        config = """
+vlans:
+    office:
+        vid: 100
+        routes:
+            - route:
+                ip_dst: '192.168.0.0/24'
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+
+        self.check_config_failure(config, cp.dp_parser)
 
 
 if __name__ == "__main__":
