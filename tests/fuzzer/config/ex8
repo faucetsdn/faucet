@@ -1,0 +1,26 @@
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office

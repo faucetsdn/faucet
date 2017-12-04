@@ -1,0 +1,11 @@
+vlans:
+    finance:
+        description: "FINANCE VLAN"
+        vid: 100
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: finance

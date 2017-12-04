@@ -1,0 +1,14 @@
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 2040
+                acl_in: 1
+vlans:
+    name:
+        vid: 2040
+acls:
+    1:
+        - rule:
+            dl_type: 0x800
