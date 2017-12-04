@@ -68,10 +68,11 @@ class Valve(object):
     base_prom_labels = None
     recent_ofmsgs = queue.Queue(maxsize=32)
 
-    def __init__(self, dp, logname):
+    def __init__(self, dp, logname, notifier):
         self.dp = dp
         self.logger = ValveLogger(
             logging.getLogger(logname + '.valve'), self.dp.dp_id)
+        self.notifier = notifier
         self.base_prom_labels = {
             'dp_id': hex(self.dp.dp_id),
             'dp_name': self.dp.name,
@@ -330,6 +331,7 @@ class Valve(object):
             list: OpenFlow messages to send to datapath.
         """
         self.logger.info('Cold start configuring DP')
+        self.notifier.notify(self.dp.dp_id, self.dp.name, {'DP': 'cold_start'})
         ofmsgs = []
         ofmsgs.append(valve_of.faucet_config())
         ofmsgs.append(valve_of.faucet_async())
@@ -340,9 +342,10 @@ class Valve(object):
         return ofmsgs
 
     def datapath_disconnect(self):
-        """Handle Ryu datapath disconnection event. """
-        self.dp.running = False
+        """Handle Ryu datapath disconnection event."""
         self.logger.warning('datapath down')
+        self.notifier.notify(self.dp.dp_id, self.dp.name, {'DP': 'disconnect'})
+        self.dp.running = False
 
     def _port_add_acl(self, port, cold_start=False):
         ofmsgs = []

@@ -22,13 +22,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
+
 class FaucetExperimentalEventNotifier(object):
+    """Non blocking event notification, via Unix domain socket."""
 
     def __init__(self, socket_path):
-        self.socket_packet = socket_path
+        self.socket_path = socket_path
 
     def start(self):
-        return
+        """Start socket server."""
+        if not self.socket_path:
+            return
 
-    def notify(self, _event_dict):
-        return
+    def notify(self, dp_id, dp_name, event_dict):
+        """Notify of an event."""
+        assert isinstance(event_dict, dict)
+        event = {
+            'version': 1,
+            'time': time.time(),
+            'dp_id': dp_id,
+            'dp_name': dp_name,
+        }
+        for header_key in list(event):
+            assert header_key not in event_dict
+        event.update(event_dict)
+        if not self.socket_path:
+            return

@@ -176,7 +176,7 @@ class Faucet(app_manager.RyuApp):
         self.logger.info('Add new datapath %s', dpid_log(dp_id))
         valve_cl = valve_factory(new_dp)
         if valve_cl is not None:
-            return valve_cl(new_dp, self.logname)
+            return valve_cl(new_dp, self.logname, self.notifier)
         self.logger.error(
             '%s hardware %s must be one of %s',
             new_dp.name,
