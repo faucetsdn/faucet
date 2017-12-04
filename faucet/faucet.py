@@ -39,6 +39,7 @@ from faucet.config_parser_util import config_changed
 from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_bool_setting, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_experimental_api
+from faucet import faucet_experimental_event
 from faucet import faucet_bgp
 from faucet import faucet_metrics
 from faucet import valve_util
@@ -106,6 +107,8 @@ class Faucet(app_manager.RyuApp):
 
         self.dpset = kwargs['dpset']
         self.api = kwargs['faucet_experimental_api']
+        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            get_setting('FAUCET_EVENT_SOCK'))
 
         # Setup logging
         self.logger = get_logger(
@@ -122,6 +125,9 @@ class Faucet(app_manager.RyuApp):
 
     def start(self):
         super(Faucet, self).start()
+
+        # Start event notifier
+        self.notifier.start()
 
         # Start Prometheus
         prom_port = int(get_setting('FAUCET_PROMETHEUS_PORT'))
