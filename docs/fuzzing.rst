@@ -10,12 +10,12 @@ Then you can build and run the afl-fuzz tests:
 
 .. code:: bash
 
-  docker build -t faucet/faucet-fuzz -f dockerfile.fuzz .
+  docker build -t faucet/fuzzer -f Dockerfile.fuzz .
 
   docker run -d \
     -u $(id -u $USER) \
     --name fuzzer \
     -v /var/log/afl/:/var/log/afl/ \
-    faucet/faucet-fuzz
+    faucet/fuzzer
 
 AFL then will run indefinitely. You can find the output in /var/log/afl/.
