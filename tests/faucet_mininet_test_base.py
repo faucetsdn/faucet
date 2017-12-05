@@ -125,6 +125,7 @@ class FaucetTestBase(unittest.TestCase):
     def _set_static_vars(self):
         self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
         self._set_var_path('faucet', 'FAUCET_LOG', 'faucet.log')
+        self._set_var_path('faucet', 'FAUCET_EVENT_SOCK', 'event.sock')
         self._set_var_path('faucet', 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
         self._set_var_path('gauge', 'GAUGE_CONFIG', 'gauge.yaml')
         self._set_var_path('gauge', 'GAUGE_LOG', 'gauge.log')

@@ -123,11 +123,14 @@ class Faucet(app_manager.RyuApp):
         self.metrics = faucet_metrics.FaucetMetrics()
         self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
 
+    @kill_on_exception(exc_logname)
     def start(self):
         super(Faucet, self).start()
 
         # Start event notifier
-        self.notifier.start()
+        notifier_thread = self.notifier.start()
+        if notifier_thread is not None:
+            self.threads.append(notifier_thread)
 
         # Start Prometheus
         prom_port = int(get_setting('FAUCET_PROMETHEUS_PORT'))

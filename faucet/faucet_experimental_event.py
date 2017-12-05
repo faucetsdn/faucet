@@ -24,6 +24,9 @@
 
 import time
 
+from ryu.lib import hub
+from ryu.lib.hub import StreamServer
+
 
 class FaucetExperimentalEventNotifier(object):
     """Non blocking event notification, via Unix domain socket."""
@@ -33,8 +36,14 @@ class FaucetExperimentalEventNotifier(object):
 
     def start(self):
         """Start socket server."""
-        if not self.socket_path:
-            return
+        if self.socket_path:
+            return hub.spawn(
+                StreamServer((self.socket_path, None), self._loop).serve_forever)
+        return None
+
+    def _loop(self, _sock, _addr):
+        while _sock:
+            hub.sleep(1)
 
     def notify(self, dp_id, dp_name, event_dict):
         """Notify of an event."""
@@ -48,5 +57,5 @@ class FaucetExperimentalEventNotifier(object):
         for header_key in list(event):
             assert header_key not in event_dict
         event.update(event_dict)
-        if not self.socket_path:
+        if self.socket_path:
             return
