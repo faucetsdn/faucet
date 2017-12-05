@@ -38,9 +38,11 @@ from ryu.lib.hub import StreamServer
 class FaucetExperimentalEventNotifier(object):
     """Event notification, via Unix domain socket."""
 
-    def __init__(self, socket_path):
+    def __init__(self, socket_path, metrics):
         self.socket_path = socket_path
         self.event_q = queue.Queue(16)
+        self.event_id = 0
+        self.metrics = metrics
 
     def start(self):
         """Start socket server."""
@@ -61,16 +63,19 @@ class FaucetExperimentalEventNotifier(object):
                     _sock.sendall(event_bytes)
                 except (socket.error, IOError):
                     return
+                self.metrics.faucet_event_id.set(event['event_id'])
             hub.sleep(1)
 
     def notify(self, dp_id, dp_name, event_dict):
         """Notify of an event."""
         assert isinstance(event_dict, dict)
+        self.event_id += 1
         event = {
             'version': 1,
             'time': time.time(),
             'dp_id': dp_id,
             'dp_name': dp_name,
+            'event_id': self.event_id,
         }
         for header_key in list(event):
             assert header_key not in event_dict
