@@ -54,7 +54,7 @@ class FaucetExperimentalEventNotifier(object):
                 StreamServer((self.socket_path, None), self._loop).serve_forever)
         return None
 
-    def _loop(self, sock, addr):
+    def _loop(self, sock, _addr):
         """Serve events."""
         self.logger.info('event client connected')
         while True:
