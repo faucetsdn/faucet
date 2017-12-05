@@ -82,8 +82,8 @@ class FaucetExperimentalEventNotifier(object):
         for header_key in list(event):
             assert header_key not in event_dict
         event.update(event_dict)
-        self.metrics.faucet_event_id.set(event['event_id'])
         if self.socket_path:
+            self.metrics.faucet_event_id.set(event['event_id']) 
             if self.event_q.full():
                 self.logger.warning('event notify queue full')
             else:
