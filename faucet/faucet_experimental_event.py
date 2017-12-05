@@ -26,6 +26,7 @@
 # limitations under the License.
 
 import json
+import os
 import queue
 import socket
 import time
@@ -44,6 +45,8 @@ class FaucetExperimentalEventNotifier(object):
     def start(self):
         """Start socket server."""
         if self.socket_path:
+            if os.path.exists(self.socket_path):
+                os.remove(self.socket_path)
             return hub.spawn(
                 StreamServer((self.socket_path, None), self._loop).serve_forever)
         return None
