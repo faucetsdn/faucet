@@ -39,6 +39,7 @@ from faucet.config_parser_util import config_changed
 from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_bool_setting, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_experimental_api
+from faucet import faucet_experimental_event
 from faucet import faucet_bgp
 from faucet import faucet_metrics
 from faucet import valve_util
@@ -106,6 +107,8 @@ class Faucet(app_manager.RyuApp):
 
         self.dpset = kwargs['dpset']
         self.api = kwargs['faucet_experimental_api']
+        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            get_setting('FAUCET_EVENT_SOCK'))
 
         # Setup logging
         self.logger = get_logger(
@@ -120,8 +123,14 @@ class Faucet(app_manager.RyuApp):
         self.metrics = faucet_metrics.FaucetMetrics()
         self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
 
+    @kill_on_exception(exc_logname)
     def start(self):
         super(Faucet, self).start()
+
+        # Start event notifier
+        notifier_thread = self.notifier.start()
+        if notifier_thread is not None:
+            self.threads.append(notifier_thread)
 
         # Start Prometheus
         prom_port = int(get_setting('FAUCET_PROMETHEUS_PORT'))
@@ -170,7 +179,7 @@ class Faucet(app_manager.RyuApp):
         self.logger.info('Add new datapath %s', dpid_log(dp_id))
         valve_cl = valve_factory(new_dp)
         if valve_cl is not None:
-            return valve_cl(new_dp, self.logname)
+            return valve_cl(new_dp, self.logname, self.notifier)
         self.logger.error(
             '%s hardware %s must be one of %s',
             new_dp.name,

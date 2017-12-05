@@ -109,10 +109,15 @@ vlans:
 
     def test_untagged(self):
         """All hosts on the same untagged VLAN should have connectivity."""
+        self.event_log = os.path.join(self.tmpdir, 'event.log')
+        controller = self._get_controller()
+        controller.cmd(faucet_mininet_test_util.timeout_cmd(
+            'nc -U %s > %s' % (self.env['faucet']['FAUCET_EVENT_SOCK'], self.event_log), 60))
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
         self.prometheus_smoke_test()
+        self.assertGreater(os.path.getsize(self.event_log), 0)
 
 
 class FaucetExperimentalAPITest(FaucetUntaggedTest):
