@@ -48,6 +48,18 @@ class FaucetMetrics(PromClient):
 
     def __init__(self):
         super(FaucetMetrics, self).__init__()
+        self.faucet_config_reload_requests = Counter(
+            'faucet_config_reload_requests',
+            'number of config reload requests', [])
+        self.faucet_event_id = Gauge(
+            'faucet_event_id',
+            'highest/most recent event ID to be sent', [])
+        self.faucet_config_reload_warm = self._dpid_counter(
+            'faucet_config_reload_warm',
+            'number of warm, differences only config reloads executed')
+        self.faucet_config_reload_cold = self._dpid_counter(
+            'faucet_config_reload_cold',
+            'number of cold, complete reprovision config reloads executed')
         self.of_packet_ins = self._dpid_counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP')
@@ -63,15 +75,6 @@ class FaucetMetrics(PromClient):
         self.of_dp_disconnections = self._dpid_counter(
             'of_dp_disconnections',
             'number of OF connections from a DP')
-        self.faucet_config_reload_requests = Counter(
-            'faucet_config_reload_requests',
-            'number of config reload requests', [])
-        self.faucet_config_reload_warm = self._dpid_counter(
-            'faucet_config_reload_warm',
-            'number of warm, differences only config reloads executed')
-        self.faucet_config_reload_cold = self._dpid_counter(
-            'faucet_config_reload_cold',
-            'number of cold, complete reprovision config reloads executed')
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
             'number of hosts learned on a VLAN', self.REQUIRED_LABELS + ['vlan'])
