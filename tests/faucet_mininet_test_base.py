@@ -95,6 +95,7 @@ class FaucetTestBase(unittest.TestCase):
     config_ports = {}
     env = collections.defaultdict(dict)
     rand_dpids = set()
+    event_sock = None
 
 
     def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
@@ -103,6 +104,8 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
+        self.event_sock = os.path.join(tempfile.mkstemp(), 'event.sock')
+        os.remove(self.event_sock)
 
     def rand_dpid(self):
         reserved_range = 100
@@ -125,7 +128,7 @@ class FaucetTestBase(unittest.TestCase):
     def _set_static_vars(self):
         self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
         self._set_var_path('faucet', 'FAUCET_LOG', 'faucet.log')
-        self._set_var_path('faucet', 'FAUCET_EVENT_SOCK', 'event.sock')
+        self._set_var('faucet', 'FAUCET_EVENT_SOCK', self.event_sock)
         self._set_var_path('faucet', 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
         self._set_var_path('gauge', 'GAUGE_CONFIG', 'gauge.yaml')
         self._set_var_path('gauge', 'GAUGE_LOG', 'gauge.log')
@@ -264,6 +267,8 @@ class FaucetTestBase(unittest.TestCase):
         if self.net is not None:
             self.net.stop()
             self.net = None
+        if os.path.exists(self.event_sock):
+            os.remove(self.event_sock)
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
         if 'OVS_LOGDIR' in os.environ:
