@@ -105,7 +105,6 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
-        self.event_sock = os.path.join(tempfile.mkdtemp(), 'event.sock')
 
     def rand_dpid(self):
         reserved_range = 100
@@ -126,9 +125,12 @@ class FaucetTestBase(unittest.TestCase):
         self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', faucet_mininet_test_util.LOCALHOST)
 
     def _set_static_vars(self):
+        if self.event_sock and os.path.exists(self.event_sock):
+            shutil.rmtree(os.path.dirname(self.event_sock))
+        self.event_sock = os.path.join(tempfile.mkdtemp(), 'event.sock')
+        self._set_var('faucet', 'FAUCET_EVENT_SOCK', self.event_sock)
         self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
         self._set_var_path('faucet', 'FAUCET_LOG', 'faucet.log')
-        self._set_var('faucet', 'FAUCET_EVENT_SOCK', self.event_sock)
         self._set_var_path('faucet', 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
         self._set_var_path('gauge', 'GAUGE_CONFIG', 'gauge.yaml')
         self._set_var_path('gauge', 'GAUGE_LOG', 'gauge.log')
@@ -475,6 +477,7 @@ class FaucetTestBase(unittest.TestCase):
             if not controller.healthy():
                 return False
         if not os.path.exists(self.env['faucet']['FAUCET_EVENT_SOCK']):
+            error('event socket %s not created\n')
             return False
         return True
 
