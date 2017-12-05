@@ -14,6 +14,7 @@ import random
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 import unittest
 import yaml
@@ -104,8 +105,7 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
-        self.event_sock = os.path.join(tempfile.mkstemp(), 'event.sock')
-        os.remove(self.event_sock)
+        self.event_sock = os.path.join(tempfile.mkdtemp(), 'event.sock')
 
     def rand_dpid(self):
         reserved_range = 100
@@ -268,7 +268,7 @@ class FaucetTestBase(unittest.TestCase):
             self.net.stop()
             self.net = None
         if os.path.exists(self.event_sock):
-            os.remove(self.event_sock)
+            shutil.rmtree(os.path.dirname(self.event_sock))
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
         if 'OVS_LOGDIR' in os.environ:
