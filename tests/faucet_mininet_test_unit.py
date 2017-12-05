@@ -113,7 +113,7 @@ vlans:
         event_log = os.path.join(self.tmpdir, 'event.log')
         controller = self._get_controller()
         controller.cmd(faucet_mininet_test_util.timeout_cmd(
-            'nc -U %s > %s' % (self.env['faucet']['FAUCET_EVENT_SOCK'], event_log), 60))
+            'nc -U %s > %s &' % (self.env['faucet']['FAUCET_EVENT_SOCK'], event_log), 120))
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
