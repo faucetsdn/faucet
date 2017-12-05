@@ -469,6 +469,8 @@ class FaucetTestBase(unittest.TestCase):
         for controller in self.net.controllers:
             if not controller.healthy():
                 return False
+        if not os.path.exists(self.env['faucet']['FAUCET_EVENT_SOCK']):
+            return False
         return True
 
     def _controllers_connected(self):

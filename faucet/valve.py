@@ -119,6 +119,10 @@ class Valve(object):
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
                 self.dp.low_priority, self.dp.highest_priority)
 
+    def _notify(self, event_dict):
+        """Send an event notification."""
+        self.notifier.notify(self.dp.dp_id, self.dp.name, event_dict)
+
     def switch_features(self, _msg):
         """Send configuration flows necessary for the switch implementation.
 
@@ -296,6 +300,11 @@ class Valve(object):
         return ofmsgs
 
     def port_status_handler(self, port_no, reason, port_status):
+        self._notify(
+            {'PORT_CHANGE': {
+                'port_no': port_no,
+                'reason': reason,
+                'status': port_status}})
         if reason == valve_of.ofp.OFPPR_ADD:
             return self.port_add(port_no)
         elif reason == valve_of.ofp.OFPPR_DELETE:
@@ -331,7 +340,9 @@ class Valve(object):
             list: OpenFlow messages to send to datapath.
         """
         self.logger.info('Cold start configuring DP')
-        self.notifier.notify(self.dp.dp_id, self.dp.name, {'DP': 'cold_start'})
+        self._notify(
+            {'DP_CHANGE': {
+                'reason': 'cold_start'}})
         ofmsgs = []
         ofmsgs.append(valve_of.faucet_config())
         ofmsgs.append(valve_of.faucet_async())
@@ -344,7 +355,9 @@ class Valve(object):
     def datapath_disconnect(self):
         """Handle Ryu datapath disconnection event."""
         self.logger.warning('datapath down')
-        self.notifier.notify(self.dp.dp_id, self.dp.name, {'DP': 'disconnect'})
+        self._notify(
+            {'DP_CHANGE': {
+                'reason': 'disconnect'}})
         self.dp.running = False
 
     def _port_add_acl(self, port, cold_start=False):
@@ -659,6 +672,13 @@ class Valve(object):
                     pkt_meta.eth_src, pkt_meta.eth_type,
                     pkt_meta.l3_src, pkt_meta.port,
                     pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
+            self._notify(
+                {'L2_LEARN': {
+                    'port_no': pkt_meta.port.number,
+                    'vid': pkt_meta.vlan.vid,
+                    'eth_src': pkt_meta.eth_src,
+                    'eth_type': pkt_meta.eth_type,
+                    'l3_src_ip': pkt_meta.l3_src}})
         return ofmsgs
 
     def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
