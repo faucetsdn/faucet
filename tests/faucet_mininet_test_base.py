@@ -475,6 +475,7 @@ class FaucetTestBase(unittest.TestCase):
             if not controller.healthy():
                 return False
         if not os.path.exists(self.env['faucet']['FAUCET_EVENT_SOCK']):
+            error('event socket %s not created\n')
             return False
         return True
 
