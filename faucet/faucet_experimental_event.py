@@ -54,14 +54,13 @@ class FaucetExperimentalEventNotifier(object):
     def _loop(self, _sock, _addr):
         """Serve events."""
         while True:
-            event = self.event_q.get_nowait()
-            if event:
+            while not self.event_q.empty():
+                event = self.event_q.get_nowait()
                 event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
                 try:
                     _sock.sendall(event_bytes)
                 except (socket.error, IOError):
                     return
-                continue
             hub.sleep(1)
 
     def notify(self, dp_id, dp_name, event_dict):
