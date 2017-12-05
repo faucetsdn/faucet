@@ -72,54 +72,6 @@ class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
     pass
 
 
-@unittest.skip('currently flaky')
-class FaucetAPITest(faucet_mininet_test_base.FaucetTestBase):
-    """Test the Faucet API."""
-
-    NUM_DPS = 0
-    LINKS_PER_HOST = 0
-
-    def setUp(self):
-        self.tmpdir = self._tmpdir_name()
-        name = 'faucet'
-        self._set_var_path(name, 'FAUCET_CONFIG', 'config/testconfigv2-simple.yaml')
-        self._set_var_path(name, 'FAUCET_LOG', 'faucet.log')
-        self._set_var_path(name, 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
-        self._set_var_path(name, 'API_TEST_RESULT', 'result.txt')
-        self.results_file = self.env[name]['API_TEST_RESULT']
-        shutil.copytree('config', os.path.join(self.tmpdir, 'config'))
-        self.dpid = str(0xcafef00d)
-        self._set_prom_port(name)
-        self.of_port = faucet_mininet_test_util.find_free_port(
-            self.ports_sock, self._test_name())
-        self.topo = faucet_mininet_test_topo.FaucetSwitchTopo(
-            self.ports_sock,
-            dpid=self.dpid,
-            n_untagged=7,
-            test_name=self._test_name())
-        self.net = Mininet(
-            self.topo,
-            controller=faucet_mininet_test_topo.FaucetAPI(
-                name=name,
-                tmpdir=self.tmpdir,
-                env=self.env[name],
-                port=self.of_port))
-        self.net.start()
-        self.reset_all_ipv4_prefix(prefix=24)
-        self.wait_for_tcp_listen(self._get_controller(), self.of_port)
-
-    def test_api(self):
-        for _ in range(10):
-            try:
-                with open(self.results_file, 'r') as results:
-                    result = results.read().strip()
-                    self.assertEqual('pass', result, result)
-                    return
-            except IOError:
-                time.sleep(1)
-        self.fail('no result from API test')
-
-
 class FaucetUntaggedTest(FaucetTest):
     """Basic untagged VLAN test."""
 
@@ -157,10 +109,39 @@ vlans:
 
     def test_untagged(self):
         """All hosts on the same untagged VLAN should have connectivity."""
+        self.event_log = os.path.join(self.tmpdir, 'event.log')
+        controller = self._get_controller()
+        controller.cmd(faucet_mininet_test_util.timeout_cmd(
+            'nc -U %s > %s' % (self.env['faucet']['FAUCET_EVENT_SOCK'], self.event_log), 60))
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
         self.prometheus_smoke_test()
+        self.assertGreater(os.path.getsize(self.event_log), 0)
+
+
+class FaucetExperimentalAPITest(FaucetUntaggedTest):
+    """Test the experimental Faucet API."""
+
+    CONTROLLER_CLASS = faucet_mininet_test_topo.FaucetExperimentalAPI
+
+    def _set_static_vars(self):
+        super(FaucetExperimentalAPITest, self)._set_static_vars()
+        self._set_var_path('faucet', 'API_TEST_RESULT', 'result.txt')
+        self.results_file = self.env['faucet']['API_TEST_RESULT']
+
+    def test_untagged(self):
+        result = None
+        for _ in range(10):
+            try:
+                with open(self.results_file, 'r') as results:
+                    result = results.read().strip()
+                    if result == 'pass':
+                        return
+            except IOError:
+                pass
+            time.sleep(1)
+        self.fail('incorrect result from API test: %s' % result)
 
 
 class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):
@@ -351,6 +332,13 @@ class FaucetSanityTest(FaucetUntaggedTest):
         self.fail('DP port %u not healthy (%s)' % (dp_port, port_desc))
 
     def test_portmap(self):
+        prom_desc_match_re = re.compile(r'(of_dp_desc_stats.+)\s+[0-9\.]+')
+        for prom_line in self.scrape_prometheus(controller='faucet').splitlines():
+            prom_desc_match = prom_desc_match_re.match(prom_line)
+            if prom_desc_match:
+                break
+        self.assertIsNotNone(prom_desc_match, msg='Cannot scrape of_dp_desc_stats')
+        error('DP: %s\n' % prom_desc_match.group(1))
         for i, host in enumerate(self.net.hosts):
             in_port = 'port_%u' % (i + 1)
             dp_port = self.port_map[in_port]
@@ -378,36 +366,65 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     def get_gauge_watcher_config(self):
         return """
     port_stats:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_stats'
         interval: 5
         db: 'prometheus'
-"""
+""" % self.DP_NAME
 
     def _start_gauge_check(self):
         if not self.gauge_controller.listen_port(self.config_ports['gauge_prom_port']):
             return 'gauge not listening on prometheus port'
         return None
 
+    def scrape_port_counters(self, port, port_vars):
+        port_counters = {}
+        port_labels = {
+            'dp_id': self.dpid,
+            'dp_name': self.DP_NAME,
+            'port_name': self.port_map['port_%u' % port],
+        }
+        for port_var in port_vars:
+            val = self.scrape_prometheus_var(
+                port_var, labels=port_labels, controller='gauge', retries=3)
+            self.assertIsNotNone('%s missing for port %u' % (port_var, port))
+            port_counters[port_var] = val
+        return port_counters
+
     def test_untagged(self):
         self.wait_dp_status(1, controller='gauge')
         self.assertIsNotNone(self.scrape_prometheus_var(
             'faucet_pbr_version', any_labels=True, controller='gauge', retries=3))
-        labels = {'port_name': self.port_map['port_1']}
-        last_p1_bytes_in = 0
-        for _ in range(2):
-            updated_counters = False
-            for _ in range(self.DB_TIMEOUT * 3):
-                self.ping_all_when_learned()
-                p1_bytes_in = self.scrape_prometheus_var(
-                    'of_port_rx_bytes', labels=labels, controller='gauge', retries=3)
-                if p1_bytes_in is not None and p1_bytes_in > last_p1_bytes_in:
-                    updated_counters = True
-                    last_p1_bytes_in = p1_bytes_in
-                    break
-                time.sleep(1)
-            if not updated_counters:
-                self.fail(msg='Gauge Prometheus counters not increasing')
+        port_vars = (
+            'of_port_rx_bytes',
+            'of_port_tx_bytes',
+            'of_port_rx_packets',
+            'of_port_tx_packets',
+        )
+        first_port_counters = {}
+        for i, _ in enumerate(self.net.hosts):
+            port = i + 1
+            port_counters = self.scrape_port_counters(port, port_vars)
+            first_port_counters[port] = port_counters
+        counter_delay = 0
+        for _ in range(self.DB_TIMEOUT * 3):
+            self.ping_all_when_learned()
+            updated_counters = True
+            for i, _ in enumerate(self.net.hosts):
+                port = i + 1
+                port_counters = self.scrape_port_counters(port, port_vars)
+                for port_var, val in list(port_counters.items()):
+                    if not val > first_port_counters[port][port_var]:
+                        updated_counters = False
+                        break
+            if updated_counters:
+                break
+            counter_delay += 1
+            time.sleep(1)
+
+        error('counter latency approx %u sec\n' % counter_delay)
+        if not updated_counters:
+            self.fail(msg='Gauge Prometheus counters not increasing')
 
 
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
@@ -433,21 +450,21 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     def get_gauge_watcher_config(self):
         return """
     port_stats:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_stats'
         interval: 2
         db: 'influx'
     port_state:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_state'
         interval: 2
         db: 'influx'
     flow_table:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'flow_table'
         interval: 2
         db: 'influx'
-"""
+""" % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
     def setupInflux(self):
         self.influx_log = os.path.join(self.tmpdir, 'influx.log')
@@ -973,6 +990,7 @@ vlans:
 
     CONFIG = """
         timeout: 10
+        arp_neighbor_timeout: 10
         ignore_learn_ins: 0
         learn_jitter: 0
         interfaces:
@@ -1119,18 +1137,30 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
         init_config_count = self.get_configure_count()
+        init_cold_start_count = self.scrape_prometheus_var(
+            'faucet_config_reload_cold', dpid=True, default=None)
+        init_warm_start_count = self.scrape_prometheus_var(
+            'faucet_config_reload_warm', dpid=True, default=None)
         for i in range(init_config_count, init_config_count+3):
             self._configure_count_with_retry(i)
+            with open(self.faucet_config_path, 'a') as config_file:
+                config_file.write('\n')
             self.verify_hup_faucet()
             self._configure_count_with_retry(i+1)
             self.assertEqual(
-                self.scrape_prometheus_var('of_dp_disconnections', default=0),
+                self.scrape_prometheus_var(
+                    'of_dp_disconnections', dpid=True, default=None),
                 0)
             self.assertEqual(
-                self.scrape_prometheus_var('of_dp_connections', default=0),
+                self.scrape_prometheus_var(
+                    'of_dp_connections', dpid=True, default=None),
                 1)
             self.wait_until_controller_flow()
             self.ping_all_when_learned()
+        self.assertEqual(0, self.scrape_prometheus_var(
+            'faucet_config_reload_cold', dpid=True, default=None) - init_cold_start_count)
+        self.assertEqual(0, self.scrape_prometheus_var(
+            'faucet_config_reload_warm', dpid=True, default=None) - init_warm_start_count)
 
 
 class FaucetIPv4TupleTest(FaucetTest):
@@ -1292,6 +1322,8 @@ acls:
             actions:
                allow: 1
 """
+    STAT_RELOAD = ''
+
 
     def setUp(self):
         super(FaucetConfigReloadTestBase, self).setUp()
@@ -1304,6 +1336,7 @@ acls:
             self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST)
+        self._set_var('faucet', 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
         self.start_net()
 
     def _get_conf(self):
@@ -1322,7 +1355,7 @@ acls:
                            restart=True, conf=None, cold_start=False):
         if conf is None:
             conf = self._get_conf()
-        conf['dps']['faucet-1']['interfaces'][port][config_name] = config_value
+        conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
         self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
 
     def change_vlan_config(self, vlan, config_name, config_value,
@@ -1410,6 +1443,17 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
+class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
+
+    def test_delete_interface(self):
+        conf = self._get_conf()
+        first_interface = conf['dps'][self.DP_NAME]['interfaces'].keys()[0]
+        del conf['dps'][self.DP_NAME]['interfaces'][first_interface]
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=True, change_expected=True)
+
+
 class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 
     CONFIG = """
@@ -1433,16 +1477,23 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
 """
 
     def test_port_acls(self):
+        restart = not self.STAT_RELOAD
         first_host, second_host, third_host = self.net.hosts[:3]
         self.net.ping((first_host, second_host))
         self.net.ping((first_host, third_host))
         self.assertEqual(2, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
         self.change_port_config(
-            self.port_map['port_3'], 'acl_in', 'allow', restart=True)
+            self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
         self.net.ping((first_host, third_host))
         self.assertEqual(3, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
+
+
+class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):
+
+    # Use the stat-based reload method.
+    STAT_RELOAD = '1'
 
 
 class FaucetUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
@@ -2741,7 +2792,6 @@ acls:
                 description: "b4"
 """
 
-    @unittest.skip('needs OVS dev >= v2.8')
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
@@ -2757,6 +2807,7 @@ acls:
             'vlan 456.+vlan 123', tcpdump_txt))
 
 
+@unittest.skip('broken in OVS master')
 class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -2793,7 +2844,6 @@ acls:
                 description: "b4"
 """
 
-    @unittest.skip('needs OVS dev >= v2.8')
     def test_untagged(self):
         first_host, second_host = self.net.hosts[0:2]
         # we expected to see the rewritten address and VLAN
@@ -3321,9 +3371,8 @@ routers:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        proactive_learn: True
         max_host_fib_retry_count: 2
-        max_resolve_backoff_time: 1
+        proactive_learn: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -3927,6 +3976,10 @@ class FaucetStringOfDPTest(FaucetTest):
     LINKS_PER_HOST = 1
     VID = 100
     dpids = None
+
+    def get_config_header(self, _config_global, _debug_log, _dpid, _hardware):
+        """Don't generate standard config file header."""
+        return ''
 
     def build_net(self, stack=False, n_dps=1,
                   n_tagged=0, tagged_vid=100,

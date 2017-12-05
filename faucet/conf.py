@@ -17,6 +17,11 @@
 # limitations under the License.
 
 
+class InvalidConfigError(Exception):
+    """This error is thrown when the config file is not valid."""
+    pass
+
+
 class Conf(object):
     """Base class for FAUCET configuration."""
 
@@ -25,16 +30,19 @@ class Conf(object):
     dyn_finalized = False
     dyn_hash = None
 
-    def __init__(self, _id, conf=None):
+    def __init__(self, _id, dp_id, conf=None):
+        self._id = _id
+        self.dp_id = dp_id
         if conf is None:
             conf = {}
-        self._id = _id
         # TODO: handle conf as a sequence.
         if isinstance(conf, dict):
             self.update(conf)
             self.set_defaults()
+        self.check_config()
 
     def set_defaults(self):
+        """Set default values and run any basic sanity checks."""
         for key, value in list(self.defaults.items()):
             self._set_default(key, value)
 
@@ -58,6 +66,10 @@ class Conf(object):
         self.__dict__.update(conf)
         self._check_unknown_conf(conf)
         self._check_defaults_types(conf)
+
+    def check_config(self):
+        """As far as possible, check config at instantiation time for errors, typically via assert."""
+        return
 
     def _conf_keys(self, conf, dyn=False, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""

@@ -30,6 +30,7 @@ from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
 from faucet.valve import valve_factory
 from faucet.config_parser import dp_parser
 from faucet import valve_packet
+from faucet import faucet_experimental_event
 
 
 def build_pkt(pkt):
@@ -88,6 +89,8 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+                tagged_vlans: [v300]
+
     s2:
         hardware: 'Open vSwitch'
         dp_id: 0xdeadbeef
@@ -113,6 +116,8 @@ vlans:
             - route:
                 ip_dst: "fc00::10:0/112"
                 ip_gw: "fc00::1:1"
+    v300:
+        vid: 0x300
 """
 
     DP_ID = 1
@@ -127,10 +132,13 @@ vlans:
 
     def setup_valve(self, config):
         self.tmpdir = tempfile.mkdtemp()
+        self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
         self.table = FakeOFTable(self.NUM_TABLES)
+        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            self.faucet_event_sock)
         dp = self.update_config(config)
-        self.valve = valve_factory(dp)(dp, 'test_valve')
+        self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
 
     def update_config(self, config):
         with open(self.config_file, 'w') as config_file:
@@ -508,11 +516,14 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+                native_vlan: v300
 vlans:
     v100:
         vid: 0x100
     v200:
         vid: 0x200
+    v300:
+        vid: 0x300
 acls:
     drop_non_ospf_ipv4:
         - rule:
@@ -577,12 +588,15 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+                native_vlan: v300
 vlans:
     v100:
         vid: 0x100
     v200:
         vid: 0x200
         acl_in: drop_non_ospf_ipv4
+    v300:
+        vid: 0x300
 acls:
     drop_non_ospf_ipv4:
         - rule:
@@ -647,11 +661,14 @@ dps:
                 tagged_vlans: [v200]
             p5:
                 number: 5
+                native_vlan: v300
 vlans:
     v100:
         vid: 0x100
     v200:
         vid: 0x200
+    v300:
+        vid: 0x300
 """
 
     def setUp(self):

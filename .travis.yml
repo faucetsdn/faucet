@@ -2,7 +2,7 @@ sudo: required
 dist: trusty
 language: python
 python:
-  - "3.6"
+  - '3.6'
 services:
   - docker
 addons:
@@ -12,27 +12,24 @@ addons:
       - openvswitch-switch
 cache:
   pip: true
+# Run with 4 test shards (can't seem to schedule more).
 env:
   global:
     - FAUCET_TEST_IMG=faucet/tests
+    - MATRIX_SHARDS=4
+  matrix:
+    - MATRIX_SHARD=sanity
+    - MATRIX_SHARD=0
+    - MATRIX_SHARD=1
+    - MATRIX_SHARD=2
+    - MATRIX_SHARD=3
 install:
   - pip3 install -q -r requirements.txt -r test-requirements.txt
   - python3 setup.py -q sdist
   - pip3 install -q dist/*tar.gz
   - pip3 show faucet
 script:
-  - touch ~/.pylintrc
-  - cd ./tests
-  - PYTHONPATH=~/faucet ./test_min_pylint.sh
-  - PYTHONPATH=~/faucet python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing
-  - coveralls || true
-  - cd ..
-  - docker run --rm --privileged multiarch/qemu-user-static:register --reset
-#  - docker build -t faucet-pi -f Dockerfile.pi .
-#  - docker build -t gauge-pi -f Dockerfile.pi-gauge .
-  - docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests .
-  - docker images
-  - sudo docker run --privileged -t -e FAUCET_TESTS="-d" ${FAUCET_TEST_IMG}
+  - ./run-travis-test.sh
 deploy:
   provider: pypi
   user: faucet

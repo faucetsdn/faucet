@@ -379,12 +379,15 @@ def filter_test_hardware(test_obj, hw_config):
     return True
 
 
+def max_loadavg():
+    return multiprocessing.cpu_count()
+
+
 def expand_tests(requested_test_classes, excluded_test_classes,
                  hw_config, root_tmpdir, ports_sock, serial):
     sanity_test_suites = []
     single_test_suites = []
     parallel_test_suites = []
-    max_loadavg = multiprocessing.cpu_count() + 1
 
     for test_name, test_obj in inspect.getmembers(sys.modules[__name__]):
         if not inspect.isclass(test_obj):
@@ -398,7 +401,7 @@ def expand_tests(requested_test_classes, excluded_test_classes,
                 continue
             print('adding test %s' % test_name)
             test_suite = make_suite(
-                test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg)
+                test_obj, hw_config, root_tmpdir, ports_sock, max_loadavg())
             if test_name.startswith('FaucetSanity'):
                 sanity_test_suites.append(test_suite)
             else:
@@ -450,8 +453,7 @@ def test_runner(root_tmpdir, resultclass, failfast=False):
 def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests):
     results = []
     if parallel_tests.countTestCases():
-        max_parallel_tests = min(
-            parallel_tests.countTestCases(), multiprocessing.cpu_count() * 3)
+        max_parallel_tests = min(parallel_tests.countTestCases(), max_loadavg() * 2)
         print('running maximum of %u parallel tests' % max_parallel_tests)
         parallel_runner = test_runner(root_tmpdir, resultclass)
         parallel_suite = ConcurrentTestSuite(
@@ -588,7 +590,7 @@ def run_tests(hw_config, requested_test_classes, dumpfail,
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-', dir='/var/tmp')
     start_free_ports = 10
-    min_free_ports = 500
+    min_free_ports = 200
     ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
     print('test ports server started')
     sanity_tests, single_tests, parallel_tests = expand_tests(

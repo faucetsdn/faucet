@@ -203,13 +203,13 @@ class ValveFloodStackManager(ValveFloodManager):
             flood_table, flood_priority, use_group_table, groups)
         self.stack = stack
         self.stack_ports = stack_ports
-        my_root_distance = dp_shortest_path_to_root()
+        my_root_distance = len(dp_shortest_path_to_root())
         self.shortest_path_port = shortest_path_port
         self.towards_root_stack_ports = []
         self.away_from_root_stack_ports = []
         for port in self.stack_ports:
             peer_dp = port.stack['dp']
-            peer_root_distance = peer_dp.shortest_path_to_root()
+            peer_root_distance = len(peer_dp.shortest_path_to_root())
             if peer_root_distance > my_root_distance:
                 self.away_from_root_stack_ports.append(port)
             elif peer_root_distance < my_root_distance:
@@ -341,11 +341,12 @@ class ValveFloodStackManager(ValveFloodManager):
         eth_src = pkt_meta.eth_src
         vlan_vid = pkt_meta.vlan.vid
         for other_valve in other_valves:
-            other_dp_host_cache = other_valve.dp.vlans[vlan_vid].host_cache
-            if eth_src in other_dp_host_cache:
-                host = other_dp_host_cache[eth_src]
-                if host.port.stack is None:
-                    return other_valve.dp
+            if vlan_vid in other_valve.dp.vlans:
+                other_dp_host_cache = other_valve.dp.vlans[vlan_vid].host_cache
+                if eth_src in other_dp_host_cache:
+                    host = other_dp_host_cache[eth_src]
+                    if host.port.stack is None:
+                        return other_valve.dp
         return None
 
     def edge_learn_port(self, other_valves, pkt_meta):

@@ -18,7 +18,7 @@
 
 import logging
 import time
-import os
+import random
 import signal
 import sys
 
@@ -28,11 +28,12 @@ from ryu.controller.handler import set_ev_cls
 from ryu.controller import dpset
 from ryu.controller import event
 from ryu.controller import ofp_event
+from ryu.lib import hub
 
 from faucet import valve_of
 from faucet.config_parser import watcher_parser
 from faucet.gauge_prom import GaugePrometheusClient
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_bool_setting, get_setting, stat_config_files
 from faucet.watcher import watcher_factory
 
 
@@ -61,6 +62,7 @@ class Gauge(app_manager.RyuApp):
         self.loglevel = get_setting('GAUGE_LOG_LEVEL')
         self.exc_logfile = get_setting('GAUGE_EXCEPTION_LOG')
         self.logfile = get_setting('GAUGE_LOG')
+        self.stat_reload = get_bool_setting('GAUGE_CONFIG_STAT_RELOAD')
 
         # Setup logging
         self.logger = get_logger(
@@ -69,14 +71,23 @@ class Gauge(app_manager.RyuApp):
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
-        self.prom_client = GaugePrometheusClient()
-
-        # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
+
+        self.prom_client = GaugePrometheusClient()
 
         # dict of watchers/handlers, indexed by dp_id and then by name
         self.watchers = {}
+        self.config_file_stats = None
+
+    def start(self):
+        super(Gauge, self).start()
+
+        if self.stat_reload:
+            self.logger.info('will automatically reload new config on changes')
         self._load_config()
+
+        self.threads.extend([
+            hub.spawn(thread) for thread in (self._config_file_stat,)])
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
@@ -87,12 +98,10 @@ class Gauge(app_manager.RyuApp):
         """Load Gauge config."""
         new_confs = watcher_parser(self.config_file, self.logname, self.prom_client)
         new_watchers = {}
-        configured_dpids = set()
 
         for conf in new_confs:
             watcher = watcher_factory(conf)(conf, self.logname, self.prom_client)
             watcher_dpid = watcher.dp.dp_id
-            configured_dpids.add(watcher_dpid)
             ryu_dp = self.dpset.get(watcher_dpid)
             watcher_type = watcher.conf.type
             watcher_msg = '%s %s watcher' % (dpid_log(watcher_dpid), watcher_type)
@@ -110,23 +119,20 @@ class Gauge(app_manager.RyuApp):
 
             new_watchers[watcher_dpid][watcher_type] = watcher
             if ryu_dp is None:
+                watcher.report_dp_status(0)
                 self.logger.info('%s added but DP currently down', watcher_msg)
             else:
+                watcher.report_dp_status(1)
                 new_watchers[watcher_dpid][watcher_type].start(ryu_dp)
                 self.logger.info('%s started', watcher_msg)
 
         for watcher_dpid, leftover_watchers in list(self.watchers.items()):
             for watcher_type, watcher in list(leftover_watchers.items()):
+                watcher.report_dp_status(0)
                 if watcher.running():
                     self.logger.info(
                         '%s %s deconfigured', dpid_log(watcher_dpid), watcher_type)
                     watcher.stop()
-
-        for dpid in configured_dpids:
-            if self.dpset.get(dpid):
-                self._report_dp_status(dpid, 1)
-            else:
-                self._report_dp_status(dpid, 0)
 
         self.watchers = new_watchers
         self.logger.info('config complete')
@@ -154,18 +160,33 @@ class Gauge(app_manager.RyuApp):
             self.close()
             sys.exit(0)
 
+    @staticmethod
+    def _thread_jitter(period, jitter=2):
+        """Reschedule another thread with a random jitter."""
+        hub.sleep(period + random.randint(0, jitter))
+
+    @kill_on_exception(exc_logname)
+    def _config_file_stat(self):
+        """Periodically stat config files for any changes."""
+        # TODO: Better to use an inotify method that doesn't conflict with eventlets.
+        while True:
+            # TODO: also stat FAUCET config.
+            if self.config_file:
+                config_hashes = {self.config_file: None}
+                new_config_file_stats = stat_config_files(config_hashes)
+                if self.config_file_stats:
+                    if new_config_file_stats != self.config_file_stats:
+                        if self.stat_reload:
+                            self.send_event('Gauge', EventGaugeReconfigure())
+                        self.logger.info('config file(s) changed on disk')
+                self.config_file_stats = new_config_file_stats
+            self._thread_jitter(3)
+
     @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):
         """Handle request for Gauge config reload."""
         self.logger.warning('reload config requested')
         self._load_config()
-
-    def _report_dp_status(self, dp_id, dp_status):
-        self.prom_client.dp_status.labels(dp_id=hex(dp_id)).set(dp_status) # pylint: disable=no-member
-        if dp_status:
-            self.logger.info('%s is up', dpid_log(dp_id))
-        else:
-            self.logger.info('%s is down', dpid_log(dp_id))
 
     @kill_on_exception(exc_logname)
     def _handler_datapath_up(self, ryu_dp):
@@ -176,8 +197,9 @@ class Gauge(app_manager.RyuApp):
         """
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
-            self._report_dp_status(dp_id, 1)
+            self.logger.info('%s up', dpid_log(dp_id))
             for watcher in list(self.watchers[dp_id].values()):
+                watcher.report_dp_status(1)
                 self.logger.info(
                     '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
                 watcher.start(ryu_dp)
@@ -195,8 +217,9 @@ class Gauge(app_manager.RyuApp):
         """
         dp_id = ryu_dp.id
         if dp_id in self.watchers:
-            self._report_dp_status(dp_id, 0)
+            self.logger.info('%s down', dpid_log(dp_id))
             for watcher in list(self.watchers[dp_id].values()):
+                watcher.report_dp_status(0)
                 self.logger.info(
                     '%s %s watcher stopping', dpid_log(dp_id), watcher.conf.type)
                 watcher.stop()

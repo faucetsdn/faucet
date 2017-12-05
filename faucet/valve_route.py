@@ -27,6 +27,11 @@ from faucet import valve_of
 from faucet import valve_packet
 from faucet.valve_util import btos
 
+ETH_TYPES = {
+   4: (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP),
+   6: (valve_of.ether.ETH_TYPE_IPV6,),
+}
+
 
 class NextHop(object):
     """Describes a directly connected (at layer 2) nexthop."""
@@ -567,8 +572,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
     IPV = 4
     ETH_TYPE = valve_of.ether.ETH_TYPE_IP
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMP
-    CONTROL_ETH_TYPES = (
-        valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP)
+    CONTROL_ETH_TYPES = ETH_TYPES[4]
 
 
     def _vlan_nexthop_cache_limit(self, vlan):
@@ -696,7 +700,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
     IPV = 6
     ETH_TYPE = valve_of.ether.ETH_TYPE_IPV6
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
-    CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,)
+    CONTROL_ETH_TYPES = ETH_TYPES[6]
 
 
     def _vlan_nexthop_cache_limit(self, vlan):

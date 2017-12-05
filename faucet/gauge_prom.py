@@ -44,12 +44,12 @@ class GaugePrometheusClient(PromClient):
         self.dp_status = PromGauge(
             'dp_status',
             'status of datapaths',
-            ['dp_id'])
+            self.REQUIRED_LABELS)
         for prom_var in PROM_PORT_VARS:
             exported_prom_var = PROM_PREFIX_DELIM.join(
                 (PROM_PORT_PREFIX, prom_var))
             self.metrics[exported_prom_var] = PromGauge(
-                exported_prom_var, '', ['dp_id', 'port_name'])
+                exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'])
 
 
 class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
@@ -74,7 +74,7 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
         super(GaugePortStatsPrometheusPoller, self).update(rcv_time, dp_id, msg)
         for stat in msg.body:
             port_name = self._stat_port_name(msg, stat, dp_id)
+            port_labels = dict(dp_id=hex(dp_id), dp_name=self.dp.name, port_name=port_name)
             for stat_name, stat_val in self._format_port_stats(
                     PROM_PREFIX_DELIM, stat):
-                self.prom_client.metrics[stat_name].labels(
-                    dp_id=hex(dp_id), port_name=port_name).set(stat_val)
+                self.prom_client.metrics[stat_name].labels(**port_labels).set(stat_val)

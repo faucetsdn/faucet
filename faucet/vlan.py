@@ -18,6 +18,7 @@
 
 import collections
 import ipaddress
+import netaddr
 
 from faucet.conf import Conf
 from faucet.valve_util import btos
@@ -40,6 +41,7 @@ class VLAN(Conf):
     """Implement FAUCET configuration for a VLAN."""
 
     name = None
+    dp_id = None
     tagged = None
     untagged = None
     vid = None
@@ -119,8 +121,6 @@ class VLAN(Conf):
     }
 
     def __init__(self, _id, dp_id, conf=None):
-        super(VLAN, self).__init__(_id, conf)
-        self.dp_id = dp_id
         self.tagged = []
         self.untagged = []
         self.dyn_host_cache = {}
@@ -128,10 +128,35 @@ class VLAN(Conf):
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
         self.dyn_ipvs = []
+        super(VLAN, self).__init__(_id, dp_id, conf)
+
+    def set_defaults(self):
+        super(VLAN, self).set_defaults()
+        self._set_default('vid', self._id)
+        self._set_default('name', str(self._id))
+        self._set_default('faucet_vips', [])
+        self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
+        self._set_default(
+            'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
+
+    @staticmethod
+    def _vid_valid(vid):
+        """Return True if VID valid."""
+        if isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID:
+            return True
+        return False
+
+    def check_config(self):
+        super(VLAN, self).check_config()
+        assert self.vid_valid(self.vid), 'invalid VID %s' % self.vid
+        assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
 
         if self.faucet_vips:
-            self.faucet_vips = [
-                ipaddress.ip_interface(btos(ip)) for ip in self.faucet_vips]
+            try:
+                self.faucet_vips = [
+                    ipaddress.ip_interface(btos(ip)) for ip in self.faucet_vips]
+            except (ValueError, AttributeError, TypeError) as err:
+                assert False, 'Invalid IP address in faucet_vips: %s' % err
             for faucet_vip in self.faucet_vips:
                 self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(
                     faucet_vip)
@@ -145,12 +170,25 @@ class VLAN(Conf):
             assert self.bgp_neighbor_as
 
         if self.routes:
-            self.routes = [route['route'] for route in self.routes]
-            for route in self.routes:
-                ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
-                ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
-                assert ip_gw.version == ip_dst.version
-                self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+            try:
+                self.routes = [route['route'] for route in self.routes]
+                for route in self.routes:
+                    try:
+                        ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
+                        ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
+                    except (ValueError, AttributeError, TypeError) as err:
+                        assert False, 'Invalid IP address in route: %s' % err
+                    assert ip_gw.version == ip_dst.version
+                    self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+            except KeyError:
+                assert False, 'missing route config'
+
+    @staticmethod
+    def vid_valid(vid):
+        """Return True if VID valid."""
+        if isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID:
+            return True
+        return False
 
     def reset_host_cache(self):
         self.dyn_host_cache = {}
@@ -229,15 +267,6 @@ class VLAN(Conf):
     @host_cache.setter
     def host_cache(self, value):
         self.dyn_host_cache = value
-
-    def set_defaults(self):
-        super(VLAN, self).set_defaults()
-        self._set_default('vid', self._id)
-        self._set_default('name', str(self._id))
-        self._set_default('faucet_vips', [])
-        self._set_default('bgp_neighbor_as', self.bgp_neighbour_as)
-        self._set_default(
-            'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]

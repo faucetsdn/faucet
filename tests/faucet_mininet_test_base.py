@@ -14,6 +14,7 @@ import random
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 import unittest
 import yaml
@@ -49,6 +50,8 @@ class FaucetTestBase(unittest.TestCase):
     LADVD = 'ladvd -e lo -f'
     ONEMBPS = (1024 * 1024)
     DB_TIMEOUT = 5
+    CONTROLLER_CLASS = faucet_mininet_test_topo.FAUCET
+    DP_NAME = 'faucet-1'
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -93,6 +96,7 @@ class FaucetTestBase(unittest.TestCase):
     config_ports = {}
     env = collections.defaultdict(dict)
     rand_dpids = set()
+    event_sock = None
 
 
     def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
@@ -101,6 +105,7 @@ class FaucetTestBase(unittest.TestCase):
         self.root_tmpdir = root_tmpdir
         self.ports_sock = ports_sock
         self.max_test_load = max_test_load
+        self.event_sock = os.path.join(tempfile.mkdtemp(), 'event.sock')
 
     def rand_dpid(self):
         reserved_range = 100
@@ -123,6 +128,7 @@ class FaucetTestBase(unittest.TestCase):
     def _set_static_vars(self):
         self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
         self._set_var_path('faucet', 'FAUCET_LOG', 'faucet.log')
+        self._set_var('faucet', 'FAUCET_EVENT_SOCK', self.event_sock)
         self._set_var_path('faucet', 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
         self._set_var_path('gauge', 'GAUGE_CONFIG', 'gauge.yaml')
         self._set_var_path('gauge', 'GAUGE_LOG', 'gauge.log')
@@ -261,6 +267,8 @@ class FaucetTestBase(unittest.TestCase):
         if self.net is not None:
             self.net.stop()
             self.net = None
+        if os.path.exists(self.event_sock):
+            shutil.rmtree(os.path.dirname(self.event_sock))
         faucet_mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
         if 'OVS_LOGDIR' in os.environ:
@@ -354,7 +362,7 @@ class FaucetTestBase(unittest.TestCase):
             self.net = Mininet(
                 self.topo,
                 link=TCLink,
-                controller=faucet_mininet_test_topo.FAUCET(
+                controller=self.CONTROLLER_CLASS(
                     name='faucet', tmpdir=self.tmpdir,
                     controller_intf=controller_intf,
                     env=self.env['faucet'],
@@ -466,6 +474,8 @@ class FaucetTestBase(unittest.TestCase):
         for controller in self.net.controllers:
             if not controller.healthy():
                 return False
+        if not os.path.exists(self.env['faucet']['FAUCET_EVENT_SOCK']):
+            return False
         return True
 
     def _controllers_connected(self):
@@ -551,31 +561,31 @@ class FaucetTestBase(unittest.TestCase):
         return """
 %s
 dps:
-    faucet-1:
+    %s:
         ofchannel_log: %s
         dp_id: 0x%x
         hardware: "%s"
-""" % (config_global, debug_log, int(dpid), hardware)
+""" % (config_global, self.DP_NAME, debug_log, int(dpid), hardware)
 
 
     def get_gauge_watcher_config(self):
         return """
     port_stats:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_stats'
         interval: 5
         db: 'stats_file'
     port_state:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_state'
         interval: 5
         db: 'state_file'
     flow_table:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'flow_table'
         interval: 5
         db: 'flow_file'
-"""
+""" % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
     def get_gauge_config(self, faucet_config_file,
                          monitor_stats_file,
@@ -914,22 +924,24 @@ dbs:
             if labels is None:
                 labels = {}
             if dpid:
-                labels.update({'dp_id': '0x%x' % dpid})
+                labels.update({'dp_id': '0x%x' % dpid, 'dp_name': self.DP_NAME})
             if labels:
                 label_values = []
                 for label, value in sorted(list(labels.items())):
                     label_values.append('%s="%s"' % (label, value))
                 label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
         var_re = r'^%s%s$' % (var, label_values_re)
+        prom_line_re = re.compile(r'^(.+)\s+([0-9\.\-]+)$')
         for _ in range(retries):
             results = []
             prom_lines = self.scrape_prometheus(controller)
             for prom_line in prom_lines.splitlines():
-                prom_var_data = prom_line.split(' ')
-                self.assertEqual(
-                    2, len(prom_var_data),
-                    msg='Invalid prometheus line in %s' % prom_lines)
-                prom_var, value = prom_var_data
+                prom_line_match = prom_line_re.match(prom_line)
+                self.assertIsNotNone(
+                    prom_line_match,
+                    msg='Invalid prometheus line %s in %s' % (prom_line, prom_lines))
+                prom_var = prom_line_match.group(1)
+                value = prom_line_match.group(2)
                 if prom_var.startswith(var):
                     var_match = re.search(var_re, prom_var)
                     if var_match:
@@ -1010,15 +1022,16 @@ dbs:
             var = 'faucet_config_reload_warm'
             if cold_start:
                 var = 'faucet_config_reload_cold'
+            vlan_labels = dict(vlan=host_cache)
             old_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
             old_mac_table = sorted(self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True, default=[]))
+                'learned_macs', labels=vlan_labels, multiple=True, default=[]))
             self.verify_hup_faucet()
             new_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
             new_mac_table = sorted(self.scrape_prometheus_var(
-                'learned_macs', labels={'vlan': host_cache}, multiple=True, default=[]))
+                'learned_macs', labels=vlan_labels, multiple=True, default=[]))
             if host_cache:
                 self.assertFalse(
                     cold_start, msg='host cache is not maintained with cold start')
@@ -1270,10 +1283,10 @@ dbs:
     def set_port_up(self, port_no, dpid=None, wait=True):
         self.set_port_status(dpid, port_no, 0, wait)
 
-    def wait_dp_status(self, expected_status, controller='faucet', timeout=60):
+    def wait_dp_status(self, expected_status, controller='faucet', timeout=30):
         for _ in range(timeout):
             dp_status = self.scrape_prometheus_var(
-                'dp_status', {}, controller=controller, default=None)
+                'dp_status', any_labels=True, controller=controller, default=None)
             if dp_status is not None and dp_status == expected_status:
                 return True
             time.sleep(1)
@@ -1281,7 +1294,7 @@ dbs:
 
     def _get_tableid(self, name):
         return self.scrape_prometheus_var(
-            'faucet_config_table_names', {'name': name})
+            'faucet_config_table_names', {'table_name': name})
 
     def quiet_commands(self, host, commands):
         for command in commands:

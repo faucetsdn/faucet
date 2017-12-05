@@ -7,7 +7,8 @@ watchers:
         db: 'influx'
     port_stats_poller:
         type: 'port_stats'
-        dps: ['sw1', 'sw2']
+        #dps: ['sw1', 'sw2']
+        all_dps: True
         interval: 10
         #db: 'influx'
         db: 'prometheus'
@@ -20,7 +21,8 @@ watchers:
 dbs:
     ft_file:
         type: 'text'
-        file: 'flow_table.json'
+        compress: True
+        file: 'flow_table.yaml.gz'
     prometheus:
         type: 'prometheus'
         prometheus_addr: '0.0.0.0'

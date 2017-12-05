@@ -61,13 +61,16 @@ def get_sys_prefix():
 _PREFIX = get_sys_prefix()
 DEFAULTS = {
     'FAUCET_CONFIG': _PREFIX + '/etc/ryu/faucet/faucet.yaml',
+    'FAUCET_CONFIG_STAT_RELOAD': '0',
     'FAUCET_LOG_LEVEL': 'INFO',
     'FAUCET_LOG': _PREFIX + '/var/log/ryu/faucet/faucet.log',
+    'FAUCET_EVENT_SOCK': '',
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/faucet_exception.log',
     'FAUCET_PROMETHEUS_PORT': '9302',
     'FAUCET_PROMETHEUS_ADDR': '',
     'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/ryu/faucet',
     'GAUGE_CONFIG': _PREFIX + '/etc/ryu/faucet/gauge.yaml',
+    'GAUGE_CONFIG_STAT_RELOAD': '0',
     'GAUGE_LOG_LEVEL': 'INFO',
     'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/gauge_exception.log',
     'GAUGE_LOG': _PREFIX + '/var/log/ryu/faucet/gauge.log',
@@ -79,10 +82,31 @@ def get_setting(name):
     return os.getenv(name, DEFAULTS[name])
 
 
+def get_bool_setting(name):
+    """Return True if setting is a non-zero int."""
+    str_setting = os.getenv(name, DEFAULTS[name])
+    try:
+        if int(str_setting):
+            return True
+    except ValueError:
+        pass
+    return False
+
+
 def get_logger(logname, logfile, loglevel, propagate):
     """Create and return a logger object."""
+
+    stream_handlers = {
+        'STDOUT': sys.stdout,
+        'STDERR': sys.stderr,
+    }
+
+    try:
+        logger_handler = logging.StreamHandler(stream_handlers[logfile])
+    except KeyError:
+        logger_handler = WatchedFileHandler(logfile)
+
     logger = logging.getLogger(logname)
-    logger_handler = WatchedFileHandler(logfile)
     log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
     logger_handler.setFormatter(
         logging.Formatter(log_fmt, '%b %d %H:%M:%S'))
@@ -100,3 +124,18 @@ def dpid_log(dpid):
 def btos(b_str):
     """Return byte array/string as string."""
     return b_str.encode('utf-8').decode('utf-8', 'strict')
+
+
+def stat_config_files(config_hashes):
+    """Return dict of a subset of stat attributes on config files."""
+    config_files_stats = {}
+    for config_file in list(config_hashes.keys()):
+        try:
+            config_file_stat = os.stat(config_file)
+        except OSError:
+            continue
+        config_files_stats[config_file] = (
+            config_file_stat.st_size,
+            config_file_stat.st_mtime,
+            config_file_stat.st_ctime)
+    return config_files_stats

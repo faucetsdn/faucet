@@ -1,7 +1,7 @@
 :Authors: - Rahul Gupta
 
 =================================
-FAUCET on Allied Telesis products
+Faucet on Allied Telesis products
 =================================
 
 ------------

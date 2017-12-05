@@ -33,15 +33,23 @@ from ryu.controller import event
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
+from faucet.conf import InvalidConfigError
 from faucet.config_parser import dp_parser, get_config_for_api
 from faucet.config_parser_util import config_changed
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_bool_setting, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
-from faucet import faucet_api
+from faucet import faucet_experimental_api
+from faucet import faucet_experimental_event
 from faucet import faucet_bgp
 from faucet import faucet_metrics
+from faucet import valve_util
 from faucet import valve_packet
 from faucet import valve_of
+
+
+class EventFaucetExperimentalAPIRegistered(event.EventBase):
+    """Event used to notify that the API is registered with Faucet."""
+    pass
 
 
 class EventFaucetReconfigure(event.EventBase):
@@ -69,11 +77,6 @@ class EventFaucetAdvertise(event.EventBase):
     pass
 
 
-class EventFaucetAPIRegistered(event.EventBase):
-    """Event used to notify that the API is registered with Faucet."""
-    pass
-
-
 class Faucet(app_manager.RyuApp):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
@@ -83,8 +86,9 @@ class Faucet(app_manager.RyuApp):
     OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {
         'dpset': dpset.DPSet,
-        'faucet_api': faucet_api.FaucetAPI
+        'faucet_experimental_api': faucet_experimental_api.FaucetExperimentalAPI,
         }
+    _EVENTS = [EventFaucetExperimentalAPIRegistered]
     logname = 'faucet'
     exc_logname = logname + '.exception'
 
@@ -99,9 +103,12 @@ class Faucet(app_manager.RyuApp):
         self.loglevel = get_setting('FAUCET_LOG_LEVEL')
         self.logfile = get_setting('FAUCET_LOG')
         self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
+        self.stat_reload = get_bool_setting('FAUCET_CONFIG_STAT_RELOAD')
 
-        # Create dpset object for querying Ryu's DPSet application
         self.dpset = kwargs['dpset']
+        self.api = kwargs['faucet_experimental_api']
+        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            get_setting('FAUCET_EVENT_SOCK'))
 
         # Setup logging
         self.logger = get_logger(
@@ -111,75 +118,90 @@ class Faucet(app_manager.RyuApp):
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
         self.valves = {}
+        self.config_hashes = None
+        self.config_file_stats = None
+        self.metrics = faucet_metrics.FaucetMetrics()
+        self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
+
+    @kill_on_exception(exc_logname)
+    def start(self):
+        super(Faucet, self).start()
+
+        # Start event notifier
+        notifier_thread = self.notifier.start()
+        if notifier_thread is not None:
+            self.threads.append(notifier_thread)
 
         # Start Prometheus
         prom_port = int(get_setting('FAUCET_PROMETHEUS_PORT'))
         prom_addr = get_setting('FAUCET_PROMETHEUS_ADDR')
-        self.metrics = faucet_metrics.FaucetMetrics()
         self.metrics.start(prom_port, prom_addr)
 
-        # Start BGP
-        self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
-
         # Configure all Valves
+        if self.stat_reload:
+            self.logger.info('will automatically reload new config on changes')
         self._load_configs(self.config_file)
 
         # Start all threads
-        self._threads = [
+        self.threads.extend([
             hub.spawn(thread) for thread in (
                 self._gateway_resolve_request, self._state_expire_request,
-                self._metric_update_request, self._advertise_request)]
+                self._metric_update_request, self._advertise_request,
+                self._config_file_stat)])
 
         # Register to API
-        api = kwargs['faucet_api']
-        api._register(self)
-        self.send_event_to_observers(EventFaucetAPIRegistered())
+        self.api._register(self)
+        self.send_event_to_observers(EventFaucetExperimentalAPIRegistered())
 
         # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
 
-    @kill_on_exception(exc_logname)
-    def _load_configs(self, new_config_file):
-        self.config_file = new_config_file
-        self.config_hashes, new_dps = dp_parser(
-            new_config_file, self.logname)
-        if new_dps is None:
-            self.logger.error('new config bad - rejecting')
-            return
+    def _apply_configs_existing(self, dp_id, new_dp):
+        logging.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
+        valve = self.valves[dp_id]
+        cold_start, flowmods = valve.reload_config(new_dp)
+        if flowmods:
+            if cold_start:
+                self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
+                    **valve.base_prom_labels).inc()
+                self.logger.info('Cold starting %s', dpid_log(dp_id))
+            else:
+                self.metrics.faucet_config_reload_warm.labels( # pylint: disable=no-member
+                    **valve.base_prom_labels).inc()
+                self.logger.info('Warm starting %s', dpid_log(dp_id))
+            self._send_flow_msgs(new_dp.dp_id, flowmods)
+            return valve
+        self.logger.info('No changes to datapath %s', dpid_log(dp_id))
+        return None
+
+    def _apply_configs_new(self, dp_id, new_dp):
+        self.logger.info('Add new datapath %s', dpid_log(dp_id))
+        valve_cl = valve_factory(new_dp)
+        if valve_cl is not None:
+            return valve_cl(new_dp, self.logname, self.notifier)
+        self.logger.error(
+            '%s hardware %s must be one of %s',
+            new_dp.name,
+            new_dp.hardware,
+            sorted(list(SUPPORTED_HARDWARE.keys())))
+        return None
+
+    def _apply_configs(self, new_dps):
+        """Actually apply configs, if there were any differences."""
         deleted_valve_dpids = (
             set(list(self.valves.keys())) -
             set([valve.dp_id for valve in new_dps]))
         for new_dp in new_dps:
             dp_id = new_dp.dp_id
             if dp_id in self.valves:
-                valve = self.valves[dp_id]
-                cold_start, flowmods = valve.reload_config(new_dp)
-                # pylint: disable=no-member
-                if flowmods:
-                    self._send_flow_msgs(new_dp.dp_id, flowmods)
-                    if cold_start:
-                        self.metrics.faucet_config_reload_cold.labels(
-                            dp_id=hex(dp_id)).inc()
-                    else:
-                        self.metrics.faucet_config_reload_warm.labels(
-                            dp_id=hex(dp_id)).inc()
+                valve = self._apply_configs_existing(dp_id, new_dp)
             else:
-                # pylint: disable=no-member
-                valve_cl = valve_factory(new_dp)
-                if valve_cl is None:
-                    self.logger.error(
-                        '%s hardware %s must be one of %s',
-                        new_dp.name,
-                        new_dp.hardware,
-                        sorted(list(SUPPORTED_HARDWARE.keys())))
-                    continue
-                else:
-                    valve = valve_cl(new_dp, self.logname)
-                    self.valves[dp_id] = valve
-                self.logger.info('Add new datapath %s', dpid_log(dp_id))
-            self.metrics.reset_dpid(dp_id)
-            valve.update_config_metrics(self.metrics)
+                valve = self._apply_configs_new(dp_id, new_dp)
+            if valve is not None:
+                self.valves[dp_id] = valve
+                self.metrics.reset_dpid(valve.base_prom_labels)
+                valve.update_config_metrics(self.metrics)
         for deleted_valve_dpid in deleted_valve_dpids:
             self.logger.info(
                 'Deleting de-configured %s', dpid_log(deleted_valve_dpid))
@@ -188,6 +210,17 @@ class Faucet(app_manager.RyuApp):
             if ryu_dp is not None:
                 ryu_dp.close()
         self._bgp.reset(self.valves, self.metrics)
+
+    @kill_on_exception(exc_logname)
+    def _load_configs(self, new_config_file):
+        try:
+            new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
+            self.config_file = new_config_file
+            self.config_hashes = new_config_hashes
+            self._apply_configs(new_dps)
+        except InvalidConfigError as err:
+            self.logger.error('New config bad (%s) - rejecting', err)
+            return
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
@@ -211,11 +244,13 @@ class Faucet(app_manager.RyuApp):
         reordered_flow_msgs = valve_of.valve_flowreorder(flow_msgs)
         valve.ofchannel_log(reordered_flow_msgs)
         for flow_msg in reordered_flow_msgs:
-            # pylint: disable=no-member
-            self.metrics.of_flowmsgs_sent.labels(
-                dp_id=hex(dp_id)).inc()
+            self.metrics.of_flowmsgs_sent.labels( # pylint: disable=no-member
+                **valve.base_prom_labels).inc()
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
+            if valve.recent_ofmsgs.full():
+                valve.recent_ofmsgs.get()
+            valve.recent_ofmsgs.put(flow_msg)
 
     def _get_valve(self, ryu_dp, handler_name, msg=None):
         """Get Valve instance to response to an event.
@@ -250,6 +285,11 @@ class Faucet(app_manager.RyuApp):
             self.close()
             sys.exit(0)
 
+    @staticmethod
+    def _thread_jitter(period, jitter=2):
+        """Reschedule another thread with a random jitter."""
+        hub.sleep(period + random.randint(0, jitter))
+
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
 
@@ -259,7 +299,23 @@ class Faucet(app_manager.RyuApp):
         """
         while True:
             self.send_event('Faucet', ryu_event)
-            hub.sleep(period + random.randint(0, jitter))
+            self._thread_jitter(period, jitter)
+
+    @kill_on_exception(exc_logname)
+    def _config_file_stat(self):
+        """Periodically stat config files for any changes."""
+        # TODO: Better to use an inotify method that doesn't conflict with eventlets.
+        while True:
+            if self.config_hashes:
+                new_config_file_stats = valve_util.stat_config_files(
+                    self.config_hashes)
+                if self.config_file_stats:
+                    if new_config_file_stats != self.config_file_stats:
+                        if self.stat_reload:
+                            self.send_event('Faucet', EventFaucetReconfigure())
+                        self.logger.info('config file(s) changed on disk')
+                self.config_file_stats = new_config_file_stats
+            self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
         self._thread_reschedule(EventFaucetResolveGateways(), 2)
@@ -309,11 +365,11 @@ class Faucet(app_manager.RyuApp):
                 self._send_flow_msgs(dp_id, flowmods)
 
     def get_config(self):
-        """FAUCET API: return config for all Valves."""
+        """FAUCET experimental API: return config for all Valves."""
         return get_config_for_api(self.valves)
 
     def get_tables(self, dp_id):
-        """FAUCET API: return config tables for one Valve."""
+        """FAUCET experimental API: return config tables for one Valve."""
         return self.valves[dp_id].dp.get_tables()
 
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
@@ -323,12 +379,11 @@ class Faucet(app_manager.RyuApp):
         self.logger.info('request to reload configuration')
         new_config_file = self.config_file
         if config_changed(self.config_file, new_config_file, self.config_hashes):
-            self.logger.info('configuration %s changed', new_config_file)
+            self.logger.info('configuration %s changed, analyzing differences', new_config_file)
             self._load_configs(new_config_file)
         else:
             self.logger.info('configuration is unchanged, not reloading')
-        # pylint: disable=no-member
-        self.metrics.faucet_config_reload_requests.inc()
+        self.metrics.faucet_config_reload_requests.inc() # pylint: disable=no-member
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -370,18 +425,21 @@ class Faucet(app_manager.RyuApp):
             self.logger.info(
                 'packet for unknown VLAN %u from %s', vlan_vid, dpid_log(dp_id))
             return
+        if in_port not in valve.dp.ports:
+            self.logger.info(
+                'packet for unknown port %u from %s', in_port, dpid_log(dp_id))
+            return
         pkt_meta = valve.parse_rcv_packet(
             in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
         other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
 
-        # pylint: disable=no-member
-        self.metrics.of_packet_ins.labels(
-            dp_id=hex(dp_id)).inc()
+        self.metrics.of_packet_ins.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).inc()
         packet_in_start = time.time()
         flowmods = valve.rcv_packet(other_valves, pkt_meta)
         packet_in_stop = time.time()
-        self.metrics.faucet_packet_in_secs.labels(
-            dp_id=hex(dp_id)).observe(packet_in_stop - packet_in_start)
+        self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
         self._send_flow_msgs(dp_id, flowmods)
         valve.update_metrics(self.metrics)
 
@@ -399,9 +457,15 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, 'error_handler', msg)
         if valve is None:
             return
-        # pylint: disable=no-member
-        self.metrics.of_errors.labels(dp_id=hex(dp_id)).inc()
-        self.logger.error('OFError %s from %s', msg, dpid_log(dp_id))
+        self.metrics.of_errors.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).inc()
+        error_txt = msg
+        while not valve.recent_ofmsgs.empty():
+            flow_msg = valve.recent_ofmsgs.get()
+            if msg.xid == flow_msg.xid:
+                error_txt = '%s caused by %s' % (msg, flow_msg)
+                break
+        self.logger.error('%s OFError %s', dpid_log(dp_id), error_txt)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -428,6 +492,7 @@ class Faucet(app_manager.RyuApp):
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
         def port_up_valid(port):
+            """Return True if port is up and in valid range."""
             return port.state == 0 and not valve_of.ignore_port(port.port_no)
 
         dp_id = ryu_dp.id
@@ -438,9 +503,10 @@ class Faucet(app_manager.RyuApp):
             port.port_no for port in list(ryu_dp.ports.values()) if port_up_valid(port)]
         flowmods = valve.datapath_connect(discovered_up_port_nums)
         self._send_flow_msgs(dp_id, flowmods)
-        # pylint: disable=no-member
-        self.metrics.of_dp_connections.labels(dp_id=hex(dp_id)).inc()
-        self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(1)
+        self.metrics.of_dp_connections.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).inc()
+        self.metrics.dp_status.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).set(1)
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_dp):
@@ -449,14 +515,14 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
-        dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, '_datapath_disconnect')
         if valve is None:
             return
         valve.datapath_disconnect()
-        # pylint: disable=no-member
-        self.metrics.of_dp_disconnections.labels(dp_id=hex(dp_id)).inc()
-        self.metrics.dp_status.labels(dp_id=hex(dp_id)).set(0)
+        self.metrics.of_dp_disconnections.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).inc()
+        self.metrics.dp_status.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).set(0)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -494,6 +560,28 @@ class Faucet(app_manager.RyuApp):
         self.logger.debug('%s reconnected', dpid_log(dp_id))
         self._datapath_connect(ryu_dp)
 
+    @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
+    @kill_on_exception(exc_logname)
+    def desc_stats_reply_handler(self, ryu_event):
+        """Handle OFPDescStatsReply from datapath.
+
+        Args:
+            ryu_event (ryu.controller.ofp_event.EventOFPDescStatsReply): trigger.
+        """
+        ryu_dp = ryu_event.msg.datapath
+        dp_id = ryu_dp.id
+        valve = self._get_valve(ryu_dp, 'desc_stats_reply_handler')
+        if valve is None:
+            return
+        body = ryu_event.msg.body
+        self.metrics.of_dp_desc_stats.labels( # pylint: disable=no-member
+            **dict(valve.base_prom_labels,
+                   mfr_desc=body.mfr_desc,
+                   hw_desc=body.hw_desc,
+                   sw_desc=body.sw_desc,
+                   serial_num=body.serial_num,
+                   dp_desc=body.dp_desc)).set(dp_id)
+
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def port_status_handler(self, ryu_event):
@@ -520,13 +608,18 @@ class Faucet(app_manager.RyuApp):
         flowmods = valve.port_status_handler(
             port_no, reason, port_status)
         self._send_flow_msgs(dp_id, flowmods)
-        # pylint: disable=no-member
-        self.metrics.port_status.labels(
-            dp_id=hex(dp_id), port=port_no).set(port_status)
+        port_labels = dict(valve.base_prom_labels, port=port_no)
+        self.metrics.port_status.labels( # pylint: disable=no-member
+            **port_labels).set(port_status)
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def flowremoved_handler(self, ryu_event):
+        """Handle a flow removed event.
+
+        Args:
+            ryu_event (ryu.controller.ofp_event.EventOFPFlowRemoved): trigger.
+        """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         valve = self._get_valve(ryu_dp, 'flowremoved_handler', msg)

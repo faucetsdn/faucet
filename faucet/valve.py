@@ -19,6 +19,7 @@
 
 import logging
 import time
+import queue
 
 from collections import namedtuple
 
@@ -64,11 +65,18 @@ class Valve(object):
 
     DEC_TTL = True
     L3 = False
+    base_prom_labels = None
+    recent_ofmsgs = queue.Queue(maxsize=32)
 
-    def __init__(self, dp, logname):
+    def __init__(self, dp, logname, notifier):
         self.dp = dp
         self.logger = ValveLogger(
             logging.getLogger(logname + '.valve'), self.dp.dp_id)
+        self.notifier = notifier
+        self.base_prom_labels = {
+            'dp_id': hex(self.dp.dp_id),
+            'dp_name': self.dp.name,
+        }
         self.ofchannel_logger = None
         self._packet_in_count_sec = 0
         self._last_packet_in_sec = 0
@@ -111,6 +119,10 @@ class Valve(object):
                 self.dp.timeout, self.dp.learn_jitter, self.dp.learn_ban_timeout,
                 self.dp.low_priority, self.dp.highest_priority)
 
+    def _notify(self, event_dict):
+        """Send an event notification."""
+        self.notifier.notify(self.dp.dp_id, self.dp.name, event_dict)
+
     def switch_features(self, _msg):
         """Send configuration flows necessary for the switch implementation.
 
@@ -119,7 +131,7 @@ class Valve(object):
 
         Vendor specific configuration should be implemented here.
         """
-        return []
+        return [valve_of.desc_stats_request()]
 
     def ofchannel_log(self, ofmsgs):
         """Log OpenFlow messages in text format to debugging log."""
@@ -288,6 +300,11 @@ class Valve(object):
         return ofmsgs
 
     def port_status_handler(self, port_no, reason, port_status):
+        self._notify(
+            {'PORT_CHANGE': {
+                'port_no': port_no,
+                'reason': reason,
+                'status': port_status}})
         if reason == valve_of.ofp.OFPPR_ADD:
             return self.port_add(port_no)
         elif reason == valve_of.ofp.OFPPR_DELETE:
@@ -323,6 +340,9 @@ class Valve(object):
             list: OpenFlow messages to send to datapath.
         """
         self.logger.info('Cold start configuring DP')
+        self._notify(
+            {'DP_CHANGE': {
+                'reason': 'cold_start'}})
         ofmsgs = []
         ofmsgs.append(valve_of.faucet_config())
         ofmsgs.append(valve_of.faucet_async())
@@ -333,9 +353,12 @@ class Valve(object):
         return ofmsgs
 
     def datapath_disconnect(self):
-        """Handle Ryu datapath disconnection event. """
-        self.dp.running = False
+        """Handle Ryu datapath disconnection event."""
         self.logger.warning('datapath down')
+        self._notify(
+            {'DP_CHANGE': {
+                'reason': 'disconnect'}})
+        self.dp.running = False
 
     def _port_add_acl(self, port, cold_start=False):
         ofmsgs = []
@@ -613,7 +636,6 @@ class Valve(object):
                 not valve_packet.mac_addr_is_unicast(pkt_meta.eth_dst)):
             for route_manager in list(self.route_manager_by_ipv.values()):
                 if pkt_meta.eth_type in route_manager.CONTROL_ETH_TYPES:
-                    pkt_meta.reparse_ip(route_manager.ETH_TYPE)
                     ofmsgs = route_manager.control_plane_handler(pkt_meta)
                     break
         return ofmsgs
@@ -645,6 +667,18 @@ class Valve(object):
         if learn_port is not None:
             ofmsgs.extend(self.host_manager.learn_host_on_vlan_ports(
                 learn_port, pkt_meta.vlan, pkt_meta.eth_src))
+            self.logger.info(
+                'L2 learned %s (L2 type 0x%4.4x, L3 src %s) on %s on VLAN %u (%u hosts total)' % (
+                    pkt_meta.eth_src, pkt_meta.eth_type,
+                    pkt_meta.l3_src, pkt_meta.port,
+                    pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
+            self._notify(
+                {'L2_LEARN': {
+                    'port_no': pkt_meta.port.number,
+                    'vid': pkt_meta.vlan.vid,
+                    'eth_src': pkt_meta.eth_src,
+                    'eth_type': pkt_meta.eth_type,
+                    'l3_src_ip': pkt_meta.l3_src}})
         return ofmsgs
 
     def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
@@ -673,12 +707,9 @@ class Valve(object):
 
         metrics (FaucetMetrics): container of Prometheus metrics.
         """
-        metrics.faucet_config_dp_name.labels(
-            dp_id=hex(self.dp.dp_id), name=self.dp.name).set(
-                self.dp.dp_id)
         for table_id, table in list(self.dp.tables_by_id.items()):
             metrics.faucet_config_table_names.labels(
-                dp_id=hex(self.dp.dp_id), name=table.name).set(table_id)
+                **dict(self.base_prom_labels, table_name=table.name)).set(table_id)
 
     def update_metrics(self, metrics):
         """Update Gauge/metrics.
@@ -690,29 +721,33 @@ class Valve(object):
         for _, label_dict, _ in metrics.learned_macs.collect()[0].samples:
             if label_dict['dp_id'] == dp_id:
                 metrics.learned_macs.labels(
-                    dp_id=label_dict['dp_id'], vlan=label_dict['vlan'],
-                    port=label_dict['port'], n=label_dict['n']).set(0)
+                    **dict(self.base_prom_labels, vlan=label_dict['vlan'],
+                           port=label_dict['port'], n=label_dict['n'])).set(0)
 
         for vlan in list(self.dp.vlans.values()):
             hosts_count = vlan.hosts_count()
             metrics.vlan_hosts_learned.labels(
-                dp_id=dp_id, vlan=vlan.vid).set(hosts_count)
+                **dict(self.base_prom_labels, vlan=vlan.vid)).set(
+                    hosts_count)
             metrics.vlan_learn_bans.labels(
-                dp_id=dp_id, vlan=vlan.vid).set(vlan.dyn_learn_ban_count)
+                **dict(self.base_prom_labels, vlan=vlan.vid)).set(
+                    vlan.dyn_learn_ban_count)
             for ipv in vlan.ipvs():
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 metrics.vlan_neighbors.labels(
-                    dp_id=dp_id, vlan=vlan.vid, ipv=ipv).set(neigh_cache_size)
+                    **dict(self.base_prom_labels, vlan=vlan.vid, ipv=ipv)).set(
+                        neigh_cache_size)
             learned_hosts_count = 0
             for port in vlan.get_ports():
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
                     metrics.learned_macs.labels(
-                        dp_id=dp_id, vlan=vlan.vid,
-                        port=port.number, n=i).set(mac_int)
+                        **dict(self.base_prom_labels, vlan=vlan.vid, port=port.number, n=i)).set(
+                            mac_int)
                     learned_hosts_count += 1
                 metrics.port_learn_bans.labels(
-                    dp_id=dp_id, port=port.number).set(port.dyn_learn_ban_count)
+                    **dict(self.base_prom_labels, port=port.number)).set(
+                        port.dyn_learn_ban_count)
 
     def rcv_packet(self, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
@@ -747,11 +782,16 @@ class Valve(object):
                 if not pkt_meta.port.dyn_lacp_up:
                     return ofmsgs
 
-            if self.L3:
-                control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
-                if control_plane_ofmsgs:
-                    control_plane_handled = True
-                    ofmsgs.extend(control_plane_ofmsgs)
+            for eth_types in list(valve_route.ETH_TYPES.values()):
+                if pkt_meta.eth_type in eth_types:
+                    pkt_meta.reparse_ip(pkt_meta.eth_type)
+                    if pkt_meta.l3_pkt:
+                        if self.L3:
+                            control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
+                            if control_plane_ofmsgs:
+                                control_plane_handled = True
+                                ofmsgs.extend(control_plane_ofmsgs)
+                        break
 
         if self._rate_limit_packet_ins():
             return ofmsgs
@@ -766,7 +806,7 @@ class Valve(object):
 
             # Add FIB entries, if routing is active and not already handled
             # by control plane.
-            if self.L3 and not control_plane_handled:
+            if self.L3 and pkt_meta.l3_pkt and not control_plane_handled:
                 for route_manager in list(self.route_manager_by_ipv.values()):
                     ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
@@ -816,40 +856,43 @@ class Valve(object):
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vlans, changed_vlans, all_ports_changed) = changes
         new_dp.running = True
-        cold_start = True
-        ofmsgs = []
 
         if all_ports_changed:
+            self.logger.info('all ports changed')
             self.dp = new_dp
-        else:
-            cold_start = False
-            if deleted_ports:
-                self.logger.info('ports deleted: %s' % deleted_ports)
-                ofmsgs.extend(self.ports_delete(deleted_ports))
-            if deleted_vlans:
-                self.logger.info('VLANs deleted: %s' % deleted_vlans)
-                for vid in deleted_vlans:
-                    vlan = self.dp.vlans[vid]
-                    ofmsgs.extend(self._del_vlan(vlan))
-            if changed_ports:
-                ofmsgs.extend(self.ports_delete(changed_ports))
-            self.dp = new_dp
-            if changed_vlans:
-                self.logger.info('VLANs changed/added: %s' % changed_vlans)
-                for vid in changed_vlans:
-                    vlan = self.dp.vlans[vid]
-                    ofmsgs.extend(self._del_vlan(vlan))
-                    ofmsgs.extend(self._add_vlan(vlan))
-            if changed_ports:
-                self.logger.info('ports changed/added: %s' % changed_ports)
-                ofmsgs.extend(self.ports_add(changed_ports))
-            if changed_acl_ports:
-                self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
-                for port_num in changed_acl_ports:
-                    port = self.dp.ports[port_num]
-                    ofmsgs.extend(self._port_add_acl(port, cold_start=True))
+            return True, []
 
-        return cold_start, ofmsgs
+        ofmsgs = []
+
+        if deleted_ports:
+            self.logger.info('ports deleted: %s' % deleted_ports)
+            ofmsgs.extend(self.ports_delete(deleted_ports))
+        if deleted_vlans:
+            self.logger.info('VLANs deleted: %s' % deleted_vlans)
+            for vid in deleted_vlans:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(self._del_vlan(vlan))
+        if changed_ports:
+            self.logger.info('ports changed/added: %s' % changed_ports)
+            ofmsgs.extend(self.ports_delete(changed_ports))
+
+        self.dp = new_dp
+
+        if changed_vlans:
+            self.logger.info('VLANs changed/added: %s' % changed_vlans)
+            for vid in changed_vlans:
+                vlan = self.dp.vlans[vid]
+                ofmsgs.extend(self._del_vlan(vlan))
+                ofmsgs.extend(self._add_vlan(vlan))
+        if changed_ports:
+            ofmsgs.extend(self.ports_add(changed_ports))
+        if changed_acl_ports:
+            self.logger.info('ports with ACL only changed: %s' % changed_acl_ports)
+            for port_num in changed_acl_ports:
+                port = self.dp.ports[port_num]
+                ofmsgs.extend(self._port_add_acl(port, cold_start=True))
+
+        return False, ofmsgs
 
     def reload_config(self, new_dp):
         """Reload configuration new_dp.
@@ -871,7 +914,6 @@ class Valve(object):
         cold_start = False
         ofmsgs = []
         if self.dp.running:
-            self.logger.info('reload configuration')
             cold_start, ofmsgs = self._apply_config_changes(
                 new_dp, self.dp.get_config_changes(self.logger, new_dp))
             if cold_start:
@@ -917,7 +959,7 @@ class Valve(object):
         return self.host_manager.flow_timeout(table_id, match)
 
     def get_config_dict(self):
-        return self.dp.config_dict()
+        return self.dp.get_config_dict()
 
 
 class TfmValve(Valve):
@@ -943,11 +985,12 @@ class TfmValve(Valve):
                             tfm_table.name, tfm_table.table_id,
                             tfm_matches, table.restricted_match_types))
 
-    def switch_features(self, _msg):
+    def switch_features(self, msg):
+        ofmsgs = super(TfmValve, self).switch_features(msg)
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         self.logger.info('loading pipeline configuration')
-        ofmsgs = self._delete_all_valve_flows()
+        ofmsgs.extend(self._delete_all_valve_flows())
         tfm = valve_of.table_features(ryu_table_loader.load_tables())
         self._verify_pipeline_config(tfm)
         ofmsgs.append(tfm)

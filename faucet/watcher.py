@@ -20,6 +20,7 @@
 
 import json
 import time
+import gzip
 
 from faucet.valve_util import dpid_log
 from faucet.gauge_influx import GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger, GaugeFlowTableInfluxDBLogger
@@ -128,17 +129,24 @@ class GaugeFlowTableLogger(GaugeFlowTablePoller):
     Includes a timestamp and a reference ($DATAPATHNAME-flowtables). The
     flow table is dumped as an OFFlowStatsReply message (in yaml format) that
     matches all flows.
+
+    optionally the output can be compressed by setting compressed: true in the
+    config for this watcher
     """
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTableLogger, self).update(rcv_time, dp_id, msg)
+        #TODO: it might be good to aggregate all OFFlowStatsReplies somehow
         rcv_time_str = _rcv_time(rcv_time)
-        jsondict = msg.to_jsondict()
-        with open(self.conf.file, 'a') as logfile:
-            ref = '-'.join((self.dp.name, 'flowtables'))
-            logfile.write(
-                '\n'.join((
-                    '---',
-                    'time: %s' % rcv_time_str,
-                    'ref: %s' % ref,
-                    'msg: %s' % json.dumps(jsondict, indent=4))))
+        jsondict = {}
+        jsondict['time'] = rcv_time_str
+        jsondict['ref'] = '-'.join((self.dp.name, 'flowtables'))
+        jsondict['msg'] = msg.to_jsondict()
+        filename = self.conf.file
+        outstr = '---\n{}\n'.format(json.dumps(jsondict))
+        if self.conf.compress:
+            with gzip.open(filename, 'at') as outfile:
+                outfile.write(outstr)
+        else:
+            with open(filename, 'a') as outfile:
+                outfile.write(outstr)

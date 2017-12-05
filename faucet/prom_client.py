@@ -25,6 +25,7 @@ from prometheus_client import start_http_server, Gauge
 class PromClient(object):
     """Prometheus client."""
 
+    REQUIRED_LABELS = ['dp_id', 'dp_name']
     running = False
 
     def __init__(self):

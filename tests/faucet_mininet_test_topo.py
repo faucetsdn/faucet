@@ -306,6 +306,8 @@ class BaseFAUCET(Controller):
     pid_file = None
     tmpdir = None
     ofcap = None
+    MAX_OF_PKTS = 500
+    MAX_CTL_TIME = 300
 
     BASE_CARGS = ' '.join((
         '--verbose',
@@ -351,13 +353,22 @@ socket_timeout=15
             '-n',
             '-U',
             '-q',
+            '-W 1', # max files 1
+            '-G %u' % (self.MAX_CTL_TIME - 1),
+            '-c %u' % (self.MAX_OF_PKTS),
             '-i %s' % self.controller_intf,
             '-w %s' % self.ofcap,
             'tcp and port %u' % self.port,
             '>/dev/null',
             '2>/dev/null',
         ))
-        self.cmd('tcpdump %s &' % tcpdump_args)
+        self.cmd('timeout %s tcpdump %s &' % (
+            self.MAX_CTL_TIME, tcpdump_args))
+        for _ in range(5):
+            if os.path.exists(self.ofcap):
+                return
+            time.sleep(1)
+        assert False, 'tcpdump of OF channel did not start'
 
     @staticmethod
     def _tls_cargs(ofctl_port, ctl_privkey, ctl_cert, ca_certs):
@@ -383,8 +394,8 @@ socket_timeout=15
             cprofile_args = 'python3 -m cProfile -s time'
         with open(script_wrapper_name, 'w') as script_wrapper:
             script_wrapper.write(
-                'PYTHONPATH=.:..:../faucet %s exec %s /usr/local/bin/ryu-manager %s $*\n' % (
-                    ' '.join(env_vars), cprofile_args, args))
+                'PYTHONPATH=.:..:../faucet %s exec timeout %u %s /usr/local/bin/ryu-manager %s $*\n' % (
+                    ' '.join(env_vars), self.MAX_CTL_TIME, cprofile_args, args))
         return '/bin/sh %s' % script_wrapper_name
 
     def ryu_pid(self):
@@ -445,7 +456,8 @@ socket_timeout=15
             text_ofcap_log = '%s.txt' % self.ofcap
             with open(text_ofcap_log, 'w') as text_ofcap:
                 subprocess.call(
-                    ['tshark', '-l', '-n', '-Q',
+                    ['timeout', str(self.MAX_CTL_TIME),
+                     'tshark', '-l', '-n', '-Q',
                      '-d', 'tcp.port==%u,openflow' % self.port,
                      '-O', 'openflow_v4',
                      '-Y', 'openflow_v4',
@@ -476,6 +488,8 @@ socket_timeout=15
 class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
+    RYUAPPS = ['ryu.app.ofctl_rest', 'faucet.faucet']
+
     def __init__(self, name, tmpdir, controller_intf, env,
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, port, test_name, **kwargs):
@@ -490,7 +504,7 @@ class FAUCET(BaseFAUCET):
             tmpdir,
             controller_intf,
             cargs=cargs,
-            command=self._command(env, tmpdir, name, 'ryu.app.ofctl_rest faucet.faucet'),
+            command=self._command(env, tmpdir, name, ' '.join(self.RYUAPPS)),
             port=port,
             **kwargs)
 
@@ -514,12 +528,7 @@ class Gauge(BaseFAUCET):
             **kwargs)
 
 
-class FaucetAPI(BaseFAUCET):
-    """Start a controller to run the Faucet API tests."""
+class FaucetExperimentalAPI(FAUCET):
+    """Start a controller to run the Faucet experimental API tests."""
 
-    def __init__(self, name, tmpdir, env, **kwargs):
-        super(FaucetAPI, self).__init__(
-            name,
-            tmpdir,
-            command=self._command(env, tmpdir, name, 'faucet.faucet test_api.py'),
-            **kwargs)
+    RYUAPPS = ['test_experimental_api.py', 'ryu.app.ofctl_rest', 'faucet.faucet']

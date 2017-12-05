@@ -22,6 +22,8 @@ from faucet.conf import Conf
 class ACL(Conf):
     """Implement FAUCET configuration for an ACL."""
 
+    # Resolved port numbers which are mirror action destinations.
+    mirror_destinations = set()
     rules = None
     exact_match = None
     defaults = {
@@ -33,15 +35,22 @@ class ACL(Conf):
         'exact_match': bool,
     }
 
-    def __init__(self, _id, conf):
-        super(ACL, self).__init__(_id, conf)
+    def __init__(self, _id, dp_id, conf):
+        super(ACL, self).__init__(_id, dp_id, conf)
         # TODO: ACL rule content should be type checked.
         rules = conf
         if isinstance(conf, dict):
             if 'exact_match' in conf and conf['exact_match']:
                 self.exact_match = True
             rules = conf['rules']
-        self.rules = [x['rule'] for x in rules]
+        self.rules = []
+        assert isinstance(rules, list)
+        for rule in rules:
+            assert isinstance(rule, dict)
+            for rule_key, rule_content in list(rule.items()):
+                assert rule_key == 'rule'
+                assert isinstance(rule_content, dict)
+                self.rules.append(rule_content)
 
     def to_conf(self):
         return [{'rule': rule} for rule in self.rules]
