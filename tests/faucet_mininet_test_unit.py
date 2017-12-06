@@ -22,7 +22,7 @@ import scapy.all
 import yaml
 
 from mininet.log import error, output
-
+from mininet.net import Mininet
 
 import faucet_mininet_test_base
 import faucet_mininet_test_util
