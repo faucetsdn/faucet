@@ -22,7 +22,6 @@ from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 from requests.exceptions import ConnectionError, ReadTimeout
 
 from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
-from faucet.valve_of import devid_present
 
 
 class InfluxShipper(object):
@@ -184,32 +183,10 @@ time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_t
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTableInfluxDBLogger, self).update(rcv_time, dp_id, msg)
-        jsondict = msg.to_jsondict()
         points = []
+        jsondict = msg.to_jsondict()
         for stats_reply in jsondict['OFPFlowStatsReply']['body']:
             stats = stats_reply['OFPFlowStats']
-            packet_count = int(stats['packet_count'])
-            byte_count = int(stats['byte_count'])
-            instructions = stats['instructions']
-            tags = {
-                'dp_name': self.dp.name,
-                'table_id': int(stats['table_id']),
-                'priority': int(stats['priority']),
-                'inst_count': len(instructions),
-            }
-            oxm_matches = stats['match']['OFPMatch']['oxm_fields']
-            for oxm_match in oxm_matches:
-                oxm_tlv = oxm_match['OXMTlv']
-                mask = oxm_tlv['mask']
-                val = oxm_tlv['value']
-                field = oxm_tlv['field']
-                if mask is not None:
-                    val = '/'.join((str(val), str(mask)))
-                tags[field] = val
-                if field == 'vlan_vid' and mask is None:
-                    tags['vlan'] = devid_present(int(val))
-            points.append(
-                self.make_point(tags, rcv_time, 'flow_packet_count', packet_count))
-            points.append(
-                self.make_point(tags, rcv_time, 'flow_byte_count', byte_count))
+            for var, tags, count in self._parse_flow_stats(stats):
+                points.append(self.make_point(tags, rcv_time, var, count))
         self.ship_points(points)

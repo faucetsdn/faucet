@@ -132,11 +132,13 @@ vlans:
 
     def setup_valve(self, config):
         self.tmpdir = tempfile.mkdtemp()
-        self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
         self.table = FakeOFTable(self.NUM_TABLES)
+        self.faucet_event_sock = None
+        self.logger = None
+        self.metrics = None
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
-            self.faucet_event_sock)
+            self.faucet_event_sock, self.metrics, self.logger)
         dp = self.update_config(config)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
 

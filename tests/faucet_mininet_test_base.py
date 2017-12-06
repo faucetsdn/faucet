@@ -52,6 +52,7 @@ class FaucetTestBase(unittest.TestCase):
     DB_TIMEOUT = 5
     CONTROLLER_CLASS = faucet_mininet_test_topo.FAUCET
     DP_NAME = 'faucet-1'
+    STAT_RELOAD = ''
 
     CONFIG = ''
     CONFIG_GLOBAL = ''
@@ -129,6 +130,7 @@ class FaucetTestBase(unittest.TestCase):
             shutil.rmtree(os.path.dirname(self.event_sock))
         self.event_sock = os.path.join(tempfile.mkdtemp(), 'event.sock')
         self._set_var('faucet', 'FAUCET_EVENT_SOCK', self.event_sock)
+        self._set_var('faucet', 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
         self._set_var_path('faucet', 'FAUCET_CONFIG', 'faucet.yaml')
         self._set_var_path('faucet', 'FAUCET_LOG', 'faucet.log')
         self._set_var_path('faucet', 'FAUCET_EXCEPTION_LOG', 'faucet-exception.log')
@@ -1664,7 +1666,7 @@ dbs:
                 iperf_server_cmd, (seconds * 3) + 5)
             iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
                 '%s -y c -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
-                 seconds + 5)
+                seconds + 5)
             server_start_exp = r'Server listening on TCP port %u' % port
             server_out = server_host.popen(
                 iperf_server_cmd,
