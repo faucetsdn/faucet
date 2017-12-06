@@ -12,17 +12,17 @@ addons:
       - openvswitch-switch
 cache:
   pip: true
+# Run with 4 test shards (can't seem to schedule more).
 env:
   global:
     - FAUCET_TEST_IMG=faucet/tests
-    - MATRIX_SHARDS=5
+    - MATRIX_SHARDS=4
   matrix:
     - MATRIX_SHARD=sanity
     - MATRIX_SHARD=0
     - MATRIX_SHARD=1
     - MATRIX_SHARD=2
     - MATRIX_SHARD=3
-    - MATRIX_SHARD=4
 install:
   - pip3 install -q -r requirements.txt -r test-requirements.txt
   - python3 setup.py -q sdist
