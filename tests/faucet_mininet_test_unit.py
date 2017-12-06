@@ -9,7 +9,6 @@ import itertools
 import json
 import os
 import re
-import shutil
 import socket
 import threading
 import time
@@ -24,7 +23,6 @@ import yaml
 
 from mininet.log import error, output
 from mininet.net import Mininet
-
 
 import faucet_mininet_test_base
 import faucet_mininet_test_util
@@ -1334,8 +1332,6 @@ acls:
             actions:
                allow: 1
 """
-    STAT_RELOAD = ''
-
 
     def setUp(self):
         super(FaucetConfigReloadTestBase, self).setUp()
@@ -1348,7 +1344,6 @@ acls:
             self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST)
-        self._set_var('faucet', 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
         self.start_net()
 
     def _get_conf(self):
@@ -1428,7 +1423,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             table_id=self.PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
-        self.reload_conf(orig_conf, self.faucet_config_path,
+        self.reload_conf(
+            orig_conf, self.faucet_config_path,
             True, cold_start=False, host_cache=100)
         self.verify_tp_dst_notblocked(
             5001, first_host, second_host, table_id=None)
