@@ -478,8 +478,8 @@ class FaucetTestBase(unittest.TestCase):
         for controller in self.net.controllers:
             if not controller.healthy():
                 return False
-        if not os.path.exists(self.env['faucet']['FAUCET_EVENT_SOCK']):
-            error('event socket %s not created\n')
+        if self.event_sock and not os.path.exists(self.event_sock):
+            error('event socket %s not created\n' % self.event_sock)
             return False
         return True
 
