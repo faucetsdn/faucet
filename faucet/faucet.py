@@ -120,7 +120,7 @@ class Faucet(app_manager.RyuApp):
         self.config_file_stats = None
         self.metrics = faucet_metrics.FaucetMetrics()
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
-            get_bool_setting('FAUCET_EVENT_SOCK'), self.metrics, self.logger)
+            get_setting('FAUCET_EVENT_SOCK'), self.metrics, self.logger)
         self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
 
     @kill_on_exception(exc_logname)
