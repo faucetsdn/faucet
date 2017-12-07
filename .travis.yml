@@ -1,6 +1,5 @@
 sudo: required
 dist: trusty
-group: edge
 language: python
 python:
   - '3.6'
