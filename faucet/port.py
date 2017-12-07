@@ -24,7 +24,6 @@ class Port(Conf):
     """Stores state for ports, including the configuration.
 
 Interface Configuration
-==================
 
 Interface configuration is found under the 'interfaces' configuration block
 within the config for a datapath. IE:
@@ -39,38 +38,40 @@ by a dash).
 
 The following elements can be configured for each port:
 
-* number (int): the OFP port number for this port. Defaults to the
+ * number (int): the OFP port number for this port. Defaults to the
     configuration key.
-* name (string): a name to reference this port by. Defaults to the
+ * name (string): a name to reference this port by. Defaults to the
     configuration key.
-* description (str): an arbitrary description for this port.
-* enabled (bool): Allow packets to be forwarded through this port. Defaults to
+ * description (str): an arbitrary description for this port.
+ * enabled (bool): Allow packets to be forwarded through this port. Defaults to
     True.
-* native_vlan (int): The vlan associated with untagged packets arriving and
+ * native_vlan (int): The vlan associated with untagged packets arriving and
     leaving this interface.
-* tagged_vlans (list of ints): The vlans associated with tagged packets
+ * tagged_vlans (list of ints): The vlans associated with tagged packets
     arriving and leaving this interfaces.
-* acl_in (int or string): The acl that should be applied to all packets
+ * acl_in (int or string): The acl that should be applied to all packets
     arriving on this port.
-* permanent_learn (bool): When True Faucet will only learn the first MAC
+ * permanent_learn (bool): When True Faucet will only learn the first MAC
     address on this interface. All packets with an ethernet src address not
     equal to that MAC address will be dropped.
-* unicast_flood (bool): If False unicast packets will not be flooded to this
+ * unicast_flood (bool): If False unicast packets will not be flooded to this
     port. Defaults to True.
-* mirror (str or int): Mirror all packets recieved and transmitted on this port
-    to the port specified (by name or by port number)
-* max_hosts (int): the maximum number of mac addresses that can be learnt on
+ * mirror (str or int): Mirror all packets recieved and transmitted on this
+    port to the port specified (by name or by port number)
+ * max_hosts (int): the maximum number of mac addresses that can be learnt on
     this port. Defaults to 255
-* hairpin (bool): If True it allows packets arriving on this port to be output
+ * hairpin (bool): If True it allows packets arriving on this port to be output
     to this port. This is necessary to allow routing between two vlans on this
     port, or for use with a WIFI radio port. Defaults to False.
-* lacp (int): If not 0 this will enable experimental passive LACP support for
+ * lacp (int): If not 0 this will enable experimental passive LACP support for
     this port. The value supplied will be the LAG ID. Defaults to 0.
-* loop_protect (bool): Experimental loop protection. TODO: explain how this
+ * loop_protect (bool): Experimental loop protection. TODO: explain how this
     works.
 
 Further configuration sublevels can be configured as follows:
-stack:
+
+ * stack:
+
     * dp (str or int): the name or dp_id of the dp connected to this port
     * port (str or int): the name or port number of the port on the remote dp
         connected to this port
