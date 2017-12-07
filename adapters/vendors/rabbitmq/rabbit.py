@@ -41,7 +41,7 @@ class RabbitAdapter:
 
         # get environment variables and set defaults
         self.channel = None
-        self.event_sock = os.getenv('FAUCET_EVENT_SOCK', '')
+        self.event_sock = os.getenv('FAUCET_EVENT_SOCK', '0')
         self.host = os.getenv('FA_RABBIT_HOST', '')
         self.port = os.getenv('FA_RABBIT_PORT')
         if not self.port:
