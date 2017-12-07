@@ -38,7 +38,49 @@ class HostCacheEntry(object):
 
 
 class VLAN(Conf):
-    """Implement FAUCET configuration for a VLAN."""
+    """Contains state for one VLAN, including its configuration.
+
+VLAN Config
+
+VLANs are configured under the 'vlans' configuration block. The vlans block
+contains a dictionary of individual vlans each keyed by the vid or name for
+that vlan.
+
+The following elements can be configured for each vlan, at the level
+/vlans/<vid or vlan name>/:
+
+ * name (str): a name that can be used to refer to this vlan. Defaults to the
+    configuration key.
+ * vid (int): the vid for the vlan. Defaults to the configuration key.
+ * acl_in (int or str): The acl that should be applied to all packets
+    arriving on this vlan.
+ * faucet_vips (list of IP address with prefix strings): The ip address for
+    Faucet's interface on this vlan
+ * faucet_mac (MAC address Str): The MAC address for Faucet's interface on this
+    vlan. Defaults to '0e:00:00:00:00:01'. It is recommended that if you use
+    routing on this vlan you modify this field.
+ * bgp_as (int): the local AS number to used when speaking BGP
+ * bgp_server_addresses (list): ???
+ * bgp_routerid (str): the router id to use when speaking BGP
+ * bgp_neighbour_addresses (list of strings): the list of BGP neighbours
+ * bgp_neighbour_as (int): the AS Number for the BGP neighbours
+ * max_hosts (int): The maximum number of mac addresses that can be learnt on
+    this vlan. Defaults to 255.
+ * unicast_flood (bool): If False packets to unknown ethernet destination MAC
+    addresses will be dropped rather than flooded.
+
+static routes can be configured on this vlan in the routes configuration block
+(/vlans/<vid or vlan name>/routes/)
+The routes configuration block contains a list of dictionaries. Each dictionary
+contains a single key 'route' which then contains the configuration for the
+static route. The following elements should be configured:
+
+ * ip_dst (subnet string): the destination IP subnet for this route.
+ * ip_gw (ip address string): the next hop for this route
+"""
+
+# Note: while vlans are configured once for each datapath, there will be a
+# separate vlan object created for each datapath that the vlan appears on
 
     name = None
     dp_id = None
