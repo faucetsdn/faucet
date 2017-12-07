@@ -39,7 +39,10 @@ class FaucetExperimentalEventNotifier(object):
     """Event notification, via Unix domain socket."""
 
     def __init__(self, socket_path, metrics, logger):
-        self.socket_path = socket_path
+        if socket_path:
+            self.socket_path = os.path.join('/var/run', socket_path)
+        else:
+            self.socket_path = socket_path
         self.metrics = metrics
         self.logger = logger
         self.event_q = queue.Queue(120)
