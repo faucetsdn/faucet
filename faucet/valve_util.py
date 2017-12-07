@@ -64,7 +64,7 @@ DEFAULTS = {
     'FAUCET_CONFIG_STAT_RELOAD': '0',
     'FAUCET_LOG_LEVEL': 'INFO',
     'FAUCET_LOG': _PREFIX + '/var/log/ryu/faucet/faucet.log',
-    'FAUCET_EVENT_SOCK': '',
+    'FAUCET_EVENT_SOCK': '0',
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/faucet_exception.log',
     'FAUCET_PROMETHEUS_PORT': '9302',
     'FAUCET_PROMETHEUS_ADDR': '',
