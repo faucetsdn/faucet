@@ -1,0 +1,43 @@
+acls:
+    access-port-protect:
+        - rule:
+            dl_type: 0x800
+            nw_proto: 17
+            udp_src: 67
+            udp_dst: 68
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x86dd
+            nw_proto: 17
+            udp_src: 547
+            udp_dst: 546
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x86dd
+            nw_proto: 58
+            icmpv6_type: 134
+            actions:
+                allow: 0
+        - rule:
+            dl_type: 0x800
+            nw_proto: 17
+            udp_dst: 53
+            actions:
+                output:
+                    dl_dst: "72:b8:3c:4c:dc:4d"
+                    port: 5
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x2
+        hardware: "Allied-Telesis"
+        interfaces:
+            1:
+                name: "pi"
+                description: "Raspberry Pi"
+                native_vlan: office
+                acl_in: access-port-protect

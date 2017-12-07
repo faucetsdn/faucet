@@ -1,0 +1,28 @@
+vlans:
+    office:
+        vid: 100
+    guest:
+        vid: 200
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+            2:
+                native_vlan: office
+            3:
+                native_vlan: guest
+            4:
+                native_vlan: office
+            5:
+                tagged_vlans: [office]
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                native_vlan: office
+            2:
+                native_vlan: guest
+            24:
+                tagged_vlans: [office, guest]

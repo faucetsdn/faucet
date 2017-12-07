@@ -1,0 +1,16 @@
+vlans:
+    office:
+        vid: 100
+    guest:
+        vid: 200
+routers:
+    router-office-guest:
+        vlans: [office, guest]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                name: "h1"
+                native_vlan: office
+                acl_in: access-port-protect
