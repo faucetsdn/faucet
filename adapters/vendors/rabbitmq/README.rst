@@ -20,7 +20,9 @@ docker-compose -f docker-compose.yaml \
                -f adapters/vendors/rabbitmq/docker-compose.yaml \
                up
 ```
-Since this requires a connection to a RabbitMQ server there is an additional `docker-compose` file that runs one for convenience and can included as follows:
+Since this requires a connection to a RabbitMQ server there is an additional
+`docker-compose` file that runs one for convenience and can included as
+follows:
 
 ```
 docker-compose -f docker-compose.yaml \
@@ -28,7 +30,10 @@ docker-compose -f docker-compose.yaml \
                -f adapters/vendors/rabbitmq/docker-compose.yaml \
                up
 ```
-Finally, there is an example RabbitMQ consumer that can be used for testing and development that by default will connect to the above RabbitMQ server with the default environment variables and with `FA_RABBIT_HOST=rabbitmq` set.  To start it, after the above command it up and running, just execute:
+Finally, there is an example RabbitMQ consumer that can be used for testing and
+development that by default will connect to the above RabbitMQ server with the
+default environment variables and with `FA_RABBIT_HOST=rabbitmq` set.  To start
+it, after the above command it up and running, just execute:
 
 ```
 python3 adapters/vendors/rabbitmq/example_consumer.py

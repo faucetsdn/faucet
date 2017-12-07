@@ -17,7 +17,7 @@ RUN \
   for i in $BUILDDEPS ; do $APK del $i ; done && \
   find / -name \*pyc -delete
 
-VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/", "/var/run"]
+VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/", "/var/run/faucet/"]
 
 EXPOSE 6653 9302
 

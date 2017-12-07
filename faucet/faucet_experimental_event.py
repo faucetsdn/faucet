@@ -40,7 +40,7 @@ class FaucetExperimentalEventNotifier(object):
 
     def __init__(self, socket_path, metrics, logger):
         if socket_path:
-            self.socket_path = os.path.join('/var/run', socket_path)
+            self.socket_path = '/var/run/faucet/faucet.sock'
         else:
             self.socket_path = socket_path
         self.metrics = metrics
