@@ -40,7 +40,10 @@ class FaucetExperimentalEventNotifier(object):
 
     def __init__(self, socket_path, metrics, logger):
         if socket_path:
-            self.socket_path = '/var/run/faucet/faucet.sock'
+            if os.path.exists(os.path.dirname(socket_path)):
+                self.socket_path = socket_path
+            else:
+                self.socket_path = '/var/run/faucet/faucet.sock'
         else:
             self.socket_path = socket_path
         self.metrics = metrics
@@ -86,7 +89,7 @@ class FaucetExperimentalEventNotifier(object):
             assert header_key not in event_dict
         event.update(event_dict)
         if self.socket_path:
-            self.metrics.faucet_event_id.set(event['event_id']) 
+            self.metrics.faucet_event_id.set(event['event_id'])
             if self.event_q.full():
                 self.logger.warning('event notify queue full')
             else:
