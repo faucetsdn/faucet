@@ -17,10 +17,6 @@ Faucet configuration file
   # Otherwise, run tests against OVS locally.
   hw_switch: True
   hardware: 'Open vSwitch'
-  # Map ports on the hardware switch, to physical ports on this machine.
-  # If using a switch with less than 4 dataplane ports available, run
-  # FaucetZodiac tests only. A 4th port must still be defined here and
-  # must exist, but will not be used.
   dp_ports:
     1: ens786f0
     2: ens786f1
@@ -28,26 +24,11 @@ Faucet configuration file
     4: ens786f3
 
   # Hardware switch's DPID
-  #dpid: 0xeccd6d9936ed
-  # ovs-sfcloud-qotom-1
   dpid: 0xacd28f18b
-  #
-  # Port on this machine that connects to hardware switch's CPN port.
-  # Hardware switch must use IP address of this port as controller IP.
   cpn_intf: eno1
-  # ovs-sfcloud-qotom-1
-  #cpn_intf: enx000acd28f18c
-  # There must be two controllers configured on the hardware switch,
-  # with same IP (see cpn_intf), but different ports - one for FAUCET,
-  # one for Gauge.
   of_port: 6636
   gauge_of_port: 6637
-  # If you wish to test OF over TLS to the hardware switch,
-  # set the following parameters per Ryu documentation.
-  # https://github.com/osrg/ryu/blob/master/doc/source/tls.rst
-  # ctl_privkey: ctl-privkey.pem
-  # ctl_cert: ctl-cert.pem
-  # ca_certs: /usr/local/var/lib/openvswitch/pki/switchca/cacert.pem
+
 
 Hardware
 --------
@@ -68,7 +49,7 @@ Commands
 Commands to be executed on each side - **Faucet Test host** and **Open vSwitch**.
 *Note*:
   Below is a table.  Scroll to the right to see the second column!
-  
+
 .. raw:: html
 
     <embed>
