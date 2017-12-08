@@ -1,0 +1,19 @@
+version: '2'
+services:
+    rabbitmq_adapter:
+        restart: always
+        build:
+            context: ./adapters/vendors/rabbitmq/
+            dockerfile: Dockerfile
+        depends_on:
+            - faucet
+        image: 'rabbitmq-adapter:faucet'
+        volumes_from:
+            - faucet
+        environment:
+            FAUCET_EVENT_SOCK: '${FAUCET_EVENT_SOCK}'
+            FA_RABBIT_HOST: '${FA_RABBIT_HOST}'
+            FA_RABBIT_PORT: '${FA_RABBIT_PORT}'
+            FA_RABBIT_EXCHANGE: '${FA_RABBIT_EXCHANGE}'
+            FA_RABBIT_EXCHANGE_TYPE: '${FA_RABBIT_EXCHANGE_TYPE}'
+            FA_RABBIT_ROUTING_KEY: '${FA_RABBIT_ROUTING_KEY}'

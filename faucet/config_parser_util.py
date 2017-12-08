@@ -21,6 +21,20 @@ import logging
 import os
 # pytype: disable=pyi-error
 import yaml
+from yaml.constructor import ConstructorError
+
+
+def no_duplicates_constructor(loader, node, deep=False):
+    """Check for duplicate YAML keys."""
+    keys = set()
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in keys:
+            raise ConstructorError('duplicate key %s' % key)
+        keys.add(key)
+    return loader.construct_mapping(node, deep)
+
+yaml.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_duplicates_constructor)
 
 
 def get_logger(logname):
@@ -33,9 +47,9 @@ def read_config(config_file, logname):
     logger = get_logger(logname)
     try:
         with open(config_file, 'r') as stream:
-            conf = yaml.safe_load(stream)
-    except yaml.YAMLError as ex:
-        logger.error('Error in file %s (%s)', config_file, str(ex))
+            conf = yaml.load(stream.read())
+    except (yaml.YAMLError, UnicodeDecodeError, PermissionError) as err: # pytype: disable=name-error
+        logger.error('Error in file %s (%s)', config_file, str(err))
         return None
     return conf
 

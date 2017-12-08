@@ -26,7 +26,6 @@ from faucet.prom_client import PromClient
 class FaucetMetrics(PromClient):
     """Container class for objects that can be exported to Prometheus."""
 
-    REQUIRED_LABELS = ['dp_id']
     _dpid_counters = {}
     _dpid_gauges = {}
 
@@ -40,15 +39,27 @@ class FaucetMetrics(PromClient):
         self._dpid_gauges[var] = gauge
         return gauge
 
-    def reset_dpid(self, dp_id):
+    def reset_dpid(self, dp_labels):
         """Set all DPID-only counter/gauges to 0."""
         for counter in list(self._dpid_counters.values()):
-            counter.labels(dp_id=hex(dp_id)).inc(0)
+            counter.labels(**dp_labels).inc(0)
         for gauge in list(self._dpid_gauges.values()):
-            gauge.labels(dp_id=hex(dp_id)).set(0)
+            gauge.labels(**dp_labels).set(0)
 
     def __init__(self):
         super(FaucetMetrics, self).__init__()
+        self.faucet_config_reload_requests = Counter(
+            'faucet_config_reload_requests',
+            'number of config reload requests', [])
+        self.faucet_event_id = Gauge(
+            'faucet_event_id',
+            'highest/most recent event ID to be sent', [])
+        self.faucet_config_reload_warm = self._dpid_counter(
+            'faucet_config_reload_warm',
+            'number of warm, differences only config reloads executed')
+        self.faucet_config_reload_cold = self._dpid_counter(
+            'faucet_config_reload_cold',
+            'number of cold, complete reprovision config reloads executed')
         self.of_packet_ins = self._dpid_counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP')
@@ -64,15 +75,6 @@ class FaucetMetrics(PromClient):
         self.of_dp_disconnections = self._dpid_counter(
             'of_dp_disconnections',
             'number of OF connections from a DP')
-        self.faucet_config_reload_requests = Counter(
-            'faucet_config_reload_requests',
-            'number of config reload requests', [])
-        self.faucet_config_reload_warm = self._dpid_counter(
-            'faucet_config_reload_warm',
-            'number of warm, differences only config reloads executed')
-        self.faucet_config_reload_cold = self._dpid_counter(
-            'faucet_config_reload_cold',
-            'number of cold, complete reprovision config reloads executed')
         self.vlan_hosts_learned = Gauge(
             'vlan_hosts_learned',
             'number of hosts learned on a VLAN', self.REQUIRED_LABELS + ['vlan'])
@@ -84,10 +86,7 @@ class FaucetMetrics(PromClient):
             'number of times learning was banned on a VLAN', self.REQUIRED_LABELS + ['vlan'])
         self.faucet_config_table_names = Gauge(
             'faucet_config_table_names',
-            'number to names map of FAUCET pipeline tables', self.REQUIRED_LABELS + ['name'])
-        self.faucet_config_dp_name = Gauge(
-            'faucet_config_dp_name',
-            'map of DP name to DP ID', self.REQUIRED_LABELS + ['name'])
+            'number to names map of FAUCET pipeline tables', self.REQUIRED_LABELS + ['table_name'])
         self.faucet_packet_in_secs = Histogram(
             'faucet_packet_in_secs',
             'FAUCET packet in processing time', self.REQUIRED_LABELS,
@@ -114,3 +113,7 @@ class FaucetMetrics(PromClient):
         self.dp_status = self._dpid_gauge(
             'dp_status',
             'status of datapaths')
+        self.of_dp_desc_stats = Gauge(
+            'of_dp_desc_stats',
+            'DP description (OFPDescStatsReply)',
+            self.REQUIRED_LABELS + ['mfr_desc', 'hw_desc', 'sw_desc', 'serial_num', 'dp_desc'])

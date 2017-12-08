@@ -362,8 +362,13 @@ socket_timeout=15
             '>/dev/null',
             '2>/dev/null',
         ))
-        self.cmd('tcpdump %u %s &' % (
+        self.cmd('timeout %s tcpdump %s &' % (
             self.MAX_CTL_TIME, tcpdump_args))
+        for _ in range(5):
+            if os.path.exists(self.ofcap):
+                return
+            time.sleep(1)
+        assert False, 'tcpdump of OF channel did not start'
 
     @staticmethod
     def _tls_cargs(ofctl_port, ctl_privkey, ctl_cert, ca_certs):
@@ -451,7 +456,7 @@ socket_timeout=15
             text_ofcap_log = '%s.txt' % self.ofcap
             with open(text_ofcap_log, 'w') as text_ofcap:
                 subprocess.call(
-                    ['timeout', self.MAX_CTL_TIME,
+                    ['timeout', str(self.MAX_CTL_TIME),
                      'tshark', '-l', '-n', '-Q',
                      '-d', 'tcp.port==%u,openflow' % self.port,
                      '-O', 'openflow_v4',

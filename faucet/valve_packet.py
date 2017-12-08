@@ -18,8 +18,9 @@
 # limitations under the License.
 
 import ipaddress
+import socket
+import struct
 
-import dpkt
 from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
 
 from faucet.valve_util import btos
@@ -28,6 +29,7 @@ from faucet import valve_of
 
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
 ETH_VLAN_HEADER_SIZE = 14 + 4
+IPV4_HEADER_SIZE = 20
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
@@ -36,6 +38,28 @@ IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
 IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
 
+
+def ipv4_parseable(ip_header_data):
+    """Return True if an IPv4 packet we could parse."""
+    # TODO: python library parsers are fragile
+    # Perform sanity checking on the header to limit exposure of the parser
+    ipv4_header = struct.unpack('!BBHHHBBH4s4s', ip_header_data[:IPV4_HEADER_SIZE])
+    header_size = (ipv4_header[0] & 0xf) * 32 / 8
+    if header_size < IPV4_HEADER_SIZE:
+        return False
+    flags = ipv4_header[4] >> 12
+    # MF bit set
+    if flags & 0x2:
+        return False
+    # fragment - discard
+    ip_off = ipv4_header[4] & 0xfff
+    if ip_off:
+        return False
+    # not a protocol conservatively known to parse
+    protocol = ipv4_header[6]
+    if protocol not in (socket.IPPROTO_ICMP, socket.IPPROTO_UDP, socket.IPPROTO_TCP):
+        return False
+    return True
 
 
 def mac_byte_mask(mask_bytes=0):
@@ -473,9 +497,9 @@ class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
     ETH_TYPES_PARSERS = {
-        valve_of.ether.ETH_TYPE_IP: ipv4.ipv4,
-        valve_of.ether.ETH_TYPE_ARP: arp.arp,
-        valve_of.ether.ETH_TYPE_IPV6: ipv6.ipv6,
+        valve_of.ether.ETH_TYPE_IP: (4, ipv4_parseable, ipv4.ipv4),
+        valve_of.ether.ETH_TYPE_ARP: (None, None, arp.arp),
+        valve_of.ether.ETH_TYPE_IPV6: (6, None, ipv6.ipv6),
     }
 
     def __init__(self, data, orig_len, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
@@ -504,22 +528,29 @@ class PacketMeta(object):
         """Reparse packet with all available data."""
         self.reparse(0)
 
-    def isfragment(self):
-        """Return True if a fragment."""
-        dpkt_ip = dpkt.ethernet.Ethernet(self.data)
-        if isinstance(dpkt_ip.data, dpkt.ip.IP):
-            if bool(dpkt_ip.data.off & dpkt.ip.IP_MF) or dpkt_ip.data.off & dpkt.ip.IP_OFFMASK:
-                return True
-        return False
+    def ip_ver(self):
+        """Return IP version number."""
+        if len(self.data) > ETH_VLAN_HEADER_SIZE:
+            ip_header = self.data[ETH_VLAN_HEADER_SIZE:]
+            return (ip_header[0] ^ 0xf) >> 4
+        return None
 
     def reparse_ip(self, eth_type, payload=0):
         """Reparse packet with specified IP header type and optionally payload."""
-        # Ryu blows up on fragments
-        if self.isfragment():
-            return
-        self.reparse(ip_header_size(eth_type) + payload)
         if self.eth_type in self.ETH_TYPES_PARSERS:
-            self.l3_pkt = self.pkt.get_protocol(self.ETH_TYPES_PARSERS[self.eth_type])
+            header_size = ip_header_size(eth_type)
+            ip_ver, ip_parseable, pkt_parser = self.ETH_TYPES_PARSERS[self.eth_type]
+            if ip_ver is not None:
+                if ip_ver != self.ip_ver():
+                    return
+                if len(self.data) < header_size:
+                    return
+                ip_header_data = self.data[ETH_VLAN_HEADER_SIZE:]
+                if ip_parseable is not None and not ip_parseable(ip_header_data):
+                    return
+            parse_limit = header_size + payload
+            self.reparse(parse_limit)
+            self.l3_pkt = self.pkt.get_protocol(pkt_parser)
             if self.l3_pkt:
                 if hasattr(self.l3_pkt, 'src_ip'):
                     self.l3_src = self.l3_pkt.src_ip

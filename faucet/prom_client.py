@@ -25,6 +25,7 @@ from prometheus_client import start_http_server, Gauge
 class PromClient(object):
     """Prometheus client."""
 
+    REQUIRED_LABELS = ['dp_id', 'dp_name']
     running = False
 
     def __init__(self):
@@ -32,13 +33,6 @@ class PromClient(object):
         self.faucet_version = Gauge('faucet_pbr_version', 'Faucet PBR version', ['version'])
         # pylint: disable=no-member
         self.faucet_version.labels(version=version).set(1)
-
-    def labels(self, dpid, other_labels=None):
-        """Return kwargs suitable for labels on a Prometheus metric."""
-        kwargs_labels = {'dp_id': hex(dpid)}
-        if other_labels:
-            kwargs_labels.update(other_labels)
-        return kwargs_labels
 
     def start(self, prom_port, prom_addr):
         """Start webserver if not already running."""

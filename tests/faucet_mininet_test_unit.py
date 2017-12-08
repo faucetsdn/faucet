@@ -6,9 +6,9 @@
 # pylint: disable=too-many-arguments
 
 import itertools
+import json
 import os
 import re
-import shutil
 import socket
 import threading
 import time
@@ -23,7 +23,6 @@ import yaml
 
 from mininet.log import error, output
 from mininet.net import Mininet
-
 
 import faucet_mininet_test_base
 import faucet_mininet_test_util
@@ -109,10 +108,26 @@ vlans:
 
     def test_untagged(self):
         """All hosts on the same untagged VLAN should have connectivity."""
+        event_log = os.path.join(self.tmpdir, 'event.log')
+        controller = self._get_controller()
+        controller.cmd(faucet_mininet_test_util.timeout_cmd(
+            'nc -U %s > %s &' % (self.env['faucet']['FAUCET_EVENT_SOCK'], event_log), 120))
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.gauge_smoke_test()
         self.prometheus_smoke_test()
+        self.assertGreater(os.path.getsize(event_log), 0)
+        for _ in range(3):
+            prom_event_id = self.scrape_prometheus_var('faucet_event_id', dpid=False)
+            event_id = None
+            with open(event_log, 'r') as event_log_file:
+                for event_log_line in event_log_file.readlines():
+                    event = json.loads(event_log_line.strip())
+                    event_id = event['event_id']
+            if prom_event_id == event_id:
+                return
+            time.sleep(1)
+        self.assertEqual(prom_event_id, event_id)
 
 
 class FaucetExperimentalAPITest(FaucetUntaggedTest):
@@ -327,6 +342,13 @@ class FaucetSanityTest(FaucetUntaggedTest):
         self.fail('DP port %u not healthy (%s)' % (dp_port, port_desc))
 
     def test_portmap(self):
+        prom_desc_match_re = re.compile(r'(of_dp_desc_stats.+)\s+[0-9\.]+')
+        for prom_line in self.scrape_prometheus(controller='faucet').splitlines():
+            prom_desc_match = prom_desc_match_re.match(prom_line)
+            if prom_desc_match:
+                break
+        self.assertIsNotNone(prom_desc_match, msg='Cannot scrape of_dp_desc_stats')
+        error('DP: %s\n' % prom_desc_match.group(1))
         for i, host in enumerate(self.net.hosts):
             in_port = 'port_%u' % (i + 1)
             dp_port = self.port_map[in_port]
@@ -354,36 +376,65 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     def get_gauge_watcher_config(self):
         return """
     port_stats:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_stats'
         interval: 5
         db: 'prometheus'
-"""
+""" % self.DP_NAME
 
     def _start_gauge_check(self):
         if not self.gauge_controller.listen_port(self.config_ports['gauge_prom_port']):
             return 'gauge not listening on prometheus port'
         return None
 
+    def scrape_port_counters(self, port, port_vars):
+        port_counters = {}
+        port_labels = {
+            'dp_id': self.dpid,
+            'dp_name': self.DP_NAME,
+            'port_name': self.port_map['port_%u' % port],
+        }
+        for port_var in port_vars:
+            val = self.scrape_prometheus_var(
+                port_var, labels=port_labels, controller='gauge', retries=3)
+            self.assertIsNotNone('%s missing for port %u' % (port_var, port))
+            port_counters[port_var] = val
+        return port_counters
+
     def test_untagged(self):
         self.wait_dp_status(1, controller='gauge')
         self.assertIsNotNone(self.scrape_prometheus_var(
             'faucet_pbr_version', any_labels=True, controller='gauge', retries=3))
-        labels = {'port_name': self.port_map['port_1']}
-        last_p1_bytes_in = 0
-        for _ in range(2):
-            updated_counters = False
-            for _ in range(self.DB_TIMEOUT * 3):
-                self.ping_all_when_learned()
-                p1_bytes_in = self.scrape_prometheus_var(
-                    'of_port_rx_bytes', labels=labels, controller='gauge', retries=3)
-                if p1_bytes_in is not None and p1_bytes_in > last_p1_bytes_in:
-                    updated_counters = True
-                    last_p1_bytes_in = p1_bytes_in
-                    break
-                time.sleep(1)
-            if not updated_counters:
-                self.fail(msg='Gauge Prometheus counters not increasing')
+        port_vars = (
+            'of_port_rx_bytes',
+            'of_port_tx_bytes',
+            'of_port_rx_packets',
+            'of_port_tx_packets',
+        )
+        first_port_counters = {}
+        for i, _ in enumerate(self.net.hosts):
+            port = i + 1
+            port_counters = self.scrape_port_counters(port, port_vars)
+            first_port_counters[port] = port_counters
+        counter_delay = 0
+        for _ in range(self.DB_TIMEOUT * 3):
+            self.ping_all_when_learned()
+            updated_counters = True
+            for i, _ in enumerate(self.net.hosts):
+                port = i + 1
+                port_counters = self.scrape_port_counters(port, port_vars)
+                for port_var, val in list(port_counters.items()):
+                    if not val > first_port_counters[port][port_var]:
+                        updated_counters = False
+                        break
+            if updated_counters:
+                break
+            counter_delay += 1
+            time.sleep(1)
+
+        error('counter latency approx %u sec\n' % counter_delay)
+        if not updated_counters:
+            self.fail(msg='Gauge Prometheus counters not increasing')
 
 
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
@@ -409,21 +460,21 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     def get_gauge_watcher_config(self):
         return """
     port_stats:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_stats'
         interval: 2
         db: 'influx'
     port_state:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'port_state'
         interval: 2
         db: 'influx'
     flow_table:
-        dps: ['faucet-1']
+        dps: ['%s']
         type: 'flow_table'
         interval: 2
         db: 'influx'
-"""
+""" % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
     def setupInflux(self):
         self.influx_log = os.path.join(self.tmpdir, 'influx.log')
@@ -1096,18 +1147,30 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
         init_config_count = self.get_configure_count()
+        init_cold_start_count = self.scrape_prometheus_var(
+            'faucet_config_reload_cold', dpid=True, default=None)
+        init_warm_start_count = self.scrape_prometheus_var(
+            'faucet_config_reload_warm', dpid=True, default=None)
         for i in range(init_config_count, init_config_count+3):
             self._configure_count_with_retry(i)
+            with open(self.faucet_config_path, 'a') as config_file:
+                config_file.write('\n')
             self.verify_hup_faucet()
             self._configure_count_with_retry(i+1)
             self.assertEqual(
-                self.scrape_prometheus_var('of_dp_disconnections', default=0),
+                self.scrape_prometheus_var(
+                    'of_dp_disconnections', dpid=True, default=None),
                 0)
             self.assertEqual(
-                self.scrape_prometheus_var('of_dp_connections', default=0),
+                self.scrape_prometheus_var(
+                    'of_dp_connections', dpid=True, default=None),
                 1)
             self.wait_until_controller_flow()
             self.ping_all_when_learned()
+        self.assertEqual(0, self.scrape_prometheus_var(
+            'faucet_config_reload_cold', dpid=True, default=None) - init_cold_start_count)
+        self.assertEqual(0, self.scrape_prometheus_var(
+            'faucet_config_reload_warm', dpid=True, default=None) - init_warm_start_count)
 
 
 class FaucetIPv4TupleTest(FaucetTest):
@@ -1269,8 +1332,6 @@ acls:
             actions:
                allow: 1
 """
-    STAT_RELOAD = ''
-
 
     def setUp(self):
         super(FaucetConfigReloadTestBase, self).setUp()
@@ -1283,7 +1344,6 @@ acls:
             self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST)
-        self._set_var('faucet', 'FAUCET_CONFIG_STAT_RELOAD', self.STAT_RELOAD)
         self.start_net()
 
     def _get_conf(self):
@@ -1302,7 +1362,7 @@ acls:
                            restart=True, conf=None, cold_start=False):
         if conf is None:
             conf = self._get_conf()
-        conf['dps']['faucet-1']['interfaces'][port][config_name] = config_value
+        conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
         self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
 
     def change_vlan_config(self, vlan, config_name, config_value,
@@ -1363,7 +1423,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             table_id=self.PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
-        self.reload_conf(orig_conf, self.faucet_config_path,
+        self.reload_conf(
+            orig_conf, self.faucet_config_path,
             True, cold_start=False, host_cache=100)
         self.verify_tp_dst_notblocked(
             5001, first_host, second_host, table_id=None)
@@ -1394,8 +1455,8 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
 
     def test_delete_interface(self):
         conf = self._get_conf()
-        first_interface = conf['dps']['faucet-1']['interfaces'].keys()[0]
-        del conf['dps']['faucet-1']['interfaces'][first_interface]
+        first_interface = conf['dps'][self.DP_NAME]['interfaces'].keys()[0]
+        del conf['dps'][self.DP_NAME]['interfaces'][first_interface]
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=True, change_expected=True)
@@ -3318,9 +3379,8 @@ routers:
     CONFIG = """
         arp_neighbor_timeout: 2
         max_resolve_backoff_time: 1
-        proactive_learn: True
         max_host_fib_retry_count: 2
-        max_resolve_backoff_time: 1
+        proactive_learn: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -3924,6 +3984,10 @@ class FaucetStringOfDPTest(FaucetTest):
     LINKS_PER_HOST = 1
     VID = 100
     dpids = None
+
+    def get_config_header(self, _config_global, _debug_log, _dpid, _hardware):
+        """Don't generate standard config file header."""
+        return ''
 
     def build_net(self, stack=False, n_dps=1,
                   n_tagged=0, tagged_vid=100,

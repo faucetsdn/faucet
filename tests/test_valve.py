@@ -30,6 +30,7 @@ from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
 from faucet.valve import valve_factory
 from faucet.config_parser import dp_parser
 from faucet import valve_packet
+from faucet import faucet_experimental_event
 
 
 def build_pkt(pkt):
@@ -133,8 +134,13 @@ vlans:
         self.tmpdir = tempfile.mkdtemp()
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
         self.table = FakeOFTable(self.NUM_TABLES)
+        self.faucet_event_sock = None
+        self.logger = None
+        self.metrics = None
+        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            self.faucet_event_sock, self.metrics, self.logger)
         dp = self.update_config(config)
-        self.valve = valve_factory(dp)(dp, 'test_valve')
+        self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
 
     def update_config(self, config):
         with open(self.config_file, 'w') as config_file:

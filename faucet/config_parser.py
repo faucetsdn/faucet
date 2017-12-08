@@ -141,6 +141,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                 _dp_add_vlan(dp, vlan)
 
     for identifier, dp_conf in list(dps_conf.items()):
+        assert isinstance(dp_conf, dict)
         dp = DP(identifier, dp_conf.get('dp_id', None), dp_conf)
         dp_id = dp.dp_id
 

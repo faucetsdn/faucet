@@ -1,0 +1,7 @@
+version: '2'
+services:
+    rabbitmq:
+        restart: always
+        image: 'rabbitmq:3-management'
+        ports:
+            - "5672:5672"

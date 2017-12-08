@@ -22,6 +22,7 @@ import random
 from ryu.lib import hub
 
 from faucet.valve_util import dpid_log
+from faucet.valve_of import devid_present
 
 
 class GaugePoller(object):
@@ -39,7 +40,7 @@ class GaugePoller(object):
     def report_dp_status(self, dp_status):
         """Report DP status."""
         self.prom_client.dp_status.labels(
-            **(self.prom_client.labels(self.dp.dp_id))).set(dp_status) # pylint: disable=no-member
+            **dict(dp_id=hex(self.dp.dp_id), dp_name=self.dp.name)).set(dp_status) # pylint: disable=no-member
 
     @staticmethod
     def start(_ryudp):
@@ -209,6 +210,32 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
     def no_response(self):
         self.logger.info(
             'flow dump request timed out for %s', self.dp.name)
+
+    def _parse_flow_stats(self, stats):
+        """Parse flow stats reply message into tags/labels and byte/packet counts."""
+        packet_count = int(stats['packet_count'])
+        byte_count = int(stats['byte_count'])
+        instructions = stats['instructions']
+        tags = {
+            'dp_name': self.dp.name,
+            'table_id': int(stats['table_id']),
+            'priority': int(stats['priority']),
+            'inst_count': len(instructions),
+        }
+        oxm_matches = stats['match']['OFPMatch']['oxm_fields']
+        for oxm_match in oxm_matches:
+            oxm_tlv = oxm_match['OXMTlv']
+            mask = oxm_tlv['mask']
+            val = oxm_tlv['value']
+            field = oxm_tlv['field']
+            if mask is not None:
+                val = '/'.join((str(val), str(mask)))
+            tags[field] = val
+            if field == 'vlan_vid' and mask is None:
+                tags['vlan'] = devid_present(int(val))
+        return (
+            ('flow_packet_count', tags, packet_count),
+            ('flow_byte_count', tags, byte_count))
 
 
 class GaugePortStateBaseLogger(GaugePoller):

@@ -1,15 +1,8 @@
-============
 Contributing
 ============
-There is no formal process for contributions. Feel free to submit an issue or a
-pull request if you so desire. These will be reviewed by Brad, Josh or Kit.
-We'll either accept, close or offer feedback (or some combination).
 
-Code should pass all tests.
+Please see the `developer guide <https://faucet.readthedocs.io/en/latest/developer_guide.html>`_.
 
-For more detail see README.developerguide.rst in the docs directory
-
-=========
 Licensing
 =========
 This got a bit messy, so in the interest of clarifying things and tidying this

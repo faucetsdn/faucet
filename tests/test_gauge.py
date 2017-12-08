@@ -552,7 +552,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         """Checks that the points produced still have the variables given to it"""
 
         shipper = gauge_influx.InfluxShipper()
-        dp_name = 'windscale-faucet-1'
+        dp_name = 'faucet-1'
         port_name = 'port1.0.1'
         rcv_time = int(time.time())
         stat_name = 'test_stat_name'
