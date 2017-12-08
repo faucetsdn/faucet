@@ -65,8 +65,10 @@ Software
 
 Commands
 --------
-Commands to be executed on each side - Faucet Test host and Open vSwitch
-
+Commands to be executed on each side - **Faucet Test host** and **Open vSwitch**.
+*Note*:
+  Below is a table.  Scroll to the right to see the second column!
+  
 .. raw:: html
 
     <embed>
@@ -297,8 +299,10 @@ To read the pcap file, use
 More detailed examples are available @ https://www.wains.be/pub/networking/tcpdump_advanced_filters.txt
 
 *Note*:
-**Q**: On which machine should one run tcpdump?
-**A**: Depends.  If you want to understand for example, what packet_ins are sent from switch to controller, run on switch side on the interface that is talking to the controller.  If you are interested on what is coming on a particular test port, then run it on the Test Host on that interface.
+  **Q**:
+    On which machine should one run tcpdump?
+  **A**:
+    Depends.  If you want to understand for example, what packet_ins are sent from switch to controller, run on switch side on the interface that is talking to the controller.  If you are interested on what is coming on a particular test port, then run it on the Test Host on that interface.
 
 Ethtool
 ~~~~~~~
