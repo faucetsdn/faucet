@@ -6,10 +6,10 @@ Setup
 
 .. image:: faucet_ovs_test.png
 
+.. _example:
+
 Faucet configuration file
 -------------------------
-
-.. _example:
 
 .. code:: yaml
 
@@ -37,7 +37,7 @@ Hardware
 
   #. For NICs, use Intel ones.
   #. I have also used Hi-Speed USB to dual Ethernet which works great - http://vantecusa.com/products_detail.php?p_id=142&p_name=+USB+3.0+To+Dual+Gigabit+Ethernet+Network+Adapter&pc_id=21&pc_name=Network&pt_id=5&pt_name=Accessories
-  #. Once OVS is setup, use command ''# ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0''
+  #. Once OVS is setup, use command ``# ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0``
   #. To make sure that Port speed is at least 1GB.  If not, tests may not work correctly. (See Ethtool for more information)
 
 Software
@@ -120,11 +120,13 @@ Run these commands as root on the Ubuntu system (v16.04 used)
 To locate the corresponding physical port, you can make the port LED blink.  For example:
 
 .. code:: bash
+
     # ethtool -p ens786f0 5
 
-Edit the ''hw_switch_config.yaml'' example_ file as shown earlier in this document.  But, set the hw_switch=False
+Edit the ``hw_switch_config.yaml`` example_ file as shown earlier in this document.  But, set the hw_switch=False
 
 .. code:: bash
+
     # cp /usr/local/src/faucet/tests/hw_switch_config.yaml  /etc/ryu/faucet/hw_switch_config.yaml
     # $EDITOR /etc/ryu/faucet/hw_switch_config.yaml
     # cd /usr/local/src/faucet/
@@ -134,7 +136,7 @@ Edit the ''hw_switch_config.yaml'' example_ file as shown earlier in this docume
     # modprobe openvswitch
     # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
 
-Once the above minitest version is successful, then edit the ''hw_switch_config.yaml'' example_ file as shown earlier in this document.  But, set the hw_switch=True
+Once the above minitest version is successful, then edit the ``hw_switch_config.yaml`` example_ file as shown earlier in this document.  But, set the hw_switch=True
 
 .. code:: bash
     # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
@@ -142,7 +144,7 @@ Once the above minitest version is successful, then edit the ''hw_switch_config.
 
 Commands on: Open vSwitch
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-Login as ''root'' on the Ubuntu system and install OVS v2.7.2 and start ''openvswitch-switch'' service
+Login as ``root`` on the Ubuntu system and install OVS v2.7.2 and start ``openvswitch-switch`` service
 
 .. code:: bash
 
@@ -158,42 +160,43 @@ Login as ''root'' on the Ubuntu system and install OVS v2.7.2 and start ''openvs
   # ovs-vsctl get bridge ovs-br0 datapath_id
   # ovs-vsctl show
     308038ec-495d-412d-9b13-fe95bda4e176
-        Bridge \"ovs-br0\"
-            Controller \"tcp:10.20.5.7:6636\"
-            Controller \"tcp:10.20.5.7:6637\"
-            Port \"enp3s0\"
-                Interface \"enp3s0\"
-               Port \"enp2s0\"
-                Interface \"enp2s0\"
-             Port \"enx000acd28f18b\"
-                Interface \"enx000acd28f18b\"
-            Port \"ovs-br0\"
-                Interface \"ovs-br0\"
+        Bridge "ovs-br0"
+            Controller "tcp:10.20.5.7:6636"
+            Controller "tcp:10.20.5.7:6637"
+            Port "enp3s0"
+                Interface "enp3s0"
+               Port "enp2s0"
+                Interface "enp2s0"
+             Port "enx000acd28f18b"
+                Interface "enx000acd28f18b"
+            Port "ovs-br0"
+                Interface "ovs-br0"
                     type: internal
-            Port \"enp5s0\"
-                Interface \"enp5s0\"
+            Port "enp5s0"
+                Interface "enp5s0"
                     type: system
-        ovs_version: \"2.7.0\"
+        ovs_version: "2.7.0"
 
   # ovs-vsctl -- --columns=name,ofport list Interface
-    name                : \"ovs-br0\"
+    name                : "ovs-br0"
     ofport              : 65534
 
-    name                : \"enp5s0\"
+    name                : "enp5s0"
     ofport              : 3
 
-    name                : \"enp2s0\"
+    name                : "enp2s0"
     ofport              : 1
 
-    name                : \"enx000acd28f18b\"
+    name                : "enx000acd28f18b"
     ofport              : 4
 
-    name                : \"enp3s0\"
+    name                : "enp3s0"
     ofport              : 2
 
 To locate the corresponding physical port, you can make the port LED blink.  For example:
 
 .. code:: bash
+
     # ethtool -p enp2s0 5
 
 Check port speed information to make sure that they are at least 1Gbps
@@ -246,7 +249,7 @@ Debugging
 
 TCPDump
 ~~~~~~~
-Many times, we want to know what is coming in on a port.  To check on interface ''enp2s0'', for example, use
+Many times, we want to know what is coming in on a port.  To check on interface ``enp2s0``, for example, use
 
 .. code:: bash
 
