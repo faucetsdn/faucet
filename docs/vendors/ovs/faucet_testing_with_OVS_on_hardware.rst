@@ -1,8 +1,3 @@
-::Authors:
-  Shivaram Mysore
-::Version:
-  1.0
-
 Faucet Testing with OVS on Hardware
 ===================================
 
@@ -15,6 +10,7 @@ Faucet configuration file
 -------------------------
 
 .. code:: yaml
+
   # Faucet Configuration file: /etc/ryu/faucet/hw_switch_config.yaml
   #
   # If hw_switch value set to True, map a hardware OpenFlow switch to ports on this machine.
@@ -142,52 +138,50 @@ Commands
 
     * - Login as root on the Ubuntu system Install OVS v2.7.2 and start ''openvswitch-switch'' service
         .. code:: bash
+
           # systemctl status openvswitch-switch.service
           # ovs-vsctl add-br ovs-br0
           # ovs-vsctl add-port ovs-br0 enp2s0 -- set Interface enp2s0  ofport_request=1
           # ovs-vsctl add-port ovs-br0 enp3s0 -- set Interface enp3s0  ofport_request=2
           # ovs-vsctl add-port ovs-br0 enp5s0 -- set Interface enp5s0  ofport_request=3
           # ovs-vsctl add-port ovs-br0 enx000acd28f18b -- set Interface enx000acd28f18b  ofport_request=4
-
           # ovs-vsctl set-fail-mode ovs-br0 secure
           # ovs-vsctl set bridge ovs-br0 protocols=OpenFlow13
           # ovs-vsctl set-controller ovs-br0 tcp:10.20.5.7:6636 tcp:10.20.5.7:6637
-
           # ovs-vsctl get bridge ovs-br0 datapath_id
-
           # ovs-vsctl show
             308038ec-495d-412d-9b13-fe95bda4e176
-                Bridge "ovs-br0"
-                    Controller "tcp:10.20.5.7:6636"
-                    Controller "tcp:10.20.5.7:6637"
-                    Port "enp3s0"
-                        Interface "enp3s0"
-                       Port "enp2s0"
-                        Interface "enp2s0"
-                     Port "enx000acd28f18b"
-                        Interface "enx000acd28f18b"
-                    Port "ovs-br0"
-                        Interface "ovs-br0"
+                Bridge \"ovs-br0\"
+                    Controller \"tcp:10.20.5.7:6636\"
+                    Controller \"tcp:10.20.5.7:6637\"
+                    Port \"enp3s0\"
+                        Interface \"enp3s0\"
+                       Port \"enp2s0\"
+                        Interface \"enp2s0\"
+                     Port \"enx000acd28f18b\"
+                        Interface \"enx000acd28f18b\"
+                    Port \"ovs-br0\"
+                        Interface \"ovs-br0\"
                             type: internal
-                    Port "enp5s0"
-                        Interface "enp5s0"
+                    Port \"enp5s0\"
+                        Interface \"enp5s0\"
                             type: system
-                ovs_version: "2.7.0"
+                ovs_version: \"2.7.0\"
 
           # ovs-vsctl -- --columns=name,ofport list Interface
-            name                : "ovs-br0"
+            name                : \"ovs-br0\"
             ofport              : 65534
 
-            name                : "enp5s0"
+            name                : \"enp5s0\"
             ofport              : 3
 
-            name                : "enp2s0"
+            name                : \"enp2s0\"
             ofport              : 1
 
-            name                : "enx000acd28f18b"
+            name                : \"enx000acd28f18b\"
             ofport              : 4
 
-            name                : "enp3s0"
+            name                : \"enp3s0\"
             ofport              : 2
 
     * - To locate the corresponding physical port, you can make the port LED blink.  For example: ''# ethtool -p ens786f0 5
@@ -196,6 +190,7 @@ Commands
 
     * - Setup hw_switch_config yaml file.  Edit the hw_switch_config.yaml file as shown earlier in this document.  But, set the hw_switch=False
         .. code:: bash
+
           # cp /usr/local/src/faucet/tests/hw_switch_config.yaml  /etc/ryu/faucet/hw_switch_config.yaml
           # $EDITOR  /etc/ryu/faucet/hw_switch_config.yaml --> set the hw_switch=False
           # cd /usr/local/src/faucet/
@@ -207,9 +202,11 @@ Commands
 
         Once the above minitest version is successful, then edit the ''hw_switch_config.yaml'' file as shown earlier in this document.  But, set the ''hw_switch=True''
         .. code:: bash
+
           # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
       - Check port speed information to make sure that they are at least 1Gbps
         .. code:: bash
+
           # ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0
               OFPST_PORT_DESC reply (OF1.3) (xid=0x2):
                1(enp2s0): addr:00:0e:c4:ce:77:25
@@ -244,6 +241,7 @@ Commands
                    config:     PORT_DOWN
                    state:      LINK_DOWN
                    speed: 0 Mbps now, 0 Mbps max
+
     * - **Test Results**: 100% of tests MUST pass. For up-to-date information on test runs, check out Travis Status page @ https://travis-ci.org/faucetsdn/faucet
       -
 
