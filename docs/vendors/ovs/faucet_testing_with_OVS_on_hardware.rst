@@ -70,14 +70,14 @@ Commands to be executed on each side - Faucet Test host and Open vSwitch
 .. raw:: html
 
     <embed>
-      <table border="1" width="80%">
-        <tbody>
+      <table border=1 width=100% align=left>
+        <tbody valign=top>
           <tr>
-            <td><b>Faucet Test Host</b></td>
-            <td><b>Open vSwitch</b></td>
+            <td width=50%><b>Faucet Test Host</b></td>
+            <td width=50%><b>Open vSwitch</b></td>
           </tr>
           <tr>
-            <td>
+            <td width=50%>
               <p>Login as root on the Ubuntu system (16.04 used)</p>
               <pre>
       # mkdir -p /usr/local/src/
@@ -142,7 +142,7 @@ Commands to be executed on each side - Faucet Test host and Open vSwitch
       valid_lft forever preferred_lft forever
               </pre>
             </td>
-            <td>
+            <td width=50%>
               Login as root on the Ubuntu system Install OVS v2.7.2 and start <code>openvswitch-switch</code> service
               <pre>
       # systemctl status openvswitch-switch.service
@@ -194,16 +194,16 @@ Commands to be executed on each side - Faucet Test host and Open vSwitch
         </tr>
 
         <tr>
-          <td>
+          <td width=50%>
             To locate the corresponding physical port, you can make the port LED blink.  For example: <code># ethtool -p ens786f0 5</code>
           </td>
-          <td>
+          <td width=50%>
             To locate the corresponding physical port, you can make the port LED blink.  For example: <code># ethtool -p enp2s0 5</code>
           </td>
         </tr>
 
         <tr>
-          <td>
+          <td width=50%>
             Setup hw_switch_config yaml file.  Edit the <code>hw_switch_config.yaml</code> file as shown earlier in this document.  But, set the <code>hw_switch=False</code>
             <pre>
       # cp /usr/local/src/faucet/tests/hw_switch_config.yaml  /etc/ryu/faucet/hw_switch_config.yaml
@@ -217,7 +217,7 @@ Commands to be executed on each side - Faucet Test host and Open vSwitch
             </pre>
             Once the above minitest version is successful, then edit the <code>hw_switch_config.yaml</code> file as shown earlier in this document.  But, set the <code>hw_switch=True</code>
             <pre>
-              # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
+      # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
             </pre>
           </td>
           <td>
@@ -262,10 +262,9 @@ Commands to be executed on each side - Faucet Test host and Open vSwitch
         </tr>
 
         <tr>
-          <td>
+          <td colspan="2">
             <b><u>Test Results</u></b>: 100% of tests <b>MUST</b> pass. For up-to-date information on test runs, check out Travis Status page @ <a href="https://travis-ci.org/faucetsdn/faucet">https://travis-ci.org/faucetsdn/faucet</a>
           </td>
-          <td></td>
         </tr>
         </tbody>
       </table>
