@@ -65,12 +65,12 @@ Software
 
 Commands
 --------
-Commands to be executed on each side
+Commands to be executed on each side - Faucet Test host and Open vSwitch
 
 .. raw:: html
 
     <embed>
-      <table border="1" width="80%"">
+      <table border="1" width="80%">
         <tbody>
           <tr>
             <td><b>Faucet Test Host</b></td>
@@ -80,115 +80,115 @@ Commands to be executed on each side
             <td>
               <p>Login as root on the Ubuntu system (16.04 used)</p>
               <pre>
-                # mkdir -p /usr/local/src/
-                # mkdir -p /etc/ryu/faucet/
-                # cd /usr/local/src/
-                # git clone https://github.com/faucetsdn/faucet.git
-                # cd faucet
-                # ip a
-                1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
-                link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-                inet 127.0.0.1/8 scope host lo
-                valid_lft forever preferred_lft forever
-                inet6 ::1/128 scope host
-                valid_lft forever preferred_lft forever
-                2: ens786f0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
-                link/ether b4:96:91:00:88:a4 brd ff:ff:ff:ff:ff:ff
-                inet6 fe80::b696:91ff:fe00:88a4/64 scope link
-                valid_lft forever preferred_lft forever
-                3: ens786f1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
-                link/ether b4:96:91:00:88:a5 brd ff:ff:ff:ff:ff:ff
-                inet6 fe80::b696:91ff:fe00:88a5/64 scope link
-                valid_lft forever preferred_lft forever
-                4: ens786f2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
-                link/ether b4:96:91:00:88:a6 brd ff:ff:ff:ff:ff:ff
-                inet6 fe80::b696:91ff:fe00:88a6/64 scope link
-                valid_lft forever preferred_lft forever
-                5: ens786f3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
-                link/ether b4:96:91:00:88:a7 brd ff:ff:ff:ff:ff:ff
-                inet6 fe80::b696:91ff:fe00:88a7/64 scope link
-                valid_lft forever preferred_lft forever
-                6: ens802f0: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN group default qlen 1000
-                link/ether 68:05:ca:3b:14:50 brd ff:ff:ff:ff:ff:ff
-                7: ens787f0: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
-                link/ether a0:36:9f:d5:64:18 brd ff:ff:ff:ff:ff:ff
-                8: ens787f1: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
-                link/ether a0:36:9f:d5:64:19 brd ff:ff:ff:ff:ff:ff
-                9: ens787f2: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
-                link/ether a0:36:9f:d5:64:1a brd ff:ff:ff:ff:ff:ff
-                10: ens787f3: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
-                link/ether a0:36:9f:d5:64:1b brd ff:ff:ff:ff:ff:ff
-                11: eno1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
-                link/ether 00:1e:67:ff:f6:80 brd ff:ff:ff:ff:ff:ff
-                inet 10.20.5.7/16 brd 10.20.255.255 scope global eno1
-                valid_lft forever preferred_lft forever
-                inet6 cafe:babe::21e:67ff:feff:f680/64 scope global mngtmpaddr dynamic
-                valid_lft 86398sec preferred_lft 14398sec
-                inet6 fe80::21e:67ff:feff:f680/64 scope link
-                valid_lft forever preferred_lft forever
-                12: ens802f1: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN group default qlen 1000
-                link/ether 68:05:ca:3b:14:51 brd ff:ff:ff:ff:ff:ff
-                13: eno2: &lt;NO-CARRIER,BROADCAST,MULTICAST,PROMISC,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
-                link/ether 00:1e:67:ff:f6:81 brd ff:ff:ff:ff:ff:ff
-                inet6 cafe:babe::21e:67ff:feff:f681/64 scope global mngtmpaddr dynamic
-                valid_lft 82943sec preferred_lft 10943sec
-                inet6 fe80::21e:67ff:feff:f681/64 scope link
-                valid_lft forever preferred_lft forever
-                16: docker0: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc noqueue state DOWN group default
-                link/ether 02:42:40:9d:0d:65 brd ff:ff:ff:ff:ff:ff
-                inet 172.17.0.1/16 scope global docker0
-                valid_lft forever preferred_lft forever
-                inet6 fe80::42:40ff:fe9d:d65/64 scope link
-                valid_lft forever preferred_lft forever
+      # mkdir -p /usr/local/src/
+      # mkdir -p /etc/ryu/faucet/
+      # cd /usr/local/src/
+      # git clone https://github.com/faucetsdn/faucet.git
+      # cd faucet
+      # ip a
+      1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+      inet 127.0.0.1/8 scope host lo
+      valid_lft forever preferred_lft forever
+      inet6 ::1/128 scope host
+      valid_lft forever preferred_lft forever
+      2: ens786f0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+      link/ether b4:96:91:00:88:a4 brd ff:ff:ff:ff:ff:ff
+      inet6 fe80::b696:91ff:fe00:88a4/64 scope link
+      valid_lft forever preferred_lft forever
+      3: ens786f1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+      link/ether b4:96:91:00:88:a5 brd ff:ff:ff:ff:ff:ff
+      inet6 fe80::b696:91ff:fe00:88a5/64 scope link
+      valid_lft forever preferred_lft forever
+      4: ens786f2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+      link/ether b4:96:91:00:88:a6 brd ff:ff:ff:ff:ff:ff
+      inet6 fe80::b696:91ff:fe00:88a6/64 scope link
+      valid_lft forever preferred_lft forever
+      5: ens786f3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+      link/ether b4:96:91:00:88:a7 brd ff:ff:ff:ff:ff:ff
+      inet6 fe80::b696:91ff:fe00:88a7/64 scope link
+      valid_lft forever preferred_lft forever
+      6: ens802f0: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN group default qlen 1000
+      link/ether 68:05:ca:3b:14:50 brd ff:ff:ff:ff:ff:ff
+      7: ens787f0: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+      link/ether a0:36:9f:d5:64:18 brd ff:ff:ff:ff:ff:ff
+      8: ens787f1: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+      link/ether a0:36:9f:d5:64:19 brd ff:ff:ff:ff:ff:ff
+      9: ens787f2: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+      link/ether a0:36:9f:d5:64:1a brd ff:ff:ff:ff:ff:ff
+      10: ens787f3: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+      link/ether a0:36:9f:d5:64:1b brd ff:ff:ff:ff:ff:ff
+      11: eno1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+      link/ether 00:1e:67:ff:f6:80 brd ff:ff:ff:ff:ff:ff
+      inet 10.20.5.7/16 brd 10.20.255.255 scope global eno1
+      valid_lft forever preferred_lft forever
+      inet6 cafe:babe::21e:67ff:feff:f680/64 scope global mngtmpaddr dynamic
+      valid_lft 86398sec preferred_lft 14398sec
+      inet6 fe80::21e:67ff:feff:f680/64 scope link
+      valid_lft forever preferred_lft forever
+      12: ens802f1: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN group default qlen 1000
+      link/ether 68:05:ca:3b:14:51 brd ff:ff:ff:ff:ff:ff
+      13: eno2: &lt;NO-CARRIER,BROADCAST,MULTICAST,PROMISC,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+      link/ether 00:1e:67:ff:f6:81 brd ff:ff:ff:ff:ff:ff
+      inet6 cafe:babe::21e:67ff:feff:f681/64 scope global mngtmpaddr dynamic
+      valid_lft 82943sec preferred_lft 10943sec
+      inet6 fe80::21e:67ff:feff:f681/64 scope link
+      valid_lft forever preferred_lft forever
+      16: docker0: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc noqueue state DOWN group default
+      link/ether 02:42:40:9d:0d:65 brd ff:ff:ff:ff:ff:ff
+      inet 172.17.0.1/16 scope global docker0
+      valid_lft forever preferred_lft forever
+      inet6 fe80::42:40ff:fe9d:d65/64 scope link
+      valid_lft forever preferred_lft forever
               </pre>
             </td>
             <td>
               Login as root on the Ubuntu system Install OVS v2.7.2 and start <code>openvswitch-switch</code> service
               <pre>
-                  # systemctl status openvswitch-switch.service
-                  # ovs-vsctl add-br ovs-br0
-                  # ovs-vsctl add-port ovs-br0 enp2s0 -- set Interface enp2s0  ofport_request=1
-                  # ovs-vsctl add-port ovs-br0 enp3s0 -- set Interface enp3s0  ofport_request=2
-                  # ovs-vsctl add-port ovs-br0 enp5s0 -- set Interface enp5s0  ofport_request=3
-                  # ovs-vsctl add-port ovs-br0 enx000acd28f18b -- set Interface enx000acd28f18b  ofport_request=4
-                  # ovs-vsctl set-fail-mode ovs-br0 secure
-                  # ovs-vsctl set bridge ovs-br0 protocols=OpenFlow13
-                  # ovs-vsctl set-controller ovs-br0 tcp:10.20.5.7:6636 tcp:10.20.5.7:6637
-                  # ovs-vsctl get bridge ovs-br0 datapath_id
-                  # ovs-vsctl show
-                    308038ec-495d-412d-9b13-fe95bda4e176
-                        Bridge "ovs-br0"
-                            Controller "tcp:10.20.5.7:6636"
-                            Controller "tcp:10.20.5.7:6637"
-                            Port "enp3s0"
-                                Interface "enp3s0"
-                               Port "enp2s0"
-                                Interface "enp2s0"
-                             Port "enx000acd28f18b"
-                                Interface "enx000acd28f18b"
-                            Port "ovs-br0"
-                                Interface "ovs-br0"
-                                    type: internal
-                            Port "enp5s0"
-                                Interface "enp5s0"
-                                    type: system
-                        ovs_version: "2.7.0"
+      # systemctl status openvswitch-switch.service
+      # ovs-vsctl add-br ovs-br0
+      # ovs-vsctl add-port ovs-br0 enp2s0 -- set Interface enp2s0  ofport_request=1
+      # ovs-vsctl add-port ovs-br0 enp3s0 -- set Interface enp3s0  ofport_request=2
+      # ovs-vsctl add-port ovs-br0 enp5s0 -- set Interface enp5s0  ofport_request=3
+      # ovs-vsctl add-port ovs-br0 enx000acd28f18b -- set Interface enx000acd28f18b  ofport_request=4
+      # ovs-vsctl set-fail-mode ovs-br0 secure
+      # ovs-vsctl set bridge ovs-br0 protocols=OpenFlow13
+      # ovs-vsctl set-controller ovs-br0 tcp:10.20.5.7:6636 tcp:10.20.5.7:6637
+      # ovs-vsctl get bridge ovs-br0 datapath_id
+      # ovs-vsctl show
+        308038ec-495d-412d-9b13-fe95bda4e176
+            Bridge "ovs-br0"
+                Controller "tcp:10.20.5.7:6636"
+                Controller "tcp:10.20.5.7:6637"
+                Port "enp3s0"
+                    Interface "enp3s0"
+                   Port "enp2s0"
+                    Interface "enp2s0"
+                 Port "enx000acd28f18b"
+                    Interface "enx000acd28f18b"
+                Port "ovs-br0"
+                    Interface "ovs-br0"
+                        type: internal
+                Port "enp5s0"
+                    Interface "enp5s0"
+                        type: system
+            ovs_version: "2.7.0"
 
-                  # ovs-vsctl -- --columns=name,ofport list Interface
-                    name                : "ovs-br0"
-                    ofport              : 65534
+      # ovs-vsctl -- --columns=name,ofport list Interface
+        name                : "ovs-br0"
+        ofport              : 65534
 
-                    name                : "enp5s0"
-                    ofport              : 3
+        name                : "enp5s0"
+        ofport              : 3
 
-                    name                : "enp2s0"
-                    ofport              : 1
+        name                : "enp2s0"
+        ofport              : 1
 
-                    name                : "enx000acd28f18b"
-                    ofport              : 4
+        name                : "enx000acd28f18b"
+        ofport              : 4
 
-                    name                : "enp3s0"
-                    ofport              : 2
+        name                : "enp3s0"
+        ofport              : 2
                 </pre>
             </td>
         </tr>
@@ -206,16 +206,16 @@ Commands to be executed on each side
           <td>
             Setup hw_switch_config yaml file.  Edit the <code>hw_switch_config.yaml</code> file as shown earlier in this document.  But, set the <code>hw_switch=False</code>
             <pre>
-              # cp /usr/local/src/faucet/tests/hw_switch_config.yaml  /etc/ryu/faucet/hw_switch_config.yaml
-              # $EDITOR  /etc/ryu/faucet/hw_switch_config.yaml --> set the hw_switch=False
-              # cd /usr/local/src/faucet/
-              # apt install docker.io
-              # docker build -t faucet/tests -f Dockerfile.tests .
-              # apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
-              # modprobe openvswitch
-              # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
+      # cp /usr/local/src/faucet/tests/hw_switch_config.yaml  /etc/ryu/faucet/hw_switch_config.yaml
+      # $EDITOR  /etc/ryu/faucet/hw_switch_config.yaml --> set the hw_switch=False
+      # cd /usr/local/src/faucet/
+      # apt install docker.io
+      # docker build -t faucet/tests -f Dockerfile.tests .
+      # apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+      # modprobe openvswitch
+      # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
             </pre>
-            Once the above minitest version is successful, then edit the <pre>hw_switch_config.yaml</pre> file as shown earlier in this document.  But, set the <pre>hw_switch=True</pre>
+            Once the above minitest version is successful, then edit the <code>hw_switch_config.yaml</code> file as shown earlier in this document.  But, set the <code>hw_switch=True</code>
             <pre>
               # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
             </pre>
@@ -223,40 +223,40 @@ Commands to be executed on each side
           <td>
             Check port speed information to make sure that they are at least 1Gbps
             <pre>
-            # ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0
-                OFPST_PORT_DESC reply (OF1.3) (xid=0x2):
-                 1(enp2s0): addr:00:0e:c4:ce:77:25
-                     config:     0
-                     state:      0
-                     current:    1GB-FD COPPER AUTO_NEG
-                     advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
-                     supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
-                     speed: 1000 Mbps now, 1000 Mbps max
-                 2(enp3s0): addr:00:0e:c4:ce:77:26
-                     config:     0
-                     state:      0
-                     current:    1GB-FD COPPER AUTO_NEG
-                     advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
-                     supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
-                     speed: 1000 Mbps now, 1000 Mbps max
-                 3(enp5s0): addr:00:0e:c4:ce:77:27
-                     config:     0
-                     state:      0
-                     current:    1GB-FD COPPER AUTO_NEG
-                     advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
-                     supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
-                     speed: 1000 Mbps now, 1000 Mbps max
-                 4(enx000acd28f18b): addr:00:0a:cd:28:f1:8b
-                     config:     0
-                     state:      0
-                     current:    1GB-FD COPPER AUTO_NEG
-                     advertised: 10MB-HD COPPER AUTO_NEG AUTO_PAUSE AUTO_PAUSE_ASYM
-                     supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-HD 1GB-FD COPPER AUTO_NEG
-                     speed: 1000 Mbps now, 1000 Mbps max
-                 LOCAL(ovs-br0): addr:00:0a:cd:28:f1:8b
-                     config:     PORT_DOWN
-                     state:      LINK_DOWN
-                     speed: 0 Mbps now, 0 Mbps max
+      # ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0
+          OFPST_PORT_DESC reply (OF1.3) (xid=0x2):
+           1(enp2s0): addr:00:0e:c4:ce:77:25
+               config:     0
+               state:      0
+               current:    1GB-FD COPPER AUTO_NEG
+               advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
+               supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
+               speed: 1000 Mbps now, 1000 Mbps max
+           2(enp3s0): addr:00:0e:c4:ce:77:26
+               config:     0
+               state:      0
+               current:    1GB-FD COPPER AUTO_NEG
+               advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
+               supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
+               speed: 1000 Mbps now, 1000 Mbps max
+           3(enp5s0): addr:00:0e:c4:ce:77:27
+               config:     0
+               state:      0
+               current:    1GB-FD COPPER AUTO_NEG
+               advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
+               supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-FD COPPER AUTO_NEG AUTO_PAUSE
+               speed: 1000 Mbps now, 1000 Mbps max
+           4(enx000acd28f18b): addr:00:0a:cd:28:f1:8b
+               config:     0
+               state:      0
+               current:    1GB-FD COPPER AUTO_NEG
+               advertised: 10MB-HD COPPER AUTO_NEG AUTO_PAUSE AUTO_PAUSE_ASYM
+               supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD 1GB-HD 1GB-FD COPPER AUTO_NEG
+               speed: 1000 Mbps now, 1000 Mbps max
+           LOCAL(ovs-br0): addr:00:0a:cd:28:f1:8b
+               config:     PORT_DOWN
+               state:      LINK_DOWN
+               speed: 0 Mbps now, 0 Mbps max
             </pre>
           </td>
         </tr>
