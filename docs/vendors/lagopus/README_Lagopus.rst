@@ -1,37 +1,36 @@
 :Authors: - Josh Bailey
 
-=================
 Faucet on Lagopus
 =================
 
-------------
 Introduction
 ------------
 
-Lagopus (http://www.lagopus.org/) is a software OpenFlow 1.3 switch, that also supports DPDK.
+`Lagopus <http://www.lagopus.org/>`_ is a software OpenFlow 1.3 switch, that also supports DPDK.
 
 FAUCET is supported as of Lagopus 0.2.11 (https://github.com/lagopus/lagopus/issues/107).
 
-
------
 Setup
 -----
 
-**Lagopus install on a supported Linux distribution**
+Lagopus install on a supported Linux distribution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Install Lagopus (https://github.com/lagopus/lagopus/blob/master/QUICKSTART.md). You don't need to install Ryu since we will
-be using FAUCET and FAUCET's installation takes care of that dependency.
+Install Lagopus according to the `quickstart guide <https://github.com/lagopus/lagopus/blob/master/QUICKSTART.md>`_.
+You don't need to install Ryu since we will be using FAUCET and FAUCET's installation takes care of that dependency.
 
 These instructions are for Ubuntu 16.0.4 (without DPDK). In theory any distribution, with or without DPDK, that Lagopus supports 
 will work with FAUCET.
 
-**Create lagopus.dsl configuration file**
+Create lagopus.dsl configuration file
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In this example, Lagopus is controlling two ports, enp1s0f0 and enp1s0f1, which will be known as OpenFlow ports 1 and 2 on DPID 0x1. FAUCET and Lagopus are running on the same host (though of course, they don't need to be).
 
-::
+.. code-block:: shell
+  :caption: /usr/local/etc/lagopus/lagopus.dsl
+  :name: lagopus.dsl
 
-    $ cat /usr/local/etc/lagopus/lagopus.dsl
     channel channel01 create -dst-addr 127.0.0.1 -protocol tcp
 
     controller controller01 create -channel channel01 -role equal -connection-type main
@@ -48,11 +47,13 @@ In this example, Lagopus is controlling two ports, enp1s0f0 and enp1s0f1, which 
     bridge bridge01 enable
 
 
-**Create faucet.yaml**
+Create faucet.yaml
+^^^^^^^^^^^^^^^^^^
 
-::
+.. code-block:: yaml
+  :caption: /etc/ryu/faucet/faucet.yaml
+  :name: lagopus/faucet.yaml
 
-    $ cat /etc/ryu/faucet/faucet.yaml
     vlans:
         100:
             name: "test"
@@ -66,28 +67,32 @@ In this example, Lagopus is controlling two ports, enp1s0f0 and enp1s0f1, which 
                 2:
                     native_vlan: 100
 
-**Start Lagopus**
+Start Lagopus
+^^^^^^^^^^^^^
 
 Start in debug mode, in a dedicated terminal.
 
-::
+.. code:: console
 
-    # lagopus -d
+    lagopus -d
 
-**Run FAUCET**
+Run FAUCET
+^^^^^^^^^^
 
-::
+.. code:: console
 
-    $ ryu-manager --config-file=/home/faucet/faucet/etc/ryu/ryu.conf /home/faucet/faucet/faucet/faucet.py --verbose --ofp-listen-host=127.0.0.1
+    ryu-manager --config-file=/home/faucet/faucet/etc/ryu/ryu.conf /home/faucet/faucet/faucet/faucet.py --verbose --ofp-listen-host=127.0.0.1
 
 
-**Test connectivity**
+Test connectivity
+^^^^^^^^^^^^^^^^^
 
 Host(s) on enp1s0f0 and enp1s0f1 in the same IP subnet, should now be able to communicate, and FAUCET's log file should indicate learning is occurring:
 
-::
+.. code-block:: shell
+  :caption: /var/log/ryu/faucet.log
+  :name: lagopus/faucet.log
 
-    $ tail /var/log/ryu/faucet/faucet.log
     May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Configuring DP
     May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Delete VLAN vid:100 ports:1,2
     May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) VLANs changed/added: [100]

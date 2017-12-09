@@ -1,16 +1,15 @@
 :Authors: - Josh Bailey
 
-==================
 Faucet on ZodiacFX
 ==================
 
-------------
 Introduction
 ------------
 
-ZodiacFX is a small 4 port multi table OF1.3 switch from Northbound Networks (https://northboundnetworks.com/products/zodiac-fx).
+`ZodiacFX <https://northboundnetworks.com/products/zodiac-fx>`_ is a small
+4 port multi table OF1.3 switch from
+`Northbound Networks <https://northboundnetworks.com/>`_.
 
--------
 Caveats
 -------
 
@@ -18,7 +17,6 @@ Caveats
 - The default OF port is 6633; it is recommended to use 6653.
 - It is recommended to enable ether type filtering to minimize corrupt packets.
 
----------------------------
 Applying recommended config
 ---------------------------
 
@@ -31,23 +29,23 @@ You can use the following expect script to program the recommended configuration
 
 Example of running the script:
 
-::
+.. code:: console
 
-    # ./conf-zodiac.sh 
+    $ sudo ./conf-zodiac.sh
     spawn [open ...]
     get initial prompt
 
      _____             ___               _______  __
     /__  /  ____  ____/ (_)___ ______   / ____/ |/ /
       / /  / __ \/ __  / / __ `/ ___/  / /_   |   /
-     / /__/ /_/ / /_/ / / /_/ / /__   / __/  /   |  
-    /____/\____/\__,_/_/\__,_/\___/  /_/    /_/|_| 
+     / /__/ /_/ / /_/ / / /_/ / /__   / __/  /   |
+    /____/\____/\__,_/_/\__,_/\___/  /_/    /_/|_|
           	    by Northbound Networks
 
 
     Type 'help' for a list of available commands
 
-    Zodiac_FX# 
+    Zodiac_FX#
     Zodiac_FX# found initial prompt
     config
     Zodiac_FX(config)# setting ethertype-filter

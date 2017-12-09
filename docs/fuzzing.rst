@@ -8,7 +8,7 @@ First, get yourself setup with docker based on our :doc:`docker` documentation.
 
 Then you can build and run the afl-fuzz tests:
 
-.. code:: bash
+.. code:: console
 
   docker build -t faucet/fuzzer -f Dockerfile.fuzz .
 
