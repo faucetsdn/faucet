@@ -50,7 +50,7 @@ Commands
 --------
 Commands to be executed on each side - **Faucet Test host** and **Open vSwitch**.
 
-Commands on: Faucet Test Host
+Commands on Faucet Test Host
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Run these commands as root on the Ubuntu system (v16.04 used)
 
@@ -62,39 +62,39 @@ Run these commands as root on the Ubuntu system (v16.04 used)
   # git clone https://github.com/faucetsdn/faucet.git
   # cd faucet
   # ip a
-    1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
     inet 127.0.0.1/8 scope host lo
     valid_lft forever preferred_lft forever
     inet6 ::1/128 scope host
     valid_lft forever preferred_lft forever
-    2: ens786f0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+    2: ens786f0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
     link/ether b4:96:91:00:88:a4 brd ff:ff:ff:ff:ff:ff
     inet6 fe80::b696:91ff:fe00:88a4/64 scope link
     valid_lft forever preferred_lft forever
-    3: ens786f1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+    3: ens786f1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
     link/ether b4:96:91:00:88:a5 brd ff:ff:ff:ff:ff:ff
     inet6 fe80::b696:91ff:fe00:88a5/64 scope link
     valid_lft forever preferred_lft forever
-    4: ens786f2: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+    4: ens786f2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
     link/ether b4:96:91:00:88:a6 brd ff:ff:ff:ff:ff:ff
     inet6 fe80::b696:91ff:fe00:88a6/64 scope link
     valid_lft forever preferred_lft forever
-    5: ens786f3: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+    5: ens786f3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
     link/ether b4:96:91:00:88:a7 brd ff:ff:ff:ff:ff:ff
     inet6 fe80::b696:91ff:fe00:88a7/64 scope link
     valid_lft forever preferred_lft forever
-    6: ens802f0: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN group default qlen 1000
+    6: ens802f0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
     link/ether 68:05:ca:3b:14:50 brd ff:ff:ff:ff:ff:ff
-    7: ens787f0: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+    7: ens787f0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
     link/ether a0:36:9f:d5:64:18 brd ff:ff:ff:ff:ff:ff
-    8: ens787f1: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+    8: ens787f1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
     link/ether a0:36:9f:d5:64:19 brd ff:ff:ff:ff:ff:ff
-    9: ens787f2: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+    9: ens787f2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
     link/ether a0:36:9f:d5:64:1a brd ff:ff:ff:ff:ff:ff
-    10: ens787f3: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+    10: ens787f3: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
     link/ether a0:36:9f:d5:64:1b brd ff:ff:ff:ff:ff:ff
-    11: eno1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc mq state UP group default qlen 1000
+    11: eno1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
     link/ether 00:1e:67:ff:f6:80 brd ff:ff:ff:ff:ff:ff
     inet 10.20.5.7/16 brd 10.20.255.255 scope global eno1
     valid_lft forever preferred_lft forever
@@ -102,15 +102,15 @@ Run these commands as root on the Ubuntu system (v16.04 used)
     valid_lft 86398sec preferred_lft 14398sec
     inet6 fe80::21e:67ff:feff:f680/64 scope link
     valid_lft forever preferred_lft forever
-    12: ens802f1: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN group default qlen 1000
+    12: ens802f1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
     link/ether 68:05:ca:3b:14:51 brd ff:ff:ff:ff:ff:ff
-    13: eno2: &lt;NO-CARRIER,BROADCAST,MULTICAST,PROMISC,UP&gt; mtu 1500 qdisc mq state DOWN group default qlen 1000
+    13: eno2: <NO-CARRIER,BROADCAST,MULTICAST,PROMISC,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
     link/ether 00:1e:67:ff:f6:81 brd ff:ff:ff:ff:ff:ff
     inet6 cafe:babe::21e:67ff:feff:f681/64 scope global mngtmpaddr dynamic
     valid_lft 82943sec preferred_lft 10943sec
     inet6 fe80::21e:67ff:feff:f681/64 scope link
     valid_lft forever preferred_lft forever
-    16: docker0: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc noqueue state DOWN group default
+    16: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
     link/ether 02:42:40:9d:0d:65 brd ff:ff:ff:ff:ff:ff
     inet 172.17.0.1/16 scope global docker0
     valid_lft forever preferred_lft forever
@@ -142,7 +142,7 @@ Once the above minitest version is successful, then edit the ``hw_switch_config.
     # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
 
 
-Commands on: Open vSwitch
+Commands on Open vSwitch
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Login as ``root`` on the Ubuntu system and install OVS v2.7.2 and start ``openvswitch-switch`` service
 
