@@ -54,7 +54,7 @@ Commands on Faucet Test Host
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Run these commands as root on the Ubuntu system (v16.04 used)
 
-.. code:: bash
+.. code:: console
 
   # mkdir -p /usr/local/src/
   # mkdir -p /etc/ryu/faucet/
@@ -146,7 +146,7 @@ Commands on Open vSwitch
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Login as ``root`` on the Ubuntu system and install OVS v2.7.2 and start ``openvswitch-switch`` service
 
-.. code:: bash
+.. code:: console
 
   # systemctl status openvswitch-switch.service
   # ovs-vsctl add-br ovs-br0
@@ -201,7 +201,7 @@ To locate the corresponding physical port, you can make the port LED blink.  For
 
 Check port speed information to make sure that they are at least 1Gbps
 
-.. code:: bash
+.. code:: console
 
   # ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0
       OFPST_PORT_DESC reply (OF1.3) (xid=0x2):
