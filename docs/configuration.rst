@@ -26,7 +26,7 @@ Verifying configuration
 
 You can verify that your configuration is correct with the ``check_faucet_config`` script:
 
-.. code:: bash
+.. code:: console
 
   check_faucet_config /etc/ryu/faucet/faucet.yaml
 
@@ -43,7 +43,7 @@ Applying configuration updates
 You can update FAUCET's configuration by sending it a HUP signal.
 This will cause it to apply the minimum number of flow changes to the switch(es), to implement the change.
 
-.. code:: bash
+.. code:: console
 
   pkill -HUP -f faucet.faucet
 

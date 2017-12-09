@@ -10,7 +10,7 @@ First, get yourself setup with docker based on our :doc:`docker` documentation.
 
 Then you can build and run the mininet tests from the docker entry-point:
 
-.. code:: bash
+.. code:: console
 
   docker build -t faucet/tests -f Dockerfile.tests .
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
@@ -86,7 +86,7 @@ Test configuration
 
 Create a directory for the test configuration:
 
-.. code:: bash
+.. code:: console
 
   mkdir -p /etc/ryu/faucet
   $EDITOR /etc/ryu/faucet/hw_switch_config.yaml
@@ -127,7 +127,7 @@ switch:
 Running the tests
 ~~~~~~~~~~~~~~~~~
 
-.. code:: bash
+.. code:: console
 
   docker build -t faucet/tests -f Dockerfile.tests .
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
@@ -140,7 +140,7 @@ Running the tests
 Running a single test
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. code:: bash
+.. code:: console
 
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="FaucetUntaggedTest" \
