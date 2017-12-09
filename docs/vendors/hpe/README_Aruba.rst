@@ -1,10 +1,8 @@
 :Authors: - Abhay B
 
-============================
 Faucet on HPE-Aruba Switches
 ============================
 
-------------
 Introduction
 ------------
 All the Aruba's v3 generation of wired switches support the FAUCET pipeline.
@@ -14,15 +12,13 @@ These switches include:
 - `3810 <http://www.arubanetworks.com/products/networking/switches/3810-series/>`_
 - `2930F <http://www.arubanetworks.com/products/networking/switches/2930f-series/>`_
 
-The FAUCET pipeline is only supported from **16.03** release of the firmware onwards.
+The FAUCET pipeline is only supported from ``16.03`` release of the firmware onwards.
 
 For any queries, please post your question on HPE's `SDN forum <https://community.hpe.com/t5/SDN-Discussions/bd-p/sdn-discussions>`_.
 
------
 Setup
 -----
 
-^^^^^^
 Switch
 ^^^^^^
 
@@ -32,7 +28,7 @@ To ensure any port/vlan configuration specified in the *faucet.yaml* file works,
 
 * Using OOBM control-plane (3810, 5400R)
 
-::
+.. code-block:: none
 
 	// Increase the maximum number of allowed VLANs on the box and save the configuration.
 	switch (config)# max-vlans 4094
@@ -40,16 +36,16 @@ To ensure any port/vlan configuration specified in the *faucet.yaml* file works,
 
 	// Reboot the box for the new max-vlan configuration to take affect.
 	switch (config)# boot system
-	
+
 	// Configure the control-plane IP address
-	switch (config)# oobm ip address 20.0.0.1/24 
+	switch (config)# oobm ip address 20.0.0.1/24
 
 	// Create maximum number of VLANs and tag every dataplane port available to each vlan. Takes up to 30 minutes.
 	switch (config)# vlan 2-4094 tagged all
 
 * Using VLAN control-plane (2930)
 
-::
+.. code-block:: none
 
 	// Increase the maximum number of allowed VLANs on the box and save the configuration.
 	switch (config)# max-vlans 2048
@@ -60,7 +56,7 @@ To ensure any port/vlan configuration specified in the *faucet.yaml* file works,
 
 	// Create a control-plane vlan and add a single control-plane port (port 48)
 	switch (config)# vlan 2048 untagged 48
-	
+
 	// Configure the control-plane IP address
 	switch (config)# vlan 2048 ip address 20.0.0.1/24
 
@@ -75,7 +71,7 @@ Aruba switches reference a controller by ID, so first configure the controllers 
 
 * Using OOBM control-plane (3810, 5400R)
 
-::
+.. code-block:: none
 
 	// Enter OpenFlow context
 	switch (config)# openflow
@@ -88,7 +84,7 @@ Aruba switches reference a controller by ID, so first configure the controllers 
 
 * Using VLAN control-plane (2930)
 
-::
+.. code-block:: none
 
 	// Enter OpenFlow context
 	switch (config)# openflow
@@ -106,7 +102,7 @@ Aruba switches support two OpenFlow instance types:
 
 Since FAUCET is designed for a pure OpenFlow environment, we choose the "**aggregate**" instance type.
 
-::
+.. code-block:: none
 
 	// Enter the OpenFlow instance context
 	switch(openflow)# instance aggregate
@@ -152,7 +148,7 @@ Since FAUCET is designed for a pure OpenFlow environment, we choose the "**aggre
 
 At this point, OpenFlow is enabled and running on the switch. If the FAUCET controller is running and has connected to the switch successfully, you should see the FAUCET pipeline programmed on the switch.
 
-::
+.. code-block:: none
 
 	switch# show openflow instance aggregate flow-table
 
@@ -188,13 +184,14 @@ At this point, OpenFlow is enabled and running on the switch. If the FAUCET cont
          * Denotes that the pipeline could end here.
 
 
-^^^^^^
 Faucet
 ^^^^^^
 
-On the FAUCET configuration file (*/etc/ryu/faucet/faucet.yaml*), add the datapath of the switch you wish to be managed by FAUCET. The device type (hardware) should be set to **Aruba** in the configuration file.
+On the FAUCET configuration file (``/etc/ryu/faucet/faucet.yaml``), add the datapath of the switch you wish to be managed by FAUCET. The device type (hardware) should be set to ``Aruba`` in the configuration file.
 
-::
+.. code-block:: yaml
+  :caption: /etc/ryu/faucet/faucet.yaml
+  :name: hpe/faucet.yaml
 
 	dps:
 	    aruba-3810:
@@ -212,13 +209,12 @@ On the FAUCET configuration file (*/etc/ryu/faucet/faucet.yaml*), add the datapa
 You will also need to install pipeline configuration files (these files instruct FAUCET to configure the switch
 with the right OpenFlow tables - these files and FAUCET's pipeline must match).
 
-::
+.. code:: console
 
        sudo cp etc/ryu/faucet/ofproto_to_ryu.json /etc/ryu/faucet
        sudo cp etc/ryu/faucet/aruba_pipeline.json /etc/ryu/faucet
 
 
------
 Scale
 -----
 
@@ -250,19 +246,17 @@ distributed amongst the 9 tables as follows:
 
 Based on one's deployment needs, these numbers can be updated for each table (update max_entries in $(REPO_ROOT)/faucet/aruba/aruba_pipeline.json).
 
-::
+.. note::
 
-	NOTE: The summation of max entries across all 9 tables cannot cross 2000 and the minimum size of a given table has to be 2.
-	You need to restart FAUCET for the new numbers to reflect on the switch.
+    The summation of max entries across all 9 tables cannot cross 2000 and the minimum size of a given table has to be 2.
+    You need to restart FAUCET for the new numbers to reflect on the switch.
 
------------
 Limitations
 -----------
 
 - Aruba switches currently does not support all the IPv6 related functionality inside FAUCET
 - Aruba switches currently does not support the OFPAT_DEC_NW_TTL action (so when routing, TTL will not be decremented).
 
------
 Debug
 -----
 
@@ -270,7 +264,7 @@ If you encounter a failure or unexpected behavior, it may help to enable debug o
 on Aruba switches. Debug output displays information about what OpenFlow is doing on
 the switch at message-level granularity.
 
-::
+.. code-block:: none
 
 	switch# debug openflow
 	switch# debug destination session
@@ -294,7 +288,6 @@ the switch at message-level granularity.
 	   openflow packets rx pkt_out
 	   openflow packets rx flow_mod
 
-----------
 References
 ----------
 
