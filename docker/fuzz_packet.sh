@@ -1,0 +1,2 @@
+#!/bin/sh
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 AFL_SKIP_CPUFREQ=1 py-afl-fuzz -m 5000 -x /faucet-src/tests/fuzzer/dict/packet.dict -i /faucet-src/tests/fuzzer/packet/ -o /var/log/afl/ -- /usr/bin/python3 /faucet-src/tests/fuzzer/fuzz_packet.py
