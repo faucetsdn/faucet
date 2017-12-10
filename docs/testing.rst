@@ -1,12 +1,15 @@
 Testing
 =======
 
-.. _docker-testing:
+Installing docker
+-----------------
+
+First, get yourself setup with docker based on our :ref:`docker-install` documentation.
+
+.. _docker-sw-testing:
 
 Software switch testing with docker
 -----------------------------------
-
-First, get yourself setup with docker based on our :doc:`docker` documentation.
 
 Then you can build and run the mininet tests from the docker entry-point:
 
@@ -19,6 +22,8 @@ Then you can build and run the mininet tests from the docker entry-point:
 
 The apparmor command is currently required on Ubuntu hosts to allow the use of
 tcpdump inside the container.
+
+.. _docker-hw-testing:
 
 Hardware switch testing with docker
 -----------------------------------
@@ -123,6 +128,8 @@ switch:
   # ctl_privkey: ctl-privkey.pem
   # ctl_cert: ctl-cert.pem
   # ca_certs: /usr/local/var/lib/openvswitch/pki/switchca/cacert.pem
+
+.. _docker-hw-testing-running:
 
 Running the tests
 ~~~~~~~~~~~~~~~~~
