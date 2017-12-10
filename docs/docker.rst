@@ -1,6 +1,14 @@
 Docker
 ======
 
+.. _docker-install:
+
+Installing docker
+-----------------
+
+We recommend installing Docker Community Edition (CE) according to the official
+`docker engine installation guide <https://docs.docker.com/engine/installation>`_.
+
 Faucet Dockerfile
 -----------------
 
@@ -124,8 +132,8 @@ configure your switches to talk to both. The faucet
 configuration file faucet.yaml should be placed in the config directory, this
 also should include to configuration for gauge.
 
-docker-compose.yaml
--------------------
+Docker compose
+--------------
 
 This is an example docker-compose file that can be used to set up gauge to talk
 to prometheus and influxdb with a grafana instance for dashboards and visualisations.
