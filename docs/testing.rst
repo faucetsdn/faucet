@@ -23,7 +23,7 @@ tcpdump inside the container.
 Hardware switch testing with docker
 -----------------------------------
 
-::
+.. code-block:: none
 
                        +--------------------------+
                        |                          |
