@@ -116,6 +116,7 @@ Edit the ``hw_switch_config.yaml`` example_ file as shown earlier in this docume
 Once the above minitest version is successful, then edit the ``hw_switch_config.yaml`` example_ file as shown earlier in this document.  But, set the hw_switch=True
 
 .. code:: bash
+
     $sudo docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
 
 
