@@ -37,7 +37,7 @@ Hardware
 
   #. For NICs, use Intel ones.
   #. I have also used Hi-Speed USB to dual Ethernet which works great - http://vantecusa.com/products_detail.php?p_id=142&p_name=+USB+3.0+To+Dual+Gigabit+Ethernet+Network+Adapter&pc_id=21&pc_name=Network&pt_id=5&pt_name=Accessories
-  #. Once OVS is setup, use command ``# ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0``
+  #. Once OVS is setup, use command ``$sudo ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0``
   #. To make sure that Port speed is at least 1GB.  If not, tests may not work correctly. (See Ethtool for more information)
 
 Software
@@ -56,12 +56,12 @@ Run these commands as root on the Ubuntu system (v16.04 used)
 
 .. code:: console
 
-  # mkdir -p /usr/local/src/
-  # mkdir -p /etc/ryu/faucet/
-  # cd /usr/local/src/
-  # git clone https://github.com/faucetsdn/faucet.git
-  # cd faucet
-  # ip a
+  $sudo mkdir -p /usr/local/src/
+  $sudo mkdir -p /etc/ryu/faucet/
+  $sudo cd /usr/local/src/
+  $sudo git clone https://github.com/faucetsdn/faucet.git
+  $sudo cd faucet
+  $sudo ip a
     1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
     inet 127.0.0.1/8 scope host lo
@@ -84,17 +84,7 @@ Run these commands as root on the Ubuntu system (v16.04 used)
     link/ether b4:96:91:00:88:a7 brd ff:ff:ff:ff:ff:ff
     inet6 fe80::b696:91ff:fe00:88a7/64 scope link
     valid_lft forever preferred_lft forever
-    6: ens802f0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
-    link/ether 68:05:ca:3b:14:50 brd ff:ff:ff:ff:ff:ff
-    7: ens787f0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
-    link/ether a0:36:9f:d5:64:18 brd ff:ff:ff:ff:ff:ff
-    8: ens787f1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
-    link/ether a0:36:9f:d5:64:19 brd ff:ff:ff:ff:ff:ff
-    9: ens787f2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
-    link/ether a0:36:9f:d5:64:1a brd ff:ff:ff:ff:ff:ff
-    10: ens787f3: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
-    link/ether a0:36:9f:d5:64:1b brd ff:ff:ff:ff:ff:ff
-    11: eno1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+    6: eno1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
     link/ether 00:1e:67:ff:f6:80 brd ff:ff:ff:ff:ff:ff
     inet 10.10.10.7/16 brd 10.20.255.255 scope global eno1
     valid_lft forever preferred_lft forever
@@ -102,44 +92,31 @@ Run these commands as root on the Ubuntu system (v16.04 used)
     valid_lft 86398sec preferred_lft 14398sec
     inet6 fe80::21e:67ff:feff:f680/64 scope link
     valid_lft forever preferred_lft forever
-    12: ens802f1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group default qlen 1000
-    link/ether 68:05:ca:3b:14:51 brd ff:ff:ff:ff:ff:ff
-    13: eno2: <NO-CARRIER,BROADCAST,MULTICAST,PROMISC,UP> mtu 1500 qdisc mq state DOWN group default qlen 1000
-    link/ether 00:1e:67:ff:f6:81 brd ff:ff:ff:ff:ff:ff
-    inet6 cafe:babe::21e:67ff:feff:f681/64 scope global mngtmpaddr dynamic
-    valid_lft 82943sec preferred_lft 10943sec
-    inet6 fe80::21e:67ff:feff:f681/64 scope link
-    valid_lft forever preferred_lft forever
-    16: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
-    link/ether 02:42:40:9d:0d:65 brd ff:ff:ff:ff:ff:ff
-    inet 172.17.0.1/16 scope global docker0
-    valid_lft forever preferred_lft forever
-    inet6 fe80::42:40ff:fe9d:d65/64 scope link
-    valid_lft forever preferred_lft forever
+
 
 To locate the corresponding physical port, you can make the port LED blink.  For example:
 
 .. code:: bash
 
-    # ethtool -p eth0 5
+    $sudo ethtool -p eth0 5
 
 Edit the ``hw_switch_config.yaml`` example_ file as shown earlier in this document.  But, set the hw_switch=False
 
 .. code:: bash
 
-    # cp /usr/local/src/faucet/tests/hw_switch_config.yaml  /etc/ryu/faucet/hw_switch_config.yaml
-    # $EDITOR /etc/ryu/faucet/hw_switch_config.yaml
-    # cd /usr/local/src/faucet/
-    # apt install docker.io
-    # docker build -t faucet/tests -f Dockerfile.tests .
-    # apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
-    # modprobe openvswitch
-    # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
+    $sudo cp /usr/local/src/faucet/tests/hw_switch_config.yaml  /etc/ryu/faucet/hw_switch_config.yaml
+    $sudo $EDITOR /etc/ryu/faucet/hw_switch_config.yaml
+    $sudo cd /usr/local/src/faucet/
+    $sudo apt install docker.io
+    $sudo docker build -t faucet/tests -f Dockerfile.tests .
+    $sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+    $sudo modprobe openvswitch
+    $sudo docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
 
 Once the above minitest version is successful, then edit the ``hw_switch_config.yaml`` example_ file as shown earlier in this document.  But, set the hw_switch=True
 
 .. code:: bash
-    # docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
+    $sudo docker run --privileged --net=host -v /etc/ryu/faucet:/etc/ryu/faucet -v /tmp:/tmp -ti faucet/tests
 
 
 Commands on Open vSwitch
@@ -148,17 +125,17 @@ Login as ``root`` on the Ubuntu system and install OVS v2.7.2 and start ``openvs
 
 .. code:: console
 
-  # systemctl status openvswitch-switch.service
-  # ovs-vsctl add-br ovs-br0
-  # ovs-vsctl add-port ovs-br0 enp2s0 -- set Interface enp2s0  ofport_request=1
-  # ovs-vsctl add-port ovs-br0 enp3s0 -- set Interface enp3s0  ofport_request=2
-  # ovs-vsctl add-port ovs-br0 enp5s0 -- set Interface enp5s0  ofport_request=3
-  # ovs-vsctl add-port ovs-br0 enp6s0 -- set Interface enp6s0  ofport_request=4
-  # ovs-vsctl set-fail-mode ovs-br0 secure
-  # ovs-vsctl set bridge ovs-br0 protocols=OpenFlow13
-  # ovs-vsctl set-controller ovs-br0 tcp:10.10.10.7:6636 tcp:10.10.10.7:6637
-  # ovs-vsctl get bridge ovs-br0 datapath_id
-  # ovs-vsctl show
+  $sudo systemctl status openvswitch-switch.service
+  $sudo ovs-vsctl add-br ovs-br0
+  $sudo ovs-vsctl add-port ovs-br0 enp2s0 -- set Interface enp2s0  ofport_request=1
+  $sudo ovs-vsctl add-port ovs-br0 enp3s0 -- set Interface enp3s0  ofport_request=2
+  $sudo ovs-vsctl add-port ovs-br0 enp5s0 -- set Interface enp5s0  ofport_request=3
+  $sudo ovs-vsctl add-port ovs-br0 enp6s0 -- set Interface enp6s0  ofport_request=4
+  $sudo ovs-vsctl set-fail-mode ovs-br0 secure
+  $sudo ovs-vsctl set bridge ovs-br0 protocols=OpenFlow13
+  $sudo ovs-vsctl set-controller ovs-br0 tcp:10.10.10.7:6636 tcp:10.10.10.7:6637
+  $sudo ovs-vsctl get bridge ovs-br0 datapath_id
+  $sudo ovs-vsctl show
     308038ec-495d-412d-9b13-fe95bda4e176
         Bridge "ovs-br0"
             Controller "tcp:10.10.10.7:6636"
@@ -177,7 +154,7 @@ Login as ``root`` on the Ubuntu system and install OVS v2.7.2 and start ``openvs
                     type: system
         ovs_version: "2.7.0"
 
-  # ovs-vsctl -- --columns=name,ofport list Interface
+  $sudo ovs-vsctl -- --columns=name,ofport list Interface
     name                : "ovs-br0"
     ofport              : 65534
 
@@ -197,13 +174,13 @@ To locate the corresponding physical port, you can make the port LED blink.  For
 
 .. code:: bash
 
-    # ethtool -p enp2s0 5
+    $sudo ethtool -p enp2s0 5
 
 Check port speed information to make sure that they are at least 1Gbps
 
 .. code:: console
 
-  # ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0
+  $sudo ovs-ofctl -O OpenFlow13 dump-ports-desc ovs-br0
       OFPST_PORT_DESC reply (OF1.3) (xid=0x2):
        1(enp2s0): addr:00:0e:c4:ce:77:25
            config:     0
@@ -253,19 +230,19 @@ Many times, we want to know what is coming in on a port.  To check on interface 
 
 .. code:: bash
 
-  # tcpdump -A -w enp2s0_all.pcap -i enp2s0
+  $sudo tcpdump -A -w enp2s0_all.pcap -i enp2s0
 
 Or
 
 .. code:: bash
 
-  # tcpdump -A -w enp2s0_all.pcap -i enp2s0 'dst host <controller-ip-address> and port 6653'
+  $sudo tcpdump -A -w enp2s0_all.pcap -i enp2s0 'dst host <controller-ip-address> and port 6653'
 
 To read the pcap file, use
 
 .. code:: bash
 
-  # tcpdump -r enp2s0_all.pcap
+  $sudo tcpdump -r enp2s0_all.pcap
 
 More detailed examples are available @ https://www.wains.be/pub/networking/tcpdump_advanced_filters.txt
 
@@ -281,13 +258,13 @@ To locate a physical port say enp2s0, make the LED blink for 5 seconds:
 
 .. code:: bash
 
-  # ethtool -p enp2s0 5
+  $sudo ethtool -p enp2s0 5
 
 To figure out speed on the interface.  Note that if Speed on the interface is at least not 1G, then tests may not run correctly.
 
 .. code:: bash
 
-  # ethtool enp2s0
-  # ethtool enp2s0 | grep Speed
+  $sudo ethtool enp2s0
+  $sudo ethtool enp2s0 | grep Speed
 
 Reference: https://www.garron.me/en/linux/ubuntu-network-speed-duplex-lan.html
