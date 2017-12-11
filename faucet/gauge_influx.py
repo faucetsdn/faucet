@@ -79,23 +79,28 @@ class InfluxShipper(object):
 
 class GaugePortStateInfluxDBLogger(GaugePortStateBaseLogger, InfluxShipper):
     """
-> use faucet
-Using database faucet
-> precision rfc3339
-> select * from port_state_reason where port_name = 'port1.0.1' order by time desc limit 10;
-name: port_state_reason
------------------------
-time                    dp_name                 port_name       value
-2017-02-21T02:12:29Z    windscale-faucet-1      port1.0.1       2
-2017-02-21T02:12:25Z    windscale-faucet-1      port1.0.1       2
-2016-07-27T22:05:08Z    windscale-faucet-1      port1.0.1       2
-2016-05-25T04:33:00Z    windscale-faucet-1      port1.0.1       2
-2016-05-25T04:32:57Z    windscale-faucet-1      port1.0.1       2
-2016-05-25T04:31:21Z    windscale-faucet-1      port1.0.1       2
-2016-05-25T04:31:18Z    windscale-faucet-1      port1.0.1       2
-2016-05-25T04:27:07Z    windscale-faucet-1      port1.0.1       2
-2016-05-25T04:27:04Z    windscale-faucet-1      port1.0.1       2
-2016-05-25T04:24:53Z    windscale-faucet-1      port1.0.1       2
+
+Example:
+    ::
+
+     > use faucet
+     Using database faucet
+     > precision rfc3339
+     > select * from port_state_reason where port_name = 'port1.0.1' order by time desc limit 10;
+     name: port_state_reason
+     -----------------------
+     time                    dp_name                 port_name       value
+     2017-02-21T02:12:29Z    windscale-faucet-1      port1.0.1       2
+     2017-02-21T02:12:25Z    windscale-faucet-1      port1.0.1       2
+     2016-07-27T22:05:08Z    windscale-faucet-1      port1.0.1       2
+     2016-05-25T04:33:00Z    windscale-faucet-1      port1.0.1       2
+     2016-05-25T04:32:57Z    windscale-faucet-1      port1.0.1       2
+     2016-05-25T04:31:21Z    windscale-faucet-1      port1.0.1       2
+     2016-05-25T04:31:18Z    windscale-faucet-1      port1.0.1       2
+     2016-05-25T04:27:07Z    windscale-faucet-1      port1.0.1       2
+     2016-05-25T04:27:04Z    windscale-faucet-1      port1.0.1       2
+     2016-05-25T04:24:53Z    windscale-faucet-1      port1.0.1       2
+
     """
 
     def update(self, rcv_time, dp_id, msg):
@@ -111,37 +116,41 @@ time                    dp_name                 port_name       value
 
 
 class GaugePortStatsInfluxDBLogger(GaugePortStatsPoller, InfluxShipper):
-    """Periodically sends a port stats request to the datapath and parses
-       and outputs the response.
+    """Periodically sends a port stats request to the datapath and parses \
+           and outputs the response.
 
-> use faucet
-Using database faucet
-> show measurements
-name: measurements
-------------------
-bytes_in
-bytes_out
-dropped_in
-dropped_out
-errors_in
-packets_in
-packets_out
-port_state_reason
-> precision rfc3339
-> select * from packets_out where port_name = 'port1.0.1' order by time desc limit 10;
-name: packets_out
------------------
-time                    dp_name                 port_name       value
-2017-03-06T05:21:42Z    windscale-faucet-1      port1.0.1       76083431
-2017-03-06T05:21:33Z    windscale-faucet-1      port1.0.1       76081172
-2017-03-06T05:21:22Z    windscale-faucet-1      port1.0.1       76078727
-2017-03-06T05:21:12Z    windscale-faucet-1      port1.0.1       76076612
-2017-03-06T05:21:02Z    windscale-faucet-1      port1.0.1       76074546
-2017-03-06T05:20:52Z    windscale-faucet-1      port1.0.1       76072730
-2017-03-06T05:20:42Z    windscale-faucet-1      port1.0.1       76070528
-2017-03-06T05:20:32Z    windscale-faucet-1      port1.0.1       76068211
-2017-03-06T05:20:22Z    windscale-faucet-1      port1.0.1       76065982
-2017-03-06T05:20:12Z    windscale-faucet-1      port1.0.1       76063941
+Example:
+    ::
+
+     > use faucet
+     Using database faucet
+     > show measurements
+     name: measurements
+     ------------------
+     bytes_in
+     bytes_out
+     dropped_in
+     dropped_out
+     errors_in
+     packets_in
+     packets_out
+     port_state_reason
+     > precision rfc3339
+     > select * from packets_out where port_name = 'port1.0.1' order by time desc limit 10;
+     name: packets_out
+     -----------------
+     time                    dp_name                 port_name       value
+     2017-03-06T05:21:42Z    windscale-faucet-1      port1.0.1       76083431
+     2017-03-06T05:21:33Z    windscale-faucet-1      port1.0.1       76081172
+     2017-03-06T05:21:22Z    windscale-faucet-1      port1.0.1       76078727
+     2017-03-06T05:21:12Z    windscale-faucet-1      port1.0.1       76076612
+     2017-03-06T05:21:02Z    windscale-faucet-1      port1.0.1       76074546
+     2017-03-06T05:20:52Z    windscale-faucet-1      port1.0.1       76072730
+     2017-03-06T05:20:42Z    windscale-faucet-1      port1.0.1       76070528
+     2017-03-06T05:20:32Z    windscale-faucet-1      port1.0.1       76068211
+     2017-03-06T05:20:22Z    windscale-faucet-1      port1.0.1       76065982
+     2017-03-06T05:20:12Z    windscale-faucet-1      port1.0.1       76063941
+
     """
 
     def update(self, rcv_time, dp_id, msg):
@@ -159,26 +168,31 @@ time                    dp_name                 port_name       value
 class GaugeFlowTableInfluxDBLogger(GaugeFlowTablePoller, InfluxShipper):
     # pylint: disable=line-too-long
     """
-> use faucet
-Using database faucet
-> show series where table_id = '0' and in_port = '2'
-key
----
-flow_byte_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=17,priority=9099,table_id=0,udp_dst=53
-flow_byte_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=6,priority=9098,table_id=0,tcp_dst=53
-flow_byte_count,dp_name=windscale-faucet-1,in_port=2,priority=9097,table_id=0
-flow_packet_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=17,priority=9099,table_id=0,udp_dst=53
-flow_packet_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=6,priority=9098,table_id=0,tcp_dst=53
-flow_packet_count,dp_name=windscale-faucet-1,in_port=2,priority=9097,table_id=0
-> select * from flow_byte_count where table_id = '0' and in_port = '2' and ip_proto = '17' and time > now() - 5m
-name: flow_byte_count
-time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_type in_port ip_proto ipv4_dst ipv6_dst priority table_id tcp_dst udp_dst value vlan_vid
-----                ------- -------            ------- ------- -------- ----------- ------- -------- -------- -------- -------- -------- ------- ------- ----- --------
-1501154797000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      9414
-1501154857000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      10554
-1501154917000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      10554
-1501154977000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      12164
-1501155037000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      12239
+
+Example:
+    ::
+
+     > use faucet
+     Using database faucet
+     > show series where table_id = '0' and in_port = '2'
+     key
+     ---
+     flow_byte_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=17,priority=9099,table_id=0,udp_dst=53
+     flow_byte_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=6,priority=9098,table_id=0,tcp_dst=53
+     flow_byte_count,dp_name=windscale-faucet-1,in_port=2,priority=9097,table_id=0
+     flow_packet_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=17,priority=9099,table_id=0,udp_dst=53
+     flow_packet_count,dp_name=windscale-faucet-1,eth_type=2048,in_port=2,ip_proto=6,priority=9098,table_id=0,tcp_dst=53
+     flow_packet_count,dp_name=windscale-faucet-1,in_port=2,priority=9097,table_id=0
+     > select * from flow_byte_count where table_id = '0' and in_port = '2' and ip_proto = '17' and time > now() - 5m
+     name: flow_byte_count
+     time                arp_tpa dp_name            eth_dst eth_src eth_type icmpv6_type in_port ip_proto ipv4_dst ipv6_dst priority table_id tcp_dst udp_dst value vlan_vid
+     ----                ------- -------            ------- ------- -------- ----------- ------- -------- -------- -------- -------- -------- ------- ------- ----- --------
+     1501154797000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      9414
+     1501154857000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      10554
+     1501154917000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      10554
+     1501154977000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      12164
+     1501155037000000000         windscale-faucet-1                 2048                 2       17                         9099     0                53      12239
+
 """
 
     def update(self, rcv_time, dp_id, msg):

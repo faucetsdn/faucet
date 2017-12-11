@@ -126,8 +126,8 @@ class Valve(object):
     def switch_features(self, _msg):
         """Send configuration flows necessary for the switch implementation.
 
-        Arguments:
-        msg -- OFPSwitchFeatures msg sent from switch.
+        Args:
+            msg (OFPSwitchFeatures): msg sent from switch.
 
         Vendor specific configuration should be implemented here.
         """
@@ -705,7 +705,8 @@ class Valve(object):
     def update_config_metrics(self, metrics):
         """Update gauge/metrics for configuration.
 
-        metrics (FaucetMetrics): container of Prometheus metrics.
+        Args:
+            metrics (FaucetMetrics): container of Prometheus metrics.
         """
         for table_id, table in list(self.dp.tables_by_id.items()):
             metrics.faucet_config_table_names.labels(
@@ -714,7 +715,8 @@ class Valve(object):
     def update_metrics(self, metrics):
         """Update Gauge/metrics.
 
-        metrics (FaucetMetrics or None): container of Prometheus metrics.
+        Args:
+            metrics (FaucetMetrics or None): container of Prometheus metrics.
         """
         # Clear the exported MAC learning.
         dp_id = hex(self.dp.dp_id)
@@ -898,10 +900,11 @@ class Valve(object):
         """Reload configuration new_dp.
 
         Following config changes are currently supported:
-            - Port config: support all available configs (e.g. native_vlan, acl_in)
-                & change operations (add, delete, modify) a port
-            - ACL config:support any modification, currently reload all rules
-                belonging to an ACL
+            - Port config: support all available configs \
+                  (e.g. native_vlan, acl_in) & change operations \
+                  (add, delete, modify) a port
+            - ACL config:support any modification, currently reload all \
+                  rules belonging to an ACL
             - VLAN config: enable, disable routing, etc...
 
         Args:

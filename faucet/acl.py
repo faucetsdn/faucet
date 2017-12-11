@@ -36,8 +36,8 @@ matches and actions for the rule.
 The matches are key/values based on the ryu RESTFul API.
 The key 'actions' contains a dictionary with keys/values as follows:
 
- * allow (bool): if True allow the packet to continue through the Faucet
-     pipeline, if False drop the packet.
+ * allow (bool): if True allow the packet to continue through the Faucet \
+       pipeline, if False drop the packet.
  * meter (str): meter to apply to the packet
  * output (dict): used to output a packet directly. details below.
 
@@ -45,10 +45,10 @@ The output action contains a dictionary with the following elements:
 
  * port (int or string): the port to output the packet to
  * swap_vid (int): rewrite the vlan vid of the packet when outputting
- * failover (dict): Output with a failover port. The following elements can be
-     configured.
-     * group_id (int): the ofp group id to use for the group
-     * ports (list): a list of the ports the packet can be output through
+ * failover (dict): Output with a failover port. The following elements can be \
+       configured.
+ * group_id (int): the ofp group id to use for the group
+ * ports (list): a list of the ports the packet can be output through
 """
 
     # Resolved port numbers which are mirror action destinations.

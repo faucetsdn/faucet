@@ -248,7 +248,9 @@ class ValveHostManager(object):
 class ValveHostFlowRemovedManager(ValveHostManager):
     """Trigger relearning on flow removed notifications.
 
-    NOTE: not currently reliable.
+    .. note::
+
+        not currently reliable.
     """
 
     def flow_timeout(self, table_id, match):

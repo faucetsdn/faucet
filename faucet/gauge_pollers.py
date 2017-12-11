@@ -76,10 +76,10 @@ class GaugePoller(object):
         It should acknowledge the receipt by setting self.reply_pending to
         false.
 
-        Arguments:
-        rcv_time -- the time the response was received
-        dp_id -- DP ID
-        msg -- the stats reply message
+        Args:
+            rcv_time: the time the response was received
+            dp_id: DP ID
+            msg: the stats reply message
         """
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
