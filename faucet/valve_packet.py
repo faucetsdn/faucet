@@ -408,20 +408,20 @@ def nd_advert(vid, eth_src, eth_dst, src_ip, dst_ip):
 
 def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
                       id_, seq, data):
-    """Return IPv6 ICMP echo reply packet.
+    r"""Return IPv6 ICMP echo reply packet.
 
-    Args:
-        vid (int or None): VLAN VID to use (or None).
-        eth_src (str): source Ethernet MAC address.
-        eth_dst (str): destination Ethernet MAC address.
-        src_ip (ipaddress.IPv6Address): source IPv6 address.
-        dst_ip (ipaddress.IPv6Address): destination IPv6 address.
-        hop_limit (int): IPv6 hop limit.
-        id_ (int): identifier for echo reply.
-        seq (int): sequence number for echo reply.
-        data (str): payload for echo reply.
-    Returns:
-        ryu.lib.packet.ethernet: Serialized IPv6 ICMP echo reply packet.
+        Args:
+            vid (int or None): VLAN VID to use (or None).
+            eth_src (str): source Ethernet MAC address.
+            eth_dst (str): destination Ethernet MAC address.
+            src_ip (ipaddress.IPv6Address): source IPv6 address.
+            dst_ip (ipaddress.IPv6Address): destination IPv6 address.
+            hop_limit (int): IPv6 hop limit.
+            id\_ (int): identifier for echo reply.
+            seq (int): sequence number for echo reply.
+            data (str): payload for echo reply.
+        Returns:
+            ryu.lib.packet.ethernet: Serialized IPv6 ICMP echo reply packet.
     """
     pkt = build_pkt_header(
         vid, eth_src, eth_dst, valve_of.ether.ETH_TYPE_IPV6)

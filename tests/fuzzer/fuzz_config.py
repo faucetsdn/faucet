@@ -17,17 +17,12 @@ def create_config_file(config):
         conf_file.write(config)
     return conf_file_name
 
-def main():
-    s = sys.stdin.read()
-    file_name = create_config_file(s)
+import afl
+while afl.loop(500):
+    data = sys.stdin.read()
+    file_name = create_config_file(data)
     try:
         cp.dp_parser(file_name, LOGNAME)
     except cp.InvalidConfigError as err:
         pass
-
-if __name__ == '__main__':
-    import afl
-    afl.init()
-    main()
-
 os._exit(0)

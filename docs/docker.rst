@@ -1,6 +1,14 @@
 Docker
 ======
 
+.. _docker-install:
+
+Installing docker
+-----------------
+
+We recommend installing Docker Community Edition (CE) according to the official
+`docker engine installation guide <https://docs.docker.com/engine/installation>`_.
+
 Faucet Dockerfile
 -----------------
 
@@ -10,7 +18,7 @@ This directory contains three docker files: ``Dockerfile``,
 Initial configuration
 ---------------------
 
-.. code:: bash
+.. code:: console
 
   sudo mkdir -p /etc/ryu/faucet
   sudo vi /etc/ryu/faucet/faucet.yaml
@@ -35,7 +43,7 @@ Docker will run the stable version 1.3 of Faucet.
 
 To pull and run the latest git version of Faucet:
 
-.. code:: bash
+.. code:: console
 
   mkdir -p /var/log/ryu/faucet/
   docker pull faucet/faucet:latest
@@ -52,7 +60,7 @@ you do not need Prometheus.
 
 To pull and run the latest git version of Gauge:
 
-.. code:: bash
+.. code:: console
 
   mkdir -p /var/log/ryu/gauge/
   docker pull faucet/gauge:latest
@@ -74,13 +82,13 @@ All that is needed to run faucet.
 
 It can be built as following:
 
-.. code:: bash
+.. code:: console
 
   docker build -t faucet/faucet .
 
 It can be run as following:
 
-.. code:: bash
+.. code:: console
 
   mkdir -p /var/log/ryu/faucet/
   docker run -d \
@@ -102,13 +110,13 @@ Runs Gauge.
 
 It can be built as following:
 
-.. code:: bash
+.. code:: console
 
   docker build -t faucet/gauge -f Dockerfile.gauge .
 
 It can be run as following:
 
-.. code:: bash
+.. code:: console
 
   mkdir -p /var/log/ryu/gauge
   docker run -d \
@@ -124,8 +132,8 @@ configure your switches to talk to both. The faucet
 configuration file faucet.yaml should be placed in the config directory, this
 also should include to configuration for gauge.
 
-docker-compose.yaml
--------------------
+Docker compose
+--------------
 
 This is an example docker-compose file that can be used to set up gauge to talk
 to prometheus and influxdb with a grafana instance for dashboards and visualisations.

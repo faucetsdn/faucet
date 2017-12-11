@@ -1,0 +1,17 @@
+include:
+    - acls.yaml
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        proactive_learn: True
+        interfaces:
+            1:
+                name: "h1"
+                description: "host1 container"
+                native_vlan: office
+                acl_in: access-port-protect

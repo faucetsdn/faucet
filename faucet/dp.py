@@ -34,7 +34,9 @@ from faucet import valve_of
 # have a default value, and their descriptor must come
 # immediately after being set. See below for example.
 class DP(Conf):
-    """Implement FAUCET configuration for a datapath."""
+    """Stores state related to a datapath controlled by Faucet, including
+configuration.
+"""
 
     acls = None
     vlans = None

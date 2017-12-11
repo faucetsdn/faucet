@@ -163,6 +163,7 @@ def nsodbc_factory():
 def init_flow_db(flow_database):
     """
     Initialize/Refresh flow database
+
     Args:
         flow_database
     """
@@ -183,6 +184,7 @@ def init_flow_db(flow_database):
 def init_switch_db(switch_database):
     """
     Initialize/refresh switch database
+
     Args:
         switch_database
     """

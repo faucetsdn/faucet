@@ -1,10 +1,8 @@
 :Authors: - Rahul Gupta
 
-=================================
 Faucet on Allied Telesis products
 =================================
 
-------------
 Introduction
 ------------
 Allied Telesis has a wide portfolio of OpenFlow enabled switches that all support the Faucet pipeline.
@@ -15,25 +13,23 @@ Here is a list of some of our most popular switches:
 - `AT-x510 <http://www.alliedtelesis.com/products/x510-series/>`_
 - `AT-x230 <http://www.alliedtelesis.com/products/x230-series/>`_
 
------
 Setup
 -----
 
-^^^^^^
 Switch
 ^^^^^^
 
 **OpenFlow supported Firmware**
 
 OpenFlow has been supported since AlliedWarePlus version 5.4.6 onwards.
-To inquire more about compatibility of versions, you can contact our customer support team `here <http://www.alliedtelesis.com/services-and-support>`_.
+To inquire more about compatibility of versions, you can contact our `customer support team <http://www.alliedtelesis.com/services-and-support>`_.
 
 **OpenFlow configuration**
 
 For a **Pure OpenFlow** deployment, we recommend the following configurations on the switch.
 Most of these configuration steps will be shown with an example.
 
-::
+.. code-block:: none
 
     /* Create an OpenFlow native VLAN */
     awplus (config)# vlan database
@@ -73,7 +69,7 @@ Most of these configuration steps will be shown with an example.
 
 Once OpenFlow is up and running and connected to Faucet/Gauge controller, you should be able to verify the operation using some of our show commands.
 
-::
+.. code-block:: none
 
     /* To check contents of the DP flows */
     awplus# show openflow flows
@@ -88,8 +84,8 @@ Once OpenFlow is up and running and connected to Faucet/Gauge controller, you sh
 
 Some other OPTIONAL configuration commands, that may be useful to modify some parameters, if needed.
 
-::
-    
+.. code-block:: none
+
     /* Set the OpenFlow version other than default version(v1.3) */
     awplus (config)# openflow version 1.0
 
@@ -109,15 +105,16 @@ Some other OPTIONAL configuration commands, that may be useful to modify some pa
     awplus (config)# vlan database
     awplus (config-vlan)# vlan 2-100
 
-^^^^^^
 Faucet
 ^^^^^^
 
 Edit the faucet configuration file (/etc/ryu/faucet/faucet.yaml) to add the datapath of the switch you wish to be managed by faucet.
 This yaml file also contains the interfaces that need to be seen by Faucet as openflow ports.
-The device type (hardware) should be set to **Allied-Telesis** in the configuration file.
+The device type (hardware) should be set to ``Allied-Telesis`` in the configuration file.
 
-::
+.. code-block:: yaml
+  :caption: /etc/ryu/faucet/faucet.yaml
+  :name: allied-telesis/faucet.yaml
 
 	dps:
 	    allied-telesis:
@@ -132,7 +129,6 @@ The device type (hardware) should be set to **Allied-Telesis** in the configurat
 	                name: "port1.0.2"
 	                description: "windscale"
 
-----------
 References
 ----------
 

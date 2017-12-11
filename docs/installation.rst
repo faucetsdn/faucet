@@ -8,7 +8,7 @@ These tasks are required by all installation methods.
 
 You will need to provide an initial configuration files for FAUCET and Gauge, and create directores for FAUCET and Gauge to log to.
 
-.. code:: bash
+.. code:: console
 
   mkdir -p /etc/ryu/faucet
   mkdir -p /var/log/ryu/faucet
@@ -72,14 +72,14 @@ Prepare the keys and certificates
 
 Generate key pairs for the controller.
 
-.. code:: bash
+.. code:: console
 
     /usr/bin/openssl genrsa -out /etc/ryu/ctrlr.key 2048
     /usr/bin/openssl req -new -x509 -nodes -days 3650 -subj '/C=US/ST=CA/L=Mountain View/O=Faucet/OU=Faucet/CN=CTRLR_1' -key /etc/ryu/ctrlr.key -out /etc/ryu/ctrlr.cert
 
 Generate key pairs for the switch.
 
-.. code:: bash
+.. code:: console
 
     /usr/bin/openssl genrsa -out /etc/ryu/sw.key 2048
     /usr/bin/openssl req -new -x509 -nodes -days 3650 -subj '/C=US/ST=CA/L=Mountain View/O=Faucet/OU=Faucet/CN=SW_1' -key /etc/ryu/sw.key -out /etc/ryu/sw.cert
@@ -91,7 +91,7 @@ Copy ``/etc/ryu/ctrlr.cert`` ``/etc/ryu/sw.key`` and ``/etc/ryu/sw.cert`` to the
 
 For example, the command for OVS would be:
 
-.. code:: bash
+.. code:: console
 
     ovs-vsctl set-ssl  /etc/ryu/sw.key /etc/ryu/sw.cert  /etc/ryu/ctrlr.cert
     ovs-vsctl set-controller br0 ssl:<ctrlr_ip>:6653
@@ -99,7 +99,7 @@ For example, the command for OVS would be:
 Start Faucet with the keys (make sure the keys are readable by the user that
 starts the faucet process)
 
-.. code:: bash
+.. code:: console
 
     ryu-manager --ctl-privkey /etc/ryu/ctrlr.key --ctl-cert /etc/ryu/ctrlr.cert  --ca-certs /etc/ryu/sw.cert faucet.faucet --verbose
 
@@ -118,7 +118,7 @@ See :doc:`docker` for how to install the FAUCET and Gauge images.
 
 You can configure systemd to start the containers automatically:
 
-.. code:: bash
+.. code:: console
 
     $EDITOR /etc/systemd/system/faucet.service
     $EDITOR /etc/systemd/system/gauge.service
@@ -130,7 +130,7 @@ You can configure systemd to start the containers automatically:
 
 ``/etc/systemd/system/faucet.service`` should contain:
 
-.. code:: bash
+.. code:: shell
 
     [Unit]
     Description="FAUCET OpenFlow switch controller"
@@ -148,7 +148,7 @@ You can configure systemd to start the containers automatically:
 
 ``/etc/systemd/system/gauge.service`` should contain:
 
-.. code:: bash
+.. code:: shell
 
     [Unit]
     Description="Gauge OpenFlow switch controller"
@@ -166,7 +166,7 @@ You can configure systemd to start the containers automatically:
 
 You can check that FAUCET and Gauge are running via systemd or via docker:
 
-.. code:: bash
+.. code:: console
 
     service faucet status
     service gauge status
@@ -179,26 +179,26 @@ You can install the latest pip package, or you can install directly from git via
 
 To install the latest pip package:
 
-.. code:: bash
+.. code:: console
 
   apt-get install python3-pip
   pip3 install faucet
 
 To install the latest code from git, via pip:
 
-.. code:: bash
+.. code:: console
 
   pip3 install git+https://github.com/faucetsdn/faucet.git
 
 You can then start FAUCET manually:
 
-.. code:: bash
+.. code:: console
 
   ryu-manager faucet.faucet --verbose
 
 Or, you can configure systemd to start the containers automatically:
 
-.. code:: bash
+.. code:: console
 
     $EDITOR /etc/systemd/system/faucet.service
     $EDITOR /etc/systemd/system/gauge.service
