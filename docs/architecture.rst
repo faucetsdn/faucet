@@ -17,6 +17,8 @@ Faucet enables practical SDN for the masses (see http://queue.acm.org/detail.cfm
 
 See unit and integration tests for working configuration examples.
 
+.. _faucet-pipeline:
+
 Faucet Openflow Switch Pipeline
 -------------------------------
 
