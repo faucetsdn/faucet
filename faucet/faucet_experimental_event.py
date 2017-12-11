@@ -88,7 +88,7 @@ class FaucetExperimentalEventNotifier(object):
                 try:
                     sock.sendall(event_bytes)
                 except (socket.error, IOError) as err:
-                    self.logger.info('event client disconnected' % err)
+                    self.logger.info('event client disconnected: %s', err)
                     return
             hub.sleep(0.1)
 
