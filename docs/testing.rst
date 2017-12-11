@@ -15,10 +15,10 @@ Then you can build and run the mininet tests from the docker entry-point:
 
 .. code:: console
 
-  docker build -t faucet/tests -f Dockerfile.tests .
-  apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
-  modprobe openvswitch
-  sudo docker run --privileged -ti faucet/tests
+  sudo docker build -t faucet/tests -f Dockerfile.tests .
+  sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+  sudo modprobe openvswitch
+  sudo docker run --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged -ti faucet/tests
 
 The apparmor command is currently required on Ubuntu hosts to allow the use of
 tcpdump inside the container.
