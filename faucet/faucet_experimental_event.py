@@ -50,14 +50,32 @@ class FaucetExperimentalEventNotifier(object):
         self.logger = logger
         self.event_q = queue.Queue(120)
         self.event_id = 0
+        self.thread = None
 
     def start(self):
         """Start socket server."""
         if self.socket_path:
+            socket_dir = os.path.dirname(self.socket_path)
+            if not os.path.exists(socket_dir):
+                try:
+                    os.makedirs(socket_dir)
+                except (PermissionError) as err: # pytype: disable=name-error
+                    self.logger.error('Unable to create event socket directory: %s', err)
+                    return None
             if os.path.exists(self.socket_path):
-                os.remove(self.socket_path)
-            return hub.spawn(
-                StreamServer((self.socket_path, None), self._loop).serve_forever)
+                try:
+                    os.remove(self.socket_path)
+                except (PermissionError) as err: # pytype: disable=name-error
+                    self.logger.error('Unable to remove old socket: %s', err)
+                    return None
+            if os.access(socket_dir, os.R_OK | os.W_OK | os.X_OK):
+                self.thread = hub.spawn(
+                    StreamServer((self.socket_path, None), self._loop).serve_forever)
+                return self.thread
+            else:
+                self.logger.error('Incorrect permissions set on socket directory %s', socket_dir)
+                return None
+
         return None
 
     def _loop(self, sock, _addr):
@@ -88,7 +106,7 @@ class FaucetExperimentalEventNotifier(object):
         for header_key in list(event):
             assert header_key not in event_dict
         event.update(event_dict)
-        if self.socket_path:
+        if self.thread:
             self.metrics.faucet_event_id.set(event['event_id'])
             if self.event_q.full():
                 self.logger.warning('event notify queue full')
