@@ -45,7 +45,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.pi-gauge
-        image: 'faucet/gauge-pi:1.6.12'
+        image: 'faucet/gauge-pi:1.6.13'
         environment:
             GAUGE_CONFIG: '/etc/ryu/faucet/gauge.yaml'
         volumes:
@@ -62,7 +62,7 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.pi
-        image: 'faucet/faucet-pi:1.6.12'
+        image: 'faucet/faucet-pi:1.6.13'
         volumes:
             - '${FAUCET_PREFIX}/var/log/ryu/faucet:/var/log/ryu/faucet'
             - '${FAUCET_PREFIX}/etc/ryu/faucet:/etc/ryu/faucet'
