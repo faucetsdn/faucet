@@ -33,13 +33,12 @@ Watchers are configured in the watchers config block in the config for gauge.
 The following elements can be configured for each watcher, at the level of
 /watchers/<watcher name>/:
 
- * type (string): The type of watcher (IE what stat this watcher monitors). The
-    types are 'port_state', 'port_stats' or 'flow_table'
+ * type (string): The type of watcher (IE what stat this watcher monitors). \
+       The types are 'port_state', 'port_stats' or 'flow_table'.
  * dps (list): A list of dps that should be monitored with this watcher.
- * db (string): The db that will be used to store the data once it is
-    retreived.
- * interval (int): if this watcher requires polling the switch, it will monitor
-    at this interval
+ * db (string): The db that will be used to store the data once it is retreived.
+ * interval (int): if this watcher requires polling the switch, it will \
+       monitor at this interval.
 
 The config for a db should be created in the gauge config file under the dbs
 config block.
@@ -47,9 +46,9 @@ config block.
 The following elements can be configured for each db, at the level of
 /dbs/<db name>/:
 
- * type (string): the type of db. The available types are 'text' and 'influx'
-    for port_state, 'text', 'influx'and 'prometheus' for port_stats and 'text'
-    and 'gaugedb' for flow_table
+ * type (string): the type of db. The available types are 'text' and 'influx' \
+       for port_state, 'text', 'influx'and 'prometheus' for port_stats and \
+       'text' and 'gaugedb' for flow_table.
 
 The following config elements then depend on the type.
 For text:
@@ -59,22 +58,22 @@ For text:
 
 For influx:
  * influx_db (str): The name of the influxdb database. Defaults to 'faucet'.
- * influx_host (str): The host where the influxdb is reachable. Defaults to
-    'localhost'.
- * influx_port (int): The port that the influxdb host will listen on. Defaults to
-    8086.
+ * influx_host (str): The host where the influxdb is reachable. Defaults to \
+       'localhost'.
+ * influx_port (int): The port that the influxdb host will listen on. Defaults \
+       to 8086.
  * influx_user (str): The username for accessing influxdb. Defaults to ''.
  * influx_pwd (str): The password for accessing influxdb. Defaults to ''.
- * influx_timeout (int): The timeout in seconds for connecting to influxdb.
-    Defaults to 10.
- * influx_retries (int): The number of times to retry connecting to influxdb
-    after failure. Defaults to 3.
+ * influx_timeout (int): The timeout in seconds for connecting to influxdb. \
+       Defaults to 10.
+ * influx_retries (int): The number of times to retry connecting to influxdb \
+       after failure. Defaults to 3.
 
 For Prometheus:
- * prometheus_port (int): The port used to export prometheus data. Defaults to
-    9303.
- * prometheus_addr (ip addr str): The address used to export prometheus data.
-    Defaults to '127.0.0.1'.
+ * prometheus_port (int): The port used to export prometheus data. Defaults to \
+       9303.
+ * prometheus_addr (ip addr str): The address used to export prometheus data. \
+       Defaults to '127.0.0.1'.
 """
 
     db = None # pylint: disable=invalid-name
