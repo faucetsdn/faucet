@@ -27,10 +27,6 @@ WORKDIR $HOME
 
 COPY gnmi .
 
-RUN useradd -r -u 1001 -d $HOME faucet
-RUN chown -R faucet:faucet $HOME
-USER faucet
-
 ENV GOPATH=$HOME/go
 ENV GOBIN=$GOPATH/bin
 ENV PATH=$GOBIN:${PATH}

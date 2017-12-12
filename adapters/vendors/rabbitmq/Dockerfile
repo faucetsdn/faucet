@@ -1,4 +1,4 @@
-FROM alpine:3.7
+FROM faucet/faucet-base
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 
 ENV PYTHONUNBUFFERED=0
@@ -26,7 +26,4 @@ RUN apk add --update pytest && \
     pip3 uninstall -y pytest-cov && \
     find / -name \*pyc -delete
 
-RUN adduser -S -u 1001 rabbit 
-USER rabbit
-
-ENTRYPOINT ["python3", "rabbit.py"]
+CMD ["python3", "rabbit.py"]

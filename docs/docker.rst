@@ -96,8 +96,8 @@ It can be run as following:
       faucet/faucet
 
 By default the Dockerfile for Faucet will build an image that will run as the
-`faucet` user under UID 1001, if you need to change that it can be overridden
-at runtime with the Docker `-u` flag.
+`faucet` user, if you need to change that it can be overridden at runtime with
+the Docker `-u` flag.
 
 By default it listens on port 6653 for an OpenFlow switch to connect. Faucet
 expects to find the configuration file faucet.yaml in the config folder. If
@@ -128,8 +128,8 @@ It can be run as following:
       faucet/gauge
 
 By default the Dockerfile for Gauge will build an image that will run as the
-`faucet` user under UID 1001, if you need to change that it can be overridden
-at runtime with the Docker `-u` flag.
+`faucet` user, if you need to change that it can be overridden at runtime with
+the Docker `-u` flag.
 
 By default listens on port 6653. If you are running this with
 Faucet you will need to modify the port one of the containers listens on and

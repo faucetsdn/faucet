@@ -1,4 +1,4 @@
-FROM arm32v6/alpine:3.6
+FROM faucet/faucet-base-pi
 LABEL maintainer "Charlie Lewis <clewis@iqt.org>"
 
 ARG ARCH=armv6
@@ -17,15 +17,9 @@ RUN apk --no-cache add --virtual build-dependencies wget ca-certificates \
     && ln -s /usr/share/prometheus/console_libraries /usr/share/prometheus/consoles/ /etc/prometheus/ \
     && rm -rf /tmp/install
 
-WORKDIR    /prometheus
-RUN adduser -S -u 1001 prometheus 
-RUN chown -R prometheus /prometheus
-USER prometheus
-
 EXPOSE     9090
 VOLUME     [ "/prometheus" ]
-ENTRYPOINT [ "/bin/prometheus" ]
-CMD        [ "--config.file=/etc/prometheus/prometheus.yml", \
+CMD        [ "/bin/prometheus", "--config.file=/etc/prometheus/prometheus.yml", \
              "--storage.tsdb.path=/prometheus", \
              "--web.console.libraries=/usr/share/prometheus/console_libraries", \
              "--web.console.templates=/usr/share/prometheus/consoles" ]
