@@ -9,12 +9,6 @@ Installing docker
 We recommend installing Docker Community Edition (CE) according to the official
 `docker engine installation guide <https://docs.docker.com/engine/installation>`_.
 
-Faucet Dockerfile
------------------
-
-This directory contains three docker files: ``Dockerfile``,
-``Dockerfile.gauge`` and ``Dockerfile.tests``
-
 Initial configuration
 ---------------------
 
