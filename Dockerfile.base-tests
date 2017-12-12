@@ -4,7 +4,7 @@
 FROM ubuntu:latest
 
 ENV OVSV="master"
-ENV DPDK="17.05.2"
+ENV DPDK="17.11"
 ENV MININETV="2.2.2"
 
 ENV OVSDEPS="autoconf automake libpcap-dev libcap-ng-dev libnuma-dev libtool libssl-dev linux-headers-generic libffi-dev"
