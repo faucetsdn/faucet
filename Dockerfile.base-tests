@@ -41,6 +41,7 @@ RUN \
     iputils-ping \
     iproute2 \
     ladvd \
+    libnuma-dev \
     libpython2.7-dev \
     libpython3-dev \
     libyaml-dev \
@@ -49,6 +50,7 @@ RUN \
     ndisc6 \
     net-tools \
     netcat-openbsd \
+    numactl \
     openvswitch-common \
     parallel \
     patch \

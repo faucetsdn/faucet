@@ -3,14 +3,8 @@ FROM faucet/faucet-testbase:latest
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 
-ENV HOME=/home/faucet
-RUN mkdir $HOME
-
-RUN useradd -r -u 1001 -d $HOME faucet
-
-COPY ./ $HOME/faucet-src/
-RUN chown -R faucet:faucet $HOME
-WORKDIR $HOME/faucet-src/
+COPY ./ /faucet-src/
+WORKDIR /faucet-src/
 
 RUN \
   apt-get update && \
@@ -19,7 +13,5 @@ RUN \
   $PIP3 -r requirements.txt && \
   $PIP3 -r test-requirements.txt && \
   $PIP3 .
-
-USER faucet
 
 CMD ["docker/runtests.sh"]
