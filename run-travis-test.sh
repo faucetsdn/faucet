@@ -33,4 +33,4 @@ else
   RUNTESTS="-n ${sharded[${MATRIX_SHARD}]}"
 fi
 
-sudo docker run --privileged -t -e FAUCET_TESTS="-d ${RUNTESTS}" ${FAUCET_TEST_IMG}
+sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 -t -e FAUCET_TESTS="-d ${RUNTESTS}" ${FAUCET_TEST_IMG}
