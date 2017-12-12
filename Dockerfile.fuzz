@@ -4,15 +4,16 @@ ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 
 COPY ./ /faucet-src/
+WORKDIR /faucet-src
 
 RUN \
-  apt-get update && \ 
+  apt-get update && \
   apt-get install -y afl cython3 && \
-  $PIP -r /faucet-src/fuzz-requirements.txt && \
-  $PIP3 -r /faucet-src/requirements.txt && \
-  $PIP3 -r /faucet-src/fuzz-requirements.txt && \
-  $PIP3 /faucet-src
+  $PIP -r fuzz-requirements.txt && \
+  $PIP3 -r requirements.txt && \
+  $PIP3 -r fuzz-requirements.txt && \
+  $PIP3 .
 
 VOLUME ["/faucet-src/tests/fuzzer/config/", "/var/log/afl/"]
 
-CMD ["/faucet-src/docker/fuzz_config.sh"]
+CMD ["docker/fuzz_config.sh"]

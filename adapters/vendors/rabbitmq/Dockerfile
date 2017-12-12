@@ -19,12 +19,14 @@ RUN pip3 install -r requirements.txt
 COPY rabbit.py rabbit.py
 COPY test_rabbit.py test_rabbit.py
 
-
 RUN apk add --update pytest && \
     pip3 install pytest-cov && \
     python3 -m pytest -l -v --cov=. --cov-report term-missing && \
     apk del pytest && \
     pip3 uninstall -y pytest-cov && \
     find / -name \*pyc -delete
+
+RUN adduser -S -u 1001 rabbit 
+USER rabbit
 
 ENTRYPOINT ["python3", "rabbit.py"]

@@ -105,3 +105,11 @@ RUN \
   $PIP pip && \
   $PIP multiprocessing scapy==2.3.2 $PIPDEPS && \
   $PIP3 $PIPDEPS
+
+ENV HOME=/home/faucet
+RUN mkdir $HOME
+WORKDIR $HOME
+
+RUN useradd -r -u 1001 -d $HOME faucet
+RUN chown -R faucet:faucet $HOME
+USER faucet

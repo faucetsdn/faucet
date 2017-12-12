@@ -34,6 +34,9 @@ tag will always point to the latest git commit. All tagged versions of Faucet
 in git are also available to use, for example using the faucet/faucet:v1_3
 Docker will run the stable version 1.3 of Faucet.
 
+By default the Faucet and Gauge images are run as the `faucet` user under UID
+1001, if you need to change that it can be overridden at runtime with the
+Docker `-u` flag.
 
 To pull and run the latest git version of Faucet:
 
@@ -92,6 +95,10 @@ It can be run as following:
       -p 6653:6653 \
       faucet/faucet
 
+By default the Dockerfile for Faucet will build an image that will run as the
+`faucet` user under UID 1001, if you need to change that it can be overridden
+at runtime with the Docker `-u` flag.
+
 By default it listens on port 6653 for an OpenFlow switch to connect. Faucet
 expects to find the configuration file faucet.yaml in the config folder. If
 needed the -e option can be used to specify the names of files with the
@@ -119,6 +126,10 @@ It can be run as following:
       -v /var/log/ryu/gauge/:/var/log/ryu/gauge/ \
       -p 6654:6653 \
       faucet/gauge
+
+By default the Dockerfile for Gauge will build an image that will run as the
+`faucet` user under UID 1001, if you need to change that it can be overridden
+at runtime with the Docker `-u` flag.
 
 By default listens on port 6653. If you are running this with
 Faucet you will need to modify the port one of the containers listens on and

@@ -23,6 +23,11 @@ RUN \
     for i in $BUILDDEPS ; do $APK del $i ; done && \
     find / -name \*pyc -delete
 
+RUN adduser -S -u 1001 faucet
+RUN chown -R faucet /var/log/ryu/faucet
+RUN chown -R faucet /etc/ryu/faucet
+USER faucet
+
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 
 EXPOSE 6653 9303
