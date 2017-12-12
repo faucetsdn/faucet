@@ -753,7 +753,8 @@ configuration.
             logger (ValveLogger): logger instance
             new_dp (DP): new dataplane configuration.
         Returns:
-            changes (tuple) of:
+            (tuple): changes tuple containing:
+
                 deleted_ports (set): deleted port numbers.
                 changed_ports (set): changed/added port numbers.
                 changed_acl_ports (set): changed ACL only port numbers.
