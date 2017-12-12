@@ -1,29 +1,34 @@
 Testing
 =======
 
-.. _docker-testing:
+Installing docker
+-----------------
+
+First, get yourself setup with docker based on our :ref:`docker-install` documentation.
+
+.. _docker-sw-testing:
 
 Software switch testing with docker
 -----------------------------------
 
-First, get yourself setup with docker based on our :doc:`docker` documentation.
-
 Then you can build and run the mininet tests from the docker entry-point:
 
-.. code:: bash
+.. code:: console
 
-  docker build -t faucet/tests -f Dockerfile.tests .
-  apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
-  modprobe openvswitch
-  sudo docker run --privileged -ti faucet/tests
+  sudo docker build -t faucet/tests -f Dockerfile.tests .
+  sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
+  sudo modprobe openvswitch
+  sudo docker run --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged -ti faucet/tests
 
 The apparmor command is currently required on Ubuntu hosts to allow the use of
 tcpdump inside the container.
 
+.. _docker-hw-testing:
+
 Hardware switch testing with docker
 -----------------------------------
 
-::
+.. code-block:: none
 
                        +--------------------------+
                        |                          |
@@ -86,7 +91,7 @@ Test configuration
 
 Create a directory for the test configuration:
 
-.. code:: bash
+.. code:: console
 
   mkdir -p /etc/ryu/faucet
   $EDITOR /etc/ryu/faucet/hw_switch_config.yaml
@@ -124,10 +129,12 @@ switch:
   # ctl_cert: ctl-cert.pem
   # ca_certs: /usr/local/var/lib/openvswitch/pki/switchca/cacert.pem
 
+.. _docker-hw-testing-running:
+
 Running the tests
 ~~~~~~~~~~~~~~~~~
 
-.. code:: bash
+.. code:: console
 
   docker build -t faucet/tests -f Dockerfile.tests .
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
@@ -140,7 +147,7 @@ Running the tests
 Running a single test
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. code:: bash
+.. code:: console
 
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="FaucetUntaggedTest" \

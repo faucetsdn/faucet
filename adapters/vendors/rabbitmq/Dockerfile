@@ -5,7 +5,10 @@ ENV PYTHONUNBUFFERED=0
 
 RUN apk add --update \
     python3 \
+    python3-dev \
     py3-pip \
+    gcc \
+    musl-dev \
     && rm -rf /var/cache/apk/*
 
 WORKDIR /src

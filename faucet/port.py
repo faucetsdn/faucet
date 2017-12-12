@@ -21,7 +21,7 @@ from faucet.valve_of import ignore_port
 
 
 class Port(Conf):
-    """Implement FAUCET configuration for a port."""
+    """Stores state for ports, including the configuration."""
 
     name = None
     number = None

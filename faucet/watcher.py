@@ -32,8 +32,8 @@ from faucet.gauge_prom import GaugePortStatsPrometheusPoller
 def watcher_factory(conf):
     """Return a Gauge object based on type.
 
-    Arguments:
-    gauge_conf -- a GaugeConf object with the configuration for this valve.
+    Args:
+        conf (GaugeConf): object with the configuration for this valve.
     """
 
     WATCHER_TYPES = {

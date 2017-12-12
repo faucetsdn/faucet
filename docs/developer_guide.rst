@@ -8,7 +8,7 @@ Before submitting a PR
 ----------------------
 
 -  All unit tests must pass (please use the docker based tests; see
-   :ref:`docker-testing`).
+   :ref:`docker-sw-testing`).
 -  It is strongly recommended to enable TravisCI testing on your
    repo. This enables the maintainers to quickly verify that your
    changes pass all tests in a pristine environment.

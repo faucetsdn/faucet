@@ -38,7 +38,10 @@ class HostCacheEntry(object):
 
 
 class VLAN(Conf):
-    """Implement FAUCET configuration for a VLAN."""
+    """Contains state for one VLAN, including its configuration."""
+
+# Note: while vlans are configured once for each datapath, there will be a
+# separate vlan object created for each datapath that the vlan appears on
 
     name = None
     dp_id = None
