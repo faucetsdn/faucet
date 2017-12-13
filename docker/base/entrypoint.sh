@@ -12,6 +12,8 @@ export HOME=/home/faucet
 adduser -u $USER_ID -G faucet -g "" -h $HOME -D faucet >/dev/null 2>&1 || true
 
 # Update permissions on directories installed by pip before we su-exec
+mkdir -p /var/run/faucet
+chown faucet:faucet /var/run/faucet/
 chown faucet:faucet /var/log/ryu/faucet/
 chown -R faucet:faucet /etc/ryu/faucet/
 
