@@ -90,6 +90,7 @@ RUN \
     cd .. && \
     git clone https://github.com/google/pytype.git && \
       cd pytype && \
+      git checkout 0964db4d6683324035486109a5ea6c210d8b131c && \
       git submodule init && \
       git submodule update && \
       python2 $SETUPQ install && \
