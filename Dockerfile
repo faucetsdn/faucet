@@ -1,3 +1,5 @@
+## Image name: faucet/faucet
+
 FROM faucet/faucet-python3
 
 ENV APK="apk -q"

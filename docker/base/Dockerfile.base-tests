@@ -1,4 +1,4 @@
-
+## Image name: faucet/faucet-testbase
 ## Base image for FAUCET tests.
 
 FROM ubuntu:latest
@@ -22,7 +22,7 @@ ENV BUILDDIR="/var/tmp/build"
 ### to ensure Docker layer cache doesn't use a stale apt database.
 ###
 
-COPY ./docker/setupproxy.sh /
+COPY setupproxy.sh /
 
 RUN \
   ./setupproxy.sh && \

@@ -1,3 +1,5 @@
+## Image name: faucet/faucet-python3-pi
+
 FROM faucet/faucet-base-pi
 RUN apk add --no-cache python3 && \
     python3 -m ensurepip && \

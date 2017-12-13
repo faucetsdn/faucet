@@ -1,3 +1,5 @@
+## Image name: faucet/tests
+
 FROM faucet/faucet-testbase:latest
 
 ENV PIP="pip -q --no-cache-dir install --upgrade"

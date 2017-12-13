@@ -1,3 +1,5 @@
+## Image name: faucet/faucet-event-adapter-rabbitmq
+
 FROM faucet/faucet-base
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 

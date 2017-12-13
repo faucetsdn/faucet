@@ -2,9 +2,9 @@
 
 # Add local user
 # Either use the LOCAL_USER_ID if passed in at runtime or
-# fallback
+# fallback to 0 to maintain backwards compatibility
 
-USER_ID=${LOCAL_USER_ID:-9001}
+USER_ID=${LOCAL_USER_ID:-0}
 
 echo "Starting with UID : $USER_ID"
 export HOME=/home/faucet

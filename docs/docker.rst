@@ -34,9 +34,9 @@ tag will always point to the latest git commit. All tagged versions of Faucet
 in git are also available to use, for example using the faucet/faucet:v1_3
 Docker will run the stable version 1.3 of Faucet.
 
-By default the Faucet and Gauge images are run as the `faucet` user under UID
-1001, if you need to change that it can be overridden at runtime with the
-Docker `-u` flag.
+By default the Faucet and Gauge images are run as the `faucet` user under UID 0,
+if you need to change that it can be overridden at runtime with the Docker `-u`
+flag.
 
 To pull and run the latest git version of Faucet:
 
@@ -52,8 +52,8 @@ To pull and run the latest git version of Faucet:
       -p 9302:9302 \
       faucet/faucet
 
-Port 6653 is used for OpenFlow, port 9302 is used for Prometheus - port 9302 may be omitted if
-you do not need Prometheus.
+Port 6653 is used for OpenFlow, port 9302 is used for Prometheus - port 9302
+may be omitted if you do not need Prometheus.
 
 To pull and run the latest git version of Gauge:
 
@@ -69,18 +69,22 @@ To pull and run the latest git version of Gauge:
       -p 9303:9303 \
       faucet/gauge
 
-Port 6654 is used for OpenFlow, port 9303 is used for Prometheus - port 9303 may be omitted if
-you do not need Prometheus.
+Port 6654 is used for OpenFlow, port 9303 is used for Prometheus - port 9303
+may be omitted if you do not need Prometheus.
 
 Dockerfile
 ----------
 
-All that is needed to run faucet.
-
-It can be built as following:
+If building Faucet yourself, you first need to build the base images from this
+repo:
 
 .. code:: console
 
+  cd docker/base
+  docker build -t faucet/faucet-base .
+  cd ../python
+  docker build -t faucet/faucet-python3 .
+  cd ../..
   docker build -t faucet/faucet .
 
 It can be run as following:
@@ -107,13 +111,17 @@ FAUCET\_LOG, FAUCET\_EXCEPTION\_LOG, FAUCET\_CONFIG environment variables.
 Dockerfile.gauge
 ----------------
 
-Runs Gauge.
-
-It can be built as following:
+If building Gauge yourself, you first need to build the base images from this
+repo:
 
 .. code:: console
 
-  docker build -t faucet/gauge -f Dockerfile.gauge .
+  cd docker/base
+  docker build -t faucet/faucet-base .
+  cd ../python
+  docker build -t faucet/faucet-python3 .
+  cd ../..
+  docker build -f Dockerfile.gauge -t faucet/gauge .
 
 It can be run as following:
 

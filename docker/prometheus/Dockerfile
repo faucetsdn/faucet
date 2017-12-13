@@ -1,3 +1,5 @@
+## Image name: faucet/prometheus-pi
+
 FROM faucet/faucet-base-pi
 LABEL maintainer "Charlie Lewis <clewis@iqt.org>"
 
