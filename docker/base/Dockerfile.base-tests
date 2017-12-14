@@ -1,10 +1,10 @@
-
+## Image name: faucet/faucet-testbase
 ## Base image for FAUCET tests.
 
 FROM ubuntu:latest
 
 ENV OVSV="master"
-ENV DPDK="17.05.2"
+ENV DPDK="17.11"
 ENV MININETV="2.2.2"
 
 ENV OVSDEPS="autoconf automake libpcap-dev libcap-ng-dev libnuma-dev libtool libssl-dev linux-headers-generic libffi-dev"
@@ -22,7 +22,7 @@ ENV BUILDDIR="/var/tmp/build"
 ### to ensure Docker layer cache doesn't use a stale apt database.
 ###
 
-COPY ./docker/setupproxy.sh /
+COPY setupproxy.sh /
 
 RUN \
   ./setupproxy.sh && \
@@ -41,6 +41,7 @@ RUN \
     iputils-ping \
     iproute2 \
     ladvd \
+    libnuma-dev \
     libpython2.7-dev \
     libpython3-dev \
     libyaml-dev \
@@ -49,6 +50,7 @@ RUN \
     ndisc6 \
     net-tools \
     netcat-openbsd \
+    numactl \
     openvswitch-common \
     parallel \
     patch \

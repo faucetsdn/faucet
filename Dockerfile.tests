@@ -1,14 +1,19 @@
+## Image name: faucet/tests
+
 FROM faucet/faucet-testbase:latest
 
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 
 COPY ./ /faucet-src/
+WORKDIR /faucet-src/
 
 RUN \
-  $PIP -r /faucet-src/test-requirements.txt && \
-  $PIP3 -r /faucet-src/requirements.txt && \
-  $PIP3 -r /faucet-src/test-requirements.txt && \
-  $PIP3 /faucet-src
+  apt-get update && \
+  apt-get install -y cython3 && \
+  $PIP -r test-requirements.txt && \
+  $PIP3 -r requirements.txt && \
+  $PIP3 -r test-requirements.txt && \
+  $PIP3 .
 
-CMD ["/faucet-src/docker/runtests.sh"]
+CMD ["docker/runtests.sh"]

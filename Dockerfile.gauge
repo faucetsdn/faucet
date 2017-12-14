@@ -1,4 +1,6 @@
-FROM frolvlad/alpine-python3
+## Image name: faucet/gauge
+
+FROM faucet/faucet-python3
 
 ENV APK="apk -q"
 ENV BUILDDEPS="gcc python3-dev musl-dev"
