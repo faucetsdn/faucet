@@ -22,6 +22,11 @@ build_tag()
     branch=$2
     echo "building tag $tag (branch $branch)"
     git checkout -q $branch && \
+    cd docker/base && \
+    $DOCKER build -t $DOCKER_ID_USER/faucet-base-pi:$tag -f Dockerfile.pi . && \
+    cd ../python && \
+    $DOCKER build -t $DOCKER_ID_USER/faucet-python3-pi:$tag -f Dockerfile.pi . && \
+    cd ../../ && \
     $DOCKER build -t $DOCKER_ID_USER/faucet-pi:$tag -f Dockerfile.pi . && \
     $DOCKER build -t $DOCKER_ID_USER/gauge-pi:$tag -f Dockerfile.pi-gauge . && \
     $DOCKER push $DOCKER_ID_USER/faucet-pi:$tag && \
