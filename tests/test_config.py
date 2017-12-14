@@ -1087,6 +1087,48 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_no_rules_in_acl(self):
+        """Test when no rules are present in acl"""
+        config = """
+acls:
+    mirror_destination: {}
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_empty_ipv6_src(self):
+        """Test when ipv6_src is empty"""
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv6_src: 
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+
 
 if __name__ == "__main__":
     unittest.main()

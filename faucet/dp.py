@@ -387,7 +387,8 @@ configuration.
 
         def resolve_port_no(port_name):
             """Resolve port by name or number."""
-            assert isinstance(port_name, str) or isinstance(port_name, int), 'VLAN must be type %s or %s not %s' % (str, int, type(port_name))
+            assert isinstance(port_name, str) or isinstance(port_name, int), (
+                'VLAN must be type %s or %s not %s' % (str, int, type(port_name)))
             if port_name in port_by_name:
                 return port_by_name[port_name].number
             elif port_name in self.ports:
@@ -396,7 +397,8 @@ configuration.
 
         def resolve_vlan(vlan_name):
             """Resolve VLAN by name or VID."""
-            assert isinstance(vlan_name, str) or isinstance(vlan_by_name, int), 'VLAN must be type %s or %s not %s' % (str, int, type(vlan_name))
+            assert isinstance(vlan_name, str) or isinstance(vlan_by_name, int), (
+                'VLAN must be type %s or %s not %s' % (str, int, type(vlan_name)))
             if vlan_name in vlan_by_name:
                 return vlan_by_name[vlan_name]
             elif vlan_name in self.vlans:
