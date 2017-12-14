@@ -923,6 +923,51 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_router_vlan_invalid_type(self):
+        """Test when router vlans forms a dict"""
+        config = """
+vlans:
+    100:
+acls:
+    101:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+               mirror: 
+                    port: 1
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: 101
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_mirror_port_invalid_type(self):
+        """Test when mirror port forms a dict"""
+        config = """
+vlans:
+    100:
+acls:
+    101:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+               mirror: 
+                    port: 1
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: 101
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+
 
 if __name__ == "__main__":
     unittest.main()
