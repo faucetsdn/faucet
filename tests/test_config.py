@@ -878,6 +878,51 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_ipv4_src_is_empty(self):
+        """Test acl ipv4_src is empty"""
+        config = """ 
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: 
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_empty_eth_dst(self):
+        """Test eth_dst/dl_dst is empty"""
+        config = """
+vlans:
+    100:
+acls:
+    101:
+        - rule:
+            dl_dst:
+            actions:
+                output:
+                    port: 1
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: 101     
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
