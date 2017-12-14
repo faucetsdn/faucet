@@ -9,11 +9,11 @@ A docker image that facilitates testing the gNMI protocol using Openconfig model
 How to build
 ------------
 
-From Faucet root:
+From the gnmi directory:
 
 .. code:: bash
 
-  docker build -t faucet/gnmi -f Dockerfile.gnmi .
+  docker build -t faucet/gnmi -f Dockerfile .
 
 When building the image, a set of helper certificates is generated and added to ``$HOME/certs/`` folder:
 
