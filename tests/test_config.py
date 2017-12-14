@@ -808,7 +808,6 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_invalid_acl_formation(self):
-        """ """
         config = """
 acls:
 #   office-vlan-protect:
@@ -819,6 +818,25 @@ vlans:
     office:
         vid: 100
         acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_invalid_route_value(self):
+        """Test routes value forming a dictionary"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        routes:
+        -   - route:
+                ip_dst: '192.168.0.0/24'
+                ip_gw: '10.0.100.2'
 dps:
     sw1:
         dp_id: 0x1
