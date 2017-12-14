@@ -407,11 +407,13 @@ configuration.
             """Resolve DP references in stacking config."""
             port_stack_dp = {}
             for port in self.stack_ports:
+                assert 'dp' in port.stack, 'you did not reference a dp in the stack'
                 stack_dp = port.stack['dp']
                 assert stack_dp in dp_by_name, 'could not find dp %s' % stack_dp
                 port_stack_dp[port] = dp_by_name[stack_dp]
             for port, dp in list(port_stack_dp.items()):
                 port.stack['dp'] = dp
+                assert 'port' in port.stack, 'you did not reference a port in the stack'
                 stack_port_name = port.stack['port']
                 assert stack_port_name in dp.ports, 'could not find port %s in %s' % (stack_port_name, dp.name)
                 port.stack['port'] = dp.ports[stack_port_name]
