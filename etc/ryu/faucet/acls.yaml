@@ -4,6 +4,7 @@ acls:
         - rule:
             dl_type: 0x800      # ipv4
             ipv4_src: 10.0.100.0/24
+            ipv4_dst: 10.0.200.0/24
             actions:
                 allow: 0        # drop
         - rule:
