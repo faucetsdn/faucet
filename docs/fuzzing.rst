@@ -44,6 +44,6 @@ To check the error produced by an afl crash file use display_packet_crash:
 
 .. code:: console
 
-  python3 tests/fuzzer/display_packet_crash /var/log/afl/crashes/X
+  python3 tests/fuzzer/display_packet_crash.py /var/log/afl/crashes/X
 
 Where X is the name of the crash file. The output can then be found in the faucet logs (/var/log/ryu/faucet/).
