@@ -408,10 +408,12 @@ configuration.
             port_stack_dp = {}
             for port in self.stack_ports:
                 stack_dp = port.stack['dp']
+                assert stack_dp in dp_by_name, 'could not find dp %s' % stack_dp
                 port_stack_dp[port] = dp_by_name[stack_dp]
             for port, dp in list(port_stack_dp.items()):
                 port.stack['dp'] = dp
                 stack_port_name = port.stack['port']
+                assert stack_port_name in dp.ports, 'could not find port %s in %s' % (stack_port_name, dp.name)
                 port.stack['port'] = dp.ports[stack_port_name]
 
         def resolve_mirror_destinations():
@@ -422,10 +424,8 @@ configuration.
                     if port.mirror in port_by_name:
                         mirror_from_port[port] = port_by_name[port.mirror]
                     else:
-                        try:
-                            mirror_from_port[self.ports[port.mirror]] = port
-                        except KeyError:
-                            assert False, '%s does not exist in %s' % (port.mirror, self.name)
+                        assert port.mirror in self.ports, 'could not find port %s in %s' % (port.mirror, self.name)
+                        mirror_from_port[self.ports[port.mirror]] = port
             for port, mirror_destination_port in list(mirror_from_port.items()):
                 port.mirror = mirror_destination_port.number
                 mirror_destination_port.mirror_destination = True

@@ -967,6 +967,65 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_referencing_unconfigured_dp_in_stack(self):
+        """Test when referencing a nonexistent dp in a stack"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    3w1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_referencing_unconfigured_port_in_stack(self):
+        """Test when referencing a nonexistent port for dp in a stack"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            9:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
 
 
 if __name__ == "__main__":
