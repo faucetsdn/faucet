@@ -200,7 +200,7 @@ configuration.
         return self.name
 
     def check_config(self):
-        assert not isinstance(self.dp_id, int), 'dp_id must be %s not %s' % (self.dp_id, int, type(self.dp_id))
+        assert isinstance(self.dp_id, int), 'dp_id must be %s not %s' % (int, type(self.dp_id))
         assert self.dp_id > 0 and self.dp_id <= 2**64-1, 'DP ID %s not in valid range' % self.dp_id
         assert not (self.group_table and self.group_table_routing), (
             'groups for routing and other functions simultaneously not supported')

@@ -786,6 +786,27 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_invalid_key(self):
+        """Test invalid key"""
+        config = """
+acls:
+ ?  office-vlan-protect:
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()

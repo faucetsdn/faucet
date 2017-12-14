@@ -29,8 +29,11 @@ def no_duplicates_constructor(loader, node, deep=False):
     keys = set()
     for key_node, _ in node.value:
         key = loader.construct_object(key_node, deep=deep)
-        if key in keys:
-            raise ConstructorError('duplicate key %s' % key)
+        try:
+            if key in keys:
+                raise ConstructorError('duplicate key %s' % key)
+        except TypeError:
+            raise ConstructorError('invalid key %s' % key)
         keys.add(key)
     return loader.construct_mapping(node, deep)
 
