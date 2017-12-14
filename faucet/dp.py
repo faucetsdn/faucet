@@ -420,7 +420,10 @@ configuration.
                     if port.mirror in port_by_name:
                         mirror_from_port[port] = port_by_name[port.mirror]
                     else:
-                        mirror_from_port[self.ports[port.mirror]] = port
+                        try:
+                            mirror_from_port[self.ports[port.mirror]] = port
+                        except KeyError:
+                            assert False, '%s does not exist in %s' % (port.mirror, self.name)
             for port, mirror_destination_port in list(mirror_from_port.items()):
                 port.mirror = mirror_destination_port.number
                 mirror_destination_port.mirror_destination = True
