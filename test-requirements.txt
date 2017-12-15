@@ -1,3 +1,4 @@
+astroid==1.5.3
 bitstring
 concurrencytest
 coveralls
