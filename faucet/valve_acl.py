@@ -125,7 +125,10 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
         match_dict['in_port'] = port_num
     if vlan_vid is not None:
         match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
-    acl_match = valve_of.match_from_dict(match_dict)
+    try:
+        acl_match = valve_of.match_from_dict(match_dict)
+    except TypeError:
+        assert False, 'invalid type in acl'
     return (acl_match, acl_inst, ofmsgs)
 
 
