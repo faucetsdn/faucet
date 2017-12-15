@@ -33,7 +33,7 @@ def no_duplicates_constructor(loader, node, deep=False):
             if key in keys:
                 raise ConstructorError('duplicate key %s' % key)
         except TypeError:
-            raise ConstructorError('invalid key %s' % key)
+           raise ConstructorError('invalid key %s' % key)
         keys.add(key)
     return loader.construct_mapping(node, deep)
 
@@ -79,7 +79,6 @@ def dp_include(config_hashes, config_file, logname, top_confs):
     if not conf:
         logger.warning('error loading config from file: %s', config_file)
         return False
-
     unknown_top_confs = (
         set(conf.keys()) -
         set(list(top_confs.keys()) +
@@ -105,30 +104,31 @@ def dp_include(config_hashes, config_file, logname, top_confs):
             logger.error('Invalid config for "%s"' % conf_name)
             return False
 
-    try:
-        for include_directive, file_required in (
-                ('include', True),
-                ('include-optional', False)):
-            for include_file in conf.pop(include_directive, []):
-                if not isinstance(include_file, str):
-                    include_file = str(include_file)
+    for include_directive, file_required in (
+            ('include', True),
+            ('include-optional', False)):
+        include_values = conf.pop(include_directive, [])
+        if not isinstance(include_values, list):
+           logger.error('Include directive is not in a valid format')
+           return False
+        for include_file in include_values:
+            if not isinstance(include_file, str):
+                include_file = str(include_file)
 
-                include_path = dp_config_path(include_file, parent_file=config_file)
-                if include_path in config_hashes:
-                    logger.error(
-                        'include file %s already loaded, include loop found in file: %s',
-                        include_path, config_file,)
+            include_path = dp_config_path(include_file, parent_file=config_file)
+            if include_path in config_hashes:
+                logger.error(
+                    'include file %s already loaded, include loop found in file: %s',
+                    include_path, config_file,)
+                return False
+            if not dp_include(
+                    new_config_hashes, include_path, logname, new_top_confs):
+                if file_required:
+                    logger.error('unable to load required include file: %s' % include_path)
                     return False
-                if not dp_include(
-                        new_config_hashes, include_path, logname, new_top_confs):
-                    if file_required:
-                        logger.error('unable to load required include file: %s' % include_path)
-                        return False
-                    else:
-                        new_config_hashes[include_path] = None
-                        logger.warning('skipping optional include file: %s' % include_path)
-    except TypeError:
-        assert False, 'values in include directive are invalid'
+                else:
+                    new_config_hashes[include_path] = None
+                    logger.warning('skipping optional include file: %s' % include_path)
 
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.
