@@ -1,4 +1,6 @@
-FROM alpine:3.7
+## Image name: faucet/faucet-event-adapter-rabbitmq
+
+FROM faucet/faucet-base
 LABEL maintainer="Charlie Lewis <clewis@iqt.org>"
 
 ENV PYTHONUNBUFFERED=0
@@ -19,7 +21,6 @@ RUN pip3 install -r requirements.txt
 COPY rabbit.py rabbit.py
 COPY test_rabbit.py test_rabbit.py
 
-
 RUN apk add --update pytest && \
     pip3 install pytest-cov && \
     python3 -m pytest -l -v --cov=. --cov-report term-missing && \
@@ -27,4 +28,4 @@ RUN apk add --update pytest && \
     pip3 uninstall -y pytest-cov && \
     find / -name \*pyc -delete
 
-ENTRYPOINT ["python3", "rabbit.py"]
+CMD ["python3", "rabbit.py"]

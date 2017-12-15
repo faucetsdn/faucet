@@ -1,4 +1,4 @@
-## Image name: faucet/tests
+## Image name: faucet/config-fuzzer
 
 FROM faucet/faucet-testbase:latest
 
@@ -6,14 +6,16 @@ ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 
 COPY ./ /faucet-src/
-WORKDIR /faucet-src/
+WORKDIR /faucet-src
 
 RUN \
   apt-get update && \
-  apt-get install -y cython3 && \
-  $PIP -r test-requirements.txt && \
+  apt-get install -y afl cython3 && \
+  $PIP -r fuzz-requirements.txt && \
   $PIP3 -r requirements.txt && \
-  $PIP3 -r test-requirements.txt && \
+  $PIP3 -r fuzz-requirements.txt && \
   $PIP3 .
 
-CMD ["docker/runtests.sh"]
+VOLUME ["/var/log/afl/"]
+
+CMD ["docker/fuzz_config.sh"]

@@ -1,11 +1,6 @@
+## Image name: faucet/gnmi
+
 FROM ubuntu:16.04
-
-ENV HOME=/root
-ENV GOPATH=$HOME/go
-ENV GOBIN=$GOPATH/bin 
-ENV PATH=$GOBIN:${PATH}
-
-WORKDIR $HOME
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -qy --no-install-recommends \
@@ -28,6 +23,16 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -qy --no-install-recommends \
     sudo \
     vim
 
+ENV HOME=/home/faucet
+RUN mkdir $HOME
+WORKDIR $HOME
+
+COPY ./ .
+
+ENV GOPATH=$HOME/go
+ENV GOBIN=$GOPATH/bin
+ENV PATH=$GOBIN:${PATH}
+
 RUN mkdir -p \
       $GOPATH \
     && go get -u \
@@ -42,7 +47,6 @@ RUN go install -v \
       github.com/google/gnxi/gnmi_set \
       github.com/google/gnxi/gnmi_target
 
-COPY gnmi .
 
 RUN cd $HOME/certs/ \
     && ./generate.sh
