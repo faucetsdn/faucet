@@ -247,6 +247,11 @@ class FaucetTestBase(unittest.TestCase):
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_static_vars()
+        for except_log in (
+                self.env['faucet']['FAUCET_EXCEPTION_LOG'],
+                self.env['gauge']['GAUGE_EXCEPTION_LOG']):
+            if os.path.exists(except_log):
+                os.remove(except_log)
 
         if self.hw_switch:
             self.topo_class = faucet_mininet_test_topo.FaucetHwSwitchTopo
