@@ -24,12 +24,12 @@ import requests
 from requests.exceptions import ConnectionError
 
 # pylint: disable=import-error
+from ryu.ofproto import ofproto_v1_3 as ofp
 from mininet.link import TCLink
 from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
-from ryu.ofproto import ofproto_v1_3 as ofp
 
 import faucet_mininet_test_util
 import faucet_mininet_test_topo
@@ -247,11 +247,6 @@ class FaucetTestBase(unittest.TestCase):
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_static_vars()
-        for except_log in (
-                self.env['faucet']['FAUCET_EXCEPTION_LOG'],
-                self.env['gauge']['GAUGE_EXCEPTION_LOG']):
-            if os.path.exists(except_log):
-                os.remove(except_log)
 
         if self.hw_switch:
             self.topo_class = faucet_mininet_test_topo.FaucetHwSwitchTopo
@@ -262,8 +257,6 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        with open(os.path.join(self.tmpdir, 'prometheus.log'), 'w') as prom_log:
-            prom_log.write(self.scrape_prometheus())
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
@@ -370,6 +363,8 @@ class FaucetTestBase(unittest.TestCase):
             self._allocate_faucet_ports()
             self._set_vars()
             self._write_faucet_config()
+            for log in glob.glob(os.path.join(self.tmpdir, '*.log')):
+                os.remove(log)
             self.net = Mininet(
                 self.topo,
                 link=TCLink,
@@ -921,7 +916,10 @@ dbs:
         for prom_line in prom_lines:
             if not prom_line.startswith('#'):
                 prom_vars.append(prom_line)
-        return '\n'.join(prom_vars)
+        prom_txt = '\n'.join(prom_vars)
+        with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller), 'w') as prom_log:
+            prom_log.write(prom_txt)
+        return prom_txt
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet', retries=1):
