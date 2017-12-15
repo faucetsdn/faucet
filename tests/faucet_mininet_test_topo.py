@@ -492,7 +492,8 @@ class FAUCET(BaseFAUCET):
 
     def __init__(self, name, tmpdir, controller_intf, env,
                  ctl_privkey, ctl_cert, ca_certs,
-                 ports_sock, port, test_name, **kwargs):
+                 ports_sock, prom_port, port, test_name, **kwargs):
+        self.prom_port = prom_port
         self.ofctl_port = faucet_mininet_test_util.find_free_port(
             ports_sock, test_name)
         cargs = ' '.join((
@@ -509,7 +510,10 @@ class FAUCET(BaseFAUCET):
             **kwargs)
 
     def listening(self):
-        return self.listen_port(self.ofctl_port) and super(FAUCET, self).listening()
+        return (
+            self.listen_port(self.ofctl_port) and
+            self.listen_port(self.prom_port) and
+            super(FAUCET, self).listening())
 
 
 class Gauge(BaseFAUCET):
