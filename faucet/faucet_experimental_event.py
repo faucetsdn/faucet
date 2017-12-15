@@ -39,42 +39,19 @@ class FaucetExperimentalEventNotifier(object):
     """Event notification, via Unix domain socket."""
 
     def __init__(self, socket_path, metrics, logger):
-        if socket_path:
-            if os.path.exists(os.path.dirname(socket_path)):
-                self.socket_path = socket_path
-            else:
-                self.socket_path = '/var/run/faucet/faucet.sock'
-        else:
-            self.socket_path = socket_path
         self.metrics = metrics
         self.logger = logger
         self.event_q = queue.Queue(120)
         self.event_id = 0
         self.thread = None
+        self.socket_path = self.check_path(socket_path)
 
     def start(self):
         """Start socket server."""
         if self.socket_path:
-            socket_dir = os.path.dirname(self.socket_path)
-            if not os.path.exists(socket_dir):
-                try:
-                    os.makedirs(socket_dir)
-                except (PermissionError) as err: # pytype: disable=name-error
-                    self.logger.error('Unable to create event socket directory: %s', err)
-                    return None
-            if os.path.exists(self.socket_path):
-                try:
-                    os.remove(self.socket_path)
-                except (PermissionError) as err: # pytype: disable=name-error
-                    self.logger.error('Unable to remove old socket: %s', err)
-                    return None
-            if os.access(socket_dir, os.R_OK | os.W_OK | os.X_OK):
-                self.thread = hub.spawn(
-                    StreamServer((self.socket_path, None), self._loop).serve_forever)
-                return self.thread
-            else:
-                self.logger.error('Incorrect permissions set on socket directory %s', socket_dir)
-                return None
+            self.thread = hub.spawn(
+                StreamServer((self.socket_path, None), self._loop).serve_forever)
+            return self.thread
 
         return None
 
@@ -112,3 +89,29 @@ class FaucetExperimentalEventNotifier(object):
                 self.logger.warning('event notify queue full')
             else:
                 self.event_q.put(event)
+
+    def check_path(self, socket_path):
+        """Check that socket_path is valid."""
+        if not socket_path:
+            return None
+        socket_path = os.path.abspath(socket_path)
+        socket_dir = os.path.dirname(socket_path)
+        # Create parent directories that don't exist.
+        if not os.path.exists(socket_dir):
+            try:
+                os.makedirs(socket_dir)
+            except (PermissionError) as err: # pytype: disable=name-error
+                self.logger.error('Unable to create event socket directory: %s', err)
+                return None
+        # Check directory permissions.
+        if not os.access(socket_dir, os.R_OK | os.W_OK | os.X_OK):
+            self.logger.error('Incorrect permissions set on socket directory %s', socket_dir)
+            return None
+        # Remove stale socket file.
+        if os.path.exists(socket_path):
+            try:
+                os.remove(socket_path)
+            except (PermissionError) as err: # pytype: disable=name-error
+                self.logger.error('Unable to remove old socket: %s', err)
+                return None
+        return socket_path

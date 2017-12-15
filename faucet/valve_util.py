@@ -59,38 +59,47 @@ def get_sys_prefix():
 
 
 _PREFIX = get_sys_prefix()
+# To specify a boolean-only setting, set the default value to a bool type.
 DEFAULTS = {
     'FAUCET_CONFIG': _PREFIX + '/etc/ryu/faucet/faucet.yaml',
-    'FAUCET_CONFIG_STAT_RELOAD': '0',
+    'FAUCET_CONFIG_STAT_RELOAD': False,
     'FAUCET_LOG_LEVEL': 'INFO',
     'FAUCET_LOG': _PREFIX + '/var/log/ryu/faucet/faucet.log',
-    'FAUCET_EVENT_SOCK': '0',
+    'FAUCET_EVENT_SOCK': '',  # Special-case, see get_setting().
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/faucet_exception.log',
     'FAUCET_PROMETHEUS_PORT': '9302',
     'FAUCET_PROMETHEUS_ADDR': '',
     'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/ryu/faucet',
     'GAUGE_CONFIG': _PREFIX + '/etc/ryu/faucet/gauge.yaml',
-    'GAUGE_CONFIG_STAT_RELOAD': '0',
+    'GAUGE_CONFIG_STAT_RELOAD': False,
     'GAUGE_LOG_LEVEL': 'INFO',
     'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/gauge_exception.log',
     'GAUGE_LOG': _PREFIX + '/var/log/ryu/faucet/gauge.log',
 }
 
 
+def _cast_bool(value):
+    "Return True if value is a non-zero int."
+    try:
+        return int(value) != 0
+    except ValueError:
+        return False
+
+
 def get_setting(name):
     """Returns value of specified configuration setting."""
-    return os.getenv(name, DEFAULTS[name])
-
-
-def get_bool_setting(name):
-    """Return True if setting is a non-zero int."""
-    str_setting = os.getenv(name, DEFAULTS[name])
-    try:
-        if int(str_setting):
-            return True
-    except ValueError:
-        pass
-    return False
+    default_value = DEFAULTS[name]
+    result = os.getenv(name, default_value)
+    # Check for setting that expects a boolean result.
+    if isinstance(default_value, bool):
+        return _cast_bool(result)
+    # Special default for FAUCET_EVENT_SOCK.
+    if name == 'FAUCET_EVENT_SOCK':
+        if result == '0':
+            return ''
+        if _cast_bool(result):
+            return _PREFIX + '/var/run/faucet/faucet.sock'
+    return result
 
 
 def get_logger(logname, logfile, loglevel, propagate):
