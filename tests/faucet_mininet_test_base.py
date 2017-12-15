@@ -381,6 +381,7 @@ class FaucetTestBase(unittest.TestCase):
                     ctl_cert=self.ctl_cert,
                     ca_certs=self.ca_certs,
                     ports_sock=self.ports_sock,
+                    prom_port=self.get_prom_port(),
                     port=self.of_port,
                     test_name=self._test_name()))
             if self.RUN_GAUGE:
