@@ -36,7 +36,7 @@ from ryu.lib import hub
 from faucet.conf import InvalidConfigError
 from faucet.config_parser import dp_parser, get_config_for_api
 from faucet.config_parser_util import config_changed
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_bool_setting, get_setting
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
@@ -103,7 +103,7 @@ class Faucet(app_manager.RyuApp):
         self.loglevel = get_setting('FAUCET_LOG_LEVEL')
         self.logfile = get_setting('FAUCET_LOG')
         self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
-        self.stat_reload = get_bool_setting('FAUCET_CONFIG_STAT_RELOAD')
+        self.stat_reload = get_setting('FAUCET_CONFIG_STAT_RELOAD')
 
         self.dpset = kwargs['dpset']
         self.api = kwargs['faucet_experimental_api']
