@@ -397,7 +397,7 @@ configuration.
 
         def resolve_vlan(vlan_name):
             """Resolve VLAN by name or VID."""
-            assert isinstance(vlan_name, str) or isinstance(vlan_by_name, int), (
+            assert isinstance(vlan_name, str) or isinstance(vlan_name, int), (
                 'VLAN must be type %s or %s not %s' % (str, int, type(vlan_name)))
             if vlan_name in vlan_by_name:
                 return vlan_by_name[vlan_name]
