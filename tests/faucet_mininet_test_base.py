@@ -1768,11 +1768,12 @@ dbs:
                                    second_host_ip, second_host_routed_ip):
         """Configure host IPv6 addresses for testing."""
         for host in first_host, second_host:
-            host.cmd('ip -6 addr flush dev %s' % host.intf())
+            for intf in (host.intf(), 'lo'):
+                host.cmd('ip -6 addr flush dev %s' % intf)
         self.add_host_ipv6_address(first_host, first_host_ip)
         self.add_host_ipv6_address(second_host, second_host_ip)
-        self.add_host_ipv6_address(first_host, first_host_routed_ip)
-        self.add_host_ipv6_address(second_host, second_host_routed_ip)
+        self.add_host_ipv6_address(first_host, first_host_routed_ip, intf='lo')
+        self.add_host_ipv6_address(second_host, second_host_routed_ip, intf='lo')
         for host in first_host, second_host:
             self.require_host_learned(host)
 
