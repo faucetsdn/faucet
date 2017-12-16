@@ -1489,12 +1489,16 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
         first_host, second_host, third_host = self.net.hosts[:3]
         for host in (second_host, third_host):
             self.net.ping((first_host, host))
+        for host in (first_host, second_host):
+            self.require_host_learned(host)
         self.assertEqual(2, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
         self.change_port_config(
             self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
         for host in (second_host, third_host):
             self.net.ping((first_host, host))
+        for host in (first_host, second_host, third_host):
+            self.require_host_learned(host)
         self.assertEqual(3, self.scrape_prometheus_var(
             'vlan_hosts_learned', {'vlan': '100'}))
 
