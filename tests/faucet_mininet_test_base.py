@@ -1408,8 +1408,10 @@ dbs:
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
         self.one_ipv6_ping(host, self.FAUCET_VIPV6.ip)
-        self.verify_ipv6_host_learned_mac(
-            host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
+        # TODO: VIP might not be in neighbor table if still tentative/ND used non VIP source address.
+        # Make test host source addresses consistent.
+        # self.verify_ipv6_host_learned_mac(
+        #    host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
     def retry_net_ping(self, hosts=None, required_loss=0, retries=3):
         loss = None
