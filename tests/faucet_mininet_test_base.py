@@ -1654,13 +1654,11 @@ dbs:
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
     def iperf_client(self, client_host, iperf_client_cmd):
-        for _ in range(3):
-            iperf_results = client_host.cmd(iperf_client_cmd)
-            iperf_csv = iperf_results.strip().split(',')
-            if len(iperf_csv) == 9:
-                return int(iperf_csv[-1]) / self.ONEMBPS
-            time.sleep(1)
-        self.fail('%s: %s' % (iperf_client_cmd, iperf_results))
+        iperf_results = client_host.cmd(iperf_client_cmd)
+        iperf_csv = iperf_results.strip().split(',')
+        if len(iperf_csv) == 9:
+            return int(iperf_csv[-1]) / self.ONEMBPS
+        return None
 
     def iperf(self, client_host, client_ip, server_host, server_ip, seconds):
         for _ in range(3):
@@ -1672,30 +1670,34 @@ dbs:
             iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
             iperf_server_cmd = faucet_mininet_test_util.timeout_cmd(
                 iperf_server_cmd, (seconds * 3) + 5)
+            server_start_exp = r'Server listening on TCP port %u' % port
             iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
                 '%s -y c -c %s -B %s -t %u' % (iperf_base_cmd, server_ip, client_ip, seconds),
                 seconds + 5)
-            server_start_exp = r'Server listening on TCP port %u' % port
-            server_out = server_host.popen(
-                iperf_server_cmd,
-                stdin=faucet_mininet_test_util.DEVNULL,
-                stderr=subprocess.STDOUT,
-                close_fds=True)
-            popens = {server_host: server_out}
-            lines = []
-            for host, line in pmonitor(popens):
-                if host == server_host:
-                    lines.append(line)
-                    if re.search(server_start_exp, line):
-                        self.wait_for_tcp_listen(
-                            server_host, port, ipv=server_ip.version)
-                        iperf_mbps = self.iperf_client(
-                            client_host, iperf_client_cmd)
-                        self._signal_proc_on_port(server_host, port, 9)
-                        return iperf_mbps
+
+            def run_iperf():
+                server_out = server_host.popen(
+                    iperf_server_cmd,
+                    stdin=faucet_mininet_test_util.DEVNULL,
+                    stderr=subprocess.STDOUT,
+                    close_fds=True)
+                popens = {server_host: server_out}
+                for host, line in pmonitor(popens):
+                    if host == server_host:
+                        if re.search(server_start_exp, line):
+                            self.wait_for_tcp_listen(
+                                server_host, port, ipv=server_ip.version)
+                            iperf_mbps = self.iperf_client(
+                                client_host, iperf_client_cmd)
+                            self._signal_proc_on_port(server_host, port, 9)
+                            return iperf_mbps
+                return None
+
+            iperf_mbps = run_iperf()
+            if iperf_mbps is not None:
+                return iperf_mbps
             time.sleep(1)
-        self.fail('%s never started (%s, %s)' % (
-            iperf_server_cmd, server_start_exp, ' '.join(lines)))
+        self.fail('%s never started (%s)' % iperf_server_cmd)
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip,
