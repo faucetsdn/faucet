@@ -31,12 +31,12 @@ easily without having to build your own.
 
 We use Docker tags to differentiate between versions of Faucet. The latest
 tag will always point to the latest git commit. All tagged versions of Faucet
-in git are also available to use, for example using the faucet/faucet:v1_3
-Docker will run the stable version 1.3 of Faucet.
+in git are also available to use, for example using the ``faucet/faucet:1.6.0``
+Docker will run the released version 1.6.0 of Faucet.
 
-By default the Faucet and Gauge images are run as the `faucet` user under UID 0,
-if you need to change that it can be overridden at runtime with the Docker
-`-e LOCAL_USER_ID` flag.
+By default the Faucet and Gauge images are run as the `faucet` user under
+UID 0, GID 0. If you need to change that it can be overridden at runtime with
+the Docker flags: ``-e LOCAL_USER_ID`` and ``-e LOCAL_GROUP_ID``.
 
 To pull and run the latest git version of Faucet:
 
