@@ -18,8 +18,8 @@ from SimpleHTTPServer import SimpleHTTPRequestHandler
 from BaseHTTPServer import HTTPServer
 
 import ipaddress
-import scapy.all
 import yaml
+import scapy.all
 
 from mininet.log import error, output
 from mininet.net import Mininet
@@ -288,7 +288,7 @@ class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
-        frst_host_ip = ipaddress.ip_address(unicode(first_host.IP()))
+        first_host_ip = ipaddress.ip_address(unicode(first_host.IP()))
         second_host_ip = ipaddress.ip_address(unicode(second_host.IP()))
         for _ in range(3):
             self.ping_all_when_learned()
