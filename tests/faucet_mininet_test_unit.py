@@ -2342,7 +2342,7 @@ class FaucetUntaggedIPv6ControlPlaneFuzzTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -2397,7 +2397,7 @@ class FaucetSingleUntaggedIPv6ControlPlaneTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -3081,7 +3081,7 @@ class FaucetTaggedIPv6ControlPlaneTest(FaucetTaggedTest):
 vlans:
     100:
         description: "tagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -3130,7 +3130,7 @@ acls:
 vlans:
     100:
         description: "tagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
 """
 
     CONFIG = """
@@ -3259,7 +3259,7 @@ class FaucetTaggedProactiveNeighborIPv6RouteTest(FaucetTaggedTest):
 vlans:
     100:
         description: "tagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:3/64"]
+        faucet_vips: ["fc00::1:3/64"]
 """
 
     CONFIG = """
@@ -3433,10 +3433,10 @@ class FaucetUntaggedIPv6InterVLANRouteTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
     100:
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/64"]
+        faucet_vips: ["fc00::1:254/64"]
     vlanb:
         vid: 200
-        faucet_vips: ["fe80::2:254/64", "fc01::1:254/64"]
+        faucet_vips: ["fc01::1:254/64"]
         faucet_mac: "%s"
     vlanc:
         vid: 100
@@ -3629,7 +3629,7 @@ class FaucetUntaggedMixedIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/64", "fc01::1:254/64"]
+        faucet_vips: ["fc00::1:254/64", "fc01::1:254/64"]
 """
 
     CONFIG = """
@@ -3673,7 +3673,7 @@ class FaucetUntaggedBGPIPv6DefaultRouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
         bgp_port: %(bgp_port)d
         bgp_server_addresses: ["::1"]
         bgp_as: 1
@@ -3741,7 +3741,7 @@ class FaucetUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
         bgp_port: %(bgp_port)d
         bgp_server_addresses: ["::1"]
         bgp_as: 1
@@ -3809,7 +3809,7 @@ class FaucetUntaggedSameVlanIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::10:1/112", "fc00::20:1/112"]
+        faucet_vips: ["fc00::10:1/112", "fc00::20:1/112"]
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"
@@ -3865,7 +3865,7 @@ class FaucetUntaggedIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
         bgp_port: %(bgp_port)d
         bgp_server_addresses: ["::1"]
         bgp_as: 1
@@ -3937,7 +3937,7 @@ class FaucetTaggedIPv6RouteTest(FaucetTaggedTest):
 vlans:
     100:
         description: "tagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"
@@ -4482,7 +4482,7 @@ class FaucetGroupUntaggedIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fe80::1:254/64", "fc00::1:254/112"]
+        faucet_vips: ["fc00::1:254/112"]
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"
