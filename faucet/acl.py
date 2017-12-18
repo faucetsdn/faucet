@@ -71,6 +71,7 @@ The output action contains a dictionary with the following elements:
         if isinstance(conf, dict):
             if 'exact_match' in conf and conf['exact_match']:
                 self.exact_match = True
+            assert 'rules' in conf, 'no rules found for acl %s' % _id
             rules = conf['rules']
         self.rules = []
         assert isinstance(rules, list)

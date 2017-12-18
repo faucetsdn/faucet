@@ -29,8 +29,11 @@ def no_duplicates_constructor(loader, node, deep=False):
     keys = set()
     for key_node, _ in node.value:
         key = loader.construct_object(key_node, deep=deep)
-        if key in keys:
-            raise ConstructorError('duplicate key %s' % key)
+        try:
+            if key in keys:
+                raise ConstructorError('duplicate key %s' % key)
+        except TypeError:
+            raise ConstructorError('invalid key %s' % key)
         keys.add(key)
     return loader.construct_mapping(node, deep)
 
@@ -48,7 +51,8 @@ def read_config(config_file, logname):
     try:
         with open(config_file, 'r') as stream:
             conf = yaml.load(stream.read())
-    except (yaml.YAMLError, UnicodeDecodeError, PermissionError) as err: # pytype: disable=name-error
+    except (yaml.YAMLError, UnicodeDecodeError,
+            PermissionError) as err: # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
         return None
     return conf
@@ -68,6 +72,7 @@ def dp_config_path(config_file, parent_file=None):
 
 
 def dp_include(config_hashes, config_file, logname, top_confs):
+    """Handles including additional config files"""
     logger = get_logger(logname)
     if not os.path.isfile(config_file):
         logger.warning('not a regular file or does not exist: %s', config_file)
@@ -98,14 +103,18 @@ def dp_include(config_hashes, config_file, logname, top_confs):
         new_top_confs[conf_name] = curr_conf.copy()
         try:
             new_top_confs[conf_name].update(conf.pop(conf_name, {}))
-        except TypeError:
-            logger.error('Invalid config for "%s"' % conf_name)
+        except (TypeError, ValueError):
+            logger.error('Invalid config for "%s"', conf_name)
             return False
 
     for include_directive, file_required in (
             ('include', True),
             ('include-optional', False)):
-        for include_file in conf.pop(include_directive, []):
+        include_values = conf.pop(include_directive, [])
+        if not isinstance(include_values, list):
+            logger.error('Include directive is not in a valid format')
+            return False
+        for include_file in include_values:
             if not isinstance(include_file, str):
                 include_file = str(include_file)
 
@@ -118,11 +127,11 @@ def dp_include(config_hashes, config_file, logname, top_confs):
             if not dp_include(
                     new_config_hashes, include_path, logname, new_top_confs):
                 if file_required:
-                    logger.error('unable to load required include file: %s' % include_path)
+                    logger.error('unable to load required include file: %s', include_path)
                     return False
                 else:
                     new_config_hashes[include_path] = None
-                    logger.warning('skipping optional include file: %s' % include_path)
+                    logger.warning('skipping optional include file: %s', include_path)
 
     # Actually update the configuration data structures,
     # now that this file has been successfully loaded.

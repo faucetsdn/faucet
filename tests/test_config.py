@@ -771,6 +771,393 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_dp_id_not_a_string(self):
+        """Test dp_id is not a string"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: &x1
+        interfaces:
+            1:
+                native_vlan: office        
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_invalid_key(self):
+        """Test invalid key"""
+        config = """
+acls:
+ ?  office-vlan-protect:
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_invalid_acl_formation(self):
+        config = """
+acls:
+#   office-vlan-protect:
+        - rule:
+            actions:
+                allow: 1
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_invalid_route_value(self):
+        """Test routes value forming a dictionary"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        routes:
+        -   - route:
+                ip_dst: '192.168.0.0/24'
+                ip_gw: '10.0.100.2'
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_invalid_mirror_port(self):
+        """Test referencing invalid mirror port"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                mirror: 1"
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_invalid_include_values(self):
+        """Test include directive contains invalid values"""
+        config = """
+include:
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_ipv4_src_is_empty(self):
+        """Test acl ipv4_src is empty"""
+        config = """ 
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: 
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_empty_eth_dst(self):
+        """Test eth_dst/dl_dst is empty"""
+        config = """
+vlans:
+    100:
+acls:
+    101:
+        - rule:
+            dl_dst:
+            actions:
+                output:
+                    port: 1
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: 101     
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_router_vlan_invalid_type(self):
+        """Test when router vlans forms a dict"""
+        config = """
+vlans:
+    100:
+acls:
+    101:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+               mirror: 
+                    port: 1
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: 101
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_mirror_port_invalid_type(self):
+        """Test when mirror port forms a dict"""
+        config = """
+vlans:
+    100:
+acls:
+    101:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+               mirror: 
+                    port: 1
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: 101
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_referencing_unconfigured_dp_in_stack(self):
+        """Test when referencing a nonexistent dp in a stack"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    3w1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_referencing_unconfigured_port_in_stack(self):
+        """Test when referencing a nonexistent port for dp in a stack"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            9:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_not_referencing_a_port_in_the_stack(self):
+        """Test when not referencing a port in a stack"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    0ort: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_not_referencing_a_dp_in_the_stack(self):
+        """Test when not referencing a dp in a stack"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    $p: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_no_rules_in_acl(self):
+        """Test when no rules are present in acl"""
+        config = """
+acls:
+    mirror_destination: {}
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_empty_ipv6_src(self):
+        """Test when ipv6_src is empty"""
+        config = """
+acls:
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv6_src: 
+            actions:
+                allow: 0
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_port_number_is_wrong_type(self):
+        """Test when port number is a dict"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+               number:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
