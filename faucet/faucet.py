@@ -76,6 +76,9 @@ class EventFaucetAdvertise(event.EventBase):
     """Event used to trigger periodic network advertisements (eg IPv6 RAs)."""
     pass
 
+class EventFaucetStackNeighbourDiscovery(event.EventBase):
+    """Event used to trigger checking of link integrity in stacks."""
+    pass
 
 class Faucet(app_manager.RyuApp):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
@@ -147,7 +150,8 @@ class Faucet(app_manager.RyuApp):
             hub.spawn(thread) for thread in (
                 self._gateway_resolve_request, self._state_expire_request,
                 self._metric_update_request, self._advertise_request,
-                self._config_file_stat)])
+                self._config_file_stat, self._stack_neighbour_discovery_request)])
+        
 
         # Register to API
         self.api._register(self)
@@ -329,6 +333,9 @@ class Faucet(app_manager.RyuApp):
     def _advertise_request(self):
         self._thread_reschedule(EventFaucetAdvertise(), 5)
 
+    def _stack_neighbour_discovery_request(self):
+        self._thread_reschedule(EventFaucetStackNeighbourDiscovery(), 2)
+
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def resolve_gateways(self, _):
@@ -363,6 +370,14 @@ class Faucet(app_manager.RyuApp):
             flowmods = valve.advertise()
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
+
+    @set_ev_cls(EventFaucetStackNeighbourDiscovery, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
+    def neighbour_discovery(self, _):
+        """Handle a request to rediscover neighbours on dps in a stack."""
+        for dp_id, valve in list(self.valves.items()):
+            flowmods = valve.stack_neighbour_discovery()
+            self._send_flow_msgs(dp_id, flowmods)
 
     def get_config(self):
         """FAUCET experimental API: return config for all Valves."""
