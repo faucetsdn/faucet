@@ -110,7 +110,10 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                 port_num = port_conf['number']
             else:
                 port_num = port_ident
-            port_num_to_port_conf[port_num] = (port_ident, port_conf)
+            try:
+                port_num_to_port_conf[port_num] = (port_ident, port_conf)
+            except TypeError:
+                assert False, 'Invalid syntax in port config'
         for port_range, port_conf in list(port_ranges_conf.items()):
             # port range format: 1-6 OR 1-6,8-9 OR 1-3,5,7-9
             assert isinstance(port_conf, dict), 'Invalid syntax in port conig'

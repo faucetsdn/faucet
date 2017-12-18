@@ -200,6 +200,7 @@ configuration.
         return self.name
 
     def check_config(self):
+        assert isinstance(self.dp_id, int), 'dp_id must be %s not %s' % (int, type(self.dp_id))
         assert self.dp_id > 0 and self.dp_id <= 2**64-1, 'DP ID %s not in valid range' % self.dp_id
         assert not (self.group_table and self.group_table_routing), (
             'groups for routing and other functions simultaneously not supported')
@@ -386,6 +387,8 @@ configuration.
 
         def resolve_port_no(port_name):
             """Resolve port by name or number."""
+            assert isinstance(port_name, str) or isinstance(port_name, int), (
+                'VLAN must be type %s or %s not %s' % (str, int, type(port_name)))
             if port_name in port_by_name:
                 return port_by_name[port_name].number
             elif port_name in self.ports:
@@ -394,6 +397,8 @@ configuration.
 
         def resolve_vlan(vlan_name):
             """Resolve VLAN by name or VID."""
+            assert isinstance(vlan_name, str) or isinstance(vlan_name, int), (
+                'VLAN must be type %s or %s not %s' % (str, int, type(vlan_name)))
             if vlan_name in vlan_by_name:
                 return vlan_by_name[vlan_name]
             elif vlan_name in self.vlans:
@@ -404,11 +409,15 @@ configuration.
             """Resolve DP references in stacking config."""
             port_stack_dp = {}
             for port in self.stack_ports:
+                assert 'dp' in port.stack, 'you did not reference a dp in the stack'
                 stack_dp = port.stack['dp']
+                assert stack_dp in dp_by_name, 'could not find dp %s' % stack_dp
                 port_stack_dp[port] = dp_by_name[stack_dp]
             for port, dp in list(port_stack_dp.items()):
                 port.stack['dp'] = dp
+                assert 'port' in port.stack, 'you did not reference a port in the stack'
                 stack_port_name = port.stack['port']
+                assert stack_port_name in dp.ports, 'could not find port %s in %s' % (stack_port_name, dp.name)
                 port.stack['port'] = dp.ports[stack_port_name]
 
         def resolve_mirror_destinations():
@@ -419,6 +428,7 @@ configuration.
                     if port.mirror in port_by_name:
                         mirror_from_port[port] = port_by_name[port.mirror]
                     else:
+                        assert port.mirror in self.ports, 'could not find port %s in %s' % (port.mirror, self.name)
                         mirror_from_port[self.ports[port.mirror]] = port
             for port, mirror_destination_port in list(mirror_from_port.items()):
                 port.mirror = mirror_destination_port.number

@@ -185,6 +185,8 @@ class VLAN(Conf):
                     self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
             except KeyError:
                 assert False, 'missing route config'
+            except TypeError:
+                assert False, '%s is not a valid routes value' % self.routes
 
     @staticmethod
     def vid_valid(vid):

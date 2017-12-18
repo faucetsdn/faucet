@@ -383,7 +383,10 @@ def match_from_dict(match_dict):
             # For old field name
             key = old_keys[key]
         assert key in convert, 'Unknown match field: %s' % key
-        value = convert[key](value)
+        try:
+            value = convert[key](value)
+        except TypeError:
+            assert False, '%s cannot be type %s' % (key, type(value))
         if key == 'tp_src' or key == 'tp_dst':
             # TCP/UDP port
             conv = {inet.IPPROTO_TCP: {'tp_src': 'tcp_src',
