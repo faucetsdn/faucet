@@ -219,6 +219,7 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
         instructions = stats['instructions']
         tags = {
             'dp_name': self.dp.name,
+            'dp_id': hex(self.dp.dp_id),
             'table_id': int(stats['table_id']),
             'priority': int(stats['priority']),
             'inst_count': len(instructions),

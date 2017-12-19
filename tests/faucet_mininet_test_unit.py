@@ -381,7 +381,12 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         type: 'port_stats'
         interval: 5
         db: 'prometheus'
-""" % self.DP_NAME
+    flow_table:
+        dps: ['%s']
+        type: 'flow_table'
+        interval: 5
+        db: 'prometheus'
+""" % (self.DP_NAME, self.DP_NAME)
 
     def _start_gauge_check(self):
         if not self.gauge_controller.listen_port(self.config_ports['gauge_prom_port']):

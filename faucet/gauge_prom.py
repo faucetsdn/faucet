@@ -18,7 +18,7 @@
 
 from prometheus_client import Gauge as PromGauge # avoid collision
 
-from faucet.gauge_pollers import GaugePortStatsPoller
+from faucet.gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
 from faucet.prom_client import PromClient
 from faucet.valve_of import MATCH_FIELDS
 
@@ -57,8 +57,7 @@ class GaugePrometheusClient(PromClient):
                 exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'])
         flow_labels = (
             self.REQUIRED_LABELS +
-            ['table_id', 'priority', 'inst_count', 'vlan'] +
-            list(MATCH_FIELDS.keys()))
+            ['table_id', 'priority', 'inst_count', 'vlan'])
         for prom_var in PROM_FLOW_VARS:
             self.metrics[prom_var] = PromGauge(
                 prom_var, '', flow_labels)
@@ -90,3 +89,19 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
             for stat_name, stat_val in self._format_port_stats(
                     PROM_PREFIX_DELIM, stat):
                 self.prom_client.metrics[stat_name].labels(**port_labels).set(stat_val)
+
+
+class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
+
+    def update(self, rcv_time, dp_id, msg):
+        super(GaugeFlowTablePrometheusPoller, self).update(rcv_time, dp_id, msg)
+        jsondict = msg.to_jsondict()
+        for stats_reply in jsondict['OFPFlowStatsReply']['body']:
+            stats = stats_reply['OFPFlowStats']
+            for var, tags, count in self._parse_flow_stats(stats):
+                for match in MATCH_FIELDS:
+                     if match in tags:
+                         del tags[match]
+                if 'vlan' not in tags:
+                    tags['vlan'] = ''
+                self.prom_client.metrics[var].labels(**tags).set(count)
