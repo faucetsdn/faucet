@@ -710,8 +710,9 @@ dbs:
             }
             if match is not None:
                 for new_match, old_match in list(old_matches.items()):
-                    match[old_match] = match[new_match]
-                    del match[new_match]
+                    if new_match in match:
+                        match[old_match] = match[new_match]
+                        del match[new_match]
             return match
 
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
