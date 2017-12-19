@@ -709,7 +709,7 @@ dbs:
                 'ip_proto': 'nw_proto',
             }
             if match is not None:
-                for new_match, old_match in list(old_matches.item()):
+                for new_match, old_match in list(old_matches.items()):
                     match[new_match] = match[old_match]
                     del match[old_match]
             return match
