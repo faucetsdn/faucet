@@ -381,7 +381,12 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         type: 'port_stats'
         interval: 5
         db: 'prometheus'
-""" % self.DP_NAME
+    flow_table:
+        dps: ['%s']
+        type: 'flow_table'
+        interval: 5
+        db: 'prometheus'
+""" % (self.DP_NAME, self.DP_NAME)
 
     def _start_gauge_check(self):
         if not self.gauge_controller.listen_port(self.config_ports['gauge_prom_port']):
@@ -1233,7 +1238,7 @@ acls:
                 port = (rule + 1) % 2**16
                 rule_yaml = {
                     'eth_type': eth_type,
-                    'nw_proto': 6,
+                    'ip_proto': 6,
                     'tcp_src': port,
                     'tcp_dst': port,
                     'ipv%u_src' % host_ip.version: ip_match,
@@ -1295,14 +1300,14 @@ acls:
     1:
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
+            ip_proto: 6
+            tcp_dst: 5001
             actions:
                 allow: 0
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5002
+            ip_proto: 6
+            tcp_dst: 5002
             actions:
                 allow: 1
         - rule:
@@ -1311,14 +1316,14 @@ acls:
     2:
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
+            ip_proto: 6
+            tcp_dst: 5001
             actions:
                 allow: 1
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5002
+            ip_proto: 6
+            tcp_dst: 5002
             actions:
                 allow: 0
         - rule:
@@ -1420,7 +1425,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.change_port_config(
             self.port_map['port_1'], 'acl_in', 1, cold_start=False)
         self.wait_until_matching_flow(
-            {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001},
+            {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
             table_id=self.PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -1446,7 +1451,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.change_port_config(
             self.port_map['port_1'], 'acl_in', 1, cold_start=False)
         self.wait_until_matching_flow(
-            {u'in_port': int(self.port_map['port_1']), u'tp_dst': 5001},
+            {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
             table_id=self.PORT_ACL_TABLE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -2486,14 +2491,14 @@ acls:
     1:
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5002
+            ip_proto: 6
+            tcp_dst: 5002
             actions:
                 allow: 1
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
+            ip_proto: 6
+            tcp_dst: 5001
             actions:
                 allow: 0
         - rule:
@@ -2538,21 +2543,21 @@ acls:
     1:
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5002
+            ip_proto: 6
+            tcp_dst: 5002
             actions:
                 allow: 1
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
+            ip_proto: 6
+            tcp_dst: 5001
             actions:
                 allow: 0
         - rule:
             dl_type: 0x800
-            nw_proto: 6
+            ip_proto: 6
             # Match packets > 1023
-            tp_dst: 1024/1024
+            tcp_dst: 1024/1024
             actions:
                 allow: 0
         - rule:
@@ -2574,14 +2579,14 @@ acls:
     1:
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5001
+            ip_proto: 6
+            tcp_dst: 5001
             actions:
                 allow: 0
         - rule:
             dl_type: 0x800
-            nw_proto: 6
-            tp_dst: 5002
+            ip_proto: 6
+            tcp_dst: 5002
             actions:
                 allow: 1
         - rule:
@@ -4278,16 +4283,16 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         1: [
             {'rule': {
                 'dl_type': int('0x800', 16),
-                'nw_proto': 6,
-                'tp_dst': 5001,
+                'ip_proto': 6,
+                'tcp_dst': 5001,
                 'actions': {
                     'allow': 1,
                 },
             }},
             {'rule': {
                 'dl_type': int('0x800', 16),
-                'nw_proto': 6,
-                'tp_dst': 5002,
+                'ip_proto': 6,
+                'tcp_dst': 5002,
                 'actions': {
                     'allow': 0,
                 },
@@ -4306,16 +4311,16 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         1: [
             {'rule': {
                 'dl_type': int('0x800', 16),
-                'nw_proto': 6,
-                'tp_dst': 5001,
+                'ip_proto': 6,
+                'tcp_dst': 5001,
                 'actions': {
                     'allow': 0,
                 },
             }},
             {'rule': {
                 'dl_type': int('0x800', 16),
-                'nw_proto': 6,
-                'tp_dst': 5002,
+                'ip_proto': 6,
+                'tcp_dst': 5002,
                 'actions': {
                     'allow': 1,
                 },

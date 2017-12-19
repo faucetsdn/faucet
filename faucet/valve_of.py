@@ -27,6 +27,8 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
+from faucet.valve_of_old import OLD_MATCH_FIELDS
+
 MIN_VID = 1
 MAX_VID = 4095
 VLAN_GROUP_OFFSET = MAX_VID + 1
@@ -305,98 +307,65 @@ def valve_match_vid(value):
     return to_match_vid(value, ofp.OFPVID_PRESENT)
 
 
+# See 7.2.3.7 Flow Match Fields (OF 1.3.5)
+MATCH_FIELDS = {
+    'in_port': OFCtlUtil(ofp).ofp_port_from_user,
+    'in_phy_port': str_to_int,
+    'metadata': to_match_masked_int,
+    'eth_dst': to_match_eth,
+    'eth_src': to_match_eth,
+    'eth_type': str_to_int,
+    'vlan_vid': valve_match_vid,
+    'vlan_pcp': str_to_int,
+    'ip_dscp': str_to_int,
+    'ip_ecn': str_to_int,
+    'ip_proto': str_to_int,
+    'ipv4_src': to_match_ip,
+    'ipv4_dst': to_match_ip,
+    'tcp_src': to_match_masked_int,
+    'tcp_dst': to_match_masked_int,
+    'udp_src': to_match_masked_int,
+    'udp_dst': to_match_masked_int,
+    'sctp_src': to_match_masked_int,
+    'sctp_dst': to_match_masked_int,
+    'icmpv4_type': str_to_int,
+    'icmpv4_code': str_to_int,
+    'arp_op': str_to_int,
+    'arp_spa': to_match_ip,
+    'arp_tpa': to_match_ip,
+    'arp_sha': to_match_eth,
+    'arp_tha': to_match_eth,
+    'ipv6_src': to_match_ip,
+    'ipv6_dst': to_match_ip,
+    'ipv6_flabel': str_to_int,
+    'icmpv6_type': str_to_int,
+    'icmpv6_code': str_to_int,
+    'ipv6_nd_target': to_match_ip,
+    'ipv6_nd_sll': to_match_eth,
+    'ipv6_nd_tll': to_match_eth,
+    'mpls_label': str_to_int,
+    'mpls_tc': str_to_int,
+    'mpls_bos': str_to_int,
+    'pbb_isid': to_match_masked_int,
+    'tunnel_id': to_match_masked_int,
+    'ipv6_exthdr': to_match_masked_int
+}
+
+
 def match_from_dict(match_dict):
-    convert = {
-        'in_port': OFCtlUtil(ofp).ofp_port_from_user,
-        'in_phy_port': str_to_int,
-        'metadata': to_match_masked_int,
-        'dl_dst': to_match_eth,
-        'dl_src': to_match_eth,
-        'eth_dst': to_match_eth,
-        'eth_src': to_match_eth,
-        'dl_type': str_to_int,
-        'eth_type': str_to_int,
-        'dl_vlan': valve_match_vid,
-        'vlan_vid': valve_match_vid,
-        'vlan_pcp': str_to_int,
-        'ip_dscp': str_to_int,
-        'ip_ecn': str_to_int,
-        'nw_proto': str_to_int,
-        'ip_proto': str_to_int,
-        'nw_src': to_match_ip,
-        'nw_dst': to_match_ip,
-        'ipv4_src': to_match_ip,
-        'ipv4_dst': to_match_ip,
-        'tp_src': to_match_masked_int,
-        'tp_dst': to_match_masked_int,
-        'tcp_src': to_match_masked_int,
-        'tcp_dst': to_match_masked_int,
-        'udp_src': to_match_masked_int,
-        'udp_dst': to_match_masked_int,
-        'sctp_src': to_match_masked_int,
-        'sctp_dst': to_match_masked_int,
-        'icmpv4_type': str_to_int,
-        'icmpv4_code': str_to_int,
-        'arp_op': str_to_int,
-        'arp_spa': to_match_ip,
-        'arp_tpa': to_match_ip,
-        'arp_sha': to_match_eth,
-        'arp_tha': to_match_eth,
-        'ipv6_src': to_match_ip,
-        'ipv6_dst': to_match_ip,
-        'ipv6_flabel': str_to_int,
-        'icmpv6_type': str_to_int,
-        'icmpv6_code': str_to_int,
-        'ipv6_nd_target': to_match_ip,
-        'ipv6_nd_sll': to_match_eth,
-        'ipv6_nd_tll': to_match_eth,
-        'mpls_label': str_to_int,
-        'mpls_tc': str_to_int,
-        'mpls_bos': str_to_int,
-        'pbb_isid': to_match_masked_int,
-        'tunnel_id': to_match_masked_int,
-        'ipv6_exthdr': to_match_masked_int
-    }
-
-    old_keys = {
-        'dl_dst': 'eth_dst',
-        'dl_src': 'eth_src',
-        'dl_type': 'eth_type',
-        'dl_vlan': 'vlan_vid',
-        'nw_src': 'ipv4_src',
-        'nw_dst': 'ipv4_dst',
-        'nw_proto': 'ip_proto'
-    }
-
-    if (match_dict.get('dl_type') == ether.ETH_TYPE_ARP or
-            match_dict.get('eth_type') == ether.ETH_TYPE_ARP):
-        if 'nw_src' in match_dict and 'arp_spa' not in match_dict:
-            match_dict['arp_spa'] = match_dict['nw_src']
-            del match_dict['nw_src']
-        if 'nw_dst' in match_dict and 'arp_tpa' not in match_dict:
-            match_dict['arp_tpa'] = match_dict['nw_dst']
-            del match_dict['nw_dst']
+    for old_match, new_match in list(OLD_MATCH_FIELDS.items()):
+        if old_match in match_dict:
+            match_dict[new_match] = match_dict[old_match]
+            del match_dict[old_match]
 
     kwargs = {}
-    for key, value in list(match_dict.items()):
-        if key in old_keys:
-            # For old field name
-            key = old_keys[key]
-        assert key in convert, 'Unknown match field: %s' % key
+    for match, field in list(match_dict.items()):
+        assert match in MATCH_FIELDS, 'Unknown match field: %s' % match
         try:
-            value = convert[key](value)
+            encoded_field = MATCH_FIELDS[match](field)
         except TypeError:
-            assert False, '%s cannot be type %s' % (key, type(value))
-        if key == 'tp_src' or key == 'tp_dst':
-            # TCP/UDP port
-            conv = {inet.IPPROTO_TCP: {'tp_src': 'tcp_src',
-                                       'tp_dst': 'tcp_dst'},
-                    inet.IPPROTO_UDP: {'tp_src': 'udp_src',
-                                       'tp_dst': 'udp_dst'}}
-            ip_proto = match_dict.get(
-                'nw_proto', match_dict.get('ip_proto', 0))
-            key = conv[ip_proto][key]
-        kwargs[key] = value
+            assert False, '%s cannot be type %s' % (match, type(field))
+        kwargs[match] = encoded_field
 
     return parser.OFPMatch(**kwargs)
 

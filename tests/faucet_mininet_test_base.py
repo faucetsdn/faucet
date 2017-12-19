@@ -701,7 +701,23 @@ dbs:
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                    actions=None, match_exact=False, hard_timeout=0):
+
+        # TODO: Ryu ofctl serializes to old matches.
+        def to_old_match(match):
+            old_matches = {
+                'tcp_dst': 'tp_dst',
+                'ip_proto': 'nw_proto',
+            }
+            if match is not None:
+                for new_match, old_match in list(old_matches.items()):
+                    if new_match in match:
+                        match[old_match] = match[new_match]
+                        del match[new_match]
+            return match
+
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
+        match = to_old_match(match)
+
         with open(flowdump, 'w') as flowdump_file:
             for _ in range(timeout):
                 flow_dicts = []

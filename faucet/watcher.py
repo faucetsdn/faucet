@@ -26,7 +26,7 @@ from faucet.valve_util import dpid_log
 from faucet.gauge_influx import GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger, GaugeFlowTableInfluxDBLogger
 from faucet.gauge_nsodbc import GaugeFlowTableDBLogger
 from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugePortStatsPoller, GaugeFlowTablePoller
-from faucet.gauge_prom import GaugePortStatsPrometheusPoller
+from faucet.gauge_prom import GaugePortStatsPrometheusPoller, GaugeFlowTablePrometheusPoller
 
 
 def watcher_factory(conf):
@@ -50,6 +50,7 @@ def watcher_factory(conf):
             'text': GaugeFlowTableLogger,
             'gaugedb': GaugeFlowTableDBLogger,
             'influx': GaugeFlowTableInfluxDBLogger,
+            'prometheus': GaugeFlowTablePrometheusPoller,
             },
     }
 
