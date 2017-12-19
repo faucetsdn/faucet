@@ -704,6 +704,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         db_logger.update(rcv_time, conf.dp.dp_id, msg)
 
         other_fields = {'dp_name': conf.dp.name,
+                        'dp_id': hex(conf.dp.dp_id),
                         'timestamp': rcv_time,
                         'priority': msg.body[0].priority,
                         'table_id': msg.body[0].table_id,
