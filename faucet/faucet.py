@@ -377,7 +377,8 @@ class Faucet(app_manager.RyuApp):
         """Handle a request to rediscover neighbours on dps in a stack."""
         for dp_id, valve in list(self.valves.items()):
             flowmods = valve.stack_neighbour_discovery()
-            self._send_flow_msgs(dp_id, flowmods)
+            if flowmods:
+                self._send_flow_msgs(dp_id, flowmods)
 
     def get_config(self):
         """FAUCET experimental API: return config for all Valves."""

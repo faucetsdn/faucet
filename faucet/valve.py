@@ -232,6 +232,24 @@ class Valve(object):
             priority=self.dp.low_priority,
             inst=[valve_of.goto_table(self.dp.tables['eth_dst'])])]
 
+    def _add_neighbour_discovery_flows(self):
+        """Add flows to handle neighbour discovery."""
+        ofmsgs = []
+        eth_src_table = self.dp.tables['eth_src']
+        # Respond to ND requests
+        ofmsgs.append(eth_src_table.flowmod(
+            # Matches nd requests from another dp
+            eth_src_table.match(eth_type=0xFCE7, eth_src="0e:00:00:00:00:01"),
+            priority=self.dp.highest_priority,
+            # Scrubs eth_src, indicates that this is a response
+            # Packet contains info on where it was sent from
+            # TODO: Indicate which switch replied to the packet
+            inst=[  valve_of.parser.OFPActionSetField(eth_src="00:00:00:00:00:00"),
+                    valve_of.output_in_port()]))
+        # TODO: Response should end up at controller, add flow to ensure this
+        return ofmsgs
+
+
     def _add_packetin_meter(self):
         """Add rate limiting of packet in pps (not supported by many DPs)."""
         if self.dp.packetin_pps:
@@ -349,6 +367,7 @@ class Valve(object):
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
         ofmsgs.extend(self._add_controller_learn_flow())
+        ofmsgs.extend(self._add_neighbour_discovery_flows())
         self.dp.running = True
         return ofmsgs
 
@@ -960,6 +979,40 @@ class Valve(object):
 
     def get_config_dict(self):
         return self.dp.get_config_dict()
+
+    def stack_neighbour_discovery(self):
+        """Attempts to determine link status by actively sending packets.
+
+        Returns:
+            list: OpenFlow messages, if any.
+        """
+        if not self.dp.running:
+            return []
+        if not self.dp.stack:
+            return []
+        ofmsgs = []
+
+        cur_time = time.time()
+
+        for port in self.dp.ports:
+            if not port.stack:
+                continue
+            # NOTE: Packets from faucet mac may be dropped, test this
+            pkt = valve_packet.build_pkt_header(None, '0e:00:00:00:00:01', '0e:00:00:00:00:01', 0xFCE7)
+
+            payload = str(self.dp.dp_id) + ':' + str(port.number)[-1] + ':' + str(cur_time)
+            pkt.add_protocol(payload)
+
+            pkt.serialize()
+            ofmsgs.append(valve_of.packetout(port.number, pkt))
+
+        # Timestamp of the last broadcast
+        self.dp.stack['last_nd_time'] = cur_time
+        # List of ports that have received a response
+        self.dp.stack['nd_ports'] = list()
+
+        # TODO: Create timed event to detect which ports haven't responded
+
 
 
 class TfmValve(Valve):
