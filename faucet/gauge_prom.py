@@ -18,9 +18,9 @@
 
 from prometheus_client import Gauge as PromGauge # avoid collision
 
-from faucet.valve_of import MATCH_FIELDS
 from faucet.gauge_pollers import GaugePortStatsPoller
 from faucet.prom_client import PromClient
+from faucet.valve_of import MATCH_FIELDS
 
 
 PROM_PREFIX_DELIM = '_'
@@ -57,7 +57,7 @@ class GaugePrometheusClient(PromClient):
                 exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'])
         flow_labels = (
             self.REQUIRED_LABELS +
-            ['table_id', 'priority', 'inst_count'] +
+            ['table_id', 'priority', 'inst_count', 'vlan'] +
             list(MATCH_FIELDS.keys()))
         for prom_var in PROM_FLOW_VARS:
             self.metrics[prom_var] = PromGauge(

@@ -27,6 +27,8 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
+from faucet.valve_of_old import OLD_MATCH_FIELDS
+
 MIN_VID = 1
 MAX_VID = 4095
 VLAN_GROUP_OFFSET = MAX_VID + 1
@@ -305,6 +307,7 @@ def valve_match_vid(value):
     return to_match_vid(value, ofp.OFPVID_PRESENT)
 
 
+# See 7.2.3.7 Flow Match Fields (OF 1.3.5)
 MATCH_FIELDS = {
     'in_port': OFCtlUtil(ofp).ofp_port_from_user,
     'in_phy_port': str_to_int,
@@ -346,17 +349,6 @@ MATCH_FIELDS = {
     'pbb_isid': to_match_masked_int,
     'tunnel_id': to_match_masked_int,
     'ipv6_exthdr': to_match_masked_int
-}
-
-
-OLD_MATCH_FIELDS = {
-    'dl_dst': 'eth_dst',
-    'dl_src': 'eth_src',
-    'dl_type': 'eth_type',
-    'dl_vlan': 'vlan_vid',
-    'nw_proto': 'ip_proto',
-    'nw_src': 'ipv4_src',
-    'nw_dst': 'ipv4_dst',
 }
 
 

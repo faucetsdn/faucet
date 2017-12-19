@@ -23,6 +23,7 @@ from ryu.lib import hub
 
 from faucet.valve_util import dpid_log
 from faucet.valve_of import devid_present
+from faucet.valve_of_old import OLD_MATCH_FIELDS
 
 
 class GaugePoller(object):
@@ -230,6 +231,8 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
             field = oxm_tlv['field']
             if mask is not None:
                 val = '/'.join((str(val), str(mask)))
+            if field in OLD_MATCH_FIELDS:
+                field = OLD_MATCH_FIELDS[field]
             tags[field] = val
             if field == 'vlan_vid' and mask is None:
                 tags['vlan'] = devid_present(int(val))
