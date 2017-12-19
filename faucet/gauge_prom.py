@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from prometheus_client import Gauge as PromGauge # avoid collision
+from prometheus_client import Gauge as PromGauge, REGISTRY # avoid collision
 
 from faucet.gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
 from faucet.prom_client import PromClient
@@ -55,12 +55,14 @@ class GaugePrometheusClient(PromClient):
                 (PROM_PORT_PREFIX, prom_var))
             self.metrics[exported_prom_var] = PromGauge(
                 exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'])
-        flow_labels = (
-            self.REQUIRED_LABELS +
-            ['table_id', 'priority', 'inst_count', 'vlan'])
+        self.reregister_flow_vars(set())
+
+    def reregister_flow_vars(self, all_tags):
         for prom_var in PROM_FLOW_VARS:
+            if prom_var in self.metrics:
+                REGISTRY.unregister(self.metrics[prom_var])
             self.metrics[prom_var] = PromGauge(
-                prom_var, '', flow_labels)
+                prom_var, '', list(all_tags))
 
 
 class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
@@ -93,15 +95,22 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
 
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
 
+    all_tags = set()
+
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTablePrometheusPoller, self).update(rcv_time, dp_id, msg)
         jsondict = msg.to_jsondict()
         for stats_reply in jsondict['OFPFlowStatsReply']['body']:
             stats = stats_reply['OFPFlowStats']
+            # TODO: labels based on matches will be dynamic
+            # Work around this by unregistering/registering the entire variable.
+            # Consider using different variables for each tables to reduce dimensions
             for var, tags, count in self._parse_flow_stats(stats):
-                for match in MATCH_FIELDS:
-                     if match in tags:
-                         del tags[match]
-                if 'vlan' not in tags:
-                    tags['vlan'] = ''
+                tags_keys = set(tags.keys())
+                if not tags_keys.issubset(self.all_tags):
+                    self.all_tags = self.all_tags.union(tags_keys)
+                    self.prom_client.reregister_flow_vars(self.all_tags)
+                for tag in self.all_tags:
+                    if tag not in tags:
+                        tags[tag] = ''
                 self.prom_client.metrics[var].labels(**tags).set(count)
