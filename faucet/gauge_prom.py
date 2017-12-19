@@ -16,6 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
+
 from prometheus_client import Gauge as PromGauge, REGISTRY # avoid collision
 
 from faucet.gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
@@ -55,14 +57,14 @@ class GaugePrometheusClient(PromClient):
                 (PROM_PORT_PREFIX, prom_var))
             self.metrics[exported_prom_var] = PromGauge(
                 exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'])
-        self.reregister_flow_vars(set())
 
-    def reregister_flow_vars(self, all_tags):
+    def reregister_flow_vars(self, table_name, table_id, table_tags):
         for prom_var in PROM_FLOW_VARS:
-            if prom_var in self.metrics:
-                REGISTRY.unregister(self.metrics[prom_var])
-            self.metrics[prom_var] = PromGauge(
-                prom_var, '', list(all_tags))
+            table_prom_var = '_'.join((prom_var, table_name))
+            if table_prom_var in self.metrics:
+                REGISTRY.unregister(self.metrics[table_prom_var])
+            self.metrics[table_prom_var] = PromGauge(
+                table_prom_var, '', list(table_tags))
 
 
 class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
@@ -95,7 +97,7 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
 
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
 
-    all_tags = set()
+    table_tags = collections.defaultdict(set)
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTablePrometheusPoller, self).update(rcv_time, dp_id, msg)
@@ -104,13 +106,16 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
             stats = stats_reply['OFPFlowStats']
             # TODO: labels based on matches will be dynamic
             # Work around this by unregistering/registering the entire variable.
-            # Consider using different variables for each tables to reduce dimensions
             for var, tags, count in self._parse_flow_stats(stats):
+                table_id = int(tags['table_id'])
+                table_name = self.dp.tables_by_id[table_id].name
                 tags_keys = set(tags.keys())
-                if not tags_keys.issubset(self.all_tags):
-                    self.all_tags = self.all_tags.union(tags_keys)
-                    self.prom_client.reregister_flow_vars(self.all_tags)
-                for tag in self.all_tags:
+                if not tags_keys.issubset(self.table_tags[table_id]):
+                    self.table_tags[table_id] = self.table_tags[table_id].union(tags_keys)
+                    self.prom_client.reregister_flow_vars(
+                        table_name, table_id, self.table_tags[table_id])
+                for tag in self.table_tags[table_id]:
                     if tag not in tags:
                         tags[tag] = ''
-                self.prom_client.metrics[var].labels(**tags).set(count)
+                table_prom_var = '_'.join((var, table_name))
+                self.prom_client.metrics[table_prom_var].labels(**tags).set(count)
