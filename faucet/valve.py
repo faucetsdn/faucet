@@ -1011,13 +1011,36 @@ class Valve(object):
 
         # Timestamp of the last broadcast
         self.dp.stack['last_nd_time'] = cur_time
+        self.dp.stack['last_nd_count'] = len(ofmsgs)
         # List of ports that have received a response
-        self.dp.stack['nd_ports'] = list()
+        self.dp.stack['nd_ports'] = set()
 
         # TODO: Create timed event to detect which ports haven't responded
 
         return ofmsgs
 
+    def handle_neighbour_discovery_response(self, pkt_meta, data):
+        """Handles a response to a previously sent ND packet."""
+        def parse_pkt_data(data):
+            # TODO: Parse binary data to fields
+        
+        self.logger.info(str(pkt_meta))
+        self.logger.info(str(data))
+        # Parse data
+        dp, port, time = parse_pkt_data(data)
+        # Check that this packet it for the right dp
+        if dp != self.dp.dp_id:
+            return
+        # Check that this is a response to the latest broadcast
+        if time != self.dp.stack['last_nd_time']:
+            return
+        
+        ok_ports = self.dp.stack['nd_ports']
+        ok_ports.add(port)
+        
+        if len(ok_ports) == self.dp.stack['last_nd_count']:
+            # Cancel timer
+            pass
 
 
 class TfmValve(Valve):
