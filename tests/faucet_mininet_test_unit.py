@@ -463,8 +463,8 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                     updated_counters = False
                 if byte_count is None or byte_count == 0:
                     updated_counters = False
-                if updated_counters:
-                    return
+            if updated_counters:
+                return
             time.sleep(1)
 
         self.fail(msg='Gauge Prometheus flow counters not increasing')
