@@ -7,7 +7,7 @@
 
 # TODO: events are currently schema-less. This is to facilitate rapid prototyping, and will change.
 # TODO: not all cases where a notified client fails or could block, have been tested.
-# TODO: only one client is supported (multiple clients should be implemented with a client that copies/pushes to a message bus)
+# only one client is supported (multiple clients should be implemented with a client that copies/pushes to a message bus)
 
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
@@ -32,6 +32,8 @@ import queue
 import socket
 import time
 
+import eventlet
+
 from ryu.lib import hub
 from ryu.lib.hub import StreamServer
 
@@ -45,6 +47,7 @@ class FaucetExperimentalEventNotifier(object):
         self.event_q = queue.Queue(120)
         self.event_id = 0
         self.thread = None
+        self.lock = eventlet.semaphore.Semaphore()
         self.socket_path = self.check_path(socket_path)
 
     def start(self):
@@ -58,6 +61,13 @@ class FaucetExperimentalEventNotifier(object):
 
     def _loop(self, sock, _addr):
         """Serve events."""
+        if not self.lock.acquire(blocking=False):
+            try:
+                self.logger.error('multiple event clients not supported')
+                sock.close()
+            except (socket.error, IOError):
+                pass
+            return
         self.logger.info('event client connected')
         while True:
             while not self.event_q.empty():
@@ -66,6 +76,7 @@ class FaucetExperimentalEventNotifier(object):
                 try:
                     sock.sendall(event_bytes)
                 except (socket.error, IOError) as err:
+                    self.lock.release()
                     self.logger.info('event client disconnected: %s', err)
                     return
             hub.sleep(0.1)
@@ -87,9 +98,8 @@ class FaucetExperimentalEventNotifier(object):
         if self.thread:
             self.metrics.faucet_event_id.set(event['event_id'])
             if self.event_q.full():
-                self.logger.warning('event notify queue full')
-            else:
-                self.event_q.put(event)
+                self.event_q.get()
+            self.event_q.put(event)
 
     def check_path(self, socket_path):
         """Check that socket_path is valid."""
