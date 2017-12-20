@@ -117,6 +117,9 @@ vlans:
         self.gauge_smoke_test()
         self.prometheus_smoke_test()
         self.assertGreater(os.path.getsize(event_log), 0)
+        controller.cmd(
+            faucet_mininet_test_util.timeout_cmd(
+                'nc -U %s' % self.env['faucet']['FAUCET_EVENT_SOCK'], 10))
         for _ in range(3):
             prom_event_id = self.scrape_prometheus_var('faucet_event_id', dpid=False)
             event_id = None
