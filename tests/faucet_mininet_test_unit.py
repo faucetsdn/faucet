@@ -434,34 +434,40 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                         updated_counters = False
                         break
             if updated_counters:
-                for host in self.net.hosts:
-                    host_labels = {
-                        'dp_id': self.dpid,
-                        'dp_name': self.DP_NAME,
-                        'eth_dst': host.MAC(),
-                        'inst_count': str(1),
-                        'priority': str(9099),
-                        'table_id': str(self.ETH_DST_TABLE),
-                        'vlan': str(100),
-                        'vlan_vid': str(4196)
-                    }
-                    self.assertGreater(
-                        self.scrape_prometheus_var(
-                            'flow_packet_count_eth_dst', labels=host_labels, controller='gauge'),
-                        0,
-                        msg='could not find flow packet counter for eth_dst %s' % host.MAC())
-                    self.assertGreater(
-                        self.scrape_prometheus_var(
-                            'flow_byte_count_eth_dst', labels=host_labels, controller='gauge'),
-                        0,
-                        msg='could not find flow byte counter for eth_dst %s' % host.MAC())
                 break
             counter_delay += 1
             time.sleep(1)
 
         error('counter latency approx %u sec\n' % counter_delay)
         if not updated_counters:
-            self.fail(msg='Gauge Prometheus counters not increasing')
+            self.fail(msg='Gauge Prometheus port counters not increasing')
+
+        for _ in range(self.DB_TIMEOUT * 3):
+            updated_counters = True
+            for host in self.net.hosts:
+                host_labels = {
+                    'dp_id': self.dpid,
+                    'dp_name': self.DP_NAME,
+                    'eth_dst': host.MAC(),
+                    'inst_count': str(1),
+                    'priority': str(9099),
+                    'table_id': str(self.ETH_DST_TABLE),
+                    'vlan': str(100),
+                    'vlan_vid': str(4196)
+                }
+                packet_count = self.scrape_prometheus_var(
+                    'flow_packet_count_eth_dst', labels=host_labels, controller='gauge')
+                byte_count = self.scrape_prometheus_var(
+                    'flow_byte_count_eth_dst', labels=host_labels, controller='gauge')
+                if packet_count is None or packet_count == 0:
+                    updated_counters = False
+                if byte_count is None or byte_count == 0:
+                    updated_counters = False
+                if updated_counters:
+                    return
+            time.sleep(1)
+
+        self.fail(msg='Gauge Prometheus flow counters not increasing')
 
 
 class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
