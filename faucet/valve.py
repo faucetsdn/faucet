@@ -236,16 +236,19 @@ class Valve(object):
         """Add flows to handle neighbour discovery."""
         ofmsgs = []
         eth_src_table = self.dp.tables['eth_src']
+
+        actions = [valve_of.parser.OFPActionSetField(eth_src='00:00:00:00:00:00'),
+                  valve_of.output_in_port()]
+        instructions = [valve_of.apply_actions(actions)]
         # Respond to ND requests
         ofmsgs.append(eth_src_table.flowmod(
-            # Matches nd requests from another dp
-            eth_src_table.match(eth_type=0xFCE7, eth_src="0e:00:00:00:00:01"),
+            # Matches ND requests from another dp
+            eth_src_table.match(eth_type=0xFCE7, eth_src='0e:00:00:00:00:01'),
             priority=self.dp.highest_priority,
             # Scrubs eth_src, indicates that this is a response
             # Packet contains info on where it was sent from
             # TODO: Indicate which switch replied to the packet
-            inst=[  valve_of.parser.OFPActionSetField(eth_src="00:00:00:00:00:00"),
-                    valve_of.output_in_port()]))
+            inst=instructions))
         # TODO: Response should end up at controller, add flow to ensure this
         return ofmsgs
 
@@ -994,14 +997,14 @@ class Valve(object):
 
         cur_time = time.time()
 
-        for port in self.dp.ports:
+        for _port_num, port in self.dp.ports.items():
             if not port.stack:
                 continue
             # NOTE: Packets from faucet mac may be dropped, test this
             pkt = valve_packet.build_pkt_header(None, '0e:00:00:00:00:01', '0e:00:00:00:00:01', 0xFCE7)
 
             payload = str(self.dp.dp_id) + ':' + str(port.number)[-1] + ':' + str(cur_time)
-            pkt.add_protocol(payload)
+            pkt.add_protocol(payload.encode())
 
             pkt.serialize()
             ofmsgs.append(valve_of.packetout(port.number, pkt))
@@ -1012,6 +1015,8 @@ class Valve(object):
         self.dp.stack['nd_ports'] = list()
 
         # TODO: Create timed event to detect which ports haven't responded
+
+        return ofmsgs
 
 
 
