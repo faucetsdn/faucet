@@ -58,11 +58,13 @@ class GaugePrometheusClient(PromClient):
             self.metrics[exported_prom_var] = PromGauge(
                 exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'])
 
-    def reregister_flow_vars(self, table_name, table_id, table_tags):
+    def reregister_flow_vars(self, table_name, table_tags):
         for prom_var in PROM_FLOW_VARS:
             table_prom_var = '_'.join((prom_var, table_name))
-            if table_prom_var in self.metrics:
+            try:
                 REGISTRY.unregister(self.metrics[table_prom_var])
+            except KeyError:
+                pass
             self.metrics[table_prom_var] = PromGauge(
                 table_prom_var, '', list(table_tags))
 
@@ -109,13 +111,15 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
             for var, tags, count in self._parse_flow_stats(stats):
                 table_id = int(tags['table_id'])
                 table_name = self.dp.tables_by_id[table_id].name
-                tags_keys = set(tags.keys())
-                if not tags_keys.issubset(self.table_tags[table_id]):
-                    self.table_tags[table_id] = self.table_tags[table_id].union(tags_keys)
-                    self.prom_client.reregister_flow_vars(
-                        table_name, table_id, self.table_tags[table_id])
-                for tag in self.table_tags[table_id]:
-                    if tag not in tags:
-                        tags[tag] = ''
                 table_prom_var = '_'.join((var, table_name))
+                tags_keys = set(tags.keys())
+                if tags_keys != self.table_tags[table_id]:
+                    if not tags_keys.issubset(self.table_tags[table_id]):
+                        self.table_tags[table_id] = self.table_tags[table_id].union(tags_keys)
+                        self.prom_client.reregister_flow_vars(
+                            table_name, self.table_tags[table_id])
+                    # Add blank tags for any tags missing,
+                    for tag in self.table_tags[table_id]:
+                        if tag not in tags:
+                            tags[tag] = ''
                 self.prom_client.metrics[table_prom_var].labels(**tags).set(count)

@@ -434,6 +434,27 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                         updated_counters = False
                         break
             if updated_counters:
+                for host in self.net.hosts:
+                    host_labels = {
+                        'dp_id': self.dpid,
+                        'dp_name': self.DP_NAME,
+                        'eth_dst': host.MAC(),
+                        'inst_count': str(1),
+                        'priority': str(9099),
+                        'table_id': str(self.ETH_DST_TABLE),
+                        'vlan': str(100),
+                        'vlan_vid': str(4196)
+                    }
+                    self.assertGreater(
+                        self.scrape_prometheus_var(
+                            'flow_packet_count_eth_dst', labels=host_labels, controller='gauge'),
+                        0,
+                        msg='could not find flow packet counter for eth_dst %s' % host.MAC())
+                    self.assertGreater(
+                        self.scrape_prometheus_var(
+                            'flow_byte_count_eth_dst', labels=host_labels, controller='gauge'),
+                        0,
+                        msg='could not find flow byte counter for eth_dst %s' % host.MAC())
                 break
             counter_delay += 1
             time.sleep(1)
