@@ -24,12 +24,12 @@ import requests
 from requests.exceptions import ConnectionError
 
 # pylint: disable=import-error
+from ryu.ofproto import ofproto_v1_3 as ofp
 from mininet.link import TCLink
 from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
-from ryu.ofproto import ofproto_v1_3 as ofp
 
 import faucet_mininet_test_util
 import faucet_mininet_test_topo
@@ -257,8 +257,6 @@ class FaucetTestBase(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after a test."""
-        with open(os.path.join(self.tmpdir, 'prometheus.log'), 'w') as prom_log:
-            prom_log.write(self.scrape_prometheus())
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
@@ -346,6 +344,8 @@ class FaucetTestBase(unittest.TestCase):
             return 'ofctl not up'
         if not self.wait_dp_status(1):
             return 'prometheus port not up'
+        if not self._wait_controllers_healthy():
+            return 'not all controllers healthy after initial switch connection'
         if self.config_ports:
             for port_name, port in list(self.config_ports.items()):
                 if port is not None and not port_name.startswith('gauge'):
@@ -363,6 +363,8 @@ class FaucetTestBase(unittest.TestCase):
             self._allocate_faucet_ports()
             self._set_vars()
             self._write_faucet_config()
+            for log in glob.glob(os.path.join(self.tmpdir, '*.log')):
+                os.remove(log)
             self.net = Mininet(
                 self.topo,
                 link=TCLink,
@@ -374,6 +376,7 @@ class FaucetTestBase(unittest.TestCase):
                     ctl_cert=self.ctl_cert,
                     ca_certs=self.ca_certs,
                     ports_sock=self.ports_sock,
+                    prom_port=self.get_prom_port(),
                     port=self.of_port,
                     test_name=self._test_name()))
             if self.RUN_GAUGE:
@@ -698,7 +701,23 @@ dbs:
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                    actions=None, match_exact=False, hard_timeout=0):
+
+        # TODO: Ryu ofctl serializes to old matches.
+        def to_old_match(match):
+            old_matches = {
+                'tcp_dst': 'tp_dst',
+                'ip_proto': 'nw_proto',
+            }
+            if match is not None:
+                for new_match, old_match in list(old_matches.items()):
+                    if new_match in match:
+                        match[old_match] = match[new_match]
+                        del match[new_match]
+            return match
+
         flowdump = os.path.join(self.tmpdir, 'flowdump-%s.txt' % dpid)
+        match = to_old_match(match)
+
         with open(flowdump, 'w') as flowdump_file:
             for _ in range(timeout):
                 flow_dicts = []
@@ -913,7 +932,10 @@ dbs:
         for prom_line in prom_lines:
             if not prom_line.startswith('#'):
                 prom_vars.append(prom_line)
-        return '\n'.join(prom_vars)
+        prom_txt = '\n'.join(prom_vars)
+        with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller), 'w') as prom_log:
+            prom_log.write(prom_txt)
+        return prom_txt
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
                               dpid=True, multiple=False, controller='faucet', retries=1):
@@ -1225,7 +1247,7 @@ dbs:
     def of_bytes_mbps(self, start_port_stats, end_port_stats, var, seconds):
         return (end_port_stats[var] - start_port_stats[var]) * 8 / seconds / self.ONEMBPS
 
-    def verify_iperf_min(self, hosts_switch_ports, min_mbps, server_ip):
+    def verify_iperf_min(self, hosts_switch_ports, min_mbps, client_ip, server_ip):
         """Verify minimum performance and OF counters match iperf approximately."""
         seconds = 5
         prop = 0.1
@@ -1235,7 +1257,7 @@ dbs:
             hosts.append(host)
         client_host, server_host = hosts
         iperf_mbps = self.iperf(
-            client_host, server_host, server_ip, seconds)
+            client_host, client_ip, server_host, server_ip, seconds)
         self.assertTrue(iperf_mbps > min_mbps)
         # TODO: account for drops.
         for _ in range(3):
@@ -1402,8 +1424,10 @@ dbs:
     def one_ipv6_controller_ping(self, host):
         """Ping the controller from a host with IPv6."""
         self.one_ipv6_ping(host, self.FAUCET_VIPV6.ip)
-        self.verify_ipv6_host_learned_mac(
-            host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
+        # TODO: VIP might not be in neighbor table if still tentative/ND used non VIP source address.
+        # Make test host source addresses consistent.
+        # self.verify_ipv6_host_learned_mac(
+        #    host, self.FAUCET_VIPV6.ip, self.FAUCET_MAC)
 
     def retry_net_ping(self, hosts=None, required_loss=0, retries=3):
         loss = None
@@ -1646,15 +1670,13 @@ dbs:
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
     def iperf_client(self, client_host, iperf_client_cmd):
-        for _ in range(3):
-            iperf_results = client_host.cmd(iperf_client_cmd)
-            iperf_csv = iperf_results.strip().split(',')
-            if len(iperf_csv) == 9:
-                return int(iperf_csv[-1]) / self.ONEMBPS
-            time.sleep(1)
-        self.fail('%s: %s' % (iperf_client_cmd, iperf_results))
+        iperf_results = client_host.cmd(iperf_client_cmd)
+        iperf_csv = iperf_results.strip().split(',')
+        if len(iperf_csv) == 9:
+            return int(iperf_csv[-1]) / self.ONEMBPS
+        return None
 
-    def iperf(self, client_host, server_host, server_ip, seconds):
+    def iperf(self, client_host, client_ip, server_host, server_ip, seconds):
         for _ in range(3):
             port = faucet_mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
@@ -1664,30 +1686,34 @@ dbs:
             iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
             iperf_server_cmd = faucet_mininet_test_util.timeout_cmd(
                 iperf_server_cmd, (seconds * 3) + 5)
-            iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
-                '%s -y c -c %s -t %u' % (iperf_base_cmd, server_ip, seconds),
-                seconds + 5)
             server_start_exp = r'Server listening on TCP port %u' % port
-            server_out = server_host.popen(
-                iperf_server_cmd,
-                stdin=faucet_mininet_test_util.DEVNULL,
-                stderr=subprocess.STDOUT,
-                close_fds=True)
-            popens = {server_host: server_out}
-            lines = []
-            for host, line in pmonitor(popens):
-                if host == server_host:
-                    lines.append(line)
-                    if re.search(server_start_exp, line):
-                        self.wait_for_tcp_listen(
-                            server_host, port, ipv=server_ip.version)
-                        iperf_mbps = self.iperf_client(
-                            client_host, iperf_client_cmd)
-                        self._signal_proc_on_port(server_host, port, 9)
-                        return iperf_mbps
+            iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
+                '%s -y c -c %s -B %s -t %u' % (iperf_base_cmd, server_ip, client_ip, seconds),
+                seconds + 5)
+
+            def run_iperf():
+                server_out = server_host.popen(
+                    iperf_server_cmd,
+                    stdin=faucet_mininet_test_util.DEVNULL,
+                    stderr=subprocess.STDOUT,
+                    close_fds=True)
+                popens = {server_host: server_out}
+                for host, line in pmonitor(popens):
+                    if host == server_host:
+                        if re.search(server_start_exp, line):
+                            self.wait_for_tcp_listen(
+                                server_host, port, ipv=server_ip.version)
+                            iperf_mbps = self.iperf_client(
+                                client_host, iperf_client_cmd)
+                            self._signal_proc_on_port(server_host, port, 9)
+                            return iperf_mbps
+                return None
+
+            iperf_mbps = run_iperf()
+            if iperf_mbps is not None:
+                return iperf_mbps
             time.sleep(1)
-        self.fail('%s never started (%s, %s)' % (
-            iperf_server_cmd, server_start_exp, ' '.join(lines)))
+        self.fail('%s never started (%s)' % iperf_server_cmd)
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip,
@@ -1711,11 +1737,13 @@ dbs:
         self.verify_ipv4_host_learned_host(first_host, second_host)
         self.verify_ipv4_host_learned_host(second_host, first_host)
         # verify at least 1M iperf
-        for client_host, server_host, server_ip in (
-                (first_host, second_host, second_host_routed_ip.ip),
-                (second_host, first_host, first_host_routed_ip.ip)):
+        for client_host, client_ip, server_host, server_ip in (
+                (first_host, first_host_routed_ip.ip,
+                 second_host, second_host_routed_ip.ip),
+                (second_host, second_host_routed_ip.ip,
+                 first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
-                client_host, server_host, server_ip, 5)
+                client_host, client_ip, server_host, server_ip, 5)
             error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         # verify packets matched routing flows
@@ -1762,11 +1790,12 @@ dbs:
                                    second_host_ip, second_host_routed_ip):
         """Configure host IPv6 addresses for testing."""
         for host in first_host, second_host:
-            host.cmd('ip -6 addr flush dev %s' % host.intf())
+            for intf in ('lo', host.intf()):
+                host.cmd('ip -6 addr flush dev %s' % intf)
         self.add_host_ipv6_address(first_host, first_host_ip)
         self.add_host_ipv6_address(second_host, second_host_ip)
-        self.add_host_ipv6_address(first_host, first_host_routed_ip)
-        self.add_host_ipv6_address(second_host, second_host_routed_ip)
+        self.add_host_ipv6_address(first_host, first_host_routed_ip, intf='lo')
+        self.add_host_ipv6_address(second_host, second_host_routed_ip, intf='lo')
         for host in first_host, second_host:
             self.require_host_learned(host)
 
@@ -1791,11 +1820,13 @@ dbs:
         self.one_ipv6_controller_ping(second_host)
         self.one_ipv6_ping(first_host, second_host_routed_ip.ip)
         # verify at least 1M iperf
-        for client_host, server_host, server_ip in (
-                (first_host, second_host, second_host_routed_ip.ip),
-                (second_host, first_host, first_host_routed_ip.ip)):
+        for client_host, client_ip, server_host, server_ip in (
+                (first_host, first_host_routed_ip.ip,
+                 second_host, second_host_routed_ip.ip),
+                (second_host, second_host_routed_ip.ip,
+                 first_host, first_host_routed_ip.ip)):
             iperf_mbps = self.iperf(
-                client_host, server_host, server_ip, 5)
+                client_host, client_ip, server_host, server_ip, 5)
             error('%s: %u mbps to %s\n' % (self._test_name(), iperf_mbps, server_ip))
             self.assertGreater(iperf_mbps, 1)
         self.one_ipv6_ping(first_host, second_host_ip.ip)

@@ -27,7 +27,7 @@ ENV HOME=/home/faucet
 RUN mkdir $HOME
 WORKDIR $HOME
 
-COPY gnmi .
+COPY ./ .
 
 ENV GOPATH=$HOME/go
 ENV GOBIN=$GOPATH/bin

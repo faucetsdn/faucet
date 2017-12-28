@@ -1,4 +1,4 @@
-## Image name: faucet/fuzzer
+## Image name: faucet/config-fuzzer
 
 FROM faucet/faucet-testbase:latest
 
@@ -16,6 +16,6 @@ RUN \
   $PIP3 -r fuzz-requirements.txt && \
   $PIP3 .
 
-VOLUME ["/faucet-src/tests/fuzzer/config/", "/var/log/afl/"]
+VOLUME ["/var/log/afl/"]
 
 CMD ["docker/fuzz_config.sh"]

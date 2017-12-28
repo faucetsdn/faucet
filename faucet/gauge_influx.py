@@ -37,22 +37,26 @@ class InfluxShipper(object):
     def ship_points(self, points):
         """Make a connection to InfluxDB and ship points."""
 
-        if self.conf is None:
-            return False
-        try:
-            client = InfluxDBClient(
-                host=self.conf.influx_host,
-                port=self.conf.influx_port,
-                username=self.conf.influx_user,
-                password=self.conf.influx_pwd,
-                database=self.conf.influx_db,
-                timeout=self.conf.influx_timeout)
-            if not client:
-                self.logger.warning('%s error connecting to InfluxDB' % self.ship_error_prefix)
-            if not client.write_points(points=points, time_precision='s'):
-                self.logger.warning('%s failed to update InfluxDB' % self.ship_error_prefix)
-        except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError) as err:
-            self.logger.warning('%s %s' % (self.ship_error_prefix, err))
+        if self.conf is not None:
+            try:
+                client = InfluxDBClient(
+                    host=self.conf.influx_host,
+                    port=self.conf.influx_port,
+                    username=self.conf.influx_user,
+                    password=self.conf.influx_pwd,
+                    database=self.conf.influx_db,
+                    timeout=self.conf.influx_timeout)
+                if not client:
+                    self.logger.warning('%s error connecting to InfluxDB' % self.ship_error_prefix)
+                    return False
+                if not client.write_points(points=points, time_precision='s'):
+                    self.logger.warning('%s failed to update InfluxDB' % self.ship_error_prefix)
+                    return False
+            except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError) as err:
+                self.logger.warning('%s %s' % (self.ship_error_prefix, err))
+                return False
+            return True
+        return False
 
     @staticmethod
     def make_point(tags, rcv_time, stat_name, stat_val):
