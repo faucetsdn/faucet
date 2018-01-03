@@ -6,4 +6,4 @@ networkx
 pbr>=1.9
 prometheus_client
 pyyaml
-ryu==4.20
+ryu==4.21
