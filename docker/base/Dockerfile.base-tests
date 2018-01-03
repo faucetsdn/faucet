@@ -101,6 +101,7 @@ RUN \
 RUN \
   ./setupproxy.sh && \
   $AG update && \
+  $AG install cython3 && \
   $AG purge pylint && \
   $PIP3 pip && \
   easy_install -q -U pip && \

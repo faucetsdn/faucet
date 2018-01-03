@@ -11,9 +11,9 @@ COPY ./ /faucet-src/
 
 RUN \
     $APK add -U git $BUILDDEPS && \
-    $PIP3 pip && \
-    $PIP3 $TESTDEPS && \
-    $PIP3 -r /faucet-src/requirements.txt && \
+    ./docker/base/retrycmd.sh "$PIP3 pip" && \
+    ./docker/base/retrycmd.sh "$PIP3 $TESTDEPS" && \
+    ./docker/base/retrycmd.sh "$PIP3 -r /faucet-src/requirements.txt" && \
     $PIP3 /faucet-src && \
     python3 -m pytest /faucet-src/tests/test_valve.py && \
     for i in $BUILDDEPS ; do $APK del $i ; done && \
