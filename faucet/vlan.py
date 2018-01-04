@@ -318,6 +318,13 @@ class VLAN(Conf):
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged, exclude_unicast)
 
+    def pkt_out_port(self, packet_builder, port, *args):
+        vid = None
+        if self.port_is_tagged(port):
+            vid = self.vid
+        pkt = packet_builder(self, vid, *args)
+        return valve_of.packetout(port.number, pkt.data)
+
     def flood_pkt(self, packet_builder, *args):
         ofmsgs = []
         for vid, ports in (
