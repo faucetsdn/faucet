@@ -100,6 +100,7 @@ class VLAN(Conf):
         'proactive_nd_limit': None,
         # Don't proactively ND for hosts if over this limit (None unlimited)
         'targeted_gw_resolution': True,
+        # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
         }
 
     defaults_types = {
