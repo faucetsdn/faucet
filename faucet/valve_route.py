@@ -36,8 +36,9 @@ ETH_TYPES = {
 class NextHop(object):
     """Describes a directly connected (at layer 2) nexthop."""
 
-    def __init__(self, eth_src, now):
+    def __init__(self, eth_src, port, now):
         self.eth_src = eth_src
+        self.port = port
         self.cache_time = now
         self.last_retry_time = None
         self.resolve_retries = 0
@@ -191,9 +192,9 @@ class ValveRouteManager(object):
                 in_match, priority=self._route_priority(ip_dst), inst=inst))
         return ofmsgs
 
-    def _update_nexthop_cache(self, vlan, eth_src, ip_gw):
+    def _update_nexthop_cache(self, vlan, eth_src, port, ip_gw):
         now = time.time()
-        nexthop = NextHop(eth_src, now)
+        nexthop = NextHop(eth_src, port, now)
         nexthop_cache = self._vlan_nexthop_cache(vlan)
         nexthop_cache[ip_gw] = nexthop
 
@@ -246,7 +247,7 @@ class ValveRouteManager(object):
                     ofmsgs.extend(self._add_resolved_route(
                         vlan, ip_gw, ip_dst, eth_src, is_updated))
 
-        self._update_nexthop_cache(vlan, eth_src, resolved_ip_gw)
+        self._update_nexthop_cache(vlan, eth_src, port, resolved_ip_gw)
         return ofmsgs
 
     def _vlan_ip_gws(self, vlan):
@@ -274,7 +275,7 @@ class ValveRouteManager(object):
         """
         for ip_gw, _ in ip_gws:
             if self._vlan_nexthop_cache_entry(vlan, ip_gw) is None:
-                self._update_nexthop_cache(vlan, None, ip_gw)
+                self._update_nexthop_cache(vlan, None, None, ip_gw)
 
     def _retry_backoff(self, now, resolve_retries, last_retry_time):
         backoff_seconds = min(
@@ -369,8 +370,16 @@ class ValveRouteManager(object):
                 nexthop_cache_entry.last_retry_time = now
                 nexthop_cache_entry.resolve_retries += 1
                 resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
+                if vlan.targeted_gw_resolution:
+                    port = nexthop_cache_entry.port
+                    if last_retry_time is None and port is not None:
+                        vid = None
+                        if vlan.port_is_tagged(port):
+                            vid = vlan.vid
+                        pkt = self._neighbor_resolver_pkt(vlan, vid, faucet_vip, ip_gw)
+                        resolve_flows = [valve_of.packetout(nexthop_cache_entry.port.number, pkt.data)]
                 if last_retry_time is None:
-                    self.logger.debug(
+                    self.logger.info(
                         'resolving %s (%u flows) on VLAN %u' % (
                             ip_gw, len(resolve_flows), vlan.vid))
                 else:

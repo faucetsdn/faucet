@@ -63,6 +63,7 @@ class VLAN(Conf):
     max_hosts = None
     unicast_flood = None
     acl_in = None
+    targeted_gw_resolution = None
     proactive_arp_limit = None
     proactive_nd_limit = None
     # Define dynamic variables with prefix dyn_ to distinguish from variables set
@@ -98,6 +99,7 @@ class VLAN(Conf):
         # Don't proactively ARP for hosts if over this limit (None unlimited)
         'proactive_nd_limit': None,
         # Don't proactively ND for hosts if over this limit (None unlimited)
+        'targeted_gw_resolution': True,
         }
 
     defaults_types = {
