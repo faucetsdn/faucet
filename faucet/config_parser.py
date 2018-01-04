@@ -226,9 +226,10 @@ def _watcher_parser_v2(conf, logname, prom_client):
     dbs = conf.pop('dbs')
 
     for watcher_name, watcher_conf in list(conf['watchers'].items()):
-        watcher_dps = watcher_conf['dps']
         if watcher_conf.get('all_dps', False):
             watcher_dps = list(dps.keys())
+        else:
+            watcher_dps = watcher_conf['dps']
         # Watcher config has a list of DPs, but actually a WatcherConf is
         # created for each DP.
         # TODO: refactor watcher_conf as a container.
