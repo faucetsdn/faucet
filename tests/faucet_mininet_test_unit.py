@@ -3255,6 +3255,27 @@ vlans:
             self.swap_host_macs(first_host, second_host)
 
 
+class FaucetTaggedTargetedResolutionIPv4RouteTest(FaucetTaggedIPv4RouteTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+        faucet_vips: ["10.0.0.254/24"]
+        targeted_gw_resolution: True
+        routes:
+            - route:
+                ip_dst: "10.0.1.0/24"
+                ip_gw: "10.0.0.1"
+            - route:
+                ip_dst: "10.0.2.0/24"
+                ip_gw: "10.0.0.2"
+            - route:
+                ip_dst: "10.0.3.0/24"
+                ip_gw: "10.0.0.2"
+"""
+
+
 class FaucetTaggedProactiveNeighborIPv4RouteTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """

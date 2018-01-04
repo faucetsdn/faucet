@@ -63,6 +63,7 @@ class VLAN(Conf):
     max_hosts = None
     unicast_flood = None
     acl_in = None
+    targeted_gw_resolution = None
     proactive_arp_limit = None
     proactive_nd_limit = None
     # Define dynamic variables with prefix dyn_ to distinguish from variables set
@@ -98,6 +99,8 @@ class VLAN(Conf):
         # Don't proactively ARP for hosts if over this limit (None unlimited)
         'proactive_nd_limit': None,
         # Don't proactively ND for hosts if over this limit (None unlimited)
+        'targeted_gw_resolution': False,
+        # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
         }
 
     defaults_types = {
@@ -121,6 +124,7 @@ class VLAN(Conf):
         'vid': int,
         'proactive_arp_limit': int,
         'proactive_nd_limit': int,
+        'targeted_gw_resolution': bool,
     }
 
     def __init__(self, _id, dp_id, conf=None):
@@ -315,6 +319,13 @@ class VLAN(Conf):
 
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged, exclude_unicast)
+
+    def pkt_out_port(self, packet_builder, port, *args):
+        vid = None
+        if self.port_is_tagged(port):
+            vid = self.vid
+        pkt = packet_builder(self, vid, *args)
+        return valve_of.packetout(port.number, pkt.data)
 
     def flood_pkt(self, packet_builder, *args):
         ofmsgs = []
