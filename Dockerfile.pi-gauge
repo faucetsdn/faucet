@@ -2,22 +2,9 @@
 
 FROM faucet/faucet-python3-pi
 
-ENV APK="apk -q"
-ENV BUILDDEPS="gcc python3-dev musl-dev"
-ENV TESTDEPS="bitstring pytest setuptools wheel virtualenv"
-ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
-
 COPY ./ /faucet-src/
 
-RUN \
-  $APK add -U git $BUILDDEPS && \
-  ./docker/base/retrycmd.sh "$PIP3 pip" && \
-  ./docker/base/retrycmd.sh "$PIP3 $TESTDEPS" && \
-  ./docker/base/retrycmd.sh "$PIP3 -r /faucet-src/requirements.txt" && \
-  $PIP3 /faucet-src && \
-  python3 -m pytest /faucet-src/tests/test_valve.py && \
-  for i in $BUILDDEPS ; do $APK del $i ; done && \
-  find / -name \*pyc -delete
+RUN ./faucet-src/docker/base/install-faucet.sh
 
 VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/"]
 
