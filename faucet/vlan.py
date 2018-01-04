@@ -99,7 +99,7 @@ class VLAN(Conf):
         # Don't proactively ARP for hosts if over this limit (None unlimited)
         'proactive_nd_limit': None,
         # Don't proactively ND for hosts if over this limit (None unlimited)
-        'targeted_gw_resolution': True,
+        'targeted_gw_resolution': False,
         # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
         }
 
@@ -124,6 +124,7 @@ class VLAN(Conf):
         'vid': int,
         'proactive_arp_limit': int,
         'proactive_nd_limit': int,
+        'targeted_gw_resolution': bool,
     }
 
     def __init__(self, _id, dp_id, conf=None):
