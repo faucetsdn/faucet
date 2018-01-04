@@ -23,7 +23,7 @@ more advanced configuration. See :doc:`vendors/index` for how to configure your 
 
   vlans:
       100:
-          name: "dev VLAN"
+          description: "dev VLAN"
   dps:
       switch-1:
           dp_id: 0x1
@@ -34,7 +34,7 @@ more advanced configuration. See :doc:`vendors/index` for how to configure your 
                   native_vlan: 100
 
 
-This example ``gauge.yaml`` file instructs Gauge to poll the switch at 10s intervals and store the results in InfluxDB.
+This example ``gauge.yaml`` file instructs Gauge to poll the switch at 10s intervals and make the results available to Prometheus.
 See :doc:`configuration` for more advanced configuration.
 
 .. code:: yaml
@@ -42,25 +42,22 @@ See :doc:`configuration` for more advanced configuration.
   faucet_configs:
       - '/etc/ryu/faucet/faucet.yaml'
   watchers:
-      port_stats:
-          dps: ['switch-1']
-          type: 'port_stats'
-          interval: 10
-          db: 'influx'
-      port_state:
-          dps: ['switch-1']
-          type: 'port_state'
-          interval: 10
-          db: 'influx'
+    port_stats:
+        dps: ['switch-1']
+        type: 'port_stats'
+        interval: 10
+        db: 'prometheus'
+    flow_table:
+        dps: ['switch-1']
+        type: 'flow_table'
+        interval: 10
+        db: 'prometheus'
   dbs:
-      influx:
-          type: 'influx'
-          influx_db: 'faucet'
-          influx_host: '172.17.0.1'
-          influx_port: 8086
-          influx_user: 'faucet'
-          influx_pwd: ''
-          influx_timeout: 10
+    prometheus:
+        type: 'prometheus'
+        prometheus_port: 9303
+        prometheus_addr: ''
+
 
 Encrypted Control Channel
 -------------------------
@@ -181,7 +178,9 @@ To install the latest pip package:
 
 .. code:: console
 
-  apt-get install python3-pip
+  apt-get install python3-dev python3-pip
+  pip3 install setuptools
+  pip3 install wheel
   pip3 install faucet
 
 To install the latest code from git, via pip:
