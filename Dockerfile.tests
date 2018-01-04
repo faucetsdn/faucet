@@ -12,6 +12,6 @@ RUN \
     ./docker/base/retrycmd.sh "$PIP -r /faucet-src/test-requirements.txt" && \
     ./docker/base/retrycmd.sh "$PIP3 -r /faucet-src/requirements.txt" && \
     ./docker/base/retrycmd.sh "$PIP3 -r /faucet-src/test-requirements.txt" && \
-    ./docker/base/retrycmd.sh "$PIP3 ."
+    $PIP3 .
 
 CMD ["docker/runtests.sh"]
