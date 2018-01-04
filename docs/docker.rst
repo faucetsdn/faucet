@@ -149,7 +149,7 @@ Docker compose
 --------------
 
 This is an example docker-compose file that can be used to set up gauge to talk
-to prometheus and influxdb with a grafana instance for dashboards and visualisations.
+to Prometheus and InfluxDB with a Grafana instance for dashboards and visualisations.
 
 It can be run with ``docker-compose up``
 
@@ -166,8 +166,8 @@ For example:
 
   export FAUCET_PREFIX=/opt/faucet
 
-When all the docker containers are running we will need to configure grafana to
-talk to prometheus and influxdb. First login to the grafana web interface on
+When all the docker containers are running we will need to configure Grafana to
+talk to Prometheus and InfluxDB. First login to the Grafana web interface on
 port 3000 (e.g http://localhost:3000) using the default credentials of
 ``admin:admin``.
 
@@ -180,7 +180,7 @@ Then add two data sources. Use the following settings for prometheus:
   Url: http://prometheus:9090
   Access: proxy
 
-And the following settings for influxdb:
+And the following settings for InfluxDB:
 
 ::
 
