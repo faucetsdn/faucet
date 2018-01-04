@@ -384,12 +384,17 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         type: 'port_stats'
         interval: 5
         db: 'prometheus'
+    port_state:
+        dps: ['%s']
+        type: 'port_state'
+        interval: 5
+        db: 'prometheus'
     flow_table:
         dps: ['%s']
         type: 'flow_table'
         interval: 5
         db: 'prometheus'
-""" % (self.DP_NAME, self.DP_NAME)
+""" % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
     def _start_gauge_check(self):
         if not self.gauge_controller.listen_port(self.config_ports['gauge_prom_port']):
@@ -406,8 +411,11 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         for port_var in port_vars:
             val = self.scrape_prometheus_var(
                 port_var, labels=port_labels, controller='gauge', retries=3)
-            self.assertIsNotNone('%s missing for port %u' % (port_var, port))
+            self.assertIsNotNone(val, '%s missing for port %u' % (port_var, port))
             port_counters[port_var] = val
+            for port_state_var in ('of_port_state', 'of_port_reason'):
+                self.assertTrue(val and val > 0, self.scrape_prometheus_var(
+                    port_state_var, labels=port_labels, controller='gauge', retries=3))
         return port_counters
 
     def test_untagged(self):
@@ -420,6 +428,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
             'of_port_rx_packets',
             'of_port_tx_packets',
         )
+        self.flap_all_switch_ports()
         first_port_counters = {}
         for i, _ in enumerate(self.net.hosts):
             port = i + 1
