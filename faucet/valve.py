@@ -303,13 +303,12 @@ class Valve(object):
 
         def _decode_port_status(reason):
             """Humanize the port status reason code."""
-            if reason == valve_of.ofp.OFPPR_ADD:
-                return 'ADD'
-            elif reason == valve_of.ofp.OFPPR_DELETE:
-                return 'DELETE'
-            elif reason == valve_of.ofp.OFPPR_MODIFY:
-                return 'MODIFY'
-            return 'UNKNOWN'
+            port_status_codes = {
+                valve_of.ofp.OFPPR_ADD: 'ADD',
+                valve_of.ofp.OFPPR_DELETE: 'DELETE',
+                valve_of.ofp.OFPPR_MODIFY: 'MODIFY'
+            }
+            return port_status_codes.get(reason, 'UNKNOWN')
 
         self._notify(
             {'PORT_CHANGE': {
