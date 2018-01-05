@@ -543,8 +543,9 @@ class PacketMeta(object):
             if ip_ver is not None:
                 if ip_ver != self.ip_ver():
                     return
-                if len(self.data) < header_size:
-                    return
+                if self.vlan.minimum_ip_size_check:
+                    if len(self.data) < header_size:
+                        return
                 ip_header_data = self.data[ETH_VLAN_HEADER_SIZE:]
                 if ip_parseable is not None and not ip_parseable(ip_header_data):
                     return

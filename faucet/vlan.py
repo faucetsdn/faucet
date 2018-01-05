@@ -101,6 +101,8 @@ class VLAN(Conf):
         # Don't proactively ND for hosts if over this limit (None unlimited)
         'targeted_gw_resolution': False,
         # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
+        'minimum_ip_size_check': True,
+        # If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
         }
 
     defaults_types = {
@@ -125,6 +127,7 @@ class VLAN(Conf):
         'proactive_arp_limit': int,
         'proactive_nd_limit': int,
         'targeted_gw_resolution': bool,
+        'minimum_ip_size_check': bool,
     }
 
     def __init__(self, _id, dp_id, conf=None):
