@@ -300,10 +300,20 @@ class Valve(object):
         return ofmsgs
 
     def port_status_handler(self, port_no, reason, port_status):
+
+        def _decode_port_status(reason):
+            """Humanize the port status reason code."""
+            port_status_codes = {
+                valve_of.ofp.OFPPR_ADD: 'ADD',
+                valve_of.ofp.OFPPR_DELETE: 'DELETE',
+                valve_of.ofp.OFPPR_MODIFY: 'MODIFY'
+            }
+            return port_status_codes.get(reason, 'UNKNOWN')
+
         self._notify(
             {'PORT_CHANGE': {
                 'port_no': port_no,
-                'reason': reason,
+                'reason': _decode_port_status(reason),
                 'status': port_status}})
         if reason == valve_of.ofp.OFPPR_ADD:
             return self.port_add(port_no)
