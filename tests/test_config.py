@@ -1172,6 +1172,26 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_stack_port_is_list(self):
+        """Test when stack port is a list"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: []#           2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -417,6 +417,8 @@ configuration.
                 port.stack['dp'] = dp
                 assert 'port' in port.stack, 'you did not reference a port in the stack'
                 stack_port_name = port.stack['port']
+                assert isinstance(stack_port_name, int) or isinstance(stack_port_name, str), (
+                    'port name must be of type %s or %s not %s' % (str, int, type(stack_port_name)))
                 assert stack_port_name in dp.ports, 'could not find port %s in %s' % (stack_port_name, dp.name)
                 port.stack['port'] = dp.ports[stack_port_name]
 
