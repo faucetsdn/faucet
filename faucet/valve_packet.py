@@ -133,7 +133,7 @@ def parse_packet_in_pkt(data, max_len):
             if vlan_pkt:
                 vlan_vid = vlan_pkt.vid
                 eth_type = vlan_pkt.ethertype
-    except (AssertionError, stream_parser.StreamParser.TooSmallException):
+    except (AttributeError, AssertionError, stream_parser.StreamParser.TooSmallException):
         pass
 
     return (pkt, eth_pkt, vlan_vid, eth_type)
