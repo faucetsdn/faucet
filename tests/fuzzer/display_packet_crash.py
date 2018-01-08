@@ -38,11 +38,7 @@ def main():
         pkt = Fake.RyuEvent(msg)
 
         # send packet to faucet and display error produced
-        try:
-            application.packet_in_handler(pkt)
-        except Exception as err:
-            print('FILE: ' + str(sys.argv[1]))
-            print('ERROR: ' + str(err))
+        application.packet_in_handler(pkt)
 
 if __name__ == "__main__":
     # make sure user specifies the afl crash folder
@@ -50,3 +46,5 @@ if __name__ == "__main__":
         main()
     else:
         print('USAGE: python3 display_packet_crash.py <AFL_CRASH_FILE>')
+
+os._exit(0)
