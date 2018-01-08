@@ -38,12 +38,33 @@
                         "type": "ip_proto"
                     },
                     {
+                        "name": "ipv4_src",
+                        "type": "ipv4_src",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "ipv4_dst",
+                        "type": "ipv4_dst",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "ipv6_src",
+                        "type": "ipv6_src",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "ipv6_dst",
+                        "type": "ipv6_dst",
+                        "hasmask": true
+                    },
+                    {
                         "name": "udp_src",
                         "type": "udp_src"
                     },
                     {
                         "name": "udp_dst",
-                        "type": "udp_dst"
+                        "type": "udp_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "tcp_src",
@@ -51,11 +72,21 @@
                     },
                     {
                         "name": "tcp_dst",
-                        "type": "tcp_dst"
+                        "type": "tcp_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "arp_tpa",
                         "type": "arp_tpa",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
+                    },
+                    {
+                        "name": "ipv6_nd_target",
+                        "type": "ipv6_nd_target",
                         "hasmask": true
                     }
                 ]
@@ -91,12 +122,33 @@
                         "type": "ip_proto"
                     },
                     {
+                        "name": "ipv4_src",
+                        "type": "ipv4_src",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "ipv4_dst",
+                        "type": "ipv4_dst",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "ipv6_src",
+                        "type": "ipv6_src",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "ipv6_dst",
+                        "type": "ipv6_dst",
+                        "hasmask": true
+                    },
+                    {
                         "name": "udp_src",
                         "type": "udp_src"
                     },
                     {
                         "name": "udp_dst",
-                        "type": "udp_dst"
+                        "type": "udp_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "tcp_src",
@@ -104,11 +156,21 @@
                     },
                     {
                         "name": "tcp_dst",
-                        "type": "tcp_dst"
+                        "type": "tcp_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "arp_tpa",
                         "type": "arp_tpa",
+                        "hasmask": true
+                    },
+                    {
+                        "name": "icmpv6_type",
+                        "type": "icmpv6_type"
+                    },
+                    {
+                        "name": "ipv6_nd_target",
+                        "type": "ipv6_nd_target",
                         "hasmask": true
                     }
                 ]
@@ -738,6 +800,10 @@
                         "type": 22
                     },
                     {
+                        "name": "OFPAT_DEC_NW_TTL",
+                        "type": 24
+                    },
+                    {
                         "name": "OFPAT_SET_FIELD",
                         "type": 25
                     }
@@ -840,6 +906,10 @@
                     {
                         "name": "OFPAT_GROUP",
                         "type": 22
+                    },
+                    {
+                        "name": "OFPAT_DEC_NW_TTL",
+                        "type": 24
                     },
                     {
                         "name": "OFPAT_SET_FIELD",
