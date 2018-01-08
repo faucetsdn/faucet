@@ -63,6 +63,8 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
     vid_dp = collections.defaultdict(set)
 
     def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
+        assert isinstance(vlan_ident, str) or isinstance(vlan_ident, int), (
+            'vlan identifier must be of type %s or %s not %s' % (int, str, type(vlan_ident)))
         if vlan_ident in vlans:
             return vlans[vlan_ident]
         for vlan in list(vlans.values()):

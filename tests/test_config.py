@@ -1192,6 +1192,23 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_bad_vlan_reference(self):
+        """Test when tagged vlans is a dict"""
+        config = """
+vlans:
+    office:
+        vid: 100
+    guest:
+        vid: 200
+dps:
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            24:
+                tagged_vlans: [office: guest]
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
