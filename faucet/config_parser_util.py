@@ -52,7 +52,7 @@ def read_config(config_file, logname):
         with open(config_file, 'r') as stream:
             conf = yaml.load(stream.read())
     except (yaml.YAMLError, UnicodeDecodeError,
-            PermissionError) as err: # pytype: disable=name-error
+            PermissionError, ValueError) as err: # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
         return None
     return conf

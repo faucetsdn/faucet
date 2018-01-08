@@ -1158,6 +1158,20 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_invalid_date_time_object(self):
+        """Test when config is just an invalid datetime object"""
+        config = """
+1976-87-04
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_config_is_only_bad_float(self):
+        """Test when config is this specific case of characters"""
+        config = """
+._
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
