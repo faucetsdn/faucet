@@ -1158,6 +1158,57 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_invalid_date_time_object(self):
+        """Test when config is just an invalid datetime object"""
+        config = """
+1976-87-04
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_config_is_only_bad_float(self):
+        """Test when config is this specific case of characters"""
+        config = """
+._
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_stack_port_is_list(self):
+        """Test when stack port is a list"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: []#           2:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_bad_vlan_reference(self):
+        """Test when tagged vlans is a dict"""
+        config = """
+vlans:
+    office:
+        vid: 100
+    guest:
+        vid: 200
+dps:
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            24:
+                tagged_vlans: [office: guest]
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
