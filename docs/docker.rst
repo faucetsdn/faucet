@@ -30,15 +30,15 @@ We provide official automated builds on Docker Hub so that you can run Faucet
 easily without having to build your own.
 
 We use Docker tags to differentiate between versions of Faucet. The latest
-tag will always point to the latest git commit. All tagged versions of Faucet
-in git are also available to use, for example using the ``faucet/faucet:1.6.0``
-Docker will run the released version 1.6.0 of Faucet.
+tag will always point to the latest stable release of Faucet. All tagged
+versions of Faucet in git are also available to use, for example using the
+``faucet/faucet:1.6.0`` Docker will run the released version 1.6.0 of Faucet.
 
 By default the Faucet and Gauge images are run as the `faucet` user under
 UID 0, GID 0. If you need to change that it can be overridden at runtime with
 the Docker flags: ``-e LOCAL_USER_ID`` and ``-e LOCAL_GROUP_ID``.
 
-To pull and run the latest git version of Faucet:
+To pull and run the latest version of Faucet:
 
 .. code:: console
 
@@ -55,7 +55,7 @@ To pull and run the latest git version of Faucet:
 Port 6653 is used for OpenFlow, port 9302 is used for Prometheus - port 9302
 may be omitted if you do not need Prometheus.
 
-To pull and run the latest git version of Gauge:
+To pull and run the latest version of Gauge:
 
 .. code:: console
 
