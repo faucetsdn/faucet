@@ -460,6 +460,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                 host_labels = {
                     'dp_id': self.dpid,
                     'dp_name': self.DP_NAME,
+                    'cookie': str(1524372928),
                     'eth_dst': host.MAC(),
                     'inst_count': str(1),
                     'priority': str(9099),

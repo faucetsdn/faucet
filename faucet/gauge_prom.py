@@ -132,6 +132,8 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                 tags_keys = set(tags.keys())
                 if tags_keys != self.table_tags[table_id]:
                     if not tags_keys.issubset(self.table_tags[table_id]):
+                        self.logger.info('re-initializing tags for table_id %u from %s to %s' % (
+                            table_id, self.table_tags[table_id], tags_keys))
                         self.table_tags[table_id] = self.table_tags[table_id].union(tags_keys)
                         self.prom_client.reregister_flow_vars(
                             table_name, self.table_tags[table_id])
