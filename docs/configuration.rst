@@ -530,6 +530,10 @@ The matches are key/values based on the ryu RESTFul API.
       - False
       - If True allow the packet to continue through the Faucet pipeline, if
         False drop the packet.
+    * - cookie
+      - int, 0-2**16
+      - defaults to datapath cookie value
+      - If set, cookie on this flow will be set to this value.
     * - meter
       - string
       - None
