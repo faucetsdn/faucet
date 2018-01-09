@@ -478,7 +478,7 @@ configuration.
                                 resolved_action_conf[output_action][failover_name] = resolved_ports
                             else:
                                 resolved_action_conf[output_action][failover_name] = failover_values
-                    elif output_action in ('dl_dst', 'pop_vlans', 'swap_vid', 'vlan_vid', 'vlan_vids'):
+                    elif output_action in ('set_fields', 'dl_dst', 'pop_vlans', 'swap_vid', 'vlan_vid', 'vlan_vids'):
                         resolved_action_conf[output_action] = output_action_values
                     else:
                         assert False, 'unknown ACL output action: %s' % output_action

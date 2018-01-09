@@ -241,6 +241,15 @@ string names given to the datapath, or the OFP datapath id.
       - integer
       - 300
       - timeout for MAC address learning
+    * - targeted_gw_resolution
+      - bool
+      - False
+      - if True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
+    * - minimum_ip_size_check
+      - bool
+      - True
+      - If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
+
 
 Stacking (DP)
 ~~~~~~~~~~~~~
@@ -536,10 +545,10 @@ The output action contains a dictionary with the following elements:
     :widths: 31 15 15 60
     :header-rows: 1
 
-    * - Attribute
-      - Type
-      - Default
-      - Description
+    * - set_fields
+      - list of dicts
+      - None
+      - A list of fields to set with values, eg. eth_dst: "1:2:3:4:5:6"
     * - port
       - integer or string
       - None

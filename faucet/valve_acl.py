@@ -58,14 +58,18 @@ def build_output_actions(output_dict):
     output_actions = []
     output_port = None
     ofmsgs = []
+    # rewrite any VLAN headers first always
+    vlan_actions = rewrite_vlan(output_dict)
+    if vlan_actions:
+        output_actions.extend(vlan_actions)
     # if destination rewriting selected, rewrite it.
     if 'dl_dst' in output_dict:
         output_actions.append(
             valve_of.set_eth_dst(output_dict['dl_dst']))
-    # rewrite any VLAN headers.
-    vlan_actions = rewrite_vlan(output_dict)
-    if vlan_actions:
-        output_actions.extend(vlan_actions)
+    if 'set_fields' in output_dict:
+        for set_fields in output_dict['set_fields']:
+            output_actions.append(
+                valve_of.parser.OFPActionSetField(**set_fields))
     if 'port' in output_dict:
         output_port = output_dict['port']
         output_actions.append(valve_of.output_port(output_port))

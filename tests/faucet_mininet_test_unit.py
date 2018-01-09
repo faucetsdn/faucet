@@ -2773,8 +2773,9 @@ acls:
             dl_dst: "01:02:03:04:05:06"
             actions:
                 output:
-                    dl_dst: "06:06:06:06:06:06"
                     vlan_vid: 123
+                    set_fields:
+                        - eth_dst: "06:06:06:06:06:06"
                     port: acloutport
 """
 
