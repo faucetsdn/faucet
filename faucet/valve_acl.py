@@ -98,6 +98,7 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
             continue
         if attrib == 'cookie':
             acl_cookie = attrib_value
+            continue
         if attrib == 'actions':
             allow = False
             allow_specified = False

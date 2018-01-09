@@ -700,7 +700,8 @@ dbs:
         return False
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                   actions=None, match_exact=False, hard_timeout=0):
+                                   actions=None, match_exact=False, hard_timeout=0,
+                                   cookie=None):
 
         # TODO: Ryu ofctl serializes to old matches.
         def to_old_match(match):
@@ -728,6 +729,9 @@ dbs:
                     if (table_id is not None and
                             flow_dict['table_id'] != table_id):
                         continue
+                    if cookie is not None:
+                        if cookie != flow_dict['cookie']:
+                            continue
                     if hard_timeout:
                         if not 'hard_timeout' in flow_dict:
                             continue

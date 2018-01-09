@@ -1339,42 +1339,50 @@ vlans:
 acls:
     1:
         - rule:
+            cookie: 1234
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5001
             actions:
                 allow: 0
         - rule:
+            cookie: 1234
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5002
             actions:
                 allow: 1
         - rule:
+            cookie: 1234
             actions:
                 allow: 1
     2:
         - rule:
+            cookie: 1234
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5001
             actions:
                 allow: 1
         - rule:
+            cookie: 1234
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5002
             actions:
                 allow: 0
         - rule:
+            cookie: 1234
             actions:
                 allow: 1
     deny:
         - rule:
+            cookie: 1234
             actions:
                 allow: 0
     allow:
         - rule:
+            cookie: 1234
             actions:
                allow: 1
 """
@@ -1401,7 +1409,7 @@ acls:
         if table_id is None:
             table_id = self.ETH_SRC_TABLE
         flow = self.get_matching_flow_on_dpid(
-            self.dpid, {u'in_port': int(port_no)}, table_id)
+            self.dpid, {u'in_port': int(port_no)}, table_id, cookie=str(1234))
         return flow
 
     def change_port_config(self, port, config_name, config_value,
