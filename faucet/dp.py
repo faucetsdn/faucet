@@ -18,6 +18,7 @@
 
 import copy
 
+from collections import namedtuple
 from datadiff import diff
 from netaddr.core import AddrFormatError
 import networkx
@@ -520,13 +521,20 @@ configuration.
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config and mark mirror destinations."""
                 if acl.rules:
+                    null_dp = namedtuple('null_dp', 'ofproto')
+                    null_dp.ofproto = valve_of.ofp
                     try:
-                        assert valve_acl.build_acl_ofmsgs(
+                        ofmsgs = valve_acl.build_acl_ofmsgs(
                             [acl], self.wildcard_table,
                             valve_of.goto_table(self.wildcard_table),
-                            2**16, self.meters, acl.exact_match,
+                            2**16-1, self.meters, acl.exact_match,
                             vlan_vid=vid)
-                    except (AddrFormatError, ValueError) as err:
+                        assert ofmsgs
+                        for ofmsg in ofmsgs:
+                            ofmsg.datapath = null_dp
+                            ofmsg.set_xid(0)
+                            ofmsg.serialize()
+                    except (AddrFormatError, KeyError, ValueError) as err:
                         raise InvalidConfigError(err)
                     for port_no in acl.mirror_destinations:
                         port = self.ports[port_no]
