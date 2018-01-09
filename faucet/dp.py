@@ -437,7 +437,7 @@ configuration.
                 port.mirror = mirror_destination_port.number
                 mirror_destination_port.mirror_destination = True
 
-        def resolve_names_in_acls():
+        def resolve_acls():
             """Resolve config references in ACLs."""
             # TODO: move this config validation to ACL object.
 
@@ -492,32 +492,6 @@ configuration.
             def resolve_allow(_acl, action_conf):
                 return action_conf
 
-            action_resolvers = {
-                'meter': resolve_meter,
-                'mirror': resolve_mirror,
-                'output': resolve_output,
-                'allow': resolve_allow,
-            }
-
-            for acl in list(self.acls.values()):
-                for rule_conf in acl.rules:
-                    for attrib, attrib_value in list(rule_conf.items()):
-                        if attrib == 'actions':
-                            resolved_actions = {}
-                            assert isinstance(attrib_value, dict)
-                            for action_name, action_conf in list(attrib_value.items()):
-                                assert action_name in action_resolvers, (
-                                    'unknown ACL action %s' % action_name)
-                                resolved_action_conf = action_resolvers[action_name](
-                                    acl, action_conf)
-                                assert resolved_action_conf is not None, (
-                                    'cannot resolve ACL rule %s' % rule_conf)
-                                resolved_actions[action_name] = resolved_action_conf
-                            rule_conf[attrib] = resolved_actions
-
-        def resolve_acls():
-            """Resolve ACL references in config."""
-
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config and mark mirror destinations."""
                 if acl.rules:
@@ -540,18 +514,43 @@ configuration.
                         port = self.ports[port_no]
                         port.mirror_destination = True
 
+            def resolve_acl(conf):
+                assert conf.acl_in in self.acls, (
+                    'missing ACL %s on %s' % (self.name, conf))
+                acl = self.acls[conf.acl_in]
+
+                action_resolvers = {
+                    'meter': resolve_meter,
+                    'mirror': resolve_mirror,
+                    'output': resolve_output,
+                    'allow': resolve_allow,
+                }
+
+                for rule_conf in acl.rules:
+                    for attrib, attrib_value in list(rule_conf.items()):
+                        if attrib == 'actions':
+                            resolved_actions = {}
+                            assert isinstance(attrib_value, dict)
+                            for action_name, action_conf in list(attrib_value.items()):
+                                assert action_name in action_resolvers, (
+                                    'unknown ACL action %s' % action_name)
+                                resolved_action_conf = action_resolvers[action_name](
+                                    acl, action_conf)
+                                assert resolved_action_conf is not None, (
+                                    'cannot resolve ACL rule %s' % rule_conf)
+                                resolved_actions[action_name] = resolved_action_conf
+                            rule_conf[attrib] = resolved_actions
+
+                build_acl(acl, vid=1)
+
             for vlan in list(self.vlans.values()):
                 if vlan.acl_in:
-                    assert vlan.acl_in in self.acls, (
-                        'missing ACL %s on %s' % (self.name, vlan))
+                    resolve_acl(vlan)
                     vlan.acl_in = self.acls[vlan.acl_in]
-                    build_acl(vlan.acl_in, vid=1)
             for port in list(self.ports.values()):
                 if port.acl_in:
-                    assert port.acl_in in self.acls, (
-                        'missing ACL %s on %s' % (self.name, port))
+                    resolve_acl(port)
                     port.acl_in = self.acls[port.acl_in]
-                    build_acl(port.acl_in, vid=1)
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
@@ -583,7 +582,6 @@ configuration.
         resolve_stack_dps()
         resolve_mirror_destinations()
         resolve_vlan_names_in_routers()
-        resolve_names_in_acls()
         resolve_acls()
 
         for port in list(self.ports.values()):

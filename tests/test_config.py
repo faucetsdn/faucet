@@ -1233,6 +1233,28 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_unreferenced_acl(self):
+        """Test when tagged vlans is a dict"""
+        config = """
+acls:
+    unreferenced_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        port: 99
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_success(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
