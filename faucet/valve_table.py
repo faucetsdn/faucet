@@ -54,7 +54,7 @@ class ValveTable(object):
 
     def flowmod(self, match=None, priority=None,
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
-                out_group=0, hard_timeout=0, idle_timeout=0):
+                out_group=0, hard_timeout=0, idle_timeout=0, cookie=None):
         """Helper function to construct a flow mod message with cookie."""
         if match is None:
             match = self.match()
@@ -62,6 +62,8 @@ class ValveTable(object):
             priority = 0 # self.dp.lowest_priority
         if inst is None:
             inst = []
+        if cookie is None:
+            cookie = self.flow_cookie
         flags = 0
         if self.notify_flow_removed:
             flags = valve_of.ofp.OFPFF_SEND_FLOW_REM

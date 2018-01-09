@@ -40,6 +40,7 @@ The key 'actions' contains a dictionary with keys/values as follows:
        pipeline, if False drop the packet.
  * meter (str): meter to apply to the packet
  * output (dict): used to output a packet directly. details below.
+ * cookie (int): set flow cookie to this value on this flow
 
 The output action contains a dictionary with the following elements:
 
