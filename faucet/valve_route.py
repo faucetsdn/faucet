@@ -577,7 +577,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
         return vlan.pkt_out_port(
-            valve_packet.arp_request, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            valve_packet.arp_request, port, vlan.faucet_mac, faucet_vip.ip, ip_gw)
 
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_arp_limit
@@ -706,7 +706,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
 
     def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
         return vlan.pkt_out_port(
-            valve_packet.nd_request, vlan.faucet_mac, faucet_vip.ip, ip_gw)
+            valve_packet.nd_request, port, vlan.faucet_mac, faucet_vip.ip, ip_gw)
 
     def _vlan_nexthop_cache_limit(self, vlan):
         return vlan.proactive_nd_limit
