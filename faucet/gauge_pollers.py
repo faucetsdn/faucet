@@ -223,6 +223,7 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
             'table_id': int(stats['table_id']),
             'priority': int(stats['priority']),
             'inst_count': len(instructions),
+            'cookie': int(stats['cookie']),
         }
         oxm_matches = stats['match']['OFPMatch']['oxm_fields']
         for oxm_match in oxm_matches:

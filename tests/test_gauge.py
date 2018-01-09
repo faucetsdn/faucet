@@ -709,7 +709,8 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
                         'priority': msg.body[0].priority,
                         'table_id': msg.body[0].table_id,
                         'inst_count': len(msg.body[0].instructions),
-                        'vlan': msg.body[0].match.get('vlan_vid') ^ ofproto.OFPVID_PRESENT
+                        'vlan': msg.body[0].match.get('vlan_vid') ^ ofproto.OFPVID_PRESENT,
+                        'cookie': msg.body[0].cookie,
                        }
 
         with open(self.server.output_file, 'r') as log:
