@@ -28,8 +28,8 @@ from faucet import valve_packet
 from faucet.valve_util import btos
 
 ETH_TYPES = {
-   4: (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP),
-   6: (valve_of.ether.ETH_TYPE_IPV6,),
+    4: (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP),
+    6: (valve_of.ether.ETH_TYPE_IPV6,),
 }
 
 
