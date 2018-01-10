@@ -365,7 +365,8 @@ class ValveRouteManager(object):
                 if vlan.targeted_gw_resolution:
                     port = nexthop_cache_entry.port
                     if last_retry_time is None and port is not None:
-                        resolve_flows = self.resolve_gw_on_port(vlan, port, faucet_vip, ip_gw)
+                        resolve_flows = [
+                            self.resolve_gw_on_port(vlan, port, faucet_vip, ip_gw)]
                 if last_retry_time is None:
                     self.logger.info(
                         'resolving %s (%u flows) on VLAN %u' % (
