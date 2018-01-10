@@ -28,6 +28,7 @@ from faucet import valve_packet
 from faucet.valve_util import btos
 
 ETH_TYPES = {
+    0: (),
     4: (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP),
     6: (valve_of.ether.ETH_TYPE_IPV6,),
 }
@@ -47,11 +48,11 @@ class NextHop(object):
 class ValveRouteManager(object):
     """Base class to implement RIB/FIB."""
 
-    IPV = None
+    IPV = 0
     ETH_TYPE = None
     ICMP_TYPE = None
     MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
-    CONTROL_ETH_TYPES = None
+    CONTROL_ETH_TYPES = ETH_TYPES[0]
 
     def __init__(self, logger, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
