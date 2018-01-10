@@ -729,8 +729,8 @@ dbs:
                     if (table_id is not None and
                             flow_dict['table_id'] != table_id):
                         continue
-                    if cookie is not None:
-                        if cookie != flow_dict['cookie']:
+                    if (cookie is not None and
+                            cookie != flow_dict['cookie']):
                             continue
                     if hard_timeout:
                         if not 'hard_timeout' in flow_dict:
@@ -753,19 +753,23 @@ dbs:
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                  actions=None, match_exact=None, hard_timeout=0):
+                                  actions=None, match_exact=None, hard_timeout=0,
+                                  cookie=None):
         flow_dicts = self.get_matching_flows_on_dpid(
             dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
+            actions=actions, match_exact=match_exact,
+            hard_timeout=hard_timeout, cookie=cookie)
         if flow_dicts:
             return flow_dicts[0]
         return []
 
     def get_matching_flow(self, match, timeout=10, table_id=None,
-                          actions=None, match_exact=None, hard_timeout=0):
+                          actions=None, match_exact=None, hard_timeout=0,
+                          cookie=None):
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
+            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout,
+            cookie=cookie)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
         for _ in range(timeout):
@@ -781,28 +785,34 @@ dbs:
             'Cannot find group_id for matching flow %s' % match)
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                      actions=None, match_exact=None, hard_timeout=0):
+                                      actions=None, match_exact=None, hard_timeout=0,
+                                      cookie=None):
         """Return True if matching flow is present on a DPID."""
         if self.get_matching_flow_on_dpid(
                 dpid, match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact, hard_timeout=hard_timeout):
+                actions=actions, match_exact=match_exact,
+                hard_timeout=hard_timeout, cookie=cookie):
             return True
         return False
 
     def matching_flow_present(self, match, timeout=10, table_id=None,
-                              actions=None, match_exact=None, hard_timeout=0):
+                              actions=None, match_exact=None, hard_timeout=0,
+                              cookie=None):
         """Return True if matching flow is present on default DPID."""
         return self.matching_flow_present_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
+            actions=actions, match_exact=match_exact,
+            hard_timeout=hard_timeout, cookie=cookie)
 
     def wait_until_matching_flow(self, match, timeout=10, table_id=None,
-                                 actions=None, match_exact=False, hard_timeout=0):
+                                 actions=None, match_exact=False, hard_timeout=0,
+                                 cookie=None):
         """Wait (require) for flow to be present on default DPID."""
         self.assertTrue(
             self.matching_flow_present(
                 match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact, hard_timeout=hard_timeout),
+                actions=actions, match_exact=match_exact,
+                hard_timeout=hard_timeout, cookie=cookie),
             msg=match)
 
     def wait_until_controller_flow(self):
