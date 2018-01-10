@@ -394,10 +394,10 @@ class Faucet(app_manager.RyuApp):
             if 'nd_ports' in valve.dp.stack:
                 ports = valve.dp.stack['nd_ports']
             for port in ports:
-                if port.enabled:
+                if port.dyn_phys_up:
                     self.logger.info('Port %s on dp %s timed out', port.number, dp_id)
-                    port.enabled = False
-
+                    valve.ports_delete(port.number)
+    
     def get_config(self):
         """FAUCET experimental API: return config for all Valves."""
         return get_config_for_api(self.valves)

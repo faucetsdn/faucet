@@ -1039,8 +1039,8 @@ class Valve(object):
             return
         
         port = self.dp.ports[port_num]
-        if not port.enabled:
-            port.enabled = True
+        if not port.dyn_phys_up:
+            self.port_add(port_num)
         self.dp.stack['nd_ports'].remove(port)
 
 
