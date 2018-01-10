@@ -1405,13 +1405,6 @@ acls:
             config = yaml.load(config_file.read())
         return config
 
-    def get_port_match_flow(self, port_no, table_id=None):
-        if table_id is None:
-            table_id = self.ETH_SRC_TABLE
-        flow = self.get_matching_flow_on_dpid(
-            self.dpid, {u'in_port': int(port_no)}, table_id, cookie=str(1234))
-        return flow
-
     def change_port_config(self, port, config_name, config_value,
                            restart=True, conf=None, cold_start=False):
         if conf is None:
@@ -1474,7 +1467,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             self.port_map['port_1'], 'acl_in', 1, cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
-            table_id=self.PORT_ACL_TABLE)
+            table_id=self.PORT_ACL_TABLE, cookie=1234)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self.reload_conf(

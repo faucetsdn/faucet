@@ -2,7 +2,7 @@
 
 # To install:
 #
-#    pip3 install git-pylint-commit-hook
+#    pip3 install git-pylint-commit-hook mypy
 #    chmod +x pre-commit
 #    cp pre-commit ../.git/hooks
 
@@ -12,6 +12,9 @@ git-pylint-commit-hook
 BASE=`dirname $0`/../..
 cd $BASE || exit 1
 BASE=`pwd`
+for mypy_file in faucet/valve.py faucet/valve_route.py ; do
+    PYTHONPATH=$BASE mypy --ignore-missing-imports $mypy_file || exit 1
+done
 cd tests
 for t in test_*.py ; do
     # TODO: fix test_gauge.py to run from anywhere

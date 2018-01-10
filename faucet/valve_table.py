@@ -68,7 +68,7 @@ class ValveTable(object):
         if self.notify_flow_removed:
             flags = valve_of.ofp.OFPFF_SEND_FLOW_REM
         return valve_of.flowmod(
-            self.flow_cookie,
+            cookie,
             command,
             self.table_id,
             priority,

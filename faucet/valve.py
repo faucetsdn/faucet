@@ -66,7 +66,7 @@ class Valve(object):
     DEC_TTL = True
     L3 = False
     base_prom_labels = None
-    recent_ofmsgs = queue.Queue(maxsize=32)
+    recent_ofmsgs = queue.Queue(maxsize=32) # type: ignore
 
     def __init__(self, dp, logname, notifier):
         self.dp = dp
