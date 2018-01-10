@@ -997,50 +997,51 @@ class Valve(object):
 
         cur_time = time.time()
 
+        # List of ports that have sent a request
+        sent_ports = set()
+
         for _port_num, port in self.dp.ports.items():
             if not port.stack:
                 continue
-            # NOTE: Packets from faucet mac may be dropped, test this
             pkt = valve_packet.build_pkt_header(None, '0e:00:00:00:00:01', '0e:00:00:00:00:01', 0xFCE7)
 
-            payload = str(self.dp.dp_id) + ':' + str(port.number)[-1] + ':' + str(cur_time)
+            payload = '(' + str(self.dp.dp_id) + ':' + str(port.number)[-1] + ':' + str(cur_time) + ')'
             pkt.add_protocol(payload.encode())
 
             pkt.serialize()
             ofmsgs.append(valve_of.packetout(port.number, pkt))
+            sent_ports.add(port)
 
-        # Timestamp of the last broadcast
+        # Timestamp of the last batch of requests
         self.dp.stack['last_nd_time'] = cur_time
-        self.dp.stack['last_nd_count'] = len(ofmsgs)
-        # List of ports that have received a response
-        self.dp.stack['nd_ports'] = set()
-
-        # TODO: Create timed event to detect which ports haven't responded
+        self.dp.stack['nd_ports'] = sent_ports
 
         return ofmsgs
 
     def handle_neighbour_discovery_response(self, pkt_meta, data):
         """Handles a response to a previously sent ND packet."""
+
         def parse_pkt_data(data):
-            # TODO: Parse binary data to fields
-        
-        self.logger.info(str(pkt_meta))
-        self.logger.info(str(data))
-        # Parse data
-        dp, port, time = parse_pkt_data(data)
-        # Check that this packet it for the right dp
+            """Format: ~~~(dp:port:time)~~~"""
+            buf = str(data).split(':')
+            dp_s = buf[0].split('(')[-1]
+            port_num_s = buf[1]
+            time_s = buf[2].split(')')[0]
+
+            return int(dp_s), int(port_num_s), float(time_s)
+            
+        dp, port_num, time = parse_pkt_data(data)
+        # Check that this packet is for the right dp
         if dp != self.dp.dp_id:
             return
-        # Check that this is a response to the latest broadcast
+        # Check that this is a response to the latest batch of requests
         if time != self.dp.stack['last_nd_time']:
             return
         
-        ok_ports = self.dp.stack['nd_ports']
-        ok_ports.add(port)
-        
-        if len(ok_ports) == self.dp.stack['last_nd_count']:
-            # Cancel timer
-            pass
+        port = self.dp.ports[port_num]
+        if not port.enabled:
+            port.enabled = True
+        self.dp.stack['nd_ports'].remove(port)
 
 
 class TfmValve(Valve):

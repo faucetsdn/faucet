@@ -375,10 +375,28 @@ class Faucet(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def neighbour_discovery(self, _):
         """Handle a request to rediscover neighbours on dps in a stack."""
+
         for dp_id, valve in list(self.valves.items()):
             flowmods = valve.stack_neighbour_discovery()
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
+                
+        # Spawn thread to handle timeout
+        hub.spawn_after(0.200, self._stack_neighbour_discovery_timeout)
+
+    def _stack_neighbour_discovery_timeout(self):
+        """Thread that handles any links that fail to respond"""
+
+        for dp_id, valve in list(self.valves.items()):
+            if not valve.dp.stack:
+                continue
+            ports = []
+            if 'nd_ports' in valve.dp.stack:
+                ports = valve.dp.stack['nd_ports']
+            for port in ports:
+                if port.enabled:
+                    self.logger.info('Port %s on dp %s timed out', port.number, dp_id)
+                    port.enabled = False
 
     def get_config(self):
         """FAUCET experimental API: return config for all Valves."""
