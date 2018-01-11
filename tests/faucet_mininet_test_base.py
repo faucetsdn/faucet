@@ -738,8 +738,12 @@ dbs:
                         if flow_dict['hard_timeout'] < hard_timeout:
                             continue
                     if actions is not None:
-                        if not set(actions).issubset(set(flow_dict['actions'])):
-                            continue
+                        if actions:
+                            if not set(actions).issubset(set(flow_dict['actions'])):
+                                continue
+                        else:
+                            if flow_dict['actions']:
+                                continue
                     if match is not None:
                         if match_exact:
                             if match.items() != flow_dict['match'].items():

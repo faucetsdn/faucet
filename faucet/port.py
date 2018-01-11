@@ -30,7 +30,6 @@ class Port(Conf):
     permanent_learn = None
     unicast_flood = None
     mirror = None
-    mirror_destination = None
     native_vlan = None
     tagged_vlans = []
     acl_in = None
@@ -44,6 +43,7 @@ class Port(Conf):
     dyn_lacp_up = None
     dyn_lacp_updated_time = None
     dyn_last_ban_time = None
+    output_only = None
 
     defaults = {
         'number': None,
@@ -55,7 +55,6 @@ class Port(Conf):
         'unicast_flood': True,
         # if True, do classical unicast flooding on this port (False floods ND/ARP/bcast only).
         'mirror': None,
-        'mirror_destination': False,
         'native_vlan': None,
         # Set untagged VLAN on this port.
         'tagged_vlans': None,
@@ -72,6 +71,8 @@ class Port(Conf):
         # if non 0 (LAG ID), experimental LACP support enabled on this port.
         'loop_protect': False,
         # if True, do simple loop protection on this port.
+        'output_only': False,
+        # if True, all packets input from this port are dropped.
     }
 
     defaults_types = {
@@ -82,7 +83,6 @@ class Port(Conf):
         'permanent_learn': bool,
         'unicast_flood': bool,
         'mirror': (str, int),
-        'mirror_destination': bool,
         'native_vlan': (str, int),
         'tagged_vlans': list,
         'acl_in': (str, int),
@@ -116,7 +116,7 @@ class Port(Conf):
             'Port number invalid: %s' % self.number)
 
     def finalize(self):
-        assert self.vlans() or self.stack, '%s must have a VLAN or be a stack port' % self
+        assert self.vlans() or self.stack or self.output_only, '%s must have a VLAN, be a stack port, or have output_only: True' % self
         assert not (self.vlans() and self.stack), '%s cannot have stack and VLANs on same port' % self
         super(Port, self).finalize()
 
