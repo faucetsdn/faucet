@@ -277,7 +277,6 @@ class Valve(object):
 
     def _add_ports_and_vlans(self, discovered_port_nums):
         """Add all configured and discovered ports and VLANs."""
-        ofmsgs = []
         all_port_nums = set(discovered_port_nums)
 
         for port in self.dp.stack_ports:
@@ -286,17 +285,18 @@ class Valve(object):
         for port in self.dp.output_only_ports:
             all_port_nums.add(port.number)
 
-        # add vlan ports
+        ofmsgs = []
         for vlan in list(self.dp.vlans.values()):
-            if vlan.get_ports():
-                for port in vlan.get_ports():
+            vlan_ports = vlan.get_ports()
+            if vlan_ports:
+                for port in vlan_ports:
                     all_port_nums.add(port.number)
                 ofmsgs.extend(self._add_vlan(vlan))
             vlan.reset_host_cache()
 
-        # now configure all ports
-        ofmsgs.extend(self.ports_add(all_port_nums, cold_start=True))
-
+        ofmsgs.extend(
+            self.ports_add(
+                all_port_nums, cold_start=True, log_msg='configured'))
         return ofmsgs
 
     def port_status_handler(self, port_no, reason, port_status):
@@ -445,7 +445,7 @@ class Valve(object):
             vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
 
-    def ports_add(self, port_nums, cold_start=False):
+    def ports_add(self, port_nums, cold_start=False, log_msg='up'):
         """Handle the addition of ports.
 
         Args:
@@ -467,7 +467,7 @@ class Valve(object):
 
             port = self.dp.ports[port_num]
             port.dyn_phys_up = True
-            self.logger.info('%s up, configuring' % port)
+            self.logger.info('%s %s' % (port, log_msg))
 
             if not port.running():
                 continue
@@ -523,7 +523,7 @@ class Valve(object):
         """
         return self.ports_add([port_num])
 
-    def ports_delete(self, port_nums):
+    def ports_delete(self, port_nums, log_msg='down'):
         """Handle the deletion of ports.
 
         Args:
@@ -539,7 +539,7 @@ class Valve(object):
                 continue
             port = self.dp.ports[port_num]
             port.dyn_phys_up = False
-            self.logger.info('%s down' % port)
+            self.logger.info('%s %s' % (port, log_msg))
 
             if not port.output_only:
                 if port.lacp:
