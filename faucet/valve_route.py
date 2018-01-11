@@ -728,7 +728,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 eth_type=self.ETH_TYPE,
                 nw_proto=valve_of.inet.IPPROTO_ICMPV6,
                 icmpv6_type=icmpv6.ICMPV6_ECHO_REQUEST),
-            priority=priority))
+            priority=priority,
+            max_len=self.MAX_LEN))
         # IPv6 ND for FAUCET VIP
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
@@ -751,7 +752,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 eth_dst=vlan.faucet_mac,
                 nw_proto=valve_of.inet.IPPROTO_ICMPV6,
                 icmpv6_type=icmpv6.ND_NEIGHBOR_ADVERT),
-            priority=priority))
+            priority=priority,
+            max_len=self.MAX_LEN))
         if faucet_vip.ip in valve_packet.IPV6_LINK_LOCAL:
             ofmsgs.append(self.eth_src_table.flowmod(
                 self.eth_src_table.match(
