@@ -3016,6 +3016,51 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
+
+    N_UNTAGGED = 0
+    N_TAGGED = 4
+    LINKS_PER_HOST = 1
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+    200:
+        description: "untagged"
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 200
+                tagged_vlans: [100]
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 200
+                tagged_vlans: [100]
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 200
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 200
+                tagged_vlans: [100]
+                description: "b4"
+"""
+
+    def test_tagged(self):
+        self.ping_all_when_learned()
+        native_ips = [
+            ipaddress.ip_interface(u'10.99.99.%u/24' % (i + 1)) for i in range(len(self.net.hosts))]
+        for native_ip, host in zip(native_ips, self.net.hosts):
+            self.host_ipv4_alias(host, native_ip, intf=host.intf_root_name)
+        for own_native_ip, host in zip(native_ips, self.net.hosts):
+            for native_ip in native_ips:
+                if native_ip != own_native_ip:
+                    self.one_ipv4_ping(host, native_ip.ip, intf=host.intf_root_name)
+
+
 class FaucetTaggedSwapVidOutputTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """

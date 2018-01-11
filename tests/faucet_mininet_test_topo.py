@@ -149,6 +149,8 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
 class VLANHost(FaucetHost):
     """Implementation of a Mininet host on a tagged VLAN."""
 
+    intf_root_name = None
+
     def config(self, vlan=100, **params):
         """Configure VLANHost according to (optional) parameters:
            vlan: VLAN ID for default interface"""
@@ -162,6 +164,7 @@ class VLANHost(FaucetHost):
                 'ip link set dev %s up' % vlan_intf_name,
                 'ip -4 addr add %s dev %s' % (params['ip'], vlan_intf_name)):
             self.cmd(cmd)
+        self.intf_root_name = intf.name
         intf.name = vlan_intf_name
         self.nameToIntf[vlan_intf_name] = intf
         return super_config
