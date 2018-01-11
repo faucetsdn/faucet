@@ -780,11 +780,15 @@ configuration.
         """
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
-            return (set(), set(), set(), set(), set(), True)
-        changed_acls = self._get_acl_config_changes(logger, new_dp)
-        deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
-        (all_ports_changed, deleted_ports,
-         changed_ports, changed_acl_ports) = self._get_port_config_changes(
-             logger, new_dp, changed_vlans, changed_acls)
-        return (deleted_ports, changed_ports, changed_acl_ports,
+        elif new_dp.routers != self.routers:
+            logger.info('DP routers config changed - requires cold start')
+        else:
+            changed_acls = self._get_acl_config_changes(logger, new_dp)
+            deleted_vlans, changed_vlans = self._get_vlan_config_changes(logger, new_dp)
+            (all_ports_changed, deleted_ports,
+             changed_ports, changed_acl_ports) = self._get_port_config_changes(
+                 logger, new_dp, changed_vlans, changed_acls)
+            return (deleted_ports, changed_ports, changed_acl_ports,
                 deleted_vlans, changed_vlans, all_ports_changed)
+        # default cold start
+        return (set(), set(), set(), set(), set(), True)
