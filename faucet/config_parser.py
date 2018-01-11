@@ -130,7 +130,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                 port_range = re.sub(range_, '', port_range)
             other_nums = [int(p) for p in re.findall(r'\d+', port_range)]
             port_nums.update(other_nums)
-            assert len(port_nums) > 0, 'interface-ranges contain invalid config'
+            assert port_nums, 'interface-ranges contain invalid config'
             for port_num in port_nums:
                 if port_num in port_num_to_port_conf:
                     # port range config has lower priority than individual port config
