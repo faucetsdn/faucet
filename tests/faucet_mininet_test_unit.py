@@ -2699,6 +2699,10 @@ class FaucetUntaggedOutputOnlyTest(FaucetUntaggedTest):
 """
 
     def test_untagged(self):
+        self.wait_until_matching_flow(
+            {u'in_port': int(self.port_map['port_1'])},
+            table_id=self.VLAN_TABLE,
+            actions=[])
         first_host, second_host, third_host = self.net.hosts[:3]
         self.assertEqual(100.0, self.net.ping((first_host, second_host)))
         self.assertEqual(0, self.net.ping((third_host, second_host)))
