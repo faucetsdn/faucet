@@ -91,6 +91,7 @@ class Port(Conf):
         'hairpin': bool,
         'lacp': int,
         'loop_protect': bool,
+        'output_only': bool,
     }
 
     def __init__(self, _id, dp_id, conf=None):
