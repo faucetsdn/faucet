@@ -70,6 +70,7 @@ The output action contains a dictionary with the following elements:
     rule_types = {
         'cookie': int,
         'actions': dict,
+        'description': str,
     }
     actions_types = {
         'meter': dict,
