@@ -44,7 +44,8 @@ def print_version():
     """Print version number and exit."""
     from pbr.version import VersionInfo
     version = VersionInfo('faucet').semantic_version().release_string()
-    print('Faucet %s' % version)
+    message = 'Faucet %s' % version
+    print(message)
     sys.exit(0)
 
 
