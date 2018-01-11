@@ -1332,7 +1332,7 @@ vlans:
                 native_vlan: 100
                 description: "b3"
             %(port_4)d:
-                native_vlan: 100
+                native_vlan: 200
                 description: "b4"
 """
     ACL = """
@@ -1504,6 +1504,20 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
         conf = self._get_conf()
         first_interface = conf['dps'][self.DP_NAME]['interfaces'].keys()[0]
         del conf['dps'][self.DP_NAME]['interfaces'][first_interface]
+        self.reload_conf(
+            conf, self.faucet_config_path,
+            restart=True, cold_start=True, change_expected=True)
+
+
+class FaucetRouterConfigReloadTest(FaucetConfigReloadTestBase):
+
+    def test_router_config_reload(self):
+        conf = self._get_conf()
+        conf['routers'] = {
+            'router-1': {
+                'vlans': ['100', '200'],
+            }
+        }
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=True, change_expected=True)
