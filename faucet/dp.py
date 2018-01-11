@@ -431,11 +431,12 @@ configuration.
                     if port.mirror in port_by_name:
                         mirror_from_port[port] = port_by_name[port.mirror]
                     else:
-                        assert port.mirror in self.ports, 'could not find port %s in %s' % (port.mirror, self.name)
+                        assert port.mirror in self.ports, 'could not find port %s in %s' % (
+                            port.mirror, self.name)
                         mirror_from_port[self.ports[port.mirror]] = port
             for port, mirror_destination_port in list(mirror_from_port.items()):
                 port.mirror = mirror_destination_port.number
-                mirror_destination_port.mirror_destination = True
+                mirror_destination_port.output_only = True
 
         def resolve_acls():
             """Resolve config references in ACLs."""
@@ -512,7 +513,7 @@ configuration.
                         raise InvalidConfigError(err)
                     for port_no in acl.mirror_destinations:
                         port = self.ports[port_no]
-                        port.mirror_destination = True
+                        port.output_only = True
 
             def resolve_acl(conf):
                 assert conf.acl_in in self.acls, (

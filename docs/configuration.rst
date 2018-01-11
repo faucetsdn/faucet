@@ -353,6 +353,10 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - True
       - If False unicast packets will not be flooded to this port.
+    * - output_only
+      - boolean
+      - False
+      - If True, no packets will be accepted from this port.
 
 Stacking (Interfaces)
 ~~~~~~~~~~~~~~~~~~~~~

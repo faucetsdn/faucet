@@ -288,7 +288,7 @@ class Valve(object):
         for vlan in list(self.dp.vlans.values()):
             for port in vlan.get_ports():
                 all_port_nums.add(port.number)
-            for port in vlan.mirror_destination_ports():
+            for port in vlan.output_only_ports():
                 all_port_nums.add(port.number)
             if vlan.get_ports():
                 ofmsgs.extend(self._add_vlan(vlan))
@@ -472,8 +472,7 @@ class Valve(object):
             if not port.running():
                 continue
 
-            # Port is a mirror destination; drop all input packets
-            if port.mirror_destination:
+            if port.output_only:
                 ofmsgs.append(vlan_table.flowdrop(
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.highest_priority))
@@ -542,17 +541,13 @@ class Valve(object):
             port.dyn_phys_up = False
             self.logger.info('%s down' % port)
 
-            # TODO: when mirroring an entire port, we install flows
-            # in eth_dst output a copy to the mirror port. If the mirror
-            # port goes down then those flows will be deleted stopping
-            # forwarding for that host. They are garbage collected by
-            # hard timeout anyway, but it would be good to "relearn them".
-            if port.lacp:
-                ofmsgs.extend(self.lacp_down(port))
-            elif not port.mirror_destination:
-                ofmsgs.extend(self._port_delete_flows_state(port))
-            for vlan in port.vlans():
-                vlans_with_deleted_ports.add(vlan)
+            if not port.output_only:
+                if port.lacp:
+                    ofmsgs.extend(self.lacp_down(port))
+                else:
+                    ofmsgs.extend(self._port_delete_flows_state(port))
+                for vlan in port.vlans():
+                    vlans_with_deleted_ports.add(vlan)
 
         for vlan in vlans_with_deleted_ports:
             ofmsgs.extend(self.flood_manager.build_flood_rules(
