@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
 from faucet.conf import Conf
 
 
@@ -66,23 +67,54 @@ The output action contains a dictionary with the following elements:
         'rules': list,
         'exact_match': bool,
     }
+    rule_types = {
+        'cookie': int,
+        'actions': dict,
+    }
+    actions_types = {
+        'meter': dict,
+        'mirror': (str, int),
+        'output': dict,
+        'allow': int,
+    }
+    output_actions_types = {
+        'port': (str, int),
+        'ports': list,
+        'failover': dict,
+        'set_fields': list,
+        'dl_dst': str,
+        'pop_vlans': int,
+        'swap_vid': int,
+        'vlan_vid': int,
+        'vlan_vids': list,
+    }
 
     def __init__(self, _id, dp_id, conf):
         super(ACL, self).__init__(_id, dp_id, conf)
-        # TODO: ACL rule content should be type checked.
         rules = conf
         if isinstance(conf, dict):
             if 'exact_match' in conf and conf['exact_match']:
                 self.exact_match = True
-            assert 'rules' in conf, 'no rules found for acl %s' % _id
+            assert 'rules' in conf, 'no rules found for ACL %s' % _id
             rules = conf['rules']
         self.rules = []
         assert isinstance(rules, list)
+        for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
+            for match in list(match_fields.keys()):
+                self.rule_types[match] = (str, int)
         for rule in rules:
             assert isinstance(rule, dict)
             for rule_key, rule_content in list(rule.items()):
                 assert rule_key == 'rule'
                 assert isinstance(rule_content, dict)
+                self._check_conf_types(rule_content, self.rule_types)
+                for rule_field, rule_conf in list(rule_content.items()):
+                    if rule_field == 'actions':
+                        assert rule_conf
+                        self._check_conf_types(rule_conf, self.actions_types)
+                        for action_name, action_conf in list(rule_conf.items()):
+                            if action_name == 'output':
+                                self._check_conf_types(action_conf, self.output_actions_types)
                 self.rules.append(rule_content)
 
     def to_conf(self):

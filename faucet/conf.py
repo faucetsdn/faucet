@@ -50,22 +50,24 @@ class Conf(object):
         """Check that supplied conf dict doesn't specify keys not defined."""
         sub_conf_names = set(conf.keys())
         unknown_conf_names = sub_conf_names - set(self.defaults.keys())
-        assert not unknown_conf_names, 'unknown config items: %s' % unknown_conf_names
+        assert not unknown_conf_names, '%s fields unknown in %s' % (
+            unknown_conf_names, self._id)
 
-    def _check_defaults_types(self, conf):
+    def _check_conf_types(self, conf, conf_types):
         """Check that conf value is of the correct type."""
-        #  assert set(list(self.defaults_types.keys())) == set(list(conf.keys()))
         for conf_key, conf_value in list(conf.items()):
-            if conf_key in self.defaults_types and conf_value is not None:
-                default_type = self.defaults_types[conf_key]
-                assert isinstance(conf_value, default_type), '%s value %s must be %s not %s' % (
-                    conf_key, conf_value, default_type, type(conf_value))
+            assert conf_key in conf_types, '%s field unknown in %s (known types %s)' % (
+                conf_key, self._id, conf_types)
+            if conf_value is not None:
+                conf_type = conf_types[conf_key]
+                assert isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
+                    conf_key, conf_value, conf_type, type(conf_value))
 
     def update(self, conf):
         """Parse supplied YAML config and sanity check."""
         self.__dict__.update(conf)
         self._check_unknown_conf(conf)
-        self._check_defaults_types(conf)
+        self._check_conf_types(conf, self.defaults_types)
 
     def check_config(self):
         """As far as possible, check config at instantiation time for errors, typically via assert."""

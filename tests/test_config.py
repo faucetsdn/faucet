@@ -1210,7 +1210,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_bad_set_fields(self):
-        """Test when tagged vlans is a dict"""
+        """Test unknown set_field."""
         config = """
 acls:
     bad_acl:
@@ -1234,7 +1234,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_unreferenced_acl(self):
-        """Test when tagged vlans is a dict"""
+        """Test an unresolveable port in an ACL that is not referenced is OK."""
         config = """
 acls:
     unreferenced_acl:
