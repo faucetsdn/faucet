@@ -63,8 +63,8 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
     vid_dp = collections.defaultdict(set)
 
     def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
-        assert isinstance(vlan_ident, str) or isinstance(vlan_ident, int), (
-            'vlan identifier must be of type %s or %s not %s' % (int, str, type(vlan_ident)))
+        assert isinstance(vlan_ident, (str, int)), (
+            'VLAN identifier must not be type %s' % type(vlan_ident))
         if vlan_ident in vlans:
             return vlans[vlan_ident]
         for vlan in list(vlans.values()):
@@ -130,7 +130,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                 port_range = re.sub(range_, '', port_range)
             other_nums = [int(p) for p in re.findall(r'\d+', port_range)]
             port_nums.update(other_nums)
-            assert len(port_nums) > 0, 'interface-ranges contain invalid config'
+            assert port_nums, 'interface-ranges contain invalid config'
             for port_num in port_nums:
                 if port_num in port_num_to_port_conf:
                     # port range config has lower priority than individual port config
@@ -168,6 +168,14 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         dp.finalize_config(dps)
     for dp in dps:
         dp.resolve_stack_topology(dps)
+
+    router_ref_dps = collections.defaultdict(set)
+    for dp in dps:
+        for router in list(dp.routers.keys()):
+            router_ref_dps[router].add(dp)
+    for router in list(routers_conf.keys()):
+        assert router_ref_dps[router], (
+            'router %s configured but not used by any DP' % router)
 
     return dps
 

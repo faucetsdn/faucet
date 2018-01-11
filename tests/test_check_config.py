@@ -327,6 +327,8 @@ dps:
         interfaces:
             1:
                 native_vlan: 100
+            2:
+                native_vlan: 200
     switch2:
         dp_id: 0xdeadbeef
         hardware: 'Open vSwitch'
