@@ -1255,6 +1255,30 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_bad_cookie(self):
+        """Test bad cookie value."""
+        config = """
+acls:
+    bad_cookie_acl:
+        rules:
+            - rule:
+                cookie: 999999
+                actions:
+                    output:
+                        port: 1
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: bad_cookie_acl
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()

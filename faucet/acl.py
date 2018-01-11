@@ -110,7 +110,10 @@ The output action contains a dictionary with the following elements:
                 assert isinstance(rule_content, dict)
                 self._check_conf_types(rule_content, self.rule_types)
                 for rule_field, rule_conf in list(rule_content.items()):
-                    if rule_field == 'actions':
+                    if rule_field == 'cookie':
+                        assert rule_conf > 0 and rule_conf <= 2**16, (
+                            'rule cookie value must be 0-2**16')
+                    elif rule_field == 'actions':
                         assert rule_conf
                         self._check_conf_types(rule_conf, self.actions_types)
                         for action_name, action_conf in list(rule_conf.items()):
