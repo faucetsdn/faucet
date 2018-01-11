@@ -59,7 +59,7 @@ def main():
 
     # Running Faucet or Gauge?
     ryu_args = ['faucet.faucet']
-    if args.gauge:
+    if args.gauge or os.path.basename(sys.argv[0]) == 'gauge':
         ryu_args = ['faucet.gauge']
 
     # Check for additional Ryu apps.
