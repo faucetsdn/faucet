@@ -2679,6 +2679,31 @@ class FaucetZodiacUntaggedACLTest(FaucetUntaggedACLTest):
         self.ping_all_when_learned()
 
 
+class FaucetUntaggedOutputOnlyTest(FaucetUntaggedTest):
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                output_only: True
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                number: %(port_3)d
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        first_host, second_host, third_host = self.net.hosts[:3]
+        self.assertEqual(100.0, self.net.ping((first_host, second_host)))
+        self.assertEqual(0, self.net.ping((third_host, second_host)))
+
+
 class FaucetUntaggedACLMirrorTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """

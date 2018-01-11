@@ -55,6 +55,7 @@ configuration.
     high_priority = None
     stack = None
     stack_ports = None
+    output_only_ports = None
     ignore_learn_ins = None
     drop_broadcast_source_address = None
     drop_spoofed_faucet_mac = None
@@ -196,6 +197,7 @@ configuration.
         self.ports = {}
         self.routers = {}
         self.stack_ports = []
+        self.output_only_ports = []
 
     def __str__(self):
         return self.name
@@ -275,10 +277,9 @@ configuration.
         """Add a port to this DP."""
         port_num = port.number
         self.ports[port_num] = port
-        if port.mirror is not None:
-            # other configuration entries ignored
-            return
-        if port.stack is not None:
+        if port.output_only:
+            self.output_only_ports.append(port)
+        elif port.stack is not None:
             self.stack_ports.append(port)
 
     def add_vlan(self, vlan):

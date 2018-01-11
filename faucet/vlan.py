@@ -300,10 +300,6 @@ class VLAN(Conf):
         """Return list of ports that are mirrored on this VLAN."""
         return [port for port in self.get_ports() if port.mirror]
 
-    def output_only_ports(self):
-        """Return list of ports that are output only on this VLAN."""
-        return [port for port in self.get_ports() if port.output_only]
-
     def lags(self):
         """Return dict of LAGs mapped to member ports."""
         lacp_ports = [port for port in self.get_ports() if port.lacp]

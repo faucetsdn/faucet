@@ -116,7 +116,7 @@ class Port(Conf):
             'Port number invalid: %s' % self.number)
 
     def finalize(self):
-        assert self.vlans() or self.stack, '%s must have a VLAN or be a stack port' % self
+        assert self.vlans() or self.stack or self.output_only, '%s must have a VLAN, be a stack port, or have output_only: True' % self
         assert not (self.vlans() and self.stack), '%s cannot have stack and VLANs on same port' % self
         super(Port, self).finalize()
 

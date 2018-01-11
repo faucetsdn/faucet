@@ -280,17 +280,17 @@ class Valve(object):
         ofmsgs = []
         all_port_nums = set(discovered_port_nums)
 
-        # add stack ports
         for port in self.dp.stack_ports:
+            all_port_nums.add(port.number)
+
+        for port in self.dp.output_only_ports:
             all_port_nums.add(port.number)
 
         # add vlan ports
         for vlan in list(self.dp.vlans.values()):
-            for port in vlan.get_ports():
-                all_port_nums.add(port.number)
-            for port in vlan.output_only_ports():
-                all_port_nums.add(port.number)
             if vlan.get_ports():
+                for port in vlan.get_ports():
+                    all_port_nums.add(port.number)
                 ofmsgs.extend(self._add_vlan(vlan))
             vlan.reset_host_cache()
 
