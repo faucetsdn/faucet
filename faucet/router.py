@@ -28,7 +28,7 @@ class Router(Conf):
         'vlans': None,
     }
 
-    defaults_type = {
+    defaults_types = {
         'vlans': list,
     }
 

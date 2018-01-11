@@ -1210,7 +1210,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_bad_set_fields(self):
-        """Test when tagged vlans is a dict"""
+        """Test unknown set_field."""
         config = """
 acls:
     bad_acl:
@@ -1234,7 +1234,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_unreferenced_acl(self):
-        """Test when tagged vlans is a dict"""
+        """Test an unresolveable port in an ACL that is not referenced is OK."""
         config = """
 acls:
     unreferenced_acl:
@@ -1254,6 +1254,30 @@ dps:
                 native_vlan: 100
 """
         self.check_config_success(config, cp.dp_parser)
+
+    def test_bad_cookie(self):
+        """Test bad cookie value."""
+        config = """
+acls:
+    bad_cookie_acl:
+        rules:
+            - rule:
+                cookie: 999999
+                actions:
+                    output:
+                        port: 1
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: bad_cookie_acl
+"""
+        self.check_config_failure(config, cp.dp_parser)
 
 
 if __name__ == "__main__":

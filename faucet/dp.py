@@ -483,10 +483,8 @@ configuration.
                                 resolved_action_conf[output_action][failover_name] = resolved_ports
                             else:
                                 resolved_action_conf[output_action][failover_name] = failover_values
-                    elif output_action in ('set_fields', 'dl_dst', 'pop_vlans', 'swap_vid', 'vlan_vid', 'vlan_vids'):
-                        resolved_action_conf[output_action] = output_action_values
                     else:
-                        assert False, 'unknown ACL output action: %s' % output_action
+                        resolved_action_conf[output_action] = output_action_values
                 if resolved_action_conf:
                     return resolved_action_conf
                 return None
@@ -534,8 +532,6 @@ configuration.
                             resolved_actions = {}
                             assert isinstance(attrib_value, dict)
                             for action_name, action_conf in list(attrib_value.items()):
-                                assert action_name in action_resolvers, (
-                                    'unknown ACL action %s' % action_name)
                                 resolved_action_conf = action_resolvers[action_name](
                                     acl, action_conf)
                                 assert resolved_action_conf is not None, (
