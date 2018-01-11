@@ -169,6 +169,14 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
     for dp in dps:
         dp.resolve_stack_topology(dps)
 
+    router_ref_dps = collections.defaultdict(set)
+    for dp in dps:
+        for router in list(dp.routers.keys()):
+            router_ref_dps[router].add(dp)
+    for router in list(routers_conf.keys()):
+        assert router_ref_dps[router], (
+            'router %s configured but not used by any DP' % router)
+
     return dps
 
 
