@@ -1501,9 +1501,16 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
 class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
 
     def test_delete_interface(self):
+        # With all ports changed, we should cold start.
         conf = self._get_conf()
         first_interface = conf['dps'][self.DP_NAME]['interfaces'].keys()[0]
-        del conf['dps'][self.DP_NAME]['interfaces'][first_interface]
+        del conf['dps'][self.DP_NAME]['interfaces']
+        conf['dps'][self.DP_NAME]['interfaces'] = {
+            99: {
+                'native_vlan': '100',
+                'tagged_vlans': ['200'],
+            }
+        }
         self.reload_conf(
             conf, self.faucet_config_path,
             restart=True, cold_start=True, change_expected=True)
