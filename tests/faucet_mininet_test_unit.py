@@ -1332,8 +1332,9 @@ vlans:
                 native_vlan: 100
                 description: "b3"
             %(port_4)d:
-                native_vlan: 200
+                native_vlan: 100
                 description: "b4"
+                tagged_vlans: [200]
 """
     ACL = """
 acls:
