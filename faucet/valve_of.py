@@ -72,6 +72,17 @@ def is_groupmod(ofmsg):
     return isinstance(ofmsg, parser.OFPGroupMod)
 
 
+def is_metermod(ofmsg):
+    """Return True if OF message is a MeterMod.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a MeterMod
+    """
+    return isinstance(ofmsg, parser.OFPMeterMod)
+
+
 def is_flowdel(ofmsg):
     """Return True if flow message is a FlowMod and a delete.
 
@@ -97,6 +108,20 @@ def is_groupdel(ofmsg):
     """
     if (is_groupmod(ofmsg) and
             (ofmsg.command == ofp.OFPGC_DELETE)):
+        return True
+    return False
+
+
+def is_meterdel(ofmsg):
+    """Return True if OF message is a MeterMod and command is delete.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a MeterMod delete
+    """
+    if (is_metermod(ofmsg) and
+            (ofmsg.command == ofp.OFPMC_DELETE)):
         return True
     return False
 
@@ -558,7 +583,7 @@ def valve_flowreorder(input_ofmsgs):
     groupadd_ofmsgs = []
     nondelete_ofmsgs = []
     for ofmsg in input_ofmsgs:
-        if is_flowdel(ofmsg) or is_groupdel(ofmsg):
+        if is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg):
             delete_ofmsgs.append(ofmsg)
         elif is_groupadd(ofmsg):
             # The same group_id may be deleted/added multiple times
