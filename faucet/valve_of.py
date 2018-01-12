@@ -140,6 +140,20 @@ def is_groupadd(ofmsg):
     return False
 
 
+def is_meteradd(ofmsg):
+    """Return True if OF message is a MeterMod and command is add.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a MeterMod add
+    """
+    if (is_metermod(ofmsg) and
+            (ofmsg.command == ofp.OFPMC_ADD)):
+        return True
+    return False
+
+
 def apply_meter(meter_id):
     """Return instruction to apply a meter."""
     return parser.OFPInstructionMeter(meter_id, ofp.OFPIT_METER)
@@ -581,6 +595,7 @@ def valve_flowreorder(input_ofmsgs):
     # reorder adds to be in priority order.
     delete_ofmsgs = []
     groupadd_ofmsgs = []
+    meteradd_ofmsgs = []
     nondelete_ofmsgs = []
     for ofmsg in input_ofmsgs:
         if is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg):
@@ -601,14 +616,18 @@ def valve_flowreorder(input_ofmsgs):
                     break
             if new_group_id:
                 groupadd_ofmsgs.append(ofmsg)
+        elif is_meteradd(ofmsg):
+            meteradd_ofmsgs.append(ofmsg)
+            # Is there the risk to receice the same meter_id multiple times?
+            # Do we need the same logic used for groups?
         else:
             nondelete_ofmsgs.append(ofmsg)
     output_ofmsgs = []
     if delete_ofmsgs:
         output_ofmsgs.extend(delete_ofmsgs)
         output_ofmsgs.append(barrier())
-    if groupadd_ofmsgs:
-        output_ofmsgs.extend(groupadd_ofmsgs)
+    if groupadd_ofmsgs + meteradd_ofmsgs:
+        output_ofmsgs.extend(groupadd_ofmsgs + meteradd_ofmsgs)
         output_ofmsgs.append(barrier())
     output_ofmsgs.extend(nondelete_ofmsgs)
     return output_ofmsgs
