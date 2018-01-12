@@ -87,20 +87,9 @@ class ValveHostManager(object):
             priority=(self.low_priority + 1),
             hard_timeout=self.learn_ban_timeout)
 
-    def build_port_out_inst(self, vlan, port, port_number=None):
+    def build_port_out_inst(self, vlan, port, hairpin=False):
         """Return instructions to output a packet on a given port."""
-        if port_number is None:
-            port_number = port.number
-        dst_act = []
-        if not vlan.port_is_tagged(port) and port.stack is None:
-            dst_act.append(valve_of.pop_vlan())
-        dst_act.append(valve_of.output_port(port_number))
-
-        if port.mirror is not None:
-            mirror_acts = [valve_of.output_port(port.mirror)]
-            dst_act.extend(mirror_acts)
-
-        return [valve_of.apply_actions(dst_act)]
+        return [valve_of.apply_actions(vlan.output_port(port, hairpin))]
 
     def delete_host_from_vlan(self, eth_src, vlan):
         """Delete a host from a VLAN."""
@@ -187,7 +176,7 @@ class ValveHostManager(object):
             ofmsgs.append(self.eth_dst_table.flowmod(
                 self.eth_dst_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
                 priority=(self.host_priority + 1),
-                inst=self.build_port_out_inst(vlan, port, port_number=valve_of.OFP_IN_PORT),
+                inst=self.build_port_out_inst(vlan, port, hairpin=True),
                 idle_timeout=dst_rule_idle_timeout))
 
         return ofmsgs
