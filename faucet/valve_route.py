@@ -193,9 +193,7 @@ class ValveRouteManager(object):
 
     def _nexthop_group_buckets(self, vlan, port, eth_src):
         actions = self._nexthop_actions(eth_src, vlan)
-        if not vlan.port_is_tagged(port):
-            actions.append(valve_of.pop_vlan())
-        actions.append(valve_of.output_port(port.number))
+        actions.extend(vlan.output_port(port))
         buckets = [valve_of.bucket(actions=actions)]
         return buckets
 

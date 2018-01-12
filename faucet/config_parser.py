@@ -86,16 +86,27 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
     def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
         port = Port(p_identifier, dp_id, port_conf)
 
-        if port.native_vlan is not None:
-            v_identifier = port.native_vlan
-            vlan = _get_vlan_by_identifier(dp_id, v_identifier, vlans)
-            port.native_vlan = vlan
-            vlan.add_untagged(port)
-        port_tagged_vlans = [
-            _get_vlan_by_identifier(dp_id, v_identifier, vlans) for v_identifier in port.tagged_vlans]
-        port.tagged_vlans = port_tagged_vlans
-        for vlan in port.tagged_vlans:
-            vlan.add_tagged(port)
+        def _dp_parse_native_port_vlan():
+            if port.native_vlan is not None:
+                vlan = _get_vlan_by_identifier(dp_id, port.native_vlan, vlans)
+                port.native_vlan = vlan
+                vlan.add_untagged(port)
+
+        def _dp_parse_tagged_port_vlans():
+            if port.tagged_vlans:
+                port_tagged_vlans = [
+                    _get_vlan_by_identifier(dp_id, vlan_ident, vlans) for vlan_ident in port.tagged_vlans]
+                port.tagged_vlans = port_tagged_vlans
+                for vlan in port.tagged_vlans:
+                    vlan.add_tagged(port)
+
+        _dp_parse_native_port_vlan()
+        _dp_parse_tagged_port_vlans()
+
+        if port.native_vlan:
+            assert port.native_vlan not in port.tagged_vlans, (
+                'cannot have same native and tagged VLAN on same port')
+
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):

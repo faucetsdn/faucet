@@ -319,6 +319,18 @@ class VLAN(Conf):
     def untagged_flood_ports(self, exclude_unicast):
         return self.flood_ports(self.untagged, exclude_unicast)
 
+    def output_port(self, port, hairpin=False):
+        actions = []
+        if port.mirror is not None:
+            actions.append(valve_of.output_port(port.mirror))
+        if not self.port_is_tagged(port) and port.stack is None:
+            actions.append(valve_of.pop_vlan())
+        if hairpin:
+            actions.append(valve_of.output_port(valve_of.OFP_IN_PORT))
+        else:
+            actions.append(valve_of.output_port(port.number))
+        return actions
+
     def pkt_out_port(self, packet_builder, port, *args):
         vid = None
         if self.port_is_tagged(port):
