@@ -87,10 +87,6 @@ class ValveHostManager(object):
             priority=(self.low_priority + 1),
             hard_timeout=self.learn_ban_timeout)
 
-    def build_port_out_inst(self, vlan, port, hairpin=False):
-        """Return instructions to output a packet on a given port."""
-        return [valve_of.apply_actions(vlan.output_port(port, hairpin))]
-
     def delete_host_from_vlan(self, eth_src, vlan):
         """Delete a host from a VLAN."""
         ofmsgs = []
@@ -165,7 +161,7 @@ class ValveHostManager(object):
         ofmsgs.append(self.eth_dst_table.flowmod(
             self.eth_dst_table.match(vlan=vlan, eth_dst=eth_src),
             priority=self.host_priority,
-            inst=self.build_port_out_inst(vlan, port),
+            inst=[valve_of.apply_actions(vlan.output_port(port))],
             idle_timeout=dst_rule_idle_timeout))
 
         # If port is in hairpin mode, install a special rule
@@ -176,7 +172,7 @@ class ValveHostManager(object):
             ofmsgs.append(self.eth_dst_table.flowmod(
                 self.eth_dst_table.match(in_port=port.number, vlan=vlan, eth_dst=eth_src),
                 priority=(self.host_priority + 1),
-                inst=self.build_port_out_inst(vlan, port, hairpin=True),
+                inst=[valve_of.apply_actions(vlan.output_port(port, hairpin=True))],
                 idle_timeout=dst_rule_idle_timeout))
 
         return ofmsgs
