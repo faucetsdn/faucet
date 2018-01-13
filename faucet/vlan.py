@@ -323,7 +323,7 @@ class VLAN(Conf):
         actions = []
         if port.mirror is not None:
             actions.append(valve_of.output_port(port.mirror))
-        if self.port_is_untagged(port):
+        if not self.port_is_tagged(port) and port.stack is None:
             actions.append(valve_of.pop_vlan())
         if hairpin:
             actions.append(valve_of.output_port(valve_of.OFP_IN_PORT))
