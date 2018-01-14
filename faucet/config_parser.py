@@ -102,11 +102,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
         _dp_parse_native_port_vlan()
         _dp_parse_tagged_port_vlans()
-
-        if port.native_vlan:
-            assert port.native_vlan not in port.tagged_vlans, (
-                'cannot have same native and tagged VLAN on same port')
-
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):

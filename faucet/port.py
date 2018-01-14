@@ -117,8 +117,13 @@ class Port(Conf):
             'Port number invalid: %s' % self.number)
 
     def finalize(self):
-        assert self.vlans() or self.stack or self.output_only, '%s must have a VLAN, be a stack port, or have output_only: True' % self
-        assert not (self.vlans() and self.stack), '%s cannot have stack and VLANs on same port' % self
+        assert self.vlans() or self.stack or self.output_only, (
+            '%s must have a VLAN, be a stack port, or have output_only: True' % self)
+        assert not (self.vlans() and self.stack), (
+            '%s cannot have stack and VLANs on same port' % self)
+        if self.native_vlan:
+            assert self.native_vlan not in self.tagged_vlans, (
+                'cannot have same native and tagged VLAN on same port')
         super(Port, self).finalize()
 
     def running(self):
