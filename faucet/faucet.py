@@ -605,6 +605,8 @@ class Faucet(app_manager.RyuApp):
         reason = msg.reason
         port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN
         port_status = not port_down
+        self.logger.info('Port state %u (reason %u) on DP %s' % (
+            msg.desc.state, reason, dpid_log(dp_id)))
         flowmods = valve.port_status_handler(
             port_no, reason, port_status)
         self._send_flow_msgs(dp_id, flowmods)
