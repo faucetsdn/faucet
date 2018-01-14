@@ -403,6 +403,9 @@ class Faucet(app_manager.RyuApp):
             return
         if valve.dp.cookie != msg.cookie:
             return
+        # Drop any packet we didn't specifically ask for
+        if msg.reason != valve_of.ofp.OFPR_ACTION:
+            return
         in_port = msg.match['in_port']
         if valve_of.ignore_port(in_port):
             return
