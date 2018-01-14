@@ -789,15 +789,15 @@ class Valve(object):
                 if not pkt_meta.port.dyn_lacp_up:
                     return ofmsgs
 
-            for eth_types in list(valve_route.ETH_TYPES.values()):
-                if pkt_meta.eth_type in eth_types:
-                    pkt_meta.reparse_ip(pkt_meta.eth_type)
-                    if pkt_meta.l3_pkt:
-                        if self.L3:
-                            control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
-                            if control_plane_ofmsgs:
-                                control_plane_handled = True
-                                ofmsgs.extend(control_plane_ofmsgs)
+            pkt_meta.reparse_ip()
+
+            if self.L3 and pkt_meta.l3_pkt:
+                for eth_types in list(valve_route.ETH_TYPES.values()):
+                    if pkt_meta.eth_type in eth_types:
+                        control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
+                        if control_plane_ofmsgs:
+                            control_plane_handled = True
+                            ofmsgs.extend(control_plane_ofmsgs)
                         break
 
         if self._rate_limit_packet_ins():

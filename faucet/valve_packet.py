@@ -535,7 +535,7 @@ class PacketMeta(object):
             return ip_header[0] >> 4
         return None
 
-    def reparse_ip(self, eth_type, payload=0):
+    def reparse_ip(self, payload=0):
         """Reparse packet with specified IP header type and optionally payload."""
         if self.eth_type in self.ETH_TYPES_PARSERS:
             header_size = self.MIN_ETH_TYPE_PKT_SIZE[self.eth_type]
