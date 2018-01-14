@@ -618,7 +618,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
         ofmsgs = []
         if not pkt_meta.packet_complete():
             return ofmsgs
-        pkt_meta.reparse_ip(valve_of.ether.ETH_TYPE_ARP)
+        pkt_meta.reparse_ip()
         arp_pkt = pkt_meta.pkt.get_protocol(arp.arp)
         if arp_pkt is None:
             return ofmsgs
@@ -795,7 +795,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
             # Explicitly ignore messages to all notes.
             if dst_ip == valve_packet.IPV6_ALL_NODES:
                 return ofmsgs
-            pkt_meta.reparse_ip(self.ETH_TYPE, payload=32)
+            pkt_meta.reparse_ip(payload=32)
             icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
             if icmpv6_pkt is None:
                 return ofmsgs
