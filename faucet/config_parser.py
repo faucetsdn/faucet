@@ -90,15 +90,12 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
             if port.native_vlan is not None:
                 vlan = _get_vlan_by_identifier(dp_id, port.native_vlan, vlans)
                 port.native_vlan = vlan
-                vlan.add_untagged(port)
 
         def _dp_parse_tagged_port_vlans():
             if port.tagged_vlans:
                 port_tagged_vlans = [
                     _get_vlan_by_identifier(dp_id, vlan_ident, vlans) for vlan_ident in port.tagged_vlans]
                 port.tagged_vlans = port_tagged_vlans
-                for vlan in port.tagged_vlans:
-                    vlan.add_tagged(port)
 
         _dp_parse_native_port_vlan()
         _dp_parse_tagged_port_vlans()
@@ -148,6 +145,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
         for vlan in list(vlans.values()):
+            vlan.reset_ports(dp.ports.values())
             if vlan.get_ports():
                 _dp_add_vlan(dp, vlan)
 

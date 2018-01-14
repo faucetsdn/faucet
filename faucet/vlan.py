@@ -205,11 +205,9 @@ class VLAN(Conf):
     def reset_host_cache(self):
         self.dyn_host_cache = {}
 
-    def add_tagged(self, port):
-        self.tagged.append(port)
-
-    def add_untagged(self, port):
-        self.untagged.append(port)
+    def reset_ports(self, ports):
+        self.tagged = [port for port in ports if self in port.tagged_vlans]
+        self.untagged = [port for port in ports if self == port.native_vlan]
 
     def add_cache_host(self, eth_src, port, cache_time):
         self.dyn_host_cache[eth_src] = HostCacheEntry(
@@ -323,7 +321,7 @@ class VLAN(Conf):
         actions = []
         if port.mirror is not None:
             actions.append(valve_of.output_port(port.mirror))
-        if not self.port_is_tagged(port) and port.stack is None:
+        if self.port_is_untagged(port):
             actions.append(valve_of.pop_vlan())
         if hairpin:
             actions.append(valve_of.output_port(valve_of.OFP_IN_PORT))
