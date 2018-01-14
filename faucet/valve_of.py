@@ -72,6 +72,17 @@ def is_groupmod(ofmsg):
     return isinstance(ofmsg, parser.OFPGroupMod)
 
 
+def is_metermod(ofmsg):
+    """Return True if OF message is a MeterMod.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a MeterMod
+    """
+    return isinstance(ofmsg, parser.OFPMeterMod)
+
+
 def is_flowdel(ofmsg):
     """Return True if flow message is a FlowMod and a delete.
 
@@ -101,6 +112,20 @@ def is_groupdel(ofmsg):
     return False
 
 
+def is_meterdel(ofmsg):
+    """Return True if OF message is a MeterMod and command is delete.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a MeterMod delete
+    """
+    if (is_metermod(ofmsg) and
+            (ofmsg.command == ofp.OFPMC_DELETE)):
+        return True
+    return False
+
+
 def is_groupadd(ofmsg):
     """Return True if OF message is a GroupMod and command is add.
 
@@ -111,6 +136,20 @@ def is_groupadd(ofmsg):
     """
     if (is_groupmod(ofmsg) and
             (ofmsg.command == ofp.OFPGC_ADD)):
+        return True
+    return False
+
+
+def is_meteradd(ofmsg):
+    """Return True if OF message is a MeterMod and command is add.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a MeterMod add
+    """
+    if (is_metermod(ofmsg) and
+            (ofmsg.command == ofp.OFPMC_ADD)):
         return True
     return False
 
@@ -556,9 +595,10 @@ def valve_flowreorder(input_ofmsgs):
     # reorder adds to be in priority order.
     delete_ofmsgs = []
     groupadd_ofmsgs = []
+    meteradd_ofmsgs = []
     nondelete_ofmsgs = []
     for ofmsg in input_ofmsgs:
-        if is_flowdel(ofmsg) or is_groupdel(ofmsg):
+        if is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg):
             delete_ofmsgs.append(ofmsg)
         elif is_groupadd(ofmsg):
             # The same group_id may be deleted/added multiple times
@@ -576,14 +616,18 @@ def valve_flowreorder(input_ofmsgs):
                     break
             if new_group_id:
                 groupadd_ofmsgs.append(ofmsg)
+        elif is_meteradd(ofmsg):
+            meteradd_ofmsgs.append(ofmsg)
+            # Is there the risk to receice the same meter_id multiple times?
+            # Do we need the same logic used for groups?
         else:
             nondelete_ofmsgs.append(ofmsg)
     output_ofmsgs = []
     if delete_ofmsgs:
         output_ofmsgs.extend(delete_ofmsgs)
         output_ofmsgs.append(barrier())
-    if groupadd_ofmsgs:
-        output_ofmsgs.extend(groupadd_ofmsgs)
+    if groupadd_ofmsgs + meteradd_ofmsgs:
+        output_ofmsgs.extend(groupadd_ofmsgs + meteradd_ofmsgs)
         output_ofmsgs.append(barrier())
     output_ofmsgs.extend(nondelete_ofmsgs)
     return output_ofmsgs
