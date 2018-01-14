@@ -75,7 +75,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
     def _dp_add_vlan(dp, vlan):
         if vlan not in dp.vlans:
-            dp.add_vlan(vlan)
             vid_dp[vlan.vid].add(dp.name)
 
             if len(vid_dp[vlan.vid]) > 1:
@@ -90,23 +89,15 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
             if port.native_vlan is not None:
                 vlan = _get_vlan_by_identifier(dp_id, port.native_vlan, vlans)
                 port.native_vlan = vlan
-                vlan.add_untagged(port)
 
         def _dp_parse_tagged_port_vlans():
             if port.tagged_vlans:
                 port_tagged_vlans = [
                     _get_vlan_by_identifier(dp_id, vlan_ident, vlans) for vlan_ident in port.tagged_vlans]
                 port.tagged_vlans = port_tagged_vlans
-                for vlan in port.tagged_vlans:
-                    vlan.add_tagged(port)
 
         _dp_parse_native_port_vlan()
         _dp_parse_tagged_port_vlans()
-
-        if port.native_vlan:
-            assert port.native_vlan not in port.tagged_vlans, (
-                'cannot have same native and tagged VLAN on same port')
-
         return port
 
     def _dp_add_ports(dp, dp_conf, dp_id, vlans):
@@ -152,9 +143,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         for port_num, port_conf in list(port_num_to_port_conf.values()):
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
-        for vlan in list(vlans.values()):
-            if vlan.get_ports():
-                _dp_add_vlan(dp, vlan)
+        dp.reset_refs(vlans=vlans)
 
     for identifier, dp_conf in list(dps_conf.items()):
         assert isinstance(dp_conf, dict)

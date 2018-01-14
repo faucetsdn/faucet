@@ -884,6 +884,7 @@ class Valve(object):
             ofmsgs.extend(self.ports_delete(changed_ports))
 
         self.dp = new_dp
+        self.dp.reset_refs()
 
         if changed_vlans:
             self.logger.info('VLANs changed/added: %s' % changed_vlans)
