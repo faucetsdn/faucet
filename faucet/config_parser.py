@@ -75,7 +75,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
     def _dp_add_vlan(dp, vlan):
         if vlan not in dp.vlans:
-            dp.add_vlan(vlan)
             vid_dp[vlan.vid].add(dp.name)
 
             if len(vid_dp[vlan.vid]) > 1:
@@ -144,10 +143,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         for port_num, port_conf in list(port_num_to_port_conf.values()):
             port = _dp_parse_port(dp_id, port_num, port_conf, vlans)
             dp.add_port(port)
-        for vlan in list(vlans.values()):
-            vlan.reset_ports(dp.ports.values())
-            if vlan.get_ports():
-                _dp_add_vlan(dp, vlan)
+        dp.reset_refs(vlans=vlans)
 
     for identifier, dp_conf in list(dps_conf.items()):
         assert isinstance(dp_conf, dict)

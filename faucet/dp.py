@@ -282,10 +282,6 @@ configuration.
         elif port.stack is not None:
             self.stack_ports.append(port)
 
-    def add_vlan(self, vlan):
-        """Add a VLAN to this datapath."""
-        self.vlans[vlan.vid] = vlan
-
     def resolve_stack_topology(self, dps):
         """Resolve inter-DP config for stacking."""
 
@@ -383,6 +379,15 @@ configuration.
             if peer_dp_ports:
                 return peer_dp_ports[0]
         return None
+
+    def reset_refs(self, vlans=None):
+        if vlans is None:
+            vlans = self.vlans
+        self.vlans = {}
+        for vlan in list(vlans.values()):
+            vlan.reset_ports(list(self.ports.values()))
+            if vlan.get_ports():
+                self.vlans[vlan.vid] = vlan
 
     def finalize_config(self, dps):
         """Perform consistency checks after initial config parsing."""
