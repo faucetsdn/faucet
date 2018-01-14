@@ -587,6 +587,12 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls()
 
+        for vlan in list(self.vlans.values()):
+            if vlan.bgp_routerid:
+                vlan_dps = [dp for dp in dps if vlan.vid in dp.vlans]
+                assert len(vlan_dps) == 1, (
+                    'DPs %s sharing a BGP speaker VLAN is unsupported')
+
         for port in list(self.ports.values()):
             port.finalize()
         for vlan in list(self.vlans.values()):

@@ -1316,5 +1316,32 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
 
+    def test_share_bgp_routing_VLAN(self):
+        """Test cannot share VLAN with BGP across DPs."""
+        config = """
+vlans:
+    routing:
+        vid: 100
+        faucet_vips: ["10.0.0.254/24"]
+        bgp_server_addresses: ["127.0.0.1"]
+        bgp_as: 1
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_addresses: ["127.0.0.1"]
+        bgp_neighbor_as: 2
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: routing
+    sw2:
+        dp_id: 0x2
+        interfaces:
+            1:
+                native_vlan: routing
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+
 if __name__ == "__main__":
     unittest.main()

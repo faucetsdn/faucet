@@ -60,7 +60,6 @@ def dp_parser(config_file, logname):
 def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                   routers_conf, vlans_conf):
     dps = []
-    vid_dp = collections.defaultdict(set)
 
     def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
         assert isinstance(vlan_ident, (str, int)), (
@@ -72,15 +71,6 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                 return vlan
         # Create VLAN with VID, if not defined.
         return vlans.setdefault(vlan_ident, VLAN(vlan_ident, dp_id))
-
-    def _dp_add_vlan(dp, vlan):
-        if vlan not in dp.vlans:
-            vid_dp[vlan.vid].add(dp.name)
-
-            if len(vid_dp[vlan.vid]) > 1:
-                assert not vlan.bgp_routerid, (
-                    'DPs %s sharing a BGP speaker VLAN is unsupported' % (
-                        str.join(', ', vid_dp[vlan.vid])))
 
     def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
         port = Port(p_identifier, dp_id, port_conf)
