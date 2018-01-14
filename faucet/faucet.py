@@ -395,8 +395,8 @@ class Faucet(app_manager.RyuApp):
                 ports = valve.dp.stack['nd_ports']
             for port in ports:
                 if port.dyn_phys_up:
-                    self.logger.info('Port %s on dp %s timed out', port.number, dp_id)
-                    valve.ports_delete(port.number)
+                    self.logger.info('Port %s on dp %s timed out' % (port.number, dp_id))
+                    valve.port_delete(port.number)
     
     def get_config(self):
         """FAUCET experimental API: return config for all Valves."""
@@ -627,6 +627,8 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPPortStatus): trigger.
         """
+        self.logger.info('Port status message ignored')
+        return
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id

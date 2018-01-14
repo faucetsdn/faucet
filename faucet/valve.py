@@ -1040,6 +1040,7 @@ class Valve(object):
         
         port = self.dp.ports[port_num]
         if not port.dyn_phys_up:
+            self.logger.info('Response on disabled port %s, enabling' % port.number)
             self.port_add(port_num)
         self.dp.stack['nd_ports'].remove(port)
 
