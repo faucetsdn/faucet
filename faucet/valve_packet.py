@@ -27,9 +27,12 @@ from faucet.valve_util import btos
 from faucet import valve_of
 
 
+ETH_VLAN_HEADER_SIZE = 14 + 4 # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
+IPV4_HEADER_SIZE = 20 # https://en.wikipedia.org/wiki/IPv4#Header
+IPV6_HEADER_SIZE = 40 # https://en.wikipedia.org/wiki/IPv6_packet#Fixed_header
+ARP_PKT_SIZE = 28 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
+
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
-ETH_VLAN_HEADER_SIZE = 14 + 4
-IPV4_HEADER_SIZE = 20
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
@@ -484,14 +487,6 @@ def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
     return pkt
 
 
-def ip_header_size(eth_type):
-    """Return size of a packet header with specified ether type."""
-    ip_header = build_pkt_header(
-        1, valve_of.mac.BROADCAST_STR, valve_of.mac.BROADCAST_STR, eth_type)
-    ip_header.serialize()
-    return len(ip_header.data)
-
-
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
@@ -499,6 +494,12 @@ class PacketMeta(object):
         valve_of.ether.ETH_TYPE_IP: (4, ipv4_parseable, ipv4.ipv4),
         valve_of.ether.ETH_TYPE_ARP: (None, None, arp.arp),
         valve_of.ether.ETH_TYPE_IPV6: (6, None, ipv6.ipv6),
+    }
+
+    MIN_ETH_TYPE_PKT_SIZE = {
+        valve_of.ether.ETH_TYPE_ARP: ETH_VLAN_HEADER_SIZE + ARP_PKT_SIZE,
+        valve_of.ether.ETH_TYPE_IP: ETH_VLAN_HEADER_SIZE + IPV4_HEADER_SIZE,
+        valve_of.ether.ETH_TYPE_IPV6: ETH_VLAN_HEADER_SIZE + IPV6_HEADER_SIZE,
     }
 
     def __init__(self, data, orig_len, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
@@ -531,13 +532,13 @@ class PacketMeta(object):
         """Return IP version number."""
         if len(self.data) > ETH_VLAN_HEADER_SIZE:
             ip_header = self.data[ETH_VLAN_HEADER_SIZE:]
-            return (ip_header[0] ^ 0xf) >> 4
+            return ip_header[0] >> 4
         return None
 
-    def reparse_ip(self, eth_type, payload=0):
+    def reparse_ip(self, payload=0):
         """Reparse packet with specified IP header type and optionally payload."""
         if self.eth_type in self.ETH_TYPES_PARSERS:
-            header_size = ip_header_size(eth_type)
+            header_size = self.MIN_ETH_TYPE_PKT_SIZE[self.eth_type]
             ip_ver, ip_parseable, pkt_parser = self.ETH_TYPES_PARSERS[self.eth_type]
             if ip_ver is not None:
                 if ip_ver != self.ip_ver():
