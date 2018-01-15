@@ -46,6 +46,9 @@ def ignore_port(port_num):
     Returns:
         bool: True if FAUCET should ignore this port.
     """
+    # special case OFPP_LOCAL to allow FAUCET to manage switch admin interface.
+    if port_num == ofp.OFPP_LOCAL:
+        return False
     # 0xF0000000 and up are not physical ports.
     return port_num > 0xF0000000
 
