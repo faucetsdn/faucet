@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # run from cron on Raspberry Pi build farm.
+# build and push tags supplied as arguments, or build tags missing from tag if no arguments.
 
 date
 cd $(dirname $0) && \
@@ -9,12 +10,13 @@ git stash && \
 git checkout -q master && \
 git pull 2>&1 || exit 1
 
-TMPDIR=$(mktemp -d /tmp/$(basename $0).XXXXXX)
 DOCKER_ID_USER="faucet"
 DOCKER="docker"
-TAGS=$(wget -q -O- 'https://registry.hub.docker.com/v2/repositories/faucet/faucet-pi/tags?page_size=1024'|jq --raw-output '."results"[]["name"]'|grep -E "^[0-9\.]+$"|sort > $TMPDIR/tags.txt)
-REPOTAGS=$(git tag|grep -E "^[0-9\.]+$"|sort > $TMPDIR/repotags.txt)
-MISSINGTAGS=$(diff -u $TMPDIR/tags.txt $TMPDIR/repotags.txt |grep -E "^\+[0-9]+"|sed "s/\+//g")
+
+parse_tags()
+{
+    read -r && grep -E "^[0-9\.]+$" | sort -V
+}
 
 build_tag()
 {
@@ -43,11 +45,24 @@ build_tag()
     $DOCKER push $DOCKER_ID_USER/gauge-pi:latest
 }
 
-# Build any tags missing from Docker Hub.
-if [ "$MISSINGTAGS" != "" ] ; then
-    for tag in $MISSINGTAGS ; do
-	build_tag $tag $tag
+
+if [ "$1" != "" ] ; then
+    for tag in $* ; do
+        build_tag $tag $tag
     done
+else
+    TMPDIR=$(mktemp -d /tmp/$(basename $0).XXXXXX)
+    wget -q -O- 'https://registry.hub.docker.com/v2/repositories/faucet/faucet-pi/tags?page_size=1024'|jq --raw-output '."results"[]["name"]' | parse_tags > $TMPDIR/dockertags.txt
+    git tag | parse_tags > $TMPDIR/repotags.txt
+    MISSINGDOCKERTAGS=$(diff -u $TMPDIR/dockertags.txt $TMPDIR/repotags.txt |grep -E "^\+\S+$"|sed "s/\+//g")
+    rm -rf "$TMPDIR"
+    # Build any tags missing from Docker Hub.
+    if [ "$MISSINGDOCKERTAGS" != "" ] ; then
+        echo missing docker tags: $MISSINGDOCKERTAGS
+        for tag in $MISSINGDOCKERTAGS ; do
+            build_tag $tag $tag
+        done
+    fi
 fi
 
 for s in created exited ; do
@@ -58,5 +73,3 @@ done
 for i in `$DOCKER images --filter dangling=true -q --no-trunc` ; do
     $DOCKER rmi -f $i
 done
-
-rm -rf "$TMPDIR"
