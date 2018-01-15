@@ -23,7 +23,6 @@ from faucet.valve_of import meteradd
 class Meter(Conf):
     """Implement FAUCET configuration for an OpenFlow meter."""
 
-    name = None
     entry_msg = None
     meter_id = None
     entry = None
