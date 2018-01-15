@@ -29,14 +29,14 @@ build_tag()
     cd ../../ && \
     $DOCKER build -t $DOCKER_ID_USER/faucet-pi:$tag -f Dockerfile.pi . && \
     $DOCKER build -t $DOCKER_ID_USER/gauge-pi:$tag -f Dockerfile.pi-gauge . && \
-    $DOCKER tag $DOCKER_ID_USER/faucet-base-pi:$tag $DOCKER_ID_USER/gauge-pi:latest && \
-    $DOCKER tag $DOCKER_ID_USER/faucet-python3-pi:$tag $DOCKER_ID_USER/gauge-pi:latest && \
-    $DOCKER tag $DOCKER_ID_USER/faucet-pi:$tag $DOCKER_ID_USER/gauge-pi:latest && \
-    $DOCKER tag $DOCKER_ID_USER/gauge-pi:$tag $DOCKER_ID_USER/gauge-pi:latest && \
     $DOCKER push $DOCKER_ID_USER/faucet-base-pi:$tag && \
     $DOCKER push $DOCKER_ID_USER/faucet-python3-pi:$tag && \
     $DOCKER push $DOCKER_ID_USER/faucet-pi:$tag && \
     $DOCKER push $DOCKER_ID_USER/gauge-pi:$tag && \
+    $DOCKER tag $DOCKER_ID_USER/faucet-base-pi:$tag $DOCKER_ID_USER/gauge-pi:latest && \
+    $DOCKER tag $DOCKER_ID_USER/faucet-python3-pi:$tag $DOCKER_ID_USER/gauge-pi:latest && \
+    $DOCKER tag $DOCKER_ID_USER/faucet-pi:$tag $DOCKER_ID_USER/gauge-pi:latest && \
+    $DOCKER tag $DOCKER_ID_USER/gauge-pi:$tag $DOCKER_ID_USER/gauge-pi:latest && \
     $DOCKER push $DOCKER_ID_USER/faucet-base-pi:latest && \
     $DOCKER push $DOCKER_ID_USER/faucet-python3-pi:latest && \
     $DOCKER push $DOCKER_ID_USER/faucet-pi:latest && \
