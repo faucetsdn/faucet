@@ -1369,6 +1369,19 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_unknown_port_key(self):
+        config = """
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            unknown_key:
+                name: port1
+                number: 3
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
