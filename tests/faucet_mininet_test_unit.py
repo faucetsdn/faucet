@@ -3105,7 +3105,7 @@ acls:
     CONFIG = """
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100]
+                tagged_vlans: [100, 101]
                 description: "b1"
                 acl_in: 1
             %(port_2)d:
@@ -3125,7 +3125,7 @@ acls:
 
         def test_acl(tcpdump_host, tcpdump_filter):
             tcpdump_txt = self.tcpdump_helper(
-                second_host, tcpdump_filter, [
+                tcpdump_host, tcpdump_filter, [
                     lambda: first_host.cmd(
                         'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
                     lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], root_intf=True)
