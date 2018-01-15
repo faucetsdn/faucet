@@ -142,7 +142,10 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
         vlans = {}
         for vlan_ident, vlan_conf in list(vlans_conf.items()):
-            vlans[vlan_ident] = VLAN(vlan_ident, dp_id, vlan_conf)
+            vlan = VLAN(vlan_ident, dp_id, vlan_conf)
+            vlans[vlan_ident] = vlan
+            assert str(vlan_ident) in (str(vlan.vid), vlan.name), (
+                'VLAN %s key must match VLAN name or VLAN VID' % vlan_ident)
         for acl_ident, acl_conf in list(acls_conf.items()):
             acl = ACL(acl_ident, dp_id, acl_conf)
             dp.add_acl(acl_ident, acl)
