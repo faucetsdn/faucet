@@ -61,29 +61,31 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                   routers_conf, vlans_conf):
     dps = []
 
-    def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
-        assert isinstance(vlan_ident, (str, int)), (
-            'VLAN identifier must not be type %s' % type(vlan_ident))
-        if vlan_ident in vlans:
-            return vlans[vlan_ident]
+    def _get_vlan_by_key(dp_id, vlan_key, vlans):
+        assert isinstance(vlan_key, (str, int)), (
+            'VLAN key must not be type %s' % type(vlan_key))
+        if vlan_key in vlans:
+            return vlans[vlan_key]
         for vlan in list(vlans.values()):
-            if vlan_ident == str(vlan.vid):
+            if vlan_key == str(vlan.vid):
                 return vlan
         # Create VLAN with VID, if not defined.
-        return vlans.setdefault(vlan_ident, VLAN(vlan_ident, dp_id))
+        return vlans.setdefault(vlan_key, VLAN(vlan_key, dp_id))
 
-    def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
-        port = Port(p_identifier, dp_id, port_conf)
+    def _dp_parse_port(dp_id, port_key, port_conf, vlans):
+        port = Port(port_key, dp_id, port_conf)
+        assert str(port_key) in (str(port.number), port.name), (
+            'Port key %s match port name or port number' % port_key)
 
         def _dp_parse_native_port_vlan():
             if port.native_vlan is not None:
-                vlan = _get_vlan_by_identifier(dp_id, port.native_vlan, vlans)
+                vlan = _get_vlan_by_key(dp_id, port.native_vlan, vlans)
                 port.native_vlan = vlan
 
         def _dp_parse_tagged_port_vlans():
             if port.tagged_vlans:
                 port_tagged_vlans = [
-                    _get_vlan_by_identifier(dp_id, vlan_ident, vlans) for vlan_ident in port.tagged_vlans]
+                    _get_vlan_by_key(dp_id, vlan_key, vlans) for vlan_key in port.tagged_vlans]
                 port.tagged_vlans = port_tagged_vlans
 
         _dp_parse_native_port_vlan()
@@ -98,14 +100,14 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         assert isinstance(ports_conf, dict), 'Invalid syntax in interface config '
         assert isinstance(port_ranges_conf, dict), 'Invalid syntax in interface ranges config'
         port_num_to_port_conf = {}
-        for port_ident, port_conf in list(ports_conf.items()):
+        for port_key, port_conf in list(ports_conf.items()):
             assert isinstance(port_conf, dict), 'Invalid syntax in port config'
             if 'number' in port_conf:
                 port_num = port_conf['number']
             else:
-                port_num = port_ident
+                port_num = port_key
             try:
-                port_num_to_port_conf[port_num] = (port_ident, port_conf)
+                port_num_to_port_conf[port_num] = (port_key, port_conf)
             except TypeError:
                 assert False, 'Invalid syntax in port config'
         for port_range, port_conf in list(port_ranges_conf.items()):
@@ -135,22 +137,28 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
             dp.add_port(port)
         dp.reset_refs(vlans=vlans)
 
-    for identifier, dp_conf in list(dps_conf.items()):
+    for dp_key, dp_conf in list(dps_conf.items()):
         assert isinstance(dp_conf, dict)
-        dp = DP(identifier, dp_conf.get('dp_id', None), dp_conf)
+        dp = DP(dp_key, dp_conf.get('dp_id', None), dp_conf)
+        assert dp.name == dp_key, (
+            'DP key %s and DP name must match' % dp_key)
         dp_id = dp.dp_id
 
         vlans = {}
-        for vlan_ident, vlan_conf in list(vlans_conf.items()):
-            vlans[vlan_ident] = VLAN(vlan_ident, dp_id, vlan_conf)
-        for acl_ident, acl_conf in list(acls_conf.items()):
-            acl = ACL(acl_ident, dp_id, acl_conf)
-            dp.add_acl(acl_ident, acl)
-        for router_ident, router_conf in list(routers_conf.items()):
-            router = Router(router_ident, dp_id, router_conf)
-            dp.add_router(router_ident, router)
-        for meter_ident, meter_conf in list(meters_conf.items()):
-            dp.meters[meter_ident] = Meter(meter_ident, dp_id, meter_conf)
+        for vlan_key, vlan_conf in list(vlans_conf.items()):
+            vlan = VLAN(vlan_key, dp_id, vlan_conf)
+            vlans[vlan_key] = vlan
+            assert str(vlan_key) in (str(vlan.vid), vlan.name), (
+                'VLAN %s key must match VLAN name or VLAN VID' % vlan_key)
+        for acl_key, acl_conf in list(acls_conf.items()):
+            acl = ACL(acl_key, dp_id, acl_conf)
+            dp.add_acl(acl_key, acl)
+        for router_key, router_conf in list(routers_conf.items()):
+            router = Router(router_key, dp_id, router_conf)
+            dp.add_router(router_key, router)
+        for meter_key, meter_conf in list(meters_conf.items()):
+            meter = Meter(meter_key, dp_id, meter_conf)
+            dp.meters[meter_key] = meter
         _dp_add_ports(dp, dp_conf, dp_id, vlans)
         dps.append(dp)
 

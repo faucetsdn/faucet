@@ -880,7 +880,7 @@ dps:
 
     def test_ipv4_src_is_empty(self):
         """Test acl ipv4_src is empty"""
-        config = """ 
+        config = """
 acls:
     office-vlan-protect:
         - rule:
@@ -1339,6 +1339,49 @@ dps:
         interfaces:
             1:
                 native_vlan: routing
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_unknown_vlan_key(self):
+        """Test unknown VLAN key."""
+        config = """
+vlans:
+    unknown_key:
+        name: office
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_unknown_dp_key(self):
+        """Test unknown DP key."""
+        config = """
+dps:
+    unknown_key:
+        name: sw1
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_unknown_port_key(self):
+        """Test unknown port key."""
+        config = """
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            unknown_key:
+                name: port1
+                number: 3
+                native_vlan: office
 """
         self.check_config_failure(config, cp.dp_parser)
 
