@@ -63,7 +63,7 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
     def _get_vlan_by_identifier(dp_id, vlan_ident, vlans):
         assert isinstance(vlan_ident, (str, int)), (
-            'VLAN identifier must not be type %s' % type(vlan_ident))
+            'VLAN key must not be type %s' % type(vlan_ident))
         if vlan_ident in vlans:
             return vlans[vlan_ident]
         for vlan in list(vlans.values()):
@@ -74,6 +74,8 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
     def _dp_parse_port(dp_id, p_identifier, port_conf, vlans):
         port = Port(p_identifier, dp_id, port_conf)
+        assert str(p_identifier) in (str(port.number), port.name), (
+            'Port key %s match port name or port number' % p_identifier)
 
         def _dp_parse_native_port_vlan():
             if port.native_vlan is not None:
