@@ -90,6 +90,7 @@ def build_output_actions(output_dict):
 # possibly replace with a class for ACLs
 def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=None):
     acl_inst = []
+    acl_act = []
     acl_match_dict = {}
     acl_ofmsgs = []
     acl_cookie = None
@@ -111,14 +112,13 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
                 acl_inst.append(valve_of.apply_meter(meters[meter_name].meter_id))
             if 'mirror' in attrib_value:
                 port_no = attrib_value['mirror']
-                acl_inst.append(
-                    valve_of.apply_actions([valve_of.output_port(port_no)]))
+                acl_act.append(valve_of.output_port(port_no))
                 if not allow_specified:
                     allow = True
             if 'output' in attrib_value:
                 output_port, output_actions, output_ofmsgs = build_output_actions(
                     attrib_value['output'])
-                acl_inst.append(valve_of.apply_actions(output_actions))
+                acl_act.extend(output_actions)
                 acl_ofmsgs.extend(output_ofmsgs)
 
                 # if port specified, output packet now and exit pipeline.
@@ -137,6 +137,8 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
         acl_match = valve_of.match_from_dict(acl_match_dict)
     except TypeError:
         assert False, 'invalid type in ACL'
+    if acl_act:
+        acl_inst.append(valve_of.apply_actions(acl_act))
     return (acl_match, acl_inst, acl_cookie, acl_ofmsgs)
 
 

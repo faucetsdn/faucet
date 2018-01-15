@@ -3083,6 +3083,63 @@ vlans:
                     self.one_ipv4_ping(host, native_ip.ip, intf=host.intf_root_name)
 
 
+class FaucetTaggedSwapVidMirrorTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "tagged"
+    101:
+        description: "tagged"
+acls:
+    1:
+        - rule:
+            vlan_vid: 100
+            actions:
+                mirror: mirrorport
+                output:
+                    swap_vid: 101
+                allow: 1
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+                acl_in: 1
+            %(port_2)d:
+                tagged_vlans: [101]
+                description: "b2"
+            mirrorport:
+                number: %(port_3)d
+                tagged_vlans: [100]
+                description: "b3"
+            %(port_4)d:
+                tagged_vlans: [100]
+                description: "b4"
+    """
+
+    def test_tagged(self):
+        first_host, second_host, third_host = self.net.hosts[:3]
+
+        def test_acl(tcpdump_host, tcpdump_filter):
+            tcpdump_txt = self.tcpdump_helper(
+                second_host, tcpdump_filter, [
+                    lambda: first_host.cmd(
+                        'arp -s %s %s' % (second_host.IP(), '01:02:03:04:05:06')),
+                    lambda: first_host.cmd('ping -c1 %s' % second_host.IP())], root_intf=True)
+            self.assertTrue(re.search(
+                '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+            self.assertTrue(re.search(
+                tcpdump_filter, tcpdump_txt))
+
+        # Saw swapped VID on second host
+        test_acl(second_host, 'vlan 101')
+        # Saw original VID on mirror host
+        test_acl(third_host, 'vlan 100')
+
+
 class FaucetTaggedSwapVidOutputTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """
