@@ -391,3 +391,8 @@ class VLAN(Conf):
         if self.is_faucet_vip(dst_ip) and self.ip_in_vip_subnet(src_ip):
             return True
         return False
+
+    def finalize(self):
+        super(VLAN, self).finalize()
+        self.untagged = set(self.untagged)
+        self.tagged = set(self.tagged)
