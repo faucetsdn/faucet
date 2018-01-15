@@ -781,6 +781,14 @@ class Valve(object):
                     pkt_meta.port.number,
                     pkt_meta.vlan.vid))
 
+            if (not pkt_meta.port.stack and
+                    pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
+                    pkt_meta.vlan != pkt_meta.port.native_vlan):
+                self.logger.warning(
+                    ('packet from non-stack port number %u is not member of VLAN %u' % (
+                        pkt_meta.port.number, pkt_meta.vlan.vid)))
+                return ofmsgs
+
             if pkt_meta.port.lacp:
                 lacp_ofmsgs = self.lacp_handler(pkt_meta)
                 if lacp_ofmsgs:
