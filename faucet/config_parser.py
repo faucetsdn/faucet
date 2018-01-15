@@ -138,6 +138,8 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
     for identifier, dp_conf in list(dps_conf.items()):
         assert isinstance(dp_conf, dict)
         dp = DP(identifier, dp_conf.get('dp_id', None), dp_conf)
+        assert dp.name == identifier, (
+            'DP key %s and name must match' % identifier)
         dp_id = dp.dp_id
 
         vlans = {}
@@ -148,12 +150,20 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
                 'VLAN %s key must match VLAN name or VLAN VID' % vlan_ident)
         for acl_ident, acl_conf in list(acls_conf.items()):
             acl = ACL(acl_ident, dp_id, acl_conf)
+            # TODO: ACLs should support names
+            # assert acl_ident == acl.name, (
+            #    'ACL key %s must match ACL name' % acl_ident)
             dp.add_acl(acl_ident, acl)
         for router_ident, router_conf in list(routers_conf.items()):
             router = Router(router_ident, dp_id, router_conf)
+            # TODO: routers should support names
+            # assert router_ident == router.name, (
+            #    'Router key %s must match router name' % router_ident)
             dp.add_router(router_ident, router)
         for meter_ident, meter_conf in list(meters_conf.items()):
             dp.meters[meter_ident] = Meter(meter_ident, dp_id, meter_conf)
+            assert meter_ident == meter.name, (
+                'Meter key %s must match meter name' % meter_ident)
         _dp_add_ports(dp, dp_conf, dp_id, vlans)
         dps.append(dp)
 
