@@ -246,9 +246,16 @@ def _watcher_parser_v2(conf, logname, prom_client):
                 logger.error('DP %s in Gauge but not configured in FAUCET', dp_name)
                 continue
             dp = dps[dp_name]
-            watcher = WatcherConf(watcher_name, dp.dp_id, watcher_conf, prom_client)
-            watcher.add_db(dbs[watcher.db])
-            watcher.add_dp(dp)
-            result.append(watcher)
+            if 'dbs' in watcher_conf:
+                watcher_dbs = watcher_conf['dbs']
+            elif 'db' in watcher_conf:
+                watcher_dbs = [watcher_conf['db']]
+            else:
+                raise InvalidConfigError('Watcher configured without DB')
+            for db in watcher_dbs:
+                watcher = WatcherConf(watcher_name, dp.dp_id, watcher_conf, prom_client)
+                watcher.add_db(dbs[db])
+                watcher.add_dp(dp)
+                result.append(watcher)
 
     return result
