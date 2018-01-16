@@ -546,7 +546,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
 
     def _wait_error_shipping(self, timeout=None):
         if timeout is None:
-            timeout = self.DB_TIMEOUT * 3
+            timeout = self.DB_TIMEOUT * 3 * 2
         gauge_log_name = self.env['gauge']['GAUGE_LOG']
         for _ in range(timeout):
             if self.matching_lines_from_file(r'error shipping', gauge_log_name):
@@ -702,7 +702,7 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
 
-class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
+class FaucetSingleUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
     def setUp(self):
         self.handler = SlowInfluxPostHandler
