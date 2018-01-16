@@ -702,7 +702,7 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
         self.verify_no_exception(self.env['gauge']['GAUGE_EXCEPTION_LOG'])
 
 
-class FaucetUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
+class FaucetSingleUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
     def setUp(self):
         self.handler = SlowInfluxPostHandler
