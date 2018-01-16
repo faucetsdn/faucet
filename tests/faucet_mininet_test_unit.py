@@ -418,10 +418,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                     port_state_var, labels=port_labels, controller='gauge', retries=3))
         return port_counters
 
-    def test_untagged(self):
-        self.wait_dp_status(1, controller='gauge')
-        self.assertIsNotNone(self.scrape_prometheus_var(
-            'faucet_pbr_version', any_labels=True, controller='gauge', retries=3))
+    def _prom_ports_updating(self):
         port_vars = (
             'of_port_rx_bytes',
             'of_port_tx_bytes',
@@ -435,23 +432,31 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
             port_counters = self.scrape_port_counters(port, port_vars)
             first_port_counters[port] = port_counters
         counter_delay = 0
+
         for _ in range(self.DB_TIMEOUT * 3):
             self.ping_all_when_learned()
-            updated_counters = True
+            updating = True
             for i, _ in enumerate(self.net.hosts):
                 port = i + 1
                 port_counters = self.scrape_port_counters(port, port_vars)
                 for port_var, val in list(port_counters.items()):
                     if not val > first_port_counters[port][port_var]:
-                        updated_counters = False
+                        updating = False
                         break
-            if updated_counters:
-                break
+                if not updating:
+                    break
             counter_delay += 1
             time.sleep(1)
 
         error('counter latency approx %u sec\n' % counter_delay)
-        if not updated_counters:
+        return updating
+
+    def test_untagged(self):
+        self.wait_dp_status(1, controller='gauge')
+        self.assertIsNotNone(self.scrape_prometheus_var(
+            'faucet_pbr_version', any_labels=True, controller='gauge', retries=3))
+
+        if not self._prom_ports_updating():
             self.fail(msg='Gauge Prometheus port counters not increasing')
 
         for _ in range(self.DB_TIMEOUT * 3):
@@ -605,6 +610,62 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self._wait_influx_log()
         self._verify_influx_log()
 
+class FaucetUntaggedMultiDBWatcherTest(
+        FaucetUntaggedInfluxTest, FaucetUntaggedPrometheusGaugeTest):
+    GAUGE_CONFIG_DBS = """
+    prometheus:
+        type: 'prometheus'
+        prometheus_addr: '127.0.0.1'
+        prometheus_port: %(gauge_prom_port)d
+    influx:
+        type: 'influx'
+        influx_db: 'faucet'
+        influx_host: '127.0.0.1'
+        influx_port: %(gauge_influx_port)d
+        influx_user: 'faucet'
+        influx_pwd: ''
+        influx_retries: 1
+""" + """
+        influx_timeout: %u
+""" % FaucetUntaggedTest.DB_TIMEOUT
+    config_ports = {
+        'gauge_prom_port': None,
+        'gauge_influx_port': None}
+
+    def get_gauge_watcher_config(self):
+        return """
+    port_stats:
+        dps: ['%s']
+        type: 'port_stats'
+        interval: 5
+        dbs: ['prometheus', 'influx']
+    port_state:
+        dps: ['%s']
+        type: 'port_state'
+        interval: 5
+        dbs: ['prometheus', 'influx']
+    flow_table:
+        dps: ['%s']
+        type: 'flow_table'
+        interval: 5
+        dbs: ['prometheus', 'influx']
+""" % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
+
+    def test_untagged(self):
+        error('wait_dp_status')
+        self.wait_dp_status(1, controller='gauge')
+        error('_prom_ports_updating')
+        self._prom_ports_updating()
+        error('ping_all_when_learned')
+        self.ping_all_when_learned()
+        error('hup_gauge')
+        self.hup_gauge()
+        error('flap_all_switch_ports')
+        self.flap_all_switch_ports()
+        error('_wait_influx_log')
+        self._wait_influx_log()
+        error('_verify_influx_log')
+        self._verify_influx_log()
 
 class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
 

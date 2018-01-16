@@ -762,7 +762,7 @@ class GaugeThreadPollerTest(unittest.TestCase):
         self.poller.send_req = self.fake_send_req
         self.poller.no_response = self.fake_no_response
 
-        self.poller.start(mock.Mock())
+        self.poller.start(mock.Mock(), active=True)
         poller_thread = self.poller.thread
         hub.sleep(self.interval + 1)
         self.assertTrue(self.send_called)
@@ -773,7 +773,7 @@ class GaugeThreadPollerTest(unittest.TestCase):
         self.poller.send_req = self.fake_send_req
         self.poller.no_response = self.fake_no_response
 
-        self.poller.start(mock.Mock())
+        self.poller.start(mock.Mock(), active=True)
         poller_thread = self.poller.thread
         self.poller.stop()
         hub.sleep(self.interval + 1)
@@ -781,12 +781,21 @@ class GaugeThreadPollerTest(unittest.TestCase):
         self.assertFalse(self.send_called)
         self.assertTrue(poller_thread.dead)
 
-    def test_running(self):
-        """ Check if running reflects the state of the poller """
+    def test_active(self):
+        """ Check if active reflects the state of the poller """
+        self.assertFalse(self.poller.is_active())
         self.assertFalse(self.poller.running())
-        self.poller.start(mock.Mock())
+        self.poller.start(mock.Mock(), active=True)
+        self.assertTrue(self.poller.is_active())
         self.assertTrue(self.poller.running())
         self.poller.stop()
+        self.assertFalse(self.poller.is_active())
+        self.assertFalse(self.poller.running())
+        self.poller.start(mock.Mock(), active=False)
+        self.assertFalse(self.poller.is_active())
+        self.assertTrue(self.poller.running())
+        self.poller.stop()
+        self.assertFalse(self.poller.is_active())
         self.assertFalse(self.poller.running())
 
 class GaugePollerTest(unittest.TestCase):
@@ -795,7 +804,7 @@ class GaugePollerTest(unittest.TestCase):
     def check_send_req(self, poller, msg_class):
         """Check that the message being sent matches the expected one"""
         datapath = mock.Mock(ofproto=ofproto, ofproto_parser=parser)
-        poller.start(datapath)
+        poller.start(datapath, active=True)
         poller.stop()
         poller.send_req()
         for method_call in datapath.mock_calls:

@@ -88,6 +88,7 @@ For Prometheus:
         'all_dps': False,
         'interval': 30,
         'db': None,
+        'dbs': None,
         'db_type': 'text',
         'file': None,
         'compress': False,   # compress flow table file
@@ -127,6 +128,7 @@ For Prometheus:
         'all_dps': bool,
         'interval': int,
         'db': str,
+        'dbs': list,
         'db_type': str,
         'file': str,
         'compress': bool,
