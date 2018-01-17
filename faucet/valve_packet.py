@@ -21,7 +21,13 @@ import ipaddress
 import socket
 import struct
 
-from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
+from ryu.lib import addrconv
+from ryu.lib.packet import (
+    arp, bpdu, ethernet,
+    icmp, icmpv6, ipv4, ipv6,
+    lldp,
+    slow, stream_parser,
+    packet, vlan)
 
 from faucet.valve_util import btos
 from faucet import valve_of
@@ -177,6 +183,36 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
         vlan_header = vlan.vlan(vid=vid, ethertype=dl_type)
         pkt_header.add_protocol(vlan_header)
     return pkt_header
+
+
+def lldp_beacon(eth_src, chassis_id, port_id, ttl):
+    """Return an LLDP frame suitable for a host/access port.
+
+    Args:
+        eth_src (str): source Ethernet MAC address.
+        chassis_id (str): Chassis ID.
+        port_id (str): port ID,
+        TTL (int): TTL for payload.
+    Returns:
+        ryu.lib.packet.ethernet: Ethernet packet with header.
+    """
+    pkt = build_pkt_header(
+        None, eth_src, lldp.LLDP_MAC_NEAREST_BRIDGE, valve_of.ether.ETH_TYPE_LLDP)
+    tlvs = (
+        lldp.ChassisID(
+            subtype=lldp.ChassisID.SUB_MAC_ADDRESS,
+            chassis_id=addrconv.mac.text_to_bin(chassis_id)),
+        lldp.PortID(
+            subtype=lldp.PortID.SUB_INTERFACE_NAME,
+            port_id=port_id),
+        lldp.TTL(
+            ttl=ttl),
+        lldp.End()
+    )
+    lldp_pkt = lldp.lldp(tlvs)
+    pkt.add_protocol(lldp_pkt)
+    pkt.serialize()
+    return pkt
 
 
 def lacp_reqreply(eth_src,
