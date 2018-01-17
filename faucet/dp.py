@@ -147,6 +147,8 @@ configuration.
         # where config files for pipeline are stored (if any).
         'use_idle_timeout': False,
         # Turn on/off the use of idle timeout for src_table, default OFF.
+        'lldp_beacon': {},
+        # Config for LLDP beacon service.
         }
 
     defaults_types = {
@@ -183,6 +185,15 @@ configuration.
         'proactive_learn': bool,
         'pipeline_config_dir': str,
         'use_idle_timeout': bool,
+        'lldp_beacon': dict,
+    }
+
+    stack_defaults_types = {
+        'priority': int,
+    }
+
+    lldp_beacon_defaults_types = {
+        'send_interval': int,
     }
 
     wildcard_table = ValveTable(
@@ -192,6 +203,10 @@ configuration.
     def __init__(self, _id, dp_id, conf):
         """Constructs a new DP object"""
         super(DP, self).__init__(_id, dp_id, conf)
+        if self.lldp_beacon:
+            self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
+        if self.stack:
+            self._check_conf_types(self.stack, self.stack_defaults_types)
         self.acls = {}
         self.vlans = {}
         self.ports = {}
@@ -394,7 +409,7 @@ configuration.
 
         def resolve_port_no(port_name):
             """Resolve port by name or number."""
-            assert isinstance(port_name, str) or isinstance(port_name, int), (
+            assert isinstance(port_name, (str, int)), (
                 'VLAN must be type %s or %s not %s' % (str, int, type(port_name)))
             if port_name in port_by_name:
                 return port_by_name[port_name].number
@@ -404,7 +419,7 @@ configuration.
 
         def resolve_vlan(vlan_name):
             """Resolve VLAN by name or VID."""
-            assert isinstance(vlan_name, str) or isinstance(vlan_name, int), (
+            assert isinstance(vlan_name, (str, int)), (
                 'VLAN must be type %s or %s not %s' % (str, int, type(vlan_name)))
             if vlan_name in vlan_by_name:
                 return vlan_by_name[vlan_name]
@@ -416,17 +431,14 @@ configuration.
             """Resolve DP references in stacking config."""
             port_stack_dp = {}
             for port in self.stack_ports:
-                assert 'dp' in port.stack, 'you did not reference a dp in the stack'
                 stack_dp = port.stack['dp']
-                assert stack_dp in dp_by_name, 'could not find dp %s' % stack_dp
+                assert stack_dp in dp_by_name, 'stack DP %s not defined' % stack_dp
                 port_stack_dp[port] = dp_by_name[stack_dp]
             for port, dp in list(port_stack_dp.items()):
                 port.stack['dp'] = dp
-                assert 'port' in port.stack, 'you did not reference a port in the stack'
                 stack_port_name = port.stack['port']
-                assert isinstance(stack_port_name, int) or isinstance(stack_port_name, str), (
-                    'port name must be of type %s or %s not %s' % (str, int, type(stack_port_name)))
-                assert stack_port_name in dp.ports, 'could not find port %s in %s' % (stack_port_name, dp.name)
+                assert stack_port_name in dp.ports, 'stack port %s not defined in DP %s' % (
+                    stack_port_name, dp.name)
                 port.stack['port'] = dp.ports[stack_port_name]
 
         def resolve_mirror_destinations():
@@ -437,7 +449,7 @@ configuration.
                     if port.mirror in port_by_name:
                         mirror_from_port[port] = port_by_name[port.mirror]
                     else:
-                        assert port.mirror in self.ports, 'could not find port %s in %s' % (
+                        assert port.mirror in self.ports, 'mirror port %s not defined in DP %s' % (
                             port.mirror, self.name)
                         mirror_from_port[self.ports[port.mirror]] = port
             for port, mirror_destination_port in list(mirror_from_port.items()):
@@ -800,6 +812,6 @@ configuration.
              changed_ports, changed_acl_ports) = self._get_port_config_changes(
                  logger, new_dp, changed_vlans, changed_acls)
             return (deleted_ports, changed_ports, changed_acl_ports,
-                deleted_vlans, changed_vlans, all_ports_changed)
+                    deleted_vlans, changed_vlans, all_ports_changed)
         # default cold start
         return (set(), set(), set(), set(), set(), True)

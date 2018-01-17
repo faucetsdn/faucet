@@ -73,6 +73,8 @@ class Port(Conf):
         # if True, do simple loop protection on this port.
         'output_only': False,
         # if True, all packets input from this port are dropped.
+        'lldp_beacon_enable': False,
+        # if True, LLDP beacon service is enabled on this port.
     }
 
     defaults_types = {
@@ -92,10 +94,20 @@ class Port(Conf):
         'lacp': int,
         'loop_protect': bool,
         'output_only': bool,
+        'lldp_beacon_enable': bool,
+    }
+
+    stack_defaults_types = {
+        'dp': str,
+        'port': (str, int),
     }
 
     def __init__(self, _id, dp_id, conf=None):
         super(Port, self).__init__(_id, dp_id, conf)
+        if self.stack:
+            self._check_conf_types(self.stack, self.stack_defaults_types)
+            for stack_config in list(self.stack_defaults_types.keys()):
+                assert stack_config in self.stack, 'stack %s must be defined' % stack_config
         self.dyn_phys_up = False
 
     def __str__(self):
