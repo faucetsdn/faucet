@@ -5,7 +5,7 @@ Faucet Documentation
 Viewing documentation
 ---------------------
 
-Docs are viewable on `readthedocs <https://faucet.readthedocs.io>`_.
+Docs are viewable on `docs.faucet.nz <http://docs.faucet.nz>`_.
 
 Building documentation
 ----------------------
