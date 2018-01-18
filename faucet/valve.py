@@ -342,6 +342,13 @@ class Valve(object):
         return ofmsgs
 
     def send_lldp_beacons(self):
+        """Called periodically to send LLDP beacon packets."""
+        # TODO: the beacon service should be able to send configurable TLVs.
+        # TODO: the beacon service is specifically NOT to discover topology.
+        # It is intended to facilitate physical troubleshooting (e.g.
+        # a standard cable tester can display OF port information)
+        # A seperate system will be used to probe link/neighbor activity,
+        # addressing issues such as authenticity of the probes.
         ofmsgs = []
         if self.dp.lldp_beacon_ports:
             now = time.time()

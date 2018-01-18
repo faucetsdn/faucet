@@ -77,8 +77,8 @@ class EventFaucetAdvertise(event.EventBase):
     pass
 
 
-class EventFaucetLACPAdvertise(event.EventBase):
-    """Event used to trigger periodic network advertisements (eg IPv6 RAs)."""
+class EventFaucetLLDPAdvertise(event.EventBase):
+    """Event used to trigger periodic LLDP beacons."""
     pass
 
 
@@ -152,7 +152,7 @@ class Faucet(app_manager.RyuApp):
             hub.spawn(thread) for thread in (
                 self._gateway_resolve_request, self._state_expire_request,
                 self._metric_update_request, self._advertise_request,
-                self._config_file_stat, self._lacp_beacon_request)])
+                self._config_file_stat, self._lldp_beacon_request)])
 
         # Register to API
         self.api._register(self)
@@ -334,26 +334,27 @@ class Faucet(app_manager.RyuApp):
     def _advertise_request(self):
         self._thread_reschedule(EventFaucetAdvertise(), 5)
 
-    def _lacp_beacon_request(self):
-        self._thread_reschedule(EventFaucetLACPAdvertise(), 5)
+    def _lldp_beacon_request(self):
+        self._thread_reschedule(EventFaucetLLDPAdvertise(), 5)
+
+    def _valve_flow_services(self, valve_service):
+        """Call a method on all Valves and send any resulting flows."""
+        for dp_id, valve in list(self.valves.items()):
+            flowmods = getattr(valve, valve_service)()
+            if flowmods:
+                self._send_flow_msgs(dp_id, flowmods)
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def resolve_gateways(self, _):
         """Handle a request to re/resolve gateways."""
-        for dp_id, valve in list(self.valves.items()):
-            flowmods = valve.resolve_gateways()
-            if flowmods:
-                self._send_flow_msgs(dp_id, flowmods)
+        self._valve_flow_services('resolve_gateways')
 
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def state_expire(self, _):
         """Handle a request expire host state in the controller."""
-        for dp_id, valve in list(self.valves.items()):
-            flowmods = valve.state_expire()
-            if flowmods:
-                self._send_flow_msgs(dp_id, flowmods)
+        self._valve_flow_services('state_expire')
 
     @set_ev_cls(EventFaucetMetricUpdate, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -367,19 +368,13 @@ class Faucet(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def advertise(self, _):
         """Handle a request to advertise services."""
-        for dp_id, valve in list(self.valves.items()):
-            flowmods = valve.advertise()
-            if flowmods:
-                self._send_flow_msgs(dp_id, flowmods)
+        self._valve_flow_services('advertise')
 
-    @set_ev_cls(EventFaucetLACPAdvertise, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetLLDPAdvertise, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def lldp_beacon(self, _):
-        """Handle a request to advertise services."""
-        for dp_id, valve in list(self.valves.items()):
-            flowmods = valve.send_lldp_beacons()
-            if flowmods:
-                self._send_flow_msgs(dp_id, flowmods)
+        """Handle a request to advertise LLDP."""
+        self._valve_flow_services('send_lldp_beacons')
 
     def get_config(self):
         """FAUCET experimental API: return config for all Valves."""
