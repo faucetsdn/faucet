@@ -1401,6 +1401,7 @@ vlans:
 acls:
     1:
         - rule:
+            description: "rule 1"
             cookie: 1234
             dl_type: 0x800
             ip_proto: 6
