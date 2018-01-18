@@ -52,7 +52,7 @@ class ValveHostManager(object):
         eth_src = pkt_meta.eth_src
         vlan = pkt_meta.vlan
 
-        if eth_src not in vlan.host_cache:
+        if eth_src not in vlan.dyn_host_cache:
             if port.max_hosts:
                 hosts = port.hosts()
                 if len(hosts) == port.max_hosts:
@@ -298,8 +298,8 @@ class ValveHostFlowRemovedManager(ValveHostManager):
         traffic but not receving. If the src rule not yet expires, we reinstall
         host rules."""
         ofmsgs = []
-        if eth_dst in vlan.host_cache:
-            entry = vlan.host_cache[eth_dst]
+        if eth_dst in vlan.dyn_host_cache:
+            entry = vlan.dyn_host_cache[eth_dst]
             if not entry.expired:
                 ofmsgs.extend(self.learn_host_on_vlan_ports(
                     entry.port, vlan, eth_dst, False))

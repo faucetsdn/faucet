@@ -47,7 +47,7 @@ PROM_FLOW_VARS = (
 class GaugePrometheusClient(PromClient):
     """Wrapper for Prometheus client that is shared between all pollers."""
 
-    metrics = {}
+    metrics = {} # type: dict
 
     def __init__(self):
         super(GaugePrometheusClient, self).__init__()
@@ -116,7 +116,7 @@ class GaugePortStatePrometheusLogger(GaugePortStateBaseLogger):
 class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
     """Export flow table entries to Prometheus."""
 
-    table_tags = collections.defaultdict(set)
+    table_tags = collections.defaultdict(set) # type: dict
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTablePrometheusPoller, self).update(rcv_time, dp_id, msg)
