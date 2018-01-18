@@ -153,7 +153,7 @@ class Port(Conf):
                     try:
                         org_tlv['info'] = bytearray.fromhex(org_tlv['info'])
                     except ValueError:
-                        assert False, 'org_tlv info not hex string: %s' % org_tlv['info']
+                        org_tlv['info'] = org_tlv['info'].encode('utf-8')
                     org_tlv['oui'] = bytearray.fromhex('%6.6x' % org_tlv['oui'])
                     org_tlvs.append(org_tlv)
                 self.lldp_beacon['org_tlvs'] = org_tlvs
