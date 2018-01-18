@@ -156,10 +156,9 @@ class Port(Conf):
     def to_conf(self):
         result = super(Port, self).to_conf()
         if 'stack' in result and result['stack'] is not None:
-            result['stack'] = {
-                'dp': str(self.stack['dp']),
-                'port': str(self.stack['port'])
-            }
+            result['stack'] = {}
+            for stack_config in list(self.stack_defaults_types.keys()):
+                result['stack'][stack_config] = self.stack[stack_config]
         return result
 
     def vlans(self):
