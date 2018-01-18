@@ -38,7 +38,7 @@ class Port(Conf):
     hairpin = None
     loop_protect = None
     output_only = None
-    lldp_beacon = None
+    lldp_beacon = {}
 
     dyn_learn_ban_count = 0
     dyn_phys_up = False
@@ -107,6 +107,13 @@ class Port(Conf):
 
     lldp_beacon_defaults_types = {
         'enable': bool,
+        'org_tlvs': list,
+    }
+
+    lldp_org_tlv_defaults_types = {
+        'oui': int,
+        'subtype': int,
+        'info': str,
     }
 
     def __init__(self, _id, dp_id, conf=None):
@@ -136,8 +143,20 @@ class Port(Conf):
                 assert stack_config in self.stack, 'stack %s must be defined' % stack_config
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
-            if self.lldp_beacon_enabled:
+            if self.lldp_beacon_enabled():
                 assert self.native_vlan, 'native_vlan must be defined for LLDP beacon'
+                org_tlvs = []
+                for org_tlv in self.lldp_beacon['org_tlvs']:
+                    self._check_conf_types(org_tlv, self.lldp_org_tlv_defaults_types)
+                    assert len(org_tlv) == len(self.lldp_org_tlv_defaults_types), (
+                        'missing org_tlv config')
+                    try:
+                        org_tlv['info'] = bytearray.fromhex(org_tlv['info'])
+                    except ValueError:
+                        assert False, 'org_tlv info not hex string: %s' % org_tlv['info']
+                    org_tlv['oui'] = bytearray.fromhex('%6.6x' % org_tlv['oui'])
+                    org_tlvs.append(org_tlv)
+                self.lldp_beacon['org_tlvs'] = org_tlvs
 
     def finalize(self):
         assert self.vlans() or self.stack or self.output_only, (
