@@ -26,8 +26,8 @@ from faucet.prom_client import PromClient
 class FaucetMetrics(PromClient):
     """Container class for objects that can be exported to Prometheus."""
 
-    _dpid_counters = {}
-    _dpid_gauges = {}
+    _dpid_counters = {} # type: dict
+    _dpid_gauges = {} # type: dict
 
     def _dpid_counter(self, var, var_help):
         counter = Counter(var, var_help, self.REQUIRED_LABELS)

@@ -31,14 +31,14 @@ class Port(Conf):
     unicast_flood = None
     mirror = None
     native_vlan = None
-    tagged_vlans = []
+    tagged_vlans = [] # type: list
     acl_in = None
-    stack = {}
+    stack = {} # type: dict
     max_hosts = None
     hairpin = None
     loop_protect = None
     output_only = None
-    lldp_beacon = {}
+    lldp_beacon = {} # type: dict
 
     dyn_learn_ban_count = 0
     dyn_phys_up = False

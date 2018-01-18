@@ -56,7 +56,7 @@ The output action contains a dictionary with the following elements:
 """
 
     # Resolved port numbers which are mirror action destinations.
-    mirror_destinations = set()
+    mirror_destinations = set() # type: set
     rules = None
     exact_match = None
     defaults = {

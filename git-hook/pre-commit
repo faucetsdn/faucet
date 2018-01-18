@@ -12,7 +12,7 @@ git-pylint-commit-hook
 BASE=`dirname $0`/../..
 cd $BASE || exit 1
 BASE=`pwd`
-for mypy_file in faucet/valve.py faucet/valve_route.py ; do
+for mypy_file in faucet/faucet.py faucet/gauge.py ; do
     PYTHONPATH=$BASE mypy --ignore-missing-imports $mypy_file || exit 1
 done
 cd tests

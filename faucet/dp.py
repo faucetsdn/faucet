@@ -74,12 +74,12 @@ configuration.
     proactive_learn = None
     pipeline_config_dir = None
     use_idle_timeout = None
-    tables = {}
-    tables_by_id = {}
-    meters = {}
+    tables = {} # type: dict
+    tables_by_id = {} # type: dict
+    meters = {} # type: dict
     timeout = None
     arp_neighbor_timeout = None
-    lldp_beacon = {}
+    lldp_beacon = {} # type: dict
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes

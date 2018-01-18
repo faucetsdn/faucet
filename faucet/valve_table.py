@@ -148,7 +148,7 @@ class ValveGroupEntry(object):
 class ValveGroupTable(object):
     """Wrap access to group table."""
 
-    entries = {}
+    entries = {} # type: dict
 
     @staticmethod
     def group_id_from_str(key_str):
