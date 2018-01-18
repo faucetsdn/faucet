@@ -15,9 +15,10 @@ import tempfile
 import os
 import re
 import json
-import yaml
 import random
 import urllib
+import yaml
+
 import requests
 import couchdb
 
