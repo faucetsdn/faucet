@@ -180,6 +180,7 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                 description: "b1"
                 lldp_beacon:
                     enable: True
+                    system_name: "faucet"
                     org_tlvs:
                         - {oui: 0x12bb, subtype: 2, info: "01406500"}
             %(port_2)d:
@@ -201,14 +202,13 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
             first_host, tcpdump_filter, [
                 lambda: first_host.cmd('sleep %u' % timeout)],
             timeout=timeout, vflags='-vv', packets=1)
-        lldp_required = '0e:00:00:00:00:01 > 01:80:c2:00:00:0e, ethertype LLDP'
-        self.assertTrue(
-            re.search(lldp_required, tcpdump_txt),
-            msg='%s: %s' % (lldp_required, tcpdump_txt))
-        voice_vlan_required = r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50'
-        self.assertTrue(
-            re.search(voice_vlan_required, tcpdump_txt),
-            msg='%s: %s' % (voice_vlan_required, tcpdump_txt))
+        for lldp_required in (
+                r'0e:00:00:00:00:01 > 01:80:c2:00:00:0e, ethertype LLDP',
+                r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
+                r'System Name TLV \(5\), length 6: faucet'):
+            self.assertTrue(
+                re.search(lldp_required, tcpdump_txt),
+                msg='%s: %s' % (lldp_required, tcpdump_txt))
 
 
 class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
