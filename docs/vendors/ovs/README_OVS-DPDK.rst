@@ -107,7 +107,7 @@ Configure an OVS bridge with the DPDK ports
     ovs-vsctl add-port br0 dpdk1 -- set interface enp1s0f1 type=dpdk options:dpdk-devargs=0000:01:00.1
     ovs-vsctl set-fail-mode br0 secure
     ovs-vsctl set-controller br0 tcp:127.0.0.1:6653
-    ovs-vsctl show br0
+    ovs-ofctl show br0
     ovs-vsctl get bridge br0 datapath_id
 
 Create faucet.yaml
