@@ -4,7 +4,7 @@
 #
 #    pip3 install git-pylint-commit-hook mypy
 #    chmod +x pre-commit
-#    cp pre-commit ../.git/hooks
+#    ln -s pre-commit ../.git/hooks
 
 git-pylint-commit-hook
 
