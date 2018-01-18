@@ -1,23 +1,20 @@
 """Unit tests for gauge"""
 
-try:
-    # Python 2
-    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-    import mock
-except ImportError:
-    # Python 3
-    from http.server import HTTPServer, BaseHTTPRequestHandler
-    from unittest import mock
-import unittest
-import time
-import threading
-import tempfile
-import os
-import re
 import json
-import yaml
 import random
+import re
+import tempfile
+import threading
+import time
+import os
+import unittest
+from unittest import mock
 import urllib
+
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+import yaml
+
 import requests
 import couchdb
 
@@ -26,6 +23,12 @@ from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
 from ryu.lib import hub
+
+
+class QuietHandler(BaseHTTPRequestHandler):
+
+    def log_message(self, _format, *_args):
+        return
 
 
 def create_mock_datapath(num_ports):
@@ -180,7 +183,7 @@ def compare_flow_msg(flow_msg, flow_dict, test):
         else:
             test.assertEqual(getattr(flow_msg.body[0], stat_name), stat_val)
 
-class PretendInflux(BaseHTTPRequestHandler):
+class PretendInflux(QuietHandler):
     """An HTTP Handler that receives InfluxDB messages."""
 
     def do_POST(self):
@@ -188,7 +191,6 @@ class PretendInflux(BaseHTTPRequestHandler):
         if there is an output file to write to. """
 
         if hasattr(self.server, 'output_file'):
-
             content_length = int(self.headers['content-length'])
             data = self.rfile.read(content_length)
             data = data.decode('utf-8')
@@ -198,11 +200,7 @@ class PretendInflux(BaseHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
 
-    def log_message(self, format_, *args):
-        """ Silence the handler """
-        return
-
-class PretendCouchDB(BaseHTTPRequestHandler):
+class PretendCouchDB(QuietHandler):
     """An HTTP Handler that receives CouchDB messages"""
 
     def _set_up_response(self, code, body):
@@ -519,8 +517,8 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         except Exception as err:
             self.fail("Code threw an exception: {}".format(err))
         finally:
+            server.socket.close()
             server.shutdown()
-
 
     def test_ship_connection_err(self):
         """Checks that even when there is a connection error,
@@ -589,6 +587,7 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         and stop the HTTP server """
         os.close(self.temp_fd)
         os.remove(self.server.output_file)
+        self.server.socket.close()
         self.server.shutdown()
 
     def create_config_obj(self, datapath):
@@ -605,7 +604,8 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
                         )
         return conf
 
-    def parse_key_value(self, dictionary, kv_list):
+    @staticmethod
+    def parse_key_value(dictionary, kv_list):
         """
         When given a list consisting of strings such as: 'key1=val1',
         add to the dictionary as dictionary['key1'] = 'val1'.
@@ -782,7 +782,7 @@ class GaugeThreadPollerTest(unittest.TestCase):
         self.assertTrue(poller_thread.dead)
 
     def test_active(self):
-        """ Check if active reflects the state of the poller """
+        """Check if active reflects the state of the poller """
         self.assertFalse(self.poller.is_active())
         self.assertFalse(self.poller.running())
         self.poller.start(mock.Mock(), active=True)
@@ -965,7 +965,7 @@ class GaugeWatcherTest(unittest.TestCase):
         compare_flow_msg(msg, yaml_dict, self)
 
 class GaugeConnectionCouchTest(unittest.TestCase):
-    """ Check the ConnectionCouch class from nsodbc"""
+    """Check the ConnectionCouch class from nsodbc"""
 
     def setUp(self):
         """ Start up the pretend server and create a connection object"""
@@ -978,6 +978,7 @@ class GaugeConnectionCouchTest(unittest.TestCase):
 
     def tearDown(self):
         """ Shutdown the pretend server """
+        self.server.socket.close()
         self.server.shutdown()
 
     def test_create(self):
@@ -1032,7 +1033,8 @@ class GaugeDatabaseCouchTest(unittest.TestCase):
         self.db = nsodbc.DatabaseCouch(cdbs['test_db'])
 
     def tearDown(self):
-        """ Shutdown pretend server """
+        """Shutdown pretend server """
+        self.server.socket.close()
         self.server.shutdown()
 
     def _check_equal(self, doc_name, original_doc):
@@ -1148,7 +1150,8 @@ class GaugeNsODBCTest(unittest.TestCase):
                             'port': self.conf.db_port}
 
     def tearDown(self):
-        """ Shutdown pretend server """
+        """Shutdown pretend server """
+        self.server.socket.close()
         self.server.shutdown()
 
     def get_doc_name(self, db_name, view_name):
@@ -1246,7 +1249,8 @@ class GaugeNsodbcPollerTest(unittest.TestCase):
                              )
 
     def tearDown(self):
-        """ Shutdown pretend server """
+        """Shutdown pretend server """
+        self.server.socket.close()
         self.server.shutdown()
 
     def test_update(self):
