@@ -168,6 +168,43 @@ class FaucetUntaggedLogRotateTest(FaucetUntaggedTest):
         self.assertTrue(os.path.exists(faucet_log))
 
 
+class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
+
+    CONFIG = """
+        lldp_beacon:
+            send_interval: 5
+            max_per_interval: 5
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                lldp_beacon:
+                    enable: True
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        first_host = self.net.hosts[0]
+        tcpdump_filter = 'ether proto 0x88cc'
+        timeout = 5 * 3
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, tcpdump_filter, [
+                lambda: first_host.cmd('sleep %u' % timeout)],
+            timeout=timeout, vflags='-vv', packets=1)
+        lldp_required = '0e:00:00:00:00:01 > 01:80:c2:00:00:0e, ethertype LLDP'
+        self.assertTrue(
+            re.search(lldp_required, tcpdump_txt),
+            msg='%s: %s' % (lldp_required, tcpdump_txt))
+
+
 class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
 
     REQUIRES_METERS = True
@@ -1566,7 +1603,6 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
     def test_delete_interface(self):
         # With all ports changed, we should cold start.
         conf = self._get_conf()
-        first_interface = conf['dps'][self.DP_NAME]['interfaces'].keys()[0]
         del conf['dps'][self.DP_NAME]['interfaces']
         conf['dps'][self.DP_NAME]['interfaces'] = {
             99: {

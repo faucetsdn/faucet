@@ -227,6 +227,8 @@ configuration.
         assert self.timeout >= self.arp_neighbor_timeout, 'L2 timeout must be >= L3 timeout'
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
+            assert len(self.lldp_beacon) == len(self.lldp_beacon_defaults_types), (
+                'all lldp_beacon config (%s) must be specified' % self.lldp_beacon_defaults_types.keys())
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
 

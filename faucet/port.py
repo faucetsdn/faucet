@@ -156,11 +156,10 @@ class Port(Conf):
     def to_conf(self):
         result = super(Port, self).to_conf()
         if 'stack' in result and result['stack'] is not None:
-            if 'dp' in self.stack and 'port' in self.stack:
-                result['stack'] = {
-                    'dp': str(self.stack['dp']),
-                    'port': str(self.stack['port'])
-                }
+            result['stack'] = {
+                'dp': str(self.stack['dp']),
+                'port': str(self.stack['port'])
+            }
         return result
 
     def vlans(self):
@@ -180,4 +179,4 @@ class Port(Conf):
 
     def lldp_beacon_enabled(self):
         """Return True if LLDP beacon enabled on this port."""
-        return self.lldp_beacon and self.lldp_beacon.get('enabled', False)
+        return self.lldp_beacon and self.lldp_beacon.get('enable', False)
