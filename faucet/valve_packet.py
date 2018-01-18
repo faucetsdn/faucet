@@ -185,30 +185,38 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
     return pkt_header
 
 
-def lldp_beacon(eth_src, chassis_id, port_id, ttl):
+def lldp_beacon(eth_src, chassis_id, port_id, ttl, org_tlvs=None):
     """Return an LLDP frame suitable for a host/access port.
 
     Args:
         eth_src (str): source Ethernet MAC address.
         chassis_id (str): Chassis ID.
-        port_id (str): port ID,
+        port_id (int): port ID,
         TTL (int): TTL for payload.
+        org_tlvs (list): list of tuples of (OUI, subtype, info).
     Returns:
         ryu.lib.packet.ethernet: Ethernet packet with header.
     """
     pkt = build_pkt_header(
         None, eth_src, lldp.LLDP_MAC_NEAREST_BRIDGE, valve_of.ether.ETH_TYPE_LLDP)
-    tlvs = (
+    tlvs = [
         lldp.ChassisID(
             subtype=lldp.ChassisID.SUB_MAC_ADDRESS,
             chassis_id=addrconv.mac.text_to_bin(chassis_id)),
         lldp.PortID(
             subtype=lldp.PortID.SUB_INTERFACE_NAME,
-            port_id=port_id),
+            port_id=str(port_id).encode('utf-8')),
         lldp.TTL(
-            ttl=ttl),
-        lldp.End()
-    )
+            ttl=ttl)
+    ]
+    if org_tlvs is not None:
+        for tlv_oui, tlv_subtype, tlv_info in org_tlvs:
+            tlvs.append(
+                lldp.OrganizationallySpecific(
+                    oui=tlv_oui,
+                    subtype=tlv_subtype,
+                    info=tlv_info))
+    tlvs.append(lldp.End())
     lldp_pkt = lldp.lldp(tlvs)
     pkt.add_protocol(lldp_pkt)
     pkt.serialize()

@@ -180,6 +180,8 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                 description: "b1"
                 lldp_beacon:
                     enable: True
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
@@ -203,6 +205,10 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
         self.assertTrue(
             re.search(lldp_required, tcpdump_txt),
             msg='%s: %s' % (lldp_required, tcpdump_txt))
+        voice_vlan_required = r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50'
+        self.assertTrue(
+            re.search(voice_vlan_required, tcpdump_txt),
+            msg='%s: %s' % (voice_vlan_required, tcpdump_txt))
 
 
 class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
