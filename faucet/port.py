@@ -38,7 +38,7 @@ class Port(Conf):
     hairpin = None
     loop_protect = None
     output_only = None
-    lldp_beacon = None
+    lldp_beacon = {}
 
     dyn_learn_ban_count = 0
     dyn_phys_up = False
