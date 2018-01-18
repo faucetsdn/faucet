@@ -25,8 +25,8 @@ class InvalidConfigError(Exception):
 class Conf(object):
     """Base class for FAUCET configuration."""
 
-    defaults = {}
-    defaults_types = {}
+    defaults = {} # type: dict
+    defaults_types = {} # type: dict
     dyn_finalized = False
     dyn_hash = None
 

@@ -52,11 +52,11 @@ class VLAN(Conf):
     faucet_mac = None
     bgp_as = None
     bgp_local_address = None
-    bgp_server_addresses = []
+    bgp_server_addresses = [] # type: list
     bgp_port = None
     bgp_routerid = None
-    bgp_neighbor_addresses = []
-    bgp_neighbour_addresses = []
+    bgp_neighbor_addresses = [] # type: list
+    bgp_neighbour_addresses = [] # type: list
     bgp_neighbor_as = None
     bgp_neighbour_as = None
     routes = None
@@ -243,10 +243,10 @@ class VLAN(Conf):
                 entry.cache_time < min_cache_time or entry.expired))
 
         expired_hosts = [
-            entry.eth_src for entry in list(self.host_cache.values()) if entry_expired(entry)]
+            entry.eth_src for entry in list(self.dyn_host_cache.values()) if entry_expired(entry)]
         if expired_hosts:
             for eth_src in expired_hosts:
-                del self.host_cache[eth_src]
+                del self.dyn_host_cache[eth_src]
         return expired_hosts
 
     def ipvs(self):
@@ -265,18 +265,9 @@ class VLAN(Conf):
         """Return neighbor cache for specified IP version on this VLAN."""
         return self.dyn_neigh_cache_by_ipv[ipv]
 
-    @property
-    def host_cache(self):
-        """Return host (L2) cache for this VLAN."""
-        return self.dyn_host_cache
-
     def hosts_count(self):
         """Return number of hosts learned on this VLAN."""
-        return len(self.host_cache)
-
-    @host_cache.setter
-    def host_cache(self, value):
-        self.dyn_host_cache = value
+        return len(self.dyn_host_cache)
 
     def __str__(self):
         port_list = [str(x) for x in self.get_ports()]
