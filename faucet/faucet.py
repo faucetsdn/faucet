@@ -77,6 +77,11 @@ class EventFaucetAdvertise(event.EventBase):
     pass
 
 
+class EventFaucetLACPAdvertise(event.EventBase):
+    """Event used to trigger periodic network advertisements (eg IPv6 RAs)."""
+    pass
+
+
 class Faucet(app_manager.RyuApp):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
@@ -147,7 +152,7 @@ class Faucet(app_manager.RyuApp):
             hub.spawn(thread) for thread in (
                 self._gateway_resolve_request, self._state_expire_request,
                 self._metric_update_request, self._advertise_request,
-                self._config_file_stat)])
+                self._config_file_stat, self._lacp_beacon_request)])
 
         # Register to API
         self.api._register(self)
@@ -329,6 +334,9 @@ class Faucet(app_manager.RyuApp):
     def _advertise_request(self):
         self._thread_reschedule(EventFaucetAdvertise(), 5)
 
+    def _lacp_beacon_request(self):
+        self._thread_reschedule(EventFaucetLACPAdvertise(), 5)
+
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def resolve_gateways(self, _):
@@ -361,6 +369,15 @@ class Faucet(app_manager.RyuApp):
         """Handle a request to advertise services."""
         for dp_id, valve in list(self.valves.items()):
             flowmods = valve.advertise()
+            if flowmods:
+                self._send_flow_msgs(dp_id, flowmods)
+
+    @set_ev_cls(EventFaucetLACPAdvertise, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
+    def lldp_beacon(self, _):
+        """Handle a request to advertise services."""
+        for dp_id, valve in list(self.valves.items()):
+            flowmods = valve.send_lldp_beacons()
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
 

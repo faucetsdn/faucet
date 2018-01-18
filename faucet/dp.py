@@ -195,6 +195,7 @@ configuration.
 
     lldp_beacon_defaults_types = {
         'send_interval': int,
+        'max_per_interval': int,
     }
 
     wildcard_table = ValveTable(
@@ -204,16 +205,13 @@ configuration.
     def __init__(self, _id, dp_id, conf):
         """Constructs a new DP object"""
         super(DP, self).__init__(_id, dp_id, conf)
-        if self.lldp_beacon:
-            self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
-        if self.stack:
-            self._check_conf_types(self.stack, self.stack_defaults_types)
         self.acls = {}
         self.vlans = {}
         self.ports = {}
         self.routers = {}
         self.stack_ports = []
         self.output_only_ports = []
+        self.lldp_beacon_ports = []
 
     def __str__(self):
         return self.name
@@ -227,6 +225,10 @@ configuration.
             'DP %s must have at least one interface' % self)
         # To prevent L2 learning from timing out before L3 can refresh
         assert self.timeout >= self.arp_neighbor_timeout, 'L2 timeout must be >= L3 timeout'
+        if self.lldp_beacon:
+            self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
+        if self.stack:
+            self._check_conf_types(self.stack, self.stack_defaults_types)
 
     def _configure_tables(self):
         """Configure FAUCET pipeline of tables with matches."""
@@ -297,6 +299,8 @@ configuration.
             self.output_only_ports.append(port)
         elif port.stack is not None:
             self.stack_ports.append(port)
+        if port.lldp_beacon_enabled():
+            self.lldp_beacon_ports.append(port)
 
     def resolve_stack_topology(self, dps):
         """Resolve inter-DP config for stacking."""

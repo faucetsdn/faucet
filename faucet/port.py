@@ -37,13 +37,16 @@ class Port(Conf):
     max_hosts = None
     hairpin = None
     loop_protect = None
+    output_only = None
+    lldp_beacon = None
+
     dyn_learn_ban_count = 0
     dyn_phys_up = False
     dyn_last_lacp_pkt = None
     dyn_lacp_up = None
     dyn_lacp_updated_time = None
     dyn_last_ban_time = None
-    output_only = None
+    dyn_last_lldp_beacon_time = None
 
     defaults = {
         'number': None,
@@ -73,8 +76,8 @@ class Port(Conf):
         # if True, do simple loop protection on this port.
         'output_only': False,
         # if True, all packets input from this port are dropped.
-        'lldp_beacon_enable': False,
-        # if True, LLDP beacon service is enabled on this port.
+        'lldp_beacon': {},
+        # LLDP beacon configuration for this port.
     }
 
     defaults_types = {
@@ -94,7 +97,7 @@ class Port(Conf):
         'lacp': int,
         'loop_protect': bool,
         'output_only': bool,
-        'lldp_beacon_enable': bool,
+        'lldp_beacon': dict,
     }
 
     stack_defaults_types = {
@@ -102,12 +105,12 @@ class Port(Conf):
         'port': (str, int),
     }
 
+    lldp_beacon_defaults_types = {
+        'enable': bool,
+    }
+
     def __init__(self, _id, dp_id, conf=None):
         super(Port, self).__init__(_id, dp_id, conf)
-        if self.stack:
-            self._check_conf_types(self.stack, self.stack_defaults_types)
-            for stack_config in list(self.stack_defaults_types.keys()):
-                assert stack_config in self.stack, 'stack %s must be defined' % stack_config
         self.dyn_phys_up = False
 
     def __str__(self):
@@ -127,6 +130,14 @@ class Port(Conf):
         super(Port, self).check_config()
         assert isinstance(self.number, int) and self.number > 0 and not ignore_port(self.number), (
             'Port number invalid: %s' % self.number)
+        if self.stack:
+            self._check_conf_types(self.stack, self.stack_defaults_types)
+            for stack_config in list(self.stack_defaults_types.keys()):
+                assert stack_config in self.stack, 'stack %s must be defined' % stack_config
+        if self.lldp_beacon:
+            self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
+            if self.lldp_beacon_enabled:
+                assert self.native_vlan, 'native_vlan must be defined for LLDP beacon'
 
     def finalize(self):
         assert self.vlans() or self.stack or self.output_only, (
@@ -139,6 +150,7 @@ class Port(Conf):
         super(Port, self).finalize()
 
     def running(self):
+        """Return True if port enabled and up."""
         return self.enabled and self.dyn_phys_up
 
     def to_conf(self):
@@ -165,3 +177,7 @@ class Port(Conf):
         for vlan in vlans:
             hosts.extend([entry.eth_src for entry in list(vlan.cached_hosts_on_port(self))])
         return hosts
+
+    def lldp_beacon_enabled(self):
+        """Return True if LLDP beacon enabled on this port."""
+        return self.lldp_beacon and self.lldp_beacon.get('enabled', False)
