@@ -228,7 +228,7 @@ configuration.
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
             assert len(self.lldp_beacon) == len(self.lldp_beacon_defaults_types), (
-                'all lldp_beacon config (%s) must be specified' % self.lldp_beacon_defaults_types.keys())
+                'all lldp_beacon config (%s) must be specified' % list(self.lldp_beacon_defaults_types.keys()))
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
 
