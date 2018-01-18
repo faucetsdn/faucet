@@ -23,7 +23,7 @@ It supports:
 Hardware and software switch support
 ------------------------------------
 
-Detailed guides for some switches are available on `readthedocs <https://faucet.readthedocs.io/en/latest/vendors/index.html>`_.
+Detailed guides for some switches are available on `readthedocs <http://docs.faucet.nz/en/latest/vendors/index.html>`_.
 
 FAUCET has been tested against the following switches (see also SUPPORTED_HARDWARE in `faucet/valve.py <faucet/valve.py>`_):
 
@@ -42,20 +42,20 @@ If you are a hardware vendor wanting to support FAUCET, you need to support all 
 Installation
 ------------
 
-Please see the `installation guide <https://faucet.readthedocs.io/en/latest/installation.html>`_.
+Please see the `installation guide <http://docs.faucet.nz/en/latest/installation.html>`_.
 
 Configuration
 -------------
 
-Please see the `configuration guide <https://faucet.readthedocs.io/en/latest/configuration.html>`_
+Please see the `configuration guide <http://docs.faucet.nz/en/latest/configuration.html>`_
 for documentation regarding the general configuration of faucet and the
-`recipe book <https://faucet.readthedocs.io/en/latest/recipe_book/index.html>`_
+`recipe book <http://docs.faucet.nz/en/latest/recipe_book/index.html>`_
 for configuration snippets for common use cases.
 
 Development and testing
 -----------------------
 
-Please see the `developer guide <https://faucet.readthedocs.io/en/latest/developer_guide.html>`_.
+Please see the `developer guide <http://docs.faucet.nz/en/latest/developer_guide.html>`_.
 
 Support
 -------
