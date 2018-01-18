@@ -1,22 +1,18 @@
 """Unit tests for gauge"""
 
-try:
-    # Python 2
-    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-    import mock
-except ImportError:
-    # Python 3
-    from http.server import HTTPServer, BaseHTTPRequestHandler
-    from unittest import mock
-import unittest
-import time
-import threading
-import tempfile
-import os
-import re
 import json
 import random
+import re
+import tempfile
+import threading
+import time
+import os
+import unittest
+from unittest import mock
 import urllib
+
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
 import yaml
 
 import requests
@@ -195,7 +191,6 @@ class PretendInflux(QuietHandler):
         if there is an output file to write to. """
 
         if hasattr(self.server, 'output_file'):
-
             content_length = int(self.headers['content-length'])
             data = self.rfile.read(content_length)
             data = data.decode('utf-8')
@@ -204,10 +199,6 @@ class PretendInflux(QuietHandler):
 
         self.send_response(204)
         self.end_headers()
-
-    def log_message(self, format_, *args):
-        """ Silence the handler """
-        return
 
 class PretendCouchDB(QuietHandler):
     """An HTTP Handler that receives CouchDB messages"""
@@ -613,7 +604,8 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
                         )
         return conf
 
-    def parse_key_value(self, dictionary, kv_list):
+    @staticmethod
+    def parse_key_value(dictionary, kv_list):
         """
         When given a list consisting of strings such as: 'key1=val1',
         add to the dictionary as dictionary['key1'] = 'val1'.
@@ -790,7 +782,7 @@ class GaugeThreadPollerTest(unittest.TestCase):
         self.assertTrue(poller_thread.dead)
 
     def test_active(self):
-        """ Check if active reflects the state of the poller """
+        """Check if active reflects the state of the poller """
         self.assertFalse(self.poller.is_active())
         self.assertFalse(self.poller.running())
         self.poller.start(mock.Mock(), active=True)
