@@ -341,6 +341,38 @@ class Valve(object):
             self._last_advertise_sec = now
         return ofmsgs
 
+    def send_lldp_beacons(self):
+        """Called periodically to send LLDP beacon packets."""
+        # TODO: the beacon service should be able to send configurable TLVs.
+        # TODO: the beacon service is specifically NOT to discover topology.
+        # It is intended to facilitate physical troubleshooting (e.g.
+        # a standard cable tester can display OF port information)
+        # A seperate system will be used to probe link/neighbor activity,
+        # addressing issues such as authenticity of the probes.
+        ofmsgs = []
+        if self.dp.lldp_beacon_ports:
+            now = time.time()
+            beacons_sent = 0
+            cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
+            ttl = self.dp.lldp_beacon['send_interval'] * 3
+            for port in self.dp.lldp_beacon_ports:
+                if (port.dyn_last_lldp_beacon_time is None or
+                        port.dyn_last_lldp_beacon_time < cutoff_beacon_time):
+                    chassis_id = str(port.native_vlan.faucet_mac)
+                    lldp_beacon_pkt = valve_packet.lldp_beacon(
+                        port.native_vlan.faucet_mac,
+                        chassis_id,
+                        str(port.number).encode('utf-8'),
+                        ttl)
+                    ofmsgs.append(
+                        valve_of.packetout(
+                            port.number, lldp_beacon_pkt.data))
+                    port.dyn_last_lldp_beacon_time = now
+                    beacons_sent += 1
+                    if beacons_sent == self.dp.lldp_beacon['max_per_interval']:
+                        break
+        return ofmsgs
+
     def datapath_connect(self, discovered_up_port_nums):
         """Handle Ryu datapath connection event and provision pipeline.
 
