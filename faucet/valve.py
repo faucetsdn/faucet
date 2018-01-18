@@ -358,15 +358,16 @@ class Valve(object):
             for port in self.dp.lldp_beacon_ports:
                 if (port.dyn_last_lldp_beacon_time is None or
                         port.dyn_last_lldp_beacon_time < cutoff_beacon_time):
+                    lldp_beacon = port.lldp_beacon
                     chassis_id = str(port.native_vlan.faucet_mac)
                     org_tlvs = []
-                    for org_tlv in port.lldp_beacon['org_tlvs']:
+                    for org_tlv in lldp_beacon['org_tlvs']:
                         org_tlvs.append(
                             (org_tlv['oui'], org_tlv['subtype'], org_tlv['info']))
                     lldp_beacon_pkt = valve_packet.lldp_beacon(
                         port.native_vlan.faucet_mac,
                         chassis_id, port.number, ttl,
-                        org_tlvs=org_tlvs)
+                        org_tlvs=org_tlvs, system_name=lldp_beacon['system_name'])
                     ofmsgs.append(
                         valve_of.packetout(
                             port.number, lldp_beacon_pkt.data))

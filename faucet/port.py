@@ -108,6 +108,7 @@ class Port(Conf):
     lldp_beacon_defaults_types = {
         'enable': bool,
         'org_tlvs': list,
+        'system_name': str,
     }
 
     lldp_org_tlv_defaults_types = {
@@ -145,6 +146,8 @@ class Port(Conf):
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
             if self.lldp_beacon_enabled():
                 assert self.native_vlan, 'native_vlan must be defined for LLDP beacon'
+                if 'system_name' not in self.lldp_beacon:
+                    self.lldp_beacon['system_name'] = None
                 org_tlvs = []
                 for org_tlv in self.lldp_beacon['org_tlvs']:
                     self._check_conf_types(org_tlv, self.lldp_org_tlv_defaults_types)
