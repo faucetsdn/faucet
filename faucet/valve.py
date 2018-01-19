@@ -367,7 +367,9 @@ class Valve(object):
                     lldp_beacon_pkt = valve_packet.lldp_beacon(
                         port.native_vlan.faucet_mac,
                         chassis_id, port.number, ttl,
-                        org_tlvs=org_tlvs, system_name=lldp_beacon['system_name'])
+                        org_tlvs=org_tlvs,
+                        system_name=lldp_beacon['system_name'],
+                        port_descr=lldp_beacon['port_descr'])
                     ofmsgs.append(
                         valve_of.packetout(
                             port.number, lldp_beacon_pkt.data))

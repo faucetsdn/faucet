@@ -181,6 +181,7 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                 lldp_beacon:
                     enable: True
                     system_name: "faucet"
+                    port_descr: "first_port"
                     org_tlvs:
                         - {oui: 0x12bb, subtype: 2, info: "01406500"}
             %(port_2)d:
@@ -205,7 +206,8 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
         for lldp_required in (
                 r'0e:00:00:00:00:01 > 01:80:c2:00:00:0e, ethertype LLDP',
                 r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
-                r'System Name TLV \(5\), length 6: faucet'):
+                r'System Name TLV \(5\), length 6: faucet',
+                r'Port Description TLV \(4\), length 10: first_port'):
             self.assertTrue(
                 re.search(lldp_required, tcpdump_txt),
                 msg='%s: %s' % (lldp_required, tcpdump_txt))
