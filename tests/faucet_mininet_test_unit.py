@@ -3092,6 +3092,7 @@ vlans:
                 native_vlan: 100
                 description: "b2"
             %(port_3)d:
+                # port 3 will mirror port 1
                 native_vlan: 100
                 description: "b3"
                 mirror: %(port_1)d
