@@ -186,7 +186,7 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
 
 
 def lldp_beacon(eth_src, chassis_id, port_id, ttl, org_tlvs=None,
-                system_name=None):
+                system_name=None, port_descr=None):
     """Return an LLDP frame suitable for a host/access port.
 
     Args:
@@ -210,8 +210,12 @@ def lldp_beacon(eth_src, chassis_id, port_id, ttl, org_tlvs=None,
         lldp.TTL(
             ttl=ttl)
     ]
-    if system_name is not None:
-        tlvs.append(lldp.SystemName(system_name=system_name.encode('UTF-8')))
+    for tlv, info_name, info in (
+            (lldp.SystemName, 'system_name', system_name),
+            (lldp.PortDescription, 'port_description', port_descr)):
+        if info is not None:
+            info_args = {info_name: info.encode('UTF-8')}
+            tlvs.append(tlv(**info_args))
     if org_tlvs is not None:
         for tlv_oui, tlv_subtype, tlv_info in org_tlvs:
             tlvs.append(

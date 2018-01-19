@@ -63,6 +63,12 @@ class Conf(object):
                 assert isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
                     conf_key, conf_value, conf_type, type(conf_value))
 
+    def _set_unknown_conf(self, conf, conf_types):
+        for conf_key in list(conf_types.keys()):
+            if conf_key not in conf:
+                conf[conf_key] = None
+        return conf
+
     def update(self, conf):
         """Parse supplied YAML config and sanity check."""
         self.__dict__.update(conf)
