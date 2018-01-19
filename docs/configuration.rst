@@ -200,10 +200,14 @@ string names given to the datapath, or the OFP datapath id.
       - {}
       - contains the config blocks for sets of multiple interfaces. The
         configuration entered here will be used as the defaults for these
-        interfaces. This can be overwritten by configuring those interfaces
-        directly. The format for the configuration key is a comma separated
-        string.  The elements can either be the name or number of an interface
-        or a range of port numbers eg: "1-6,8,port9".
+        interfaces.  The defaults can be overwritten by configuring the
+        interfaces individually, which will also inherit all defaults not
+        specifically configured.
+        For example, if the range specifies tagged_vlans: [1, 2, 3], and the
+        individual interface specifies tagged_vlans: [4], the result will be
+        tagged_vlans: [4]. The format for the configuration key is a comma
+        separated string.  The elements can either be the name or number of
+        an interface or a range of port numbers eg: "1-6,8,port9".
     * - learn_ban_timeout
       - integer
       - 10
