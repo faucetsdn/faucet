@@ -304,6 +304,46 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_config_stack_and_non_stack(self):
+        """Test stack and non-stacking config."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        hardware: "Open vSwitch"
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: sw2
+                    port: 1
+            2:
+                native_vlan: office
+    sw2:
+        dp_id: 0x2
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                stack:
+                    dp: sw1
+                    port: 1
+            2:
+                native_vlan: office
+    sw3:
+        dp_id: 0x3
+        hardware: "Open vSwitch"
+        interfaces:
+            1:
+                native_vlan: office
+            2:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_port_number(self):
         """Test port number is valid."""
         config = """

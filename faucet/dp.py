@@ -351,20 +351,21 @@ configuration.
 
         graph = networkx.MultiGraph()
         for dp in dps:
-            graph.add_node(dp.name)
-            for port in dp.stack_ports:
-                edge = canonical_edge(dp, port)
-                edge_a, edge_z = edge
-                edge_name = make_edge_name(edge_a, edge_z)
-                edge_attr = make_edge_attr(edge_a, edge_z)
-                edge_a_dp, _ = edge_a
-                edge_z_dp, _ = edge_z
-                if edge_name not in edge_count:
-                    edge_count[edge_name] = 0
-                edge_count[edge_name] += 1
-                graph.add_edge(
-                    edge_a_dp.name, edge_z_dp.name,
-                    key=edge_name, port_map=edge_attr)
+            if dp.stack_ports:
+                graph.add_node(dp.name)
+                for port in dp.stack_ports:
+                    edge = canonical_edge(dp, port)
+                    edge_a, edge_z = edge
+                    edge_name = make_edge_name(edge_a, edge_z)
+                    edge_attr = make_edge_attr(edge_a, edge_z)
+                    edge_a_dp, _ = edge_a
+                    edge_z_dp, _ = edge_z
+                    if edge_name not in edge_count:
+                        edge_count[edge_name] = 0
+                    edge_count[edge_name] += 1
+                    graph.add_edge(
+                        edge_a_dp.name, edge_z_dp.name,
+                        key=edge_name, port_map=edge_attr)
         if graph.size():
             for edge_name, count in list(edge_count.items()):
                 assert count == 2, '%s defined only in one direction' % edge_name
