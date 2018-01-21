@@ -139,6 +139,9 @@ class Port(Conf):
         super(Port, self).check_config()
         assert isinstance(self.number, int) and self.number > 0 and not ignore_port(self.number), (
             'Port number invalid: %s' % self.number)
+        if self.mirror:
+            assert not self.tagged_vlans and not self.native_vlan, (
+                'mirror port %s cannot have any VLANs assigned' % self)
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
             for stack_config in list(self.stack_defaults_types.keys()):
