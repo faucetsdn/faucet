@@ -3510,11 +3510,13 @@ vlans:
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
         second_host_routed_ip = ipaddress.ip_interface(u'10.0.2.1/24')
-        for _ in range(3):
-            self.verify_ipv4_routing(
-                first_host, first_host_routed_ip,
-                second_host, second_host_routed_ip)
-            self.swap_host_macs(first_host, second_host)
+        for _coldstart in range(2):
+            for _swaps in range(3):
+                self.verify_ipv4_routing(
+                    first_host, first_host_routed_ip,
+                    second_host, second_host_routed_ip)
+                self.swap_host_macs(first_host, second_host)
+            self.coldstart_conf()
 
 
 class FaucetTaggedTargetedResolutionIPv4RouteTest(FaucetTaggedIPv4RouteTest):
@@ -4301,11 +4303,13 @@ vlans:
         second_host_ip = ipaddress.ip_interface(u'fc00::1:2/112')
         first_host_routed_ip = ipaddress.ip_interface(u'fc00::10:1/112')
         second_host_routed_ip = ipaddress.ip_interface(u'fc00::20:1/112')
-        for _ in range(5):
-            self.verify_ipv6_routing_pair(
-                first_host, first_host_ip, first_host_routed_ip,
-                second_host, second_host_ip, second_host_routed_ip)
-            self.swap_host_macs(first_host, second_host)
+        for _coldstart in range(2):
+            for _swaps in range(5):
+                self.verify_ipv6_routing_pair(
+                    first_host, first_host_ip, first_host_routed_ip,
+                    second_host, second_host_ip, second_host_routed_ip)
+                self.swap_host_macs(first_host, second_host)
+            self.coldstart_conf()
 
 
 class FaucetStringOfDPTest(FaucetTest):
