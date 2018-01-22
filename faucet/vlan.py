@@ -133,11 +133,10 @@ class VLAN(Conf):
     def __init__(self, _id, dp_id, conf=None):
         self.tagged = []
         self.untagged = []
-        self.dyn_host_cache = {}
         self.dyn_faucet_vips_by_ipv = collections.defaultdict(list)
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
-        self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
         self.dyn_ipvs = []
+        self.reset_caches()
         super(VLAN, self).__init__(_id, dp_id, conf)
 
     def set_defaults(self):
@@ -202,8 +201,9 @@ class VLAN(Conf):
             return True
         return False
 
-    def reset_host_cache(self):
+    def reset_caches(self):
         self.dyn_host_cache = {}
+        self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
 
     def reset_ports(self, ports):
         self.tagged = [port for port in ports if self in port.tagged_vlans]
@@ -264,6 +264,10 @@ class VLAN(Conf):
     def neigh_cache_by_ipv(self, ipv):
         """Return neighbor cache for specified IP version on this VLAN."""
         return self.dyn_neigh_cache_by_ipv[ipv]
+
+    def neigh_cache_count_by_ipv(self, ipv):
+        """Return number of hosts in neighbor cache for specified IP version on this VLAN."""
+        return len(self.neigh_cache_by_ipv(ipv))
 
     def hosts_count(self):
         """Return number of hosts learned on this VLAN."""

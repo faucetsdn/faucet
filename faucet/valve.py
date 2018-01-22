@@ -292,7 +292,7 @@ class Valve(object):
                 for port in vlan_ports:
                     all_port_nums.add(port.number)
                 ofmsgs.extend(self._add_vlan(vlan))
-            vlan.reset_host_cache()
+            vlan.reset_caches()
 
         ofmsgs.extend(
             self.ports_add(

@@ -6,6 +6,7 @@
 # pylint: disable=too-many-arguments
 
 import collections
+import copy
 import glob
 import ipaddress
 import json
@@ -731,7 +732,7 @@ dbs:
                         continue
                     if (cookie is not None and
                             cookie != flow_dict['cookie']):
-                            continue
+                        continue
                     if hard_timeout:
                         if not 'hard_timeout' in flow_dict:
                             continue
@@ -1094,6 +1095,19 @@ dbs:
                 self.assertEqual(
                     old_count, new_count,
                     msg='%s incremented: %u' % (var, new_count))
+
+    def coldstart_conf(self):
+        with open(self.faucet_config_path) as orig_conf_file:
+            orig_conf = yaml.load(orig_conf_file.read())
+        cold_start_conf = copy.deepcopy(orig_conf)
+        for dp_conf in cold_start_conf['dps'].values():
+            dp_conf['interfaces'] = {
+                ofp.OFPP_LOCAL: {
+                   'native_vlan': cold_start_conf['vlans'].keys()[0],
+                }
+            }
+        self.reload_conf(cold_start_conf, self.faucet_config_path, True, True)
+        self.reload_conf(orig_conf, self.faucet_config_path, True, True)
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
