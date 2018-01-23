@@ -1442,6 +1442,36 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_meter_config(self):
+        config = """
+meters:
+    lossymeter:
+        meter_id: 1
+        entry:
+            flags: "KBPS"
+            bands:
+                [
+                    {
+                        type: "DROP",
+                        rate: 1000
+                    }
+                ]
+acls:
+    lossyacl:
+        - rule:
+            actions:
+                meter: lossymeter
+                allow: 1
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: lossyacl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main()
