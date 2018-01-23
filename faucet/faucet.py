@@ -627,8 +627,6 @@ class Faucet(app_manager.RyuApp):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPPortStatus): trigger.
         """
-        self.logger.info('Port status message ignored')
-        return
         msg = ryu_event.msg
         ryu_dp = msg.datapath
         dp_id = ryu_dp.id
