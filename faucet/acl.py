@@ -73,7 +73,7 @@ The output action contains a dictionary with the following elements:
         'description': str,
     }
     actions_types = {
-        'meter': dict,
+        'meter': str,
         'mirror': (str, int),
         'output': dict,
         'allow': int,
