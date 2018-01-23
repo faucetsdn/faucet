@@ -323,8 +323,8 @@ OFP port number ranges (eg. 1-6).
     * - mirror
       - integer or string
       - None
-      - Mirror all packets recieved and transmitted on this port to the port
-        specified (by name or by port number)
+      - Mirror all packets recieved and transmitted on the port
+        specified (by name or by port number), to this port.
     * - name
       - string
       - The configuration key.
@@ -361,6 +361,11 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - False
       - If True, no packets will be accepted from this port.
+    * - opstatus_reconf
+      - boolean
+      - True
+      - If True, FAUCET will reconfigure the pipeline based on operational status of the port.
+
 
 Stacking (Interfaces)
 ~~~~~~~~~~~~~~~~~~~~~
