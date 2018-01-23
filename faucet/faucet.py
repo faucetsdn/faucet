@@ -449,7 +449,7 @@ class Faucet(app_manager.RyuApp):
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
         if vlan_vid is None:
             if eth_type == 0xFCE7:
-                valve.handle_neighbour_discovery_response(pkt, msg.data)
+                valve.handle_neighbour_discovery_response(msg.data, in_port)
             else:
                 self.logger.info(
                 'packet without VLAN header from %s port %s', dpid_log(dp_id), in_port)

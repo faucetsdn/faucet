@@ -20,6 +20,7 @@
 import logging
 import time
 import queue
+import struct
 
 from collections import namedtuple
 
@@ -233,25 +234,38 @@ class Valve(object):
             inst=[valve_of.goto_table(self.dp.tables['eth_dst'])])]
 
     def _add_neighbour_discovery_flows(self):
-        """Add flows to handle neighbour discovery."""
+        """Add flows to reply to link state probes"""
+
         ofmsgs = []
         eth_src_table = self.dp.tables['eth_src']
 
-        actions = [valve_of.parser.OFPActionSetField(eth_src='00:00:00:00:00:00'),
-                  valve_of.output_in_port()]
-        instructions = [valve_of.apply_actions(actions)]
-        # Respond to ND requests
-        ofmsgs.append(eth_src_table.flowmod(
-            # Matches ND requests from another dp
-            eth_src_table.match(eth_type=0xFCE7, eth_src='0e:00:00:00:00:01'),
-            priority=self.dp.highest_priority,
-            # Scrubs eth_src, indicates that this is a response
-            # Packet contains info on where it was sent from
-            # TODO: Indicate which switch replied to the packet
-            inst=instructions))
-        # TODO: Response should end up at controller, add flow to ensure this
-        return ofmsgs
+        for port in self.dp.ports.values():
+            if not port.stack:
+                continue
+            # Set eth_dst to a unique MAC for this port
+            reply_mac = self._get_mac_for_port(self.dp.dp_id, port.number)
+            actions = [valve_of.parser.OFPActionSetField(eth_dst=reply_mac),
+                        valve_of.output_in_port()]
 
+            instructions = [valve_of.apply_actions(actions)]
+            ofmsgs.append(eth_src_table.flowmod(
+                # Matches ND requests from another dp, on a per-port basis
+                eth_src_table.match(in_port=port.number, eth_type=0xFCE7, eth_dst='0e:00:00:00:00:01'),
+                priority=self.dp.highest_priority,
+                inst=instructions))
+        return ofmsgs
+    
+    @staticmethod
+    def _get_mac_for_port(dp_id, port_num):
+        """ Return a unqiue MAC for the given dp-port pair
+            Format is 0e:XX:XX:XX:XX:YY,
+            XXXXXXXX - the last eight hex digits of the dp_id, 
+            YY       - the port number (in hex)"""
+        dp_str = format(dp_id, '08x')
+        port_str = format(port_num, '02x')
+        mac = '0e:%s:%s:%s:%s:%s' % (dp_str[:2], dp_str[2:4], dp_str[4:6], dp_str[6:],
+                                    port_str)
+        return mac
 
     def _add_packetin_meter(self):
         """Add rate limiting of packet in pps (not supported by many DPs)."""
@@ -1000,13 +1014,15 @@ class Valve(object):
         # List of ports that have sent a request
         sent_ports = set()
 
-        for _port_num, port in self.dp.ports.items():
+        for port_num, port in self.dp.ports.items():
             if not port.stack:
                 continue
-            pkt = valve_packet.build_pkt_header(None, '0e:00:00:00:00:01', '0e:00:00:00:00:01', 0xFCE7)
-
-            payload = '(' + str(self.dp.dp_id) + ':' + str(port.number)[-1] + ':' + str(cur_time) + ')'
-            pkt.add_protocol(payload.encode())
+            self_mac = self._get_mac_for_port(self.dp.dp_id, port_num)
+            pkt = valve_packet.build_pkt_header(None, self_mac,
+                                                '0e:00:00:00:00:01', 0xFCE7)
+            # Format: ~~~(dp:port:time)~~~
+            payload = struct.pack('!d', cur_time)
+            pkt.add_protocol(payload)
 
             pkt.serialize()
             ofmsgs.append(valve_of.packetout(port.number, pkt))
@@ -1018,32 +1034,40 @@ class Valve(object):
 
         return ofmsgs
 
-    def handle_neighbour_discovery_response(self, pkt_meta, data):
+    def handle_neighbour_discovery_response(self, data, in_port):
         """Handles a response to a previously sent ND packet."""
-
+        
         def parse_pkt_data(data):
-            """Format: ~~~(dp:port:time)~~~"""
-            buf = str(data).split(':')
-            dp_s = buf[0].split('(')[-1]
-            port_num_s = buf[1]
-            time_s = buf[2].split(')')[0]
-
-            return int(dp_s), int(port_num_s), float(time_s)
+            _PACK_STR = '!xIBxIBHd'
+            dst_dp, dst_port, src_dp, src_port, _etype, time = struct.unpack_from(_PACK_STR, data)
+            self.logger.info('dst %d:%d, src %d:%d'
+                             % (dst_dp, dst_port, src_dp, src_port))
+            return src_dp, src_port, dst_dp, dst_port, time
             
-        dp, port_num, time = parse_pkt_data(data)
-        # Check that this packet is for the right dp
-        if dp != self.dp.dp_id:
+        src_dp, src_port_num, dst_dp, dst_port_num, time = parse_pkt_data(data)
+
+        if src_dp != self.dp.dp_id or src_port_num != in_port:
+            self.logger.info('ND pkt from wrong source dp')
             return
-        # Check that this is a response to the latest batch of requests
+
         if time != self.dp.stack['last_nd_time']:
+            self.logger.info('Current: %f. Actual: %f' %(time, self.dp.stack['last_nd_time']))
+            return
+
+        port = [port for port in self.dp.stack_ports if port.number == in_port][0]
+
+        peer_dp_id = port.stack['dp'].dp_id
+        peer_port_num = port.stack['port'].number
+
+        if peer_dp_id != dst_dp or peer_port_num != dst_port_num:
+            self.logger.info('Port %d connected to wrong peer, expected DP:Port %d:%d, actual %d:%d'
+                             % (in_port, peer_dp_id, peer_port_num, dst_dp, dst_port_num))
             return
         
-        port = self.dp.ports[port_num]
         if not port.dyn_phys_up:
             self.logger.info('Response on disabled port %s, enabling' % port.number)
-            self.port_add(port_num)
+            self.port_add(src_port_num)
         self.dp.stack['nd_ports'].remove(port)
-
 
 class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
