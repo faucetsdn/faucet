@@ -243,14 +243,19 @@ class Valve(object):
             if not port.stack:
                 continue
             # Set eth_dst to a unique MAC for this port
-            reply_mac = self._get_mac_for_port(self.dp.dp_id, port.number)
-            actions = [valve_of.parser.OFPActionSetField(eth_dst=reply_mac),
-                        valve_of.output_in_port()]
 
+            local_mac = self._get_mac_for_port(self.dp.dp_id, port.number)
+
+            peer_dp_id = port.stack['dp'].dp_id
+            peer_port_num = port.stack['port'].number
+            peer_mac = self._get_mac_for_port(peer_dp_id, peer_port_num)
+
+            actions = [valve_of.output_in_port()]
             instructions = [valve_of.apply_actions(actions)]
             ofmsgs.append(eth_src_table.flowmod(
                 # Matches ND requests from another dp, on a per-port basis
-                eth_src_table.match(in_port=port.number, eth_type=0xFCE7, eth_dst='0e:00:00:00:00:01'),
+                eth_src_table.match(in_port=port.number, eth_type=0xFCE7, 
+                                     eth_src=peer_mac, eth_dst=local_mac),
                 priority=self.dp.highest_priority,
                 inst=instructions))
         return ofmsgs
@@ -1018,9 +1023,14 @@ class Valve(object):
             if not port.stack:
                 continue
             self_mac = self._get_mac_for_port(self.dp.dp_id, port_num)
+
+            peer_dp_id = port.stack['dp'].dp_id
+            peer_port_num = port.stack['port'].number
+            peer_mac = self._get_mac_for_port(peer_dp_id, peer_port_num)
+
             pkt = valve_packet.build_pkt_header(None, self_mac,
-                                                '0e:00:00:00:00:01', 0xFCE7)
-            # Format: ~~~(dp:port:time)~~~
+                                                peer_mac, 0xFCE7)
+
             payload = struct.pack('!d', cur_time)
             pkt.add_protocol(payload)
 
