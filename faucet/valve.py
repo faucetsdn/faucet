@@ -300,6 +300,7 @@ class Valve(object):
         return ofmsgs
 
     def port_status_handler(self, port_no, reason, port_status):
+        """Return OpenFlow messages responding to port operational status change."""
 
         def _decode_port_status(reason):
             """Humanize the port status reason code."""
@@ -315,19 +316,20 @@ class Valve(object):
                 'port_no': port_no,
                 'reason': _decode_port_status(reason),
                 'status': port_status}})
-        if reason == valve_of.ofp.OFPPR_ADD:
-            return self.port_add(port_no)
-        elif reason == valve_of.ofp.OFPPR_DELETE:
-            return self.port_delete(port_no)
-        elif reason == valve_of.ofp.OFPPR_MODIFY:
-            ofmsgs = []
-            ofmsgs.extend(self.port_delete(port_no))
-            if port_status:
-                ofmsgs.extend(self.port_add(port_no))
-            return ofmsgs
-        self.logger.warning('Unhandled port status %s for port %u' % (
-            reason, port_no))
-        return []
+        ofmsgs = []
+        if self.dp.ports[port_no].opstatus_reconf:
+            if reason == valve_of.ofp.OFPPR_ADD:
+                ofmsgs = self.port_add(port_no)
+            elif reason == valve_of.ofp.OFPPR_DELETE:
+                ofmsgs = self.port_delete(port_no)
+            elif reason == valve_of.ofp.OFPPR_MODIFY:
+                ofmsgs.extend(self.port_delete(port_no))
+                if port_status:
+                    ofmsgs.extend(self.port_add(port_no))
+            else:
+                self.logger.warning('Unhandled port status %s for port %u' % (
+                    reason, port_no))
+        return ofmsgs
 
     def advertise(self):
         """Called periodically to advertise services (eg. IPv6 RAs)."""
@@ -594,9 +596,11 @@ class Valve(object):
         return ofmsgs
 
     def port_delete(self, port_num):
+        """Return flow messages that delete port from pipeline."""
         return self.ports_delete([port_num])
 
     def lacp_down(self, port):
+        """Return OpenFlow messages when LACP is down on a port."""
         port.dyn_lacp_up = 0
         eth_src_table = self.dp.tables['eth_src']
         ofmsgs = []
@@ -613,6 +617,7 @@ class Valve(object):
         return ofmsgs
 
     def lacp_up(self, port):
+        """Return OpenFlow messages when LACP is up on a port."""
         eth_src_table = self.dp.tables['eth_src']
         ofmsgs = []
         ofmsgs.extend(eth_src_table.flowdel(
