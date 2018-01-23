@@ -1613,7 +1613,7 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
         conf = self._get_conf()
         del conf['dps'][self.DP_NAME]['interfaces']
         conf['dps'][self.DP_NAME]['interfaces'] = {
-            99: {
+            int(self.port_map['port_1']): {
                 'native_vlan': '100',
                 'tagged_vlans': ['200'],
             }
