@@ -1040,8 +1040,6 @@ class Valve(object):
         def parse_pkt_data(data):
             _PACK_STR = '!xIBxIBHd'
             dst_dp, dst_port, src_dp, src_port, _etype, time = struct.unpack_from(_PACK_STR, data)
-            self.logger.info('dst %d:%d, src %d:%d'
-                             % (dst_dp, dst_port, src_dp, src_port))
             return src_dp, src_port, dst_dp, dst_port, time
             
         src_dp, src_port_num, dst_dp, dst_port_num, time = parse_pkt_data(data)
@@ -1051,7 +1049,6 @@ class Valve(object):
             return
 
         if time != self.dp.stack['last_nd_time']:
-            self.logger.info('Current: %f. Actual: %f' %(time, self.dp.stack['last_nd_time']))
             return
 
         port = [port for port in self.dp.stack_ports if port.number == in_port][0]
