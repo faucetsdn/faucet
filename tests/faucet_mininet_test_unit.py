@@ -2702,6 +2702,63 @@ acls:
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
+class FaucetUntaggedNoReconfACLTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5001
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+"""
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                acl_in: 1
+                opstatus_reconf: False
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        matches = {
+            u'in_port': int(self.port_map['port_1']),
+            u'tcp_dst': 5001,
+            u'eth_type': 0x800,
+            u'ip_proto': 6}
+        self.ping_all_when_learned()
+        first_host, second_host = self.net.hosts[0:2]
+        self.verify_tp_dst_blocked(5001, first_host, second_host)
+        self.wait_until_matching_flow(
+            matches, table_id=self.PORT_ACL_TABLE, actions=[])
+        self.set_port_down(self.port_map['port_1'])
+        self.wait_until_matching_flow(
+            matches, table_id=self.PORT_ACL_TABLE, actions=[])
+        self.set_port_up(self.port_map['port_1'])
+        self.ping_all_when_learned()
+        self.verify_tp_dst_blocked(5001, first_host, second_host)
+        self.wait_until_matching_flow(
+            matches, table_id=self.PORT_ACL_TABLE, actions=[])
+
+
 class FaucetUntaggedACLTcpMaskTest(FaucetUntaggedACLTest):
 
     CONFIG_GLOBAL = """

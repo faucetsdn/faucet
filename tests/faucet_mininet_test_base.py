@@ -709,6 +709,8 @@ dbs:
             old_matches = {
                 'tcp_dst': 'tp_dst',
                 'ip_proto': 'nw_proto',
+                'eth_dst': 'dl_dst',
+                'eth_type': 'dl_type',
             }
             if match is not None:
                 for new_match, old_match in list(old_matches.items()):

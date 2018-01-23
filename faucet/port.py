@@ -39,6 +39,7 @@ class Port(Conf):
     loop_protect = None
     output_only = None
     lldp_beacon = {} # type: dict
+    op_status_reconf = None
 
     dyn_learn_ban_count = 0
     dyn_phys_up = False
@@ -78,6 +79,8 @@ class Port(Conf):
         # if True, all packets input from this port are dropped.
         'lldp_beacon': {},
         # LLDP beacon configuration for this port.
+        'opstatus_reconf': True,
+        # If True, configure pipeline if operational status of port changes.
     }
 
     defaults_types = {
@@ -98,6 +101,7 @@ class Port(Conf):
         'loop_protect': bool,
         'output_only': bool,
         'lldp_beacon': dict,
+        'opstatus_reconf': bool,
     }
 
     stack_defaults_types = {
