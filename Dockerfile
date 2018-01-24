@@ -10,4 +10,4 @@ VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/", "/var/run/faucet/"]
 
 EXPOSE 6653 9302
 
-CMD ["ryu-manager", "faucet.faucet"]
+CMD ["faucet"]
