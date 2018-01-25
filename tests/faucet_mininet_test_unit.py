@@ -213,6 +213,40 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                 msg='%s: %s' % (lldp_required, tcpdump_txt))
 
 
+class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
+
+    CONFIG = """
+        lldp_beacon:
+            send_interval: 5
+            max_per_interval: 5
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                lldp_beacon:
+                    enable: True
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
+"""
+
+    def test_untagged(self):
+        first_host = self.net.hosts[0]
+        tcpdump_filter = 'ether proto 0x88cc'
+        timeout = 5 * 3
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, tcpdump_filter, [
+                lambda: first_host.cmd('sleep %u' % timeout)],
+            timeout=timeout, vflags='-vv', packets=1)
+        for lldp_required in (
+                r'0e:00:00:00:00:01 > 01:80:c2:00:00:0e, ethertype LLDP',
+                r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
+                r'System Name TLV \(5\), length 8: faucet-1',
+                r'Port Description TLV \(4\), length 2: b1'):
+            self.assertTrue(
+                re.search(lldp_required, tcpdump_txt),
+                msg='%s: %s' % (lldp_required, tcpdump_txt))
+
+
 class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
 
     REQUIRES_METERS = True
