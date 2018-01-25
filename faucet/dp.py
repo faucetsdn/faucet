@@ -196,6 +196,7 @@ configuration.
     lldp_beacon_defaults_types = {
         'send_interval': int,
         'max_per_interval': int,
+        'system_name': str,
     }
 
     wildcard_table = ValveTable(
@@ -227,8 +228,14 @@ configuration.
         assert self.timeout >= self.arp_neighbor_timeout, 'L2 timeout must be >= L3 timeout'
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
-            assert len(self.lldp_beacon) == len(self.lldp_beacon_defaults_types), (
-                'all lldp_beacon config (%s) must be specified' % list(self.lldp_beacon_defaults_types.keys()))
+            assert 'send_interval' in self.lldp_beacon, (
+                'lldp_beacon send_interval not set')
+            assert 'max_per_interval' in self.lldp_beacon, (
+                'lldp_beacon max_per_interval not set')
+            self.lldp_beacon = self._set_unknown_conf(
+                self.lldp_beacon, self.lldp_beacon_defaults_types)
+            if self.lldp_beacon['system_name'] is None:
+                self.lldp_beacon['system_name'] = self.name
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
 
