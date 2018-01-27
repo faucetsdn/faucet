@@ -397,7 +397,7 @@ socket_timeout=15
             cprofile_args = 'python3 -m cProfile -s time'
         with open(script_wrapper_name, 'w') as script_wrapper:
             script_wrapper.write(
-                'PYTHONPATH=.:..:../faucet %s exec timeout %u %s /usr/local/bin/ryu-manager %s $*\n' % (
+                'PYTHONPATH=.:..:../faucet %s exec timeout %u %s /usr/local/bin/faucet %s $*\n' % (
                     ' '.join(env_vars), self.MAX_CTL_TIME, cprofile_args, args))
         return '/bin/sh %s' % script_wrapper_name
 
