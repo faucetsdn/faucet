@@ -315,7 +315,7 @@ class BaseFAUCET(Controller):
     BASE_CARGS = ' '.join((
         '--verbose',
         '--use-stderr',
-        '--ofp-tcp-listen-port=%s'))
+        '--ryu-ofp-tcp-listen-port=%s'))
 
     RYU_CONF = """
 [DEFAULT]
@@ -337,13 +337,13 @@ socket_timeout=15
             # pylint: disable=no-member
             self.controller_ip = netifaces.ifaddresses(
                 self.controller_intf)[socket.AF_INET][0]['addr']
-            ofp_listen_host_arg = '--ofp-listen-host=%s' % self.controller_ip
+            ofp_listen_host_arg = '--ryu-ofp-listen-host=%s' % self.controller_ip
         self.pid_file = os.path.join(self.tmpdir, name + '.pid')
-        pid_file_arg = '--pid-file=%s' % self.pid_file
+        pid_file_arg = '--ryu-pid-file=%s' % self.pid_file
         ryu_conf_file = os.path.join(self.tmpdir, 'ryu.conf')
         with open(ryu_conf_file, 'w') as ryu_conf:
             ryu_conf.write(self.RYU_CONF)
-        ryu_conf_arg = '--config-file=%s' % ryu_conf_file
+        ryu_conf_arg = '--ryu-config-file=%s' % ryu_conf_file
         return ' '.join((
             self.BASE_CARGS, pid_file_arg, ryu_conf_arg, ofp_listen_host_arg, cargs))
 
@@ -377,13 +377,13 @@ socket_timeout=15
     def _tls_cargs(ofctl_port, ctl_privkey, ctl_cert, ca_certs):
         """Add TLS/cert parameters to Ryu."""
         tls_cargs = []
-        for carg_val, carg_key in ((ctl_privkey, 'ctl-privkey'),
-                                   (ctl_cert, 'ctl-cert'),
-                                   (ca_certs, 'ca-certs')):
+        for carg_val, carg_key in ((ctl_privkey, 'ryu-ctl-privkey'),
+                                   (ctl_cert, 'ryu-ctl-cert'),
+                                   (ca_certs, 'ryu-ca-certs')):
             if carg_val:
                 tls_cargs.append(('--%s=%s' % (carg_key, carg_val)))
         if tls_cargs:
-            tls_cargs.append(('--ofp-ssl-listen-port=%u' % ofctl_port))
+            tls_cargs.append(('--ryu-ofp-ssl-listen-port=%u' % ofctl_port))
         return ' '.join(tls_cargs)
 
     def _command(self, env, tmpdir, name, args):
@@ -491,7 +491,7 @@ socket_timeout=15
 class FAUCET(BaseFAUCET):
     """Start a FAUCET controller."""
 
-    RYUAPPS = ['ryu.app.ofctl_rest', 'faucet.faucet']
+    START_ARGS = ['--ryu-app=ryu.app.ofctl_rest']
 
     def __init__(self, name, tmpdir, controller_intf, env,
                  ctl_privkey, ctl_cert, ca_certs,
@@ -500,15 +500,15 @@ class FAUCET(BaseFAUCET):
         self.ofctl_port = faucet_mininet_test_util.find_free_port(
             ports_sock, test_name)
         cargs = ' '.join((
-            '--wsapi-host=%s' % faucet_mininet_test_util.LOCALHOST,
-            '--wsapi-port=%u' % self.ofctl_port,
+            '--ryu-wsapi-host=%s' % faucet_mininet_test_util.LOCALHOST,
+            '--ryu-wsapi-port=%u' % self.ofctl_port,
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super(FAUCET, self).__init__(
             name,
             tmpdir,
             controller_intf,
             cargs=cargs,
-            command=self._command(env, tmpdir, name, ' '.join(self.RYUAPPS)),
+            command=self._command(env, tmpdir, name, ' '.join(self.START_ARGS)),
             port=port,
             **kwargs)
 
@@ -530,7 +530,7 @@ class Gauge(BaseFAUCET):
             tmpdir,
             controller_intf,
             cargs=self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs),
-            command=self._command(env, tmpdir, name, 'faucet.gauge'),
+            command=self._command(env, tmpdir, name, '--gauge'),
             port=port,
             **kwargs)
 
@@ -538,4 +538,4 @@ class Gauge(BaseFAUCET):
 class FaucetExperimentalAPI(FAUCET):
     """Start a controller to run the Faucet experimental API tests."""
 
-    RYUAPPS = ['test_experimental_api.py', 'ryu.app.ofctl_rest', 'faucet.faucet']
+    START_ARGS = ['--ryu-app=test_experimental_api.py', '--ryu-app=ryu.app.ofctl_rest']
