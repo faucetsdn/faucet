@@ -35,24 +35,24 @@ from faucet import faucet_experimental_event
 
 def build_pkt(pkt):
     layers = []
-    if 'arp_target_ip' in pkt and 'arp_source_ip' in pkt:
+    assert 'eth_dst' in pkt and 'eth_src' in pkt
+    ethertype = None
+    if 'arp_source_ip' in pkt and 'arp_target_ip' in pkt:
         ethertype = 0x806
         layers.append(arp.arp(src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip']))
-    elif 'ipv6_src' in pkt:
+    elif 'ipv6_src' in pkt and 'ipv6_dst' in pkt:
         ethertype = 0x86DD
-        layers.append(ipv6.ipv6(src=pkt['ipv6_src'], dst=pkt['ipv6_src']))
-    else:
+        layers.append(ipv6.ipv6(src=pkt['ipv6_src'], dst=pkt['ipv6_dst']))
+    elif 'ipv4_src' in pkt and 'ipv4_dst' in pkt:
         ethertype = 0x800
-        if 'ipv4_src' in pkt:
-            net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'])
-        else:
-            net = ipv4.ipv4()
+        net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'])
         layers.append(net)
     if 'vid' in pkt:
         tpid = 0x8100
         layers.append(vlan.vlan(vid=pkt['vid'], ethertype=ethertype))
     else:
         tpid = ethertype
+    assert ethertype is not None, pkt
     eth = ethernet.ethernet(
         dst=pkt['eth_dst'],
         src=pkt['eth_src'],
@@ -176,21 +176,27 @@ vlans:
             'eth_src': self.P1_V100_MAC,
             'eth_dst': mac.BROADCAST_STR,
             'arp_source_ip': '10.0.0.1',
-            'arp_destination_ip': '10.0.0.254'})
+            'arp_target_ip': '10.0.0.254'})
 
     def learn_hosts(self):
         """Learn some hosts."""
         self.arp_for_controller()
         self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.UNKNOWN_MAC})
+            'eth_dst': self.UNKNOWN_MAC,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.P3_V200_MAC,
+            'ipv4_src': '10.0.0.2',
+            'ipv4_dst': '10.0.0.3',
             'vid': 0x200})
         self.rcv_packet(3, 0x200, {
             'eth_src': self.P3_V200_MAC,
             'eth_dst': self.P2_V200_MAC,
+            'ipv4_src': '10.0.0.3',
+            'ipv4_dst': '10.0.0.4',
             'vid': 0x200})
 
     def setUp(self):
@@ -361,8 +367,9 @@ class ValveTestCase(ValveTestBase):
         self.rcv_packet(3, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.UNKNOWN_MAC,
-            'vlan_vid': 0x200})
-
+            'vlan_vid': 0x200,
+            'ipv4_src': '10.0.0.3',
+            'ipv4_dst': '10.0.0.3'})
         match = {'in_port': 2, 'vlan_vid': 0, 'eth_src': self.P2_V200_MAC}
         self.assertTrue(
             self.table.is_output(match, port=ofp.OFPP_CONTROLLER),
@@ -410,7 +417,9 @@ class ValveTestCase(ValveTestBase):
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
-            'vlan_vid': 0x200})
+            'vlan_vid': 0x200,
+            'ipv4_src': '10.0.0.2',
+            'ipv4_dst': '10.0.0.3'})
 
         # check eth_src rule
         match1 = {'in_port': 1, 'vlan_vid': 0, 'eth_src': self.P1_V100_MAC}
@@ -437,7 +446,10 @@ class ValveTestCase(ValveTestBase):
 
         This should only occur when the mac is seen on the same vlan."""
         self.rcv_packet(2, 0x100, {
-            'eth_src': self.P1_V100_MAC, 'eth_dst': self.UNKNOWN_MAC})
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'ipv4_src': '10.0.0.2',
+            'ipv4_dst': '10.0.0.3'})
         match = {'in_port': 3, 'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}
         self.assertTrue(
             self.table.is_output(match, port=2, vid=self.V100),
