@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import random
 import time
 
 import ipaddress
@@ -26,12 +27,6 @@ from ryu.lib.packet import arp, icmp, icmpv6, ipv4, ipv6
 from faucet import valve_of
 from faucet import valve_packet
 from faucet.valve_util import btos
-
-ETH_TYPES = {
-    0: (),
-    4: (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP),
-    6: (valve_of.ether.ETH_TYPE_IPV6,),
-}
 
 
 class NextHop(object):
@@ -52,7 +47,7 @@ class ValveRouteManager(object):
     ETH_TYPE = None
     ICMP_TYPE = None
     MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
-    CONTROL_ETH_TYPES = ETH_TYPES[0]
+    CONTROL_ETH_TYPES = () # type: ignore
 
     def __init__(self, logger, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
@@ -470,7 +465,8 @@ class ValveRouteManager(object):
         if blackhole:
             priority = self._route_priority(host_ip)
             host_int = self._host_ip_to_host_int(host_ip)
-            timeout = self.max_resolve_backoff_time * self.max_host_fib_retry_count
+            timeout = (
+                self.max_resolve_backoff_time * self.max_host_fib_retry_count + random.randint(0, self.max_resolve_backoff_time))
             for routed_vlan in self._routed_vlans(vlan):
                 in_match = self._route_match(routed_vlan, host_int)
                 ofmsgs.append(self.fib_table.flowmod(
@@ -574,7 +570,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
     IPV = 4
     ETH_TYPE = valve_of.ether.ETH_TYPE_IP
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMP
-    CONTROL_ETH_TYPES = ETH_TYPES[4]
+    CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IP, valve_of.ether.ETH_TYPE_ARP) # type: ignore
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
@@ -703,7 +699,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
     IPV = 6
     ETH_TYPE = valve_of.ether.ETH_TYPE_IPV6
     ICMP_TYPE = valve_of.inet.IPPROTO_ICMPV6
-    CONTROL_ETH_TYPES = ETH_TYPES[6]
+    CONTROL_ETH_TYPES = (valve_of.ether.ETH_TYPE_IPV6,) # type: ignore
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return vlan.flood_pkt(
