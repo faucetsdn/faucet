@@ -1410,6 +1410,12 @@ dbs:
                 host.cmd('ip address add %s/%s brd + dev %s' % (
                     ipa, ipm, macvlan_intf)))
 
+    def del_macvlan(self, host, macvlan_intf):
+        self.assertEqual(
+            '',
+            host.cmd('ip link del link %s %s' % (
+                host.defaultIntf(), macvlan_intf)))
+
     def add_host_ipv6_address(self, host, ip_v6, intf=None):
         """Add an IPv6 address to a Mininet host."""
         if intf is None:
