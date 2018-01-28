@@ -308,13 +308,11 @@ class ValveRouteManager(object):
             True if a host FIB route (and not used as a gateway).
         """
         routes = self._vlan_routes(vlan)
-        in_fib = False
-        for ip_dst, ip_gw in list(routes.items()):
-            if ip_gw == host_ip:
-                in_fib = True
-                if ip_dst.prefixlen < ip_dst.max_prefixlen:
-                    return False
-        return in_fib
+        ip_dsts = [ip_dst for ip_dst, ip_gw in list(routes.items()) if ip_gw == host_ip]
+        if ip_dsts:
+            non_fib_dsts = [ip_dst for ip_dst in ip_dsts if ip_dst.prefixlen < ip_dst.max_prefixlen]
+            return not non_fib_dsts
+        return False
 
     def advertise(self, vlan):
         return []
