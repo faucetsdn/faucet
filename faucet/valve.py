@@ -831,16 +831,11 @@ class Valve(object):
             if not pkt_meta.port.dyn_lacp_up:
                 return ofmsgs
 
-        if self._rate_limit_packet_ins():
-            return ofmsgs
-
         ban_rules = self.host_manager.ban_rules(pkt_meta)
         if ban_rules:
             return ban_rules
 
         pkt_meta.reparse_ip()
-
-        ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
 
         if self.L3 and pkt_meta.l3_pkt and pkt_meta.eth_type in self._route_manager_by_eth_type:
             route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
@@ -849,6 +844,11 @@ class Valve(object):
                 ofmsgs.extend(control_plane_ofmsgs)
             else:
                 ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
+
+        if self._rate_limit_packet_ins():
+            return ofmsgs
+
+        ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
 
         return ofmsgs
 
