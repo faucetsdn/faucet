@@ -822,39 +822,30 @@ class Valve(object):
         control_plane_handled = False
         learn_from_pkt = True
 
-        if valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
-            self.logger.debug(
-                'Packet_in src:%s in_port:%d vid:%s' % (
-                    pkt_meta.eth_src,
-                    pkt_meta.port.number,
-                    pkt_meta.vlan.vid))
+        self.logger.debug(
+            'Packet_in src:%s in_port:%d vid:%s' % (
+                pkt_meta.eth_src,
+                pkt_meta.port.number,
+                pkt_meta.vlan.vid))
 
-            if (not pkt_meta.port.stack and
-                    pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
-                    pkt_meta.vlan != pkt_meta.port.native_vlan):
-                self.logger.warning(
-                    ('packet from non-stack port number %u is not member of VLAN %u' % (
-                        pkt_meta.port.number, pkt_meta.vlan.vid)))
+        if pkt_meta.port.lacp:
+            lacp_ofmsgs = self.lacp_handler(pkt_meta)
+            if lacp_ofmsgs:
+                learn_from_pkt = False
+                ofmsgs.extend(lacp_ofmsgs)
+            if not pkt_meta.port.dyn_lacp_up:
                 return ofmsgs
 
-            if pkt_meta.port.lacp:
-                lacp_ofmsgs = self.lacp_handler(pkt_meta)
-                if lacp_ofmsgs:
-                    learn_from_pkt = False
-                    ofmsgs.extend(lacp_ofmsgs)
-                if not pkt_meta.port.dyn_lacp_up:
-                    return ofmsgs
+        pkt_meta.reparse_ip()
 
-            pkt_meta.reparse_ip()
-
-            if self.L3 and pkt_meta.l3_pkt:
-                for eth_types in list(valve_route.ETH_TYPES.values()):
-                    if pkt_meta.eth_type in eth_types:
-                        control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
-                        if control_plane_ofmsgs:
-                            control_plane_handled = True
-                            ofmsgs.extend(control_plane_ofmsgs)
-                        break
+        if self.L3 and pkt_meta.l3_pkt:
+            for eth_types in list(valve_route.ETH_TYPES.values()):
+               if pkt_meta.eth_type in eth_types:
+                   control_plane_ofmsgs = self.control_plane_handler(pkt_meta)
+                   if control_plane_ofmsgs:
+                       control_plane_handled = True
+                       ofmsgs.extend(control_plane_ofmsgs)
+                       break
 
         if self._rate_limit_packet_ins():
             return ofmsgs
