@@ -471,7 +471,7 @@ class ValveRouteManager(object):
             priority = self._route_priority(host_ip)
             host_int = self._host_ip_to_host_int(host_ip)
             for routed_vlan in self._routed_vlans(vlan):
-                in_match = self._route_match(router_vlan, host_int)
+                in_match = self._route_match(routed_vlan, host_int)
                 ofmsgs.append(self.fib_table.flowmod(
                     in_match, priority=priority, hard_timeout=self.arp_neighbor_timeout))
         host_route = ipaddress.ip_network(host_ip.exploded)
