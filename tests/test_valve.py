@@ -17,19 +17,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ipaddress
 import os
 import unittest
 import tempfile
 import shutil
 
 from ryu.lib import mac
+from ryu.lib.packet import arp, ethernet, icmpv6, ipv4, ipv6, packet, vlan
+from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
 
-from faucet.valve import valve_factory
 from faucet.config_parser import dp_parser
-from faucet import valve_packet
+from faucet.valve import valve_factory
 from faucet import faucet_experimental_event
+from faucet import valve_packet
 
 from fakeoftable import FakeOFTable
 
@@ -43,7 +45,16 @@ def build_pkt(pkt):
         layers.append(arp.arp(src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip']))
     elif 'ipv6_src' in pkt and 'ipv6_dst' in pkt:
         ethertype = 0x86DD
-        layers.append(ipv6.ipv6(src=pkt['ipv6_src'], dst=pkt['ipv6_dst']))
+        layers.append(ipv6.ipv6(
+            src=pkt['ipv6_src'],
+            dst=pkt['ipv6_dst'],
+            nxt=inet.IPPROTO_ICMPV6))
+        if 'neighbor_solicit_ip' in pkt:
+            layers.append(icmpv6.icmpv6(
+                type_=icmpv6.ND_NEIGHBOR_SOLICIT,
+                data=icmpv6.nd_neighbor(
+                dst=pkt['neighbor_solicit_ip'],
+                option=icmpv6.nd_option_sla(hw_src=pkt['eth_src']))))
     elif 'ipv4_src' in pkt and 'ipv4_dst' in pkt:
         ethertype = 0x800
         net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'])
@@ -62,6 +73,7 @@ def build_pkt(pkt):
     result = packet.Packet()
     for layer in layers:
         result.add_protocol(layer)
+    result.serialize()
     return (result, ethertype)
 
 
@@ -173,15 +185,30 @@ vlans:
         self.set_port_up(port_no)
 
     def arp_for_controller(self):
-        self.rcv_packet(1, 0x100, {
+        arp_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': mac.BROADCAST_STR,
             'arp_source_ip': '10.0.0.1',
             'arp_target_ip': '10.0.0.254'})
+        self.assertTrue(arp_replies)
+
+    def nd_for_controller(self):
+        dst_ip = ipaddress.IPv6Address('fc00::1:254')
+        nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
+        ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
+        nd_replies = self.rcv_packet(1, 0x200, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': nd_mac,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:1',
+            'ipv6_dst': str(ip_gw_mcast),
+            'neighbor_solicit_ip': str(dst_ip)})
+        self.assertTrue(nd_replies)
 
     def learn_hosts(self):
         """Learn some hosts."""
         self.arp_for_controller()
+        self.nd_for_controller()
         self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -207,7 +234,6 @@ vlans:
 
     def rcv_packet(self, port, vid, match):
         pkt, eth_type = build_pkt(match)
-        pkt.serialize()
         eth_pkt = valve_packet.parse_eth_pkt(pkt)
         pkt_meta = self.valve.parse_rcv_packet(
             port, vid, eth_type, pkt.data, len(pkt.data), pkt, eth_pkt)
@@ -218,6 +244,7 @@ vlans:
         self.table.apply_ofmsgs(resolve_ofmsgs)
         self.valve.advertise()
         self.valve.state_expire()
+        return rcv_packet_ofmsgs
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
