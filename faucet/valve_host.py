@@ -182,37 +182,43 @@ class ValveHostManager(object):
         now = time.time()
         ofmsgs = []
 
-        ban_age = None
-        learn_ban = False
+        cache_age = None
+        cache_port = None
+        entry = vlan.cached_host(eth_src)
+        if entry is not None:
+            cache_age = now - entry.cache_time
+            cache_port = entry.port
+
+        # If host recently learned on this same port, do nothing.
+        # If host not-so-recently learned on this same port, refresh rules (do not delete)
+        if cache_port == port:
+            delete_existing = False
+            if cache_age <= max(self.learn_timeout / 2, 2):
+                return ofmsgs
 
         if port.loop_protect:
+            ban_age = None
+            learn_ban = False
+
+            # if recently in loop protect mode and still receiving packets,
+            # prolong the ban
             if port.dyn_last_ban_time:
                 ban_age = now - port.dyn_last_ban_time
-            if ban_age and ban_age < 2:
+                if ban_age < 2:
+                    learn_ban = True
+
+            # if not in protect mode and we get a rapid move, enact protect mode
+            if not learn_ban and port != cache_port:
                 learn_ban = True
+                port.dyn_learn_ban_count += 1
+                self.logger.info('rapid move of %s from %s to %s, temp loop ban %s' % (
+                    eth_src, entry.port, port, port))
 
-        if not learn_ban:
-            entry = vlan.cached_host(eth_src)
-            if entry is not None:
-                cache_age = now - entry.cache_time
-                if cache_age < 2:
-                    # Don't relearn same host on same port if recently learned.
-                    if entry.port == port:
-                        return ofmsgs
-                    elif port.loop_protect:
-                        # Ban learning on a port if a host rapidly moves to another port.
-                        if ban_age is None or ban_age > 2:
-                            learn_ban = True
-                            port.dyn_learn_ban_count += 1
-                            ofmsgs.append(self._temp_ban_host_learning_on_port(port))
-                            self.logger.info('rapid move of %s from %s to %s, temp loop ban %s' % (
-                                eth_src, entry.port, port, port))
-                        elif ban_age < 2:
-                            learn_ban = True
-
-        if learn_ban:
-            port.dyn_last_ban_time = now
-            return ofmsgs
+            # already, or newly in protect mode, apply the ban rules.
+            if learn_ban:
+                port.dyn_last_ban_time = now
+                ofmsgs.append(self._temp_ban_host_learning_on_port(port))
+                return ofmsgs
 
         (src_rule_idle_timeout,
          src_rule_hard_timeout,
