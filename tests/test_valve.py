@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Unit tests run as PYTHONPATH=.. ./test_valve.py."""
+"""Unit tests run as PYTHONPATH=.. python3 ./test_valve.py."""
 
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
@@ -21,7 +21,6 @@ import os
 import unittest
 import tempfile
 import shutil
-from fakeoftable import FakeOFTable
 
 from ryu.lib import mac
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -31,6 +30,8 @@ from faucet.valve import valve_factory
 from faucet.config_parser import dp_parser
 from faucet import valve_packet
 from faucet import faucet_experimental_event
+
+from fakeoftable import FakeOFTable
 
 
 def build_pkt(pkt):
