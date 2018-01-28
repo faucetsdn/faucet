@@ -28,15 +28,19 @@ from ryu.lib.packet import arp, ethernet, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 
+from prometheus_client import CollectorRegistry
+
 from faucet.config_parser import dp_parser
 from faucet.valve import valve_factory
 from faucet import faucet_experimental_event
+from faucet import faucet_metrics
 from faucet import valve_packet
 
 from fakeoftable import FakeOFTable
 
 
 def build_pkt(pkt):
+    """Build and return a packet and eth type from a dict."""
     layers = []
     assert 'eth_dst' in pkt and 'eth_src' in pkt
     ethertype = None
@@ -78,6 +82,7 @@ def build_pkt(pkt):
 
 
 class ValveTestBase(unittest.TestCase):
+    """Base class for all Valve unit tests."""
 
     CONFIG = """
 version: 2
@@ -144,39 +149,48 @@ vlans:
     V200 = 0x200|ofp.OFPVID_PRESENT
 
     def setup_valve(self, config):
+        """Set up test DP with config."""
         self.tmpdir = tempfile.mkdtemp()
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
         self.table = FakeOFTable(self.NUM_TABLES)
+        # TODO: verify events
         self.faucet_event_sock = None
         self.logger = None
-        self.metrics = None
+        # TODO: verify Prometheus variables
+        self.registry = CollectorRegistry()
+        self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
         dp = self.update_config(config)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
 
     def update_config(self, config):
+        """Update FAUCET config with config as text."""
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
         _, dps = dp_parser(self.config_file, 'test_valve')
         return [dp for dp in dps if dp.name == 's1'][0]
 
     def connect_dp(self):
+        """Call DP connect and set all ports to up."""
         port_nos = range(1, self.NUM_PORTS + 1)
         self.table.apply_ofmsgs(self.valve.datapath_connect(port_nos))
         for port_no in port_nos:
             self.set_port_up(port_no)
 
     def apply_new_config(self, config):
+        """Update FAUCET config, and tell FAUCET config has changed."""
         new_dp = self.update_config(config)
         _, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
     def set_port_down(self, port_no):
+        """Set port status of port to down."""
         self.table.apply_ofmsgs(self.valve.port_status_handler(
             port_no, ofp.OFPPR_DELETE, None))
 
     def set_port_up(self, port_no):
+        """Set port status of port to up."""
         self.table.apply_ofmsgs(self.valve.port_status_handler(
             port_no, ofp.OFPPR_ADD, None))
 
@@ -244,6 +258,7 @@ vlans:
         self.table.apply_ofmsgs(resolve_ofmsgs)
         self.valve.advertise()
         self.valve.state_expire()
+        self.valve.update_metrics(self.metrics)
         return rcv_packet_ofmsgs
 
     def tearDown(self):
