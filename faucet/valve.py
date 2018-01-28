@@ -714,23 +714,24 @@ class Valve(object):
         """
         learn_port = self.flood_manager.edge_learn_port(
             other_valves, pkt_meta)
-        ofmsgs = []
         if learn_port is not None:
-            ofmsgs.extend(self.host_manager.learn_host_on_vlan_ports(
-                learn_port, pkt_meta.vlan, pkt_meta.eth_src))
-            self.logger.info(
-                'L2 learned %s (L2 type 0x%4.4x, L3 src %s) on %s on VLAN %u (%u hosts total)' % (
-                    pkt_meta.eth_src, pkt_meta.eth_type,
-                    pkt_meta.l3_src, pkt_meta.port,
-                    pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
-            self._notify(
-                {'L2_LEARN': {
-                    'port_no': pkt_meta.port.number,
-                    'vid': pkt_meta.vlan.vid,
-                    'eth_src': pkt_meta.eth_src,
-                    'eth_type': pkt_meta.eth_type,
-                    'l3_src_ip': pkt_meta.l3_src}})
-        return ofmsgs
+            learn_flows = self.host_manager.learn_host_on_vlan_ports(
+                learn_port, pkt_meta.vlan, pkt_meta.eth_src)
+            if learn_flows:
+                self.logger.info(
+                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s) on %s on VLAN %u (%u hosts total)' % (
+                        pkt_meta.eth_src, pkt_meta.eth_type,
+                        pkt_meta.l3_src, pkt_meta.port,
+                        pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
+                self._notify(
+                    {'L2_LEARN': {
+                        'port_no': pkt_meta.port.number,
+                        'vid': pkt_meta.vlan.vid,
+                        'eth_src': pkt_meta.eth_src,
+                        'eth_type': pkt_meta.eth_type,
+                        'l3_src_ip': pkt_meta.l3_src}})
+                return learn_flows
+        return []
 
     def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
         """Parse a received packet into a PacketMeta instance.

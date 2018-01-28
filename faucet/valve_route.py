@@ -417,13 +417,8 @@ class ValveRouteManager(object):
                         'not proactively learning %s, at limit %u on VLAN %u' % (
                             dst_ip, limit, vlan.vid))
                     break
-                priority = self._route_priority(dst_ip)
-                dst_int = self._host_ip_to_host_int(dst_ip)
-                in_match = self._route_match(vlan, dst_int)
-                ofmsgs.append(self.fib_table.flowmod(
-                    in_match, priority=priority, hard_timeout=self.arp_neighbor_timeout))
                 ofmsgs.extend(
-                    self._add_host_fib_route(vlan, dst_ip))
+                    self._add_host_fib_route(vlan, dst_ip, blackhole=True))
                 resolve_flows = self.resolve_gw_on_vlan(
                     vlan, faucet_vip, dst_ip)
                 ofmsgs.extend(resolve_flows)
@@ -462,7 +457,7 @@ class ValveRouteManager(object):
                 is_updated=False))
         return ofmsgs
 
-    def _add_host_fib_route(self, vlan, host_ip):
+    def _add_host_fib_route(self, vlan, host_ip, blackhole=False):
         """Add a host FIB route.
 
         Args:
@@ -471,8 +466,17 @@ class ValveRouteManager(object):
         Returns:
             list: OpenFlow messages.
         """
+        ofmsgs = []
+        if blackhole:
+            priority = self._route_priority(host_ip)
+            host_int = self._host_ip_to_host_int(host_ip)
+            for routed_vlan in self._routed_vlans(vlan):
+                in_match = self._route_match(router_vlan, host_int)
+                ofmsgs.append(self.fib_table.flowmod(
+                    in_match, priority=priority, hard_timeout=self.arp_neighbor_timeout))
         host_route = ipaddress.ip_network(host_ip.exploded)
-        return self.add_route(vlan, host_ip, host_route)
+        ofmsgs.extend(self.add_route(vlan, host_ip, host_route))
+        return ofmsgs
 
     def _del_host_fib_route(self, vlan, host_ip):
         """Delete a host FIB route.
@@ -520,7 +524,7 @@ class ValveRouteManager(object):
             src_ip = ipaddress.ip_address(btos(ip_pkt.src))
             if src_ip and pkt_meta.vlan.ip_in_vip_subnet(src_ip):
                 ofmsgs.extend(
-                    self._add_host_fib_route(pkt_meta.vlan, src_ip))
+                    self._add_host_fib_route(pkt_meta.vlan, src_ip, blackhole=False))
                 ofmsgs.extend(self._update_nexthop(
                     pkt_meta.vlan, pkt_meta.port, pkt_meta.eth_src, src_ip))
         return ofmsgs
@@ -631,7 +635,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             eth_src = pkt_meta.eth_src
             if opcode == arp.ARP_REQUEST:
                 ofmsgs.extend(
-                    self._add_host_fib_route(vlan, src_ip))
+                    self._add_host_fib_route(vlan, src_ip, blackhole=False))
                 ofmsgs.extend(self._update_nexthop(
                     vlan, port, eth_src, src_ip))
                 ofmsgs.append(
@@ -809,7 +813,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 solicited_ip = btos(icmpv6_pkt.data.dst)
                 if vlan.is_faucet_vip(ipaddress.ip_address(solicited_ip)):
                     ofmsgs.extend(
-                        self._add_host_fib_route(vlan, src_ip))
+                        self._add_host_fib_route(vlan, src_ip, blackhole=False))
                     ofmsgs.extend(self._update_nexthop(
                         vlan, port, eth_src, src_ip))
                     ofmsgs.append(
@@ -833,7 +837,7 @@ class ValveIPv6RouteManager(ValveRouteManager):
                 for vip in link_local_vips:
                     if src_ip in vip.network:
                         ofmsgs.extend(
-                            self._add_host_fib_route(vlan, src_ip))
+                            self._add_host_fib_route(vlan, src_ip, blackhole=False))
                         ofmsgs.extend(self._update_nexthop(
                             vlan, port, eth_src, src_ip))
                         ofmsgs.append(
