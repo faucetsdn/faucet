@@ -208,11 +208,12 @@ class ValveHostManager(object):
                     learn_ban = True
 
             # if not in protect mode and we get a rapid move, enact protect mode
-            if not learn_ban and port != cache_port and cache_age < 2:
-                learn_ban = True
-                port.dyn_learn_ban_count += 1
-                self.logger.info('rapid move of %s from %s to %s, temp loop ban %s' % (
-                    eth_src, cache_port, port, port))
+            if not learn_ban and entry is not None:
+                if port != cache_port and cache_age < 2:
+                    learn_ban = True
+                    port.dyn_learn_ban_count += 1
+                    self.logger.info('rapid move of %s from %s to %s, temp loop ban %s' % (
+                        eth_src, cache_port, port, port))
 
             # already, or newly in protect mode, apply the ban rules.
             if learn_ban:
