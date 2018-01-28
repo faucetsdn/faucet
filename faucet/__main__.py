@@ -29,9 +29,17 @@ def parse_args():
     """
     args = argparse.ArgumentParser(
         prog='faucet', description='Faucet SDN Controller')
-    args.add_argument(
-        '-v', '--version', action='store_true', help='print version and exit')
     args.add_argument('--gauge', action='store_true', help='run Gauge instead')
+    args.add_argument(
+        '-v', '--verbose', action='store_true', help='produce verbose output')
+    args.add_argument(
+        '-V', '--version', action='store_true', help='print version and exit')
+    args.add_argument(
+        '--ca-certs', help='CA certificates')
+    args.add_argument(
+        '--ctl-cert', help='controller certificate')
+    args.add_argument(
+        '--ctl-privkey', help='controller private key')
     args.add_argument(
         '--ryu-app',
         action='append',
@@ -52,15 +60,29 @@ def print_version():
 def main():
     """Main program."""
     args = parse_args()
+    ryu_args = []
 
     # Checking version number?
     if args.version:
         print_version()
 
+    # Verbose output?
+    if args.verbose:
+        ryu_args.append("--verbose")
+
+    # Set certificates for OpenFlow TLS control channel
+    if args.ca_certs:
+        ryu_args.append("--ca-certs=%s" % args.ca_certs)
+    if args.ctl_cert:
+        ryu_args.append("--ctl-cert=%s" % args.ctl_cert)
+    if args.ctl_privkey:
+        ryu_args.append("--ctl-privkey=%s" % args.ctl_privkey)
+
     # Running Faucet or Gauge?
-    ryu_args = ['faucet.faucet']
     if args.gauge or os.path.basename(sys.argv[0]) == 'gauge':
-        ryu_args = ['faucet.gauge']
+        ryu_args.append('faucet.gauge')
+    else:
+        ryu_args.append('faucet.faucet')
 
     # Check for additional Ryu apps.
     if args.ryu_app:

@@ -366,6 +366,11 @@ class Valve(object):
                     for org_tlv in lldp_beacon['org_tlvs']:
                         org_tlvs.append(
                             (org_tlv['oui'], org_tlv['subtype'], org_tlv['info']))
+                    # if the port doesn't have a system name set, default to
+                    # using the system name from the dp
+                    if lldp_beacon['system_name'] is None:
+                        lldp_beacon['system_name'] = self.dp.lldp_beacon['system_name']
+
                     lldp_beacon_pkt = valve_packet.lldp_beacon(
                         port.native_vlan.faucet_mac,
                         chassis_id, port.number, ttl,
