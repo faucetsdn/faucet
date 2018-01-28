@@ -1339,7 +1339,7 @@ vlans:
                            unverified_ips.append(ip)
                     if not unverified_ips:
                         break
-                    time.sleep(2)
+                    time.sleep(3)
                 self.assertEquals(unverified_ips, [], msg='could not verify connectivity for all hosts')
                 self.ping_all_when_learned()
 
@@ -1349,8 +1349,9 @@ vlans:
                 self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'}),
                 learn_hosts + len(self.net.hosts))
             packet_in_count = self.scrape_prometheus_var('of_packet_ins')
-            error('verified %u hosts learned in %u sec (%u packet ins)\n' % (
-                learn_hosts, learn_time, packet_in_count))
+            flow_msgs_count = self.scrape_prometheus_var('of_flowmsgs_sent')
+            error('verified %u hosts learned in %u sec (%u packet ins, %u flows sent)\n' % (
+                learn_hosts, learn_time, packet_in_count, flow_msgs_count))
             last_learn_hosts = learn_hosts
             learn_hosts *= 2
 
