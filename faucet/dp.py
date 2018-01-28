@@ -81,6 +81,8 @@ configuration.
     arp_neighbor_timeout = None
     lldp_beacon = {} # type: dict
 
+    dyn_last_coldstart_time = None
+
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
     defaults = {

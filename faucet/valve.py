@@ -405,6 +405,7 @@ class Valve(object):
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
         ofmsgs.extend(self._add_controller_learn_flow())
+        self.dp.dyn_last_coldstart_time = time.time()
         self.dp.running = True
         return ofmsgs
 
@@ -716,7 +717,8 @@ class Valve(object):
             other_valves, pkt_meta)
         if learn_port is not None:
             learn_flows = self.host_manager.learn_host_on_vlan_ports(
-                learn_port, pkt_meta.vlan, pkt_meta.eth_src)
+                learn_port, pkt_meta.vlan, pkt_meta.eth_src,
+                last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
             if learn_flows:
                 self.logger.info(
                     'L2 learned %s (L2 type 0x%4.4x, L3 src %s) on %s on VLAN %u (%u hosts total)' % (

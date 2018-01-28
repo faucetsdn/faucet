@@ -73,6 +73,7 @@ class VLAN(Conf):
     dyn_routes_by_ipv = None
     dyn_neigh_cache_by_ipv = None
     dyn_learn_ban_count = 0
+    dyn_last_time_hosts_expired = None
 
     defaults = {
         'name': None,
