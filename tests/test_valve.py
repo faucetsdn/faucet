@@ -197,7 +197,7 @@ vlans:
         nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
         ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
         nd_replies = self.rcv_packet(1, 0x200, {
-            'eth_src': self.P1_V100_MAC,
+            'eth_src': self.P2_V200_MAC,
             'eth_dst': nd_mac,
             'vid': 0x200,
             'ipv6_src': 'fc00::1:1',
@@ -313,19 +313,22 @@ class ValveTestCase(ValveTestBase):
             {
                 'in_port': 3,
                 'vlan_vid': self.V100,
-                },
+            },
             {
                 'in_port': 2,
                 'vlan_vid': 0,
                 'eth_dst': self.P1_V100_MAC
-                },
-            {'in_port': 1, 'vlan_vid': 0, 'eth_src': self.P1_V100_MAC},
+            },
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V100_MAC
+            },
             {
                 'in_port': 3,
                 'vlan_vid': self.V200,
                 'eth_dst': self.P1_V100_MAC
-                },
-            ]
+            }]
         dp = self.valve.dp
         for match in matches:
             in_port = match['in_port']
