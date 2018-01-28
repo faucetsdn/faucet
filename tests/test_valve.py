@@ -25,7 +25,7 @@ import shutil
 
 from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmpv6, ipv4, ipv6, packet, vlan
-from ryu.ofproto import inet
+from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 
 from faucet.config_parser import dp_parser
@@ -41,10 +41,10 @@ def build_pkt(pkt):
     assert 'eth_dst' in pkt and 'eth_src' in pkt
     ethertype = None
     if 'arp_source_ip' in pkt and 'arp_target_ip' in pkt:
-        ethertype = 0x806
+        ethertype = ether.ETH_TYPE_ARP
         layers.append(arp.arp(src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip']))
     elif 'ipv6_src' in pkt and 'ipv6_dst' in pkt:
-        ethertype = 0x86DD
+        ethertype = ether.ETH_TYPE_IPV6
         layers.append(ipv6.ipv6(
             src=pkt['ipv6_src'],
             dst=pkt['ipv6_dst'],
@@ -53,14 +53,14 @@ def build_pkt(pkt):
             layers.append(icmpv6.icmpv6(
                 type_=icmpv6.ND_NEIGHBOR_SOLICIT,
                 data=icmpv6.nd_neighbor(
-                dst=pkt['neighbor_solicit_ip'],
-                option=icmpv6.nd_option_sla(hw_src=pkt['eth_src']))))
+                    dst=pkt['neighbor_solicit_ip'],
+                    option=icmpv6.nd_option_sla(hw_src=pkt['eth_src']))))
     elif 'ipv4_src' in pkt and 'ipv4_dst' in pkt:
-        ethertype = 0x800
+        ethertype = ether.ETH_TYPE_IP
         net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'])
         layers.append(net)
     if 'vid' in pkt:
-        tpid = 0x8100
+        tpid = ether.ETH_TYPE_8021Q
         layers.append(vlan.vlan(vid=pkt['vid'], ethertype=ethertype))
     else:
         tpid = ethertype
@@ -124,11 +124,11 @@ vlans:
                 ip_gw: 10.0.0.1
     v200:
         vid: 0x200
-        faucet_vips: ['fc00::1:254/112']
+        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
         routes:
             - route:
-                ip_dst: "fc00::10:0/112"
-                ip_gw: "fc00::1:1"
+                ip_dst: 'fc00::10:0/112'
+                ip_gw: 'fc00::1:1'
     v300:
         vid: 0x300
 """
