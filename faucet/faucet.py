@@ -446,8 +446,20 @@ class Faucet(app_manager.RyuApp):
             return
         pkt_meta = valve.parse_rcv_packet(
             in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
+        if not valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
+            self.logger.info(
+                'packet with non-unicast eth_src %s port %u from %s',
+                pkt_meta.eth_src, in_port, dpid_log(dp_id))
+            return
+        if valve.dp.stack is not None:
+            if (not pkt_meta.port.stack and
+                    pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
+                    pkt_meta.vlan != pkt_meta.port.native_vlan):
+                self.logger.warning(
+                    ('packet from non-stack port number %u is not member of VLAN %u' % (
+                        pkt_meta.port.number, pkt_meta.vlan.vid)))
+                return
         other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
-
         self.metrics.of_packet_ins.labels( # pylint: disable=no-member
             **valve.base_prom_labels).inc()
         packet_in_start = time.time()
