@@ -833,6 +833,10 @@ class Valve(object):
         if self._rate_limit_packet_ins():
             return ofmsgs
 
+        ban_rules = self.host_manager.ban_rules(pkt_meta)
+        if ban_rules:
+            return ban_rules
+
         pkt_meta.reparse_ip()
 
         ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
@@ -844,10 +848,6 @@ class Valve(object):
                 ofmsgs.extend(control_plane_ofmsgs)
             else:
                 ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
-
-        ban_rules = self.host_manager.ban_rules(pkt_meta)
-        if ban_rules:
-            ofmsgs.extend(ban_rules)
 
         return ofmsgs
 
