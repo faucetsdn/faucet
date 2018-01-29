@@ -24,7 +24,7 @@ import tempfile
 import shutil
 
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmpv6, ipv4, ipv6, packet, vlan
+from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 
@@ -34,6 +34,7 @@ from faucet.config_parser import dp_parser
 from faucet.valve import valve_factory
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
+from faucet import valve_of
 from faucet import valve_packet
 
 from fakeoftable import FakeOFTable
@@ -49,31 +50,41 @@ def build_pkt(pkt):
         layers.append(arp.arp(src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip']))
     elif 'ipv6_src' in pkt and 'ipv6_dst' in pkt:
         ethertype = ether.ETH_TYPE_IPV6
-        layers.append(ipv6.ipv6(
-            src=pkt['ipv6_src'],
-            dst=pkt['ipv6_dst'],
-            nxt=inet.IPPROTO_ICMPV6))
         if 'neighbor_solicit_ip' in pkt:
             layers.append(icmpv6.icmpv6(
                 type_=icmpv6.ND_NEIGHBOR_SOLICIT,
                 data=icmpv6.nd_neighbor(
                     dst=pkt['neighbor_solicit_ip'],
                     option=icmpv6.nd_option_sla(hw_src=pkt['eth_src']))))
+        elif 'echo_request_data' in pkt:
+            layers.append(icmpv6.icmpv6(
+                type_=icmpv6.ICMPV6_ECHO_REQUEST,
+                data=icmpv6.echo(id_=1, seq=1, data=pkt['echo_request_data'])))
+        layers.append(ipv6.ipv6(
+            src=pkt['ipv6_src'],
+            dst=pkt['ipv6_dst'],
+            nxt=inet.IPPROTO_ICMPV6))
     elif 'ipv4_src' in pkt and 'ipv4_dst' in pkt:
         ethertype = ether.ETH_TYPE_IP
-        net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'])
+        proto = inet.IPPROTO_IP
+        if 'echo_request_data' in pkt:
+            echo = icmp.echo(id_=1, seq=1, data=pkt['echo_request_data'])
+            layers.append(icmp.icmp(type_=icmp.ICMP_ECHO_REQUEST, data=echo))
+            proto = inet.IPPROTO_ICMP
+        net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'], proto=proto)
         layers.append(net)
+    assert ethertype is not None, pkt
     if 'vid' in pkt:
         tpid = ether.ETH_TYPE_8021Q
         layers.append(vlan.vlan(vid=pkt['vid'], ethertype=ethertype))
     else:
         tpid = ethertype
-    assert ethertype is not None, pkt
     eth = ethernet.ethernet(
         dst=pkt['eth_dst'],
         src=pkt['eth_src'],
         ethertype=tpid)
     layers.append(eth)
+    layers = [layer for layer in reversed(layers)]
     result = packet.Packet()
     for layer in layers:
         result.add_protocol(layer)
@@ -169,6 +180,7 @@ vlans:
     P2_V200_MAC = '00:00:00:02:00:02'
     P3_V200_MAC = '00:00:00:02:00:03'
     UNKNOWN_MAC = '00:00:00:04:00:04'
+    FAUCET_MAC =  '0e:00:00:00:00:01'
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
 
@@ -188,15 +200,16 @@ vlans:
         dp = self.update_config(config)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
 
-    def update_config(self, config):
+    def update_config(self, config, dp_name='s1'):
         """Update FAUCET config with config as text."""
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
         _, dps = dp_parser(self.config_file, 'test_valve')
-        return [dp for dp in dps if dp.name == 's1'][0]
+        return [dp for dp in dps if dp.name == dp_name][0]
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
+        self.assertTrue(self.valve.switch_features(None))
         port_nos = range(1, self.NUM_PORTS + 1)
         self.table.apply_ofmsgs(self.valve.datapath_connect(port_nos))
         for port_no in port_nos:
@@ -222,31 +235,52 @@ vlans:
         self.set_port_down(port_no)
         self.set_port_up(port_no)
 
+    def packet_outs_from_flows(self, flows):
+        return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
+
     def arp_for_controller(self):
         arp_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': mac.BROADCAST_STR,
             'arp_source_ip': '10.0.0.1',
             'arp_target_ip': '10.0.0.254'})
-        self.assertTrue(arp_replies)
+        self.assertTrue(self.packet_outs_from_flows(arp_replies))
 
     def nd_for_controller(self):
         dst_ip = ipaddress.IPv6Address('fc00::1:254')
         nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
         ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
-        nd_replies = self.rcv_packet(1, 0x200, {
+        nd_replies = self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': nd_mac,
             'vid': 0x200,
             'ipv6_src': 'fc00::1:1',
             'ipv6_dst': str(ip_gw_mcast),
             'neighbor_solicit_ip': str(dst_ip)})
-        self.assertTrue(nd_replies)
+        self.assertTrue(self.packet_outs_from_flows(nd_replies))
+
+    def icmp_ping_controller(self):
+        echo_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x100,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.254',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
+
+    def icmpv6_ping_controller(self):
+        echo_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:1',
+            'ipv6_dst': 'fc00::1:254',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def learn_hosts(self):
         """Learn some hosts."""
-        self.arp_for_controller()
-        self.nd_for_controller()
         self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -645,6 +679,12 @@ acls:
             self.table.is_output(accept_match, port=3, vid=self.V200),
             msg='packet not allowed by acl')
 
+    def test_l3(self):
+        self.arp_for_controller()
+        self.nd_for_controller()
+        self.icmp_ping_controller()
+        self.icmpv6_ping_controller()
+
 
 class ValveACLTestCase(ValveTestBase):
 
@@ -763,6 +803,52 @@ vlans:
 
         self.apply_new_config(self.CONFIG)
         self.learn_hosts()
+
+
+class ValveTFMTestCase(ValveTestCase):
+
+    CONFIG = """
+dps:
+    s1:
+        ignore_learn_ins: 0
+        hardware: 'GenericTFM'
+        dp_id: 1
+        pipeline_config_dir: '%s/../etc/ryu/faucet'
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                tagged_vlans: [v300]
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+        routes:
+            - route:
+                ip_dst: 10.99.99.0/24
+                ip_gw: 10.0.0.1
+    v200:
+        vid: 0x200
+        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
+        routes:
+            - route:
+                ip_dst: 'fc00::10:0/112'
+                ip_gw: 'fc00::1:1'
+    v300:
+        vid: 0x300
+""" % os.path.dirname(os.path.realpath(__file__))
 
 
 if __name__ == "__main__":
