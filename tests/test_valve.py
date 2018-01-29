@@ -168,6 +168,9 @@ vlans:
             - route:
                 ip_dst: 10.99.99.0/24
                 ip_gw: 10.0.0.1
+            - route:
+                ip_dst: 10.99.98.0/24
+                ip_gw: 10.0.0.99
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
@@ -175,6 +178,9 @@ vlans:
             - route:
                 ip_dst: 'fc00::10:0/112'
                 ip_gw: 'fc00::1:1'
+            - route:
+                ip_dst: 'fc00::20:0/112'
+                ip_gw: 'fc00::1:99'
     v300:
         vid: 0x300
     v400:
