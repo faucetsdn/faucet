@@ -209,6 +209,7 @@ vlans:
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
+        self.assertTrue(self.valve.switch_features(None))
         port_nos = range(1, self.NUM_PORTS + 1)
         self.table.apply_ofmsgs(self.valve.datapath_connect(port_nos))
         for port_no in port_nos:
@@ -802,6 +803,51 @@ vlans:
 
         self.apply_new_config(self.CONFIG)
         self.learn_hosts()
+
+
+class ValveTFMTestCase(ValveTestCase):
+
+    CONFIG = """
+dps:
+    s1:
+        ignore_learn_ins: 0
+        hardware: 'GenericTFM'
+        dp_id: 1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                tagged_vlans: [v300]
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+        routes:
+            - route:
+                ip_dst: 10.99.99.0/24
+                ip_gw: 10.0.0.1
+    v200:
+        vid: 0x200
+        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
+        routes:
+            - route:
+                ip_dst: 'fc00::10:0/112'
+                ip_gw: 'fc00::1:1'
+    v300:
+        vid: 0x300
+"""
 
 
 if __name__ == "__main__":
