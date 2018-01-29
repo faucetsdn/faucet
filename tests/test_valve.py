@@ -18,6 +18,7 @@
 # limitations under the License.
 
 import ipaddress
+import logging
 import os
 import unittest
 import tempfile
@@ -36,6 +37,7 @@ from faucet import faucet_experimental_event
 from faucet import faucet_metrics
 from faucet import valve_of
 from faucet import valve_packet
+from faucet import valve_util
 
 from fakeoftable import FakeOFTable
 
@@ -96,16 +98,22 @@ class ValveTestBase(unittest.TestCase):
     """Base class for all Valve unit tests."""
 
     CONFIG = """
-version: 2
 dps:
     s1:
         ignore_learn_ins: 0
         hardware: 'Open vSwitch'
         dp_id: 1
+        lldp_beacon:
+            send_interval: 1
+            max_per_interval: 1
         interfaces:
             p1:
                 number: 1
                 native_vlan: v100
+                lldp_beacon:
+                    enable: True
+                    system_name: "faucet"
+                    port_descr: "first_port"
             p2:
                 number: 2
                 native_vlan: v200
@@ -160,6 +168,9 @@ vlans:
             - route:
                 ip_dst: 10.99.99.0/24
                 ip_gw: 10.0.0.1
+            - route:
+                ip_dst: 10.99.98.0/24
+                ip_gw: 10.0.0.99
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
@@ -167,6 +178,9 @@ vlans:
             - route:
                 ip_dst: 'fc00::10:0/112'
                 ip_gw: 'fc00::1:1'
+            - route:
+                ip_dst: 'fc00::20:0/112'
+                ip_gw: 'fc00::1:99'
     v300:
         vid: 0x300
     v400:
@@ -188,15 +202,17 @@ vlans:
         """Set up test DP with config."""
         self.tmpdir = tempfile.mkdtemp()
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
+        self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
+        self.logfile = os.path.join(self.tmpdir, 'faucet.log')
         self.table = FakeOFTable(self.NUM_TABLES)
-        # TODO: verify events
-        self.faucet_event_sock = None
-        self.logger = None
-        # TODO: verify Prometheus variables
+        self.logger = valve_util.get_logger('faucet', self.logfile, logging.DEBUG, 0)
         self.registry = CollectorRegistry()
+        # TODO: verify Prometheus variables
         self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
+        # TODO: verify events
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
+        self.notifier.start()
         dp = self.update_config(config)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
 
@@ -266,6 +282,16 @@ vlans:
             'vid': 0x100,
             'ipv4_src': '10.0.0.1',
             'ipv4_dst': '10.0.0.254',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
+
+    def icmp_ping_unknown_neighbor(self):
+        echo_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x100,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.99',
             'echo_request_data': bytes('A'*8, encoding='UTF-8')})
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
@@ -683,7 +709,11 @@ acls:
         self.arp_for_controller()
         self.nd_for_controller()
         self.icmp_ping_controller()
+        self.icmp_ping_unknown_neighbor()
         self.icmpv6_ping_controller()
+
+    def test_lldp_beacon(self):
+        self.assertTrue(self.valve.send_lldp_beacons())
 
 
 class ValveACLTestCase(ValveTestBase):
@@ -814,10 +844,17 @@ dps:
         hardware: 'GenericTFM'
         dp_id: 1
         pipeline_config_dir: '%s/../etc/ryu/faucet'
+        lldp_beacon:
+            send_interval: 1
+            max_per_interval: 1
         interfaces:
             p1:
                 number: 1
                 native_vlan: v100
+                lldp_beacon:
+                    enable: True
+                    system_name: "faucet"
+                    port_descr: "first_port"
             p2:
                 number: 2
                 native_vlan: v200
@@ -839,6 +876,9 @@ vlans:
             - route:
                 ip_dst: 10.99.99.0/24
                 ip_gw: 10.0.0.1
+            - route:
+                ip_dst: 10.99.98.0/24
+                ip_gw: 10.0.0.99
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
@@ -846,6 +886,9 @@ vlans:
             - route:
                 ip_dst: 'fc00::10:0/112'
                 ip_gw: 'fc00::1:1'
+            - route:
+                ip_dst: 'fc00::20:0/112'
+                ip_gw: 'fc00::1:99'
     v300:
         vid: 0x300
 """ % os.path.dirname(os.path.realpath(__file__))
