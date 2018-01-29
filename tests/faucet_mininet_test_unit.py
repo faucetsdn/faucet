@@ -1323,7 +1323,7 @@ vlans:
             # configure macvlan interfaces and stimulate learning
             for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[last_learn_hosts:learn_hosts]:
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
-                host.cmd('fping -q -c1 -t1 -I%s %s' % (mac_intf, first_host.IP()))
+                host.cmd('fping -q -c1 -t10 -I%s %s' % (mac_intf, first_host.IP()))
 
             def verify_connectivity(learn_hosts):
                 unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
