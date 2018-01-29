@@ -18,6 +18,7 @@
 # limitations under the License.
 
 import ipaddress
+import logging
 import os
 import unittest
 import tempfile
@@ -36,6 +37,7 @@ from faucet import faucet_experimental_event
 from faucet import faucet_metrics
 from faucet import valve_of
 from faucet import valve_packet
+from faucet import valve_util
 
 from fakeoftable import FakeOFTable
 
@@ -188,13 +190,14 @@ vlans:
         """Set up test DP with config."""
         self.tmpdir = tempfile.mkdtemp()
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
+        self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
+        self.logfile = os.path.join(self.tmpdir, 'faucet.log')
         self.table = FakeOFTable(self.NUM_TABLES)
-        # TODO: verify events
-        self.faucet_event_sock = None
-        self.logger = None
-        # TODO: verify Prometheus variables
+        self.logger = valve_util.get_logger('faucet', self.logfile, logging.DEBUG, 0)
         self.registry = CollectorRegistry()
+        # TODO: verify Prometheus variables
         self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
+        # TODO: verify events
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
         dp = self.update_config(config)
