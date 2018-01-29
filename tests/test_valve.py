@@ -116,6 +116,28 @@ dps:
             p1:
                 number: 1
                 native_vlan: v100
+    s3:
+        hardware: 'Open vSwitch'
+        dp_id: 0x3
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: s4
+                    port: 1
+            2:
+                native_vlan: v400
+    s4:
+        hardware: 'Open vSwitch'
+        dp_id: 0x4
+        interfaces:
+            1:
+                stack:
+                    dp: s3
+                    port: 1
+            2:
+                native_vlan: v400
 routers:
     router1:
         vlans: [v100, v200]
@@ -136,6 +158,8 @@ vlans:
                 ip_gw: 'fc00::1:1'
     v300:
         vid: 0x300
+    v400:
+        vid: 0x400
 """
 
     DP_ID = 1
