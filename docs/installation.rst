@@ -98,7 +98,7 @@ starts the faucet process)
 
 .. code:: console
 
-    ryu-manager --ctl-privkey /etc/ryu/ctrlr.key --ctl-cert /etc/ryu/ctrlr.cert  --ca-certs /etc/ryu/sw.cert faucet.faucet --verbose
+    faucet --ryu-ctl-privkey /etc/ryu/ctrlr.key --ryu-ctl-cert /etc/ryu/ctrlr.cert --ryu-ca-certs /etc/ryu/sw.cert --verbose
 
 Support multiple switches
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -193,7 +193,7 @@ You can then start FAUCET manually:
 
 .. code:: console
 
-  ryu-manager faucet.faucet --verbose
+  faucet --verbose
 
 Or, you can configure systemd to start the containers automatically:
 
