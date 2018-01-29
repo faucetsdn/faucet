@@ -17,39 +17,54 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ipaddress
 import os
 import unittest
 import tempfile
 import shutil
 
 from ryu.lib import mac
+from ryu.lib.packet import arp, ethernet, icmpv6, ipv4, ipv6, packet, vlan
+from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
-from ryu.lib.packet import ethernet, arp, vlan, ipv4, ipv6, packet
 
-from faucet.valve import valve_factory
+from prometheus_client import CollectorRegistry
+
 from faucet.config_parser import dp_parser
-from faucet import valve_packet
+from faucet.valve import valve_factory
 from faucet import faucet_experimental_event
+from faucet import faucet_metrics
+from faucet import valve_packet
 
 from fakeoftable import FakeOFTable
 
 
 def build_pkt(pkt):
+    """Build and return a packet and eth type from a dict."""
     layers = []
     assert 'eth_dst' in pkt and 'eth_src' in pkt
     ethertype = None
     if 'arp_source_ip' in pkt and 'arp_target_ip' in pkt:
-        ethertype = 0x806
+        ethertype = ether.ETH_TYPE_ARP
         layers.append(arp.arp(src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip']))
     elif 'ipv6_src' in pkt and 'ipv6_dst' in pkt:
-        ethertype = 0x86DD
-        layers.append(ipv6.ipv6(src=pkt['ipv6_src'], dst=pkt['ipv6_dst']))
+        ethertype = ether.ETH_TYPE_IPV6
+        layers.append(ipv6.ipv6(
+            src=pkt['ipv6_src'],
+            dst=pkt['ipv6_dst'],
+            nxt=inet.IPPROTO_ICMPV6))
+        if 'neighbor_solicit_ip' in pkt:
+            layers.append(icmpv6.icmpv6(
+                type_=icmpv6.ND_NEIGHBOR_SOLICIT,
+                data=icmpv6.nd_neighbor(
+                    dst=pkt['neighbor_solicit_ip'],
+                    option=icmpv6.nd_option_sla(hw_src=pkt['eth_src']))))
     elif 'ipv4_src' in pkt and 'ipv4_dst' in pkt:
-        ethertype = 0x800
+        ethertype = ether.ETH_TYPE_IP
         net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'])
         layers.append(net)
     if 'vid' in pkt:
-        tpid = 0x8100
+        tpid = ether.ETH_TYPE_8021Q
         layers.append(vlan.vlan(vid=pkt['vid'], ethertype=ethertype))
     else:
         tpid = ethertype
@@ -62,10 +77,12 @@ def build_pkt(pkt):
     result = packet.Packet()
     for layer in layers:
         result.add_protocol(layer)
+    result.serialize()
     return (result, ethertype)
 
 
 class ValveTestBase(unittest.TestCase):
+    """Base class for all Valve unit tests."""
 
     CONFIG = """
 version: 2
@@ -112,11 +129,11 @@ vlans:
                 ip_gw: 10.0.0.1
     v200:
         vid: 0x200
-        faucet_vips: ['fc00::1:254/112']
+        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
         routes:
             - route:
-                ip_dst: "fc00::10:0/112"
-                ip_gw: "fc00::1:1"
+                ip_dst: 'fc00::10:0/112'
+                ip_gw: 'fc00::1:1'
     v300:
         vid: 0x300
 """
@@ -132,39 +149,48 @@ vlans:
     V200 = 0x200|ofp.OFPVID_PRESENT
 
     def setup_valve(self, config):
+        """Set up test DP with config."""
         self.tmpdir = tempfile.mkdtemp()
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
         self.table = FakeOFTable(self.NUM_TABLES)
+        # TODO: verify events
         self.faucet_event_sock = None
         self.logger = None
-        self.metrics = None
+        # TODO: verify Prometheus variables
+        self.registry = CollectorRegistry()
+        self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
         dp = self.update_config(config)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
 
     def update_config(self, config):
+        """Update FAUCET config with config as text."""
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
         _, dps = dp_parser(self.config_file, 'test_valve')
         return [dp for dp in dps if dp.name == 's1'][0]
 
     def connect_dp(self):
+        """Call DP connect and set all ports to up."""
         port_nos = range(1, self.NUM_PORTS + 1)
         self.table.apply_ofmsgs(self.valve.datapath_connect(port_nos))
         for port_no in port_nos:
             self.set_port_up(port_no)
 
     def apply_new_config(self, config):
+        """Update FAUCET config, and tell FAUCET config has changed."""
         new_dp = self.update_config(config)
         _, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
     def set_port_down(self, port_no):
+        """Set port status of port to down."""
         self.table.apply_ofmsgs(self.valve.port_status_handler(
             port_no, ofp.OFPPR_DELETE, None))
 
     def set_port_up(self, port_no):
+        """Set port status of port to up."""
         self.table.apply_ofmsgs(self.valve.port_status_handler(
             port_no, ofp.OFPPR_ADD, None))
 
@@ -173,15 +199,30 @@ vlans:
         self.set_port_up(port_no)
 
     def arp_for_controller(self):
-        self.rcv_packet(1, 0x100, {
+        arp_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': mac.BROADCAST_STR,
             'arp_source_ip': '10.0.0.1',
             'arp_target_ip': '10.0.0.254'})
+        self.assertTrue(arp_replies)
+
+    def nd_for_controller(self):
+        dst_ip = ipaddress.IPv6Address('fc00::1:254')
+        nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
+        ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
+        nd_replies = self.rcv_packet(1, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': nd_mac,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:1',
+            'ipv6_dst': str(ip_gw_mcast),
+            'neighbor_solicit_ip': str(dst_ip)})
+        self.assertTrue(nd_replies)
 
     def learn_hosts(self):
         """Learn some hosts."""
         self.arp_for_controller()
+        self.nd_for_controller()
         self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -207,7 +248,6 @@ vlans:
 
     def rcv_packet(self, port, vid, match):
         pkt, eth_type = build_pkt(match)
-        pkt.serialize()
         eth_pkt = valve_packet.parse_eth_pkt(pkt)
         pkt_meta = self.valve.parse_rcv_packet(
             port, vid, eth_type, pkt.data, len(pkt.data), pkt, eth_pkt)
@@ -218,6 +258,8 @@ vlans:
         self.table.apply_ofmsgs(resolve_ofmsgs)
         self.valve.advertise()
         self.valve.state_expire()
+        self.valve.update_metrics(self.metrics)
+        return rcv_packet_ofmsgs
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
@@ -286,19 +328,22 @@ class ValveTestCase(ValveTestBase):
             {
                 'in_port': 3,
                 'vlan_vid': self.V100,
-                },
+            },
             {
                 'in_port': 2,
                 'vlan_vid': 0,
                 'eth_dst': self.P1_V100_MAC
-                },
-            {'in_port': 1, 'vlan_vid': 0, 'eth_src': self.P1_V100_MAC},
+            },
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V100_MAC
+            },
             {
                 'in_port': 3,
                 'vlan_vid': self.V200,
                 'eth_dst': self.P1_V100_MAC
-                },
-            ]
+            }]
         dp = self.valve.dp
         for match in matches:
             in_port = match['in_port']
