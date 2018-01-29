@@ -24,7 +24,7 @@ import tempfile
 import shutil
 
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmpv6, ipv4, ipv6, packet, vlan
+from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 
@@ -66,7 +66,12 @@ def build_pkt(pkt):
             nxt=inet.IPPROTO_ICMPV6))
     elif 'ipv4_src' in pkt and 'ipv4_dst' in pkt:
         ethertype = ether.ETH_TYPE_IP
-        net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'])
+        proto = inet.IPPROTO_IP
+        if 'echo_request_data' in pkt:
+            echo = icmp.echo(id_=1, seq=1, data=pkt['echo_request_data'])
+            layers.append(icmp.icmp(type_=icmp.ICMP_ECHO_REQUEST, data=echo))
+            proto = inet.IPPROTO_ICMP
+        net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'], proto=proto)
         layers.append(net)
     assert ethertype is not None, pkt
     if 'vid' in pkt:
@@ -79,8 +84,9 @@ def build_pkt(pkt):
         src=pkt['eth_src'],
         ethertype=tpid)
     layers.append(eth)
+    layers = [layer for layer in reversed(layers)]
     result = packet.Packet()
-    for layer in reversed(layers):
+    for layer in layers:
         result.add_protocol(layer)
     result.serialize()
     return (result, ethertype)
@@ -251,6 +257,16 @@ vlans:
             'ipv6_dst': str(ip_gw_mcast),
             'neighbor_solicit_ip': str(dst_ip)})
         self.assertTrue(self.packet_outs_from_flows(nd_replies))
+
+    def icmp_ping_controller(self):
+        echo_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x100,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.254',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def icmpv6_ping_controller(self):
         echo_replies = self.rcv_packet(2, 0x200, {
@@ -665,6 +681,7 @@ acls:
     def test_l3(self):
         self.arp_for_controller()
         self.nd_for_controller()
+        self.icmp_ping_controller()
         self.icmpv6_ping_controller()
 
 
