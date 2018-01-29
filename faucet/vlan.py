@@ -63,6 +63,7 @@ class VLAN(Conf):
     max_hosts = None
     unicast_flood = None
     acl_in = None
+    acls_in = None
     targeted_gw_resolution = None
     proactive_arp_limit = None
     proactive_nd_limit = None
@@ -79,6 +80,7 @@ class VLAN(Conf):
         'name': None,
         'description': None,
         'acl_in': None,
+        'acls_in': None,
         'faucet_vips': None,
         'faucet_mac': FAUCET_MAC,
         # set MAC for FAUCET VIPs on this VLAN
@@ -110,6 +112,7 @@ class VLAN(Conf):
         'name': str,
         'description': str,
         'acl_in': (int, str),
+        'acls_in': list,
         'faucet_vips': list,
         'faucet_mac': str,
         'unicast_flood': bool,
@@ -194,6 +197,14 @@ class VLAN(Conf):
                 assert False, 'missing route config'
             except TypeError:
                 assert False, '%s is not a valid routes value' % self.routes
+        if self.acl_in and self.acls_in:
+            assert False, 'found both acl_in and acls_in, use only acls_in'
+        if self.acl_in and not isinstance(self.acl_in, list):
+            self.acls_in = [self.acl_in,]
+            self.acl_in = None
+        if self.acls_in:
+            for acl in self.acls_in:
+                assert isinstance(acl, (int, str)), 'acl names must be int or str'
 
     @staticmethod
     def vid_valid(vid):

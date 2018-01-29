@@ -8,6 +8,7 @@ import tempfile
 import unittest
 import os
 from faucet import config_parser as cp
+import re
 
 LOGNAME = '/dev/null'
 
@@ -51,11 +52,21 @@ class TestConfig(unittest.TestCase):
         """Ensure config parsing reported as failed."""
         self.assertEqual(
             self.run_function_with_config(config, function, before_function), False)
+        # Check acls_in work now acl_in is deprecated, TODO remove in future
+        if isinstance(config, str) and "acl_in" in config and not "acls_in" in config:
+            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
+            self.assertEqual(
+                self.run_function_with_config(acls_cfg, function, before_function), False)
 
     def check_config_success(self, config, function, before_function=None):
         """Ensure config parsing reported succeeded."""
         self.assertEqual(
             self.run_function_with_config(config, function, before_function), True)
+        # Check acls_in work now acl_in is deprecated, TODO remove in future
+        if "acl_in" in config and not "acls_in" in config:
+            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
+            self.assertEqual(
+                self.run_function_with_config(acls_cfg, function, before_function), True)
 
     def test_config_contains_only_int(self):
         """Test that config is invalid when only an int"""
@@ -762,6 +773,100 @@ dps:
                 acl_in: access-port-protect
 """
         self.check_config_failure(config, cp.dp_parser)
+
+    def test_acl_and_acls_vlan_invalid(self):
+        config = """
+acls:
+    access-port-protect:
+        - rule:
+            udp_src: 80
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: 10.0.200.0/24
+vlans:
+    office:
+        vid: 100
+        acl_in: office-vlan-protect
+        acls_in: [access-port-protect]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_acl_and_acls_port_invalid(self):
+        config = """
+acls:
+    access-port-protect:
+        - rule:
+            udp_src: 80
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: 10.0.200.0/24
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: office-vlan-protect
+                acls_in: [access-port-protect]
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_acls_vlan_valid(self):
+        config = """
+acls:
+    access-port-protect:
+        - rule:
+            udp_src: 80
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: 10.0.200.0/24
+vlans:
+    office:
+        vid: 100
+        acls_in: [access-port-protect, office-vlan-protect]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_acls_port_valid(self):
+        config = """
+acls:
+    access-port-protect:
+        - rule:
+            udp_src: 80
+    office-vlan-protect:
+        - rule:
+            dl_type: 0x800
+            ipv4_src: 10.0.200.0/24
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acls_in: [access-port-protect, office-vlan-protect]
+"""
+        self.check_config_success(config, cp.dp_parser)
 
     def test_invalid_char(self):
         config = b'\x63\xe1'

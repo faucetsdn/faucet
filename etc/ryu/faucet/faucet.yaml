@@ -5,7 +5,7 @@ vlans:
     office:
         vid: 100
         description: "office network"
-        acl_in: office-vlan-protect
+        acls_in: [office-vlan-protect]
         faucet_mac: "0e:00:00:00:10:01"
         faucet_vips: ['10.0.100.254/24', '2001:100::1/64', 'fe80::c00:00ff:fe00:1001/64']
         routes:
@@ -32,27 +32,27 @@ dps:
                 name: "h1"
                 description: "host1 container"
                 native_vlan: office
-                acl_in: access-port-protect
+                acls_in: [access-port-protect]
             2:
                 name: "h2"
                 description: "host2 container"
                 native_vlan: office
-                acl_in: access-port-protect
+                acls_in: [access-port-protect]
             3:
                 name: "g1"
                 description: "guest1 container"
                 native_vlan: guest
-                acl_in: access-port-protect
+                acls_in: [access-port-protect]
             4:
                 name: "s1"
                 description: "services1 container"
                 native_vlan: office
-                acl_in: service-port-protect
+                acls_in: [service-port-protect]
             5:
                 name: "trunk"
                 description: "VLAN trunk to sw2"
                 tagged_vlans: [office]
-                acl_in: access-port-protect
+                acls_in: [access-port-protect]
     sw2:
         dp_id: 0x2
         hardware: "Allied-Telesis"
@@ -61,12 +61,12 @@ dps:
                 name: "pi"
                 description: "Raspberry Pi"
                 native_vlan: office
-                acl_in: access-port-protect
+                acls_in: [access-port-protect]
             2:
                 name: "laptop"
                 description: "Guest Laptop"
                 native_vlan: guest
-                acl_in: access-port-protect
+                acls_in: [access-port-protect]
             24:
                 name: "trunk"
                 description: "VLAN trunk to sw1"

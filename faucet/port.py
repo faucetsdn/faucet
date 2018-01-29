@@ -34,6 +34,7 @@ class Port(Conf):
     native_vlan = None
     tagged_vlans = [] # type: list
     acl_in = None
+    acls_in = None
     stack = {} # type: dict
     max_hosts = None
     hairpin = None
@@ -65,6 +66,7 @@ class Port(Conf):
         'tagged_vlans': None,
         # Set tagged VLANs on this port.
         'acl_in': None,
+        'acls_in': None,
         # ACL for input on this port.
         'stack': None,
         # Configure a stack peer on this port.
@@ -95,6 +97,7 @@ class Port(Conf):
         'native_vlan': (str, int),
         'tagged_vlans': list,
         'acl_in': (str, int),
+        'acls_in': list,
         'stack': dict,
         'max_hosts': int,
         'hairpin': bool,
@@ -173,6 +176,14 @@ class Port(Conf):
                     org_tlv['oui'] = bytearray.fromhex('%6.6x' % org_tlv['oui'])
                     org_tlvs.append(org_tlv)
                 self.lldp_beacon['org_tlvs'] = org_tlvs
+        if self.acl_in and self.acls_in:
+            assert False, 'found both acl_in and acls_in, use only acls_in'
+        if self.acl_in and not isinstance(self.acl_in, list):
+            self.acls_in = [self.acl_in,]
+            self.acl_in = None
+        if self.acls_in:
+            for acl in self.acls_in:
+                assert isinstance(acl, (int, str)), 'acl names must be int or'
 
     def finalize(self):
         assert self.vlans() or self.stack or self.output_only, (
