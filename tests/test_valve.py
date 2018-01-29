@@ -98,16 +98,22 @@ class ValveTestBase(unittest.TestCase):
     """Base class for all Valve unit tests."""
 
     CONFIG = """
-version: 2
 dps:
     s1:
         ignore_learn_ins: 0
         hardware: 'Open vSwitch'
         dp_id: 1
+        lldp_beacon:
+            send_interval: 1
+            max_per_interval: 1
         interfaces:
             p1:
                 number: 1
                 native_vlan: v100
+                lldp_beacon:
+                    enable: True
+                    system_name: "faucet"
+                    port_descr: "first_port"
             p2:
                 number: 2
                 native_vlan: v200
@@ -688,6 +694,9 @@ acls:
         self.icmp_ping_controller()
         self.icmpv6_ping_controller()
 
+    def test_lldp_beacon(self):
+        self.assertTrue(self.valve.send_lldp_beacons())
+
 
 class ValveACLTestCase(ValveTestBase):
 
@@ -817,10 +826,17 @@ dps:
         hardware: 'GenericTFM'
         dp_id: 1
         pipeline_config_dir: '%s/../etc/ryu/faucet'
+        lldp_beacon:
+            send_interval: 1
+            max_per_interval: 1
         interfaces:
             p1:
                 number: 1
                 native_vlan: v100
+                lldp_beacon:
+                    enable: True
+                    system_name: "faucet"
+                    port_descr: "first_port"
             p2:
                 number: 2
                 native_vlan: v200
