@@ -80,7 +80,7 @@ Run FAUCET
 
 .. code:: console
 
-    ryu-manager faucet.faucet --verbose
+    faucet --verbose
 
 Test connectivity
 ^^^^^^^^^^^^^^^^^
