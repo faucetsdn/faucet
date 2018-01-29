@@ -813,6 +813,7 @@ dps:
         ignore_learn_ins: 0
         hardware: 'GenericTFM'
         dp_id: 1
+        pipeline_config_dir: '%s/../etc/ryu/faucet'
         interfaces:
             p1:
                 number: 1
@@ -847,7 +848,7 @@ vlans:
                 ip_gw: 'fc00::1:1'
     v300:
         vid: 0x300
-"""
+""" % os.path.dirname(os.path.realpath(__file__))
 
 
 if __name__ == "__main__":
