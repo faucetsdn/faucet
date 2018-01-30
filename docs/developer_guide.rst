@@ -7,13 +7,14 @@ testing and style.
 Before submitting a PR
 ----------------------
 
--  All unit tests must pass (please use the docker based tests; see
+-  All unit and integration tests must pass (please use the docker based tests; see
    :ref:`docker-sw-testing`).
--  It is strongly recommended to enable TravisCI testing on your
-   repo. This enables the maintainers to quickly verify that your
-   changes pass all tests in a pristine environment.
 -  You must add a test if FAUCET's functionality changes (ie. a new
    feature, or correcting a bug).
+-  Please use the supplied git pre-commit hook (:ref:`../git-hooks/pre-commit`),
+   to automatically run the unit tests and pylint for you at git commit time.
+-  Please enable TravisCI testing on your repo, which enables the maintainers
+   to quickly verify that your changes pass all tests in a pristine environment.
 -  pylint must show no new errors or warnings.
 -  Code must conform to the style guide (see below).
 
