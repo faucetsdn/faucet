@@ -1320,12 +1320,12 @@ vlans:
             mac_ipv4 = str(test_ipas[i])
             mac_intf_ipv4s.append((host, mac_intf, mac_ipv4))
         learn_hosts = self.MIN_HOSTS
-        sucessful_learn_hosts = 0
+        successful_learn_hosts = 0
         while learn_hosts <= self.MAX_HOSTS:
             error('will learn %u hosts\n' % learn_hosts)
             start_time = time.time()
             # configure macvlan interfaces and stimulate learning
-            for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[sucessful_learn_hosts:learn_hosts]:
+            for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[successful_learn_hosts:learn_hosts]:
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
                 host.cmd('fping -q -c1 -t5 -I%s %s' % (mac_intf, first_host.IP()))
 
