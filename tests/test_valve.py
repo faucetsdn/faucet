@@ -104,6 +104,7 @@ dps:
         ignore_learn_ins: 0
         hardware: 'Open vSwitch'
         dp_id: 1
+        ofchannel_log: "/dev/null"
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
