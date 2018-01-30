@@ -41,18 +41,20 @@ def check_config(conf_files, debug_level=logging.DEBUG):
         try:
             parse_result = dp_parser(conf_file, logname)
             if parse_result is None:
-                return False
-            else:
-                _, dps = parse_result
-                if dps is not None:
-                    for dp in dps:
-                        valve_dp = valve.valve_factory(dp)
-                        if valve_dp is not None:
-                            check_output = dp.to_conf()
-                            check_result = True
+                break
+            _, dps = parse_result
+            if dps is None:
+                break
+            for dp in dps:
+                valve_dp = valve.valve_factory(dp)
+                if valve_dp is None:
+                    check_result = False
+                    break
+                check_output = dp.to_conf()
+                check_result = True
         except InvalidConfigError as config_err:
             check_output = config_err
-    return check_result, check_output
+    return (check_result, check_output)
 
 
 def main():
