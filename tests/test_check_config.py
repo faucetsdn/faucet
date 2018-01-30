@@ -23,17 +23,13 @@ import tempfile
 import unittest
 import re
 
-
-SRC_DIR = '../faucet'
+from faucet import check_faucet_config
 
 
 class CheckConfigTestCase(unittest.TestCase):
 
-    CHECK_CONFIG = 'check_faucet_config.py'
-
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        shutil.copy(os.path.join(SRC_DIR, self.CHECK_CONFIG), self.tmpdir)
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
@@ -42,16 +38,7 @@ class CheckConfigTestCase(unittest.TestCase):
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
         with open(conf_file_name, 'w') as conf_file:
             conf_file.write(config)
-        check_cli = ['python3', os.path.join(self.tmpdir, self.CHECK_CONFIG), conf_file_name]
-        result_ok = False
-        try:
-            subprocess.check_output(
-                check_cli, stderr=subprocess.STDOUT)
-            result_ok = True
-        except subprocess.CalledProcessError as err:
-            if expected_ok:
-                print(('%s returned %d (%s)' % (
-                    ' '.join(check_cli), err.returncode, err.output)))
+        result_ok, _ = check_faucet_config.check_config([conf_file_name])
         return expected_ok == result_ok
 
     def check_config_success(self, config):

@@ -347,6 +347,7 @@ configuration.
             if dp.stack is not None:
                 stack_dps.append(dp)
                 if 'priority' in dp.stack:
+                    assert dp.stack['priority'] > 0, 'stack priority must be > 0'
                     assert root_dp is None, 'cannot have multiple stack roots'
                     root_dp = dp
                     for vlan in list(dp.vlans.values()):

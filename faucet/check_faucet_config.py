@@ -23,6 +23,7 @@ import sys
 
 from faucet import valve
 from faucet.config_parser import dp_parser
+from faucet.conf import InvalidConfigError
 
 
 def check_config(conf_files):
@@ -32,24 +33,31 @@ def check_config(conf_files):
     logger.addHandler(logger_handler)
     logger.propagate = 0
     logger.setLevel(logging.DEBUG)
+    check_output = ''
+    check_result = False
 
     for conf_file in conf_files:
-        parse_result = dp_parser(conf_file, logname)
-        if parse_result is None:
-            return False
-        else:
-            _, dps = parse_result
-            if dps is None:
+        try:
+            parse_result = dp_parser(conf_file, logname)
+            if parse_result is None:
                 return False
-            for dp in dps:
-                valve_dp = valve.valve_factory(dp)
-                if valve_dp is None:
-                    return False
-                print((dp.to_conf()))
-    return True
+            else:
+                _, dps = parse_result
+                if dps is not None:
+                    for dp in dps:
+                        valve_dp = valve.valve_factory(dp)
+                        if valve_dp is not None:
+                            check_output = dp.to_conf()
+                            check_result = True
+        except InvalidConfigError as config_err:
+            check_output = config_err
+    return check_result, check_output
+
 
 def main():
-    if check_config(sys.argv[1:]):
+    check_result, check_output = check_config(sys.argv[1:])
+    print(check_output)
+    if check_result:
         sys.exit(0)
     else:
         sys.exit(-1)
