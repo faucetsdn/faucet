@@ -143,22 +143,48 @@ dps:
         stack:
             priority: 1
         interfaces:
-            1:
+            p1:
+                number: 1
+                native_vlan: v300
+            p2:
+                number: 2
+                native_vlan: v300
+            p3:
+                number: 3
+                native_vlan: v300
+            p4:
+                number: 4
+                native_vlan: v300
+            p5:
+                number: 5
+                native_vlan: v300
+            6:
                 stack:
                     dp: s4
-                    port: 1
-            2:
-                native_vlan: v400
+                    port: 6
     s4:
         hardware: 'Open vSwitch'
         dp_id: 0x4
         interfaces:
-            1:
+            p1:
+                number: 1
+                native_vlan: v300
+            p2:
+                number: 2
+                native_vlan: v300
+            p3:
+                number: 3
+                native_vlan: v300
+            p4:
+                number: 4
+                native_vlan: v300
+            p5:
+                number: 5
+                native_vlan: v300
+            6:
                 stack:
                     dp: s3
-                    port: 1
-            2:
-                native_vlan: v400
+                    port: 6
 routers:
     router1:
         vlans: [v100, v200]
@@ -189,6 +215,7 @@ vlans:
         vid: 0x400
 """
 
+    DP = 's1'
     DP_ID = 1
     NUM_PORTS = 5
     NUM_TABLES = 9
@@ -215,13 +242,13 @@ vlans:
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
         self.notifier.start()
-        dp = self.update_config(config)
+        dp = self.update_config(config, self.DP)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
         self.valve.update_metrics(self.metrics)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
 
-    def update_config(self, config, dp_name='s1'):
+    def update_config(self, config, dp_name):
         """Update FAUCET config with config as text."""
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
@@ -238,7 +265,7 @@ vlans:
 
     def apply_new_config(self, config):
         """Update FAUCET config, and tell FAUCET config has changed."""
-        new_dp = self.update_config(config)
+        new_dp = self.update_config(config, self.DP)
         _, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
@@ -975,6 +1002,12 @@ vlans:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
 """
+
+
+class ValveStackTestCase(ValveTestBase):
+
+    DP = 's3'
+    DP_ID = 0x3
 
 
 if __name__ == "__main__":
