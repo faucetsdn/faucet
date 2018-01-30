@@ -155,13 +155,10 @@ dps:
             p4:
                 number: 4
                 native_vlan: v300
-            p5:
-                number: 5
-                native_vlan: v300
-            6:
+            5:
                 stack:
                     dp: s4
-                    port: 6
+                    port: 5
     s4:
         hardware: 'Open vSwitch'
         dp_id: 0x4
@@ -178,13 +175,11 @@ dps:
             p4:
                 number: 4
                 native_vlan: v300
-            p5:
+            5:
                 number: 5
-                native_vlan: v300
-            6:
                 stack:
                     dp: s3
-                    port: 6
+                    port: 5
 routers:
     router1:
         vlans: [v100, v200]
