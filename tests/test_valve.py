@@ -23,6 +23,7 @@ import os
 import unittest
 import tempfile
 import shutil
+import socket
 
 from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
@@ -215,6 +216,8 @@ vlans:
         self.notifier.start()
         dp = self.update_config(config)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(self.faucet_event_sock)
 
     def update_config(self, config, dp_name='s1'):
         """Update FAUCET config with config as text."""
@@ -346,6 +349,7 @@ vlans:
         return rcv_packet_ofmsgs
 
     def tearDown(self):
+        self.sock.close()
         shutil.rmtree(self.tmpdir)
 
 
