@@ -11,7 +11,7 @@ Before submitting a PR
    :ref:`docker-sw-testing`).
 -  You must add a test if FAUCET's functionality changes (ie. a new
    feature, or correcting a bug).
--  Please use the supplied git pre-commit hook (:ref:`../git-hooks/pre-commit`),
+-  Please use the supplied git pre-commit hook (see `../git-hooks/pre-commit`),
    to automatically run the unit tests and pylint for you at git commit time.
 -  Please enable TravisCI testing on your repo, which enables the maintainers
    to quickly verify that your changes pass all tests in a pristine environment.
