@@ -454,15 +454,25 @@ configuration.
             mirror_from_port = {}
             for port in list(self.ports.values()):
                 if port.mirror is not None:
-                    if port.mirror in port_by_name:
-                        mirror_from_port[port] = port_by_name[port.mirror]
-                    else:
-                        assert port.mirror in self.ports, 'mirror port %s not defined in DP %s' % (
-                            port.mirror, self.name)
-                        mirror_from_port[self.ports[port.mirror]] = port
+                    for mirror_port in port.mirror:
+                        if mirror_port in port_by_name:
+                            if port not in mirror_from_port:
+                                mirror_from_port[port] = []
+                            mirror_from_port[port].append(mirror_port)
+                        else:
+                            assert mirror_port in self.ports, 'mirror port %s not defined in DP %s' % (
+                                mirror_port, self.name)
+                            if self.ports[mirror_port] not in mirror_from_port:
+                                mirror_from_port[self.ports[mirror_port]] = []
+                            mirror_from_port[self.ports[mirror_port]].append(port)
+                port.mirror = []
+
             for port, mirror_destination_port in list(mirror_from_port.items()):
-                port.mirror = mirror_destination_port.number
-                mirror_destination_port.output_only = True
+                if not port.mirror:
+                    port.mirror = []
+                for mirror_port in mirror_destination_port:
+                    port.mirror.append(mirror_port.number)
+                    mirror_port.output_only = True
 
         def resolve_acls():
             """Resolve config references in ACLs."""

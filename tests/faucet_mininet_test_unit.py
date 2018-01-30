@@ -3163,6 +3163,80 @@ vlans:
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
 
 
+class FaucetUntaggedMultiMirrorTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                # port 4 will mirror ports 1 and 2
+                description: "b4"
+                mirror:
+                    - %(port_1)d
+                    - %(port_2)d
+"""
+
+    def test_untagged(self):
+        ping_pairs = [
+            (self.net.hosts[0], self.net.hosts[2]),
+            (self.net.hosts[1], self.net.hosts[2])]
+        mirror_host = self.net.hosts[3]
+
+        self.flap_all_switch_ports()
+        self.verify_ping_mirrored_multi(ping_pairs, mirror_host)
+
+
+class FaucetUntaggedMultiMirrorSepTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                description: "b3"
+                mirror: %(port_1)d
+            %(port_4)d:
+                description: "b4"
+                mirror: %(port_1)d
+"""
+
+    def test_untagged(self):
+        self.flap_all_switch_ports()
+
+        # Make sure the two hosts both mirror from port 1
+        first_host, second_host = self.net.hosts[0:2]
+        mirror_host = self.net.hosts[2]
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+        mirror_host = self.net.hosts[3]
+        self.verify_ping_mirrored(first_host, second_host, mirror_host)
+
+
 class FaucetTaggedTest(FaucetTest):
 
     N_UNTAGGED = 0

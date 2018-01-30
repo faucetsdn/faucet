@@ -1162,6 +1162,62 @@ dbs:
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
 
+    def verify_ping_mirrored_multi(self, ping_pairs, mirror_host):
+        """ Verify that mirroring of multiple switchs works. Method
+        will both perform a one at a time ping mirror check and a
+        all at once test where all ping pairs are executed at the
+        same time.
+
+        Args:
+            ping_pairs (list of tuple): Hosts to ping for tests
+                in the format '[(host_a, host_b)]` where host_a
+                will ping host_bs IP.
+            mirror_host (FaucetHost): host to check mirroring
+        """
+        # Verify individual ping works
+        for hosts in ping_pairs:
+            self.verify_ping_mirrored(hosts[0], hosts[1], mirror_host)
+
+        # Prepare our ping pairs
+        for hosts in ping_pairs:
+            self.net.ping(hosts)
+        for hosts in ping_pairs:
+            for host in hosts:
+                self.require_host_learned(host)
+        for hosts in ping_pairs:
+            self.retry_net_ping(hosts=hosts)
+
+        mirror_mac = mirror_host.MAC()
+        tcpdump_filter = (
+            'not ether src %s and '
+            '(icmp[icmptype] == 8 or icmp[icmptype] == 0)') % mirror_mac
+
+        # Calculate the execpted number of pings we need
+        # to capture to validate port mirroring
+        expected_pings = len(ping_pairs)*2
+
+        # Generate and run the mirror test pings
+        ping_commands = []
+        for hosts in ping_pairs:
+            ping_commands.append(
+                lambda hosts=hosts: hosts[0].cmd('ping -c1 %s' % hosts[1].IP()))
+        tcpdump_txt = self.tcpdump_helper(
+            mirror_host, tcpdump_filter, ping_commands, packets=expected_pings)
+
+        # Validate all required pings were mirrored
+        for hosts in ping_pairs:
+            self.assertTrue(re.search(
+                '%s > %s: ICMP echo request' % (hosts[0].IP(), hosts[1].IP()), tcpdump_txt),
+                            msg=tcpdump_txt)
+            self.assertTrue(re.search(
+                '%s > %s: ICMP echo reply' % (hosts[1].IP(), hosts[0].IP()), tcpdump_txt),
+                            msg=tcpdump_txt)
+
+        # Validate we have received the eaxct number of packets
+        self.assertTrue(re.search(
+            '%d packets received by filter' % expected_pings, tcpdump_txt),
+                        msg=tcpdump_txt)
+
     def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):

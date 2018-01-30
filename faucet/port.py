@@ -90,7 +90,7 @@ class Port(Conf):
         'enabled': bool,
         'permanent_learn': bool,
         'unicast_flood': bool,
-        'mirror': (str, int),
+        'mirror': (list, str, int),
         'native_vlan': (str, int),
         'tagged_vlans': list,
         'acl_in': (str, int),
@@ -125,6 +125,10 @@ class Port(Conf):
     def __init__(self, _id, dp_id, conf=None):
         super(Port, self).__init__(_id, dp_id, conf)
         self.dyn_phys_up = False
+
+        # If the port is mirrored convert single attributes to a array
+        if self.mirror and not isinstance(self.mirror, list):
+            self.mirror = [self.mirror]
 
     def __str__(self):
         return 'Port %u' % self.number
