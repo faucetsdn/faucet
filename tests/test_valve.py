@@ -340,6 +340,8 @@ vlans:
             port, vid, eth_type, pkt.data, len(pkt.data), pkt, eth_pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             other_valves=[], pkt_meta=pkt_meta)
+        rcv_packet_ofmsgs = valve_of.valve_flowreorder(
+            rcv_packet_ofmsgs)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
         resolve_ofmsgs = self.valve.resolve_gateways()
         self.table.apply_ofmsgs(resolve_ofmsgs)
