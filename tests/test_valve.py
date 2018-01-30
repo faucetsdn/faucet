@@ -280,13 +280,16 @@ vlans:
             port_no, ofp.OFPPR_ADD, None))
 
     def flap_port(self, port_no):
+        """Flap op status on a port."""
         self.set_port_down(port_no)
         self.set_port_up(port_no)
 
     def packet_outs_from_flows(self, flows):
+        """Return flows that are packetout actions."""
         return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
 
     def arp_for_controller(self):
+        """ARP request for controller VIP."""
         arp_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': mac.BROADCAST_STR,
@@ -296,6 +299,7 @@ vlans:
         self.assertTrue(self.packet_outs_from_flows(arp_replies))
 
     def nd_for_controller(self):
+        """IPv6 ND for controller VIP."""
         dst_ip = ipaddress.IPv6Address('fc00::1:254')
         nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
         ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
@@ -310,6 +314,7 @@ vlans:
         self.assertTrue(self.packet_outs_from_flows(nd_replies))
 
     def icmp_ping_controller(self):
+        """IPv4 ping controller VIP."""
         echo_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.FAUCET_MAC,
@@ -321,6 +326,7 @@ vlans:
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def icmp_ping_unknown_neighbor(self):
+        """IPv4 ping unknown host on same subnet, causing proactive learning."""
         echo_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.FAUCET_MAC,
@@ -332,6 +338,7 @@ vlans:
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def icmpv6_ping_controller(self):
+        """IPv6 ping controller VIP."""
         echo_replies = self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.FAUCET_MAC,
@@ -390,6 +397,7 @@ vlans:
 
 
 class ValveTestCase(ValveTestBase):
+    """Test basic switching/L2/L3 functions."""
 
     def test_invalid_vlan(self):
         """Test that packets with incorrect vlan tagging get dropped."""
@@ -757,10 +765,10 @@ acls:
 
 
 class ValveACLTestCase(ValveTestBase):
+    """Test ACL drop/allow and reloading."""
 
     def test_vlan_acl_deny(self):
         acl_config = """
-version: 2
 dps:
     s1:
         ignore_learn_ins: 0
@@ -876,6 +884,7 @@ vlans:
 
 
 class ValveTFMTestCase(ValveTestCase):
+    """Test vendors that require TFM-based pipeline programming."""
     # TODO: check TFM messages are correct
 
     CONFIG = """
@@ -936,6 +945,7 @@ vlans:
 
 
 class ValveMirrorTestCase(ValveTestCase):
+    """Test ACL and interface mirroring."""
     # TODO: check mirror packets are present/correct
 
     CONFIG = """
@@ -1005,6 +1015,8 @@ vlans:
 
 
 class ValveStackTestCase(ValveTestBase):
+    """Test stacking/forwarding."""
+    # TODO: need to test distributed switching actually.
 
     DP = 's3'
     DP_ID = 0x3
