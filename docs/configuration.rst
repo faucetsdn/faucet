@@ -9,6 +9,11 @@ The following is example demonstrating a few common features:
   :caption: faucet.yaml
   :name: faucet.yaml
 
+.. literalinclude:: ../etc/ryu/faucet/acls.yaml
+  :language: yaml
+  :caption: acls.yaml
+  :name: acls.yaml
+
 The datapath ID may be specified as an integer or hex string (beginning with 0x).
 
 A port not explicitly defined in the YAML configuration file will be left down and will drop all packets.
@@ -300,8 +305,15 @@ OFP port number ranges (eg. 1-6).
     * - acl_in
       - integer or string
       - None
-      - The acl that should be applied to all packets arriving on this port.
+      - Deprecated, replaced by acls_in which accepts a list.
+        The acl that should be applied to all packets arriving on this port.
         referenced by name or list index
+    * - acls_in
+      - a list of ACLs, as integers or strings
+      - None
+      - A list of ACLs that should be applied to all packets arriving on this port.
+        referenced by name or list index. ACLs listed first take priority over
+        those later in the list.
     * - description
       - string
       - None
@@ -431,7 +443,13 @@ or a name. The following attributes can be configured:
     * - acl_in
       - string or integer
       - None
+      - Deprecated, replaced by acls_in which accepts a list.
+        The acl to be applied to all packets arriving on this vlan.
+    * - acls_in
+      - a list of ACLs, as integers or strings
+      - None
       - The acl to be applied to all packets arriving on this vlan.
+        ACLs listed first take priority over those later in the list.
     * - bgp_as
       - integer
       - 0

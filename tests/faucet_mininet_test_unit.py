@@ -213,6 +213,40 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                 msg='%s: %s' % (lldp_required, tcpdump_txt))
 
 
+class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
+
+    CONFIG = """
+        lldp_beacon:
+            send_interval: 5
+            max_per_interval: 5
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                lldp_beacon:
+                    enable: True
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
+"""
+
+    def test_untagged(self):
+        first_host = self.net.hosts[0]
+        tcpdump_filter = 'ether proto 0x88cc'
+        timeout = 5 * 3
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, tcpdump_filter, [
+                lambda: first_host.cmd('sleep %u' % timeout)],
+            timeout=timeout, vflags='-vv', packets=1)
+        for lldp_required in (
+                r'0e:00:00:00:00:01 > 01:80:c2:00:00:0e, ethertype LLDP',
+                r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
+                r'System Name TLV \(5\), length 8: faucet-1',
+                r'Port Description TLV \(4\), length 2: b1'):
+            self.assertTrue(
+                re.search(lldp_required, tcpdump_txt),
+                msg='%s: %s' % (lldp_required, tcpdump_txt))
+
+
 class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
 
     REQUIRES_METERS = True
@@ -1238,13 +1272,17 @@ vlans:
         self.fail('MACs did not expire: %s' % learned_macs)
 
 
-class FaucetLearn50MACsOnPortTest(FaucetUntaggedTest):
+class FaucetSingleLearnMACsOnPortTest(FaucetUntaggedTest):
 
-    MAX_HOSTS = 50
+    MIN_HOSTS = 64
+    MAX_HOSTS = 1024
+    TEST_IPV4_PREFIX = 21 # must hold more than MAX_HOSTS + 4
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
+        # Must be > than MAX_HOSTS + 4
+        max_hosts: 1028
 """
 
     CONFIG = """
@@ -1252,36 +1290,83 @@ vlans:
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
+                max_hosts: 512
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
+                max_hosts: 512
             %(port_3)d:
                 native_vlan: 100
                 description: "b3"
+                max_hosts: 512
             %(port_4)d:
                 native_vlan: 100
                 description: "b4"
+                max_hosts: 512
 """
 
     def test_untagged(self):
-        first_host, second_host = self.net.hosts[:2]
-        self.ping_all_when_learned()
+        test_net = ipaddress.IPv4Network(u'10.0.0.0/%s' % self.TEST_IPV4_PREFIX)
+        test_ipas = [ipa for ipa in test_net.hosts()][:self.MAX_HOSTS+len(self.net.hosts)]
+        base_ipas = test_ipas[-len(self.net.hosts):]
+        for i, host in enumerate(self.net.hosts):
+            host.setIP(str(base_ipas[i]), prefixLen=test_net.prefixlen)
+        first_host = self.net.hosts[0]
+        other_hosts = self.net.hosts[1:]
         mac_intf_ipv4s = []
-        for i in range(10, 10+self.MAX_HOSTS):
-            mac_intf_ipv4s.append(('mac%u' % i, '10.0.0.%u' % i))
-        # configure macvlan interfaces and stimulate learning
-        for mac_intf, mac_ipv4 in mac_intf_ipv4s:
-            self.add_macvlan(second_host, mac_intf, mac_ipv4)
-            second_host.cmd('ping -c1 -I%s %s > /dev/null &' % (mac_intf, first_host.IP()))
-        # verify connectivity
-        for mac_intf, _ in mac_intf_ipv4s:
-            self.one_ipv4_ping(
-                second_host, first_host.IP(),
-                require_host_learned=False, intf=mac_intf)
-        # verify FAUCET thinks it learned this many hosts
-        self.assertGreater(
-            self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'}),
-            self.MAX_HOSTS)
+        for i in range(0, self.MAX_HOSTS):
+            host = other_hosts[i % len(other_hosts)]
+            mac_intf = 'mac%u' % i
+            mac_ipv4 = str(test_ipas[i])
+            mac_intf_ipv4s.append((host, mac_intf, mac_ipv4))
+        learn_hosts = self.MIN_HOSTS
+        successful_learn_hosts = 0
+        while learn_hosts <= self.MAX_HOSTS:
+            error('will learn %u hosts\n' % learn_hosts)
+            start_time = time.time()
+            fping_delay = 5 + int(float(learn_hosts) / 100)
+            # configure macvlan interfaces and stimulate learning
+            for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[successful_learn_hosts:learn_hosts]:
+                self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
+                host.cmd('fping -q -c1 -t5 -I%s %s' % (mac_intf, first_host.IP()))
+
+            def verify_connectivity(learn_hosts):
+                unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
+                for _ in range(5):
+                    fping_lines = first_host.cmd('fping -q -c1 -t1000 %s' % ' '.join(unverified_ips)).splitlines()
+                    unverified_ips = []
+                    for fping_line in fping_lines:
+                        fping_out = fping_line.split()
+                        ip = fping_out[0]
+                        loss = fping_out[4]
+                        verified = loss.endswith('/0%,')
+                        if not verified:
+                           unverified_ips.append(ip)
+                    if not unverified_ips:
+                        break
+                    time.sleep(3)
+                if unverified_ips:
+                    error('could not verify connectivity for all hosts\n')
+                    return False
+                self.ping_all_when_learned()
+                prom_hosts = self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'})
+                if prom_hosts != learn_hosts + len(self.net.hosts):
+                    error('FAUCET host learned count disagree %u != %u\n' % (
+                        prom_hosts, learn_hosts + len(self.net.hosts)))
+                    return False
+                return True
+
+            if verify_connectivity(learn_hosts):
+                learn_time = time.time() - start_time
+                packet_in_count = self.scrape_prometheus_var('of_packet_ins')
+                flow_msgs_count = self.scrape_prometheus_var('of_flowmsgs_sent')
+                error('verified %u hosts learned in %u sec (%u packet ins, %u flows sent)\n' % (
+                    learn_hosts, learn_time, packet_in_count, flow_msgs_count))
+                successful_learn_hosts = learn_hosts
+                learn_hosts *= 2
+            else:
+                break
+        self.assertTrue(successful_learn_hosts >= self.MIN_HOSTS)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
@@ -1483,6 +1568,29 @@ acls:
             cookie: 1234
             actions:
                 allow: 1
+    3:
+        - rule:
+            cookie: 1234
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5003
+            actions:
+                allow: 0
+    4:
+        - rule:
+            cookie: 1234
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5002
+            actions:
+                allow: 1
+        - rule:
+            cookie: 1234
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5001
+            actions:
+                allow: 0
     deny:
         - rule:
             cookie: 1234
@@ -1644,7 +1752,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
-                acl_in: allow
+                acls_in: [allow]
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
@@ -1672,7 +1780,12 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
         self._verify_hosts_learned((first_host, second_host))
         self.change_port_config(
             self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
+        self.change_port_config(
+            self.port_map['port_1'], 'acls_in', [3,4,"allow"], restart=restart)
         self._verify_hosts_learned((first_host, second_host, third_host))
+        self.verify_tp_dst_blocked(5001, first_host, second_host)
+        self.verify_tp_dst_notblocked(5002, first_host, second_host)
+        self.verify_tp_dst_blocked(5003, first_host, second_host)
 
 
 class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):

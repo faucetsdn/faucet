@@ -46,6 +46,7 @@ To pull and run the latest version of Faucet:
   docker pull faucet/faucet:latest
   docker run -d \
       --name faucet \
+      --restart=always \
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
       -p 6653:6653 \
@@ -63,6 +64,7 @@ To pull and run the latest version of Gauge:
   docker pull faucet/gauge:latest
   docker run -d \
       --name gauge \
+      --restart=always \
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/gauge/:/var/log/ryu/faucet/ \
       -p 6654:6653 \
@@ -71,6 +73,35 @@ To pull and run the latest version of Gauge:
 
 Port 6654 is used for OpenFlow, port 9303 is used for Prometheus - port 9303
 may be omitted if you do not need Prometheus.
+
+Additional Arguments
+--------------------
+
+You may wish to run faucet under docker with additional arguments, for example:
+setting certificates for an encrypted control channel. This can be done by
+overriding the docker entrypoint like so:
+
+.. code:: console
+
+  docker run -d \
+      --name faucet \
+      --restart=always \
+      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
+      -v /etc/ryu/ssl/:/etc/ryu/ssl/ \
+      -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
+      -p 6653:6653 \
+      -p 9302:9302 \
+      faucet/faucet \
+      faucet \
+      --ctl-privkey /etc/ryu/ssl/ctrlr.key \
+      --ctl-cert /etc/ryu/ssl/ctrlr.cert  \
+      --ca-certs /etc/ryu/ssl/sw.cert
+
+You can get a list of all additional arguments faucet supports by running:
+
+.. code:: console
+
+  docker run -it faucet/faucet faucet --help
 
 Dockerfile
 ----------
@@ -94,6 +125,7 @@ It can be run as following:
   mkdir -p /var/log/ryu/faucet/
   docker run -d \
       --name faucet \
+      --restart=always \
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
       -p 6653:6653 \
@@ -130,6 +162,7 @@ It can be run as following:
   mkdir -p /var/log/ryu/gauge
   docker run -d \
       --name gauge \
+      --restart=always \
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/gauge/:/var/log/ryu/gauge/ \
       -p 6654:6653 \

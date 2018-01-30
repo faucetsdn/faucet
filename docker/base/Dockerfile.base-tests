@@ -50,6 +50,7 @@ RUN \
     ndisc6 \
     net-tools \
     netcat-openbsd \
+    nmap \
     numactl \
     openvswitch-common \
     parallel \

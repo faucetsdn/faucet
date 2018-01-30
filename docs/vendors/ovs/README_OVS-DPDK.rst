@@ -139,7 +139,7 @@ Run FAUCET
 
 .. code:: console
 
-    ryu-manager faucet.faucet --verbose --ofp-listen-host=127.0.0.1
+    faucet --verbose --ryu-ofp-listen-host=127.0.0.1
 
 
 Test connectivity

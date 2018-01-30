@@ -1,6 +1,9 @@
 #!/bin/bash
 
 DEPCHECK=1
+MINCOVERAGE=69
+
+TMPDIR=$(mktemp -d /tmp/$(basename $0).XXXXXX)
 
 # if -n passed, don't check dependencies/lint/type.
 # wrapper script only cares about -n, others passed to test suite.
@@ -42,7 +45,15 @@ if [ "$DEPCHECK" == 1 ] ; then
 fi
 
 echo "========== Running faucet unit tests =========="
-python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing || exit 1
+python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing | tee $TMPDIR/coverage.txt || exit 1
+COVERAGE=`grep TOTAL $TMPDIR/coverage.txt |grep -Eo '\b[0-9]+\%'|sed 's/\%//g'`
+echo coverage: $COVERAGE percent
+if [ "$COVERAGE" -lt "$MINCOVERAGE" ] ; then
+    echo coverage below minimum MINCOVERAGE percent
+    exit 1
+fi
+
+rm -rf "$TMPDIR"
 
 echo "========== Running faucet system tests =========="
 python2 ./faucet_mininet_test.py -c

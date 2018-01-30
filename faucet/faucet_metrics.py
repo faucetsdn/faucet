@@ -29,29 +29,12 @@ class FaucetMetrics(PromClient):
     _dpid_counters = {} # type: dict
     _dpid_gauges = {} # type: dict
 
-    def _dpid_counter(self, var, var_help):
-        counter = Counter(var, var_help, self.REQUIRED_LABELS)
-        self._dpid_counters[var] = counter
-        return counter
-
-    def _dpid_gauge(self, var, var_help):
-        gauge = Gauge(var, var_help, self.REQUIRED_LABELS)
-        self._dpid_gauges[var] = gauge
-        return gauge
-
-    def reset_dpid(self, dp_labels):
-        """Set all DPID-only counter/gauges to 0."""
-        for counter in list(self._dpid_counters.values()):
-            counter.labels(**dp_labels).inc(0)
-        for gauge in list(self._dpid_gauges.values()):
-            gauge.labels(**dp_labels).set(0)
-
-    def __init__(self):
-        super(FaucetMetrics, self).__init__()
-        self.faucet_config_reload_requests = Counter(
+    def __init__(self, reg=None):
+        super(FaucetMetrics, self).__init__(reg=reg)
+        self.faucet_config_reload_requests = self._counter(
             'faucet_config_reload_requests',
             'number of config reload requests', [])
-        self.faucet_event_id = Gauge(
+        self.faucet_event_id = self._gauge(
             'faucet_event_id',
             'highest/most recent event ID to be sent', [])
         self.faucet_config_reload_warm = self._dpid_counter(
@@ -75,45 +58,78 @@ class FaucetMetrics(PromClient):
         self.of_dp_disconnections = self._dpid_counter(
             'of_dp_disconnections',
             'number of OF connections from a DP')
-        self.vlan_hosts_learned = Gauge(
+        self.vlan_hosts_learned = self._gauge(
             'vlan_hosts_learned',
-            'number of hosts learned on a VLAN', self.REQUIRED_LABELS + ['vlan'])
-        self.vlan_neighbors = Gauge(
+            'number of hosts learned on a VLAN',
+            self.REQUIRED_LABELS + ['vlan'])
+        self.vlan_neighbors = self._gauge(
             'vlan_neighbors',
-            'number of neighbors on a VLAN', self.REQUIRED_LABELS + ['vlan', 'ipv'])
-        self.vlan_learn_bans = Gauge(
+            'number of neighbors on a VLAN',
+            self.REQUIRED_LABELS + ['vlan', 'ipv'])
+        self.vlan_learn_bans = self._gauge(
             'vlan_learn_bans',
-            'number of times learning was banned on a VLAN', self.REQUIRED_LABELS + ['vlan'])
-        self.faucet_config_table_names = Gauge(
+            'number of times learning was banned on a VLAN',
+            self.REQUIRED_LABELS + ['vlan'])
+        self.faucet_config_table_names = self._gauge(
             'faucet_config_table_names',
-            'number to names map of FAUCET pipeline tables', self.REQUIRED_LABELS + ['table_name'])
-        self.faucet_packet_in_secs = Histogram(
+            'number to names map of FAUCET pipeline tables',
+            self.REQUIRED_LABELS + ['table_name'])
+        self.faucet_packet_in_secs = self._histogram(
             'faucet_packet_in_secs',
-            'FAUCET packet in processing time', self.REQUIRED_LABELS,
-            buckets=(0.0001, 0.001, 0.01, 0.1, 1))
-        self.bgp_neighbor_uptime_seconds = Gauge(
+            'FAUCET packet in processing time',
+            self.REQUIRED_LABELS,
+            (0.0001, 0.001, 0.01, 0.1, 1))
+        self.bgp_neighbor_uptime_seconds = self._gauge(
             'bgp_neighbor_uptime',
-            'BGP neighbor uptime in seconds', self.REQUIRED_LABELS + ['vlan', 'neighbor'])
-        self.bgp_neighbor_routes = Gauge(
+            'BGP neighbor uptime in seconds',
+            self.REQUIRED_LABELS + ['vlan', 'neighbor'])
+        self.bgp_neighbor_routes = self._gauge(
             'bgp_neighbor_routes',
-            'BGP neighbor route count', self.REQUIRED_LABELS + ['vlan', 'neighbor', 'ipv'])
-        self.learned_macs = Gauge(
+            'BGP neighbor route count',
+            self.REQUIRED_LABELS + ['vlan', 'neighbor', 'ipv'])
+        self.learned_macs = self._gauge(
             'learned_macs',
             ('MAC address stored as 64bit number to DP ID, port, VLAN, '
              'and n (discrete index)'),
             self.REQUIRED_LABELS + ['port', 'vlan', 'n'])
-        self.port_status = Gauge(
+        self.port_status = self._gauge(
             'port_status',
             'status of switch ports',
             self.REQUIRED_LABELS + ['port'])
-        self.port_learn_bans = Gauge(
+        self.port_learn_bans = self._gauge(
             'port_learn_bans',
             'number of times learning was banned on a port',
             self.REQUIRED_LABELS + ['port'])
         self.dp_status = self._dpid_gauge(
             'dp_status',
             'status of datapaths')
-        self.of_dp_desc_stats = Gauge(
+        self.of_dp_desc_stats = self._gauge(
             'of_dp_desc_stats',
             'DP description (OFPDescStatsReply)',
             self.REQUIRED_LABELS + ['mfr_desc', 'hw_desc', 'sw_desc', 'serial_num', 'dp_desc'])
+
+    def _counter(self, var, var_help, labels):
+        return Counter(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
+
+    def _gauge(self, var, var_help, labels):
+        return Gauge(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
+
+    def _histogram(self, var, var_help, labels, buckets):
+        return Histogram(var, var_help, labels, buckets=buckets, registry=self._reg) # pylint: disable=unexpected-keyword-arg
+
+    def _dpid_counter(self, var, var_help):
+        counter = self._counter(var, var_help, self.REQUIRED_LABELS)
+        self._dpid_counters[var] = counter
+        return counter
+
+    def _dpid_gauge(self, var, var_help):
+        gauge = self._gauge(var, var_help, self.REQUIRED_LABELS)
+        self._dpid_gauges[var] = gauge
+        return gauge
+
+    def reset_dpid(self, dp_labels):
+        """Set all DPID-only counter/gauges to 0."""
+        for counter in list(self._dpid_counters.values()):
+            counter.labels(**dp_labels).inc(0)
+        for gauge in list(self._dpid_gauges.values()):
+            gauge.labels(**dp_labels).set(0)

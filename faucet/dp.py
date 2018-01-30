@@ -81,6 +81,8 @@ configuration.
     arp_neighbor_timeout = None
     lldp_beacon = {} # type: dict
 
+    dyn_last_coldstart_time = None
+
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
     defaults = {
@@ -196,6 +198,7 @@ configuration.
     lldp_beacon_defaults_types = {
         'send_interval': int,
         'max_per_interval': int,
+        'system_name': str,
     }
 
     wildcard_table = ValveTable(
@@ -227,8 +230,14 @@ configuration.
         assert self.timeout >= self.arp_neighbor_timeout, 'L2 timeout must be >= L3 timeout'
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
-            assert len(self.lldp_beacon) == len(self.lldp_beacon_defaults_types), (
-                'all lldp_beacon config (%s) must be specified' % list(self.lldp_beacon_defaults_types.keys()))
+            assert 'send_interval' in self.lldp_beacon, (
+                'lldp_beacon send_interval not set')
+            assert 'max_per_interval' in self.lldp_beacon, (
+                'lldp_beacon max_per_interval not set')
+            self.lldp_beacon = self._set_unknown_conf(
+                self.lldp_beacon, self.lldp_beacon_defaults_types)
+            if self.lldp_beacon['system_name'] is None:
+                self.lldp_beacon['system_name'] = self.name
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
 
@@ -338,6 +347,7 @@ configuration.
             if dp.stack is not None:
                 stack_dps.append(dp)
                 if 'priority' in dp.stack:
+                    assert dp.stack['priority'] > 0, 'stack priority must be > 0'
                     assert root_dp is None, 'cannot have multiple stack roots'
                     root_dp = dp
                     for vlan in list(dp.vlans.values()):
@@ -369,10 +379,11 @@ configuration.
         if graph.size():
             for edge_name, count in list(edge_count.items()):
                 assert count == 2, '%s defined only in one direction' % edge_name
-            if self.stack is None:
-                self.stack = {}
-            self.stack['root_dp'] = root_dp
-            self.stack['graph'] = graph
+            if self.name in graph:
+                if self.stack is None:
+                    self.stack = {}
+                self.stack['root_dp'] = root_dp
+                self.stack['graph'] = graph
 
     def shortest_path(self, dest_dp):
         """Return shortest path to a DP, as a list of DPs."""
@@ -549,10 +560,10 @@ configuration.
                         port = self.ports[port_no]
                         port.output_only = True
 
-            def resolve_acl(conf):
-                assert conf.acl_in in self.acls, (
-                    'missing ACL %s on %s' % (self.name, conf))
-                acl = self.acls[conf.acl_in]
+            def resolve_acl(acl_in):
+                assert acl_in in self.acls, (
+                    'missing ACL %s on %s' % (self.name, acl_in))
+                acl = self.acls[acl_in]
 
                 action_resolvers = {
                     'meter': resolve_meter,
@@ -577,13 +588,31 @@ configuration.
                 build_acl(acl, vid=1)
 
             for vlan in list(self.vlans.values()):
-                if vlan.acl_in:
-                    resolve_acl(vlan)
-                    vlan.acl_in = self.acls[vlan.acl_in]
+                if vlan.acls_in:
+                    acls = []
+                    exact_all_set = True
+                    exact_set = False
+                    for acl in vlan.acls_in:
+                        resolve_acl(acl)
+                        acls.append(self.acls[acl])
+                        exact_all_set &= bool(acls[-1].exact_match)
+                        exact_set |= bool(acls[-1].exact_match)
+                    if exact_set != exact_all_set:
+                        assert False, 'if one exact match is set, all acls must be an exact match'
+                    vlan.acls_in = acls
             for port in list(self.ports.values()):
-                if port.acl_in:
-                    resolve_acl(port)
-                    port.acl_in = self.acls[port.acl_in]
+                if port.acls_in:
+                    acls = []
+                    exact_all_set = True
+                    exact_set = False
+                    for acl in port.acls_in:
+                        resolve_acl(acl)
+                        acls.append(self.acls[acl])
+                        exact_all_set &= bool(acls[-1].exact_match)
+                        exact_set |= bool(acls[-1].exact_match)
+                    if exact_set != exact_all_set:
+                        assert False, 'if one exact match is set, all acls must be an exact match'
+                    port.acls_in = acls
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
@@ -763,26 +792,26 @@ configuration.
                 # An existing port has configs changed
                 if new_port != old_port:
                     # ACL optimization - did the ACL, and only the ACL change.
-                    if old_port.ignore_subconf(new_port, ignore_keys=set(['acl_in'])):
-                        if old_port.acl_in != new_port.acl_in:
+                    if old_port.ignore_subconf(new_port, ignore_keys=set(['acls_in'])):
+                        if old_port.acls_in != new_port.acls_in:
                             changed_acl_ports.add(port_no)
-                            old_acl_id = old_port.acl_in
-                            if old_acl_id:
-                                old_acl_id = old_acl_id._id
-                            new_acl_id = new_port.acl_in
-                            if new_acl_id:
-                                new_acl_id = new_acl_id._id
+                            old_acl_ids = old_port.acls_in
+                            if old_acl_ids:
+                                old_acl_ids = [x._id for x in old_acl_ids]
+                            new_acl_ids = new_port.acls_in
+                            if new_acl_ids:
+                                new_acl_ids = [x._id for x in new_acl_ids]
                             logger.info('port %s ACL changed (ACL %s to %s)' % (
-                                port_no, old_acl_id, new_acl_id))
+                                port_no, old_acl_ids, new_acl_ids))
                     else:
                         changed_ports.add(port_no)
                         logger.info('port %s reconfigured (%s)' % (
                             port_no, diff(old_port.to_conf(), new_port.to_conf(), context=1)))
-                elif new_port.acl_in in changed_acls:
+                elif new_port.acls_in and len([x for x in new_port.acls_in if x in changed_acls]):
                     # If the port has ACL changed.
                     changed_acl_ports.add(port_no)
                     logger.info('port %s ACL changed (ACL %s content changed)' % (
-                        port_no, new_port.acl_in._id))
+                        port_no, [x._id for x in new_port.acls_in]))
 
         # TODO: optimize case where only VLAN ACL changed.
         for vid in changed_vlans:

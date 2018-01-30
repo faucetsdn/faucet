@@ -20,6 +20,37 @@ import argparse
 import os
 import sys
 
+RYU_OPTIONAL_ARGS = [
+    ('ca-certs', 'CA certificates'),
+    ('config-dir', """Path to a config directory to pull `*.conf` files
+                      from. This file set is sorted, so as to provide a
+                      predictable parse order if individual options are
+                      over-ridden. The set is parsed after the file(s)
+                      specified via previous --config-file, arguments hence
+                      over-ridden options in the directory take precedence."""),
+    ('config-file', """Path to a config file to use. Multiple config files
+                       can be specified, with values in later files taking
+                       precedence. Defaults to None."""),
+    ('ctl-cert', 'controller certificate'),
+    ('ctl-privkey', 'controller private key'),
+    ('default-log-level', 'default log level'),
+    ('log-config-file', 'Path to a logging config file to use'),
+    ('log-dir', 'log file directory'),
+    ('log-file', 'log file name'),
+    ('log-file-mode', 'default log file permission'),
+    ('observe-links', 'observe link discovery events'),
+    ('ofp-listen-host', 'openflow listen host (default 0.0.0.0)'),
+    ('ofp-ssl-listen-port', 'openflow ssl listen port (default: 6653)'),
+    ('ofp-switch-address-list', """list of IP address and port pairs (default empty).
+                                   e.g., "127.0.0.1:6653,[::1]:6653"""),
+    ('ofp-switch-connect-interval', 'interval in seconds to connect to switches (default 1)'),
+    ('ofp-tcp-listen-port', 'openflow tcp listen port (default: 6653)'),
+    ('pid-file', 'pid file name'),
+    ('user-flags', 'Additional flags file for user applications'),
+    ('wsapi-host', 'webapp listen host (default 0.0.0.0)'),
+    ('wsapi-port', 'webapp listen port (default 8080)')
+]
+
 
 def parse_args():
     """Parse Faucet/Gauge arguments.
@@ -27,16 +58,27 @@ def parse_args():
     Returns:
         argparse.Namespace: command line arguments
     """
+
     args = argparse.ArgumentParser(
         prog='faucet', description='Faucet SDN Controller')
-    args.add_argument(
-        '-v', '--version', action='store_true', help='print version and exit')
     args.add_argument('--gauge', action='store_true', help='run Gauge instead')
+    args.add_argument(
+        '-v', '--verbose', action='store_true', help='produce verbose output')
+    args.add_argument(
+        '-V', '--version', action='store_true', help='print version and exit')
+    args.add_argument(
+        '--use-stderr', action='store_true', help='log to standard error')
+    args.add_argument(
+        '--use-syslog', action='store_true', help='output to syslog')
     args.add_argument(
         '--ryu-app',
         action='append',
         help='add Ryu app (can be specified multiple times)',
         metavar='APP')
+
+    for ryu_arg in RYU_OPTIONAL_ARGS:
+        args.add_argument('--ryu-%s' % ryu_arg[0], help=ryu_arg[1])
+
     return args.parse_args()
 
 
@@ -46,21 +88,41 @@ def print_version():
     version = VersionInfo('faucet').semantic_version().release_string()
     message = 'Faucet %s' % version
     print(message)
-    sys.exit(0)
 
 
 def main():
     """Main program."""
     args = parse_args()
+    ryu_args = []
 
     # Checking version number?
     if args.version:
         print_version()
+        sys.exit(0)
+
+    # Handle log location
+    if args.use_stderr:
+        ryu_args.append("--use-stderr")
+    if args.use_syslog:
+        ryu_args.append("--use-syslog")
+
+    # Verbose output?
+    if args.verbose:
+        ryu_args.append("--verbose")
+
+    for arg, val in list(vars(args).items()):
+        if not val or not arg.startswith('ryu'):
+            continue
+        if arg == "ryu_app":
+            continue
+        arg_name = arg.replace('ryu_', '').replace('_', '-')
+        ryu_args.append("--%s=%s" % (arg_name, val))
 
     # Running Faucet or Gauge?
-    ryu_args = ['faucet.faucet']
     if args.gauge or os.path.basename(sys.argv[0]) == 'gauge':
-        ryu_args = ['faucet.gauge']
+        ryu_args.append('faucet.gauge')
+    else:
+        ryu_args.append('faucet.faucet')
 
     # Check for additional Ryu apps.
     if args.ryu_app:

@@ -100,6 +100,7 @@ class ValveHostManager(object):
         """Expire hosts from VLAN cache."""
         expired_hosts = vlan.expire_cache_hosts(now, self.learn_timeout)
         if expired_hosts:
+            vlan.dyn_last_time_hosts_expired = time.time()
             self.logger.info(
                 '%u recently active hosts on VLAN %u, expired %s' % (
                     vlan.hosts_count(), vlan.vid, expired_hosts))
@@ -177,42 +178,58 @@ class ValveHostManager(object):
 
         return ofmsgs
 
-    def learn_host_on_vlan_ports(self, port, vlan, eth_src, delete_existing=True):
+    def learn_host_on_vlan_ports(self, port, vlan, eth_src,
+                                 delete_existing=True,
+                                 last_dp_coldstart_time=None):
         """Learn a host on a port."""
         now = time.time()
         ofmsgs = []
 
-        ban_age = None
-        learn_ban = False
+        cache_age = None
+        cache_port = None
+        entry = vlan.cached_host(eth_src)
+        # Host not cached, and no hosts expired since we cold started
+        # Enable faster learning by assuming there's no previous host to delete
+        if entry is None:
+            if (last_dp_coldstart_time and
+                  (vlan.dyn_last_time_hosts_expired is None or
+                   vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
+                delete_existing = False
+        else:
+            cache_age = now - entry.cache_time
+            cache_port = entry.port
+
+        # If host recently learned on this same port, do nothing.
+        # If host not-so-recently learned on this same port, refresh rules (do not delete)
+        if cache_port == port:
+            delete_existing = False
+            if cache_age <= max(self.learn_timeout / 2, 2):
+                return ofmsgs
 
         if port.loop_protect:
+            ban_age = None
+            learn_ban = False
+
+            # if recently in loop protect mode and still receiving packets,
+            # prolong the ban
             if port.dyn_last_ban_time:
                 ban_age = now - port.dyn_last_ban_time
-            if ban_age and ban_age < 2:
-                learn_ban = True
+                if ban_age < 2:
+                    learn_ban = True
 
-        if not learn_ban:
-            entry = vlan.cached_host(eth_src)
-            if entry is not None:
-                cache_age = now - entry.cache_time
-                if cache_age < 2:
-                    # Don't relearn same host on same port if recently learned.
-                    if entry.port == port:
-                        return ofmsgs
-                    elif port.loop_protect:
-                        # Ban learning on a port if a host rapidly moves to another port.
-                        if ban_age is None or ban_age > 2:
-                            learn_ban = True
-                            port.dyn_learn_ban_count += 1
-                            ofmsgs.append(self._temp_ban_host_learning_on_port(port))
-                            self.logger.info('rapid move of %s from %s to %s, temp loop ban %s' % (
-                                eth_src, entry.port, port, port))
-                        elif ban_age < 2:
-                            learn_ban = True
+            # if not in protect mode and we get a rapid move, enact protect mode
+            if not learn_ban and entry is not None:
+                if port != cache_port and cache_age < 2:
+                    learn_ban = True
+                    port.dyn_learn_ban_count += 1
+                    self.logger.info('rapid move of %s from %s to %s, temp loop ban %s' % (
+                        eth_src, cache_port, port, port))
 
-        if learn_ban:
-            port.dyn_last_ban_time = now
-            return ofmsgs
+            # already, or newly in protect mode, apply the ban rules.
+            if learn_ban:
+                port.dyn_last_ban_time = now
+                ofmsgs.append(self._temp_ban_host_learning_on_port(port))
+                return ofmsgs
 
         (src_rule_idle_timeout,
          src_rule_hard_timeout,
@@ -302,7 +319,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
             entry = vlan.dyn_host_cache[eth_dst]
             if not entry.expired:
                 ofmsgs.extend(self.learn_host_on_vlan_ports(
-                    entry.port, vlan, eth_dst, False))
+                    entry.port, vlan, eth_dst, delete_existing=False))
                 self.logger.info(
                     'refreshing host %s from VLAN %u' % (eth_dst, vlan.vid))
         return ofmsgs
