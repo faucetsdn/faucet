@@ -212,13 +212,13 @@ class Valve(object):
 
     def _vlan_add_acl(self, vlan):
         ofmsgs = []
-        if vlan.acl_in:
+        if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
             acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
             ofmsgs = valve_acl.build_acl_ofmsgs(
-                [vlan.acl_in], acl_table, acl_allow_inst,
+                vlan.acls_in, acl_table, acl_allow_inst,
                 self.dp.highest_priority, self.dp.meters,
-                vlan.acl_in.exact_match, vlan_vid=vlan.vid)
+                vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
         return ofmsgs
 
     def _add_vlan_flood_flow(self):
@@ -424,11 +424,11 @@ class Valve(object):
         if cold_start:
             ofmsgs.extend(acl_table.flowdel(in_port_match))
         acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
-        if port.acl_in:
+        if port.acls_in:
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
-                [port.acl_in], acl_table, acl_allow_inst,
+                port.acls_in, acl_table, acl_allow_inst,
                 self.dp.highest_priority, self.dp.meters,
-                port.acl_in.exact_match, port_num=port.number))
+                port.acls_in[0].exact_match, port_num=port.number))
         else:
             ofmsgs.append(acl_table.flowmod(
                 in_port_match,
@@ -464,7 +464,7 @@ class Valve(object):
         return self._port_add_vlan_rules(port, vlan, vlan_inst)
 
     def _find_forwarding_table(self, vlan):
-        if vlan.acl_in:
+        if vlan.acls_in:
             return self.dp.tables['vlan_acl']
         return self.dp.tables['eth_src']
 

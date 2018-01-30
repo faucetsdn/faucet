@@ -549,10 +549,10 @@ configuration.
                         port = self.ports[port_no]
                         port.output_only = True
 
-            def resolve_acl(conf):
-                assert conf.acl_in in self.acls, (
-                    'missing ACL %s on %s' % (self.name, conf))
-                acl = self.acls[conf.acl_in]
+            def resolve_acl(acl_in):
+                assert acl_in in self.acls, (
+                    'missing ACL %s on %s' % (self.name, acl_in))
+                acl = self.acls[acl_in]
 
                 action_resolvers = {
                     'meter': resolve_meter,
@@ -577,13 +577,31 @@ configuration.
                 build_acl(acl, vid=1)
 
             for vlan in list(self.vlans.values()):
-                if vlan.acl_in:
-                    resolve_acl(vlan)
-                    vlan.acl_in = self.acls[vlan.acl_in]
+                if vlan.acls_in:
+                    acls = []
+                    exact_all_set = True
+                    exact_set = False
+                    for acl in vlan.acls_in:
+                        resolve_acl(acl)
+                        acls.append(self.acls[acl])
+                        exact_all_set &= bool(acls[-1].exact_match)
+                        exact_set |= bool(acls[-1].exact_match)
+                    if exact_set != exact_all_set:
+                        assert False, 'if one exact match is set, all acls must be an exact match'
+                    vlan.acls_in = acls
             for port in list(self.ports.values()):
-                if port.acl_in:
-                    resolve_acl(port)
-                    port.acl_in = self.acls[port.acl_in]
+                if port.acls_in:
+                    acls = []
+                    exact_all_set = True
+                    exact_set = False
+                    for acl in port.acls_in:
+                        resolve_acl(acl)
+                        acls.append(self.acls[acl])
+                        exact_all_set &= bool(acls[-1].exact_match)
+                        exact_set |= bool(acls[-1].exact_match)
+                    if exact_set != exact_all_set:
+                        assert False, 'if one exact match is set, all acls must be an exact match'
+                    port.acls_in = acls
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
@@ -763,26 +781,26 @@ configuration.
                 # An existing port has configs changed
                 if new_port != old_port:
                     # ACL optimization - did the ACL, and only the ACL change.
-                    if old_port.ignore_subconf(new_port, ignore_keys=set(['acl_in'])):
-                        if old_port.acl_in != new_port.acl_in:
+                    if old_port.ignore_subconf(new_port, ignore_keys=set(['acls_in'])):
+                        if old_port.acls_in != new_port.acls_in:
                             changed_acl_ports.add(port_no)
-                            old_acl_id = old_port.acl_in
-                            if old_acl_id:
-                                old_acl_id = old_acl_id._id
-                            new_acl_id = new_port.acl_in
-                            if new_acl_id:
-                                new_acl_id = new_acl_id._id
+                            old_acl_ids = old_port.acls_in
+                            if old_acl_ids:
+                                old_acl_ids = [x._id for x in old_acl_ids]
+                            new_acl_ids = new_port.acls_in
+                            if new_acl_ids:
+                                new_acl_ids = [x._id for x in new_acl_ids]
                             logger.info('port %s ACL changed (ACL %s to %s)' % (
-                                port_no, old_acl_id, new_acl_id))
+                                port_no, old_acl_ids, new_acl_ids))
                     else:
                         changed_ports.add(port_no)
                         logger.info('port %s reconfigured (%s)' % (
                             port_no, diff(old_port.to_conf(), new_port.to_conf(), context=1)))
-                elif new_port.acl_in in changed_acls:
+                elif new_port.acls_in and len([x for x in new_port.acls_in if x in changed_acls]):
                     # If the port has ACL changed.
                     changed_acl_ports.add(port_no)
                     logger.info('port %s ACL changed (ACL %s content changed)' % (
-                        port_no, new_port.acl_in._id))
+                        port_no, [x._id for x in new_port.acls_in]))
 
         # TODO: optimize case where only VLAN ACL changed.
         for vid in changed_vlans:

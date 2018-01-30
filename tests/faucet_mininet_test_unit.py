@@ -1555,6 +1555,29 @@ acls:
             cookie: 1234
             actions:
                 allow: 1
+    3:
+        - rule:
+            cookie: 1234
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5003
+            actions:
+                allow: 0
+    4:
+        - rule:
+            cookie: 1234
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5002
+            actions:
+                allow: 1
+        - rule:
+            cookie: 1234
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5001
+            actions:
+                allow: 0
     deny:
         - rule:
             cookie: 1234
@@ -1716,7 +1739,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
-                acl_in: allow
+                acls_in: [allow]
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
@@ -1744,7 +1767,12 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
         self._verify_hosts_learned((first_host, second_host))
         self.change_port_config(
             self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
+        self.change_port_config(
+            self.port_map['port_1'], 'acls_in', [3,4,"allow"], restart=restart)
         self._verify_hosts_learned((first_host, second_host, third_host))
+        self.verify_tp_dst_blocked(5001, first_host, second_host)
+        self.verify_tp_dst_notblocked(5002, first_host, second_host)
+        self.verify_tp_dst_blocked(5003, first_host, second_host)
 
 
 class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):
