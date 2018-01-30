@@ -1011,10 +1011,16 @@ vlans:
 
 class ValveStackTestCase(ValveTestBase):
     """Test stacking/forwarding."""
-    # TODO: need to test distributed switching actually.
 
     DP = 's3'
     DP_ID = 0x3
+
+    def learn_hosts(self):
+         return
+
+    def test_stack(self):
+         # TODO: need to test distributed switching actually.
+         return
 
 
 if __name__ == "__main__":
