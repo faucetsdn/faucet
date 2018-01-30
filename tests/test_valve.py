@@ -143,22 +143,43 @@ dps:
         stack:
             priority: 1
         interfaces:
-            1:
+            p1:
+                number: 1
+                native_vlan: v300
+            p2:
+                number: 2
+                native_vlan: v300
+            p3:
+                number: 3
+                native_vlan: v300
+            p4:
+                number: 4
+                native_vlan: v300
+            5:
                 stack:
                     dp: s4
-                    port: 1
-            2:
-                native_vlan: v400
+                    port: 5
     s4:
         hardware: 'Open vSwitch'
         dp_id: 0x4
         interfaces:
-            1:
+            p1:
+                number: 1
+                native_vlan: v300
+            p2:
+                number: 2
+                native_vlan: v300
+            p3:
+                number: 3
+                native_vlan: v300
+            p4:
+                number: 4
+                native_vlan: v300
+            5:
+                number: 5
                 stack:
                     dp: s3
-                    port: 1
-            2:
-                native_vlan: v400
+                    port: 5
 routers:
     router1:
         vlans: [v100, v200]
@@ -189,6 +210,7 @@ vlans:
         vid: 0x400
 """
 
+    DP = 's1'
     DP_ID = 1
     NUM_PORTS = 5
     NUM_TABLES = 9
@@ -215,13 +237,13 @@ vlans:
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
         self.notifier.start()
-        dp = self.update_config(config)
+        dp = self.update_config(config, self.DP)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
-        self.valve.update_metrics(self.metrics)
+        self.valve.update_config_metrics(self.metrics)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
 
-    def update_config(self, config, dp_name='s1'):
+    def update_config(self, config, dp_name):
         """Update FAUCET config with config as text."""
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
@@ -238,7 +260,7 @@ vlans:
 
     def apply_new_config(self, config):
         """Update FAUCET config, and tell FAUCET config has changed."""
-        new_dp = self.update_config(config)
+        new_dp = self.update_config(config, self.DP)
         _, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
@@ -253,13 +275,16 @@ vlans:
             port_no, ofp.OFPPR_ADD, None))
 
     def flap_port(self, port_no):
+        """Flap op status on a port."""
         self.set_port_down(port_no)
         self.set_port_up(port_no)
 
     def packet_outs_from_flows(self, flows):
+        """Return flows that are packetout actions."""
         return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
 
     def arp_for_controller(self):
+        """ARP request for controller VIP."""
         arp_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': mac.BROADCAST_STR,
@@ -269,6 +294,7 @@ vlans:
         self.assertTrue(self.packet_outs_from_flows(arp_replies))
 
     def nd_for_controller(self):
+        """IPv6 ND for controller VIP."""
         dst_ip = ipaddress.IPv6Address('fc00::1:254')
         nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
         ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
@@ -283,6 +309,7 @@ vlans:
         self.assertTrue(self.packet_outs_from_flows(nd_replies))
 
     def icmp_ping_controller(self):
+        """IPv4 ping controller VIP."""
         echo_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.FAUCET_MAC,
@@ -294,6 +321,7 @@ vlans:
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def icmp_ping_unknown_neighbor(self):
+        """IPv4 ping unknown host on same subnet, causing proactive learning."""
         echo_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.FAUCET_MAC,
@@ -305,6 +333,7 @@ vlans:
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def icmpv6_ping_controller(self):
+        """IPv6 ping controller VIP."""
         echo_replies = self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.FAUCET_MAC,
@@ -363,6 +392,7 @@ vlans:
 
 
 class ValveTestCase(ValveTestBase):
+    """Test basic switching/L2/L3 functions."""
 
     def test_invalid_vlan(self):
         """Test that packets with incorrect vlan tagging get dropped."""
@@ -730,10 +760,10 @@ acls:
 
 
 class ValveACLTestCase(ValveTestBase):
+    """Test ACL drop/allow and reloading."""
 
     def test_vlan_acl_deny(self):
         acl_config = """
-version: 2
 dps:
     s1:
         ignore_learn_ins: 0
@@ -849,6 +879,7 @@ vlans:
 
 
 class ValveTFMTestCase(ValveTestCase):
+    """Test vendors that require TFM-based pipeline programming."""
     # TODO: check TFM messages are correct
 
     CONFIG = """
@@ -909,6 +940,7 @@ vlans:
 
 
 class ValveMirrorTestCase(ValveTestCase):
+    """Test ACL and interface mirroring."""
     # TODO: check mirror packets are present/correct
 
     CONFIG = """
@@ -975,6 +1007,20 @@ vlans:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
 """
+
+
+class ValveStackTestCase(ValveTestBase):
+    """Test stacking/forwarding."""
+
+    DP = 's3'
+    DP_ID = 0x3
+
+    def learn_hosts(self):
+         return
+
+    def test_stack(self):
+         # TODO: need to test distributed switching actually.
+         return
 
 
 if __name__ == "__main__":

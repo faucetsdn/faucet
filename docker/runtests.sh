@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DEPCHECK=1
-MINCOVERAGE=66
+MINCOVERAGE=69
 
 TMPDIR=$(mktemp -d /tmp/$(basename $0).XXXXXX)
 
