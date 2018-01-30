@@ -1275,14 +1275,14 @@ vlans:
 class FaucetSingleLearnMACsOnPortTest(FaucetUntaggedTest):
 
     MIN_HOSTS = 64
-    MAX_HOSTS = 512
-    TEST_IPV4_PREFIX = 22 # must hold more than MAX_HOSTS + 4
+    MAX_HOSTS = 1024
+    TEST_IPV4_PREFIX = 21 # must hold more than MAX_HOSTS + 4
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
         # Must be > than MAX_HOSTS + 4
-        max_hosts: 1024
+        max_hosts: 1028
 """
 
     CONFIG = """
@@ -1290,15 +1290,19 @@ vlans:
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
+                max_hosts: 512
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
+                max_hosts: 512
             %(port_3)d:
                 native_vlan: 100
                 description: "b3"
+                max_hosts: 512
             %(port_4)d:
                 native_vlan: 100
                 description: "b4"
+                max_hosts: 512
 """
 
     def test_untagged(self):
@@ -1316,14 +1320,15 @@ vlans:
             mac_ipv4 = str(test_ipas[i])
             mac_intf_ipv4s.append((host, mac_intf, mac_ipv4))
         learn_hosts = self.MIN_HOSTS
-        last_learn_hosts = 0
+        successful_learn_hosts = 0
         while learn_hosts <= self.MAX_HOSTS:
             error('will learn %u hosts\n' % learn_hosts)
             start_time = time.time()
+            fping_delay = 5 + int(float(learn_hosts) / 100)
             # configure macvlan interfaces and stimulate learning
-            for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[last_learn_hosts:learn_hosts]:
+            for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[successful_learn_hosts:learn_hosts]:
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
-                host.cmd('fping -q -c1 -t10 -I%s %s' % (mac_intf, first_host.IP()))
+                host.cmd('fping -q -c1 -t5 -I%s %s' % (mac_intf, first_host.IP()))
 
             def verify_connectivity(learn_hosts):
                 unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
@@ -1340,20 +1345,28 @@ vlans:
                     if not unverified_ips:
                         break
                     time.sleep(3)
-                self.assertEquals(unverified_ips, [], msg='could not verify connectivity for all hosts')
+                if unverified_ips:
+                    error('could not verify connectivity for all hosts\n')
+                    return False
                 self.ping_all_when_learned()
+                prom_hosts = self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'})
+                if prom_hosts != learn_hosts + len(self.net.hosts):
+                    error('FAUCET host learned count disagree %u != %u\n' % (
+                        prom_hosts, learn_hosts + len(self.net.hosts)))
+                    return False
+                return True
 
-            verify_connectivity(learn_hosts)
-            learn_time = time.time() - start_time
-            self.assertEquals(
-                self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'}),
-                learn_hosts + len(self.net.hosts))
-            packet_in_count = self.scrape_prometheus_var('of_packet_ins')
-            flow_msgs_count = self.scrape_prometheus_var('of_flowmsgs_sent')
-            error('verified %u hosts learned in %u sec (%u packet ins, %u flows sent)\n' % (
-                learn_hosts, learn_time, packet_in_count, flow_msgs_count))
-            last_learn_hosts = learn_hosts
-            learn_hosts *= 2
+            if verify_connectivity(learn_hosts):
+                learn_time = time.time() - start_time
+                packet_in_count = self.scrape_prometheus_var('of_packet_ins')
+                flow_msgs_count = self.scrape_prometheus_var('of_flowmsgs_sent')
+                error('verified %u hosts learned in %u sec (%u packet ins, %u flows sent)\n' % (
+                    learn_hosts, learn_time, packet_in_count, flow_msgs_count))
+                successful_learn_hosts = learn_hosts
+                learn_hosts *= 2
+            else:
+                break
+        self.assertTrue(successful_learn_hosts >= self.MIN_HOSTS)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):

@@ -23,6 +23,7 @@ import os
 import unittest
 import tempfile
 import shutil
+import socket
 
 from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
@@ -103,6 +104,7 @@ dps:
         ignore_learn_ins: 0
         hardware: 'Open vSwitch'
         dp_id: 1
+        ofchannel_log: "/dev/null"
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
@@ -194,7 +196,7 @@ vlans:
     P2_V200_MAC = '00:00:00:02:00:02'
     P3_V200_MAC = '00:00:00:02:00:03'
     UNKNOWN_MAC = '00:00:00:04:00:04'
-    FAUCET_MAC =  '0e:00:00:00:00:01'
+    FAUCET_MAC = '0e:00:00:00:00:01'
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
 
@@ -215,6 +217,9 @@ vlans:
         self.notifier.start()
         dp = self.update_config(config)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
+        self.valve.update_metrics(self.metrics)
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(self.faucet_event_sock)
 
     def update_config(self, config, dp_name='s1'):
         """Update FAUCET config with config as text."""
@@ -260,6 +265,7 @@ vlans:
             'eth_dst': mac.BROADCAST_STR,
             'arp_source_ip': '10.0.0.1',
             'arp_target_ip': '10.0.0.254'})
+        # TODO: check arp reply is valid
         self.assertTrue(self.packet_outs_from_flows(arp_replies))
 
     def nd_for_controller(self):
@@ -273,6 +279,7 @@ vlans:
             'ipv6_src': 'fc00::1:1',
             'ipv6_dst': str(ip_gw_mcast),
             'neighbor_solicit_ip': str(dst_ip)})
+        # TODO: check ND reply is valid
         self.assertTrue(self.packet_outs_from_flows(nd_replies))
 
     def icmp_ping_controller(self):
@@ -283,6 +290,7 @@ vlans:
             'ipv4_src': '10.0.0.1',
             'ipv4_dst': '10.0.0.254',
             'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check ping response
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def icmp_ping_unknown_neighbor(self):
@@ -293,6 +301,7 @@ vlans:
             'ipv4_src': '10.0.0.1',
             'ipv4_dst': '10.0.0.99',
             'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check proactive neighbor resolution
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def icmpv6_ping_controller(self):
@@ -303,6 +312,7 @@ vlans:
             'ipv6_src': 'fc00::1:1',
             'ipv6_dst': 'fc00::1:254',
             'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check ping response
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def learn_hosts(self):
@@ -337,6 +347,8 @@ vlans:
             port, vid, eth_type, pkt.data, len(pkt.data), pkt, eth_pkt)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             other_valves=[], pkt_meta=pkt_meta)
+        rcv_packet_ofmsgs = valve_of.valve_flowreorder(
+            rcv_packet_ofmsgs)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
         resolve_ofmsgs = self.valve.resolve_gateways()
         self.table.apply_ofmsgs(resolve_ofmsgs)
@@ -346,6 +358,7 @@ vlans:
         return rcv_packet_ofmsgs
 
     def tearDown(self):
+        self.sock.close()
         shutil.rmtree(self.tmpdir)
 
 
@@ -836,6 +849,7 @@ vlans:
 
 
 class ValveTFMTestCase(ValveTestCase):
+    # TODO: check TFM messages are correct
 
     CONFIG = """
 dps:
@@ -892,6 +906,75 @@ vlans:
     v300:
         vid: 0x300
 """ % os.path.dirname(os.path.realpath(__file__))
+
+
+class ValveMirrorTestCase(ValveTestCase):
+    # TODO: check mirror packets are present/correct
+
+    CONFIG = """
+acls:
+    mirror_ospf:
+        - rule:
+            nw_dst: '224.0.0.5'
+            dl_type: 0x800
+            actions:
+                mirror: p5
+                allow: 1
+        - rule:
+            actions:
+                allow: 1
+dps:
+    s1:
+        ignore_learn_ins: 0
+        dp_id: 1
+        lldp_beacon:
+            send_interval: 1
+            max_per_interval: 1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                lldp_beacon:
+                    enable: True
+                    system_name: "faucet"
+                    port_descr: "first_port"
+                acls_in: [mirror_ospf]
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                output_only: True
+                mirror: 4
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+        routes:
+            - route:
+                ip_dst: 10.99.99.0/24
+                ip_gw: 10.0.0.1
+            - route:
+                ip_dst: 10.99.98.0/24
+                ip_gw: 10.0.0.99
+    v200:
+        vid: 0x200
+        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
+        routes:
+            - route:
+                ip_dst: 'fc00::10:0/112'
+                ip_gw: 'fc00::1:1'
+            - route:
+                ip_dst: 'fc00::20:0/112'
+                ip_gw: 'fc00::1:99'
+"""
 
 
 if __name__ == "__main__":
