@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import re
 
 
 SRC_DIR = '../faucet'
@@ -55,9 +56,17 @@ class CheckConfigTestCase(unittest.TestCase):
 
     def check_config_success(self, config):
         self.assertTrue(self.run_check_config(config, True))
+        # Check acls_in work now acl_in is deprecated, TODO remove in future
+        if "acl_in" in config and not "acls_in" in config:
+            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
+            self.assertTrue(self.run_check_config(acls_cfg, True))
 
     def check_config_failure(self, config):
         self.assertTrue(self.run_check_config(config, False))
+        # Check acls_in work now acl_in is deprecated, TODO remove in future
+        if "acl_in" in config and not "acls_in" in config:
+            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
+            self.assertTrue(self.run_check_config(acls_cfg, False))
 
     def test_minimal(self):
         """Test minimal correct config."""
