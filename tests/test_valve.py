@@ -239,7 +239,7 @@ vlans:
         self.notifier.start()
         dp = self.update_config(config, self.DP)
         self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
-        self.valve.update_metrics(self.metrics)
+        self.valve.update_config_metrics(self.metrics)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
 
