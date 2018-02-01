@@ -467,6 +467,9 @@ configuration.
                 if port.mirror is not None:
                     for mirror_port in port.mirror:
                         if mirror_port in port_by_name:
+                            # Translate the port name to a number
+                            mirror_port = port_by_name[mirror_port]
+
                             if port not in mirror_from_port:
                                 mirror_from_port[port] = []
                             mirror_from_port[port].append(mirror_port)
