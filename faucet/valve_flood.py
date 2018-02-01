@@ -99,7 +99,11 @@ class ValveFloodManager(object):
         ofmsgs = []
         mirrored_ports = vlan.mirrored_ports()
         for port in mirrored_ports:
-            mirror_acts = [valve_of.output_port(port.mirror)]
+            # Create flood rules for mirroed ports
+            mirror_acts = []
+            for mirror_port in port.mirror:
+                mirror_acts.append(valve_of.output_port(mirror_port))
+
             ofmsgs.extend(self._build_flood_rule_for_port(
                 vlan, eth_dst, eth_dst_mask,
                 exclude_unicast, command, flood_priority,
