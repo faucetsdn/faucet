@@ -333,9 +333,9 @@ OFP port number ranges (eg. 1-6).
       - 255
       - the maximum number of mac addresses that can be learnt on this port.
     * - mirror
-      - integer or string
+      - a list of integers or strings
       - None
-      - Mirror all packets recieved and transmitted on the port
+      - Mirror all packets recieved and transmitted on the ports
         specified (by name or by port number), to this port.
     * - name
       - string

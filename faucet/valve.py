@@ -544,9 +544,10 @@ class Valve(object):
                 port_vlans = list(self.dp.vlans.values())
             else:
                 mirror_act = []
-                # Add mirroring if any
+                # If port needs to mirror add output for mirror ports
                 if port.mirror:
-                    mirror_act = [valve_of.output_port(port.mirror)]
+                    for mirror_port in port.mirror:
+                        mirror_act.append(valve_of.output_port(mirror_port))
                 # Add port/to VLAN rules.
                 ofmsgs.extend(self._port_add_vlans(port, mirror_act))
 
@@ -557,7 +558,6 @@ class Valve(object):
         if not cold_start:
             for vlan in vlans_with_ports_added:
                 ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
-
         return ofmsgs
 
     def port_add(self, port_num):
