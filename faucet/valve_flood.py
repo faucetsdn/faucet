@@ -344,7 +344,7 @@ class ValveFloodStackManager(ValveFloodManager):
         # shortest path via alternate DP).
         eth_src = pkt_meta.eth_src
         vlan_vid = pkt_meta.vlan.vid
-        stacked_valves = [valve for valve in other_valves if valve.stack is not None]
+        stacked_valves = [valve for valve in other_valves if valve.dp.stack is not None]
         for other_valve in stacked_valves:
             if vlan_vid in other_valve.dp.vlans:
                 other_dp_host_cache = other_valve.dp.vlans[vlan_vid].dyn_host_cache
