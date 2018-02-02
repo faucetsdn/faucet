@@ -1,5 +1,6 @@
 #!/bin/bash
 
+docker pull faucet/faucet-testbase
 docker build -t ${FAUCET_TEST_IMG} -f Dockerfile.tests . || exit 1
 docker rmi faucet/faucet-testbase
 docker images
