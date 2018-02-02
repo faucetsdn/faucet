@@ -543,10 +543,7 @@ class Valve(object):
                     inst=[valve_of.goto_table(eth_src_table)]))
                 port_vlans = list(self.dp.vlans.values())
             else:
-                mirror_act = []
-                # If port needs to mirror add output for mirror ports
-                if port.mirror:
-                    mirror_act = [valve_of.output_port(mirror_port) for mirror_port in port.mirror]
+                mirror_act = port.mirror_actions()
                 # Add port/to VLAN rules.
                 ofmsgs.extend(self._port_add_vlans(port, mirror_act))
 

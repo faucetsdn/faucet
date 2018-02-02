@@ -17,7 +17,7 @@
 # limitations under the License.
 
 from faucet.conf import Conf
-from faucet.valve_of import ignore_port
+from faucet import valve_of
 
 
 class Port(Conf):
@@ -149,7 +149,7 @@ class Port(Conf):
 
     def check_config(self):
         super(Port, self).check_config()
-        assert isinstance(self.number, int) and self.number > 0 and not ignore_port(self.number), (
+        assert isinstance(self.number, int) and self.number > 0 and not valve_of.ignore_port(self.number), (
             'Port number invalid: %s' % self.number)
         if self.mirror:
             assert not self.tagged_vlans and not self.native_vlan, (
@@ -229,3 +229,9 @@ class Port(Conf):
     def lldp_beacon_enabled(self):
         """Return True if LLDP beacon enabled on this port."""
         return self.lldp_beacon and self.lldp_beacon.get('enable', False)
+
+    def mirror_actions(self):
+        """Return OF actions to mirror this port."""
+        if self.mirror is not None:
+            return [valve_of.output_port(mirror_port) for mirror_port in self.mirror]
+        return []
