@@ -18,7 +18,7 @@
 
 import copy
 
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from datadiff import diff
 from netaddr.core import AddrFormatError
 import networkx
@@ -462,28 +462,21 @@ configuration.
 
         def resolve_mirror_destinations():
             """Resolve mirror port references and destinations."""
-            mirror_from_port = {}
-            for port in list(self.ports.values()):
-                if port.mirror is not None:
-                    for mirror_port in port.mirror:
-                        if mirror_port in port_by_name:
-                            # Translate the port name to a number
-                            mirror_port = port_by_name[mirror_port]
+            mirror_from_port = defaultdict(list)
+            for mirror_port in list(self.ports.values()):
+                if mirror_port.mirror is not None:
+                    for mirrored_port_name in mirror_port.mirror:
+                        mirrored_port = resolve_port(mirrored_port_name)
+                        assert mirrored_port is not None, 'port %s mirror not defined in DP %s' % (
+                            mirrored_port_name, self.name)
+                        mirror_from_port[mirrored_port].append(mirror_port)
 
-                            if port not in mirror_from_port:
-                                mirror_from_port[port] = []
-                            mirror_from_port[port].append(mirror_port)
-                        else:
-                            assert mirror_port in self.ports, 'mirror port %s not defined in DP %s' % (
-                                mirror_port, self.name)
-                            if self.ports[mirror_port] not in mirror_from_port:
-                                mirror_from_port[self.ports[mirror_port]] = []
-                            mirror_from_port[self.ports[mirror_port]].append(port)
-
-            for port, mirror_destination_port in list(mirror_from_port.items()):
-                port.mirror = []
-                for mirror_port in mirror_destination_port:
-                    port.mirror.append(mirror_port.number)
+            # TODO: confusingly, mirror at config time means what ports to mirror from.
+            # But internally we use as a list of ports to mirror to.
+            for mirrored_port, mirror_ports in list(mirror_from_port.items()):
+                mirrored_port.mirror = []
+                for mirror_port in mirror_ports:
+                    mirrored_port.mirror.append(mirror_port.number)
                     mirror_port.output_only = True
 
         def resolve_acls():

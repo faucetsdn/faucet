@@ -546,8 +546,7 @@ class Valve(object):
                 mirror_act = []
                 # If port needs to mirror add output for mirror ports
                 if port.mirror:
-                    for mirror_port in port.mirror:
-                        mirror_act.append(valve_of.output_port(mirror_port))
+                    mirror_act = [valve_of.output_port(mirror_port) for mirror_port in port.mirror]
                 # Add port/to VLAN rules.
                 ofmsgs.extend(self._port_add_vlans(port, mirror_act))
 
