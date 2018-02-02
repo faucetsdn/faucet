@@ -318,18 +318,20 @@ class Valve(object):
                 'reason': _decode_port_status(reason),
                 'status': port_status}})
         ofmsgs = []
-        if self.dp.ports[port_no].opstatus_reconf:
-            if reason == valve_of.ofp.OFPPR_ADD:
-                ofmsgs = self.port_add(port_no)
-            elif reason == valve_of.ofp.OFPPR_DELETE:
-                ofmsgs = self.port_delete(port_no)
-            elif reason == valve_of.ofp.OFPPR_MODIFY:
-                ofmsgs.extend(self.port_delete(port_no))
-                if port_status:
-                    ofmsgs.extend(self.port_add(port_no))
-            else:
-                self.logger.warning('Unhandled port status %s for port %u' % (
-                    reason, port_no))
+        port = self.dp.ports[port_no]
+        if not port.opstatus_reconf:
+            return
+        if reason == valve_of.ofp.OFPPR_ADD:
+            ofmsgs = self.port_add(port_no)
+        elif reason == valve_of.ofp.OFPPR_DELETE:
+            ofmsgs = self.port_delete(port_no)
+        elif reason == valve_of.ofp.OFPPR_MODIFY:
+            ofmsgs.extend(self.port_delete(port_no))
+            if port_status:
+                ofmsgs.extend(self.port_add(port_no))
+        else:
+            self.logger.warning('Unhandled port status %s for %s' % (
+                reason, port))
         return ofmsgs
 
     def advertise(self):
@@ -730,6 +732,15 @@ class Valve(object):
                         'l3_src_ip': pkt_meta.l3_src}})
                 return learn_flows
         return []
+
+    def port_no_valid(self, port_no):
+        """Return True if supplied port number valid on this datapath."""
+        if valve_of.ignore_port(port_no):
+            return False
+        if port_no not in self.dp.ports:
+            self.logger.warning('port %u unknown' % port_no)
+            return False
+        return True
 
     def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
         """Parse a received packet into a PacketMeta instance.

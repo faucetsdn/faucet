@@ -419,7 +419,7 @@ class Faucet(app_manager.RyuApp):
         if msg.reason != valve_of.ofp.OFPR_ACTION:
             return
         in_port = msg.match['in_port']
-        if valve_of.ignore_port(in_port):
+        if not valve.port_no_valid(in_port):
             return
 
         # Truncate packet in data (OVS > 2.5 does not honor max_len)
@@ -439,10 +439,6 @@ class Faucet(app_manager.RyuApp):
         if vlan_vid not in valve.dp.vlans:
             self.logger.info(
                 'packet for unknown VLAN %u from %s', vlan_vid, dpid_log(dp_id))
-            return
-        if in_port not in valve.dp.ports:
-            self.logger.info(
-                'packet for unknown port %u from %s', in_port, dpid_log(dp_id))
             return
         pkt_meta = valve.parse_rcv_packet(
             in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
@@ -626,7 +622,7 @@ class Faucet(app_manager.RyuApp):
         if not valve.dp.running:
             return
         port_no = msg.desc.port_no
-        if valve_of.ignore_port(port_no):
+        if not valve.port_no_valid(port_no):
             return
         ofp = msg.datapath.ofproto
         reason = msg.reason
