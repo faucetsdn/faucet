@@ -783,7 +783,6 @@ class Valve(object):
         # eth/VLAN header only
         pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
-        print(vlan_vid)
         if vlan_vid is None:
             self.logger.info(
                 'packet without VLAN header port %u' % in_port)
