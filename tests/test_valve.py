@@ -45,6 +45,14 @@ from fakeoftable import FakeOFTable
 
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
+
+    def serialize(layers):
+        result = packet.Packet()
+        for layer in reversed(layers):
+            result.add_protocol(layer)
+        result.serialize()
+        return result
+
     layers = []
     assert 'eth_dst' in pkt and 'eth_src' in pkt
     ethertype = None
@@ -87,11 +95,7 @@ def build_pkt(pkt):
         src=pkt['eth_src'],
         ethertype=tpid)
     layers.append(eth)
-    layers = [layer for layer in reversed(layers)]
-    result = packet.Packet()
-    for layer in layers:
-        result.add_protocol(layer)
-    result.serialize()
+    result = serialize(layers)
     return (result, ethertype)
 
 
@@ -1019,11 +1023,11 @@ class ValveStackTestCase(ValveTestBase):
     DP_ID = 0x3
 
     def learn_hosts(self):
-         return
+        return
 
     def test_stack(self):
-         # TODO: need to test distributed switching actually.
-         return
+        # TODO: need to test distributed switching actually.
+        return
 
 
 if __name__ == "__main__":
