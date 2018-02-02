@@ -467,19 +467,20 @@ configuration.
                 if port.mirror is not None:
                     for mirror_port in port.mirror:
                         if mirror_port in port_by_name:
-                            # Translate the port name to a number
+                            # Translate the port name to a port object
                             mirror_port = port_by_name[mirror_port]
-
-                            if port not in mirror_from_port:
-                                mirror_from_port[port] = []
-                            mirror_from_port[port].append(mirror_port)
                         else:
                             assert mirror_port in self.ports, 'mirror port %s not defined in DP %s' % (
                                 mirror_port, self.name)
-                            if self.ports[mirror_port] not in mirror_from_port:
-                                mirror_from_port[self.ports[mirror_port]] = []
-                            mirror_from_port[self.ports[mirror_port]].append(port)
-                port.mirror = []
+                            # Translate the port number to an object
+                            mirror_port = self.ports[mirror_port]
+
+                        # Add the port we have to mirror to
+                        if mirror_port not in mirror_from_port:
+                            mirror_from_port[mirror_port] = []
+                        mirror_from_port[mirror_port].append(port)
+                # Clear the mirror list of the processed ports (null implies do not mirror)
+                port.mirror = None
 
             for port, mirror_destination_port in list(mirror_from_port.items()):
                 if not port.mirror:
