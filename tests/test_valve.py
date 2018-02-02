@@ -227,6 +227,8 @@ vlans:
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
     V300 = 0x300|ofp.OFPVID_PRESENT
+    VALVES = []
+    OTHER_VALVES = []
 
 
     def setup_valve(self, config):
@@ -244,18 +246,20 @@ vlans:
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
         self.notifier.start()
-        dp = self.update_config(config, self.DP)
-        self.valve = valve_factory(dp)(dp, 'test_valve', self.notifier)
+        dps = self.update_config(config)
+        self.VALVES = [valve_factory(dp)(dp, dp.name, self.notifier) for dp in dps]
+        self.OTHER_VALVES = [valve for valve in self.VALVES if valve.dp.name != self.DP]
+        self.valve = [valve for valve in self.VALVES if valve.dp.name == self.DP][0]
         self.valve.update_config_metrics(self.metrics)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
 
-    def update_config(self, config, dp_name):
+    def update_config(self, config):
         """Update FAUCET config with config as text."""
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
         _, dps = dp_parser(self.config_file, 'test_valve')
-        return [dp for dp in dps if dp.name == dp_name][0]
+        return dps
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
@@ -267,7 +271,7 @@ vlans:
 
     def apply_new_config(self, config):
         """Update FAUCET config, and tell FAUCET config has changed."""
-        new_dp = self.update_config(config, self.DP)
+        new_dp = [dp for dp in self.update_config(config) if dp.name == self.DP][0]
         _, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
@@ -438,7 +442,7 @@ vlans:
         msg.cookie = self.valve.dp.cookie
         pkt_meta = self.valve.parse_pkt_meta(msg)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
-            other_valves=[], pkt_meta=pkt_meta)
+            other_valves=self.OTHER_VALVES, pkt_meta=pkt_meta)
         rcv_packet_ofmsgs = valve_of.valve_flowreorder(
             rcv_packet_ofmsgs)
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
