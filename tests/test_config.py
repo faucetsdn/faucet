@@ -3,12 +3,13 @@
 """Test config parsing"""
 
 import logging
+import re
 import shutil
 import tempfile
-import unittest
 import os
+import unittest
+
 from faucet import config_parser as cp
-import re
 
 LOGNAME = '/dev/null'
 
@@ -541,6 +542,24 @@ acls:
                 allow: 1
 """
         self.check_config_failure(config, cp.dp_parser)
+
+    def test_resolved_mirror_port(self):
+        """Test can use name reference to mirrored port."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            mirrored_port:
+                number: 1
+                native_vlan: office
+            2:
+                mirror: mirrored_port
+"""
+        self.check_config_success(config, cp.dp_parser)
 
     def test_vlans_on_mirror_ports(self):
         config = """
