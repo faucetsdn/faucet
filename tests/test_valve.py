@@ -758,6 +758,9 @@ acls:
     def test_lldp_beacon(self):
         self.assertTrue(self.valve.send_lldp_beacons())
 
+    def test_unknown_port(self):
+        self.set_port_up(99)
+
 
 class ValveACLTestCase(ValveTestBase):
     """Test ACL drop/allow and reloading."""

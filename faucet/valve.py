@@ -318,18 +318,22 @@ class Valve(object):
                 'reason': _decode_port_status(reason),
                 'status': port_status}})
         ofmsgs = []
-        if self.dp.ports[port_no].opstatus_reconf:
-            if reason == valve_of.ofp.OFPPR_ADD:
-                ofmsgs = self.port_add(port_no)
-            elif reason == valve_of.ofp.OFPPR_DELETE:
-                ofmsgs = self.port_delete(port_no)
-            elif reason == valve_of.ofp.OFPPR_MODIFY:
-                ofmsgs.extend(self.port_delete(port_no))
-                if port_status:
-                    ofmsgs.extend(self.port_add(port_no))
-            else:
-                self.logger.warning('Unhandled port status %s for port %u' % (
-                    reason, port_no))
+        if not self.port_no_valid(port_no):
+            return ofmsgs
+        port = self.dp.ports[port_no]
+        if not port.opstatus_reconf:
+            return ofmsgs
+        if reason == valve_of.ofp.OFPPR_ADD:
+            ofmsgs = self.port_add(port_no)
+        elif reason == valve_of.ofp.OFPPR_DELETE:
+            ofmsgs = self.port_delete(port_no)
+        elif reason == valve_of.ofp.OFPPR_MODIFY:
+            ofmsgs.extend(self.port_delete(port_no))
+            if port_status:
+                ofmsgs.extend(self.port_add(port_no))
+        else:
+            self.logger.warning('Unhandled port status %s for %s' % (
+                reason, port))
         return ofmsgs
 
     def advertise(self):
@@ -731,6 +735,15 @@ class Valve(object):
                 return learn_flows
         return []
 
+    def port_no_valid(self, port_no):
+        """Return True if supplied port number valid on this datapath."""
+        if valve_of.ignore_port(port_no):
+            return False
+        if port_no not in self.dp.ports:
+            self.logger.info('port %u unknown' % port_no)
+            return False
+        return True
+
     def parse_rcv_packet(self, in_port, vlan_vid, eth_type, data, orig_len, pkt, eth_pkt):
         """Parse a received packet into a PacketMeta instance.
 
@@ -751,6 +764,54 @@ class Valve(object):
         port = self.dp.ports[in_port]
         return valve_packet.PacketMeta(
             data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
+
+    def parse_pkt_meta(self, msg):
+        if not self.dp.running:
+            return None
+        if self.dp.cookie != msg.cookie:
+            return None
+        # Drop any packet we didn't specifically ask for
+        if msg.reason != valve_of.ofp.OFPR_ACTION:
+            return None
+        in_port = msg.match['in_port']
+        if not self.port_no_valid(in_port):
+            return None
+
+        # Truncate packet in data (OVS > 2.5 does not honor max_len)
+        msg.data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
+
+        # eth/VLAN header only
+        pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
+            msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
+        print(vlan_vid)
+        if vlan_vid is None:
+            self.logger.info(
+                'packet without VLAN header port %u' % in_port)
+            return None
+        if pkt is None:
+            self.logger.info(
+                'unparseable packet from port %u' % in_port)
+            return None
+        if vlan_vid not in self.dp.vlans:
+            self.logger.info(
+                'packet for unknown VLAN %u' % vlan_vid)
+            return None
+        pkt_meta = self.parse_rcv_packet(
+            in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
+        if not valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
+            self.logger.info(
+                'packet with non-unicast eth_src %s port %u' % (
+                    pkt_meta.eth_src, in_port))
+            return None
+        if self.dp.stack is not None:
+            if (not pkt_meta.port.stack and
+                    pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
+                    pkt_meta.vlan != pkt_meta.port.native_vlan):
+                self.logger.warning(
+                    ('packet from non-stack port number %u is not member of VLAN %u' % (
+                        pkt_meta.port.number, pkt_meta.vlan.vid)))
+                return None
+        return pkt_meta
 
     def update_config_metrics(self, metrics):
         """Update gauge/metrics for configuration.
