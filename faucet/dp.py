@@ -791,21 +791,22 @@ configuration.
                             changed_acl_ports.add(port_no)
                             old_acl_ids = old_port.acls_in
                             if old_acl_ids:
-                                old_acl_ids = [x._id for x in old_acl_ids]
+                                old_acl_ids = [acl._id for acl in old_acl_ids]
                             new_acl_ids = new_port.acls_in
                             if new_acl_ids:
-                                new_acl_ids = [x._id for x in new_acl_ids]
+                                new_acl_ids = [acl._id for acl in new_acl_ids]
                             logger.info('port %s ACL changed (ACL %s to %s)' % (
                                 port_no, old_acl_ids, new_acl_ids))
                     else:
                         changed_ports.add(port_no)
                         logger.info('port %s reconfigured (%s)' % (
                             port_no, diff(old_port.to_conf(), new_port.to_conf(), context=1)))
-                elif new_port.acls_in and len([x for x in new_port.acls_in if x in changed_acls]):
-                    # If the port has ACL changed.
-                    changed_acl_ports.add(port_no)
-                    logger.info('port %s ACL changed (ACL %s content changed)' % (
-                        port_no, [x._id for x in new_port.acls_in]))
+                elif new_port.acls_in:
+                    port_acls_changed = [acl for acl in new_port.acls_in if acl in changed_acls]
+                    if port_acls_changed:
+                        changed_acl_ports.add(port_no)
+                        logger.info('port %s ACL changed (ACL %s content changed)' % (
+                            port_no, port_acls_changed))
 
         # TODO: optimize case where only VLAN ACL changed.
         for vid in changed_vlans:
