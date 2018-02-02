@@ -1,4 +1,4 @@
-:Authors: - Abhay B
+:Authors: - Abhay B, Shivaram Mysore
 
 Faucet on HPE-Aruba Switches
 ============================
@@ -19,14 +19,29 @@ For any queries, please post your question on HPE's `SDN forum <https://communit
 Setup
 -----
 
+System & Network Requirements
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * Use Serial Console cable to login to the box.
+ * Use ``minicom`` for serial terminal @ 115Kbps.  Minicom is available on Linux and MacOS (macports) systems.
+ * Connected Port 1 of Switch to Top of the Rack (TOR) switch which had DHCP and DNS enabled.  Mac Address was programmed into DNS/DHCP Server so that IP address of 10.20.5.11 was provided to this box.
+ * Need a TFTP Server on the network with write access so that we can store system software for upgrade and also certificates.  The switch can copy files from a TFTP Server.
+
+.. tip::
+
+	How to clear the password settings
+
+	Simultaneously press "Reset" and "Clear" buttons using a paper clip.  Release "Reset" button only first.  Once the orange power light comes up (after ~5 seconds), release the "Clear" button.
+
+
 Switch
 ^^^^^^
 
 **VLAN/PORT configuration**
 
-To ensure any port/vlan configuration specified in the *faucet.yaml* file works, one needs to pre-configure all vlans on the switch. Every dataplane port on the switch is made a tagged member of every vlan. This permits FAUCET to perform flow matching and packet-out on any port/vlan combination. The control-plane port (either OOBM or a front-panel port) is kept separate, so that FAUCET does not attempt to modify the control-plane port state.
+To ensure any port/vlan configuration specified in the *faucet.yaml* file works, one needs to pre-configure all ``vlans`` on the switch. Every dataplane port on the switch is made a tagged member of every vlan. This permits FAUCET to perform flow matching and packet-out on any port/vlan combination. The control-plane port (either OOBM or a front-panel port) is kept separate, so that FAUCET does not attempt to modify the control-plane port state.
 
-* Using OOBM control-plane (3810, 5400R)
+* *Using OOBM control-plane (3810, 5400R)*
 
 .. code-block:: none
 
@@ -43,7 +58,7 @@ To ensure any port/vlan configuration specified in the *faucet.yaml* file works,
 	// Create maximum number of VLANs and tag every dataplane port available to each vlan. Takes up to 30 minutes.
 	switch (config)# vlan 2-4094 tagged all
 
-* Using VLAN control-plane (2930)
+* *Using VLAN control-plane (2930)*
 
 .. code-block:: none
 
@@ -54,10 +69,18 @@ To ensure any port/vlan configuration specified in the *faucet.yaml* file works,
 	// Reboot the box for the new max-vlan configuration to take affect.
 	switch (config)# boot system
 
+	// If you have mixed both management and control-plane vlan to a single port (port 1)
+	switch (config)# vlan 2048 untagged 1
+
+	// Alternatively, you can have a separate port for control plane traffic
 	// Create a control-plane vlan and add a single control-plane port (port 48)
 	switch (config)# vlan 2048 untagged 48
 
 	// Configure the control-plane IP address
+	// May Not be needed if you have port 1 set to DHCP/Bootp/DNS IP address of 10.20.5.11
+	switch (config)# vlan 2048 ip address 10.20.5.11/16
+
+	// Alternatively, to configure only the control-plane IP address
 	switch (config)# vlan 2048 ip address 20.0.0.1/24
 
 	// Create maximum number of VLANs and tag every dataplane port available to each vlan,
@@ -65,11 +88,14 @@ To ensure any port/vlan configuration specified in the *faucet.yaml* file works,
 	// is run on a 52-port switch, with port 48 as the control-plane. Takes up to 20 minutes.
 	switch (config)# vlan 2-2047 tagged 1-47,49-52
 
+	// Configure DNS.  Here DNS is set to a local LAN DNS server
+	switch (config)# ip dns server-address priority 1 10.20.0.1
+
 **OpenFlow configuration**
 
 Aruba switches reference a controller by ID, so first configure the controllers which will be used. The controller-interface matches the control-plane configuration above.
 
-* Using OOBM control-plane (3810, 5400R)
+* *Using OOBM control-plane (3810, 5400R)*
 
 .. code-block:: none
 
@@ -79,10 +105,16 @@ Aruba switches reference a controller by ID, so first configure the controllers 
 	// Configure an OpenFlow controller connection for FAUCET over tcp-port 6653
 	switch(openflow)# controller-id 1 ip 20.0.0.2 port 6653 controller-interface oobm
 
+	// Faucet Controller name can be FQDN
+	switch(openflow)# controller-id 1 hostname controller-1.tenant1.tenants.servicefractal.com port 6653 controller-interface oobm
+
 	// Configure an OpenFlow controller connection for Gauge over tcp-port 6654
 	switch(openflow)# controller-id 2 ip 20.0.0.2 port 6654 controller-interface oobm
 
-* Using VLAN control-plane (2930)
+	// Gauge Controller name can be FQDN
+	switch(openflow)# controller-id 2 hostname controller-1.tenant1.tenants.servicefractal.com port 6654 controller-interface oobm
+
+* *Using VLAN control-plane (2930)*
 
 .. code-block:: none
 
@@ -92,8 +124,14 @@ Aruba switches reference a controller by ID, so first configure the controllers 
 	// Configure an OpenFlow controller connection for FAUCET over tcp-port 6653
 	switch(openflow)# controller-id 1 ip 20.0.0.2 port 6653 controller-interface vlan 2048
 
+	// Faucet Controller name can be FQDN
+	switch(openflow)# controller-id 1 hostname controller-1.tenant1.tenants.servicefractal.com port 6653 controller-interface vlan 2048
+
 	// Configure an OpenFlow controller connection for Gauge over tcp-port 6654
 	switch(openflow)# controller-id 2 ip 20.0.0.2 port 6654 controller-interface vlan 2048
+
+	// Gauge Controller name can be FQDN
+	switch(openflow)# controller-id 2 hostname controller-1.tenant1.tenants.servicefractal.com port 6654 controller-interface vlan 2048
 
 Aruba switches support two OpenFlow instance types:
 
@@ -110,6 +148,11 @@ Since FAUCET is designed for a pure OpenFlow environment, we choose the "**aggre
 	// Associate the controllers to the instance
 	switch(of-inst-aggregate)# controller-id 1
 	switch(of-inst-aggregate)# controller-id 2
+
+	// Associate the controllers in secure mode to the instance
+	switch(of-inst-aggregate)# controller-id 1 secure
+	switch(of-inst-aggregate)# controller-id 2 secure
+
 
 	// Configure the OpenFlow version to be 1.3
 	switch(of-inst-aggregate)# version 1.3 only
@@ -138,13 +181,20 @@ Since FAUCET is designed for a pure OpenFlow environment, we choose the "**aggre
 	switch(openflow)# enable
 	switch(openflow)# exit
 
+	// To save the Configuration
+	switch# save
+	switch# write mem
+
+	// Show running Configuration
+	switch# show running-config
+
 	// Check the OpenFlow instance configuration (includes Datapath ID associated)
 	switch# show openflow instance aggregate
 	...
 
 	// Easier way to get the Datapath ID associated with the OpenFlow instance
 	switch# show openflow instance aggregate | include Datapath ID
-	...
+			Datapath ID                   : 00013863bbc41800
 
 At this point, OpenFlow is enabled and running on the switch. If the FAUCET controller is running and has connected to the switch successfully, you should see the FAUCET pipeline programmed on the switch.
 
@@ -183,6 +233,106 @@ At this point, OpenFlow is enabled and running on the switch. If the FAUCET cont
 
          * Denotes that the pipeline could end here.
 
+	switch# show openflow instance aggregate
+			Configured OF Version         : 1.3 only
+			Negotiated OF Version         : 1.3
+			Instance Name                 : aggregate
+			Data-path Description         : aggregate
+			Administrator Status          : Enabled
+			Member List                   : VLAN 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+			............
+			..............
+
+			Controller Id Connection Status Connection State Secure Role
+			------------- ----------------- ---------------- ------ ------
+			1             Connected         Active           Yes    Equal
+			2             Connected         Active           Yes    Equal
+
+	// To just get openflow controllers
+	switch (openflow)# show openflow controllers
+
+			Controller Information
+
+			Controller Id IP Address        Hostname          Port   Interface
+			------------- ----------------- ----------------- ------ --------------
+			1             0.0.0.0           controller-1.t... 6653   VLAN 2048
+			2             0.0.0.0           controller-1.t... 6654   VLAN 2048
+
+
+	// Copy Running Config to a TFTP Server
+	// (first enable TFTP client)
+	switch (config)# tftp client
+
+
+PKI Setup on switch
+^^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+	Root certificate container supports only one root certificate not a chain.  So, install the one that the CSR (Certificate Signing Request) is signed with.
+
+.. code-block:: none
+
+		switch# show crypto pki application
+
+			Certificate Extension Validation :
+
+			Application      SAN/CN
+			---------------- ------------
+			openflow         Disabled
+			syslog           Disabled
+
+		// Here, we create Service Fractal CA profile
+		switch (config)# crypto pki ta-profile SERVICEFRACTAL_CA
+
+		// Copy the root certificate for the SERVICEFRACTAL_CA from a tftp server
+		switch#  copy tftp ta-certificate SERVICEFRACTAL_CA 10.10.22.15 tenant1.tenants.servicefractal.com.cert.pem
+
+		switch# show crypto pki ta-profile SERVICEFRACTAL_CA
+			Profile Name    Profile Status                 CRL Configured  OCSP Configured
+			--------------- ------------------------------ --------------- ---------------
+			SERVICEFRACTAL_CA 1 certificate installed         No              No
+
+			Trust Anchor:
+			Version: 3 (0x2)
+			Serial Number: 4096 (0x1000)
+			Signature Algorithm: sha256withRSAEncryption
+			...
+			......
+
+			// Now we are ready to create a CSR so that a switch identity certificate that is accepted by the controller can be setup.
+
+		switch (config)# crypto pki identity-profile hpe_sf_switch1 subject common-name myswitch.tenant1.tenants.servicefractal.com org ServiceFractal org-unit vendor-test locality MyCity state CA country US
+
+ 		switch (config)# show crypto pki identity-profile
+			Switch Identity:
+			  ID Profile Name    : hpe_sf_switch1
+			  Common Name (CN) : myswitch.tenant1.tenants.servicefractal.com
+  			Org Unit (OU)    : vendor-test
+  			Org Name (O)     : ServiceFractal
+  			Locality (L)     : MyCity
+  			State (ST)       : CA
+  			Country (C)      : US
+
+		// Generate CSR
+		switch (config)# crypto pki create-csr certificate-name hpeswt_switch1_crt ta-profile SERVICEFRACTAL_CA usage openflow
+
+		// Copy the printed CSR request and send it to "SERVICEFRACTAL_CA"
+
+		switch (config)# show crypto pki local-certificate summary
+			Name                 Usage         Expiration     Parent / Profile
+			-------------------- ------------- -------------- --------------------
+			hpeswt_switch1_crt   Openflow      CSR            SERVICEFRACTAL_CA
+
+		// Once the signed certificate is received, copy the same to switch.
+		switch (config)# copy tftp local-certificate 10.10.22.15 myswitch.tenant1.tenants.servicefractal.com.cert.pem
+			000M Transfer is successful
+
+		switch (config)# show crypto pki local-certificate summary
+			Name                 Usage         Expiration     Parent / Profile
+			-------------------- ------------- -------------- --------------------
+			hpeswt_switch1_crt   Openflow      2019/01/02     SERVICEFRACTAL_CA
+
 
 Faucet
 ^^^^^^
@@ -206,13 +356,12 @@ On the FAUCET configuration file (``/etc/ryu/faucet/faucet.yaml``), add the data
 	                name: "port2"
 
 
-You will also need to install pipeline configuration files (these files instruct FAUCET to configure the switch
-with the right OpenFlow tables - these files and FAUCET's pipeline must match).
+You will also need to install pipeline configuration files (these files instruct FAUCET to configure the switch with the right OpenFlow tables - these files and FAUCET's pipeline must match).
 
 .. code:: console
 
-       sudo cp etc/ryu/faucet/ofproto_to_ryu.json /etc/ryu/faucet
-       sudo cp etc/ryu/faucet/aruba_pipeline.json /etc/ryu/faucet
+       $ sudo cp etc/ryu/faucet/ofproto_to_ryu.json /etc/ryu/faucet
+       $ sudo cp etc/ryu/faucet/aruba_pipeline.json /etc/ryu/faucet
 
 
 Scale
@@ -244,7 +393,7 @@ distributed amongst the 9 tables as follows:
 | FLOOD          | 300              |
 +----------------+------------------+
 
-Based on one's deployment needs, these numbers can be updated for each table (update max_entries in $(REPO_ROOT)/faucet/aruba/aruba_pipeline.json).
+Based on one's deployment needs, these numbers can be updated for each table (update max_entries in ``$(REPO_ROOT)/faucet/aruba/aruba_pipeline.json``).
 
 .. note::
 
@@ -254,8 +403,8 @@ Based on one's deployment needs, these numbers can be updated for each table (up
 Limitations
 -----------
 
-- Aruba switches currently does not support all the IPv6 related functionality inside FAUCET
-- Aruba switches currently does not support the OFPAT_DEC_NW_TTL action (so when routing, TTL will not be decremented).
+- Aruba switches currently does not support all the ``IPv6`` related functionality inside FAUCET
+- Aruba switches currently does not support the ``OFPAT_DEC_NW_TTL`` action (so when routing, TTL will not be decremented).
 
 Debug
 -----
@@ -292,6 +441,10 @@ References
 ----------
 
 - `Aruba OpenFlow Administrator Guide (16.03) <http://h20565.www2.hpe.com/hpsc/doc/public/display?sp4ts.oid=1008605435&docLocale=en_US&docId=emr_na-c05365339>`_
+-  `Aruba OS version as of Dec 2017 is 16.05 <https://h10145.www1.hpe.com/downloads/DownloadSoftware.aspx?SoftwareReleaseUId=23120&ProductNumber=JL261A&lang=&cc=&prodSeriesId=&SaidNumber=/>`_
 - `Aruba Switches <http://www.arubanetworks.com/products/networking/switches/>`_
 - `FAUCET <https://github.com/faucetsdn/faucet>`_
-
+-  `Model 2390F Product Site <https://www.hpe.com/us/en/product-catalog/networking/networking-switches/pip.aruba-2930f-switch-series.1008995294.html/>`_
+-  `2930F top level documentation <https://support.hpe.com/hpesc/public/home/productSelector?sp4ts.oid=1008995294/>`_
+- `Password settings  <https://community.arubanetworks.com/t5/Campus-Switching-and-Routing/Aruba-2930F-Web-GUI/td-p/308371/>`_
+- `PKI Setup <http://h22208.www2.hpe.com/eginfolib/networking/docs/switches/WB/15-18/5998-8152_wb_2920_asg/content/ch17.html>`_
