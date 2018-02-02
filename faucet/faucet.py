@@ -43,7 +43,6 @@ from faucet import faucet_experimental_event
 from faucet import faucet_bgp
 from faucet import faucet_metrics
 from faucet import valve_util
-from faucet import valve_packet
 from faucet import valve_of
 
 
@@ -411,50 +410,9 @@ class Faucet(app_manager.RyuApp):
         valve = self._get_valve(ryu_dp, 'packet_in_handler', msg)
         if valve is None:
             return
-        if not valve.dp.running:
+        pkt_meta = valve.parse_pkt_meta(msg)
+        if pkt_meta is None:
             return
-        if valve.dp.cookie != msg.cookie:
-            return
-        # Drop any packet we didn't specifically ask for
-        if msg.reason != valve_of.ofp.OFPR_ACTION:
-            return
-        in_port = msg.match['in_port']
-        if not valve.port_no_valid(in_port):
-            return
-
-        # Truncate packet in data (OVS > 2.5 does not honor max_len)
-        msg.data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
-
-        # eth/VLAN header only
-        pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
-            msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
-        if vlan_vid is None:
-            self.logger.info(
-                'packet without VLAN header from %s port %s', dpid_log(dp_id), in_port)
-            return
-        if pkt is None:
-            self.logger.info(
-                'unparseable packet from %s port %s', dpid_log(dp_id), in_port)
-            return
-        if vlan_vid not in valve.dp.vlans:
-            self.logger.info(
-                'packet for unknown VLAN %u from %s', vlan_vid, dpid_log(dp_id))
-            return
-        pkt_meta = valve.parse_rcv_packet(
-            in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
-        if not valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
-            self.logger.info(
-                'packet with non-unicast eth_src %s port %u from %s',
-                pkt_meta.eth_src, in_port, dpid_log(dp_id))
-            return
-        if valve.dp.stack is not None:
-            if (not pkt_meta.port.stack and
-                    pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
-                    pkt_meta.vlan != pkt_meta.port.native_vlan):
-                self.logger.warning(
-                    ('packet from non-stack port number %u is not member of VLAN %u' % (
-                        pkt_meta.port.number, pkt_meta.vlan.vid)))
-                return
         other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
         self.metrics.of_packet_ins.labels( # pylint: disable=no-member
             **valve.base_prom_labels).inc()
