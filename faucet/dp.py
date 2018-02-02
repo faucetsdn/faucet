@@ -426,14 +426,14 @@ configuration.
     def finalize_config(self, dps):
         """Perform consistency checks after initial config parsing."""
 
-        def resolve_port_no(port_name):
+        def resolve_port(port_name):
             """Resolve port by name or number."""
             assert isinstance(port_name, (str, int)), (
-                'VLAN must be type %s or %s not %s' % (str, int, type(port_name)))
+                'Port must be type %s or %s not %s' % (str, int, type(port_name)))
             if port_name in port_by_name:
-                return port_by_name[port_name].number
+                return port_by_name[port_name]
             elif port_name in self.ports:
-                return port_name
+                return self.ports[port_name]
             return None
 
         def resolve_vlan(vlan_name):
@@ -479,11 +479,9 @@ configuration.
                             if self.ports[mirror_port] not in mirror_from_port:
                                 mirror_from_port[self.ports[mirror_port]] = []
                             mirror_from_port[self.ports[mirror_port]].append(port)
-                port.mirror = []
 
             for port, mirror_destination_port in list(mirror_from_port.items()):
-                if not port.mirror:
-                    port.mirror = []
+                port.mirror = []
                 for mirror_port in mirror_destination_port:
                     port.mirror.append(mirror_port.number)
                     mirror_port.output_only = True
@@ -500,11 +498,11 @@ configuration.
 
             def resolve_mirror(acl, action_conf):
                 port_name = action_conf
-                port_no = resolve_port_no(port_name)
+                port = resolve_port(port_name)
                 # If this DP does not have this port, do nothing.
-                if port_no is not None:
-                    action_conf = port_no
-                    acl.mirror_destinations.add(port_no)
+                if port is not None:
+                    action_conf = port.number
+                    acl.mirror_destinations.add(port.number)
                     return action_conf
                 return None
 
@@ -514,10 +512,10 @@ configuration.
                 for output_action, output_action_values in list(action_conf.items()):
                     if output_action == 'port':
                         port_name = output_action_values
-                        port_no = resolve_port_no(port_name)
+                        port = resolve_port(port_name)
                         # If this DP does not have this port, do not output.
-                        if port_no is not None:
-                            resolved_action_conf[output_action] = port_no
+                        if port is not None:
+                            resolved_action_conf[output_action] = port.number
                     elif output_action == 'failover':
                         failover = output_action_values
                         assert isinstance(failover, dict)
@@ -526,9 +524,9 @@ configuration.
                             if failover_name == 'ports':
                                 resolved_ports = []
                                 for port_name in failover_values:
-                                    port_no = resolve_port_no(port_name)
-                                    if port_no is not None:
-                                        resolved_ports.append(port_no)
+                                    port = resolve_port(port_name)
+                                    if port is not None:
+                                        resolved_ports.append(port.number)
                                 resolved_action_conf[output_action][failover_name] = resolved_ports
                             else:
                                 resolved_action_conf[output_action][failover_name] = failover_values
