@@ -499,16 +499,22 @@ class ValveTestCase(ValveTestBase):
             else:
                 valve_vlan = self.valve.dp.get_native_vlan(in_port)
 
-            all_ports = set(self.valve.dp.ports.values())
-            remaining_ports = all_ports - set(valve_vlan.get_ports())
+            all_ports = set([port for port in self.valve.dp.ports.values() if port.running()])
+            remaining_ports = all_ports - set([port for port in valve_vlan.get_ports() if port.running])
 
             # Packet must be flooded to all ports on the VLAN.
             for port in valve_vlan.get_ports():
-                if port.number != in_port and port.running():
-                    if valve_vlan.port_is_tagged(port):
-                        vid = valve_vlan.vid|ofp.OFPVID_PRESENT
-                    else:
-                        vid = 0
+                if valve_vlan.port_is_tagged(port):
+                    vid = valve_vlan.vid|ofp.OFPVID_PRESENT
+                else:
+                    vid = 0
+                if port.number == in_port:
+                    self.assertFalse(
+                        self.table.is_output(match, port=port.number, vid=vid),
+                        msg=('Packet %s with unknown eth_dst flooded back to input port'
+                             ' on VLAN %u to port %u' % (
+                                 match, valve_vlan.vid, port.number)))
+                else:
                     self.assertTrue(
                         self.table.is_output(match, port=port.number, vid=vid),
                         msg=('Packet %s with unknown eth_dst not flooded'
