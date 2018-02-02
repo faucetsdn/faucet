@@ -622,8 +622,6 @@ class Faucet(app_manager.RyuApp):
         if not valve.dp.running:
             return
         port_no = msg.desc.port_no
-        if not valve.port_no_valid(port_no):
-            return
         ofp = msg.datapath.ofproto
         reason = msg.reason
         port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN

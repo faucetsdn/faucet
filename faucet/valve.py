@@ -318,9 +318,11 @@ class Valve(object):
                 'reason': _decode_port_status(reason),
                 'status': port_status}})
         ofmsgs = []
+        if not self.port_no_valid(port_no):
+            return ofmsgs
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
-            return
+            return ofmsgs
         if reason == valve_of.ofp.OFPPR_ADD:
             ofmsgs = self.port_add(port_no)
         elif reason == valve_of.ofp.OFPPR_DELETE:
@@ -738,7 +740,7 @@ class Valve(object):
         if valve_of.ignore_port(port_no):
             return False
         if port_no not in self.dp.ports:
-            self.logger.warning('port %u unknown' % port_no)
+            self.logger.info('port %u unknown' % port_no)
             return False
         return True
 
