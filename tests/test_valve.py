@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple
 import ipaddress
 import logging
 import os
@@ -96,7 +97,7 @@ def build_pkt(pkt):
         ethertype=tpid)
     layers.append(eth)
     result = serialize(layers)
-    return (result, ethertype)
+    return result
 
 
 class ValveTestBase(unittest.TestCase):
@@ -374,10 +375,23 @@ vlans:
         self.learn_hosts()
 
     def rcv_packet(self, port, vid, match):
-        pkt, eth_type = build_pkt(match)
-        eth_pkt = valve_packet.parse_eth_pkt(pkt)
-        pkt_meta = self.valve.parse_rcv_packet(
-            port, vid, eth_type, pkt.data, len(pkt.data), pkt, eth_pkt)
+        pkt = build_pkt(match)
+        vlan_pkt = pkt
+        # TODO: packet submitted to packet in always has VID
+        # Fake OF switch implementation should do this by applying actions.
+        if vid not in match:
+            vlan_match = match
+            vlan_match['vid'] = vid
+            vlan_pkt = build_pkt(match)
+        msg = namedtuple(
+            'null_msg',
+            ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))
+        msg.reason = valve_of.ofp.OFPR_ACTION
+        msg.data = vlan_pkt.data
+        msg.total_len = len(msg.data)
+        msg.match = {'in_port': port}
+        msg.cookie = self.valve.dp.cookie
+        pkt_meta = self.valve.parse_pkt_meta(msg)
         rcv_packet_ofmsgs = self.valve.rcv_packet(
             other_valves=[], pkt_meta=pkt_meta)
         rcv_packet_ofmsgs = valve_of.valve_flowreorder(
