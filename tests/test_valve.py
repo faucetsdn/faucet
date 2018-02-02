@@ -226,6 +226,8 @@ vlans:
     FAUCET_MAC = '0e:00:00:00:00:01'
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
+    V300 = 0x300|ofp.OFPVID_PRESENT
+
 
     def setup_valve(self, config):
         """Set up test DP with config."""
@@ -369,6 +371,49 @@ vlans:
             'ipv4_dst': '10.0.0.4',
             'vid': 0x200})
 
+    def verify_flooding(self, matches):
+        for match in matches:
+            in_port = match['in_port']
+
+            if ('vlan_vid' in match and
+                    match['vlan_vid'] & ofp.OFPVID_PRESENT is not 0):
+                valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
+            else:
+                valve_vlan = self.valve.dp.get_native_vlan(in_port)
+
+            all_ports = set([port for port in self.valve.dp.ports.values() if port.running()])
+            remaining_ports = all_ports - set([port for port in valve_vlan.get_ports() if port.running])
+
+            # Packet must be flooded to all ports on the VLAN.
+            for port in valve_vlan.get_ports():
+                if valve_vlan.port_is_tagged(port):
+                    vid = valve_vlan.vid|ofp.OFPVID_PRESENT
+                else:
+                    vid = 0
+                if port.number == in_port:
+                    self.assertFalse(
+                        self.table.is_output(match, port=port.number, vid=vid),
+                        msg=('Packet %s with unknown eth_dst flooded back to input port'
+                             ' on VLAN %u to port %u' % (
+                                 match, valve_vlan.vid, port.number)))
+                else:
+                    self.assertTrue(
+                        self.table.is_output(match, port=port.number, vid=vid),
+                        msg=('Packet %s with unknown eth_dst not flooded'
+                             ' on VLAN %u to port %u' % (
+                                 match, valve_vlan.vid, port.number)))
+
+            # Packet must not be flooded to ports not on the VLAN.
+            for port in remaining_ports:
+                if port.stack:
+                    self.assertTrue(
+                        self.table.is_output(match, port=port.number),
+                        msg=('Packet with unknown eth_dst not flooded to stack port %s' % port))
+                else:
+                    self.assertFalse(
+                        self.table.is_output(match, port=port.number),
+                        msg=('Packet with unknown eth_dst flooded to non-VLAN %s' % port))
+
     def setUp(self):
         self.setup_valve(self.CONFIG)
         self.connect_dp()
@@ -488,44 +533,10 @@ class ValveTestCase(ValveTestBase):
             {
                 'in_port': 3,
                 'vlan_vid': self.V200,
-                'eth_dst': self.P1_V100_MAC
-            }]
-        for match in matches:
-            in_port = match['in_port']
-
-            if ('vlan_vid' in match and
-                    match['vlan_vid'] & ofp.OFPVID_PRESENT is not 0):
-                valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
-            else:
-                valve_vlan = self.valve.dp.get_native_vlan(in_port)
-
-            all_ports = set([port for port in self.valve.dp.ports.values() if port.running()])
-            remaining_ports = all_ports - set([port for port in valve_vlan.get_ports() if port.running])
-
-            # Packet must be flooded to all ports on the VLAN.
-            for port in valve_vlan.get_ports():
-                if valve_vlan.port_is_tagged(port):
-                    vid = valve_vlan.vid|ofp.OFPVID_PRESENT
-                else:
-                    vid = 0
-                if port.number == in_port:
-                    self.assertFalse(
-                        self.table.is_output(match, port=port.number, vid=vid),
-                        msg=('Packet %s with unknown eth_dst flooded back to input port'
-                             ' on VLAN %u to port %u' % (
-                                 match, valve_vlan.vid, port.number)))
-                else:
-                    self.assertTrue(
-                        self.table.is_output(match, port=port.number, vid=vid),
-                        msg=('Packet %s with unknown eth_dst not flooded'
-                             ' on VLAN %u to port %u' % (
-                                 match, valve_vlan.vid, port.number)))
-
-            # Packet must not be flooded to ports not on the VLAN.
-            for port in remaining_ports:
-                self.assertFalse(
-                    self.table.is_output(match, port=port.number),
-                    msg=('Packet with unknown eth_dst flooded to non-VLAN %s' % port))
+                'eth_src': self.P2_V200_MAC,
+            }
+        ]
+        self.verify_flooding(matches)
 
     def test_known_eth_src_rule(self):
         """Test that packets with known eth src addrs are not sent to controller."""
@@ -1045,9 +1056,14 @@ class ValveStackTestCase(ValveTestBase):
     def learn_hosts(self):
         return
 
-    def test_stack(self):
-        # TODO: need to test distributed switching actually.
-        return
+    def test_stack_flood(self):
+        matches = [
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V100_MAC
+            }]
+        self.verify_flooding(matches)
 
 
 if __name__ == "__main__":
