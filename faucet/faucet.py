@@ -123,9 +123,9 @@ class Faucet(app_manager.RyuApp):
         self.metrics = faucet_metrics.FaucetMetrics()
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             get_setting('FAUCET_EVENT_SOCK'), self.metrics, self.logger)
+        self.bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
         self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.metrics, self.notifier)
-        self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
+            self.logname, self.logger, self.metrics, self.notifier, self.bgp)
 
     @kill_on_exception(exc_logname)
     def start(self):
@@ -213,7 +213,7 @@ class Faucet(app_manager.RyuApp):
             ryu_dp = self.dpset.get(deleted_valve_dpid)
             if ryu_dp is not None:
                 ryu_dp.close()
-        self._bgp.reset(self.valves_manager.valves, self.metrics)
+        self.valves_manager.update_configs()
 
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
@@ -359,7 +359,6 @@ class Faucet(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
-        self._bgp.update_metrics()
         self.valves_manager.update_metrics()
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)

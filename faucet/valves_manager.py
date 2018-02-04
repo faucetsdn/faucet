@@ -1,6 +1,7 @@
 """Manage a collection of Valves."""
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-instance-attributes
 
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
@@ -23,16 +24,22 @@
 class ValvesManager(object):
     """Manage a collection of Valves."""
 
-    def __init__(self, logname, logger, metrics, notifier):
+    def __init__(self, logname, logger, metrics, notifier, bgp):
         self.logname = logname
         self.logger = logger
         self.metrics = metrics
         self.notifier = notifier
+        self.bgp = bgp
         self.valves = {}
         self.config_hashes = None
         self.config_file_stats = None
 
     def update_metrics(self):
         """Update metrics in all Valves."""
+        self.bgp.update_metrics()
         for valve in list(self.valves.values()):
             valve.update_metrics(self.metrics)
+
+    def update_configs(self):
+        """Update configs in all Valves."""
+        self.bgp.reset(self.valves, self.metrics)
