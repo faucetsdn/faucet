@@ -360,8 +360,7 @@ class Faucet(app_manager.RyuApp):
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
         self._bgp.update_metrics()
-        for valve in list(self.valves_manager.valves.values()):
-            valve.update_metrics(self.metrics)
+        self.valves_manager.update_metrics()
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)

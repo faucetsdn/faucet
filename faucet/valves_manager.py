@@ -31,3 +31,8 @@ class ValvesManager(object):
         self.valves = {}
         self.config_hashes = None
         self.config_file_stats = None
+
+    def update_metrics(self):
+        """Update metrics in all Valves."""
+        for valve in list(self.valves.values()):
+            valve.update_metrics(self.metrics)
