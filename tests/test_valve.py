@@ -35,7 +35,9 @@ from prometheus_client import CollectorRegistry
 
 from faucet.config_parser import dp_parser
 from faucet.valve import valve_factory
+from faucet import faucet_bgp
 from faucet import faucet_experimental_event
+from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_of
 from faucet import valve_packet
@@ -236,6 +238,7 @@ vlans:
         self.tmpdir = tempfile.mkdtemp()
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
         self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
+        self.logname = 'faucet'
         self.logfile = os.path.join(self.tmpdir, 'faucet.log')
         self.table = FakeOFTable(self.NUM_TABLES)
         self.logger = valve_util.get_logger('faucet', self.logfile, logging.DEBUG, 0)
@@ -245,6 +248,9 @@ vlans:
         # TODO: verify events
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
+        self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, None)
+        self.valves_manager = valves_manager.ValvesManager(
+            self.logname, self.logger, self.metrics, self.notifier, self.bgp)
         self.notifier.start()
         dps = self.update_config(config)
         self.VALVES = [valve_factory(dp)(dp, dp.name, self.notifier) for dp in dps]
