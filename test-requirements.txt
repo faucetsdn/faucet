@@ -13,4 +13,4 @@ pylint
 pytest-cov
 pyyaml
 requests
-ryu==4.21
+ryu==4.22

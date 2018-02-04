@@ -41,6 +41,7 @@ from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_bgp
+from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_util
 from faucet import valve_of
@@ -119,7 +120,7 @@ class Faucet(app_manager.RyuApp):
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
-        self.valves = {}
+        self.valves_manager = valves_manager.ValvesManager()
         self.config_hashes = None
         self.config_file_stats = None
         self.metrics = faucet_metrics.FaucetMetrics()
@@ -163,7 +164,7 @@ class Faucet(app_manager.RyuApp):
 
     def _apply_configs_existing(self, dp_id, new_dp):
         logging.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
-        valve = self.valves[dp_id]
+        valve = self.valves_manager.valves[dp_id]
         cold_start, flowmods = valve.reload_config(new_dp)
         if flowmods:
             if cold_start:
@@ -194,26 +195,26 @@ class Faucet(app_manager.RyuApp):
     def _apply_configs(self, new_dps):
         """Actually apply configs, if there were any differences."""
         deleted_valve_dpids = (
-            set(list(self.valves.keys())) -
+            set(list(self.valves_manager.valves.keys())) -
             set([valve.dp_id for valve in new_dps]))
         for new_dp in new_dps:
             dp_id = new_dp.dp_id
-            if dp_id in self.valves:
+            if dp_id in self.valves_manager.valves:
                 valve = self._apply_configs_existing(dp_id, new_dp)
             else:
                 valve = self._apply_configs_new(dp_id, new_dp)
             if valve is not None:
-                self.valves[dp_id] = valve
+                self.valves_manager.valves[dp_id] = valve
                 self.metrics.reset_dpid(valve.base_prom_labels)
                 valve.update_config_metrics(self.metrics)
         for deleted_valve_dpid in deleted_valve_dpids:
             self.logger.info(
                 'Deleting de-configured %s', dpid_log(deleted_valve_dpid))
-            del self.valves[deleted_valve_dpid]
+            del self.valves_manager.valves[deleted_valve_dpid]
             ryu_dp = self.dpset.get(deleted_valve_dpid)
             if ryu_dp is not None:
                 ryu_dp.close()
-        self._bgp.reset(self.valves, self.metrics)
+        self._bgp.reset(self.valves_manager.valves, self.metrics)
 
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
@@ -240,11 +241,11 @@ class Faucet(app_manager.RyuApp):
             if not ryu_dp:
                 self.logger.error('send_flow_msgs: %s not up', dpid_log(dp_id))
                 return
-            if dp_id not in self.valves:
+            if dp_id not in self.valves_manager.valves:
                 self.logger.error('send_flow_msgs: unknown %s', dpid_log(dp_id))
                 return
 
-        valve = self.valves[dp_id]
+        valve = self.valves_manager.valves[dp_id]
         reordered_flow_msgs = valve_of.valve_flowreorder(flow_msgs)
         valve.ofchannel_log(reordered_flow_msgs)
         for flow_msg in reordered_flow_msgs:
@@ -267,8 +268,8 @@ class Faucet(app_manager.RyuApp):
             Valve instance or None.
         """
         dp_id = ryu_dp.id
-        if dp_id in self.valves:
-            valve = self.valves[dp_id]
+        if dp_id in self.valves_manager.valves:
+            valve = self.valves_manager.valves[dp_id]
             if msg:
                 valve.ofchannel_log([msg])
             return valve
@@ -338,7 +339,7 @@ class Faucet(app_manager.RyuApp):
 
     def _valve_flow_services(self, valve_service):
         """Call a method on all Valves and send any resulting flows."""
-        for dp_id, valve in list(self.valves.items()):
+        for dp_id, valve in list(self.valves_manager.valves.items()):
             flowmods = getattr(valve, valve_service)()
             if flowmods:
                 self._send_flow_msgs(dp_id, flowmods)
@@ -360,7 +361,7 @@ class Faucet(app_manager.RyuApp):
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
         self._bgp.update_metrics()
-        for valve in list(self.valves.values()):
+        for valve in list(self.valves_manager.valves.values()):
             valve.update_metrics(self.metrics)
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
@@ -377,11 +378,11 @@ class Faucet(app_manager.RyuApp):
 
     def get_config(self):
         """FAUCET experimental API: return config for all Valves."""
-        return get_config_for_api(self.valves)
+        return get_config_for_api(self.valves_manager.valves)
 
     def get_tables(self, dp_id):
         """FAUCET experimental API: return config tables for one Valve."""
-        return self.valves[dp_id].dp.get_tables()
+        return self.valves_manager.valves[dp_id].dp.get_tables()
 
     @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -413,7 +414,7 @@ class Faucet(app_manager.RyuApp):
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
             return
-        other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
+        other_valves = [other_valve for other_valve in list(self.valves_manager.valves.values()) if valve != other_valve]
         self.metrics.of_packet_ins.labels( # pylint: disable=no-member
             **valve.base_prom_labels).inc()
         packet_in_start = time.time()
