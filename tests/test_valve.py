@@ -248,9 +248,11 @@ vlans:
         # TODO: verify events
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
-        self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, None)
+        # TODO: test callback DP communication
+        self.send_flows_to_dp_by_id = None
+        self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
         self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.metrics, self.notifier, self.bgp)
+            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
         dps = self.update_config(config)
         self.VALVES = [valve_factory(dp)(dp, dp.name, self.notifier) for dp in dps]

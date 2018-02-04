@@ -30,12 +30,24 @@ class ValvesManager(object):
     config_hashes = None
     config_file_stats = None
 
-    def __init__(self, logname, logger, metrics, notifier, bgp): # pylint: disable=too-many-arguments
+    def __init__(self, logname, logger, metrics, notifier, bgp,
+                 send_flows_to_dp_by_id):
+        """Initialize ValvesManager.
+
+        Args:
+            logname (str): log name to use in logging.
+            logger  (logging.logging): logger instance to use for logging.
+            metrics (FaucetMetrics): metrics instance.
+            notifier (FaucetExperimentalEvent): event notifier instance.
+            bgp (FaucetBgp): BGP instance.
+            send_flows_to_dp_by_id: callable, two args - DP ID and list of flows to send to DP.
+        """
         self.logname = logname
         self.logger = logger
         self.metrics = metrics
         self.notifier = notifier
         self.bgp = bgp
+        self.send_flows_to_dp_by_id = send_flows_to_dp_by_id
 
     def config_files_changed(self):
         """Return True if any config files changed."""

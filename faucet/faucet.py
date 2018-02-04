@@ -123,7 +123,7 @@ class Faucet(app_manager.RyuApp):
             get_setting('FAUCET_EVENT_SOCK'), self.metrics, self.logger)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
         self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.metrics, self.notifier, self.bgp)
+            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self._send_flow_msgs)
 
     @kill_on_exception(exc_logname)
     def start(self):
