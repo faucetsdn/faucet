@@ -1,8 +1,5 @@
 """Manage a collection of Valves."""
 
-# pylint: disable=too-many-arguments
-# pylint: disable=too-many-instance-attributes
-
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -20,19 +17,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from faucet.valve_util import stat_config_files
+
 
 class ValvesManager(object):
     """Manage a collection of Valves."""
 
-    def __init__(self, logname, logger, metrics, notifier, bgp):
+    valves = {} # type: dict
+    config_hashes = None
+    config_file_stats = None
+
+    def __init__(self, logname, logger, metrics, notifier, bgp): # pylint: disable=too-many-arguments
         self.logname = logname
         self.logger = logger
         self.metrics = metrics
         self.notifier = notifier
         self.bgp = bgp
-        self.valves = {}
-        self.config_hashes = None
-        self.config_file_stats = None
+
+    def config_files_changed(self):
+        """Return True if any config files changed."""
+        changed = False
+        if self.config_hashes:
+            new_config_file_stats = stat_config_files(self.config_hashes)
+            if self.config_file_stats:
+                if new_config_file_stats != self.config_file_stats:
+                    changed = True
+            self.config_file_stats = new_config_file_stats
+        return changed
 
     def update_metrics(self):
         """Update metrics in all Valves."""

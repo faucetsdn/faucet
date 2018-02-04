@@ -310,15 +310,9 @@ class Faucet(app_manager.RyuApp):
         """Periodically stat config files for any changes."""
         # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         while True:
-            if self.valves_manager.config_hashes:
-                new_config_file_stats = valve_util.stat_config_files(
-                    self.valves_manager.config_hashes)
-                if self.valves_manager.config_file_stats:
-                    if new_config_file_stats != self.valves_manager.config_file_stats:
-                        if self.stat_reload:
-                            self.send_event('Faucet', EventFaucetReconfigure())
-                        self.logger.info('config file(s) changed on disk')
-                self.valves_manager.config_file_stats = new_config_file_stats
+            if self.stat_reload and self.valves_manager.config_files_changed():
+                self.logger.info('config file(s) changed on disk')
+                self.send_event('Faucet', EventFaucetReconfigure())
             self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
