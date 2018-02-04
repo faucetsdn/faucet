@@ -17,6 +17,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from faucet.conf import InvalidConfigError
+from faucet.config_parser_util import config_changed
+from faucet.config_parser import dp_parser
 from faucet.valve_util import stat_config_files
 
 
@@ -41,9 +44,24 @@ class ValvesManager(object):
             new_config_file_stats = stat_config_files(self.config_hashes)
             if self.config_file_stats:
                 if new_config_file_stats != self.config_file_stats:
+                    self.logger.info('config file(s) changed on disk')
                     changed = True
             self.config_file_stats = new_config_file_stats
         return changed
+
+    def config_changed(self, config_file, new_config_file):
+        """Return True if config file content actually changed."""
+        return config_changed(config_file, new_config_file, self.config_hashes)
+
+    def parse_configs(self, config_file):
+        """Return parsed configs for Valves, or None."""
+        try:
+            new_config_hashes, new_dps = dp_parser(config_file, self.logname)
+        except InvalidConfigError as err:
+            self.logger.error('New config bad (%s) - rejecting', err)
+            return None
+        self.config_hashes = new_config_hashes
+        return new_dps
 
     def update_metrics(self):
         """Update metrics in all Valves."""

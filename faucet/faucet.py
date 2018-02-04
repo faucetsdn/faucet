@@ -33,9 +33,7 @@ from ryu.controller import event
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
-from faucet.conf import InvalidConfigError
-from faucet.config_parser import dp_parser, get_config_for_api
-from faucet.config_parser_util import config_changed
+from faucet.config_parser import get_config_for_api
 from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_experimental_api
@@ -217,14 +215,10 @@ class Faucet(app_manager.RyuApp):
 
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
-        try:
-            new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
+        new_dps = self.valves_manager.parse_configs(new_config_file)
+        if new_dps is not None:
             self.config_file = new_config_file
-            self.valves_manager.config_hashes = new_config_hashes
             self._apply_configs(new_dps)
-        except InvalidConfigError as err:
-            self.logger.error('New config bad (%s) - rejecting', err)
-            return
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
@@ -311,7 +305,6 @@ class Faucet(app_manager.RyuApp):
         # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         while True:
             if self.stat_reload and self.valves_manager.config_files_changed():
-                self.logger.info('config file(s) changed on disk')
                 self.send_event('Faucet', EventFaucetReconfigure())
             self._thread_jitter(3)
 
@@ -381,7 +374,7 @@ class Faucet(app_manager.RyuApp):
         """Handle a request to reload configuration."""
         self.logger.info('request to reload configuration')
         new_config_file = self.config_file
-        if config_changed(self.config_file, new_config_file, self.valves_manager.config_hashes):
+        if self.valves_manager.config_changed(self.config_file, new_config_file):
             self.logger.info('configuration %s changed, analyzing differences', new_config_file)
             self._load_configs(new_config_file)
         else:
