@@ -42,4 +42,4 @@ class ValvesManager(object):
 
     def update_configs(self):
         """Update configs in all Valves."""
-        self.bgp.reset(self.valves, self.metrics)
+        self.bgp.reset(self.valves)
