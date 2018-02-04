@@ -229,7 +229,6 @@ vlans:
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
     V300 = 0x300|ofp.OFPVID_PRESENT
-    VALVES = []
     OTHER_VALVES = []
 
 
@@ -255,10 +254,14 @@ vlans:
             self.logname, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
         dps = self.update_config(config)
-        self.VALVES = [valve_factory(dp)(dp, dp.name, self.notifier) for dp in dps]
-        self.OTHER_VALVES = [valve for valve in self.VALVES if valve.dp.name != self.DP]
-        self.valve = [valve for valve in self.VALVES if valve.dp.name == self.DP][0]
-        self.valve.update_config_metrics(self.metrics)
+        for dp in dps:
+            valve = valve_factory(dp)(dp, dp.name, self.notifier)
+            self.valves_manager.valves[dp.dp_id] = valve
+            if valve.dp.name == self.DP:
+                self.valve = valve
+            else:
+                self.OTHER_VALVES.append(valve)
+        self.valves_manager.update_configs()
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
 

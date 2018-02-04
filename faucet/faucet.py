@@ -189,11 +189,21 @@ class Faucet(app_manager.RyuApp):
             sorted(list(SUPPORTED_HARDWARE.keys())))
         return None
 
-    def _apply_configs(self, new_dps):
-        """Actually apply configs, if there were any differences."""
+    def _delete_deconfigured_dps(self, new_dps):
         deleted_valve_dpids = (
             set(list(self.valves_manager.valves.keys())) -
             set([valve.dp_id for valve in new_dps]))
+        for deleted_valve_dpid in deleted_valve_dpids:
+            self.logger.info(
+                'Deleting de-configured %s', dpid_log(deleted_valve_dpid))
+            del self.valves_manager.valves[deleted_valve_dpid]
+            ryu_dp = self.dpset.get(deleted_valve_dpid)
+            if ryu_dp is not None:
+                ryu_dp.close()
+
+    def _apply_configs(self, new_dps):
+        """Actually apply configs, if there were any differences."""
+        self._delete_deconfigured_dps(_new_dps)
         for new_dp in new_dps:
             dp_id = new_dp.dp_id
             if dp_id in self.valves_manager.valves:
@@ -202,15 +212,6 @@ class Faucet(app_manager.RyuApp):
                 valve = self._apply_configs_new(dp_id, new_dp)
             if valve is not None:
                 self.valves_manager.valves[dp_id] = valve
-                self.metrics.reset_dpid(valve.base_prom_labels)
-                valve.update_config_metrics(self.metrics)
-        for deleted_valve_dpid in deleted_valve_dpids:
-            self.logger.info(
-                'Deleting de-configured %s', dpid_log(deleted_valve_dpid))
-            del self.valves_manager.valves[deleted_valve_dpid]
-            ryu_dp = self.dpset.get(deleted_valve_dpid)
-            if ryu_dp is not None:
-                ryu_dp.close()
         self.valves_manager.update_configs()
 
     @kill_on_exception(exc_logname)
@@ -325,10 +326,7 @@ class Faucet(app_manager.RyuApp):
 
     def _valve_flow_services(self, valve_service):
         """Call a method on all Valves and send any resulting flows."""
-        for dp_id, valve in list(self.valves_manager.valves.items()):
-            flowmods = getattr(valve, valve_service)()
-            if flowmods:
-                self._send_flow_msgs(dp_id, flowmods)
+        self.valves_manager.valve_flow_services()
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)

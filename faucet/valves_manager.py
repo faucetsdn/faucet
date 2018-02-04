@@ -77,10 +77,20 @@ class ValvesManager(object):
 
     def update_metrics(self):
         """Update metrics in all Valves."""
-        self.bgp.update_metrics()
         for valve in list(self.valves.values()):
             valve.update_metrics(self.metrics)
+        self.bgp.update_metrics()
 
     def update_configs(self):
         """Update configs in all Valves."""
+        for valve in list(self.valves.values()):
+            self.metrics.reset_dpid(valve.base_prom_labels)
+            valve.update_config_metrics(self.metrics)
         self.bgp.reset(self.valves)
+
+    def valve_flow_services(self, valve_service):
+        """Call a method on all Valves and send any resulting flows."""
+        for dp_id, valve in list(self.valves.items()):
+            flowmods = getattr(valve, valve_service)()
+            if flowmods:
+                self.send_flows_to_dp_by_id(dp_id, flowmods)
