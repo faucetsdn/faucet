@@ -23,5 +23,11 @@
 class ValvesManager(object):
     """Manage a collection of Valves."""
 
-    def __init__(self):
+    def __init__(self, logname, logger, metrics, notifier):
+        self.logname = logname
+        self.logger = logger
+        self.metrics = metrics
+        self.notifier = notifier
         self.valves = {}
+        self.config_hashes = None
+        self.config_file_stats = None

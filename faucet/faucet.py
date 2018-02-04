@@ -120,12 +120,11 @@ class Faucet(app_manager.RyuApp):
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
-        self.valves_manager = valves_manager.ValvesManager()
-        self.config_hashes = None
-        self.config_file_stats = None
         self.metrics = faucet_metrics.FaucetMetrics()
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             get_setting('FAUCET_EVENT_SOCK'), self.metrics, self.logger)
+        self.valves_manager = valves_manager.ValvesManager(
+            self.logname, self.logger, self.metrics, self.notifier)
         self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
 
     @kill_on_exception(exc_logname)
@@ -221,7 +220,7 @@ class Faucet(app_manager.RyuApp):
         try:
             new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
             self.config_file = new_config_file
-            self.config_hashes = new_config_hashes
+            self.valves_manager.config_hashes = new_config_hashes
             self._apply_configs(new_dps)
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
@@ -311,15 +310,15 @@ class Faucet(app_manager.RyuApp):
         """Periodically stat config files for any changes."""
         # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         while True:
-            if self.config_hashes:
+            if self.valves_manager.config_hashes:
                 new_config_file_stats = valve_util.stat_config_files(
-                    self.config_hashes)
-                if self.config_file_stats:
-                    if new_config_file_stats != self.config_file_stats:
+                    self.valves_manager.config_hashes)
+                if self.valves_manager.config_file_stats:
+                    if new_config_file_stats != self.valves_manager.config_file_stats:
                         if self.stat_reload:
                             self.send_event('Faucet', EventFaucetReconfigure())
                         self.logger.info('config file(s) changed on disk')
-                self.config_file_stats = new_config_file_stats
+                self.valves_manager.config_file_stats = new_config_file_stats
             self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
@@ -390,7 +389,7 @@ class Faucet(app_manager.RyuApp):
         """Handle a request to reload configuration."""
         self.logger.info('request to reload configuration')
         new_config_file = self.config_file
-        if config_changed(self.config_file, new_config_file, self.config_hashes):
+        if config_changed(self.config_file, new_config_file, self.valves_manager.config_hashes):
             self.logger.info('configuration %s changed, analyzing differences', new_config_file)
             self._load_configs(new_config_file)
         else:
