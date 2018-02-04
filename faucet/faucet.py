@@ -33,9 +33,7 @@ from ryu.controller import event
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
-from faucet.conf import InvalidConfigError
-from faucet.config_parser import dp_parser, get_config_for_api
-from faucet.config_parser_util import config_changed
+from faucet.config_parser import get_config_for_api
 from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
 from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_experimental_api
@@ -120,13 +118,12 @@ class Faucet(app_manager.RyuApp):
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
 
-        self.valves_manager = valves_manager.ValvesManager()
-        self.config_hashes = None
-        self.config_file_stats = None
         self.metrics = faucet_metrics.FaucetMetrics()
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             get_setting('FAUCET_EVENT_SOCK'), self.metrics, self.logger)
-        self._bgp = faucet_bgp.FaucetBgp(self.logger, self._send_flow_msgs)
+        self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
+        self.valves_manager = valves_manager.ValvesManager(
+            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self._send_flow_msgs)
 
     @kill_on_exception(exc_logname)
     def start(self):
@@ -214,18 +211,14 @@ class Faucet(app_manager.RyuApp):
             ryu_dp = self.dpset.get(deleted_valve_dpid)
             if ryu_dp is not None:
                 ryu_dp.close()
-        self._bgp.reset(self.valves_manager.valves, self.metrics)
+        self.valves_manager.update_configs()
 
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
-        try:
-            new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
+        new_dps = self.valves_manager.parse_configs(new_config_file)
+        if new_dps is not None:
             self.config_file = new_config_file
-            self.config_hashes = new_config_hashes
             self._apply_configs(new_dps)
-        except InvalidConfigError as err:
-            self.logger.error('New config bad (%s) - rejecting', err)
-            return
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
@@ -311,15 +304,8 @@ class Faucet(app_manager.RyuApp):
         """Periodically stat config files for any changes."""
         # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         while True:
-            if self.config_hashes:
-                new_config_file_stats = valve_util.stat_config_files(
-                    self.config_hashes)
-                if self.config_file_stats:
-                    if new_config_file_stats != self.config_file_stats:
-                        if self.stat_reload:
-                            self.send_event('Faucet', EventFaucetReconfigure())
-                        self.logger.info('config file(s) changed on disk')
-                self.config_file_stats = new_config_file_stats
+            if self.stat_reload and self.valves_manager.config_files_changed():
+                self.send_event('Faucet', EventFaucetReconfigure())
             self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
@@ -360,9 +346,7 @@ class Faucet(app_manager.RyuApp):
     @kill_on_exception(exc_logname)
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
-        self._bgp.update_metrics()
-        for valve in list(self.valves_manager.valves.values()):
-            valve.update_metrics(self.metrics)
+        self.valves_manager.update_metrics()
 
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -390,7 +374,7 @@ class Faucet(app_manager.RyuApp):
         """Handle a request to reload configuration."""
         self.logger.info('request to reload configuration')
         new_config_file = self.config_file
-        if config_changed(self.config_file, new_config_file, self.config_hashes):
+        if self.valves_manager.config_changed(self.config_file, new_config_file):
             self.logger.info('configuration %s changed, analyzing differences', new_config_file)
             self._load_configs(new_config_file)
         else:

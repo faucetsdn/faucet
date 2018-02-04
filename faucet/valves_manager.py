@@ -1,7 +1,5 @@
 """Manage a collection of Valves."""
 
-# pylint: disable=too-few-public-methods
-
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
@@ -19,9 +17,70 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from faucet.conf import InvalidConfigError
+from faucet.config_parser_util import config_changed
+from faucet.config_parser import dp_parser
+from faucet.valve_util import stat_config_files
+
 
 class ValvesManager(object):
     """Manage a collection of Valves."""
 
-    def __init__(self):
-        self.valves = {}
+    valves = {} # type: dict
+    config_hashes = None
+    config_file_stats = None
+
+    def __init__(self, logname, logger, metrics, notifier, bgp,
+                 send_flows_to_dp_by_id):
+        """Initialize ValvesManager.
+
+        Args:
+            logname (str): log name to use in logging.
+            logger  (logging.logging): logger instance to use for logging.
+            metrics (FaucetMetrics): metrics instance.
+            notifier (FaucetExperimentalEvent): event notifier instance.
+            bgp (FaucetBgp): BGP instance.
+            send_flows_to_dp_by_id: callable, two args - DP ID and list of flows to send to DP.
+        """
+        self.logname = logname
+        self.logger = logger
+        self.metrics = metrics
+        self.notifier = notifier
+        self.bgp = bgp
+        self.send_flows_to_dp_by_id = send_flows_to_dp_by_id
+
+    def config_files_changed(self):
+        """Return True if any config files changed."""
+        changed = False
+        if self.config_hashes:
+            new_config_file_stats = stat_config_files(self.config_hashes)
+            if self.config_file_stats:
+                if new_config_file_stats != self.config_file_stats:
+                    self.logger.info('config file(s) changed on disk')
+                    changed = True
+            self.config_file_stats = new_config_file_stats
+        return changed
+
+    def config_changed(self, config_file, new_config_file):
+        """Return True if config file content actually changed."""
+        return config_changed(config_file, new_config_file, self.config_hashes)
+
+    def parse_configs(self, config_file):
+        """Return parsed configs for Valves, or None."""
+        try:
+            new_config_hashes, new_dps = dp_parser(config_file, self.logname)
+        except InvalidConfigError as err:
+            self.logger.error('New config bad (%s) - rejecting', err)
+            return None
+        self.config_hashes = new_config_hashes
+        return new_dps
+
+    def update_metrics(self):
+        """Update metrics in all Valves."""
+        self.bgp.update_metrics()
+        for valve in list(self.valves.values()):
+            valve.update_metrics(self.metrics)
+
+    def update_configs(self):
+        """Update configs in all Valves."""
+        self.bgp.reset(self.valves)
