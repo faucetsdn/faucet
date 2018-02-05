@@ -145,9 +145,9 @@ def main():
     metrics = scrape_prometheus(endpoints)
     if metrics is None:
         sys.exit(1)
-    print(
+    print((
         report_label_match_metrics(
-            report_metrics, metrics, nonzero_only=nonzero_only, label_matches=label_matches))
+            report_metrics, metrics, nonzero_only=nonzero_only, label_matches=label_matches)))
 
 
 if __name__ == '__main__':
