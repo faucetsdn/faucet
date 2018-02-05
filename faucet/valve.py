@@ -331,6 +331,9 @@ class Valve(object):
         ofmsgs = []
         if not self.port_no_valid(port_no):
             return ofmsgs
+        port_labels = dict(self.base_prom_labels, port=port_no)
+        self.metrics.port_status.labels( # pylint: disable=no-member
+            **port_labels).set(port_status)
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
             return ofmsgs

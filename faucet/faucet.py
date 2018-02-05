@@ -317,7 +317,7 @@ class Faucet(app_manager.RyuApp):
 
     def _valve_flow_services(self, valve_service):
         """Call a method on all Valves and send any resulting flows."""
-        self.valves_manager.valve_flow_services()
+        self.valves_manager.valve_flow_services(valve_service)
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -439,7 +439,7 @@ class Faucet(app_manager.RyuApp):
         """
         def port_up_valid(port):
             """Return True if port is up and in valid range."""
-            return port.state == 0 and not valve_of.ignore_port(port.port_no)
+            return valve_of.port_status_from_state(port.state) and not valve_of.ignore_port(port.port_no)
 
         dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, '_datapath_connect')
@@ -533,16 +533,12 @@ class Faucet(app_manager.RyuApp):
         port_no = msg.desc.port_no
         ofp = msg.datapath.ofproto
         reason = msg.reason
-        port_down = msg.desc.state & ofp.OFPPS_LINK_DOWN
-        port_status = not port_down
+        port_status = valve_of.port_status_from_state(msg.desc.state)
         self.logger.info('%s port state %u (reason %u)' % (
             dpid_log(dp_id), msg.desc.state, reason))
         flowmods = valve.port_status_handler(
             port_no, reason, port_status)
         self._send_flow_msgs(dp_id, flowmods)
-        port_labels = dict(valve.base_prom_labels, port=port_no)
-        self.metrics.port_status.labels( # pylint: disable=no-member
-            **port_labels).set(port_status)
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
