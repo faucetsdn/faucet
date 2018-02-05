@@ -414,10 +414,11 @@ class ValveRouteManager(object):
                             dst_ip, vlan.vid))
                     break
                 resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, dst_ip)
-                ofmsgs.extend(resolve_flows)
-                self.logger.debug(
-                    'proactively resolving %s (%u flows) on VLAN %u' % (
-                        dst_ip, len(resolve_flows), vlan.vid))
+                if resolve_flows:
+                    ofmsgs.extend(resolve_flows)
+                    self.logger.debug(
+                        'proactively resolving %s (%u flows) on VLAN %u' % (
+                            dst_ip, len(resolve_flows), vlan.vid))
                 break
         return ofmsgs
 

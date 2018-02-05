@@ -174,10 +174,10 @@ class Port(Conf):
                     assert len(org_tlv) == len(self.lldp_org_tlv_defaults_types), (
                         'missing org_tlv config')
                     try:
-                        org_tlv['info'] = bytearray.fromhex(org_tlv['info'])
+                        org_tlv['info'] = bytearray.fromhex(org_tlv['info']) # pytype: disable=missing-parameter
                     except ValueError:
                         org_tlv['info'] = org_tlv['info'].encode('utf-8')
-                    org_tlv['oui'] = bytearray.fromhex('%6.6x' % org_tlv['oui'])
+                    org_tlv['oui'] = bytearray.fromhex('%6.6x' % org_tlv['oui']) # pytype: disable=missing-parameter
                     org_tlvs.append(org_tlv)
                 self.lldp_beacon['org_tlvs'] = org_tlvs
         if self.acl_in and self.acls_in:
