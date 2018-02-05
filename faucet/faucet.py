@@ -508,17 +508,11 @@ class Faucet(app_manager.RyuApp):
         """
         ryu_dp = ryu_event.msg.datapath
         dp_id = ryu_dp.id
+        body = ryu_event.msg.body
         valve = self._get_valve(ryu_dp, 'desc_stats_reply_handler')
         if valve is None:
             return
-        body = ryu_event.msg.body
-        self.metrics.of_dp_desc_stats.labels( # pylint: disable=no-member
-            **dict(valve.base_prom_labels,
-                   mfr_desc=body.mfr_desc,
-                   hw_desc=body.hw_desc,
-                   sw_desc=body.sw_desc,
-                   serial_num=body.serial_num,
-                   dp_desc=body.dp_desc)).set(dp_id)
+        valve.ofdescstats_handler(body)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
