@@ -116,6 +116,15 @@ class ValvesManager(object):
                     del self.valves[deleted_dp]
             self.bgp.reset(self.valves)
 
+    def request_reload_configs(self, new_config_file, delete_dp=None):
+        """Process a request to load config changes."""
+        if self.config_changed(self.config_file, new_config_file):
+            self.logger.info('configuration %s changed, analyzing differences', new_config_file)
+            self.load_configs(new_config_file, delete_dp=delete_dp)
+        else:
+            self.logger.info('configuration is unchanged, not reloading')
+        self.metrics.faucet_config_reload_requests.inc() # pylint: disable=no-member
+
     def update_metrics(self):
         """Update metrics in all Valves."""
         for valve in list(self.valves.values()):

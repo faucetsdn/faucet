@@ -168,6 +168,13 @@ class Faucet(app_manager.RyuApp):
         self.valves_manager.load_configs(
             new_config_file, delete_dp=self.delete_deconfigured_dp)
 
+    @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
+    def reload_config(self, _):
+        """Handle a request to reload configuration."""
+        self.valves_manager.request_reload_configs(
+            self.config_file, delete_dp=self.delete_deconfigured_dp)
+
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
         """Send OpenFlow messages to a connected datapath.
@@ -312,19 +319,6 @@ class Faucet(app_manager.RyuApp):
     def get_tables(self, dp_id):
         """FAUCET experimental API: return config tables for one Valve."""
         return self.valves_manager.valves[dp_id].dp.get_tables()
-
-    @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
-    @kill_on_exception(exc_logname)
-    def reload_config(self, _):
-        """Handle a request to reload configuration."""
-        self.logger.info('request to reload configuration')
-        new_config_file = self.config_file
-        if self.valves_manager.config_changed(self.config_file, new_config_file):
-            self.logger.info('configuration %s changed, analyzing differences', new_config_file)
-            self._load_configs(new_config_file)
-        else:
-            self.logger.info('configuration is unchanged, not reloading')
-        self.metrics.faucet_config_reload_requests.inc() # pylint: disable=no-member
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

@@ -264,7 +264,7 @@ vlans:
         if existing_config:
             self.assertTrue(self.valves_manager.config_files_changed())
         self.last_flows_to_dp = {}
-        self.valves_manager.load_configs(self.config_file)
+        self.valves_manager.request_reload_configs(self.config_file)
         self.valve = self.valves_manager.valves[self.DP_ID]
         if self.DP_ID in self.last_flows_to_dp:
             reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
