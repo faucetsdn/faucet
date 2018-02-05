@@ -1022,9 +1022,7 @@ class Valve(object):
         Args:
             new_dp (DP): new dataplane configuration.
         Returns:
-            tuple of:
-                cold_start (bool): whether cold starting.
-                ofmsgs (list): OpenFlow messages.
+            ofmsgs (list): OpenFlow messages.
         """
         cold_start = False
         ofmsgs = []
@@ -1045,7 +1043,7 @@ class Valve(object):
                 self.metrics.faucet_config_reload_warm.labels( # pylint: disable=no-member
                     **self.base_prom_labels).inc()
                 self.logger.info('Warm starting')
-        return (cold_start, ofmsgs)
+        return ofmsgs
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
         ofmsgs = []

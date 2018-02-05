@@ -251,23 +251,24 @@ vlans:
         self.valves_manager = valves_manager.ValvesManager(
             self.logname, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
-        dps = self.update_config(config)
-        self.assertFalse(self.valves_manager.config_files_changed())
-        for dp in dps:
-            valve = self.valves_manager.new_valve(dp)
-            self.valves_manager.valves[dp.dp_id] = valve
-            if valve.dp.name == self.DP:
-                self.valve = valve
-        self.valves_manager.update_configs()
+        self.update_config(config)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
 
     def update_config(self, config):
         """Update FAUCET config with config as text."""
+        self.assertFalse(self.valves_manager.config_files_changed())
+        existing_config = os.path.exists(self.config_file)
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
-        dps = self.valves_manager.parse_configs(self.config_file)
-        return dps
+        if existing_config:
+            self.assertTrue(self.valves_manager.config_files_changed())
+        self.last_flows_to_dp = {}
+        self.valves_manager.load_configs(self.config_file)
+        self.valve = self.valves_manager.valves[self.DP_ID]
+        if self.DP_ID in self.last_flows_to_dp:
+            reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
+            self.table.apply_ofmsgs(reload_ofmsgs)
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
@@ -276,14 +277,6 @@ vlans:
         self.table.apply_ofmsgs(self.valve.datapath_connect(port_nos))
         for port_no in port_nos:
             self.set_port_up(port_no)
-
-    def apply_new_config(self, config):
-        """Update FAUCET config, and tell FAUCET config has changed."""
-        self.assertFalse(self.valves_manager.config_files_changed())
-        new_dp = [dp for dp in self.update_config(config) if dp.name == self.DP][0]
-        self.assertTrue(self.valves_manager.config_files_changed())
-        _, ofmsgs = self.valve.reload_config(new_dp)
-        self.table.apply_ofmsgs(ofmsgs)
 
     def set_port_down(self, port_no):
         """Set port status of port to down."""
@@ -790,7 +783,7 @@ acls:
                 self.table.is_output(match, port=3, vid=self.V200),
                 msg='Packet not output before adding ACL')
 
-        self.apply_new_config(acl_config)
+        self.update_config(acl_config)
         self.assertFalse(
             self.table.is_output(drop_match),
             msg='packet not blocked by acl')
@@ -876,7 +869,7 @@ acls:
                 self.table.is_output(match, port=3, vid=self.V200),
                 msg='Packet not output before adding ACL')
 
-        self.apply_new_config(acl_config)
+        self.update_config(acl_config)
         self.flap_port(2)
         self.assertFalse(
             self.table.is_output(drop_match),
@@ -927,7 +920,7 @@ vlans:
         self.flap_port(1)
         self.learn_hosts()
 
-        self.apply_new_config(self.CONFIG)
+        self.update_config(self.CONFIG)
         self.learn_hosts()
 
 
