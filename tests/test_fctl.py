@@ -36,6 +36,7 @@ LEARNED_MACS_PROM = ("""
 LEARNED_MACS_OUT = ("""
 %s\t[('dp_id', '%s'), ('n', '3'), ('port', '17'), ('vlan', '2004')]\ta4:5e:60:c5:5c:ed
 """ % (METRICS, DP_ID)).strip()
+FCTL_BASE_ARGS = ['--metrics=%s' % METRICS, '--labels=dp_id:%s' % DP_ID]
 
 
 class FctlTestCaseBase(unittest.TestCase):
@@ -50,17 +51,20 @@ class FctlTestCaseBase(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
+    def fctl_args(self, prom_input_file_name):
+        return FCTL_BASE_ARGS + ['--endpoints=file:%s' % prom_input_file_name]
+
 
 class FctlTestCase(FctlTestCaseBase):
     """Drive fctl from shell."""
 
-    def run_fctl(self, prom_input, fctl_args, expected_output):
+    def run_fctl(self, prom_input, expected_output):
         """Ensure fctl succeeds and returns expected output."""
         prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
         with open(prom_input_file_name, 'w') as prom_input_file:
             prom_input_file.write(prom_input)
         fctl_cli = ' '.join(
-            ['python3', self.FCTL, '--endpoints=file:%s' % prom_input_file_name] + fctl_args)
+            ['python3', self.FCTL]  + self.fctl_args(prom_input_file_name))
         retcode, output = subprocess.getstatusoutput(fctl_cli)
         self.assertEqual(0, retcode, msg='%s returned %d' % (
             fctl_cli, retcode))
@@ -68,20 +72,24 @@ class FctlTestCase(FctlTestCaseBase):
         self.assertEqual(output, expected_output)
 
     def test_macs(self):
-        self.run_fctl(
-            LEARNED_MACS_PROM, ['--metrics=learned_macs', '--labels=dp_id:%s' % DP_ID], LEARNED_MACS_OUT)
+        self.run_fctl(LEARNED_MACS_PROM, LEARNED_MACS_OUT)
 
 
 class FctlClassTestCase(FctlTestCaseBase):
     """Test fctl internal methods."""
 
     def test_macs(self):
-        metrics_file_name = os.path.join(self.tmpdir, 'metrics.txt')
-        with open(metrics_file_name, 'w') as metrics_file:
-            metrics_file.write(LEARNED_MACS_PROM)
-        metrics = fctl.scrape_prometheus(['file:%s' % metrics_file_name])
+        prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
+        with open(prom_input_file_name, 'w') as prom_input_file:
+            prom_input_file.write(LEARNED_MACS_PROM)
+        fctl_args = self.fctl_args(prom_input_file_name)
+        (endpoints, report_metrics, label_matches, nonzero_only) = fctl.parse_args(fctl_args)
+        metrics = fctl.scrape_prometheus(endpoints)
         report_out = fctl.report_label_match_metrics( # pylint: disable=assignment-from-no-return
-            [METRICS], metrics=metrics, label_matches={'dp_id': DP_ID})
+            report_metrics=report_metrics,
+            metrics=metrics,
+            label_matches=label_matches,
+            nonzero_only=nonzero_only)
         self.assertEqual(report_out, LEARNED_MACS_OUT)
 
 

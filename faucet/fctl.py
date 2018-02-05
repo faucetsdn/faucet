@@ -90,6 +90,7 @@ def report_label_match_metrics(report_metrics, metrics,
 
 
 def usage():
+    """Print usage and exit."""
     usage_vars = {'self': sys.argv[0]}
     print(("""
 Retrieve FAUCET/Gauge state using Prometheus variables.
@@ -114,10 +115,11 @@ Examples:
     sys.exit(-1)
 
 
-def main():
+def parse_args(sys_args):
+    """Parse and return CLI args."""
     try:
         opts, _ = getopt.getopt(
-            sys.argv[1:], 'ne:m:l:', ['nonzero', 'endpoints=', 'metrics=', 'labels='])
+            sys_args, 'ne:m:l:', ['nonzero', 'endpoints=', 'metrics=', 'labels='])
     except getopt.GetoptError:
         usage()
 
@@ -142,6 +144,11 @@ def main():
         else:
             usage()
 
+    return (endpoints, report_metrics, label_matches, nonzero_only)
+
+
+def main():
+    (endpoints, report_metrics, label_matches, nonzero_only) = parse_args(sys.argv[1:])
     metrics = scrape_prometheus(endpoints)
     if metrics is None:
         sys.exit(1)
