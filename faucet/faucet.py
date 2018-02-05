@@ -163,14 +163,6 @@ class Faucet(app_manager.RyuApp):
         valve = self.valves_manager.valves[dp_id]
         cold_start, flowmods = valve.reload_config(new_dp)
         if flowmods:
-            if cold_start:
-                self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
-                    **valve.base_prom_labels).inc()
-                self.logger.info('Cold starting %s', dpid_log(dp_id))
-            else:
-                self.metrics.faucet_config_reload_warm.labels( # pylint: disable=no-member
-                    **valve.base_prom_labels).inc()
-                self.logger.info('Warm starting %s', dpid_log(dp_id))
             self._send_flow_msgs(new_dp.dp_id, flowmods)
             return valve
         self.logger.info('No changes to datapath %s', dpid_log(dp_id))
@@ -180,7 +172,7 @@ class Faucet(app_manager.RyuApp):
         self.logger.info('Add new datapath %s', dpid_log(dp_id))
         valve_cl = valve_factory(new_dp)
         if valve_cl is not None:
-            return valve_cl(new_dp, self.logname, self.notifier)
+            return valve_cl(new_dp, self.logname, self.metrics, self.notifier)
         self.logger.error(
             '%s hardware %s must be one of %s',
             new_dp.name,
@@ -202,7 +194,7 @@ class Faucet(app_manager.RyuApp):
 
     def _apply_configs(self, new_dps):
         """Actually apply configs, if there were any differences."""
-        self._delete_deconfigured_dps(_new_dps)
+        self._delete_deconfigured_dps(new_dps)
         for new_dp in new_dps:
             dp_id = new_dp.dp_id
             if dp_id in self.valves_manager.valves:
@@ -457,10 +449,6 @@ class Faucet(app_manager.RyuApp):
             port.port_no for port in list(ryu_dp.ports.values()) if port_up_valid(port)]
         flowmods = valve.datapath_connect(discovered_up_port_nums)
         self._send_flow_msgs(dp_id, flowmods)
-        self.metrics.of_dp_connections.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).inc()
-        self.metrics.dp_status.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).set(1)
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_dp):
@@ -473,10 +461,6 @@ class Faucet(app_manager.RyuApp):
         if valve is None:
             return
         valve.datapath_disconnect()
-        self.metrics.of_dp_disconnections.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).inc()
-        self.metrics.dp_status.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).set(0)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)

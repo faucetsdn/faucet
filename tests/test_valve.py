@@ -255,7 +255,7 @@ vlans:
         self.notifier.start()
         dps = self.update_config(config)
         for dp in dps:
-            valve = valve_factory(dp)(dp, dp.name, self.notifier)
+            valve = valve_factory(dp)(dp, dp.name, self.metrics, self.notifier)
             self.valves_manager.valves[dp.dp_id] = valve
             if valve.dp.name == self.DP:
                 self.valve = valve
@@ -457,7 +457,7 @@ vlans:
         self.table.apply_ofmsgs(resolve_ofmsgs)
         self.valve.advertise()
         self.valve.state_expire()
-        self.valve.update_metrics(self.metrics)
+        self.valves_manager.update_metrics()
         return rcv_packet_ofmsgs
 
     def tearDown(self):

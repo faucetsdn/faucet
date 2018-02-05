@@ -80,14 +80,13 @@ class ValvesManager(object):
     def update_metrics(self):
         """Update metrics in all Valves."""
         for valve in list(self.valves.values()):
-            valve.update_metrics(self.metrics)
+            valve.update_metrics()
         self.bgp.update_metrics()
 
     def update_configs(self):
         """Update configs in all Valves."""
         for valve in list(self.valves.values()):
-            self.metrics.reset_dpid(valve.base_prom_labels)
-            valve.update_config_metrics(self.metrics)
+            valve.update_config_metrics()
         self.bgp.reset(self.valves)
 
     def valve_flow_services(self, valve_service):
@@ -108,4 +107,4 @@ class ValvesManager(object):
         self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
             **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
         self.send_flows_to_dp_by_id(valve.dp.dp_id, flowmods)
-        valve.update_metrics(self.metrics)
+        valve.update_metrics()
