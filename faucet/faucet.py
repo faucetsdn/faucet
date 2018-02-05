@@ -156,48 +156,17 @@ class Faucet(app_manager.RyuApp):
         signal.signal(signal.SIGHUP, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
 
-    def _apply_configs_existing(self, new_dp):
-        dp_id = new_dp.dp_id
-        logging.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
-        valve = self.valves_manager.valves[dp_id]
-        flowmods = valve.reload_config(new_dp)
-        if flowmods:
-            self._send_flow_msgs(new_dp.dp_id, flowmods)
-            return valve
-        self.logger.info('No changes to datapath %s', dpid_log(dp_id))
-        return None
-
-    def _apply_configs(self, new_dps):
-        """Actually apply configs, if there were any differences."""
-        for new_dp in new_dps:
-            dp_id = new_dp.dp_id
-            if dp_id in self.valves_manager.valves:
-                valve = self._apply_configs_existing(new_dp)
-            else:
-                valve = self.valves_manager.new_valve(new_dp)
-            if valve is not None:
-                self.valves_manager.valves[dp_id] = valve
-        self.valves_manager.update_configs()
-
-    def _delete_deconfigured_dps(self, new_dps):
-        deleted_valve_dpids = (
-            set(list(self.valves_manager.valves.keys())) -
-            set([valve.dp_id for valve in new_dps]))
-        for deleted_valve_dpid in deleted_valve_dpids:
-            self.logger.info(
-                'Deleting de-configured %s', dpid_log(deleted_valve_dpid))
-            del self.valves_manager.valves[deleted_valve_dpid]
-            ryu_dp = self.dpset.get(deleted_valve_dpid)
-            if ryu_dp is not None:
-                ryu_dp.close()
+    def delete_deconfigured_dp(self, deleted_dpid):
+        self.logger.info(
+            'Deleting de-configured %s', dpid_log(deleted_dpid))
+        ryu_dp = self.dpset.get(deleted_dpid)
+        if ryu_dp is not None:
+            ryu_dp.close()
 
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
-        new_dps = self.valves_manager.parse_configs(new_config_file)
-        if new_dps is not None:
-            self._delete_deconfigured_dps(new_dps)
-            self.config_file = new_config_file
-            self._apply_configs(new_dps)
+        self.valves_manager.load_configs(
+            new_config_file, delete_dp=self.delete_deconfigured_dp)
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
