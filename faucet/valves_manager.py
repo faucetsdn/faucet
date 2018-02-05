@@ -22,7 +22,8 @@ import time
 from faucet.conf import InvalidConfigError
 from faucet.config_parser_util import config_changed
 from faucet.config_parser import dp_parser
-from faucet.valve_util import stat_config_files
+from faucet.valve import valve_factory, SUPPORTED_HARDWARE
+from faucet.valve_util import dpid_log, stat_config_files
 
 
 class ValvesManager(object):
@@ -76,6 +77,18 @@ class ValvesManager(object):
             return None
         self.config_hashes = new_config_hashes
         return new_dps
+
+    def new_valve(self, new_dp):
+        self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
+        valve_cl = valve_factory(new_dp)
+        if valve_cl is not None:
+            return valve_cl(new_dp, self.logname, self.metrics, self.notifier)
+        self.logger.error(
+            '%s hardware %s must be one of %s',
+            new_dp.name,
+            new_dp.hardware,
+            sorted(list(SUPPORTED_HARDWARE.keys())))
+        return None
 
     def update_metrics(self):
         """Update metrics in all Valves."""

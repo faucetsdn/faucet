@@ -34,7 +34,6 @@ from ryu.lib import hub
 
 from faucet.config_parser import get_config_for_api
 from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
-from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_bgp
@@ -157,7 +156,8 @@ class Faucet(app_manager.RyuApp):
         signal.signal(signal.SIGHUP, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
 
-    def _apply_configs_existing(self, dp_id, new_dp):
+    def _apply_configs_existing(self, new_dp):
+        dp_id = new_dp.dp_id
         logging.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
         valve = self.valves_manager.valves[dp_id]
         _, flowmods = valve.reload_config(new_dp)
@@ -165,18 +165,6 @@ class Faucet(app_manager.RyuApp):
             self._send_flow_msgs(new_dp.dp_id, flowmods)
             return valve
         self.logger.info('No changes to datapath %s', dpid_log(dp_id))
-        return None
-
-    def _apply_configs_new(self, dp_id, new_dp):
-        self.logger.info('Add new datapath %s', dpid_log(dp_id))
-        valve_cl = valve_factory(new_dp)
-        if valve_cl is not None:
-            return valve_cl(new_dp, self.logname, self.metrics, self.notifier)
-        self.logger.error(
-            '%s hardware %s must be one of %s',
-            new_dp.name,
-            new_dp.hardware,
-            sorted(list(SUPPORTED_HARDWARE.keys())))
         return None
 
     def _delete_deconfigured_dps(self, new_dps):
@@ -197,9 +185,9 @@ class Faucet(app_manager.RyuApp):
         for new_dp in new_dps:
             dp_id = new_dp.dp_id
             if dp_id in self.valves_manager.valves:
-                valve = self._apply_configs_existing(dp_id, new_dp)
+                valve = self._apply_configs_existing(new_dp)
             else:
-                valve = self._apply_configs_new(dp_id, new_dp)
+                valve = self.valves_manager.new_valve(new_dp)
             if valve is not None:
                 self.valves_manager.valves[dp_id] = valve
         self.valves_manager.update_configs()
