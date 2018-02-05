@@ -309,7 +309,7 @@ class Valve(object):
                    hw_desc=body.hw_desc,
                    sw_desc=body.sw_desc,
                    serial_num=body.serial_num,
-                   dp_desc=body.dp_desc)).set(dp_id)
+                   dp_desc=body.dp_desc)).set(self.dp.dp_id)
 
     def port_status_handler(self, port_no, reason, port_status):
         """Return OpenFlow messages responding to port operational status change."""
