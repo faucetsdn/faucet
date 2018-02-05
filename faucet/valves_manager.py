@@ -17,6 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 from faucet.conf import InvalidConfigError
 from faucet.config_parser_util import config_changed
 from faucet.config_parser import dp_parser
@@ -94,3 +96,16 @@ class ValvesManager(object):
             flowmods = getattr(valve, valve_service)()
             if flowmods:
                 self.send_flows_to_dp_by_id(dp_id, flowmods)
+
+    def valve_packet_in(self, valve, pkt_meta):
+        """Time a call to Valve packet in handler."""
+        other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
+        self.metrics.of_packet_ins.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).inc()
+        packet_in_start = time.time()
+        flowmods = valve.rcv_packet(other_valves, pkt_meta)
+        packet_in_stop = time.time()
+        self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
+        self.send_flows_to_dp_by_id(valve.dp.dp_id, flowmods)
+        valve.update_metrics(self.metrics)

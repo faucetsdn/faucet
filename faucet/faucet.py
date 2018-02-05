@@ -22,7 +22,6 @@ import logging
 import random
 import signal
 import sys
-import time
 
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -396,16 +395,7 @@ class Faucet(app_manager.RyuApp):
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
             return
-        other_valves = [other_valve for other_valve in list(self.valves_manager.valves.values()) if valve != other_valve]
-        self.metrics.of_packet_ins.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).inc()
-        packet_in_start = time.time()
-        flowmods = valve.rcv_packet(other_valves, pkt_meta)
-        packet_in_stop = time.time()
-        self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
-        self._send_flow_msgs(dp_id, flowmods)
-        valve.update_metrics(self.metrics)
+        self.valves_manager.valve_packet_in(valve, pkt_meta)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

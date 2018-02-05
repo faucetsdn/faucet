@@ -229,8 +229,10 @@ vlans:
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
     V300 = 0x300|ofp.OFPVID_PRESENT
-    OTHER_VALVES = []
+    last_flows_to_dp = {}
 
+    def send_flows_to_dp_by_id(self, dp_id, flows):
+        self.last_flows_to_dp[dp_id] = flows
 
     def setup_valve(self, config):
         """Set up test DP with config."""
@@ -247,8 +249,6 @@ vlans:
         # TODO: verify events
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
-        # TODO: test callback DP communication
-        self.send_flows_to_dp_by_id = None
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
         self.valves_manager = valves_manager.ValvesManager(
             self.logname, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
@@ -259,8 +259,6 @@ vlans:
             self.valves_manager.valves[dp.dp_id] = valve
             if valve.dp.name == self.DP:
                 self.valve = valve
-            else:
-                self.OTHER_VALVES.append(valve)
         self.valves_manager.update_configs()
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
@@ -452,10 +450,8 @@ vlans:
         msg.match = {'in_port': port}
         msg.cookie = self.valve.dp.cookie
         pkt_meta = self.valve.parse_pkt_meta(msg)
-        rcv_packet_ofmsgs = self.valve.rcv_packet(
-            other_valves=self.OTHER_VALVES, pkt_meta=pkt_meta)
-        rcv_packet_ofmsgs = valve_of.valve_flowreorder(
-            rcv_packet_ofmsgs)
+        self.valves_manager.valve_packet_in(self.valve, pkt_meta) # pylint: disable=no-member
+        rcv_packet_ofmsgs = valve_of.valve_flowreorder(self.last_flows_to_dp[self.DP_ID])
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
         resolve_ofmsgs = self.valve.resolve_gateways()
         self.table.apply_ofmsgs(resolve_ofmsgs)
