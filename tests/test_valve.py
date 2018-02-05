@@ -33,7 +33,6 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 
 from prometheus_client import CollectorRegistry
 
-from faucet.valve import valve_factory
 from faucet import faucet_bgp
 from faucet import faucet_experimental_event
 from faucet import valves_manager
@@ -254,7 +253,7 @@ vlans:
         self.notifier.start()
         dps = self.update_config(config)
         for dp in dps:
-            valve = valve_factory(dp)(dp, dp.name, self.metrics, self.notifier)
+            valve = self.valves_manager.new_valve(dp)
             self.valves_manager.valves[dp.dp_id] = valve
             if valve.dp.name == self.DP:
                 self.valve = valve
