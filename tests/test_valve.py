@@ -252,6 +252,7 @@ vlans:
             self.logname, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
         dps = self.update_config(config)
+        self.assertFalse(self.valves_manager.config_files_changed())
         for dp in dps:
             valve = self.valves_manager.new_valve(dp)
             self.valves_manager.valves[dp.dp_id] = valve
@@ -265,7 +266,8 @@ vlans:
         """Update FAUCET config with config as text."""
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
-        return self.valves_manager.parse_configs(self.config_file)
+        dps = self.valves_manager.parse_configs(self.config_file)
+        return dps
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
@@ -277,7 +279,9 @@ vlans:
 
     def apply_new_config(self, config):
         """Update FAUCET config, and tell FAUCET config has changed."""
+        self.assertFalse(self.valves_manager.config_files_changed())
         new_dp = [dp for dp in self.update_config(config) if dp.name == self.DP][0]
+        self.assertTrue(self.valves_manager.config_files_changed())
         _, ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
