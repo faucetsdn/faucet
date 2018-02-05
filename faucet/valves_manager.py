@@ -78,9 +78,10 @@ class ValvesManager(object):
         return new_dps
 
     def new_valve(self, new_dp):
+        self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
         valve_cl = valve_factory(new_dp)
         if valve_cl is not None:
-            return valve_cl(new_dp, new_dp.name, self.metrics, self.notifier)
+            return valve_cl(new_dp, self.logname, self.metrics, self.notifier)
         self.logger.error(
             '%s hardware %s must be one of %s',
             new_dp.name,
