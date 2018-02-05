@@ -27,7 +27,9 @@
 import getopt
 import sys
 import time
-import urllib.request, urllib.parse, urllib.error
+import urllib.error
+import urllib.parse
+import urllib.request
 import requests
 from prometheus_client import parser
 
@@ -59,7 +61,7 @@ def scrape_prometheus(endpoints, retries=3):
                 time.sleep(1)
         if err is not None:
             print(err)
-            sys.exit(1)
+            return None
         endpoint_metrics = parser.text_string_to_metric_families(
             content)
         metrics.extend(endpoint_metrics)
@@ -69,11 +71,12 @@ def scrape_prometheus(endpoints, retries=3):
 def report_label_match_metrics(report_metrics, metrics,
                                nonzero_only=False, delim='\t', label_matches=None):
     """Text report on a list of Prometheus metrics."""
+    report_output = []
     for metric in metrics:
         if not report_metrics or metric.name in report_metrics:
             for _, labels, value in metric.samples:
-                if label_matches is None or \
-                    (label_matches and set(label_matches.items()).issubset(set(labels.items()))):
+                if (label_matches is None or
+                        (label_matches and set(label_matches.items()).issubset(set(labels.items())))):
                     if nonzero_only and int(value) == 0:
                         continue
                     try:
@@ -81,7 +84,9 @@ def report_label_match_metrics(report_metrics, metrics,
                     except KeyError:
                         pass
                     sorted_labels = [(k, v) for k, v in sorted(labels.items())]
-                    print((delim.join((metric.name, str(sorted_labels), str(value)))))
+                    report_output.append((delim.join((metric.name, str(sorted_labels), str(value)))))
+    report_output = '\n'.join(report_output)
+    return report_output
 
 
 def usage():
@@ -138,8 +143,11 @@ def main():
             usage()
 
     metrics = scrape_prometheus(endpoints)
-    report_label_match_metrics(
-        report_metrics, metrics, nonzero_only=nonzero_only, label_matches=label_matches)
+    if metrics is None:
+        sys.exit(1)
+    print(
+        report_label_match_metrics(
+            report_metrics, metrics, nonzero_only=nonzero_only, label_matches=label_matches))
 
 
 if __name__ == '__main__':
