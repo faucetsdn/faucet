@@ -33,7 +33,6 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 
 from prometheus_client import CollectorRegistry
 
-from faucet.config_parser import dp_parser
 from faucet.valve import valve_factory
 from faucet import faucet_bgp
 from faucet import faucet_experimental_event
@@ -242,7 +241,7 @@ vlans:
         self.logname = 'faucet'
         self.logfile = os.path.join(self.tmpdir, 'faucet.log')
         self.table = FakeOFTable(self.NUM_TABLES)
-        self.logger = valve_util.get_logger('faucet', self.logfile, logging.DEBUG, 0)
+        self.logger = valve_util.get_logger(self.logname, self.logfile, logging.DEBUG, 0)
         self.registry = CollectorRegistry()
         # TODO: verify Prometheus variables
         self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
@@ -267,8 +266,7 @@ vlans:
         """Update FAUCET config with config as text."""
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
-        _, dps = dp_parser(self.config_file, 'test_valve')
-        return dps
+        return self.valves_manager.parse_configs(self.config_file)
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
