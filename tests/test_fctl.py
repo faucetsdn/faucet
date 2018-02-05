@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Test fctl FAUCET CLI utility."""
+
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Innovation Advanced Network New Zealand Ltd.
 # Copyright (C) 2015--2017 The Contributors
@@ -22,19 +24,35 @@ import subprocess
 import tempfile
 import unittest
 
+from faucet import fctl
 
+DP_ID = '0xb827eb608918'
 SRC_DIR = '../faucet'
 
+METRICS = 'learned_macs'
+LEARNED_MACS_PROM = ("""
+%s{dp_id="%s",n="3",port="17",vlan="2004"} 180725257428205.0
+""" % (METRICS, DP_ID)).strip()
+LEARNED_MACS_OUT = ("""
+%s\t[('dp_id', '%s'), ('n', '3'), ('port', '17'), ('vlan', '2004')]\ta4:5e:60:c5:5c:ed
+""" % (METRICS, DP_ID)).strip()
 
-class FctlTestCase(unittest.TestCase):
+
+class FctlTestCaseBase(unittest.TestCase):
+    """Base class for fctl tests."""
 
     FCTL = os.path.join(SRC_DIR, 'fctl.py')
+    tmpdir = None
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
+
+
+class FctlTestCase(FctlTestCaseBase):
+    """Drive fctl from shell."""
 
     def run_fctl(self, prom_input, fctl_args, expected_output):
         """Ensure fctl succeeds and returns expected output."""
@@ -47,20 +65,24 @@ class FctlTestCase(unittest.TestCase):
         self.assertEqual(0, retcode, msg='%s returned %d' % (
             fctl_cli, retcode))
         output = output.strip()
-        expected_output = expected_output.strip()
         self.assertEqual(output, expected_output)
 
     def test_macs(self):
-        prom_input = """
-learned_macs{dp_id="0xb827eb608918",n="3",port="17",vlan="2004"} 180725257428205.0
-"""
-        expected_output = """
-learned_macs	[('dp_id', '0xb827eb608918'), ('n', '3'), ('port', '17'), ('vlan', '2004')]	a4:5e:60:c5:5c:ed
-"""
         self.run_fctl(
-            prom_input,
-            ['--metrics=learned_macs', '--labels=dp_id:0xb827eb608918'],
-            expected_output)
+            LEARNED_MACS_PROM, ['--metrics=learned_macs', '--labels=dp_id:%s' % DP_ID], LEARNED_MACS_OUT)
+
+
+class FctlClassTestCase(FctlTestCaseBase):
+    """Test fctl internal methods."""
+
+    def test_macs(self):
+        metrics_file_name = os.path.join(self.tmpdir, 'metrics.txt')
+        with open(metrics_file_name, 'w') as metrics_file:
+            metrics_file.write(LEARNED_MACS_PROM)
+        metrics = fctl.scrape_prometheus(['file:%s' % metrics_file_name])
+        report_out = fctl.report_label_match_metrics( # pylint: disable=assignment-from-no-return
+            [METRICS], metrics=metrics, label_matches={'dp_id': DP_ID})
+        self.assertEqual(report_out, LEARNED_MACS_OUT)
 
 
 if __name__ == "__main__":
