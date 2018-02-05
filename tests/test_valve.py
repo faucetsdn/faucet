@@ -282,7 +282,7 @@ vlans:
         self.assertFalse(self.valves_manager.config_files_changed())
         new_dp = [dp for dp in self.update_config(config) if dp.name == self.DP][0]
         self.assertTrue(self.valves_manager.config_files_changed())
-        _, ofmsgs = self.valve.reload_config(new_dp)
+        ofmsgs = self.valve.reload_config(new_dp)
         self.table.apply_ofmsgs(ofmsgs)
 
     def set_port_down(self, port_no):

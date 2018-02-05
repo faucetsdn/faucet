@@ -160,12 +160,24 @@ class Faucet(app_manager.RyuApp):
         dp_id = new_dp.dp_id
         logging.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
         valve = self.valves_manager.valves[dp_id]
-        _, flowmods = valve.reload_config(new_dp)
+        flowmods = valve.reload_config(new_dp)
         if flowmods:
             self._send_flow_msgs(new_dp.dp_id, flowmods)
             return valve
         self.logger.info('No changes to datapath %s', dpid_log(dp_id))
         return None
+
+    def _apply_configs(self, new_dps):
+        """Actually apply configs, if there were any differences."""
+        for new_dp in new_dps:
+            dp_id = new_dp.dp_id
+            if dp_id in self.valves_manager.valves:
+                valve = self._apply_configs_existing(new_dp)
+            else:
+                valve = self.valves_manager.new_valve(new_dp)
+            if valve is not None:
+                self.valves_manager.valves[dp_id] = valve
+        self.valves_manager.update_configs()
 
     def _delete_deconfigured_dps(self, new_dps):
         deleted_valve_dpids = (
@@ -179,23 +191,11 @@ class Faucet(app_manager.RyuApp):
             if ryu_dp is not None:
                 ryu_dp.close()
 
-    def _apply_configs(self, new_dps):
-        """Actually apply configs, if there were any differences."""
-        self._delete_deconfigured_dps(new_dps)
-        for new_dp in new_dps:
-            dp_id = new_dp.dp_id
-            if dp_id in self.valves_manager.valves:
-                valve = self._apply_configs_existing(new_dp)
-            else:
-                valve = self.valves_manager.new_valve(new_dp)
-            if valve is not None:
-                self.valves_manager.valves[dp_id] = valve
-        self.valves_manager.update_configs()
-
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
         new_dps = self.valves_manager.parse_configs(new_config_file)
         if new_dps is not None:
+            self._delete_deconfigured_dps(new_dps)
             self.config_file = new_config_file
             self._apply_configs(new_dps)
 
