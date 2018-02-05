@@ -68,14 +68,15 @@ class ValvesManager(object):
         """Return True if config file content actually changed."""
         return config_changed(config_file, new_config_file, self.config_hashes)
 
-    def parse_configs(self, config_file):
+    def parse_configs(self, new_config_file):
         """Return parsed configs for Valves, or None."""
         try:
-            new_config_hashes, new_dps = dp_parser(config_file, self.logname)
+            new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
+            self.config_file = new_config_file
+            self.config_hashes = new_config_hashes
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
             return None
-        self.config_hashes = new_config_hashes
         return new_dps
 
     def new_valve(self, new_dp):
@@ -96,7 +97,6 @@ class ValvesManager(object):
             deleted_dpids = (
                 set(list(self.valves.keys())) -
                 set([dp.dp_id for dp in new_dps]))
-            self.config_file = new_config_file
             for new_dp in new_dps:
                 dp_id = new_dp.dp_id
                 if dp_id in self.valves:
@@ -108,24 +108,19 @@ class ValvesManager(object):
                 else:
                     self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
                     valve = self.new_valve(new_dp)
+                valve.update_config_metrics()
                 self.valves[dp_id] = valve
             if delete_dp is not None:
                 for deleted_dp in deleted_dpids:
                     delete_dp(deleted_dp)
                     del self.valves[deleted_dp]
-        self.update_configs()
+            self.bgp.reset(self.valves)
 
     def update_metrics(self):
         """Update metrics in all Valves."""
         for valve in list(self.valves.values()):
             valve.update_metrics()
         self.bgp.update_metrics()
-
-    def update_configs(self):
-        """Update configs in all Valves."""
-        for valve in list(self.valves.values()):
-            valve.update_config_metrics()
-        self.bgp.reset(self.valves)
 
     def valve_flow_services(self, valve_service):
         """Call a method on all Valves and send any resulting flows."""

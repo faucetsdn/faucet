@@ -252,15 +252,17 @@ vlans:
             self.logname, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
         self.update_config(config)
-        self.assertFalse(self.valves_manager.config_files_changed())
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
 
     def update_config(self, config):
         """Update FAUCET config with config as text."""
-        # self.assertFalse(self.valves_manager.config_files_changed())
+        self.assertFalse(self.valves_manager.config_files_changed())
+        existing_config = os.path.exists(self.config_file)
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
+        if existing_config:
+            self.assertTrue(self.valves_manager.config_files_changed())
         self.last_flows_to_dp = {}
         self.valves_manager.load_configs(self.config_file)
         self.valve = self.valves_manager.valves[self.DP_ID]
