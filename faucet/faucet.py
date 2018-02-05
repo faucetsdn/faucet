@@ -40,7 +40,6 @@ from faucet import faucet_experimental_event
 from faucet import faucet_bgp
 from faucet import valves_manager
 from faucet import faucet_metrics
-from faucet import valve_util
 from faucet import valve_of
 
 
@@ -161,7 +160,7 @@ class Faucet(app_manager.RyuApp):
     def _apply_configs_existing(self, dp_id, new_dp):
         logging.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
         valve = self.valves_manager.valves[dp_id]
-        cold_start, flowmods = valve.reload_config(new_dp)
+        _, flowmods = valve.reload_config(new_dp)
         if flowmods:
             self._send_flow_msgs(new_dp.dp_id, flowmods)
             return valve
@@ -380,7 +379,6 @@ class Faucet(app_manager.RyuApp):
         """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
-        dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, 'packet_in_handler', msg)
         if valve is None:
             return
@@ -507,7 +505,6 @@ class Faucet(app_manager.RyuApp):
             ryu_event (ryu.controller.ofp_event.EventOFPDescStatsReply): trigger.
         """
         ryu_dp = ryu_event.msg.datapath
-        dp_id = ryu_dp.id
         body = ryu_event.msg.body
         valve = self._get_valve(ryu_dp, 'desc_stats_reply_handler')
         if valve is None:
@@ -531,11 +528,11 @@ class Faucet(app_manager.RyuApp):
         if not valve.dp.running:
             return
         port_no = msg.desc.port_no
-        ofp = msg.datapath.ofproto
         reason = msg.reason
         port_status = valve_of.port_status_from_state(msg.desc.state)
-        self.logger.info('%s port state %u (reason %u)' % (
-            dpid_log(dp_id), msg.desc.state, reason))
+        self.logger.info(
+            '%s port state %u (reason %u)',
+            dpid_log(dp_id), msg.desc.state, reason)
         flowmods = valve.port_status_handler(
             port_no, reason, port_status)
         self._send_flow_msgs(dp_id, flowmods)
