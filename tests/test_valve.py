@@ -33,7 +33,6 @@ from ryu.ofproto import ofproto_v1_3 as ofp
 
 from prometheus_client import CollectorRegistry
 
-from faucet.config_parser import dp_parser
 from faucet.valve import valve_factory
 from faucet import faucet_bgp
 from faucet import faucet_experimental_event
@@ -229,9 +228,10 @@ vlans:
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
     V300 = 0x300|ofp.OFPVID_PRESENT
-    VALVES = []
-    OTHER_VALVES = []
+    last_flows_to_dp = {}
 
+    def send_flows_to_dp_by_id(self, dp_id, flows):
+        self.last_flows_to_dp[dp_id] = flows
 
     def setup_valve(self, config):
         """Set up test DP with config."""
@@ -241,24 +241,24 @@ vlans:
         self.logname = 'faucet'
         self.logfile = os.path.join(self.tmpdir, 'faucet.log')
         self.table = FakeOFTable(self.NUM_TABLES)
-        self.logger = valve_util.get_logger('faucet', self.logfile, logging.DEBUG, 0)
+        self.logger = valve_util.get_logger(self.logname, self.logfile, logging.DEBUG, 0)
         self.registry = CollectorRegistry()
         # TODO: verify Prometheus variables
         self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
         # TODO: verify events
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.faucet_event_sock, self.metrics, self.logger)
-        # TODO: test callback DP communication
-        self.send_flows_to_dp_by_id = None
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
         self.valves_manager = valves_manager.ValvesManager(
             self.logname, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
         dps = self.update_config(config)
-        self.VALVES = [valve_factory(dp)(dp, dp.name, self.notifier) for dp in dps]
-        self.OTHER_VALVES = [valve for valve in self.VALVES if valve.dp.name != self.DP]
-        self.valve = [valve for valve in self.VALVES if valve.dp.name == self.DP][0]
-        self.valve.update_config_metrics(self.metrics)
+        for dp in dps:
+            valve = valve_factory(dp)(dp, dp.name, self.metrics, self.notifier)
+            self.valves_manager.valves[dp.dp_id] = valve
+            if valve.dp.name == self.DP:
+                self.valve = valve
+        self.valves_manager.update_configs()
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
 
@@ -266,8 +266,7 @@ vlans:
         """Update FAUCET config with config as text."""
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
-        _, dps = dp_parser(self.config_file, 'test_valve')
-        return dps
+        return self.valves_manager.parse_configs(self.config_file)
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
@@ -286,12 +285,12 @@ vlans:
     def set_port_down(self, port_no):
         """Set port status of port to down."""
         self.table.apply_ofmsgs(self.valve.port_status_handler(
-            port_no, ofp.OFPPR_DELETE, None))
+            port_no, ofp.OFPPR_DELETE, 0))
 
     def set_port_up(self, port_no):
         """Set port status of port to up."""
         self.table.apply_ofmsgs(self.valve.port_status_handler(
-            port_no, ofp.OFPPR_ADD, None))
+            port_no, ofp.OFPPR_ADD, 1))
 
     def flap_port(self, port_no):
         """Flap op status on a port."""
@@ -449,16 +448,14 @@ vlans:
         msg.match = {'in_port': port}
         msg.cookie = self.valve.dp.cookie
         pkt_meta = self.valve.parse_pkt_meta(msg)
-        rcv_packet_ofmsgs = self.valve.rcv_packet(
-            other_valves=self.OTHER_VALVES, pkt_meta=pkt_meta)
-        rcv_packet_ofmsgs = valve_of.valve_flowreorder(
-            rcv_packet_ofmsgs)
+        self.valves_manager.valve_packet_in(self.valve, pkt_meta) # pylint: disable=no-member
+        rcv_packet_ofmsgs = valve_of.valve_flowreorder(self.last_flows_to_dp[self.DP_ID])
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
         resolve_ofmsgs = self.valve.resolve_gateways()
         self.table.apply_ofmsgs(resolve_ofmsgs)
         self.valve.advertise()
         self.valve.state_expire()
-        self.valve.update_metrics(self.metrics)
+        self.valves_manager.update_metrics()
         return rcv_packet_ofmsgs
 
     def tearDown(self):

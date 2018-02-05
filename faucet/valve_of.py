@@ -53,6 +53,11 @@ def ignore_port(port_num):
     return port_num > 0xF0000000
 
 
+def port_status_from_state(state):
+    """Return True if OFPPS_LINK_DOWN is not set."""
+    return not (state & ofp.OFPPS_LINK_DOWN)
+
+
 def is_flowmod(ofmsg):
     """Return True if flow message is a FlowMod.
 

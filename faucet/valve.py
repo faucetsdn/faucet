@@ -68,10 +68,11 @@ class Valve(object):
     base_prom_labels = None
     recent_ofmsgs = queue.Queue(maxsize=32) # type: ignore
 
-    def __init__(self, dp, logname, notifier):
+    def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp
         self.logger = ValveLogger(
             logging.getLogger(logname + '.valve'), self.dp.dp_id)
+        self.metrics = metrics
         self.notifier = notifier
         self.base_prom_labels = {
             'dp_id': hex(self.dp.dp_id),
@@ -300,6 +301,16 @@ class Valve(object):
                 all_port_nums, cold_start=True, log_msg='configured'))
         return ofmsgs
 
+    def ofdescstats_handler(self, body):
+        """Handle OF DP description."""
+        self.metrics.of_dp_desc_stats.labels( # pylint: disable=no-member
+            **dict(self.base_prom_labels,
+                   mfr_desc=body.mfr_desc,
+                   hw_desc=body.hw_desc,
+                   sw_desc=body.sw_desc,
+                   serial_num=body.serial_num,
+                   dp_desc=body.dp_desc)).set(self.dp.dp_id)
+
     def port_status_handler(self, port_no, reason, port_status):
         """Return OpenFlow messages responding to port operational status change."""
 
@@ -320,6 +331,9 @@ class Valve(object):
         ofmsgs = []
         if not self.port_no_valid(port_no):
             return ofmsgs
+        port_labels = dict(self.base_prom_labels, port=port_no)
+        self.metrics.port_status.labels( # pylint: disable=no-member
+            **port_labels).set(port_status)
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
             return ofmsgs
@@ -411,6 +425,10 @@ class Valve(object):
         ofmsgs.extend(self._add_controller_learn_flow())
         self.dp.dyn_last_coldstart_time = time.time()
         self.dp.running = True
+        self.metrics.of_dp_connections.labels( # pylint: disable=no-member
+            **self.base_prom_labels).inc()
+        self.metrics.dp_status.labels( # pylint: disable=no-member
+            **self.base_prom_labels).set(1)
         return ofmsgs
 
     def datapath_disconnect(self):
@@ -420,6 +438,10 @@ class Valve(object):
             {'DP_CHANGE': {
                 'reason': 'disconnect'}})
         self.dp.running = False
+        self.metrics.of_dp_disconnections.labels( # pylint: disable=no-member
+            **self.base_prom_labels).inc()
+        self.metrics.dp_status.labels( # pylint: disable=no-member
+            **self.base_prom_labels).set(0)
 
     def _port_add_acl(self, port, cold_start=False):
         ofmsgs = []
@@ -812,52 +834,45 @@ class Valve(object):
                 return None
         return pkt_meta
 
-    def update_config_metrics(self, metrics):
-        """Update gauge/metrics for configuration.
-
-        Args:
-            metrics (FaucetMetrics): container of Prometheus metrics.
-        """
+    def update_config_metrics(self):
+        """Update gauge/metrics for configuration."""
+        self.metrics.reset_dpid(self.base_prom_labels)
         for table_id, table in list(self.dp.tables_by_id.items()):
-            metrics.faucet_config_table_names.labels(
+            self.metrics.faucet_config_table_names.labels(
                 **dict(self.base_prom_labels, table_name=table.name)).set(table_id)
 
-    def update_metrics(self, metrics):
-        """Update Gauge/metrics.
-
-        Args:
-            metrics (FaucetMetrics or None): container of Prometheus metrics.
-        """
+    def update_metrics(self):
+        """Update Gauge/metrics."""
         # Clear the exported MAC learning.
         dp_id = hex(self.dp.dp_id)
-        for _, label_dict, _ in metrics.learned_macs.collect()[0].samples:
+        for _, label_dict, _ in self.metrics.learned_macs.collect()[0].samples:
             if label_dict['dp_id'] == dp_id:
-                metrics.learned_macs.labels(
+                self.metrics.learned_macs.labels(
                     **dict(self.base_prom_labels, vlan=label_dict['vlan'],
                            port=label_dict['port'], n=label_dict['n'])).set(0)
 
         for vlan in list(self.dp.vlans.values()):
             hosts_count = vlan.hosts_count()
-            metrics.vlan_hosts_learned.labels(
+            self.metrics.vlan_hosts_learned.labels(
                 **dict(self.base_prom_labels, vlan=vlan.vid)).set(
                     hosts_count)
-            metrics.vlan_learn_bans.labels(
+            self.metrics.vlan_learn_bans.labels(
                 **dict(self.base_prom_labels, vlan=vlan.vid)).set(
                     vlan.dyn_learn_ban_count)
             for ipv in vlan.ipvs():
                 neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
-                metrics.vlan_neighbors.labels(
+                self.metrics.vlan_neighbors.labels(
                     **dict(self.base_prom_labels, vlan=vlan.vid, ipv=ipv)).set(
                         neigh_cache_size)
             learned_hosts_count = 0
             for port in vlan.get_ports():
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
-                    metrics.learned_macs.labels(
+                    self.metrics.learned_macs.labels(
                         **dict(self.base_prom_labels, vlan=vlan.vid, port=port.number, n=i)).set(
                             mac_int)
                     learned_hosts_count += 1
-                metrics.port_learn_bans.labels(
+                self.metrics.port_learn_bans.labels(
                     **dict(self.base_prom_labels, port=port.number)).set(
                         port.dyn_learn_ban_count)
 
@@ -1021,6 +1036,15 @@ class Valve(object):
                 ofmsgs = self.datapath_connect(list(self.dp.ports.keys()))
         else:
             self.logger.info('skipping configuration because datapath not up')
+        if ofmsgs:
+            if cold_start:
+                self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
+                    **self.base_prom_labels).inc()
+                self.logger.info('Cold starting')
+            else:
+                self.metrics.faucet_config_reload_warm.labels( # pylint: disable=no-member
+                    **self.base_prom_labels).inc()
+                self.logger.info('Warm starting')
         return (cold_start, ofmsgs)
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):

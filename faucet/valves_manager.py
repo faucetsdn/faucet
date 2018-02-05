@@ -17,10 +17,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 from faucet.conf import InvalidConfigError
 from faucet.config_parser_util import config_changed
 from faucet.config_parser import dp_parser
-from faucet.valve_util import stat_config_files
+from faucet.valve import valve_factory, SUPPORTED_HARDWARE
+from faucet.valve_util import dpid_log, stat_config_files
 
 
 class ValvesManager(object):
@@ -75,12 +78,46 @@ class ValvesManager(object):
         self.config_hashes = new_config_hashes
         return new_dps
 
+    def new_valve(self, new_dp):
+        self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
+        valve_cl = valve_factory(new_dp)
+        if valve_cl is not None:
+            return valve_cl(new_dp, self.logname, self.metrics, self.notifier)
+        self.logger.error(
+            '%s hardware %s must be one of %s',
+            new_dp.name,
+            new_dp.hardware,
+            sorted(list(SUPPORTED_HARDWARE.keys())))
+        return None
+
     def update_metrics(self):
         """Update metrics in all Valves."""
-        self.bgp.update_metrics()
         for valve in list(self.valves.values()):
-            valve.update_metrics(self.metrics)
+            valve.update_metrics()
+        self.bgp.update_metrics()
 
     def update_configs(self):
         """Update configs in all Valves."""
+        for valve in list(self.valves.values()):
+            valve.update_config_metrics()
         self.bgp.reset(self.valves)
+
+    def valve_flow_services(self, valve_service):
+        """Call a method on all Valves and send any resulting flows."""
+        for dp_id, valve in list(self.valves.items()):
+            flowmods = getattr(valve, valve_service)()
+            if flowmods:
+                self.send_flows_to_dp_by_id(dp_id, flowmods)
+
+    def valve_packet_in(self, valve, pkt_meta):
+        """Time a call to Valve packet in handler."""
+        other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
+        self.metrics.of_packet_ins.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).inc()
+        packet_in_start = time.time()
+        flowmods = valve.rcv_packet(other_valves, pkt_meta)
+        packet_in_stop = time.time()
+        self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
+            **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
+        self.send_flows_to_dp_by_id(valve.dp.dp_id, flowmods)
+        valve.update_metrics()
