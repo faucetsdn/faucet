@@ -32,7 +32,7 @@ from ryu.controller import ofp_event
 from ryu.lib import hub
 
 from faucet.config_parser import get_config_for_api
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception
+from faucet.valve_util import dpid_log, kill_on_exception
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_bgp
@@ -93,22 +93,8 @@ class Faucet(valve_ryuapp.RyuAppBase):
 
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
-        self.config_file = self.get_setting('CONFIG')
-        self.loglevel = self.get_setting('LOG_LEVEL')
-        self.logfile = self.get_setting('LOG')
-        self.exc_logfile = self.get_setting('EXCEPTION_LOG')
-        self.stat_reload = self.get_setting('CONFIG_STAT_RELOAD')
-
         self.dpset = kwargs['dpset']
         self.api = kwargs['faucet_experimental_api']
-
-        # Setup logging
-        self.logger = get_logger(
-            self.logname, self.logfile, self.loglevel, 0)
-        # Set up separate logging for exceptions
-        self.exc_logger = get_logger(
-            self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
-
         self.metrics = faucet_metrics.FaucetMetrics()
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.get_setting('EVENT_SOCK'), self.metrics, self.logger)

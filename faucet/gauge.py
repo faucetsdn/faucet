@@ -32,7 +32,7 @@ from ryu.lib import hub
 from faucet import valve_of
 from faucet.config_parser import watcher_parser
 from faucet.gauge_prom import GaugePrometheusClient
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, stat_config_files
+from faucet.valve_util import dpid_log, kill_on_exception, stat_config_files
 from faucet.watcher import watcher_factory
 from faucet import valve_ryuapp
 
@@ -57,24 +57,8 @@ class Gauge(valve_ryuapp.RyuAppBase):
 
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
-        self.config_file = self.get_setting('CONFIG')
-        self.loglevel = self.get_setting('LOG_LEVEL')
-        self.logfile = self.get_setting('LOG')
-        self.exc_logfile = self.get_setting('EXCEPTION_LOG')
-        self.stat_reload = self.get_setting('CONFIG_STAT_RELOAD')
-
-        # Setup logging
-        self.logger = get_logger(
-            self.logname, self.logfile, self.loglevel, 0)
-        # Set up separate logging for exceptions
-        self.exc_logger = get_logger(
-            self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
-
         self.dpset = kwargs['dpset']
-
         self.prom_client = GaugePrometheusClient()
-
-        # dict of watchers/handlers, indexed by dp_id and then by name
         self.watchers = {}
         self.config_file_stats = None
 
