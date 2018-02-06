@@ -103,6 +103,7 @@ def build_pkt(pkt):
 class ValveTestBase(unittest.TestCase):
     """Base class for all Valve unit tests."""
 
+    __test__ = False
     CONFIG = """
 dps:
     s1:
