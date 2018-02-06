@@ -38,4 +38,4 @@ class RyuAppBase(app_manager.RyuApp):
         hub.sleep(period + random.randint(0, jitter))
 
     def get_setting(self, setting):
-        return get_setting('_'.join((self.logname, setting)))
+        return get_setting('_'.join((self.logname.upper(), setting)))
