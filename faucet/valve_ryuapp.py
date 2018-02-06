@@ -36,15 +36,16 @@ class RyuAppBase(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(RyuAppBase, self).__init__(*args, **kwargs)
+        self.dpset = kwargs['dpset']
         self.config_file = self.get_setting('CONFIG')
-        self.loglevel = self.get_setting('LOG_LEVEL')
-        self.logfile = self.get_setting('LOG')
-        self.exc_logfile = self.get_setting('EXCEPTION_LOG')
         self.stat_reload = self.get_setting('CONFIG_STAT_RELOAD')
+        loglevel = self.get_setting('LOG_LEVEL')
+        logfile = self.get_setting('LOG')
+        exc_logfile = self.get_setting('EXCEPTION_LOG')
         self.logger = get_logger(
-            self.logname, self.logfile, self.loglevel, 0)
+            self.logname, logfile, loglevel, 0)
         self.exc_logger = get_logger(
-            self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
+            self.exc_logname, exc_logfile, logging.DEBUG, 1)
 
     @staticmethod
     def _thread_jitter(period, jitter=3):

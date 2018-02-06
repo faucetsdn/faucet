@@ -57,7 +57,6 @@ class Gauge(valve_ryuapp.RyuAppBase):
 
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
-        self.dpset = kwargs['dpset']
         self.prom_client = GaugePrometheusClient()
         self.watchers = {}
         self.config_file_stats = None

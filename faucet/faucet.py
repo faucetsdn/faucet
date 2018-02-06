@@ -93,7 +93,6 @@ class Faucet(valve_ryuapp.RyuAppBase):
 
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
-        self.dpset = kwargs['dpset']
         self.api = kwargs['faucet_experimental_api']
         self.metrics = faucet_metrics.FaucetMetrics()
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
