@@ -22,7 +22,6 @@ import random
 import signal
 import sys
 
-from ryu.base import app_manager
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller import dpset
@@ -35,6 +34,7 @@ from faucet.config_parser import watcher_parser
 from faucet.gauge_prom import GaugePrometheusClient
 from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting, stat_config_files
 from faucet.watcher import watcher_factory
+from faucet import valve_ryuapp
 
 
 class EventGaugeReconfigure(event.EventBase):
@@ -43,7 +43,7 @@ class EventGaugeReconfigure(event.EventBase):
     pass
 
 
-class Gauge(app_manager.RyuApp):
+class Gauge(valve_ryuapp.RyuAppBase):
     """Ryu app for polling Faucet controlled datapaths for stats/state.
 
     It can poll multiple datapaths. The configuration files for each datapath
@@ -51,7 +51,6 @@ class Gauge(app_manager.RyuApp):
     GAUGE_CONFIG. It logs to the file set as the environment variable
     GAUGE_LOG,
     """
-    OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {'dpset': dpset.DPSet}
     logname = 'gauge'
     exc_logname = logname + '.exception'
@@ -167,11 +166,6 @@ class Gauge(app_manager.RyuApp):
         elif sigid == signal.SIGINT:
             self.close()
             sys.exit(0)
-
-    @staticmethod
-    def _thread_jitter(period, jitter=2):
-        """Reschedule another thread with a random jitter."""
-        hub.sleep(period + random.randint(0, jitter))
 
     @kill_on_exception(exc_logname)
     def _config_file_stat(self):

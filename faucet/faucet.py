@@ -23,7 +23,6 @@ import random
 import signal
 import sys
 
-from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
@@ -40,6 +39,7 @@ from faucet import faucet_bgp
 from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_of
+from faucet import valve_ryuapp
 
 
 class EventFaucetExperimentalAPIRegistered(event.EventBase):
@@ -77,13 +77,12 @@ class EventFaucetLLDPAdvertise(event.EventBase):
     pass
 
 
-class Faucet(app_manager.RyuApp):
+class Faucet(valve_ryuapp.RyuAppBase):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
     Valve provides the switch implementation; this is a shim for the Ryu
     event handling framework to interface with Valve.
     """
-    OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {
         'dpset': dpset.DPSet,
         'faucet_experimental_api': faucet_experimental_api.FaucetExperimentalAPI,
@@ -237,11 +236,6 @@ class Faucet(app_manager.RyuApp):
         elif sigid == signal.SIGINT:
             self.close()
             sys.exit(0)
-
-    @staticmethod
-    def _thread_jitter(period, jitter=2):
-        """Reschedule another thread with a random jitter."""
-        hub.sleep(period + random.randint(0, jitter))
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
