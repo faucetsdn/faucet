@@ -18,12 +18,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import random
 
 from ryu.base import app_manager
 from ryu.controller import dpset
 from ryu.lib import hub
 from faucet import valve_of
+from faucet.valve_util import get_logger, get_setting
 
 
 class RyuAppBase(app_manager.RyuApp):
@@ -32,10 +34,23 @@ class RyuAppBase(app_manager.RyuApp):
     _CONTEXTS = {'dpset': dpset.DPSet}
     OFP_VERSIONS = valve_of.OFP_VERSIONS
     logname = ''
+    exc_logname = ''
 
     def __init__(self, *args, **kwargs):
         super(RyuAppBase, self).__init__(*args, **kwargs)
         self.dpset = kwargs['dpset']
+        self.logger, self.exc_logger = self.setup_logging()
+        self.config_file = self.get_setting('CONFIG')
+
+    def get_setting(self, setting):
+        return get_setting('_'.join((self.logname.upper(), setting)))
+
+    def setup_logging(self):
+        logger = get_logger(
+            self.logname, self.get_setting('LOG'), self.get_setting('LOG_LEVEL'), 0)
+        exc_logger = get_logger(
+            self.exc_logname, self.get_setting('EXCEPTION_LOG'), logging.DEBUG, 1)
+        return (logger, exc_logger)
 
     @staticmethod
     def _thread_jitter(period, jitter=2):
