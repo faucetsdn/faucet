@@ -23,7 +23,6 @@ import random
 import signal
 import sys
 
-from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
@@ -33,13 +32,14 @@ from ryu.controller import ofp_event
 from ryu.lib import hub
 
 from faucet.config_parser import get_config_for_api
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
+from faucet.valve_util import dpid_log, kill_on_exception
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_bgp
 from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_of
+from faucet import valve_ryuapp
 
 
 class EventFaucetExperimentalAPIRegistered(event.EventBase):
@@ -77,13 +77,12 @@ class EventFaucetLLDPAdvertise(event.EventBase):
     pass
 
 
-class Faucet(app_manager.RyuApp):
+class Faucet(valve_ryuapp.RyuAppBase):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
     Valve provides the switch implementation; this is a shim for the Ryu
     event handling framework to interface with Valve.
     """
-    OFP_VERSIONS = valve_of.OFP_VERSIONS
     _CONTEXTS = {
         'dpset': dpset.DPSet,
         'faucet_experimental_api': faucet_experimental_api.FaucetExperimentalAPI,
@@ -94,30 +93,11 @@ class Faucet(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
-
-        # There doesnt seem to be a sensible method of getting command line
-        # options into ryu apps. Instead I am using the environment variable
-        # FAUCET_CONFIG to allow this to be set, if it is not set it will
-        # default to valve.yaml
-        self.config_file = get_setting('FAUCET_CONFIG')
-        self.loglevel = get_setting('FAUCET_LOG_LEVEL')
-        self.logfile = get_setting('FAUCET_LOG')
-        self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
-        self.stat_reload = get_setting('FAUCET_CONFIG_STAT_RELOAD')
-
         self.dpset = kwargs['dpset']
         self.api = kwargs['faucet_experimental_api']
-
-        # Setup logging
-        self.logger = get_logger(
-            self.logname, self.logfile, self.loglevel, 0)
-        # Set up separate logging for exceptions
-        self.exc_logger = get_logger(
-            self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
-
         self.metrics = faucet_metrics.FaucetMetrics()
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
-            get_setting('FAUCET_EVENT_SOCK'), self.metrics, self.logger)
+            self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
         self.valves_manager = valves_manager.ValvesManager(
             self.logname, self.logger, self.metrics, self.notifier, self.bgp, self._send_flow_msgs)
@@ -132,8 +112,8 @@ class Faucet(app_manager.RyuApp):
             self.threads.append(notifier_thread)
 
         # Start Prometheus
-        prom_port = int(get_setting('FAUCET_PROMETHEUS_PORT'))
-        prom_addr = get_setting('FAUCET_PROMETHEUS_ADDR')
+        prom_port = int(self.get_setting('PROMETHEUS_PORT'))
+        prom_addr = self.get_setting('PROMETHEUS_ADDR')
         self.metrics.start(prom_port, prom_addr)
 
         # Configure all Valves
@@ -167,6 +147,13 @@ class Faucet(app_manager.RyuApp):
     def _load_configs(self, new_config_file):
         self.valves_manager.load_configs(
             new_config_file, delete_dp=self.delete_deconfigured_dp)
+
+    @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
+    @kill_on_exception(exc_logname)
+    def reload_config(self, _):
+        """Handle a request to reload configuration."""
+        self.valves_manager.request_reload_configs(
+            self.config_file, delete_dp=self.delete_deconfigured_dp)
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
@@ -230,11 +217,6 @@ class Faucet(app_manager.RyuApp):
         elif sigid == signal.SIGINT:
             self.close()
             sys.exit(0)
-
-    @staticmethod
-    def _thread_jitter(period, jitter=2):
-        """Reschedule another thread with a random jitter."""
-        hub.sleep(period + random.randint(0, jitter))
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
@@ -312,19 +294,6 @@ class Faucet(app_manager.RyuApp):
     def get_tables(self, dp_id):
         """FAUCET experimental API: return config tables for one Valve."""
         return self.valves_manager.valves[dp_id].dp.get_tables()
-
-    @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
-    @kill_on_exception(exc_logname)
-    def reload_config(self, _):
-        """Handle a request to reload configuration."""
-        self.logger.info('request to reload configuration')
-        new_config_file = self.config_file
-        if self.valves_manager.config_changed(self.config_file, new_config_file):
-            self.logger.info('configuration %s changed, analyzing differences', new_config_file)
-            self._load_configs(new_config_file)
-        else:
-            self.logger.info('configuration is unchanged, not reloading')
-        self.metrics.faucet_config_reload_requests.inc() # pylint: disable=no-member
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
