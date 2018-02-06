@@ -304,7 +304,7 @@ vlans:
             'eth_dst': mac.BROADCAST_STR,
             'arp_source_ip': '10.0.0.1',
             'arp_target_ip': '10.0.0.254'})
-        # TODO: check arp reply is valid
+        # TODO: check ARP reply is valid
         self.assertTrue(self.packet_outs_from_flows(arp_replies))
 
     def nd_for_controller(self):
@@ -426,7 +426,7 @@ vlans:
         self.connect_dp()
         self.learn_hosts()
 
-    def rcv_packet(self, port, vid, match):
+    def build_pkt_and_msg(self, port, vid, match):
         pkt = build_pkt(match)
         vlan_pkt = pkt
         # TODO: packet submitted to packet in always has VID
@@ -443,6 +443,10 @@ vlans:
         msg.total_len = len(msg.data)
         msg.match = {'in_port': port}
         msg.cookie = self.valve.dp.cookie
+        return msg
+
+    def rcv_packet(self, port, vid, match):
+        msg = self.build_pkt_and_msg(port, vid, match)
         pkt_meta = self.valve.parse_pkt_meta(msg)
         self.valves_manager.valve_packet_in(self.valve, pkt_meta) # pylint: disable=no-member
         rcv_packet_ofmsgs = valve_of.valve_flowreorder(self.last_flows_to_dp[self.DP_ID])
@@ -786,10 +790,10 @@ acls:
         self.update_config(acl_config)
         self.assertFalse(
             self.table.is_output(drop_match),
-            msg='packet not blocked by acl')
+            msg='packet not blocked by ACL')
         self.assertTrue(
             self.table.is_output(accept_match, port=3, vid=self.V200),
-            msg='packet not allowed by acl')
+            msg='packet not allowed by ACL')
 
     def test_l3(self):
         self.arp_for_controller()
@@ -799,7 +803,9 @@ acls:
         self.icmpv6_ping_controller()
 
     def test_lldp_beacon(self):
-        self.assertTrue(self.valve.send_lldp_beacons())
+        lldp_beacons = self.packet_outs_from_flows(self.valve.send_lldp_beacons())
+        # TODO: verify LLDP beacons.
+        self.assertTrue(lldp_beacons)
 
     def test_unknown_port(self):
         self.set_port_up(99)
