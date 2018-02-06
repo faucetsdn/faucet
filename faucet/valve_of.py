@@ -426,9 +426,8 @@ def _match_ip_masked(ipa):
 def build_match_dict(in_port=None, vlan=None,
                      eth_type=None, eth_src=None,
                      eth_dst=None, eth_dst_mask=None,
-                     ipv6_nd_target=None, icmpv6_type=None,
-                     nw_proto=None,
-                     nw_src=None, nw_dst=None):
+                     icmpv6_type=None,
+                     nw_proto=None, nw_dst=None):
     match_dict = {}
     if in_port is not None:
         match_dict['in_port'] = in_port
@@ -448,12 +447,8 @@ def build_match_dict(in_port=None, vlan=None,
             match_dict['eth_dst'] = eth_dst
     if nw_proto is not None:
         match_dict['ip_proto'] = nw_proto
-    if nw_src is not None:
-        match_dict['ipv4_src'] = _match_ip_masked(nw_src)
     if icmpv6_type is not None:
         match_dict['icmpv6_type'] = icmpv6_type
-    if ipv6_nd_target is not None:
-        match_dict['ipv6_nd_target'] = str(ipv6_nd_target.ip)
     if nw_dst is not None:
         nw_dst_masked = _match_ip_masked(nw_dst)
         if eth_type == ether.ETH_TYPE_ARP:

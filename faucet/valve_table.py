@@ -38,13 +38,13 @@ class ValveTable(object):
     def match(self, in_port=None, vlan=None,
               eth_type=None, eth_src=None,
               eth_dst=None, eth_dst_mask=None,
-              ipv6_nd_target=None, icmpv6_type=None,
-              nw_proto=None, nw_src=None, nw_dst=None):
+              icmpv6_type=None,
+              nw_proto=None, nw_dst=None):
         """Compose an OpenFlow match rule."""
         match_dict = valve_of.build_match_dict(
             in_port, vlan, eth_type, eth_src,
-            eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
-            nw_proto, nw_src, nw_dst)
+            eth_dst, eth_dst_mask, icmpv6_type,
+            nw_proto, nw_dst)
         match = valve_of.match(match_dict)
         if self.restricted_match_types is not None:
             for match_type in match_dict:
