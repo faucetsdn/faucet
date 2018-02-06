@@ -726,6 +726,7 @@ class ValveTestCase(ValveTestBase):
             msg='Packet not output after port add')
 
     def test_port_acl_deny(self):
+        """Test port is denied by ACL."""
         acl_config = """
 version: 2
 dps:
@@ -796,6 +797,7 @@ acls:
             msg='packet not allowed by ACL')
 
     def test_l3(self):
+        """Test L3 interaction with faucet_vips."""
         self.arp_for_controller()
         self.nd_for_controller()
         self.icmp_ping_controller()
@@ -803,11 +805,13 @@ acls:
         self.icmpv6_ping_controller()
 
     def test_lldp_beacon(self):
+        """Test LLDP beacons."""
         lldp_beacons = self.packet_outs_from_flows(self.valve.send_lldp_beacons())
         # TODO: verify LLDP beacons.
         self.assertTrue(lldp_beacons)
 
     def test_unknown_port(self):
+        """Test port status message for unknown ports."""
         self.set_port_up(99)
 
 
