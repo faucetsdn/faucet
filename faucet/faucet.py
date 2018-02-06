@@ -86,7 +86,7 @@ class Faucet(valve_ryuapp.RyuAppBase):
     _CONTEXTS = {
         'dpset': dpset.DPSet,
         'faucet_experimental_api': faucet_experimental_api.FaucetExperimentalAPI,
-        }
+    }
     _EVENTS = [EventFaucetExperimentalAPIRegistered]
     logname = 'faucet'
     exc_logname = logname + '.exception'
@@ -104,7 +104,6 @@ class Faucet(valve_ryuapp.RyuAppBase):
         self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
         self.stat_reload = get_setting('FAUCET_CONFIG_STAT_RELOAD')
 
-        self.dpset = kwargs['dpset']
         self.api = kwargs['faucet_experimental_api']
 
         # Setup logging
@@ -236,17 +235,6 @@ class Faucet(valve_ryuapp.RyuAppBase):
         elif sigid == signal.SIGINT:
             self.close()
             sys.exit(0)
-
-    def _thread_reschedule(self, ryu_event, period, jitter=2):
-        """Trigger Ryu events periodically with a jitter.
-
-        Args:
-            ryu_event (ryu.controller.event.EventReplyBase): event to trigger.
-            period (int): how often to trigger.
-        """
-        while True:
-            self.send_event('Faucet', ryu_event)
-            self._thread_jitter(period, jitter)
 
     @kill_on_exception(exc_logname)
     def _config_file_stat(self):

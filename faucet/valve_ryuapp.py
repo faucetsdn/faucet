@@ -21,6 +21,7 @@
 import random
 
 from ryu.base import app_manager
+from ryu.controller import dpset
 from ryu.lib import hub
 from faucet import valve_of
 
@@ -28,9 +29,26 @@ from faucet import valve_of
 class RyuAppBase(app_manager.RyuApp):
     """RyuApp base class for FAUCET/Gauge."""
 
+    _CONTEXTS = {'dpset': dpset.DPSet}
     OFP_VERSIONS = valve_of.OFP_VERSIONS
+    logname = ''
+
+    def __init__(self, *args, **kwargs):
+        super(RyuAppBase, self).__init__(*args, **kwargs)
+        self.dpset = kwargs['dpset']
 
     @staticmethod
-    def _thread_jitter(period, jitter=3):
+    def _thread_jitter(period, jitter=2):
         """Reschedule another thread with a random jitter."""
         hub.sleep(period + random.randint(0, jitter))
+
+    def _thread_reschedule(self, ryu_event, period, jitter=2):
+        """Trigger Ryu events periodically with a jitter.
+
+        Args:
+            ryu_event (ryu.controller.event.EventReplyBase): event to trigger.
+            period (int): how often to trigger.
+        """
+        while True:
+            self.send_event(self.logname, ryu_event)
+            self._thread_jitter(period, jitter)

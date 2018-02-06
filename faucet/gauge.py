@@ -51,7 +51,6 @@ class Gauge(valve_ryuapp.RyuAppBase):
     GAUGE_CONFIG. It logs to the file set as the environment variable
     GAUGE_LOG,
     """
-    _CONTEXTS = {'dpset': dpset.DPSet}
     logname = 'gauge'
     exc_logname = logname + '.exception'
 
@@ -69,8 +68,6 @@ class Gauge(valve_ryuapp.RyuAppBase):
         # Set up separate logging for exceptions
         self.exc_logger = get_logger(
             self.exc_logname, self.exc_logfile, logging.DEBUG, 1)
-
-        self.dpset = kwargs['dpset']
 
         self.prom_client = GaugePrometheusClient()
 
