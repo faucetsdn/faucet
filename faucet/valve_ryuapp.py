@@ -23,14 +23,19 @@ import random
 from ryu.base import app_manager
 from ryu.lib import hub
 from faucet import valve_of
+from faucet.valve_util import get_setting
 
 
 class RyuAppBase(app_manager.RyuApp):
     """RyuApp base class for FAUCET/Gauge."""
 
     OFP_VERSIONS = valve_of.OFP_VERSIONS
+    logname = ''
 
     @staticmethod
     def _thread_jitter(period, jitter=3):
         """Reschedule another thread with a random jitter."""
         hub.sleep(period + random.randint(0, jitter))
+
+    def get_setting(self, setting):
+        return get_setting('_'.join((self.logname, setting)))

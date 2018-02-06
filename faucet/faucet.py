@@ -32,7 +32,7 @@ from ryu.controller import ofp_event
 from ryu.lib import hub
 
 from faucet.config_parser import get_config_for_api
-from faucet.valve_util import dpid_log, get_logger, kill_on_exception, get_setting
+from faucet.valve_util import dpid_log, get_logger, kill_on_exception
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_bgp
@@ -93,16 +93,11 @@ class Faucet(valve_ryuapp.RyuAppBase):
 
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
-
-        # There doesnt seem to be a sensible method of getting command line
-        # options into ryu apps. Instead I am using the environment variable
-        # FAUCET_CONFIG to allow this to be set, if it is not set it will
-        # default to valve.yaml
-        self.config_file = get_setting('FAUCET_CONFIG')
-        self.loglevel = get_setting('FAUCET_LOG_LEVEL')
-        self.logfile = get_setting('FAUCET_LOG')
-        self.exc_logfile = get_setting('FAUCET_EXCEPTION_LOG')
-        self.stat_reload = get_setting('FAUCET_CONFIG_STAT_RELOAD')
+        self.config_file = self.get_setting('CONFIG')
+        self.loglevel = self.get_setting('LOG_LEVEL')
+        self.logfile = self.get_setting('LOG')
+        self.exc_logfile = self.get_setting('EXCEPTION_LOG')
+        self.stat_reload = self.get_setting('CONFIG_STAT_RELOAD')
 
         self.dpset = kwargs['dpset']
         self.api = kwargs['faucet_experimental_api']
@@ -116,7 +111,7 @@ class Faucet(valve_ryuapp.RyuAppBase):
 
         self.metrics = faucet_metrics.FaucetMetrics()
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
-            get_setting('FAUCET_EVENT_SOCK'), self.metrics, self.logger)
+            get_setting('EVENT_SOCK'), self.metrics, self.logger)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
         self.valves_manager = valves_manager.ValvesManager(
             self.logname, self.logger, self.metrics, self.notifier, self.bgp, self._send_flow_msgs)
@@ -131,8 +126,8 @@ class Faucet(valve_ryuapp.RyuAppBase):
             self.threads.append(notifier_thread)
 
         # Start Prometheus
-        prom_port = int(get_setting('FAUCET_PROMETHEUS_PORT'))
-        prom_addr = get_setting('FAUCET_PROMETHEUS_ADDR')
+        prom_port = int(self.get_setting('PROMETHEUS_PORT'))
+        prom_addr = self.get_setting('PROMETHEUS_ADDR')
         self.metrics.start(prom_port, prom_addr)
 
         # Configure all Valves
