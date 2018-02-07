@@ -19,6 +19,7 @@
 # limitations under the License.
 
 import os
+import copy
 import shutil
 import subprocess
 import tempfile
@@ -26,45 +27,70 @@ import unittest
 
 from faucet import fctl
 
-DP_ID = '0xb827eb608918'
-SRC_DIR = '../faucet'
-
-METRICS = 'learned_macs'
-LEARNED_MACS_PROM = ("""
-%s{dp_id="%s",n="3",port="17",vlan="2004"} 180725257428205.0
-""" % (METRICS, DP_ID)).strip()
-LEARNED_MACS_OUT = ("""
-%s\t[('dp_id', '%s'), ('n', '3'), ('port', '17'), ('vlan', '2004')]\ta4:5e:60:c5:5c:ed
-""" % (METRICS, DP_ID)).strip()
-FCTL_BASE_ARGS = ['--metrics=%s' % METRICS, '--labels=dp_id:%s' % DP_ID]
-
-
 class FctlTestCaseBase(unittest.TestCase):
     """Base class for fctl tests."""
 
+    DEFAULT_VALUES = {
+        'dp_id': '0xb827eb608918',
+        'mac_addr': 'a4:5e:60:c5:5c:ed',
+        'metrics': 'learned_macs',
+        'n': 3,
+        'port': '17',
+        'vlan': '2004',
+        'value': 180725257428205.0
+    }
+
+    SRC_DIR = '../faucet'
+
+    FCTL_BASE_ARGS = [
+        '--metrics={metrics}'.format(**DEFAULT_VALUES),
+        '--labels=dp_id:{dp_id}'.format(**DEFAULT_VALUES)
+        ]
     FCTL = os.path.join(SRC_DIR, 'fctl.py')
-    tmpdir = None
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
+        self.prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
-    def fctl_args(self, prom_input_file_name):
-        return FCTL_BASE_ARGS + ['--endpoints=file:%s' % prom_input_file_name]
+    def fctl_args(self, extra_args=None):
+        """generate argument list for fctl"""
+        result = copy.copy(self.FCTL_BASE_ARGS)
+        result += ['--endpoints=file:%s' % self.prom_input_file_name]
+        if extra_args != None:
+            result += extra_args
+        return result
 
+    def learned_macs_prom(self, overwrite_labels=None):
+        """generate prometheus formated data"""
+        labels = copy.copy(self.DEFAULT_VALUES)
+        if overwrite_labels is not None:
+            labels.update(overwrite_labels)
+        result = """
+{metrics}{{dp_id="{dp_id}",n="{n}",port="{port}",vlan="{vlan}"}}\t{value}"""
+        return result.format(**labels).strip()
+
+    def learned_macs_result(self, overwrite_labels=None):
+        """generate expected output data"""
+        labels = copy.copy(self.DEFAULT_VALUES)
+        if overwrite_labels is not None:
+            labels.update(overwrite_labels)
+        result = """
+{metrics}\t[('dp_id', '{dp_id}'), ('n', '{n}'), ('port', '{port}'), ('vlan', '{vlan}')]\t{mac_addr}
+"""
+        return result.format(**labels).strip()
 
 class FctlTestCase(FctlTestCaseBase):
     """Drive fctl from shell."""
 
-    def run_fctl(self, prom_input, expected_output):
+    def run_fctl(self, prom_input, expected_output, extra_args=None):
         """Ensure fctl succeeds and returns expected output."""
-        prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
-        with open(prom_input_file_name, 'w') as prom_input_file:
+        with open(self.prom_input_file_name, 'w') as prom_input_file:
             prom_input_file.write(prom_input)
         fctl_cli = ' '.join(
-            ['python3', self.FCTL]  + self.fctl_args(prom_input_file_name))
+            ['python3', self.FCTL]  + self.fctl_args(extra_args))
         retcode, output = subprocess.getstatusoutput(fctl_cli)
         self.assertEqual(0, retcode, msg='%s returned %d' % (
             fctl_cli, retcode))
@@ -72,7 +98,17 @@ class FctlTestCase(FctlTestCaseBase):
         self.assertEqual(output, expected_output)
 
     def test_macs(self):
-        self.run_fctl(LEARNED_MACS_PROM, LEARNED_MACS_OUT)
+        self.run_fctl(self.learned_macs_prom(), self.learned_macs_result())
+
+    def test_display_labels(self):
+        expected_output = """
+learned_macs\t[('dp_id', '{dp_id}')]\t{mac_addr}
+""".format(**self.DEFAULT_VALUES).strip()
+
+        self.run_fctl(
+            self.learned_macs_prom(),
+            expected_output,
+            extra_args=['--display-labels=dp_id'])
 
 
 class FctlClassTestCase(FctlTestCaseBase):
@@ -81,17 +117,21 @@ class FctlClassTestCase(FctlTestCaseBase):
     def test_macs(self):
         prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
         with open(prom_input_file_name, 'w') as prom_input_file:
-            prom_input_file.write(LEARNED_MACS_PROM)
-        fctl_args = self.fctl_args(prom_input_file_name)
-        (endpoints, report_metrics, label_matches, nonzero_only) = fctl.parse_args(fctl_args)
+            prom_input_file.write(self.learned_macs_prom())
+        (
+            endpoints,
+            report_metrics,
+            label_matches,
+            nonzero_only,
+            _
+            ) = fctl.parse_args(self.fctl_args())
         metrics = fctl.scrape_prometheus(endpoints)
         report_out = fctl.report_label_match_metrics( # pylint: disable=assignment-from-no-return
             report_metrics=report_metrics,
             metrics=metrics,
             label_matches=label_matches,
             nonzero_only=nonzero_only)
-        self.assertEqual(report_out, LEARNED_MACS_OUT)
-
+        self.assertEqual(report_out, self.learned_macs_result())
 
 if __name__ == "__main__":
     unittest.main()
