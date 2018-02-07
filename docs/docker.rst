@@ -184,7 +184,12 @@ Docker compose
 This is an example docker-compose file that can be used to set up gauge to talk
 to Prometheus and InfluxDB with a Grafana instance for dashboards and visualisations.
 
-It can be run with ``docker-compose up``
+It can be run with:
+
+.. code:: console
+
+  docker-compose pull
+  docker-compose up
 
 The time-series databases with the default settings will write to
 ``/opt/prometheus/`` ``/opt/influxdb/shared/data/db`` you can edit these locations
