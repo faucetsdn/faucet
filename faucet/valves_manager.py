@@ -108,8 +108,6 @@ class ValvesManager(object):
                 else:
                     self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
                     valve = self.new_valve(new_dp)
-                    if valve is None:
-                        continue
                 valve.update_config_metrics()
                 self.valves[dp_id] = valve
             if delete_dp is not None:
