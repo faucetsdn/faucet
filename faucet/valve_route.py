@@ -286,6 +286,8 @@ class ValveRouteManager(object):
             if self._nexthop_fresh(vlan, ip_gw, now):
                 continue
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+            if nexthop_cache_entry is None:
+                continue
             last_retry_time = nexthop_cache_entry.last_retry_time
             ip_gw_with_retry_time = (ip_gw, faucet_vip, last_retry_time)
             if last_retry_time is None:
@@ -341,6 +343,8 @@ class ValveRouteManager(object):
         ofmsgs = []
         for ip_gw, faucet_vip, last_retry_time in cycle_unresolved_nexthops:
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
+            if nexthop_cache_entry is None:
+                return
             if (self._is_host_fib_route(vlan, ip_gw) and
                     nexthop_cache_entry.resolve_retries >= self.max_host_fib_retry_count):
                 self.logger.info(
