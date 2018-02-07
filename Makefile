@@ -70,12 +70,8 @@ release:
 	@echo 'Releasing version $(version)'
 	@echo
 ifeq ($(UNAME_S),Darwin)
-	@$(SED) -i "" -e s/$(value GIT_REL_TAG)/$(version)/ docker-compose.yaml
-	@$(SED) -i "" -e s/$(value GIT_REL_TAG)/$(version)/ docker-compose-pi.yaml
 	@$(SED) -i "" -e s/$(value GIT_REL_TAG)/$(version)/ README.rst
 else
-	@$(SED) -i s/$(value GIT_REL_TAG)/$(version)/ docker-compose.yaml
-	@$(SED) -i s/$(value GIT_REL_TAG)/$(version)/ docker-compose-pi.yaml
 	@$(SED) -i s/$(value GIT_REL_TAG)/$(version)/ README.rst
 endif
 	@$(GIT) commit -a -m "$(version)"
