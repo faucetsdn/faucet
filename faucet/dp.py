@@ -264,10 +264,10 @@ configuration.
         super(DP, self).set_defaults()
         self._set_default('dp_id', self._id)
         self._set_default('name', str(self._id))
-        self._set_default('lowest_priority', self.priority_offset)
-        self._set_default('low_priority', self.priority_offset + 9000)
-        self._set_default('high_priority', self.low_priority + 1)
-        self._set_default('highest_priority', self.high_priority + 98)
+        self._set_default('lowest_priority', self.priority_offset) # pytype: disable=none-attr
+        self._set_default('low_priority', self.priority_offset + 9000) # pytype: disable=none-attr
+        self._set_default('high_priority', self.low_priority + 1) # pytype: disable=none-attr
+        self._set_default('highest_priority', self.high_priority + 98) # pytype: disable=none-attr
         self._set_default('description', self.name)
         self._configure_tables()
 
