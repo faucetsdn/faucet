@@ -1,7 +1,7 @@
 astroid==1.6.1
 bitstring==3.1.5
 concurrencytest==0.1.2
-coveralls
+coveralls==1.2.0
 exabgp
 influxdb
 ipaddress
