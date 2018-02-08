@@ -35,8 +35,9 @@ from prometheus_client import CollectorRegistry
 
 from faucet import faucet_bgp
 from faucet import faucet_experimental_event
-from faucet import valves_manager
 from faucet import faucet_metrics
+from faucet import valve
+from faucet import valves_manager
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_util
@@ -108,9 +109,10 @@ class ValveTestBase(unittest.TestCase):
 dps:
     s1:
         ignore_learn_ins: 0
-        hardware: 'Open vSwitch'
         dp_id: 1
         ofchannel_log: "/dev/null"
+        hardware: 'GenericTFM'
+        pipeline_config_dir: '%s/../etc/ryu/faucet'
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
@@ -214,7 +216,7 @@ vlans:
         vid: 0x300
     v400:
         vid: 0x400
-"""
+""" % os.path.dirname(os.path.realpath(__file__))
 
     DP = 's1'
     DP_ID = 1
@@ -232,10 +234,16 @@ vlans:
     last_flows_to_dp = {}
     valve = None
     valves_manager = None
-
-    def send_flows_to_dp_by_id(self, dp_id, flows):
-        """Callback for ValvesManager to simulate sending flows to DP."""
-        self.last_flows_to_dp[dp_id] = flows
+    metrics = None
+    bgp = None
+    table = None
+    logger = None
+    tmpdir = None
+    faucet_event_sock = None
+    registry = None
+    sock = None
+    notifier = None
+    config_file = None
 
     def setup_valve(self, config):
         """Set up test DP with config."""
@@ -259,6 +267,17 @@ vlans:
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
         self.connect_dp()
+
+    def teardown_valve(self):
+        for handler in self.logger.handlers:
+            handler.close()
+        self.logger.handlers = []
+        self.sock.close()
+        shutil.rmtree(self.tmpdir)
+
+    def send_flows_to_dp_by_id(self, dp_id, flows):
+        """Callback for ValvesManager to simulate sending flows to DP."""
+        self.last_flows_to_dp[dp_id] = flows
 
     def update_config(self, config):
         """Update FAUCET config with config as text."""
@@ -395,22 +414,22 @@ vlans:
         self.valves_manager.update_metrics()
         return rcv_packet_ofmsgs
 
-    def setUp(self):
-        self.setup_valve(self.CONFIG)
-
-    def tearDown(self):
-        for handler in self.logger.handlers:
-            handler.close()
-        self.logger.handlers = []
-        self.sock.close()
-        shutil.rmtree(self.tmpdir)
-
 
 class ValveTestCase(ValveTestBase):
     """Test basic switching/L2/L3 functions."""
 
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
     def test_switch_features(self):
-        self.assertTrue(self.valve.switch_features(None))
+        self.assertTrue(isinstance(self.valve, valve.TfmValve))
+        features_flows = self.valve.switch_features(None)
+        tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
+        # TODO: verify TFM content.
+        self.assertTrue(tfm_flows)
 
     def test_arp_for_controller(self):
         """ARP request for controller VIP."""
@@ -813,6 +832,12 @@ acls:
 class ValveACLTestCase(ValveTestBase):
     """Test ACL drop/allow and reloading."""
 
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
     def test_vlan_acl_deny(self):
         acl_config = """
 dps:
@@ -924,12 +949,21 @@ vlans:
         self.flap_port(1)
         self.update_config(self.CONFIG)
 
+    def tearDown(self):
+        self.teardown_valve()
+
 
 class ValveStackTestCase(ValveTestBase):
     """Test stacking/forwarding."""
 
     DP = 's3'
     DP_ID = 0x3
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
 
     def test_stack_flood(self):
         matches = [
@@ -939,70 +973,6 @@ class ValveStackTestCase(ValveTestBase):
                 'eth_src': self.P1_V100_MAC
             }]
         self.verify_flooding(matches)
-
-
-class ValveTFMTestCase(ValveTestBase):
-    """Test vendors that require TFM-based pipeline programming."""
-    # TODO: check TFM messages are correct
-
-    CONFIG = """
-dps:
-    s1:
-        ignore_learn_ins: 0
-        hardware: 'GenericTFM'
-        dp_id: 1
-        pipeline_config_dir: '%s/../etc/ryu/faucet'
-        lldp_beacon:
-            send_interval: 1
-            max_per_interval: 1
-        interfaces:
-            p1:
-                number: 1
-                native_vlan: v100
-                lldp_beacon:
-                    enable: True
-                    system_name: "faucet"
-                    port_descr: "first_port"
-            p2:
-                number: 2
-                native_vlan: v200
-                tagged_vlans: [v100]
-            p3:
-                number: 3
-                tagged_vlans: [v100, v200]
-            p4:
-                number: 4
-                tagged_vlans: [v200]
-            p5:
-                number: 5
-                tagged_vlans: [v300]
-vlans:
-    v100:
-        vid: 0x100
-        faucet_vips: ['10.0.0.254/24']
-        routes:
-            - route:
-                ip_dst: 10.99.99.0/24
-                ip_gw: 10.0.0.1
-            - route:
-                ip_dst: 10.99.98.0/24
-                ip_gw: 10.0.0.99
-    v200:
-        vid: 0x200
-        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
-        routes:
-            - route:
-                ip_dst: 'fc00::10:0/112'
-                ip_gw: 'fc00::1:1'
-            - route:
-                ip_dst: 'fc00::20:0/112'
-                ip_gw: 'fc00::1:99'
-    v300:
-        vid: 0x300
-""" % os.path.dirname(os.path.realpath(__file__))
-
-    def test_switch_features(self):
-        self.assertTrue(self.valve.switch_features(None))
 
 
 class ValveMirrorTestCase(ValveTestCase):
