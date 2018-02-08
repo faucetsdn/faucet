@@ -2,7 +2,7 @@ astroid==1.6.1
 bitstring==3.1.5
 concurrencytest==0.1.2
 coveralls==1.2.0
-exabgp
+exabgp==4.0.5
 influxdb
 ipaddress
 netifaces
