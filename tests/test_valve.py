@@ -424,6 +424,10 @@ class ValveTestCase(ValveTestBase):
     def tearDown(self):
         self.teardown_valve()
 
+    def test_disconnect(self):
+        # TODO: verify DP state change.
+        self.valve.datapath_disconnect()
+
     def test_switch_features(self):
         self.assertTrue(isinstance(self.valve, valve.TfmValve))
         features_flows = self.valve.switch_features(None)
@@ -467,6 +471,19 @@ class ValveTestCase(ValveTestBase):
             'echo_request_data': bytes('A'*8, encoding='UTF-8')})
         # TODO: check ping response
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
+
+    def test_host_fib_route(self):
+        fib_route_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'vid': 0x100,
+            'ipv4_src': '10.0.0.2',
+            'ipv4_dst': '10.0.0.4',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: verify learning rule contents
+        # We want to know this host was learned we did not get packet outs.
+        self.assertTrue(fib_route_replies)
+        self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
 
     def test_icmp_ping_unknown_neighbor(self):
         """IPv4 ping unknown host on same subnet, causing proactive learning."""
