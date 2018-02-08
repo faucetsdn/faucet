@@ -3,7 +3,7 @@ datadiff==2.0.0
 influxdb==5.0.0
 ipaddress==1.0.19
 msgpack==0.5.4
-msgpack-python
+msgpack-python==0.5.4
 networkx==2.1
 pbr>=1.9
 prometheus_client==0.1.1
