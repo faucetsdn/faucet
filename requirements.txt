@@ -7,5 +7,5 @@ msgpack-python
 networkx==2.1
 pbr>=1.9
 prometheus_client==0.1.1
-pyyaml
+pyyaml==3.12
 ryu==4.22
