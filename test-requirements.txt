@@ -4,7 +4,7 @@ concurrencytest==0.1.2
 coveralls==1.2.0
 exabgp==4.0.5
 influxdb==5.0.0
-ipaddress
+ipaddress==1.0.19
 netifaces
 networkx
 packaging
