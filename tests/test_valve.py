@@ -481,15 +481,15 @@ class ValveTestCase(ValveTestBase):
             'arp_target_ip': '10.0.0.254'})
         # TODO: check arp reply is valid
         self.assertTrue(self.packet_outs_from_flows(arp_replies))
-        vlan = self.valve.dp.vlans[0x100]
+        valve_vlan = self.valve.dp.vlans[0x100]
         ip_dst = ipaddress.IPv4Network('10.100.100.0/24')
         ip_gw = ipaddress.IPv4Address('10.0.0.1')
         route_add_replies = self.valve.add_route(
-             vlan, ip_gw, ip_dst)
+            valve_vlan, ip_gw, ip_dst)
         # TODO: check add flows.
         self.assertTrue(route_add_replies)
         route_del_replies = self.valve.del_route(
-             vlan, ip_dst)
+            valve_vlan, ip_dst)
         # TODO: check del flows.
         self.assertTrue(route_del_replies)
 
