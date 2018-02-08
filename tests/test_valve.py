@@ -254,6 +254,7 @@ vlans:
         self.update_config(config)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
+        self.connect_dp()
 
     def update_config(self, config):
         """Update FAUCET config with config as text."""
@@ -272,7 +273,6 @@ vlans:
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
-        self.assertTrue(self.valve.switch_features(None))
         port_nos = range(1, self.NUM_PORTS + 1)
         self.table.apply_ofmsgs(self.valve.datapath_connect(port_nos))
         for port_no in port_nos:
@@ -296,67 +296,6 @@ vlans:
     def packet_outs_from_flows(self, flows):
         """Return flows that are packetout actions."""
         return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
-
-    def arp_for_controller(self):
-        """ARP request for controller VIP."""
-        arp_replies = self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': mac.BROADCAST_STR,
-            'arp_source_ip': '10.0.0.1',
-            'arp_target_ip': '10.0.0.254'})
-        # TODO: check arp reply is valid
-        self.assertTrue(self.packet_outs_from_flows(arp_replies))
-
-    def nd_for_controller(self):
-        """IPv6 ND for controller VIP."""
-        dst_ip = ipaddress.IPv6Address('fc00::1:254')
-        nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
-        ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
-        nd_replies = self.rcv_packet(2, 0x200, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': nd_mac,
-            'vid': 0x200,
-            'ipv6_src': 'fc00::1:1',
-            'ipv6_dst': str(ip_gw_mcast),
-            'neighbor_solicit_ip': str(dst_ip)})
-        # TODO: check ND reply is valid
-        self.assertTrue(self.packet_outs_from_flows(nd_replies))
-
-    def icmp_ping_controller(self):
-        """IPv4 ping controller VIP."""
-        echo_replies = self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.FAUCET_MAC,
-            'vid': 0x100,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.254',
-            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
-        # TODO: check ping response
-        self.assertTrue(self.packet_outs_from_flows(echo_replies))
-
-    def icmp_ping_unknown_neighbor(self):
-        """IPv4 ping unknown host on same subnet, causing proactive learning."""
-        echo_replies = self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.FAUCET_MAC,
-            'vid': 0x100,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.99',
-            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
-        # TODO: check proactive neighbor resolution
-        self.assertTrue(self.packet_outs_from_flows(echo_replies))
-
-    def icmpv6_ping_controller(self):
-        """IPv6 ping controller VIP."""
-        echo_replies = self.rcv_packet(2, 0x200, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': self.FAUCET_MAC,
-            'vid': 0x200,
-            'ipv6_src': 'fc00::1:1',
-            'ipv6_dst': 'fc00::1:254',
-            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
-        # TODO: check ping response
-        self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def learn_hosts(self):
         """Learn some hosts."""
@@ -421,11 +360,6 @@ vlans:
                         self.table.is_output(match, port=port.number),
                         msg=('Packet with unknown eth_dst flooded to non-VLAN %s' % port))
 
-    def setUp(self):
-        self.setup_valve(self.CONFIG)
-        self.connect_dp()
-        self.learn_hosts()
-
     def rcv_packet(self, port, vid, match):
         pkt = build_pkt(match)
         vlan_pkt = pkt
@@ -454,6 +388,10 @@ vlans:
         self.valves_manager.update_metrics()
         return rcv_packet_ofmsgs
 
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+        self.learn_hosts()
+
     def tearDown(self):
         for handler in self.logger.handlers:
             handler.close()
@@ -464,6 +402,70 @@ vlans:
 
 class ValveTestCase(ValveTestBase):
     """Test basic switching/L2/L3 functions."""
+
+    def test_switch_features(self):
+        self.assertTrue(self.valve.switch_features(None))
+
+    def test_arp_for_controller(self):
+        """ARP request for controller VIP."""
+        arp_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': mac.BROADCAST_STR,
+            'arp_source_ip': '10.0.0.1',
+            'arp_target_ip': '10.0.0.254'})
+        # TODO: check arp reply is valid
+        self.assertTrue(self.packet_outs_from_flows(arp_replies))
+
+    def test_nd_for_controller(self):
+        """IPv6 ND for controller VIP."""
+        dst_ip = ipaddress.IPv6Address('fc00::1:254')
+        nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
+        ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
+        nd_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': nd_mac,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:1',
+            'ipv6_dst': str(ip_gw_mcast),
+            'neighbor_solicit_ip': str(dst_ip)})
+        # TODO: check ND reply is valid
+        self.assertTrue(self.packet_outs_from_flows(nd_replies))
+
+    def test_icmp_ping_controller(self):
+        """IPv4 ping controller VIP."""
+        echo_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x100,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.254',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check ping response
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
+
+    def test_icmp_ping_unknown_neighbor(self):
+        """IPv4 ping unknown host on same subnet, causing proactive learning."""
+        echo_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x100,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.99',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check proactive neighbor resolution
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
+
+    def test_icmpv6_ping_controller(self):
+        """IPv6 ping controller VIP."""
+        echo_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:1',
+            'ipv6_dst': 'fc00::1:254',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check ping response
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def test_invalid_vlan(self):
         """Test that packets with incorrect vlan tagging get dropped."""
@@ -786,17 +788,10 @@ acls:
         self.update_config(acl_config)
         self.assertFalse(
             self.table.is_output(drop_match),
-            msg='packet not blocked by acl')
+            msg='packet not blocked by ACL')
         self.assertTrue(
             self.table.is_output(accept_match, port=3, vid=self.V200),
-            msg='packet not allowed by acl')
-
-    def test_l3(self):
-        self.arp_for_controller()
-        self.nd_for_controller()
-        self.icmp_ping_controller()
-        self.icmp_ping_unknown_neighbor()
-        self.icmpv6_ping_controller()
+            msg='packet not allowed by ACL')
 
     def test_lldp_beacon(self):
         self.assertTrue(self.valve.send_lldp_beacons())
@@ -916,7 +911,6 @@ vlans:
 
     def setUp(self):
         self.setup_valve(self.OLD_CONFIG)
-        self.connect_dp()
         self.flap_port(1)
         self.learn_hosts()
 
@@ -924,7 +918,26 @@ vlans:
         self.learn_hosts()
 
 
-class ValveTFMTestCase(ValveTestCase):
+class ValveStackTestCase(ValveTestBase):
+    """Test stacking/forwarding."""
+
+    DP = 's3'
+    DP_ID = 0x3
+
+    def learn_hosts(self):
+        return
+
+    def test_stack_flood(self):
+        matches = [
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V100_MAC
+            }]
+        self.verify_flooding(matches)
+
+
+class ValveTFMTestCase(ValveTestBase):
     """Test vendors that require TFM-based pipeline programming."""
     # TODO: check TFM messages are correct
 
@@ -983,6 +996,9 @@ vlans:
     v300:
         vid: 0x300
 """ % os.path.dirname(os.path.realpath(__file__))
+
+    def test_switch_features(self):
+        self.assertTrue(self.valve.switch_features(None))
 
 
 class ValveMirrorTestCase(ValveTestCase):
@@ -1054,24 +1070,6 @@ vlans:
                 ip_gw: 'fc00::1:99'
 """
 
-
-class ValveStackTestCase(ValveTestBase):
-    """Test stacking/forwarding."""
-
-    DP = 's3'
-    DP_ID = 0x3
-
-    def learn_hosts(self):
-        return
-
-    def test_stack_flood(self):
-        matches = [
-            {
-                'in_port': 1,
-                'vlan_vid': 0,
-                'eth_src': self.P1_V100_MAC
-            }]
-        self.verify_flooding(matches)
 
 
 if __name__ == "__main__":
