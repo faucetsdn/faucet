@@ -11,6 +11,6 @@ packaging==16.8
 prometheus_client==0.1.1
 pylint==1.8.2
 pytest-cov==2.5.1
-pyyaml
+pyyaml==3.12
 requests
 ryu==4.22
