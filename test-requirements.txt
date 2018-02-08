@@ -1,5 +1,5 @@
 astroid==1.6.1
-bitstring
+bitstring==3.1.5
 concurrencytest
 coveralls
 exabgp
