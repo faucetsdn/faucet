@@ -6,7 +6,7 @@ exabgp==4.0.5
 influxdb==5.0.0
 ipaddress==1.0.19
 netifaces==0.10.6
-networkx
+networkx==2.1
 packaging
 prometheus_client
 pylint
