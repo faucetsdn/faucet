@@ -1,7 +1,7 @@
 couchdb
 datadiff
 influxdb==5.0.0
-ipaddress
+ipaddress==1.0.19
 msgpack
 msgpack-python
 networkx
