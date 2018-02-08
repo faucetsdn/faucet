@@ -1,6 +1,6 @@
 astroid==1.6.1
 bitstring==3.1.5
-concurrencytest
+concurrencytest==0.1.2
 coveralls
 exabgp
 influxdb
