@@ -2,7 +2,7 @@ couchdb==1.1
 datadiff==2.0.0
 influxdb==5.0.0
 ipaddress==1.0.19
-msgpack
+msgpack==0.5.4
 msgpack-python
 networkx==2.1
 pbr>=1.9
