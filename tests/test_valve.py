@@ -424,6 +424,10 @@ class ValveTestCase(ValveTestBase):
     def tearDown(self):
         self.teardown_valve()
 
+    def test_disconnect(self):
+        # TODO: verify DP state change.
+        self.valve.datapath_disconnect()
+
     def test_switch_features(self):
         self.assertTrue(isinstance(self.valve, valve.TfmValve))
         features_flows = self.valve.switch_features(None)
