@@ -48,6 +48,7 @@ def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
 
     def serialize(layers):
+        """Concatenate packet layers and serialize."""
         result = packet.Packet()
         for layer in reversed(layers):
             result.add_protocol(layer)
@@ -229,8 +230,11 @@ vlans:
     V300 = 0x300|ofp.OFPVID_PRESENT
     LOGNAME = 'faucet'
     last_flows_to_dp = {}
+    valve = None
+    valves_manager = None
 
     def send_flows_to_dp_by_id(self, dp_id, flows):
+        """Callback for ValvesManager to simulate sending flows to DP."""
         self.last_flows_to_dp[dp_id] = flows
 
     def setup_valve(self, config):
@@ -293,7 +297,8 @@ vlans:
         self.set_port_down(port_no)
         self.set_port_up(port_no)
 
-    def packet_outs_from_flows(self, flows):
+    @staticmethod
+    def packet_outs_from_flows(flows):
         """Return flows that are packetout actions."""
         return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
 
@@ -318,6 +323,7 @@ vlans:
             'vid': 0x200})
 
     def verify_flooding(self, matches):
+        """Verify flooding for a packet, depending on the DP implementation."""
         for match in matches:
             in_port = match['in_port']
 
@@ -361,6 +367,7 @@ vlans:
                         msg=('Packet with unknown eth_dst flooded to non-VLAN %s' % port))
 
     def rcv_packet(self, port, vid, match):
+        """Simulate control plane receiving a packet on a port/VID."""
         pkt = build_pkt(match)
         vlan_pkt = pkt
         # TODO: packet submitted to packet in always has VID
