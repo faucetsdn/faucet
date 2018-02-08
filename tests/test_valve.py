@@ -227,6 +227,7 @@ vlans:
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
     V300 = 0x300|ofp.OFPVID_PRESENT
+    LOGNAME = 'faucet'
     last_flows_to_dp = {}
 
     def send_flows_to_dp_by_id(self, dp_id, flows):
@@ -237,10 +238,9 @@ vlans:
         self.tmpdir = tempfile.mkdtemp()
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
         self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
-        self.logname = 'faucet'
-        self.logfile = os.path.join(self.tmpdir, 'faucet.log')
         self.table = FakeOFTable(self.NUM_TABLES)
-        self.logger = valve_util.get_logger(self.logname, self.logfile, logging.DEBUG, 0)
+        logfile = os.path.join(self.tmpdir, 'faucet.log')
+        self.logger = valve_util.get_logger(self.LOGNAME, logfile, logging.DEBUG, 0)
         self.registry = CollectorRegistry()
         # TODO: verify Prometheus variables
         self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
@@ -249,7 +249,7 @@ vlans:
             self.faucet_event_sock, self.metrics, self.logger)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
         self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
+            self.LOGNAME, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
         self.update_config(config)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
