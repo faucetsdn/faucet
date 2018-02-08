@@ -10,7 +10,7 @@ networkx==2.1
 packaging==16.8
 prometheus_client==0.1.1
 pylint==1.8.2
-pytest-cov
+pytest-cov==2.5.1
 pyyaml
 requests
 ryu==4.22
