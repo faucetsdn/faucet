@@ -397,7 +397,6 @@ vlans:
 
     def setUp(self):
         self.setup_valve(self.CONFIG)
-        self.learn_hosts()
 
     def tearDown(self):
         for handler in self.logger.handlers:
@@ -490,7 +489,7 @@ class ValveTestCase(ValveTestBase):
         """Test that packets from unknown macs are sent to controller.
 
         Untagged packets should have VLAN tags pushed before they are sent to
-        the controler.
+        the controller.
         """
         matches = [
             {'in_port': 1, 'vlan_vid': 0},
@@ -532,6 +531,7 @@ class ValveTestCase(ValveTestBase):
         correct vlan tagging. And they must not be forwarded to a port not
         on the associated vlan
         """
+        self.learn_hosts()
         matches = [
             {
                 'in_port': 3,
@@ -557,6 +557,7 @@ class ValveTestCase(ValveTestBase):
 
     def test_known_eth_src_rule(self):
         """Test that packets with known eth src addrs are not sent to controller."""
+        self.learn_hosts()
         matches = [
             {
                 'in_port': 1,
@@ -604,6 +605,7 @@ class ValveTestCase(ValveTestBase):
         """Test that packets with known eth dst addrs are output correctly.
 
         Output to the correct port with the correct vlan tagging."""
+        self.learn_hosts()
         match_results = [
             ({
                 'in_port': 2,
@@ -639,6 +641,7 @@ class ValveTestCase(ValveTestBase):
     def test_mac_learning_vlan_separation(self):
         """Test that when a mac is seen on a second vlan the original vlan
         rules are unaffected."""
+        self.learn_hosts()
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -919,10 +922,7 @@ vlans:
     def setUp(self):
         self.setup_valve(self.OLD_CONFIG)
         self.flap_port(1)
-        self.learn_hosts()
-
         self.update_config(self.CONFIG)
-        self.learn_hosts()
 
 
 class ValveStackTestCase(ValveTestBase):
@@ -930,9 +930,6 @@ class ValveStackTestCase(ValveTestBase):
 
     DP = 's3'
     DP_ID = 0x3
-
-    def learn_hosts(self):
-        return
 
     def test_stack_flood(self):
         matches = [
