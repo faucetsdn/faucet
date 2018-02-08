@@ -995,6 +995,8 @@ dps:
     s1:
         ignore_learn_ins: 0
         dp_id: 1
+        hardware: 'GenericTFM'
+        pipeline_config_dir: '%s/../etc/ryu/faucet'
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
@@ -1042,7 +1044,7 @@ vlans:
             - route:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
-"""
+""" % os.path.dirname(os.path.realpath(__file__))
 
 
 
