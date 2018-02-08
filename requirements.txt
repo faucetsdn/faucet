@@ -4,7 +4,7 @@ influxdb==5.0.0
 ipaddress==1.0.19
 msgpack
 msgpack-python
-networkx
+networkx==2.1
 pbr>=1.9
 prometheus_client
 pyyaml
