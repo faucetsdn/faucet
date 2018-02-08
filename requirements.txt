@@ -1,6 +1,6 @@
 couchdb
 datadiff
-influxdb
+influxdb==5.0.0
 ipaddress
 msgpack
 msgpack-python
