@@ -35,8 +35,9 @@ from prometheus_client import CollectorRegistry
 
 from faucet import faucet_bgp
 from faucet import faucet_experimental_event
-from faucet import valves_manager
 from faucet import faucet_metrics
+from faucet import valve
+from faucet import valves_manager
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_util
@@ -48,6 +49,7 @@ def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
 
     def serialize(layers):
+        """Concatenate packet layers and serialize."""
         result = packet.Packet()
         for layer in reversed(layers):
             result.add_protocol(layer)
@@ -107,9 +109,10 @@ class ValveTestBase(unittest.TestCase):
 dps:
     s1:
         ignore_learn_ins: 0
-        hardware: 'Open vSwitch'
         dp_id: 1
         ofchannel_log: "/dev/null"
+        hardware: 'GenericTFM'
+        pipeline_config_dir: '%s/../etc/ryu/faucet'
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
@@ -213,7 +216,7 @@ vlans:
         vid: 0x300
     v400:
         vid: 0x400
-"""
+""" % os.path.dirname(os.path.realpath(__file__))
 
     DP = 's1'
     DP_ID = 1
@@ -227,20 +230,29 @@ vlans:
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
     V300 = 0x300|ofp.OFPVID_PRESENT
+    LOGNAME = 'faucet'
     last_flows_to_dp = {}
-
-    def send_flows_to_dp_by_id(self, dp_id, flows):
-        self.last_flows_to_dp[dp_id] = flows
+    valve = None
+    valves_manager = None
+    metrics = None
+    bgp = None
+    table = None
+    logger = None
+    tmpdir = None
+    faucet_event_sock = None
+    registry = None
+    sock = None
+    notifier = None
+    config_file = None
 
     def setup_valve(self, config):
         """Set up test DP with config."""
         self.tmpdir = tempfile.mkdtemp()
         self.config_file = os.path.join(self.tmpdir, 'valve_unit.yaml')
         self.faucet_event_sock = os.path.join(self.tmpdir, 'event.sock')
-        self.logname = 'faucet'
-        self.logfile = os.path.join(self.tmpdir, 'faucet.log')
         self.table = FakeOFTable(self.NUM_TABLES)
-        self.logger = valve_util.get_logger(self.logname, self.logfile, logging.DEBUG, 0)
+        logfile = os.path.join(self.tmpdir, 'faucet.log')
+        self.logger = valve_util.get_logger(self.LOGNAME, logfile, logging.DEBUG, 0)
         self.registry = CollectorRegistry()
         # TODO: verify Prometheus variables
         self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
@@ -249,11 +261,23 @@ vlans:
             self.faucet_event_sock, self.metrics, self.logger)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
         self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
+            self.LOGNAME, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
         self.update_config(config)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(self.faucet_event_sock)
+        self.connect_dp()
+
+    def teardown_valve(self):
+        for handler in self.logger.handlers:
+            handler.close()
+        self.logger.handlers = []
+        self.sock.close()
+        shutil.rmtree(self.tmpdir)
+
+    def send_flows_to_dp_by_id(self, dp_id, flows):
+        """Callback for ValvesManager to simulate sending flows to DP."""
+        self.last_flows_to_dp[dp_id] = flows
 
     def update_config(self, config):
         """Update FAUCET config with config as text."""
@@ -272,7 +296,6 @@ vlans:
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
-        self.assertTrue(self.valve.switch_features(None))
         port_nos = range(1, self.NUM_PORTS + 1)
         self.table.apply_ofmsgs(self.valve.datapath_connect(port_nos))
         for port_no in port_nos:
@@ -293,70 +316,10 @@ vlans:
         self.set_port_down(port_no)
         self.set_port_up(port_no)
 
-    def packet_outs_from_flows(self, flows):
+    @staticmethod
+    def packet_outs_from_flows(flows):
         """Return flows that are packetout actions."""
         return [flow for flow in flows if isinstance(flow, valve_of.parser.OFPPacketOut)]
-
-    def arp_for_controller(self):
-        """ARP request for controller VIP."""
-        arp_replies = self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': mac.BROADCAST_STR,
-            'arp_source_ip': '10.0.0.1',
-            'arp_target_ip': '10.0.0.254'})
-        # TODO: check arp reply is valid
-        self.assertTrue(self.packet_outs_from_flows(arp_replies))
-
-    def nd_for_controller(self):
-        """IPv6 ND for controller VIP."""
-        dst_ip = ipaddress.IPv6Address('fc00::1:254')
-        nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
-        ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
-        nd_replies = self.rcv_packet(2, 0x200, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': nd_mac,
-            'vid': 0x200,
-            'ipv6_src': 'fc00::1:1',
-            'ipv6_dst': str(ip_gw_mcast),
-            'neighbor_solicit_ip': str(dst_ip)})
-        # TODO: check ND reply is valid
-        self.assertTrue(self.packet_outs_from_flows(nd_replies))
-
-    def icmp_ping_controller(self):
-        """IPv4 ping controller VIP."""
-        echo_replies = self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.FAUCET_MAC,
-            'vid': 0x100,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.254',
-            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
-        # TODO: check ping response
-        self.assertTrue(self.packet_outs_from_flows(echo_replies))
-
-    def icmp_ping_unknown_neighbor(self):
-        """IPv4 ping unknown host on same subnet, causing proactive learning."""
-        echo_replies = self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.FAUCET_MAC,
-            'vid': 0x100,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.99',
-            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
-        # TODO: check proactive neighbor resolution
-        self.assertTrue(self.packet_outs_from_flows(echo_replies))
-
-    def icmpv6_ping_controller(self):
-        """IPv6 ping controller VIP."""
-        echo_replies = self.rcv_packet(2, 0x200, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': self.FAUCET_MAC,
-            'vid': 0x200,
-            'ipv6_src': 'fc00::1:1',
-            'ipv6_dst': 'fc00::1:254',
-            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
-        # TODO: check ping response
-        self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def learn_hosts(self):
         """Learn some hosts."""
@@ -379,6 +342,7 @@ vlans:
             'vid': 0x200})
 
     def verify_flooding(self, matches):
+        """Verify flooding for a packet, depending on the DP implementation."""
         for match in matches:
             in_port = match['in_port']
 
@@ -421,12 +385,8 @@ vlans:
                         self.table.is_output(match, port=port.number),
                         msg=('Packet with unknown eth_dst flooded to non-VLAN %s' % port))
 
-    def setUp(self):
-        self.setup_valve(self.CONFIG)
-        self.connect_dp()
-        self.learn_hosts()
-
     def rcv_packet(self, port, vid, match):
+        """Simulate control plane receiving a packet on a port/VID."""
         pkt = build_pkt(match)
         vlan_pkt = pkt
         # TODO: packet submitted to packet in always has VID
@@ -454,16 +414,83 @@ vlans:
         self.valves_manager.update_metrics()
         return rcv_packet_ofmsgs
 
-    def tearDown(self):
-        for handler in self.logger.handlers:
-            handler.close()
-        self.logger.handlers = []
-        self.sock.close()
-        shutil.rmtree(self.tmpdir)
-
 
 class ValveTestCase(ValveTestBase):
     """Test basic switching/L2/L3 functions."""
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_switch_features(self):
+        self.assertTrue(isinstance(self.valve, valve.TfmValve))
+        features_flows = self.valve.switch_features(None)
+        tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
+        # TODO: verify TFM content.
+        self.assertTrue(tfm_flows)
+
+    def test_arp_for_controller(self):
+        """ARP request for controller VIP."""
+        arp_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': mac.BROADCAST_STR,
+            'arp_source_ip': '10.0.0.1',
+            'arp_target_ip': '10.0.0.254'})
+        # TODO: check arp reply is valid
+        self.assertTrue(self.packet_outs_from_flows(arp_replies))
+
+    def test_nd_for_controller(self):
+        """IPv6 ND for controller VIP."""
+        dst_ip = ipaddress.IPv6Address('fc00::1:254')
+        nd_mac = valve_packet.ipv6_link_eth_mcast(dst_ip)
+        ip_gw_mcast = valve_packet.ipv6_solicited_node_from_ucast(dst_ip)
+        nd_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': nd_mac,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:1',
+            'ipv6_dst': str(ip_gw_mcast),
+            'neighbor_solicit_ip': str(dst_ip)})
+        # TODO: check ND reply is valid
+        self.assertTrue(self.packet_outs_from_flows(nd_replies))
+
+    def test_icmp_ping_controller(self):
+        """IPv4 ping controller VIP."""
+        echo_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x100,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.254',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check ping response
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
+
+    def test_icmp_ping_unknown_neighbor(self):
+        """IPv4 ping unknown host on same subnet, causing proactive learning."""
+        echo_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x100,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.99',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check proactive neighbor resolution
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
+
+    def test_icmpv6_ping_controller(self):
+        """IPv6 ping controller VIP."""
+        echo_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': self.FAUCET_MAC,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:1',
+            'ipv6_dst': 'fc00::1:254',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check ping response
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
     def test_invalid_vlan(self):
         """Test that packets with incorrect vlan tagging get dropped."""
@@ -481,7 +508,7 @@ class ValveTestCase(ValveTestBase):
         """Test that packets from unknown macs are sent to controller.
 
         Untagged packets should have VLAN tags pushed before they are sent to
-        the controler.
+        the controller.
         """
         matches = [
             {'in_port': 1, 'vlan_vid': 0},
@@ -523,6 +550,7 @@ class ValveTestCase(ValveTestBase):
         correct vlan tagging. And they must not be forwarded to a port not
         on the associated vlan
         """
+        self.learn_hosts()
         matches = [
             {
                 'in_port': 3,
@@ -548,6 +576,7 @@ class ValveTestCase(ValveTestBase):
 
     def test_known_eth_src_rule(self):
         """Test that packets with known eth src addrs are not sent to controller."""
+        self.learn_hosts()
         matches = [
             {
                 'in_port': 1,
@@ -595,6 +624,7 @@ class ValveTestCase(ValveTestBase):
         """Test that packets with known eth dst addrs are output correctly.
 
         Output to the correct port with the correct vlan tagging."""
+        self.learn_hosts()
         match_results = [
             ({
                 'in_port': 2,
@@ -630,6 +660,7 @@ class ValveTestCase(ValveTestBase):
     def test_mac_learning_vlan_separation(self):
         """Test that when a mac is seen on a second vlan the original vlan
         rules are unaffected."""
+        self.learn_hosts()
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -786,17 +817,10 @@ acls:
         self.update_config(acl_config)
         self.assertFalse(
             self.table.is_output(drop_match),
-            msg='packet not blocked by acl')
+            msg='packet not blocked by ACL')
         self.assertTrue(
             self.table.is_output(accept_match, port=3, vid=self.V200),
-            msg='packet not allowed by acl')
-
-    def test_l3(self):
-        self.arp_for_controller()
-        self.nd_for_controller()
-        self.icmp_ping_controller()
-        self.icmp_ping_unknown_neighbor()
-        self.icmpv6_ping_controller()
+            msg='packet not allowed by ACL')
 
     def test_lldp_beacon(self):
         self.assertTrue(self.valve.send_lldp_beacons())
@@ -807,6 +831,12 @@ acls:
 
 class ValveACLTestCase(ValveTestBase):
     """Test ACL drop/allow and reloading."""
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
 
     def test_vlan_acl_deny(self):
         acl_config = """
@@ -916,73 +946,33 @@ vlans:
 
     def setUp(self):
         self.setup_valve(self.OLD_CONFIG)
-        self.connect_dp()
         self.flap_port(1)
-        self.learn_hosts()
-
         self.update_config(self.CONFIG)
-        self.learn_hosts()
+
+    def tearDown(self):
+        self.teardown_valve()
 
 
-class ValveTFMTestCase(ValveTestCase):
-    """Test vendors that require TFM-based pipeline programming."""
-    # TODO: check TFM messages are correct
+class ValveStackTestCase(ValveTestBase):
+    """Test stacking/forwarding."""
 
-    CONFIG = """
-dps:
-    s1:
-        ignore_learn_ins: 0
-        hardware: 'GenericTFM'
-        dp_id: 1
-        pipeline_config_dir: '%s/../etc/ryu/faucet'
-        lldp_beacon:
-            send_interval: 1
-            max_per_interval: 1
-        interfaces:
-            p1:
-                number: 1
-                native_vlan: v100
-                lldp_beacon:
-                    enable: True
-                    system_name: "faucet"
-                    port_descr: "first_port"
-            p2:
-                number: 2
-                native_vlan: v200
-                tagged_vlans: [v100]
-            p3:
-                number: 3
-                tagged_vlans: [v100, v200]
-            p4:
-                number: 4
-                tagged_vlans: [v200]
-            p5:
-                number: 5
-                tagged_vlans: [v300]
-vlans:
-    v100:
-        vid: 0x100
-        faucet_vips: ['10.0.0.254/24']
-        routes:
-            - route:
-                ip_dst: 10.99.99.0/24
-                ip_gw: 10.0.0.1
-            - route:
-                ip_dst: 10.99.98.0/24
-                ip_gw: 10.0.0.99
-    v200:
-        vid: 0x200
-        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
-        routes:
-            - route:
-                ip_dst: 'fc00::10:0/112'
-                ip_gw: 'fc00::1:1'
-            - route:
-                ip_dst: 'fc00::20:0/112'
-                ip_gw: 'fc00::1:99'
-    v300:
-        vid: 0x300
-""" % os.path.dirname(os.path.realpath(__file__))
+    DP = 's3'
+    DP_ID = 0x3
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_stack_flood(self):
+        matches = [
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V100_MAC
+            }]
+        self.verify_flooding(matches)
 
 
 class ValveMirrorTestCase(ValveTestCase):
@@ -1005,6 +995,8 @@ dps:
     s1:
         ignore_learn_ins: 0
         dp_id: 1
+        hardware: 'GenericTFM'
+        pipeline_config_dir: '%s/../etc/ryu/faucet'
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
@@ -1052,26 +1044,8 @@ vlans:
             - route:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
-"""
+""" % os.path.dirname(os.path.realpath(__file__))
 
-
-class ValveStackTestCase(ValveTestBase):
-    """Test stacking/forwarding."""
-
-    DP = 's3'
-    DP_ID = 0x3
-
-    def learn_hosts(self):
-        return
-
-    def test_stack_flood(self):
-        matches = [
-            {
-                'in_port': 1,
-                'vlan_vid': 0,
-                'eth_src': self.P1_V100_MAC
-            }]
-        self.verify_flooding(matches)
 
 
 if __name__ == "__main__":
