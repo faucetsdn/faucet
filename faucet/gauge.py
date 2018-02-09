@@ -201,7 +201,7 @@ class Gauge(valve_ryuapp.RyuAppBase):
             return
         self.logger.info('%s up', dpid_log(ryu_dp.id))
         for watchers_by_name in list(watchers.values()):
-            for i, watcher in enumerate(list(watchers_by_name.values())):
+            for i, watcher in enumerate(watchers_by_name):
                 is_active = i == 0
                 watcher.report_dp_status(1)
                 watcher.start(ryu_dp, is_active)
@@ -223,7 +223,7 @@ class Gauge(valve_ryuapp.RyuAppBase):
             return
         self.logger.info('%s down', dpid_log(ryu_dp.id))
         for watchers_by_name in list(watchers.values()):
-            for watcher in list(watchers_by_name.values()):
+            for watcher in watchers_by_name:
                 watcher.report_dp_status(0)
                 if watcher.is_active():
                     self.logger.info(
