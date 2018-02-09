@@ -30,11 +30,11 @@ from faucet import valve_of
 from faucet.config_parser import watcher_parser
 from faucet.gauge_prom import GaugePrometheusClient
 from faucet.valve_util import dpid_log, kill_on_exception, stat_config_files
-from faucet.valve_ryuapp import RyuAppBase, EventReconfigure
 from faucet.watcher import watcher_factory
+from faucet import valve_ryuapp
 
 
-class Gauge(RyuAppBase):
+class Gauge(valve_ryuapp.RyuAppBase):
     """Ryu app for polling Faucet controlled datapaths for stats/state.
 
     It can poll multiple datapaths. The configuration files for each datapath
@@ -154,12 +154,12 @@ class Gauge(RyuAppBase):
                 if self.config_file_stats:
                     if new_config_file_stats != self.config_file_stats:
                         if self.stat_reload:
-                            self.send_event('Gauge', EventReconfigure())
+                            self.send_event('Gauge', valve_ryuapp.EventReconfigure())
                         self.logger.info('config file(s) changed on disk')
                 self.config_file_stats = new_config_file_stats
             self._thread_jitter(3)
 
-    @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
+    @set_ev_cls(valve_ryuapp.EventReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):
         """Handle request for Gauge config reload."""
         self.logger.warning('reload config requested')

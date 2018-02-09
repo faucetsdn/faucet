@@ -31,7 +31,6 @@ from ryu.controller import ofp_event
 from ryu.lib import hub
 
 from faucet.config_parser import get_config_for_api
-from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
@@ -39,6 +38,7 @@ from faucet import faucet_bgp
 from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_of
+from faucet import valve_ryuapp
 
 
 class EventFaucetExperimentalAPIRegistered(event.EventBase):
@@ -71,7 +71,7 @@ class EventFaucetLLDPAdvertise(event.EventBase):
     pass
 
 
-class Faucet(RyuAppBase):
+class Faucet(valve_ryuapp.RyuAppBase):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
     Valve provides the switch implementation; this is a shim for the Ryu
@@ -137,7 +137,7 @@ class Faucet(RyuAppBase):
         self.valves_manager.load_configs(
             new_config_file, delete_dp=self.delete_deconfigured_dp)
 
-    @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
+    @set_ev_cls(valve_ryuapp.EventReconfigure, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def reload_config(self, _):
         """Handle a request to reload configuration."""
@@ -212,7 +212,7 @@ class Faucet(RyuAppBase):
         # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         while True:
             if self.stat_reload and self.valves_manager.config_files_changed():
-                self.send_event('Faucet', EventReconfigure())
+                self.send_event('Faucet', valve_ryuapp.EventReconfigure())
             self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
