@@ -150,8 +150,8 @@ class Gauge(valve_ryuapp.RyuAppBase):
         if watchers is None:
             return
         if name in watchers:
-            watcher = watchers[name]
-            watcher.update(rcv_time, ryu_dp.id, msg)
+            for watcher in watchers[name]:
+                watcher.update(rcv_time, ryu_dp.id, msg)
 
     @kill_on_exception(exc_logname)
     def signal_handler(self, sigid, _):
