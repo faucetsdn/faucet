@@ -20,11 +20,20 @@
 
 import logging
 import random
+import signal
+import sys
 
 from ryu.base import app_manager
+from ryu.controller import event
 from ryu.lib import hub
 from faucet import valve_of
 from faucet.valve_util import get_logger, get_setting
+
+
+class EventReconfigure(event.EventBase):
+    """Event sent to FAUCET/Gauge to cause config reload."""
+
+    pass
 
 
 class RyuAppBase(app_manager.RyuApp):
@@ -55,3 +64,20 @@ class RyuAppBase(app_manager.RyuApp):
     def get_setting(self, setting):
         """Return config setting prefaced with logname."""
         return get_setting('_'.join((self.logname.upper(), setting)))
+
+    def start(self):
+        super(RyuAppBase, self).start()
+        for sig in (signal.SIGHUP, signal.SIGINT):
+            signal.signal(sig, self.signal_handler)
+
+    def signal_handler(self, sigid, _):
+        """Handle any received signals.
+
+        Args:
+            sigid (int): signal to handle.
+        """
+        if sigid == signal.SIGINT:
+            self.close()
+            sys.exit(0)
+        if sigid == signal.SIGHUP:
+            self.send_event(self.logname, EventReconfigure())
