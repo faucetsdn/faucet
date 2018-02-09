@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import signal
 import sys
 import time
 
@@ -32,6 +33,12 @@ from faucet.gauge_prom import GaugePrometheusClient
 from faucet.valve_util import dpid_log, kill_on_exception, stat_config_files
 from faucet.watcher import watcher_factory
 from faucet import valve_ryuapp
+
+
+class EventGaugeReconfigure(event.EventBase):
+    """Event sent to Gauge to cause config reload."""
+
+    pass
 
 
 class Gauge(valve_ryuapp.RyuAppBase):
@@ -61,6 +68,10 @@ class Gauge(valve_ryuapp.RyuAppBase):
 
         self.threads.extend([
             hub.spawn(thread) for thread in (self._config_file_stat,)])
+
+        # Set the signal handler for reloading config file
+        signal.signal(signal.SIGHUP, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)
 
     def _get_watchers(self, ryu_dp, handler_name):
         """Get Watchers instances to response to an event.
@@ -143,6 +154,19 @@ class Gauge(valve_ryuapp.RyuAppBase):
                 watcher.update(rcv_time, ryu_dp.id, msg)
 
     @kill_on_exception(exc_logname)
+    def signal_handler(self, sigid, _):
+        """Handle signal and cause config reload.
+
+        Args:
+            sigid (int): signal received.
+        """
+        if sigid == signal.SIGHUP:
+            self.send_event('Gauge', EventGaugeReconfigure())
+        elif sigid == signal.SIGINT:
+            self.close()
+            sys.exit(0)
+
+    @kill_on_exception(exc_logname)
     def _config_file_stat(self):
         """Periodically stat config files for any changes."""
         # TODO: Better to use an inotify method that doesn't conflict with eventlets.
@@ -154,12 +178,12 @@ class Gauge(valve_ryuapp.RyuAppBase):
                 if self.config_file_stats:
                     if new_config_file_stats != self.config_file_stats:
                         if self.stat_reload:
-                            self.send_event('Gauge', valve_ryuapp.EventReconfigure())
+                            self.send_event('Gauge', EventGaugeReconfigure())
                         self.logger.info('config file(s) changed on disk')
                 self.config_file_stats = new_config_file_stats
             self._thread_jitter(3)
 
-    @set_ev_cls(valve_ryuapp.EventReconfigure, MAIN_DISPATCHER)
+    @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):
         """Handle request for Gauge config reload."""
         self.logger.warning('reload config requested')

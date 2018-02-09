@@ -20,6 +20,7 @@
 
 import logging
 import random
+import signal
 import sys
 
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -43,6 +44,11 @@ from faucet import valve_ryuapp
 
 class EventFaucetExperimentalAPIRegistered(event.EventBase):
     """Event used to notify that the API is registered with Faucet."""
+    pass
+
+
+class EventFaucetReconfigure(event.EventBase):
+    """Event used to trigger FAUCET reconfiguration."""
     pass
 
 
@@ -125,6 +131,10 @@ class Faucet(valve_ryuapp.RyuAppBase):
         self.api._register(self)
         self.send_event_to_observers(EventFaucetExperimentalAPIRegistered())
 
+        # Set the signal handler for reloading config file
+        signal.signal(signal.SIGHUP, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
+
     def delete_deconfigured_dp(self, deleted_dpid):
         self.logger.info(
             'Deleting de-configured %s', dpid_log(deleted_dpid))
@@ -137,7 +147,7 @@ class Faucet(valve_ryuapp.RyuAppBase):
         self.valves_manager.load_configs(
             new_config_file, delete_dp=self.delete_deconfigured_dp)
 
-    @set_ev_cls(valve_ryuapp.EventReconfigure, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def reload_config(self, _):
         """Handle a request to reload configuration."""
@@ -195,6 +205,18 @@ class Faucet(valve_ryuapp.RyuAppBase):
             '%s: unknown datapath %s', handler_name, dpid_log(dp_id))
         return None
 
+    def _signal_handler(self, sigid, _):
+        """Handle any received signals.
+
+        Args:
+            sigid (int): signal to handle.
+        """
+        if sigid == signal.SIGHUP:
+            self.send_event('Faucet', EventFaucetReconfigure())
+        elif sigid == signal.SIGINT:
+            self.close()
+            sys.exit(0)
+
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
 
@@ -212,7 +234,7 @@ class Faucet(valve_ryuapp.RyuAppBase):
         # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         while True:
             if self.stat_reload and self.valves_manager.config_files_changed():
-                self.send_event('Faucet', valve_ryuapp.EventReconfigure())
+                self.send_event('Faucet', EventFaucetReconfigure())
             self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
