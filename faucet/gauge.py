@@ -200,15 +200,16 @@ class Gauge(valve_ryuapp.RyuAppBase):
         if watchers is None:
             return
         self.logger.info('%s up', dpid_log(ryu_dp.id))
-        for i, watcher in enumerate(list(watchers.values())):
-            is_active = i == 0
-            watcher.report_dp_status(1)
-            watcher.start(ryu_dp, is_active)
-            if is_active:
-                self.logger.info(
-                    '%s %s watcher starting', dpid_log(ryu_dp.id), watcher.conf.type)
-            ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
-            ryu_dp.send_msg(valve_of.gauge_async(datapath=ryu_dp))
+        for watchers_by_name in list(watchers.values()):
+            for i, watcher in enumerate(list(watchers_by_name.values())):
+                is_active = i == 0
+                watcher.report_dp_status(1)
+                watcher.start(ryu_dp, is_active)
+                if is_active:
+                    self.logger.info(
+                        '%s %s watcher starting', dpid_log(ryu_dp.id), watcher.conf.type)
+        ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
+        ryu_dp.send_msg(valve_of.gauge_async(datapath=ryu_dp))
 
     @kill_on_exception(exc_logname)
     def _handler_datapath_down(self, ryu_dp):
@@ -221,12 +222,13 @@ class Gauge(valve_ryuapp.RyuAppBase):
         if watchers is None:
             return
         self.logger.info('%s down', dpid_log(ryu_dp.id))
-        for watcher in list(watchers.values()):
-            watcher.report_dp_status(0)
-            if watcher.is_active():
-                self.logger.info(
-                    '%s %s watcher stopping', dpid_log(ryu_dp.id), watcher.conf.type)
-                watcher.stop()
+        for watchers_by_name in list(watchers.values()):
+            for watcher in list(watchers_by_name.values()):
+                watcher.report_dp_status(0)
+                if watcher.is_active():
+                    self.logger.info(
+                        '%s %s watcher stopping', dpid_log(ryu_dp.id), watcher.conf.type)
+                    watcher.stop()
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
