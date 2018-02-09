@@ -200,7 +200,7 @@ class Gauge(valve_ryuapp.RyuAppBase):
         if watchers is None:
             return
         self.logger.info('%s up', dpid_log(ryu_dp.id))
-        for watcher, i in enumerate(list(watchers.values())):
+        for i, watcher in enumerate(list(watchers.values())):
             is_active = i == 0
             watcher.report_dp_status(1)
             watcher.start(ryu_dp, is_active)
