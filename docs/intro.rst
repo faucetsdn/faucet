@@ -77,7 +77,7 @@ Testing
 ^^^^^^^
 Faucet follows open source software engineering best practices, including unit
 and systems testing (python unittest based), as well static analysis
-(pytype, pylint, and coveralls) and fuzzing (python-afl). Faucet's systems tests
+(pytype, pylint, and codecov) and fuzzing (python-afl). Faucet's systems tests
 test all Faucet features, from switching algorithms to routing, on virtual
 topologies. However, Faucet's systems tests can also be configured to run the
 same feature tests on real OpenFlow hardware. Faucet developers also host
