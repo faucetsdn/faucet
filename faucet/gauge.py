@@ -191,7 +191,7 @@ class Gauge(valve_ryuapp.RyuAppBase):
 
     def _start_watchers(self, ryu_dp, dp_id, watchers):
         for watchers_by_name in list(watchers.values()):
-            for i, watcher in enumerate(watchers):
+            for i, watcher in enumerate(watchers_by_name):
                 is_active = i == 0
                 watcher.report_dp_status(1)
                 watcher.start(ryu_dp, is_active and ryu_dp)
