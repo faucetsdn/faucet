@@ -93,51 +93,26 @@ class Gauge(valve_ryuapp.RyuAppBase):
     @kill_on_exception(exc_logname)
     def _load_config(self):
         """Load Gauge config."""
+        for watcher_dpid, old_watchers in list(self.watchers.items()):
+            self._stop_watchers(watcher_dpid, old_watchers)
+
         new_confs = watcher_parser(self.config_file, self.logname, self.prom_client)
         new_watchers = {}
 
         for conf in new_confs:
             watcher = watcher_factory(conf)(conf, self.logname, self.prom_client)
             watcher_dpid = watcher.dp.dp_id
-            ryu_dp = self.dpset.get(watcher_dpid)
             watcher_type = watcher.conf.type
-            watcher_msg = '%s %s watcher' % (dpid_log(watcher_dpid), watcher_type)
-
             if watcher_dpid not in new_watchers:
                 new_watchers[watcher_dpid] = {}
-
             if watcher_type not in new_watchers[watcher_dpid]:
+                new_watchers[watcher_dpid][watcher_type] = []
+            new_watchers[watcher_dpid][watcher_type].append(watcher)
 
-                # remove old watchers for this stat
-                if (watcher_dpid in self.watchers and
-                        watcher_type in self.watchers[watcher_dpid]):
-                    old_watchers = self.watchers[watcher_dpid][watcher_type]
-                    for old_watcher in old_watchers:
-                        if old_watcher.running():
-                            self.logger.info('%s stopped', watcher_msg)
-                            old_watcher.stop()
-                    del self.watchers[watcher_dpid][watcher_type]
-
-                # start new watcher
-                new_watchers[watcher_dpid][watcher_type] = [watcher]
-                if ryu_dp is None:
-                    watcher.report_dp_status(0)
-                    self.logger.info('%s added but DP currently down', watcher_msg)
-                else:
-                    watcher.report_dp_status(1)
-                    watcher.start(ryu_dp, True)
-                    self.logger.info('%s started', watcher_msg)
-            else:
-                new_watchers[watcher_dpid][watcher_type].append(watcher)
-                watcher.start(ryu_dp, False)
-
-        for watcher_dpid, leftover_watchers in list(self.watchers.items()):
-            for watcher_type, watcher in list(leftover_watchers.items()):
-                watcher.report_dp_status(0)
-                if watcher.running():
-                    self.logger.info(
-                        '%s %s deconfigured', dpid_log(watcher_dpid), watcher_type)
-                    watcher.stop()
+        for watcher_dpid, watchers in list(new_watchers.items()):
+            ryu_dp = self.dpset.get(watcher_dpid)
+            if ryu_dp:
+                self._start_watchers(ryu_dp, watcher_dpid, watchers)
 
         self.watchers = new_watchers
         self.logger.info('config complete')
@@ -189,6 +164,17 @@ class Gauge(valve_ryuapp.RyuAppBase):
         self.logger.warning('reload config requested')
         self._load_config()
 
+    def _start_watchers(self, ryu_dp, dp_id, watchers):
+        """Start watchers for DP if active."""
+        for watchers_by_name in list(watchers.values()):
+            for i, watcher in enumerate(watchers_by_name):
+                is_active = i == 0
+                watcher.report_dp_status(1)
+                watcher.start(ryu_dp, is_active)
+                if is_active:
+                    self.logger.info(
+                        '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
+
     @kill_on_exception(exc_logname)
     def _handler_datapath_up(self, ryu_dp):
         """Handle DP up.
@@ -200,16 +186,19 @@ class Gauge(valve_ryuapp.RyuAppBase):
         if watchers is None:
             return
         self.logger.info('%s up', dpid_log(ryu_dp.id))
-        for watchers_by_name in list(watchers.values()):
-            for i, watcher in enumerate(watchers_by_name):
-                is_active = i == 0
-                watcher.report_dp_status(1)
-                watcher.start(ryu_dp, is_active)
-                if is_active:
-                    self.logger.info(
-                        '%s %s watcher starting', dpid_log(ryu_dp.id), watcher.conf.type)
         ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
         ryu_dp.send_msg(valve_of.gauge_async(datapath=ryu_dp))
+        self._start_watchers(ryu_dp, ryu_dp.id, watchers)
+
+    def _stop_watchers(self, dp_id, watchers):
+        """Stop watchers for DP."""
+        for watchers_by_name in list(watchers.values()):
+            for watcher in watchers_by_name:
+                watcher.report_dp_status(0)
+                if watcher.is_active():
+                    self.logger.info(
+                        '%s %s watcher stopping', dpid_log(dp_id), watcher.conf.type)
+                    watcher.stop()
 
     @kill_on_exception(exc_logname)
     def _handler_datapath_down(self, ryu_dp):
@@ -222,13 +211,7 @@ class Gauge(valve_ryuapp.RyuAppBase):
         if watchers is None:
             return
         self.logger.info('%s down', dpid_log(ryu_dp.id))
-        for watchers_by_name in list(watchers.values()):
-            for watcher in watchers_by_name:
-                watcher.report_dp_status(0)
-                if watcher.is_active():
-                    self.logger.info(
-                        '%s %s watcher stopping', dpid_log(ryu_dp.id), watcher.conf.type)
-                    watcher.stop()
+        self._stop_watchers(ryu_dp.id, watchers)
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
