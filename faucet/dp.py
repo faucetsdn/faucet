@@ -26,6 +26,7 @@ import networkx
 from faucet.conf import Conf, InvalidConfigError
 from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet.valve_util import get_setting
+from faucet import faucet_pipeline
 from faucet import valve_acl
 from faucet import valve_of
 
@@ -244,16 +245,7 @@ configuration.
     def _configure_tables(self):
         """Configure FAUCET pipeline of tables with matches."""
         self.groups = ValveGroupTable()
-        for table_id, table_config in enumerate((
-                ('port_acl', None),
-                ('vlan', ('eth_dst', 'eth_type', 'in_port', 'vlan_vid')),
-                ('vlan_acl', None),
-                ('eth_src', ('eth_dst', 'eth_src', 'eth_type', 'in_port', 'vlan_vid')),
-                ('ipv4_fib', ('eth_type', 'ipv4_dst', 'vlan_vid')),
-                ('ipv6_fib', ('eth_type', 'ipv6_dst', 'vlan_vid')),
-                ('vip', ('arp_tpa', 'eth_dst', 'eth_type', 'icmpv6_type', 'ip_proto')),
-                ('eth_dst', ('eth_dst', 'in_port', 'vlan_vid')),
-                ('flood', ('eth_dst', 'in_port', 'vlan_vid')))):
+        for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
             table_name, restricted_match_types = table_config
             self.tables[table_name] = ValveTable(
                 table_id, table_name, restricted_match_types,
