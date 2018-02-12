@@ -41,7 +41,7 @@ FAUCET has been tested against the following switches (see also SUPPORTED_HARDWA
 
 Faucet's design principle is to be as hardware agnostic as possible and not require Table Type Patterns. This means that Faucet expects the hardware Open Flow Agent (OFA) to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet expects the OFA to leverage the right hardware transparently.
 
-If you are a hardware vendor wanting to support FAUCET, you need to support all the matches in `faucet/valve.py <faucet/valve.py>`_ valve_in_match() and pass all tests.
+If you are a hardware vendor wanting to support FAUCET, you need to support all the matches in `faucet/faucet_pipeline.py <faucet/faucet_pipeline.py>`_ and pass all tests.
 
 Installation
 ------------
