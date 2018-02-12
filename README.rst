@@ -6,8 +6,8 @@ Faucet
 .. image:: https://travis-ci.org/faucetsdn/faucet.svg?branch=master
     :target: https://travis-ci.org/faucetsdn/faucet
 
-.. image:: https://coveralls.io/repos/github/faucetsdn/faucet/badge.svg?branch=master
-    :target: https://coveralls.io/github/faucetsdn/faucet?branch=master
+.. image:: https://codecov.io/gh/faucetsdn/faucet/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/faucetsdn/faucet
 
 
 FAUCET is an OpenFlow controller for multi table OpenFlow 1.3 switches, that implements layer 2 switching, VLANs, ACLs, and layer 3 IPv4 and IPv6 routing, static and via BGP. It is based on Waikato University's `Valve <https://github.com/wandsdn/valve>`_ and the `Ryu OpenFlow Controller <http://osrg.github.io/ryu/>`_. FAUCET's design and background is described in `ACM Queue <https://queue.acm.org/detail.cfm?id=3015763>`_.
