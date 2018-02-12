@@ -20,8 +20,6 @@
 # starting at OpenFlow table 0.
 # The first item in tuple is the table name.
 # The second item in the tuple is a tuple of OpenFlow matches, that table ues.
-# TODO: add additional pipelines.
-# TODO: specify use of exact match where possible.
 FAUCET_PIPELINE = (
     ('port_acl', None),
     ('vlan', ('eth_dst', 'eth_type', 'in_port', 'vlan_vid')),
