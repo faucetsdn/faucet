@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-# To install:
+# To install (from this directory):
 #
 #    pip3 install git-pylint-commit-hook mypy
 #    chmod +x pre-commit
-#    ln -s pre-commit ../.git/hooks
+#    rm -f ../.git/hooks/pre-commit
+#    ln -s ../../git-hook/pre-commit ../.git/hooks
 
 git-pylint-commit-hook
 
