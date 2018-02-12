@@ -569,6 +569,10 @@ The matches are key/values based on the ryu RESTFul API.
       - string
       - None
       - meter to apply to the packet
+    * - mirror
+      - string or integer
+      - None
+      - Copy the packet, before any modifications, to the specified port (NOTE: mirroring is done in input direction only)
     * - output
       - dict
       - None
