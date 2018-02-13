@@ -642,7 +642,8 @@ class Valve(object):
                 in_port=port.number,
                 eth_type=valve_of.ether.ETH_TYPE_SLOW,
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
-            priority=self.dp.highest_priority))
+            priority=self.dp.highest_priority,
+            max_len=128))
         return ofmsgs
 
     def lacp_up(self, port):
