@@ -22,7 +22,6 @@ import time
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller import dpset
-from ryu.controller import event
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
@@ -30,18 +29,12 @@ from faucet import valve_of
 from faucet.config_parser import watcher_parser
 from faucet.gauge_prom import GaugePrometheusClient
 from faucet.valves_manager import ConfigWatcher
-from faucet.valve_util import dpid_log, kill_on_exception, stat_config_files
+from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
+from faucet.valve_util import dpid_log, kill_on_exception
 from faucet.watcher import watcher_factory
-from faucet import valve_ryuapp
 
 
-class EventGaugeReconfigure(event.EventBase):
-    """Event sent to Gauge to cause config reload."""
-
-    pass
-
-
-class Gauge(valve_ryuapp.RyuAppBase):
+class Gauge(RyuAppBase):
     """Ryu app for polling Faucet controlled datapaths for stats/state.
 
     It can poll multiple datapaths. The configuration files for each datapath
@@ -137,7 +130,7 @@ class Gauge(valve_ryuapp.RyuAppBase):
         """
         super(Gauge, self).signal_handler(sigid, _)
         if sigid == signal.SIGHUP:
-            self.send_event('Gauge', EventGaugeReconfigure())
+            self.send_event('Gauge', EventReconfigure())
 
     @kill_on_exception(exc_logname)
     def _config_file_stat(self):
@@ -145,10 +138,10 @@ class Gauge(valve_ryuapp.RyuAppBase):
         while True:
             if self.config_watcher.files_changed():
                 if self.stat_reload:
-                    self.send_event('Gauge', EventGaugeReconfigure())
+                    self.send_event('Gauge', EventReconfigure())
             self._thread_jitter(3)
 
-    @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)
+    @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):
         """Handle request for Gauge config reload."""
         self.logger.warning('reload config requested')

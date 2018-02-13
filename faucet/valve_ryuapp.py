@@ -24,9 +24,17 @@ import signal
 import sys
 
 from ryu.base import app_manager
+from ryu.controller import event
 from ryu.lib import hub
+
 from faucet import valve_of
 from faucet.valve_util import get_logger, get_setting
+
+
+class EventReconfigure(event.EventBase):
+    """Event sent to controller to cause config reload."""
+
+    pass
 
 
 class RyuAppBase(app_manager.RyuApp):
