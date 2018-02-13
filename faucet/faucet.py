@@ -18,10 +18,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import random
-import signal
-
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
@@ -31,6 +27,7 @@ from ryu.controller import ofp_event
 from ryu.lib import hub
 
 from faucet.config_parser import get_config_for_api
+from faucet.valve_ryuapp import EventReconfigure, RyuAppBase
 from faucet.valve_util import dpid_log, kill_on_exception
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
@@ -38,16 +35,10 @@ from faucet import faucet_bgp
 from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_of
-from faucet import valve_ryuapp
 
 
 class EventFaucetExperimentalAPIRegistered(event.EventBase):
     """Event used to notify that the API is registered with Faucet."""
-    pass
-
-
-class EventFaucetReconfigure(event.EventBase):
-    """Event used to trigger FAUCET reconfiguration."""
     pass
 
 
@@ -76,7 +67,7 @@ class EventFaucetLLDPAdvertise(event.EventBase):
     pass
 
 
-class Faucet(valve_ryuapp.RyuAppBase):
+class Faucet(RyuAppBase):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
     Valve provides the switch implementation; this is a shim for the Ryu
@@ -115,8 +106,6 @@ class Faucet(valve_ryuapp.RyuAppBase):
         self.metrics.start(prom_port, prom_addr)
 
         # Configure all Valves
-        if self.stat_reload:
-            self.logger.info('will automatically reload new config on changes')
         self._load_configs(self.config_file)
 
         # Start all threads
@@ -130,10 +119,7 @@ class Faucet(valve_ryuapp.RyuAppBase):
         self.api._register(self)
         self.send_event_to_observers(EventFaucetExperimentalAPIRegistered())
 
-        signal.signal(signal.SIGHUP, self.signal_handler)
-        signal.signal(signal.SIGINT, self.signal_handler)
-
-    def delete_deconfigured_dp(self, deleted_dpid):
+    def _delete_deconfigured_dp(self, deleted_dpid):
         self.logger.info(
             'Deleting de-configured %s', dpid_log(deleted_dpid))
         ryu_dp = self.dpset.get(deleted_dpid)
@@ -143,14 +129,14 @@ class Faucet(valve_ryuapp.RyuAppBase):
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
         self.valves_manager.load_configs(
-            new_config_file, delete_dp=self.delete_deconfigured_dp)
+            new_config_file, delete_dp=self._delete_deconfigured_dp)
 
-    @set_ev_cls(EventFaucetReconfigure, MAIN_DISPATCHER)
+    @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def reload_config(self, _):
         """Handle a request to reload configuration."""
         self.valves_manager.request_reload_configs(
-            self.config_file, delete_dp=self.delete_deconfigured_dp)
+            self.config_file, delete_dp=self._delete_deconfigured_dp)
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
@@ -203,16 +189,6 @@ class Faucet(valve_ryuapp.RyuAppBase):
             '%s: unknown datapath %s', handler_name, dpid_log(dp_id))
         return None
 
-    def signal_handler(self, sigid, _):
-        """Handle any received signals.
-
-        Args:
-            sigid (int): signal to handle.
-        """
-        super(Faucet, self).signal_handler(sigid, _)
-        if sigid == signal.SIGHUP:
-            self.send_event('Faucet', EventFaucetReconfigure())
-
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
 
@@ -230,7 +206,7 @@ class Faucet(valve_ryuapp.RyuAppBase):
         while True:
             if self.valves_manager.config_watcher.files_changed():
                 if self.stat_reload:
-                    self.send_event('Faucet', EventFaucetReconfigure())
+                    self.send_event('Faucet', EventReconfigure())
             self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
