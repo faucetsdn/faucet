@@ -21,7 +21,6 @@
 import logging
 import random
 import signal
-import sys
 
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -131,9 +130,8 @@ class Faucet(valve_ryuapp.RyuAppBase):
         self.api._register(self)
         self.send_event_to_observers(EventFaucetExperimentalAPIRegistered())
 
-        # Set the signal handler for reloading config file
-        signal.signal(signal.SIGHUP, self._signal_handler)
-        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGHUP, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)
 
     def delete_deconfigured_dp(self, deleted_dpid):
         self.logger.info(
@@ -205,17 +203,15 @@ class Faucet(valve_ryuapp.RyuAppBase):
             '%s: unknown datapath %s', handler_name, dpid_log(dp_id))
         return None
 
-    def _signal_handler(self, sigid, _):
+    def signal_handler(self, sigid, _):
         """Handle any received signals.
 
         Args:
             sigid (int): signal to handle.
         """
+        super(Faucet, self).signal_handler(sigid, _)
         if sigid == signal.SIGHUP:
             self.send_event('Faucet', EventFaucetReconfigure())
-        elif sigid == signal.SIGINT:
-            self.close()
-            sys.exit(0)
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
