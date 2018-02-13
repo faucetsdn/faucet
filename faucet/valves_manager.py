@@ -26,13 +26,38 @@ from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet.valve_util import dpid_log, stat_config_files
 
 
+class ConfigWatcher(object):
+    """Watch config for file or content changes."""
+
+    config_file = None
+    config_hashes = None
+    config_file_stats = None
+
+    def files_changed(self):
+        """Return True if any config files changed."""
+        changed = False
+        if self.config_hashes:
+            new_config_file_stats = stat_config_files(self.config_hashes)
+            if self.config_file_stats:
+                if new_config_file_stats != self.config_file_stats:
+                    changed = True
+            self.config_file_stats = new_config_file_stats
+        return changed
+
+    def content_changed(self, new_config_file):
+        """Return True if config file content actually changed."""
+        return config_changed(self.config_file, new_config_file, self.config_hashes)
+
+    def update(self, new_config_file, new_config_hashes):
+        """Update state with new config file/hashes."""
+        self.config_file = new_config_file
+        self.config_hashes = new_config_hashes
+
+
 class ValvesManager(object):
     """Manage a collection of Valves."""
 
     valves = {} # type: dict
-    config_file = None
-    config_hashes = None
-    config_file_stats = None
 
     def __init__(self, logname, logger, metrics, notifier, bgp,
                  send_flows_to_dp_by_id):
@@ -52,28 +77,13 @@ class ValvesManager(object):
         self.notifier = notifier
         self.bgp = bgp
         self.send_flows_to_dp_by_id = send_flows_to_dp_by_id
-
-    def config_files_changed(self):
-        """Return True if any config files changed."""
-        changed = False
-        if self.config_hashes:
-            new_config_file_stats = stat_config_files(self.config_hashes)
-            if self.config_file_stats:
-                if new_config_file_stats != self.config_file_stats:
-                    changed = True
-            self.config_file_stats = new_config_file_stats
-        return changed
-
-    def config_changed(self, config_file, new_config_file):
-        """Return True if config file content actually changed."""
-        return config_changed(config_file, new_config_file, self.config_hashes)
+        self.config_watcher = ConfigWatcher()
 
     def parse_configs(self, new_config_file):
         """Return parsed configs for Valves, or None."""
         try:
             new_config_hashes, new_dps = dp_parser(new_config_file, self.logname)
-            self.config_file = new_config_file
-            self.config_hashes = new_config_hashes
+            self.config_watcher.update(new_config_file, new_config_hashes)
         except InvalidConfigError as err:
             self.logger.error('New config bad (%s) - rejecting', err)
             return None
@@ -120,7 +130,7 @@ class ValvesManager(object):
 
     def request_reload_configs(self, new_config_file, delete_dp=None):
         """Process a request to load config changes."""
-        if self.config_changed(self.config_file, new_config_file):
+        if self.config_watcher.content_changed(new_config_file):
             self.logger.info('configuration %s changed, analyzing differences', new_config_file)
             self.load_configs(new_config_file, delete_dp=delete_dp)
         else:
