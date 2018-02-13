@@ -309,7 +309,7 @@ class BaseFAUCET(Controller):
     pid_file = None
     tmpdir = None
     ofcap = None
-    MAX_OF_PKTS = 500
+    MAX_OF_PKTS = 2000
     MAX_CTL_TIME = 300
 
     BASE_CARGS = ' '.join((
