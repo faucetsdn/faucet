@@ -99,7 +99,7 @@ class ValveFloodManager(object):
         ofmsgs = []
         mirrored_ports = vlan.mirrored_ports()
         for port in mirrored_ports:
-            mirror_acts = [valve_of.output_port(port.mirror)]
+            mirror_acts = port.mirror_actions()
             ofmsgs.extend(self._build_flood_rule_for_port(
                 vlan, eth_dst, eth_dst_mask,
                 exclude_unicast, command, flood_priority,
@@ -340,9 +340,10 @@ class ValveFloodStackManager(ValveFloodManager):
         # shortest path via alternate DP).
         eth_src = pkt_meta.eth_src
         vlan_vid = pkt_meta.vlan.vid
-        for other_valve in other_valves:
+        stacked_valves = [valve for valve in other_valves if valve.dp.stack is not None]
+        for other_valve in stacked_valves:
             if vlan_vid in other_valve.dp.vlans:
-                other_dp_host_cache = other_valve.dp.vlans[vlan_vid].host_cache
+                other_dp_host_cache = other_valve.dp.vlans[vlan_vid].dyn_host_cache
                 if eth_src in other_dp_host_cache:
                     host = other_dp_host_cache[eth_src]
                     if host.port.stack is None:

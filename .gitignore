@@ -96,3 +96,5 @@ ENV/
 # vim temp files
 *.swp
 *.swo
+
+.mypy_cache

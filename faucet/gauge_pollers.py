@@ -37,34 +37,36 @@ class GaugePoller(object):
         self.logger = logging.getLogger(
             logname + '.{0}'.format(self.conf.type)
             )
+        # _running indicates that the watcher is receiving data
+        self._running = False
 
     def report_dp_status(self, dp_status):
         """Report DP status."""
         self.prom_client.dp_status.labels(
             **dict(dp_id=hex(self.dp.dp_id), dp_name=self.dp.name)).set(dp_status) # pylint: disable=no-member
 
-    @staticmethod
-    def start(_ryudp):
+    def start(self, _ryudp, _active):
         """Start the poller."""
         return
 
-    @staticmethod
-    def stop():
+    def stop(self):
         """Stop the poller."""
         return
 
-    @staticmethod
-    def running():
+    def running(self):
         """Return True if the poller is running."""
-        return True
+        return self._running
 
-    @staticmethod
-    def send_req():
+    def is_active(self):
+        """Return True if the poller is controlling the requiest loop for its
+        stat"""
+        return False
+
+    def send_req(self):
         """Send a stats request to a datapath."""
         raise NotImplementedError
 
-    @staticmethod
-    def no_response():
+    def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError
 
@@ -84,7 +86,18 @@ class GaugePoller(object):
         """
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
+        if not self._running:
+            self.logger.debug('{} update received when not running'.format(
+                dpid_log(dp_id)
+                ))
+            return
         self.reply_pending = False
+        self._update()
+
+    def _update(self):
+        # TODO: this should be implemented by subclasses instead of having a
+        # super call to update
+        pass
 
     def _stat_port_name(self, msg, stat, dp_id):
         """Return port name as string based on port number."""
@@ -133,18 +146,21 @@ class GaugeThreadPoller(GaugePoller):
         self.interval = self.conf.interval
         self.ryudp = None
 
-    def start(self, ryudp):
+    def start(self, ryudp, active):
         self.ryudp = ryudp
         self.stop()
-        self.thread = hub.spawn(self)
+        self._running = True
+        if active:
+            self.thread = hub.spawn(self)
 
     def stop(self):
-        if self.running():
+        self._running = False
+        if self.is_active():
             hub.kill(self.thread)
             hub.joinall([self.thread])
             self.thread = None
 
-    def running(self):
+    def is_active(self):
         return self.thread is not None
 
     def __call__(self):
@@ -162,13 +178,11 @@ class GaugeThreadPoller(GaugePoller):
             if self.reply_pending:
                 self.no_response()
 
-    @staticmethod
-    def send_req():
+    def send_req(self):
         """Send a stats request to a datapath."""
         raise NotImplementedError
 
-    @staticmethod
-    def no_response():
+    def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError
 
@@ -223,6 +237,7 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
             'table_id': int(stats['table_id']),
             'priority': int(stats['priority']),
             'inst_count': len(instructions),
+            'cookie': int(stats['cookie']),
         }
         oxm_matches = stats['match']['OFPMatch']['oxm_fields']
         for oxm_match in oxm_matches:
@@ -245,12 +260,10 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
 class GaugePortStateBaseLogger(GaugePoller):
     """Abstraction for port state poller."""
 
-    @staticmethod
-    def send_req():
+    def send_req(self):
         """Send a stats request to a datapath."""
         raise NotImplementedError
 
-    @staticmethod
-    def no_response():
+    def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
         raise NotImplementedError

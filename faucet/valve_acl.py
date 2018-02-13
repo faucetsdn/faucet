@@ -58,14 +58,18 @@ def build_output_actions(output_dict):
     output_actions = []
     output_port = None
     ofmsgs = []
+    # rewrite any VLAN headers first always
+    vlan_actions = rewrite_vlan(output_dict)
+    if vlan_actions:
+        output_actions.extend(vlan_actions)
     # if destination rewriting selected, rewrite it.
     if 'dl_dst' in output_dict:
         output_actions.append(
             valve_of.set_eth_dst(output_dict['dl_dst']))
-    # rewrite any VLAN headers.
-    vlan_actions = rewrite_vlan(output_dict)
-    if vlan_actions:
-        output_actions.extend(vlan_actions)
+    if 'set_fields' in output_dict:
+        for set_fields in output_dict['set_fields']:
+            output_actions.append(
+                valve_of.parser.OFPActionSetField(**set_fields))
     if 'port' in output_dict:
         output_port = output_dict['port']
         output_actions.append(valve_of.output_port(output_port))
@@ -86,10 +90,17 @@ def build_output_actions(output_dict):
 # possibly replace with a class for ACLs
 def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=None):
     acl_inst = []
-    match_dict = {}
-    ofmsgs = []
+    acl_act = []
+    acl_match_dict = {}
+    acl_ofmsgs = []
+    acl_cookie = None
     for attrib, attrib_value in list(rule_conf.items()):
         if attrib == 'in_port':
+            continue
+        if attrib == 'cookie':
+            acl_cookie = attrib_value
+            continue
+        if attrib == 'description':
             continue
         if attrib == 'actions':
             allow = False
@@ -103,15 +114,14 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
                 acl_inst.append(valve_of.apply_meter(meters[meter_name].meter_id))
             if 'mirror' in attrib_value:
                 port_no = attrib_value['mirror']
-                acl_inst.append(
-                    valve_of.apply_actions([valve_of.output_port(port_no)]))
+                acl_act.append(valve_of.output_port(port_no))
                 if not allow_specified:
                     allow = True
             if 'output' in attrib_value:
                 output_port, output_actions, output_ofmsgs = build_output_actions(
                     attrib_value['output'])
-                acl_inst.append(valve_of.apply_actions(output_actions))
-                ofmsgs.extend(output_ofmsgs)
+                acl_act.extend(output_actions)
+                acl_ofmsgs.extend(output_ofmsgs)
 
                 # if port specified, output packet now and exit pipeline.
                 if output_port is not None:
@@ -120,16 +130,18 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
             if allow:
                 acl_inst.append(acl_allow_inst)
         else:
-            match_dict[attrib] = attrib_value
+            acl_match_dict[attrib] = attrib_value
     if port_num is not None:
-        match_dict['in_port'] = port_num
+        acl_match_dict['in_port'] = port_num
     if vlan_vid is not None:
-        match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
+        acl_match_dict['vlan_vid'] = valve_of.vid_present(vlan_vid)
     try:
-        acl_match = valve_of.match_from_dict(match_dict)
+        acl_match = valve_of.match_from_dict(acl_match_dict)
     except TypeError:
-        assert False, 'invalid type in acl'
-    return (acl_match, acl_inst, ofmsgs)
+        assert False, 'invalid type in ACL'
+    if acl_act:
+        acl_inst.append(valve_of.apply_actions(acl_act))
+    return (acl_match, acl_inst, acl_cookie, acl_ofmsgs)
 
 
 def build_acl_ofmsgs(acls, acl_table, acl_allow_inst,
@@ -139,15 +151,15 @@ def build_acl_ofmsgs(acls, acl_table, acl_allow_inst,
     acl_rule_priority = highest_priority
     for acl in acls:
         for rule_conf in acl.rules:
-            acl_match, acl_inst, acl_ofmsgs = build_acl_entry(
+            acl_match, acl_inst, acl_cookie, acl_ofmsgs = build_acl_entry(
                 rule_conf, acl_allow_inst, meters, port_num, vlan_vid)
             ofmsgs.extend(acl_ofmsgs)
             if exact_match:
                 flowmod = acl_table.flowmod(
-                    acl_match, priority=highest_priority, inst=acl_inst)
+                    acl_match, priority=highest_priority, inst=acl_inst, cookie=acl_cookie)
             else:
                 flowmod = acl_table.flowmod(
-                    acl_match, priority=acl_rule_priority, inst=acl_inst)
+                    acl_match, priority=acl_rule_priority, inst=acl_inst, cookie=acl_cookie)
             ofmsgs.append(flowmod)
             acl_rule_priority -= 1
     return ofmsgs

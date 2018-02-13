@@ -81,7 +81,7 @@ Run FAUCET
 
 .. code:: console
 
-    ryu-manager --config-file=/home/faucet/faucet/etc/ryu/ryu.conf /home/faucet/faucet/faucet/faucet.py --verbose --ofp-listen-host=127.0.0.1
+    faucet --verbose --ryu-ofp-listen-host=127.0.0.1
 
 
 Test connectivity

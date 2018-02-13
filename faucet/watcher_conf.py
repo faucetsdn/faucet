@@ -88,6 +88,7 @@ For Prometheus:
         'all_dps': False,
         'interval': 30,
         'db': None,
+        'dbs': None,
         'db_type': 'text',
         'file': None,
         'compress': False,   # compress flow table file
@@ -118,6 +119,39 @@ For Prometheus:
         'driver': '',
         'db_username': '',
         'switches_doc': '',
+    }
+
+    defaults_types = {
+        'name': str,
+        'type': str,
+        'dps': list,
+        'all_dps': bool,
+        'interval': int,
+        'db': str,
+        'dbs': list,
+        'db_type': str,
+        'file': str,
+        'compress': bool,
+        'influx_db': str,
+        'influx_host': str,
+        'influx_port': int,
+        'influx_user': str,
+        'influx_pwd': str,
+        'influx_timeout': int,
+        'influx_retries': int,
+        'prometheus_port': int,
+        'prometheus_addr': str,
+        'views': dict,
+        'db_update_counter': int,
+        'nosql_db': str,
+        'db_password': str,
+        'flows_doc': str,
+        'db_ip': str,
+        'db_port': int,
+        'gdb_type': str,
+        'driver': str,
+        'db_username': str,
+        'switches_doc': str,
     }
 
     def __init__(self, _id, dp_id, conf, prom_client):

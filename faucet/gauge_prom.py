@@ -20,13 +20,16 @@ import collections
 
 from prometheus_client import Gauge as PromGauge, REGISTRY # avoid collision
 
-from faucet.gauge_pollers import GaugePortStatsPoller, GaugeFlowTablePoller
+from faucet.gauge_pollers import GaugePortStatsPoller, GaugePortStateBaseLogger, GaugeFlowTablePoller
 from faucet.prom_client import PromClient
-from faucet.valve_of import MATCH_FIELDS
 
 
 PROM_PREFIX_DELIM = '_'
 PROM_PORT_PREFIX = 'of_port'
+PROM_PORT_STATE_VARS = (
+    'reason',
+    'state',
+)
 PROM_PORT_VARS = (
     'tx_packets',
     'rx_packets',
@@ -44,7 +47,7 @@ PROM_FLOW_VARS = (
 class GaugePrometheusClient(PromClient):
     """Wrapper for Prometheus client that is shared between all pollers."""
 
-    metrics = {}
+    metrics = {} # type: dict
 
     def __init__(self):
         super(GaugePrometheusClient, self).__init__()
@@ -52,7 +55,7 @@ class GaugePrometheusClient(PromClient):
             'dp_status',
             'status of datapaths',
             self.REQUIRED_LABELS)
-        for prom_var in PROM_PORT_VARS:
+        for prom_var in PROM_PORT_VARS + PROM_PORT_STATE_VARS:
             exported_prom_var = PROM_PREFIX_DELIM.join(
                 (PROM_PORT_PREFIX, prom_var))
             self.metrics[exported_prom_var] = PromGauge(
@@ -97,9 +100,23 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
                 self.prom_client.metrics[stat_name].labels(**port_labels).set(stat_val)
 
 
-class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
+class GaugePortStatePrometheusLogger(GaugePortStateBaseLogger):
+    """Export port state/port state reason changes to Prometheus."""
 
-    table_tags = collections.defaultdict(set)
+    def update(self, rcv_time, dp_id, msg):
+        super(GaugePortStatePrometheusLogger, self).update(rcv_time, dp_id, msg)
+        port_no = msg.desc.port_no
+        if port_no in self.dp.ports:
+            port_name = self.dp.ports[port_no].name
+            port_labels = dict(dp_id=hex(dp_id), dp_name=self.dp.name, port_name=port_name)
+            self.prom_client.metrics['of_port_state'].labels(**port_labels).set(msg.desc.state)
+            self.prom_client.metrics['of_port_reason'].labels(**port_labels).set(msg.reason)
+
+
+class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
+    """Export flow table entries to Prometheus."""
+
+    table_tags = collections.defaultdict(set) # type: dict
 
     def update(self, rcv_time, dp_id, msg):
         super(GaugeFlowTablePrometheusPoller, self).update(rcv_time, dp_id, msg)
@@ -115,6 +132,8 @@ class GaugeFlowTablePrometheusPoller(GaugeFlowTablePoller):
                 tags_keys = set(tags.keys())
                 if tags_keys != self.table_tags[table_id]:
                     if not tags_keys.issubset(self.table_tags[table_id]):
+                        self.logger.info('re-initializing tags for table_id %u from %s to %s' % (
+                            table_id, self.table_tags[table_id], tags_keys))
                         self.table_tags[table_id] = self.table_tags[table_id].union(tags_keys)
                         self.prom_client.reregister_flow_vars(
                             table_name, self.table_tags[table_id])

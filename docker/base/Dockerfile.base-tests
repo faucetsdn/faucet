@@ -50,6 +50,7 @@ RUN \
     ndisc6 \
     net-tools \
     netcat-openbsd \
+    nmap \
     numactl \
     openvswitch-common \
     parallel \
@@ -101,6 +102,7 @@ RUN \
 RUN \
   ./setupproxy.sh && \
   $AG update && \
+  $AG install cython3 && \
   $AG purge pylint && \
   $PIP3 pip && \
   easy_install -q -U pip && \

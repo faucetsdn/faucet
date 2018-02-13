@@ -38,13 +38,13 @@ class ValveTable(object):
     def match(self, in_port=None, vlan=None,
               eth_type=None, eth_src=None,
               eth_dst=None, eth_dst_mask=None,
-              ipv6_nd_target=None, icmpv6_type=None,
-              nw_proto=None, nw_src=None, nw_dst=None):
+              icmpv6_type=None,
+              nw_proto=None, nw_dst=None):
         """Compose an OpenFlow match rule."""
         match_dict = valve_of.build_match_dict(
             in_port, vlan, eth_type, eth_src,
-            eth_dst, eth_dst_mask, ipv6_nd_target, icmpv6_type,
-            nw_proto, nw_src, nw_dst)
+            eth_dst, eth_dst_mask, icmpv6_type,
+            nw_proto, nw_dst)
         match = valve_of.match(match_dict)
         if self.restricted_match_types is not None:
             for match_type in match_dict:
@@ -54,7 +54,7 @@ class ValveTable(object):
 
     def flowmod(self, match=None, priority=None,
                 inst=None, command=valve_of.ofp.OFPFC_ADD, out_port=0,
-                out_group=0, hard_timeout=0, idle_timeout=0):
+                out_group=0, hard_timeout=0, idle_timeout=0, cookie=None):
         """Helper function to construct a flow mod message with cookie."""
         if match is None:
             match = self.match()
@@ -62,11 +62,13 @@ class ValveTable(object):
             priority = 0 # self.dp.lowest_priority
         if inst is None:
             inst = []
+        if cookie is None:
+            cookie = self.flow_cookie
         flags = 0
         if self.notify_flow_removed:
             flags = valve_of.ofp.OFPFF_SEND_FLOW_REM
         return valve_of.flowmod(
-            self.flow_cookie,
+            cookie,
             command,
             self.table_id,
             priority,
@@ -146,7 +148,7 @@ class ValveGroupEntry(object):
 class ValveGroupTable(object):
     """Wrap access to group table."""
 
-    entries = {}
+    entries = {} # type: dict
 
     @staticmethod
     def group_id_from_str(key_str):

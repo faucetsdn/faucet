@@ -21,15 +21,24 @@ import ipaddress
 import socket
 import struct
 
-from ryu.lib.packet import arp, bpdu, ethernet, icmp, icmpv6, ipv4, ipv6, slow, stream_parser, packet, vlan
+from ryu.lib import addrconv
+from ryu.lib.packet import (
+    arp, bpdu, ethernet,
+    icmp, icmpv6, ipv4, ipv6,
+    lldp,
+    slow, stream_parser,
+    packet, vlan)
 
 from faucet.valve_util import btos
 from faucet import valve_of
 
 
+ETH_VLAN_HEADER_SIZE = 14 + 4 # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
+IPV4_HEADER_SIZE = 20 # https://en.wikipedia.org/wiki/IPv4#Header
+IPV6_HEADER_SIZE = 40 # https://en.wikipedia.org/wiki/IPv6_packet#Fixed_header
+ARP_PKT_SIZE = 28 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
+
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
-ETH_VLAN_HEADER_SIZE = 14 + 4
-IPV4_HEADER_SIZE = 20
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
@@ -133,7 +142,7 @@ def parse_packet_in_pkt(data, max_len):
             if vlan_pkt:
                 vlan_vid = vlan_pkt.vid
                 eth_type = vlan_pkt.ethertype
-    except (AssertionError, stream_parser.StreamParser.TooSmallException):
+    except (AttributeError, AssertionError, stream_parser.StreamParser.TooSmallException):
         pass
 
     return (pkt, eth_pkt, vlan_vid, eth_type)
@@ -174,6 +183,51 @@ def build_pkt_header(vid, eth_src, eth_dst, dl_type):
         vlan_header = vlan.vlan(vid=vid, ethertype=dl_type)
         pkt_header.add_protocol(vlan_header)
     return pkt_header
+
+
+def lldp_beacon(eth_src, chassis_id, port_id, ttl, org_tlvs=None,
+                system_name=None, port_descr=None):
+    """Return an LLDP frame suitable for a host/access port.
+
+    Args:
+        eth_src (str): source Ethernet MAC address.
+        chassis_id (str): Chassis ID.
+        port_id (int): port ID,
+        TTL (int): TTL for payload.
+        org_tlvs (list): list of tuples of (OUI, subtype, info).
+    Returns:
+        ryu.lib.packet.ethernet: Ethernet packet with header.
+    """
+    pkt = build_pkt_header(
+        None, eth_src, lldp.LLDP_MAC_NEAREST_BRIDGE, valve_of.ether.ETH_TYPE_LLDP)
+    tlvs = [
+        lldp.ChassisID(
+            subtype=lldp.ChassisID.SUB_MAC_ADDRESS,
+            chassis_id=addrconv.mac.text_to_bin(chassis_id)),
+        lldp.PortID(
+            subtype=lldp.PortID.SUB_INTERFACE_NAME,
+            port_id=str(port_id).encode('utf-8')),
+        lldp.TTL(
+            ttl=ttl)
+    ]
+    for tlv, info_name, info in (
+            (lldp.SystemName, 'system_name', system_name),
+            (lldp.PortDescription, 'port_description', port_descr)):
+        if info is not None:
+            info_args = {info_name: info.encode('UTF-8')}
+            tlvs.append(tlv(**info_args))
+    if org_tlvs is not None:
+        for tlv_oui, tlv_subtype, tlv_info in org_tlvs:
+            tlvs.append(
+                lldp.OrganizationallySpecific(
+                    oui=tlv_oui,
+                    subtype=tlv_subtype,
+                    info=tlv_info))
+    tlvs.append(lldp.End())
+    lldp_pkt = lldp.lldp(tlvs)
+    pkt.add_protocol(lldp_pkt)
+    pkt.serialize()
+    return pkt
 
 
 def lacp_reqreply(eth_src,
@@ -439,12 +493,11 @@ def icmpv6_echo_reply(vid, eth_src, eth_dst, src_ip, dst_ip, hop_limit,
     return pkt
 
 
-def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
+def router_advert(vid, eth_src, eth_dst, src_ip, dst_ip,
                   vips, pi_flags=0x6):
     """Return IPv6 ICMP echo reply packet.
 
     Args:
-        _vlan (VLAN): VLAN instance.
         vid (int or None): VLAN VID to use (or None).
         eth_src (str): source Ethernet MAC address.
         eth_dst (str): dest Ethernet MAC address.
@@ -485,14 +538,6 @@ def router_advert(_vlan, vid, eth_src, eth_dst, src_ip, dst_ip,
     return pkt
 
 
-def ip_header_size(eth_type):
-    """Return size of a packet header with specified ether type."""
-    ip_header = build_pkt_header(
-        1, valve_of.mac.BROADCAST_STR, valve_of.mac.BROADCAST_STR, eth_type)
-    ip_header.serialize()
-    return len(ip_header.data)
-
-
 class PacketMeta(object):
     """Original, and parsed Ethernet packet metadata."""
 
@@ -500,6 +545,12 @@ class PacketMeta(object):
         valve_of.ether.ETH_TYPE_IP: (4, ipv4_parseable, ipv4.ipv4),
         valve_of.ether.ETH_TYPE_ARP: (None, None, arp.arp),
         valve_of.ether.ETH_TYPE_IPV6: (6, None, ipv6.ipv6),
+    }
+
+    MIN_ETH_TYPE_PKT_SIZE = {
+        valve_of.ether.ETH_TYPE_ARP: ETH_VLAN_HEADER_SIZE + ARP_PKT_SIZE,
+        valve_of.ether.ETH_TYPE_IP: ETH_VLAN_HEADER_SIZE + IPV4_HEADER_SIZE,
+        valve_of.ether.ETH_TYPE_IPV6: ETH_VLAN_HEADER_SIZE + IPV6_HEADER_SIZE,
     }
 
     def __init__(self, data, orig_len, pkt, eth_pkt, port, valve_vlan, eth_src, eth_dst, eth_type):
@@ -532,19 +583,20 @@ class PacketMeta(object):
         """Return IP version number."""
         if len(self.data) > ETH_VLAN_HEADER_SIZE:
             ip_header = self.data[ETH_VLAN_HEADER_SIZE:]
-            return (ip_header[0] ^ 0xf) >> 4
+            return ip_header[0] >> 4
         return None
 
-    def reparse_ip(self, eth_type, payload=0):
+    def reparse_ip(self, payload=0):
         """Reparse packet with specified IP header type and optionally payload."""
         if self.eth_type in self.ETH_TYPES_PARSERS:
-            header_size = ip_header_size(eth_type)
+            header_size = self.MIN_ETH_TYPE_PKT_SIZE[self.eth_type]
             ip_ver, ip_parseable, pkt_parser = self.ETH_TYPES_PARSERS[self.eth_type]
             if ip_ver is not None:
                 if ip_ver != self.ip_ver():
                     return
-                if len(self.data) < header_size:
-                    return
+                if self.vlan.minimum_ip_size_check:
+                    if len(self.data) < header_size:
+                        return
                 ip_header_data = self.data[ETH_VLAN_HEADER_SIZE:]
                 if ip_parseable is not None and not ip_parseable(ip_header_data):
                     return

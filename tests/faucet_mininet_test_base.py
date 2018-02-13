@@ -6,6 +6,7 @@
 # pylint: disable=too-many-arguments
 
 import collections
+import copy
 import glob
 import ipaddress
 import json
@@ -700,13 +701,16 @@ dbs:
         return False
 
     def get_matching_flows_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                   actions=None, match_exact=False, hard_timeout=0):
+                                   actions=None, match_exact=False, hard_timeout=0,
+                                   cookie=None):
 
         # TODO: Ryu ofctl serializes to old matches.
         def to_old_match(match):
             old_matches = {
                 'tcp_dst': 'tp_dst',
                 'ip_proto': 'nw_proto',
+                'eth_dst': 'dl_dst',
+                'eth_type': 'dl_type',
             }
             if match is not None:
                 for new_match, old_match in list(old_matches.items()):
@@ -728,14 +732,21 @@ dbs:
                     if (table_id is not None and
                             flow_dict['table_id'] != table_id):
                         continue
+                    if (cookie is not None and
+                            cookie != flow_dict['cookie']):
+                        continue
                     if hard_timeout:
                         if not 'hard_timeout' in flow_dict:
                             continue
                         if flow_dict['hard_timeout'] < hard_timeout:
                             continue
                     if actions is not None:
-                        if not set(actions).issubset(set(flow_dict['actions'])):
-                            continue
+                        if actions:
+                            if not set(actions).issubset(set(flow_dict['actions'])):
+                                continue
+                        else:
+                            if flow_dict['actions']:
+                                continue
                     if match is not None:
                         if match_exact:
                             if match.items() != flow_dict['match'].items():
@@ -749,19 +760,23 @@ dbs:
         return flow_dicts
 
     def get_matching_flow_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                  actions=None, match_exact=None, hard_timeout=0):
+                                  actions=None, match_exact=None, hard_timeout=0,
+                                  cookie=None):
         flow_dicts = self.get_matching_flows_on_dpid(
             dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
+            actions=actions, match_exact=match_exact,
+            hard_timeout=hard_timeout, cookie=cookie)
         if flow_dicts:
             return flow_dicts[0]
         return []
 
     def get_matching_flow(self, match, timeout=10, table_id=None,
-                          actions=None, match_exact=None, hard_timeout=0):
+                          actions=None, match_exact=None, hard_timeout=0,
+                          cookie=None):
         return self.get_matching_flow_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
+            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout,
+            cookie=cookie)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
         for _ in range(timeout):
@@ -777,28 +792,34 @@ dbs:
             'Cannot find group_id for matching flow %s' % match)
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
-                                      actions=None, match_exact=None, hard_timeout=0):
+                                      actions=None, match_exact=None, hard_timeout=0,
+                                      cookie=None):
         """Return True if matching flow is present on a DPID."""
         if self.get_matching_flow_on_dpid(
                 dpid, match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact, hard_timeout=hard_timeout):
+                actions=actions, match_exact=match_exact,
+                hard_timeout=hard_timeout, cookie=cookie):
             return True
         return False
 
     def matching_flow_present(self, match, timeout=10, table_id=None,
-                              actions=None, match_exact=None, hard_timeout=0):
+                              actions=None, match_exact=None, hard_timeout=0,
+                              cookie=None):
         """Return True if matching flow is present on default DPID."""
         return self.matching_flow_present_on_dpid(
             self.dpid, match, timeout=timeout, table_id=table_id,
-            actions=actions, match_exact=match_exact, hard_timeout=hard_timeout)
+            actions=actions, match_exact=match_exact,
+            hard_timeout=hard_timeout, cookie=cookie)
 
     def wait_until_matching_flow(self, match, timeout=10, table_id=None,
-                                 actions=None, match_exact=False, hard_timeout=0):
+                                 actions=None, match_exact=False, hard_timeout=0,
+                                 cookie=None):
         """Wait (require) for flow to be present on default DPID."""
         self.assertTrue(
             self.matching_flow_present(
                 match, timeout=timeout, table_id=table_id,
-                actions=actions, match_exact=match_exact, hard_timeout=hard_timeout),
+                actions=actions, match_exact=match_exact,
+                hard_timeout=hard_timeout, cookie=cookie),
             msg=match)
 
     def wait_until_controller_flow(self):
@@ -1077,6 +1098,19 @@ dbs:
                     old_count, new_count,
                     msg='%s incremented: %u' % (var, new_count))
 
+    def coldstart_conf(self):
+        with open(self.faucet_config_path) as orig_conf_file:
+            orig_conf = yaml.load(orig_conf_file.read())
+        cold_start_conf = copy.deepcopy(orig_conf)
+        for dp_conf in cold_start_conf['dps'].values():
+            dp_conf['interfaces'] = {
+                ofp.OFPP_LOCAL: {
+                   'native_vlan': cold_start_conf['vlans'].keys()[0],
+                }
+            }
+        self.reload_conf(cold_start_conf, self.faucet_config_path, True, True)
+        self.reload_conf(orig_conf, self.faucet_config_path, True, True)
+
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
         fping_bin = 'fping'
@@ -1126,6 +1160,62 @@ dbs:
                         msg=tcpdump_txt)
         self.assertTrue(re.search(
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
+                        msg=tcpdump_txt)
+
+    def verify_ping_mirrored_multi(self, ping_pairs, mirror_host):
+        """ Verify that mirroring of multiple switchs works. Method
+        will both perform a one at a time ping mirror check and a
+        all at once test where all ping pairs are executed at the
+        same time.
+
+        Args:
+            ping_pairs (list of tuple): Hosts to ping for tests
+                in the format '[(host_a, host_b)]` where host_a
+                will ping host_bs IP.
+            mirror_host (FaucetHost): host to check mirroring
+        """
+        # Verify individual ping works
+        for hosts in ping_pairs:
+            self.verify_ping_mirrored(hosts[0], hosts[1], mirror_host)
+
+        # Prepare our ping pairs
+        for hosts in ping_pairs:
+            self.net.ping(hosts)
+        for hosts in ping_pairs:
+            for host in hosts:
+                self.require_host_learned(host)
+        for hosts in ping_pairs:
+            self.retry_net_ping(hosts=hosts)
+
+        mirror_mac = mirror_host.MAC()
+        tcpdump_filter = (
+            'not ether src %s and '
+            '(icmp[icmptype] == 8 or icmp[icmptype] == 0)') % mirror_mac
+
+        # Calculate the execpted number of pings we need
+        # to capture to validate port mirroring
+        expected_pings = len(ping_pairs)*2
+
+        # Generate and run the mirror test pings
+        ping_commands = []
+        for hosts in ping_pairs:
+            ping_commands.append(
+                lambda hosts=hosts: hosts[0].cmd('ping -c1 %s' % hosts[1].IP()))
+        tcpdump_txt = self.tcpdump_helper(
+            mirror_host, tcpdump_filter, ping_commands, packets=expected_pings)
+
+        # Validate all required pings were mirrored
+        for hosts in ping_pairs:
+            self.assertTrue(re.search(
+                '%s > %s: ICMP echo request' % (hosts[0].IP(), hosts[1].IP()), tcpdump_txt),
+                            msg=tcpdump_txt)
+            self.assertTrue(re.search(
+                '%s > %s: ICMP echo reply' % (hosts[1].IP(), hosts[0].IP()), tcpdump_txt),
+                            msg=tcpdump_txt)
+
+        # Validate we have received the eaxct number of packets
+        self.assertTrue(re.search(
+            '%d packets received by filter' % expected_pings, tcpdump_txt),
                         msg=tcpdump_txt)
 
     def verify_eapol_mirrored(self, first_host, second_host, mirror_host):
@@ -1375,6 +1465,12 @@ dbs:
                 '',
                 host.cmd('ip address add %s/%s brd + dev %s' % (
                     ipa, ipm, macvlan_intf)))
+
+    def del_macvlan(self, host, macvlan_intf):
+        self.assertEqual(
+            '',
+            host.cmd('ip link del link %s %s' % (
+                host.defaultIntf(), macvlan_intf)))
 
     def add_host_ipv6_address(self, host, ip_v6, intf=None):
         """Add an IPv6 address to a Mininet host."""

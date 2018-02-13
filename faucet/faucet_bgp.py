@@ -28,12 +28,12 @@ from faucet.valve_util import btos
 
 class FaucetBgp(object):
 
-    def __init__(self, logger, send_flow_msgs):
-        self._dp_bgp_speakers = {}
-        self._metrics = None
-        self._valves = None
+    def __init__(self, logger, metrics, send_flow_msgs):
         self.logger = logger
+        self.metrics = metrics
         self._send_flow_msgs = send_flow_msgs
+        self._dp_bgp_speakers = {}
+        self._valves = None
 
     def _bgp_route_handler(self, path_change, vlan):
         """Handle a BGP change event.
@@ -103,10 +103,9 @@ class FaucetBgp(object):
                 enable_ipv6=True)
         return bgp_speaker
 
-    def reset(self, valves, metrics):
+    def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
         self._valves = valves
-        self._metrics = metrics
         # TODO: port status changes should cause us to withdraw a route.
         for dp_id, valve in list(self._valves.items()):
             if dp_id not in self._dp_bgp_speakers:
@@ -131,11 +130,11 @@ class FaucetBgp(object):
                     for neighbor, neighbor_state in neighbor_states:
                         base_labels = self._valves[dp_id].base_prom_labels
                         # pylint: disable=no-member
-                        self._metrics.bgp_neighbor_uptime_seconds.labels(
+                        self.metrics.bgp_neighbor_uptime_seconds.labels(
                             **dict(base_labels, vlan=vlan.vid, neighbor=neighbor)).set(
                                 neighbor_state['info']['uptime'])
                         for ipv in vlan.ipvs():
                             # pylint: disable=no-member
-                            self._metrics.bgp_neighbor_routes.labels(
+                            self.metrics.bgp_neighbor_routes.labels(
                                 **dict(base_labels, vlan=vlan.vid, neighbor=neighbor, ipv=ipv)).set(
                                     len(vlan.routes_by_ipv(ipv)))

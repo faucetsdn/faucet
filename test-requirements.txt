@@ -1,7 +1,7 @@
-astroid==1.5.3
+astroid
 bitstring
+codecov
 concurrencytest
-coveralls
 exabgp
 influxdb
 ipaddress
@@ -13,4 +13,4 @@ pylint
 pytest-cov
 pyyaml
 requests
-ryu==4.20
+ryu==4.22

@@ -7,7 +7,7 @@ Wants=network-online.target
 EnvironmentFile=/etc/default/faucet
 User=faucet
 Group=faucet
-ExecStart=/usr/local/bin/ryu-manager --config-file=${FAUCET_RYU_CONF} --ofp-tcp-listen-port=${FAUCET_LISTEN_PORT} faucet.faucet
+ExecStart=/usr/local/bin/faucet --ryu-config-file=${FAUCET_RYU_CONF} --ryu-ofp-tcp-listen-port=${FAUCET_LISTEN_PORT}
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 

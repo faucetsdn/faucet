@@ -16,23 +16,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import shutil
-import subprocess
 import tempfile
 import unittest
+import re
 
-
-SRC_DIR = '../faucet'
+from faucet import check_faucet_config
 
 
 class CheckConfigTestCase(unittest.TestCase):
-
-    CHECK_CONFIG = 'check_faucet_config.py'
+    """Test that check config script handles various broken configs."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
-        shutil.copy(os.path.join(SRC_DIR, self.CHECK_CONFIG), self.tmpdir)
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
@@ -41,23 +39,23 @@ class CheckConfigTestCase(unittest.TestCase):
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
         with open(conf_file_name, 'w') as conf_file:
             conf_file.write(config)
-        check_cli = ['python3', os.path.join(self.tmpdir, self.CHECK_CONFIG), conf_file_name]
-        result_ok = False
-        try:
-            subprocess.check_output(
-                check_cli, stderr=subprocess.STDOUT)
-            result_ok = True
-        except subprocess.CalledProcessError as err:
-            if expected_ok:
-                print(('%s returned %d (%s)' % (
-                    ' '.join(check_cli), err.returncode, err.output)))
+        result_ok, _ = check_faucet_config.check_config( # pylint: disable=unexpected-keyword-arg
+            [conf_file_name], debug_level=logging.FATAL)
         return expected_ok == result_ok
 
     def check_config_success(self, config):
         self.assertTrue(self.run_check_config(config, True))
+        # Check acls_in work now acl_in is deprecated, TODO remove in future
+        if "acl_in" in config and not "acls_in" in config:
+            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
+            self.assertTrue(self.run_check_config(acls_cfg, True))
 
     def check_config_failure(self, config):
         self.assertTrue(self.run_check_config(config, False))
+        # Check acls_in work now acl_in is deprecated, TODO remove in future
+        if "acl_in" in config and not "acls_in" in config:
+            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
+            self.assertTrue(self.run_check_config(acls_cfg, False))
 
     def test_minimal(self):
         """Test minimal correct config."""
@@ -327,6 +325,8 @@ dps:
         interfaces:
             1:
                 native_vlan: 100
+            2:
+                native_vlan: 200
     switch2:
         dp_id: 0xdeadbeef
         hardware: 'Open vSwitch'

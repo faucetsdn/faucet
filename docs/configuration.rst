@@ -9,6 +9,11 @@ The following is example demonstrating a few common features:
   :caption: faucet.yaml
   :name: faucet.yaml
 
+.. literalinclude:: ../etc/ryu/faucet/acls.yaml
+  :language: yaml
+  :caption: acls.yaml
+  :name: acls.yaml
+
 The datapath ID may be specified as an integer or hex string (beginning with 0x).
 
 A port not explicitly defined in the YAML configuration file will be left down and will drop all packets.
@@ -200,10 +205,14 @@ string names given to the datapath, or the OFP datapath id.
       - {}
       - contains the config blocks for sets of multiple interfaces. The
         configuration entered here will be used as the defaults for these
-        interfaces. This can be overwritten by configuring those interfaces
-        directly. The format for the configuration key is a comma separated
-        string.  The elements can either be the name or number of an interface
-        or a range of port numbers eg: "1-6,8,port9".
+        interfaces.  The defaults can be overwritten by configuring the
+        interfaces individually, which will also inherit all defaults not
+        specifically configured.
+        For example, if the range specifies tagged_vlans: [1, 2, 3], and the
+        individual interface specifies tagged_vlans: [4], the result will be
+        tagged_vlans: [4]. The format for the configuration key is a comma
+        separated string.  The elements can either be the name or number of
+        an interface or a range of port numbers eg: "1-6,8,port9".
     * - learn_ban_timeout
       - integer
       - 10
@@ -241,6 +250,15 @@ string names given to the datapath, or the OFP datapath id.
       - integer
       - 300
       - timeout for MAC address learning
+    * - targeted_gw_resolution
+      - bool
+      - False
+      - if True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
+    * - minimum_ip_size_check
+      - bool
+      - True
+      - If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
+
 
 Stacking (DP)
 ~~~~~~~~~~~~~
@@ -287,8 +305,15 @@ OFP port number ranges (eg. 1-6).
     * - acl_in
       - integer or string
       - None
-      - The acl that should be applied to all packets arriving on this port.
+      - Deprecated, replaced by acls_in which accepts a list.
+        The acl that should be applied to all packets arriving on this port.
         referenced by name or list index
+    * - acls_in
+      - a list of ACLs, as integers or strings
+      - None
+      - A list of ACLs that should be applied to all packets arriving on this port.
+        referenced by name or list index. ACLs listed first take priority over
+        those later in the list.
     * - description
       - string
       - None
@@ -308,10 +333,10 @@ OFP port number ranges (eg. 1-6).
       - 255
       - the maximum number of mac addresses that can be learnt on this port.
     * - mirror
-      - integer or string
+      - a list of integers or strings
       - None
-      - Mirror all packets recieved and transmitted on this port to the port
-        specified (by name or by port number)
+      - Mirror all packets recieved and transmitted on the ports
+        specified (by name or by port number), to this port.
     * - name
       - string
       - The configuration key.
@@ -344,6 +369,15 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - True
       - If False unicast packets will not be flooded to this port.
+    * - output_only
+      - boolean
+      - False
+      - If True, no packets will be accepted from this port.
+    * - opstatus_reconf
+      - boolean
+      - True
+      - If True, FAUCET will reconfigure the pipeline based on operational status of the port.
+
 
 Stacking (Interfaces)
 ~~~~~~~~~~~~~~~~~~~~~
@@ -409,7 +443,13 @@ or a name. The following attributes can be configured:
     * - acl_in
       - string or integer
       - None
+      - Deprecated, replaced by acls_in which accepts a list.
+        The acl to be applied to all packets arriving on this vlan.
+    * - acls_in
+      - a list of ACLs, as integers or strings
+      - None
       - The acl to be applied to all packets arriving on this vlan.
+        ACLs listed first take priority over those later in the list.
     * - bgp_as
       - integer
       - 0
@@ -521,10 +561,18 @@ The matches are key/values based on the ryu RESTFul API.
       - False
       - If True allow the packet to continue through the Faucet pipeline, if
         False drop the packet.
+    * - cookie
+      - int, 0-2**16
+      - defaults to datapath cookie value
+      - If set, cookie on this flow will be set to this value.
     * - meter
       - string
       - None
       - meter to apply to the packet
+    * - mirror
+      - string or integer
+      - None
+      - Copy the packet, before any modifications, to the specified port (NOTE: mirroring is done in input direction only)
     * - output
       - dict
       - None
@@ -536,10 +584,10 @@ The output action contains a dictionary with the following elements:
     :widths: 31 15 15 60
     :header-rows: 1
 
-    * - Attribute
-      - Type
-      - Default
-      - Description
+    * - set_fields
+      - list of dicts
+      - None
+      - A list of fields to set with values, eg. eth_dst: "1:2:3:4:5:6"
     * - port
       - integer or string
       - None

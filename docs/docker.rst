@@ -30,15 +30,15 @@ We provide official automated builds on Docker Hub so that you can run Faucet
 easily without having to build your own.
 
 We use Docker tags to differentiate between versions of Faucet. The latest
-tag will always point to the latest git commit. All tagged versions of Faucet
-in git are also available to use, for example using the ``faucet/faucet:1.6.0``
-Docker will run the released version 1.6.0 of Faucet.
+tag will always point to the latest stable release of Faucet. All tagged
+versions of Faucet in git are also available to use, for example using the
+``faucet/faucet:1.6.0`` Docker will run the released version 1.6.0 of Faucet.
 
 By default the Faucet and Gauge images are run as the `faucet` user under
 UID 0, GID 0. If you need to change that it can be overridden at runtime with
 the Docker flags: ``-e LOCAL_USER_ID`` and ``-e LOCAL_GROUP_ID``.
 
-To pull and run the latest git version of Faucet:
+To pull and run the latest version of Faucet:
 
 .. code:: console
 
@@ -46,6 +46,7 @@ To pull and run the latest git version of Faucet:
   docker pull faucet/faucet:latest
   docker run -d \
       --name faucet \
+      --restart=always \
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
       -p 6653:6653 \
@@ -55,7 +56,7 @@ To pull and run the latest git version of Faucet:
 Port 6653 is used for OpenFlow, port 9302 is used for Prometheus - port 9302
 may be omitted if you do not need Prometheus.
 
-To pull and run the latest git version of Gauge:
+To pull and run the latest version of Gauge:
 
 .. code:: console
 
@@ -63,6 +64,7 @@ To pull and run the latest git version of Gauge:
   docker pull faucet/gauge:latest
   docker run -d \
       --name gauge \
+      --restart=always \
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/gauge/:/var/log/ryu/faucet/ \
       -p 6654:6653 \
@@ -71,6 +73,35 @@ To pull and run the latest git version of Gauge:
 
 Port 6654 is used for OpenFlow, port 9303 is used for Prometheus - port 9303
 may be omitted if you do not need Prometheus.
+
+Additional Arguments
+--------------------
+
+You may wish to run faucet under docker with additional arguments, for example:
+setting certificates for an encrypted control channel. This can be done by
+overriding the docker entrypoint like so:
+
+.. code:: console
+
+  docker run -d \
+      --name faucet \
+      --restart=always \
+      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
+      -v /etc/ryu/ssl/:/etc/ryu/ssl/ \
+      -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
+      -p 6653:6653 \
+      -p 9302:9302 \
+      faucet/faucet \
+      faucet \
+      --ctl-privkey /etc/ryu/ssl/ctrlr.key \
+      --ctl-cert /etc/ryu/ssl/ctrlr.cert  \
+      --ca-certs /etc/ryu/ssl/sw.cert
+
+You can get a list of all additional arguments faucet supports by running:
+
+.. code:: console
+
+  docker run -it faucet/faucet faucet --help
 
 Dockerfile
 ----------
@@ -94,6 +125,7 @@ It can be run as following:
   mkdir -p /var/log/ryu/faucet/
   docker run -d \
       --name faucet \
+      --restart=always \
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
       -p 6653:6653 \
@@ -130,6 +162,7 @@ It can be run as following:
   mkdir -p /var/log/ryu/gauge
   docker run -d \
       --name gauge \
+      --restart=always \
       -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
       -v /var/log/ryu/gauge/:/var/log/ryu/gauge/ \
       -p 6654:6653 \
@@ -149,9 +182,14 @@ Docker compose
 --------------
 
 This is an example docker-compose file that can be used to set up gauge to talk
-to prometheus and influxdb with a grafana instance for dashboards and visualisations.
+to Prometheus and InfluxDB with a Grafana instance for dashboards and visualisations.
 
-It can be run with ``docker-compose up``
+It can be run with:
+
+.. code:: console
+
+  docker-compose pull
+  docker-compose up
 
 The time-series databases with the default settings will write to
 ``/opt/prometheus/`` ``/opt/influxdb/shared/data/db`` you can edit these locations
@@ -166,8 +204,8 @@ For example:
 
   export FAUCET_PREFIX=/opt/faucet
 
-When all the docker containers are running we will need to configure grafana to
-talk to prometheus and influxdb. First login to the grafana web interface on
+When all the docker containers are running we will need to configure Grafana to
+talk to Prometheus and InfluxDB. First login to the Grafana web interface on
 port 3000 (e.g http://localhost:3000) using the default credentials of
 ``admin:admin``.
 
@@ -180,7 +218,7 @@ Then add two data sources. Use the following settings for prometheus:
   Url: http://prometheus:9090
   Access: proxy
 
-And the following settings for influxdb:
+And the following settings for InfluxDB:
 
 ::
 

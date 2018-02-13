@@ -19,7 +19,7 @@
 # limitations under the License.
 
 from pbr.version import VersionInfo
-from prometheus_client import start_http_server, Gauge
+from prometheus_client import start_http_server, Gauge, REGISTRY
 
 
 class PromClient(object):
@@ -27,12 +27,18 @@ class PromClient(object):
 
     REQUIRED_LABELS = ['dp_id', 'dp_name']
     running = False
+    _reg = REGISTRY
 
-    def __init__(self):
+    def __init__(self, reg=None):
+        if reg is not None:
+            self._reg = reg
         version = VersionInfo('faucet').semantic_version().release_string()
-        self.faucet_version = Gauge('faucet_pbr_version', 'Faucet PBR version', ['version'])
-        # pylint: disable=no-member
-        self.faucet_version.labels(version=version).set(1)
+        self.faucet_version = Gauge( # pylint: disable=unexpected-keyword-arg
+            'faucet_pbr_version',
+            'Faucet PBR version',
+            ['version'],
+            registry=self._reg)
+        self.faucet_version.labels(version=version).set(1) # pylint: disable=no-member
 
     def start(self, prom_port, prom_addr):
         """Start webserver if not already running."""

@@ -9,15 +9,16 @@ from faucet import faucet_experimental_api
 
 logging.disable(logging.CRITICAL)
 
-def main():
-    # run faucet
-    application = faucet.Faucet(dpset=dpset.DPSet(), faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
-    application.start()
+# run faucet
+application = faucet.Faucet(dpset=dpset.DPSet(), faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
+application.start()
 
-    # make sure dps are running
-    for dp_id, valve in list(application.valves.items()):
-        valve.dp.running = True
+# make sure dps are running
+for dp_id, valve in list(application.valves.items()):
+    valve.dp.running = True
 
+import afl
+while afl.loop(1000):
     # receive input from afl
     rcv = sys.stdin.read()
     data = None
@@ -35,9 +36,4 @@ def main():
         # send fake packet to faucet
         application.packet_in_handler(pkt)
 
-if __name__ == '__main__':
-    import afl
-    afl.init()
-    main()
-    
 os._exit(0)

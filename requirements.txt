@@ -2,8 +2,10 @@ couchdb
 datadiff
 influxdb
 ipaddress
+msgpack
+msgpack-python
 networkx
 pbr>=1.9
 prometheus_client
 pyyaml
-ryu==4.20
+ryu==4.22

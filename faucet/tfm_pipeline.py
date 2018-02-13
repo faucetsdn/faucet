@@ -70,10 +70,10 @@ class LoadRyuTables(object):
 class OpenflowToRyuTranslator(object):
 
     def __init__(self, cfgpath, pipeline_conf):
-        self.openflow_to_ryu = json.loads(
-            open(os.path.join(cfgpath, 'ofproto_to_ryu.json')).read())
-        self.pipeline_conf = json.loads(
-            open(os.path.join(cfgpath, pipeline_conf)).read())
+        with open(os.path.join(cfgpath, 'ofproto_to_ryu.json')) as ofproto_file:
+            self.openflow_to_ryu = json.loads(ofproto_file.read())
+        with open(os.path.join(cfgpath, pipeline_conf)) as pipeline_file:
+            self.pipeline_conf = json.loads(pipeline_file.read())
 
     def create_ryu_structure(self):
         tables = []

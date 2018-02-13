@@ -46,8 +46,16 @@ def ignore_port(port_num):
     Returns:
         bool: True if FAUCET should ignore this port.
     """
+    # special case OFPP_LOCAL to allow FAUCET to manage switch admin interface.
+    if port_num == ofp.OFPP_LOCAL:
+        return False
     # 0xF0000000 and up are not physical ports.
     return port_num > 0xF0000000
+
+
+def port_status_from_state(state):
+    """Return True if OFPPS_LINK_DOWN is not set."""
+    return not (state & ofp.OFPPS_LINK_DOWN)
 
 
 def is_flowmod(ofmsg):
@@ -70,6 +78,17 @@ def is_groupmod(ofmsg):
         bool: True if is a GroupMod
     """
     return isinstance(ofmsg, parser.OFPGroupMod)
+
+
+def is_metermod(ofmsg):
+    """Return True if OF message is a MeterMod.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a MeterMod
+    """
+    return isinstance(ofmsg, parser.OFPMeterMod)
 
 
 def is_flowdel(ofmsg):
@@ -101,6 +120,20 @@ def is_groupdel(ofmsg):
     return False
 
 
+def is_meterdel(ofmsg):
+    """Return True if OF message is a MeterMod and command is delete.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a MeterMod delete
+    """
+    if (is_metermod(ofmsg) and
+            (ofmsg.command == ofp.OFPMC_DELETE)):
+        return True
+    return False
+
+
 def is_groupadd(ofmsg):
     """Return True if OF message is a GroupMod and command is add.
 
@@ -111,6 +144,20 @@ def is_groupadd(ofmsg):
     """
     if (is_groupmod(ofmsg) and
             (ofmsg.command == ofp.OFPGC_ADD)):
+        return True
+    return False
+
+
+def is_meteradd(ofmsg):
+    """Return True if OF message is a MeterMod and command is add.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a MeterMod add
+    """
+    if (is_metermod(ofmsg) and
+            (ofmsg.command == ofp.OFPMC_ADD)):
         return True
     return False
 
@@ -379,9 +426,8 @@ def _match_ip_masked(ipa):
 def build_match_dict(in_port=None, vlan=None,
                      eth_type=None, eth_src=None,
                      eth_dst=None, eth_dst_mask=None,
-                     ipv6_nd_target=None, icmpv6_type=None,
-                     nw_proto=None,
-                     nw_src=None, nw_dst=None):
+                     icmpv6_type=None,
+                     nw_proto=None, nw_dst=None):
     match_dict = {}
     if in_port is not None:
         match_dict['in_port'] = in_port
@@ -401,12 +447,8 @@ def build_match_dict(in_port=None, vlan=None,
             match_dict['eth_dst'] = eth_dst
     if nw_proto is not None:
         match_dict['ip_proto'] = nw_proto
-    if nw_src is not None:
-        match_dict['ipv4_src'] = _match_ip_masked(nw_src)
     if icmpv6_type is not None:
         match_dict['icmpv6_type'] = icmpv6_type
-    if ipv6_nd_target is not None:
-        match_dict['ipv6_nd_target'] = str(ipv6_nd_target.ip)
     if nw_dst is not None:
         nw_dst_masked = _match_ip_masked(nw_dst)
         if eth_type == ether.ETH_TYPE_ARP:
@@ -556,9 +598,10 @@ def valve_flowreorder(input_ofmsgs):
     # reorder adds to be in priority order.
     delete_ofmsgs = []
     groupadd_ofmsgs = []
+    meteradd_ofmsgs = []
     nondelete_ofmsgs = []
     for ofmsg in input_ofmsgs:
-        if is_flowdel(ofmsg) or is_groupdel(ofmsg):
+        if is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg):
             delete_ofmsgs.append(ofmsg)
         elif is_groupadd(ofmsg):
             # The same group_id may be deleted/added multiple times
@@ -576,14 +619,18 @@ def valve_flowreorder(input_ofmsgs):
                     break
             if new_group_id:
                 groupadd_ofmsgs.append(ofmsg)
+        elif is_meteradd(ofmsg):
+            meteradd_ofmsgs.append(ofmsg)
+            # Is there the risk to receice the same meter_id multiple times?
+            # Do we need the same logic used for groups?
         else:
             nondelete_ofmsgs.append(ofmsg)
     output_ofmsgs = []
     if delete_ofmsgs:
         output_ofmsgs.extend(delete_ofmsgs)
         output_ofmsgs.append(barrier())
-    if groupadd_ofmsgs:
-        output_ofmsgs.extend(groupadd_ofmsgs)
+    if groupadd_ofmsgs + meteradd_ofmsgs:
+        output_ofmsgs.extend(groupadd_ofmsgs + meteradd_ofmsgs)
         output_ofmsgs.append(barrier())
     output_ofmsgs.extend(nondelete_ofmsgs)
     return output_ofmsgs

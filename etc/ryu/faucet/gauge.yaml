@@ -1,32 +1,34 @@
+# Recommended configuration is Prometheus for all monitoring, with all_dps: True
 faucet_configs:
     - '/etc/ryu/faucet/faucet.yaml'
 watchers:
     port_status_poller:
         type: 'port_state'
-        dps: ['sw1', 'sw2']
-        db: 'influx'
+        all_dps: True
+        #dps: ['sw1', 'sw2']
+        db: 'prometheus'
     port_stats_poller:
         type: 'port_stats'
-        #dps: ['sw1', 'sw2']
         all_dps: True
+        #dps: ['sw1', 'sw2']
         interval: 10
-        #db: 'influx'
         db: 'prometheus'
+        #db: 'influx'
     flow_table_poller:
         type: 'flow_table'
+        all_dps: True
         interval: 60
-        dps: ['sw1', 'sw2']
+        db: 'prometheus'
         #db: 'couchdb'
-        db: 'influx'
 dbs:
+    prometheus:
+        type: 'prometheus'
+        prometheus_addr: ''
+        prometheus_port: 9303
     ft_file:
         type: 'text'
         compress: True
         file: 'flow_table.yaml.gz'
-    prometheus:
-        type: 'prometheus'
-        prometheus_addr: '0.0.0.0'
-        prometheus_port: 9303
     influx:
         type: 'influx'
         influx_db: 'faucet'
