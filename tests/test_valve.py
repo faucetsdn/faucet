@@ -281,12 +281,12 @@ vlans:
 
     def update_config(self, config):
         """Update FAUCET config with config as text."""
-        self.assertFalse(self.valves_manager.config_files_changed())
+        self.assertFalse(self.valves_manager.config_watcher.files_changed())
         existing_config = os.path.exists(self.config_file)
         with open(self.config_file, 'w') as config_file:
             config_file.write(config)
         if existing_config:
-            self.assertTrue(self.valves_manager.config_files_changed())
+            self.assertTrue(self.valves_manager.config_watcher.files_changed())
         self.last_flows_to_dp = {}
         self.valves_manager.request_reload_configs(self.config_file)
         self.valve = self.valves_manager.valves[self.DP_ID]

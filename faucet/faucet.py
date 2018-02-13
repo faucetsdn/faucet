@@ -231,10 +231,10 @@ class Faucet(valve_ryuapp.RyuAppBase):
     @kill_on_exception(exc_logname)
     def _config_file_stat(self):
         """Periodically stat config files for any changes."""
-        # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         while True:
-            if self.stat_reload and self.valves_manager.config_files_changed():
-                self.send_event('Faucet', EventFaucetReconfigure())
+            if self.valves_manager.config_watcher.files_changed():
+                if self.stat_reload:
+                    self.send_event('Faucet', EventFaucetReconfigure())
             self._thread_jitter(3)
 
     def _gateway_resolve_request(self):
