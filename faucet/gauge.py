@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import signal
 import time
 
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -55,15 +54,9 @@ class Gauge(RyuAppBase):
     def start(self):
         super(Gauge, self).start()
 
-        if self.stat_reload:
-            self.logger.info('will automatically reload new config on changes')
         self._load_config()
-
         self.threads.extend([
             hub.spawn(thread) for thread in (self._config_file_stat,)])
-
-        signal.signal(signal.SIGHUP, self.signal_handler)
-        signal.signal(signal.SIGINT, self.signal_handler)
 
     def _get_watchers(self, ryu_dp, handler_name):
         """Get Watchers instances to response to an event.
@@ -120,17 +113,6 @@ class Gauge(RyuAppBase):
         if name in watchers:
             for watcher in watchers[name]:
                 watcher.update(rcv_time, ryu_dp.id, msg)
-
-    @kill_on_exception(exc_logname)
-    def signal_handler(self, sigid, _):
-        """Handle signal and cause config reload.
-
-        Args:
-            sigid (int): signal received.
-        """
-        super(Gauge, self).signal_handler(sigid, _)
-        if sigid == signal.SIGHUP:
-            self.send_event('Gauge', EventReconfigure())
 
     @kill_on_exception(exc_logname)
     def _config_file_stat(self):

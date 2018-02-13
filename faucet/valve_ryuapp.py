@@ -75,3 +75,14 @@ class RyuAppBase(app_manager.RyuApp):
         if sigid == signal.SIGINT:
             self.close()
             sys.exit(0)
+        if sigid == signal.SIGHUP:
+            self.send_event(self.__class__.__name__, EventReconfigure())
+
+    def start(self):
+        """Start controller."""
+        super(RyuAppBase, self).start()
+
+        if self.stat_reload:
+            self.logger.info('will automatically reload new config on changes')
+        signal.signal(signal.SIGHUP, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)

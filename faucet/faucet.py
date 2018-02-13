@@ -18,8 +18,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import signal
-
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
@@ -108,8 +106,6 @@ class Faucet(RyuAppBase):
         self.metrics.start(prom_port, prom_addr)
 
         # Configure all Valves
-        if self.stat_reload:
-            self.logger.info('will automatically reload new config on changes')
         self._load_configs(self.config_file)
 
         # Start all threads
@@ -123,10 +119,7 @@ class Faucet(RyuAppBase):
         self.api._register(self)
         self.send_event_to_observers(EventFaucetExperimentalAPIRegistered())
 
-        signal.signal(signal.SIGHUP, self.signal_handler)
-        signal.signal(signal.SIGINT, self.signal_handler)
-
-    def delete_deconfigured_dp(self, deleted_dpid):
+    def _delete_deconfigured_dp(self, deleted_dpid):
         self.logger.info(
             'Deleting de-configured %s', dpid_log(deleted_dpid))
         ryu_dp = self.dpset.get(deleted_dpid)
@@ -136,14 +129,14 @@ class Faucet(RyuAppBase):
     @kill_on_exception(exc_logname)
     def _load_configs(self, new_config_file):
         self.valves_manager.load_configs(
-            new_config_file, delete_dp=self.delete_deconfigured_dp)
+            new_config_file, delete_dp=self._delete_deconfigured_dp)
 
     @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def reload_config(self, _):
         """Handle a request to reload configuration."""
         self.valves_manager.request_reload_configs(
-            self.config_file, delete_dp=self.delete_deconfigured_dp)
+            self.config_file, delete_dp=self._delete_deconfigured_dp)
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, dp_id, flow_msgs, ryu_dp=None):
@@ -195,16 +188,6 @@ class Faucet(RyuAppBase):
         self.logger.error(
             '%s: unknown datapath %s', handler_name, dpid_log(dp_id))
         return None
-
-    def signal_handler(self, sigid, _):
-        """Handle any received signals.
-
-        Args:
-            sigid (int): signal to handle.
-        """
-        super(Faucet, self).signal_handler(sigid, _)
-        if sigid == signal.SIGHUP:
-            self.send_event('Faucet', EventReconfigure())
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):
         """Trigger Ryu events periodically with a jitter.
