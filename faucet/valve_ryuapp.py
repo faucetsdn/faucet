@@ -20,6 +20,8 @@
 
 import logging
 import random
+import signal
+import sys
 
 from ryu.base import app_manager
 from ryu.lib import hub
@@ -55,3 +57,13 @@ class RyuAppBase(app_manager.RyuApp):
     def get_setting(self, setting):
         """Return config setting prefaced with logname."""
         return get_setting('_'.join((self.logname.upper(), setting)))
+
+    def signal_handler(self, sigid, _):
+        """Handle signals.
+
+        Args:
+            sigid (int): signal received.
+        """
+        if sigid == signal.SIGINT:
+            self.close()
+            sys.exit(0)

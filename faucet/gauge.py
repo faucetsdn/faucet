@@ -17,7 +17,6 @@
 # limitations under the License.
 
 import signal
-import sys
 import time
 
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -70,7 +69,6 @@ class Gauge(valve_ryuapp.RyuAppBase):
         self.threads.extend([
             hub.spawn(thread) for thread in (self._config_file_stat,)])
 
-        # Set the signal handler for reloading config file
         signal.signal(signal.SIGHUP, self.signal_handler)
         signal.signal(signal.SIGINT, self.signal_handler)
 
@@ -137,11 +135,9 @@ class Gauge(valve_ryuapp.RyuAppBase):
         Args:
             sigid (int): signal received.
         """
+        super(Gauge, self).signal_handler(sigid, _)
         if sigid == signal.SIGHUP:
             self.send_event('Gauge', EventGaugeReconfigure())
-        elif sigid == signal.SIGINT:
-            self.close()
-            sys.exit(0)
 
     @kill_on_exception(exc_logname)
     def _config_file_stat(self):
