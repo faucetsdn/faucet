@@ -30,6 +30,7 @@ from ryu.lib import hub
 from faucet import valve_of
 from faucet.config_parser import watcher_parser
 from faucet.gauge_prom import GaugePrometheusClient
+from faucet.valves_manager import ConfigWatcher
 from faucet.valve_util import dpid_log, kill_on_exception, stat_config_files
 from faucet.watcher import watcher_factory
 from faucet import valve_ryuapp
@@ -57,7 +58,7 @@ class Gauge(valve_ryuapp.RyuAppBase):
         super(Gauge, self).__init__(*args, **kwargs)
         self.prom_client = GaugePrometheusClient()
         self.watchers = {}
-        self.config_file_stats = None
+        self.config_watcher = ConfigWatcher()
 
     def start(self):
         super(Gauge, self).start()
@@ -115,6 +116,7 @@ class Gauge(valve_ryuapp.RyuAppBase):
                 self._start_watchers(ryu_dp, watcher_dpid, watchers)
 
         self.watchers = new_watchers
+        self.config_watcher.update(self.config_file)
         self.logger.info('config complete')
 
     @kill_on_exception(exc_logname)
@@ -146,16 +148,9 @@ class Gauge(valve_ryuapp.RyuAppBase):
         """Periodically stat config files for any changes."""
         # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         while True:
-            # TODO: also stat FAUCET config.
-            if self.config_file:
-                config_hashes = {self.config_file: None}
-                new_config_file_stats = stat_config_files(config_hashes)
-                if self.config_file_stats:
-                    if new_config_file_stats != self.config_file_stats:
-                        if self.stat_reload:
-                            self.send_event('Gauge', EventGaugeReconfigure())
-                        self.logger.info('config file(s) changed on disk')
-                self.config_file_stats = new_config_file_stats
+            if self.config_watcher.files_changed():
+                if self.stat_reload:
+                    self.send_event('Gauge', EventGaugeReconfigure())
             self._thread_jitter(3)
 
     @set_ev_cls(EventGaugeReconfigure, MAIN_DISPATCHER)

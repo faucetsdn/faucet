@@ -48,9 +48,11 @@ class ConfigWatcher(object):
         """Return True if config file content actually changed."""
         return config_changed(self.config_file, new_config_file, self.config_hashes)
 
-    def update(self, new_config_file, new_config_hashes):
+    def update(self, new_config_file, new_config_hashes=None):
         """Update state with new config file/hashes."""
         self.config_file = new_config_file
+        if new_config_hashes is None:
+            new_config_hashes = {new_config_file: None}
         self.config_hashes = new_config_hashes
 
 
