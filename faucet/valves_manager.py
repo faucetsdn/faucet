@@ -35,6 +35,7 @@ class ConfigWatcher(object):
 
     def files_changed(self):
         """Return True if any config files changed."""
+        # TODO: Better to use an inotify method that doesn't conflict with eventlets.
         changed = False
         if self.config_hashes:
             new_config_file_stats = stat_config_files(self.config_hashes)
