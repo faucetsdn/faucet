@@ -652,7 +652,7 @@ class Valve(object):
         ofmsgs = []
         ofmsgs.extend(eth_src_table.flowdel(
             match=eth_src_table.match(in_port=port.number),
-            priority=self.dp.high_priority))
+            priority=self.dp.high_priority, strict=True))
         return ofmsgs
 
     def lacp_handler(self, pkt_meta):
