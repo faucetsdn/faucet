@@ -128,12 +128,14 @@ class RabbitAdapter:
                                 continue_recv = False
                 # send events to rabbit
                 try:
-                    self.channel.basic_publish(exchange=self.exchange,
-                                               routing_key=self.routing_key,
-                                               body=buffer.strip(),
-                                               properties=pika.BasicProperties(
-                                                   delivery_mode = 2,
-                                               ))
+                    buffers = buffer.strip().split(b'\n')
+                    for buff in buffers:
+                        self.channel.basic_publish(exchange=self.exchange,
+                                                   routing_key=self.routing_key,
+                                                   body=buff,
+                                                   properties=pika.BasicProperties(
+                                                       delivery_mode = 2,
+                                                   ))
                     buffer = b''
                 except pika.exceptions.AMQPError as err:
                     print("Unable to send event to RabbitMQ because: %s" % err)

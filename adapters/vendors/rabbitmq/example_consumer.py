@@ -20,7 +20,7 @@ def main():
     channel = connection.channel()
 
     channel.exchange_declare(exchange='topic_recs', exchange_type='topic')
-    result = channel.queue_declare(exclusive=True)
+    result = channel.queue_declare()
     queue_name = result.method.queue
 
     binding_key = "FAUCET.Event"
