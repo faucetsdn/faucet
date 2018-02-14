@@ -45,6 +45,9 @@ from faucet import valve_util
 from fakeoftable import FakeOFTable
 
 
+FAUCET_MAC = '0e:00:00:00:00:01'
+
+
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
 
@@ -61,10 +64,17 @@ def build_pkt(pkt):
     ethertype = None
     if 'arp_source_ip' in pkt and 'arp_target_ip' in pkt:
         ethertype = ether.ETH_TYPE_ARP
-        layers.append(arp.arp(src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip']))
+        arp_code = arp.ARP_REQUEST
+        if pkt['eth_dst'] == FAUCET_MAC:
+            arp_code = arp.ARP_REPLY
+        layers.append(arp.arp(
+            src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip'], opcode=arp_code))
     elif 'ipv6_src' in pkt and 'ipv6_dst' in pkt:
         ethertype = ether.ETH_TYPE_IPV6
-        if 'neighbor_solicit_ip' in pkt:
+        if 'router_solicit_ip' in pkt:
+            layers.append(icmpv6.icmpv6(
+                type_=icmpv6.ND_ROUTER_SOLICIT))
+        elif 'neighbor_solicit_ip' in pkt:
             layers.append(icmpv6.icmpv6(
                 type_=icmpv6.ND_NEIGHBOR_SOLICIT,
                 data=icmpv6.nd_neighbor(
@@ -226,7 +236,6 @@ vlans:
     P2_V200_MAC = '00:00:00:02:00:02'
     P3_V200_MAC = '00:00:00:02:00:03'
     UNKNOWN_MAC = '00:00:00:04:00:04'
-    FAUCET_MAC = '0e:00:00:00:00:01'
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
     V300 = 0x300|ofp.OFPVID_PRESENT
@@ -442,8 +451,19 @@ class ValveTestCase(ValveTestBase):
             'eth_dst': mac.BROADCAST_STR,
             'arp_source_ip': '10.0.0.1',
             'arp_target_ip': '10.0.0.254'})
-        # TODO: check arp reply is valid
+        # TODO: check ARP reply is valid
         self.assertTrue(self.packet_outs_from_flows(arp_replies))
+
+    def test_arp_reply_from_host(self):
+        """ARP reply for host."""
+        arp_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': FAUCET_MAC,
+            'arp_source_ip': '10.0.0.1',
+            'arp_target_ip': '10.0.0.254'})
+        # TODO: check ARP reply is valid
+        self.assertTrue(arp_replies)
+        self.assertFalse(self.packet_outs_from_flows(arp_replies))
 
     def test_nd_for_controller(self):
         """IPv6 ND for controller VIP."""
@@ -460,11 +480,24 @@ class ValveTestCase(ValveTestBase):
         # TODO: check ND reply is valid
         self.assertTrue(self.packet_outs_from_flows(nd_replies))
 
+    def test_ra_for_controller(self):
+        """IPv6 RA for controller."""
+        router_solicit_ip = 'ff02::2'
+        ra_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': '33:33:00:00:00:02',
+            'vid': 0x200,
+            'ipv6_src': 'fe80::1:1',
+            'ipv6_dst': router_solicit_ip,
+            'router_solicit_ip': router_solicit_ip})
+        # TODO: check RA is valid
+        self.assertTrue(self.packet_outs_from_flows(ra_replies))
+
     def test_icmp_ping_controller(self):
         """IPv4 ping controller VIP."""
         echo_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.FAUCET_MAC,
+            'eth_dst': FAUCET_MAC,
             'vid': 0x100,
             'ipv4_src': '10.0.0.1',
             'ipv4_dst': '10.0.0.254',
@@ -510,7 +543,7 @@ class ValveTestCase(ValveTestBase):
         """IPv4 ping unknown host on same subnet, causing proactive learning."""
         echo_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.FAUCET_MAC,
+            'eth_dst': FAUCET_MAC,
             'vid': 0x100,
             'ipv4_src': '10.0.0.1',
             'ipv4_dst': '10.0.0.99',
@@ -522,7 +555,7 @@ class ValveTestCase(ValveTestBase):
         """IPv6 ping controller VIP."""
         echo_replies = self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
-            'eth_dst': self.FAUCET_MAC,
+            'eth_dst': FAUCET_MAC,
             'vid': 0x200,
             'ipv6_src': 'fc00::1:1',
             'ipv6_dst': 'fc00::1:254',
