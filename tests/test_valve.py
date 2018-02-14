@@ -64,7 +64,10 @@ def build_pkt(pkt):
         layers.append(arp.arp(src_ip=pkt['arp_source_ip'], dst_ip=pkt['arp_target_ip']))
     elif 'ipv6_src' in pkt and 'ipv6_dst' in pkt:
         ethertype = ether.ETH_TYPE_IPV6
-        if 'neighbor_solicit_ip' in pkt:
+        if 'router_solicit_ip' in pkt:
+            layers.append(icmpv6.icmpv6(
+                type_=icmpv6.ND_ROUTER_SOLICIT))
+        elif 'neighbor_solicit_ip' in pkt:
             layers.append(icmpv6.icmpv6(
                 type_=icmpv6.ND_NEIGHBOR_SOLICIT,
                 data=icmpv6.nd_neighbor(
@@ -459,6 +462,18 @@ class ValveTestCase(ValveTestBase):
             'neighbor_solicit_ip': str(dst_ip)})
         # TODO: check ND reply is valid
         self.assertTrue(self.packet_outs_from_flows(nd_replies))
+
+    def test_ra_for_controller(self):
+        """IPv6 RA for controller."""
+        router_solicit_ip = 'ff02::2'
+        ra_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': '33:33:00:00:00:02',
+            'vid': 0x200,
+            'ipv6_src': 'fe80::1:1',
+            'ipv6_dst': router_solicit_ip,
+            'router_solicit_ip': router_solicit_ip})
+        self.assertTrue(self.packet_outs_from_flows(ra_replies))
 
     def test_icmp_ping_controller(self):
         """IPv4 ping controller VIP."""
