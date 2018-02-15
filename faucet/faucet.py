@@ -285,7 +285,6 @@ class Faucet(RyuAppBase):
         """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
-        dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, 'error_handler', msg)
         if valve is None:
             return
