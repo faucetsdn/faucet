@@ -157,16 +157,7 @@ class Faucet(RyuAppBase):
                 return
 
         valve = self.valves_manager.valves[dp_id]
-        reordered_flow_msgs = valve_of.valve_flowreorder(flow_msgs)
-        valve.ofchannel_log(reordered_flow_msgs)
-        for flow_msg in reordered_flow_msgs:
-            self.metrics.of_flowmsgs_sent.labels( # pylint: disable=no-member
-                **valve.base_prom_labels).inc()
-            flow_msg.datapath = ryu_dp
-            ryu_dp.send_msg(flow_msg)
-            if valve.recent_ofmsgs.full():
-                valve.recent_ofmsgs.get()
-            valve.recent_ofmsgs.put(flow_msg)
+        valve.send_flows(ryu_dp, flow_msgs)
 
     def _get_valve(self, ryu_dp, handler_name, msg=None):
         """Get Valve instance to response to an event.
@@ -298,15 +289,7 @@ class Faucet(RyuAppBase):
         valve = self._get_valve(ryu_dp, 'error_handler', msg)
         if valve is None:
             return
-        self.metrics.of_errors.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).inc()
-        error_txt = msg
-        while not valve.recent_ofmsgs.empty():
-            flow_msg = valve.recent_ofmsgs.get()
-            if msg.xid == flow_msg.xid:
-                error_txt = '%s caused by %s' % (msg, flow_msg)
-                break
-        self.logger.error('%s OFError %s', dpid_log(dp_id), error_txt)
+        valve.oferror(msg)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
