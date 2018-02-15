@@ -1,4 +1,3 @@
-couchdb
 datadiff
 influxdb
 ipaddress

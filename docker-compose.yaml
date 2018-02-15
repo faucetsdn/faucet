@@ -14,15 +14,6 @@ services:
             INFLUXDB_ADMIN_USER: 'faucet'
             INFLUXDB_ADMIN_PASSWORD: 'faucet'
 
-    couchdb:
-        restart: always
-        image: 'couchdb:1.6'
-        volumes:
-            - '${FAUCET_PREFIX}/opt/couchdb:/usr/local/var/lib/couchdb'
-        environment:
-            COUCHDB_USER: 'couch'
-            COUCHDB_PASSWORD: '123'
-
     prometheus:
         restart: always
         image: 'prom/prometheus:v2.0.0'
@@ -63,7 +54,6 @@ services:
             - '6654:6653'
             - '9303'
         links:
-            - couchdb
             - influxdb
 
     faucet:
