@@ -16,7 +16,6 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import yaml
 
 import requests
-import couchdb
 
 from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher
 from ryu.ofproto import ofproto_v1_3 as ofproto
