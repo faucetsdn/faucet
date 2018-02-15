@@ -74,6 +74,12 @@ def build_pkt(pkt):
         if 'router_solicit_ip' in pkt:
             layers.append(icmpv6.icmpv6(
                 type_=icmpv6.ND_ROUTER_SOLICIT))
+        elif 'neighbor_advert_ip' in pkt:
+            layers.append(icmpv6.icmpv6(
+                type_=icmpv6.ND_NEIGHBOR_ADVERT,
+                data=icmpv6.nd_neighbor(
+                    dst=pkt['neighbor_advert_ip'],
+                    option=icmpv6.nd_option_sla(hw_src=pkt['eth_src']))))
         elif 'neighbor_solicit_ip' in pkt:
             layers.append(icmpv6.icmpv6(
                 type_=icmpv6.ND_NEIGHBOR_SOLICIT,
@@ -482,6 +488,19 @@ class ValveTestCase(ValveTestBase):
             'neighbor_solicit_ip': str(dst_ip)})
         # TODO: check ND reply is valid
         self.assertTrue(self.packet_outs_from_flows(nd_replies))
+
+    def test_nd_from_host(self):
+        """IPv6 NA from host."""
+        na_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': FAUCET_MAC,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:1',
+            'ipv6_dst': 'fc00::1:254',
+            'neighbor_advert_ip': 'fc00::1:1'})
+        # TODO: check NA response flows are valid
+        self.assertTrue(na_replies)
+        self.assertFalse(self.packet_outs_from_flows(na_replies))
 
     def test_ra_for_controller(self):
         """IPv6 RA for controller."""
