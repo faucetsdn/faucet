@@ -6,7 +6,7 @@ COPY ./ /faucet-src/
 
 RUN ./faucet-src/docker/base/install-faucet.sh
 
-VOLUME ["/etc/ryu/faucet/", "/var/log/ryu/faucet/", "/var/run/faucet/"]
+VOLUME ["/etc/faucet/", "/var/log/faucet/", "/var/run/faucet/"]
 
 EXPOSE 6653 9302
 

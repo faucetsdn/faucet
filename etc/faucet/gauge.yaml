@@ -1,6 +1,6 @@
 # Recommended configuration is Prometheus for all monitoring, with all_dps: True
 faucet_configs:
-    - '/etc/ryu/faucet/faucet.yaml'
+    - '/etc/faucet/faucet.yaml'
 watchers:
     port_status_poller:
         type: 'port_state'

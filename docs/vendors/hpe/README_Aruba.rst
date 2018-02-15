@@ -337,10 +337,10 @@ PKI Setup on switch
 Faucet
 ^^^^^^
 
-On the FAUCET configuration file (``/etc/ryu/faucet/faucet.yaml``), add the datapath of the switch you wish to be managed by FAUCET. The device type (hardware) should be set to ``Aruba`` in the configuration file.
+On the FAUCET configuration file (``/etc/faucet/faucet.yaml``), add the datapath of the switch you wish to be managed by FAUCET. The device type (hardware) should be set to ``Aruba`` in the configuration file.
 
 .. code-block:: yaml
-  :caption: /etc/ryu/faucet/faucet.yaml
+  :caption: /etc/faucet/faucet.yaml
   :name: hpe/faucet.yaml
 
 	dps:
@@ -360,8 +360,8 @@ You will also need to install pipeline configuration files (these files instruct
 
 .. code:: console
 
-       $ sudo cp etc/ryu/faucet/ofproto_to_ryu.json /etc/ryu/faucet
-       $ sudo cp etc/ryu/faucet/aruba_pipeline.json /etc/ryu/faucet
+       $ sudo cp etc/faucet/ofproto_to_ryu.json /etc/faucet
+       $ sudo cp etc/faucet/aruba_pipeline.json /etc/faucet
 
 
 Scale

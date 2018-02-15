@@ -1,0 +1,16 @@
+[Unit]
+Description="Faucet OpenFlow switch controller"
+After=network-online.target
+Wants=network-online.target
+Documentation="http://doc.faucet.nz"
+
+[Service]
+EnvironmentFile=/etc/default/faucet
+User=faucet
+Group=faucet
+ExecStart=/usr/bin/faucet --ryu-config-file=${FAUCET_RYU_CONF} --ryu-ofp-tcp-listen-port=${FAUCET_LISTEN_PORT}
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

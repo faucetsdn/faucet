@@ -147,7 +147,7 @@ configuration.
         # How often to advertise (eg. IPv6 RAs)
         'proactive_learn': True,
         # whether proactive learning is enabled for IP nexthops
-        'pipeline_config_dir': get_setting('FAUCET_PIPELINE_DIR'),
+        'pipeline_config_dir': get_setting('FAUCET_PIPELINE_DIR', True),
         # where config files for pipeline are stored (if any).
         'use_idle_timeout': False,
         # Turn on/off the use of idle timeout for src_table, default OFF.

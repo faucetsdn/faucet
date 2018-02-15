@@ -128,7 +128,7 @@ dps:
         dp_id: 1
         ofchannel_log: "/dev/null"
         hardware: 'GenericTFM'
-        pipeline_config_dir: '%s/../etc/ryu/faucet'
+        pipeline_config_dir: '%s/../etc/faucet'
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
@@ -1119,7 +1119,7 @@ dps:
         ignore_learn_ins: 0
         dp_id: 1
         hardware: 'GenericTFM'
-        pipeline_config_dir: '%s/../etc/ryu/faucet'
+        pipeline_config_dir: '%s/../etc/faucet'
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1

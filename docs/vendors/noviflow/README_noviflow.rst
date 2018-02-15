@@ -59,7 +59,7 @@ Create faucet.yaml
 ^^^^^^^^^^^^^^^^^^
 
 .. code-block:: yaml
-  :caption: /etc/ryu/faucet/faucet.yaml
+  :caption: /etc/faucet/faucet.yaml
   :name: noviflow/faucet.yaml
 
     vlans:
