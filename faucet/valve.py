@@ -19,9 +19,8 @@
 
 import logging
 import time
-import queue
 
-from collections import namedtuple
+from collections import deque, namedtuple
 
 from faucet import tfm_pipeline
 from faucet import valve_acl
@@ -66,7 +65,7 @@ class Valve(object):
     DEC_TTL = True
     L3 = False
     base_prom_labels = None
-    recent_ofmsgs = queue.Queue(maxsize=32) # type: ignore
+    recent_ofmsgs = deque(maxlen=32) # type: ignore
 
     def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp
@@ -1078,6 +1077,36 @@ class Valve(object):
                 ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
+    def oferror(self, msg):
+        """Correlate OFError message with flow we sent, if any.
+
+        Args:
+            msg (ryu.controller.ofp_event.EventOFPMsgBase): message from datapath.
+        """
+        self.metrics.of_errors.labels( # pylint: disable=no-member
+            **self.base_prom_labels).inc()
+        orig_msgs = [orig_msg for orig_msg in self.recent_ofmsgs if orig_msg.xid == msg.xid]
+        error_txt = msg
+        if orig_msgs:
+            error_msg = orig_msgs[0]
+        self.logger.error('OFError %s', error_txt)
+
+    def send_flows(self, ryu_dp, flow_msgs):
+        """Send flows to datapath.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+            flow_msgs (list): OpenFlow messages to send.
+        """
+        reordered_flow_msgs = valve_of.valve_flowreorder(flow_msgs)
+        self.ofchannel_log(reordered_flow_msgs)
+        self.metrics.of_flowmsgs_sent.labels( # pylint: disable=no-member
+            **self.base_prom_labels).inc(len(reordered_flow_msgs))
+        self.recent_ofmsgs.append(reordered_flow_msgs)
+        for flow_msg in reordered_flow_msgs:
+            flow_msg.datapath = ryu_dp
+            ryu_dp.send_msg(flow_msg)
+
     def flow_timeout(self, table_id, match):
         """Call flow timeout message handler:
 
@@ -1091,6 +1120,8 @@ class Valve(object):
 
     def get_config_dict(self):
         return self.dp.get_config_dict()
+
+
 
 
 class TfmValve(Valve):
