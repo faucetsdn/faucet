@@ -1079,6 +1079,14 @@ class Valve(object):
         return ofmsgs
 
     def flow_timeout(self, table_id, match):
+        """Call flow timeout message handler:
+
+        Args:
+            table_id (int): ID of table where flow was installed.
+            match (dict): match conditions for expired flow.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
         return self.host_manager.flow_timeout(table_id, match)
 
     def get_config_dict(self):
