@@ -74,6 +74,12 @@ def build_pkt(pkt):
         if 'router_solicit_ip' in pkt:
             layers.append(icmpv6.icmpv6(
                 type_=icmpv6.ND_ROUTER_SOLICIT))
+        elif 'neighbor_advert_ip' in pkt:
+            layers.append(icmpv6.icmpv6(
+                type_=icmpv6.ND_NEIGHBOR_ADVERT,
+                data=icmpv6.nd_neighbor(
+                    dst=pkt['neighbor_advert_ip'],
+                    option=icmpv6.nd_option_sla(hw_src=pkt['eth_src']))))
         elif 'neighbor_solicit_ip' in pkt:
             layers.append(icmpv6.icmpv6(
                 type_=icmpv6.ND_NEIGHBOR_SOLICIT,
@@ -278,6 +284,7 @@ vlans:
         self.connect_dp()
 
     def teardown_valve(self):
+        """Tear down test DP."""
         for handler in self.logger.handlers:
             handler.close()
         self.logger.handlers = []
@@ -434,10 +441,12 @@ class ValveTestCase(ValveTestBase):
         self.teardown_valve()
 
     def test_disconnect(self):
+        """Test disconnection of DP from controller."""
         # TODO: verify DP state change.
         self.valve.datapath_disconnect()
 
     def test_switch_features(self):
+        """Test switch features handler."""
         self.assertTrue(isinstance(self.valve, valve.TfmValve))
         features_flows = self.valve.switch_features(None)
         tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
@@ -479,6 +488,19 @@ class ValveTestCase(ValveTestBase):
             'neighbor_solicit_ip': str(dst_ip)})
         # TODO: check ND reply is valid
         self.assertTrue(self.packet_outs_from_flows(nd_replies))
+
+    def test_nd_from_host(self):
+        """IPv6 NA from host."""
+        na_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': FAUCET_MAC,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:1',
+            'ipv6_dst': 'fc00::1:254',
+            'neighbor_advert_ip': 'fc00::1:1'})
+        # TODO: check NA response flows are valid
+        self.assertTrue(na_replies)
+        self.assertFalse(self.packet_outs_from_flows(na_replies))
 
     def test_ra_for_controller(self):
         """IPv6 RA for controller."""
@@ -526,13 +548,28 @@ class ValveTestCase(ValveTestBase):
         # TODO: check del flows.
         self.assertTrue(route_del_replies)
 
-    def test_host_fib_route(self):
+    def test_host_ipv4_fib_route(self):
+        """Test learning a FIB rule for an IPv4 host."""
         fib_route_replies = self.rcv_packet(1, 0x100, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
             'vid': 0x100,
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.4',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: verify learning rule contents
+        # We want to know this host was learned we did not get packet outs.
+        self.assertTrue(fib_route_replies)
+        self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
+
+    def test_host_ipv6_fib_route(self):
+        """Test learning a FIB rule for an IPv6 host."""
+        fib_route_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:2',
+            'ipv6_dst': 'fc00::1:4',
             'echo_request_data': bytes('A'*8, encoding='UTF-8')})
         # TODO: verify learning rule contents
         # We want to know this host was learned we did not get packet outs.
@@ -824,6 +861,7 @@ class ValveTestCase(ValveTestBase):
             msg='Packet not output after port add')
 
     def test_port_acl_deny(self):
+        """Test that port ACL denies forwarding."""
         acl_config = """
 version: 2
 dps:
@@ -894,9 +932,12 @@ acls:
             msg='packet not allowed by ACL')
 
     def test_lldp_beacon(self):
+        """Test LLDP beacon service."""
+        # TODO: verify LLDP packet content.
         self.assertTrue(self.valve.send_lldp_beacons())
 
     def test_unknown_port(self):
+        """Test port status change for unknown port handled."""
         self.set_port_up(99)
 
 
@@ -910,6 +951,7 @@ class ValveACLTestCase(ValveTestBase):
         self.teardown_valve()
 
     def test_vlan_acl_deny(self):
+        """Test VLAN ACL denies a packet."""
         acl_config = """
 dps:
     s1:
@@ -1037,6 +1079,7 @@ class ValveStackTestCase(ValveTestBase):
         self.teardown_valve()
 
     def test_stack_flood(self):
+        """Test packet flooding when stacking."""
         matches = [
             {
                 'in_port': 1,
