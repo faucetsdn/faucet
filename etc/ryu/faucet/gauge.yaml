@@ -19,7 +19,6 @@ watchers:
         all_dps: True
         interval: 60
         db: 'prometheus'
-        #db: 'couchdb'
 dbs:
     prometheus:
         type: 'prometheus'

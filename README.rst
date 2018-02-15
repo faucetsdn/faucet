@@ -20,7 +20,7 @@ It supports:
 - ACLs matching layer 2 and layer 3 fields
 - IPv4 and IPv6 routing, static and via BGP
 - Policy based forwarding to offload to external NFV applications (Eg 802.1x via hostapd, DHCP to isc DHCPD)
-- Port and flow statistics via InfluxDB/Grafana and CouchDB/CouchApp
+- Port and flow statistics via InfluxDB/Grafana
 - Controller health and statistics via Prometheus
 - Unit and systems tests run under Travis based on mininet and OVS
 
