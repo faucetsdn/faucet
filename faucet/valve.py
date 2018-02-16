@@ -1089,7 +1089,7 @@ class Valve(object):
         error_txt = msg
         if orig_msgs:
             error_msg = orig_msgs[0]
-        self.logger.error('OFError %s', error_txt)
+        self.logger.error('OFError %s' % error_txt)
 
     def send_flows(self, ryu_dp, flow_msgs):
         """Send flows to datapath.
