@@ -1122,8 +1122,6 @@ class Valve(object):
         return self.dp.get_config_dict()
 
 
-
-
 class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
