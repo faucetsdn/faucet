@@ -1102,7 +1102,7 @@ class Valve(object):
         self.ofchannel_log(reordered_flow_msgs)
         self.metrics.of_flowmsgs_sent.labels( # pylint: disable=no-member
             **self.base_prom_labels).inc(len(reordered_flow_msgs))
-        self.recent_ofmsgs.append(reordered_flow_msgs)
+        self.recent_ofmsgs.extend(reordered_flow_msgs)
         for flow_msg in reordered_flow_msgs:
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
