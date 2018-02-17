@@ -234,7 +234,6 @@ def _watcher_parser_v2(conf, logname, prom_client):
 
     if 'faucet' in conf:
         faucet_conf = conf['faucet']
-        print(faucet_conf)
         acls = faucet_conf.get('acls', {})
         fct_dps = faucet_conf.get('dps', {})
         meters = faucet_conf.get('meters', {})
