@@ -54,17 +54,6 @@ class RoutingTable(object):
     def ip_dsts_with_ip_gw(self, resolved_ip_gw):
         return [ip_dst for ip_dst, ip_gw in list(self.routes.items()) if resolved_ip_gw == ip_gw]
 
-    def is_host_route(self, ip_dst):
-        """Return True if ip_dst is a host route."""
-        ip_dsts = self.ip_dsts_with_ip_gw(ip_dst)
-        if len(ip_dsts) == 1 and ip_dsts[0].prefixlen == ip_dst.max_prefixlen:
-            return True
-        return False
-
-    def gws(self):
-        """Return all gateways."""
-        return set(self.routes.values())
-
 
 class VLAN(Conf):
     """Contains state for one VLAN, including its configuration."""

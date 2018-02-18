@@ -246,7 +246,7 @@ class ValveRouteManager(object):
         """
         routing_table = self._vlan_routes(vlan)
         ip_gws = []
-        for ip_gw in routing_table.gws():
+        for ip_gw in set(routing_table.routes.values()):
             for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
                 if ip_gw in faucet_vip.network:
                     ip_gws.append((ip_gw, faucet_vip))
@@ -310,7 +310,11 @@ class ValveRouteManager(object):
             True if a host FIB route (and not used as a gateway).
         """
         routing_table = self._vlan_routes(vlan)
-        return routing_table.is_host_route(host_ip)
+        ip_dsts = routing_table.ip_dsts_with_ip_gw(host_ip)
+        if ip_dsts:
+            non_fib_dsts = [ip_dst for ip_dst in ip_dsts if ip_dst.prefixlen < ip_dst.max_prefixlen]
+            return not non_fib_dsts
+        return False
 
     def advertise(self, vlan):
         return []
