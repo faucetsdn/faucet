@@ -445,6 +445,15 @@ class ValveTestCase(ValveTestBase):
         # TODO: verify DP state change.
         self.valve.datapath_disconnect()
 
+    def test_oferror(self):
+        """Test OFError handler."""
+        datapath = None
+        msg = valve_of.parser.OFPFlowMod(datapath=datapath)
+        msg.xid = 123
+        self.valve.recent_ofmsgs.append(msg)
+        test_error = valve_of.parser.OFPErrorMsg(datapath=datapath, msg=msg)
+        self.valve.oferror(test_error)
+
     def test_switch_features(self):
         """Test switch features handler."""
         self.assertTrue(isinstance(self.valve, valve.TfmValve))
