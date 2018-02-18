@@ -137,4 +137,4 @@ class FaucetBgp(object):
                             # pylint: disable=no-member
                             self.metrics.bgp_neighbor_routes.labels(
                                 **dict(base_labels, vlan=vlan.vid, neighbor=neighbor, ipv=ipv)).set(
-                                    len(vlan.routes_by_ipv(ipv)))
+                                    len(vlan.routes_by_ipv(ipv).routes))
