@@ -43,6 +43,9 @@ class FaucetMetrics(PromClient):
         self.faucet_config_reload_cold = self._dpid_counter(
             'faucet_config_reload_cold',
             'number of cold, complete reprovision config reloads executed')
+        self.of_ignored_packet_ins = self._dpid_counter(
+            'of_ignored_packet_ins',
+            'number of OF packet_ins received but ignored from DP')
         self.of_packet_ins = self._dpid_counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP')

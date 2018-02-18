@@ -723,6 +723,8 @@ class Valve(object):
         self._packet_in_count_sec += 1
         if self.dp.ignore_learn_ins:
             if self._packet_in_count_sec % self.dp.ignore_learn_ins == 0:
+                self.metrics.of_ignored_packet_ins.labels( # pylint: disable=no-member
+                    **self.base_prom_labels).inc()
                 return True
         return False
 
