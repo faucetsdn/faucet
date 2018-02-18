@@ -228,7 +228,7 @@ class ValveRouteManager(object):
                         is_updated, resolved_ip_gw,
                         vlan, port, eth_src))
             routes = self._vlan_routes(vlan)
-            for ip_dst, ip_gw in list(routes.items()):
+            for ip_dst, ip_gw in list(routes.routes.items()):
                 if ip_gw == resolved_ip_gw:
                     ofmsgs.extend(self._add_resolved_route(
                         vlan, ip_gw, ip_dst, eth_src, is_updated))
@@ -246,7 +246,7 @@ class ValveRouteManager(object):
         """
         routes = self._vlan_routes(vlan)
         ip_gws = []
-        for ip_gw in set(routes.values()):
+        for ip_gw in set(routes.routes.values()):
             for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
                 if ip_gw in faucet_vip.network:
                     ip_gws.append((ip_gw, faucet_vip))
@@ -310,7 +310,7 @@ class ValveRouteManager(object):
             True if a host FIB route (and not used as a gateway).
         """
         routes = self._vlan_routes(vlan)
-        ip_dsts = [ip_dst for ip_dst, ip_gw in list(routes.items()) if ip_gw == host_ip]
+        ip_dsts = [ip_dst for ip_dst, ip_gw in list(routes.routes.items()) if ip_gw == host_ip]
         if ip_dsts:
             non_fib_dsts = [ip_dst for ip_dst in ip_dsts if ip_dst.prefixlen < ip_dst.max_prefixlen]
             return not non_fib_dsts
@@ -440,11 +440,11 @@ class ValveRouteManager(object):
         if vlan.is_faucet_vip(ip_dst):
             return ofmsgs
         routes = self._vlan_routes(vlan)
-        if ip_dst in routes:
-            if routes[ip_dst] == ip_gw:
+        if ip_dst in routes.routes:
+            if routes.routes[ip_dst] == ip_gw:
                 return ofmsgs
 
-        routes[ip_dst] = ip_gw
+        routes.add_route(ip_dst, ip_gw)
         cached_eth_dst = self._cached_nexthop_eth_dst(vlan, ip_gw)
         if cached_eth_dst is not None:
             ofmsgs.extend(self._add_resolved_route(
@@ -558,8 +558,8 @@ class ValveRouteManager(object):
         if vlan.is_faucet_vip(ip_dst):
             return ofmsgs
         routes = self._vlan_routes(vlan)
-        if ip_dst in routes:
-            del routes[ip_dst]
+        if ip_dst in routes.routes:
+            routes.del_route(ip_dst)
             ofmsgs.extend(self._del_route_flows(vlan, ip_dst))
             # TODO: need to delete nexthop group if groups are in use.
         return ofmsgs

@@ -37,6 +37,21 @@ class HostCacheEntry(object):
         self.expired = False
 
 
+class RoutingTable(object):
+    """Routing table for a VLAN/IP version."""
+
+    # TODO: support annotation of ipaddress.ip_network
+    routes = {} # type: ignore
+
+    def add_route(self, ip_dst, ip_gw):
+        """Add a route."""
+        self.routes[ip_dst] = ip_gw
+
+    def del_route(self, ip_dst):
+        """Delete a route."""
+        del self.routes[ip_dst]
+
+
 class VLAN(Conf):
     """Contains state for one VLAN, including its configuration."""
 
@@ -138,7 +153,7 @@ class VLAN(Conf):
         self.tagged = []
         self.untagged = []
         self.dyn_faucet_vips_by_ipv = collections.defaultdict(list)
-        self.dyn_routes_by_ipv = collections.defaultdict(dict)
+        self.dyn_routes_by_ipv = collections.defaultdict(RoutingTable)
         self.dyn_ipvs = []
         self.reset_caches()
         super(VLAN, self).__init__(_id, dp_id, conf)
@@ -192,7 +207,7 @@ class VLAN(Conf):
                     except (ValueError, AttributeError, TypeError) as err:
                         assert False, 'Invalid IP address in route: %s' % err
                     assert ip_gw.version == ip_dst.version
-                    self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+                    self.dyn_routes_by_ipv[ip_gw.version].add_route(ip_dst, ip_gw)
             except KeyError:
                 assert False, 'missing route config'
             except TypeError:
