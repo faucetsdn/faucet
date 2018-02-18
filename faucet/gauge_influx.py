@@ -21,7 +21,7 @@ from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 # pytype: disable=pyi-error
 from requests.exceptions import ConnectionError, ReadTimeout
 
-from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugeFlowTablePoller, GaugePortStatsPoller
+from faucet.gauge_pollers import GaugePortStatePoller, GaugeFlowTablePoller, GaugePortStatsPoller
 
 
 class InfluxShipper(object):
@@ -81,7 +81,7 @@ class InfluxShipper(object):
         return self.make_point(port_tags, rcv_time, stat_name, stat_val)
 
 
-class GaugePortStateInfluxDBLogger(GaugePortStateBaseLogger, InfluxShipper):
+class GaugePortStateInfluxDBLogger(GaugePortStatePoller, InfluxShipper):
     """
 
 Example:
