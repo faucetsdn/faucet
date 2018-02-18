@@ -744,6 +744,8 @@ class Valve(object):
                 learn_port, pkt_meta.vlan, pkt_meta.eth_src,
                 last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
             if learn_flows:
+                if pkt_meta.l3_pkt is None:
+                    pkt_meta.reparse_ip()
                 self.logger.info(
                     'L2 learned %s (L2 type 0x%4.4x, L3 src %s) on %s on VLAN %u (%u hosts total)' % (
                         pkt_meta.eth_src, pkt_meta.eth_type,
@@ -893,6 +895,13 @@ class Valve(object):
         """
         ofmsgs = []
 
+        if self._rate_limit_packet_ins():
+            return ofmsgs
+
+        ban_rules = self.host_manager.ban_rules(pkt_meta)
+        if ban_rules:
+            return ban_rules
+
         self.logger.debug(
             'Packet_in src:%s in_port:%d vid:%s' % (
                 pkt_meta.eth_src,
@@ -906,22 +915,15 @@ class Valve(object):
             if not pkt_meta.port.dyn_lacp_up:
                 return ofmsgs
 
-        ban_rules = self.host_manager.ban_rules(pkt_meta)
-        if ban_rules:
-            return ban_rules
-
-        pkt_meta.reparse_ip()
-
-        if self.L3 and pkt_meta.l3_pkt and pkt_meta.eth_type in self._route_manager_by_eth_type:
-            route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
-            control_plane_ofmsgs = self._control_plane_handler(pkt_meta, route_manager)
-            if control_plane_ofmsgs:
-                ofmsgs.extend(control_plane_ofmsgs)
-            else:
-                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
-
-        if self._rate_limit_packet_ins():
-            return ofmsgs
+        if self.L3 and pkt_meta.eth_type in self._route_manager_by_eth_type:
+            pkt_meta.reparse_ip()
+            if pkt_meta.l3_pkt:
+                route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
+                control_plane_ofmsgs = self._control_plane_handler(pkt_meta, route_manager)
+                if control_plane_ofmsgs:
+                    ofmsgs.extend(control_plane_ofmsgs)
+                else:
+                    ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
 
