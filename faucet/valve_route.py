@@ -228,10 +228,10 @@ class ValveRouteManager(object):
                         is_updated, resolved_ip_gw,
                         vlan, port, eth_src))
             routes = self._vlan_routes(vlan)
-            for ip_dst, ip_gw in list(routes.items()):
-                if ip_gw == resolved_ip_gw:
-                    ofmsgs.extend(self._add_resolved_route(
-                        vlan, ip_gw, ip_dst, eth_src, is_updated))
+            ip_dsts = self._ip_dsts_for_ip_gw(routes, resolved_ip_gw)
+            for ip_dst in ip_dsts:
+                ofmsgs.extend(self._add_resolved_route(
+                    vlan, resolved_ip_gw, ip_dst, eth_src, is_updated))
 
         self._update_nexthop_cache(vlan, eth_src, port, resolved_ip_gw)
         return ofmsgs
@@ -300,20 +300,24 @@ class ValveRouteManager(object):
             sorted(ip_gws_with_retry_time, key=lambda x: x[-1]))
         return ip_gws_never_tried + ip_gws_with_retry_time_sorted
 
+    def _ip_dsts_for_ip_gw(self, routes, host_ip):
+        return [ip_dst for ip_dst, ip_gw in list(routes.items()) if ip_gw == host_ip]
+
     def _is_host_fib_route(self, vlan, host_ip):
         """Return True if IP destination is a host FIB route.
 
         Args:
             vlan (vlan): VLAN containing this RIB/FIB.
-            ip_gw (ipaddress.ip_address): potential host FIB route.
+            host_ip: (ipaddress.ip_address): potential host FIB route.
         Returns:
             True if a host FIB route (and not used as a gateway).
         """
         routes = self._vlan_routes(vlan)
-        ip_dsts = [ip_dst for ip_dst, ip_gw in list(routes.items()) if ip_gw == host_ip]
-        if ip_dsts:
-            non_fib_dsts = [ip_dst for ip_dst in ip_dsts if ip_dst.prefixlen < ip_dst.max_prefixlen]
-            return not non_fib_dsts
+        ip_dsts = self._ip_dsts_for_ip_gw(routes, host_ip)
+        if (len(ip_dsts) == 1 and
+                ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen and
+                ip_dsts[0].network_address == host_ip):
+            return True
         return False
 
     def advertise(self, vlan):
