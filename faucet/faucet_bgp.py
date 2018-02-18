@@ -90,8 +90,8 @@ class FaucetBgp(object):
             bgp_speaker.prefix_add(
                 prefix=str(faucet_vip), next_hop=str(faucet_vip.ip))
         for ipv in vlan.ipvs():
-            routing_table = vlan.routes_by_ipv(ipv)
-            for ip_dst, ip_gw in list(routing_table.routes.items()):
+            routes = vlan.routes_by_ipv(ipv)
+            for ip_dst, ip_gw in list(routes.items()):
                 bgp_speaker.prefix_add(
                     prefix=str(ip_dst), next_hop=str(ip_gw))
         for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
@@ -134,8 +134,7 @@ class FaucetBgp(object):
                             **dict(base_labels, vlan=vlan.vid, neighbor=neighbor)).set(
                                 neighbor_state['info']['uptime'])
                         for ipv in vlan.ipvs():
-                            routing_table = vlan.routes_by_ipv(ipv)
                             # pylint: disable=no-member
                             self.metrics.bgp_neighbor_routes.labels(
                                 **dict(base_labels, vlan=vlan.vid, neighbor=neighbor, ipv=ipv)).set(
-                                    len(routing_table.routes))
+                                    len(vlan.routes_by_ipv(ipv)))
