@@ -134,7 +134,8 @@ class FaucetBgp(object):
                             **dict(base_labels, vlan=vlan.vid, neighbor=neighbor)).set(
                                 neighbor_state['info']['uptime'])
                         for ipv in vlan.ipvs():
+                            routing_table = vlan.routes_by_ipv(ipv)
                             # pylint: disable=no-member
                             self.metrics.bgp_neighbor_routes.labels(
                                 **dict(base_labels, vlan=vlan.vid, neighbor=neighbor, ipv=ipv)).set(
-                                    len(vlan.routes_by_ipv(ipv)))
+                                    len(routing_table.routes))
