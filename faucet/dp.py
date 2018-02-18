@@ -113,7 +113,7 @@ configuration.
         # OF channel log
         'stack': None,
         # stacking config, when cross connecting multiple DPs
-        'ignore_learn_ins': 3,
+        'ignore_learn_ins': 10,
         # Ignore every approx nth packet for learning.
         # 2 will ignore 1 out of 2 packets; 3 will ignore 1 out of 3 packets.
         # This limits control plane activity when learning new hosts rapidly.
