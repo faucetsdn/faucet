@@ -90,8 +90,8 @@ class FaucetBgp(object):
             bgp_speaker.prefix_add(
                 prefix=str(faucet_vip), next_hop=str(faucet_vip.ip))
         for ipv in vlan.ipvs():
-            routes = vlan.routes_by_ipv(ipv)
-            for ip_dst, ip_gw in list(routes.items()):
+            routing_table = vlan.routes_by_ipv(ipv)
+            for ip_dst, ip_gw in list(routing_table.routes.items()):
                 bgp_speaker.prefix_add(
                     prefix=str(ip_dst), next_hop=str(ip_gw))
         for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
