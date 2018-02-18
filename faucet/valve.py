@@ -920,6 +920,7 @@ class Valve(object):
                 if control_plane_ofmsgs:
                     ofmsgs.extend(control_plane_ofmsgs)
                 else:
+                    # TODO: rate limit FIB route learning, in same way as L2
                     ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
