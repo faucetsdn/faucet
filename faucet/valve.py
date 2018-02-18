@@ -714,7 +714,7 @@ class Valve(object):
             return route_manager.control_plane_handler(pkt_meta)
         return []
 
-    def _rate_limit_packet_ins(self):
+    def rate_limit_packet_ins(self):
         """Return True if too many packet ins this second."""
         now_sec = int(time.time())
         if self._last_packet_in_sec != now_sec:
@@ -894,9 +894,6 @@ class Valve(object):
             list: OpenFlow messages, if any.
         """
         ofmsgs = []
-
-        if self._rate_limit_packet_ins():
-            return ofmsgs
 
         ban_rules = self.host_manager.ban_rules(pkt_meta)
         if ban_rules:

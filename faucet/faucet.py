@@ -270,6 +270,8 @@ class Faucet(RyuAppBase):
         valve = self._get_valve(ryu_dp, 'packet_in_handler', msg)
         if valve is None:
             return
+        if valve.rate_limit_packet_ins():
+            return
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
             return
