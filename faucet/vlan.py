@@ -51,6 +51,9 @@ class RoutingTable(object):
         """Delete a route."""
         del self.routes[ip_dst]
 
+    def ip_dsts_with_ip_gw(self, resolved_ip_gw):
+        return [ip_dst for ip_dst, ip_gw in list(self.routes.items()) if resolved_ip_gw == ip_gw]
+
 
 class VLAN(Conf):
     """Contains state for one VLAN, including its configuration."""

@@ -228,10 +228,10 @@ class ValveRouteManager(object):
                         is_updated, resolved_ip_gw,
                         vlan, port, eth_src))
             routing_table = self._vlan_routes(vlan)
-            for ip_dst, ip_gw in list(routing_table.routes.items()):
-                if ip_gw == resolved_ip_gw:
-                    ofmsgs.extend(self._add_resolved_route(
-                        vlan, ip_gw, ip_dst, eth_src, is_updated))
+            ip_dsts = routing_table.ip_dsts_with_ip_gw(resolved_ip_gw)
+            for ip_dst in ip_dsts:
+                ofmsgs.extend(self._add_resolved_route(
+                    vlan, resolved_ip_gw, ip_dst, eth_src, is_updated))
 
         self._update_nexthop_cache(vlan, eth_src, port, resolved_ip_gw)
         return ofmsgs
@@ -310,7 +310,7 @@ class ValveRouteManager(object):
             True if a host FIB route (and not used as a gateway).
         """
         routing_table = self._vlan_routes(vlan)
-        ip_dsts = [ip_dst for ip_dst, ip_gw in list(routing_table.routes.items()) if ip_gw == host_ip]
+        ip_dsts = routing_table.ip_dsts_with_ip_gw(host_ip)
         if ip_dsts:
             non_fib_dsts = [ip_dst for ip_dst in ip_dsts if ip_dst.prefixlen < ip_dst.max_prefixlen]
             return not non_fib_dsts
