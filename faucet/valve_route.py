@@ -448,7 +448,7 @@ class ValveRouteManager(object):
             if routes[ip_dst] == ip_gw:
                 return ofmsgs
 
-        routes[ip_dst] = ip_gw
+        vlan.add_route(ip_dst, ip_gw)
         cached_eth_dst = self._cached_nexthop_eth_dst(vlan, ip_gw)
         if cached_eth_dst is not None:
             ofmsgs.extend(self._add_resolved_route(
@@ -563,7 +563,7 @@ class ValveRouteManager(object):
             return ofmsgs
         routes = self._vlan_routes(vlan)
         if ip_dst in routes:
-            del routes[ip_dst]
+            vlan.del_route(ip_dst)
             ofmsgs.extend(self._del_route_flows(vlan, ip_dst))
             # TODO: need to delete nexthop group if groups are in use.
         return ofmsgs

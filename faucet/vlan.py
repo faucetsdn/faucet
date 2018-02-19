@@ -192,7 +192,7 @@ class VLAN(Conf):
                     except (ValueError, AttributeError, TypeError) as err:
                         assert False, 'Invalid IP address in route: %s' % err
                     assert ip_gw.version == ip_dst.version
-                    self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+                    self.add_route(ip_dst, ip_gw)
             except KeyError:
                 assert False, 'missing route config'
             except TypeError:
@@ -272,6 +272,14 @@ class VLAN(Conf):
     def routes_by_ipv(self, ipv):
         """Return route table for specified IP version on this VLAN."""
         return self.dyn_routes_by_ipv[ipv]
+
+    def add_route(self, ip_dst, ip_gw):
+        """Add an IP route."""
+        self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+
+    def del_route(self, ip_dst):
+        """Delete an IP route."""
+        del self.dyn_routes_by_ipv[ip_dst.version][ip_dst]
 
     def neigh_cache_by_ipv(self, ipv):
         """Return neighbor cache for specified IP version on this VLAN."""
