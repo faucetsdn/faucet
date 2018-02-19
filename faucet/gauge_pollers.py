@@ -257,7 +257,7 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
             ('flow_byte_count', tags, byte_count))
 
 
-class GaugePortStateBaseLogger(GaugePoller):
+class GaugePortStatePoller(GaugePoller):
     """Abstraction for port state poller."""
 
     def send_req(self):

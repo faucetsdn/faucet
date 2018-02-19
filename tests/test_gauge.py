@@ -204,6 +204,8 @@ class PretendInflux(QuietHandler):
 class GaugePrometheusTests(unittest.TestCase):
     """Tests the GaugePortStatsPrometheusPoller update method"""
 
+    prom_client = gauge_prom.GaugePrometheusClient()
+
     def parse_prom_output(self, output):
         """Parses the port stats from prometheus into a dictionary"""
 
@@ -250,7 +252,6 @@ class GaugePrometheusTests(unittest.TestCase):
     def test_poller(self):
         """Test the update method to see if it pushes port stats"""
 
-        prom_client = gauge_prom.GaugePrometheusClient()
         datapath = create_mock_datapath(2)
 
         conf = mock.Mock(dp=datapath,
@@ -260,7 +261,7 @@ class GaugePrometheusTests(unittest.TestCase):
                          prometheus_addr='localhost'
                         )
 
-        prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', prom_client)
+        prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', self.prom_client)
         msg = port_stats_msg(datapath)
         prom_poller.update(time.time(), datapath.dp_id, msg)
 
@@ -277,6 +278,41 @@ class GaugePrometheusTests(unittest.TestCase):
                 stats_found.add(stat_name)
 
             self.assertEqual(stats_found, set(gauge_prom.PROM_PORT_VARS))
+
+    def test_port_state(self):
+        """Test the update method to see if it pushes port state"""
+
+        datapath = create_mock_datapath(2)
+
+        conf = mock.Mock(dp=datapath,
+                         type='',
+                         interval=1,
+                         prometheus_port=9303,
+                         prometheus_addr='localhost'
+                        )
+
+        prom_poller = gauge_prom.GaugePortStatePrometheusPoller(conf, '__name__', self.prom_client)
+        reasons = [ofproto.OFPPR_ADD, ofproto.OFPPR_DELETE, ofproto.OFPPR_MODIFY]
+        for i in range(1, len(conf.dp.ports) + 1):
+
+            msg = port_state_msg(conf.dp, i, reasons[i-1])
+            port_name = conf.dp.ports[i].name
+            rcv_time = int(time.time())
+            prom_poller.update(rcv_time, conf.dp.dp_id, msg)
+
+            prom_lines = self.get_prometheus_stats(conf.prometheus_addr, conf.prometheus_port)
+            prom_lines = self.parse_prom_output(prom_lines)
+
+            stats = prom_lines[(datapath.dp_id, port_name)]
+            stats_found = set()
+
+            for stat_name, stat_val in stats:
+                msg_data = msg if stat_name == 'reason' else msg.desc
+                self.assertAlmostEqual(stat_val, getattr(msg_data, stat_name))
+                stats_found.add(stat_name)
+
+            self.assertEqual(stats_found, set(gauge_prom.PROM_PORT_STATE_VARS))
+
 
 class GaugeInfluxShipperTest(unittest.TestCase):
     """Tests the InfluxShipper"""
