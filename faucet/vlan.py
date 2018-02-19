@@ -72,6 +72,7 @@ class VLAN(Conf):
     dyn_host_cache = None
     dyn_faucet_vips_by_ipv = None
     dyn_routes_by_ipv = None
+    dyn_gws_by_ipv = None
     dyn_neigh_cache_by_ipv = None
     dyn_learn_ban_count = 0
     dyn_last_time_hosts_expired = None
@@ -139,6 +140,7 @@ class VLAN(Conf):
         self.untagged = []
         self.dyn_faucet_vips_by_ipv = collections.defaultdict(list)
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
+        self.dyn_gws_by_ipv = collections.defaultdict(dict)
         self.dyn_ipvs = []
         self.reset_caches()
         super(VLAN, self).__init__(_id, dp_id, conf)
@@ -192,7 +194,7 @@ class VLAN(Conf):
                     except (ValueError, AttributeError, TypeError) as err:
                         assert False, 'Invalid IP address in route: %s' % err
                     assert ip_gw.version == ip_dst.version
-                    self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+                    self.add_route(ip_dst, ip_gw)
             except KeyError:
                 assert False, 'missing route config'
             except TypeError:
@@ -272,6 +274,31 @@ class VLAN(Conf):
     def routes_by_ipv(self, ipv):
         """Return route table for specified IP version on this VLAN."""
         return self.dyn_routes_by_ipv[ipv]
+
+    def add_route(self, ip_dst, ip_gw):
+        """Add an IP route."""
+        self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+        if ip_gw not in self.dyn_gws_by_ipv[ip_gw.version]:
+            self.dyn_gws_by_ipv[ip_gw.version][ip_gw] = set()
+        self.dyn_gws_by_ipv[ip_gw.version][ip_gw].add(ip_dst)
+
+    def del_route(self, ip_dst):
+        """Delete an IP route."""
+        ip_gw = self.dyn_routes_by_ipv[ip_dst.version][ip_dst]
+        del self.dyn_routes_by_ipv[ip_dst.version][ip_dst]
+        self.dyn_gws_by_ipv[ip_gw.version][ip_gw].remove(ip_dst)
+        if not self.dyn_gws_by_ipv[ip_gw.version][ip_gw]:
+            del self.dyn_gws_by_ipv[ip_gw.version][ip_gw]
+
+    def ip_dsts_for_ip_gw(self, ip_gw):
+        """Return list of IP destinations, for specified gateway."""
+        if ip_gw in self.dyn_gws_by_ipv[ip_gw.version]:
+            return list(self.dyn_gws_by_ipv[ip_gw.version][ip_gw])
+        return []
+
+    def all_ip_gws(self, ipv):
+        """Return list of all IP gateways for specified IP version."""
+        return list(self.dyn_gws_by_ipv[ipv].keys())
 
     def neigh_cache_by_ipv(self, ipv):
         """Return neighbor cache for specified IP version on this VLAN."""
