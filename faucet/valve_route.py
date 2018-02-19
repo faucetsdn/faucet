@@ -227,9 +227,7 @@ class ValveRouteManager(object):
                     self._update_nexthop_group(
                         is_updated, resolved_ip_gw,
                         vlan, port, eth_src))
-            routes = self._vlan_routes(vlan)
-            ip_dsts = self._ip_dsts_for_ip_gw(routes, resolved_ip_gw)
-            for ip_dst in ip_dsts:
+            for ip_dst in vlan.ip_dsts_for_ip_gw(resolved_ip_gw):
                 ofmsgs.extend(self._add_resolved_route(
                     vlan, resolved_ip_gw, ip_dst, eth_src, is_updated))
 
@@ -244,9 +242,8 @@ class ValveRouteManager(object):
         Returns:
             list: tuple, gateway, controller IP in same subnet.
         """
-        routes = self._vlan_routes(vlan)
         ip_gws = []
-        for ip_gw in set(routes.values()):
+        for ip_gw in vlan.all_ip_gws(self.IPV):
             for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
                 if ip_gw in faucet_vip.network:
                     ip_gws.append((ip_gw, faucet_vip))
@@ -300,9 +297,6 @@ class ValveRouteManager(object):
             sorted(ip_gws_with_retry_time, key=lambda x: x[-1]))
         return ip_gws_never_tried + ip_gws_with_retry_time_sorted
 
-    def _ip_dsts_for_ip_gw(self, routes, host_ip):
-        return [ip_dst for ip_dst, ip_gw in list(routes.items()) if ip_gw == host_ip]
-
     def _is_host_fib_route(self, vlan, host_ip):
         """Return True if IP destination is a host FIB route.
 
@@ -312,8 +306,7 @@ class ValveRouteManager(object):
         Returns:
             True if a host FIB route (and not used as a gateway).
         """
-        routes = self._vlan_routes(vlan)
-        ip_dsts = self._ip_dsts_for_ip_gw(routes, host_ip)
+        ip_dsts = vlan.ip_dsts_for_ip_gw(host_ip)
         if (len(ip_dsts) == 1 and
                 ip_dsts[0].prefixlen == ip_dsts[0].max_prefixlen and
                 ip_dsts[0].network_address == host_ip):
@@ -830,8 +823,8 @@ class ValveIPv6RouteManager(ValveRouteManager):
                         'Responded to ND solicit for %s to %s (%s) on VLAN %u' % (
                             solicited_ip, src_ip, eth_src, vlan.vid))
             elif icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT:
-                target_ip = btos(icmpv6_pkt.data.dst)
-                if vlan.ip_in_vip_subnet(ipaddress.ip_address(target_ip)):
+                target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
+                if vlan.ip_in_vip_subnet(target_ip):
                     ofmsgs.extend(self._update_nexthop(
                         vlan, port, eth_src, target_ip))
                     self.logger.info(
