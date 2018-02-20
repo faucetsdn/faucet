@@ -473,6 +473,10 @@ configuration.
 
         def resolve_acl(acl_in):
             """Resolve an individual ACL."""
+            assert acl_in in self.acls, (
+                'missing ACL %s on %s' % (self.name, acl_in))
+            acl = self.acls[acl_in]
+            mirror_destinations = set()
 
             def resolve_meter(_acl, action_conf):
                 meter_name = action_conf
@@ -523,6 +527,13 @@ configuration.
             def resolve_allow(_acl, action_conf):
                 return action_conf
 
+            action_resolvers = {
+                'meter': resolve_meter,
+                'mirror': resolve_mirror,
+                'output': resolve_output,
+                'allow': resolve_allow,
+            }
+
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config and mark mirror destinations."""
                 if acl.rules:
@@ -544,17 +555,6 @@ configuration.
                     for port_no in mirror_destinations:
                         port = self.ports[port_no]
                         port.output_only = True
-
-            assert acl_in in self.acls, (
-                'missing ACL %s on %s' % (self.name, acl_in))
-            acl = self.acls[acl_in]
-            mirror_destinations = set()
-            action_resolvers = {
-                'meter': resolve_meter,
-                'mirror': resolve_mirror,
-                'output': resolve_output,
-                'allow': resolve_allow,
-            }
 
             for rule_conf in acl.rules:
                 for attrib, attrib_value in list(rule_conf.items()):
