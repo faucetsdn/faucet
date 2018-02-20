@@ -1096,6 +1096,25 @@ dbs:
         self.reload_conf(cold_start_conf, self.faucet_config_path, True, True)
         self.reload_conf(orig_conf, self.faucet_config_path, True, True)
 
+    def _get_conf(self):
+        with open(self.faucet_config_path) as config_file:
+            config = yaml.load(config_file.read())
+        return config
+
+    def change_port_config(self, port, config_name, config_value,
+                           restart=True, conf=None, cold_start=False):
+        if conf is None:
+            conf = self._get_conf()
+        conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
+        self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
+
+    def change_vlan_config(self, vlan, config_name, config_value,
+                           restart=True, conf=None, cold_start=False):
+        if conf is None:
+            conf = self._get_conf()
+        conf['vlans'][vlan][config_name] = config_value
+        self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
+
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
         fping_bin = 'fping'

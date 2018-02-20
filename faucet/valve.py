@@ -976,13 +976,14 @@ class Valve(object):
                 cold_start (bool): whether cold starting.
                 ofmsgs (list): OpenFlow messages.
         """
+        new_dp.running = True
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vlans, changed_vlans, all_ports_changed) = changes
-        new_dp.running = True
 
         if all_ports_changed:
             self.logger.info('all ports changed')
             self.dp = new_dp
+            self.dp_init()
             return True, []
 
         ofmsgs = []
@@ -1041,7 +1042,6 @@ class Valve(object):
             cold_start, ofmsgs = self._apply_config_changes(
                 new_dp, self.dp.get_config_changes(self.logger, new_dp))
             if cold_start:
-                self.dp = new_dp
                 ofmsgs = self.datapath_connect(list(self.dp.ports.keys()))
         else:
             self.logger.info('skipping configuration because datapath not up')
