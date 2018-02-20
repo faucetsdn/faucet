@@ -66,13 +66,22 @@ class Valve(object):
     L3 = False
     base_prom_labels = None
     recent_ofmsgs = deque(maxlen=32) # type: ignore
+    logger = None
+    host_manager = None
+    flood_manager = None
+    _route_manager_by_ipv = None
+    _last_advertise_sec = None
 
     def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp
-        self.logger = ValveLogger(
-            logging.getLogger(logname + '.valve'), self.dp.dp_id)
+        self.logname = logname
         self.metrics = metrics
         self.notifier = notifier
+        self.dp_init()
+
+    def dp_init(self):
+        self.logger = ValveLogger(
+            logging.getLogger(self.logname + '.valve'), self.dp.dp_id)
         self.base_prom_labels = {
             'dp_id': hex(self.dp.dp_id),
             'dp_name': self.dp.name,
@@ -102,7 +111,7 @@ class Valve(object):
                 self.dp.tables['flood'], self.dp.low_priority,
                 self.dp.group_table, self.dp.groups,
                 self.dp.stack, self.dp.stack_ports,
-                self.dp.shortest_path_to_root, dp.shortest_path_port)
+                self.dp.shortest_path_to_root, self.dp.shortest_path_port)
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.dp.tables['flood'], self.dp.low_priority,
@@ -992,6 +1001,7 @@ class Valve(object):
 
         self.dp = new_dp
         self.dp.reset_refs()
+        self.dp_init()
 
         if changed_vlans:
             self.logger.info('VLANs changed/added: %s' % changed_vlans)
