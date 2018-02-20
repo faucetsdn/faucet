@@ -18,8 +18,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import json
 import ipaddress
+
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
 from ryu.services.protocols.bgp.api.base import CoreNotStarted
 
@@ -32,23 +34,27 @@ class FaucetBgp(object):
         self.logger = logger
         self.metrics = metrics
         self._send_flow_msgs = send_flow_msgs
-        self._dp_bgp_speakers = {}
+        self._dp_bgp_speakers = None
         self._valves = None
 
-    def _bgp_route_handler(self, path_change, vlan):
+    def _bgp_route_handler(self, path_change, dp_id, vlan_vid):
         """Handle a BGP change event.
 
         Args:
             path_change (ryu.services.protocols.bgp.bgpspeaker.EventPrefix): path change
-            vlan (vlan): Valve VLAN this path change was received for.
+            dp_id (int): Datapath ID
+            vlan_vid (int): VLAN VID
         """
         prefix = ipaddress.ip_network(btos(path_change.prefix))
         nexthop = ipaddress.ip_address(btos(path_change.nexthop))
         withdraw = path_change.is_withdraw
         flowmods = []
-        if not self._valves or vlan.dp_id not in self._valves:
+        if not self._valves:
             return
-        valve = self._valves[vlan.dp_id]
+        valve = self._valves[dp_id]
+        if vlan_vid not in valve.dp.vlans:
+            return
+        vlan = valve.dp.vlans[vlan_vid]
         if vlan.is_faucet_vip(nexthop):
             self.logger.error(
                 'BGP nexthop %s for prefix %s cannot be us',
@@ -79,7 +85,9 @@ class FaucetBgp(object):
         Returns:
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
-        handler = lambda x: self._bgp_route_handler(x, vlan)
+        dp_id = vlan.dp_id
+        vlan_vid = vlan.vid
+        handler = lambda x: self._bgp_route_handler(x, dp_id, vlan_vid)
         bgp_speaker = BGPSpeaker(
             as_number=vlan.bgp_as,
             router_id=vlan.bgp_routerid,
@@ -105,36 +113,39 @@ class FaucetBgp(object):
 
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
-        self._valves = valves
         # TODO: port status changes should cause us to withdraw a route.
+        if self._dp_bgp_speakers:
+            for dp_vlan_bgp_speakers in list(self._dp_bgp_speakers.values()):
+                for bgp_speaker in list(dp_vlan_bgp_speakers.values()):
+                    bgp_speaker.shutdown()
+        self._valves = valves
+        self._dp_bgp_speakers = collections.defaultdict(dict)
         for dp_id, valve in list(self._valves.items()):
-            if dp_id not in self._dp_bgp_speakers:
-                self._dp_bgp_speakers[dp_id] = {}
-            bgp_speakers = self._dp_bgp_speakers[dp_id]
-            for bgp_speaker in list(bgp_speakers.values()):
-                bgp_speaker.shutdown()
             for vlan in list(valve.dp.vlans.values()):
                 if vlan.bgp_as:
-                    bgp_speakers[vlan] = self._create_bgp_speaker_for_vlan(vlan)
+                    self._dp_bgp_speakers[dp_id][vlan.vid] = self._create_bgp_speaker_for_vlan(vlan)
 
     def update_metrics(self):
         """Update BGP metrics."""
         for dp_id, bgp_speakers in list(self._dp_bgp_speakers.items()):
-            for vlan, bgp_speaker in list(bgp_speakers.items()):
-                if bgp_speaker is not None:
-                    try:
-                        neighbor_states = list(json.loads(
-                            bgp_speaker.neighbor_state_get()).items())
-                    except CoreNotStarted:
-                        continue
-                    for neighbor, neighbor_state in neighbor_states:
-                        base_labels = self._valves[dp_id].base_prom_labels
+            valve = self._valves[dp_id]
+            for vlan_vid, bgp_speaker in list(bgp_speakers.items()):
+                if bgp_speaker is None:
+                    continue
+                vlan = valve.dp.vlans[vlan_vid]
+                try:
+                    neighbor_states = list(json.loads(
+                        bgp_speaker.neighbor_state_get()).items())
+                except CoreNotStarted:
+                    continue
+                for neighbor, neighbor_state in neighbor_states:
+                    base_labels = self._valves[dp_id].base_prom_labels
+                    # pylint: disable=no-member
+                    self.metrics.bgp_neighbor_uptime_seconds.labels(
+                        **dict(base_labels, vlan=vlan.vid, neighbor=neighbor)).set(
+                            neighbor_state['info']['uptime'])
+                    for ipv in vlan.ipvs():
                         # pylint: disable=no-member
-                        self.metrics.bgp_neighbor_uptime_seconds.labels(
-                            **dict(base_labels, vlan=vlan.vid, neighbor=neighbor)).set(
-                                neighbor_state['info']['uptime'])
-                        for ipv in vlan.ipvs():
-                            # pylint: disable=no-member
-                            self.metrics.bgp_neighbor_routes.labels(
-                                **dict(base_labels, vlan=vlan.vid, neighbor=neighbor, ipv=ipv)).set(
-                                    len(vlan.routes_by_ipv(ipv)))
+                        self.metrics.bgp_neighbor_routes.labels(
+                            **dict(base_labels, vlan=vlan.vid, neighbor=neighbor, ipv=ipv)).set(
+                                len(vlan.routes_by_ipv(ipv)))
