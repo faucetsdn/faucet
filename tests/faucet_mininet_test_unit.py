@@ -1617,25 +1617,6 @@ acls:
             links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
-    def _get_conf(self):
-        with open(self.faucet_config_path) as config_file:
-            config = yaml.load(config_file.read())
-        return config
-
-    def change_port_config(self, port, config_name, config_value,
-                           restart=True, conf=None, cold_start=False):
-        if conf is None:
-            conf = self._get_conf()
-        conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
-        self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
-
-    def change_vlan_config(self, vlan, config_name, config_value,
-                           restart=True, conf=None, cold_start=False):
-        if conf is None:
-            conf = self._get_conf()
-        conf['vlans'][vlan][config_name] = config_value
-        self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
-
 
 class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
 
@@ -3925,12 +3906,16 @@ routers:
         second_host.setIP(str(second_host_ip.ip), prefixLen=24)
         self.add_host_route(first_host, second_host_ip, first_faucet_vip.ip)
         self.add_host_route(second_host, first_host_ip, second_faucet_vip.ip)
-        self.one_ipv4_ping(first_host, second_host_ip.ip)
-        self.one_ipv4_ping(second_host, first_host_ip.ip)
-        self.assertEqual(
-            self._ip_neigh(first_host, first_faucet_vip.ip, 4), self.FAUCET_MAC)
-        self.assertEqual(
-            self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
+
+        for vlanb_vid in (300, 200):
+            self.one_ipv4_ping(first_host, second_host_ip.ip)
+            self.one_ipv4_ping(second_host, first_host_ip.ip)
+            self.assertEqual(
+                self._ip_neigh(first_host, first_faucet_vip.ip, 4), self.FAUCET_MAC)
+            self.assertEqual(
+                self._ip_neigh(second_host, second_faucet_vip.ip, 4), self.FAUCET_MAC2)
+            self.change_vlan_config(
+                'vlanb', 'vid', vlanb_vid, restart=True, cold_start=True)
 
 
 class FaucetUntaggedExpireIPv4InterVLANRouteTest(FaucetUntaggedTest):
