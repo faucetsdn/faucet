@@ -471,9 +471,12 @@ configuration.
                     mirrored_port.mirror.append(mirror_port.number)
                     mirror_port.output_only = True
 
-        def resolve_acls():
-            """Resolve config references in ACLs."""
-            # TODO: move this config validation to ACL object.
+        def resolve_acl(acl_in):
+            """Resolve an individual ACL."""
+            assert acl_in in self.acls, (
+                'missing ACL %s on %s' % (self.name, acl_in))
+            acl = self.acls[acl_in]
+            mirror_destinations = set()
 
             def resolve_meter(_acl, action_conf):
                 meter_name = action_conf
@@ -487,7 +490,7 @@ configuration.
                 # If this DP does not have this port, do nothing.
                 if port is not None:
                     action_conf = port.number
-                    acl.mirror_destinations.add(port.number)
+                    mirror_destinations.add(port.number)
                     return action_conf
                 return None
 
@@ -524,6 +527,13 @@ configuration.
             def resolve_allow(_acl, action_conf):
                 return action_conf
 
+            action_resolvers = {
+                'meter': resolve_meter,
+                'mirror': resolve_mirror,
+                'output': resolve_output,
+                'allow': resolve_allow,
+            }
+
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config and mark mirror destinations."""
                 if acl.rules:
@@ -542,63 +552,50 @@ configuration.
                             ofmsg.serialize()
                     except (AddrFormatError, KeyError, ValueError) as err:
                         raise InvalidConfigError(err)
-                    for port_no in acl.mirror_destinations:
+                    for port_no in mirror_destinations:
                         port = self.ports[port_no]
                         port.output_only = True
 
-            def resolve_acl(acl_in):
-                assert acl_in in self.acls, (
-                    'missing ACL %s on %s' % (self.name, acl_in))
-                acl = self.acls[acl_in]
+            for rule_conf in acl.rules:
+                for attrib, attrib_value in list(rule_conf.items()):
+                    if attrib == 'actions':
+                        resolved_actions = {}
+                        assert isinstance(attrib_value, dict)
+                        for action_name, action_conf in list(attrib_value.items()):
+                            resolved_action_conf = action_resolvers[action_name](
+                                acl, action_conf)
+                            assert resolved_action_conf is not None, (
+                                'cannot resolve ACL rule %s' % rule_conf)
+                            resolved_actions[action_name] = resolved_action_conf
+                        rule_conf[attrib] = resolved_actions
 
-                action_resolvers = {
-                    'meter': resolve_meter,
-                    'mirror': resolve_mirror,
-                    'output': resolve_output,
-                    'allow': resolve_allow,
-                }
+            build_acl(acl, vid=1)
 
-                for rule_conf in acl.rules:
-                    for attrib, attrib_value in list(rule_conf.items()):
-                        if attrib == 'actions':
-                            resolved_actions = {}
-                            assert isinstance(attrib_value, dict)
-                            for action_name, action_conf in list(attrib_value.items()):
-                                resolved_action_conf = action_resolvers[action_name](
-                                    acl, action_conf)
-                                assert resolved_action_conf is not None, (
-                                    'cannot resolve ACL rule %s' % rule_conf)
-                                resolved_actions[action_name] = resolved_action_conf
-                            rule_conf[attrib] = resolved_actions
+        def verify_acl_exact_match(acls):
+            for acl in acls:
+                assert acl.exact_match == acls[0].exact_match, (
+                    'ACLs when used together must have consistent exact_match')
 
-                build_acl(acl, vid=1)
+        def resolve_acls():
+            """Resolve config references in ACLs."""
+            # TODO: move this config validation to ACL object.
 
             for vlan in list(self.vlans.values()):
                 if vlan.acls_in:
                     acls = []
-                    exact_all_set = True
-                    exact_set = False
                     for acl in vlan.acls_in:
                         resolve_acl(acl)
                         acls.append(self.acls[acl])
-                        exact_all_set &= bool(acls[-1].exact_match)
-                        exact_set |= bool(acls[-1].exact_match)
-                    if exact_set != exact_all_set:
-                        assert False, 'if one exact match is set, all acls must be an exact match'
                     vlan.acls_in = acls
+                    verify_acl_exact_match(acls)
             for port in list(self.ports.values()):
                 if port.acls_in:
                     acls = []
-                    exact_all_set = True
-                    exact_set = False
                     for acl in port.acls_in:
                         resolve_acl(acl)
                         acls.append(self.acls[acl])
-                        exact_all_set &= bool(acls[-1].exact_match)
-                        exact_set |= bool(acls[-1].exact_match)
-                    if exact_set != exact_all_set:
-                        assert False, 'if one exact match is set, all acls must be an exact match'
                     port.acls_in = acls
+                    verify_acl_exact_match(acls)
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""

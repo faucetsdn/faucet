@@ -817,6 +817,33 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_inconsistent_acl_exact_match(self):
+        """Test that ACLs have consistent exact_match."""
+        config = """
+acls:
+    acl_a:
+        exact_match: False
+        rules:
+            - rule:
+                udp_src: 80
+    acl_b:
+        exact_match: True
+        rules:
+            - rule:
+                udp_src: 81
+vlans:
+    office:
+        vid: 100
+        acls_in: [acl_a, acl_b]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
     def test_acl_and_acls_port_invalid(self):
         config = """
 acls:
@@ -1677,6 +1704,39 @@ dps:
                     port_descr: port_description
                     org_tlvs:
                         - {oui: 0x12bb, subtype: 2, info: "01406500"}
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_multi_acl_dp(self):
+        """Test multiple ACLs with multiple DPs, where one ACL does mirroring."""
+        config = """
+dps:
+  SWPRI2:
+    dp_id: 0x223d5a07ff
+    interfaces:
+      11:
+        acl_in: non_mirroring_acl
+        native_vlan: 197
+  SWSEC0B:
+    dp_id: 0xe01aea107a69
+    interfaces:
+      30:
+        native_vlan: 197
+        acl_in: mirroring_acl
+      47:
+        native_vlan: 197
+vlans:
+  197:
+acls:
+  mirroring_acl:
+  - rule:
+      actions:
+        allow: 1
+        mirror: 47
+  non_mirroring_acl:
+  - rule:
+      actions:
+        allow: 1
 """
         self.check_config_success(config, cp.dp_parser)
 
