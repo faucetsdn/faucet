@@ -18,8 +18,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import json
 import ipaddress
+
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
 from ryu.services.protocols.bgp.api.base import CoreNotStarted
 
@@ -32,7 +34,7 @@ class FaucetBgp(object):
         self.logger = logger
         self.metrics = metrics
         self._send_flow_msgs = send_flow_msgs
-        self._dp_bgp_speakers = {}
+        self._dp_bgp_speakers = collections.defaultdict(dict)
         self._valves = None
 
     def _bgp_route_handler(self, path_change, vlan):
@@ -105,17 +107,17 @@ class FaucetBgp(object):
 
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
-        self._valves = valves
         # TODO: port status changes should cause us to withdraw a route.
+        if self._valves:
+            for dp_id, valve in list(self._valves.items()):
+                if dp_id in self._dp_bgp_speakers:
+                    for bgp_speaker in list(self._dp_bgp_speakers.values()):
+                        bgp_speaker.shutdown()
+        self._valves = valves
         for dp_id, valve in list(self._valves.items()):
-            if dp_id not in self._dp_bgp_speakers:
-                self._dp_bgp_speakers[dp_id] = {}
-            bgp_speakers = self._dp_bgp_speakers[dp_id]
-            for bgp_speaker in list(bgp_speakers.values()):
-                bgp_speaker.shutdown()
             for vlan in list(valve.dp.vlans.values()):
                 if vlan.bgp_as:
-                    bgp_speakers[vlan] = self._create_bgp_speaker_for_vlan(vlan)
+                    self._dp_bgp_speakers[dp_id][vlan] = self._create_bgp_speaker_for_vlan(vlan)
 
     def update_metrics(self):
         """Update BGP metrics."""
