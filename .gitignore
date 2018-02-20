@@ -98,3 +98,7 @@ ENV/
 *.swo
 
 .mypy_cache
+
+# IntelliJ IDE files
+.idea/
+faucet.iml

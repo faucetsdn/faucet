@@ -24,8 +24,8 @@ import gzip
 
 from faucet.valve_util import dpid_log
 from faucet.gauge_influx import GaugePortStateInfluxDBLogger, GaugePortStatsInfluxDBLogger, GaugeFlowTableInfluxDBLogger
-from faucet.gauge_pollers import GaugePortStateBaseLogger, GaugePortStatsPoller, GaugeFlowTablePoller
-from faucet.gauge_prom import GaugePortStatsPrometheusPoller, GaugePortStatePrometheusLogger, GaugeFlowTablePrometheusPoller
+from faucet.gauge_pollers import GaugePortStatePoller, GaugePortStatsPoller, GaugeFlowTablePoller
+from faucet.gauge_prom import GaugePortStatsPrometheusPoller, GaugePortStatePrometheusPoller, GaugeFlowTablePrometheusPoller
 
 
 def watcher_factory(conf):
@@ -39,7 +39,7 @@ def watcher_factory(conf):
         'port_state': {
             'text': GaugePortStateLogger,
             'influx': GaugePortStateInfluxDBLogger,
-            'prometheus': GaugePortStatePrometheusLogger,
+            'prometheus': GaugePortStatePrometheusPoller,
             },
         'port_stats': {
             'text': GaugePortStatsLogger,
@@ -64,7 +64,7 @@ def _rcv_time(rcv_time):
     return time.strftime('%b %d %H:%M:%S', time.localtime(rcv_time))
 
 
-class GaugePortStateLogger(GaugePortStateBaseLogger):
+class GaugePortStateLogger(GaugePortStatePoller):
     """Abstraction for port state logger."""
 
     def update(self, rcv_time, dp_id, msg):
