@@ -22,7 +22,7 @@ from pbr.version import VersionInfo
 from prometheus_client import start_http_server, Gauge, REGISTRY
 
 
-class PromClient(object):
+class PromClient(object): # pylint: disable=too-few-public-methods
     """Prometheus client."""
 
     REQUIRED_LABELS = ['dp_id', 'dp_name']
@@ -32,6 +32,7 @@ class PromClient(object):
     def __init__(self, reg=None):
         if reg is not None:
             self._reg = reg
+        # TODO: investigate faster alternative (https://bugs.launchpad.net/pbr/+bug/1688405)
         version = VersionInfo('faucet').semantic_version().release_string()
         self.faucet_version = Gauge( # pylint: disable=unexpected-keyword-arg
             'faucet_pbr_version',
