@@ -817,6 +817,31 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_inconsistent_acl_exact_match(self):
+        """Test that ACLs have consistent exact_match."""
+        config = """
+acls:
+    acl_a:
+        exact_match: False
+        - rule:
+            udp_src: 80
+    acl_b:
+        exact_match: True
+        - rule:
+            udp_src: 81
+vlans:
+    office:
+        vid: 100
+        acls_in: [acl_a, acl_b]
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
     def test_acl_and_acls_port_invalid(self):
         config = """
 acls:
