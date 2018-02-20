@@ -55,8 +55,6 @@ The output action contains a dictionary with the following elements:
  * group_id (int): the ofp group id to use for the group
 """
 
-    # Resolved port numbers which are mirror action destinations.
-    mirror_destinations = set() # type: set
     rules = None
     exact_match = None
     defaults = {
