@@ -111,9 +111,13 @@ def get_logger(logname, logfile, loglevel, propagate):
     }
 
     try:
-        logger_handler = logging.StreamHandler(stream_handlers[logfile])
-    except KeyError:
-        logger_handler = WatchedFileHandler(logfile)
+        if logfile in stream_handlers:
+            logger_handler = logging.StreamHandler(stream_handlers[logfile])
+        else:
+            logger_handler = WatchedFileHandler(logfile)
+    except PermissionError as err:
+        print(err)
+        sys.exit(-1)
 
     logger = logging.getLogger(logname)
     log_fmt = '%(asctime)s %(name)-6s %(levelname)-8s %(message)s'
