@@ -823,12 +823,14 @@ dps:
 acls:
     acl_a:
         exact_match: False
-        - rule:
-            udp_src: 80
+        rules:
+            - rule:
+                udp_src: 80
     acl_b:
         exact_match: True
-        - rule:
-            udp_src: 81
+        rules:
+            - rule:
+                udp_src: 81
 vlans:
     office:
         vid: 100
