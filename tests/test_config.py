@@ -1550,6 +1550,37 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_multi_bgp(self):
+        """Test multiple BGP VLANs can be configured."""
+        config = """
+vlans:
+    routing1:
+        vid: 100
+        faucet_vips: ["10.0.0.254/24"]
+        bgp_server_addresses: ["127.0.0.1"]
+        bgp_as: 100
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_addresses: ["127.0.0.1"]
+        bgp_neighbor_as: 100
+    routing2:
+        vid: 200
+        faucet_vips: ["10.0.0.253/24"]
+        bgp_server_addresses: ["127.0.0.1"]
+        bgp_as: 200
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_addresses: ["127.0.0.2"]
+        bgp_neighbor_as: 200
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: routing1
+            2:
+                native_vlan: routing2
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_unknown_vlan_key(self):
         """Test unknown VLAN key."""
         config = """
