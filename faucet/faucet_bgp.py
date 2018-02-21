@@ -29,32 +29,36 @@ from faucet.valve_util import btos
 
 
 class FaucetBgp(object):
+    """Wrap Ryu BGP speaker implementation."""
+    # TODO: Ryu BGP supports only one speaker
+    # (https://sourceforge.net/p/ryu/mailman/message/32699012/)
 
     def __init__(self, logger, metrics, send_flow_msgs):
         self.logger = logger
         self.metrics = metrics
         self._send_flow_msgs = send_flow_msgs
-        self._dp_bgp_speakers = None
         self._valves = None
+        self._dp_bgp_speakers = None
+        self._neighbor_to_vlan = {}
 
-    def _bgp_route_handler(self, path_change, dp_id, vlan_vid):
+    def _bgp_route_handler(self, path_change):
         """Handle a BGP change event.
 
         Args:
             path_change (ryu.services.protocols.bgp.bgpspeaker.EventPrefix): path change
-            dp_id (int): Datapath ID
-            vlan_vid (int): VLAN VID
         """
-        prefix = ipaddress.ip_network(btos(path_change.prefix))
-        nexthop = ipaddress.ip_address(btos(path_change.nexthop))
-        withdraw = path_change.is_withdraw
-        flowmods = []
         if not self._valves:
             return
-        valve = self._valves[dp_id]
-        if vlan_vid not in valve.dp.vlans:
+
+        source = path_change.path.source.ip_address
+        vlan = self._neighbor_to_vlan[source]
+        if not source in self._neighbor_to_vlan:
             return
-        vlan = valve.dp.vlans[vlan_vid]
+
+        vlan = self._neighbor_to_vlan[source]
+        prefix = ipaddress.ip_network(btos(path_change.prefix))
+        nexthop = ipaddress.ip_address(btos(path_change.nexthop))
+
         if vlan.is_faucet_vip(nexthop):
             self.logger.error(
                 'BGP nexthop %s for prefix %s cannot be us',
@@ -66,7 +70,9 @@ class FaucetBgp(object):
                 nexthop, prefix)
             return
 
-        if withdraw:
+        valve = self._valves[vlan.dp_id]
+        flowmods = []
+        if path_change.is_withdraw:
             self.logger.info(
                 'BGP withdraw %s nexthop %s', prefix, nexthop)
             flowmods = valve.del_route(vlan, prefix)
@@ -85,15 +91,12 @@ class FaucetBgp(object):
         Returns:
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
-        dp_id = vlan.dp_id
-        vlan_vid = vlan.vid
-        handler = lambda x: self._bgp_route_handler(x, dp_id, vlan_vid)
         bgp_speaker = BGPSpeaker(
-            as_number=vlan.bgp_as,
+            as_number=0,
             router_id=vlan.bgp_routerid,
             bgp_server_port=vlan.bgp_port,
             bgp_server_hosts=vlan.bgp_server_addresses,
-            best_path_change_handler=handler)
+            best_path_change_handler=self._bgp_route_handler)
         for faucet_vip in vlan.faucet_vips:
             bgp_speaker.prefix_add(
                 prefix=str(faucet_vip), next_hop=str(faucet_vip.ip))
@@ -105,10 +108,12 @@ class FaucetBgp(object):
         for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
             bgp_speaker.neighbor_add(
                 address=bgp_neighbor_address,
+                local_as=vlan.bgp_as,
                 remote_as=vlan.bgp_neighbor_as,
                 local_address=vlan.bgp_local_address,
                 enable_ipv4=True,
                 enable_ipv6=True)
+            self._neighbor_to_vlan[bgp_neighbor_address] = vlan
         return bgp_speaker
 
     def reset(self, valves):
