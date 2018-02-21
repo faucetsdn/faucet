@@ -1790,6 +1790,10 @@ vlans:
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
         bgp_neighbor_as: 2
+    200:
+        description: "not routed"
+    300:
+        description: "not routed"
 """
 
     CONFIG = """
@@ -1806,7 +1810,7 @@ vlans:
                 native_vlan: 100
                 description: "b3"
             %(port_4)d:
-                native_vlan: 100
+                native_vlan: 200
                 description: "b4"
 """
 
@@ -1843,6 +1847,9 @@ vlans:
             second_host, first_host_alias_host_ip, self.FAUCET_VIPV4.ip)
         self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
         self.one_ipv4_controller_ping(first_host)
+        # change of a VLAN/ports not involved in routing, should be a warm start.
+        self.change_port_config(
+            self.port_map['port_3'], 'native_vlan', 300, restart=True, cold_start=False)
 
 
 class FaucetUntaggedBGPIPv4RouteTest(FaucetUntaggedTest):

@@ -3,7 +3,7 @@
 
 FROM ubuntu:latest
 
-ENV OVSV="master"
+ENV OVSV="v2.9.0"
 ENV DPDK="17.11"
 ENV MININETV="2.2.2"
 
