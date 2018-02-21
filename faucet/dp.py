@@ -629,11 +629,19 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls()
 
-        for vlan in list(self.vlans.values()):
-            if vlan.bgp_routerid:
+        bgp_vlans = [vlan for vlan in list(self.vlans.values()) if vlan.bgp_as]
+        if bgp_vlans:
+            for vlan in bgp_vlans:
                 vlan_dps = [dp for dp in dps if vlan.vid in dp.vlans]
                 assert len(vlan_dps) == 1, (
                     'DPs %s sharing a BGP speaker VLAN is unsupported')
+            router_ids = set([vlan.bgp_routerid for vlan in bgp_vlans])
+            assert len(router_ids) == 1, 'BGP router IDs must all be the same'
+            bgp_ports = set([vlan.bgp_port for vlan in bgp_vlans])
+            assert len(bgp_ports) == 1, 'BGP ports must all be the same'
+            for vlan in bgp_vlans:
+                assert vlan.bgp_server_addresses == bgp_vlans[0].bgp_server_addresses, (
+                    'BGP server addresses must all be the same')
 
         for port in list(self.ports.values()):
             port.finalize()
