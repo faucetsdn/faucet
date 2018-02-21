@@ -3731,7 +3731,7 @@ vlans:
                 tagged_vlans: [100]
                 description: "b3"
             %(port_4)d:
-                tagged_vlans: [200]
+                native_vlan: 200
                 description: "b4"
 """
 
