@@ -90,5 +90,34 @@ dbs:
             self.assertEqual(watcher_conf.interval, 10, msg)
             self.assertEqual(watcher_conf.db_type, 'prometheus', msg)
 
+    def test_no_faucet_config_file(self):
+        GAUGE_CONF = """
+faucet:
+    dps:
+        dp1:
+            dp_id: 1
+            interfaces:
+                1:
+                    native_vlan: v1
+    vlans:
+        v1:
+            vid: 1
+watchers:
+    port_stats_poller:
+        type: 'port_stats'
+        dps: ['dp1']
+        db: 'prometheus'
+dbs:
+    prometheus:
+        type: 'prometheus'
+"""
+        gauge_file, faucet_file = self.create_config_files(GAUGE_CONF, '')
+        watcher_conf = cp.watcher_parser(
+            gauge_file, 'gauge_config_test', None)[0]
+        msg = 'failed to create watcher correctly when dps configured in gauge.yaml'
+        self.assertEqual(watcher_conf.dps[0], 'dp1', msg)
+        self.assertEqual(watcher_conf.type, 'port_stats', msg)
+        self.assertEqual(watcher_conf.db_type, 'prometheus', msg)
+
 if __name__ == "__main__":
     unittest.main()

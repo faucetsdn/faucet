@@ -225,11 +225,27 @@ def _watcher_parser_v2(conf, logname, prom_client):
     result = []
 
     dps = {}
-    for faucet_file in conf['faucet_configs']:
-        _, dp_list = dp_parser(faucet_file, logname)
-        if dp_list:
-            for dp in dp_list:
-                dps[dp.name] = dp
+    if 'faucet_configs' in conf:
+        for faucet_file in conf['faucet_configs']:
+            _, dp_list = dp_parser(faucet_file, logname)
+            if dp_list:
+                for dp in dp_list:
+                    dps[dp.name] = dp
+
+    if 'faucet' in conf:
+        faucet_conf = conf['faucet']
+        acls = faucet_conf.get('acls', {})
+        fct_dps = faucet_conf.get('dps', {})
+        meters = faucet_conf.get('meters', {})
+        routers = faucet_conf.get('routers', {})
+        vlans = faucet_conf.get('vlans', {})
+        for dp in _dp_parser_v2(acls, fct_dps, meters, routers, vlans):
+            dps[dp.name] = dp
+
+    if not dps:
+        raise InvalidConfigError(
+            'Gauge configured without any faucet configuration'
+            )
 
     dbs = conf.pop('dbs')
 
