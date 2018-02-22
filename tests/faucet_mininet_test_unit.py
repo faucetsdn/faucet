@@ -1274,7 +1274,7 @@ vlans:
 
 class FaucetSingleLearnMACsOnPortTest(FaucetUntaggedTest):
 
-    MIN_HOSTS = 64
+    MIN_HOSTS = 1024
     MAX_HOSTS = 1024
     TEST_IPV4_PREFIX = 21 # must hold more than MAX_HOSTS + 4
     CONFIG_GLOBAL = """
