@@ -16,6 +16,7 @@ ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 ENV SETUPQ="setup.py -q"
 ENV MAKEFLAGS="-s -j -l 2.0"
 ENV BUILDDIR="/var/tmp/build"
+ENV DPDK_TARGET=x86_64-native-linuxapp-gcc
 
 ###
 ### When apt-get'ing, make sure apt-update always run first per RUN
@@ -70,15 +71,13 @@ RUN \
     mkdir -p $BUILDDIR && \
     cd $BUILDDIR && \
     wget -q -O- http://fast.dpdk.org/rel/dpdk-$DPDK.tar.xz | tar -Jxf- && \
-      cd dpdk* && \
-      export DPDK_DIR=`pwd` && \
-      export DPDK_TARGET=x86_64-native-linuxapp-gcc && \
+      cd dpdk-$DPDK && \
       make install T=$DPDK_TARGET DESTDIR=install && \
     cd .. && \
     git clone https://github.com/openvswitch/ovs -b ${OVSV} && \
       cd ovs && \
       ./boot.sh && \
-      ./configure --enable-silent-rules --quiet --with-dpdk=$DPDK_DIR/$DPDK_TARGET && \
+      ./configure --enable-silent-rules --quiet --with-dpdk=../dpdk-$DPDK/$DPDK_TARGET && \
       make install && \
     cd .. && \
     git clone https://github.com/mininet/mininet -b $MININETV && \
