@@ -91,6 +91,7 @@ class FaucetBgp(object):
                 for ip_dst in list(routes.keys()):
                     self._bgp_speaker.prefix_del(prefix=str(ip_dst))
             for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
+                self._bgp_speaker.neighbor_reset(bgp_neighbor_address)
                 self._bgp_speaker.neighbor_del(bgp_neighbor_address)
 
     def _configure_neighbors(self):
