@@ -4,7 +4,7 @@
 FROM ubuntu:latest
 
 ENV OVSV="v2.9.0"
-ENV DPDK="17.11"
+ENV DPDK="18.02"
 ENV MININETV="2.2.2"
 
 ENV OVSDEPS="autoconf automake libpcap-dev libcap-ng-dev libnuma-dev libtool libssl-dev linux-headers-generic libffi-dev"
@@ -14,7 +14,7 @@ ENV PIPDEPS="setuptools wheel virtualenv"
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 ENV SETUPQ="setup.py -q"
-ENV MAKEFLAGS="-s -j -l 2.0"
+ENV MAKEFLAGS="-s"
 ENV BUILDDIR="/var/tmp/build"
 ENV DPDK_TARGET=x86_64-native-linuxapp-gcc
 
