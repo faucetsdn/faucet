@@ -451,6 +451,7 @@ socket_timeout=15
         """Start tcpdump for OF port and then start controller."""
         self._start_tcpdump()
         super(BaseFAUCET, self).start()
+        self.cmd('tc qdisc replace dev %s root tbf rate 1000kbps latency 1ms burst 1000' % self.controller_intf)
 
     def _stop_cap(self):
         """Stop tcpdump for OF port and run tshark to decode it."""
