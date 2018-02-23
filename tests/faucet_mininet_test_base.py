@@ -1153,7 +1153,6 @@ dbs:
             for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[successful_learn_hosts:learn_hosts]:
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
                 host.cmd('fping -q -c1 -t5 -I%s %s' % (mac_intf, str(learn_ip)))
-                print(mac_intf, mac_ipv4)
 
             def verify_connectivity(learn_hosts):
                 unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
