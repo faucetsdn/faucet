@@ -1174,7 +1174,7 @@ dbs:
                 unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
                 for _ in range(5):
                     fping_lines = first_host.cmd(
-                        'fping_prefix -i %u %s' % (
+                        '%s -i %u %s' % (
                             fping_prefix,
                             fping_delay(unverified_ips),
                             ' '.join(unverified_ips).splitlines()))
