@@ -319,7 +319,7 @@ class BaseFAUCET(Controller):
 
     RYU_CONF = """
 [DEFAULT]
-echo_request_interval=3
+echo_request_interval=10
 maximum_unreplied_echo_requests=5
 socket_timeout=15
 """
