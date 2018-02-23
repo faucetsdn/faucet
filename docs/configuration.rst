@@ -411,7 +411,7 @@ configuration file. Configuration for each router is an entry in the routers
 dictionary and is keyed by a name for the router. The following attributes can
 be configured:
 
-.. list-table:: routers/<router name>/:
+.. list-table:: routers/<router name>/
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -432,7 +432,7 @@ VLANs are configured in the 'vlans' configuration block at the top level of
 the faucet config file. The config for each vlan is an entry keyed by its vid
 or a name. The following attributes can be configured:
 
-.. list-table:: vlans/<vlan name or vid>/:
+.. list-table:: vlans/<vlan name or vid>/
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -517,7 +517,7 @@ Static routes are given as a list. Each entry in the list contains a dictionary
 keyed with the keyword 'route' and contains a dictionary configuration block as
 follows:
 
-.. list-table:: vlans/<vlan name or vid>/routes/[list]/route/:
+.. list-table:: vlans/<vlan name or vid>/routes/[list]/route/
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -540,15 +540,14 @@ ACLs
 ACLs are configured under the 'acls' configuration block. The acls block
 contains a dictionary of individual acls each keyed by its name.
 
-Each acl contains a list of rules, a packet will have the first matching rule
+Each acl contains a list of rules: a packet will have the first matching rule
 applied to it.
 
-Each rule is a dictionary containing the single key 'rule' with the value the
-matches and actions for the rule.
+Each rule is a dictionary containing the single key 'rule' with matches
+and actions. Matches are key/values based on the ryu RESTFul API. Actions
+is a dictionary of actions to apply upon match.
 
-The matches are key/values based on the ryu RESTFul API.
-
-.. list-table:: /acls/<acl name>/[list]/rule/actions
+.. list-table:: /acls/<acl name>/[list]/rule/actions/
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -584,6 +583,10 @@ The output action contains a dictionary with the following elements:
     :widths: 31 15 15 60
     :header-rows: 1
 
+    * - Attribute
+      - Type
+      - Default
+      - Description
     * - set_fields
       - list of dicts
       - None
