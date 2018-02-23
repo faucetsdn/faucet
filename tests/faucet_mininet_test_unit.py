@@ -1272,17 +1272,20 @@ vlans:
         self.fail('MACs did not expire: %s' % learned_macs)
 
 
-class FaucetSingleLearnMACsOnPortTest(FaucetUntaggedTest):
+class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
     MIN_HOSTS = 64
     MAX_HOSTS = 1024
-    TEST_IPV4_PREFIX = 21 # must hold more than MAX_HOSTS + 4
+    TEST_IPV4_NET = u'10.0.0.0'
+    TEST_IPV4_PREFIX = 16 # must hold more than MAX_HOSTS + 4
+    LEARN_IPV4 = u'10.0.254.254'
     CONFIG_GLOBAL = """
 vlans:
     100:
         description: "untagged"
         # Must be > than MAX_HOSTS + 4
         max_hosts: 1028
+        faucet_vips: ["10.0.254.254/16"]
 """
 
     CONFIG = """
@@ -1306,8 +1309,7 @@ vlans:
                 max_hosts: 512
 """
 
-    def test_untagged(self):
-        test_net = ipaddress.IPv4Network(u'10.0.0.0/%s' % self.TEST_IPV4_PREFIX)
+    def verify_learning(self, test_net, learn_ip):
         test_ipas = [ipa for ipa in test_net.hosts()][:self.MAX_HOSTS+len(self.net.hosts)]
         base_ipas = test_ipas[-len(self.net.hosts):]
         for i, host in enumerate(self.net.hosts):
@@ -1329,7 +1331,7 @@ vlans:
             # configure macvlan interfaces and stimulate learning
             for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[successful_learn_hosts:learn_hosts]:
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
-                host.cmd('fping -q -c1 -t5 -I%s %s' % (mac_intf, first_host.IP()))
+                host.cmd('fping -q -c1 -t5 -I%s %s' % (mac_intf, str(learn_ip)))
 
             def verify_connectivity(learn_hosts):
                 unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
@@ -1368,6 +1370,30 @@ vlans:
             else:
                 break
         self.assertTrue(successful_learn_hosts >= self.MIN_HOSTS)
+
+    def test_untagged(self):
+        test_net = ipaddress.IPv4Network(
+            u'%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
+        learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
+        self.verify_learning(test_net, learn_ip)
+
+
+class FaucetSingleL3LearnMACsOnPortTest(FaucetSingleL2LearnMACsOnPortTest):
+
+    LEARN_IPV4 = u'10.0.0.1'
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        # Must be > than MAX_HOSTS + 4
+        max_hosts: 1028
+"""
+
+    def test_untagged(self):
+        test_net = ipaddress.IPv4Network(
+            u'%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
+        learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
+        self.verify_learning(test_net, learn_ip)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
