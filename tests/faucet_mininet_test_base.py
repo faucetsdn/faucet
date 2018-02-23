@@ -1176,7 +1176,7 @@ dbs:
                             unverified_ips.append(ip)
                     if not unverified_ips:
                         break
-                    time.sleep(3)
+                    time.sleep(0.1 * len(unverified_ips))
                 if unverified_ips:
                     error('could not verify connectivity for all hosts\n')
                     return False
