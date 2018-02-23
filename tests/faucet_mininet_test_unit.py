@@ -1274,8 +1274,6 @@ vlans:
 
 class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
-    MIN_HOSTS = 64
-    MAX_HOSTS = 1024
     TEST_IPV4_NET = u'10.0.0.0'
     TEST_IPV4_PREFIX = 16 # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = u'10.0.254.254'
@@ -1313,13 +1311,11 @@ vlans:
         test_net = ipaddress.IPv4Network(
             u'%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
         learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
-        self.verify_learning(test_net, learn_ip, 64, 1024)
+        self.verify_learning(test_net, learn_ip, 64, 512)
 
 
 class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
 
-    MIN_HOSTS = 64
-    MAX_HOSTS = 1024
     TEST_IPV4_NET = u'10.0.0.0'
     TEST_IPV4_PREFIX = 16 # must hold more than MAX_HOSTS + 4
     LEARN_IPV4 = u'10.0.0.1'

@@ -1090,7 +1090,7 @@ dbs:
             unused_port_no = (self.N_UNTAGGED + self.N_TAGGED + 1)
             dp_conf['interfaces'] = {
                 unused_port_no: {
-                   'native_vlan': cold_start_conf['vlans'].keys()[0],
+                    'native_vlan': cold_start_conf['vlans'].keys()[0],
                 }
             }
         self.reload_conf(cold_start_conf, self.faucet_config_path, True, True)
@@ -1130,8 +1130,16 @@ dbs:
             not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
 
-    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts):
-        test_ipas = [ipa for ipa in test_net.hosts()][:max_hosts+len(self.net.hosts)]
+    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=10):
+        test_ipas = []
+        for ipa in sorted(test_net.hosts()):
+            if str(ipa).endswith('.0'):
+                continue
+            if str(ipa).endswith('.255'):
+                continue
+            test_ipas.append(ipa)
+            if len(test_ipas) == max_hosts+len(self.net.hosts):
+                break
         base_ipas = test_ipas[-len(self.net.hosts):]
         for i, host in enumerate(self.net.hosts):
             host.setIP(str(base_ipas[i]), prefixLen=test_net.prefixlen)
@@ -1145,19 +1153,29 @@ dbs:
             mac_intf_ipv4s.append((host, mac_intf, mac_ipv4))
         learn_hosts = min_hosts
         successful_learn_hosts = 0
+
+        fping_prefix = 'fping -q -c 1 -t 10 -i 1'
+        pps_ms = 1e3 / learn_pps
+
         while learn_hosts <= max_hosts:
             error('will learn %u hosts\n' % learn_hosts)
             start_time = time.time()
-            fping_delay = 5 + int(float(learn_hosts) / 100)
+            learn_host_list = mac_intf_ipv4s[successful_learn_hosts:learn_hosts]
             # configure macvlan interfaces and stimulate learning
-            for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[successful_learn_hosts:learn_hosts]:
+            for host, mac_intf, mac_ipv4 in learn_host_list:
+                fping_conf_start = time.time()
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
-                host.cmd('fping -q -c1 -t5 -I%s %s' % (mac_intf, str(learn_ip)))
+                host.cmd('%s -I%s %s' % (fping_prefix, mac_intf, str(learn_ip)))
+                fping_ms = (time.time() - fping_conf_start) * 1e3
+                if fping_ms < pps_ms:
+                    time.sleep((pps_ms - fping_ms) / 1e3)
 
             def verify_connectivity(learn_hosts):
                 unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
                 for _ in range(5):
-                    fping_lines = first_host.cmd('fping -q -c1 -t1000 %s' % ' '.join(unverified_ips)).splitlines()
+                    fping_lines = first_host.cmd(
+                        '%s %s' % (
+                            fping_prefix, ' '.join(unverified_ips).splitlines()))
                     unverified_ips = []
                     for fping_line in fping_lines:
                         fping_out = fping_line.split()
@@ -1165,10 +1183,10 @@ dbs:
                         loss = fping_out[4]
                         verified = loss.endswith('/0%,')
                         if not verified:
-                           unverified_ips.append(ip)
+                            unverified_ips.append(ip)
                     if not unverified_ips:
                         break
-                    time.sleep(3)
+                    time.sleep(0.1 * len(unverified_ips))
                 if unverified_ips:
                     error('could not verify connectivity for all hosts\n')
                     return False
