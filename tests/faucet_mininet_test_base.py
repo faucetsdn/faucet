@@ -1131,7 +1131,15 @@ dbs:
             msg=fping_out)
 
     def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts):
-        test_ipas = sorted([ipa for ipa in test_net.hosts() if not str(ipa).endswith('.255')])[:max_hosts+len(self.net.hosts)]
+        test_ipas = []
+        for ipa in sorted(test_net.hosts()):
+            if str(ipa).endswidth('.0'):
+                continue
+            if str(ipa).endswidth('.255'):
+                continue
+            test_ipas.append(ipa)
+            if len(test_ipas) == max_hosts+len(self.net.hosts):
+                break
         base_ipas = test_ipas[-len(self.net.hosts):]
         for i, host in enumerate(self.net.hosts):
             host.setIP(str(base_ipas[i]), prefixLen=test_net.prefixlen)
