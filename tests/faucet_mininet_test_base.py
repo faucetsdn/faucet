@@ -1130,7 +1130,7 @@ dbs:
             not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
 
-    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=10):
+    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=20):
         test_ipas = []
         for ipa in sorted(test_net.hosts()):
             if str(ipa).endswith('.0'):
