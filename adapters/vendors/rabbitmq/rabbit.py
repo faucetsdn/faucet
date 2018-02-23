@@ -23,7 +23,6 @@ import os
 import select
 import socket
 import sys
-import time
 
 import pika
 
@@ -65,6 +64,7 @@ class RabbitAdapter:
         """Make connection to rabbit to send events"""
         # check if a rabbit host was specified
         if not self.host:
+            print('Not connecting to any RabbitMQ, host is None.')
             return False
 
         # create connection to rabbit
@@ -90,9 +90,8 @@ class RabbitAdapter:
     def socket_conn(self):
         """Make connection to sock to receive events"""
         # check if socket events are enabled
-        if self.event_sock:
-            self.event_sock = '/var/run/faucet/faucet.sock'
-        else:
+        if not self.event_sock:
+            print('Not connecting to any socket, FA_EVENT_SOCK is none.')
             return False
 
         # create connection to unix socket
@@ -141,6 +140,7 @@ class RabbitAdapter:
                     print("Unable to send event to RabbitMQ because: %s" % err)
                     print("The following event will be retried: %r" % buffer)
                     self.rabbit_conn()
+                sys.stdout.flush()
             self.sock.close()
 
 

@@ -67,9 +67,9 @@ def test_no_socket_path():
     rabbit_adapter = rabbit.RabbitAdapter()
     rabbit_adapter.socket_conn()
 
-def test_no_socket_connection():
-    """Test no connection available to socket"""
-    os.environ['FAUCET_EVENT_SOCK'] = '1'
+def test_socket_connection():
+    """Test connection available to socket"""
+    os.environ['FAUCET_EVENT_SOCK'] = '/var/run/facuet/faucet.sock'
     rabbit_adapter = rabbit.RabbitAdapter()
     rabbit_adapter.socket_conn()
     assert rabbit_adapter.event_sock == '/var/run/faucet/faucet.sock'
