@@ -1174,7 +1174,7 @@ dbs:
                     fping_lines = first_host.cmd(
                         'fping -q -c1 -i %u %s' % (
                             fping_delay(unverified_ips),
-                            ' '.join(unverified_ips)).splitlines())
+                            ' '.join(unverified_ips).splitlines()))
                     unverified_ips = []
                     for fping_line in fping_lines:
                         fping_out = fping_line.split()
