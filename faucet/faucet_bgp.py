@@ -21,6 +21,7 @@
 import json
 import ipaddress
 
+from ryu.lib import hub
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
 from ryu.services.protocols.bgp.api.base import CoreNotStarted
 
@@ -40,6 +41,15 @@ class FaucetBgp(object):
         self._valves = None
         self._neighbor_to_vlan = {}
         self._bgp_speaker = None
+
+    def _neighbor_states(self):
+        if self._bgp_speaker:
+            try:
+                return list(json.loads(
+                    self._bgp_speaker.neighbor_state_get()).items())
+            except CoreNotStarted:
+                pass
+        return []
 
     def _bgp_route_handler(self, path_change):
         """Handle a BGP change event.
@@ -93,6 +103,10 @@ class FaucetBgp(object):
             for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
                 self._bgp_speaker.neighbor_reset(bgp_neighbor_address)
                 self._bgp_speaker.neighbor_del(bgp_neighbor_address)
+        # TODO: need a better way to synchronize with BGP speaker to
+        # ensure all neighbors have actually been deleted.
+        while self._neighbor_states():
+            hub.sleep(0.1)
 
     def _configure_neighbors(self):
         for valve in list(self._valves.values()):
@@ -135,13 +149,7 @@ class FaucetBgp(object):
 
     def update_metrics(self):
         """Update BGP metrics."""
-        if not self._bgp_speaker:
-            return
-        try:
-            neighbor_states = list(json.loads(
-                self._bgp_speaker.neighbor_state_get()).items())
-        except CoreNotStarted:
-            return
+        neighbor_states = self._neighbor_states()
         for neighbor, neighbor_state in neighbor_states:
             if not neighbor in self._neighbor_to_vlan:
                 continue
