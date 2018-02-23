@@ -1133,9 +1133,9 @@ dbs:
     def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts):
         test_ipas = []
         for ipa in sorted(test_net.hosts()):
-            if str(ipa).endswidth('.0'):
+            if str(ipa).endswith('.0'):
                 continue
-            if str(ipa).endswidth('.255'):
+            if str(ipa).endswith('.255'):
                 continue
             test_ipas.append(ipa)
             if len(test_ipas) == max_hosts+len(self.net.hosts):
@@ -1153,19 +1153,28 @@ dbs:
             mac_intf_ipv4s.append((host, mac_intf, mac_ipv4))
         learn_hosts = min_hosts
         successful_learn_hosts = 0
+
+        def fping_delay(host_list):
+            return 5 + int(float(len(host_list)) / 100)
+
         while learn_hosts <= max_hosts:
             error('will learn %u hosts\n' % learn_hosts)
             start_time = time.time()
-            fping_delay = 5 + int(float(learn_hosts) / 100)
+            learn_host_list = mac_intf_ipv4s[successful_learn_hosts:learn_hosts]
             # configure macvlan interfaces and stimulate learning
-            for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[successful_learn_hosts:learn_hosts]:
+            for host, mac_intf, mac_ipv4 in learn_host_list:
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
-                host.cmd('fping -q -c1 -t5 -I%s %s' % (mac_intf, str(learn_ip)))
+                host.cmd(
+                    'fping -q -c1 -i %u -I%s %s' % (
+                        fping_delay(learn_host_list), mac_intf, str(learn_ip)))
 
             def verify_connectivity(learn_hosts):
                 unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
                 for _ in range(5):
-                    fping_lines = first_host.cmd('fping -q -c1 -t1000 %s' % ' '.join(unverified_ips)).splitlines()
+                    fping_lines = first_host.cmd(
+                        'fping -q -c1 -i %u %s' % (
+                            fping_delay(learn_hosts),
+                            ' '.join(unverified_ips)).splitlines())
                     unverified_ips = []
                     for fping_line in fping_lines:
                         fping_out = fping_line.split()
