@@ -1378,7 +1378,7 @@ vlans:
         self.verify_learning(test_net, learn_ip)
 
 
-class FaucetSingleL2LearnMACsOnPortTest(FaucetSingleL2LearnMACsOnPortTest):
+class FaucetSingleL2LearnMACsOnPortTest(FaucetSingleL3LearnMACsOnPortTest):
 
     LEARN_IPV4 = u'10.0.0.1'
     CONFIG_GLOBAL = """
