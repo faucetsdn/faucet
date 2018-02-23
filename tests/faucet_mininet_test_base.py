@@ -1090,7 +1090,7 @@ dbs:
             unused_port_no = (self.N_UNTAGGED + self.N_TAGGED + 1)
             dp_conf['interfaces'] = {
                 unused_port_no: {
-                   'native_vlan': cold_start_conf['vlans'].keys()[0],
+                    'native_vlan': cold_start_conf['vlans'].keys()[0],
                 }
             }
         self.reload_conf(cold_start_conf, self.faucet_config_path, True, True)
@@ -1131,7 +1131,7 @@ dbs:
             msg=fping_out)
 
     def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts):
-        test_ipas = [ipa for ipa in test_net.hosts()][:max_hosts+len(self.net.hosts)]
+        test_ipas = sorted([ipa for ipa in test_net.hosts() if not str(ipa).endswith('.255')])[:max_hosts+len(self.net.hosts)]
         base_ipas = test_ipas[-len(self.net.hosts):]
         for i, host in enumerate(self.net.hosts):
             host.setIP(str(base_ipas[i]), prefixLen=test_net.prefixlen)
@@ -1153,6 +1153,7 @@ dbs:
             for host, mac_intf, mac_ipv4 in mac_intf_ipv4s[successful_learn_hosts:learn_hosts]:
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
                 host.cmd('fping -q -c1 -t5 -I%s %s' % (mac_intf, str(learn_ip)))
+                print(mac_intf, mac_ipv4)
 
             def verify_connectivity(learn_hosts):
                 unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
@@ -1165,7 +1166,7 @@ dbs:
                         loss = fping_out[4]
                         verified = loss.endswith('/0%,')
                         if not verified:
-                           unverified_ips.append(ip)
+                            unverified_ips.append(ip)
                     if not unverified_ips:
                         break
                     time.sleep(3)
