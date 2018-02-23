@@ -90,9 +90,12 @@ class RabbitAdapter:
     def socket_conn(self):
         """Make connection to sock to receive events"""
         # check if socket events are enabled
-        if not self.event_sock:
+        if self.event_sock == '0':
             print('Not connecting to any socket, FA_EVENT_SOCK is none.')
             return False
+        if self.event_sock == '1':
+            self.event_sock = '/var/run/faucet/faucet.sock'
+        # otherwise it's a path
 
         # create connection to unix socket
         try:

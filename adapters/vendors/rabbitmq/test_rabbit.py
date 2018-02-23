@@ -67,12 +67,19 @@ def test_no_socket_path():
     rabbit_adapter = rabbit.RabbitAdapter()
     rabbit_adapter.socket_conn()
 
-def test_socket_connection():
-    """Test connection available to socket"""
-    os.environ['FAUCET_EVENT_SOCK'] = '/var/run/facuet/faucet.sock'
+def test_no_socket_connection():
+    """Test no connection available to socket"""
+    os.environ['FAUCET_EVENT_SOCK'] = '1'
     rabbit_adapter = rabbit.RabbitAdapter()
     rabbit_adapter.socket_conn()
     assert rabbit_adapter.event_sock == '/var/run/faucet/faucet.sock'
+
+def test_socket_connection():
+    """Test connection available to socket"""
+    os.environ['FAUCET_EVENT_SOCK'] = '/var/run/faucet/faucet-event.sock'
+    rabbit_adapter = rabbit.RabbitAdapter()
+    rabbit_adapter.socket_conn()
+    assert rabbit_adapter.event_sock == '/var/run/faucet/faucet-event.sock'
 
 def test_port_set_int():
     """Test port was set and it was an int"""
