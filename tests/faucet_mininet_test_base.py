@@ -1154,6 +1154,8 @@ dbs:
         learn_hosts = min_hosts
         successful_learn_hosts = 0
 
+        fping_prefix = 'fping -q -c 1 -t 500'
+
         def fping_delay(host_list):
             return 5 + int(float(len(host_list)) / 100)
 
@@ -1165,14 +1167,15 @@ dbs:
             for host, mac_intf, mac_ipv4 in learn_host_list:
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
                 host.cmd(
-                    'fping -q -c1 -i %u -I%s %s' % (
-                        fping_delay(learn_host_list), mac_intf, str(learn_ip)))
+                    '%s -i %u -I%s %s' % (
+                        fping_prefix, fping_delay(learn_host_list), mac_intf, str(learn_ip)))
 
             def verify_connectivity(learn_hosts):
                 unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
                 for _ in range(5):
                     fping_lines = first_host.cmd(
-                        'fping -q -c1 -i %u %s' % (
+                        'fping_prefix -i %u %s' % (
+                            fping_prefix,
                             fping_delay(unverified_ips),
                             ' '.join(unverified_ips).splitlines()))
                     unverified_ips = []
