@@ -1272,7 +1272,7 @@ vlans:
         self.fail('MACs did not expire: %s' % learned_macs)
 
 
-class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
+class FaucetSingleL3LearnMACsOnPortTest(FaucetUntaggedTest):
 
     MIN_HOSTS = 64
     MAX_HOSTS = 1024
@@ -1378,7 +1378,7 @@ vlans:
         self.verify_learning(test_net, learn_ip)
 
 
-class FaucetSingleL3LearnMACsOnPortTest(FaucetSingleL2LearnMACsOnPortTest):
+class FaucetSingleL2LearnMACsOnPortTest(FaucetSingleL2LearnMACsOnPortTest):
 
     LEARN_IPV4 = u'10.0.0.1'
     CONFIG_GLOBAL = """
