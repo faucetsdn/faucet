@@ -52,7 +52,8 @@ class ValveHostManager(object):
         eth_src = pkt_meta.eth_src
         vlan = pkt_meta.vlan
 
-        if eth_src not in vlan.dyn_host_cache:
+        entry = vlan.cached_host(eth_src)
+        if entry is None:
             if port.max_hosts:
                 hosts = port.hosts()
                 if len(hosts) == port.max_hosts:

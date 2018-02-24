@@ -35,6 +35,14 @@ class HostCacheEntry(object):
         self.port = port
         self.cache_time = cache_time
 
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.__dict__.items())))
+
 
 class VLAN(Conf):
     """Contains state for one VLAN, including its configuration."""
@@ -69,6 +77,7 @@ class VLAN(Conf):
     # Define dynamic variables with prefix dyn_ to distinguish from variables set
     # configuration
     dyn_host_cache = None
+    dyn_host_cache_by_port = None
     dyn_faucet_vips_by_ipv = None
     dyn_routes_by_ipv = None
     dyn_gws_by_ipv = None
@@ -217,6 +226,7 @@ class VLAN(Conf):
 
     def reset_caches(self):
         self.dyn_host_cache = {}
+        self.dyn_host_cache_by_port = {}
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
 
     def reset_ports(self, ports):
@@ -226,13 +236,21 @@ class VLAN(Conf):
     def add_cache_host(self, eth_src, port, cache_time):
         self.dyn_host_cache[eth_src] = HostCacheEntry(
             eth_src, port, cache_time)
+        if port.number not in self.dyn_host_cache_by_port:
+            self.dyn_host_cache_by_port[port.number] = set()
+        self.dyn_host_cache_by_port[port.number].add(self.dyn_host_cache[eth_src])
 
     def expire_cache_host(self, eth_src):
-        del self.dyn_host_cache[eth_src]
+        entry = self.cached_host(eth_src)
+        if entry is not None:
+            self.dyn_host_cache_by_port[entry.port.number].remove(entry)
+            del self.dyn_host_cache[eth_src]
 
     def cached_hosts_on_port(self, port):
         """Return all hosts learned on a port."""
-        return [entry for entry in list(self.dyn_host_cache.values()) if port.number == entry.port.number]
+        if port.number in self.dyn_host_cache_by_port:
+            return list(self.dyn_host_cache_by_port[port.number])
+        return []
 
     def cached_host(self, eth_src):
         if eth_src in self.dyn_host_cache:
