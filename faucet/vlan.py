@@ -248,7 +248,7 @@ class VLAN(Conf):
     def cached_hosts_on_port(self, port):
         """Return all hosts learned on a port."""
         if port.number in self.dyn_host_cache_by_port:
-            return self.dyn_host_cache_by_port[port.number]
+            return list(self.dyn_host_cache_by_port[port.number])
         return []
 
     def cached_host(self, eth_src):
