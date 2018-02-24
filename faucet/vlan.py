@@ -242,8 +242,9 @@ class VLAN(Conf):
 
     def expire_cache_host(self, eth_src):
         entry = self.cached_host(eth_src)
-        self.dyn_host_cache_by_port[entry.port.number].remove(entry)
-        del self.dyn_host_cache[eth_src]
+        if entry is not None:
+            self.dyn_host_cache_by_port[entry.port.number].remove(entry)
+            del self.dyn_host_cache[eth_src]
 
     def cached_hosts_on_port(self, port):
         """Return all hosts learned on a port."""
