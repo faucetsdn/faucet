@@ -21,11 +21,27 @@
 import json
 import ipaddress
 
-from ryu.lib import hub
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
 from ryu.services.protocols.bgp.api.base import CoreNotStarted
 
 from faucet.valve_util import btos
+
+
+class FaucetBgpPeer(object):
+    """Associate BGP peer with datapath/VLAN."""
+
+    def __init__(self, bgp_neighbor_address, dp_id, vlan_vid):
+        self.bgp_neighbor_address = bgp_neighbor_address
+        self.dp_id = dp_id
+        self.vlan_vid = vlan_vid
+
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.__dict__.items())))
 
 
 class FaucetBgp(object):
@@ -38,9 +54,9 @@ class FaucetBgp(object):
         self.logger = logger
         self.metrics = metrics
         self._send_flow_msgs = send_flow_msgs
-        self._valves = None
-        self._neighbor_to_vlan = {}
         self._bgp_speaker = None
+        self._valves = None
+        self._peers = {}
 
     def _neighbor_states(self):
         if self._bgp_speaker:
@@ -61,10 +77,17 @@ class FaucetBgp(object):
             return
 
         source = path_change.path.source.ip_address
-        if not source in self._neighbor_to_vlan:
+        if not source in self._peers:
             return
 
-        vlan = self._neighbor_to_vlan[source]
+        peer = self._peers[source]
+        if not peer.dp_id in self._valves:
+            return
+        valve = self._valves[peer.dp_id]
+        if not peer.vlan_vid in valve.dp.vlans:
+            return
+        vlan = valve.dp.vlans[peer.vlan_vid]
+
         prefix = ipaddress.ip_network(btos(path_change.prefix))
         nexthop = ipaddress.ip_address(btos(path_change.nexthop))
 
@@ -92,69 +115,84 @@ class FaucetBgp(object):
         if flowmods:
             self._send_flow_msgs(vlan.dp_id, flowmods)
 
-    def _deconfigure_neighbors(self):
-        for vlan in list(self._neighbor_to_vlan.values()):
-            for faucet_vip in vlan.faucet_vips:
-                self._bgp_speaker.prefix_del(prefix=str(faucet_vip))
+    @staticmethod
+    def _bgp_vlans(valves):
+        bgp_vlans = set()
+        if valves:
+            for valve in list(valves.values()):
+                for vlan in valve.dp.bgp_vlans():
+                    bgp_vlans.add(vlan)
+        return bgp_vlans
+
+    def _bgp_peers(self, valves):
+        peers = {}
+        for vlan in self._bgp_vlans(valves):
+            for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
+                peers[bgp_neighbor_address] = FaucetBgpPeer(
+                    bgp_neighbor_address, vlan.dp_id, vlan.vid)
+        return peers
+
+    @staticmethod
+    def _vlan_prefixes(vlan):
+        vlan_prefixes = []
+        for faucet_vip in vlan.faucet_vips:
+            vlan_prefixes.append((str(faucet_vip), str(faucet_vip.ip)))
             for ipv in vlan.ipvs():
                 routes = vlan.routes_by_ipv(ipv)
-                for ip_dst in list(routes.keys()):
-                    self._bgp_speaker.prefix_del(prefix=str(ip_dst))
-            for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
-                self._bgp_speaker.neighbor_reset(bgp_neighbor_address)
-                self._bgp_speaker.neighbor_del(bgp_neighbor_address)
-        # TODO: need a better way to synchronize with BGP speaker to
-        # ensure all neighbors have actually been deleted.
-        while self._neighbor_states():
-            hub.sleep(0.1)
-
-    def _configure_neighbors(self):
-        for valve in list(self._valves.values()):
-            for vlan in list(valve.dp.vlans.values()):
-                if not vlan.bgp_as:
-                    continue
-                if not self._bgp_speaker:
-                    self._bgp_speaker = BGPSpeaker(
-                        as_number=0,
-                        router_id=vlan.bgp_routerid,
-                        bgp_server_port=vlan.bgp_port,
-                        bgp_server_hosts=vlan.bgp_server_addresses,
-                        best_path_change_handler=self._bgp_route_handler)
-                for faucet_vip in vlan.faucet_vips:
-                    self._bgp_speaker.prefix_add(
-                        prefix=str(faucet_vip), next_hop=str(faucet_vip.ip))
-                for ipv in vlan.ipvs():
-                    routes = vlan.routes_by_ipv(ipv)
-                    for ip_dst, ip_gw in list(routes.items()):
-                        self._bgp_speaker.prefix_add(
-                            prefix=str(ip_dst), next_hop=str(ip_gw))
-                for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
-                    self._bgp_speaker.neighbor_add(
-                        address=bgp_neighbor_address,
-                        local_as=vlan.bgp_as,
-                        remote_as=vlan.bgp_neighbor_as,
-                        local_address=vlan.bgp_local_address,
-                        enable_ipv4=True,
-                        enable_ipv6=True)
-                    self._neighbor_to_vlan[bgp_neighbor_address] = vlan
+                for ip_dst, ip_gw in list(routes.items()):
+                    vlan_prefixes.append((str(ip_dst), str(ip_gw)))
+        return vlan_prefixes
 
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
-        # TODO: handle warm starts where BGP/neighbor config did not change.
+        # TODO: BGP speaker library does not cleanly handle del/add of same BGP peer address
+        new_bgp_peers = self._bgp_peers(valves)
+        deconfigured_bgp_peers = set(self._peers.values()) - set(new_bgp_peers.values())
+        new_configured_bgp_peers = set(new_bgp_peers.values()) - set(self._peers.values())
+
         if self._bgp_speaker:
-            self._deconfigure_neighbors()
+            for peer in deconfigured_bgp_peers:
+                valve = self._valves[peer.dp_id]
+                vlan = valve.dp.vlans[peer.vlan_vid]
+                self._bgp_speaker.neighbor_del(peer.bgp_neighbor_address)
+                self.logger.info('deconfiguring BGP peer %s' % peer.bgp_neighbor_address)
+                for ip_dst, _ in self._vlan_prefixes(vlan):
+                    self._bgp_speaker.prefix_del(ip_dst)
+
+        for peer in new_configured_bgp_peers:
+            valve = valves[peer.dp_id]
+            vlan = valve.dp.vlans[peer.vlan_vid]
+            if not self._bgp_speaker:
+                self._bgp_speaker = BGPSpeaker(
+                    as_number=0,
+                    router_id=vlan.bgp_routerid,
+                    bgp_server_port=vlan.bgp_port,
+                    bgp_server_hosts=vlan.bgp_server_addresses,
+                    best_path_change_handler=self._bgp_route_handler)
+            for ip_dst, ip_gw in self._vlan_prefixes(vlan):
+                self._bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
+            self._bgp_speaker.neighbor_add(
+                address=peer.bgp_neighbor_address,
+                local_as=vlan.bgp_as,
+                remote_as=vlan.bgp_neighbor_as,
+                local_address=vlan.bgp_local_address,
+                enable_ipv4=True,
+                enable_ipv6=True)
+            self.logger.info('configuring BGP peer %s' % peer.bgp_neighbor_address)
+
+        self._peers = new_bgp_peers
         self._valves = valves
-        self._configure_neighbors()
 
     def update_metrics(self):
         """Update BGP metrics."""
         neighbor_states = self._neighbor_states()
         for neighbor, neighbor_state in neighbor_states:
-            if not neighbor in self._neighbor_to_vlan:
+            if not neighbor in self._peers:
                 continue
-            vlan = self._neighbor_to_vlan[neighbor]
-            valve = self._valves[vlan.dp_id]
+            peer = self._peers[neighbor]
+            valve = self._valves[peer.dp_id]
+            vlan = valve.dp.vlans[peer.vlan_vid]
             self.metrics.bgp_neighbor_uptime_seconds.labels( # pylint: disable=no-member
                 **dict(valve.base_prom_labels, vlan=vlan.vid, neighbor=neighbor)).set(
                     neighbor_state['info']['uptime'])
