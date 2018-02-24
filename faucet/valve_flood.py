@@ -343,10 +343,10 @@ class ValveFloodStackManager(ValveFloodManager):
         stacked_valves = [valve for valve in other_valves if valve.dp.stack is not None]
         for other_valve in stacked_valves:
             if vlan_vid in other_valve.dp.vlans:
-                other_dp_host_cache = other_valve.dp.vlans[vlan_vid].dyn_host_cache
-                if eth_src in other_dp_host_cache:
-                    host = other_dp_host_cache[eth_src]
-                    if host.port.stack is None:
+                other_dp_vlan = other_valve.dp.vlans[vlan_vid]
+                entry = other_dp_vlan.cached_host(eth_src)
+                if entry is not None:
+                    if entry.port.stack is None:
                         return other_valve.dp
         return None
 
