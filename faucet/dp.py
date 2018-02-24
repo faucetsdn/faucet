@@ -629,7 +629,7 @@ configuration.
         resolve_vlan_names_in_routers()
         resolve_acls()
 
-        bgp_vlans = [vlan for vlan in list(self.vlans.values()) if vlan.bgp_as]
+        bgp_vlans = self.bgp_vlans()
         if bgp_vlans:
             for vlan in bgp_vlans:
                 vlan_dps = [dp for dp in dps if vlan.vid in dp.vlans]
@@ -658,6 +658,10 @@ configuration.
         if port_num in self.ports:
             return self.ports[port_num].native_vlan
         return None
+
+    def bgp_vlans(self):
+        """Return list of VLANs with BGP enabled."""
+        return [vlan for vlan in list(self.vlans.values()) if vlan.bgp_as]
 
     def to_conf(self):
         """Return DP config as dict."""
