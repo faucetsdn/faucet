@@ -587,6 +587,9 @@ def controller_pps_meterdel(datapath=None):
         flags=ofp.OFPMF_PKTPS,
         meter_id=ofp.OFPM_CONTROLLER)
 
+def is_delflow(ofmsg):
+    return is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg)
+
 
 def valve_flowreorder(input_ofmsgs):
     """Reorder flows for better OFA performance."""
@@ -596,43 +599,19 @@ def valve_flowreorder(input_ofmsgs):
     # at most only one barrier to deal with.
     # TODO: further optimizations may be possible - for example,
     # reorder adds to be in priority order.
-    delete_ofmsgs = []
-    groupadd_ofmsgs = []
-    meteradd_ofmsgs = []
-    nondelete_ofmsgs = []
-    for ofmsg in input_ofmsgs:
-        if is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg):
-            delete_ofmsgs.append(ofmsg)
-        elif is_groupadd(ofmsg):
-            # The same group_id may be deleted/added multiple times
-            # To avoid group_mod_failed/group_exists error, if the
-            # same group_id is already in groupadd_ofmsgs I replace
-            # it instead of appending it (the last groupadd in
-            # input_ofmsgs is the only one sent to the switch)
-            # TODO: optimize the provisioning to avoid having the
-            # same group_id multiple times in input_ofmsgs
-            new_group_id = True
-            for i, groupadd_ofmsg in enumerate(groupadd_ofmsgs):
-                if groupadd_ofmsg.group_id == ofmsg.group_id:
-                    groupadd_ofmsgs[i] = ofmsg
-                    new_group_id = False
-                    break
-            if new_group_id:
-                groupadd_ofmsgs.append(ofmsg)
-        elif is_meteradd(ofmsg):
-            meteradd_ofmsgs.append(ofmsg)
-            # Is there the risk to receice the same meter_id multiple times?
-            # Do we need the same logic used for groups?
-        else:
-            nondelete_ofmsgs.append(ofmsg)
+    delete_ofmsgs = [ofmsg for ofmsg in input_ofmsgs if is_delflow(ofmsg)]
+    if not delete_ofmsgs:
+        return input_ofmsgs
+    nondelete_ofmsgs = set(input_ofmsgs) - set(delete_ofmsgs)
+    groupadd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_groupadd(ofmsg)])
+    meteradd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_meteradd(ofmsg)])
+    other_ofmsgs = nondelete_ofmsgs - groupadd_ofmsgs.union(meteradd_ofmsgs)
     output_ofmsgs = []
-    if delete_ofmsgs:
-        output_ofmsgs.extend(delete_ofmsgs)
-        output_ofmsgs.append(barrier())
-    if groupadd_ofmsgs + meteradd_ofmsgs:
-        output_ofmsgs.extend(groupadd_ofmsgs + meteradd_ofmsgs)
-        output_ofmsgs.append(barrier())
-    output_ofmsgs.extend(nondelete_ofmsgs)
+    for ofmsgs in (delete_ofmsgs, groupadd_ofmsgs, meteradd_ofmsgs):
+        if ofmsgs:
+            output_ofmsgs.extend([ofmsg for ofmsg in ofmsgs])
+            output_ofmsgs.append(barrier())
+    output_ofmsgs.extend(other_ofmsgs)
     return output_ofmsgs
 
 

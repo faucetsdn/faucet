@@ -1154,7 +1154,7 @@ dbs:
         learn_hosts = min_hosts
         successful_learn_hosts = 0
 
-        fping_prefix = 'fping -q -c 1 -t 10 -i 1'
+        fping_prefix = 'fping -q -c 1 -t 25 -i 25'
         pps_ms = 1e3 / learn_pps
 
         while learn_hosts <= max_hosts:
