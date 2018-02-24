@@ -1130,7 +1130,7 @@ dbs:
             not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
 
-    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=20):
+    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=10):
         test_ipas = []
         for ipa in sorted(test_net.hosts()):
             if str(ipa).endswith('.0'):
@@ -1171,25 +1171,31 @@ dbs:
                     time.sleep((pps_ms - fping_ms) / 1e3)
 
             def verify_connectivity(learn_hosts):
-                unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
-                for _ in range(5):
-                    fping_lines = first_host.cmd(
-                        '%s %s' % (
-                            fping_prefix, ' '.join(unverified_ips).splitlines()))
+                all_unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
+                while all_unverified_ips:
                     unverified_ips = []
-                    for fping_line in fping_lines:
-                        fping_out = fping_line.split()
-                        ip = fping_out[0]
-                        loss = fping_out[4]
-                        verified = loss.endswith('/0%,')
-                        if not verified:
-                            unverified_ips.append(ip)
-                    if not unverified_ips:
-                        break
-                    time.sleep(0.1 * len(unverified_ips))
-                if unverified_ips:
-                    error('could not verify connectivity for all hosts\n')
-                    return False
+                    for _ in range(learn_pps):
+                        if not all_unverified_ips:
+                            break
+                        unverified_ips.append(all_unverified_ips.pop())
+                    for _ in range(5):
+                        fping_lines = first_host.cmd(
+                            '%s %s' % (
+                                fping_prefix, ' '.join(unverified_ips).splitlines()))
+                        unverified_ips = []
+                        for fping_line in fping_lines:
+                            fping_out = fping_line.split()
+                            ip = fping_out[0]
+                            loss = fping_out[4]
+                            verified = loss.endswith('/0%,')
+                            if not verified:
+                                unverified_ips.append(ip)
+                        if not unverified_ips:
+                            break
+                        time.sleep(0.1 * len(unverified_ips))
+                    if unverified_ips:
+                        error('could not verify connectivity for all hosts\n')
+                        return False
                 self.ping_all_when_learned()
                 prom_hosts = self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'})
                 if prom_hosts != learn_hosts + len(self.net.hosts):
