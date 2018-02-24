@@ -306,7 +306,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
         ofmsgs = []
         entry = vlan.cached_host_on_port(eth_src, port)
         if entry is not None:
-            entry.expired = True
+            vlan.expire_cache_host(eth_src)
             self.logger.info('expired src_rule for host %s' % eth_src)
         return ofmsgs
 
@@ -315,11 +315,10 @@ class ValveHostFlowRemovedManager(ValveHostManager):
         traffic but not receving. If the src rule not yet expires, we reinstall
         host rules."""
         ofmsgs = []
-        if eth_dst in vlan.dyn_host_cache:
-            entry = vlan.dyn_host_cache[eth_dst]
-            if not entry.expired:
-                ofmsgs.extend(self.learn_host_on_vlan_ports(
-                    entry.port, vlan, eth_dst, delete_existing=False))
-                self.logger.info(
-                    'refreshing host %s from VLAN %u' % (eth_dst, vlan.vid))
+        entry = vlan.cached_host(eth_dst)
+        if entry is not None:
+            ofmsgs.extend(self.learn_host_on_vlan_ports(
+                entry.port, vlan, eth_dst, delete_existing=False))
+            self.logger.info(
+                'refreshing host %s from VLAN %u' % (eth_dst, vlan.vid))
         return ofmsgs
