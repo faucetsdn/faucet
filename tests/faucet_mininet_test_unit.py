@@ -1325,7 +1325,6 @@ vlans:
         description: "untagged"
         # Must be > than MAX_HOSTS + 4
         max_hosts: 2052
-        faucet_vips: ["10.0.254.254/16"]
 """
 
     CONFIG = """
