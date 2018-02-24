@@ -34,7 +34,6 @@ class HostCacheEntry(object):
         self.eth_src = eth_src
         self.port = port
         self.cache_time = cache_time
-        self.expired = False
 
 
 class VLAN(Conf):
@@ -76,6 +75,7 @@ class VLAN(Conf):
     dyn_neigh_cache_by_ipv = None
     dyn_learn_ban_count = 0
     dyn_last_time_hosts_expired = None
+    dyn_oldest_host_time = None
 
     defaults = {
         'name': None,
@@ -227,6 +227,9 @@ class VLAN(Conf):
         self.dyn_host_cache[eth_src] = HostCacheEntry(
             eth_src, port, cache_time)
 
+    def expire_cache_host(self, eth_src):
+        del self.dyn_host_cache[eth_src]
+
     def cached_hosts_on_port(self, port):
         """Return all hosts learned on a port."""
         return [entry for entry in list(self.dyn_host_cache.values()) if port.number == entry.port.number]
@@ -246,21 +249,22 @@ class VLAN(Conf):
     def clear_cache_hosts_on_port(self, port):
         """Clear all hosts learned on a port."""
         for entry in self.cached_hosts_on_port(port):
-            del self.dyn_host_cache[entry.eth_src]
+            self.expire_cache_host(entry.eth_src)
 
     def expire_cache_hosts(self, now, learn_timeout):
         """Expire stale host entries."""
-        min_cache_time = now - learn_timeout
+        expired_hosts = []
 
-        def entry_expired(entry):
-            return (not entry.port.permanent_learn and (
-                entry.cache_time < min_cache_time or entry.expired))
-
-        expired_hosts = [
-            entry.eth_src for entry in list(self.dyn_host_cache.values()) if entry_expired(entry)]
-        if expired_hosts:
+        if self.dyn_oldest_host_time is None or now - self.dyn_oldest_host_time > learn_timeout:
+            min_cache_time = now - learn_timeout
+            self.dyn_oldest_host_time = now
+            for entry in list(self.dyn_host_cache.values()):
+                if (not entry.port.permanent_learn and entry.cache_time < min_cache_time):
+                    expired_hosts.append(entry.eth_src)
+                else:
+                    self.dyn_oldest_host_time = min(entry.cache_time, self.dyn_oldest_host_time)
             for eth_src in expired_hosts:
-                del self.dyn_host_cache[eth_src]
+                self.expire_cache_host(eth_src)
         return expired_hosts
 
     def ipvs(self):
