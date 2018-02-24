@@ -395,10 +395,17 @@ socket_timeout=15
         cprofile_args = ''
         if self.CPROFILE:
             cprofile_args = 'python3 -m cProfile -s time'
+        full_faucet_dir = os.path.abspath(faucet_mininet_test_util.FAUCET_DIR)
         with open(script_wrapper_name, 'w') as script_wrapper:
-            script_wrapper.write(
-                'PYTHONPATH=.:..:../faucet %s exec timeout %u %s /usr/local/bin/faucet %s $*\n' % (
-                    ' '.join(env_vars), self.MAX_CTL_TIME, cprofile_args, args))
+            faucet_cli = (
+                'PYTHONPATH=%s %s exec timeout %u %s %s %s $*\n' % (
+                    os.path.dirname(full_faucet_dir),
+                    ' '.join(env_vars),
+                    self.MAX_CTL_TIME,
+                    os.path.join(full_faucet_dir, '__main__.py'),
+                    cprofile_args,
+                    args))
+            script_wrapper.write(faucet_cli)
         return '/bin/sh %s' % script_wrapper_name
 
     def ryu_pid(self):

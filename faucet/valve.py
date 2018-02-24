@@ -865,10 +865,9 @@ class Valve(object):
                            port=label_dict['port'], n=label_dict['n'])).set(0)
 
         for vlan in list(self.dp.vlans.values()):
-            hosts_count = vlan.hosts_count()
             self.metrics.vlan_hosts_learned.labels(
                 **dict(self.base_prom_labels, vlan=vlan.vid)).set(
-                    hosts_count)
+                    vlan.hosts_count())
             self.metrics.vlan_learn_bans.labels(
                 **dict(self.base_prom_labels, vlan=vlan.vid)).set(
                     vlan.dyn_learn_ban_count)
@@ -877,14 +876,12 @@ class Valve(object):
                 self.metrics.vlan_neighbors.labels(
                     **dict(self.base_prom_labels, vlan=vlan.vid, ipv=ipv)).set(
                         neigh_cache_size)
-            learned_hosts_count = 0
             for port in vlan.get_ports():
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
                     self.metrics.learned_macs.labels(
                         **dict(self.base_prom_labels, vlan=vlan.vid, port=port.number, n=i)).set(
                             mac_int)
-                    learned_hosts_count += 1
                 self.metrics.port_learn_bans.labels(
                     **dict(self.base_prom_labels, port=port.number)).set(
                         port.dyn_learn_ban_count)

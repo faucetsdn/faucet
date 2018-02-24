@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """Launch forwarder script for Faucet/Gauge"""
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
