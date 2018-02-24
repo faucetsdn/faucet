@@ -241,7 +241,8 @@ class VLAN(Conf):
         self.dyn_host_cache_by_port[port.number].add(self.dyn_host_cache[eth_src])
 
     def expire_cache_host(self, eth_src):
-        self.dyn_host_cache_by_port[port.number].remove(self.dyn_host_cache[eth_src])
+        entry = self.cached_host(eth_src)
+        self.dyn_host_cache_by_port[entry.port.number].remove(entry)
         del self.dyn_host_cache[eth_src]
 
     def cached_hosts_on_port(self, port):
