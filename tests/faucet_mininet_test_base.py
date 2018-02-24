@@ -1156,6 +1156,13 @@ dbs:
 
         fping_prefix = 'fping -q -c 1 -t 25 -i 25'
         pps_ms = 1e3 / learn_pps
+        self.ping_all_when_learned()
+
+        def dump_packet_counters():
+            packet_in_count = self.scrape_prometheus_var('of_packet_ins')
+            flow_msgs_count = self.scrape_prometheus_var('of_flowmsgs_sent')
+            error('%u packet ins, %u flows sent\n' % (
+                packet_in_count, flow_msgs_count))
 
         while learn_hosts <= max_hosts:
             error('will learn %u hosts\n' % learn_hosts)
@@ -1171,39 +1178,47 @@ dbs:
                     time.sleep((pps_ms - fping_ms) / 1e3)
 
             def verify_connectivity(learn_hosts):
-                unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
-                for _ in range(5):
-                    fping_lines = first_host.cmd(
-                        '%s %s' % (
-                            fping_prefix, ' '.join(unverified_ips).splitlines()))
+                dump_packet_counters()
+                error('verifying connectivity')
+                all_unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
+                while all_unverified_ips:
                     unverified_ips = []
-                    for fping_line in fping_lines:
-                        fping_out = fping_line.split()
-                        ip = fping_out[0]
-                        loss = fping_out[4]
-                        verified = loss.endswith('/0%,')
-                        if not verified:
-                            unverified_ips.append(ip)
-                    if not unverified_ips:
-                        break
-                    time.sleep(0.1 * len(unverified_ips))
-                if unverified_ips:
-                    error('could not verify connectivity for all hosts\n')
-                    return False
-                self.ping_all_when_learned()
+                    for _ in range(learn_pps):
+                        if not all_unverified_ips:
+                            break
+                        unverified_ips.append(all_unverified_ips.pop())
+                    error('.')
+                    for _ in range(5):
+                        fping_lines = first_host.cmd(
+                            '%s %s' % (
+                                fping_prefix, ' '.join(unverified_ips).splitlines()))
+                        unverified_ips = []
+                        for fping_line in fping_lines:
+                            fping_out = fping_line.split()
+                            ip = fping_out[0]
+                            loss = fping_out[4]
+                            verified = loss.endswith('/0%,')
+                            if not verified:
+                                unverified_ips.append(ip)
+                        if not unverified_ips:
+                            break
+                        time.sleep(0.1 * len(unverified_ips))
+                    if unverified_ips:
+                        error('could not verify connectivity for all hosts\n')
+                        return False
                 prom_hosts = self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'})
                 if prom_hosts != learn_hosts + len(self.net.hosts):
                     error('FAUCET host learned count disagree %u != %u\n' % (
                         prom_hosts, learn_hosts + len(self.net.hosts)))
                     return False
+                error('\n')
                 return True
 
             if verify_connectivity(learn_hosts):
                 learn_time = time.time() - start_time
-                packet_in_count = self.scrape_prometheus_var('of_packet_ins')
-                flow_msgs_count = self.scrape_prometheus_var('of_flowmsgs_sent')
-                error('verified %u hosts learned in %u sec (%u packet ins, %u flows sent)\n' % (
-                    learn_hosts, learn_time, packet_in_count, flow_msgs_count))
+                dump_packet_counters()
+                error('verified %u hosts learned in %u sec\n' % (
+                    learn_hosts, learn_time))
                 successful_learn_hosts = learn_hosts
                 learn_hosts *= 2
             else:
