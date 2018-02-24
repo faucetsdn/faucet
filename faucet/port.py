@@ -226,6 +226,15 @@ class Port(Conf):
             hosts.extend([entry.eth_src for entry in list(vlan.cached_hosts_on_port(self))])
         return hosts
 
+    def hosts_count(self, vlans=None):
+        """Return count of all hosts this port has learned (on all or specified VLANs)."""
+        if vlans is None:
+            vlans = self.vlans()
+        hosts_count = 0
+        for vlan in vlans:
+            hosts_count += vlan.cached_hosts_count_on_port(self)
+        return hosts_count
+
     def lldp_beacon_enabled(self):
         """Return True if LLDP beacon enabled on this port."""
         return self.lldp_beacon and self.lldp_beacon.get('enable', False)

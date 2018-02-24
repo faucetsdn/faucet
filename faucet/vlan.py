@@ -252,6 +252,13 @@ class VLAN(Conf):
             return list(self.dyn_host_cache_by_port[port.number])
         return []
 
+    def cached_hosts_count_on_port(self, port):
+        """Return count of all hosts learned on a port."""
+        hosts_count = 0
+        if port.number in self.dyn_host_cache_by_port:
+            hosts_count = len(self.dyn_host_cache_by_port[port.number])
+        return hosts_count
+
     def cached_host(self, eth_src):
         if eth_src in self.dyn_host_cache:
             return self.dyn_host_cache[eth_src]

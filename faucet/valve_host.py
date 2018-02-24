@@ -55,8 +55,7 @@ class ValveHostManager(object):
         entry = vlan.cached_host(eth_src)
         if entry is None:
             if port.max_hosts:
-                hosts = port.hosts()
-                if len(hosts) == port.max_hosts:
+                if port.hosts_count() == port.max_hosts:
                     ofmsgs.append(self._temp_ban_host_learning_on_port(port))
                     port.dyn_learn_ban_count += 1
                     self.logger.info(
