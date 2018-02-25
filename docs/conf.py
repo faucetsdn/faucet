@@ -26,7 +26,7 @@ autodoc_default_flags = ["members", "undoc-members", "show-inheritance"]
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-needs_sphinx = '1.6'
+needs_sphinx = '1.7'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -169,7 +169,6 @@ texinfo_documents = [
 def run_apidoc(_):
     """Call sphinx-apidoc on faucet module"""
     from sphinx.apidoc import main as apidoc_main
-    cur_dir = os.path.abspath(os.path.dirname(__file__))
     apidoc_main(['-e', '-o', 'source/apidoc', '../faucet'])
 
 def setup(app):
