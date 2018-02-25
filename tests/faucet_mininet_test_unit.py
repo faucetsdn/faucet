@@ -1159,15 +1159,15 @@ vlans:
             {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
             table_id=self.ETH_SRC_TABLE)
         self.assertEqual(self.MAX_HOSTS, len(flows))
-        self.assertEqual(
-            self.MAX_HOSTS,
-            len(self.scrape_prometheus_var(
-                'learned_macs',
-                {'port': self.port_map['port_2'], 'vlan': '100'},
-                multiple=True)))
         self.assertGreater(
             self.scrape_prometheus_var(
                 'port_learn_bans', {'port': self.port_map['port_2']}), 0)
+        learned_macs = [
+            mac for _, mac in self.scrape_prometheus_var(
+                'learned_macs',
+                {'port': self.port_map['port_2'], 'vlan': '100'},
+                multiple=True) if mac]
+        self.assertEqual(self.MAX_HOSTS, len(learned_macs))
 
 
 class FaucetSingleHostsTimeoutPrometheusTest(FaucetUntaggedTest):
