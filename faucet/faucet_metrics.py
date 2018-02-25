@@ -65,6 +65,10 @@ class FaucetMetrics(PromClient):
             'vlan_hosts_learned',
             'number of hosts learned on a VLAN',
             self.REQUIRED_LABELS + ['vlan'])
+        self.port_vlan_hosts_learned = self._gauge(
+            'port_vlan_hosts_learned',
+            'number of hosts learned on a port and VLAN',
+            self.REQUIRED_LABELS + ['vlan', 'port'])
         self.vlan_neighbors = self._gauge(
             'vlan_neighbors',
             'number of neighbors on a VLAN',
