@@ -1159,15 +1159,15 @@ vlans:
             {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
             table_id=self.ETH_SRC_TABLE)
         self.assertEqual(self.MAX_HOSTS, len(flows))
-        self.assertEqual(
-            self.MAX_HOSTS,
-            len(self.scrape_prometheus_var(
-                'learned_macs',
-                {'port': self.port_map['port_2'], 'vlan': '100'},
-                multiple=True)))
         self.assertGreater(
             self.scrape_prometheus_var(
                 'port_learn_bans', {'port': self.port_map['port_2']}), 0)
+        learned_macs = [
+            mac for _, mac in self.scrape_prometheus_var(
+                'learned_macs',
+                {'port': self.port_map['port_2'], 'vlan': '100'},
+                multiple=True) if mac]
+        self.assertEqual(self.MAX_HOSTS, len(learned_macs))
 
 
 class FaucetSingleHostsTimeoutPrometheusTest(FaucetUntaggedTest):
@@ -1311,7 +1311,7 @@ vlans:
         test_net = ipaddress.IPv4Network(
             u'%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
         learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
-        self.verify_learning(test_net, learn_ip, 64, 512)
+        self.verify_learning(test_net, learn_ip, 64, 1024)
 
 
 class FaucetSingleL2LearnMACsOnPortTest(FaucetUntaggedTest):
@@ -1352,7 +1352,7 @@ vlans:
         test_net = ipaddress.IPv4Network(
             u'%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
         learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
-        self.verify_learning(test_net, learn_ip, 64, 512)
+        self.verify_learning(test_net, learn_ip, 64, 2048)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):

@@ -71,6 +71,7 @@ class Valve(object):
     flood_manager = None
     _route_manager_by_ipv = None
     _last_advertise_sec = None
+    _port_highwater = {} # type: dict
 
     def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp
@@ -856,35 +857,37 @@ class Valve(object):
 
     def update_metrics(self):
         """Update Gauge/metrics."""
-        # Clear the exported MAC learning.
-        dp_id = hex(self.dp.dp_id)
-        for _, label_dict, _ in self.metrics.learned_macs.collect()[0].samples:
-            if label_dict['dp_id'] == dp_id:
-                self.metrics.learned_macs.labels(
-                    **dict(self.base_prom_labels, vlan=label_dict['vlan'],
-                           port=label_dict['port'], n=label_dict['n'])).set(0)
-
         for vlan in list(self.dp.vlans.values()):
+            vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid)
             self.metrics.vlan_hosts_learned.labels(
-                **dict(self.base_prom_labels, vlan=vlan.vid)).set(
-                    vlan.hosts_count())
+                **vlan_labels).set(vlan.hosts_count())
             self.metrics.vlan_learn_bans.labels(
-                **dict(self.base_prom_labels, vlan=vlan.vid)).set(
-                    vlan.dyn_learn_ban_count)
+                **vlan_labels).set(vlan.dyn_learn_ban_count)
             for ipv in vlan.ipvs():
-                neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 self.metrics.vlan_neighbors.labels(
-                    **dict(self.base_prom_labels, vlan=vlan.vid, ipv=ipv)).set(
-                        neigh_cache_size)
+                    **dict(vlan_labels, ipv=ipv)).set(vlan.neigh_cache_count_by_ipv(ipv))
             for port in vlan.get_ports():
+                port_labels = dict(self.base_prom_labels, port=port.number)
+                port_vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid, port=port.number)
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
                     self.metrics.learned_macs.labels(
-                        **dict(self.base_prom_labels, vlan=vlan.vid, port=port.number, n=i)).set(
-                            mac_int)
+                        **dict(port_vlan_labels, n=i)).set(mac_int)
+                if vlan.vid not in self._port_highwater:
+                    self._port_highwater[vlan.vid] = {}
+                if port.number not in self._port_highwater[vlan.vid]:
+                    self._port_highwater[vlan.vid][port.number] = 0
+                port_vlan_hosts_learned = port.hosts_count()
+                highwater = self._port_highwater[vlan.vid][port.number]
+                if highwater:
+                    for i in range(port_vlan_hosts_learned, highwater + 1):
+                        self.metrics.learned_macs.labels(
+                            **dict(port_vlan_labels, n=i)).set(0)
+                self._port_highwater[vlan.vid][port.number] = port_vlan_hosts_learned
+                self.metrics.port_vlan_hosts_learned.labels(
+                    **port_vlan_labels).set(port_vlan_hosts_learned)
                 self.metrics.port_learn_bans.labels(
-                    **dict(self.base_prom_labels, port=port.number)).set(
-                        port.dyn_learn_ban_count)
+                    **port_labels).set(port.dyn_learn_ban_count)
 
     def rcv_packet(self, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
