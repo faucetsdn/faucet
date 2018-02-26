@@ -81,7 +81,7 @@ class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
         super(GaugePortStatsPrometheusPoller, self).__init__(
             conf, logger, prom_client)
         self.prom_client.start(
-            self.conf.prometheus_port, self.conf.prometheus_addr, self.conf.use_test_thread)
+            self.conf.prometheus_port, self.conf.prometheus_addr, self.conf.prometheus_test_thread)
 
     def _format_port_stats(self, delim, stat):
         formatted_port_stats = []
