@@ -1712,11 +1712,11 @@ dbs:
         first_host.setMAC(second_host_mac)
         second_host.setMAC(first_host_mac)
 
-    def start_exabgp(self, exabgp_conf, timeout=30):
+    def start_exabgp(self, exabgp_conf, timeout=30, log_prefix=''):
         """Start exabgp process on controller host."""
-        exabgp_conf_file_name = os.path.join(self.tmpdir, 'exabgp.conf')
-        exabgp_log = os.path.join(self.tmpdir, 'exabgp.log')
-        exabgp_err = os.path.join(self.tmpdir, 'exabgp.err')
+        exabgp_conf_file_name = os.path.join(self.tmpdir, '%sexabgp.conf' % log_prefix)
+        exabgp_log = os.path.join(self.tmpdir, '%sexabgp.log' % log_prefix)
+        exabgp_err = os.path.join(self.tmpdir, '%sexabgp.err' % log_prefix)
         exabgp_env = ' '.join((
             'exabgp.daemon.user=root',
             'exabgp.log.all=true',

@@ -155,14 +155,15 @@ class FaucetBgp(object):
             for peer in deconfigured_bgp_peers:
                 valve = self._valves[peer.dp_id]
                 vlan = valve.dp.vlans[peer.vlan_vid]
-                self._bgp_speaker.neighbor_del(peer.bgp_neighbor_address)
                 self.logger.info('deconfiguring BGP peer %s' % peer.bgp_neighbor_address)
+                self._bgp_speaker.neighbor_del(peer.bgp_neighbor_address)
                 for ip_dst, _ in self._vlan_prefixes(vlan):
                     self._bgp_speaker.prefix_del(ip_dst)
 
         for peer in new_configured_bgp_peers:
             valve = valves[peer.dp_id]
             vlan = valve.dp.vlans[peer.vlan_vid]
+            self.logger.info('configuring BGP peer %s' % peer.bgp_neighbor_address)
             if not self._bgp_speaker:
                 self._bgp_speaker = BGPSpeaker(
                     as_number=0,
@@ -174,12 +175,10 @@ class FaucetBgp(object):
                 self._bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
             self._bgp_speaker.neighbor_add(
                 address=peer.bgp_neighbor_address,
-                local_as=vlan.bgp_as,
                 remote_as=vlan.bgp_neighbor_as,
                 local_address=vlan.bgp_local_address,
                 enable_ipv4=True,
                 enable_ipv6=True)
-            self.logger.info('configuring BGP peer %s' % peer.bgp_neighbor_address)
 
         self._peers = new_bgp_peers
         self._valves = valves
