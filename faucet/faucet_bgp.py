@@ -67,6 +67,12 @@ class FaucetBgp(object):
                 pass
         return []
 
+    def _bgp_up_handler(self, event):
+        self.logger.info('BGP peer %s up' % event.remote_ip)
+
+    def _bgp_down_handler(self, event):
+        self.logger.info('BGP peer %s down' % event.remote_ip)
+
     def _bgp_route_handler(self, path_change):
         """Handle a BGP change event.
 
@@ -170,7 +176,9 @@ class FaucetBgp(object):
                     router_id=vlan.bgp_routerid,
                     bgp_server_port=vlan.bgp_port,
                     bgp_server_hosts=vlan.bgp_server_addresses,
-                    best_path_change_handler=self._bgp_route_handler)
+                    best_path_change_handler=self._bgp_route_handler,
+                    peer_up_handler=self._bgp_up_handler,
+                    peer_down_handler=self._bgp_down_handler)
             for ip_dst, ip_gw in self._vlan_prefixes(vlan):
                 self._bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
             self._bgp_speaker.neighbor_add(
