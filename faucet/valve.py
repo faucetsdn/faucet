@@ -869,6 +869,7 @@ class Valve(object):
             for port in vlan.get_ports():
                 port_labels = dict(self.base_prom_labels, port=port.number)
                 port_vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid, port=port.number)
+                # TODO: make MAC table updates less expensive.
                 for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
                     mac_int = int(host.replace(':', ''), 16)
                     self.metrics.learned_macs.labels(
