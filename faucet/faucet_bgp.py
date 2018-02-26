@@ -67,6 +67,12 @@ class FaucetBgp(object):
                 pass
         return []
 
+    def _bgp_up_handler(self, remote_ip, _):
+        self.logger.info('BGP peer router ID %s up' % remote_ip)
+
+    def _bgp_down_handler(self, remote_ip, _):
+        self.logger.info('BGP peer router ID %s down' % remote_ip)
+
     def _bgp_route_handler(self, path_change):
         """Handle a BGP change event.
 
@@ -137,10 +143,10 @@ class FaucetBgp(object):
         vlan_prefixes = []
         for faucet_vip in vlan.faucet_vips:
             vlan_prefixes.append((str(faucet_vip), str(faucet_vip.ip)))
-            for ipv in vlan.ipvs():
-                routes = vlan.routes_by_ipv(ipv)
-                for ip_dst, ip_gw in list(routes.items()):
-                    vlan_prefixes.append((str(ip_dst), str(ip_gw)))
+        for ipv in vlan.ipvs():
+            routes = vlan.routes_by_ipv(ipv)
+            for ip_dst, ip_gw in list(routes.items()):
+                vlan_prefixes.append((str(ip_dst), str(ip_gw)))
         return vlan_prefixes
 
     def reset(self, valves):
@@ -155,31 +161,33 @@ class FaucetBgp(object):
             for peer in deconfigured_bgp_peers:
                 valve = self._valves[peer.dp_id]
                 vlan = valve.dp.vlans[peer.vlan_vid]
-                self._bgp_speaker.neighbor_del(peer.bgp_neighbor_address)
                 self.logger.info('deconfiguring BGP peer %s' % peer.bgp_neighbor_address)
+                self._bgp_speaker.neighbor_del(peer.bgp_neighbor_address)
                 for ip_dst, _ in self._vlan_prefixes(vlan):
                     self._bgp_speaker.prefix_del(ip_dst)
 
         for peer in new_configured_bgp_peers:
             valve = valves[peer.dp_id]
             vlan = valve.dp.vlans[peer.vlan_vid]
+            self.logger.info('configuring BGP peer %s' % peer.bgp_neighbor_address)
             if not self._bgp_speaker:
                 self._bgp_speaker = BGPSpeaker(
                     as_number=0,
                     router_id=vlan.bgp_routerid,
                     bgp_server_port=vlan.bgp_port,
                     bgp_server_hosts=vlan.bgp_server_addresses,
-                    best_path_change_handler=self._bgp_route_handler)
+                    best_path_change_handler=self._bgp_route_handler,
+                    peer_up_handler=self._bgp_up_handler,
+                    peer_down_handler=self._bgp_down_handler)
             for ip_dst, ip_gw in self._vlan_prefixes(vlan):
                 self._bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
             self._bgp_speaker.neighbor_add(
-                address=peer.bgp_neighbor_address,
                 local_as=vlan.bgp_as,
+                address=peer.bgp_neighbor_address,
                 remote_as=vlan.bgp_neighbor_as,
                 local_address=vlan.bgp_local_address,
                 enable_ipv4=True,
                 enable_ipv6=True)
-            self.logger.info('configuring BGP peer %s' % peer.bgp_neighbor_address)
 
         self._peers = new_bgp_peers
         self._valves = valves
