@@ -170,31 +170,36 @@ class FaucetBgp(object):
                         self._bgp_speaker.prefix_del(ip_dst)
                         self._prefixes.remove(ip_dst)
 
-        for peer in new_configured_bgp_peers:
-            valve = valves[peer.dp_id]
-            vlan = valve.dp.vlans[peer.vlan_vid]
-            self.logger.info('configuring BGP peer %s' % peer.bgp_neighbor_address)
-            if not self._bgp_speaker:
-                self._bgp_speaker = BGPSpeaker(
-                    as_number=0,
-                    router_id=vlan.bgp_routerid,
-                    bgp_server_port=vlan.bgp_port,
-                    bgp_server_hosts=vlan.bgp_server_addresses,
-                    best_path_change_handler=self._bgp_route_handler,
-                    peer_up_handler=self._bgp_up_handler,
-                    peer_down_handler=self._bgp_down_handler)
-            for ip_dst, ip_gw in self._vlan_prefixes(vlan):
-                if ip_dst not in self._prefixes:
-                    self._bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
-                    self._prefixes.add(ip_dst)
-            self._bgp_speaker.neighbor_add(
-                connect_mode=vlan.bgp_connect_mode,
-                local_as=vlan.bgp_as,
-                address=peer.bgp_neighbor_address,
-                remote_as=vlan.bgp_neighbor_as,
-                local_address=vlan.bgp_local_address,
-                enable_ipv4=ipaddress.ip_address(peer.bgp_neighbor_address).version == 4,
-                enable_ipv6=ipaddress.ip_address(peer.bgp_neighbor_address).version == 6)
+        # TODO: BGP speaker requires IPv4 peers to be configured first.
+        for ipv in (4, 6):
+            for peer in new_configured_bgp_peers:
+                peer_ip = ipaddress.ip_address(peer.bgp_neighbor_address)
+                if peer_ip.version != ipv:
+                    continue
+                valve = valves[peer.dp_id]
+                vlan = valve.dp.vlans[peer.vlan_vid]
+                self.logger.info('configuring BGP peer %s' % peer.bgp_neighbor_address)
+                if not self._bgp_speaker:
+                    self._bgp_speaker = BGPSpeaker(
+                        as_number=0,
+                        router_id=vlan.bgp_routerid,
+                        bgp_server_port=vlan.bgp_port,
+                        bgp_server_hosts=vlan.bgp_server_addresses,
+                        best_path_change_handler=self._bgp_route_handler,
+                        peer_up_handler=self._bgp_up_handler,
+                        peer_down_handler=self._bgp_down_handler)
+                for ip_dst, ip_gw in self._vlan_prefixes(vlan):
+                    if ip_dst not in self._prefixes:
+                        self._bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
+                        self._prefixes.add(ip_dst)
+                self._bgp_speaker.neighbor_add(
+                    connect_mode=vlan.bgp_connect_mode,
+                    local_as=vlan.bgp_as,
+                    address=peer.bgp_neighbor_address,
+                    remote_as=vlan.bgp_neighbor_as,
+                    local_address=vlan.bgp_local_address,
+                    enable_ipv4=peer_ip.version == 4,
+                    enable_ipv6=peer_ip.version == 6)
 
         self._peers = new_bgp_peers
         self._valves = valves
