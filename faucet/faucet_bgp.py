@@ -188,6 +188,7 @@ class FaucetBgp(object):
                     self._bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
                     self._prefixes.add(ip_dst)
             self._bgp_speaker.neighbor_add(
+                connect_mode=vlan.bgp_connect_mode,
                 local_as=vlan.bgp_as,
                 address=peer.bgp_neighbor_address,
                 remote_as=vlan.bgp_neighbor_as,

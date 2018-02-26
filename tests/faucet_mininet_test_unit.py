@@ -1775,6 +1775,7 @@ vlans:
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
         bgp_neighbor_as: 2
+        bgp_connect_mode: "passive"
 """
 
     CONFIG = """
@@ -1844,6 +1845,7 @@ vlans:
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
         bgp_neighbor_as: 2
+        bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: 10.99.99.0/24
@@ -1925,6 +1927,7 @@ vlans:
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
         bgp_neighbor_as: 2
+        bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: "10.0.1.0/24"
@@ -4233,6 +4236,7 @@ vlans:
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
         bgp_neighbor_as: 2
+        bgp_connect_mode: "passive"
 """
 
     CONFIG = """
@@ -4302,6 +4306,7 @@ vlans:
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
         bgp_neighbor_as: 2
+        bgp_connect_mode: "passive"
 """
 
     CONFIG = """
@@ -4356,6 +4361,7 @@ vlans:
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
         bgp_neighbor_as: 2
+        bgp_connect_mode: "passive"
 """
 
     CONFIG = """
@@ -4480,6 +4486,7 @@ vlans:
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
         bgp_neighbor_as: 2
+        bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: "fc00::10:0/112"

@@ -58,6 +58,7 @@ class VLAN(Conf):
     faucet_vips = None
     faucet_mac = None
     bgp_as = None
+    bgp_connect_mode = None
     bgp_local_address = None
     bgp_server_addresses = [] # type: list
     bgp_port = None
@@ -96,6 +97,7 @@ class VLAN(Conf):
         # set MAC for FAUCET VIPs on this VLAN
         'unicast_flood': True,
         'bgp_as': None,
+        'bgp_connect_mode': 'both',
         'bgp_local_address': None,
         'bgp_port': 9179,
         'bgp_server_addresses': ['0.0.0.0', '::'],
@@ -127,6 +129,7 @@ class VLAN(Conf):
         'faucet_mac': str,
         'unicast_flood': bool,
         'bgp_as': int,
+        'bgp_connect_mode': str,
         'bgp_local_address': str,
         'bgp_port': int,
         'bgp_server_addresses': list,
@@ -188,6 +191,7 @@ class VLAN(Conf):
 
         if self.bgp_as:
             assert self.bgp_port
+            assert self.bgp_connect_mode in ('active', 'passive', 'both')
             assert ipaddress.IPv4Address(btos(self.bgp_routerid))
             for neighbor_ip in self.bgp_neighbor_addresses:
                 assert ipaddress.ip_address(btos(neighbor_ip))
