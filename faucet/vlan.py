@@ -193,9 +193,13 @@ class VLAN(Conf):
             assert self.bgp_port
             assert self.bgp_connect_mode in ('active', 'passive', 'both')
             assert ipaddress.IPv4Address(btos(self.bgp_routerid))
-            for neighbor_ip in self.bgp_neighbor_addresses:
-                assert ipaddress.ip_address(btos(neighbor_ip))
             assert self.bgp_neighbor_as
+            assert self.bgp_neighbor_addresses
+            neighbor_ips = [ipaddress.ip_address(btos(ip)) for ip in self.bgp_neighbor_addresses]
+            assert len(neighbor_ips) == len(self.bgp_neighbor_addresses)
+            peer_versions = [ip.version for ip in neighbor_ips]
+            assert len(peer_versions) == 1 or self.bgp_connect_mode == 'active', (
+                'if using multiple address families bgp_connect_mode must be active')
 
         if self.routes:
             try:

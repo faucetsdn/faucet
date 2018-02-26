@@ -165,4 +165,5 @@ class ValvesManager(object):
             **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
         if ofmsgs:
             self.send_flows_to_dp_by_id(valve.dp.dp_id, ofmsgs)
+            # TODO: rate limit update_metrics() as it is expensive
             valve.update_metrics()
