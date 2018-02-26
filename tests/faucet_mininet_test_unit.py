@@ -4293,61 +4293,6 @@ vlans:
         self.coldstart_conf()
 
 
-class FaucetUntaggedBGPIPv46RouteTest(FaucetUntaggedTest):
-
-    CONFIG_GLOBAL = """
-vlans:
-    100:
-        description: "untagged"
-        faucet_vips: ["fc00::1:254/112"]
-        bgp_port: %(bgp_port)d
-        bgp_server_addresses: ["::1"]
-        bgp_as: 1
-        bgp_routerid: "1.1.1.1"
-        bgp_neighbor_addresses: ["::1"]
-        bgp_neighbor_as: 2
-        bgp_connect_mode: "passive"
-"""
-
-    CONFIG = """
-        arp_neighbor_timeout: 2
-        max_resolve_backoff_time: 1
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
-
-    exabgp_v6_peer_conf = """
-    static {
-      route fc00::10:1/112 next-hop fc00::1:1 local-preference 100;
-      route fc00::20:1/112 next-hop fc00::1:2 local-preference 100;
-      route fc00::30:1/112 next-hop fc00::1:2 local-preference 100;
-      route fc00::40:1/112 next-hop fc00::1:254;
-      route fc00::50:1/112 next-hop fc00::2:2;
-    }
-"""
-    exabgp_v6_log = None
-    exabgp_v6_err = None
-    config_ports = {'bgp_port': None}
-
-    def pre_start_net(self):
-        exabgp_v6_conf = self.get_exabgp_conf('::1', self.exabgp_v6_peer_conf)
-        self.exabgp_v6_log, self.exabgp_v6_err = self.start_exabgp(exabgp_v6_conf)
-
-    def test_untagged(self):
-        self.wait_bgp_up('::1', 100, self.exabgp_v6_log, self.exabgp_v6_err)
-
-
 class FaucetUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
