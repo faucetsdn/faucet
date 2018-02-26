@@ -35,6 +35,12 @@ sysctl -w net.ipv4.tcp_tw_reuse=1
 # minimize TCP connection timeout so application layer timeouts are quicker to test.
 sysctl -w net.ipv4.tcp_syn_retries=4
 
+echo "========== Building documentation =========="
+cd /faucet-src/docs
+pip3 install -r requirements.txt
+make html || exit 1
+rm -rf _build
+
 cd /faucet-src/tests
 
 if [ "$DEPCHECK" == 1 ] ; then

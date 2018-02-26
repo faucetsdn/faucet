@@ -16,3 +16,6 @@ $APK add -U git $BUILDDEPS && \
   python3 -m pytest $FROOT/tests/test_valve.py && \
   for i in $BUILDDEPS ; do $APK del $i ; done && \
   find / -name \*pyc -delete
+
+# Clean up
+rm -r "$FROOT/docs"
