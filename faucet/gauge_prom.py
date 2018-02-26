@@ -18,7 +18,7 @@
 
 import collections
 
-from prometheus_client import Gauge as PromGauge, REGISTRY # avoid collision
+from prometheus_client import Gauge, REGISTRY
 
 from faucet.gauge_pollers import GaugePortStatsPoller, GaugePortStatePoller, GaugeFlowTablePoller
 from faucet.prom_client import PromClient
@@ -53,14 +53,14 @@ class GaugePrometheusClient(PromClient):
 
     def __init__(self):
         super(GaugePrometheusClient, self).__init__()
-        self.dp_status = PromGauge(
+        self.dp_status = Gauge(
             'dp_status',
             'status of datapaths',
             self.REQUIRED_LABELS)
         for prom_var in PROM_PORT_VARS + PROM_PORT_STATE_VARS:
             exported_prom_var = PROM_PREFIX_DELIM.join(
                 (PROM_PORT_PREFIX, prom_var))
-            self.metrics[exported_prom_var] = PromGauge(
+            self.metrics[exported_prom_var] = Gauge(
                 exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'])
 
     def reregister_flow_vars(self, table_name, table_tags):
@@ -70,7 +70,7 @@ class GaugePrometheusClient(PromClient):
                 REGISTRY.unregister(self.metrics[table_prom_var])
             except KeyError:
                 pass
-            self.metrics[table_prom_var] = PromGauge(
+            self.metrics[table_prom_var] = Gauge(
                 table_prom_var, '', list(table_tags))
 
 
