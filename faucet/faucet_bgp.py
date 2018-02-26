@@ -67,11 +67,11 @@ class FaucetBgp(object):
                 pass
         return []
 
-    def _bgp_up_handler(self, event):
-        self.logger.info('BGP peer %s up' % event.remote_ip)
+    def _bgp_up_handler(self, remote_ip, _):
+        self.logger.info('BGP peer router ID %s up' % remote_ip)
 
-    def _bgp_down_handler(self, event):
-        self.logger.info('BGP peer %s down' % event.remote_ip)
+    def _bgp_down_handler(self, remote_ip, _):
+        self.logger.info('BGP peer router ID %s down' % remote_ip)
 
     def _bgp_route_handler(self, path_change):
         """Handle a BGP change event.
