@@ -4290,7 +4290,8 @@ vlans:
             second_host, first_host_alias_host_ip, self.FAUCET_VIPV6.ip)
         self.one_ipv6_ping(second_host, first_host_alias_ip.ip)
         self.one_ipv6_controller_ping(first_host)
-        self.coldstart_conf()
+        # TODO: re-enable when https://github.com/faucetsdn/faucet/issues/1706 fixed
+        # self.coldstart_conf()
 
 
 class FaucetUntaggedBGPIPv6RouteTest(FaucetUntaggedTest):
