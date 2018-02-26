@@ -137,10 +137,10 @@ class FaucetBgp(object):
         vlan_prefixes = []
         for faucet_vip in vlan.faucet_vips:
             vlan_prefixes.append((str(faucet_vip), str(faucet_vip.ip)))
-            for ipv in vlan.ipvs():
-                routes = vlan.routes_by_ipv(ipv)
-                for ip_dst, ip_gw in list(routes.items()):
-                    vlan_prefixes.append((str(ip_dst), str(ip_gw)))
+        for ipv in vlan.ipvs():
+            routes = vlan.routes_by_ipv(ipv)
+            for ip_dst, ip_gw in list(routes.items()):
+                vlan_prefixes.append((str(ip_dst), str(ip_gw)))
         return vlan_prefixes
 
     def reset(self, valves):
