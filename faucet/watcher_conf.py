@@ -108,6 +108,7 @@ For Prometheus:
         # prometheus config
         'prometheus_port': 9303,
         'prometheus_addr': '127.0.0.1',
+        'prometheus_test_thread': False,
     }
 
     defaults_types = {
@@ -130,6 +131,7 @@ For Prometheus:
         'influx_retries': int,
         'prometheus_port': int,
         'prometheus_addr': str,
+        'prometheus_test_thread': bool,
     }
 
     def __init__(self, _id, dp_id, conf, prom_client):

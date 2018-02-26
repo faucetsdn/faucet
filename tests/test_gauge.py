@@ -258,7 +258,8 @@ class GaugePrometheusTests(unittest.TestCase):
                          type='',
                          interval=1,
                          prometheus_port=9303,
-                         prometheus_addr='localhost'
+                         prometheus_addr='localhost',
+                         use_test_thread=True
                         )
 
         prom_poller = gauge_prom.GaugePortStatsPrometheusPoller(conf, '__name__', self.prom_client)
@@ -288,7 +289,8 @@ class GaugePrometheusTests(unittest.TestCase):
                          type='',
                          interval=1,
                          prometheus_port=9303,
-                         prometheus_addr='localhost'
+                         prometheus_addr='localhost',
+                         use_test_thread=True
                         )
 
         prom_poller = gauge_prom.GaugePortStatePrometheusPoller(conf, '__name__', self.prom_client)
