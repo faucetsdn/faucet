@@ -18,7 +18,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from prometheus_client import Counter, Gauge, Histogram
+from prometheus_client import Gauge as PromGauge
+from prometheus_client import Counter, Histogram
 
 from faucet.prom_client import PromClient
 
@@ -119,7 +120,7 @@ class FaucetMetrics(PromClient):
         return Counter(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
 
     def _gauge(self, var, var_help, labels):
-        return Gauge(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
+        return PromGauge(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
 
     def _histogram(self, var, var_help, labels, buckets):
         return Histogram(var, var_help, labels, buckets=buckets, registry=self._reg) # pylint: disable=unexpected-keyword-arg
