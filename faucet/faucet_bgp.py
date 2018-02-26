@@ -57,6 +57,7 @@ class FaucetBgp(object):
         self._bgp_speaker = None
         self._valves = None
         self._peers = {}
+        self._prefixes = set()
 
     def _neighbor_states(self):
         if self._bgp_speaker:
@@ -108,7 +109,6 @@ class FaucetBgp(object):
                 nexthop, prefix)
             return
 
-        valve = self._valves[vlan.dp_id]
         flowmods = []
         if path_change.is_withdraw:
             self.logger.info(
@@ -153,6 +153,8 @@ class FaucetBgp(object):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: BGP speaker library does not cleanly handle del/add of same BGP peer address
+        # TODO: BGP speaker can listen only on one address family at once.
+        # TODO: BGP speaker apparently does not support MP-BGP
         new_bgp_peers = self._bgp_peers(valves)
         deconfigured_bgp_peers = set(self._peers.values()) - set(new_bgp_peers.values())
         new_configured_bgp_peers = set(new_bgp_peers.values()) - set(self._peers.values())
@@ -164,7 +166,9 @@ class FaucetBgp(object):
                 self.logger.info('deconfiguring BGP peer %s' % peer.bgp_neighbor_address)
                 self._bgp_speaker.neighbor_del(peer.bgp_neighbor_address)
                 for ip_dst, _ in self._vlan_prefixes(vlan):
-                    self._bgp_speaker.prefix_del(ip_dst)
+                    if ip_dst in self._prefixes:
+                        self._bgp_speaker.prefix_del(ip_dst)
+                        self._prefixes.remove(ip_dst)
 
         for peer in new_configured_bgp_peers:
             valve = valves[peer.dp_id]
@@ -180,14 +184,17 @@ class FaucetBgp(object):
                     peer_up_handler=self._bgp_up_handler,
                     peer_down_handler=self._bgp_down_handler)
             for ip_dst, ip_gw in self._vlan_prefixes(vlan):
-                self._bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
+                if ip_dst not in self._prefixes:
+                    self._bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
+                    self._prefixes.add(ip_dst)
             self._bgp_speaker.neighbor_add(
+                connect_mode=vlan.bgp_connect_mode,
                 local_as=vlan.bgp_as,
                 address=peer.bgp_neighbor_address,
                 remote_as=vlan.bgp_neighbor_as,
                 local_address=vlan.bgp_local_address,
-                enable_ipv4=True,
-                enable_ipv6=True)
+                enable_ipv4=ipaddress.ip_address(peer.bgp_neighbor_address).version == 4,
+                enable_ipv6=ipaddress.ip_address(peer.bgp_neighbor_address).version == 6)
 
         self._peers = new_bgp_peers
         self._valves = valves

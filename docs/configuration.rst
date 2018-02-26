@@ -454,6 +454,10 @@ or a name. The following attributes can be configured:
       - integer
       - 0
       - The local AS number to used when speaking BGP
+    * - bgp_connect_mode
+      - string
+      - "both"
+      - Whether to try to connect to natives ("active"), listen only ("passive"), or "both".
     * - bgp_local_address
       - string (IP Address)
       - None
