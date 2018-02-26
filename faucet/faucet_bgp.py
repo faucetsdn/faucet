@@ -153,6 +153,8 @@ class FaucetBgp(object):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: BGP speaker library does not cleanly handle del/add of same BGP peer address
+        # TODO: BGP speaker can listen only on one address family at once.
+        # TODO: BGP speaker apparently does not support MP-BGP
         new_bgp_peers = self._bgp_peers(valves)
         deconfigured_bgp_peers = set(self._peers.values()) - set(new_bgp_peers.values())
         new_configured_bgp_peers = set(new_bgp_peers.values()) - set(self._peers.values())
@@ -186,8 +188,8 @@ class FaucetBgp(object):
                 address=peer.bgp_neighbor_address,
                 remote_as=vlan.bgp_neighbor_as,
                 local_address=vlan.bgp_local_address,
-                enable_ipv4=True,
-                enable_ipv6=True)
+                enable_ipv4=ipaddress.ip_address(peer.bgp_neighbor_address).version == 4,
+                enable_ipv6=ipaddress.ip_address(peer.bgp_neighbor_address).version == 6)
 
         self._peers = new_bgp_peers
         self._valves = valves
