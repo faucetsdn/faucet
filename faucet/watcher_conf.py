@@ -108,6 +108,7 @@ For Prometheus:
         # prometheus config
         'prometheus_port': 9303,
         'prometheus_addr': '127.0.0.1',
+        'use_test_thread': False,
     }
 
     defaults_types = {

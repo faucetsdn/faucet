@@ -18,16 +18,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from urllib.parse import parse_qs
+
+from ryu.lib import hub
 from pbr.version import VersionInfo
-from prometheus_client import start_http_server, Gauge, REGISTRY
+from prometheus_client import core, generate_latest, start_http_server, Gauge, CONTENT_TYPE_LATEST, REGISTRY
+
+
+# Ryu's WSGI implementation doesn't always set QUERY_STRING
+def make_wsgi_app(registry=core.REGISTRY):
+    """Create a WSGI app which serves the metrics from a registry."""
+    def prometheus_app(environ, start_response):
+        query_str = environ.get('QUERY_STRING', '')
+        params = parse_qs(query_str)
+        reg = registry
+        if 'name[]' in params:
+            reg = reg.restricted_registry(params['name[]'])
+        output = generate_latest(reg)
+
+        status = str('200 OK')
+        headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
+        start_response(status, headers)
+        return [output]
+    return prometheus_app
 
 
 class PromClient(object): # pylint: disable=too-few-public-methods
     """Prometheus client."""
 
     REQUIRED_LABELS = ['dp_id', 'dp_name']
-    running = False
     _reg = REGISTRY
+    server = None
 
     def __init__(self, reg=None):
         if reg is not None:
@@ -41,8 +62,12 @@ class PromClient(object): # pylint: disable=too-few-public-methods
             registry=self._reg)
         self.faucet_version.labels(version=version).set(1) # pylint: disable=no-member
 
-    def start(self, prom_port, prom_addr):
-        """Start webserver if not already running."""
-        if not self.running:
-            start_http_server(int(prom_port), prom_addr)
-            self.running = True
+    def start(self, prom_port, prom_addr, use_test_thread=False):
+        """Start webserver."""
+        if not self.server:
+            if use_test_thread:
+                start_http_server(int(prom_port), prom_addr)
+            else:
+                app = make_wsgi_app()
+                self.server = hub.WSGIServer((prom_addr, int(prom_port)), app)
+                hub.spawn(self.server.serve_forever)

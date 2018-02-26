@@ -68,7 +68,7 @@ DEFAULTS = {
     'FAUCET_EVENT_SOCK': '',  # Special-case, see get_setting().
     'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/faucet_exception.log',
     'FAUCET_PROMETHEUS_PORT': '9302',
-    'FAUCET_PROMETHEUS_ADDR': '',
+    'FAUCET_PROMETHEUS_ADDR': '0.0.0.0',
     'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/ryu/faucet',
     'GAUGE_CONFIG': _PREFIX + '/etc/ryu/faucet/gauge.yaml',
     'GAUGE_CONFIG_STAT_RELOAD': False,
