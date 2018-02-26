@@ -163,6 +163,4 @@ class ValvesManager(object):
         packet_in_stop = time.time()
         self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
             **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
-        if ofmsgs:
-            self.send_flows_to_dp_by_id(valve.dp.dp_id, ofmsgs)
-            valve.update_metrics()
+        self.send_flows_to_dp_by_id(valve.dp.dp_id, ofmsgs)
