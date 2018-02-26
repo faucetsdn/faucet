@@ -22,7 +22,8 @@ from urllib.parse import parse_qs
 
 from ryu.lib import hub
 from pbr.version import VersionInfo
-from prometheus_client import core, generate_latest, start_http_server, Gauge, CONTENT_TYPE_LATEST, REGISTRY
+from prometheus_client import Gauge as PromGauge
+from prometheus_client import core, generate_latest, start_http_server, CONTENT_TYPE_LATEST, REGISTRY
 
 
 # Ryu's WSGI implementation doesn't always set QUERY_STRING
@@ -55,7 +56,7 @@ class PromClient(object): # pylint: disable=too-few-public-methods
             self._reg = reg
         # TODO: investigate faster alternative (https://bugs.launchpad.net/pbr/+bug/1688405)
         version = VersionInfo('faucet').semantic_version().release_string()
-        self.faucet_version = Gauge( # pylint: disable=unexpected-keyword-arg
+        self.faucet_version = PromGauge( # pylint: disable=unexpected-keyword-arg
             'faucet_pbr_version',
             'Faucet PBR version',
             ['version'],
