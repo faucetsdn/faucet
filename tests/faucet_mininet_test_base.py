@@ -1206,10 +1206,22 @@ dbs:
                     if unverified_ips:
                         error('could not verify connectivity for all hosts\n')
                         return False
-                prom_hosts = self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'})
-                if prom_hosts != learn_hosts + len(self.net.hosts):
+
+                mininet_hosts = len(self.net.hosts)
+                target_hosts = learn_hosts + mininet_hosts
+                vlan_hosts_learned = self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'})
+                port_vlan_hosts_learned = 0
+                for port in range(1, mininet_hosts + 1):
+                    port_vlan_hosts_learned += self.scrape_prometheus_var(
+                        'port_vlan_hosts_learned',
+                        {'vlan': '100', 'port': self.port_map['port_%u' % port]})
+                self.assertEqual(
+                    port_vlan_hosts_learned,
+                    vlan_hosts_learned,
+                    msg='port hosts learned != VLAN hosts learned')
+                if vlan_hosts_learned != target_hosts:
                     error('FAUCET host learned count disagree %u != %u\n' % (
-                        prom_hosts, learn_hosts + len(self.net.hosts)))
+                        vlan_hosts_learned, target_hosts))
                     return False
                 error('\n')
                 return True
