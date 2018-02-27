@@ -1984,16 +1984,23 @@ dbs:
         first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
         second_host_routed_ip = ipaddress.ip_interface(u'10.0.2.1/24')
         second_host_routed_ip2 = ipaddress.ip_interface(u'10.0.3.1/24')
-        for _ in range(2):
-            self.verify_ipv4_routing(
-                first_host, first_host_routed_ip,
-                second_host, second_host_routed_ip,
-                with_group_table=with_group_table)
-            self.verify_ipv4_routing(
-                first_host, first_host_routed_ip,
-                second_host, second_host_routed_ip2,
-                with_group_table=with_group_table)
-            self.swap_host_macs(first_host, second_host)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip,
+            with_group_table=with_group_table)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2,
+            with_group_table=with_group_table)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip,
+            with_group_table=with_group_table)
+        self.verify_ipv4_routing(
+            first_host, first_host_routed_ip,
+            second_host, second_host_routed_ip2,
+            with_group_table=with_group_table)
 
     def host_drop_all_ips(self, host):
         for ipv in (4, 6):
@@ -2072,16 +2079,23 @@ dbs:
         first_host_routed_ip = ipaddress.ip_interface(u'fc00::10:1/112')
         second_host_routed_ip = ipaddress.ip_interface(u'fc00::20:1/112')
         second_host_routed_ip2 = ipaddress.ip_interface(u'fc00::30:1/112')
-        for _ in range(2):
-            self.verify_ipv6_routing_pair(
-                first_host, first_host_ip, first_host_routed_ip,
-                second_host, second_host_ip, second_host_routed_ip,
-                with_group_table=with_group_table)
-            self.verify_ipv6_routing_pair(
-                first_host, first_host_ip, first_host_routed_ip,
-                second_host, second_host_ip, second_host_routed_ip2,
-                with_group_table=with_group_table)
-            self.swap_host_macs(first_host, second_host)
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip,
+            with_group_table=with_group_table)
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2,
+            with_group_table=with_group_table)
+        self.swap_host_macs(first_host, second_host)
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip,
+            with_group_table=with_group_table)
+        self.verify_ipv6_routing_pair(
+            first_host, first_host_ip, first_host_routed_ip,
+            second_host, second_host_ip, second_host_routed_ip2,
+            with_group_table=with_group_table)
 
     def verify_invalid_bgp_route(self, pattern):
         """Check if we see the pattern in Faucet's log."""
