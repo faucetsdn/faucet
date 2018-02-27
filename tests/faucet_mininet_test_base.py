@@ -1130,6 +1130,27 @@ dbs:
             not re.search(r'\s+0 ICMP Echo Replies received', fping_out),
             msg=fping_out)
 
+    def verify_learn_counters(self, vlan, ports, verify_neighbors=False):
+        vlan_hosts_learned = self.scrape_prometheus_var(
+            'vlan_hosts_learned',
+            {'vlan': str(vlan)})
+        port_vlan_hosts_learned = 0
+        prom_macs_learned = 0
+        for port in ports:
+            port_no = self.port_map['port_%u' % port]
+            port_vlan_hosts_learned += self.scrape_prometheus_var(
+                'port_vlan_hosts_learned', {'vlan': str(vlan), 'port': int(port_no)})
+            prom_macs_learned += len(self.prom_macs_learned(
+                vlan=vlan, port=port_no))
+        self.assertEqual(vlan_hosts_learned, port_vlan_hosts_learned)
+        self.assertEqual(vlan_hosts_learned, prom_macs_learned)
+        if verify_neighbors:
+            vlan_neighbors = self.scrape_prometheus_var(
+                'vlan_neighbors',
+                {'vlan': str(vlan)})
+            self.assertEqual(vlan_hosts_learned, vlan_neighbors)
+        return vlan_hosts_learned
+
     def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=20):
         test_ipas = []
         for ipa in sorted(test_net.hosts()):
@@ -1209,16 +1230,8 @@ dbs:
 
                 mininet_hosts = len(self.net.hosts)
                 target_hosts = learn_hosts + mininet_hosts
-                vlan_hosts_learned = self.scrape_prometheus_var('vlan_hosts_learned', {'vlan': '100'})
-                port_vlan_hosts_learned = 0
-                for port in range(1, mininet_hosts + 1):
-                    port_vlan_hosts_learned += self.scrape_prometheus_var(
-                        'port_vlan_hosts_learned',
-                        {'vlan': '100', 'port': self.port_map['port_%u' % port]})
-                self.assertEqual(
-                    port_vlan_hosts_learned,
-                    vlan_hosts_learned,
-                    msg='port hosts learned != VLAN hosts learned')
+                vlan_hosts_learned = self.verify_learn_counters(
+                    100, list(range(1, mininet_hosts + 1)))
                 if vlan_hosts_learned != target_hosts:
                     error('FAUCET host learned count disagree %u != %u\n' % (
                         vlan_hosts_learned, target_hosts))
