@@ -23,7 +23,7 @@ build_tag()
     tag=$1
     branch=$2
     latesttag=$3
-    images="faucet-base-pi faucet-python3-pi faucet-pi gauge-pi"
+    images="faucet-base-pi faucet-python3-pi faucet-pi gauge-pi faucet-event-adapter-rabbitmq-pi"
     echo "building tag $tag (branch $branch), latest repo tag $latesttag"
     git checkout -q $branch && \
     cd docker/base && \
@@ -33,6 +33,7 @@ build_tag()
     cd ../../ && \
     $DOCKER build -t $DOCKER_ID_USER/faucet-pi:$tag -f Dockerfile.pi . && \
     $DOCKER build -t $DOCKER_ID_USER/gauge-pi:$tag -f Dockerfile.pi-gauge . && \
+    $DOCKER build -t $DOCKER_ID_USER/faucet-event-adapter-rabbitmq-pi:$tag -f adapters/vendors/rabbitmq/Dockerfile.pi adapters/vendors/rabbitmq/ && \
     for image in $images ; do $DOCKER push $DOCKER_ID_USER/$image:$tag || exit 1 ; done
 
     if [ "$tag" == "$latesttag" ] ; then
