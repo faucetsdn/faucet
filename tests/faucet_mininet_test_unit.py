@@ -1265,6 +1265,8 @@ vlans:
         # make sure they all eventually expire
         for _ in range(self.TIMEOUT * 2):
             learned_macs = self.hosts_learned(all_learned_mac_ports)
+            self.verify_learn_counters(
+                100, list(range(1, len(self.net.hosts) + 1)))
             if not learned_macs:
                 return
             time.sleep(1)

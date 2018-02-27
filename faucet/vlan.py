@@ -29,19 +29,18 @@ FAUCET_MAC = '0e:00:00:00:00:01'
 
 
 class HostCacheEntry(object):
+    """Association of a host with a port."""
 
     def __init__(self, eth_src, port, cache_time):
         self.eth_src = eth_src
         self.port = port
         self.cache_time = cache_time
 
-    def __eq__(self, other):
-        if type(other) is type(self):
-            return self.__dict__ == other.__dict__
-        return False
-
     def __hash__(self):
-        return hash(tuple(sorted(self.__dict__.items())))
+        return hash((self.eth_src, self.port.number))
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
 
 
 class VLAN(Conf):
@@ -242,11 +241,15 @@ class VLAN(Conf):
         self.untagged = [port for port in ports if self == port.native_vlan]
 
     def add_cache_host(self, eth_src, port, cache_time):
-        self.dyn_host_cache[eth_src] = HostCacheEntry(
-            eth_src, port, cache_time)
+        existing_entry = self.cached_host(eth_src)
+        if existing_entry is not None:
+            self.dyn_host_cache_by_port[existing_entry.port.number].remove(
+                existing_entry)
+        entry = HostCacheEntry(eth_src, port, cache_time)
         if port.number not in self.dyn_host_cache_by_port:
             self.dyn_host_cache_by_port[port.number] = set()
-        self.dyn_host_cache_by_port[port.number].add(self.dyn_host_cache[eth_src])
+        self.dyn_host_cache_by_port[port.number].add(entry)
+        self.dyn_host_cache[eth_src] = entry
 
     def expire_cache_host(self, eth_src):
         entry = self.cached_host(eth_src)

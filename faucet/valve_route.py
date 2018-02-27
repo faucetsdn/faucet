@@ -89,6 +89,10 @@ class ValveRouteManager(object):
             return nexthop_cache[ip_gw]
         return None
 
+    def _del_vlan_nexthop_cache_entry(self, vlan, ip_gw):
+        nexthop_cache = self._vlan_nexthop_cache(vlan)
+        del nexthop_cache[ip_gw]
+
     def _group_id_from_ip_gw(self, vlan, resolved_ip_gw):
         return self.groups.group_id_from_str(
             ''.join((str(vlan), str(resolved_ip_gw))))
@@ -349,6 +353,7 @@ class ValveRouteManager(object):
                         ip_gw,
                         now - nexthop_cache_entry.cache_time,
                         vlan.vid))
+                self._del_vlan_nexthop_cache_entry(vlan, ip_gw)
                 ofmsgs.extend(self._del_host_fib_route(
                     vlan, ipaddress.ip_network(ip_gw.exploded)))
             else:
