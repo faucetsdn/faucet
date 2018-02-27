@@ -73,6 +73,7 @@ DEFAULTS = {
     'GAUGE_CONFIG': _PREFIX + '/etc/ryu/faucet/gauge.yaml',
     'GAUGE_CONFIG_STAT_RELOAD': False,
     'GAUGE_LOG_LEVEL': 'INFO',
+    'GAUGE_PROMETHEUS_ADDR': '0.0.0.0',
     'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/gauge_exception.log',
     'GAUGE_LOG': _PREFIX + '/var/log/ryu/faucet/gauge.log',
 }
