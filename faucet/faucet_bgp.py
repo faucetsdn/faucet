@@ -172,7 +172,7 @@ class FaucetBgp(object):
         for dp_id, bgp_speakers in list(self._dp_bgp_speakers.items()):
             valve = self._valves[dp_id]
             for vlan_vid, bgp_speaker in list(bgp_speakers.items()):
-                vlan = valve.dps.vlans[vlan_vid]
+                vlan = valve.dp.vlans[vlan_vid]
                 neighbor_states = self._neighbor_states(bgp_speaker)
                 for neighbor, neighbor_state in neighbor_states:
                     neighbor_labels = dict(
