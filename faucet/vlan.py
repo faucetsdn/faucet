@@ -312,6 +312,10 @@ class VLAN(Conf):
         """Return route table for specified IP version on this VLAN."""
         return self.dyn_routes_by_ipv[ipv]
 
+    def route_count_by_ipv(self, ipv):
+        """Return route table count for specified IP version on this VLAN."""
+        return len(self.dyn_routes_by_ipv[ipv])
+
     def add_route(self, ip_dst, ip_gw):
         """Add an IP route."""
         self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw

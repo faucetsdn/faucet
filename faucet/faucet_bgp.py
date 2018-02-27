@@ -53,20 +53,24 @@ class FaucetBgp(object):
     def _bgp_down_handler(self, remote_ip, remote_as):
         self.logger.info('BGP peer router ID %s AS %s down' % (remote_ip, remote_as))
 
-    def _bgp_route_handler(self, path_change, vlan):
+    def _bgp_route_handler(self, path_change, dp_id, vlan_vid):
         """Handle a BGP change event.
 
         Args:
             path_change (ryu.services.protocols.bgp.bgpspeaker.EventPrefix): path change
-            vlan (vlan): Valve VLAN this path change was received for.
+            dp_id (int): Datapath ID this path change was received for.
+            vlan_vid (vlan_vid): VLAN VID this path change was received for.
         """
+        if not self._valves or dp_id not in self._valves:
+            return
+        valve = self._valves[dp_id]
+        if not vlan_vid in valve.dp.vlans:
+            return
+
+        vlan = valve.dp.vlans[vlan_vid]
         prefix = ipaddress.ip_network(btos(path_change.prefix))
         nexthop = ipaddress.ip_address(btos(path_change.nexthop))
-        withdraw = path_change.is_withdraw
-        flowmods = []
-        if not self._valves or vlan.dp_id not in self._valves:
-            return
-        valve = self._valves[vlan.dp_id]
+
         if vlan.is_faucet_vip(nexthop):
             self.logger.error(
                 'BGP nexthop %s for prefix %s cannot be us',
@@ -78,7 +82,8 @@ class FaucetBgp(object):
                 nexthop, prefix)
             return
 
-        if withdraw:
+        flowmods = []
+        if path_change.is_withdraw:
             self.logger.info(
                 'BGP withdraw %s nexthop %s', prefix, nexthop)
             flowmods = valve.del_route(vlan, prefix)
@@ -97,7 +102,9 @@ class FaucetBgp(object):
         Returns:
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
-        handler = lambda x: self._bgp_route_handler(x, vlan)
+        dp_id = vlan.dp_id
+        vlan_vid = vlan.vid
+        handler = lambda x: self._bgp_route_handler(x, dp_id, vlan_vid)
         bgp_speaker = BGPSpeaker(
             as_number=vlan.bgp_as,
             router_id=vlan.bgp_routerid,
@@ -144,11 +151,12 @@ class FaucetBgp(object):
             for vlan, bgp_speaker in list(bgp_speakers.items()):
                 neighbor_states = self._neighbor_states(bgp_speaker)
                 for neighbor, neighbor_state in neighbor_states:
-                    base_labels = self._valves[dp_id].base_prom_labels
+                    neighbor_labels = dict(
+                        self._valves[dp_id].base_prom_labels,
+                        vlan=vlan.vid,
+                        neighbor=neighbor)
                     self.metrics.bgp_neighbor_uptime_seconds.labels( # pylint: disable=no-member
-                        **dict(base_labels, vlan=vlan.vid, neighbor=neighbor)).set(
-                            neighbor_state['info']['uptime'])
+                        **neighbor_labels).set(neighbor_state['info']['uptime'])
                     for ipv in vlan.ipvs():
                         self.metrics.bgp_neighbor_routes.labels( # pylint: disable=no-member
-                            **dict(base_labels, vlan=vlan.vid, neighbor=neighbor, ipv=ipv)).set(
-                                len(vlan.routes_by_ipv(ipv)))
+                            **dict(neighbor_labels, ipv=ipv)).set(vlan.route_count_by_ipv(ipv))
