@@ -857,6 +857,9 @@ dbs:
     def get_host_intf_mac(self, host, intf):
         return host.cmd('cat /sys/class/net/%s/address' % intf).strip()
 
+    def get_netns_list(self, host):
+        return host.cmd('ip netns list | grep %s' % host.name).strip()
+
     def host_ip(self, host, family, family_re):
         host_ip_cmd = (
             r'ip -o -f %s addr show %s|'
