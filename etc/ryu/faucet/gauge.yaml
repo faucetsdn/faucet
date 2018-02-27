@@ -22,7 +22,7 @@ watchers:
 dbs:
     prometheus:
         type: 'prometheus'
-        prometheus_addr: ''
+        prometheus_addr: '0.0.0.0'
         prometheus_port: 9303
     ft_file:
         type: 'text'
