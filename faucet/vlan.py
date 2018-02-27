@@ -241,6 +241,10 @@ class VLAN(Conf):
         self.untagged = [port for port in ports if self == port.native_vlan]
 
     def add_cache_host(self, eth_src, port, cache_time):
+        existing_entry = self.cached_host(eth_src)
+        if existing_entry is not None:
+            self.dyn_host_cache_by_port[existing_entry.port.number].remove(
+                existing_entry)
         entry = HostCacheEntry(eth_src, port, cache_time)
         if port.number not in self.dyn_host_cache_by_port:
             self.dyn_host_cache_by_port[port.number] = set()
