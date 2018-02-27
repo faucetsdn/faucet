@@ -1993,8 +1993,6 @@ dbs:
                 first_host, first_host_routed_ip,
                 second_host, second_host_routed_ip2,
                 with_group_table=with_group_table)
-            self.verify_learn_counters(
-                100, list(range(1, len(self.net.hosts) + 1)))
             self.swap_host_macs(first_host, second_host)
 
     def host_drop_all_ips(self, host):
@@ -2083,8 +2081,6 @@ dbs:
                 first_host, first_host_ip, first_host_routed_ip,
                 second_host, second_host_ip, second_host_routed_ip2,
                 with_group_table=with_group_table)
-            self.verify_learn_counters(
-                100, list(range(1, len(self.net.hosts) + 1)))
             self.swap_host_macs(first_host, second_host)
 
     def verify_invalid_bgp_route(self, pattern):
