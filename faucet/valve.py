@@ -866,11 +866,16 @@ class Valve(object):
             for ipv in vlan.ipvs():
                 self.metrics.vlan_neighbors.labels(
                     **dict(vlan_labels, ipv=ipv)).set(vlan.neigh_cache_count_by_ipv(ipv))
+            total_port_vlan_hosts_count = 0
             for port in vlan.get_ports():
                 port_labels = dict(self.base_prom_labels, port=port.number)
                 port_vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid, port=port.number)
+                port_vlan_hosts_learned = port.hosts_count(vlans=[vlan])
+                port_vlan_hosts = port.hosts(vlans=[vlan])
+                assert port_vlan_hosts_learned == len(port_vlan_hosts)
+                total_port_vlan_hosts_count += port_vlan_hosts_learned
                 # TODO: make MAC table updates less expensive.
-                for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
+                for i, host in enumerate(sorted(port_vlan_hosts)):
                     mac_int = int(host.replace(':', ''), 16)
                     self.metrics.learned_macs.labels(
                         **dict(port_vlan_labels, n=i)).set(mac_int)
@@ -878,7 +883,6 @@ class Valve(object):
                     self._port_highwater[vlan.vid] = {}
                 if port.number not in self._port_highwater[vlan.vid]:
                     self._port_highwater[vlan.vid][port.number] = 0
-                port_vlan_hosts_learned = port.hosts_count()
                 highwater = self._port_highwater[vlan.vid][port.number]
                 if highwater:
                     for i in range(port_vlan_hosts_learned, highwater + 1):
@@ -889,6 +893,7 @@ class Valve(object):
                     **port_vlan_labels).set(port_vlan_hosts_learned)
                 self.metrics.port_learn_bans.labels(
                     **port_labels).set(port.dyn_learn_ban_count)
+            assert total_port_vlan_hosts_count == vlan.hosts_count()
 
     def rcv_packet(self, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
