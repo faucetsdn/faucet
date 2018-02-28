@@ -5,6 +5,8 @@ groups:
   # Convert OF stats to rates
   - record: instance_dpid:of_packet_ins:rate1m
     expr: rate(of_packet_ins[1m])
+  - record: instance_dpid:ignored_packet_ins:rate1m
+    expr: rate(of_ignored_packet_ins[1m])
   - record: instance_dpid:of_flowmsgs_sent:rate1m
     expr: rate(of_flowmsgs_sent[1m])
 
