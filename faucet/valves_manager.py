@@ -166,4 +166,4 @@ class ValvesManager(object):
         if ofmsgs:
             self.send_flows_to_dp_by_id(valve.dp.dp_id, ofmsgs)
             # TODO: rate limit update_metrics() as it is expensive
-            valve.update_metrics()
+            valve.update_metrics(pkt_meta.port)
