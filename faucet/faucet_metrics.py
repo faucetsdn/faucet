@@ -72,7 +72,7 @@ class FaucetMetrics(PromClient):
             self.REQUIRED_LABELS + ['vlan', 'port'])
         self.vlan_neighbors = self._gauge(
             'vlan_neighbors',
-            'number of neighbors on a VLAN',
+            'number of L3 neighbors on a VLAN (whether resolved to L2 addresses, or not)',
             self.REQUIRED_LABELS + ['vlan', 'ipv'])
         self.vlan_learn_bans = self._gauge(
             'vlan_learn_bans',
