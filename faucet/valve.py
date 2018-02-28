@@ -314,11 +314,11 @@ class Valve(object):
         """Handle OF DP description."""
         self.metrics.of_dp_desc_stats.labels( # pylint: disable=no-member
             **dict(self.base_prom_labels,
-                   mfr_desc=body.mfr_desc,
-                   hw_desc=body.hw_desc,
-                   sw_desc=body.sw_desc,
-                   serial_num=body.serial_num,
-                   dp_desc=body.dp_desc)).set(self.dp.dp_id)
+                   mfr_desc=body.mfr_desc.decode(),
+                   hw_desc=body.hw_desc.decode(),
+                   sw_desc=body.sw_desc.decode(),
+                   serial_num=body.serial_num.decode(),
+                   dp_desc=body.dp_desc.decode())).set(self.dp.dp_id)
 
     def port_status_handler(self, port_no, reason, port_status):
         """Return OpenFlow messages responding to port operational status change."""
