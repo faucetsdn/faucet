@@ -855,9 +855,15 @@ class Valve(object):
             self.metrics.faucet_config_table_names.labels(
                 **dict(self.base_prom_labels, table_name=table.name)).set(table_id)
 
-    def update_metrics(self):
+    def update_metrics(self, updated_port=None):
         """Update Gauge/metrics."""
         for vlan in list(self.dp.vlans.values()):
+            vlan_ports = vlan.get_ports()
+            if updated_port:
+                if updated_port in vlan_ports:
+                    vlan_ports = [updated_port]
+                else:
+                    continue
             vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid)
             self.metrics.vlan_hosts_learned.labels(
                 **vlan_labels).set(vlan.hosts_count())
@@ -866,7 +872,7 @@ class Valve(object):
             for ipv in vlan.ipvs():
                 self.metrics.vlan_neighbors.labels(
                     **dict(vlan_labels, ipv=ipv)).set(vlan.neigh_cache_count_by_ipv(ipv))
-            for port in vlan.get_ports():
+            for port in vlan_ports:
                 port_labels = dict(self.base_prom_labels, port=port.number)
                 port_vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid, port=port.number)
                 port_vlan_hosts_learned = port.hosts_count(vlans=[vlan])
