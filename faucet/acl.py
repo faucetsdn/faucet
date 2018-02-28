@@ -46,13 +46,13 @@ The key 'actions' contains a dictionary with keys/values as follows:
 The output action contains a dictionary with the following elements:
 
  * port (int or string): the port to output the packet to
- * ports (list): a list of the ports the packet can be output through
  * set_fields (list): a list of fields to set with values
  * dl_dst (str): old style request to set eth_dst to a value (set_fields recommended)
+ * pop_vlans: (int): pop the packet vlan before outputting
+ * vlan_vid: (int): push the vlan vid on the packet when outputting
+ * vlan_vids: (list): push the list of vlans on the packet when outputting, with option eth_type
  * swap_vid (int): rewrite the vlan vid of the packet when outputting
- * failover (dict): Output with a failover port. The following elements can be \
-       configured.
- * group_id (int): the ofp group id to use for the group
+ * failover (dict): Output with a failover port (experimental).
 """
 
     rules = None
@@ -78,7 +78,6 @@ The output action contains a dictionary with the following elements:
     }
     output_actions_types = {
         'port': (str, int),
-        'ports': list,
         'failover': dict,
         'set_fields': list,
         'dl_dst': str,
