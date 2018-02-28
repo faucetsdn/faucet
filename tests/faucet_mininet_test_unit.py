@@ -326,13 +326,15 @@ class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
         self.add_macvlan(first_host, macvlan1_intf, ipa=macvlan1_ipv4)
         self.add_macvlan(first_host, macvlan2_intf)
         macvlan2_mac = self.get_host_intf_mac(first_host, macvlan2_intf)
-        first_host.cmd('ip netns add %s' % netns)
-        first_host.cmd('ip link set %s netns %s' % (macvlan2_intf, netns))
+        if self.get_netns_list(first_host):
+            first_host.cmd('ip netns del %s' % netns)
+        self.assertEqual('', first_host.cmd('ip netns add %s' % netns))
+        self.assertEqual('', first_host.cmd('ip link set %s netns %s' % (macvlan2_intf, netns)))
         for exec_cmd in (
                 ('ip address add %s/24 brd + dev %s' % (
                     macvlan2_ipv4, macvlan2_intf),
                  'ip link set %s up' % macvlan2_intf)):
-            first_host.cmd('ip netns exec %s %s' % (netns, exec_cmd))
+            self.assertEqual('', first_host.cmd('ip netns exec %s %s' % (netns, exec_cmd)))
         self.one_ipv4_ping(first_host, macvlan2_ipv4, intf=macvlan1_intf)
         self.one_ipv4_ping(first_host, second_host.IP())
         first_host.cmd('ip netns del %s' % netns)
@@ -1750,7 +1752,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
         self.change_port_config(
             self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
         self.change_port_config(
-            self.port_map['port_1'], 'acls_in', [3,4,"allow"], restart=restart)
+            self.port_map['port_1'], 'acls_in', [3, 4, 'allow'], restart=restart)
         self._verify_hosts_learned((first_host, second_host, third_host))
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
