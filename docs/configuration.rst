@@ -599,6 +599,10 @@ The output action contains a dictionary with the following elements:
       - integer or string
       - None
       - The port to output the packet to.
+    * - ports
+      - list of [ integer or string ]
+      - None
+      - The list of ports the packet will be output through.
     * - pop_vlans
       - boolean
       - False
