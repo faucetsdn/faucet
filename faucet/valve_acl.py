@@ -73,6 +73,9 @@ def build_output_actions(output_dict):
     if 'port' in output_dict:
         output_port = output_dict['port']
         output_actions.append(valve_of.output_port(output_port))
+    if 'ports' in output_dict:
+        for output_port in output_dict['ports']:
+            output_actions.append(valve_of.output_port(output_port))
     if 'failover' in output_dict:
         failover = output_dict['failover']
         group_id = failover['group_id']
