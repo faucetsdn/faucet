@@ -428,6 +428,15 @@ configuration.
                 return self.ports[port_name]
             return None
 
+        def resolve_port_numbers(port_names):
+            """Resolve list of ports to numbers, by port by name or number."""
+            resolved_ports = []
+            for port_name in port_names:
+                port = resolve_port(port_name)
+                if port is not None:
+                    resolved_ports.append(port.number)
+            return resolved_ports
+
         def resolve_vlan(vlan_name):
             """Resolve VLAN by name or VID."""
             assert isinstance(vlan_name, (str, int)), (
@@ -505,27 +514,16 @@ configuration.
                         if port is not None:
                             resolved_action_conf[output_action] = port.number
                     elif output_action == 'ports':
-                        ports = []
-                        for port_name in output_action_values:
-                            port = resolve_port(port_name)
-                            # If this DP does not have this port, do not output.
-                            if port is not None:
-                                ports.append(port.number)
-                        resolved_action_conf[output_action] = ports
+                        resolved_action_conf[output_action] = resolve_port_numbers(
+                            output_action_values)
                     elif output_action == 'failover':
                         failover = output_action_values
                         assert isinstance(failover, dict)
                         resolved_action_conf[output_action] = {}
                         for failover_name, failover_values in list(failover.items()):
                             if failover_name == 'ports':
-                                resolved_ports = []
-                                for port_name in failover_values:
-                                    port = resolve_port(port_name)
-                                    if port is not None:
-                                        resolved_ports.append(port.number)
-                                resolved_action_conf[output_action][failover_name] = resolved_ports
-                            else:
-                                resolved_action_conf[output_action][failover_name] = failover_values
+                                failover_values = resolve_port_numbers(failover_values)
+                            resolved_action_conf[output_action][failover_name] = failover_values
                     else:
                         resolved_action_conf[output_action] = output_action_values
                 if resolved_action_conf:
