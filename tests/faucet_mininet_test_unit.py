@@ -262,7 +262,7 @@ meters:
                 [
                     {
                         type: "DROP",
-                        rate: 1000
+                        rate: 100
                     }
                 ]
 acls:
@@ -295,6 +295,11 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
                 native_vlan: 100
                 description: "b4"
 """
+
+    def test_untagged(self):
+        super(FaucetUntaggedApplyMeterTest, self).test_untagged()
+        first_host, second_host = self.net.hosts[:2]
+        error('metered ping flood: %s' % first_host.cmd('ping -c 10000 -f %s' % second_host.IP()))
 
 
 class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
