@@ -1734,6 +1734,30 @@ dbs:
             self.wait_nonzero_packet_count_flow(
                 {u'tp_dst': int(port)}, table_id=table_id)
 
+    def verify_bcast_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
+        """Verify that a UDP port on a host is blocked from broadcast."""
+        tcpdump_filter = 'udp and ether src %s and ether dst %s' % (first_host.MAC(), "ff:ff:ff:ff:ff:ff")
+        target_addr = "10.0.0.255"
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd('date | socat - udp-datagram:%s:%d,broadcast' % (target_addr, port))
+            ],
+            packets=1)
+        self.assertTrue(
+            re.search('0 packets received by filter', tcpdump_txt), msg=tcpdump_txt)
+
+    def verify_bcast_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
+        """Verify that a UDP port on a host is NOT blocked from broadcast."""
+        tcpdump_filter = 'udp and ether src %s and ether dst %s' % (first_host.MAC(), "ff:ff:ff:ff:ff:ff")
+        target_addr = "10.0.0.255"
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd('date | socat - udp-datagram:%s:%d,broadcast' % (target_addr, port))
+            ],
+            packets=1)
+        self.assertFalse(
+            re.search('0 packets received by filter', tcpdump_txt), msg=tcpdump_txt)
+
     def swap_host_macs(self, first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""
         first_host_mac = first_host.MAC()

@@ -4873,7 +4873,7 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
-    """Test topology of stacked datapaths with tagged hosts."""
+    """Test topology of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 2
     NUM_HOSTS = 2
@@ -4891,6 +4891,139 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
         self.retry_net_ping()
+
+
+class FaucetStackAclControlTest(FaucetStringOfDPTest):
+    """Test acl control of stacked datapaths with untagged hosts."""
+
+    NUM_DPS = 3
+    NUM_HOSTS = 3
+
+    ACLS = {
+        1: [
+            {'rule': {
+                'dl_type': '0x800',
+                'nw_dst': '10.0.0.2',
+                'actions': {
+                    'output': {
+                        'port': 2
+                    }
+                },
+            }},
+            {'rule': {
+                'dl_type': '0x800',
+                'dl_dst': 'ff:ff:ff:ff:ff:ff',
+                'actions': {
+                    'output': {
+                        'ports': [ 2, 4 ]
+                    }
+                },
+            }},
+            {'rule': {
+                'dl_type': '0x800',
+                'actions': {
+                    'output': {
+                        'port': 4
+                    }
+                },
+            }},
+            {'rule': {
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+        ],
+        2: [
+            {'rule': {
+                'dl_type': '0x800',
+                'actions': {
+                    'output': {
+                        'port': 5
+                    }
+                },
+            }},
+            {'rule': {
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+        ],
+        3: [
+            {'rule': {
+                'dl_type': '0x800',
+                'nw_dst': '10.0.0.7',
+                'actions': {
+                    'output': {
+                        'port': 1
+                    }
+                },
+            }},
+            {'rule': {
+                'dl_type': '0x800',
+                'dl_dst': 'ff:ff:ff:ff:ff:ff',
+                'actions': {
+                    'output': {
+                        'ports': [ 1 ]
+                    }
+                },
+            }},
+            {'rule': {
+                'dl_type': '0x800',
+                'actions': {
+                    'allow': 0,
+                },
+            }},
+            {'rule': {
+                'actions': {
+                    'allow': 1,
+                },
+            }},
+        ],
+    }
+
+    # DP-to-acl_in port mapping.
+    ACL_IN_DP = {
+        'faucet-1': {
+            # Port 1, acl_in = 1
+            1: 1,
+        },
+        'faucet-2': {
+            # Port 4, acl_in = 2
+            4: 2,
+        },
+        'faucet-3': {
+            # Port 4, acl_in = 3
+            4: 3,
+        },
+    }
+
+    def setUp(self):
+        super(FaucetStackAclControlTest, self).setUp()
+        self.build_net(
+            stack=True,
+            n_dps=self.NUM_DPS,
+            n_untagged=self.NUM_HOSTS,
+            untagged_vid=self.VID,
+            acls=self.ACLS,
+            acl_in_dp=self.ACL_IN_DP,
+            )
+        self.start_net()
+
+    def test_unicast(self):
+        """Hosts in stack topology can appropriately reach each other over unicast."""
+        hosts = self.net.hosts
+        self.verify_tp_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
+        self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
+        self.verify_tp_dst_notblocked(5000, hosts[0], hosts[6], table_id=None)
+        self.verify_tp_dst_blocked(5000, hosts[0], hosts[7], table_id=None)
+
+    def test_broadcast(self):
+        """Hosts in stack topology can appropriately reach each other over broadcast."""
+        hosts = self.net.hosts
+        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
+        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
+        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[6], table_id=None)
+        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[7], table_id=None)
 
 
 class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
