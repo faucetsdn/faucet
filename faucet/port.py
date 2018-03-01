@@ -218,12 +218,12 @@ class Port(Conf):
         return self.tagged_vlans
 
     def hosts(self, vlans=None):
-        """Return all hosts this port has learned (on all or specified VLANs)."""
+        """Return all host cache entries this port has learned (on all or specified VLANs)."""
         if vlans is None:
             vlans = self.vlans()
         hosts = []
         for vlan in vlans:
-            hosts.extend([entry.eth_src for entry in list(vlan.cached_hosts_on_port(self))])
+            hosts.extend([entry for entry in list(vlan.cached_hosts_on_port(self))])
         return hosts
 
     def hosts_count(self, vlans=None):

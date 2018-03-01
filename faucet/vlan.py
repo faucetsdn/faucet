@@ -35,12 +35,16 @@ class HostCacheEntry(object):
         self.eth_src = eth_src
         self.port = port
         self.cache_time = cache_time
+        self.eth_src_int = int(eth_src.replace(':', ''), 16)
 
     def __hash__(self):
-        return hash((self.eth_src, self.port.number))
+        return hash((self.eth_src_int, self.port.number))
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
+
+    def __lt__(self, other):
+        return self.__hash__() < other.__hash__()
 
 
 class VLAN(Conf):
