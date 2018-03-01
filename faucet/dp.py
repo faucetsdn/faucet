@@ -428,14 +428,18 @@ configuration.
                 return self.ports[port_name]
             return None
 
-        def resolve_port_numbers(port_names):
-            """Resolve list of ports to numbers, by port by name or number."""
+        def resolve_ports(port_names):
+            """Resolve list of ports, by port by name or number."""
             resolved_ports = []
             for port_name in port_names:
                 port = resolve_port(port_name)
                 if port is not None:
-                    resolved_ports.append(port.number)
+                    resolved_ports.append(port)
             return resolved_ports
+
+        def resolve_port_numbers(port_names):
+            """Resolve list of ports to numbers, by port by name or number."""
+            return [port.number for port in resolve_ports(port_names)]
 
         def resolve_vlan(vlan_name):
             """Resolve VLAN by name or VID."""
@@ -466,10 +470,10 @@ configuration.
             mirror_from_port = defaultdict(list)
             for mirror_port in list(self.ports.values()):
                 if mirror_port.mirror is not None:
-                    for mirrored_port_name in mirror_port.mirror:
-                        mirrored_port = resolve_port(mirrored_port_name)
-                        assert mirrored_port is not None, 'port %s mirror not defined in DP %s' % (
-                            mirrored_port_name, self.name)
+                    mirrored_ports = resolve_ports(mirror_port.mirror)
+                    assert len(mirrored_ports) == len(mirror_port.mirror), (
+                        'port mirror not defined in DP %s' % self.name)
+                    for mirrored_port in mirrored_ports:
                         mirror_from_port[mirrored_port].append(mirror_port)
 
             # TODO: confusingly, mirror at config time means what ports to mirror from.
