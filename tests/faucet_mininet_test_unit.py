@@ -4582,6 +4582,7 @@ class FaucetStringOfDPTest(FaucetTest):
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpid = self.dpids[0]
         self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
+            self.OVS_TYPE,
             self.ports_sock,
             dpids=self.dpids,
             n_tagged=n_tagged,
