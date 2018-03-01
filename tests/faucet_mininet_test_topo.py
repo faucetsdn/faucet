@@ -92,7 +92,7 @@ class FaucetHost(FaucetHostCleanup, CPULimitedHost):
 
 
 class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
-    """Switch that will be used by all tests (kernel based OVS)."""
+    """Switch that will be used by all tests (netdev based OVS)."""
 
     controller_params = {
         'controller_burst_limit': 25,
@@ -101,14 +101,11 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
 
     def __init__(self, name, **params):
         super(FaucetSwitch, self).__init__(
-            name=name, datapath='kernel', reconnectms=8000, **params)
+            name=name, datapath='user', reconnectms=8000, **params)
 
     def start(self, controllers):
         # Transcluded from Mininet source, since need to insert
         # controller parameters at switch creation time.
-        if self.inNamespace:
-            raise Exception(
-                'OVS kernel switch does not work in a namespace')
         int(self.dpid, 16)  # DPID must be a hex string
         # Command to add interfaces
         intfs = ''.join(' -- add-port %s %s' % (self, intf) +

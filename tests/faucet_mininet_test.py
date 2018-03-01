@@ -47,6 +47,7 @@ from faucet_mininet_test_unit import *
 SUPPORTS_METERS = (
     'Aruba',
     'NoviFlow',
+    'Open vSwitch',
 )
 
 
@@ -372,9 +373,6 @@ def filter_test_hardware(test_obj, hw_config):
                 return False
     else:
         if test_obj.NUM_DPS == 1 and test_links < REQUIRED_TEST_PORTS:
-            return False
-        # TODO: OVS does not support meters
-        if test_obj.REQUIRES_METERS:
             return False
     return True
 
