@@ -504,6 +504,14 @@ configuration.
                         # If this DP does not have this port, do not output.
                         if port is not None:
                             resolved_action_conf[output_action] = port.number
+                    elif output_action == 'ports':
+                        ports = []
+                        for port_name in output_action_values:
+                            port = resolve_port(port_name)
+                            # If this DP does not have this port, do not output.
+                            if port is not None:
+                                ports.append(port.number)
+                        resolved_action_conf[output_action] = ports
                     elif output_action == 'failover':
                         failover = output_action_values
                         assert isinstance(failover, dict)

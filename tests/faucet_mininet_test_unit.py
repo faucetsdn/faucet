@@ -3063,6 +3063,57 @@ acls:
 """
 
 
+class FaucetMultiOutputTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+    200:
+acls:
+    multi_out:
+        - rule:
+            actions:
+                output:
+                    ports: [ output2, output3 ]
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                acl_in: multi_out
+            output2:
+                number: %(port_2)d
+                native_vlan: 100
+            output3:
+                number: %(port_3)d
+                native_vlan: 200
+            %(port_4)d:
+                native_vlan: 100
+"""
+
+    def test_untagged(self):
+        first_host, second_host, third_host, fourth_host = self.net.hosts[0:4]
+        tcpdump_filter = ('icmp')
+        tcpdump_txt = self.tcpdump_helper(
+            second_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt))
+        tcpdump_txt = self.tcpdump_helper(
+            third_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    'arp -s %s %s' % (third_host.IP(), '01:02:03:04:05:06')),
+                lambda: first_host.cmd('ping -c1 %s' % third_host.IP())])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % third_host.IP(), tcpdump_txt))
+        tcpdump_txt = self.tcpdump_helper(
+            fourth_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping -c1 %s' % fourth_host.IP())])
+        self.assertFalse(re.search(
+            '%s: ICMP echo request' % fourth_host.IP(), tcpdump_txt))
+
+
 class FaucetUntaggedOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
