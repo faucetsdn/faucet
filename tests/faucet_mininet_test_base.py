@@ -46,6 +46,7 @@ class FaucetTestBase(unittest.TestCase):
     FAUCET_VIPV6_2 = ipaddress.ip_interface(u'fc01::1:254/64')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     VSCTL = 'ovs-vsctl'
+    OVS_TYPE = 'kernel'
     BOGUS_MAC = '01:02:03:04:05:06'
     FAUCET_MAC = '0e:00:00:00:00:01'
     LADVD = 'ladvd -e lo -f'
@@ -1937,7 +1938,7 @@ dbs:
             if iperf_mbps is not None:
                 return iperf_mbps
             time.sleep(1)
-        self.fail('%s never started (%s)' % iperf_server_cmd)
+        self.fail('%s never started' % iperf_server_cmd)
 
     def verify_ipv4_routing(self, first_host, first_host_routed_ip,
                             second_host, second_host_routed_ip,

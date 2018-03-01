@@ -102,8 +102,9 @@ vlans:
     def setUp(self):
         super(FaucetUntaggedTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
+            links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
     def test_untagged(self):
@@ -250,6 +251,7 @@ class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
 class FaucetUntaggedMeterParseTest(FaucetUntaggedTest):
 
     REQUIRES_METERS = True
+    OVS_TYPE = 'user'
     CONFIG_GLOBAL = """
 meters:
     lossymeter:
@@ -260,7 +262,7 @@ meters:
                 [
                     {
                         type: "DROP",
-                        rate: 1000
+                        rate: 100
                     }
                 ]
 acls:
@@ -293,6 +295,11 @@ class FaucetUntaggedApplyMeterTest(FaucetUntaggedMeterParseTest):
                 native_vlan: 100
                 description: "b4"
 """
+
+    def test_untagged(self):
+        super(FaucetUntaggedApplyMeterTest, self).test_untagged()
+        first_host, second_host = self.net.hosts[:2]
+        error('metered ping flood: %s' % first_host.cmd('ping -c 10000 -f %s' % second_host.IP()))
 
 
 class FaucetUntaggedHairpinTest(FaucetUntaggedTest):
@@ -1041,7 +1048,7 @@ vlans:
     def setUp(self):
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, self._test_name(), [self.dpid],
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=1, n_untagged=3, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
@@ -1443,7 +1450,7 @@ acls:
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
         open(self.acl_config_file, 'w').write(self.EMPTY_ACL_CONFIG)
         self.topo = self.topo_class(
-            self.ports_sock, self._test_name(), [self.dpid],
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST)
         self.start_net()
@@ -1601,7 +1608,7 @@ acls:
         self.CONFIG = '\n'.join(
             (self.CONFIG, 'include:\n     - %s' % self.acl_config_file))
         self.topo = self.topo_class(
-            self.ports_sock, self._test_name(), [self.dpid],
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST)
         self.start_net()
@@ -2207,7 +2214,7 @@ vlans:
     def setUp(self):
         super(FaucetUntaggedLoopTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, self._test_name(), [self.dpid],
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
@@ -2301,7 +2308,7 @@ vlans:
     def setUp(self):
         super(FaucetUntaggedIPv4LACPTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, self._test_name(), [self.dpid],
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             links_per_host=self.LINKS_PER_HOST)
         self.start_net()
@@ -2718,7 +2725,7 @@ vlans:
     def setUp(self):
         super(FaucetTaggedAndUntaggedTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, self._test_name(), [self.dpid],
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=2, n_untagged=2, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
@@ -3354,7 +3361,7 @@ vlans:
     def setUp(self):
         super(FaucetTaggedTest, self).setUp()
         self.topo = self.topo_class(
-            self.ports_sock, self._test_name(), [self.dpid],
+            self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=4, links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
@@ -4575,6 +4582,7 @@ class FaucetStringOfDPTest(FaucetTest):
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpid = self.dpids[0]
         self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
+            self.OVS_TYPE,
             self.ports_sock,
             dpids=self.dpids,
             n_tagged=n_tagged,

@@ -92,7 +92,7 @@ class FaucetHost(FaucetHostCleanup, CPULimitedHost):
 
 
 class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
-    """Switch that will be used by all tests (kernel based OVS)."""
+    """Switch that will be used by all tests (netdev based OVS)."""
 
     controller_params = {
         'controller_burst_limit': 25,
@@ -101,14 +101,11 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
 
     def __init__(self, name, **params):
         super(FaucetSwitch, self).__init__(
-            name=name, datapath='kernel', reconnectms=8000, **params)
+            name=name, reconnectms=8000, **params)
 
     def start(self, controllers):
         # Transcluded from Mininet source, since need to insert
         # controller parameters at switch creation time.
-        if self.inNamespace:
-            raise Exception(
-                'OVS kernel switch does not work in a namespace')
         int(self.dpid, 16)  # DPID must be a hex string
         # Command to add interfaces
         intfs = ''.join(' -- add-port %s %s' % (self, intf) +
@@ -198,12 +195,13 @@ class FaucetSwitchTopo(Topo):
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
         return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF)
 
-    def _add_faucet_switch(self, sid_prefix, dpid):
+    def _add_faucet_switch(self, sid_prefix, dpid, ovs_type):
         """Add a FAUCET switch."""
         switch_name = 's%s' % sid_prefix
         return self.addSwitch(
             name=switch_name,
             cls=FaucetSwitch,
+            datapath=ovs_type,
             dpid=faucet_mininet_test_util.mininet_dpid(dpid))
 
     def _add_links(self, switch, hosts, links_per_host):
@@ -211,7 +209,7 @@ class FaucetSwitchTopo(Topo):
             for _ in range(links_per_host):
                 self.addLink(host, switch, delay=self.DELAY, use_htb=True)
 
-    def build(self, ports_sock, test_name, dpids,
+    def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         for dpid in dpids:
             serialno = faucet_mininet_test_util.get_serialno(
@@ -221,14 +219,14 @@ class FaucetSwitchTopo(Topo):
                 self._add_tagged_host(sid_prefix, tagged_vid, host_n)
             for host_n in range(n_untagged):
                 self._add_untagged_host(sid_prefix, host_n)
-            switch = self._add_faucet_switch(sid_prefix, dpid)
+            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type)
             self._add_links(switch, self.hosts(), links_per_host)
 
 
 class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
-    def build(self, ports_sock, test_name, dpids,
+    def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         for dpid in dpids:
             serialno = faucet_mininet_test_util.get_serialno(
@@ -242,7 +240,7 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
             output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
                 dpid, int(dpid), remap_dpid, int(remap_dpid)))
             dpid = remap_dpid
-            switch = self._add_faucet_switch(sid_prefix, dpid)
+            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type)
             self._add_links(switch, self.hosts(), links_per_host)
 
 
@@ -251,7 +249,8 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
 
     switch_to_switch_links = 1
 
-    def build(self, ports_sock, test_name, dpids, n_tagged=0, tagged_vid=100, n_untagged=0,
+    def build(self, ovs_type, ports_sock, test_name, dpids,
+              n_tagged=0, tagged_vid=100, n_untagged=0,
               links_per_host=0, switch_to_switch_links=1):
         """
 
@@ -289,7 +288,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
             for host_n in range(n_untagged):
                 hosts.append(self._add_untagged_host(sid_prefix, host_n))
-            switch = self._add_faucet_switch(sid_prefix, dpid)
+            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type)
             self._add_links(switch, hosts, links_per_host)
             if last_switch is not None:
                 # Add a switch-to-switch link with the previous switch,
