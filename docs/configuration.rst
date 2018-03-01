@@ -599,10 +599,22 @@ The output action contains a dictionary with the following elements:
       - integer or string
       - None
       - The port to output the packet to.
+    * - pop_vlans
+      - boolean
+      - False
+      - Pop vlan tag before output.
+    * - vlan_vid
+      - integer
+      - False
+      - Push vlan tag before output.
     * - swap_vid
       - integer
       - None
       - Rewrite the vlan vid of the packet when outputting
+    * - vlan_vids
+      - list of [ integer or { integer, eth_type } ]
+      - None
+      - Push vlan tags on output, with optional eth_type.
     * - failover
       - dict
       - None
