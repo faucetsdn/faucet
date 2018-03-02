@@ -81,6 +81,7 @@ configuration.
     timeout = None
     arp_neighbor_timeout = None
     lldp_beacon = {} # type: dict
+    metrics_rate_limit_sec = None
 
     dyn_last_coldstart_time = None
 
@@ -153,6 +154,8 @@ configuration.
         # Turn on/off the use of idle timeout for src_table, default OFF.
         'lldp_beacon': {},
         # Config for LLDP beacon service.
+        'metrics_rate_limit_sec': 0,
+        # Rate limit metric updates - don't update metrics if last update was less than this many seconds ago.
         }
 
     defaults_types = {
@@ -190,6 +193,7 @@ configuration.
         'pipeline_config_dir': str,
         'use_idle_timeout': bool,
         'lldp_beacon': dict,
+        'metrics_rate_limit_sec': int,
     }
 
     stack_defaults_types = {

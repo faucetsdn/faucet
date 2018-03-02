@@ -866,7 +866,7 @@ class Valve(object):
         # rate limit metric updates
         now = time.time()
         if self._last_update_metrics_sec:
-            if now - self._last_update_metrics_sec < 2:
+            if now - self._last_update_metrics_sec < self.dp.metrics_rate_limit_sec:
                 return
         self._last_update_metrics_sec = now
         for vlan in list(self.dp.vlans.values()):
