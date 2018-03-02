@@ -1184,8 +1184,10 @@ dbs:
         self.ping_all_when_learned()
 
         def dump_packet_counters():
-            packet_in_count = self.scrape_prometheus_var('of_packet_ins')
-            flow_msgs_count = self.scrape_prometheus_var('of_flowmsgs_sent')
+            packet_in_count = self.scrape_prometheus_var(
+                'of_packet_ins', retries=5)
+            flow_msgs_count = self.scrape_prometheus_var(
+                'of_flowmsgs_sent', retries=5)
             error('%u packet ins, %u flows sent\n' % (
                 packet_in_count, flow_msgs_count))
 
