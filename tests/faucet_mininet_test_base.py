@@ -1191,7 +1191,7 @@ dbs:
             error('%u packet ins, %u flows sent\n' % (
                 packet_in_count, flow_msgs_count))
 
-        while learn_hosts <= max_hosts:
+        while learn_hosts <= max_hosts and successful_learn_hosts < max_hosts:
             error('will learn %u hosts\n' % learn_hosts)
             start_time = time.time()
             learn_host_list = mac_intf_ipv4s[successful_learn_hosts:learn_hosts]
@@ -1255,8 +1255,6 @@ dbs:
                 error('verified %u hosts learned in %u sec\n' % (
                     learn_hosts, learn_time))
                 successful_learn_hosts = learn_hosts
-                if successful_learn_hosts == max_hosts:
-                    break
                 learn_hosts = min(learn_hosts * 2, max_hosts)
             else:
                 break
