@@ -1299,7 +1299,7 @@ vlans:
 
     CONFIG = """
         ignore_learn_ins: 0
-        metrics_rate_limit_sec: 2
+        metrics_rate_limit_sec: 3
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1341,7 +1341,7 @@ vlans:
 
     CONFIG = """
         ignore_learn_ins: 0
-        metrics_rate_limit_sec: 2
+        metrics_rate_limit_sec: 3
         interfaces:
             %(port_1)d:
                 native_vlan: 100

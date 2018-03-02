@@ -869,13 +869,10 @@ class Valve(object):
             if now - self._last_update_metrics_sec < self.dp.metrics_rate_limit_sec:
                 return
         self._last_update_metrics_sec = now
-        for vlan in list(self.dp.vlans.values()):
-            vlan_ports = vlan.get_ports()
-            if updated_port:
-                if updated_port in vlan_ports:
-                    vlan_ports = [updated_port]
-                else:
-                    continue
+        vlans = list(self.dp.vlans.values())
+        if updated_port:
+            vlans = updated_port.vlans()
+        for vlan in vlans:
             vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid)
             self.metrics.vlan_hosts_learned.labels(
                 **vlan_labels).set(vlan.hosts_count())
@@ -884,6 +881,9 @@ class Valve(object):
             for ipv in vlan.ipvs():
                 self.metrics.vlan_neighbors.labels(
                     **dict(vlan_labels, ipv=ipv)).set(vlan.neigh_cache_count_by_ipv(ipv))
+            vlan_ports = vlan.get_ports()
+            if updated_port:
+                vlan_ports = [updated_port]
             for port in vlan_ports:
                 port_labels = dict(self.base_prom_labels, port=port.number)
                 port_vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid, port=port.number)
