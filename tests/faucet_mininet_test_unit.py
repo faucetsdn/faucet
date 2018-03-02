@@ -1299,6 +1299,7 @@ vlans:
 
     CONFIG = """
         ignore_learn_ins: 0
+        metrics_rate_limit_sec: 2
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1364,7 +1365,7 @@ vlans:
         test_net = ipaddress.IPv4Network(
             u'%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
         learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
-        self.verify_learning(test_net, learn_ip, 64, 4096)
+        self.verify_learning(test_net, learn_ip, 64, 3072)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):

@@ -1255,7 +1255,7 @@ dbs:
                 error('verified %u hosts learned in %u sec\n' % (
                     learn_hosts, learn_time))
                 successful_learn_hosts = learn_hosts
-                learn_hosts *= 2
+                learn_hosts = min(learn_hosts * 2, max_hosts)
             else:
                 break
         self.assertTrue(successful_learn_hosts >= min_hosts)
