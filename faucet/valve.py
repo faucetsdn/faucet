@@ -72,6 +72,7 @@ class Valve(object):
     _route_manager_by_ipv = None
     _last_advertise_sec = None
     _port_highwater = {} # type: dict
+    _last_update_metrics_sec = None
 
     def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp
@@ -862,6 +863,12 @@ class Valve(object):
 
     def update_metrics(self, updated_port=None):
         """Update Gauge/metrics."""
+        # rate limit metric updates
+        now = time.time()
+        if self._last_update_metrics_sec:
+            if now - self._last_update_metrics_sec < 1:
+                return
+        self._last_update_metrics_sec = now
         for vlan in list(self.dp.vlans.values()):
             vlan_ports = vlan.get_ports()
             if updated_port:
