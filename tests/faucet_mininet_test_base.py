@@ -1234,8 +1234,12 @@ dbs:
 
                 mininet_hosts = len(self.net.hosts)
                 target_hosts = learn_hosts + mininet_hosts
-                vlan_hosts_learned = self.scrape_prometheus_var(
-                    'vlan_hosts_learned', labels={'vlan': '100'})
+                for _ in range(10):
+                    vlan_hosts_learned = self.scrape_prometheus_var(
+                        'vlan_hosts_learned', labels={'vlan': '100'})
+                    if vlan_hosts_learned == target_hosts:
+                        break
+                    time.sleep(1)
                 if vlan_hosts_learned != target_hosts:
                     error('FAUCET host learned count disagree %u != %u\n' % (
                         vlan_hosts_learned, target_hosts))
