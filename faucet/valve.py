@@ -869,10 +869,8 @@ class Valve(object):
             if now - self._last_update_metrics_sec < self.dp.metrics_rate_limit_sec:
                 return
         self._last_update_metrics_sec = now
-        vlans = list(self.dp.vlans.values())
-        if updated_port:
-            vlans = updated_port.vlans()
-        for vlan in vlans:
+
+        def _update_vlan(vlan):
             vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid)
             self.metrics.vlan_hosts_learned.labels(
                 **vlan_labels).set(vlan.hosts_count())
@@ -881,29 +879,37 @@ class Valve(object):
             for ipv in vlan.ipvs():
                 self.metrics.vlan_neighbors.labels(
                     **dict(vlan_labels, ipv=ipv)).set(vlan.neigh_cache_count_by_ipv(ipv))
-            vlan_ports = vlan.get_ports()
-            if updated_port:
-                vlan_ports = [updated_port]
-            for port in vlan_ports:
-                port_labels = dict(self.base_prom_labels, port=port.number)
-                port_vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid, port=port.number)
-                port_vlan_hosts_learned = port.hosts_count(vlans=[vlan])
-                self.metrics.port_vlan_hosts_learned.labels(
-                    **port_vlan_labels).set(port_vlan_hosts_learned)
-                self.metrics.port_learn_bans.labels(
-                    **port_labels).set(port.dyn_learn_ban_count)
-                highwater = self._port_highwater[vlan.vid][port.number]
-                if highwater > port_vlan_hosts_learned:
-                    for i in range(port_vlan_hosts_learned, highwater + 1):
-                        self.metrics.learned_macs.labels(
-                            **dict(port_vlan_labels, n=i)).set(0)
-                self._port_highwater[vlan.vid][port.number] = port_vlan_hosts_learned
-                port_vlan_hosts = port.hosts(vlans=[vlan])
-                assert port_vlan_hosts_learned == len(port_vlan_hosts)
-                # TODO: make MAC table updates less expensive.
-                for i, entry in enumerate(sorted(port_vlan_hosts)):
+
+        def _update_port(vlan, port):
+            port_labels = dict(self.base_prom_labels, port=port.number)
+            port_vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid, port=port.number)
+            port_vlan_hosts_learned = port.hosts_count(vlans=[vlan])
+            self.metrics.port_vlan_hosts_learned.labels(
+                **port_vlan_labels).set(port_vlan_hosts_learned)
+            self.metrics.port_learn_bans.labels(
+                **port_labels).set(port.dyn_learn_ban_count)
+            highwater = self._port_highwater[vlan.vid][port.number]
+            if highwater > port_vlan_hosts_learned:
+                for i in range(port_vlan_hosts_learned, highwater + 1):
                     self.metrics.learned_macs.labels(
-                        **dict(port_vlan_labels, n=i)).set(entry.eth_src_int)
+                        **dict(port_vlan_labels, n=i)).set(0)
+            self._port_highwater[vlan.vid][port.number] = port_vlan_hosts_learned
+            port_vlan_hosts = port.hosts(vlans=[vlan])
+            assert port_vlan_hosts_learned == len(port_vlan_hosts)
+            # TODO: make MAC table updates less expensive.
+            for i, entry in enumerate(sorted(port_vlan_hosts)):
+                self.metrics.learned_macs.labels(
+                    **dict(port_vlan_labels, n=i)).set(entry.eth_src_int)
+
+        if updated_port:
+            for vlan in updated_port.vlans():
+                _update_vlan(vlan)
+                _update_port(vlan, updated_port)
+        else:
+            for vlan in list(self.dp.vlans.values()):
+                _update_vlan(vlan)
+                for port in vlan.get_ports():
+                    _update_port(vlan, port)
 
     def rcv_packet(self, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).

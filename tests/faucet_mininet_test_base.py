@@ -931,10 +931,10 @@ dbs:
             return 'http://%s:%u' % (
                 self.get_prom_addr(), self.config_ports['gauge_prom_port'])
 
-    def scrape_prometheus(self, controller='faucet'):
+    def scrape_prometheus(self, controller='faucet', timeout=15):
         url = self._prometheus_url(controller)
         try:
-            prom_lines = requests.get(url).text.split('\n')
+            prom_lines = requests.get(url, timeout=timeout).text.split('\n')
         except ConnectionError:
             return ''
         prom_vars = []
@@ -947,7 +947,7 @@ dbs:
         return prom_txt
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
-                              dpid=True, multiple=False, controller='faucet', retries=1):
+                              dpid=True, multiple=False, controller='faucet', retries=3):
         if dpid:
             if dpid is True:
                 dpid = long(self.dpid)
@@ -1251,7 +1251,7 @@ dbs:
 
             if verify_connectivity(learn_hosts):
                 learn_time = time.time() - start_time
-                dump_packet_counters()
+                # dump_packet_counters()
                 error('verified %u hosts learned in %u sec\n' % (
                     learn_hosts, learn_time))
                 successful_learn_hosts = learn_hosts
