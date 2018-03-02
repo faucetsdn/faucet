@@ -93,6 +93,11 @@ class Valve(object):
         self._last_advertise_sec = 0
         self._route_manager_by_ipv = {}
         self._route_manager_by_eth_type = {}
+        self._port_highwater = {}
+        for vlan_vid in list(self.dp.vlans.keys()):
+            self._port_highwater[vlan_vid] = {}
+            for port_number in list(self.dp.ports.keys()):
+                self._port_highwater[vlan_vid][port_number] = 0
         for fib_table, route_manager_class in (
                 (self.dp.tables['ipv4_fib'], valve_route.ValveIPv4RouteManager),
                 (self.dp.tables['ipv6_fib'], valve_route.ValveIPv6RouteManager)):
@@ -880,12 +885,8 @@ class Valve(object):
                     **port_vlan_labels).set(port_vlan_hosts_learned)
                 self.metrics.port_learn_bans.labels(
                     **port_labels).set(port.dyn_learn_ban_count)
-                if vlan.vid not in self._port_highwater:
-                    self._port_highwater[vlan.vid] = {}
-                if port.number not in self._port_highwater[vlan.vid]:
-                    self._port_highwater[vlan.vid][port.number] = 0
                 highwater = self._port_highwater[vlan.vid][port.number]
-                if highwater:
+                if highwater > port_vlan_hosts_learned:
                     for i in range(port_vlan_hosts_learned, highwater + 1):
                         self.metrics.learned_macs.labels(
                             **dict(port_vlan_labels, n=i)).set(0)

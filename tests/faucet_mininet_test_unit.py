@@ -1335,7 +1335,7 @@ vlans:
     100:
         description: "untagged"
         # Must be > than MAX_HOSTS + 4
-        max_hosts: 2052
+        max_hosts: 5000
 """
 
     CONFIG = """
@@ -1344,26 +1344,26 @@ vlans:
             %(port_1)d:
                 native_vlan: 100
                 description: "b1"
-                max_hosts: 1024
+                max_hosts: 2048
             %(port_2)d:
                 native_vlan: 100
                 description: "b2"
-                max_hosts: 1024
+                max_hosts: 2048
             %(port_3)d:
                 native_vlan: 100
                 description: "b3"
-                max_hosts: 1024
+                max_hosts: 2048
             %(port_4)d:
                 native_vlan: 100
                 description: "b4"
-                max_hosts: 1024
+                max_hosts: 2048
 """
 
     def test_untagged(self):
         test_net = ipaddress.IPv4Network(
             u'%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
         learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
-        self.verify_learning(test_net, learn_ip, 64, 2048)
+        self.verify_learning(test_net, learn_ip, 64, 4096)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
