@@ -931,23 +931,21 @@ dbs:
             return 'http://%s:%u' % (
                 self.get_prom_addr(), self.config_ports['gauge_prom_port'])
 
-    def scrape_prometheus(self, controller='faucet'):
+    def scrape_prometheus(self, controller='faucet', timeout=15, var=None):
         url = self._prometheus_url(controller)
         try:
-            prom_lines = requests.get(url).text.split('\n')
+            get_vars = {}
+            if var:
+                get_vars = {'name[]': var}
+            prom_raw = requests.get(url, get_vars, timeout=timeout).text
         except ConnectionError:
-            return ''
-        prom_vars = []
-        for prom_line in prom_lines:
-            if not prom_line.startswith('#'):
-                prom_vars.append(prom_line)
-        prom_txt = '\n'.join(prom_vars)
+            return []
         with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller), 'w') as prom_log:
-            prom_log.write(prom_txt)
-        return prom_txt
+            prom_log.write(prom_raw)
+        return [prom_line for prom_line in prom_raw.splitlines() if not prom_line.startswith('#')]
 
     def scrape_prometheus_var(self, var, labels=None, any_labels=False, default=None,
-                              dpid=True, multiple=False, controller='faucet', retries=1):
+                              dpid=True, multiple=False, controller='faucet', retries=3):
         if dpid:
             if dpid is True:
                 dpid = long(self.dpid)
@@ -970,21 +968,20 @@ dbs:
         prom_line_re = re.compile(r'^(.+)\s+([0-9\.\-e]+)$')
         for _ in range(retries):
             results = []
-            prom_lines = self.scrape_prometheus(controller)
-            for prom_line in prom_lines.splitlines():
+            prom_lines = self.scrape_prometheus(controller, var=var)
+            for prom_line in prom_lines:
                 prom_line_match = prom_line_re.match(prom_line)
                 self.assertIsNotNone(
                     prom_line_match,
                     msg='Invalid prometheus line %s in %s' % (prom_line, prom_lines))
                 prom_var = prom_line_match.group(1)
                 value = prom_line_match.group(2)
-                if prom_var.startswith(var):
-                    var_match = re.search(var_re, prom_var)
-                    if var_match:
-                        value_int = long(float(value))
-                        results.append((var, value_int))
-                        if not multiple:
-                            break
+                var_match = re.search(var_re, prom_var)
+                if var_match:
+                    value_int = long(float(value))
+                    results.append((var, value_int))
+                    if not multiple:
+                        break
             if results:
                 if multiple:
                     return results
@@ -1015,7 +1012,7 @@ dbs:
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
 
     def prometheus_smoke_test(self):
-        prom_out = self.scrape_prometheus()
+        prom_out = '\n'.join(self.scrape_prometheus())
         for nonzero_var in (
                 r'of_packet_ins', r'of_flowmsgs_sent', r'of_dp_connections',
                 r'faucet_config\S+name=\"flood\"', r'faucet_pbr_version\S+version='):
@@ -1191,7 +1188,7 @@ dbs:
             error('%u packet ins, %u flows sent\n' % (
                 packet_in_count, flow_msgs_count))
 
-        while learn_hosts <= max_hosts:
+        while learn_hosts <= max_hosts and successful_learn_hosts < max_hosts:
             error('will learn %u hosts\n' % learn_hosts)
             start_time = time.time()
             learn_host_list = mac_intf_ipv4s[successful_learn_hosts:learn_hosts]
@@ -1205,7 +1202,7 @@ dbs:
                     time.sleep((pps_ms - fping_ms) / 1e3)
 
             def verify_connectivity(learn_hosts):
-                dump_packet_counters()
+                # dump_packet_counters()
                 error('verifying connectivity')
                 all_unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
                 while all_unverified_ips:
@@ -1238,7 +1235,8 @@ dbs:
                 target_hosts = learn_hosts + mininet_hosts
                 for _ in range(10):
                     vlan_hosts_learned = self.scrape_prometheus_var(
-                        'vlan_hosts_learned', labels={'vlan': '100'})
+                        'vlan_hosts_learned', labels={'vlan': '100'},
+                        default=0)
                     if vlan_hosts_learned == target_hosts:
                         break
                     time.sleep(1)
@@ -1251,11 +1249,11 @@ dbs:
 
             if verify_connectivity(learn_hosts):
                 learn_time = time.time() - start_time
-                dump_packet_counters()
+                # dump_packet_counters()
                 error('verified %u hosts learned in %u sec\n' % (
                     learn_hosts, learn_time))
                 successful_learn_hosts = learn_hosts
-                learn_hosts *= 2
+                learn_hosts = min(learn_hosts * 2, max_hosts)
             else:
                 break
         self.assertTrue(successful_learn_hosts >= min_hosts)

@@ -434,13 +434,10 @@ class FaucetSanityTest(FaucetUntaggedTest):
         self.fail('DP port %u not healthy (%s)' % (dp_port, port_desc))
 
     def test_portmap(self):
-        prom_desc_match_re = re.compile(r'(of_dp_desc_stats.+)\s+[0-9\.]+')
-        for prom_line in self.scrape_prometheus(controller='faucet').splitlines():
-            prom_desc_match = prom_desc_match_re.match(prom_line)
-            if prom_desc_match:
-                break
-        self.assertIsNotNone(prom_desc_match, msg='Cannot scrape of_dp_desc_stats')
-        error('DP: %s\n' % prom_desc_match.group(1))
+        prom_desc = self.scrape_prometheus(
+            controller='faucet', var='of_dp_desc_stats')
+        self.assertIsNotNone(prom_desc, msg='Cannot scrape of_dp_desc_stats')
+        error('DP: %s\n' % prom_desc[0])
         for i, host in enumerate(self.net.hosts):
             in_port = 'port_%u' % (i + 1)
             dp_port = self.port_map[in_port]
@@ -1299,6 +1296,7 @@ vlans:
 
     CONFIG = """
         ignore_learn_ins: 0
+        metrics_rate_limit_sec: 3
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1340,7 +1338,7 @@ vlans:
 
     CONFIG = """
         ignore_learn_ins: 0
-        metrics_rate_limit_sec: 2
+        metrics_rate_limit_sec: 3
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1364,7 +1362,7 @@ vlans:
         test_net = ipaddress.IPv4Network(
             u'%s/%s' % (self.TEST_IPV4_NET, self.TEST_IPV4_PREFIX))
         learn_ip = ipaddress.IPv4Address(self.LEARN_IPV4)
-        self.verify_learning(test_net, learn_ip, 64, 3072)
+        self.verify_learning(test_net, learn_ip, 64, 4096)
 
 
 class FaucetUntaggedHUPTest(FaucetUntaggedTest):
