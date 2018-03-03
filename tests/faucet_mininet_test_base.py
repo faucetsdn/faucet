@@ -1205,7 +1205,7 @@ dbs:
                     time.sleep((pps_ms - fping_ms) / 1e3)
 
             def verify_connectivity(learn_hosts):
-                dump_packet_counters()
+                # dump_packet_counters()
                 error('verifying connectivity')
                 all_unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
                 while all_unverified_ips:
