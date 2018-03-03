@@ -22,7 +22,7 @@ import yaml
 
 import requests
 
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, ReadTimeout
 
 # pylint: disable=import-error
 from ryu.ofproto import ofproto_v1_3 as ofp
@@ -938,7 +938,7 @@ dbs:
             if var:
                 get_vars = {'name[]': var}
             prom_raw = requests.get(url, get_vars, timeout=timeout).text
-        except ConnectionError:
+        except (ConnectionError, ReadTimeout):
             return []
         with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller), 'w') as prom_log:
             prom_log.write(prom_raw)
