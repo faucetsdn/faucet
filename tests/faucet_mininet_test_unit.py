@@ -435,7 +435,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
 
     def test_portmap(self):
         prom_desc_match_re = re.compile(r'(of_dp_desc_stats.+)\s+[0-9\.]+')
-        for prom_line in self.scrape_prometheus(controller='faucet').splitlines():
+        for prom_line in self.scrape_prometheus(controller='faucet'):
             prom_desc_match = prom_desc_match_re.match(prom_line)
             if prom_desc_match:
                 break
