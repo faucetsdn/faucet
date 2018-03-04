@@ -1152,33 +1152,7 @@ dbs:
             self.assertEqual(vlan_hosts_learned, vlan_neighbors)
         return vlan_hosts_learned
 
-    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=20):
-        test_ipas = []
-        for ipa in sorted(test_net.hosts()):
-            if str(ipa).endswith('.0'):
-                continue
-            if str(ipa).endswith('.255'):
-                continue
-            test_ipas.append(ipa)
-            if len(test_ipas) == max_hosts+len(self.net.hosts):
-                break
-        base_ipas = test_ipas[-len(self.net.hosts):]
-        for i, host in enumerate(self.net.hosts):
-            host.setIP(str(base_ipas[i]), prefixLen=test_net.prefixlen)
-        first_host = self.net.hosts[0]
-        other_hosts = self.net.hosts[1:]
-        mac_intf_ipv4s = []
-        for i in range(0, max_hosts):
-            host = other_hosts[i % len(other_hosts)]
-            mac_intf = 'mac%u' % i
-            mac_ipv4 = str(test_ipas[i])
-            mac_intf_ipv4s.append((host, mac_intf, mac_ipv4))
-        learn_hosts = min_hosts
-        successful_learn_hosts = 0
-
-        fping_prefix = 'fping -q -c 1 -t 25 -i 25'
-        pps_ms = 1e3 / learn_pps
-        self.ping_all_when_learned()
+    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=30):
 
         def dump_packet_counters():
             packet_in_count = self.scrape_prometheus_var(
@@ -1188,6 +1162,51 @@ dbs:
             error('%u packet ins, %u flows sent\n' % (
                 packet_in_count, flow_msgs_count))
 
+        # TODO: test environment is pretty hard on test host, with this many macvlans
+        def simplify_intf_conf(host, intf):
+            for conf_cmd in (
+                    # 'echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6',
+                    'echo 300 > /proc/sys/net/ipv4/neigh/%s/gc_stale_time',):
+                self.assertEqual('', host.cmd(conf_cmd % intf))
+
+        def generate_test_ipas():
+            test_ipas = []
+            for ipa in sorted(test_net.hosts()):
+                if str(ipa).endswith('.0'):
+                    continue
+                if str(ipa).endswith('.255'):
+                    continue
+                test_ipas.append(ipa)
+                if len(test_ipas) == max_hosts+len(self.net.hosts):
+                    break
+            base_ipas = test_ipas[-len(self.net.hosts):]
+            return (base_ipas, test_ipas)
+
+        def generate_mac_intfs(test_ipas, other_hosts):
+            mac_intf_ipv4s = []
+            for i in range(0, max_hosts):
+                host = other_hosts[i % len(other_hosts)]
+                mac_intf = 'mac%u' % i
+                mac_ipv4 = str(test_ipas[i])
+                mac_intf_ipv4s.append((host, mac_intf, mac_ipv4))
+            return mac_intf_ipv4s
+
+        first_host = self.net.hosts[0]
+        other_hosts = self.net.hosts[1:]
+
+        base_ipas, test_ipas = generate_test_ipas()
+        mac_intf_ipv4s = generate_mac_intfs(test_ipas, other_hosts)
+
+        for i, host in enumerate(self.net.hosts):
+            host.setIP(str(base_ipas[i]), prefixLen=test_net.prefixlen)
+            simplify_intf_conf(host, host.defaultIntf())
+        self.ping_all_when_learned()
+
+        learn_hosts = min_hosts
+        successful_learn_hosts = 0
+
+        fping_prefix = 'fping -q -c 1 -t 10 -i 10'
+        pps_ms = 1e3 / learn_pps
         while learn_hosts <= max_hosts and successful_learn_hosts < max_hosts:
             error('will learn %u hosts\n' % learn_hosts)
             start_time = time.time()
@@ -1196,6 +1215,7 @@ dbs:
             for host, mac_intf, mac_ipv4 in learn_host_list:
                 fping_conf_start = time.time()
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
+                simplify_intf_conf(host, mac_intf)
                 host.cmd('%s -I%s %s' % (fping_prefix, mac_intf, str(learn_ip)))
                 fping_ms = (time.time() - fping_conf_start) * 1e3
                 if fping_ms < pps_ms:
