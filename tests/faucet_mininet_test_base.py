@@ -1152,7 +1152,7 @@ dbs:
             self.assertEqual(vlan_hosts_learned, vlan_neighbors)
         return vlan_hosts_learned
 
-    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=30):
+    def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=20):
 
         def dump_packet_counters():
             packet_in_count = self.scrape_prometheus_var(
