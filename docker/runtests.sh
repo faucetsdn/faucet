@@ -27,14 +27,6 @@ export OVS_LOGDIR=/usr/local/var/log/openvswitch
 ovs-vsctl show || exit 1
 ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000
 
-# enable fast reuse of ports.
-sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=10
-sysctl -w net.ipv4.tcp_fin_timeout=10
-sysctl -w net.ipv4.tcp_tw_recycle=1
-sysctl -w net.ipv4.tcp_tw_reuse=1
-# minimize TCP connection timeout so application layer timeouts are quicker to test.
-sysctl -w net.ipv4.tcp_syn_retries=4
-
 echo "========== Building documentation =========="
 cd /faucet-src/docs
 pip3 install -r requirements.txt
@@ -42,6 +34,8 @@ make html || exit 1
 rm -rf _build
 
 cd /faucet-src/tests
+
+./sysctls_for_tests.sh
 
 if [ "$DEPCHECK" == 1 ] ; then
     echo "============ Running pytype analyzer ============"
