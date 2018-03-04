@@ -964,7 +964,7 @@ dbs:
                 for label, value in sorted(list(labels.items())):
                     label_values.append('%s="%s"' % (label, value))
                 label_values_re = r'\{%s\}' % r'\S+'.join(label_values)
-        var_re = r'^%s%s$' % (var, label_values_re)
+        var_re = re.compile(r'^%s%s$' % (var, label_values_re))
         prom_line_re = re.compile(r'^(.+)\s+([0-9\.\-e]+)$')
         for _ in range(retries):
             results = []
@@ -976,8 +976,7 @@ dbs:
                     msg='Invalid prometheus line %s in %s' % (prom_line, prom_lines))
                 prom_var = prom_line_match.group(1)
                 value = prom_line_match.group(2)
-                var_match = re.search(var_re, prom_var)
-                if var_match:
+                if var_re.match(prom_var):
                     value_int = long(float(value))
                     results.append((var, value_int))
                     if not multiple:
