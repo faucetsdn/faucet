@@ -1165,7 +1165,7 @@ dbs:
         # TODO: test environment is pretty hard on test host, with this many macvlans
         def simplify_intf_conf(host, intf):
             for conf_cmd in (
-                    # 'echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6',
+                    'echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6',
                     'echo 300 > /proc/sys/net/ipv4/neigh/%s/gc_stale_time',):
                 self.assertEqual('', host.cmd(conf_cmd % intf))
 
@@ -1215,8 +1215,8 @@ dbs:
             for host, mac_intf, mac_ipv4 in learn_host_list:
                 fping_conf_start = time.time()
                 self.add_macvlan(host, mac_intf, mac_ipv4, ipm=test_net.prefixlen)
-                simplify_intf_conf(host, mac_intf)
                 host.cmd('%s -I%s %s' % (fping_prefix, mac_intf, str(learn_ip)))
+                simplify_intf_conf(host, mac_intf)
                 fping_ms = (time.time() - fping_conf_start) * 1e3
                 if fping_ms < pps_ms:
                     time.sleep((pps_ms - fping_ms) / 1e3)
