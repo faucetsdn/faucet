@@ -1166,7 +1166,8 @@ dbs:
         def simplify_intf_conf(host, intf):
             for conf_cmd in (
                     'echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6',
-                    'echo 300 > /proc/sys/net/ipv4/neigh/%s/gc_stale_time',):
+                    'echo 300 > /proc/sys/net/ipv4/neigh/%s/gc_stale_time',
+                    'ip link set dev %s arp off',):
                 self.assertEqual('', host.cmd(conf_cmd % intf))
 
         def generate_test_ipas():
@@ -1199,7 +1200,6 @@ dbs:
 
         for i, host in enumerate(self.net.hosts):
             host.setIP(str(base_ipas[i]), prefixLen=test_net.prefixlen)
-            simplify_intf_conf(host, host.defaultIntf())
         self.ping_all_when_learned()
 
         learn_hosts = min_hosts
