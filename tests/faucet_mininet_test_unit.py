@@ -1100,6 +1100,7 @@ vlans:
 """
 
     CONFIG = """
+        metrics_rate_limit_sec: 0
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -1136,6 +1137,7 @@ vlans:
 """
 
     CONFIG = """
+        metrics_rate_limit_sec: 0
         interfaces:
             %(port_1)d:
                 native_vlan: 100

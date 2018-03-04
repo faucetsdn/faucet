@@ -154,7 +154,7 @@ configuration.
         # Turn on/off the use of idle timeout for src_table, default OFF.
         'lldp_beacon': {},
         # Config for LLDP beacon service.
-        'metrics_rate_limit_sec': 0,
+        'metrics_rate_limit_sec': 1,
         # Rate limit metric updates - don't update metrics if last update was less than this many seconds ago.
         }
 
