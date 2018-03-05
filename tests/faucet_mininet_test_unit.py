@@ -134,6 +134,13 @@ vlans:
         self.assertEqual(prom_event_id, event_id)
 
 
+class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
+
+    def test_untagged(self):
+       super(FaucetUntaggedBroadcastTest, self).test_untagged()
+       self.verify_broadcast()
+
+
 class FaucetExperimentalAPITest(FaucetUntaggedTest):
     """Test the experimental Faucet API."""
 
@@ -3419,6 +3426,13 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetTaggedBroadcastTest(FaucetTaggedTest):
+
+    def test_tagged(self):
+       super(FaucetTaggedBroadcastTest, self).test_tagged()
+       self.verify_broadcast()
+
+
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
 
     N_UNTAGGED = 0
@@ -4856,18 +4870,6 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             tagged_vid=self.VID,
             switch_to_switch_links=2)
         self.start_net()
-
-    def verify_broadcast(self):
-        first_host = self.net.hosts[0]
-        last_host = self.net.hosts[-1]
-        ip_bcast = str(self.FAUCET_VIPV4.network.broadcast_address)
-        tcpdump_filter = (
-            'ether dst host ff:ff:ff:ff:ff:ff and icmp and host %s' % ip_bcast)
-        tcpdump_txt = self.tcpdump_helper(
-            last_host, tcpdump_filter, [
-                lambda: first_host.cmd('ping -b -c3 %s' % ip_bcast)])
-        self.assertTrue(re.search(
-            '%s: ICMP echo request' % ip_bcast, tcpdump_txt))
 
     def verify_one_stack_down(self, port_no):
         self.retry_net_ping()

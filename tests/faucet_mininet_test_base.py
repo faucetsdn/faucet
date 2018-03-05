@@ -1117,6 +1117,18 @@ dbs:
         conf['vlans'][vlan][config_name] = config_value
         self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
 
+    def verify_broadcast(self):
+        first_host = self.net.hosts[0]
+        last_host = self.net.hosts[-1]
+        ip_bcast = str(self.FAUCET_VIPV4.network.broadcast_address)
+        tcpdump_filter = (
+            'ether dst host ff:ff:ff:ff:ff:ff and icmp and host %s' % ip_bcast)
+        tcpdump_txt = self.tcpdump_helper(
+            last_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping -b -c3 %s' % ip_bcast)])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % ip_bcast, tcpdump_txt))
+
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
         fping_bin = 'fping'
