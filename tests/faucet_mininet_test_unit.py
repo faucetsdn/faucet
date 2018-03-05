@@ -134,6 +134,13 @@ vlans:
         self.assertEqual(prom_event_id, event_id)
 
 
+class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
+
+    def test_untagged(self):
+       super(FaucetUntaggedBroadcastTest, self).test_untagged()
+       self.verify_broadcast()
+
+
 class FaucetExperimentalAPITest(FaucetUntaggedTest):
     """Test the experimental Faucet API."""
 
@@ -3419,6 +3426,13 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetTaggedBroadcastTest(FaucetTaggedTest):
+
+    def test_tagged(self):
+       super(FaucetTaggedBroadcastTest, self).test_tagged()
+       self.verify_broadcast()
+
+
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
 
     N_UNTAGGED = 0
@@ -4857,18 +4871,20 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             switch_to_switch_links=2)
         self.start_net()
 
+    def verify_one_stack_down(self, port_no):
+        self.retry_net_ping()
+        self.set_port_down(port_no, wait=False)
+        # self.dpids[1] is the intermediate switch.
+        self.set_port_down(port_no, self.dpids[1], wait=False)
+        self.retry_net_ping()
+        self.verify_broadcast()
+
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
-        self.retry_net_ping()
-        self.set_port_down(self.NUM_HOSTS + 1, wait=False)
-        self.set_port_down(self.NUM_HOSTS + 1, self.dpids[1], wait=False)
-        self.retry_net_ping()
+        self.verify_one_stack_down(self.NUM_HOSTS + 1)
 
-    def test_other_untagged(self):
-        self.retry_net_ping()
-        self.set_port_down(self.NUM_HOSTS + 2, wait=False)
-        self.set_port_down(self.NUM_HOSTS + 2, self.dpids[1], wait=False)
-        self.retry_net_ping()
+    def test_other_tagged(self):
+        self.verify_one_stack_down(self.NUM_HOSTS + 2)
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):

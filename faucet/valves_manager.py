@@ -143,7 +143,7 @@ class ValvesManager(object):
     def update_metrics(self):
         """Update metrics in all Valves."""
         for valve in list(self.valves.values()):
-            valve.update_metrics()
+            valve.update_metrics(rate_limited=False)
         self.bgp.update_metrics()
 
     def valve_flow_services(self, valve_service):
@@ -165,5 +165,4 @@ class ValvesManager(object):
             **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
         if ofmsgs:
             self.send_flows_to_dp_by_id(valve.dp.dp_id, ofmsgs)
-            # TODO: rate limit update_metrics() as it is expensive
-            valve.update_metrics(pkt_meta.port)
+            valve.update_metrics(pkt_meta.port, rate_limited=True)

@@ -763,9 +763,9 @@ class Valve(object):
                 if pkt_meta.l3_pkt is None:
                     pkt_meta.reparse_ip()
                 self.logger.info(
-                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s) on %s on VLAN %u (%u hosts total)' % (
+                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) on %s on VLAN %u (%u hosts total)' % (
                         pkt_meta.eth_src, pkt_meta.eth_type,
-                        pkt_meta.l3_src, pkt_meta.port,
+                        pkt_meta.l3_src, pkt_meta.l3_dst, pkt_meta.port,
                         pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
                 self._notify(
                     {'L2_LEARN': {
@@ -773,7 +773,8 @@ class Valve(object):
                         'vid': pkt_meta.vlan.vid,
                         'eth_src': pkt_meta.eth_src,
                         'eth_type': pkt_meta.eth_type,
-                        'l3_src_ip': pkt_meta.l3_src}})
+                        'l3_src_ip': pkt_meta.l3_src,
+                        'l3_dst_ip': pkt_meta.l3_dst}})
                 return learn_flows
         return []
 
@@ -825,13 +826,13 @@ class Valve(object):
         # eth/VLAN header only
         pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
-        if vlan_vid is None:
-            self.logger.info(
-                'packet without VLAN header port %u' % in_port)
-            return None
-        if pkt is None:
+        if pkt is None or eth_pkt is None:
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
+            return None
+        if vlan_vid is None:
+            self.logger.info(
+                'packet %s without VLAN header port %u' % (eth_pkt, in_port))
             return None
         if vlan_vid not in self.dp.vlans:
             self.logger.info(
@@ -861,11 +862,11 @@ class Valve(object):
             self.metrics.faucet_config_table_names.labels(
                 **dict(self.base_prom_labels, table_name=table.name)).set(table_id)
 
-    def update_metrics(self, updated_port=None):
+    def update_metrics(self, updated_port=None, rate_limited=False):
         """Update Gauge/metrics."""
         # rate limit metric updates
         now = time.time()
-        if self._last_update_metrics_sec:
+        if self._last_update_metrics_sec and rate_limited:
             if now - self._last_update_metrics_sec < self.dp.metrics_rate_limit_sec:
                 return
         self._last_update_metrics_sec = now

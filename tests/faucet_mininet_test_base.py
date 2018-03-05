@@ -262,7 +262,9 @@ class FaucetTestBase(unittest.TestCase):
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
-            for dump_cmd in ('dump-flows', 'dump-groups', 'dump-meters', 'dump-group-stats', 'dump-ports'):
+            for dump_cmd in (
+                    'dump-flows', 'dump-groups', 'dump-meters',
+                    'dump-group-stats', 'dump-ports', 'dump-ports-desc'):
                 switch_dump_name = os.path.join(self.tmpdir, '%s-%s.log' % (switch.name, dump_cmd))
                 switch.cmd('%s %s %s > %s' % (self.OFCTL, dump_cmd, switch.name, switch_dump_name))
             for other_cmd in ('show', 'list controller', 'list manager'):
@@ -1114,6 +1116,18 @@ dbs:
             conf = self._get_conf()
         conf['vlans'][vlan][config_name] = config_value
         self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
+
+    def verify_broadcast(self):
+        first_host = self.net.hosts[0]
+        last_host = self.net.hosts[-1]
+        ip_bcast = str(self.FAUCET_VIPV4.network.broadcast_address)
+        tcpdump_filter = (
+            'ether dst host ff:ff:ff:ff:ff:ff and icmp and host %s' % ip_bcast)
+        tcpdump_txt = self.tcpdump_helper(
+            last_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping -b -c3 %s' % ip_bcast)])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % ip_bcast, tcpdump_txt))
 
     def verify_controller_fping(self, host, faucet_vip,
                                 total_packets=100, packet_interval_ms=100):
