@@ -4857,18 +4857,32 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             switch_to_switch_links=2)
         self.start_net()
 
+    def verify_broadcast(self):
+        first_host = self.net.hosts[0]
+        last_host = self.net.hosts[-1]
+        ip_bcast = str(self.FAUCET_VIPV4.network.broadcast_address)
+        tcpdump_filter = (
+            'ether dst host ff:ff:ff:ff:ff:ff and icmp and host %s' % ip_bcast)
+        tcpdump_txt = self.tcpdump_helper(
+            last_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping -b -c3 %s' % ip_bcast)])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % ip_bcast, tcpdump_txt))
+
+    def verify_one_stack_down(self, port_no):
+        self.retry_net_ping()
+        self.set_port_down(port_no, wait=False)
+        # self.dpids[1] is the intermediate switch.
+        self.set_port_down(port_no, self.dpids[1], wait=False)
+        self.retry_net_ping()
+        self.verify_broadcast()
+
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
-        self.retry_net_ping()
-        self.set_port_down(self.NUM_HOSTS + 1, wait=False)
-        self.set_port_down(self.NUM_HOSTS + 1, self.dpids[1], wait=False)
-        self.retry_net_ping()
+        self.verify_one_stack_down(self.NUM_HOSTS + 1)
 
-    def test_other_untagged(self):
-        self.retry_net_ping()
-        self.set_port_down(self.NUM_HOSTS + 2, wait=False)
-        self.set_port_down(self.NUM_HOSTS + 2, self.dpids[1], wait=False)
-        self.retry_net_ping()
+    def test_other_tagged(self):
+        self.verify_one_stack_down(self.NUM_HOSTS + 2)
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):

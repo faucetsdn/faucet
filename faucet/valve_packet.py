@@ -565,6 +565,7 @@ class PacketMeta(object):
         self.eth_type = eth_type
         self.l3_pkt = None
         self.l3_src = None
+        self.l3_dst = None
 
     def reparse(self, max_len):
         """Reparse packet using data up to the specified maximum length."""
@@ -604,10 +605,12 @@ class PacketMeta(object):
             self.reparse(parse_limit)
             self.l3_pkt = self.pkt.get_protocol(pkt_parser)
             if self.l3_pkt:
-                if hasattr(self.l3_pkt, 'src_ip'):
-                    self.l3_src = self.l3_pkt.src_ip
-                elif hasattr(self.l3_pkt, 'src'):
+                if hasattr(self.l3_pkt, 'src'):
                     self.l3_src = self.l3_pkt.src
+                    self.l3_dst = self.l3_pkt.dst
+                elif hasattr(self.l3_pkt, 'src_ip'):
+                    self.l3_src = self.l3_pkt.src_ip
+                    self.l3_dst = self.l3_pkt.dst_ip
 
     def packet_complete(self):
         """True if we have the complete packet."""

@@ -763,9 +763,9 @@ class Valve(object):
                 if pkt_meta.l3_pkt is None:
                     pkt_meta.reparse_ip()
                 self.logger.info(
-                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s) on %s on VLAN %u (%u hosts total)' % (
+                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) on %s on VLAN %u (%u hosts total)' % (
                         pkt_meta.eth_src, pkt_meta.eth_type,
-                        pkt_meta.l3_src, pkt_meta.port,
+                        pkt_meta.l3_src, pkt_meta.l3_dst, pkt_meta.port,
                         pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
                 self._notify(
                     {'L2_LEARN': {
@@ -773,7 +773,8 @@ class Valve(object):
                         'vid': pkt_meta.vlan.vid,
                         'eth_src': pkt_meta.eth_src,
                         'eth_type': pkt_meta.eth_type,
-                        'l3_src_ip': pkt_meta.l3_src}})
+                        'l3_src_ip': pkt_meta.l3_src,
+                        'l3_dst_ip': pkt_meta.l3_dst}})
                 return learn_flows
         return []
 
