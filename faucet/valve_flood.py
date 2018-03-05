@@ -37,9 +37,11 @@ class ValveFloodManager(object):
     )
 
     def __init__(self, flood_table, eth_src_table,
-                 flood_priority, use_group_table, groups):
+                 flood_priority, bypass_priority,
+                 use_group_table, groups):
         self.flood_table = flood_table
         self.eth_src_table = eth_src_table
+        self.bypass_priority = bypass_priority
         self.flood_priority = flood_priority
         self.use_group_table = use_group_table
         self.groups = groups
@@ -197,10 +199,13 @@ class ValveFloodStackManager(ValveFloodManager):
     """Implement dataplane based flooding for stacked dataplanes."""
 
     def __init__(self, flood_table, eth_src_table,
-                 flood_priority, use_group_table, groups, stack, stack_ports,
+                 flood_priority, bypass_priority,
+                 use_group_table, groups, stack, stack_ports,
                  dp_shortest_path_to_root, shortest_path_port):
         super(ValveFloodStackManager, self).__init__(
-            flood_table, eth_src_table, flood_priority, use_group_table, groups)
+            flood_table, eth_src_table,
+            flood_priority, bypass_priority,
+            use_group_table, groups)
         self.stack = stack
         self.stack_ports = stack_ports
         my_root_distance = len(dp_shortest_path_to_root())
@@ -294,7 +299,24 @@ class ValveFloodStackManager(ValveFloodManager):
         if modify:
             command = valve_of.ofp.OFPFC_MODIFY_STRICT
         # TODO: group tables for stacking
-        return self._build_multiout_flood_rules(vlan, command)
+        ofmsgs = self._build_multiout_flood_rules(vlan, command)
+        # Because stacking uses reflected broadcasts from the root,
+        # don't try to learn broadcast sources from stacking ports.
+        for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
+            if unicast_eth_dst:
+                continue
+            for port in self.stack_ports:
+                match = self.eth_src_table.match(
+                    in_port=port.number,
+                    vlan=vlan,
+                    eth_dst=eth_dst,
+                    eth_dst_mask=eth_dst_mask)
+                ofmsgs.append(self.eth_src_table.flowmod(
+                    match=match,
+                    command=command,
+                    inst=[valve_of.goto_table(self.flood_table)],
+                    priority=self.bypass_priority))
+        return ofmsgs
 
     def _vlan_all_ports(self, vlan, exclude_unicast):
         vlan_all_ports = super(ValveFloodStackManager, self)._vlan_all_ports(

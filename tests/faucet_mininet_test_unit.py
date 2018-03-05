@@ -4877,7 +4877,12 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         # self.dpids[1] is the intermediate switch.
         self.set_port_down(port_no, self.dpids[1], wait=False)
         self.retry_net_ping()
+        # Broadcast works, and first switch doesn't see broadcast packet ins from stack.
+        packet_in_before_broadcast = self.scrape_prometheus_var('of_packet_ins')
         self.verify_broadcast()
+        self.assertEqual(
+            packet_in_before_broadcast,
+            self.scrape_prometheus_var('of_packet_ins'))
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
