@@ -36,7 +36,7 @@ Different FAUCET releases may also use different match fields in the other table
 
 .. code-block:: none
 
-   set config pipeline tablesizes 1524 1024 1024 1024 1024 1024 1024 1024 1024 tablewidths 80 40 40 40 40 40 40 40 40
+   set config pipeline tablesizes 1524 1024 1024 3000 3000 1024 1024 3000 1024 tablewidths 80 40 40 40 40 40 40 40 40
    set config table tableid 0 matchfields 0 3 4 5 6 10 11 12 13 14 23 29 31
    set config table tableid 1 matchfields 0 3 4 5 6
    set config table tableid 2 matchfields 0 5 6 10 11 12 14
