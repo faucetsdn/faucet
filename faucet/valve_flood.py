@@ -36,9 +36,10 @@ class ValveFloodManager(object):
         (False, valve_of.mac.BROADCAST_STR, None), # flood on ethernet broadcasts
     )
 
-    def __init__(self, flood_table, flood_priority,
-                 use_group_table, groups):
+    def __init__(self, flood_table, eth_src_table,
+                 flood_priority, use_group_table, groups):
         self.flood_table = flood_table
+        self.eth_src_table = eth_src_table
         self.flood_priority = flood_priority
         self.use_group_table = use_group_table
         self.groups = groups
@@ -195,12 +196,11 @@ class ValveFloodManager(object):
 class ValveFloodStackManager(ValveFloodManager):
     """Implement dataplane based flooding for stacked dataplanes."""
 
-    def __init__(self, flood_table, flood_priority,
-                 use_group_table, groups,
-                 stack, stack_ports,
+    def __init__(self, flood_table, eth_src_table,
+                 flood_priority, use_group_table, groups, stack, stack_ports,
                  dp_shortest_path_to_root, shortest_path_port):
         super(ValveFloodStackManager, self).__init__(
-            flood_table, flood_priority, use_group_table, groups)
+            flood_table, eth_src_table, flood_priority, use_group_table, groups)
         self.stack = stack
         self.stack_ports = stack_ports
         my_root_distance = len(dp_shortest_path_to_root())
