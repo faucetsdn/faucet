@@ -35,6 +35,7 @@ RUN \
     bridge-utils \
     build-essential \
     curl \
+    dsniff \
     fping \
     gcc \
     git \
