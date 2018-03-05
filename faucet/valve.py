@@ -861,11 +861,11 @@ class Valve(object):
             self.metrics.faucet_config_table_names.labels(
                 **dict(self.base_prom_labels, table_name=table.name)).set(table_id)
 
-    def update_metrics(self, updated_port=None):
+    def update_metrics(self, updated_port=None, rate_limited=False):
         """Update Gauge/metrics."""
         # rate limit metric updates
         now = time.time()
-        if self._last_update_metrics_sec:
+        if self._last_update_metrics_sec and rate_limited:
             if now - self._last_update_metrics_sec < self.dp.metrics_rate_limit_sec:
                 return
         self._last_update_metrics_sec = now
