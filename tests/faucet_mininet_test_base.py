@@ -262,7 +262,9 @@ class FaucetTestBase(unittest.TestCase):
         switch_names = []
         for switch in self.net.switches:
             switch_names.append(switch.name)
-            for dump_cmd in ('dump-flows', 'dump-groups', 'dump-meters', 'dump-group-stats', 'dump-ports'):
+            for dump_cmd in (
+                    'dump-flows', 'dump-groups', 'dump-meters',
+                    'dump-group-stats', 'dump-ports', 'dump-ports-desc'):
                 switch_dump_name = os.path.join(self.tmpdir, '%s-%s.log' % (switch.name, dump_cmd))
                 switch.cmd('%s %s %s > %s' % (self.OFCTL, dump_cmd, switch.name, switch_dump_name))
             for other_cmd in ('show', 'list controller', 'list manager'):

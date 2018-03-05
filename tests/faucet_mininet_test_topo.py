@@ -107,11 +107,11 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
         # Transcluded from Mininet source, since need to insert
         # controller parameters at switch creation time.
         int(self.dpid, 16)  # DPID must be a hex string
+        switch_intfs = [intf for intf in self.intfList() if self.ports[intf] and not intf.IP()]
         # Command to add interfaces
-        intfs = ''.join(' -- add-port %s %s' % (self, intf) +
-                        self.intfOpts(intf)
-                        for intf in self.intfList()
-                        if self.ports[intf] and not intf.IP())
+        intfs = ' '.join(' -- add-port %s %s' % (self, intf) +
+                         self.intfOpts(intf)
+                         for intf in switch_intfs)
         # Command to create controller entries
         clist = [(self.name + c.name, '%s:%s:%d' %
                  (c.protocol, c.IP(), c.port))
@@ -137,6 +137,11 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
                    ' -- set bridge %s controller=[%s]' % (self, cids) +
                    self.bridgeOpts() +
                    intfs )
+        # switch interfaces on mininet host, must have no IP config.
+        for intf in switch_intfs:
+            for ipv in (4, 6):
+                assert '' == self.cmd('ip -%u addr flush dev %s' % (ipv, intf))
+            assert '' == self.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % intf)
         # If necessary, restore TC config overwritten by OVS
         if not self.batch:
             for intf in self.intfList():

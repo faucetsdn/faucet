@@ -825,13 +825,13 @@ class Valve(object):
         # eth/VLAN header only
         pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
-        if vlan_vid is None:
-            self.logger.info(
-                'packet without VLAN header port %u' % in_port)
-            return None
-        if pkt is None:
+        if pkt is None or eth_pkt is None:
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
+            return None
+        if vlan_vid is None:
+            self.logger.info(
+                'packet %s without VLAN header port %u' % (eth_pkt, in_port))
             return None
         if vlan_vid not in self.dp.vlans:
             self.logger.info(
