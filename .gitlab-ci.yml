@@ -1,0 +1,43 @@
+image: registry.gitlab.com/faucetsdn/faucet
+
+stages:  
+  - build
+  - deploy
+
+run-build:  
+  stage: build
+  script:
+    - apt-get update && apt-get upgrade -y
+    - cd /builds/faucetsdn/faucet
+    - echo "Installing packages required for package building"
+    - TAG="git describe --tags"
+    - TAG=$($TAG)
+    - TAG="${TAG//[!0-9.-]/}"
+    - echo "installing build deps"
+    - apt-get upgrade -y && mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
+    - export DEBEMAIL='maintainers@faucet.nz' && export DEBFULLNAME='Faucet Maintainers'
+    - debchange --newversion $TAG -b "Package automatically generated for new version of faucet"
+    - fakeroot debian/rules binary
+    - mkdir build
+    - mv ../*.deb build/
+  artifacts:
+    paths:
+      - build/*
+  only:
+      - tags
+
+deploy-package:
+  stage: deploy
+  script:
+    - cd /builds/faucetsdn/faucet/build
+    - echo "{\"url\":\"https://packagecloud.io\",\"token\":\"$TOKEN\"}" > ~/.packagecloud
+    - package_cloud push faucetsdn/faucet/debian/jessie *.deb
+    - package_cloud push faucetsdn/faucet/debian/stretch *.deb
+    - package_cloud push faucetsdn/faucet/debian/buster *.deb
+    - package_cloud push faucetsdn/faucet/ubuntu/xenial *.deb
+    - package_cloud push faucetsdn/faucet/ubuntu/yakkety *.deb
+    - package_cloud push faucetsdn/faucet/ubuntu/zesty *.deb
+    - package_cloud push faucetsdn/faucet/ubuntu/artful *.deb
+    - package_cloud push faucetsdn/faucet/ubuntu/bionic *.deb
+  only:
+      - tags
