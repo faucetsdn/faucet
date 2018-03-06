@@ -4913,8 +4913,8 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.retry_net_ping()
 
 
-class FaucetStackAclControlTest(FaucetStringOfDPTest):
-    """Test acl control of stacked datapaths with untagged hosts."""
+class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
+    """Test ACL control of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 3
     NUM_HOSTS = 3
@@ -5018,7 +5018,7 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
     }
 
     def setUp(self):
-        super(FaucetStackAclControlTest, self).setUp()
+        super(FaucetSingleStackAclControlTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,

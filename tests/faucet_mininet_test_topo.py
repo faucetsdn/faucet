@@ -140,7 +140,7 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
         # switch interfaces on mininet host, must have no IP config.
         for intf in switch_intfs:
             for ipv in (4, 6):
-                assert '' == self.cmd('ip -%u addr flush dev %s' % (ipv, intf))
+                self.cmd('ip -%u addr flush dev %s' % (ipv, intf))
             assert '' == self.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % intf)
         # If necessary, restore TC config overwritten by OVS
         if not self.batch:
