@@ -1772,11 +1772,11 @@ dbs:
                 {u'tp_dst': int(port)}, table_id=table_id)
 
     def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re,
-                                 table_id, mask):
+                                 table_id, mask, retries):
         tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
             first_host.MAC(), "ff:ff:ff:ff:ff:ff")
         target_addr = str(self.FAUCET_VIPV4.network.broadcast_address)
-        for _ in range(3):
+        for _ in range(retries):
             tcpdump_txt = self.tcpdump_helper(
                 second_host, tcpdump_filter, [
                     lambda: first_host.cmd(
@@ -1792,13 +1792,13 @@ dbs:
         """Verify that a UDP port on a host is blocked from broadcast."""
         self.assertTrue(self.bcast_dst_blocked_helper(
             port, first_host, second_host, r'0 packets received by filter',
-            table_id, mask))
+            table_id, mask, 1))
 
     def verify_bcast_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
         """Verify that a UDP port on a host is NOT blocked from broadcast."""
         self.assertTrue(self.bcast_dst_blocked_helper(
             port, first_host, second_host, r'1 packet received by filter',
-            table_id, mask))
+            table_id, mask, 3))
 
     def swap_host_macs(self, first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""
