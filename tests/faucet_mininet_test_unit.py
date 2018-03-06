@@ -5031,6 +5031,7 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
 
     def test_unicast(self):
         """Hosts in stack topology can appropriately reach each other over unicast."""
+        self.retry_net_ping()
         hosts = self.net.hosts
         self.verify_tp_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
         self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
@@ -5039,6 +5040,7 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
 
     def test_broadcast(self):
         """Hosts in stack topology can appropriately reach each other over broadcast."""
+        self.retry_net_ping()
         hosts = self.net.hosts
         self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
         self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
