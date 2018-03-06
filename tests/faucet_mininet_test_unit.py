@@ -4913,8 +4913,8 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.retry_net_ping()
 
 
-class FaucetStackAclControlTest(FaucetStringOfDPTest):
-    """Test acl control of stacked datapaths with untagged hosts."""
+class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
+    """Test ACL control of stacked datapaths with untagged hosts."""
 
     NUM_DPS = 3
     NUM_HOSTS = 3
@@ -5018,7 +5018,7 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
     }
 
     def setUp(self):
-        super(FaucetStackAclControlTest, self).setUp()
+        super(FaucetSingleStackAclControlTest, self).setUp()
         self.build_net(
             stack=True,
             n_dps=self.NUM_DPS,
@@ -5031,7 +5031,6 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
 
     def test_unicast(self):
         """Hosts in stack topology can appropriately reach each other over unicast."""
-        self.retry_net_ping()
         hosts = self.net.hosts
         self.verify_tp_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
         self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
@@ -5040,7 +5039,6 @@ class FaucetStackAclControlTest(FaucetStringOfDPTest):
 
     def test_broadcast(self):
         """Hosts in stack topology can appropriately reach each other over broadcast."""
-        self.retry_net_ping()
         hosts = self.net.hosts
         self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
         self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
