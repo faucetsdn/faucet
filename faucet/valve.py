@@ -406,7 +406,7 @@ class Valve(object):
                     if lldp_beacon['system_name'] is None:
                         lldp_beacon['system_name'] = self.dp.lldp_beacon['system_name']
                     lldp_beacon_pkt = valve_packet.lldp_beacon(
-                        port.native_vlan.faucet_mac,
+                        self.dp.faucet_dp_mac,
                         chassis_id, port.number, ttl,
                         org_tlvs=org_tlvs,
                         system_name=lldp_beacon['system_name'],
