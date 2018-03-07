@@ -233,12 +233,12 @@ def lldp_beacon(eth_src, chassis_id, port_id, ttl, org_tlvs=None,
     return pkt
 
 
-def faucet_lldp_tlvs(valve_vlan):
+def faucet_lldp_tlvs(dp):
     tlvs = []
     tlvs.append(
-        (addrconv.mac.text_to_bin(valve_vlan.faucet_mac)[:3],
+        (addrconv.mac.text_to_bin(dp.faucet_dp_mac)[:3],
          LLDP_FAUCET_DP_ID,
-         str(valve_vlan.dp_id).encode('utf-8')))
+         str(dp.dp_id).encode('utf-8')))
     return tlvs
 
 

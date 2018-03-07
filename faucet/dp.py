@@ -17,18 +17,20 @@
 # limitations under the License.
 
 import copy
+import netaddr
 
 from collections import namedtuple, defaultdict
 from datadiff import diff
 from netaddr.core import AddrFormatError
 import networkx
 
-from faucet.conf import Conf, InvalidConfigError
-from faucet.valve_table import ValveTable, ValveGroupTable
-from faucet.valve_util import get_setting
 from faucet import faucet_pipeline
 from faucet import valve_acl
 from faucet import valve_of
+from faucet.conf import Conf, InvalidConfigError
+from faucet.valve_table import ValveTable, ValveGroupTable
+from faucet.valve_util import get_setting
+from faucet.valve_packet import FAUCET_MAC
 
 
 # Documentation generated using documentation_generator.py
@@ -82,6 +84,7 @@ configuration.
     arp_neighbor_timeout = None
     lldp_beacon = {} # type: dict
     metrics_rate_limit_sec = None
+    faucet_dp_mac = None
 
     dyn_last_coldstart_time = None
 
@@ -156,6 +159,8 @@ configuration.
         # Config for LLDP beacon service.
         'metrics_rate_limit_sec': 0,
         # Rate limit metric updates - don't update metrics if last update was less than this many seconds ago.
+        'faucet_dp_mac': FAUCET_MAC,
+        # MAC address of packets sent by FAUCET, not associated with any VLAN.
         }
 
     defaults_types = {
@@ -194,6 +199,7 @@ configuration.
         'use_idle_timeout': bool,
         'lldp_beacon': dict,
         'metrics_rate_limit_sec': int,
+        'faucet_dp_mac': str,
     }
 
     stack_defaults_types = {
@@ -227,6 +233,7 @@ configuration.
     def check_config(self):
         assert isinstance(self.dp_id, int), 'dp_id must be %s not %s' % (int, type(self.dp_id))
         assert self.dp_id > 0 and self.dp_id <= 2**64-1, 'DP ID %s not in valid range' % self.dp_id
+        assert netaddr.valid_mac(self.faucet_dp_mac), 'invalid MAC address %s' % self.faucet_dp_mac
         assert not (self.group_table and self.group_table_routing), (
             'groups for routing and other functions simultaneously not supported')
         assert (self.interfaces or self.interface_ranges), (
