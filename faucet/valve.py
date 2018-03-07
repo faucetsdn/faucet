@@ -824,7 +824,7 @@ class Valve(object):
         msg.data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
 
         # eth/VLAN header only
-        pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
+        pkt, eth_pkt, eth_type, vlan_vid = valve_packet.parse_packet_in_pkt(
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
         if pkt is None or eth_pkt is None:
             self.logger.info(
