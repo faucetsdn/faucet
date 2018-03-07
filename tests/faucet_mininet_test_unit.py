@@ -5,6 +5,7 @@
 # pylint: disable=missing-docstring
 # pylint: disable=too-many-arguments
 
+import binascii
 import itertools
 import json
 import os
@@ -211,11 +212,16 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
             first_host, tcpdump_filter, [
                 lambda: first_host.cmd('sleep %u' % timeout)],
             timeout=timeout, vflags='-vv', packets=1)
+        expected_lldp_dp_id = binascii.hexlify(str(self.dpid).encode('UTF-8'))
+        # Groups of 2, 2 character hex numbers.
+        grouped_expected_lldp_dp_id = ' '.join(
+            re.compile('(....)').findall(expected_lldp_dp_id))
         for lldp_required in (
                 r'0e:00:00:00:00:01 > 01:80:c2:00:00:0e, ethertype LLDP',
                 r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
                 r'System Name TLV \(5\), length 6: faucet',
-                r'Port Description TLV \(4\), length 10: first_port'):
+                r'Port Description TLV \(4\), length 10: first_port',
+                grouped_expected_lldp_dp_id):
             self.assertTrue(
                 re.search(lldp_required, tcpdump_txt),
                 msg='%s: %s' % (lldp_required, tcpdump_txt))

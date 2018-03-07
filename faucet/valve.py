@@ -398,15 +398,13 @@ class Valve(object):
                         port.dyn_last_lldp_beacon_time < cutoff_beacon_time):
                     lldp_beacon = port.lldp_beacon
                     chassis_id = str(port.native_vlan.faucet_mac)
-                    org_tlvs = []
-                    for org_tlv in lldp_beacon['org_tlvs']:
-                        org_tlvs.append(
-                            (org_tlv['oui'], org_tlv['subtype'], org_tlv['info']))
+                    org_tlvs = [
+                        (tlv['oui'], tlv['subtype'], tlv['info']) for tlv in lldp_beacon['org_tlvs']]
+                    org_tlvs.extend(valve_packet.faucet_lldp_tlvs(port.native_vlan))
                     # if the port doesn't have a system name set, default to
                     # using the system name from the dp
                     if lldp_beacon['system_name'] is None:
                         lldp_beacon['system_name'] = self.dp.lldp_beacon['system_name']
-
                     lldp_beacon_pkt = valve_packet.lldp_beacon(
                         port.native_vlan.faucet_mac,
                         chassis_id, port.number, ttl,
