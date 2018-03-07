@@ -32,6 +32,7 @@ from ryu.lib.packet import (
 from faucet.valve_util import btos
 from faucet import valve_of
 
+FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
 
 ETH_VLAN_HEADER_SIZE = 14 + 4 # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
 IPV4_HEADER_SIZE = 20 # https://en.wikipedia.org/wiki/IPv4#Header

@@ -20,12 +20,10 @@ import collections
 import ipaddress
 import netaddr
 
+from faucet import valve_of
 from faucet.conf import Conf
 from faucet.valve_util import btos
-from faucet import valve_of
-
-
-FAUCET_MAC = '0e:00:00:00:00:01'
+from faucet.valve_packet import FAUCET_MAC
 
 
 class HostCacheEntry(object):
