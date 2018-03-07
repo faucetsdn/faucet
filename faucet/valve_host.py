@@ -63,7 +63,7 @@ class ValveHostManager(object):
                         'temporarily banning learning on this port, '
                         'and not learning %s' % (
                             port.max_hosts, port, eth_src))
-            if vlan.max_hosts:
+            if vlan is not None and vlan.max_hosts:
                 hosts_count = vlan.hosts_count()
                 if hosts_count == vlan.max_hosts:
                     ofmsgs.append(self._temp_ban_host_learning_on_vlan(vlan))
