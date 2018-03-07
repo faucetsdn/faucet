@@ -566,6 +566,14 @@ class Valve(object):
                     priority=self.dp.highest_priority))
                 continue
 
+            if port.receive_lldp:
+                ofmsgs.append(vlan_table.flowcontroller(
+                    match=vlan_table.match(
+                        in_port=port_num,
+                        eth_type=valve_of.ether.ETH_TYPE_LLDP),
+                    priority=self.dp.highest_priority,
+                    max_len=128))
+
             # Port has LACP processing enabled.
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
@@ -932,16 +940,18 @@ class Valve(object):
                 pkt_meta.port.number,
                 pkt_meta.vlan))
 
-        ban_rules = self.host_manager.ban_rules(pkt_meta)
-        if ban_rules:
-            return ban_rules
-
         if pkt_meta.vlan is None:
             if pkt_meta.port.lacp:
                 lacp_ofmsgs = self.lacp_handler(pkt_meta)
                 if lacp_ofmsgs:
                     return lacp_ofmsgs
+            # TODO: enable processing
+            # pkt_meta.reparse_all()
             return ofmsgs
+
+        ban_rules = self.host_manager.ban_rules(pkt_meta)
+        if ban_rules:
+            return ban_rules
 
         if self.L3 and pkt_meta.eth_type in self._route_manager_by_eth_type:
             pkt_meta.reparse_ip()

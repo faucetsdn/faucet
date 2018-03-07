@@ -42,6 +42,7 @@ class Port(Conf):
     output_only = None
     lldp_beacon = {} # type: dict
     op_status_reconf = None
+    receive_lldp = None
 
     dyn_learn_ban_count = 0
     dyn_phys_up = False
@@ -84,6 +85,8 @@ class Port(Conf):
         # LLDP beacon configuration for this port.
         'opstatus_reconf': True,
         # If True, configure pipeline if operational status of port changes.
+        'receive_lldp': False,
+        # If True, receive LLDP on this port.
     }
 
     defaults_types = {
@@ -106,6 +109,7 @@ class Port(Conf):
         'output_only': bool,
         'lldp_beacon': dict,
         'opstatus_reconf': bool,
+        'receive_lldp': bool,
     }
 
     stack_defaults_types = {

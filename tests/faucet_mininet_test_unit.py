@@ -4743,10 +4743,15 @@ class FaucetStringOfDPTest(FaucetTest):
                         }
                         if stack:
                             # make this a stacking link.
-                            interfaces_config[port]['stack'] = {
-                                'dp': dp_name(peer_dp),
-                                'port': peer_port,
-                            }
+                            interfaces_config[port].update(
+                                {
+                                    'lldp_beacon': {
+                                        'enable': True},
+                                    'receive_lldp': True,
+                                    'stack': {
+                                        'dp': dp_name(peer_dp),
+                                        'port': peer_port}
+                                })
                         else:
                             # not a stack - make this a trunk.
                             tagged_vlans = []
@@ -4770,6 +4775,8 @@ class FaucetStringOfDPTest(FaucetTest):
                 'hardware': hardware,
                 'ofchannel_log': dpid_ofchannel_log,
                 'interfaces': {},
+                'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
+                'drop_lldp': True, # TODO: enable processing.
             }
             interfaces_config = dp_config['interfaces']
 
