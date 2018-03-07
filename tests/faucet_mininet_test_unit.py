@@ -4747,7 +4747,7 @@ class FaucetStringOfDPTest(FaucetTest):
                                 {
                                     'lldp_beacon': {
                                         'enable': True},
-                                    'receive_lldp': True,
+                                    'receive_lldp': False, # TODO: enable processing
                                     'stack': {
                                         'dp': dp_name(peer_dp),
                                         'port': peer_port}
