@@ -47,6 +47,8 @@ IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
 IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
 
+LLDP_FAUCET_DP_ID = 1
+
 
 def ipv4_parseable(ip_header_data):
     """Return True if an IPv4 packet we could parse."""
@@ -228,6 +230,15 @@ def lldp_beacon(eth_src, chassis_id, port_id, ttl, org_tlvs=None,
     pkt.add_protocol(lldp_pkt)
     pkt.serialize()
     return pkt
+
+
+def faucet_lldp_tlvs(valve_vlan):
+    tlvs = []
+    tlvs.append(
+        (addrconv.mac.text_to_bin(valve_vlan.faucet_mac)[:3],
+         LLDP_FAUCET_DP_ID,
+         str(valve_vlan.dp_id).encode('utf-8')))
+    return tlvs
 
 
 def lacp_reqreply(eth_src,
