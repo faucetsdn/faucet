@@ -646,14 +646,14 @@ class Valve(object):
     def lacp_down(self, port):
         """Return OpenFlow messages when LACP is down on a port."""
         port.dyn_lacp_up = 0
-        vlan_table = self.dp.tables['vlan']
+        eth_src_table = self.dp.tables['eth_src']
         ofmsgs = []
         ofmsgs.extend(self._port_delete_flows_state(port))
-        ofmsgs.append(vlan_table.flowdrop(
-            match=vlan_table.match(in_port=port.number),
+        ofmsgs.append(eth_src_table.flowdrop(
+            match=eth_src_table.match(in_port=port.number),
             priority=self.dp.high_priority))
-        ofmsgs.append(vlan_table.flowcontroller(
-            vlan_table.match(
+        ofmsgs.append(eth_src_table.flowcontroller(
+            eth_src_table.match(
                 in_port=port.number,
                 eth_type=valve_of.ether.ETH_TYPE_SLOW,
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
@@ -803,9 +803,7 @@ class Valve(object):
         """
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
-        vlan = None
-        if vlan_vid is not None:
-            vlan = self.dp.vlans[vlan_vid]
+        vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         return valve_packet.PacketMeta(
             data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
@@ -832,7 +830,11 @@ class Valve(object):
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
             return None
-        if vlan_vid is not None and vlan_vid not in self.dp.vlans:
+        if vlan_vid is None:
+            self.logger.info(
+                'packet %s without VLAN header port %u' % (eth_pkt, in_port))
+            return None
+        if vlan_vid not in self.dp.vlans:
             self.logger.info(
                 'packet for unknown VLAN %u' % vlan_vid)
             return None
@@ -845,7 +847,6 @@ class Valve(object):
             return None
         if self.dp.stack is not None:
             if (not pkt_meta.port.stack and
-                    pkt_meta.vlan and
                     pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
                     pkt_meta.vlan != pkt_meta.port.native_vlan):
                 self.logger.warning(
@@ -930,18 +931,18 @@ class Valve(object):
         if ban_rules:
             return ban_rules
 
-        if pkt_meta.vlan is None:
-            if pkt_meta.port.lacp:
-                lacp_ofmsgs = self.lacp_handler(pkt_meta)
-                if lacp_ofmsgs:
-                    return lacp_ofmsgs
-            return ofmsgs
-
         self.logger.debug(
             'Packet_in src:%s in_port:%d vid:%s' % (
                 pkt_meta.eth_src,
                 pkt_meta.port.number,
                 pkt_meta.vlan.vid))
+
+        if pkt_meta.port.lacp:
+            lacp_ofmsgs = self.lacp_handler(pkt_meta)
+            if lacp_ofmsgs:
+                return lacp_ofmsgs
+            if not pkt_meta.port.dyn_lacp_up:
+                return ofmsgs
 
         if self.L3 and pkt_meta.eth_type in self._route_manager_by_eth_type:
             pkt_meta.reparse_ip()
