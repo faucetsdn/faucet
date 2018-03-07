@@ -164,7 +164,6 @@ class Port(Conf):
             self.lldp_beacon = self._set_unknown_conf(
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
             if self.lldp_beacon_enabled():
-                assert self.native_vlan, 'native_vlan must be defined for LLDP beacon'
                 if self.lldp_beacon['port_descr'] is None:
                     self.lldp_beacon['port_descr'] = self.description
 

@@ -32,6 +32,7 @@ from ryu.lib.packet import (
 from faucet.valve_util import btos
 from faucet import valve_of
 
+FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
 
 ETH_VLAN_HEADER_SIZE = 14 + 4 # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
 IPV4_HEADER_SIZE = 20 # https://en.wikipedia.org/wiki/IPv4#Header
@@ -232,12 +233,12 @@ def lldp_beacon(eth_src, chassis_id, port_id, ttl, org_tlvs=None,
     return pkt
 
 
-def faucet_lldp_tlvs(valve_vlan):
+def faucet_lldp_tlvs(dp):
     tlvs = []
     tlvs.append(
-        (addrconv.mac.text_to_bin(valve_vlan.faucet_mac)[:3],
+        (addrconv.mac.text_to_bin(dp.faucet_dp_mac)[:3],
          LLDP_FAUCET_DP_ID,
-         str(valve_vlan.dp_id).encode('utf-8')))
+         str(dp.dp_id).encode('utf-8')))
     return tlvs
 
 

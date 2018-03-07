@@ -393,14 +393,14 @@ class Valve(object):
             beacons_sent = 0
             cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
             ttl = self.dp.lldp_beacon['send_interval'] * 3
+            chassis_id = str(self.dp.faucet_dp_mac)
             for port in self.dp.lldp_beacon_ports:
                 if (port.dyn_last_lldp_beacon_time is None or
                         port.dyn_last_lldp_beacon_time < cutoff_beacon_time):
                     lldp_beacon = port.lldp_beacon
-                    chassis_id = str(port.native_vlan.faucet_mac)
                     org_tlvs = [
                         (tlv['oui'], tlv['subtype'], tlv['info']) for tlv in lldp_beacon['org_tlvs']]
-                    org_tlvs.extend(valve_packet.faucet_lldp_tlvs(port.native_vlan))
+                    org_tlvs.extend(valve_packet.faucet_lldp_tlvs(self.dp))
                     # if the port doesn't have a system name set, default to
                     # using the system name from the dp
                     if lldp_beacon['system_name'] is None:
@@ -699,8 +699,8 @@ class Valve(object):
                     if pkt_meta.port.dyn_lacp_up:
                         ofmsgs.extend(self.lacp_up(pkt_meta.port))
                 pkt = valve_packet.lacp_reqreply(
-                    pkt_meta.vlan.faucet_mac,
-                    pkt_meta.vlan.faucet_mac, pkt_meta.port.lacp, pkt_meta.port.number,
+                    self.dp.faucet_dp_mac,
+                    self.dp.faucet_dp_mac, pkt_meta.port.lacp, pkt_meta.port.number,
                     lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                     lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
                     lacp_pkt.actor_state_defaulted,
