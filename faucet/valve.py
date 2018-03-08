@@ -951,6 +951,8 @@ class Valve(object):
                 pkt_meta.reparse_all()
                 self.logger.info('LLDP from port %u: %s' % (
                     pkt_meta.port.number, pkt_meta.pkt))
+                # TODO: verify stacking connectivity using LLDP (DPID, port)
+                # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs
 
         ban_rules = self.host_manager.ban_rules(pkt_meta)
