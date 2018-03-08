@@ -722,6 +722,32 @@ class Valve(object):
                 ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
         return ofmsgs
 
+    def lldp_handler(self, pkt_meta):
+        """Handle an LLDP packet.
+
+        Args:
+            pkt_meta (PacketMeta): packet for control plane.
+        """
+        if pkt_meta.eth_type == valve_of.ether.ETH_TYPE_LLDP:
+            pkt_meta.reparse_all()
+            lldp_pkt = valve_packet.parse_lldp(pkt_meta.pkt)
+            if lldp_pkt:
+                self.logger.info('LLDP from port %u: %s' % (
+                    pkt_meta.port.number, lldp_pkt))
+                port_id_tlvs = [
+                    tlv for tlv in lldp_pkt.tlvs if tlv.tlv_type == valve_packet.lldp.LLDP_TLV_PORT_ID]
+                faucet_tlvs = [
+                    tlv for tlv in lldp_pkt.tlvs if (
+                        tlv.tlv_type == valve_packet.lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC and
+                        tlv.oui == valve_packet.faucet_oui(self.dp.faucet_dp_mac))]
+                dp_id_tlvs = [
+                    tlv for tlv in faucet_tlvs if tlv.subtype == valve_packet.LLDP_FAUCET_DP_ID]
+                if port_id_tlvs and dp_id_tlvs:
+                    remote_dp_id = int(dp_id_tlvs[0].info)
+                    remote_port_id = int(port_id_tlvs[0].port_id)
+                    self.logger.info('FAUCET LLDP from %s, port %u' % (
+                        valve_util.dpid_log(remote_dp_id), remote_port_id))
+
     def _control_plane_handler(self, pkt_meta, route_manager):
         """Handle a packet probably destined to FAUCET's route managers.
 
@@ -947,12 +973,9 @@ class Valve(object):
                 lacp_ofmsgs = self.lacp_handler(pkt_meta)
                 if lacp_ofmsgs:
                     return lacp_ofmsgs
-            if pkt_meta.eth_type == valve_of.ether.ETH_TYPE_LLDP:
-                pkt_meta.reparse_all()
-                self.logger.info('LLDP from port %u: %s' % (
-                    pkt_meta.port.number, pkt_meta.pkt))
-                # TODO: verify stacking connectivity using LLDP (DPID, port)
-                # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
+            self.lldp_handler(pkt_meta)
+            # TODO: verify stacking connectivity using LLDP (DPID, port)
+            # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs
 
         ban_rules = self.host_manager.ban_rules(pkt_meta)
