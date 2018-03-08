@@ -941,12 +941,18 @@ class Valve(object):
                 pkt_meta.vlan))
 
         if pkt_meta.vlan is None:
+            self.metrics.of_non_vlan_packet_ins.labels( # pylint: disable=no-member
+                **self.base_prom_labels).inc()
             if pkt_meta.port.lacp:
                 lacp_ofmsgs = self.lacp_handler(pkt_meta)
                 if lacp_ofmsgs:
                     return lacp_ofmsgs
-            # TODO: enable processing
-            # pkt_meta.reparse_all()
+            if pkt_meta.eth_type == valve_of.ether.ETH_TYPE_LLDP:
+                pkt_meta.reparse_all()
+                self.logger.info('LLDP from port %u: %s' % (
+                    pkt_meta.port.number, pkt_meta.pkt))
+                # TODO: verify stacking connectivity using LLDP (DPID, port)
+                # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs
 
         ban_rules = self.host_manager.ban_rules(pkt_meta)
@@ -964,7 +970,6 @@ class Valve(object):
                     ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
-
         return ofmsgs
 
     def state_expire(self):
