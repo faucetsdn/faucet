@@ -949,8 +949,10 @@ class Valve(object):
                     return lacp_ofmsgs
             if pkt_meta.eth_type == valve_of.ether.ETH_TYPE_LLDP:
                 pkt_meta.reparse_all()
-                self.logger.info('LLDP from port %u: %s' % (
-                    pkt_meta.port.number, pkt_meta.pkt))
+                lldp_pkt = valve_packet.parse_lldp(pkt_meta.pkt)
+                if lldp_pkt:
+                    self.logger.info('LLDP from port %u: %s' % (
+                        pkt_meta.port.number, lldp_pkt))
                 # TODO: verify stacking connectivity using LLDP (DPID, port)
                 # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs

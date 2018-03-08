@@ -113,6 +113,17 @@ def parse_lacp_pkt(pkt):
     return pkt.get_protocol(slow.lacp)
 
 
+def parse_lldp(pkt):
+    """Return parsed LLDP packet.
+
+    Args:
+        pkt (ryu.lib.packet.packet): packet received from dataplane.
+    Returns:
+        ryu.lib.packet.lldp: LLDP packet.
+    """
+    return pkt.get_protocol(lldp.lldp)
+
+
 def parse_packet_in_pkt(data, max_len):
     """Parse a packet received via packet in from the dataplane.
 
