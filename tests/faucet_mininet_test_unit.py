@@ -4747,7 +4747,7 @@ class FaucetStringOfDPTest(FaucetTest):
                                 {
                                     'lldp_beacon': {
                                         'enable': True},
-                                    'receive_lldp': False, # TODO: enable processing
+                                    'receive_lldp': True,
                                     'stack': {
                                         'dp': dp_name(peer_dp),
                                         'port': peer_port}
@@ -4776,7 +4776,7 @@ class FaucetStringOfDPTest(FaucetTest):
                 'ofchannel_log': dpid_ofchannel_log,
                 'interfaces': {},
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
-                'drop_lldp': True, # TODO: enable processing.
+                'drop_lldp': False,
             }
             interfaces_config = dp_config['interfaces']
 
@@ -4891,11 +4891,16 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.set_port_down(port_no, self.dpids[1], wait=False)
         self.retry_net_ping()
         # Broadcast works, and first switch doesn't see broadcast packet ins from stack.
-        packet_in_before_broadcast = self.scrape_prometheus_var('of_packet_ins')
+        packet_in_before_broadcast = (
+            self.scrape_prometheus_var('of_packet_ins') -
+            self.scrape_prometheus_var('of_non_vlan_packet_ins'))
         self.verify_broadcast()
+        packet_in_after_broadcast = (
+            self.scrape_prometheus_var('of_packet_ins') -
+            self.scrape_prometheus_var('of_non_vlan_packet_ins'))
         self.assertEqual(
             packet_in_before_broadcast,
-            self.scrape_prometheus_var('of_packet_ins'))
+            packet_in_after_broadcast)
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
