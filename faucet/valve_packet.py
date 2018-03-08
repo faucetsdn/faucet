@@ -246,12 +246,16 @@ def lldp_beacon(eth_src, chassis_id, port_id, ttl, org_tlvs=None,
     return pkt
 
 
+def faucet_oui(mac):
+    """Return first 3 bytes of MAC address (given as str)."""
+    return addrconv.mac.text_to_bin(mac)[:3]
+
+
 def faucet_lldp_tlvs(dp):
+    """Return LLDP TLVs for a datapath."""
     tlvs = []
     tlvs.append(
-        (addrconv.mac.text_to_bin(dp.faucet_dp_mac)[:3],
-         LLDP_FAUCET_DP_ID,
-         str(dp.dp_id).encode('utf-8')))
+        (faucet_oui(dp.faucet_dp_mac), LLDP_FAUCET_DP_ID, str(dp.dp_id).encode('utf-8')))
     return tlvs
 
 
