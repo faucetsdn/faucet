@@ -30,6 +30,7 @@ from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
+from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from prometheus_client import CollectorRegistry
 
@@ -312,10 +313,24 @@ vlans:
 
     def connect_dp(self):
         """Call DP connect and set all ports to up."""
-        port_nos = range(1, self.NUM_PORTS + 1)
-        self.table.apply_ofmsgs(self.valve.datapath_connect(port_nos))
-        for port_no in port_nos:
-            self.set_port_up(port_no)
+        discovered_ports = []
+        for port_no in range(1, self.NUM_PORTS + 1):
+            ofpport = parser.OFPPort(
+                port_no=port_no,
+                hw_addr=None,
+                name=str(port_no),
+                config=0,
+                state=0,
+                curr=0,
+                advertised=0,
+                supported=0,
+                peer=0,
+                curr_speed=1e6,
+                max_speed=1e6)
+            discovered_ports.append(ofpport)
+        self.table.apply_ofmsgs(self.valve.datapath_connect(discovered_ports))
+        for port in discovered_ports:
+            self.set_port_up(port.port_no)
 
     def set_port_down(self, port_no):
         """Set port status of port to down."""

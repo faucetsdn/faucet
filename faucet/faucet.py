@@ -316,16 +316,12 @@ class Faucet(RyuAppBase):
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
-        def port_up_valid(port):
-            """Return True if port is up and in valid range."""
-            return valve_of.port_status_from_state(port.state) and not valve_of.ignore_port(port.port_no)
-
         dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, '_datapath_connect')
         if valve is None:
             return
-        discovered_up_port_nums = [
-            port.port_no for port in list(ryu_dp.ports.values()) if port_up_valid(port)]
+        discovered_ports = [
+            port for port in list(ryu_dp.ports.values()) if not valve_of.ignore_port(port.port_no)]
         flowmods = valve.datapath_connect(discovered_up_port_nums)
         self._send_flow_msgs(dp_id, flowmods)
 
