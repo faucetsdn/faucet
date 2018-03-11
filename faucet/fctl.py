@@ -24,7 +24,7 @@
 
 # pytype: disable=pyi-error
 # pytype: disable=import-error
-import getopt
+import argparse
 import sys
 import time
 import urllib.error
@@ -97,22 +97,13 @@ def report_label_match_metrics(report_metrics, metrics, display_labels=None,
     return report_output
 
 
-def usage():
-    """print usage and exit with -1"""
-    usage_vars = {'self': sys.argv[0]}
-    print(("""
-Retrieve FAUCET/Gauge state using Prometheus variables.
+def parse_args(sys_args):
+    """Parse and return CLI args."""
 
-    {self} [-n] <-e|--endpoints=http://server:port> [-m|--metrics=prometheus_metrics,] [-l|--labels=name:value,]
-
-    -n: Don't report 0 values
-    -e|--endpoints: list of Prometheus endpoints to query (comma separated)
-    -m|--metrics: list of Prometheus variables to query (comma separated)
-    -l|--labels: filter list of Prometheus variables by labels that must be present (comma separated)
-    --display-labels: list of labels to display with the results (comma separated). By default display all labels.
-
-Examples:
-
+    parser = argparse.ArgumentParser(
+        prog='fctl',
+        description='Retrieve FAUCET/Gauge state using Prometheus variables.',
+        usage="""
     MACs learned on a DP.
 
     {self} -n --endpoints=http://172.17.0.1:9302 --metrics=learned_macs --labels=dp_id:0xb827eb608918
@@ -120,20 +111,17 @@ Examples:
     Status of all DPs
 
     {self} -n --endpoints=http://172.17.0.1:9302 --metrics=dp_status
-""".format(**usage_vars))) # pytype: disable=duplicate-keyword-argument
-    sys.exit(-1)
-
-
-def parse_args(sys_args):
-    """Parse and return CLI args."""
-    try:
-        opts, _ = getopt.getopt(
-            sys_args,
-            'ne:m:l:',
-            ['nonzero', 'endpoints=', 'metrics=', 'labels=', 'display-labels=']
-            )
-    except getopt.GetoptError:
-        usage()
+""".format(**{'self': sys.argv[0]}))
+    parser.add_argument(
+        '-n', '--nonzero', action='store_true', help='nonzero results only')
+    parser.add_argument(
+        '-e', '--endpoints', help='list of endpoint URLs to query')
+    parser.add_argument(
+        '-m', '--metrics', help='list of metrics to query')
+    parser.add_argument(
+        '-l', '--labels', help='list of labels that must be present')
+    parser.add_argument(
+        '--display-labels', help='list of labels to filter display by (default all)')
 
     endpoints = []
     report_metrics = []
@@ -141,23 +129,24 @@ def parse_args(sys_args):
     display_labels = None
     nonzero_only = False
 
-    for opt, arg in opts:
-        if opt in ('-n', '--nonzero'):
+    try:
+        args = parser.parse_args(sys_args)
+        if args.nonzero:
             nonzero_only = True
-        elif opt == '--display-labels':
-            display_labels = arg.split(',')
-        elif opt in ('-e', '--endpoints'):
-            endpoints = arg.split(',')
-        elif opt in ('-m', '--metrics'):
-            report_metrics = arg.split(',')
-        elif opt in ('-l', '--labels'):
-            for label_value in arg.split(','):
+        if args.endpoints:
+            endpoints = args.endpoints.split(',')
+        if args.metrics:
+            report_metrics = args.metrics.split(',')
+        if args.labels:
+            label_matches = {}
+            for label_value in args.labels.split(','):
                 label, value = label_value.split(':')
-                if label_matches is None:
-                    label_matches = {}
                 label_matches[label] = value
-        else:
-            usage()
+        if args.display_labels:
+            display_labels = args.display_labels.split(',')
+    except (KeyError, IndexError):
+        parser.print_usage()
+        sys.exit(-1)
 
     return (endpoints, report_metrics, label_matches, nonzero_only, display_labels)
 
