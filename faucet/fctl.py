@@ -111,7 +111,7 @@ def parse_args(sys_args):
     Status of all DPs
 
     {self} -n --endpoints=http://172.17.0.1:9302 --metrics=dp_status
-""".format(**{'self': sys.argv[0]}))
+""".format(**{'self': sys.argv[0]})) # pytype: disable=duplicate-keyword-argument
     parser.add_argument(
         '-n', '--nonzero', action='store_true', help='nonzero results only')
     parser.add_argument(
