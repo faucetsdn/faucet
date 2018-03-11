@@ -298,7 +298,8 @@ class Valve(object):
         """Add all configured and discovered ports and VLANs."""
         all_port_nums = set()
         for port in discovered_ports:
-            self._set_port_state(port.port_no, valve_of.port_status_from_state(port.state))
+            self._set_port_status(
+                port.port_no, valve_of.port_status_from_state(port.state))
             all_port_nums.add(port.port_no)
 
         for port in self.dp.stack_ports:
@@ -331,7 +332,8 @@ class Valve(object):
                    serial_num=body.serial_num.decode(),
                    dp_desc=body.dp_desc.decode())).set(self.dp.dp_id)
 
-    def _set_port_state(self, port_no, port_status):
+    def _set_port_status(self, port_no, port_status):
+        """Set port operational status."""
         port_labels = dict(self.base_prom_labels, port=port_no)
         self.metrics.port_status.labels( # pylint: disable=no-member
             **port_labels).set(port_status)
@@ -356,6 +358,7 @@ class Valve(object):
         ofmsgs = []
         if not self.port_no_valid(port_no):
             return ofmsgs
+        self._set_port_status(port_no, port_status)
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
             return ofmsgs
