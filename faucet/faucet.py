@@ -322,7 +322,7 @@ class Faucet(RyuAppBase):
             return
         discovered_ports = [
             port for port in list(ryu_dp.ports.values()) if not valve_of.ignore_port(port.port_no)]
-        flowmods = valve.datapath_connect(discovered_up_port_nums)
+        flowmods = valve.datapath_connect(discovered_ports)
         self._send_flow_msgs(dp_id, flowmods)
 
     @kill_on_exception(exc_logname)
