@@ -109,6 +109,6 @@ RUN \
   easy_install -q -U pip && \
   $PIP pip && \
   $PIP multiprocessing scapy==2.3.2 $PIPDEPS && \
-  $PIP3 $PIPDEPS \
-  $PIP ryu \
+  $PIP3 $PIPDEPS && \
+  $PIP ryu && \
   $PIP3 ryu
