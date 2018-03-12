@@ -18,7 +18,6 @@
 # limitations under the License.
 
 import ipaddress
-import json
 
 from ryu.lib import mac
 from ryu.lib import ofctl_v1_3 as ofctl
@@ -598,11 +597,12 @@ def dedupe_ofmsgs(input_ofmsgs):
     input_ofmsgs_hashes = set()
     deduped_input_ofmsgs = set()
     for ofmsg in input_ofmsgs:
-        ofmsg_json = json.dumps(ofmsg.to_jsondict(), sort_keys=True)
-        if ofmsg_json in input_ofmsgs_hashes:
+        # Can't use dict or json comparison as may be nested
+        ofmsg_str = str(ofmsg)
+        if ofmsg_str in input_ofmsgs_hashes:
             continue
         deduped_input_ofmsgs.add(ofmsg)
-        input_ofmsgs_hashes.add(ofmsg_json)
+        input_ofmsgs_hashes.add(ofmsg_str)
     return deduped_input_ofmsgs
 
 
