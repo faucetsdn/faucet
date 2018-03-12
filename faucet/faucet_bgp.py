@@ -155,17 +155,21 @@ class FaucetBgp(object):
         # TODO: Ryu BGP supports only one speaker
         # (https://sourceforge.net/p/ryu/mailman/message/32699012/)
         # TODO: Ryu BGP cannot be restarted cleanly (so config cannot change at runtime)
-        for vlan in self._bgp_vlans(self._valves):
-            dp_id = vlan.dp_id
-            vlan_vid = vlan.vid
-            if dp_id not in self._dp_bgp_speakers:
-                self._dp_bgp_speakers[dp_id] = {}
-            if vlan_vid in self._dp_bgp_speakers[dp_id]:
-                self.logger.warning(
-                    'not updating existing BGP speaker, runtime BGP changes not supported')
-            else:
-                self._dp_bgp_speakers[dp_id][vlan_vid] = self._create_bgp_speaker_for_vlan(
-                    vlan, dp_id, vlan_vid)
+        if self._dp_bgp_speakers:
+            self.logger.warning(
+                'not updating existing BGP speaker, runtime BGP changes not supported')
+            return
+        bgp_vlans = self._bgp_vlans(self._valves)
+        if not bgp_vlans:
+            return
+        if len(bgp_vlans) > 1:
+            self.logger.warning(
+                'only one BGP VLAN currently supported')
+        bgp_vlan = sorted(bgp_vlans)[0]
+        dp_id = bgp_vlan.dp_id
+        vlan_vid = bgp_vlan.vid
+        self._dp_bgp_speakers[dp_id] = {
+            vlan_vid: self._create_bgp_speaker_for_vlan(bgp_vlan, dp_id, vlan_vid)}
 
     def update_metrics(self):
         """Update BGP metrics."""
