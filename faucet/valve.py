@@ -534,9 +534,9 @@ class Valve(object):
         ofmsgs.extend(self.dp.tables['eth_dst'].flowdel(out_port=port.number))
         if port.permanent_learn:
             eth_src_table = self.dp.tables['eth_src']
-            for eth_src in port.hosts():
+            for entry in port.hosts():
                 ofmsgs.extend(eth_src_table.flowdel(
-                    match=eth_src_table.match(eth_src=eth_src)))
+                    match=eth_src_table.match(eth_src=entry.eth_src)))
         for vlan in port.vlans():
             vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
