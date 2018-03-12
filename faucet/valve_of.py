@@ -18,6 +18,7 @@
 # limitations under the License.
 
 import ipaddress
+import json
 
 from ryu.lib import mac
 from ryu.lib import ofctl_v1_3 as ofctl
@@ -591,6 +592,20 @@ def is_delflow(ofmsg):
     return is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg)
 
 
+def dedupe_ofmsgs(input_ofmsgs):
+    """Return deduplicated ofmsg list."""
+    # Built in comparison doesn't work until serialized() called
+    input_ofmsgs_hashes = set()
+    deduped_input_ofmsgs = set()
+    for ofmsg in input_ofmsgs:
+        ofmsg_json = json.dumps(ofmsg.to_jsondict(), sort_keys=True)
+        if ofmsg_json in input_ofmsgs_hashes:
+            continue
+        deduped_input_ofmsgs.add(ofmsg)
+        input_ofmsgs_hashes.add(ofmsg_json)
+    return deduped_input_ofmsgs
+
+
 def valve_flowreorder(input_ofmsgs):
     """Reorder flows for better OFA performance."""
     # Move all deletes to be first, and add one barrier,
@@ -599,7 +614,7 @@ def valve_flowreorder(input_ofmsgs):
     # at most only one barrier to deal with.
     # TODO: further optimizations may be possible - for example,
     # reorder adds to be in priority order.
-    input_ofmsgs = set(input_ofmsgs)
+    input_ofmsgs = dedupe_ofmsgs(input_ofmsgs)
     delete_ofmsgs = set([ofmsg for ofmsg in input_ofmsgs if is_delflow(ofmsg)])
     if not delete_ofmsgs:
         return list(input_ofmsgs)
