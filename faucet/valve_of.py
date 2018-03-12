@@ -599,17 +599,18 @@ def valve_flowreorder(input_ofmsgs):
     # at most only one barrier to deal with.
     # TODO: further optimizations may be possible - for example,
     # reorder adds to be in priority order.
-    delete_ofmsgs = [ofmsg for ofmsg in input_ofmsgs if is_delflow(ofmsg)]
+    input_ofmsgs = set(input_ofmsgs)
+    delete_ofmsgs = set([ofmsg for ofmsg in input_ofmsgs if is_delflow(ofmsg)])
     if not delete_ofmsgs:
-        return input_ofmsgs
-    nondelete_ofmsgs = set(input_ofmsgs) - set(delete_ofmsgs)
+        return list(input_ofmsgs)
+    nondelete_ofmsgs = input_ofmsgs - delete_ofmsgs
     groupadd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_groupadd(ofmsg)])
     meteradd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_meteradd(ofmsg)])
     other_ofmsgs = nondelete_ofmsgs - groupadd_ofmsgs.union(meteradd_ofmsgs)
     output_ofmsgs = []
     for ofmsgs in (delete_ofmsgs, groupadd_ofmsgs, meteradd_ofmsgs):
         if ofmsgs:
-            output_ofmsgs.extend([ofmsg for ofmsg in ofmsgs])
+            output_ofmsgs.extend(list(ofmsgs))
             output_ofmsgs.append(barrier())
     output_ofmsgs.extend(other_ofmsgs)
     return output_ofmsgs
