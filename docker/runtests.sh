@@ -40,7 +40,7 @@ if [ "$DEPCHECK" == 1 ] ; then
     echo "============ Running pytype analyzer ============"
     cd /faucet-src/tests
     # TODO: pytype doesn't completely understand py3 yet.
-    ls -1 ../faucet/*py | parallel pytype -d import-error || exit 1
+    ls -1 ../faucet/*py | parallel pytype -d pyi-error,import-error || exit 1
 
 fi
 
