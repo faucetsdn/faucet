@@ -965,6 +965,52 @@ acls:
         self.set_port_up(99)
 
 
+class ValveChangePortCase(ValveTestBase):
+
+    CONFIG = """
+dps:
+    s1:
+        dp_id: 1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+                permanent_learn: True
+"""
+
+    LESS_CONFIG = """
+dps:
+    s1:
+        dp_id: 1
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: 0x100
+            p2:
+                number: 2
+                native_vlan: 0x200
+                permanent_learn: False
+"""
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_delete_port(self):
+        self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': self.P3_V200_MAC,
+            'ipv4_src': '10.0.0.2',
+            'ipv4_dst': '10.0.0.3',
+            'vid': 0x200})
+        self.update_config(self.LESS_CONFIG)
+
+
 class ValveACLTestCase(ValveTestBase):
     """Test ACL drop/allow and reloading."""
 
