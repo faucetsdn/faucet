@@ -10,7 +10,8 @@ ENV MININETV="2.2.2"
 ENV OVSDEPS="autoconf automake libpcap-dev libcap-ng-dev libnuma-dev libtool libssl-dev linux-headers-generic libffi-dev"
 ENV AG="apt-get -qqy --no-install-recommends -o=Dpkg::Use-Pty=0"
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PIPDEPS="setuptools wheel virtualenv"
+# Pre-install Ryu and basic dependencies - so test image has less work
+ENV PIPDEPS="setuptools wheel virtualenv ryu"
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 ENV SETUPQ="setup.py -q"
