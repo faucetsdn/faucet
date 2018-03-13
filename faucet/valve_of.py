@@ -406,13 +406,13 @@ def match_from_dict(match_dict):
             del match_dict[old_match]
 
     kwargs = {}
-    for match, field in list(match_dict.items()):
-        assert match in MATCH_FIELDS, 'Unknown match field: %s' % match
+    for of_match, field in list(match_dict.items()):
+        assert of_match in MATCH_FIELDS, 'Unknown match field: %s' % of_match
         try:
-            encoded_field = MATCH_FIELDS[match](field)
+            encoded_field = MATCH_FIELDS[of_match](field)
         except TypeError:
-            assert False, '%s cannot be type %s' % (match, type(field))
-        kwargs[match] = encoded_field
+            assert False, '%s cannot be type %s' % (of_match, type(field))
+        kwargs[of_match] = encoded_field
 
     return parser.OFPMatch(**kwargs)
 
@@ -594,15 +594,16 @@ def is_delflow(ofmsg):
 def dedupe_ofmsgs(input_ofmsgs):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
-    input_ofmsgs_hashes = set()
     deduped_input_ofmsgs = set()
-    for ofmsg in input_ofmsgs:
-        # Can't use dict or json comparison as may be nested
-        ofmsg_str = str(ofmsg)
-        if ofmsg_str in input_ofmsgs_hashes:
-            continue
-        deduped_input_ofmsgs.add(ofmsg)
-        input_ofmsgs_hashes.add(ofmsg_str)
+    if input_ofmsgs:
+        input_ofmsgs_hashes = set()
+        for ofmsg in input_ofmsgs:
+            # Can't use dict or json comparison as may be nested
+            ofmsg_str = str(ofmsg)
+            if ofmsg_str in input_ofmsgs_hashes:
+                continue
+            deduped_input_ofmsgs.add(ofmsg)
+            input_ofmsgs_hashes.add(ofmsg_str)
     return deduped_input_ofmsgs
 
 
@@ -614,7 +615,7 @@ def valve_flowreorder(input_ofmsgs):
     # at most only one barrier to deal with.
     # TODO: further optimizations may be possible - for example,
     # reorder adds to be in priority order.
-    delete_ofmsgs = set(dedupe_ofmsgs([ofmsg for ofmsg in input_ofmsgs if is_delflow(ofmsg)]))
+    delete_ofmsgs = dedupe_ofmsgs([ofmsg for ofmsg in input_ofmsgs if is_delflow(ofmsg)])
     if not delete_ofmsgs:
         return input_ofmsgs
     input_ofmsgs = dedupe_ofmsgs(input_ofmsgs)
