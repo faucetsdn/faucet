@@ -91,7 +91,9 @@ def build_output_actions(output_dict):
 
 # TODO: change this, maybe this can be rewritten easily
 # possibly replace with a class for ACLs
-def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=None):
+def build_acl_entry(rule_conf, meters,
+                    acl_allow_inst,
+                    port_num=None, vlan_vid=None):
     acl_inst = []
     acl_act = []
     acl_match_dict = {}
@@ -147,7 +149,8 @@ def build_acl_entry(rule_conf, acl_allow_inst, meters, port_num=None, vlan_vid=N
     return (acl_match, acl_inst, acl_cookie, acl_ofmsgs)
 
 
-def build_acl_ofmsgs(acls, acl_table, acl_allow_inst,
+def build_acl_ofmsgs(acls, acl_table,
+                     acl_allow_inst,
                      highest_priority, meters,
                      exact_match, port_num=None, vlan_vid=None):
     ofmsgs = []
@@ -155,7 +158,9 @@ def build_acl_ofmsgs(acls, acl_table, acl_allow_inst,
     for acl in acls:
         for rule_conf in acl.rules:
             acl_match, acl_inst, acl_cookie, acl_ofmsgs = build_acl_entry(
-                rule_conf, acl_allow_inst, meters, port_num, vlan_vid)
+                rule_conf, meters,
+                acl_allow_inst,
+                port_num, vlan_vid)
             ofmsgs.extend(acl_ofmsgs)
             if exact_match:
                 flowmod = acl_table.flowmod(
