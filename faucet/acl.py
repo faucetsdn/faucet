@@ -37,8 +37,10 @@ matches and actions for the rule.
 The matches are key/values based on the ryu RESTFul API.
 The key 'actions' contains a dictionary with keys/values as follows:
 
- * allow (bool): if True allow the packet to continue through the Faucet \
-       pipeline, if False drop the packet.
+ * allow (int): if 1 allow the packet to continue through the Faucet \
+       pipeline, if 0 drop the packet.
+ * force_port_vlan (int): if 1, do not verify the VLAN/port association \
+       for this packet and override any VLAN ACL on the forced VLAN.
  * meter (str): meter to apply to the packet
  * output (dict): used to output a packet directly. details below.
  * cookie (int): set flow cookie to this value on this flow
@@ -76,6 +78,7 @@ The output action contains a dictionary with the following elements:
         'mirror': (str, int),
         'output': dict,
         'allow': int,
+        'force_port_vlan': int,
     }
     output_actions_types = {
         'port': (str, int),

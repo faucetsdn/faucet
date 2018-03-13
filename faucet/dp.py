@@ -545,14 +545,15 @@ configuration.
                     return resolved_action_conf
                 return None
 
-            def resolve_allow(_acl, action_conf):
+            def resolve_noop(_acl, action_conf):
                 return action_conf
 
             action_resolvers = {
                 'meter': resolve_meter,
                 'mirror': resolve_mirror,
                 'output': resolve_output,
-                'allow': resolve_allow,
+                'allow': resolve_noop,
+                'force_port_vlan': resolve_noop,
             }
 
             def build_acl(acl, vid=None):
@@ -563,6 +564,7 @@ configuration.
                     try:
                         ofmsgs = valve_acl.build_acl_ofmsgs(
                             [acl], self.wildcard_table,
+                            valve_of.goto_table(self.wildcard_table),
                             valve_of.goto_table(self.wildcard_table),
                             2**16-1, self.meters, acl.exact_match,
                             vlan_vid=vid)

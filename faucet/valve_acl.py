@@ -92,13 +92,15 @@ def build_output_actions(output_dict):
 # TODO: change this, maybe this can be rewritten easily
 # possibly replace with a class for ACLs
 def build_acl_entry(rule_conf, meters,
-                    acl_allow_inst,
+                    acl_allow_inst, acl_force_port_vlan_inst,
                     port_num=None, vlan_vid=None):
     acl_inst = []
     acl_act = []
     acl_match_dict = {}
     acl_ofmsgs = []
     acl_cookie = None
+    allow_inst = acl_allow_inst
+
     for attrib, attrib_value in list(rule_conf.items()):
         if attrib == 'in_port':
             continue
@@ -114,6 +116,9 @@ def build_acl_entry(rule_conf, meters,
                 allow_specified = True
                 if attrib_value['allow'] == 1:
                     allow = True
+            if 'force_port_vlan' in attrib_value:
+                if attrib_value['force_port_vlan'] == 1:
+                    allow_inst = acl_force_port_vlan_inst
             if 'meter' in attrib_value:
                 meter_name = attrib_value['meter']
                 acl_inst.append(valve_of.apply_meter(meters[meter_name].meter_id))
@@ -133,7 +138,7 @@ def build_acl_entry(rule_conf, meters,
                     continue
 
             if allow:
-                acl_inst.append(acl_allow_inst)
+                acl_inst.append(allow_inst)
         else:
             acl_match_dict[attrib] = attrib_value
     if port_num is not None:
@@ -150,7 +155,7 @@ def build_acl_entry(rule_conf, meters,
 
 
 def build_acl_ofmsgs(acls, acl_table,
-                     acl_allow_inst,
+                     acl_allow_inst, acl_force_port_vlan_inst,
                      highest_priority, meters,
                      exact_match, port_num=None, vlan_vid=None):
     ofmsgs = []
@@ -159,7 +164,7 @@ def build_acl_ofmsgs(acls, acl_table,
         for rule_conf in acl.rules:
             acl_match, acl_inst, acl_cookie, acl_ofmsgs = build_acl_entry(
                 rule_conf, meters,
-                acl_allow_inst,
+                acl_allow_inst, acl_force_port_vlan_inst,
                 port_num, vlan_vid)
             ofmsgs.extend(acl_ofmsgs)
             if exact_match:
