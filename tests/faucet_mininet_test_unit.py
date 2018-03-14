@@ -158,8 +158,9 @@ class FaucetUntaggedNoCombinatorialFlood(FaucetUntaggedTest):
 class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
 
     def test_untagged(self):
-       super(FaucetUntaggedBroadcastTest, self).test_untagged()
-       self.verify_broadcast()
+        super(FaucetUntaggedBroadcastTest, self).test_untagged()
+        self.verify_broadcast()
+        self.verify_no_bcast_to_self(self.net.hosts[0])
 
 
 class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
@@ -3476,8 +3477,9 @@ vlans:
 class FaucetTaggedBroadcastTest(FaucetTaggedTest):
 
     def test_tagged(self):
-       super(FaucetTaggedBroadcastTest, self).test_tagged()
-       self.verify_broadcast()
+        super(FaucetTaggedBroadcastTest, self).test_tagged()
+        self.verify_broadcast()
+        self.verify_no_bcast_to_self(self.net.hosts[0])
 
 
 class FaucetTaggedWithUntaggedTest(FaucetTaggedTest):
@@ -4995,7 +4997,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
-                        'ports': [ 2, 4 ]
+                        'ports': [2, 4]
                     }
                 },
             }},
@@ -5043,7 +5045,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
                 'dl_dst': 'ff:ff:ff:ff:ff:ff',
                 'actions': {
                     'output': {
-                        'ports': [ 1 ]
+                        'ports': [1]
                     }
                 },
             }},
