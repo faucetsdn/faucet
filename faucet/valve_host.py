@@ -199,11 +199,11 @@ class ValveHostManager(object):
             cache_age = now - entry.cache_time
             cache_port = entry.port
 
-        # If host recently learned on this same port, do nothing.
-        # If host not-so-recently learned on this same port, refresh rules (do not delete)
         if cache_port == port:
+            # skip delete if host didn't change ports.
             delete_existing = False
-            if cache_age <= max(self.learn_timeout / 2, 2):
+            # if we very very recently learned this host, don't do anything.
+            if cache_age <= 2:
                 return ofmsgs
 
         if port.loop_protect:
