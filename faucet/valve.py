@@ -234,7 +234,7 @@ class Valve(object):
         ofmsgs = []
         if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
+            acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 vlan.acls_in, acl_table,
                 acl_allow_inst, acl_allow_inst,
@@ -476,7 +476,7 @@ class Valve(object):
         if cold_start:
             ofmsgs.extend(acl_table.flowdel(in_port_match))
         acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
-        acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_src'])
+        acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
         if port.acls_in:
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
                 port.acls_in, acl_table,

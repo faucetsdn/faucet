@@ -3539,15 +3539,17 @@ acls:
             vlan_vid: 100
             actions:
                 mirror: mirrorport
+                force_port_vlan: 1
                 output:
                     swap_vid: 101
                 allow: 1
 """
 
     CONFIG = """
+        combinatorial_port_flood: False
         interfaces:
             %(port_1)d:
-                tagged_vlans: [100, 101]
+                tagged_vlans: [100]
                 description: "b1"
                 acl_in: 1
             %(port_2)d:
