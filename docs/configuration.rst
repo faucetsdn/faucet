@@ -4,12 +4,12 @@ Configuration
 Faucet is configured with a YAML-based configuration file, ``faucet.yaml``.
 The following is example demonstrating a few common features:
 
-.. literalinclude:: ../etc/ryu/faucet/faucet.yaml
+.. literalinclude:: ../etc/faucet/faucet.yaml
   :language: yaml
   :caption: faucet.yaml
   :name: faucet.yaml
 
-.. literalinclude:: ../etc/ryu/faucet/acls.yaml
+.. literalinclude:: ../etc/faucet/acls.yaml
   :language: yaml
   :caption: acls.yaml
   :name: acls.yaml
@@ -21,7 +21,7 @@ A port not explicitly defined in the YAML configuration file will be left down a
 Gauge is configured similarly with, ``gauge.yaml``.
 The following is example demonstrating a few common features:
 
-.. literalinclude:: ../etc/ryu/faucet/gauge.yaml
+.. literalinclude:: ../etc/faucet/gauge.yaml
   :language: yaml
   :caption: gauge.yaml
   :name: gauge.yaml
@@ -33,7 +33,7 @@ You can verify that your configuration is correct with the ``check_faucet_config
 
 .. code:: console
 
-  check_faucet_config /etc/ryu/faucet/faucet.yaml
+  check_faucet_config /etc/faucet/faucet.yaml
 
 Configuration examples
 ----------------------
@@ -64,8 +64,8 @@ Files are parsed in order, and both absolute and relative (to the configuration 
 .. code:: yaml
 
   include:
-      - /etc/ryu/faucet/dps.yaml
-      - /etc/ryu/faucet/vlans.yaml
+      - /etc/faucet/dps.yaml
+      - /etc/faucet/vlans.yaml
 
   include-optional:
       - acls.yaml
