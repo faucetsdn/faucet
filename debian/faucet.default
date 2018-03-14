@@ -1,4 +1,4 @@
-FAUCET_RYU_CONF=/etc/faucet/ryu.conf
+FAUCET_RYU_CONF=/etc/faucet/ryu.conf 
 FAUCET_LISTEN_PORT=6653
 FAUCET_PROMETHEUS_PORT=9302
 FAUCET_CONFIG=/etc/faucet/faucet.yaml

@@ -108,12 +108,12 @@ Some other OPTIONAL configuration commands, that may be useful to modify some pa
 Faucet
 ^^^^^^
 
-Edit the faucet configuration file (/etc/ryu/faucet/faucet.yaml) to add the datapath of the switch you wish to be managed by faucet.
+Edit the faucet configuration file (/etc/faucet/faucet.yaml) to add the datapath of the switch you wish to be managed by faucet.
 This yaml file also contains the interfaces that need to be seen by Faucet as openflow ports.
 The device type (hardware) should be set to ``Allied-Telesis`` in the configuration file.
 
 .. code-block:: yaml
-  :caption: /etc/ryu/faucet/faucet.yaml
+  :caption: /etc/faucet/faucet.yaml
   :name: allied-telesis/faucet.yaml
 
 	dps:

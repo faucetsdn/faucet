@@ -16,7 +16,7 @@ RUN \
   $PIP3 -r fuzz-requirements.txt && \
   $PIP3 .
 
-VOLUME ["/var/log/ryu/faucet/", "/var/log/afl/", "/etc/ryu/faucet/", "/var/run/faucet/"]
+VOLUME ["/var/log/faucet/", "/var/log/afl/", "/etc/faucet/", "/var/run/faucet/"]
 
 EXPOSE 6653 9302
 

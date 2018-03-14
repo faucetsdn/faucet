@@ -47,10 +47,10 @@ services:
             dockerfile: Dockerfile.pi-gauge
         image: 'faucet/gauge-pi:latest'
         environment:
-            GAUGE_CONFIG: '/etc/ryu/faucet/gauge.yaml'
+            GAUGE_CONFIG: '/etc/faucet/gauge.yaml'
         volumes:
-            - '${FAUCET_PREFIX}/var/log/ryu/faucet:/var/log/ryu/faucet'
-            - '${FAUCET_PREFIX}/etc/ryu/faucet:/etc/ryu/faucet'
+            - '${FAUCET_PREFIX}/var/log/faucet:/var/log/faucet'
+            - '${FAUCET_PREFIX}/etc/faucet:/etc/faucet'
         ports:
             - '6654:6653'
             - '9303'
@@ -64,8 +64,8 @@ services:
             dockerfile: Dockerfile.pi
         image: 'faucet/faucet-pi:latest'
         volumes:
-            - '${FAUCET_PREFIX}/var/log/ryu/faucet:/var/log/ryu/faucet'
-            - '${FAUCET_PREFIX}/etc/ryu/faucet:/etc/ryu/faucet'
+            - '${FAUCET_PREFIX}/var/log/faucet:/var/log/faucet'
+            - '${FAUCET_PREFIX}/etc/faucet:/etc/faucet'
         ports:
             - '6653:6653'
             - '9302'

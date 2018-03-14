@@ -118,7 +118,7 @@ Create faucet.yaml
     Change dp_id, to the value reported above, prefaced with "0x".
 
 .. code-block:: yaml
-  :caption: /etc/ryu/faucet/faucet.yaml
+  :caption: /etc/faucet/faucet.yaml
   :name: ovs/faucet.yaml
 
     vlans:

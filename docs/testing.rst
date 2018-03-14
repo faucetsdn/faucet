@@ -93,8 +93,8 @@ Create a directory for the test configuration:
 
 .. code:: console
 
-  mkdir -p /etc/ryu/faucet
-  $EDITOR /etc/ryu/faucet/hw_switch_config.yaml
+  mkdir -p /etc/faucet
+  $EDITOR /etc/faucet/hw_switch_config.yaml
 
 ``hw_switch_config.yaml`` should contain the correct configuration for your
 switch:
@@ -140,7 +140,7 @@ Running the tests
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   modprobe openvswitch
   sudo docker run --privileged --net=host \
-      -v /etc/ryu/faucet:/etc/ryu/faucet \
+      -v /etc/faucet:/etc/faucet \
       -v /tmp:/tmp \
       -ti faucet/tests
 
@@ -151,7 +151,7 @@ Running a single test
 
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="FaucetUntaggedTest" \
-      -v /etc/ryu/faucet:/etc/ryu/faucet \
+      -v /etc/faucet:/etc/faucet \
       -v /tmp:/tmp \
       -ti faucet/tests
 

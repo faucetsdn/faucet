@@ -1,0 +1,8 @@
+etc/prometheus/faucet.rules.yml /etc/faucet/prometheus/
+etc/faucet/ryu.conf /etc/faucet/
+etc/faucet/faucet.yaml /etc/faucet/
+etc/faucet/acls.yaml /etc/faucet/
+etc/faucet/aruba_pipeline.json /etc/faucet/
+etc/faucet/ofproto_to_ryu.json /etc/faucet/
+etc/faucet/tfm_pipeline.json /etc/faucet/
+etc/faucet/* /usr/share/doc/faucet/examples/

@@ -61,21 +61,21 @@ def get_sys_prefix():
 _PREFIX = get_sys_prefix()
 # To specify a boolean-only setting, set the default value to a bool type.
 DEFAULTS = {
-    'FAUCET_CONFIG': _PREFIX + '/etc/ryu/faucet/faucet.yaml',
+    'FAUCET_CONFIG': _PREFIX + '/etc/faucet/faucet.yaml' + ':' + _PREFIX + '/etc/ryu/faucet/faucet.yaml',
     'FAUCET_CONFIG_STAT_RELOAD': False,
     'FAUCET_LOG_LEVEL': 'INFO',
-    'FAUCET_LOG': _PREFIX + '/var/log/ryu/faucet/faucet.log',
+    'FAUCET_LOG': _PREFIX + '/var/log/faucet/faucet.log',
     'FAUCET_EVENT_SOCK': '',  # Special-case, see get_setting().
-    'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/faucet_exception.log',
+    'FAUCET_EXCEPTION_LOG': _PREFIX + '/var/log/faucet/faucet_exception.log',
     'FAUCET_PROMETHEUS_PORT': '9302',
     'FAUCET_PROMETHEUS_ADDR': '0.0.0.0',
-    'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/ryu/faucet',
-    'GAUGE_CONFIG': _PREFIX + '/etc/ryu/faucet/gauge.yaml',
+    'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/faucet' + ':' + _PREFIX + '/etc/ryu/faucet',
+    'GAUGE_CONFIG': _PREFIX + '/etc/faucet/gauge.yaml' + ':' + _PREFIX + '/etc/ryu/faucet/gauge.yaml',
     'GAUGE_CONFIG_STAT_RELOAD': False,
     'GAUGE_LOG_LEVEL': 'INFO',
     'GAUGE_PROMETHEUS_ADDR': '0.0.0.0',
-    'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/ryu/faucet/gauge_exception.log',
-    'GAUGE_LOG': _PREFIX + '/var/log/ryu/faucet/gauge.log',
+    'GAUGE_EXCEPTION_LOG': _PREFIX + '/var/log/faucet/gauge_exception.log',
+    'GAUGE_LOG': _PREFIX + '/var/log/faucet/gauge.log'
 }
 
 
@@ -87,10 +87,20 @@ def _cast_bool(value):
         return False
 
 
-def get_setting(name):
+def get_setting(name, path_eval=False):
     """Returns value of specified configuration setting."""
     default_value = DEFAULTS[name]
     result = os.getenv(name, default_value)
+    #split on ':' and find the first suitable path
+    if path_eval and isinstance(result, str) and isinstance(default_value, str) and not isinstance(default_value, bool):
+        locations = result.split(":")
+        result = None
+        for loc in locations:
+            if os.path.isfile(loc):
+                result = loc
+                break
+        if result is None:
+            result = locations[0]
     # Check for setting that expects a boolean result.
     if isinstance(default_value, bool):
         return _cast_bool(result)
