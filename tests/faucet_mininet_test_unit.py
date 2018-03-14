@@ -135,11 +135,51 @@ vlans:
         self.assertEqual(prom_event_id, event_id)
 
 
+class FaucetUntaggedNoCombinatorialFlood(FaucetUntaggedTest):
+
+    CONFIG = """
+        combinatorial_port_flood: False
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+
 class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
 
     def test_untagged(self):
        super(FaucetUntaggedBroadcastTest, self).test_untagged()
        self.verify_broadcast()
+
+
+class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
+
+    CONFIG = """
+        combinatorial_port_flood: False
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
 
 
 class FaucetExperimentalAPITest(FaucetUntaggedTest):

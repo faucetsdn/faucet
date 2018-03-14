@@ -85,6 +85,7 @@ configuration.
     lldp_beacon = {} # type: dict
     metrics_rate_limit_sec = None
     faucet_dp_mac = None
+    combinatorial_port_flood = None
 
     dyn_last_coldstart_time = None
 
@@ -161,6 +162,8 @@ configuration.
         # Rate limit metric updates - don't update metrics if last update was less than this many seconds ago.
         'faucet_dp_mac': FAUCET_MAC,
         # MAC address of packets sent by FAUCET, not associated with any VLAN.
+        'combinatorial_port_flood': True,
+        # if True, use a seperate output flow for each input port on this VLAN.
         }
 
     defaults_types = {
@@ -200,6 +203,7 @@ configuration.
         'lldp_beacon': dict,
         'metrics_rate_limit_sec': int,
         'faucet_dp_mac': str,
+        'combinatorial_port_flood': bool,
     }
 
     stack_defaults_types = {
@@ -545,14 +549,15 @@ configuration.
                     return resolved_action_conf
                 return None
 
-            def resolve_allow(_acl, action_conf):
+            def resolve_noop(_acl, action_conf):
                 return action_conf
 
             action_resolvers = {
                 'meter': resolve_meter,
                 'mirror': resolve_mirror,
                 'output': resolve_output,
-                'allow': resolve_allow,
+                'allow': resolve_noop,
+                'force_port_vlan': resolve_noop,
             }
 
             def build_acl(acl, vid=None):
@@ -563,6 +568,7 @@ configuration.
                     try:
                         ofmsgs = valve_acl.build_acl_ofmsgs(
                             [acl], self.wildcard_table,
+                            valve_of.goto_table(self.wildcard_table),
                             valve_of.goto_table(self.wildcard_table),
                             2**16-1, self.meters, acl.exact_match,
                             vlan_vid=vid)

@@ -643,12 +643,12 @@ def group_flood_buckets(ports, untagged):
     return buckets
 
 
-def flood_tagged_port_outputs(ports, in_port, exclude_ports=None):
+def flood_tagged_port_outputs(ports, in_port=None, exclude_ports=None):
     """Return list of actions necessary to flood to list of tagged ports."""
     flood_acts = []
     if ports:
         for port in ports:
-            if port == in_port:
+            if in_port is not None and port == in_port:
                 if port.hairpin:
                     flood_acts.append(output_in_port())
                 continue
@@ -658,13 +658,13 @@ def flood_tagged_port_outputs(ports, in_port, exclude_ports=None):
     return flood_acts
 
 
-def flood_untagged_port_outputs(ports, in_port, exclude_ports=None):
+def flood_untagged_port_outputs(ports, in_port=None, exclude_ports=None):
     """Return list of actions necessary to flood to list of untagged ports."""
     flood_acts = []
     if ports:
         flood_acts.append(pop_vlan())
         flood_acts.extend(flood_tagged_port_outputs(
-            ports, in_port, exclude_ports=exclude_ports))
+            ports, in_port=in_port, exclude_ports=exclude_ports))
     return flood_acts
 
 
