@@ -234,10 +234,11 @@ class Valve(object):
         ofmsgs = []
         if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
-            acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
+            acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
+            acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
             ofmsgs = valve_acl.build_acl_ofmsgs(
                 vlan.acls_in, acl_table,
-                acl_allow_inst, acl_allow_inst,
+                acl_allow_inst, acl_force_port_vlan_inst,
                 self.dp.highest_priority, self.dp.meters,
                 vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
         return ofmsgs
