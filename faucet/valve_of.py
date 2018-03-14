@@ -664,7 +664,7 @@ def flood_untagged_port_outputs(ports, in_port=None, exclude_ports=None):
     if ports:
         flood_acts.append(pop_vlan())
         flood_acts.extend(flood_tagged_port_outputs(
-            ports, in_port=None, exclude_ports=exclude_ports))
+            ports, in_port=in_port, exclude_ports=exclude_ports))
     return flood_acts
 
 

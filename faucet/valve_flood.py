@@ -38,13 +38,15 @@ class ValveFloodManager(object):
 
     def __init__(self, flood_table, eth_src_table,
                  flood_priority, bypass_priority,
-                 use_group_table, groups):
+                 use_group_table, groups,
+                 combinatorial_port_flood):
         self.flood_table = flood_table
         self.eth_src_table = eth_src_table
         self.bypass_priority = bypass_priority
         self.flood_priority = flood_priority
         self.use_group_table = use_group_table
         self.groups = groups
+        self.combinatorial_port_flood = combinatorial_port_flood
 
     @staticmethod
     def _vlan_all_ports(vlan, exclude_unicast):
@@ -56,20 +58,35 @@ class ValveFloodManager(object):
         """Return a list of flood actions to flood packets from a port."""
         flood_acts = []
         exclude_ports = []
-        if in_port.lacp:
+        if in_port is not None and in_port.lacp:
             lags = vlan.lags()
             exclude_ports = lags[in_port.lacp]
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
         flood_acts.extend(valve_of.flood_tagged_port_outputs(
-            tagged_ports, in_port, exclude_ports=exclude_ports))
+            tagged_ports, in_port=in_port, exclude_ports=exclude_ports))
         untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
         flood_acts.extend(valve_of.flood_untagged_port_outputs(
-            untagged_ports, in_port, exclude_ports=exclude_ports))
+            untagged_ports, in_port=in_port, exclude_ports=exclude_ports))
         return flood_acts
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
         return self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port)
+
+    def _build_flood_rule_for_vlan(self, vlan, eth_dst, eth_dst_mask,
+                                   exclude_unicast, command, flood_priority,
+                                   preflood_acts):
+        ofmsgs = []
+        match = self.flood_table.match(
+            vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
+        flood_acts = self._build_flood_rule_actions(
+            vlan, exclude_unicast, None)
+        ofmsgs.append(self.flood_table.flowmod(
+            match=match,
+            command=command,
+            inst=[valve_of.apply_actions(preflood_acts + flood_acts)],
+            priority=flood_priority))
+        return ofmsgs
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask,
                                    exclude_unicast, command, flood_priority,
@@ -90,11 +107,16 @@ class ValveFloodManager(object):
     def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
                                       exclude_unicast, command, flood_priority):
         ofmsgs = []
-        for port in self._vlan_all_ports(vlan, exclude_unicast):
-            ofmsgs.extend(self._build_flood_rule_for_port(
+        if self.combinatorial_port_flood:
+            for port in self._vlan_all_ports(vlan, exclude_unicast):
+                ofmsgs.extend(self._build_flood_rule_for_port(
+                    vlan, eth_dst, eth_dst_mask,
+                    exclude_unicast, command, flood_priority,
+                    port, []))
+        else:
+            ofmsgs.extend(self._build_flood_rule_for_vlan(
                 vlan, eth_dst, eth_dst_mask,
-                exclude_unicast, command, flood_priority,
-                port, []))
+                exclude_unicast, command, flood_priority, []))
         return ofmsgs
 
     def _build_mirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
@@ -200,12 +222,15 @@ class ValveFloodStackManager(ValveFloodManager):
 
     def __init__(self, flood_table, eth_src_table,
                  flood_priority, bypass_priority,
-                 use_group_table, groups, stack, stack_ports,
+                 use_group_table, groups,
+                 combinatorial_port_flood,
+                 stack, stack_ports,
                  dp_shortest_path_to_root, shortest_path_port):
         super(ValveFloodStackManager, self).__init__(
             flood_table, eth_src_table,
             flood_priority, bypass_priority,
-            use_group_table, groups)
+            use_group_table, groups,
+            combinatorial_port_flood)
         self.stack = stack
         self.stack_ports = stack_ports
         my_root_distance = len(dp_shortest_path_to_root())

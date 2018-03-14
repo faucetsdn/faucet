@@ -118,13 +118,15 @@ class Valve(object):
                 self.dp.tables['flood'], self.dp.tables['eth_src'],
                 self.dp.low_priority, self.dp.highest_priority,
                 self.dp.group_table, self.dp.groups,
+                self.dp.combinatorial_port_flood,
                 self.dp.stack, self.dp.stack_ports,
                 self.dp.shortest_path_to_root, self.dp.shortest_path_port)
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
                 self.dp.tables['flood'], self.dp.tables['eth_src'],
                 self.dp.low_priority, self.dp.highest_priority,
-                self.dp.group_table, self.dp.groups)
+                self.dp.group_table, self.dp.groups,
+                self.dp.combinatorial_port_flood)
         if self.dp.use_idle_timeout:
             self.host_manager = valve_host.ValveHostFlowRemovedManager(
                 self.logger, self.dp.ports, self.dp.vlans,
