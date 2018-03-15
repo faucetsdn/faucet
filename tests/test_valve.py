@@ -411,10 +411,10 @@ vlans:
                     self.assertTrue(
                         self.table.is_output(match, port=port.number),
                         msg=('Packet with unknown eth_dst not flooded to stack port %s' % port))
-                else:
+                elif not port.mirror:
                     self.assertFalse(
                         self.table.is_output(match, port=port.number),
-                        msg=('Packet with unknown eth_dst flooded to non-VLAN %s' % port))
+                        msg=('Packet with unknown eth_dst flooded to non-VLAN, non-stack, non-mirror %s' % port))
 
     def rcv_packet(self, port, vid, match):
         """Simulate control plane receiving a packet on a port/VID."""
