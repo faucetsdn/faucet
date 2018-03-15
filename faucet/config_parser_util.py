@@ -26,18 +26,19 @@ from yaml.constructor import ConstructorError
 
 def no_duplicates_constructor(loader, node, deep=False):
     """Check for duplicate YAML keys."""
-    keys = set()
-    for key_node, _ in node.value:
-        key = loader.construct_object(key_node, deep=deep)
-        try:
-            if key in keys:
-                raise ConstructorError('duplicate key %s' % key)
-        except TypeError:
-            raise ConstructorError('invalid key %s' % key)
-        keys.add(key)
+    try:
+        keys = [loader.construct_object(key_node, deep=deep) for key_node, _ in node.value]
+        unique_keys = set(keys)
+    except TypeError as err:
+        raise ConstructorError('invalid key: %s' % err)
+    if len(keys) != len(unique_keys):
+        raise ConstructorError('duplicate key')
     return loader.construct_mapping(node, deep)
 
-yaml.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_duplicates_constructor)
+
+yaml.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    no_duplicates_constructor)
 
 
 def get_logger(logname):
