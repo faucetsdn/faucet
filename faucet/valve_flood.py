@@ -104,8 +104,8 @@ class ValveFloodManager(object):
             priority=flood_priority))
         return ofmsgs
 
-    def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
-                                      exclude_unicast, command, flood_priority):
+    def _combinatorial_port_flood(self, vlan, eth_dst, eth_dst_mask,
+                                  exclude_unicast, command, flood_priority):
         ofmsgs = []
         if self.combinatorial_port_flood:
             for port in self._vlan_all_ports(vlan, exclude_unicast):
@@ -113,7 +113,14 @@ class ValveFloodManager(object):
                     vlan, eth_dst, eth_dst_mask,
                     exclude_unicast, command, flood_priority,
                     port, []))
-        else:
+        return ofmsgs
+
+    def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
+                                      exclude_unicast, command, flood_priority):
+        ofmsgs = self._combinatorial_port_flood(
+            vlan, eth_dst, eth_dst_mask,
+            exclude_unicast, command, flood_priority)
+        if not ofmsgs:
             ofmsgs.extend(self._build_flood_rule_for_vlan(
                 vlan, eth_dst, eth_dst_mask,
                 exclude_unicast, command, flood_priority, []))
@@ -317,6 +324,22 @@ class ValveFloodStackManager(ValveFloodManager):
         # If input port local or from a further away switch, flood
         # towards the root.
         return toward_flood_actions
+
+    def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
+                                      exclude_unicast, command, flood_priority):
+        ofmsgs = self._combinatorial_port_flood(
+            vlan, eth_dst, eth_dst_mask,
+            exclude_unicast, command, flood_priority)
+        if not ofmsgs:
+            for port in self.stack_ports:
+                ofmsgs.extend(self._build_flood_rule_for_port(
+                    vlan, eth_dst, eth_dst_mask,
+                    exclude_unicast, command, flood_priority + 1,
+                    port, []))
+            ofmsgs.extend(self._build_flood_rule_for_vlan(
+                vlan, eth_dst, eth_dst_mask,
+                exclude_unicast, command, flood_priority, []))
+        return ofmsgs
 
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
