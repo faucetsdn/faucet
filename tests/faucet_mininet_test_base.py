@@ -1340,7 +1340,7 @@ dbs:
             '%s: ICMP echo reply' % first_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
 
-    def verify_bast_ping_mirrored(self, first_host, second_host, mirror_host):
+    def verify_bcast_ping_mirrored(self, first_host, second_host, mirror_host):
         """Verify that broadcast to a mirrored port, is mirrored."""
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
