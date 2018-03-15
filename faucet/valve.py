@@ -805,20 +805,27 @@ class Valve(object):
         learn_port = self.flood_manager.edge_learn_port(
             other_valves, pkt_meta)
         if learn_port is not None:
-            learn_flows = self.host_manager.learn_host_on_vlan_ports(
+            learn_flows, previous_port = self.host_manager.learn_host_on_vlan_ports(
                 learn_port, pkt_meta.vlan, pkt_meta.eth_src,
                 last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
             if learn_flows:
                 if pkt_meta.l3_pkt is None:
                     pkt_meta.reparse_ip()
+                previous_port_no = None
+                port_move_text = ''
+                if previous_port is not None:
+                    previous_port_no = previous_port.number
+                    if pkt_meta.port.number != previous_port_no:
+                        port_move_text = ', moved from port %u' % previous_port_no
                 self.logger.info(
-                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) on %s on VLAN %u (%u hosts total)' % (
+                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) on %s%s on VLAN %u (%u hosts total)' % (
                         pkt_meta.eth_src, pkt_meta.eth_type,
-                        pkt_meta.l3_src, pkt_meta.l3_dst, pkt_meta.port,
+                        pkt_meta.l3_src, pkt_meta.l3_dst, pkt_meta.port, port_move_text,
                         pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
                 self._notify(
                     {'L2_LEARN': {
                         'port_no': pkt_meta.port.number,
+                        'previous_port_no': previous_port_no,
                         'vid': pkt_meta.vlan.vid,
                         'eth_src': pkt_meta.eth_src,
                         'eth_type': pkt_meta.eth_type,
