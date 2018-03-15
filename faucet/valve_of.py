@@ -607,7 +607,7 @@ def dedupe_ofmsgs(input_ofmsgs):
     return deduped_input_ofmsgs
 
 
-def valve_flowreorder(input_ofmsgs):
+def valve_flowreorder(input_ofmsgs, use_barriers=True):
     """Reorder flows for better OFA performance."""
     # Move all deletes to be first, and add one barrier,
     # while preserving order. Platforms that do parallel delete
@@ -627,7 +627,8 @@ def valve_flowreorder(input_ofmsgs):
     for ofmsgs in (delete_ofmsgs, groupadd_ofmsgs, meteradd_ofmsgs):
         if ofmsgs:
             output_ofmsgs.extend(list(ofmsgs))
-            output_ofmsgs.append(barrier())
+            if use_barriers:
+                output_ofmsgs.append(barrier())
     output_ofmsgs.extend(other_ofmsgs)
     return output_ofmsgs
 

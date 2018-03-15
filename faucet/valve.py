@@ -63,6 +63,7 @@ class Valve(object):
     """
 
     DEC_TTL = True
+    USE_BARRIERS = True
     L3 = False
     base_prom_labels = None
     recent_ofmsgs = deque(maxlen=32) # type: ignore
@@ -1183,7 +1184,8 @@ class Valve(object):
             ryu_dp (ryu.controller.controller.Datapath): datapath.
             flow_msgs (list): OpenFlow messages to send.
         """
-        reordered_flow_msgs = valve_of.valve_flowreorder(flow_msgs)
+        reordered_flow_msgs = valve_of.valve_flowreorder(
+            flow_msgs, use_barriers=self.USE_BARRIERS)
         self.ofchannel_log(reordered_flow_msgs)
         self.metrics.of_flowmsgs_sent.labels( # pylint: disable=no-member
             **self.base_prom_labels).inc(len(reordered_flow_msgs))
@@ -1249,6 +1251,12 @@ class ArubaValve(TfmValve):
     DEC_TTL = False
 
 
+class OVSValve(Valve):
+    """Valve implementation for OVS."""
+
+    USE_BARRIERS = False
+
+
 SUPPORTED_HARDWARE = {
     'Allied-Telesis': Valve,
     'Aruba': ArubaValve,
@@ -1256,7 +1264,7 @@ SUPPORTED_HARDWARE = {
     'Lagopus': Valve,
     'Netronome': Valve,
     'NoviFlow': Valve,
-    'Open vSwitch': Valve,
+    'Open vSwitch': OVSValve,
     'ZodiacFX': Valve,
 }
 
