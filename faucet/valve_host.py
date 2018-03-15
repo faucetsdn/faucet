@@ -190,11 +190,11 @@ class ValveHostManager(object):
                                  delete_existing=True,
                                  last_dp_coldstart_time=None):
         """Learn a host on a port."""
-        now = time.time()
         ofmsgs = []
-
-        cache_age = None
         cache_port = None
+
+        now = time.time()
+        cache_age = None
         entry = vlan.cached_host(eth_src)
         # Host not cached, and no hosts expired since we cold started
         # Enable faster learning by assuming there's no previous host to delete
@@ -212,7 +212,7 @@ class ValveHostManager(object):
             delete_existing = False
             # if we very very recently learned this host, don't do anything.
             if cache_age < self.CACHE_UPDATE_GUARD_TIME:
-                return ofmsgs
+                return (ofmsgs, cache_port)
 
         if port.loop_protect:
             ban_age = None
@@ -237,7 +237,7 @@ class ValveHostManager(object):
             if learn_ban:
                 port.dyn_last_ban_time = now
                 ofmsgs.append(self._temp_ban_host_learning_on_port(port))
-                return ofmsgs
+                return (ofmsgs, cache_port)
 
         (src_rule_idle_timeout,
          src_rule_hard_timeout,
@@ -249,7 +249,7 @@ class ValveHostManager(object):
             dst_rule_idle_timeout))
 
         vlan.add_cache_host(eth_src, port, now)
-        return ofmsgs
+        return (ofmsgs, cache_port)
 
     def flow_timeout(self, _table_id, _match):
         """Handle a flow timed out message from dataplane."""

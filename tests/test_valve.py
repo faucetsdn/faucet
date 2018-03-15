@@ -964,6 +964,20 @@ acls:
         """Test port status change for unknown port handled."""
         self.set_port_up(99)
 
+    def test_move_port(self):
+        self.rcv_packet(2, 0x200, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'vlan_vid': 0x200,
+            'ipv4_src': '10.0.0.2',
+            'ipv4_dst': '10.0.0.3'})
+        self.rcv_packet(4, 0x200, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'vlan_vid': 0x200,
+            'ipv4_src': '10.0.0.2',
+            'ipv4_dst': '10.0.0.3'})
+
 
 class ValveChangePortCase(ValveTestBase):
 
