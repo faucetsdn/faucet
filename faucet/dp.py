@@ -499,6 +499,15 @@ configuration.
                     mirrored_port.mirror.append(mirror_port.number)
                     mirror_port.output_only = True
 
+        def resolve_override_output_ports():
+            """Resolve override output ports."""
+            for port_no, port in list(self.ports.items()):
+                if port.override_output_port:
+                    port.override_output_port = resolve_port(port.override_output_port)
+                    assert port.override_output_port, (
+                        'override_output_port port not defined')
+                    self.ports[port_no] = port
+
         def resolve_acl(acl_in):
             """Resolve an individual ACL."""
             assert acl_in in self.acls, (
@@ -653,6 +662,7 @@ configuration.
 
         resolve_stack_dps()
         resolve_mirror_destinations()
+        resolve_override_output_ports()
         resolve_vlan_names_in_routers()
         resolve_acls()
 

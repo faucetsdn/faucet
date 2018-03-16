@@ -3363,6 +3363,55 @@ vlans:
         self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
 
 
+class FaucetUntaggedOutputOverrideTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        unicast_flood: False
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+                override_output_port: %(port_3)d
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                description: "b3"
+                native_vlan: 100
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        first_host, second_host, override_host = self.net.hosts[0:3]
+        self.flap_all_switch_ports()
+        first_host.cmd('arp -s %s %s' % (second_host.IP(), second_host.MAC()))
+        second_host.cmd('arp -s %s %s' % (first_host.IP(), first_host.MAC()))
+        tcpdump_filter = (
+            'ether src %s and icmp[icmptype] == 8') % first_host.MAC()
+        tcpdump_txt = self.tcpdump_helper(
+            override_host, tcpdump_filter, [
+                lambda: first_host.cmd('ping -c1 %s' % second_host.IP())])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % second_host.IP(), tcpdump_txt),
+                        msg=tcpdump_txt)
+        tcpdump_filter = (
+            'ether src %s and icmp[icmptype] == 8') % second_host.MAC()
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, tcpdump_filter, [
+                lambda: second_host.cmd('ping -c1 %s' % first_host.IP())])
+        self.assertTrue(re.search(
+            '%s: ICMP echo request' % first_host.IP(), tcpdump_txt),
+                        msg=tcpdump_txt)
+
+
 class FaucetUntaggedMultiMirrorTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
