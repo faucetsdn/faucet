@@ -158,13 +158,22 @@ class ValveHostManager(object):
                 ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         # Associate this MAC with source port.
-        ofmsgs.append(self.eth_src_table.flowmod(
-            self.eth_src_table.match(
-                in_port=port.number, vlan=vlan, eth_src=eth_src),
-            priority=(self.host_priority - 1),
-            inst=[valve_of.goto_table(self.eth_dst_table)],
-            hard_timeout=src_rule_hard_timeout,
-            idle_timeout=src_rule_idle_timeout))
+        src_match = self.eth_src_table.match(
+            in_port=port.number, vlan=vlan, eth_src=eth_src)
+        if port.override_output_port:
+            ofmsgs.append(self.eth_src_table.flowmod(
+                src_match,
+                priority=(self.host_priority - 1),
+                inst=[valve_of.output_port(port.override_output_port)],
+                hard_timeout=src_rule_hard_timeout,
+                idle_timeout=src_rule_idle_timeout))
+        else:
+            ofmsgs.append(self.eth_src_table.flowmod(
+                src_match,
+                priority=(self.host_priority - 1),
+                inst=[valve_of.goto_table(self.eth_dst_table)],
+                hard_timeout=src_rule_hard_timeout,
+                idle_timeout=src_rule_idle_timeout))
 
         # Output packets for this MAC to specified port.
         ofmsgs.append(self.eth_dst_table.flowmod(

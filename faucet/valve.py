@@ -589,11 +589,14 @@ class Valve(object):
                     priority=self.dp.highest_priority,
                     max_len=128))
 
-            # Port has LACP processing enabled.
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
 
-            # Add ACL if any.
+            if port.override_output_port:
+                ofmsgs.append(self.dp.tables['eth_src'].flowcontroller(
+                    priority=self.dp.low_priority + 1,
+                    inst=[valve_of.output_port(port.override_output_port)]))
+
             acl_ofmsgs = self._port_add_acl(port)
             ofmsgs.extend(acl_ofmsgs)
 
