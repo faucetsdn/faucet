@@ -23,6 +23,14 @@ import os
 import yaml
 from yaml.constructor import ConstructorError
 
+# TODO: CLoader is faster, but doesn't warn on duplicate keys.
+# # handle libyaml-dev not installed
+# try:
+#    from yaml import CLoader as Loader # type: ignore
+# except ImportError:
+#    from yaml import Loader
+from yaml import Loader
+
 
 def no_duplicates_constructor(loader, node, deep=False):
     """Check for duplicate YAML keys."""
@@ -51,7 +59,7 @@ def read_config(config_file, logname):
     logger = get_logger(logname)
     try:
         with open(config_file, 'r') as stream:
-            conf = yaml.load(stream.read())
+            conf = yaml.load(stream.read(), Loader=Loader)
     except (yaml.YAMLError, UnicodeDecodeError,
             PermissionError, ValueError) as err: # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
