@@ -3360,6 +3360,7 @@ vlans:
         first_host, second_host, mirror_host = self.net.hosts[0:3]
         self.flap_all_switch_ports()
         self.verify_ping_mirrored(first_host, second_host, mirror_host)
+        self.verify_bcast_ping_mirrored(first_host, second_host, mirror_host)
 
 
 class FaucetUntaggedMultiMirrorTest(FaucetUntaggedTest):
@@ -4821,6 +4822,7 @@ class FaucetStringOfDPTest(FaucetTest):
                 'interfaces': {},
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
                 'drop_lldp': False,
+                'combinatorial_port_flood': False,
             }
             interfaces_config = dp_config['interfaces']
 
