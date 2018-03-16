@@ -23,22 +23,34 @@ import os
 import yaml
 from yaml.constructor import ConstructorError
 
+# handle libyaml-dev not installed
+try:
+    from yaml import CLoader as Loader # type: ignore
+except ImportError:
+    from yaml import Loader
 
-def no_duplicates_constructor(loader, node, deep=False):
-    """Check for duplicate YAML keys."""
-    try:
-        keys = [loader.construct_object(key_node, deep=deep) for key_node, _ in node.value]
-        unique_keys = set(keys)
-    except TypeError as err:
-        raise ConstructorError('invalid key: %s' % err)
-    if len(keys) != len(unique_keys):
-        raise ConstructorError('duplicate key')
-    return loader.construct_mapping(node, deep)
+
+class UniqueKeyLoader(Loader):
+
+    def construct_mapping(self, node, deep=False):
+        """Check for duplicate YAML keys."""
+        try:
+            key_value_pairs = [
+                (self.construct_object(key_node, deep=deep),
+                 self.construct_object(value_node, deep=deep)) for key_node, value_node in node.value]
+        except TypeError as err:
+            raise ConstructorError('invalid key type: %s' % err)
+        mapping = {}
+        for key, value in key_value_pairs:
+            if key in mapping:
+                raise ConstructorError('duplicate key: %s' % key)
+            mapping[key] = value
+        return mapping
 
 
 yaml.add_constructor(
     yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-    no_duplicates_constructor)
+    UniqueKeyLoader.construct_mapping)
 
 
 def get_logger(logname):
