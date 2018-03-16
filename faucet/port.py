@@ -43,6 +43,7 @@ class Port(Conf):
     lldp_beacon = {} # type: dict
     op_status_reconf = None
     receive_lldp = None
+    override_output_port = None
 
     dyn_learn_ban_count = 0
     dyn_phys_up = False
@@ -62,6 +63,7 @@ class Port(Conf):
         'unicast_flood': True,
         # if True, do classical unicast flooding on this port (False floods ND/ARP/bcast only).
         'mirror': None,
+        # If set, mirror packets from that port to this one.
         'native_vlan': None,
         # Set untagged VLAN on this port.
         'tagged_vlans': None,
@@ -87,6 +89,8 @@ class Port(Conf):
         # If True, configure pipeline if operational status of port changes.
         'receive_lldp': False,
         # If True, receive LLDP on this port.
+        'override_output_port': None,
+        # If set, packets are sent to this other port.
     }
 
     defaults_types = {
@@ -110,6 +114,7 @@ class Port(Conf):
         'lldp_beacon': dict,
         'opstatus_reconf': bool,
         'receive_lldp': bool,
+        'override_output_port': (str, int),
     }
 
     stack_defaults_types = {
