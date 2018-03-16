@@ -504,6 +504,8 @@ configuration.
             for port_no, port in list(self.ports.items()):
                 if port.override_output_port:
                     port.override_output_port = resolve_port(port.override_output_port)
+                    assert port.override_output_port, (
+                        'override_output_port port not defined')
                     self.ports[port_no] = port
 
         def resolve_acl(acl_in):
