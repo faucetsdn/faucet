@@ -1,22 +1,31 @@
-image: registry.gitlab.com/faucetsdn/faucet
-
-stages:  
+stages:
+  - build-env
   - build
   - deploy
 
-run-build:  
-  stage: build
+build-env:
+  stage: build-env
+  image: docker:latest
+  services:
+  - docker:dind
   script:
-    - apt-get update && apt-get upgrade -y
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
+    - docker build -t registry.gitlab.com/faucetsdn/faucet/dbuilder:latest -f ci/Dockerfile .
+    - docker push registry.gitlab.com/faucetsdn/faucet/dbuilder:latest
+  only:
+      - tags
+
+build-package:
+  stage: build
+  image: registry.gitlab.com/faucetsdn/faucet/dbuilder
+  script:
     - cd /builds/faucetsdn/faucet
-    - echo "Installing packages required for package building"
     - TAG="git describe --tags"
     - TAG=$($TAG)
     - TAG="${TAG//[!0-9.-]/}"
-    - echo "installing build deps"
     - apt-get upgrade -y && mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
     - export DEBEMAIL='maintainers@faucet.nz' && export DEBFULLNAME='Faucet Maintainers'
-    - debchange --newversion $TAG -b "Package automatically generated for new version of faucet"
+    - debchange --newversion $TAG -b "New upstream release"
     - fakeroot debian/rules binary
     - mkdir build
     - mv ../*.deb build/
@@ -30,7 +39,7 @@ deploy-package:
   stage: deploy
   script:
     - cd /builds/faucetsdn/faucet/build
-    - echo "{\"url\":\"https://packagecloud.io\",\"token\":\"$TOKEN\"}" > ~/.packagecloud
+    - echo "{\"url\":\"https://packagecloud.io\",\"token\":\"$PACKAGECLOUD_TOKEN\"}" > ~/.packagecloud
     - package_cloud push faucetsdn/faucet/debian/jessie *.deb
     - package_cloud push faucetsdn/faucet/debian/stretch *.deb
     - package_cloud push faucetsdn/faucet/debian/buster *.deb
