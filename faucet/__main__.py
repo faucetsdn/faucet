@@ -32,7 +32,7 @@ RYU_OPTIONAL_ARGS = [
                       over-ridden options in the directory take precedence."""),
     ('config-file', """Path to a config file to use. Multiple config files
                        can be specified, with values in later files taking
-                       precedence. Defaults to None."""),
+                       precedence. Defaults to None.""", "/etc/faucet/ryu.conf"),
     ('ctl-cert', 'controller certificate'),
     ('ctl-privkey', 'controller private key'),
     ('default-log-level', 'default log level'),
@@ -79,7 +79,11 @@ def parse_args(sys_args):
         metavar='APP')
 
     for ryu_arg in RYU_OPTIONAL_ARGS:
-        args.add_argument('--ryu-%s' % ryu_arg[0], help=ryu_arg[1])
+        if len(ryu_arg) >= 3:
+            args.add_argument('--ryu-%s' % ryu_arg[0],
+                help=ryu_arg[1], default=ryu_arg[2])
+        else:
+            args.add_argument('--ryu-%s' % ryu_arg[0], help=ryu_arg[1])
 
     return args.parse_args(sys_args)
 
@@ -116,6 +120,8 @@ def main():
         if not val or not arg.startswith('ryu'):
             continue
         if arg == "ryu_app":
+            continue
+        if arg == "ryu_config_file" and not os.path.isfile(val):
             continue
         arg_name = arg.replace('ryu_', '').replace('_', '-')
         ryu_args.append("--%s=%s" % (arg_name, val))
