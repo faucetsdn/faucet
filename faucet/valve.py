@@ -593,9 +593,10 @@ class Valve(object):
                 ofmsgs.extend(self.lacp_down(port))
 
             if port.override_output_port:
-                ofmsgs.append(self.dp.tables['eth_src'].flowcontroller(
+                ofmsgs.append(self.dp.tables['eth_src'].flowmod(
                     priority=self.dp.low_priority + 1,
-                    inst=[valve_of.output_port(port.override_output_port)]))
+                    inst=[valve_of.apply_actions([valve_of.output_port(
+                        port.override_output_port.number)])]))
 
             acl_ofmsgs = self._port_add_acl(port)
             ofmsgs.extend(acl_ofmsgs)
