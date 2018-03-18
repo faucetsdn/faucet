@@ -12,8 +12,8 @@ adduser --disabled-password --gecos "faucet user" faucet
 echo faucet:faucet | chpasswd
 gpasswd -a faucet sudo
 
-mkdir -p /var/log/ryu/faucet/
-chown -R faucet: /var/log/ryu/
+mkdir -p /var/log/faucet/
+chown -R faucet: /var/log/faucet/
 
 pip3 install ${SCRIPTDIR}/faucet-src/
 

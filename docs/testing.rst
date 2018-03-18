@@ -165,7 +165,7 @@ in order to complete a faucet test suite run against hardware quicker.
 
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="-n" \
-      -v /etc/ryu/faucet:/etc/ryu/faucet \
+      -v /etc/faucet:/etc/faucet \
       -v /tmp:/tmp \
       -ti faucet/tests
 

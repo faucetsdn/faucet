@@ -34,7 +34,7 @@ Build and run the afl-fuzz tests:
     -u $(id -u $USER) \
     --name packet-fuzzer \
     -v /var/log/afl/:/var/log/afl/ \
-    -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
+    -v /var/log/faucet/:/var/log/faucet/ \
     -p 6653:6653 \
     -p 9302:9302 \
     faucet/packet-fuzzer
@@ -46,4 +46,4 @@ To check the error produced by an afl crash file use display_packet_crash:
 
   python3 tests/fuzzer/display_packet_crash.py /var/log/afl/crashes/X
 
-Where X is the name of the crash file. The output can then be found in the faucet logs (/var/log/ryu/faucet/).
+Where X is the name of the crash file. The output can then be found in the faucet logs (/var/log/faucet/).

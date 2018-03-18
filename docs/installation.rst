@@ -11,8 +11,7 @@ You will need to provide an initial configuration files for FAUCET and Gauge, an
 .. code:: console
 
   mkdir -p /etc/faucet
-  mkdir -p /var/log/ryu/faucet
-  mkdir -p /var/log/ryu/gauge
+  mkdir -p /var/log/faucet
   $EDITOR /etc/faucet/faucet.yaml
   $EDITOR /etc/faucet/gauge.yaml
 

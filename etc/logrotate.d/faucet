@@ -1,4 +1,4 @@
-/var/log/ryu/faucet/faucet.log {
+/var/log/faucet/faucet.log {
     weekly
     rotate 14
     compress
@@ -7,7 +7,7 @@
     missingok
 }
 
-/var/log/ryu/faucet/faucet_exception.log {
+/var/log/faucet/faucet_exception.log {
     weekly
     rotate 14
     compress
