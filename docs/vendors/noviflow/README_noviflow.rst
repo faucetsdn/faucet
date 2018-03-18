@@ -88,7 +88,7 @@ Test connectivity
 Host(s) on ports 1 and 2 should now be able to communicate, and FAUCET's log file should indicate learning is occurring:
 
 .. code-block:: shell
-  :caption: /var/log/ryu/faucet.log
+  :caption: /var/log/faucet/faucet.log
   :name: noviflow/faucet.log
 
     May 14 17:06:15 faucet DEBUG    DPID 1 (0x1) connected
