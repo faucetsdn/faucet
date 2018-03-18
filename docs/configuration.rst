@@ -643,3 +643,77 @@ Failover is an experimental option, but can be configured as follows:
       - None
       - The list of ports the packet can be output through.
 
+Environment variables
+---------------------
+
+You can use environment variables to override default behaviour of faucet
+such as paths for configuration files and port numbers.
+
+.. list-table::
+    :widths: 31 15 15 60
+    :header-rows: 1
+
+    * - Environment Variable
+      - Type
+      - Default
+      - Description
+    * - FAUCET_CONFIG
+      - Colon-separated list of file paths
+      - /etc/faucet/faucet.yaml:/etc/ryu/faucet/faucet.yaml
+      - Faucet will load it's configuration from the first valid file in list
+    * - FAUCET_CONFIG_STAT_RELOAD
+      - boolean
+      - False
+      - If true, faucet will automatically reload itself and apply new configuration when FAUCET_CONFIG changes
+    * - FAUCET_LOG_LEVEL
+      - `Python log level <https://docs.python.org/3/library/logging.html#levels>`_
+      - INFO
+      - Log verbosity
+    * - FAUCET_LOG
+      - File path or STDOUT or STDERR
+      - /var/log/faucet/faucet.log
+      - Location for faucet to log messages to, can be special values STDOUT or STDERR
+    * - FAUCET_EXCEPTION_LOG
+      - File path  or STDOUT or STDERR
+      - /var/log/faucet/faucet_exception.log
+      - Location for faucet log to log exceptions to, can be special values STDOUT or STDERR
+    * - FAUCET_EVENT_SOCK
+      - Socket path
+      -
+      - Location to a UNIX socket where faucet will write events to, or empty to disable events
+    * - FAUCET_PROMETHEUS_PORT
+      - Port
+      - 9302
+      - TCP port to listen on for faucet prometheus client
+    * - FAUCET_PROMETHEUS_ADDR
+      - IP address
+      - 0.0.0.0
+      - IP address to listen on for faucet prometheus client
+    * - FAUCET_PIPELINE_DIR
+      - Colon-separated list of file paths
+      - /etc/faucet:/etc/ryu/faucet
+      - Faucet will load pipeline definitions from the first valid directory in list
+    * - GAUGE_CONFIG
+      - Colon-separated list of file paths
+      - /etc/faucet/gauge.yaml:/etc/ryu/faucet/gauge.yaml
+      - Guage will load it's configuration from the first valid file in list
+    * - GAUGE_CONFIG_STAT_RELOAD
+      - boolean
+      - False
+      - If true, gauge will automatically reload itself and apply new configuration when GAUGE_CONFIG changes
+    * - GAUGE_LOG_LEVEL
+      - `Python log level <https://docs.python.org/3/library/logging.html#levels>`_
+      - INFO
+      - Log verbosity
+    * - GAUGE_LOG
+      - File path or STDOUT or STDERR
+      - /var/log/faucet/gauge.log
+      - Location for gauge to log messages to, can be special values STDOUT or STDERR
+    * - GAUGE_EXCEPTION_LOG
+      - File path or STDOUT or STDERR
+      - /var/log/faucet/gauge_exception.log
+      - Location for faucet log to log exceptions to, can be special values STDOUT or STDERR
+    * - GAUGE_PROMETHEUS_ADDR
+      - IP address
+      - 0.0.0.0
+      - IP address to listen on for gauge prometheus client

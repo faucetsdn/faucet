@@ -82,6 +82,8 @@ class RyuAppBase(app_manager.RyuApp):
         """Start controller."""
         super(RyuAppBase, self).start()
 
+        self.logger.info('Loaded configuration from %s', self.config_file)
+
         if self.stat_reload:
             self.logger.info('will automatically reload new config on changes')
         signal.signal(signal.SIGHUP, self.signal_handler)
