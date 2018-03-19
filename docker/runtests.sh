@@ -26,6 +26,8 @@ export OVS_LOGDIR=/usr/local/var/log/openvswitch
 /usr/local/share/openvswitch/scripts/ovs-ctl start || exit 1
 ovs-vsctl show || exit 1
 ovs-vsctl --no-wait set Open_vSwitch . other_config:max-idle=50000
+# Needed to support double tagging.
+ovs-vsctl --no-wait set Open_vSwitch . other_config:vlan-limit=2
 
 cd /faucet-src/tests
 

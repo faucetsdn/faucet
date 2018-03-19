@@ -3278,7 +3278,7 @@ acls:
             'vlan 456.+vlan 123', tcpdump_txt))
 
 
-@unittest.skip('broken in OVS master')
+@unittest.skip('190318: works under OVS 2.9.0 locally, but not under Travis')
 class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
