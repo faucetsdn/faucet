@@ -37,6 +37,7 @@ build-package:
 
 deploy-package:
   stage: deploy
+  image: registry.gitlab.com/faucetsdn/faucet/dbuilder
   script:
     - cd /builds/faucetsdn/faucet/build
     - echo "{\"url\":\"https://packagecloud.io\",\"token\":\"$PACKAGECLOUD_TOKEN\"}" > ~/.packagecloud

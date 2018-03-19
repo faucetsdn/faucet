@@ -643,6 +643,8 @@ Failover is an experimental option, but can be configured as follows:
       - None
       - The list of ports the packet can be output through.
 
+.. _env-vars:
+
 Environment variables
 ---------------------
 
