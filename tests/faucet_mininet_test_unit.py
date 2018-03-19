@@ -3278,7 +3278,6 @@ acls:
             'vlan 456.+vlan 123', tcpdump_txt))
 
 
-@unittest.skip('broken in OVS master')
 class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
