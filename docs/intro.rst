@@ -84,6 +84,14 @@ same feature tests on real OpenFlow hardware. Faucet developers also host
 regular PlugFest events specifically to keep switch implementations broadly
 synchronized in capabilities and compatibility.
 
+Release Notes
+-------------
+
+.. toctree::
+   :maxdepth: 2
+
+   release_notes
+
 Getting Help
 ------------
 
