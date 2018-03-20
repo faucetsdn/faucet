@@ -44,6 +44,9 @@ deploy-package:
     - package_cloud push faucetsdn/faucet/debian/jessie *.deb
     - package_cloud push faucetsdn/faucet/debian/stretch *.deb
     - package_cloud push faucetsdn/faucet/debian/buster *.deb
+    - package_cloud push faucetsdn/faucet/raspbian/jessie *.deb
+    - package_cloud push faucetsdn/faucet/raspbian/stretch *.deb
+    - package_cloud push faucetsdn/faucet/raspbian/buster *.deb
     - package_cloud push faucetsdn/faucet/ubuntu/xenial *.deb
     - package_cloud push faucetsdn/faucet/ubuntu/yakkety *.deb
     - package_cloud push faucetsdn/faucet/ubuntu/zesty *.deb
