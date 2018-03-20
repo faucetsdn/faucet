@@ -3598,7 +3598,6 @@ acls:
 """
 
     CONFIG = """
-        combinatorial_port_flood: False
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
@@ -4871,7 +4870,6 @@ class FaucetStringOfDPTest(FaucetTest):
                 'interfaces': {},
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
                 'drop_lldp': False,
-                'combinatorial_port_flood': False,
             }
             interfaces_config = dp_config['interfaces']
 

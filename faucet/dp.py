@@ -162,7 +162,7 @@ configuration.
         # Rate limit metric updates - don't update metrics if last update was less than this many seconds ago.
         'faucet_dp_mac': FAUCET_MAC,
         # MAC address of packets sent by FAUCET, not associated with any VLAN.
-        'combinatorial_port_flood': True,
+        'combinatorial_port_flood': False,
         # if True, use a seperate output flow for each input port on this VLAN.
         }
 
