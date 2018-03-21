@@ -2147,7 +2147,6 @@ vlans:
 """
 
     def test_untagged(self):
-        self.verify_port1_unicast(False)
         # VLAN level config to disable flooding takes precedence,
         # cannot enable port-only flooding.
         self.assertFalse(self.bogus_mac_flooded_to_port1())
@@ -2180,7 +2179,6 @@ vlans:
 """
 
     def test_untagged(self):
-        self.verify_port1_unicast(False)
         self.assertFalse(self.bogus_mac_flooded_to_port1())
 
 
