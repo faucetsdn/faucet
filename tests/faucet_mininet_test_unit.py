@@ -2067,6 +2067,7 @@ vlans:
 """
 
     CONFIG = """
+        combinatorial_port_flood: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
