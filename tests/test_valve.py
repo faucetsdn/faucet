@@ -48,6 +48,19 @@ from fakeoftable import FakeOFTable
 
 FAUCET_MAC = '0e:00:00:00:00:01'
 
+# TODO: fix fake OF table implementation for in_port filtering
+# (ie. do not output to in_port)
+DP1_CONFIG = """
+        dp_id: 1
+        ignore_learn_ins: 0
+        combinatorial_port_flood: True
+        ofchannel_log: "/dev/null"
+        pipeline_config_dir: '%s/../etc/faucet'
+        lldp_beacon:
+            send_interval: 1
+            max_per_interval: 1
+""" % os.path.dirname(os.path.realpath(__file__))
+
 
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
@@ -125,14 +138,8 @@ class ValveTestBase(unittest.TestCase):
     CONFIG = """
 dps:
     s1:
-        ignore_learn_ins: 0
-        dp_id: 1
-        ofchannel_log: "/dev/null"
         hardware: 'GenericTFM'
-        pipeline_config_dir: '%s/../etc/faucet'
-        lldp_beacon:
-            send_interval: 1
-            max_per_interval: 1
+%s
         interfaces:
             p1:
                 number: 1
@@ -164,6 +171,7 @@ dps:
                 native_vlan: v100
     s3:
         hardware: 'Open vSwitch'
+        combinatorial_port_flood: True
         dp_id: 0x3
         stack:
             priority: 1
@@ -233,7 +241,7 @@ vlans:
         vid: 0x300
     v400:
         vid: 0x400
-""" % os.path.dirname(os.path.realpath(__file__))
+""" % DP1_CONFIG
 
     DP = 's1'
     DP_ID = 1
@@ -890,9 +898,8 @@ class ValveTestCase(ValveTestBase):
 version: 2
 dps:
     s1:
-        ignore_learn_ins: 0
         hardware: 'Open vSwitch'
-        dp_id: 1
+%s
         interfaces:
             p1:
                 number: 1
@@ -929,7 +936,7 @@ acls:
             dl_type: 0x800
             actions:
                 allow: 0
-"""
+""" % DP1_CONFIG
 
         drop_match = {
             'in_port': 2,
@@ -984,7 +991,7 @@ class ValveChangePortCase(ValveTestBase):
     CONFIG = """
 dps:
     s1:
-        dp_id: 1
+%s
         interfaces:
             p1:
                 number: 1
@@ -993,12 +1000,12 @@ dps:
                 number: 2
                 native_vlan: 0x200
                 permanent_learn: True
-"""
+""" % DP1_CONFIG
 
     LESS_CONFIG = """
 dps:
     s1:
-        dp_id: 1
+%s
         interfaces:
             p1:
                 number: 1
@@ -1007,7 +1014,7 @@ dps:
                 number: 2
                 native_vlan: 0x200
                 permanent_learn: False
-"""
+""" % DP1_CONFIG
 
     def setUp(self):
         self.setup_valve(self.CONFIG)
@@ -1039,9 +1046,8 @@ class ValveACLTestCase(ValveTestBase):
         acl_config = """
 dps:
     s1:
-        ignore_learn_ins: 0
         hardware: 'Open vSwitch'
-        dp_id: 1
+%s
         interfaces:
             p1:
                 number: 1
@@ -1078,7 +1084,7 @@ acls:
             dl_type: 0x800
             actions:
                 allow: 0
-"""
+""" % DP1_CONFIG
 
         drop_match = {
             'in_port': 2,
@@ -1113,9 +1119,8 @@ class ValveReloadConfigTestCase(ValveTestCase):
 version: 2
 dps:
     s1:
-        ignore_learn_ins: 0
         hardware: 'Open vSwitch'
-        dp_id: 1
+%s
         interfaces:
             p1:
                 number: 1
@@ -1139,7 +1144,7 @@ vlans:
         vid: 0x200
     v300:
         vid: 0x300
-"""
+""" % DP1_CONFIG
 
     def setUp(self):
         self.setup_valve(self.OLD_CONFIG)
@@ -1191,13 +1196,8 @@ acls:
                 allow: 1
 dps:
     s1:
-        ignore_learn_ins: 0
-        dp_id: 1
         hardware: 'GenericTFM'
-        pipeline_config_dir: '%s/../etc/faucet'
-        lldp_beacon:
-            send_interval: 1
-            max_per_interval: 1
+%s
         interfaces:
             p1:
                 number: 1
@@ -1242,8 +1242,7 @@ vlans:
             - route:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
-""" % os.path.dirname(os.path.realpath(__file__))
-
+""" % DP1_CONFIG
 
 
 if __name__ == "__main__":
