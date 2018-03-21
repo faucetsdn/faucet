@@ -1108,6 +1108,10 @@ vlans:
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.ping_all_when_learned()
+        self.verify_broadcast()
+        # test tagged and untagged hosts
+        for host in self.net.hosts[:2]:
+            self.verify_no_bcast_to_self(host)
 
 
 class FaucetZodiacTaggedAndUntaggedVlanTest(FaucetUntaggedTest):
