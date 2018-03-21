@@ -1451,23 +1451,6 @@ dbs:
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
-    def verify_port1_unicast(self, unicast_status):
-        # Unicast flooding rule for from port 1
-        self.assertEqual(
-            self.matching_flow_present(
-                {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_1'])},
-                table_id=self.FLOOD_TABLE,
-                match_exact=True),
-            unicast_status)
-        #  Unicast flood rule exists that output to port 1
-        self.assertEqual(
-            self.matching_flow_present(
-                {u'dl_vlan': u'100', u'in_port': int(self.port_map['port_2'])},
-                table_id=self.FLOOD_TABLE,
-                actions=[u'OUTPUT:%u' % self.port_map['port_1']],
-                match_exact=True),
-            unicast_status)
-
     def verify_lldp_blocked(self):
         first_host, second_host = self.net.hosts[0:2]
         lldp_filter = 'ether proto 0x88cc'

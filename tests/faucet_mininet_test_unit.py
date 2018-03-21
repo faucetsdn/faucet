@@ -1108,6 +1108,10 @@ vlans:
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
         self.ping_all_when_learned()
+        self.verify_broadcast()
+        # test tagged and untagged hosts
+        for host in self.net.hosts[:2]:
+            self.verify_no_bcast_to_self(host)
 
 
 class FaucetZodiacTaggedAndUntaggedVlanTest(FaucetUntaggedTest):
@@ -2067,7 +2071,6 @@ vlans:
 """
 
     CONFIG = """
-        combinatorial_port_flood: True
         interfaces:
             %(port_1)d:
                 native_vlan: 100
@@ -2085,7 +2088,6 @@ vlans:
 
     def test_untagged(self):
         self.ping_all_when_learned()
-        self.verify_port1_unicast(True)
         self.assertTrue(self.bogus_mac_flooded_to_port1())
 
 
@@ -2115,7 +2117,6 @@ vlans:
 """
 
     def test_untagged(self):
-        self.verify_port1_unicast(False)
         self.assertFalse(self.bogus_mac_flooded_to_port1())
 
 
@@ -3599,7 +3600,6 @@ acls:
 """
 
     CONFIG = """
-        combinatorial_port_flood: False
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
