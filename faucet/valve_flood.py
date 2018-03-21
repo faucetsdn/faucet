@@ -108,7 +108,9 @@ class ValveFloodManager(object):
                                   exclude_unicast, command, flood_priority,
                                   mirror_acts):
         ofmsgs = []
-        if self.combinatorial_port_flood and not vlan.hairpin_ports():
+        # TODO: hairpin rules should use higher priority rules so we
+        # can use default non-combinatorial rules.
+        if self.combinatorial_port_flood or vlan.hairpin_ports():
             for port in self._vlan_all_ports(vlan, exclude_unicast):
                 ofmsgs.extend(self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask,
@@ -215,7 +217,7 @@ class ValveFloodManager(object):
 class ValveFloodStackManager(ValveFloodManager):
     """Implement dataplane based flooding for stacked dataplanes."""
 
-    def __init__(self, flood_table, eth_src_table,
+    def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
                  flood_priority, bypass_priority,
                  use_group_table, groups,
                  combinatorial_port_flood,
@@ -228,17 +230,21 @@ class ValveFloodStackManager(ValveFloodManager):
             combinatorial_port_flood)
         self.stack = stack
         self.stack_ports = stack_ports
-        my_root_distance = len(dp_shortest_path_to_root())
         self.shortest_path_port = shortest_path_port
-        self.towards_root_stack_ports = []
-        self.away_from_root_stack_ports = []
-        for port in self.stack_ports:
-            peer_dp = port.stack['dp']
-            peer_root_distance = len(peer_dp.shortest_path_to_root())
-            if peer_root_distance > my_root_distance:
-                self.away_from_root_stack_ports.append(port)
-            elif peer_root_distance < my_root_distance:
-                self.towards_root_stack_ports.append(port)
+        self.dp_shortest_path_to_root = dp_shortest_path_to_root
+        self._reset_peer_distances()
+
+    def _reset_peer_distances(self):
+        """Reset distances to/from root for this DP."""
+        port_peer_distances = [
+            (port, len(port.stack['dp'].shortest_path_to_root())) for port in self.stack_ports]
+        my_root_distance = len(self.dp_shortest_path_to_root())
+        self.towards_root_stack_ports = [
+            port for port, port_peer_distance in port_peer_distances
+            if port_peer_distance < my_root_distance]
+        self.away_from_root_stack_ports = [
+            port for port, port_peer_distance in port_peer_distances
+            if port_peer_distance > my_root_distance]
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
         """Calculate flooding destinations based on this DP's position.
