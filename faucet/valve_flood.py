@@ -108,7 +108,7 @@ class ValveFloodManager(object):
                                   exclude_unicast, command, flood_priority,
                                   mirror_acts):
         ofmsgs = []
-        if self.combinatorial_port_flood:
+        if self.combinatorial_port_flood and not vlan.hairpin_ports():
             for port in self._vlan_all_ports(vlan, exclude_unicast):
                 ofmsgs.extend(self._build_flood_rule_for_port(
                     vlan, eth_dst, eth_dst_mask,
@@ -193,12 +193,10 @@ class ValveFloodManager(object):
         command = valve_of.ofp.OFPFC_ADD
         if modify:
             command = valve_of.ofp.OFPFC_MODIFY_STRICT
-        if self.use_group_table:
-            hairpin_ports = vlan.hairpin_ports()
+        if self.use_group_table and not vlan.hairpin_ports():
             # TODO: hairpin flooding modes.
             # TODO: avoid loopback flood on LAG ports
-            if not hairpin_ports:
-                return self._build_group_flood_rules(vlan, modify, command)
+            return self._build_group_flood_rules(vlan, modify, command)
         return self._build_multiout_flood_rules(vlan, command)
 
     @staticmethod
