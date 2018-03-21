@@ -3599,7 +3599,6 @@ acls:
 """
 
     CONFIG = """
-        combinatorial_port_flood: False
         interfaces:
             %(port_1)d:
                 tagged_vlans: [100]
