@@ -157,34 +157,39 @@ class FaucetUntaggedNoCombinatorialFlood(FaucetUntaggedTest):
 
 class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
 
+    UNICAST_MAC1 = '0e:00:00:00:00:02'
+    UNICAST_MAC2 = '0e:00:00:00:00:03'
+
+    def verify_unicast_not_looped(self, host):
+        scapy_template = (
+            'python -c \"from scapy.all import * ; '
+            'sendp(Ether(src=\'%s\', dst=\'%s\')/'
+            'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
+            'UDP(dport=9)/'
+            'b\'hello\','
+            'iface=\'%s\')\"')
+        host.cmd(
+            scapy_template % (
+                self.UNICAST_MAC1, 'ff:ff:ff:ff:ff:ff', host.defaultIntf()))
+        host.cmd(
+            scapy_template % (
+                self.UNICAST_MAC2, 'ff:ff:ff:ff:ff:ff', host.defaultIntf()))
+        tcpdump_filter = '-Q in ether src %s' % self.UNICAST_MAC1
+        tcpdump_txt = self.tcpdump_helper(
+            host, tcpdump_filter, [
+                lambda: host.cmd(
+                    scapy_template % (
+                        self.UNICAST_MAC1, self.UNICAST_MAC2, host.defaultIntf()))],
+            timeout=5, vflags='-vv', packets=1)
+        self.assertTrue(
+            re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+
     def test_untagged(self):
         super(FaucetUntaggedBroadcastTest, self).test_untagged()
         self.verify_broadcast()
         first_host = self.net.hosts[0]
         self.verify_no_bcast_to_self(first_host)
-        # verify unicast not looped back to self.
-        scapy_template = (
-             'python -c \"from scapy.all import * ; '
-             'sendp(Ether(src=\'%s\', dst=\'%s\')/'
-             'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
-             'UDP(dport=9)/'
-             'b\'hello\','
-             'iface=\'%s\')\"')
-        first_host.cmd(
-             scapy_template % (
-                 '0e:00:00:00:00:02', 'ff:ff:ff:ff:ff:ff', first_host.defaultIntf()))
-        first_host.cmd(
-             scapy_template % (
-                 '0e:00:00:00:00:03', 'ff:ff:ff:ff:ff:ff', first_host.defaultIntf()))
-        tcpdump_filter = '-Q in ether src %s' % '0e:00:00:00:00:02'
-        tcpdump_txt = self.tcpdump_helper(
-            first_host, tcpdump_filter, [
-                lambda: first_host.cmd(
-                    scapy_template % (
-                        '0e:00:00:00:00:02', '0e:00:00:00:00:03', first_host.defaultIntf()))],
-            timeout=5, vflags='-vv', packets=1)
-        self.assertTrue(
-            re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
+        self.verify_unicast_not_looped(first_host)
 
 
 class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
@@ -690,7 +695,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         db: 'influx'
 """ % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
-    def setupInflux(self):
+    def setup_influx(self):
         self.influx_log = os.path.join(self.tmpdir, 'influx.log')
         if self.server:
             self.server.influx_log = self.influx_log
@@ -699,7 +704,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     def setUp(self):
         self.handler = InfluxPostHandler
         super(FaucetUntaggedInfluxTest, self).setUp()
-        self.setupInflux()
+        self.setup_influx()
 
     def tearDown(self):
         if self.server:
@@ -870,7 +875,7 @@ class FaucetSingleUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
     def setUp(self):
         self.handler = SlowInfluxPostHandler
         super(FaucetUntaggedInfluxTest, self).setUp()
-        self.setupInflux()
+        self.setup_influx()
 
     def test_untagged(self):
         self.ping_all_when_learned()
