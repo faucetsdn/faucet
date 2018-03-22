@@ -160,7 +160,31 @@ class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
     def test_untagged(self):
         super(FaucetUntaggedBroadcastTest, self).test_untagged()
         self.verify_broadcast()
-        self.verify_no_bcast_to_self(self.net.hosts[0])
+        first_host = self.net.hosts[0]
+        self.verify_no_bcast_to_self(first_host)
+        # verify unicast not looped back to self.
+        scapy_template = (
+             'python -c \"from scapy.all import * ; '
+             'sendp(Ether(src=\'%s\', dst=\'%s\')/'
+             'IP(src=\'10.0.0.100\', dst=\'10.0.0.255\')/'
+             'UDP(dport=9)/'
+             'b\'hello\','
+             'iface=\'%s\')\"')
+        first_host.cmd(
+             scapy_template % (
+                 '0e:00:00:00:00:02', 'ff:ff:ff:ff:ff:ff', first_host.defaultIntf()))
+        first_host.cmd(
+             scapy_template % (
+                 '0e:00:00:00:00:03', 'ff:ff:ff:ff:ff:ff', first_host.defaultIntf()))
+        tcpdump_filter = '-Q in ether src %s' % '0e:00:00:00:00:02'
+        tcpdump_txt = self.tcpdump_helper(
+            first_host, tcpdump_filter, [
+                lambda: first_host.cmd(
+                    scapy_template % (
+                        '0e:00:00:00:00:02', '0e:00:00:00:00:03', first_host.defaultIntf()))],
+            timeout=5, vflags='-vv', packets=1)
+        self.assertTrue(
+            re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
 
 
 class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
