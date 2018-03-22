@@ -394,7 +394,6 @@ class Valve(object):
 
     def send_lldp_beacons(self):
         """Called periodically to send LLDP beacon packets."""
-        # TODO: the beacon service should be able to send configurable TLVs.
         # TODO: the beacon service is specifically NOT to discover topology.
         # It is intended to facilitate physical troubleshooting (e.g.
         # a standard cable tester can display OF port information)
@@ -412,7 +411,8 @@ class Valve(object):
                         port.dyn_last_lldp_beacon_time < cutoff_beacon_time):
                     lldp_beacon = port.lldp_beacon
                     org_tlvs = [
-                        (tlv['oui'], tlv['subtype'], tlv['info']) for tlv in lldp_beacon['org_tlvs']]
+                        (tlv['oui'], tlv['subtype'], tlv['info'])
+                        for tlv in lldp_beacon['org_tlvs']]
                     org_tlvs.extend(valve_packet.faucet_lldp_tlvs(self.dp))
                     # if the port doesn't have a system name set, default to
                     # using the system name from the dp
@@ -757,7 +757,8 @@ class Valve(object):
                 self.logger.info('LLDP from port %u: %s' % (
                     pkt_meta.port.number, lldp_pkt))
                 port_id_tlvs = [
-                    tlv for tlv in lldp_pkt.tlvs if tlv.tlv_type == valve_packet.lldp.LLDP_TLV_PORT_ID]
+                    tlv for tlv in lldp_pkt.tlvs
+                    if tlv.tlv_type == valve_packet.lldp.LLDP_TLV_PORT_ID]
                 faucet_tlvs = [
                     tlv for tlv in lldp_pkt.tlvs if (
                         tlv.tlv_type == valve_packet.lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC and
@@ -825,7 +826,8 @@ class Valve(object):
                     if pkt_meta.port.number != previous_port_no:
                         port_move_text = ', moved from port %u' % previous_port_no
                 self.logger.info(
-                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) on %s%s on VLAN %u (%u hosts total)' % (
+                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) '
+                    'on %s%s on VLAN %u (%u hosts total)' % (
                         pkt_meta.eth_src, pkt_meta.eth_type,
                         pkt_meta.l3_src, pkt_meta.l3_dst, pkt_meta.port, port_move_text,
                         pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
@@ -874,6 +876,7 @@ class Valve(object):
             data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
 
     def parse_pkt_meta(self, msg):
+        """Parse OF packet-in message to PacketMeta."""
         if not self.dp.running:
             return None
         if self.dp.cookie != msg.cookie:
@@ -1125,15 +1128,15 @@ class Valve(object):
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
-        cold_start = False
-        ofmsgs = []
-        if self.dp.running:
-            cold_start, ofmsgs = self._apply_config_changes(
-                new_dp, self.dp.get_config_changes(self.logger, new_dp))
-            if cold_start:
-                ofmsgs = self.datapath_connect([])
-        else:
-            self.logger.info('skipping configuration because datapath not up')
+        dp_running = self.dp.running
+        cold_start, ofmsgs = self._apply_config_changes(
+            new_dp, self.dp.get_config_changes(self.logger, new_dp))
+        self.dp.running = dp_running
+
+        if not self.dp.running:
+            return []
+        if cold_start:
+            ofmsgs = self.datapath_connect([])
         if ofmsgs:
             if cold_start:
                 self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
@@ -1188,7 +1191,7 @@ class Valve(object):
         orig_msgs = [orig_msg for orig_msg in self.recent_ofmsgs if orig_msg.xid == msg.xid]
         error_txt = msg
         if orig_msgs:
-            error_msg = orig_msgs[0]
+            error_txt = orig_msgs[0]
         self.logger.error('OFError %s' % error_txt)
 
     def send_flows(self, ryu_dp, flow_msgs):
@@ -1237,7 +1240,8 @@ class TfmValve(Valve):
             if table.restricted_match_types is None:
                 continue
             for prop in tfm_table.properties:
-                if not (isinstance(prop, valve_of.parser.OFPTableFeaturePropOxm) and prop.type == 8):
+                if not (isinstance(prop, valve_of.parser.OFPTableFeaturePropOxm)
+                        and prop.type == 8):
                     continue
                 tfm_matches = set(sorted([oxm.type for oxm in prop.oxm_ids]))
                 if tfm_matches != table.restricted_match_types:
