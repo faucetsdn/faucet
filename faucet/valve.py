@@ -1254,11 +1254,11 @@ class TfmValve(Valve):
                             tfm_matches, table.restricted_match_types))
 
     def switch_features(self, msg):
-        ofmsgs = super(TfmValve, self).switch_features(msg)
+        ofmsgs = self._delete_all_valve_flows()
+        ofmsgs.extend(super(TfmValve, self).switch_features(msg))
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         self.logger.info('loading pipeline configuration')
-        ofmsgs.extend(self._delete_all_valve_flows())
         tfm = valve_of.table_features(ryu_table_loader.load_tables())
         self._verify_pipeline_config(tfm)
         ofmsgs.append(tfm)
