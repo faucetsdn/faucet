@@ -108,20 +108,8 @@ vlans:
             links_per_host=self.LINKS_PER_HOST)
         self.start_net()
 
-    def test_untagged(self):
-        """All hosts on the same untagged VLAN should have connectivity."""
-        event_log = os.path.join(self.tmpdir, 'event.log')
-        controller = self._get_controller()
-        controller.cmd(faucet_mininet_test_util.timeout_cmd(
-            'nc -U %s > %s &' % (self.env['faucet']['FAUCET_EVENT_SOCK'], event_log), 120))
-        self.ping_all_when_learned()
-        self.flap_all_switch_ports()
-        self.gauge_smoke_test()
-        self.prometheus_smoke_test()
-        self.assertGreater(os.path.getsize(event_log), 0)
-        controller.cmd(
-            faucet_mininet_test_util.timeout_cmd(
-                'nc -U %s' % self.env['faucet']['FAUCET_EVENT_SOCK'], 10))
+    def verify_events_log(self, event_log):
+        required_events = set(['PORT_CHANGE', 'L2_LEARN', 'PORTS_STATUS'])
         for _ in range(3):
             prom_event_id = self.scrape_prometheus_var('faucet_event_id', dpid=False)
             event_id = None
@@ -129,10 +117,32 @@ vlans:
                 for event_log_line in event_log_file.readlines():
                     event = json.loads(event_log_line.strip())
                     event_id = event['event_id']
+                    for required_event in list(required_events):
+                        if required_event in required_events:
+                            required_events.remove(required_event)
+                            break
             if prom_event_id == event_id:
                 return
             time.sleep(1)
         self.assertEqual(prom_event_id, event_id)
+        self.assertFalse(required_events)
+
+    def test_untagged(self):
+        """All hosts on the same untagged VLAN should have connectivity."""
+        event_log = os.path.join(self.tmpdir, 'event.log')
+        controller = self._get_controller()
+        sock = self.env['faucet']['FAUCET_EVENT_SOCK']
+        controller.cmd(faucet_mininet_test_util.timeout_cmd(
+            'nc -U %s > %s &' % (sock, event_log), 120))
+        self.ping_all_when_learned()
+        self.flap_all_switch_ports()
+        self.gauge_smoke_test()
+        self.prometheus_smoke_test()
+        self.assertGreater(os.path.getsize(event_log), 0)
+        controller.cmd(
+            faucet_mininet_test_util.timeout_cmd(
+                'nc -U %s' % sock, 10))
+        self.verify_events_log(event_log)
 
 
 class FaucetUntaggedNoCombinatorialFlood(FaucetUntaggedTest):
