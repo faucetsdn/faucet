@@ -302,10 +302,13 @@ class Valve(object):
     def _add_ports_and_vlans(self, discovered_ports):
         """Add all configured and discovered ports and VLANs."""
         all_port_nums = set()
+        ports_status = {}
         for port in discovered_ports:
-            self._set_port_status(
-                port.port_no, valve_of.port_status_from_state(port.state))
+            status = valve_of.port_status_from_state(port.state)
+            self._set_port_status(port.port_no, status)
+            ports_status[port.port_no] = status
             all_port_nums.add(port.port_no)
+        self._notify({'PORTS_STATUS': ports_status})
 
         for port in self.dp.stack_ports:
             all_port_nums.add(port.number)
