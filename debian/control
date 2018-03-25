@@ -1,12 +1,12 @@
 Source: faucet
 Section: python
 Priority: optional
-Maintainer: Jayden Hewer <jfh13@students.waikato.ac.nz>
+Maintainer: Faucet Maintainers <maintainers@faucet.nz>
 Build-Depends: debhelper (>=9),
                dh-systemd (>= 1.5),
                dh-python,
                git,
-               python3-pkg-resources, 
+               python3-pkg-resources,
                python3-all,
                python3-setuptools,
                python3-pbr (>=1.9),
@@ -54,9 +54,9 @@ Description: This is a compact open source OpenFlow controller (Python 3)
 
 Package: gauge
 Architecture: all
-Depends: adduser, 
+Depends: adduser,
          python3-faucet (>= 1.7.0),
-Suggests: python-faucet-doc, 
+Suggests: python-faucet-doc,
           faucet,
 Description: This is a component the Faucet OpenFlow controller (Python 3)
  This is a component of the Faucet OpenFlow controller,
@@ -70,8 +70,8 @@ Description: This is a component the Faucet OpenFlow controller (Python 3)
 package: faucet-all-in-one
 Architecture: all
 Depends: faucet (>= 1.7.0),
-         gauge (= 1.7.0),
-         python3-faucet (= 1.7.0),
+         gauge (>= 1.7.0),
+         python3-faucet (>= 1.7.0),
          prometheus (>= 2.0.0),
          grafana,
 Suggests: python-faucet-doc,

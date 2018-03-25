@@ -12,8 +12,21 @@ case "$1" in
     USER="faucet"
     GROUP="faucet"
 
-    addgroup --system ${GROUP}
-    adduser --system ${USER} --ingroup ${GROUP}
+    if ! getent group ${GROUP} >/dev/null; then
+        addgroup --system ${GROUP}
+    fi
+
+    if ! getent passwd ${USER} >/dev/null; then
+        adduser \
+            --system \
+            --disabled-login \
+            --disabled-password \
+            --home /etc/faucet \
+            --no-create-home \
+            -gecos "Faucet Network Controller" \
+            --ingroup ${GROUP} \
+            ${USER}
+    fi
 
     mkdir -p /var/log/gauge
     mkdir -p /etc/faucet

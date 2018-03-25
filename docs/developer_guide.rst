@@ -1,4 +1,4 @@
-Developer guide
+Developer Guide
 ===============
 
 This file contains an overview of architecture, coding design/practices,
