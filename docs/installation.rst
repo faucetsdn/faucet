@@ -195,7 +195,7 @@ To run Gauge manually:
   gauge --verbose
 
 There are a number of options that you can supply the start up script for
-changing various options such as OpenFlow port and setting up and encrypted
+changing various options such as OpenFlow port and setting up an encrypted
 control channel. You can find a list of the additional arguments by running:
 
 .. code:: console

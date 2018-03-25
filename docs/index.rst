@@ -8,6 +8,7 @@ User Documentation
    :maxdepth: 2
 
    intro
+   tutorials
    installation
    docker
    configuration
