@@ -169,7 +169,7 @@ texinfo_documents = [
 def run_apidoc(_):
     """Call sphinx-apidoc on faucet module"""
     from sphinx.apidoc import main as apidoc_main
-    apidoc_main(['-e', '-o', 'source/apidoc', '../faucet'])
+    apidoc_main(None, ['-e', '-o', 'source/apidoc', '../faucet'])
 
 def setup(app):
     """Over-ride Sphinx setup to trigger sphinx-apidoc."""
