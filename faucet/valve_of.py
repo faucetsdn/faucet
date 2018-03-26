@@ -58,6 +58,17 @@ def port_status_from_state(state):
     return not (state & ofp.OFPPS_LINK_DOWN)
 
 
+def is_table_features_req(ofmsg):
+    """Return True if flow message is a TFM req.
+
+    Args:
+        ofmsg: ryu.ofproto.ofproto_v1_3_parser message.
+    Returns:
+        bool: True if is a TFM req.
+    """
+    return isinstance(ofmsg, parser.OFPTableFeaturesStatsRequest)
+
+
 def is_flowmod(ofmsg):
     """Return True if flow message is a FlowMod.
 
@@ -622,9 +633,10 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     nondelete_ofmsgs = input_ofmsgs - delete_ofmsgs
     groupadd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_groupadd(ofmsg)])
     meteradd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_meteradd(ofmsg)])
+    tfm_ofmsgs =  set([ofmsg for ofmsg in nondelete_ofmsgs if is_table_features_req(ofmsg)])
     other_ofmsgs = nondelete_ofmsgs - groupadd_ofmsgs.union(meteradd_ofmsgs)
     output_ofmsgs = []
-    for ofmsgs in (delete_ofmsgs, groupadd_ofmsgs, meteradd_ofmsgs):
+    for ofmsgs in (delete_ofmsgs, tfm_ofmsgs, groupadd_ofmsgs, meteradd_ofmsgs):
         if ofmsgs:
             output_ofmsgs.extend(list(ofmsgs))
             if use_barriers:
