@@ -8,6 +8,9 @@ FROOT=/faucet-src
 
 dir=`dirname $0`
 
+# Clean up
+rm -r "$FROOT/docs"
+
 $APK add -U git $BUILDDEPS && \
   $dir/retrycmd.sh "$PIP3 pip" && \
   $dir/retrycmd.sh "$PIP3 $TESTDEPS" && \
@@ -16,6 +19,3 @@ $APK add -U git $BUILDDEPS && \
   python3 -m pytest $FROOT/tests/test_valve.py && \
   for i in $BUILDDEPS ; do $APK del $i ; done && \
   find / -name \*pyc -delete
-
-# Clean up
-rm -r "$FROOT/docs"
