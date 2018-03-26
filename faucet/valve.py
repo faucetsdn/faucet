@@ -153,7 +153,10 @@ class Valve(object):
 
         Vendor specific configuration should be implemented here.
         """
-        return [valve_of.desc_stats_request()]
+        return [
+            valve_of.faucet_config(),
+            valve_of.faucet_async(notify_flow_removed=self.dp.use_idle_timeout),
+            valve_of.desc_stats_request()]
 
     def ofchannel_log(self, ofmsgs):
         """Log OpenFlow messages in text format to debugging log."""
@@ -449,8 +452,6 @@ class Valve(object):
             {'DP_CHANGE': {
                 'reason': 'cold_start'}})
         ofmsgs = []
-        ofmsgs.append(valve_of.faucet_config())
-        ofmsgs.append(valve_of.faucet_async(notify_flow_removed=self.dp.use_idle_timeout))
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_ports))
         ofmsgs.extend(self._add_controller_learn_flow())
