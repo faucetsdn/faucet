@@ -1,4 +1,14 @@
 {
+  "openconfig-interfaces:interfaces": {
+    "interface": [
+      {
+        "name": "admin",
+        "config": {
+          "name": "admin"
+        }
+      }
+    ]
+  },
   "openconfig-system:system": {
     "aaa": {
       "authentication": {
@@ -20,10 +30,10 @@
       }
     },
     "config": {
-      "domain-name": "google.com",
-      "hostname": "switch_a",
-      "login-banner": "Hello!",
-      "motd-banner": "Hi There!"
+      "hostname": "zz-tri-dev01",
+      "domain-name": "foo.bar.com",
+      "login-banner": "This device is for authorized use only",
+      "motd-banner": "Welcome to Open vSwitch"
     },
     "openconfig-openflow:openflow": {
       "agent": {
@@ -46,6 +56,14 @@
                 {
                   "aux-id": 0,
                   "config": {
+                    "address": "192.0.2.10",
+                    "aux-id": 0,
+                    "port": 6633,
+                    "priority": 1,
+                    "source-interface": "admin",
+                    "transport": "TLS"
+                  },
+                  "state": {
                     "address": "192.0.2.10",
                     "aux-id": 0,
                     "port": 6633,
