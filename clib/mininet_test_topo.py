@@ -18,7 +18,7 @@ from mininet.node import Controller
 from mininet.node import CPULimitedHost
 from mininet.node import OVSSwitch
 
-import faucet_mininet_test_util
+import mininet_test_util
 
 # TODO: mininet 2.2.2 leaks ptys (master slave assigned in startShell)
 # override as necessary close them. Transclude overridden methods
@@ -207,7 +207,7 @@ class FaucetSwitchTopo(Topo):
             name=switch_name,
             cls=FaucetSwitch,
             datapath=ovs_type,
-            dpid=faucet_mininet_test_util.mininet_dpid(dpid))
+            dpid=mininet_test_util.mininet_dpid(dpid))
 
     def _add_links(self, switch, hosts, links_per_host):
         for host in hosts:
@@ -217,7 +217,7 @@ class FaucetSwitchTopo(Topo):
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         for dpid in dpids:
-            serialno = faucet_mininet_test_util.get_serialno(
+            serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(serialno)
             for host_n in range(n_tagged):
@@ -234,7 +234,7 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
         for dpid in dpids:
-            serialno = faucet_mininet_test_util.get_serialno(
+            serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(serialno)
             for host_n in range(n_tagged):
@@ -285,7 +285,7 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
         last_switch = None
         self.switch_to_switch_links = switch_to_switch_links
         for dpid in dpids:
-            serialno = faucet_mininet_test_util.get_serialno(
+            serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
             sid_prefix = self._get_sid_prefix(serialno)
             hosts = []
@@ -399,7 +399,7 @@ socket_timeout=15
         cprofile_args = ''
         if self.CPROFILE:
             cprofile_args = 'python3 -m cProfile -s time'
-        full_faucet_dir = os.path.abspath(faucet_mininet_test_util.FAUCET_DIR)
+        full_faucet_dir = os.path.abspath(mininet_test_util.FAUCET_DIR)
         with open(script_wrapper_name, 'w') as script_wrapper:
             faucet_cli = (
                 'PYTHONPATH=%s %s exec timeout %u %s %s %s $*\n' % (
@@ -425,7 +425,7 @@ socket_timeout=15
         """Return True if port in specified TCP state."""
         for ipv in (4, 6):
             listening_out = self.cmd(
-                faucet_mininet_test_util.tcp_listening_cmd(port, ipv=ipv, state=state)).split()
+                mininet_test_util.tcp_listening_cmd(port, ipv=ipv, state=state)).split()
             for pid in listening_out:
                 if int(pid) == self.ryu_pid():
                     return True
@@ -477,8 +477,8 @@ socket_timeout=15
                      '-Y', 'openflow_v4',
                      '-r', self.ofcap],
                     stdout=text_ofcap,
-                    stdin=faucet_mininet_test_util.DEVNULL,
-                    stderr=faucet_mininet_test_util.DEVNULL,
+                    stdin=mininet_test_util.DEVNULL,
+                    stderr=mininet_test_util.DEVNULL,
                     close_fds=True)
 
     def stop(self):
@@ -508,10 +508,10 @@ class FAUCET(BaseFAUCET):
                  ctl_privkey, ctl_cert, ca_certs,
                  ports_sock, prom_port, port, test_name, **kwargs):
         self.prom_port = prom_port
-        self.ofctl_port = faucet_mininet_test_util.find_free_port(
+        self.ofctl_port = mininet_test_util.find_free_port(
             ports_sock, test_name)
         cargs = ' '.join((
-            '--ryu-wsapi-host=%s' % faucet_mininet_test_util.LOCALHOST,
+            '--ryu-wsapi-host=%s' % mininet_test_util.LOCALHOST,
             '--ryu-wsapi-port=%u' % self.ofctl_port,
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super(FAUCET, self).__init__(

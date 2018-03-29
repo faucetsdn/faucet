@@ -32,8 +32,8 @@ from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
 
-import faucet_mininet_test_util
-import faucet_mininet_test_topo
+import mininet_test_util
+import mininet_test_topo
 
 
 class FaucetTestBase(unittest.TestCase):
@@ -52,7 +52,7 @@ class FaucetTestBase(unittest.TestCase):
     LADVD = 'ladvd -e lo -f'
     ONEMBPS = (1024 * 1024)
     DB_TIMEOUT = 5
-    CONTROLLER_CLASS = faucet_mininet_test_topo.FAUCET
+    CONTROLLER_CLASS = mininet_test_topo.FAUCET
     DP_NAME = 'faucet-1'
     STAT_RELOAD = ''
 
@@ -125,7 +125,7 @@ class FaucetTestBase(unittest.TestCase):
 
     def _set_prom_port(self, name='faucet'):
         self._set_var(name, 'FAUCET_PROMETHEUS_PORT', str(self.prom_port))
-        self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', faucet_mininet_test_util.LOCALHOST)
+        self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', mininet_test_util.LOCALHOST)
 
     def _set_static_vars(self):
         if self.event_sock and os.path.exists(self.event_sock):
@@ -195,7 +195,7 @@ class FaucetTestBase(unittest.TestCase):
             gauge_config_file.write(gauge_config)
 
     def _test_name(self):
-        return faucet_mininet_test_util.flat_test_name(self.id())
+        return mininet_test_util.flat_test_name(self.id())
 
     def _tmpdir_name(self):
         tmpdir = os.path.join(self.root_tmpdir, self._test_name())
@@ -224,7 +224,7 @@ class FaucetTestBase(unittest.TestCase):
             self.config_ports[port_name] = None
             for config in (self.CONFIG, self.CONFIG_GLOBAL, self.GAUGE_CONFIG_DBS):
                 if re.search(port_name, config):
-                    port = faucet_mininet_test_util.find_free_port(
+                    port = mininet_test_util.find_free_port(
                         self.ports_sock, self._test_name())
                     self.config_ports[port_name] = port
                     output('allocating port %u for %s' % (port, port_name))
@@ -233,17 +233,17 @@ class FaucetTestBase(unittest.TestCase):
         if self.hw_switch:
             self.of_port = self.config['of_port']
         else:
-            self.of_port = faucet_mininet_test_util.find_free_port(
+            self.of_port = mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
 
-        self.prom_port = faucet_mininet_test_util.find_free_port(
+        self.prom_port = mininet_test_util.find_free_port(
             self.ports_sock, self._test_name())
 
     def _allocate_gauge_ports(self):
         if self.hw_switch:
             self.gauge_of_port = self.config['gauge_of_port']
         else:
-            self.gauge_of_port = faucet_mininet_test_util.find_free_port(
+            self.gauge_of_port = mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
 
     def setUp(self):
@@ -251,10 +251,10 @@ class FaucetTestBase(unittest.TestCase):
         self._set_static_vars()
 
         if self.hw_switch:
-            self.topo_class = faucet_mininet_test_topo.FaucetHwSwitchTopo
-            self.dpid = faucet_mininet_test_util.str_int_dpid(self.dpid)
+            self.topo_class = mininet_test_topo.FaucetHwSwitchTopo
+            self.dpid = mininet_test_util.str_int_dpid(self.dpid)
         else:
-            self.topo_class = faucet_mininet_test_topo.FaucetSwitchTopo
+            self.topo_class = mininet_test_topo.FaucetSwitchTopo
             self.dpid = self.rand_dpid()
 
     def tearDown(self):
@@ -275,7 +275,7 @@ class FaucetTestBase(unittest.TestCase):
             self.net = None
         if os.path.exists(self.event_sock):
             shutil.rmtree(os.path.dirname(self.event_sock))
-        faucet_mininet_test_util.return_free_ports(
+        mininet_test_util.return_free_ports(
             self.ports_sock, self._test_name())
         if 'OVS_LOGDIR' in os.environ:
             ovs_log_dir = os.environ['OVS_LOGDIR']
@@ -361,7 +361,7 @@ class FaucetTestBase(unittest.TestCase):
     def _start_faucet(self, controller_intf):
         last_error_txt = ''
         for _ in range(3):
-            faucet_mininet_test_util.return_free_ports(
+            mininet_test_util.return_free_ports(
                 self.ports_sock, self._test_name())
             self._allocate_config_ports()
             self._allocate_faucet_ports()
@@ -386,7 +386,7 @@ class FaucetTestBase(unittest.TestCase):
             if self.RUN_GAUGE:
                 self._allocate_gauge_ports()
                 self._write_gauge_config()
-                self.gauge_controller = faucet_mininet_test_topo.Gauge(
+                self.gauge_controller = mininet_test_topo.Gauge(
                     name='gauge', tmpdir=self.tmpdir,
                     env=self.env['gauge'],
                     controller_intf=controller_intf,
@@ -405,13 +405,13 @@ class FaucetTestBase(unittest.TestCase):
             self.net.stop()
             last_error_txt += '\n\n' + self._dump_controller_logs()
             error('%s: %s' % (self._test_name(), last_error_txt))
-            time.sleep(faucet_mininet_test_util.MIN_PORT_AGE)
+            time.sleep(mininet_test_util.MIN_PORT_AGE)
         self.fail(last_error_txt)
 
     def _ofctl_rest_url(self, req):
         """Return control URL for Ryu ofctl module."""
         return 'http://%s:%u/%s' % (
-            faucet_mininet_test_util.LOCALHOST, self._get_controller().ofctl_port, req)
+            mininet_test_util.LOCALHOST, self._get_controller().ofctl_port, req)
 
     def _ofctl(self, req):
         try:
@@ -537,13 +537,13 @@ class FaucetTestBase(unittest.TestCase):
         intf = tcpdump_host.intf().name
         if root_intf:
             intf = intf.split('.')[0]
-        tcpdump_cmd = faucet_mininet_test_util.timeout_soft_cmd(
+        tcpdump_cmd = mininet_test_util.timeout_soft_cmd(
             'tcpdump -i %s -e -n -U %s -c %u %s' % (
                 intf, vflags, packets, tcpdump_filter),
             timeout)
         tcpdump_out = tcpdump_host.popen(
             tcpdump_cmd,
-            stdin=faucet_mininet_test_util.DEVNULL,
+            stdin=mininet_test_util.DEVNULL,
             stderr=subprocess.STDOUT,
             close_fds=True)
         popens = {tcpdump_host: tcpdump_out}
@@ -640,13 +640,13 @@ dbs:
 """ % (peer, peer, '%(bgp_port)d', peer_config)
 
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
-        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        int_dpid = mininet_test_util.str_int_dpid(dpid)
         return self._ofctl_get(
             int_dpid, 'stats/groupdesc/%s' % int_dpid, timeout)
 
     def get_all_flows_from_dpid(self, dpid, timeout=10):
         """Return all flows from DPID."""
-        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        int_dpid = mininet_test_util.str_int_dpid(dpid)
         return self._ofctl_get(
             int_dpid, 'stats/flow/%s' % int_dpid, timeout)
 
@@ -660,14 +660,14 @@ dbs:
 
     def get_port_stats_from_dpid(self, dpid, port, timeout=2):
         """Return port stats for a port."""
-        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        int_dpid = mininet_test_util.str_int_dpid(dpid)
         port_stats = self._ofctl_get(
             int_dpid, 'stats/port/%s' % int_dpid, timeout)
         return self._port_stat(port_stats, port)
 
     def get_port_desc_from_dpid(self, dpid, port, timeout=2):
         """Return port desc for a port."""
-        int_dpid = faucet_mininet_test_util.str_int_dpid(dpid)
+        int_dpid = mininet_test_util.str_int_dpid(dpid)
         port_stats = self._ofctl_get(
             int_dpid, 'stats/portdesc/%s' % int_dpid, timeout)
         return self._port_stat(port_stats, port)
@@ -905,7 +905,7 @@ dbs:
             broadcast_str = 'ff02::1'
 
         # stimulate host learning with a broadcast ping
-        ping_cli = faucet_mininet_test_util.timeout_cmd(
+        ping_cli = mininet_test_util.timeout_cmd(
             '%s -I%s -W1 -c%u %s' % (
                 ping_cmd, host.defaultIntf().name, packets, broadcast_str), 3)
 
@@ -1148,7 +1148,7 @@ dbs:
         fping_cli = '%s -s -c %u -i %u -p 1 -T 1 %s' % (
             fping_bin, total_packets, packet_interval_ms, faucet_vip.ip)
         timeout = int(((1000.0 / packet_interval_ms) * total_packets) * 1.5)
-        fping_out = host.cmd(faucet_mininet_test_util.timeout_cmd(
+        fping_out = host.cmd(mininet_test_util.timeout_cmd(
             fping_cli, timeout))
         error('%s: %s' % (self._test_name(), fping_out))
         self.assertTrue(
@@ -1426,7 +1426,7 @@ dbs:
             'echo "eapol_version=2\nap_scan=0\nnetwork={\n'
             'key_mgmt=IEEE8021X\neap=MD5\nidentity=\\"login\\"\n'
             'password=\\"password\\"\n}\n" > %s' % tmp_eap_conf)
-        wpa_supplicant_cmd = faucet_mininet_test_util.timeout_cmd(
+        wpa_supplicant_cmd = mininet_test_util.timeout_cmd(
             'wpa_supplicant -c%s -Dwired -i%s -d' % (
                 tmp_eap_conf,
                 first_host.defaultIntf().name),
@@ -1456,7 +1456,7 @@ dbs:
         lldp_filter = 'ether proto 0x88cc'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
         send_lldp = '%s -L -o %s' % (
-            faucet_mininet_test_util.timeout_cmd(self.LADVD, 30),
+            mininet_test_util.timeout_cmd(self.LADVD, 30),
             second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(
             first_host, lldp_filter,
@@ -1474,7 +1474,7 @@ dbs:
         cdp_filter = 'ether host 01:00:0c:cc:cc:cc and ether[20:2]==0x2000'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
         send_cdp = '%s -C -o %s' % (
-            faucet_mininet_test_util.timeout_cmd(self.LADVD, 30),
+            mininet_test_util.timeout_cmd(self.LADVD, 30),
             second_host.defaultIntf())
         tcpdump_txt = self.tcpdump_helper(
             first_host,
@@ -1717,7 +1717,7 @@ dbs:
 
     def tcp_port_free(self, host, port, ipv=4):
         listen_out = host.cmd(
-            faucet_mininet_test_util.tcp_listening_cmd(port, ipv))
+            mininet_test_util.tcp_listening_cmd(port, ipv))
         if listen_out:
             return listen_out
         return None
@@ -1742,7 +1742,7 @@ dbs:
 
     def serve_hello_on_tcp_port(self, host, port):
         """Serve 'hello' on a TCP port on a host."""
-        host.cmd(faucet_mininet_test_util.timeout_cmd(
+        host.cmd(mininet_test_util.timeout_cmd(
             'echo hello | nc -l %s %u &' % (host.IP(), port), 10))
         self.wait_for_tcp_listen(host, port)
 
@@ -1763,7 +1763,7 @@ dbs:
         self.serve_hello_on_tcp_port(second_host, port)
         self.quiet_commands(
             first_host,
-            (faucet_mininet_test_util.timeout_cmd(
+            (mininet_test_util.timeout_cmd(
                 'nc %s %u' % (second_host.IP(), port), 10), ))
         if table_id is not None:
             if mask is None:
@@ -1836,7 +1836,7 @@ dbs:
             exabgp_conf_file.write(exabgp_conf)
         controller = self._get_controller()
         # Ensure exabgp only attempts one connection.
-        exabgp_cmd = faucet_mininet_test_util.timeout_cmd(
+        exabgp_cmd = mininet_test_util.timeout_cmd(
             'exabgp %s --once -d 2> %s > /dev/null &' % (
                 exabgp_conf_file_name, exabgp_err), 300)
         exabgp_cli = 'env %s %s' % (exabgp_env, exabgp_cmd)
@@ -1981,23 +1981,23 @@ dbs:
 
     def iperf(self, client_host, client_ip, server_host, server_ip, seconds):
         for _ in range(3):
-            port = faucet_mininet_test_util.find_free_port(
+            port = mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
             iperf_base_cmd = 'iperf -f M -p %u' % port
             if server_ip.version == 6:
                 iperf_base_cmd += ' -V'
             iperf_server_cmd = '%s -s -B %s' % (iperf_base_cmd, server_ip)
-            iperf_server_cmd = faucet_mininet_test_util.timeout_cmd(
+            iperf_server_cmd = mininet_test_util.timeout_cmd(
                 iperf_server_cmd, (seconds * 3) + 5)
             server_start_exp = r'Server listening on TCP port %u' % port
-            iperf_client_cmd = faucet_mininet_test_util.timeout_cmd(
+            iperf_client_cmd = mininet_test_util.timeout_cmd(
                 '%s -y c -c %s -B %s -t %u' % (iperf_base_cmd, server_ip, client_ip, seconds),
                 seconds + 5)
 
             def run_iperf():
                 server_out = server_host.popen(
                     iperf_server_cmd,
-                    stdin=faucet_mininet_test_util.DEVNULL,
+                    stdin=mininet_test_util.DEVNULL,
                     stderr=subprocess.STDOUT,
                     close_fds=True)
                 popens = {server_host: server_out}
