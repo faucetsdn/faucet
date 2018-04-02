@@ -3,19 +3,21 @@
 
 FROM ubuntu:latest
 
-ENV OVSV="master"
-ENV DPDK="17.11"
+ENV OVSV="v2.9.0"
+ENV DPDK="18.02"
 ENV MININETV="2.2.2"
 
 ENV OVSDEPS="autoconf automake libpcap-dev libcap-ng-dev libnuma-dev libtool libssl-dev linux-headers-generic libffi-dev"
 ENV AG="apt-get -qqy --no-install-recommends -o=Dpkg::Use-Pty=0"
 ENV DEBIAN_FRONTEND=noninteractive
+# Pre-install Ryu and basic dependencies - so test image has less work
 ENV PIPDEPS="setuptools wheel virtualenv"
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
 ENV SETUPQ="setup.py -q"
-ENV MAKEFLAGS="-s -j -l 2.0"
+ENV MAKEFLAGS="-s"
 ENV BUILDDIR="/var/tmp/build"
+ENV DPDK_TARGET=x86_64-native-linuxapp-gcc
 
 ###
 ### When apt-get'ing, make sure apt-update always run first per RUN
@@ -34,6 +36,7 @@ RUN \
     bridge-utils \
     build-essential \
     curl \
+    dsniff \
     fping \
     gcc \
     git \
@@ -70,15 +73,13 @@ RUN \
     mkdir -p $BUILDDIR && \
     cd $BUILDDIR && \
     wget -q -O- http://fast.dpdk.org/rel/dpdk-$DPDK.tar.xz | tar -Jxf- && \
-      cd dpdk* && \
-      export DPDK_DIR=`pwd` && \
-      export DPDK_TARGET=x86_64-native-linuxapp-gcc && \
+      cd dpdk-$DPDK && \
       make install T=$DPDK_TARGET DESTDIR=install && \
     cd .. && \
     git clone https://github.com/openvswitch/ovs -b ${OVSV} && \
       cd ovs && \
       ./boot.sh && \
-      ./configure --enable-silent-rules --quiet --with-dpdk=$DPDK_DIR/$DPDK_TARGET && \
+      ./configure --enable-silent-rules --quiet --with-dpdk=../dpdk-$DPDK/$DPDK_TARGET && \
       make install && \
     cd .. && \
     git clone https://github.com/mininet/mininet -b $MININETV && \
@@ -108,4 +109,6 @@ RUN \
   easy_install -q -U pip && \
   $PIP pip && \
   $PIP multiprocessing scapy==2.3.2 $PIPDEPS && \
-  $PIP3 $PIPDEPS
+  $PIP3 $PIPDEPS && \
+  $PIP ryu && \
+  $PIP3 ryu

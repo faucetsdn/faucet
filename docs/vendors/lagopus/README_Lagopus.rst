@@ -51,7 +51,7 @@ Create faucet.yaml
 ^^^^^^^^^^^^^^^^^^
 
 .. code-block:: yaml
-  :caption: /etc/ryu/faucet/faucet.yaml
+  :caption: /etc/faucet/faucet.yaml
   :name: lagopus/faucet.yaml
 
     vlans:
@@ -90,7 +90,7 @@ Test connectivity
 Host(s) on enp1s0f0 and enp1s0f1 in the same IP subnet, should now be able to communicate, and FAUCET's log file should indicate learning is occurring:
 
 .. code-block:: shell
-  :caption: /var/log/ryu/faucet.log
+  :caption: /var/log/faucet/faucet.log
   :name: lagopus/faucet.log
 
     May 11 13:04:57 faucet.valve INFO     DPID 1 (0x1) Configuring DP

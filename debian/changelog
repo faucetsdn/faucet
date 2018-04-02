@@ -1,0 +1,8 @@
+faucet (1.7.0) unstable; urgency=medium
+
+  * faucet debian folder added
+  * config files moved to /etc/faucet/
+
+ -- Jayden Hewer <jfh13@students.waikato.ac.nz>  Tue, 13 Mar 2018 11:21:39 +1300
+
+

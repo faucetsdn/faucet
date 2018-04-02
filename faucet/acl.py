@@ -37,8 +37,10 @@ matches and actions for the rule.
 The matches are key/values based on the ryu RESTFul API.
 The key 'actions' contains a dictionary with keys/values as follows:
 
- * allow (bool): if True allow the packet to continue through the Faucet \
-       pipeline, if False drop the packet.
+ * allow (int): if 1 allow the packet to continue through the Faucet \
+       pipeline, if 0 drop the packet.
+ * force_port_vlan (int): if 1, do not verify the VLAN/port association \
+       for this packet and override any VLAN ACL on the forced VLAN.
  * meter (str): meter to apply to the packet
  * output (dict): used to output a packet directly. details below.
  * cookie (int): set flow cookie to this value on this flow
@@ -46,17 +48,16 @@ The key 'actions' contains a dictionary with keys/values as follows:
 The output action contains a dictionary with the following elements:
 
  * port (int or string): the port to output the packet to
- * ports (list): a list of the ports the packet can be output through
+ * ports (list): a list of the ports (int or string) to output the packet to
  * set_fields (list): a list of fields to set with values
  * dl_dst (str): old style request to set eth_dst to a value (set_fields recommended)
+ * pop_vlans: (int): pop the packet vlan before outputting
+ * vlan_vid: (int): push the vlan vid on the packet when outputting
+ * vlan_vids: (list): push the list of vlans on the packet when outputting, with option eth_type
  * swap_vid (int): rewrite the vlan vid of the packet when outputting
- * failover (dict): Output with a failover port. The following elements can be \
-       configured.
- * group_id (int): the ofp group id to use for the group
+ * failover (dict): Output with a failover port (experimental)
 """
 
-    # Resolved port numbers which are mirror action destinations.
-    mirror_destinations = set() # type: set
     rules = None
     exact_match = None
     defaults = {
@@ -77,6 +78,7 @@ The output action contains a dictionary with the following elements:
         'mirror': (str, int),
         'output': dict,
         'allow': int,
+        'force_port_vlan': int,
     }
     output_actions_types = {
         'port': (str, int),

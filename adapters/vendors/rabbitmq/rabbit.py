@@ -23,9 +23,26 @@ import os
 import select
 import socket
 import sys
-import time
 
 import pika
+
+
+def get_sys_prefix():
+    """This was copied from faucet.valve_util.
+    Returns an additional prefix for log and configuration files when used in
+    a virtual environment"""
+
+    # Find the appropriate prefix for config and log file default locations
+    # in case Faucet is run in a virtual environment. virtualenv marks the
+    # original path in sys.real_prefix. If this value exists, and is
+    # different from sys.prefix, then we are most likely running in a
+    # virtualenv. Also check for Py3.3+ pyvenv.
+    sysprefix = ''
+    if (getattr(sys, 'real_prefix', sys.prefix) != sys.prefix or
+            getattr(sys, 'base_prefix', sys.prefix) != sys.prefix):
+        sysprefix = sys.prefix
+
+    return sysprefix
 
 
 class RabbitAdapter:
@@ -65,6 +82,7 @@ class RabbitAdapter:
         """Make connection to rabbit to send events"""
         # check if a rabbit host was specified
         if not self.host:
+            print('Not connecting to any RabbitMQ, host is None.')
             return False
 
         # create connection to rabbit
@@ -90,10 +108,12 @@ class RabbitAdapter:
     def socket_conn(self):
         """Make connection to sock to receive events"""
         # check if socket events are enabled
-        if self.event_sock:
-            self.event_sock = '/var/run/faucet/faucet.sock'
-        else:
+        if self.event_sock == '0':
+            print('Not connecting to any socket, FA_EVENT_SOCK is none.')
             return False
+        if self.event_sock == '1':
+            self.event_sock = get_sys_prefix() + '/var/run/faucet/faucet.sock'
+        # otherwise it's a path
 
         # create connection to unix socket
         try:
@@ -141,6 +161,7 @@ class RabbitAdapter:
                     print("Unable to send event to RabbitMQ because: %s" % err)
                     print("The following event will be retried: %r" % buffer)
                     self.rabbit_conn()
+                sys.stdout.flush()
             self.sock.close()
 
 

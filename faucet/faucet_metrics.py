@@ -18,7 +18,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from prometheus_client import Counter, Gauge, Histogram
+from prometheus_client import Gauge as PromGauge
+from prometheus_client import Counter, Histogram
 
 from faucet.prom_client import PromClient
 
@@ -43,9 +44,15 @@ class FaucetMetrics(PromClient):
         self.faucet_config_reload_cold = self._dpid_counter(
             'faucet_config_reload_cold',
             'number of cold, complete reprovision config reloads executed')
+        self.of_ignored_packet_ins = self._dpid_counter(
+            'of_ignored_packet_ins',
+            'number of OF packet_ins received but ignored from DP')
         self.of_packet_ins = self._dpid_counter(
             'of_packet_ins',
             'number of OF packet_ins received from DP')
+        self.of_non_vlan_packet_ins = self._dpid_counter(
+            'of_non_vlan_packet_ins',
+            'number of OF packet_ins received from DP, not associated with a FAUCET VLAN')
         self.of_flowmsgs_sent = self._dpid_counter(
             'of_flowmsgs_sent',
             'number of OF flow messages (and packet outs) sent to DP')
@@ -62,9 +69,13 @@ class FaucetMetrics(PromClient):
             'vlan_hosts_learned',
             'number of hosts learned on a VLAN',
             self.REQUIRED_LABELS + ['vlan'])
+        self.port_vlan_hosts_learned = self._gauge(
+            'port_vlan_hosts_learned',
+            'number of hosts learned on a port and VLAN',
+            self.REQUIRED_LABELS + ['vlan', 'port'])
         self.vlan_neighbors = self._gauge(
             'vlan_neighbors',
-            'number of neighbors on a VLAN',
+            'number of L3 neighbors on a VLAN (whether resolved to L2 addresses, or not)',
             self.REQUIRED_LABELS + ['vlan', 'ipv'])
         self.vlan_learn_bans = self._gauge(
             'vlan_learn_bans',
@@ -112,7 +123,7 @@ class FaucetMetrics(PromClient):
         return Counter(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
 
     def _gauge(self, var, var_help, labels):
-        return Gauge(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
+        return PromGauge(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg
 
     def _histogram(self, var, var_help, labels, buckets):
         return Histogram(var, var_help, labels, buckets=buckets, registry=self._reg) # pylint: disable=unexpected-keyword-arg

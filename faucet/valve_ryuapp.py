@@ -47,7 +47,7 @@ class RyuAppBase(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(RyuAppBase, self).__init__(*args, **kwargs)
         self.dpset = kwargs['dpset']
-        self.config_file = self.get_setting('CONFIG')
+        self.config_file = self.get_setting('CONFIG', True)
         self.stat_reload = self.get_setting('CONFIG_STAT_RELOAD')
         loglevel = self.get_setting('LOG_LEVEL')
         logfile = self.get_setting('LOG')
@@ -62,9 +62,9 @@ class RyuAppBase(app_manager.RyuApp):
         """Reschedule another thread with a random jitter."""
         hub.sleep(period + random.randint(0, jitter))
 
-    def get_setting(self, setting):
+    def get_setting(self, setting, path_eval=False):
         """Return config setting prefaced with logname."""
-        return get_setting('_'.join((self.logname.upper(), setting)))
+        return get_setting('_'.join((self.logname.upper(), setting)), path_eval)
 
     def signal_handler(self, sigid, _):
         """Handle signals.
@@ -81,6 +81,8 @@ class RyuAppBase(app_manager.RyuApp):
     def start(self):
         """Start controller."""
         super(RyuAppBase, self).start()
+
+        self.logger.info('Loaded configuration from %s', self.config_file)
 
         if self.stat_reload:
             self.logger.info('will automatically reload new config on changes')

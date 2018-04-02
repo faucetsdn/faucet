@@ -42,6 +42,8 @@ class Port(Conf):
     output_only = None
     lldp_beacon = {} # type: dict
     op_status_reconf = None
+    receive_lldp = None
+    override_output_port = None
 
     dyn_learn_ban_count = 0
     dyn_phys_up = False
@@ -61,6 +63,7 @@ class Port(Conf):
         'unicast_flood': True,
         # if True, do classical unicast flooding on this port (False floods ND/ARP/bcast only).
         'mirror': None,
+        # If set, mirror packets from that port to this one.
         'native_vlan': None,
         # Set untagged VLAN on this port.
         'tagged_vlans': None,
@@ -84,6 +87,10 @@ class Port(Conf):
         # LLDP beacon configuration for this port.
         'opstatus_reconf': True,
         # If True, configure pipeline if operational status of port changes.
+        'receive_lldp': False,
+        # If True, receive LLDP on this port.
+        'override_output_port': None,
+        # If set, packets are sent to this other port.
     }
 
     defaults_types = {
@@ -106,6 +113,8 @@ class Port(Conf):
         'output_only': bool,
         'lldp_beacon': dict,
         'opstatus_reconf': bool,
+        'receive_lldp': bool,
+        'override_output_port': (str, int),
     }
 
     stack_defaults_types = {
@@ -164,7 +173,6 @@ class Port(Conf):
             self.lldp_beacon = self._set_unknown_conf(
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
             if self.lldp_beacon_enabled():
-                assert self.native_vlan, 'native_vlan must be defined for LLDP beacon'
                 if self.lldp_beacon['port_descr'] is None:
                     self.lldp_beacon['port_descr'] = self.description
 
@@ -218,13 +226,22 @@ class Port(Conf):
         return self.tagged_vlans
 
     def hosts(self, vlans=None):
-        """Return all hosts this port has learned (on all or specified VLANs)."""
+        """Return all host cache entries this port has learned (on all or specified VLANs)."""
         if vlans is None:
             vlans = self.vlans()
         hosts = []
         for vlan in vlans:
-            hosts.extend([entry.eth_src for entry in list(vlan.cached_hosts_on_port(self))])
+            hosts.extend([entry for entry in list(vlan.cached_hosts_on_port(self))])
         return hosts
+
+    def hosts_count(self, vlans=None):
+        """Return count of all hosts this port has learned (on all or specified VLANs)."""
+        if vlans is None:
+            vlans = self.vlans()
+        hosts_count = 0
+        for vlan in vlans:
+            hosts_count += vlan.cached_hosts_count_on_port(self)
+        return hosts_count
 
     def lldp_beacon_enabled(self):
         """Return True if LLDP beacon enabled on this port."""

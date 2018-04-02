@@ -118,7 +118,7 @@ Create faucet.yaml
     Change dp_id, to the value reported above, prefaced with "0x".
 
 .. code-block:: yaml
-  :caption: /etc/ryu/faucet/faucet.yaml
+  :caption: /etc/faucet/faucet.yaml
   :name: ovs/faucet.yaml
 
     vlans:
@@ -148,7 +148,7 @@ Test connectivity
 Host(s) on enp1s0f0 and enp1s0f1 in the same IP subnet, should now be able to communicate, and FAUCET's log file should indicate learning is occurring:
 
 .. code-block:: shell
-  :caption: /var/log/ryu/faucet.log
+  :caption: /var/log/faucet/faucet.log
   :name: ovs/faucet.log
 
     May 11 14:53:32 faucet.valve INFO     DPID 159303465858404 (0x90e2ba7e7564) Configuring DP

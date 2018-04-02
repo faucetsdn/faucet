@@ -20,21 +20,29 @@ import collections
 import ipaddress
 import netaddr
 
+from faucet import valve_of
 from faucet.conf import Conf
 from faucet.valve_util import btos
-from faucet import valve_of
-
-
-FAUCET_MAC = '0e:00:00:00:00:01'
+from faucet.valve_packet import FAUCET_MAC
 
 
 class HostCacheEntry(object):
+    """Association of a host with a port."""
 
     def __init__(self, eth_src, port, cache_time):
         self.eth_src = eth_src
         self.port = port
         self.cache_time = cache_time
-        self.expired = False
+        self.eth_src_int = int(eth_src.replace(':', ''), 16)
+
+    def __hash__(self):
+        return hash((self.eth_src_int, self.port.number))
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
+    def __lt__(self, other):
+        return self.__hash__() < other.__hash__()
 
 
 class VLAN(Conf):
@@ -51,6 +59,7 @@ class VLAN(Conf):
     faucet_vips = None
     faucet_mac = None
     bgp_as = None
+    bgp_connect_mode = None
     bgp_local_address = None
     bgp_server_addresses = [] # type: list
     bgp_port = None
@@ -70,11 +79,14 @@ class VLAN(Conf):
     # Define dynamic variables with prefix dyn_ to distinguish from variables set
     # configuration
     dyn_host_cache = None
+    dyn_host_cache_by_port = None
     dyn_faucet_vips_by_ipv = None
     dyn_routes_by_ipv = None
+    dyn_gws_by_ipv = None
     dyn_neigh_cache_by_ipv = None
     dyn_learn_ban_count = 0
     dyn_last_time_hosts_expired = None
+    dyn_oldest_host_time = None
 
     defaults = {
         'name': None,
@@ -86,6 +98,7 @@ class VLAN(Conf):
         # set MAC for FAUCET VIPs on this VLAN
         'unicast_flood': True,
         'bgp_as': None,
+        'bgp_connect_mode': 'both',
         'bgp_local_address': None,
         'bgp_port': 9179,
         'bgp_server_addresses': ['0.0.0.0', '::'],
@@ -117,6 +130,7 @@ class VLAN(Conf):
         'faucet_mac': str,
         'unicast_flood': bool,
         'bgp_as': int,
+        'bgp_connect_mode': str,
         'bgp_local_address': str,
         'bgp_port': int,
         'bgp_server_addresses': list,
@@ -139,6 +153,7 @@ class VLAN(Conf):
         self.untagged = []
         self.dyn_faucet_vips_by_ipv = collections.defaultdict(list)
         self.dyn_routes_by_ipv = collections.defaultdict(dict)
+        self.dyn_gws_by_ipv = collections.defaultdict(dict)
         self.dyn_ipvs = []
         self.reset_caches()
         super(VLAN, self).__init__(_id, dp_id, conf)
@@ -177,10 +192,15 @@ class VLAN(Conf):
 
         if self.bgp_as:
             assert self.bgp_port
+            assert self.bgp_connect_mode in ('active', 'passive', 'both')
             assert ipaddress.IPv4Address(btos(self.bgp_routerid))
-            for neighbor_ip in self.bgp_neighbor_addresses:
-                assert ipaddress.ip_address(btos(neighbor_ip))
             assert self.bgp_neighbor_as
+            assert self.bgp_neighbor_addresses
+            neighbor_ips = [ipaddress.ip_address(btos(ip)) for ip in self.bgp_neighbor_addresses]
+            assert len(neighbor_ips) == len(self.bgp_neighbor_addresses)
+            peer_versions = [ip.version for ip in neighbor_ips]
+            assert len(peer_versions) == 1 or self.bgp_connect_mode == 'active', (
+                'if using multiple address families bgp_connect_mode must be active')
 
         if self.routes:
             try:
@@ -192,7 +212,7 @@ class VLAN(Conf):
                     except (ValueError, AttributeError, TypeError) as err:
                         assert False, 'Invalid IP address in route: %s' % err
                     assert ip_gw.version == ip_dst.version
-                    self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+                    self.add_route(ip_dst, ip_gw)
             except KeyError:
                 assert False, 'missing route config'
             except TypeError:
@@ -215,6 +235,7 @@ class VLAN(Conf):
 
     def reset_caches(self):
         self.dyn_host_cache = {}
+        self.dyn_host_cache_by_port = {}
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
 
     def reset_ports(self, ports):
@@ -222,12 +243,34 @@ class VLAN(Conf):
         self.untagged = [port for port in ports if self == port.native_vlan]
 
     def add_cache_host(self, eth_src, port, cache_time):
-        self.dyn_host_cache[eth_src] = HostCacheEntry(
-            eth_src, port, cache_time)
+        existing_entry = self.cached_host(eth_src)
+        if existing_entry is not None:
+            self.dyn_host_cache_by_port[existing_entry.port.number].remove(
+                existing_entry)
+        entry = HostCacheEntry(eth_src, port, cache_time)
+        if port.number not in self.dyn_host_cache_by_port:
+            self.dyn_host_cache_by_port[port.number] = set()
+        self.dyn_host_cache_by_port[port.number].add(entry)
+        self.dyn_host_cache[eth_src] = entry
+
+    def expire_cache_host(self, eth_src):
+        entry = self.cached_host(eth_src)
+        if entry is not None:
+            self.dyn_host_cache_by_port[entry.port.number].remove(entry)
+            del self.dyn_host_cache[eth_src]
 
     def cached_hosts_on_port(self, port):
         """Return all hosts learned on a port."""
-        return [entry for entry in list(self.dyn_host_cache.values()) if port.number == entry.port.number]
+        if port.number in self.dyn_host_cache_by_port:
+            return list(self.dyn_host_cache_by_port[port.number])
+        return []
+
+    def cached_hosts_count_on_port(self, port):
+        """Return count of all hosts learned on a port."""
+        hosts_count = 0
+        if port.number in self.dyn_host_cache_by_port:
+            hosts_count = len(self.dyn_host_cache_by_port[port.number])
+        return hosts_count
 
     def cached_host(self, eth_src):
         if eth_src in self.dyn_host_cache:
@@ -244,21 +287,22 @@ class VLAN(Conf):
     def clear_cache_hosts_on_port(self, port):
         """Clear all hosts learned on a port."""
         for entry in self.cached_hosts_on_port(port):
-            del self.dyn_host_cache[entry.eth_src]
+            self.expire_cache_host(entry.eth_src)
 
     def expire_cache_hosts(self, now, learn_timeout):
         """Expire stale host entries."""
-        min_cache_time = now - learn_timeout
+        expired_hosts = []
 
-        def entry_expired(entry):
-            return (not entry.port.permanent_learn and (
-                entry.cache_time < min_cache_time or entry.expired))
-
-        expired_hosts = [
-            entry.eth_src for entry in list(self.dyn_host_cache.values()) if entry_expired(entry)]
-        if expired_hosts:
+        if self.dyn_oldest_host_time is None or now - self.dyn_oldest_host_time > learn_timeout:
+            min_cache_time = now - learn_timeout
+            self.dyn_oldest_host_time = now
+            for entry in list(self.dyn_host_cache.values()):
+                if (not entry.port.permanent_learn and entry.cache_time < min_cache_time):
+                    expired_hosts.append(entry.eth_src)
+                else:
+                    self.dyn_oldest_host_time = min(entry.cache_time, self.dyn_oldest_host_time)
             for eth_src in expired_hosts:
-                del self.dyn_host_cache[eth_src]
+                self.expire_cache_host(eth_src)
         return expired_hosts
 
     def ipvs(self):
@@ -272,6 +316,35 @@ class VLAN(Conf):
     def routes_by_ipv(self, ipv):
         """Return route table for specified IP version on this VLAN."""
         return self.dyn_routes_by_ipv[ipv]
+
+    def route_count_by_ipv(self, ipv):
+        """Return route table count for specified IP version on this VLAN."""
+        return len(self.dyn_routes_by_ipv[ipv])
+
+    def add_route(self, ip_dst, ip_gw):
+        """Add an IP route."""
+        self.dyn_routes_by_ipv[ip_gw.version][ip_dst] = ip_gw
+        if ip_gw not in self.dyn_gws_by_ipv[ip_gw.version]:
+            self.dyn_gws_by_ipv[ip_gw.version][ip_gw] = set()
+        self.dyn_gws_by_ipv[ip_gw.version][ip_gw].add(ip_dst)
+
+    def del_route(self, ip_dst):
+        """Delete an IP route."""
+        ip_gw = self.dyn_routes_by_ipv[ip_dst.version][ip_dst]
+        del self.dyn_routes_by_ipv[ip_dst.version][ip_dst]
+        self.dyn_gws_by_ipv[ip_gw.version][ip_gw].remove(ip_dst)
+        if not self.dyn_gws_by_ipv[ip_gw.version][ip_gw]:
+            del self.dyn_gws_by_ipv[ip_gw.version][ip_gw]
+
+    def ip_dsts_for_ip_gw(self, ip_gw):
+        """Return list of IP destinations, for specified gateway."""
+        if ip_gw in self.dyn_gws_by_ipv[ip_gw.version]:
+            return list(self.dyn_gws_by_ipv[ip_gw.version][ip_gw])
+        return []
+
+    def all_ip_gws(self, ipv):
+        """Return list of all IP gateways for specified IP version."""
+        return list(self.dyn_gws_by_ipv[ipv].keys())
 
     def neigh_cache_by_ipv(self, ipv):
         """Return neighbor cache for specified IP version on this VLAN."""

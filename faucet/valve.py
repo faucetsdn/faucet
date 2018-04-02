@@ -19,9 +19,8 @@
 
 import logging
 import time
-import queue
 
-from collections import namedtuple
+from collections import deque, namedtuple
 
 from faucet import tfm_pipeline
 from faucet import valve_acl
@@ -64,16 +63,28 @@ class Valve(object):
     """
 
     DEC_TTL = True
+    USE_BARRIERS = True
     L3 = False
     base_prom_labels = None
-    recent_ofmsgs = queue.Queue(maxsize=32) # type: ignore
+    recent_ofmsgs = deque(maxlen=32) # type: ignore
+    logger = None
+    host_manager = None
+    flood_manager = None
+    _route_manager_by_ipv = None
+    _last_advertise_sec = None
+    _port_highwater = {} # type: dict
+    _last_update_metrics_sec = None
 
     def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp
-        self.logger = ValveLogger(
-            logging.getLogger(logname + '.valve'), self.dp.dp_id)
+        self.logname = logname
         self.metrics = metrics
         self.notifier = notifier
+        self.dp_init()
+
+    def dp_init(self):
+        self.logger = ValveLogger(
+            logging.getLogger(self.logname + '.valve'), self.dp.dp_id)
         self.base_prom_labels = {
             'dp_id': hex(self.dp.dp_id),
             'dp_name': self.dp.name,
@@ -84,6 +95,11 @@ class Valve(object):
         self._last_advertise_sec = 0
         self._route_manager_by_ipv = {}
         self._route_manager_by_eth_type = {}
+        self._port_highwater = {}
+        for vlan_vid in list(self.dp.vlans.keys()):
+            self._port_highwater[vlan_vid] = {}
+            for port_number in list(self.dp.ports.keys()):
+                self._port_highwater[vlan_vid][port_number] = 0
         for fib_table, route_manager_class in (
                 (self.dp.tables['ipv4_fib'], valve_route.ValveIPv4RouteManager),
                 (self.dp.tables['ipv6_fib'], valve_route.ValveIPv6RouteManager)):
@@ -100,14 +116,18 @@ class Valve(object):
                 self._route_manager_by_eth_type[eth_type] = route_manager
         if self.dp.stack:
             self.flood_manager = valve_flood.ValveFloodStackManager(
-                self.dp.tables['flood'], self.dp.low_priority,
+                self.dp.tables['flood'], self.dp.tables['eth_src'],
+                self.dp.low_priority, self.dp.highest_priority,
                 self.dp.group_table, self.dp.groups,
+                self.dp.combinatorial_port_flood,
                 self.dp.stack, self.dp.stack_ports,
-                self.dp.shortest_path_to_root, dp.shortest_path_port)
+                self.dp.shortest_path_to_root, self.dp.shortest_path_port)
         else:
             self.flood_manager = valve_flood.ValveFloodManager(
-                self.dp.tables['flood'], self.dp.low_priority,
-                self.dp.group_table, self.dp.groups)
+                self.dp.tables['flood'], self.dp.tables['eth_src'],
+                self.dp.low_priority, self.dp.highest_priority,
+                self.dp.group_table, self.dp.groups,
+                self.dp.combinatorial_port_flood)
         if self.dp.use_idle_timeout:
             self.host_manager = valve_host.ValveHostFlowRemovedManager(
                 self.logger, self.dp.ports, self.dp.vlans,
@@ -133,7 +153,10 @@ class Valve(object):
 
         Vendor specific configuration should be implemented here.
         """
-        return [valve_of.desc_stats_request()]
+        return [
+            valve_of.faucet_config(),
+            valve_of.faucet_async(notify_flow_removed=self.dp.use_idle_timeout),
+            valve_of.desc_stats_request()]
 
     def ofchannel_log(self, ofmsgs):
         """Log OpenFlow messages in text format to debugging log."""
@@ -216,8 +239,10 @@ class Valve(object):
         if vlan.acls_in:
             acl_table = self.dp.tables['vlan_acl']
             acl_allow_inst = valve_of.goto_table(self.dp.tables['eth_src'])
+            acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
             ofmsgs = valve_acl.build_acl_ofmsgs(
-                vlan.acls_in, acl_table, acl_allow_inst,
+                vlan.acls_in, acl_table,
+                acl_allow_inst, acl_force_port_vlan_inst,
                 self.dp.highest_priority, self.dp.meters,
                 vlan.acls_in[0].exact_match, vlan_vid=vlan.vid)
         return ofmsgs
@@ -277,9 +302,16 @@ class Valve(object):
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs
 
-    def _add_ports_and_vlans(self, discovered_port_nums):
+    def _add_ports_and_vlans(self, discovered_ports):
         """Add all configured and discovered ports and VLANs."""
-        all_port_nums = set(discovered_port_nums)
+        all_port_nums = set()
+        ports_status = {}
+        for port in discovered_ports:
+            status = valve_of.port_status_from_state(port.state)
+            self._set_port_status(port.port_no, status)
+            ports_status[port.port_no] = status
+            all_port_nums.add(port.port_no)
+        self._notify({'PORTS_STATUS': ports_status})
 
         for port in self.dp.stack_ports:
             all_port_nums.add(port.number)
@@ -305,11 +337,17 @@ class Valve(object):
         """Handle OF DP description."""
         self.metrics.of_dp_desc_stats.labels( # pylint: disable=no-member
             **dict(self.base_prom_labels,
-                   mfr_desc=body.mfr_desc,
-                   hw_desc=body.hw_desc,
-                   sw_desc=body.sw_desc,
-                   serial_num=body.serial_num,
-                   dp_desc=body.dp_desc)).set(self.dp.dp_id)
+                   mfr_desc=body.mfr_desc.decode(),
+                   hw_desc=body.hw_desc.decode(),
+                   sw_desc=body.sw_desc.decode(),
+                   serial_num=body.serial_num.decode(),
+                   dp_desc=body.dp_desc.decode())).set(self.dp.dp_id)
+
+    def _set_port_status(self, port_no, port_status):
+        """Set port operational status."""
+        port_labels = dict(self.base_prom_labels, port=port_no)
+        self.metrics.port_status.labels( # pylint: disable=no-member
+            **port_labels).set(port_status)
 
     def port_status_handler(self, port_no, reason, port_status):
         """Return OpenFlow messages responding to port operational status change."""
@@ -331,9 +369,7 @@ class Valve(object):
         ofmsgs = []
         if not self.port_no_valid(port_no):
             return ofmsgs
-        port_labels = dict(self.base_prom_labels, port=port_no)
-        self.metrics.port_status.labels( # pylint: disable=no-member
-            **port_labels).set(port_status)
+        self._set_port_status(port_no, port_status)
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
             return ofmsgs
@@ -364,7 +400,6 @@ class Valve(object):
 
     def send_lldp_beacons(self):
         """Called periodically to send LLDP beacon packets."""
-        # TODO: the beacon service should be able to send configurable TLVs.
         # TODO: the beacon service is specifically NOT to discover topology.
         # It is intended to facilitate physical troubleshooting (e.g.
         # a standard cable tester can display OF port information)
@@ -376,22 +411,21 @@ class Valve(object):
             beacons_sent = 0
             cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
             ttl = self.dp.lldp_beacon['send_interval'] * 3
+            chassis_id = str(self.dp.faucet_dp_mac)
             for port in self.dp.lldp_beacon_ports:
                 if (port.dyn_last_lldp_beacon_time is None or
                         port.dyn_last_lldp_beacon_time < cutoff_beacon_time):
                     lldp_beacon = port.lldp_beacon
-                    chassis_id = str(port.native_vlan.faucet_mac)
-                    org_tlvs = []
-                    for org_tlv in lldp_beacon['org_tlvs']:
-                        org_tlvs.append(
-                            (org_tlv['oui'], org_tlv['subtype'], org_tlv['info']))
+                    org_tlvs = [
+                        (tlv['oui'], tlv['subtype'], tlv['info'])
+                        for tlv in lldp_beacon['org_tlvs']]
+                    org_tlvs.extend(valve_packet.faucet_lldp_tlvs(self.dp))
                     # if the port doesn't have a system name set, default to
                     # using the system name from the dp
                     if lldp_beacon['system_name'] is None:
                         lldp_beacon['system_name'] = self.dp.lldp_beacon['system_name']
-
                     lldp_beacon_pkt = valve_packet.lldp_beacon(
-                        port.native_vlan.faucet_mac,
+                        self.dp.faucet_dp_mac,
                         chassis_id, port.number, ttl,
                         org_tlvs=org_tlvs,
                         system_name=lldp_beacon['system_name'],
@@ -405,11 +439,11 @@ class Valve(object):
                         break
         return ofmsgs
 
-    def datapath_connect(self, discovered_up_port_nums):
+    def datapath_connect(self, discovered_ports):
         """Handle Ryu datapath connection event and provision pipeline.
 
         Args:
-            discovered_up_port_nums (list): datapath ports that are up as ints.
+            discovered_ports (list): datapath OFPorts.
         Returns:
             list: OpenFlow messages to send to datapath.
         """
@@ -418,10 +452,8 @@ class Valve(object):
             {'DP_CHANGE': {
                 'reason': 'cold_start'}})
         ofmsgs = []
-        ofmsgs.append(valve_of.faucet_config())
-        ofmsgs.append(valve_of.faucet_async())
         ofmsgs.extend(self._add_default_flows())
-        ofmsgs.extend(self._add_ports_and_vlans(discovered_up_port_nums))
+        ofmsgs.extend(self._add_ports_and_vlans(discovered_ports))
         ofmsgs.extend(self._add_controller_learn_flow())
         self.dp.dyn_last_coldstart_time = time.time()
         self.dp.running = True
@@ -450,9 +482,11 @@ class Valve(object):
         if cold_start:
             ofmsgs.extend(acl_table.flowdel(in_port_match))
         acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
+        acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
         if port.acls_in:
             ofmsgs.extend(valve_acl.build_acl_ofmsgs(
-                port.acls_in, acl_table, acl_allow_inst,
+                port.acls_in, acl_table,
+                acl_allow_inst, acl_force_port_vlan_inst,
                 self.dp.highest_priority, self.dp.meters,
                 port.acls_in[0].exact_match, port_num=port.number))
         else:
@@ -511,9 +545,9 @@ class Valve(object):
         ofmsgs.extend(self.dp.tables['eth_dst'].flowdel(out_port=port.number))
         if port.permanent_learn:
             eth_src_table = self.dp.tables['eth_src']
-            for eth_src in port.hosts():
+            for entry in port.hosts():
                 ofmsgs.extend(eth_src_table.flowdel(
-                    match=eth_src_table.match(eth_src=eth_src)))
+                    match=eth_src_table.match(eth_src=entry.eth_src)))
         for vlan in port.vlans():
             vlan.clear_cache_hosts_on_port(port)
         return ofmsgs
@@ -551,11 +585,26 @@ class Valve(object):
                     priority=self.dp.highest_priority))
                 continue
 
-            # Port has LACP processing enabled.
+            if port.receive_lldp:
+                ofmsgs.append(vlan_table.flowcontroller(
+                    match=vlan_table.match(
+                        in_port=port_num,
+                        eth_type=valve_of.ether.ETH_TYPE_LLDP),
+                    priority=self.dp.highest_priority,
+                    max_len=128))
+
             if port.lacp:
                 ofmsgs.extend(self.lacp_down(port))
 
-            # Add ACL if any.
+            if port.override_output_port:
+                ofmsgs.append(self.dp.tables['eth_src'].flowmod(
+                    match=self.dp.tables['eth_src'].match(
+                        in_port=port_num),
+                    priority=self.dp.low_priority + 1,
+                    inst=[valve_of.apply_actions([
+                        valve_of.output_controller(),
+                        valve_of.output_port(port.override_output_port.number)])]))
+
             acl_ofmsgs = self._port_add_acl(port)
             ofmsgs.extend(acl_ofmsgs)
 
@@ -631,14 +680,14 @@ class Valve(object):
     def lacp_down(self, port):
         """Return OpenFlow messages when LACP is down on a port."""
         port.dyn_lacp_up = 0
-        eth_src_table = self.dp.tables['eth_src']
+        vlan_table = self.dp.tables['vlan']
         ofmsgs = []
         ofmsgs.extend(self._port_delete_flows_state(port))
-        ofmsgs.append(eth_src_table.flowdrop(
-            match=eth_src_table.match(in_port=port.number),
+        ofmsgs.append(vlan_table.flowdrop(
+            match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority))
-        ofmsgs.append(eth_src_table.flowcontroller(
-            eth_src_table.match(
+        ofmsgs.append(vlan_table.flowcontroller(
+            vlan_table.match(
                 in_port=port.number,
                 eth_type=valve_of.ether.ETH_TYPE_SLOW,
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
@@ -648,11 +697,11 @@ class Valve(object):
 
     def lacp_up(self, port):
         """Return OpenFlow messages when LACP is up on a port."""
-        eth_src_table = self.dp.tables['eth_src']
+        vlan_table = self.dp.tables['vlan']
         ofmsgs = []
-        ofmsgs.extend(eth_src_table.flowdel(
-            match=eth_src_table.match(in_port=port.number),
-            priority=self.dp.high_priority))
+        ofmsgs.extend(vlan_table.flowdel(
+            match=vlan_table.match(in_port=port.number),
+            priority=self.dp.high_priority, strict=True))
         return ofmsgs
 
     def lacp_handler(self, pkt_meta):
@@ -684,8 +733,8 @@ class Valve(object):
                     if pkt_meta.port.dyn_lacp_up:
                         ofmsgs.extend(self.lacp_up(pkt_meta.port))
                 pkt = valve_packet.lacp_reqreply(
-                    pkt_meta.vlan.faucet_mac,
-                    pkt_meta.vlan.faucet_mac, pkt_meta.port.lacp, pkt_meta.port.number,
+                    self.dp.faucet_dp_mac,
+                    self.dp.faucet_dp_mac, pkt_meta.port.lacp, pkt_meta.port.number,
                     lacp_pkt.actor_system, lacp_pkt.actor_key, lacp_pkt.actor_port,
                     lacp_pkt.actor_system_priority, lacp_pkt.actor_port_priority,
                     lacp_pkt.actor_state_defaulted,
@@ -698,6 +747,33 @@ class Valve(object):
                     lacp_pkt.actor_state_activity)
                 ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
         return ofmsgs
+
+    def lldp_handler(self, pkt_meta):
+        """Handle an LLDP packet.
+
+        Args:
+            pkt_meta (PacketMeta): packet for control plane.
+        """
+        if pkt_meta.eth_type == valve_of.ether.ETH_TYPE_LLDP:
+            pkt_meta.reparse_all()
+            lldp_pkt = valve_packet.parse_lldp(pkt_meta.pkt)
+            if lldp_pkt:
+                self.logger.info('LLDP from port %u: %s' % (
+                    pkt_meta.port.number, lldp_pkt))
+                port_id_tlvs = [
+                    tlv for tlv in lldp_pkt.tlvs
+                    if tlv.tlv_type == valve_packet.lldp.LLDP_TLV_PORT_ID]
+                faucet_tlvs = [
+                    tlv for tlv in lldp_pkt.tlvs if (
+                        tlv.tlv_type == valve_packet.lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC and
+                        tlv.oui == valve_packet.faucet_oui(self.dp.faucet_dp_mac))]
+                dp_id_tlvs = [
+                    tlv for tlv in faucet_tlvs if tlv.subtype == valve_packet.LLDP_FAUCET_DP_ID]
+                if port_id_tlvs and dp_id_tlvs:
+                    remote_dp_id = int(dp_id_tlvs[0].info)
+                    remote_port_id = int(port_id_tlvs[0].port_id)
+                    self.logger.info('FAUCET LLDP from %s, port %u' % (
+                        valve_util.dpid_log(remote_dp_id), remote_port_id))
 
     def _control_plane_handler(self, pkt_meta, route_manager):
         """Handle a packet probably destined to FAUCET's route managers.
@@ -715,7 +791,7 @@ class Valve(object):
             return route_manager.control_plane_handler(pkt_meta)
         return []
 
-    def _rate_limit_packet_ins(self):
+    def rate_limit_packet_ins(self):
         """Return True if too many packet ins this second."""
         now_sec = int(time.time())
         if self._last_packet_in_sec != now_sec:
@@ -724,6 +800,8 @@ class Valve(object):
         self._packet_in_count_sec += 1
         if self.dp.ignore_learn_ins:
             if self._packet_in_count_sec % self.dp.ignore_learn_ins == 0:
+                self.metrics.of_ignored_packet_ins.labels( # pylint: disable=no-member
+                    **self.base_prom_labels).inc()
                 return True
         return False
 
@@ -739,22 +817,33 @@ class Valve(object):
         learn_port = self.flood_manager.edge_learn_port(
             other_valves, pkt_meta)
         if learn_port is not None:
-            learn_flows = self.host_manager.learn_host_on_vlan_ports(
+            learn_flows, previous_port = self.host_manager.learn_host_on_vlan_ports(
                 learn_port, pkt_meta.vlan, pkt_meta.eth_src,
                 last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
             if learn_flows:
+                if pkt_meta.l3_pkt is None:
+                    pkt_meta.reparse_ip()
+                previous_port_no = None
+                port_move_text = ''
+                if previous_port is not None:
+                    previous_port_no = previous_port.number
+                    if pkt_meta.port.number != previous_port_no:
+                        port_move_text = ', moved from port %u' % previous_port_no
                 self.logger.info(
-                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s) on %s on VLAN %u (%u hosts total)' % (
+                    'L2 learned %s (L2 type 0x%4.4x, L3 src %s, L3 dst %s) '
+                    'on %s%s on VLAN %u (%u hosts total)' % (
                         pkt_meta.eth_src, pkt_meta.eth_type,
-                        pkt_meta.l3_src, pkt_meta.port,
+                        pkt_meta.l3_src, pkt_meta.l3_dst, pkt_meta.port, port_move_text,
                         pkt_meta.vlan.vid, pkt_meta.vlan.hosts_count()))
                 self._notify(
                     {'L2_LEARN': {
                         'port_no': pkt_meta.port.number,
+                        'previous_port_no': previous_port_no,
                         'vid': pkt_meta.vlan.vid,
                         'eth_src': pkt_meta.eth_src,
                         'eth_type': pkt_meta.eth_type,
-                        'l3_src_ip': pkt_meta.l3_src}})
+                        'l3_src_ip': pkt_meta.l3_src,
+                        'l3_dst_ip': pkt_meta.l3_dst}})
                 return learn_flows
         return []
 
@@ -783,12 +872,15 @@ class Valve(object):
         """
         eth_src = eth_pkt.src
         eth_dst = eth_pkt.dst
-        vlan = self.dp.vlans[vlan_vid]
+        vlan = None
+        if vlan_vid is not None:
+            vlan = self.dp.vlans[vlan_vid]
         port = self.dp.ports[in_port]
         return valve_packet.PacketMeta(
             data, orig_len, pkt, eth_pkt, port, vlan, eth_src, eth_dst, eth_type)
 
     def parse_pkt_meta(self, msg):
+        """Parse OF packet-in message to PacketMeta."""
         if not self.dp.running:
             return None
         if self.dp.cookie != msg.cookie:
@@ -804,17 +896,13 @@ class Valve(object):
         msg.data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
 
         # eth/VLAN header only
-        pkt, eth_pkt, vlan_vid, eth_type = valve_packet.parse_packet_in_pkt(
+        pkt, eth_pkt, eth_type, vlan_vid = valve_packet.parse_packet_in_pkt(
             msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
-        if vlan_vid is None:
-            self.logger.info(
-                'packet without VLAN header port %u' % in_port)
-            return None
-        if pkt is None:
+        if pkt is None or eth_pkt is None:
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
             return None
-        if vlan_vid not in self.dp.vlans:
+        if vlan_vid is not None and vlan_vid not in self.dp.vlans:
             self.logger.info(
                 'packet for unknown VLAN %u' % vlan_vid)
             return None
@@ -827,6 +915,7 @@ class Valve(object):
             return None
         if self.dp.stack is not None:
             if (not pkt_meta.port.stack and
+                    pkt_meta.vlan and
                     pkt_meta.vlan not in pkt_meta.port.tagged_vlans and
                     pkt_meta.vlan != pkt_meta.port.native_vlan):
                 self.logger.warning(
@@ -842,40 +931,55 @@ class Valve(object):
             self.metrics.faucet_config_table_names.labels(
                 **dict(self.base_prom_labels, table_name=table.name)).set(table_id)
 
-    def update_metrics(self):
+    def update_metrics(self, updated_port=None, rate_limited=False):
         """Update Gauge/metrics."""
-        # Clear the exported MAC learning.
-        dp_id = hex(self.dp.dp_id)
-        for _, label_dict, _ in self.metrics.learned_macs.collect()[0].samples:
-            if label_dict['dp_id'] == dp_id:
-                self.metrics.learned_macs.labels(
-                    **dict(self.base_prom_labels, vlan=label_dict['vlan'],
-                           port=label_dict['port'], n=label_dict['n'])).set(0)
+        # rate limit metric updates
+        now = time.time()
+        if self._last_update_metrics_sec and rate_limited:
+            if now - self._last_update_metrics_sec < self.dp.metrics_rate_limit_sec:
+                return
+        self._last_update_metrics_sec = now
 
-        for vlan in list(self.dp.vlans.values()):
-            hosts_count = vlan.hosts_count()
+        def _update_vlan(vlan):
+            vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid)
             self.metrics.vlan_hosts_learned.labels(
-                **dict(self.base_prom_labels, vlan=vlan.vid)).set(
-                    hosts_count)
+                **vlan_labels).set(vlan.hosts_count())
             self.metrics.vlan_learn_bans.labels(
-                **dict(self.base_prom_labels, vlan=vlan.vid)).set(
-                    vlan.dyn_learn_ban_count)
+                **vlan_labels).set(vlan.dyn_learn_ban_count)
             for ipv in vlan.ipvs():
-                neigh_cache_size = len(vlan.neigh_cache_by_ipv(ipv))
                 self.metrics.vlan_neighbors.labels(
-                    **dict(self.base_prom_labels, vlan=vlan.vid, ipv=ipv)).set(
-                        neigh_cache_size)
-            learned_hosts_count = 0
-            for port in vlan.get_ports():
-                for i, host in enumerate(sorted(port.hosts(vlans=[vlan]))):
-                    mac_int = int(host.replace(':', ''), 16)
+                    **dict(vlan_labels, ipv=ipv)).set(vlan.neigh_cache_count_by_ipv(ipv))
+
+        def _update_port(vlan, port):
+            port_labels = dict(self.base_prom_labels, port=port.number)
+            port_vlan_labels = dict(self.base_prom_labels, vlan=vlan.vid, port=port.number)
+            port_vlan_hosts_learned = port.hosts_count(vlans=[vlan])
+            self.metrics.port_vlan_hosts_learned.labels(
+                **port_vlan_labels).set(port_vlan_hosts_learned)
+            self.metrics.port_learn_bans.labels(
+                **port_labels).set(port.dyn_learn_ban_count)
+            highwater = self._port_highwater[vlan.vid][port.number]
+            if highwater > port_vlan_hosts_learned:
+                for i in range(port_vlan_hosts_learned, highwater + 1):
                     self.metrics.learned_macs.labels(
-                        **dict(self.base_prom_labels, vlan=vlan.vid, port=port.number, n=i)).set(
-                            mac_int)
-                    learned_hosts_count += 1
-                self.metrics.port_learn_bans.labels(
-                    **dict(self.base_prom_labels, port=port.number)).set(
-                        port.dyn_learn_ban_count)
+                        **dict(port_vlan_labels, n=i)).set(0)
+            self._port_highwater[vlan.vid][port.number] = port_vlan_hosts_learned
+            port_vlan_hosts = port.hosts(vlans=[vlan])
+            assert port_vlan_hosts_learned == len(port_vlan_hosts)
+            # TODO: make MAC table updates less expensive.
+            for i, entry in enumerate(sorted(port_vlan_hosts)):
+                self.metrics.learned_macs.labels(
+                    **dict(port_vlan_labels, n=i)).set(entry.eth_src_int)
+
+        if updated_port:
+            for vlan in updated_port.vlans():
+                _update_vlan(vlan)
+                _update_port(vlan, updated_port)
+        else:
+            for vlan in list(self.dp.vlans.values()):
+                _update_vlan(vlan)
+                for port in vlan.get_ports():
+                    _update_port(vlan, port)
 
     def rcv_packet(self, other_valves, pkt_meta):
         """Handle a packet from the dataplane (eg to re/learn a host).
@@ -893,37 +997,38 @@ class Valve(object):
         ofmsgs = []
 
         self.logger.debug(
-            'Packet_in src:%s in_port:%d vid:%s' % (
+            'Packet_in src:%s in_port:%d VLAN:%s' % (
                 pkt_meta.eth_src,
                 pkt_meta.port.number,
-                pkt_meta.vlan.vid))
+                pkt_meta.vlan))
 
-        if pkt_meta.port.lacp:
-            lacp_ofmsgs = self.lacp_handler(pkt_meta)
-            if lacp_ofmsgs:
-                return lacp_ofmsgs
-            if not pkt_meta.port.dyn_lacp_up:
-                return ofmsgs
+        if pkt_meta.vlan is None:
+            self.metrics.of_non_vlan_packet_ins.labels( # pylint: disable=no-member
+                **self.base_prom_labels).inc()
+            if pkt_meta.port.lacp:
+                lacp_ofmsgs = self.lacp_handler(pkt_meta)
+                if lacp_ofmsgs:
+                    return lacp_ofmsgs
+            self.lldp_handler(pkt_meta)
+            # TODO: verify stacking connectivity using LLDP (DPID, port)
+            # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
+            return ofmsgs
 
         ban_rules = self.host_manager.ban_rules(pkt_meta)
         if ban_rules:
             return ban_rules
 
-        pkt_meta.reparse_ip()
-
-        if self.L3 and pkt_meta.l3_pkt and pkt_meta.eth_type in self._route_manager_by_eth_type:
-            route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
-            control_plane_ofmsgs = self._control_plane_handler(pkt_meta, route_manager)
-            if control_plane_ofmsgs:
-                ofmsgs.extend(control_plane_ofmsgs)
-            else:
-                ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
-
-        if self._rate_limit_packet_ins():
-            return ofmsgs
+        if self.L3 and pkt_meta.eth_type in self._route_manager_by_eth_type:
+            pkt_meta.reparse_ip()
+            if pkt_meta.l3_pkt:
+                route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
+                control_plane_ofmsgs = self._control_plane_handler(pkt_meta, route_manager)
+                if control_plane_ofmsgs:
+                    ofmsgs.extend(control_plane_ofmsgs)
+                else:
+                    ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
         ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
-
         return ofmsgs
 
     def state_expire(self):
@@ -967,13 +1072,14 @@ class Valve(object):
                 cold_start (bool): whether cold starting.
                 ofmsgs (list): OpenFlow messages.
         """
+        new_dp.running = True
         (deleted_ports, changed_ports, changed_acl_ports,
          deleted_vlans, changed_vlans, all_ports_changed) = changes
-        new_dp.running = True
 
         if all_ports_changed:
             self.logger.info('all ports changed')
             self.dp = new_dp
+            self.dp_init()
             return True, []
 
         ofmsgs = []
@@ -992,6 +1098,7 @@ class Valve(object):
 
         self.dp = new_dp
         self.dp.reset_refs()
+        self.dp_init()
 
         if changed_vlans:
             self.logger.info('VLANs changed/added: %s' % changed_vlans)
@@ -1025,16 +1132,15 @@ class Valve(object):
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
-        cold_start = False
-        ofmsgs = []
-        if self.dp.running:
-            cold_start, ofmsgs = self._apply_config_changes(
-                new_dp, self.dp.get_config_changes(self.logger, new_dp))
-            if cold_start:
-                self.dp = new_dp
-                ofmsgs = self.datapath_connect(list(self.dp.ports.keys()))
-        else:
-            self.logger.info('skipping configuration because datapath not up')
+        dp_running = self.dp.running
+        cold_start, ofmsgs = self._apply_config_changes(
+            new_dp, self.dp.get_config_changes(self.logger, new_dp))
+        self.dp.running = dp_running
+
+        if not self.dp.running:
+            return []
+        if cold_start:
+            ofmsgs = self.datapath_connect([])
         if ofmsgs:
             if cold_start:
                 self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
@@ -1078,7 +1184,46 @@ class Valve(object):
                 ofmsgs.extend(route_manager.resolve_gateways(vlan, now))
         return ofmsgs
 
+    def oferror(self, msg):
+        """Correlate OFError message with flow we sent, if any.
+
+        Args:
+            msg (ryu.controller.ofp_event.EventOFPMsgBase): message from datapath.
+        """
+        self.metrics.of_errors.labels( # pylint: disable=no-member
+            **self.base_prom_labels).inc()
+        orig_msgs = [orig_msg for orig_msg in self.recent_ofmsgs if orig_msg.xid == msg.xid]
+        error_txt = msg
+        if orig_msgs:
+            error_txt = orig_msgs[0]
+        self.logger.error('OFError %s' % error_txt)
+
+    def send_flows(self, ryu_dp, flow_msgs):
+        """Send flows to datapath.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+            flow_msgs (list): OpenFlow messages to send.
+        """
+        reordered_flow_msgs = valve_of.valve_flowreorder(
+            flow_msgs, use_barriers=self.USE_BARRIERS)
+        self.ofchannel_log(reordered_flow_msgs)
+        self.metrics.of_flowmsgs_sent.labels( # pylint: disable=no-member
+            **self.base_prom_labels).inc(len(reordered_flow_msgs))
+        self.recent_ofmsgs.extend(reordered_flow_msgs)
+        for flow_msg in reordered_flow_msgs:
+            flow_msg.datapath = ryu_dp
+            ryu_dp.send_msg(flow_msg)
+
     def flow_timeout(self, table_id, match):
+        """Call flow timeout message handler:
+
+        Args:
+            table_id (int): ID of table where flow was installed.
+            match (dict): match conditions for expired flow.
+        Returns:
+            list: OpenFlow messages, if any.
+        """
         return self.host_manager.flow_timeout(table_id, match)
 
     def get_config_dict(self):
@@ -1099,7 +1244,8 @@ class TfmValve(Valve):
             if table.restricted_match_types is None:
                 continue
             for prop in tfm_table.properties:
-                if not (isinstance(prop, valve_of.parser.OFPTableFeaturePropOxm) and prop.type == 8):
+                if not (isinstance(prop, valve_of.parser.OFPTableFeaturePropOxm)
+                        and prop.type == 8):
                     continue
                 tfm_matches = set(sorted([oxm.type for oxm in prop.oxm_ids]))
                 if tfm_matches != table.restricted_match_types:
@@ -1109,11 +1255,11 @@ class TfmValve(Valve):
                             tfm_matches, table.restricted_match_types))
 
     def switch_features(self, msg):
-        ofmsgs = super(TfmValve, self).switch_features(msg)
+        ofmsgs = self._delete_all_valve_flows()
+        ofmsgs.extend(super(TfmValve, self).switch_features(msg))
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         self.logger.info('loading pipeline configuration')
-        ofmsgs.extend(self._delete_all_valve_flows())
         tfm = valve_of.table_features(ryu_table_loader.load_tables())
         self._verify_pipeline_config(tfm)
         ofmsgs.append(tfm)
@@ -1127,6 +1273,12 @@ class ArubaValve(TfmValve):
     DEC_TTL = False
 
 
+class OVSValve(Valve):
+    """Valve implementation for OVS."""
+
+    USE_BARRIERS = False
+
+
 SUPPORTED_HARDWARE = {
     'Allied-Telesis': Valve,
     'Aruba': ArubaValve,
@@ -1134,7 +1286,7 @@ SUPPORTED_HARDWARE = {
     'Lagopus': Valve,
     'Netronome': Valve,
     'NoviFlow': Valve,
-    'Open vSwitch': Valve,
+    'Open vSwitch': OVSValve,
     'ZodiacFX': Valve,
 }
 

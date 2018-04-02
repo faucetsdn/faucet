@@ -25,15 +25,16 @@ from ryu.lib import addrconv
 from ryu.lib.packet import (
     arp, bpdu, ethernet,
     icmp, icmpv6, ipv4, ipv6,
-    lldp,
-    slow, stream_parser,
-    packet, vlan)
+    lldp, slow, packet, vlan)
+from ryu.lib.packet.stream_parser import StreamParser
 
 from faucet.valve_util import btos
 from faucet import valve_of
 
+FAUCET_MAC = '0e:00:00:00:00:01' # Default FAUCET MAC address
 
-ETH_VLAN_HEADER_SIZE = 14 + 4 # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
+ETH_HEADER_SIZE = 14
+ETH_VLAN_HEADER_SIZE = ETH_HEADER_SIZE + 4 # https://en.wikipedia.org/wiki/IEEE_802.1Q#Frame_format
 IPV4_HEADER_SIZE = 20 # https://en.wikipedia.org/wiki/IPv4#Header
 IPV6_HEADER_SIZE = 40 # https://en.wikipedia.org/wiki/IPv6_packet#Fixed_header
 ARP_PKT_SIZE = 28 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
@@ -46,6 +47,8 @@ IPV6_ALL_ROUTERS_MCAST = '33:33:00:00:00:02'
 IPV6_LINK_LOCAL = ipaddress.IPv6Network(btos('fe80::/10'))
 IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
+
+LLDP_FAUCET_DP_ID = 1
 
 
 def ipv4_parseable(ip_header_data):
@@ -110,6 +113,17 @@ def parse_lacp_pkt(pkt):
     return pkt.get_protocol(slow.lacp)
 
 
+def parse_lldp(pkt):
+    """Return parsed LLDP packet.
+
+    Args:
+        pkt (ryu.lib.packet.packet): packet received from dataplane.
+    Returns:
+        ryu.lib.packet.lldp: LLDP packet.
+    """
+    return pkt.get_protocol(lldp.lldp)
+
+
 def parse_packet_in_pkt(data, max_len):
     """Parse a packet received via packet in from the dataplane.
 
@@ -117,35 +131,37 @@ def parse_packet_in_pkt(data, max_len):
         data (bytearray): packet data from dataplane.
         max_len (int): max number of packet data bytes to parse.
     Returns:
-        ryu.lib.packet.ethernet: Ethernet packet.
-        int: VLAN VID.
+        ryu.lib.packet.packet: raw packet
+        ryu.lib.packet.ethernet: parsed Ethernet packet.
         int: Ethernet type of packet (inside VLAN)
+        int: VLAN VID (or None if no VLAN)
     """
     pkt = None
     eth_pkt = None
-    vlan_vid = None
     eth_type = None
+    vlan_vid = None
 
     if max_len:
         data = data[:max_len]
 
     try:
-        pkt = packet.Packet(data)
+        # Packet may or may not have a VLAN tag - whether it is user
+        # traffic, or control like LACP/LLDP.
+        pkt = packet.Packet(data[:ETH_HEADER_SIZE])
         eth_pkt = parse_eth_pkt(pkt)
         eth_type = eth_pkt.ethertype
-        # Packet ins, can only come when a VLAN header has already been pushed
-        # (ie. when we have progressed past the VLAN table). This gaurantees
-        # a VLAN header will always be present, so we know which VLAN the packet
-        # belongs to.
         if eth_type == valve_of.ether.ETH_TYPE_8021Q:
+            pkt = packet.Packet(data[:ETH_VLAN_HEADER_SIZE])
             vlan_pkt = parse_vlan_pkt(pkt)
             if vlan_pkt:
                 vlan_vid = vlan_pkt.vid
                 eth_type = vlan_pkt.ethertype
-    except (AttributeError, AssertionError, stream_parser.StreamParser.TooSmallException):
+        if len(data) > ETH_VLAN_HEADER_SIZE:
+            pkt = packet.Packet(data)
+    except (AttributeError, AssertionError, StreamParser.TooSmallException):
         pass
 
-    return (pkt, eth_pkt, vlan_vid, eth_type)
+    return (pkt, eth_pkt, eth_type, vlan_vid)
 
 
 def mac_addr_is_unicast(mac_addr):
@@ -228,6 +244,19 @@ def lldp_beacon(eth_src, chassis_id, port_id, ttl, org_tlvs=None,
     pkt.add_protocol(lldp_pkt)
     pkt.serialize()
     return pkt
+
+
+def faucet_oui(mac):
+    """Return first 3 bytes of MAC address (given as str)."""
+    return addrconv.mac.text_to_bin(mac)[:3]
+
+
+def faucet_lldp_tlvs(dp):
+    """Return LLDP TLVs for a datapath."""
+    tlvs = []
+    tlvs.append(
+        (faucet_oui(dp.faucet_dp_mac), LLDP_FAUCET_DP_ID, str(dp.dp_id).encode('utf-8')))
+    return tlvs
 
 
 def lacp_reqreply(eth_src,
@@ -565,12 +594,13 @@ class PacketMeta(object):
         self.eth_type = eth_type
         self.l3_pkt = None
         self.l3_src = None
+        self.l3_dst = None
 
     def reparse(self, max_len):
         """Reparse packet using data up to the specified maximum length."""
-        pkt, eth_pkt, vlan_vid, eth_type = parse_packet_in_pkt(
+        pkt, eth_pkt, eth_type, vlan_vid = parse_packet_in_pkt(
             self.data, max_len)
-        if pkt is None or vlan_vid is None or eth_type is None:
+        if pkt is None or eth_type is None:
             return
         self.pkt = pkt
         self.eth_pkt = eth_pkt
@@ -604,10 +634,12 @@ class PacketMeta(object):
             self.reparse(parse_limit)
             self.l3_pkt = self.pkt.get_protocol(pkt_parser)
             if self.l3_pkt:
-                if hasattr(self.l3_pkt, 'src_ip'):
-                    self.l3_src = self.l3_pkt.src_ip
-                elif hasattr(self.l3_pkt, 'src'):
+                if hasattr(self.l3_pkt, 'src'):
                     self.l3_src = self.l3_pkt.src
+                    self.l3_dst = self.l3_pkt.dst
+                elif hasattr(self.l3_pkt, 'src_ip'):
+                    self.l3_src = self.l3_pkt.src_ip
+                    self.l3_dst = self.l3_pkt.dst_ip
 
     def packet_complete(self):
         """True if we have the complete packet."""

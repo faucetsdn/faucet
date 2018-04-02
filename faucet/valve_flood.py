@@ -36,12 +36,17 @@ class ValveFloodManager(object):
         (False, valve_of.mac.BROADCAST_STR, None), # flood on ethernet broadcasts
     )
 
-    def __init__(self, flood_table, flood_priority,
-                 use_group_table, groups):
+    def __init__(self, flood_table, eth_src_table,
+                 flood_priority, bypass_priority,
+                 use_group_table, groups,
+                 combinatorial_port_flood):
         self.flood_table = flood_table
+        self.eth_src_table = eth_src_table
+        self.bypass_priority = bypass_priority
         self.flood_priority = flood_priority
         self.use_group_table = use_group_table
         self.groups = groups
+        self.combinatorial_port_flood = combinatorial_port_flood
 
     @staticmethod
     def _vlan_all_ports(vlan, exclude_unicast):
@@ -53,20 +58,35 @@ class ValveFloodManager(object):
         """Return a list of flood actions to flood packets from a port."""
         flood_acts = []
         exclude_ports = []
-        if in_port.lacp:
+        if in_port is not None and in_port.lacp:
             lags = vlan.lags()
             exclude_ports = lags[in_port.lacp]
         tagged_ports = vlan.tagged_flood_ports(exclude_unicast)
         flood_acts.extend(valve_of.flood_tagged_port_outputs(
-            tagged_ports, in_port, exclude_ports=exclude_ports))
+            tagged_ports, in_port=in_port, exclude_ports=exclude_ports))
         untagged_ports = vlan.untagged_flood_ports(exclude_unicast)
         flood_acts.extend(valve_of.flood_untagged_port_outputs(
-            untagged_ports, in_port, exclude_ports=exclude_ports))
+            untagged_ports, in_port=in_port, exclude_ports=exclude_ports))
         return flood_acts
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
         return self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port)
+
+    def _build_flood_rule_for_vlan(self, vlan, eth_dst, eth_dst_mask,
+                                   exclude_unicast, command, flood_priority,
+                                   preflood_acts):
+        ofmsgs = []
+        match = self.flood_table.match(
+            vlan=vlan, eth_dst=eth_dst, eth_dst_mask=eth_dst_mask)
+        flood_acts = self._build_flood_rule_actions(
+            vlan, exclude_unicast, None)
+        ofmsgs.append(self.flood_table.flowmod(
+            match=match,
+            command=command,
+            inst=[valve_of.apply_actions(preflood_acts + flood_acts)],
+            priority=flood_priority))
+        return ofmsgs
 
     def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask,
                                    exclude_unicast, command, flood_priority,
@@ -84,42 +104,46 @@ class ValveFloodManager(object):
             priority=flood_priority))
         return ofmsgs
 
-    def _build_unmirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
-                                      exclude_unicast, command, flood_priority):
+    def _combinatorial_port_flood(self, vlan, eth_dst, eth_dst_mask,
+                                  exclude_unicast, command, flood_priority,
+                                  mirror_acts):
         ofmsgs = []
-        for port in self._vlan_all_ports(vlan, exclude_unicast):
-            ofmsgs.extend(self._build_flood_rule_for_port(
-                vlan, eth_dst, eth_dst_mask,
-                exclude_unicast, command, flood_priority,
-                port, []))
+        # TODO: hairpin rules should use higher priority rules so we
+        # can use default non-combinatorial rules.
+        if self.combinatorial_port_flood or vlan.hairpin_ports():
+            for port in self._vlan_all_ports(vlan, exclude_unicast):
+                ofmsgs.extend(self._build_flood_rule_for_port(
+                    vlan, eth_dst, eth_dst_mask,
+                    exclude_unicast, command, flood_priority,
+                    port, mirror_acts))
         return ofmsgs
 
-    def _build_mirrored_flood_rules(self, vlan, eth_dst, eth_dst_mask,
-                                    exclude_unicast, command, flood_priority):
-        ofmsgs = []
-        mirrored_ports = vlan.mirrored_ports()
-        for port in mirrored_ports:
-            mirror_acts = port.mirror_actions()
-            ofmsgs.extend(self._build_flood_rule_for_port(
+    def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask,
+                                exclude_unicast, command, flood_priority,
+                                mirror_acts):
+        ofmsgs = self._combinatorial_port_flood(
+            vlan, eth_dst, eth_dst_mask,
+            exclude_unicast, command, flood_priority, mirror_acts)
+        if not ofmsgs:
+            ofmsgs.extend(self._build_flood_rule_for_vlan(
                 vlan, eth_dst, eth_dst_mask,
-                exclude_unicast, command, flood_priority,
-                port, mirror_acts))
+                exclude_unicast, command, flood_priority, mirror_acts))
         return ofmsgs
 
     def _build_multiout_flood_rules(self, vlan, command):
         """Build flooding rules for a VLAN without using groups."""
         flood_priority = self.flood_priority
+        mirror_acts = set()
+        for mirrored_port in vlan.mirrored_ports():
+            for act in mirrored_port.mirror_actions():
+                mirror_acts.add(act)
         ofmsgs = []
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst and not vlan.unicast_flood:
                 continue
-            ofmsgs.extend(self._build_unmirrored_flood_rules(
+            ofmsgs.extend(self._build_mask_flood_rules(
                 vlan, eth_dst, eth_dst_mask,
-                unicast_eth_dst, command, flood_priority))
-            flood_priority += 1
-            ofmsgs.extend(self._build_mirrored_flood_rules(
-                vlan, eth_dst, eth_dst_mask,
-                unicast_eth_dst, command, flood_priority))
+                unicast_eth_dst, command, flood_priority, list(mirror_acts)))
             flood_priority += 1
         return ofmsgs
 
@@ -171,12 +195,10 @@ class ValveFloodManager(object):
         command = valve_of.ofp.OFPFC_ADD
         if modify:
             command = valve_of.ofp.OFPFC_MODIFY_STRICT
-        if self.use_group_table:
-            hairpin_ports = vlan.hairpin_ports()
+        if self.use_group_table and not vlan.hairpin_ports():
             # TODO: hairpin flooding modes.
             # TODO: avoid loopback flood on LAG ports
-            if not hairpin_ports:
-                return self._build_group_flood_rules(vlan, modify, command)
+            return self._build_group_flood_rules(vlan, modify, command)
         return self._build_multiout_flood_rules(vlan, command)
 
     @staticmethod
@@ -195,25 +217,34 @@ class ValveFloodManager(object):
 class ValveFloodStackManager(ValveFloodManager):
     """Implement dataplane based flooding for stacked dataplanes."""
 
-    def __init__(self, flood_table, flood_priority,
+    def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
+                 flood_priority, bypass_priority,
                  use_group_table, groups,
+                 combinatorial_port_flood,
                  stack, stack_ports,
                  dp_shortest_path_to_root, shortest_path_port):
         super(ValveFloodStackManager, self).__init__(
-            flood_table, flood_priority, use_group_table, groups)
+            flood_table, eth_src_table,
+            flood_priority, bypass_priority,
+            use_group_table, groups,
+            combinatorial_port_flood)
         self.stack = stack
         self.stack_ports = stack_ports
-        my_root_distance = len(dp_shortest_path_to_root())
         self.shortest_path_port = shortest_path_port
-        self.towards_root_stack_ports = []
-        self.away_from_root_stack_ports = []
-        for port in self.stack_ports:
-            peer_dp = port.stack['dp']
-            peer_root_distance = len(peer_dp.shortest_path_to_root())
-            if peer_root_distance > my_root_distance:
-                self.away_from_root_stack_ports.append(port)
-            elif peer_root_distance < my_root_distance:
-                self.towards_root_stack_ports.append(port)
+        self.dp_shortest_path_to_root = dp_shortest_path_to_root
+        self._reset_peer_distances()
+
+    def _reset_peer_distances(self):
+        """Reset distances to/from root for this DP."""
+        port_peer_distances = [
+            (port, len(port.stack['dp'].shortest_path_to_root())) for port in self.stack_ports]
+        my_root_distance = len(self.dp_shortest_path_to_root())
+        self.towards_root_stack_ports = [
+            port for port, port_peer_distance in port_peer_distances
+            if port_peer_distance < my_root_distance]
+        self.away_from_root_stack_ports = [
+            port for port, port_peer_distance in port_peer_distances
+            if port_peer_distance > my_root_distance]
 
     def _build_flood_rule_actions(self, vlan, exclude_unicast, in_port):
         """Calculate flooding destinations based on this DP's position.
@@ -288,13 +319,47 @@ class ValveFloodStackManager(ValveFloodManager):
         # towards the root.
         return toward_flood_actions
 
+    def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask,
+                                exclude_unicast, command, flood_priority,
+                                mirror_acts):
+        ofmsgs = self._combinatorial_port_flood(
+            vlan, eth_dst, eth_dst_mask,
+            exclude_unicast, command, flood_priority, mirror_acts)
+        if not ofmsgs:
+            for port in self.stack_ports:
+                ofmsgs.extend(self._build_flood_rule_for_port(
+                    vlan, eth_dst, eth_dst_mask,
+                    exclude_unicast, command, flood_priority + 1,
+                    port, mirror_acts))
+            ofmsgs.extend(self._build_flood_rule_for_vlan(
+                vlan, eth_dst, eth_dst_mask,
+                exclude_unicast, command, flood_priority, mirror_acts))
+        return ofmsgs
+
     def build_flood_rules(self, vlan, modify=False):
         """Add flows to flood packets to unknown destinations on a VLAN."""
         command = valve_of.ofp.OFPFC_ADD
         if modify:
             command = valve_of.ofp.OFPFC_MODIFY_STRICT
         # TODO: group tables for stacking
-        return self._build_multiout_flood_rules(vlan, command)
+        ofmsgs = self._build_multiout_flood_rules(vlan, command)
+        # Because stacking uses reflected broadcasts from the root,
+        # don't try to learn broadcast sources from stacking ports.
+        for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
+            if unicast_eth_dst:
+                continue
+            for port in self.stack_ports:
+                match = self.eth_src_table.match(
+                    in_port=port.number,
+                    vlan=vlan,
+                    eth_dst=eth_dst,
+                    eth_dst_mask=eth_dst_mask)
+                ofmsgs.append(self.eth_src_table.flowmod(
+                    match=match,
+                    command=command,
+                    inst=[valve_of.goto_table(self.flood_table)],
+                    priority=self.bypass_priority))
+        return ofmsgs
 
     def _vlan_all_ports(self, vlan, exclude_unicast):
         vlan_all_ports = super(ValveFloodStackManager, self)._vlan_all_ports(
@@ -343,10 +408,10 @@ class ValveFloodStackManager(ValveFloodManager):
         stacked_valves = [valve for valve in other_valves if valve.dp.stack is not None]
         for other_valve in stacked_valves:
             if vlan_vid in other_valve.dp.vlans:
-                other_dp_host_cache = other_valve.dp.vlans[vlan_vid].dyn_host_cache
-                if eth_src in other_dp_host_cache:
-                    host = other_dp_host_cache[eth_src]
-                    if host.port.stack is None:
+                other_dp_vlan = other_valve.dp.vlans[vlan_vid]
+                entry = other_dp_vlan.cached_host(eth_src)
+                if entry is not None:
+                    if entry.port.stack is None:
                         return other_valve.dp
         return None
 

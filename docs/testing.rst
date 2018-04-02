@@ -15,7 +15,7 @@ Then you can build and run the mininet tests from the docker entry-point:
 
 .. code:: console
 
-  sudo docker build -t faucet/tests -f Dockerfile.tests .
+  sudo docker build --pull -t faucet/tests -f Dockerfile.tests .
   sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   sudo modprobe openvswitch
   sudo docker run --sysctl net.ipv6.conf.all.disable_ipv6=0 --privileged -ti faucet/tests
@@ -93,8 +93,8 @@ Create a directory for the test configuration:
 
 .. code:: console
 
-  mkdir -p /etc/ryu/faucet
-  $EDITOR /etc/ryu/faucet/hw_switch_config.yaml
+  mkdir -p /etc/faucet
+  $EDITOR /etc/faucet/hw_switch_config.yaml
 
 ``hw_switch_config.yaml`` should contain the correct configuration for your
 switch:
@@ -136,11 +136,11 @@ Running the tests
 
 .. code:: console
 
-  docker build -t faucet/tests -f Dockerfile.tests .
+  docker build --pull -t faucet/tests -f Dockerfile.tests .
   apparmor_parser -R /etc/apparmor.d/usr.sbin.tcpdump
   modprobe openvswitch
   sudo docker run --privileged --net=host \
-      -v /etc/ryu/faucet:/etc/ryu/faucet \
+      -v /etc/faucet:/etc/faucet \
       -v /tmp:/tmp \
       -ti faucet/tests
 
@@ -151,7 +151,21 @@ Running a single test
 
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="FaucetUntaggedTest" \
-      -v /etc/ryu/faucet:/etc/ryu/faucet \
+      -v /etc/faucet:/etc/faucet \
+      -v /tmp:/tmp \
+      -ti faucet/tests
+
+Running only the integration tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Sometimes you will want to skip the pytype, linting and documentation tests
+in order to complete a faucet test suite run against hardware quicker.
+
+.. code:: console
+
+  sudo docker run --privileged --net=host \
+      -e FAUCET_TESTS="-n" \
+      -v /etc/faucet:/etc/faucet \
       -v /tmp:/tmp \
       -ti faucet/tests
 

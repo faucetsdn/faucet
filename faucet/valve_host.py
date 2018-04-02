@@ -24,6 +24,10 @@ from faucet import valve_of
 
 
 class ValveHostManager(object):
+    """Manage host learning on VLANs."""
+
+    # don't update host cache more often than this many seconds
+    CACHE_UPDATE_GUARD_TIME = 2
 
     def __init__(self, logger, ports, vlans, eth_src_table, eth_dst_table,
                  learn_timeout, learn_jitter, learn_ban_timeout, low_priority, host_priority):
@@ -52,10 +56,10 @@ class ValveHostManager(object):
         eth_src = pkt_meta.eth_src
         vlan = pkt_meta.vlan
 
-        if eth_src not in vlan.dyn_host_cache:
+        entry = vlan.cached_host(eth_src)
+        if entry is None:
             if port.max_hosts:
-                hosts = port.hosts()
-                if len(hosts) == port.max_hosts:
+                if port.hosts_count() == port.max_hosts:
                     ofmsgs.append(self._temp_ban_host_learning_on_port(port))
                     port.dyn_learn_ban_count += 1
                     self.logger.info(
@@ -63,7 +67,7 @@ class ValveHostManager(object):
                         'temporarily banning learning on this port, '
                         'and not learning %s' % (
                             port.max_hosts, port, eth_src))
-            if vlan.max_hosts:
+            if vlan is not None and vlan.max_hosts:
                 hosts_count = vlan.hosts_count()
                 if hosts_count == vlan.max_hosts:
                     ofmsgs.append(self._temp_ban_host_learning_on_vlan(vlan))
@@ -105,6 +109,13 @@ class ValveHostManager(object):
                 '%u recently active hosts on VLAN %u, expired %s' % (
                     vlan.hosts_count(), vlan.vid, expired_hosts))
 
+    def _jitter_learn_timeout(self):
+        """Calculate jittered learning timeout to avoid synchronized host timeouts."""
+        return int(max(abs(
+            self.learn_timeout -
+            (self.learn_jitter / 2) + random.randint(0, self.learn_jitter)),
+                       self.CACHE_UPDATE_GUARD_TIME))
+
     def learn_host_timeouts(self, port):
         """Calculate flow timeouts for learning on a port."""
         # hosts learned on this port never relearned
@@ -113,10 +124,7 @@ class ValveHostManager(object):
         else:
             learn_timeout = self.learn_timeout
             if self.learn_timeout:
-                # Add a jitter to avoid whole bunch of hosts timeout simultaneously
-                learn_timeout = int(max(abs(
-                    self.learn_timeout -
-                    (self.learn_jitter / 2) + random.randint(0, self.learn_jitter)), 2))
+                learn_timeout = self._jitter_learn_timeout()
 
         # Update datapath to no longer send packets from this mac to controller
         # note the use of hard_timeout here and idle_timeout for the dst table
@@ -150,13 +158,23 @@ class ValveHostManager(object):
                 ofmsgs.extend(self.delete_host_from_vlan(eth_src, vlan))
 
         # Associate this MAC with source port.
-        ofmsgs.append(self.eth_src_table.flowmod(
-            self.eth_src_table.match(
-                in_port=port.number, vlan=vlan, eth_src=eth_src),
-            priority=(self.host_priority - 1),
-            inst=[valve_of.goto_table(self.eth_dst_table)],
-            hard_timeout=src_rule_hard_timeout,
-            idle_timeout=src_rule_idle_timeout))
+        src_match = self.eth_src_table.match(
+            in_port=port.number, vlan=vlan, eth_src=eth_src)
+        if port.override_output_port:
+            ofmsgs.append(self.eth_src_table.flowmod(
+                match=src_match,
+                priority=(self.host_priority - 1),
+                inst=[valve_of.apply_actions([
+                    valve_of.output_port(port.override_output_port.number)])],
+                hard_timeout=src_rule_hard_timeout,
+                idle_timeout=src_rule_idle_timeout))
+        else:
+            ofmsgs.append(self.eth_src_table.flowmod(
+                match=src_match,
+                priority=(self.host_priority - 1),
+                inst=[valve_of.goto_table(self.eth_dst_table)],
+                hard_timeout=src_rule_hard_timeout,
+                idle_timeout=src_rule_idle_timeout))
 
         # Output packets for this MAC to specified port.
         ofmsgs.append(self.eth_dst_table.flowmod(
@@ -182,29 +200,29 @@ class ValveHostManager(object):
                                  delete_existing=True,
                                  last_dp_coldstart_time=None):
         """Learn a host on a port."""
-        now = time.time()
         ofmsgs = []
-
-        cache_age = None
         cache_port = None
+
+        now = time.time()
+        cache_age = None
         entry = vlan.cached_host(eth_src)
         # Host not cached, and no hosts expired since we cold started
         # Enable faster learning by assuming there's no previous host to delete
         if entry is None:
             if (last_dp_coldstart_time and
-                  (vlan.dyn_last_time_hosts_expired is None or
-                   vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
+                    (vlan.dyn_last_time_hosts_expired is None or
+                     vlan.dyn_last_time_hosts_expired < last_dp_coldstart_time)):
                 delete_existing = False
         else:
             cache_age = now - entry.cache_time
             cache_port = entry.port
 
-        # If host recently learned on this same port, do nothing.
-        # If host not-so-recently learned on this same port, refresh rules (do not delete)
         if cache_port == port:
+            # skip delete if host didn't change ports.
             delete_existing = False
-            if cache_age <= max(self.learn_timeout / 2, 2):
-                return ofmsgs
+            # if we very very recently learned this host, don't do anything.
+            if cache_age < self.CACHE_UPDATE_GUARD_TIME:
+                return (ofmsgs, cache_port)
 
         if port.loop_protect:
             ban_age = None
@@ -214,12 +232,12 @@ class ValveHostManager(object):
             # prolong the ban
             if port.dyn_last_ban_time:
                 ban_age = now - port.dyn_last_ban_time
-                if ban_age < 2:
+                if ban_age < self.CACHE_UPDATE_GUARD_TIME:
                     learn_ban = True
 
             # if not in protect mode and we get a rapid move, enact protect mode
             if not learn_ban and entry is not None:
-                if port != cache_port and cache_age < 2:
+                if port != cache_port and cache_age < self.CACHE_UPDATE_GUARD_TIME:
                     learn_ban = True
                     port.dyn_learn_ban_count += 1
                     self.logger.info('rapid move of %s from %s to %s, temp loop ban %s' % (
@@ -229,7 +247,7 @@ class ValveHostManager(object):
             if learn_ban:
                 port.dyn_last_ban_time = now
                 ofmsgs.append(self._temp_ban_host_learning_on_port(port))
-                return ofmsgs
+                return (ofmsgs, cache_port)
 
         (src_rule_idle_timeout,
          src_rule_hard_timeout,
@@ -241,9 +259,10 @@ class ValveHostManager(object):
             dst_rule_idle_timeout))
 
         vlan.add_cache_host(eth_src, port, now)
-        return ofmsgs
+        return (ofmsgs, cache_port)
 
     def flow_timeout(self, _table_id, _match):
+        """Handle a flow timed out message from dataplane."""
         return []
 
 
@@ -289,15 +308,12 @@ class ValveHostFlowRemovedManager(ValveHostManager):
         if port.permanent_learn:
             learn_timeout = 0
         else:
-            # Add a jitter to avoid whole bunch of hosts timeout simultaneously
-            learn_timeout = int(max(abs(
-                self.learn_timeout -
-                (self.learn_jitter / 2) + random.randint(0, self.learn_jitter)), 2))
+            learn_timeout = self._jitter_learn_timeout()
 
         # Disable hard_time, dst rule expires after src rule.
         src_rule_idle_timeout = learn_timeout
         src_rule_hard_timeout = 0
-        dst_rule_idle_timeout = learn_timeout + 2
+        dst_rule_idle_timeout = learn_timeout + self.CACHE_UPDATE_GUARD_TIME
         return (src_rule_idle_timeout, src_rule_hard_timeout, dst_rule_idle_timeout)
 
     def _src_rule_expire(self, vlan, port, eth_src):
@@ -306,7 +322,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
         ofmsgs = []
         entry = vlan.cached_host_on_port(eth_src, port)
         if entry is not None:
-            entry.expired = True
+            vlan.expire_cache_host(eth_src)
             self.logger.info('expired src_rule for host %s' % eth_src)
         return ofmsgs
 
@@ -315,11 +331,10 @@ class ValveHostFlowRemovedManager(ValveHostManager):
         traffic but not receving. If the src rule not yet expires, we reinstall
         host rules."""
         ofmsgs = []
-        if eth_dst in vlan.dyn_host_cache:
-            entry = vlan.dyn_host_cache[eth_dst]
-            if not entry.expired:
-                ofmsgs.extend(self.learn_host_on_vlan_ports(
-                    entry.port, vlan, eth_dst, delete_existing=False))
-                self.logger.info(
-                    'refreshing host %s from VLAN %u' % (eth_dst, vlan.vid))
+        entry = vlan.cached_host(eth_dst)
+        if entry is not None:
+            ofmsgs.extend(self.learn_host_on_vlan_ports(
+                entry.port, vlan, eth_dst, delete_existing=False))
+            self.logger.info(
+                'refreshing host %s from VLAN %u' % (eth_dst, vlan.vid))
         return ofmsgs

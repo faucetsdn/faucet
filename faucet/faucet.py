@@ -157,16 +157,7 @@ class Faucet(RyuAppBase):
                 return
 
         valve = self.valves_manager.valves[dp_id]
-        reordered_flow_msgs = valve_of.valve_flowreorder(flow_msgs)
-        valve.ofchannel_log(reordered_flow_msgs)
-        for flow_msg in reordered_flow_msgs:
-            self.metrics.of_flowmsgs_sent.labels( # pylint: disable=no-member
-                **valve.base_prom_labels).inc()
-            flow_msg.datapath = ryu_dp
-            ryu_dp.send_msg(flow_msg)
-            if valve.recent_ofmsgs.full():
-                valve.recent_ofmsgs.get()
-            valve.recent_ofmsgs.put(flow_msg)
+        valve.send_flows(ryu_dp, flow_msgs)
 
     def _get_valve(self, ryu_dp, handler_name, msg=None):
         """Get Valve instance to response to an event.
@@ -279,6 +270,8 @@ class Faucet(RyuAppBase):
         valve = self._get_valve(ryu_dp, 'packet_in_handler', msg)
         if valve is None:
             return
+        if valve.rate_limit_packet_ins():
+            return
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
             return
@@ -294,19 +287,10 @@ class Faucet(RyuAppBase):
         """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
-        dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, 'error_handler', msg)
         if valve is None:
             return
-        self.metrics.of_errors.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).inc()
-        error_txt = msg
-        while not valve.recent_ofmsgs.empty():
-            flow_msg = valve.recent_ofmsgs.get()
-            if msg.xid == flow_msg.xid:
-                error_txt = '%s caused by %s' % (msg, flow_msg)
-                break
-        self.logger.error('%s OFError %s', dpid_log(dp_id), error_txt)
+        valve.oferror(msg)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -332,17 +316,13 @@ class Faucet(RyuAppBase):
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
-        def port_up_valid(port):
-            """Return True if port is up and in valid range."""
-            return valve_of.port_status_from_state(port.state) and not valve_of.ignore_port(port.port_no)
-
         dp_id = ryu_dp.id
         valve = self._get_valve(ryu_dp, '_datapath_connect')
         if valve is None:
             return
-        discovered_up_port_nums = [
-            port.port_no for port in list(ryu_dp.ports.values()) if port_up_valid(port)]
-        flowmods = valve.datapath_connect(discovered_up_port_nums)
+        discovered_ports = [
+            port for port in list(ryu_dp.ports.values()) if not valve_of.ignore_port(port.port_no)]
+        flowmods = valve.datapath_connect(discovered_ports)
         self._send_flow_msgs(dp_id, flowmods)
 
     @kill_on_exception(exc_logname)

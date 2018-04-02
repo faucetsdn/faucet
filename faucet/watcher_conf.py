@@ -48,7 +48,7 @@ The following elements can be configured for each db, at the level of
 
  * type (string): the type of db. The available types are 'text' and 'influx' \
        for port_state, 'text', 'influx'and 'prometheus' for port_stats and \
-       'text' and 'gaugedb' for flow_table.
+       'text' and flow_table.
 
 The following config elements then depend on the type.
 For text:
@@ -108,17 +108,7 @@ For Prometheus:
         # prometheus config
         'prometheus_port': 9303,
         'prometheus_addr': '127.0.0.1',
-        'views': {},
-        'db_update_counter': 0,
-        'nosql_db': '',
-        'db_password': '',
-        'flows_doc': '',
-        'db_ip': '',
-        'db_port': 0,
-        'gdb_type': '',
-        'driver': '',
-        'db_username': '',
-        'switches_doc': '',
+        'prometheus_test_thread': False,
     }
 
     defaults_types = {
@@ -141,17 +131,7 @@ For Prometheus:
         'influx_retries': int,
         'prometheus_port': int,
         'prometheus_addr': str,
-        'views': dict,
-        'db_update_counter': int,
-        'nosql_db': str,
-        'db_password': str,
-        'flows_doc': str,
-        'db_ip': str,
-        'db_port': int,
-        'gdb_type': str,
-        'driver': str,
-        'db_username': str,
-        'switches_doc': str,
+        'prometheus_test_thread': bool,
     }
 
     def __init__(self, _id, dp_id, conf, prom_client):

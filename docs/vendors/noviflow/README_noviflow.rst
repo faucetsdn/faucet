@@ -36,7 +36,7 @@ Different FAUCET releases may also use different match fields in the other table
 
 .. code-block:: none
 
-   set config pipeline tablesizes 1524 1024 1024 1024 1024 1024 1024 1024 1024 tablewidths 80 40 40 40 40 40 40 40 40
+   set config pipeline tablesizes 1524 1024 1024 5000 3000 1024 1024 5000 1024 tablewidths 80 40 40 40 40 40 40 40 40
    set config table tableid 0 matchfields 0 3 4 5 6 10 11 12 13 14 23 29 31
    set config table tableid 1 matchfields 0 3 4 5 6
    set config table tableid 2 matchfields 0 5 6 10 11 12 14
@@ -59,7 +59,7 @@ Create faucet.yaml
 ^^^^^^^^^^^^^^^^^^
 
 .. code-block:: yaml
-  :caption: /etc/ryu/faucet/faucet.yaml
+  :caption: /etc/faucet/faucet.yaml
   :name: noviflow/faucet.yaml
 
     vlans:
@@ -88,7 +88,7 @@ Test connectivity
 Host(s) on ports 1 and 2 should now be able to communicate, and FAUCET's log file should indicate learning is occurring:
 
 .. code-block:: shell
-  :caption: /var/log/ryu/faucet.log
+  :caption: /var/log/faucet/faucet.log
   :name: noviflow/faucet.log
 
     May 14 17:06:15 faucet DEBUG    DPID 1 (0x1) connected

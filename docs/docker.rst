@@ -14,14 +14,14 @@ Initial configuration
 
 .. code:: console
 
-  sudo mkdir -p /etc/ryu/faucet
-  sudo vi /etc/ryu/faucet/faucet.yaml
-  sudo vi /etc/ryu/faucet/gauge.yaml
+  sudo mkdir -p /etc/faucet
+  sudo vi /etc/faucet/faucet.yaml
+  sudo vi /etc/faucet/gauge.yaml
 
 See :doc:`installation` and :doc:`configuration` for configuration options.
 
 In particular, see vendor specific docs for additional files that may be
-necessary in /etc/ryu/faucet to configure the switch pipeline.
+necessary in /etc/faucet to configure the switch pipeline.
 
 Official builds
 ---------------
@@ -32,7 +32,7 @@ easily without having to build your own.
 We use Docker tags to differentiate between versions of Faucet. The latest
 tag will always point to the latest stable release of Faucet. All tagged
 versions of Faucet in git are also available to use, for example using the
-``faucet/faucet:1.6.0`` Docker will run the released version 1.6.0 of Faucet.
+``faucet/faucet:1.7.0`` Docker will run the released version 1.7.0 of Faucet.
 
 By default the Faucet and Gauge images are run as the `faucet` user under
 UID 0, GID 0. If you need to change that it can be overridden at runtime with
@@ -42,13 +42,13 @@ To pull and run the latest version of Faucet:
 
 .. code:: console
 
-  mkdir -p /var/log/ryu/faucet/
+  mkdir -p /var/log/faucet/
   docker pull faucet/faucet:latest
   docker run -d \
       --name faucet \
       --restart=always \
-      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
-      -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
+      -v /etc/faucet/:/etc/faucet/ \
+      -v /var/log/faucet/:/var/log/faucet/ \
       -p 6653:6653 \
       -p 9302:9302 \
       faucet/faucet
@@ -60,13 +60,13 @@ To pull and run the latest version of Gauge:
 
 .. code:: console
 
-  mkdir -p /var/log/ryu/gauge/
+  mkdir -p /var/log/faucet/gauge/
   docker pull faucet/gauge:latest
   docker run -d \
       --name gauge \
       --restart=always \
-      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
-      -v /var/log/ryu/gauge/:/var/log/ryu/faucet/ \
+      -v /etc/faucet/:/etc/faucet/ \
+      -v /var/log/faucet/:/var/log/faucet/ \
       -p 6654:6653 \
       -p 9303:9303 \
       faucet/gauge
@@ -86,9 +86,9 @@ overriding the docker entrypoint like so:
   docker run -d \
       --name faucet \
       --restart=always \
-      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
+      -v /etc/faucet/:/etc/faucet/ \
       -v /etc/ryu/ssl/:/etc/ryu/ssl/ \
-      -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
+      -v /var/log/faucet/:/var/log/faucet/ \
       -p 6653:6653 \
       -p 9302:9302 \
       faucet/faucet \
@@ -122,12 +122,12 @@ It can be run as following:
 
 .. code:: console
 
-  mkdir -p /var/log/ryu/faucet/
+  mkdir -p /var/log/faucet/
   docker run -d \
       --name faucet \
       --restart=always \
-      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
-      -v /var/log/ryu/faucet/:/var/log/ryu/faucet/ \
+      -v /etc/faucet/:/etc/faucet/ \
+      -v /var/log/faucet/:/var/log/faucet/ \
       -p 6653:6653 \
       faucet/faucet
 
@@ -159,12 +159,12 @@ It can be run as following:
 
 .. code:: console
 
-  mkdir -p /var/log/ryu/gauge
+  mkdir -p /var/log/faucet
   docker run -d \
       --name gauge \
       --restart=always \
-      -v /etc/ryu/faucet/:/etc/ryu/faucet/ \
-      -v /var/log/ryu/gauge/:/var/log/ryu/gauge/ \
+      -v /etc/faucet/:/etc/faucet/ \
+      -v /var/log/faucet/:/var/log/faucet/ \
       -p 6654:6653 \
       faucet/gauge
 

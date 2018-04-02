@@ -2,7 +2,7 @@
 
 rm -f *.key *.csr *.crt *.pem *.srl
 
-SUBJ="/C=/ST=/L=/O=/CN=ca"
+SUBJ="/C=NZ/ST=Test/L=Test/O=Test/OU=Test/CN=ca"
 
 # Generate CA Private Key
 openssl req \
@@ -24,7 +24,7 @@ openssl x509 \
         -req \
         -days 365 -out ca.crt 
 
-SUBJ="/C=/ST=/L=/O=/CN=server.com"
+SUBJ="/C=NZ/ST=Test/L=Test/O=Test/OU=Test/CN=server.com"
 
 # Generate Server Private Key
 openssl req \
@@ -48,7 +48,7 @@ openssl x509 \
         -CAcreateserial \
         -out server.crt
 
-SUBJ="/C=/ST=/L=/O=/CN=client.com"
+SUBJ="/C=NZ/ST=Test/L=Test/O=Test/OU=Test/CN=client.com"
 
 # Generate Client Private Key
 openssl req \

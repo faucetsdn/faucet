@@ -1,6 +1,6 @@
 # Recommended configuration is Prometheus for all monitoring, with all_dps: True
 faucet_configs:
-    - '/etc/ryu/faucet/faucet.yaml'
+    - '/etc/faucet/faucet.yaml'
 watchers:
     port_status_poller:
         type: 'port_state'
@@ -19,11 +19,10 @@ watchers:
         all_dps: True
         interval: 60
         db: 'prometheus'
-        #db: 'couchdb'
 dbs:
     prometheus:
         type: 'prometheus'
-        prometheus_addr: ''
+        prometheus_addr: '0.0.0.0'
         prometheus_port: 9303
     ft_file:
         type: 'text'
@@ -37,19 +36,3 @@ dbs:
         influx_user: 'faucet'
         influx_pwd: 'faucet'
         influx_timeout: 10
-    couchdb:
-        type: gaugedb
-        gdb_type: nosql
-        nosql_db: couch
-        db_username: couch
-        db_password: 123
-        db_ip: 'couchdb'
-        db_port: 5984
-        driver: 'couchdb'
-        views:
-            switch_view: '_design/switches/_view/switch'
-            match_view: '_design/flows/_view/match'
-            tag_view: '_design/tags/_view/tags'
-        switches_doc: 'switches_bak'
-        flows_doc: 'flows_bak'
-        db_update_counter: 2

@@ -12,10 +12,10 @@ Faucet configuration file
 -------------------------
 
 .. code-block:: yaml
-  :caption: /etc/ryu/faucet/hw_switch_config.yaml
+  :caption: /etc/faucet/hw_switch_config.yaml
   :name: ovs/hw_switch_config.yaml
 
-  # Faucet Configuration file: /etc/ryu/faucet/hw_switch_config.yaml
+  # Faucet Configuration file: /etc/faucet/hw_switch_config.yaml
   #
   # If hw_switch value set to True, map a hardware OpenFlow switch to ports on this machine.
   # Otherwise, run tests against OVS locally.
@@ -59,7 +59,7 @@ Run these commands as root on the Ubuntu system (v16.04 used)
 .. code:: console
 
   $ sudo mkdir -p /usr/local/src/
-  $ sudo mkdir -p /etc/ryu/faucet/
+  $ sudo mkdir -p /etc/faucet/
   $ sudo cd /usr/local/src/
   $ sudo git clone https://github.com/faucetsdn/faucet.git
   $ cd faucet
@@ -203,8 +203,8 @@ setting ``hw_switch=False`` initially for testing.
 
 .. code:: console
 
-    $ sudo cp /usr/local/src/faucet/tests/hw_switch_config.yaml /etc/ryu/faucet/hw_switch_config.yaml
-    $ sudo $EDITOR /etc/ryu/faucet/hw_switch_config.yaml
+    $ sudo cp /usr/local/src/faucet/tests/hw_switch_config.yaml /etc/faucet/hw_switch_config.yaml
+    $ sudo $EDITOR /etc/faucet/hw_switch_config.yaml
     $ cd /usr/local/src/faucet/
 
 Install docker by following the :ref:`docker-install` section and then run the hardware based tests by following the :ref:`docker-hw-testing-running` section.

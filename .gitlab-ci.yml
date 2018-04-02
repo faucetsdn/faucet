@@ -1,0 +1,57 @@
+stages:
+  - build-env
+  - build
+  - deploy
+
+build-env:
+  stage: build-env
+  image: docker:latest
+  services:
+  - docker:dind
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
+    - docker build -t registry.gitlab.com/faucetsdn/faucet/dbuilder:latest -f ci/Dockerfile .
+    - docker push registry.gitlab.com/faucetsdn/faucet/dbuilder:latest
+  only:
+      - tags
+
+build-package:
+  stage: build
+  image: registry.gitlab.com/faucetsdn/faucet/dbuilder
+  script:
+    - cd /builds/faucetsdn/faucet
+    - TAG="git describe --tags"
+    - TAG=$($TAG)
+    - TAG="${TAG//[!0-9.-]/}"
+    - apt-get upgrade -y && mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
+    - export DEBEMAIL='maintainers@faucet.nz' && export DEBFULLNAME='Faucet Maintainers'
+    - debchange --newversion $TAG -b "New upstream release"
+    - fakeroot debian/rules binary
+    - mkdir built-packages || true
+    - mv ../*.deb built-packages/
+  artifacts:
+    paths:
+      - built-packages/*
+    expire_in: 1 day
+  only:
+      - tags
+
+deploy-package:
+  stage: deploy
+  image: registry.gitlab.com/faucetsdn/faucet/dbuilder
+  script:
+    - cd /builds/faucetsdn/faucet/built-packages/
+    - echo "{\"url\":\"https://packagecloud.io\",\"token\":\"$PACKAGECLOUD_TOKEN\"}" > ~/.packagecloud
+    - package_cloud push faucetsdn/faucet/debian/jessie *.deb || true
+    - package_cloud push faucetsdn/faucet/debian/stretch *.deb || true
+    - package_cloud push faucetsdn/faucet/debian/buster *.deb || true
+    - package_cloud push faucetsdn/faucet/raspbian/jessie *.deb || true
+    - package_cloud push faucetsdn/faucet/raspbian/stretch *.deb || true
+    - package_cloud push faucetsdn/faucet/raspbian/buster *.deb || true
+    - package_cloud push faucetsdn/faucet/ubuntu/xenial *.deb || true
+    - package_cloud push faucetsdn/faucet/ubuntu/yakkety *.deb || true
+    - package_cloud push faucetsdn/faucet/ubuntu/zesty *.deb || true
+    - package_cloud push faucetsdn/faucet/ubuntu/artful *.deb || true
+    - package_cloud push faucetsdn/faucet/ubuntu/bionic *.deb || true
+  only:
+      - tags
