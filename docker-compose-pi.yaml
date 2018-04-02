@@ -18,7 +18,7 @@ services:
         build:
             context: docker/prometheus
             dockerfile: Dockerfile
-        image: 'faucet/prometheus-pi:2.0.0'
+        image: 'faucet/prometheus-pi:2.2.1'
         ports:
             - '9090:9090'
         volumes:
@@ -31,7 +31,7 @@ services:
 
     grafana:
         restart: always
-        image: 'fg2it/grafana-armhf:v4.5.2'
+        image: 'fg2it/grafana-armhf:v5.0.4'
         ports:
             - '3000:3000'
         volumes:
