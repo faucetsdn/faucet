@@ -58,5 +58,6 @@ fi
 rm -rf "$TMPDIR"
 
 echo "========== Running faucet system tests =========="
+export PYTHONPATH=/faucet-src
 python2 ./faucet_mininet_test.py -c
 http_proxy="" python2 ./faucet_mininet_test.py $FAUCET_TESTS || exit 1

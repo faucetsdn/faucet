@@ -25,9 +25,9 @@ import scapy.all
 from mininet.log import error, output
 from mininet.net import Mininet
 
-import faucet_mininet_test_base
-import faucet_mininet_test_util
-import faucet_mininet_test_topo
+from clib import mininet_test_base
+from clib import mininet_test_util
+from clib import mininet_test_topo
 
 
 class QuietHTTPServer(HTTPServer):
@@ -67,7 +67,7 @@ class SlowInfluxPostHandler(PostHandler):
         return self.send_response(500)
 
 
-class FaucetTest(faucet_mininet_test_base.FaucetTestBase):
+class FaucetTest(mininet_test_base.FaucetTestBase):
 
     pass
 
@@ -132,7 +132,7 @@ vlans:
         event_log = os.path.join(self.tmpdir, 'event.log')
         controller = self._get_controller()
         sock = self.env['faucet']['FAUCET_EVENT_SOCK']
-        controller.cmd(faucet_mininet_test_util.timeout_cmd(
+        controller.cmd(mininet_test_util.timeout_cmd(
             'nc -U %s > %s &' % (sock, event_log), 120))
         self.ping_all_when_learned()
         self.flap_all_switch_ports()
@@ -140,7 +140,7 @@ vlans:
         self.prometheus_smoke_test()
         self.assertGreater(os.path.getsize(event_log), 0)
         controller.cmd(
-            faucet_mininet_test_util.timeout_cmd(
+            mininet_test_util.timeout_cmd(
                 'nc -U %s' % sock, 10))
         self.verify_events_log(event_log)
 
@@ -225,7 +225,7 @@ class FaucetUntaggedNoCombinatorialBroadcastTest(FaucetUntaggedBroadcastTest):
 class FaucetExperimentalAPITest(FaucetUntaggedTest):
     """Test the experimental Faucet API."""
 
-    CONTROLLER_CLASS = faucet_mininet_test_topo.FaucetExperimentalAPI
+    CONTROLLER_CLASS = mininet_test_topo.FaucetExperimentalAPI
 
     def _set_static_vars(self):
         super(FaucetExperimentalAPITest, self)._set_static_vars()
@@ -771,7 +771,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         influx_port = self.config_ports['gauge_influx_port']
         try:
             self.server = QuietHTTPServer(
-                (faucet_mininet_test_util.LOCALHOST, influx_port), self.handler)
+                (mininet_test_util.LOCALHOST, influx_port), self.handler)
             self.server.timeout = self.DB_TIMEOUT
             self.server_thread = threading.Thread(
                 target=self.server.serve_forever)
@@ -1318,7 +1318,7 @@ vlans:
 
     def verify_hosts_learned(self, first_host, second_host, mac_ips, hosts):
         for _ in range(3):
-            fping_out = first_host.cmd(faucet_mininet_test_util.timeout_cmd(
+            fping_out = first_host.cmd(mininet_test_util.timeout_cmd(
                 'fping -i300 -c3 %s' % ' '.join(mac_ips), 5))
             macs_learned = self.hosts_learned(hosts)
             if len(macs_learned) == len(hosts):
@@ -1915,7 +1915,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
-            faucet_mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
+            mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
@@ -1926,7 +1926,7 @@ vlans:
             ipaddress.ip_network(first_host_alias_ip.ip))
         self.host_ipv4_alias(first_host, first_host_alias_ip)
         self.wait_bgp_up(
-            faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
+            mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -1994,7 +1994,7 @@ vlans:
 
     def pre_start_net(self):
         exabgp_conf = self.get_exabgp_conf(
-            faucet_mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
+            mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
@@ -2004,7 +2004,7 @@ vlans:
         self.wait_for_route_as_flow(
             first_host.MAC(), ipaddress.IPv4Network(u'10.99.99.0/24'))
         self.wait_bgp_up(
-            faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
+            mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -2072,7 +2072,7 @@ vlans:
 
 
     def pre_start_net(self):
-        exabgp_conf = self.get_exabgp_conf(faucet_mininet_test_util.LOCALHOST)
+        exabgp_conf = self.get_exabgp_conf(mininet_test_util.LOCALHOST)
         self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
 
     def test_untagged(self):
@@ -2081,7 +2081,7 @@ vlans:
         self.flap_all_switch_ports()
         self.verify_ipv4_routing_mesh()
         self.wait_bgp_up(
-            faucet_mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
+            mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
         self.assertGreater(
             self.scrape_prometheus_var(
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
@@ -4783,7 +4783,7 @@ class FaucetStringOfDPTest(FaucetTest):
             acl_in_dp = {}
         self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
         self.dpid = self.dpids[0]
-        self.topo = faucet_mininet_test_topo.FaucetStringOfDPSwitchTopo(
+        self.topo = mininet_test_topo.FaucetStringOfDPSwitchTopo(
             self.OVS_TYPE,
             self.ports_sock,
             dpids=self.dpids,
