@@ -4,7 +4,7 @@ FROM faucet/faucet-base-pi
 LABEL maintainer "Charlie Lewis <clewis@iqt.org>"
 
 ARG ARCH=armv6
-ARG VERSION=2.0.0
+ARG VERSION=2.2.1
 
 RUN apk --no-cache add --virtual build-dependencies wget ca-certificates \
     && mkdir -p /tmp/install /tmp/dist \
