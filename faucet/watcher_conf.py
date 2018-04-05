@@ -107,7 +107,7 @@ For Prometheus:
         # attempts to retry influx request
         # prometheus config
         'prometheus_port': 9303,
-        'prometheus_addr': '127.0.0.1',
+        'prometheus_addr': '0.0.0.0',
         'prometheus_test_thread': False,
     }
 
