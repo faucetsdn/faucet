@@ -251,7 +251,8 @@ class ValveFloodStackManager(ValveFloodManager):
 
         If a standalone switch, then flood to local VLAN ports.
 
-        If a distributed switch, see the following example.
+        If a distributed switch, use selective flooding
+        (see the following example).
 
                                Hosts
                                ||||
@@ -265,9 +266,19 @@ class ValveFloodStackManager(ValveFloodManager):
 
                  Root DP
 
-        The basic strategy is flood-towards-root. The root
-        reflects the flood back out. There are no loops and flooding
-        is done entirely in the dataplane.
+        Non-root switches flood only to the root. The root switch
+        reflects incoming floods back out. Non-root switches
+        flood packets from the root locally and further away.
+        Flooding is entirely implemented in the dataplane.
+
+        A host connected to a non-root switch can receive a copy
+        of its own flooded packet (because the non-root switch
+        does not know it has seen the packet already).
+
+        A host connected to the root switch does not have this problem
+        (because flooding is always away from the root). Therefore,
+        connections to other non-FAUCET stacking networks should only
+        be made to the root.
 
         On the root switch (left), flood destinations are:
 
