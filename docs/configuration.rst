@@ -135,7 +135,7 @@ configuration contains a dictionary of configuration blocks each
 containing the configuration for one datapath. The keys can either be
 string names given to the datapath, or the OFP datapath id.
 
-.. list-table:: dps/<dp name or id>/
+.. list-table:: dps: <dp name or id>: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -267,7 +267,7 @@ Stacking is configured in the dp configuration block and in the interface
 configuration block. At the dp level the following attributes can be configured
 withing the configuration block 'stack':
 
-.. list-table:: dps/<dp name or id>/stack/
+.. list-table:: dps: <dp name or id>: stack: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -293,7 +293,7 @@ link/neighbor activity, addressing issues such as authenticity of the probes.
 The following attributes can be configured withing the 'lldp_beacon'
 configuration block at the dp level:
 
-.. list-table:: dps/<dp name or id>/lldp_beacon/
+.. list-table:: dps: <dp name or id>: lldp_beacon: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -327,7 +327,7 @@ the config block for an individual interface. These are keyed with a string
 containing a comma separated list of OFP port numbers, interface names or with
 OFP port number ranges (eg. 1-6).
 
-.. list-table:: dps/<dp name or id>/interfaces/<interface name or OFP port number>/
+.. list-table:: dps: <dp name or id>: interfaces: <interface name or OFP port number>: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -422,7 +422,7 @@ Stacking port configuration indicates how datapaths are connected when using
 stacking. The configuration is found under the 'stack' attribute of an
 interface configuration block. The following attributes can be configured:
 
-.. list-table:: dps/<dp name or id>/interfaces/<interface name or port number/stack/
+.. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: stack: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -444,7 +444,7 @@ LLDP (Interfaces)
 ~~~~~~~~~~~~~~~~~
 Interface specific configuration for LLDP.
 
-.. list-table:: dps/<dp name or id>/interfaces/<interface name or port number/lldp_beacon/
+.. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: lldp_beacon: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -477,7 +477,7 @@ in a list under lldp_beacons/org_tlvs at the interfaces level of configuration.
 
 Each list element contains a dictionary with the following elements:
 
-.. list-table:: dps/<dp name or id>/interfaces/<interface name or port number/lldp_beacon/
+.. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: lldp_beacon: org_tlvs: - {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -506,7 +506,7 @@ configuration file. Configuration for each router is an entry in the routers
 dictionary and is keyed by a name for the router. The following attributes can
 be configured:
 
-.. list-table:: routers/<router name>/
+.. list-table:: routers: <router name>: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -527,7 +527,7 @@ VLANs are configured in the 'vlans' configuration block at the top level of
 the faucet config file. The config for each vlan is an entry keyed by its vid
 or a name. The following attributes can be configured:
 
-.. list-table:: vlans/<vlan name or vid>/
+.. list-table:: vlans: <vlan name or vid>: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -616,7 +616,7 @@ Static routes are given as a list. Each entry in the list contains a dictionary
 keyed with the keyword 'route' and contains a dictionary configuration block as
 follows:
 
-.. list-table:: vlans/<vlan name or vid>/routes/[list]/route/
+.. list-table:: vlans: <vlan name or vid>: routes: - route: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -646,7 +646,7 @@ Each rule is a dictionary containing the single key 'rule' with matches
 and actions. Matches are key/values based on the ryu RESTFul API. Actions
 is a dictionary of actions to apply upon match.
 
-.. list-table:: /acls/<acl name>/[list]/rule/actions/
+.. list-table:: : acls: <acl name>: - rule: actions: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -678,7 +678,7 @@ is a dictionary of actions to apply upon match.
 
 The output action contains a dictionary with the following elements:
 
-.. list-table:: /acls/<acl name>/[list]/rule/actions/output/
+.. list-table:: : acls: <acl name>: - rule: actions: output: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -721,7 +721,7 @@ The output action contains a dictionary with the following elements:
 
 Failover is an experimental option, but can be configured as follows:
 
-.. list-table:: /acls/<acl name>/[list]/rule/actions/output/failover/
+.. list-table:: : acls: <acl name>: - rule: actions: output: failover: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
