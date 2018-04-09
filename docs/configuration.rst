@@ -220,6 +220,10 @@ string names given to the datapath, or the OFP datapath id.
       - 10
       - In order to reduce load on the controller Faucet will randomly vary the
         timeout for learnt mac addresses by up to this number of seconds.
+    * - lldp_beacon
+      - dict
+      - {}
+      - Configuration block for LLDP beacons
     * - max_host_fib_retry_count
       - integer
       - 10
@@ -277,6 +281,38 @@ withing the configuration block 'stack':
       - setting any value for stack priority indicates that this datapath
         should be the root for the stacking topology.
 
+LLDP (DP)
+~~~~~~~~~
+LLDP beacons are configured in the dp and interface configuration blocks.
+
+Note: the LLDP beacon service is specifically NOT to discover topology. It is
+intended to facilitate physical troubleshooting (e.g. a standard cable tester
+can display OF port information). A seperate system will be used to probe
+link/neighbor activity, addressing issues such as authenticity of the probes.
+
+The following attributes can be configured withing the 'lldp_beacon'
+configuration block at the dp level:
+
+.. list-table:: dps/<dp name or id>/lldp_beacon/
+    :widths: 31 15 15 60
+    :header-rows: 1
+
+    * - Attribute
+      - Type
+      - Default
+      - Description
+    * - system_name
+      - string
+      - The datapath name
+      - seconds between sending beacons
+    * - send_interval
+      - integer
+      - None
+      - seconds between sending beacons
+    * - max_per_interval
+      - integer
+      - None
+      - the maximum number of beacons, across all ports to send each interval
 
 Interfaces
 ~~~~~~~~~~
@@ -325,6 +361,10 @@ OFP port number ranges (eg. 1-6).
       - If True it allows packets arriving on this port to be output to this
         port. This is necessary to allow routing between two vlans on this
         port, or for use with a WIFI radio port.
+    * - lldp_beacon
+      - dict
+      - {}
+      - Configuration block for lldp configuration
     * - max_hosts
       - integer
       - 255
@@ -399,6 +439,64 @@ interface configuration block. The following attributes can be configured:
       - None
       - the name or OFP port number of the interface on the remote dp connected
         to this interface.
+
+LLDP (Interfaces)
+~~~~~~~~~~~~~~~~~
+Interface specific configuration for LLDP.
+
+.. list-table:: dps/<dp name or id>/interfaces/<interface name or port number/lldp_beacon/
+    :widths: 31 15 15 60
+    :header-rows: 1
+
+    * - Attribute
+      - Type
+      - Default
+      - Description
+    * - enable
+      - boolean
+      - False
+      - Enable sending lldp beacons from this interface
+    * - org_tlvs
+      - list
+      - []
+      - Definitions of Organisational TLVs to add to LLDP beacons
+    * - port_descr
+      - string
+      - Interface description
+      - Port description to use in beacons from this interface
+    * - system_name
+      - string
+      - lldp_beacon (dp) system name
+      - The System Name to use in beacons from this interface
+
+
+LLDP Organisational TLVs (Interfaces)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Faucet allows defining organisational TLVs for LLDP beacons. These are configured
+in a list under lldp_beacons/org_tlvs at the interfaces level of configuration.
+
+Each list element contains a dictionary with the following elements:
+
+.. list-table:: dps/<dp name or id>/interfaces/<interface name or port number/lldp_beacon/
+    :widths: 31 15 15 60
+    :header-rows: 1
+
+    * - Attribute
+      - Type
+      - Default
+      - Description
+    * - info
+      - string
+      - None
+      - the info field of the tlv, as a hex string
+    * - oui
+      - integer
+      - None
+      - the Organisationally Unique Identifier
+    * - subtype
+      - integer
+      - None
+      - The organizationally defined subtype
 
 Router
 ~~~~~~
