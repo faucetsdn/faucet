@@ -130,9 +130,9 @@ class Port(Conf):
     }
 
     lldp_org_tlv_defaults_types = {
-        'oui': int,
-        'subtype': int,
-        'info': str,
+        'oui': (int, bytearray),
+        'subtype': (int, bytearray),
+        'info': (str, bytearray)
     }
 
     def __init__(self, _id, dp_id, conf=None):
@@ -181,11 +181,15 @@ class Port(Conf):
                     self._check_conf_types(org_tlv, self.lldp_org_tlv_defaults_types)
                     assert len(org_tlv) == len(self.lldp_org_tlv_defaults_types), (
                         'missing org_tlv config')
-                    try:
-                        org_tlv['info'] = bytearray.fromhex(org_tlv['info']) # pytype: disable=missing-parameter
-                    except ValueError:
-                        org_tlv['info'] = org_tlv['info'].encode('utf-8')
-                    org_tlv['oui'] = bytearray.fromhex('%6.6x' % org_tlv['oui']) # pytype: disable=missing-parameter
+                    if not isinstance(org_tlv['info'], bytearray):
+                        try:
+                            org_tlv['info'] = bytearray.fromhex(
+                                org_tlv['info']) # pytype: disable=missing-parameter
+                        except ValueError:
+                            org_tlv['info'] = org_tlv['info'].encode('utf-8')
+                    if not isinstance(org_tlv['oui'], bytearray):
+                        org_tlv['oui'] = bytearray.fromhex(
+                            '%6.6x' % org_tlv['oui']) # pytype: disable=missing-parameter
                     org_tlvs.append(org_tlv)
                 self.lldp_beacon['org_tlvs'] = org_tlvs
         if self.acl_in and self.acls_in:

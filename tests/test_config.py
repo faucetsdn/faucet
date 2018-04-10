@@ -45,7 +45,7 @@ class TestConfig(unittest.TestCase):
             before_function()
         try:
             function(conf_file, LOGNAME)
-        except cp.InvalidConfigError:
+        except cp.InvalidConfigError as err:
             return False
         return True
 
@@ -1735,6 +1735,35 @@ dps:
                     port_descr: port_description
                     org_tlvs:
                         - {oui: 0x12bb, subtype: 2, info: "01406500"}
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_interface_ranges_lldp(self):
+        """Verify lldp config works when using interface ranges"""
+        config = """
+vlans:
+    office:
+        vid: 100
+    guest:
+        vid: 200
+dps:
+    sw1:
+        dp_id: 0x1
+        lldp_beacon:
+            send_interval: 10
+            max_per_interval: 10
+        interface_ranges:
+            '1-2':
+                lldp_beacon:
+                    enable: True
+                    system_name: port_system
+                    org_tlvs:
+                        - {oui: 0x12bb, subtype: 2, info: "01406500"}
+        interfaces:
+            1:
+                native_vlan: office
+            2:
+                native_vlan: office
 """
         self.check_config_success(config, cp.dp_parser)
 

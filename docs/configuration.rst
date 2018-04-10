@@ -135,7 +135,7 @@ configuration contains a dictionary of configuration blocks each
 containing the configuration for one datapath. The keys can either be
 string names given to the datapath, or the OFP datapath id.
 
-.. list-table:: dps/<dp name or id>/
+.. list-table:: dps: <dp name or id>: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -220,6 +220,10 @@ string names given to the datapath, or the OFP datapath id.
       - 10
       - In order to reduce load on the controller Faucet will randomly vary the
         timeout for learnt mac addresses by up to this number of seconds.
+    * - lldp_beacon
+      - dict
+      - {}
+      - Configuration block for LLDP beacons
     * - max_host_fib_retry_count
       - integer
       - 10
@@ -263,7 +267,7 @@ Stacking is configured in the dp configuration block and in the interface
 configuration block. At the dp level the following attributes can be configured
 withing the configuration block 'stack':
 
-.. list-table:: dps/<dp name or id>/stack/
+.. list-table:: dps: <dp name or id>: stack: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -277,6 +281,38 @@ withing the configuration block 'stack':
       - setting any value for stack priority indicates that this datapath
         should be the root for the stacking topology.
 
+LLDP (DP)
+~~~~~~~~~
+LLDP beacons are configured in the dp and interface configuration blocks.
+
+Note: the LLDP beacon service is specifically NOT to discover topology. It is
+intended to facilitate physical troubleshooting (e.g. a standard cable tester
+can display OF port information). A seperate system will be used to probe
+link/neighbor activity, addressing issues such as authenticity of the probes.
+
+The following attributes can be configured withing the 'lldp_beacon'
+configuration block at the dp level:
+
+.. list-table:: dps: <dp name or id>: lldp_beacon: {}
+    :widths: 31 15 15 60
+    :header-rows: 1
+
+    * - Attribute
+      - Type
+      - Default
+      - Description
+    * - system_name
+      - string
+      - The datapath name
+      - seconds between sending beacons
+    * - send_interval
+      - integer
+      - None
+      - seconds between sending beacons
+    * - max_per_interval
+      - integer
+      - None
+      - the maximum number of beacons, across all ports to send each interval
 
 Interfaces
 ~~~~~~~~~~
@@ -291,7 +327,7 @@ the config block for an individual interface. These are keyed with a string
 containing a comma separated list of OFP port numbers, interface names or with
 OFP port number ranges (eg. 1-6).
 
-.. list-table:: dps/<dp name or id>/interfaces/<interface name or OFP port number>/
+.. list-table:: dps: <dp name or id>: interfaces: <interface name or OFP port number>: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -325,6 +361,10 @@ OFP port number ranges (eg. 1-6).
       - If True it allows packets arriving on this port to be output to this
         port. This is necessary to allow routing between two vlans on this
         port, or for use with a WIFI radio port.
+    * - lldp_beacon
+      - dict
+      - {}
+      - Configuration block for lldp configuration
     * - max_hosts
       - integer
       - 255
@@ -382,7 +422,7 @@ Stacking port configuration indicates how datapaths are connected when using
 stacking. The configuration is found under the 'stack' attribute of an
 interface configuration block. The following attributes can be configured:
 
-.. list-table:: dps/<dp name or id>/interfaces/<interface name or port number/stack/
+.. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: stack: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -400,6 +440,64 @@ interface configuration block. The following attributes can be configured:
       - the name or OFP port number of the interface on the remote dp connected
         to this interface.
 
+LLDP (Interfaces)
+~~~~~~~~~~~~~~~~~
+Interface specific configuration for LLDP.
+
+.. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: lldp_beacon: {}
+    :widths: 31 15 15 60
+    :header-rows: 1
+
+    * - Attribute
+      - Type
+      - Default
+      - Description
+    * - enable
+      - boolean
+      - False
+      - Enable sending lldp beacons from this interface
+    * - org_tlvs
+      - list
+      - []
+      - Definitions of Organisational TLVs to add to LLDP beacons
+    * - port_descr
+      - string
+      - Interface description
+      - Port description to use in beacons from this interface
+    * - system_name
+      - string
+      - lldp_beacon (dp) system name
+      - The System Name to use in beacons from this interface
+
+
+LLDP Organisational TLVs (Interfaces)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Faucet allows defining organisational TLVs for LLDP beacons. These are configured
+in a list under lldp_beacons/org_tlvs at the interfaces level of configuration.
+
+Each list element contains a dictionary with the following elements:
+
+.. list-table:: dps: <dp name or id>: interfaces: <interface name or port number: lldp_beacon: org_tlvs: - {}
+    :widths: 31 15 15 60
+    :header-rows: 1
+
+    * - Attribute
+      - Type
+      - Default
+      - Description
+    * - info
+      - string
+      - None
+      - the info field of the tlv, as a hex string
+    * - oui
+      - integer
+      - None
+      - the Organisationally Unique Identifier
+    * - subtype
+      - integer
+      - None
+      - The organizationally defined subtype
+
 Router
 ~~~~~~
 Routers config is used to allow routing between vlans. Routers configuration
@@ -408,7 +506,7 @@ configuration file. Configuration for each router is an entry in the routers
 dictionary and is keyed by a name for the router. The following attributes can
 be configured:
 
-.. list-table:: routers/<router name>/
+.. list-table:: routers: <router name>: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -429,7 +527,7 @@ VLANs are configured in the 'vlans' configuration block at the top level of
 the faucet config file. The config for each vlan is an entry keyed by its vid
 or a name. The following attributes can be configured:
 
-.. list-table:: vlans/<vlan name or vid>/
+.. list-table:: vlans: <vlan name or vid>: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -518,7 +616,7 @@ Static routes are given as a list. Each entry in the list contains a dictionary
 keyed with the keyword 'route' and contains a dictionary configuration block as
 follows:
 
-.. list-table:: vlans/<vlan name or vid>/routes/[list]/route/
+.. list-table:: vlans: <vlan name or vid>: routes: - route: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -548,7 +646,7 @@ Each rule is a dictionary containing the single key 'rule' with matches
 and actions. Matches are key/values based on the ryu RESTFul API. Actions
 is a dictionary of actions to apply upon match.
 
-.. list-table:: /acls/<acl name>/[list]/rule/actions/
+.. list-table:: : acls: <acl name>: - rule: actions: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -580,7 +678,7 @@ is a dictionary of actions to apply upon match.
 
 The output action contains a dictionary with the following elements:
 
-.. list-table:: /acls/<acl name>/[list]/rule/actions/output/
+.. list-table:: : acls: <acl name>: - rule: actions: output: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
@@ -623,7 +721,7 @@ The output action contains a dictionary with the following elements:
 
 Failover is an experimental option, but can be configured as follows:
 
-.. list-table:: /acls/<acl name>/[list]/rule/actions/output/failover/
+.. list-table:: : acls: <acl name>: - rule: actions: output: failover: {}
     :widths: 31 15 15 60
     :header-rows: 1
 
