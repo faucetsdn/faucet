@@ -8,16 +8,10 @@ RUN \
     git \ 
     iputils-ping \
     libssl-dev \
-    make  \
-    net-tools \
-    tcpdump \
-    wireshark
+    make
 
 RUN \
   git clone http://github.com/bairdo/hostapd-d1xf && \
   cd hostapd-d1xf/hostapd && \
   git checkout faucet-con && \
   make && make install
-
-RUN \
-  apt-get install -y python3
