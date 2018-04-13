@@ -1,0 +1,23 @@
+FROM ubuntu:latest
+
+ENV DEBIAN_FRONTEND noninteractive
+RUN \
+  apt-get update && \
+  apt-get install -qy  \
+    gcc \
+    git \ 
+    iputils-ping \
+    libssl-dev \
+    make  \
+    net-tools \
+    tcpdump \
+    wireshark
+
+RUN \
+  git clone http://github.com/bairdo/hostapd-d1xf && \
+  cd hostapd-d1xf/hostapd && \
+  git checkout faucet-con && \
+  make && make install
+
+RUN \
+  apt-get install -y python3
