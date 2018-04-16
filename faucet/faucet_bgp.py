@@ -20,10 +20,14 @@
 
 import json
 import ipaddress
-from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
-from ryu.services.protocols.bgp.api.base import CoreNotStarted
 
-from faucet.valve_util import btos
+import eventlet
+eventlet.monkey_patch()
+
+from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker # pylint: disable=wrong-import-position
+from ryu.services.protocols.bgp.api.base import CoreNotStarted # pylint: disable=wrong-import-position
+
+from faucet.valve_util import btos # pylint: disable=wrong-import-position
 
 
 class FaucetBgp(object):
@@ -148,13 +152,13 @@ class FaucetBgp(object):
 
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
-        self._valves = valves
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: BGP speaker library does not cleanly handle del/add of same peer
         # TODO: BGP speaker can listen only on one address family at once
         # TODO: Ryu BGP supports only one speaker
         # (https://sourceforge.net/p/ryu/mailman/message/32699012/)
         # TODO: Ryu BGP cannot be restarted cleanly (so config cannot change at runtime)
+        self._valves = valves
         if self._dp_bgp_speakers:
             self.logger.warning(
                 'not updating existing BGP speaker, runtime BGP changes not supported')
