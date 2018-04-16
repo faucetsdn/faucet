@@ -7,10 +7,10 @@
 #FAUCET_TESTS=
 #
 # Run (all) integration tests.
-FAUCET_TESTS="-n"
+FAUCET_TESTS="-i -n"
 #
 # Run a specific test, keeping results.
-#FAUCET_TESTS="-n -k FaucetUntaggedLLDPTest"
+#FAUCET_TESTS="-i -n -k FaucetUntaggedLLDPTest"
 
 CMD=bash
 
