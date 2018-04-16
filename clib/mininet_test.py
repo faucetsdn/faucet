@@ -92,7 +92,7 @@ FAUCET_TEST_LINT_SRCS = glob.glob(
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
-CONFIG_FILE_DIRS = ['/etc/faucet', './']
+CONFIG_FILE_DIRS = ['/etc/faucet', './', '/faucet-src']
 REQUIRED_TEST_PORTS = 4
 
 
@@ -584,6 +584,7 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
         print('Testing hardware, forcing test serialization')
         serial = True
     root_tmpdir = tempfile.mkdtemp(prefix='faucet-tests-', dir='/var/tmp')
+    print('Logging test results in %s' % root_tmpdir)
     start_free_ports = 10
     min_free_ports = 200
     ports_sock = start_port_server(root_tmpdir, start_free_ports, min_free_ports)
@@ -613,8 +614,8 @@ def parse_args():
     try:
         opts, args = getopt.getopt(
             sys.argv[1:],
-            'cdknsx:',
-            ['clean', 'dumpfail', 'keep_logs', 'nocheck', 'serial'])
+            'cdknsix:',
+            ['clean', 'dumpfail', 'keep_logs', 'nocheck', 'serial', 'integration'])
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
@@ -625,6 +626,7 @@ def parse_args():
     nocheck = False
     serial = False
     excluded_test_classes = []
+    integration = True # By definition these are all integration tests.
 
     for opt, arg in opts:
         if opt in ('-c', '--clean'):
@@ -635,6 +637,8 @@ def parse_args():
             keep_logs = True
         if opt in ('-n', '--nocheck'):
             nocheck = True
+        if opt in ('-i', '--integration'):
+            integration = True
         if opt in ('-s', '--serial'):
             serial = True
         if opt == '-x':
