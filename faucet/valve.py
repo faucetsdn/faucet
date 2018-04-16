@@ -33,24 +33,30 @@ from faucet import valve_util
 
 
 class ValveLogger(object):
+    """Logger for a Valve that adds DP ID."""
 
     def __init__(self, logger, dp_id):
         self.logger = logger
         self.dp_id = dp_id
 
     def _dpid_prefix(self, log_msg):
+        """Add DP ID prefix to log message."""
         return ' '.join((valve_util.dpid_log(self.dp_id), log_msg))
 
     def debug(self, log_msg):
+        """Log debug level message."""
         self.logger.debug(self._dpid_prefix(log_msg))
 
     def info(self, log_msg):
+        """Log info level message."""
         self.logger.info(self._dpid_prefix(log_msg))
 
     def error(self, log_msg):
+        """Log error level message."""
         self.logger.error(self._dpid_prefix(log_msg))
 
     def warning(self, log_msg):
+        """Log warning level message."""
         self.logger.warning(self._dpid_prefix(log_msg))
 
 
@@ -75,6 +81,8 @@ class Valve(object):
     _last_advertise_sec = None
     _port_highwater = {} # type: dict
     _last_update_metrics_sec = None
+    _last_packet_in_sec = 0
+    _packet_in_count_sec = 0
 
     def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp
@@ -84,11 +92,13 @@ class Valve(object):
         self.dp_init()
 
     def close_logs(self):
+        """Explicitly close any active loggers."""
         if self.logger is not None:
             valve_util.close_logger(self.logger.logger)
         valve_util.close_logger(self.ofchannel_logger)
 
     def dp_init(self):
+        """Initialize datapath state at connection/re/config time."""
         self.close_logs()
         self.logger = ValveLogger(
             logging.getLogger(self.logname + '.valve'), self.dp.dp_id)
@@ -783,8 +793,8 @@ class Valve(object):
                     remote_port_id = int(port_id_tlvs[0].port_id)
                     self.logger.info('FAUCET LLDP from %s, port %u' % (
                         valve_util.dpid_log(remote_dp_id), remote_port_id))
-
-    def _control_plane_handler(self, pkt_meta, route_manager):
+    @staticmethod
+    def _control_plane_handler(pkt_meta, route_manager):
         """Handle a packet probably destined to FAUCET's route managers.
 
         For example, next hop resolution or ICMP echo requests.
@@ -1040,6 +1050,26 @@ class Valve(object):
         ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
         return ofmsgs
 
+    def _lacp_state_expire(self, vlan, now):
+        """Expire controller state for LACP.
+
+        Args:
+            vlan (VLAN instance): VLAN with LAGs.
+            now (int): current epoch time.
+        Return:
+            list: OpenFlow messages, if any.
+        """
+        ofmsgs = []
+        for ports in list(vlan.lags().values()):
+            lacp_up_ports = [port for port in ports if port.dyn_lacp_up]
+            for port in lacp_up_ports:
+                lacp_age = now - port.dyn_lacp_updated_time
+                # TODO: LACP timeout configurable.
+                if lacp_age > 10:
+                    self.logger.info('LACP on %s expired' % port)
+                    ofmsgs.extend(self.lacp_down(port))
+        return ofmsgs
+
     def state_expire(self):
         """Expire controller caches/state (e.g. hosts learned).
 
@@ -1054,14 +1084,7 @@ class Valve(object):
             now = time.time()
             for vlan in list(self.dp.vlans.values()):
                 self.host_manager.expire_hosts_from_vlan(vlan, now)
-                for _, ports in list(vlan.lags().items()):
-                    for port in ports:
-                        if port.dyn_lacp_up:
-                            lacp_age = now - port.dyn_lacp_updated_time
-                            # TODO: LACP timeout configurable.
-                            if lacp_age > 10:
-                                self.logger.info('LACP on %s expired' % port)
-                                ofmsgs.extend(self.lacp_down(port))
+                self._lacp_state_expire(vlan, now)
         return ofmsgs
 
     def _apply_config_changes(self, new_dp, changes):
@@ -1244,6 +1267,7 @@ class Valve(object):
         return self.host_manager.flow_timeout(table_id, match)
 
     def get_config_dict(self):
+        """Return datapath config as a dict for experimental API."""
         return self.dp.get_config_dict()
 
 

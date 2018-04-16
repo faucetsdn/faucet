@@ -93,7 +93,7 @@ class FaucetBgp(object):
                 'BGP add %s nexthop %s', prefix, nexthop)
             flowmods = valve.add_route(vlan, nexthop, prefix)
         if flowmods:
-            self._send_flow_msgs(vlan.dp_id, flowmods)
+            self._send_flow_msgs(valve, flowmods)
 
     @staticmethod
     def _bgp_vlans(valves):
