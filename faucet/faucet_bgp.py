@@ -18,8 +18,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import eventlet
 import json
 import ipaddress
+
+eventlet.monkey_patch()
+
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
 from ryu.services.protocols.bgp.api.base import CoreNotStarted
 
@@ -148,13 +152,13 @@ class FaucetBgp(object):
 
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
-        self._valves = valves
         # TODO: port status changes should cause us to withdraw a route.
         # TODO: BGP speaker library does not cleanly handle del/add of same peer
         # TODO: BGP speaker can listen only on one address family at once
         # TODO: Ryu BGP supports only one speaker
         # (https://sourceforge.net/p/ryu/mailman/message/32699012/)
         # TODO: Ryu BGP cannot be restarted cleanly (so config cannot change at runtime)
+        self._valves = valves
         if self._dp_bgp_speakers:
             self.logger.warning(
                 'not updating existing BGP speaker, runtime BGP changes not supported')
