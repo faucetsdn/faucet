@@ -68,6 +68,7 @@ class Valve(object):
     base_prom_labels = None
     recent_ofmsgs = deque(maxlen=32) # type: ignore
     logger = None
+    ofchannel_logger = None
     host_manager = None
     flood_manager = None
     _route_manager_by_ipv = None
@@ -82,14 +83,20 @@ class Valve(object):
         self.notifier = notifier
         self.dp_init()
 
+    def close_logs(self):
+        if self.logger is not None:
+            valve_util.close_logger(self.logger.logger)
+        valve_util.close_logger(self.ofchannel_logger)
+
     def dp_init(self):
+        self.close_logs()
         self.logger = ValveLogger(
             logging.getLogger(self.logname + '.valve'), self.dp.dp_id)
+        self.ofchannel_logger = None
         self.base_prom_labels = {
             'dp_id': hex(self.dp.dp_id),
             'dp_name': self.dp.name,
         }
-        self.ofchannel_logger = None
         self._packet_in_count_sec = 0
         self._last_packet_in_sec = 0
         self._last_advertise_sec = 0
@@ -160,19 +167,21 @@ class Valve(object):
 
     def ofchannel_log(self, ofmsgs):
         """Log OpenFlow messages in text format to debugging log."""
-        if (self.dp is not None and
-                self.dp.ofchannel_log is not None):
-            if self.ofchannel_logger is None:
-                self.ofchannel_logger = valve_util.get_logger(
-                    self.dp.ofchannel_log,
-                    self.dp.ofchannel_log,
-                    logging.DEBUG,
-                    0)
-            for i, ofmsg in enumerate(ofmsgs, start=1):
-                log_prefix = '%u/%u %s' % (
-                    i, len(ofmsgs), valve_util.dpid_log(self.dp.dp_id))
-                self.ofchannel_logger.debug(
-                    '%s %s', log_prefix, ofmsg)
+        if self.dp is None:
+            return
+        if self.dp.ofchannel_log is None:
+            return
+        if self.ofchannel_logger is None:
+            self.ofchannel_logger = valve_util.get_logger(
+                self.dp.ofchannel_log,
+                self.dp.ofchannel_log,
+                logging.DEBUG,
+                0)
+        log_prefix = '%u %s' % (
+            len(ofmsgs), valve_util.dpid_log(self.dp.dp_id))
+        for i, ofmsg in enumerate(ofmsgs, start=1):
+            self.ofchannel_logger.debug(
+                '%u/%s %s', i, log_prefix, ofmsg)
 
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
@@ -1120,10 +1129,10 @@ class Valve(object):
         """Reload configuration new_dp.
 
         Following config changes are currently supported:
-            - Port config: support all available configs \
-                  (e.g. native_vlan, acl_in) & change operations \
+            - Port config: support all available configs
+                  (e.g. native_vlan, acl_in) & change operations
                   (add, delete, modify) a port
-            - ACL config:support any modification, currently reload all \
+            - ACL config:support any modification, currently reload all
                   rules belonging to an ACL
             - VLAN config: enable, disable routing, etc...
 
@@ -1198,11 +1207,10 @@ class Valve(object):
             error_txt = orig_msgs[0]
         self.logger.error('OFError %s' % error_txt)
 
-    def send_flows(self, ryu_dp, flow_msgs):
-        """Send flows to datapath.
+    def prepare_send_flows(self, flow_msgs):
+        """Prepare to send flows to datapath.
 
         Args:
-            ryu_dp (ryu.controller.controller.Datapath): datapath.
             flow_msgs (list): OpenFlow messages to send.
         """
         reordered_flow_msgs = valve_of.valve_flowreorder(
@@ -1211,7 +1219,16 @@ class Valve(object):
         self.metrics.of_flowmsgs_sent.labels( # pylint: disable=no-member
             **self.base_prom_labels).inc(len(reordered_flow_msgs))
         self.recent_ofmsgs.extend(reordered_flow_msgs)
-        for flow_msg in reordered_flow_msgs:
+        return reordered_flow_msgs
+
+    def send_flows(self, ryu_dp, flow_msgs):
+        """Send flows to datapath.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+            flow_msgs (list): OpenFlow messages to send.
+        """
+        for flow_msg in self.prepare_send_flows(flow_msgs):
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
 

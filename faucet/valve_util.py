@@ -61,7 +61,12 @@ def get_sys_prefix():
 _PREFIX = get_sys_prefix()
 # To specify a boolean-only setting, set the default value to a bool type.
 DEFAULTS = {
-    'FAUCET_CONFIG': _PREFIX + '/etc/faucet/faucet.yaml' + ':' + _PREFIX + '/etc/ryu/faucet/faucet.yaml',
+    'FAUCET_CONFIG': ''.join((
+        _PREFIX,
+        '/etc/faucet/faucet.yaml',
+        ':',
+        _PREFIX,
+        '/etc/ryu/faucet/faucet.yaml')),
     'FAUCET_CONFIG_STAT_RELOAD': False,
     'FAUCET_LOG_LEVEL': 'INFO',
     'FAUCET_LOG': _PREFIX + '/var/log/faucet/faucet.log',
@@ -70,7 +75,12 @@ DEFAULTS = {
     'FAUCET_PROMETHEUS_PORT': '9302',
     'FAUCET_PROMETHEUS_ADDR': '0.0.0.0',
     'FAUCET_PIPELINE_DIR': _PREFIX + '/etc/faucet' + ':' + _PREFIX + '/etc/ryu/faucet',
-    'GAUGE_CONFIG': _PREFIX + '/etc/faucet/gauge.yaml' + ':' + _PREFIX + '/etc/ryu/faucet/gauge.yaml',
+    'GAUGE_CONFIG': ''.join((
+        _PREFIX,
+        '/etc/faucet/gauge.yaml',
+        ':',
+        _PREFIX,
+        '/etc/ryu/faucet/gauge.yaml')),
     'GAUGE_CONFIG_STAT_RELOAD': False,
     'GAUGE_LOG_LEVEL': 'INFO',
     'GAUGE_PROMETHEUS_ADDR': '0.0.0.0',
@@ -91,8 +101,11 @@ def get_setting(name, path_eval=False):
     """Returns value of specified configuration setting."""
     default_value = DEFAULTS[name]
     result = os.getenv(name, default_value)
-    #split on ':' and find the first suitable path
-    if path_eval and isinstance(result, str) and isinstance(default_value, str) and not isinstance(default_value, bool):
+    # split on ':' and find the first suitable path
+    if (path_eval and
+            isinstance(result, str) and
+            isinstance(default_value, str) and not
+            isinstance(default_value, bool)):
         locations = result.split(":")
         result = None
         for loc in locations:
@@ -138,6 +151,15 @@ def get_logger(logname, logfile, loglevel, propagate):
     logger.propagate = propagate
     logger.setLevel(loglevel)
     return logger
+
+
+def close_logger(logger):
+    """Close all handlers on logger object."""
+    if logger is None:
+        return
+    for handler in list(logger.handlers):
+        handler.close()
+        logger.removeHandler(handler)
 
 
 def dpid_log(dpid):
