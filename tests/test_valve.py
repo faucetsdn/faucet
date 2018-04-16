@@ -301,11 +301,11 @@ vlans:
         self.sock.close()
         shutil.rmtree(self.tmpdir)
 
-    def send_flows_to_dp_by_id(self, dp_id, flows):
+    def send_flows_to_dp_by_id(self, valve, flows):
         """Callback for ValvesManager to simulate sending flows to DP."""
         valve = self.valves_manager.valves[self.DP_ID]
         prepared_flows = valve.prepare_send_flows(flows)
-        self.last_flows_to_dp[dp_id] = prepared_flows
+        self.last_flows_to_dp[valve.dp.dp_id] = prepared_flows
 
     def update_config(self, config):
         """Update FAUCET config with config as text."""

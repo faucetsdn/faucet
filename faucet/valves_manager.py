@@ -117,7 +117,7 @@ class ValvesManager(object):
                     valve = self.valves[dp_id]
                     ofmsgs = valve.reload_config(new_dp)
                     if ofmsgs:
-                        self.send_flows_to_dp_by_id(new_dp.dp_id, ofmsgs)
+                        self.send_flows_to_dp_by_id(new_dp, ofmsgs)
                 else:
                     self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
                     valve = self.new_valve(new_dp)
@@ -151,7 +151,7 @@ class ValvesManager(object):
         for dp_id, valve in list(self.valves.items()):
             ofmsgs = getattr(valve, valve_service)()
             if ofmsgs:
-                self.send_flows_to_dp_by_id(dp_id, ofmsgs)
+                self.send_flows_to_dp_by_id(valve, ofmsgs)
 
     def valve_packet_in(self, valve, pkt_meta):
         """Time a call to Valve packet in handler."""
@@ -164,5 +164,5 @@ class ValvesManager(object):
         self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
             **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
         if ofmsgs:
-            self.send_flows_to_dp_by_id(valve.dp.dp_id, ofmsgs)
+            self.send_flows_to_dp_by_id(valve, ofmsgs)
             valve.update_metrics(pkt_meta.port, rate_limited=True)
