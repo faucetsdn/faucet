@@ -54,8 +54,9 @@ DP1_CONFIG = """
         dp_id: 1
         ignore_learn_ins: 0
         combinatorial_port_flood: True
-        ofchannel_log: "/dev/null"
+        ofchannel_log: '/dev/null'
         pipeline_config_dir: '%s/../etc/faucet'
+        packetin_pps: 99
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
