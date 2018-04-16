@@ -294,15 +294,17 @@ vlans:
 
     def teardown_valve(self):
         """Tear down test DP."""
-        for handler in self.logger.handlers:
-            handler.close()
-        self.logger.handlers = []
+        valve_util.close_logger(self.logger)
+        for valve in list(self.valves_manager.valves.values()):
+            valve.close_logs()
         self.sock.close()
         shutil.rmtree(self.tmpdir)
 
     def send_flows_to_dp_by_id(self, dp_id, flows):
         """Callback for ValvesManager to simulate sending flows to DP."""
-        self.last_flows_to_dp[dp_id] = flows
+        valve = self.valves_manager.valves[self.DP_ID]
+        prepared_flows = valve.prepare_send_flows(flows)
+        self.last_flows_to_dp[dp_id] = prepared_flows
 
     def update_config(self, config):
         """Update FAUCET config with config as text."""
@@ -479,7 +481,7 @@ class ValveTestCase(ValveTestBase):
 
     def test_switch_features(self):
         """Test switch features handler."""
-        self.assertTrue(isinstance(self.valve, valve.TfmValve))
+        self.assertTrue(isinstance(self.valve, valve.TfmValve), msg=type(self.valve))
         features_flows = self.valve.switch_features(None)
         tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
         # TODO: verify TFM content.
