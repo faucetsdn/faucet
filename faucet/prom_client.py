@@ -23,7 +23,7 @@ from urllib.parse import parse_qs
 from ryu.lib import hub
 from pbr.version import VersionInfo
 from prometheus_client import Gauge as PromGauge
-from prometheus_client import core, generate_latest, start_http_server, CONTENT_TYPE_LATEST, REGISTRY
+from prometheus_client import core, generate_latest, CONTENT_TYPE_LATEST, REGISTRY
 
 
 # Ryu's WSGI implementation doesn't always set QUERY_STRING
@@ -50,6 +50,7 @@ class PromClient(object): # pylint: disable=too-few-public-methods
     REQUIRED_LABELS = ['dp_id', 'dp_name']
     _reg = REGISTRY
     server = None
+    thread = None
 
     def __init__(self, reg=None):
         if reg is not None:
@@ -66,9 +67,15 @@ class PromClient(object): # pylint: disable=too-few-public-methods
     def start(self, prom_port, prom_addr, use_test_thread=False):
         """Start webserver."""
         if not self.server:
+            app = make_wsgi_app()
             if use_test_thread:
-                start_http_server(int(prom_port), prom_addr)
+                from wsgiref.simple_server import make_server
+                import threading
+
+                self.server = make_server(prom_addr, int(prom_port), app)
+                self.thread = threading.Thread(target=self.server.serve_forever)
+                self.thread.daemon = True
+                self.thread.start()
             else:
-                app = make_wsgi_app()
                 self.server = hub.WSGIServer((prom_addr, int(prom_port)), app)
                 hub.spawn(self.server.serve_forever)
