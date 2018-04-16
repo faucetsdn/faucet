@@ -117,7 +117,7 @@ class ValvesManager(object):
                     valve = self.valves[dp_id]
                     ofmsgs = valve.reload_config(new_dp)
                     if ofmsgs:
-                        self.send_flows_to_dp_by_id(new_dp, ofmsgs)
+                        self.send_flows_to_dp_by_id(valve, ofmsgs)
                 else:
                     self.logger.info('Add new datapath %s', dpid_log(new_dp.dp_id))
                     valve = self.new_valve(new_dp)
