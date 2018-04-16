@@ -18,16 +18,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import eventlet
 import json
 import ipaddress
 
+import eventlet
 eventlet.monkey_patch()
 
-from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
-from ryu.services.protocols.bgp.api.base import CoreNotStarted
+from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker # pylint: disable=wrong-import-position
+from ryu.services.protocols.bgp.api.base import CoreNotStarted # pylint: disable=wrong-import-position
 
-from faucet.valve_util import btos
+from faucet.valve_util import btos # pylint: disable=wrong-import-position
 
 
 class FaucetBgp(object):
