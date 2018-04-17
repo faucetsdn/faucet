@@ -1,0 +1,21 @@
+FROM ubuntu:16.04
+MAINTAINER Michael Baird <Michael.Baird@ecs.vuw.ac.nz>
+
+
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository ppa:freeradius/stable-3.0 && \
+    apt-get update && \
+    apt-get install -y freeradius
+
+
+
+USER freerad:freerad
+
+
+EXPOSE \
+    1812/udp \
+    1813/udp \
+    18120
+
+CMD ["freeradius", "-X"]
