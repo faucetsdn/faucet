@@ -34,6 +34,7 @@ from mininet.util import dumpNodeConnections, pmonitor
 
 import mininet_test_util
 import mininet_test_topo
+from tcpdump_helper import TcpdumpHelper
 
 
 class FaucetTestBase(unittest.TestCase):
@@ -532,37 +533,8 @@ class FaucetTestBase(unittest.TestCase):
                 msg='%s log contains %s' % (
                     exception_log_name, exception_contents))
 
-    def tcpdump_helper(self, tcpdump_host, tcpdump_filter, funcs=None,
-                       vflags='-v', timeout=10, packets=2, root_intf=False):
-        intf = tcpdump_host.intf().name
-        if root_intf:
-            intf = intf.split('.')[0]
-        tcpdump_cmd = mininet_test_util.timeout_soft_cmd(
-            'tcpdump -i %s -e -n -U %s -c %u %s' % (
-                intf, vflags, packets, tcpdump_filter),
-            timeout)
-        tcpdump_out = tcpdump_host.popen(
-            tcpdump_cmd,
-            stdin=mininet_test_util.DEVNULL,
-            stderr=subprocess.STDOUT,
-            close_fds=True)
-        popens = {tcpdump_host: tcpdump_out}
-        tcpdump_started = False
-        tcpdump_txt = ''
-        for host, line in pmonitor(popens):
-            if host == tcpdump_host:
-                if tcpdump_started:
-                    tcpdump_txt += line.strip()
-                elif re.search('tcpdump: listening on ', line):
-                    # when we see tcpdump start, then call provided functions.
-                    tcpdump_started = True
-                    if funcs is not None:
-                        for func in funcs:
-                            func()
-                else:
-                    error('tcpdump_helper: %s' % line)
-        self.assertTrue(tcpdump_started, msg='%s did not start' % tcpdump_cmd)
-        return tcpdump_txt
+    def tcpdump_helper(self, *args, **kwargs):
+        return TcpdumpHelper(*args, **kwargs).execute()
 
     def pre_start_net(self):
         """Hook called after Mininet initializtion, before Mininet started."""
