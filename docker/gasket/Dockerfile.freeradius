@@ -8,14 +8,11 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y freeradius
 
-
-
 USER freerad:freerad
-
 
 EXPOSE \
     1812/udp \
     1813/udp \
     18120
 
-CMD ["freeradius", "-X"]
+CMD ["freeradius", "-fxx", "-l", "stdout"]
