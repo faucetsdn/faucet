@@ -80,35 +80,38 @@ class Faucet(RyuAppBase):
     _EVENTS = [EventFaucetExperimentalAPIRegistered]
     logname = 'faucet'
     exc_logname = logname + '.exception'
+    bgp = None
     metrics = None
-
+    notifier = None
+    valves_manager = None
 
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
         self.api = kwargs['faucet_experimental_api']
-        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
-            self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
-        self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
-        self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self._send_flow_msgs)
 
     @kill_on_exception(exc_logname)
     def start(self):
         super(Faucet, self).start()
 
+        # Start Prometheus
+        prom_port = int(self.get_setting('PROMETHEUS_PORT'))
+        prom_addr = self.get_setting('PROMETHEUS_ADDR')
         self.metrics = faucet_metrics.FaucetMetrics()
+        self.metrics.start(prom_port, prom_addr)
+
+        # Start BGP
+        self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
 
         # Start event notifier
+        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
         notifier_thread = self.notifier.start()
         if notifier_thread is not None:
             self.threads.append(notifier_thread)
 
-        # Start Prometheus
-        prom_port = int(self.get_setting('PROMETHEUS_PORT'))
-        prom_addr = self.get_setting('PROMETHEUS_ADDR')
-        self.metrics.start(prom_port, prom_addr)
-
         # Configure all Valves
+        self.valves_manager = valves_manager.ValvesManager(
+            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self._send_flow_msgs)
         self._load_configs(self.config_file)
 
         # Start all threads
