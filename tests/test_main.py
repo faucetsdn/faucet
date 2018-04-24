@@ -36,6 +36,7 @@ class MainTestCase(unittest.TestCase):
     def test_build_ryu_args(self):
         self.assertTrue(build_ryu_args(['faucet', '--use-stderr', '--use-syslog', '--verbose']))
         self.assertTrue(build_ryu_args(['gauge', '--use-stderr', '--use-syslog', '--verbose']))
+        self.assertFalse(build_ryu_args(['faucet', '--version']))
 
 
 if __name__ == "__main__":
