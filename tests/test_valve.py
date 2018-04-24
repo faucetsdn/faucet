@@ -152,6 +152,7 @@ dps:
                     enable: True
                     system_name: "faucet"
                     port_descr: "first_port"
+                loop_protect: True
             p2:
                 number: 2
                 native_vlan: v200
