@@ -96,38 +96,39 @@ def print_version():
     print(message)
 
 
-def main():
-    """Main program."""
-    args = parse_args(sys.argv[1:])
-    ryu_args = []
+def build_ryu_args(argv):
+    args = parse_args(argv[1:])
 
     # Checking version number?
     if args.version:
         print_version()
-        sys.exit(0)
+        return []
+
+    prog = os.path.basename(argv[0])
+    ryu_args = []
 
     # Handle log location
     if args.use_stderr:
-        ryu_args.append("--use-stderr")
+        ryu_args.append('--use-stderr')
     if args.use_syslog:
-        ryu_args.append("--use-syslog")
+        ryu_args.append('--use-syslog')
 
     # Verbose output?
     if args.verbose:
-        ryu_args.append("--verbose")
+        ryu_args.append('--verbose')
 
     for arg, val in list(vars(args).items()):
         if not val or not arg.startswith('ryu'):
             continue
-        if arg == "ryu_app":
+        if arg == 'ryu_app':
             continue
-        if arg == "ryu_config_file" and not os.path.isfile(val):
+        if arg == 'ryu_config_file' and not os.path.isfile(val):
             continue
         arg_name = arg.replace('ryu_', '').replace('_', '-')
-        ryu_args.append("--%s=%s" % (arg_name, val))
+        ryu_args.append('--%s=%s' % (arg_name, val))
 
     # Running Faucet or Gauge?
-    if args.gauge or os.path.basename(sys.argv[0]) == 'gauge':
+    if args.gauge or os.path.basename(prog) == 'gauge':
         ryu_args.append('faucet.gauge')
     else:
         ryu_args.append('faucet.faucet')
@@ -138,7 +139,14 @@ def main():
 
     # Replace current process with ryu-manager from PATH (no PID change).
     ryu_args.insert(0, 'ryu-manager')
-    os.execvp('ryu-manager', ryu_args)
+    return ryu_args
+
+
+def main():
+    """Main program."""
+    ryu_args = build_ryu_args(sys.argv)
+    if ryu_args:
+        os.execvp(ryu_args[0], ryu_args)
 
 
 if __name__ == '__main__':
