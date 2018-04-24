@@ -433,6 +433,10 @@ configuration.
     def finalize_config(self, dps):
         """Perform consistency checks after initial config parsing."""
 
+        port_by_name = {}
+        dp_by_name = {}
+        vlan_by_name = {}
+
         def resolve_port(port_name):
             """Resolve port by name or number."""
             assert isinstance(port_name, (str, int)), (
@@ -650,13 +654,10 @@ configuration.
 
         assert self.vlans, 'no VLANs referenced by interfaces in %s' % self.name
 
-        port_by_name = {}
         for port in list(self.ports.values()):
             port_by_name[port.name] = port
-        dp_by_name = {}
         for dp in dps:
             dp_by_name[dp.name] = dp
-        vlan_by_name = {}
         for vlan in list(self.vlans.values()):
             vlan_by_name[vlan.name] = vlan
 
