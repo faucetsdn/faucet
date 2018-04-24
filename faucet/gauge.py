@@ -44,16 +44,17 @@ class Gauge(RyuAppBase):
     _CONTEXTS = {'dpset': dpset.DPSet}
     logname = 'gauge'
     exc_logname = logname + '.exception'
+    prom_client = None
+
 
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
-        self.prom_client = GaugePrometheusClient()
         self.watchers = {}
         self.config_watcher = ConfigWatcher()
 
     def start(self):
         super(Gauge, self).start()
-
+        self.prom_client = GaugePrometheusClient()
         self._load_config()
         self.threads.extend([
             hub.spawn(thread) for thread in (self._config_file_stat,)])
