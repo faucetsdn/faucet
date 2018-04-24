@@ -36,6 +36,7 @@ from prometheus_client import CollectorRegistry
 
 from faucet import faucet
 from faucet import faucet_bgp
+from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
 from faucet import gauge
@@ -1271,13 +1272,15 @@ class RyuAppSmokeTest(unittest.TestCase):
         """Test FAUCET can be initialized."""
         os.environ['FAUCET_LOG'] = '/dev/null'
         os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
-        faucet.Faucet(dpset=None, faucet_experimental_api=None)
+        faucet.Faucet(
+            dpset={},
+            faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
 
     def test_gauge(self):
         """Test Gauge can be initialized."""
         os.environ['GAUGE_LOG'] = '/dev/null'
         os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
-        gauge.Gauge(dpset=None)
+        gauge.Gauge(dpset={})
 
 
 if __name__ == "__main__":
