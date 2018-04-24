@@ -80,11 +80,12 @@ class Faucet(RyuAppBase):
     _EVENTS = [EventFaucetExperimentalAPIRegistered]
     logname = 'faucet'
     exc_logname = logname + '.exception'
+    metrics = None
+
 
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
         self.api = kwargs['faucet_experimental_api']
-        self.metrics = faucet_metrics.FaucetMetrics()
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
@@ -94,6 +95,8 @@ class Faucet(RyuAppBase):
     @kill_on_exception(exc_logname)
     def start(self):
         super(Faucet, self).start()
+
+        self.metrics = faucet_metrics.FaucetMetrics()
 
         # Start event notifier
         notifier_thread = self.notifier.start()
