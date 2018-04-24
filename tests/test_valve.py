@@ -34,9 +34,11 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from prometheus_client import CollectorRegistry
 
+from faucet import faucet
 from faucet import faucet_bgp
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
+from faucet import gauge
 from faucet import valve
 from faucet import valves_manager
 from faucet import valve_of
@@ -1255,6 +1257,14 @@ vlans:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
 """ % DP1_CONFIG
+
+
+class RyuAppSmokeTest(unittest.TestCase):
+
+    def test_faucet(self):
+        os.environ['FAUCET_LOG'] = '/dev/null'
+        os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
+        faucet.Faucet(dpset=None, faucet_experimental_api=None)
 
 
 if __name__ == "__main__":
