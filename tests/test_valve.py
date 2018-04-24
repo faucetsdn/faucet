@@ -34,9 +34,11 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from prometheus_client import CollectorRegistry
 
+from faucet import faucet
 from faucet import faucet_bgp
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
+from faucet import gauge
 from faucet import valve
 from faucet import valves_manager
 from faucet import valve_of
@@ -286,7 +288,8 @@ vlans:
             self.faucet_event_sock, self.metrics, self.logger)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
         self.valves_manager = valves_manager.ValvesManager(
-            self.LOGNAME, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
+            self.LOGNAME, self.logger, self.metrics, self.notifier,
+            self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
         self.update_config(config)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -395,7 +398,8 @@ vlans:
             else:
                 valve_vlan = self.valve.dp.get_native_vlan(in_port)
 
-            all_ports = set([port for port in self.valve.dp.ports.values() if port.running()])
+            all_ports = set(
+                [port for port in self.valve.dp.ports.values() if port.running()])
             remaining_ports = all_ports - set([port for port in valve_vlan.get_ports() if port.running])
 
             # Packet must be flooded to all ports on the VLAN.
@@ -426,7 +430,7 @@ vlans:
                 elif not port.mirror:
                     self.assertFalse(
                         self.table.is_output(match, port=port.number),
-                        msg=('Packet with unknown eth_dst flooded to non-VLAN, non-stack, non-mirror %s' % port))
+                        msg=('Packet with unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
 
     def rcv_packet(self, port, vid, match):
         """Simulate control plane receiving a packet on a port/VID."""
@@ -977,6 +981,7 @@ acls:
         self.set_port_up(99)
 
     def test_move_port(self):
+        """Test host moves a port."""
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -992,6 +997,7 @@ acls:
 
 
 class ValveChangePortCase(ValveTestBase):
+    """Test changes to config on ports."""
 
     CONFIG = """
 dps:
@@ -1028,6 +1034,7 @@ dps:
         self.teardown_valve()
 
     def test_delete_port(self):
+        """Test port can be deleted."""
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.P3_V200_MAC,
@@ -1255,6 +1262,22 @@ vlans:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
 """ % DP1_CONFIG
+
+
+class RyuAppSmokeTest(unittest.TestCase):
+    """Test bare instantiation of controller classes."""
+
+    def test_faucet(self):
+        """Test FAUCET can be initialized."""
+        os.environ['FAUCET_LOG'] = '/dev/null'
+        os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
+        faucet.Faucet(dpset=None, faucet_experimental_api=None)
+
+    def test_gauge(self):
+        """Test Gauge can be initialized."""
+        os.environ['GAUGE_LOG'] = '/dev/null'
+        os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
+        gauge.Gauge(dpset=None)
 
 
 if __name__ == "__main__":
