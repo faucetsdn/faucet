@@ -150,6 +150,13 @@ class FaucetBgp(object):
                 enable_ipv6=True)
         return bgp_speaker
 
+    def shutdown_bgp_speakers(self):
+        """Shutdown any active BGP speakers."""
+        for vlan_bgp_speakers in list(self._dp_bgp_speakers.values()):
+           for bgp_speaker in list(vlan_bgp_speakers.values()):
+               bgp_speaker.shutdown()
+        self._dp_bgp_speakers = {}
+
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.

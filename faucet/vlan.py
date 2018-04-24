@@ -191,7 +191,7 @@ class VLAN(Conf):
             self.dyn_ipvs = list(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_as:
-            assert self.bgp_port
+            assert isinstance(self.bgp_port, int)
             assert self.bgp_connect_mode in ('active', 'passive', 'both')
             assert ipaddress.IPv4Address(btos(self.bgp_routerid))
             assert self.bgp_neighbor_as

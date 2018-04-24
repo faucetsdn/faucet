@@ -295,6 +295,7 @@ vlans:
 
     def teardown_valve(self):
         """Tear down test DP."""
+        self.bgp.shutdown_bgp_speakers()
         valve_util.close_logger(self.logger)
         for valve in list(self.valves_manager.valves.values()):
             valve.close_logs()
@@ -454,6 +455,7 @@ vlans:
         self.valve.advertise()
         self.valve.state_expire()
         self.valves_manager.update_metrics()
+        self.bgp.update_metrics()
         return rcv_packet_ofmsgs
 
 
@@ -1238,6 +1240,13 @@ vlans:
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
+        bgp_port: 0
+        bgp_server_addresses: ['127.0.0.1']
+        bgp_as: 1
+        bgp_routerid: '1.1.1.1'
+        bgp_neighbor_addresses: ['127.0.0.1']
+        bgp_neighbor_as: 2
+        bgp_connect_mode: 'passive'
         routes:
             - route:
                 ip_dst: 'fc00::10:0/112'
