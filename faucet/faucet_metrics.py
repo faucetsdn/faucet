@@ -53,6 +53,9 @@ class FaucetMetrics(PromClient):
         self.of_non_vlan_packet_ins = self._dpid_counter(
             'of_non_vlan_packet_ins',
             'number of OF packet_ins received from DP, not associated with a FAUCET VLAN')
+        self.of_vlan_packet_ins = self._dpid_counter(
+            'of_vlan_packet_ins',
+            'number of OF packet_ins received from DP, associated with a FAUCET VLAN')
         self.of_flowmsgs_sent = self._dpid_counter(
             'of_flowmsgs_sent',
             'number of OF flow messages (and packet outs) sent to DP')

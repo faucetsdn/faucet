@@ -1033,6 +1033,9 @@ class Valve(object):
             # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs
 
+        self.metrics.of_vlan_packet_ins.labels( # pylint: disable=no-member
+            **self.base_prom_labels).inc()
+
         ban_rules = self.host_manager.ban_rules(pkt_meta)
         if ban_rules:
             return ban_rules
