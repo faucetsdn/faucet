@@ -17,7 +17,7 @@ import yaml
 
 import requests
 
-from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher
+from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
@@ -804,6 +804,19 @@ class GaugeWatcherTest(unittest.TestCase):
         yaml_dict = yaml.load(log_str)['msg']['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
 
         compare_flow_msg(msg, yaml_dict, self)
+
+
+class RyuAppSmokeTest(unittest.TestCase):
+
+    def test_gauge(self):
+        """Test Gauge can be initialized."""
+        os.environ['GAUGE_CONFIG'] = '/dev/null'
+        os.environ['GAUGE_LOG'] = '/dev/null'
+        os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
+        ryu_app = gauge.Gauge(
+            dpset={},
+            reg=CollectorRegistry())
+        ryu_app.reload_config(None)
 
 
 if __name__ == "__main__":
