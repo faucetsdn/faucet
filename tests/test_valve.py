@@ -1271,12 +1271,14 @@ class RyuAppSmokeTest(unittest.TestCase):
 
     def test_faucet(self):
         """Test FAUCET can be initialized."""
+        os.environ['FAUCET_CONFIG'] = '/dev/null'
         os.environ['FAUCET_LOG'] = '/dev/null'
         os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
-        faucet.Faucet(
+        ryu_app = faucet.Faucet(
             dpset={},
             faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
             reg=CollectorRegistry())
+        ryu_app.reload_config(None)
 
     def test_gauge(self):
         """Test Gauge can be initialized."""
