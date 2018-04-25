@@ -41,8 +41,13 @@ def create_mock_datapath(num_ports):
         port_name = mock.PropertyMock(return_value='port' + str(i))
         type(port).name = port_name
         ports[i] = port
-
-    datapath = mock.Mock(ports=ports, dp_id=random.randint(1, 5000))
+    tables_by_id = {}
+    for i in range(0, 10):
+        table = mock.Mock()
+        table_name = mock.PropertyMock(return_value='table' + str(i))
+        type(table).name = table_name
+        tables_by_id[i] = table
+    datapath = mock.Mock(ports=ports, dp_id=random.randint(1, 5000), tables_by_id=tables_by_id)
     dp_name = mock.PropertyMock(return_value='datapath')
     type(datapath).name = dp_name
     return datapath
@@ -317,6 +322,26 @@ class GaugePrometheusTests(unittest.TestCase):
                 stats_found.add(stat_name)
 
             self.assertEqual(stats_found, set(gauge_prom.PROM_PORT_STATE_VARS))
+
+    def test_flow_stats(self):
+        """Check the update method of the GaugeFlowTablePrometheusPoller class"""
+
+        datapath = create_mock_datapath(2)
+
+        conf = mock.Mock(dp=datapath,
+                         type='',
+                         interval=1,
+                         prometheus_port=9303,
+                         prometheus_addr='localhost',
+                         use_test_thread=True
+                        )
+
+        prom_poller = gauge_prom.GaugeFlowTablePrometheusPoller(conf, '__name__', self.prom_client)
+        rcv_time = int(time.time())
+        instructions = [parser.OFPInstructionGotoTable(1)]
+        msg = flow_stats_msg(conf.dp, instructions)
+        prom_poller.update(rcv_time, conf.dp.dp_id, msg)
+
 
 
 class GaugeInfluxShipperTest(unittest.TestCase):
