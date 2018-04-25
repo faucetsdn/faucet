@@ -277,21 +277,18 @@ class ValveHostFlowRemovedManager(ValveHostManager):
     def flow_timeout(self, table_id, match):
         ofmsgs = []
         if table_id in (self.eth_src_table.table_id, self.eth_dst_table.table_id):
-            in_port = None
-            eth_src = None
-            eth_dst = None
-            vid = None
-            for field, value in list(match.items()):
-                if field == 'in_port':
-                    in_port = value
-                elif field == 'eth_src':
-                    eth_src = value
-                elif field == 'eth_dst':
-                    eth_dst = value
-                elif field == 'vlan_vid':
-                    vid = valve_of.devid_present(value)
-            if vid:
-                vlan = self.vlans[vid]
+            if 'vlan_vid' in match:
+                vlan = self.vlans[valve_of.devid_present(match['vlan_vid'])]
+                in_port = None
+                eth_src = None
+                eth_dst = None
+                for field, value in list(match.items()):
+                    if field == 'in_port':
+                        in_port = value
+                    elif field == 'eth_src':
+                        eth_src = value
+                    elif field == 'eth_dst':
+                        eth_dst = value
                 if eth_src and in_port:
                     port = self.ports[in_port]
                     ofmsgs.extend(self._src_rule_expire(vlan, port, eth_src))
