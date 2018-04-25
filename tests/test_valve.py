@@ -1269,25 +1269,19 @@ vlans:
 class RyuAppSmokeTest(unittest.TestCase):
     """Test bare instantiation of controller classes."""
 
-    reg = None
-
-    def setUp(self):
-        self.reg = CollectorRegistry()
-
     def test_faucet(self):
         """Test FAUCET can be initialized."""
         os.environ['FAUCET_LOG'] = '/dev/null'
         os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
         faucet.Faucet(
             dpset={},
-            faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
-            reg=self.reg)
+            faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
 
     def test_gauge(self):
         """Test Gauge can be initialized."""
         os.environ['GAUGE_LOG'] = '/dev/null'
         os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
-        gauge.Gauge(dpset={}, reg=self.reg)
+        gauge.Gauge(dpset={})
 
 
 if __name__ == "__main__":

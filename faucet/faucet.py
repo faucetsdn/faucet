@@ -88,10 +88,6 @@ class Faucet(RyuAppBase):
     def __init__(self, *args, **kwargs):
         super(Faucet, self).__init__(*args, **kwargs)
         self.api = kwargs['faucet_experimental_api']
-        self.metrics = faucet_metrics.FaucetMetrics(reg=self.reg)
-        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
-            self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
-        self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
 
     @kill_on_exception(exc_logname)
     def start(self):
@@ -100,9 +96,15 @@ class Faucet(RyuAppBase):
         # Start Prometheus
         prom_port = int(self.get_setting('PROMETHEUS_PORT'))
         prom_addr = self.get_setting('PROMETHEUS_ADDR')
+        self.metrics = faucet_metrics.FaucetMetrics()
         self.metrics.start(prom_port, prom_addr)
 
+        # Start BGP
+        self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
+
         # Start event notifier
+        self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
+            self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
         notifier_thread = self.notifier.start()
         if notifier_thread is not None:
             self.threads.append(notifier_thread)
