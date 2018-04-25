@@ -39,7 +39,6 @@ from faucet import faucet_bgp
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
-from faucet import gauge
 from faucet import valve
 from faucet import valves_manager
 from faucet import valve_of
@@ -1277,16 +1276,6 @@ class RyuAppSmokeTest(unittest.TestCase):
         ryu_app = faucet.Faucet(
             dpset={},
             faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
-            reg=CollectorRegistry())
-        ryu_app.reload_config(None)
-
-    def test_gauge(self):
-        """Test Gauge can be initialized."""
-        os.environ['GAUGE_CONFIG'] = '/dev/null'
-        os.environ['GAUGE_LOG'] = '/dev/null'
-        os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
-        ryu_app = gauge.Gauge(
-            dpset={},
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
 
