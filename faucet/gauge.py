@@ -25,6 +25,7 @@ from ryu.controller import ofp_event
 from ryu.lib import hub
 
 from faucet import valve_of
+from faucet.conf import InvalidConfigError
 from faucet.config_parser import watcher_parser
 from faucet.gauge_prom import GaugePrometheusClient
 from faucet.valves_manager import ConfigWatcher
@@ -46,16 +47,15 @@ class Gauge(RyuAppBase):
     exc_logname = logname + '.exception'
     prom_client = None
 
-
     def __init__(self, *args, **kwargs):
         super(Gauge, self).__init__(*args, **kwargs)
         self.watchers = {}
         self.config_watcher = ConfigWatcher()
+        self.prom_client = GaugePrometheusClient(reg=self._reg)
 
     def start(self):
         super(Gauge, self).start()
-        self.prom_client = GaugePrometheusClient()
-        self._load_config()
+        self.reload_config(None)
         self.threads.extend([
             hub.spawn(thread) for thread in (self._config_file_stat,)])
 
@@ -79,10 +79,15 @@ class Gauge(RyuAppBase):
     @kill_on_exception(exc_logname)
     def _load_config(self):
         """Load Gauge config."""
+        try:
+            new_confs = watcher_parser(self.config_file, self.logname, self.prom_client)
+        except InvalidConfigError as err:
+            self.logger.error('invalid config: %s', err)
+            return
+
         for watcher_dpid, old_watchers in list(self.watchers.items()):
             self._stop_watchers(watcher_dpid, old_watchers)
 
-        new_confs = watcher_parser(self.config_file, self.logname, self.prom_client)
         new_watchers = {}
 
         for conf in new_confs:

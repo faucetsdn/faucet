@@ -23,11 +23,11 @@ from urllib.parse import parse_qs
 from ryu.lib import hub
 from pbr.version import VersionInfo
 from prometheus_client import Gauge as PromGauge
-from prometheus_client import core, generate_latest, CONTENT_TYPE_LATEST, REGISTRY
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, REGISTRY
 
 
 # Ryu's WSGI implementation doesn't always set QUERY_STRING
-def make_wsgi_app(registry=core.REGISTRY):
+def make_wsgi_app(registry):
     """Create a WSGI app which serves the metrics from a registry."""
     def prometheus_app(environ, start_response):
         query_str = environ.get('QUERY_STRING', '')
@@ -36,7 +36,6 @@ def make_wsgi_app(registry=core.REGISTRY):
         if 'name[]' in params:
             reg = reg.restricted_registry(params['name[]'])
         output = generate_latest(reg)
-
         status = str('200 OK')
         headers = [(str('Content-type'), CONTENT_TYPE_LATEST)]
         start_response(status, headers)
@@ -67,7 +66,7 @@ class PromClient(object): # pylint: disable=too-few-public-methods
     def start(self, prom_port, prom_addr, use_test_thread=False):
         """Start webserver."""
         if not self.server:
-            app = make_wsgi_app()
+            app = make_wsgi_app(self._reg)
             if use_test_thread:
                 from wsgiref.simple_server import make_server
                 import threading

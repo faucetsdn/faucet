@@ -18,7 +18,7 @@
 
 import collections
 
-from prometheus_client import Gauge, REGISTRY
+from prometheus_client import Gauge
 
 from faucet.gauge_pollers import GaugePortStatsPoller, GaugePortStatePoller, GaugeFlowTablePoller
 from faucet.prom_client import PromClient
@@ -51,27 +51,29 @@ class GaugePrometheusClient(PromClient):
 
     metrics = {} # type: dict
 
-    def __init__(self):
-        super(GaugePrometheusClient, self).__init__()
-        self.dp_status = Gauge(
+    def __init__(self, reg=None):
+        super(GaugePrometheusClient, self).__init__(reg=reg)
+        self.dp_status = Gauge( # pylint: disable=unexpected-keyword-arg
             'dp_status',
             'status of datapaths',
-            self.REQUIRED_LABELS)
+            self.REQUIRED_LABELS,
+            registry=self._reg)
         for prom_var in PROM_PORT_VARS + PROM_PORT_STATE_VARS:
             exported_prom_var = PROM_PREFIX_DELIM.join(
                 (PROM_PORT_PREFIX, prom_var))
-            self.metrics[exported_prom_var] = Gauge(
-                exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'])
+            self.metrics[exported_prom_var] = Gauge( # pylint: disable=unexpected-keyword-arg
+                exported_prom_var, '', self.REQUIRED_LABELS + ['port_name'],
+                registry=self._reg)
 
     def reregister_flow_vars(self, table_name, table_tags):
         for prom_var in PROM_FLOW_VARS:
             table_prom_var = PROM_PREFIX_DELIM.join((prom_var, table_name))
             try:
-                REGISTRY.unregister(self.metrics[table_prom_var])
+                self._reg.unregister(self.metrics[table_prom_var])
             except KeyError:
                 pass
-            self.metrics[table_prom_var] = Gauge(
-                table_prom_var, '', list(table_tags))
+            self.metrics[table_prom_var] = Gauge( # pylint: disable=unexpected-keyword-arg
+                table_prom_var, '', list(table_tags), registry=self._reg)
 
 
 class GaugePortStatsPrometheusPoller(GaugePortStatsPoller):
