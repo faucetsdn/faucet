@@ -1275,13 +1275,16 @@ class RyuAppSmokeTest(unittest.TestCase):
         os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
         faucet.Faucet(
             dpset={},
-            faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
+            faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
+            reg=CollectorRegistry())
 
     def test_gauge(self):
         """Test Gauge can be initialized."""
         os.environ['GAUGE_LOG'] = '/dev/null'
         os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
-        gauge.Gauge(dpset={})
+        gauge.Gauge(
+            dpset={},
+            reg=CollectorRegistry())
 
 
 if __name__ == "__main__":
