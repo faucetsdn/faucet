@@ -105,9 +105,6 @@ RUN \
   $AG update && \
   $AG install cython3 && \
   $AG purge pylint && \
-  $PIP3 pip && \
-  easy_install -q -U pip && \
-  $PIP pip && \
   $PIP multiprocessing scapy==2.3.2 $PIPDEPS && \
   $PIP3 $PIPDEPS && \
   $PIP ryu && \

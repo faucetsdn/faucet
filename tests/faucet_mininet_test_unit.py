@@ -5023,13 +5023,9 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.set_port_down(port_no, self.dpids[1], wait=False)
         self.retry_net_ping()
         # Broadcast works, and first switch doesn't see broadcast packet ins from stack.
-        packet_in_before_broadcast = (
-            self.scrape_prometheus_var('of_packet_ins') -
-            self.scrape_prometheus_var('of_non_vlan_packet_ins'))
+        packet_in_before_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
         self.verify_broadcast()
-        packet_in_after_broadcast = (
-            self.scrape_prometheus_var('of_packet_ins') -
-            self.scrape_prometheus_var('of_non_vlan_packet_ins'))
+        packet_in_after_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
         self.assertEqual(
             packet_in_before_broadcast,
             packet_in_after_broadcast)

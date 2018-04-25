@@ -1,0 +1,22 @@
+FROM alpine:3.7
+
+RUN \
+    apk add -U \
+    bash \
+    gcc \
+    git \ 
+    iputils \
+    linux-headers \
+    make \
+    musl-dev \
+    openssl-dev && \
+  git clone http://github.com/bairdo/hostapd-d1xf && \
+  cd hostapd-d1xf/hostapd && \
+  git checkout faucet-con && \
+  make && make install && \
+  apk del \
+    gcc \
+    git \
+    linux-headers \
+    make \
+    musl-dev

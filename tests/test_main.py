@@ -22,7 +22,7 @@ import unittest
 
 # pylint: disable=no-name-in-module
 # pylint: disable=import-error
-from faucet.__main__ import parse_args
+from faucet.__main__ import parse_args, build_ryu_args
 
 
 class MainTestCase(unittest.TestCase):
@@ -32,6 +32,11 @@ class MainTestCase(unittest.TestCase):
         """Sanity check argument parsing."""
         self.assertFalse(parse_args([]).verbose)
         self.assertTrue(parse_args(['--verbose']).verbose)
+
+    def test_build_ryu_args(self):
+        self.assertTrue(build_ryu_args(['faucet', '--use-stderr', '--use-syslog', '--verbose']))
+        self.assertTrue(build_ryu_args(['gauge', '--use-stderr', '--use-syslog', '--verbose']))
+        self.assertFalse(build_ryu_args(['faucet', '--version']))
 
 
 if __name__ == "__main__":

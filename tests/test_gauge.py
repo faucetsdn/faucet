@@ -3,6 +3,7 @@
 import json
 import random
 import re
+import shutil
 import tempfile
 import threading
 import time
@@ -17,11 +18,13 @@ import yaml
 
 import requests
 
-from faucet import gauge_prom, gauge_influx, gauge_pollers, watcher
+from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
 from ryu.lib import hub
+
+from prometheus_client import CollectorRegistry
 
 
 class QuietHandler(BaseHTTPRequestHandler):
@@ -38,8 +41,13 @@ def create_mock_datapath(num_ports):
         port_name = mock.PropertyMock(return_value='port' + str(i))
         type(port).name = port_name
         ports[i] = port
-
-    datapath = mock.Mock(ports=ports, dp_id=random.randint(1, 5000))
+    tables_by_id = {}
+    for i in range(0, 10):
+        table = mock.Mock()
+        table_name = mock.PropertyMock(return_value='table' + str(i))
+        type(table).name = table_name
+        tables_by_id[i] = table
+    datapath = mock.Mock(ports=ports, dp_id=random.randint(1, 5000), tables_by_id=tables_by_id)
     dp_name = mock.PropertyMock(return_value='datapath')
     type(datapath).name = dp_name
     return datapath
@@ -204,7 +212,7 @@ class PretendInflux(QuietHandler):
 class GaugePrometheusTests(unittest.TestCase):
     """Tests the GaugePortStatsPrometheusPoller update method"""
 
-    prom_client = gauge_prom.GaugePrometheusClient()
+    prom_client = gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
 
     def parse_prom_output(self, output):
         """Parses the port stats from prometheus into a dictionary"""
@@ -314,6 +322,26 @@ class GaugePrometheusTests(unittest.TestCase):
                 stats_found.add(stat_name)
 
             self.assertEqual(stats_found, set(gauge_prom.PROM_PORT_STATE_VARS))
+
+    def test_flow_stats(self):
+        """Check the update method of the GaugeFlowTablePrometheusPoller class"""
+
+        datapath = create_mock_datapath(2)
+
+        conf = mock.Mock(dp=datapath,
+                         type='',
+                         interval=1,
+                         prometheus_port=9303,
+                         prometheus_addr='localhost',
+                         use_test_thread=True
+                        )
+
+        prom_poller = gauge_prom.GaugeFlowTablePrometheusPoller(conf, '__name__', self.prom_client)
+        rcv_time = int(time.time())
+        instructions = [parser.OFPInstructionGotoTable(1)]
+        msg = flow_stats_msg(conf.dp, instructions)
+        prom_poller.update(rcv_time, conf.dp.dp_id, msg)
+
 
 
 class GaugeInfluxShipperTest(unittest.TestCase):
@@ -802,6 +830,75 @@ class GaugeWatcherTest(unittest.TestCase):
         yaml_dict = yaml.load(log_str)['msg']['OFPFlowStatsReply']['body'][0]['OFPFlowStats']
 
         compare_flow_msg(msg, yaml_dict, self)
+
+
+class RyuAppSmokeTest(unittest.TestCase):
+
+    def setUp(self):
+        os.environ['GAUGE_LOG'] = '/dev/null'
+        os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
+
+    def test_gauge(self):
+        """Test Gauge can be initialized."""
+        os.environ['GAUGE_CONFIG'] = '/dev/null'
+        ryu_app = gauge.Gauge(
+            dpset={},
+            reg=CollectorRegistry())
+        ryu_app.reload_config(None)
+
+    def test_gauge_config(self):
+        tmpdir = tempfile.mkdtemp()
+        os.environ['FAUCET_CONFIG'] = os.path.join(tmpdir, 'faucet.yaml')
+        os.environ['GAUGE_CONFIG'] = os.path.join(tmpdir, 'gauge.yaml')
+        with open(os.environ['FAUCET_CONFIG'], 'w') as faucet_config:
+            faucet_config.write(
+"""
+vlans:
+   100:
+       description: "100"
+dps:
+   dp1:
+       dp_id: 0x1
+       interfaces:
+           1:
+               description: "1"
+               native_vlan: 100
+""")
+        os.environ['GAUGE_CONFIG'] = os.path.join(tmpdir, 'gauge.yaml')
+        with open(os.environ['GAUGE_CONFIG'], 'w') as gauge_config:
+            gauge_config.write(
+"""
+faucet_configs:
+   - '%s'
+watchers:
+    port_status_poller:
+        type: 'port_state'
+        all_dps: True
+        db: 'prometheus'
+    port_stats_poller:
+        type: 'port_stats'
+        all_dps: True
+        interval: 10
+        db: 'prometheus'
+    flow_table_poller:
+        type: 'flow_table'
+        all_dps: True
+        interval: 60
+        db: 'prometheus'
+dbs:
+    prometheus:
+        type: 'prometheus'
+        prometheus_addr: '0.0.0.0'
+        prometheus_port: 0
+""" % os.environ['FAUCET_CONFIG'])
+        ryu_app = gauge.Gauge(
+            dpset={},
+            reg=CollectorRegistry())
+        ryu_app.reload_config(None)
+        self.assertTrue(ryu_app.watchers)
+        ryu_app.reload_config(None)
+        self.assertTrue(ryu_app.watchers)
+        shutil.rmtree(tmpdir)
 
 
 if __name__ == "__main__":

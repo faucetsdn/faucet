@@ -1,15 +1,18 @@
 #!/bin/bash
 
+UNITTESTS=1
 DEPCHECK=1
-MINCOVERAGE=75
-
-TMPDIR=$(mktemp -d /tmp/$(basename $0).XXXXXX)
+MINCOVERAGE=81
 
 # if -n passed, don't check dependencies/lint/type/documentation.
 # wrapper script only cares about -n, others passed to test suite.
-while getopts "cdknsx" o $FAUCET_TESTS; do
+while getopts "cdknsxi" o $FAUCET_TESTS; do
   case "${o}" in
         n)
+            DEPCHECK=0
+            ;;
+        i)
+            UNITTESTS=0
             DEPCHECK=0
             ;;
         *)
@@ -46,16 +49,18 @@ if [ "$DEPCHECK" == 1 ] ; then
 
 fi
 
-echo "========== Running faucet unit tests =========="
-python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing | tee $TMPDIR/coverage.txt || exit 1
-COVERAGE=`grep TOTAL $TMPDIR/coverage.txt |grep -Eo '\b[0-9]+\%'|sed 's/\%//g'`
-echo coverage: $COVERAGE percent
-if [ "$COVERAGE" -lt "$MINCOVERAGE" ] ; then
-    echo coverage below minimum MINCOVERAGE percent
-    exit 1
+if [ "$UNITTESTS" == 1 ] ; then
+    echo "========== Running faucet unit tests =========="
+    TMPDIR=$(mktemp -d /tmp/$(basename $0).XXXXXX)
+    python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing | tee $TMPDIR/coverage.txt || exit 1
+    COVERAGE=`grep TOTAL $TMPDIR/coverage.txt |grep -Eo '\b[0-9]+\%'|sed 's/\%//g'`
+    echo coverage: $COVERAGE percent
+    if [ "$COVERAGE" -lt "$MINCOVERAGE" ] ; then
+        echo coverage below minimum MINCOVERAGE percent
+        exit 1
+    fi
+    rm -rf "$TMPDIR"
 fi
-
-rm -rf "$TMPDIR"
 
 echo "========== Running faucet system tests =========="
 export PYTHONPATH=/faucet-src

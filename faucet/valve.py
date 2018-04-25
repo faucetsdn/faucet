@@ -33,24 +33,30 @@ from faucet import valve_util
 
 
 class ValveLogger(object):
+    """Logger for a Valve that adds DP ID."""
 
     def __init__(self, logger, dp_id):
         self.logger = logger
         self.dp_id = dp_id
 
     def _dpid_prefix(self, log_msg):
+        """Add DP ID prefix to log message."""
         return ' '.join((valve_util.dpid_log(self.dp_id), log_msg))
 
     def debug(self, log_msg):
+        """Log debug level message."""
         self.logger.debug(self._dpid_prefix(log_msg))
 
     def info(self, log_msg):
+        """Log info level message."""
         self.logger.info(self._dpid_prefix(log_msg))
 
     def error(self, log_msg):
+        """Log error level message."""
         self.logger.error(self._dpid_prefix(log_msg))
 
     def warning(self, log_msg):
+        """Log warning level message."""
         self.logger.warning(self._dpid_prefix(log_msg))
 
 
@@ -68,12 +74,15 @@ class Valve(object):
     base_prom_labels = None
     recent_ofmsgs = deque(maxlen=32) # type: ignore
     logger = None
+    ofchannel_logger = None
     host_manager = None
     flood_manager = None
     _route_manager_by_ipv = None
     _last_advertise_sec = None
     _port_highwater = {} # type: dict
     _last_update_metrics_sec = None
+    _last_packet_in_sec = 0
+    _packet_in_count_sec = 0
 
     def __init__(self, dp, logname, metrics, notifier):
         self.dp = dp
@@ -82,14 +91,22 @@ class Valve(object):
         self.notifier = notifier
         self.dp_init()
 
+    def close_logs(self):
+        """Explicitly close any active loggers."""
+        if self.logger is not None:
+            valve_util.close_logger(self.logger.logger)
+        valve_util.close_logger(self.ofchannel_logger)
+
     def dp_init(self):
+        """Initialize datapath state at connection/re/config time."""
+        self.close_logs()
         self.logger = ValveLogger(
             logging.getLogger(self.logname + '.valve'), self.dp.dp_id)
+        self.ofchannel_logger = None
         self.base_prom_labels = {
             'dp_id': hex(self.dp.dp_id),
             'dp_name': self.dp.name,
         }
-        self.ofchannel_logger = None
         self._packet_in_count_sec = 0
         self._last_packet_in_sec = 0
         self._last_advertise_sec = 0
@@ -160,19 +177,21 @@ class Valve(object):
 
     def ofchannel_log(self, ofmsgs):
         """Log OpenFlow messages in text format to debugging log."""
-        if (self.dp is not None and
-                self.dp.ofchannel_log is not None):
-            if self.ofchannel_logger is None:
-                self.ofchannel_logger = valve_util.get_logger(
-                    self.dp.ofchannel_log,
-                    self.dp.ofchannel_log,
-                    logging.DEBUG,
-                    0)
-            for i, ofmsg in enumerate(ofmsgs, start=1):
-                log_prefix = '%u/%u %s' % (
-                    i, len(ofmsgs), valve_util.dpid_log(self.dp.dp_id))
-                self.ofchannel_logger.debug(
-                    '%s %s', log_prefix, ofmsg)
+        if self.dp is None:
+            return
+        if self.dp.ofchannel_log is None:
+            return
+        if self.ofchannel_logger is None:
+            self.ofchannel_logger = valve_util.get_logger(
+                self.dp.ofchannel_log,
+                self.dp.ofchannel_log,
+                logging.DEBUG,
+                0)
+        log_prefix = '%u %s' % (
+            len(ofmsgs), valve_util.dpid_log(self.dp.dp_id))
+        for i, ofmsg in enumerate(ofmsgs, start=1):
+            self.ofchannel_logger.debug(
+                '%u/%s %s', i, log_prefix, ofmsg)
 
     def _delete_all_valve_flows(self):
         """Delete all flows from all FAUCET tables."""
@@ -774,8 +793,8 @@ class Valve(object):
                     remote_port_id = int(port_id_tlvs[0].port_id)
                     self.logger.info('FAUCET LLDP from %s, port %u' % (
                         valve_util.dpid_log(remote_dp_id), remote_port_id))
-
-    def _control_plane_handler(self, pkt_meta, route_manager):
+    @staticmethod
+    def _control_plane_handler(pkt_meta, route_manager):
         """Handle a packet probably destined to FAUCET's route managers.
 
         For example, next hop resolution or ICMP echo requests.
@@ -1014,6 +1033,9 @@ class Valve(object):
             # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs
 
+        self.metrics.of_vlan_packet_ins.labels( # pylint: disable=no-member
+            **self.base_prom_labels).inc()
+
         ban_rules = self.host_manager.ban_rules(pkt_meta)
         if ban_rules:
             return ban_rules
@@ -1031,6 +1053,26 @@ class Valve(object):
         ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
         return ofmsgs
 
+    def _lacp_state_expire(self, vlan, now):
+        """Expire controller state for LACP.
+
+        Args:
+            vlan (VLAN instance): VLAN with LAGs.
+            now (int): current epoch time.
+        Return:
+            list: OpenFlow messages, if any.
+        """
+        ofmsgs = []
+        for ports in list(vlan.lags().values()):
+            lacp_up_ports = [port for port in ports if port.dyn_lacp_up]
+            for port in lacp_up_ports:
+                lacp_age = now - port.dyn_lacp_updated_time
+                # TODO: LACP timeout configurable.
+                if lacp_age > 10:
+                    self.logger.info('LACP on %s expired' % port)
+                    ofmsgs.extend(self.lacp_down(port))
+        return ofmsgs
+
     def state_expire(self):
         """Expire controller caches/state (e.g. hosts learned).
 
@@ -1045,14 +1087,7 @@ class Valve(object):
             now = time.time()
             for vlan in list(self.dp.vlans.values()):
                 self.host_manager.expire_hosts_from_vlan(vlan, now)
-                for _, ports in list(vlan.lags().items()):
-                    for port in ports:
-                        if port.dyn_lacp_up:
-                            lacp_age = now - port.dyn_lacp_updated_time
-                            # TODO: LACP timeout configurable.
-                            if lacp_age > 10:
-                                self.logger.info('LACP on %s expired' % port)
-                                ofmsgs.extend(self.lacp_down(port))
+                self._lacp_state_expire(vlan, now)
         return ofmsgs
 
     def _apply_config_changes(self, new_dp, changes):
@@ -1120,10 +1155,10 @@ class Valve(object):
         """Reload configuration new_dp.
 
         Following config changes are currently supported:
-            - Port config: support all available configs \
-                  (e.g. native_vlan, acl_in) & change operations \
+            - Port config: support all available configs
+                  (e.g. native_vlan, acl_in) & change operations
                   (add, delete, modify) a port
-            - ACL config:support any modification, currently reload all \
+            - ACL config:support any modification, currently reload all
                   rules belonging to an ACL
             - VLAN config: enable, disable routing, etc...
 
@@ -1198,11 +1233,10 @@ class Valve(object):
             error_txt = orig_msgs[0]
         self.logger.error('OFError %s' % error_txt)
 
-    def send_flows(self, ryu_dp, flow_msgs):
-        """Send flows to datapath.
+    def prepare_send_flows(self, flow_msgs):
+        """Prepare to send flows to datapath.
 
         Args:
-            ryu_dp (ryu.controller.controller.Datapath): datapath.
             flow_msgs (list): OpenFlow messages to send.
         """
         reordered_flow_msgs = valve_of.valve_flowreorder(
@@ -1211,7 +1245,16 @@ class Valve(object):
         self.metrics.of_flowmsgs_sent.labels( # pylint: disable=no-member
             **self.base_prom_labels).inc(len(reordered_flow_msgs))
         self.recent_ofmsgs.extend(reordered_flow_msgs)
-        for flow_msg in reordered_flow_msgs:
+        return reordered_flow_msgs
+
+    def send_flows(self, ryu_dp, flow_msgs):
+        """Send flows to datapath.
+
+        Args:
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
+            flow_msgs (list): OpenFlow messages to send.
+        """
+        for flow_msg in self.prepare_send_flows(flow_msgs):
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
 
@@ -1227,6 +1270,7 @@ class Valve(object):
         return self.host_manager.flow_timeout(table_id, match)
 
     def get_config_dict(self):
+        """Return datapath config as a dict for experimental API."""
         return self.dp.get_config_dict()
 
 

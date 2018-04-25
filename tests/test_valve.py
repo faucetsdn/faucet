@@ -34,7 +34,9 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from prometheus_client import CollectorRegistry
 
+from faucet import faucet
 from faucet import faucet_bgp
+from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
 from faucet import valve
@@ -54,8 +56,9 @@ DP1_CONFIG = """
         dp_id: 1
         ignore_learn_ins: 0
         combinatorial_port_flood: True
-        ofchannel_log: "/dev/null"
+        ofchannel_log: '/dev/null'
         pipeline_config_dir: '%s/../etc/faucet'
+        packetin_pps: 99
         lldp_beacon:
             send_interval: 1
             max_per_interval: 1
@@ -148,6 +151,7 @@ dps:
                     enable: True
                     system_name: "faucet"
                     port_descr: "first_port"
+                loop_protect: True
             p2:
                 number: 2
                 native_vlan: v200
@@ -285,7 +289,8 @@ vlans:
             self.faucet_event_sock, self.metrics, self.logger)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
         self.valves_manager = valves_manager.ValvesManager(
-            self.LOGNAME, self.logger, self.metrics, self.notifier, self.bgp, self.send_flows_to_dp_by_id)
+            self.LOGNAME, self.logger, self.metrics, self.notifier,
+            self.bgp, self.send_flows_to_dp_by_id)
         self.notifier.start()
         self.update_config(config)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -294,15 +299,18 @@ vlans:
 
     def teardown_valve(self):
         """Tear down test DP."""
-        for handler in self.logger.handlers:
-            handler.close()
-        self.logger.handlers = []
+        self.bgp.shutdown_bgp_speakers()
+        valve_util.close_logger(self.logger)
+        for valve in list(self.valves_manager.valves.values()):
+            valve.close_logs()
         self.sock.close()
         shutil.rmtree(self.tmpdir)
 
-    def send_flows_to_dp_by_id(self, dp_id, flows):
+    def send_flows_to_dp_by_id(self, valve, flows):
         """Callback for ValvesManager to simulate sending flows to DP."""
-        self.last_flows_to_dp[dp_id] = flows
+        valve = self.valves_manager.valves[self.DP_ID]
+        prepared_flows = valve.prepare_send_flows(flows)
+        self.last_flows_to_dp[valve.dp.dp_id] = prepared_flows
 
     def update_config(self, config):
         """Update FAUCET config with config as text."""
@@ -391,7 +399,8 @@ vlans:
             else:
                 valve_vlan = self.valve.dp.get_native_vlan(in_port)
 
-            all_ports = set([port for port in self.valve.dp.ports.values() if port.running()])
+            all_ports = set(
+                [port for port in self.valve.dp.ports.values() if port.running()])
             remaining_ports = all_ports - set([port for port in valve_vlan.get_ports() if port.running])
 
             # Packet must be flooded to all ports on the VLAN.
@@ -422,7 +431,7 @@ vlans:
                 elif not port.mirror:
                     self.assertFalse(
                         self.table.is_output(match, port=port.number),
-                        msg=('Packet with unknown eth_dst flooded to non-VLAN, non-stack, non-mirror %s' % port))
+                        msg=('Packet with unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
 
     def rcv_packet(self, port, vid, match):
         """Simulate control plane receiving a packet on a port/VID."""
@@ -451,6 +460,7 @@ vlans:
         self.valve.advertise()
         self.valve.state_expire()
         self.valves_manager.update_metrics()
+        self.bgp.update_metrics()
         return rcv_packet_ofmsgs
 
 
@@ -479,7 +489,7 @@ class ValveTestCase(ValveTestBase):
 
     def test_switch_features(self):
         """Test switch features handler."""
-        self.assertTrue(isinstance(self.valve, valve.TfmValve))
+        self.assertTrue(isinstance(self.valve, valve.TfmValve), msg=type(self.valve))
         features_flows = self.valve.switch_features(None)
         tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
         # TODO: verify TFM content.
@@ -972,6 +982,7 @@ acls:
         self.set_port_up(99)
 
     def test_move_port(self):
+        """Test host moves a port."""
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P1_V100_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -987,6 +998,7 @@ acls:
 
 
 class ValveChangePortCase(ValveTestBase):
+    """Test changes to config on ports."""
 
     CONFIG = """
 dps:
@@ -1023,6 +1035,7 @@ dps:
         self.teardown_valve()
 
     def test_delete_port(self):
+        """Test port can be deleted."""
         self.rcv_packet(2, 0x200, {
             'eth_src': self.P2_V200_MAC,
             'eth_dst': self.P3_V200_MAC,
@@ -1235,6 +1248,13 @@ vlans:
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
+        bgp_port: 0
+        bgp_server_addresses: ['127.0.0.1']
+        bgp_as: 1
+        bgp_routerid: '1.1.1.1'
+        bgp_neighbor_addresses: ['127.0.0.1']
+        bgp_neighbor_as: 2
+        bgp_connect_mode: 'passive'
         routes:
             - route:
                 ip_dst: 'fc00::10:0/112'
@@ -1243,6 +1263,21 @@ vlans:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
 """ % DP1_CONFIG
+
+
+class RyuAppSmokeTest(unittest.TestCase):
+    """Test bare instantiation of controller classes."""
+
+    def test_faucet(self):
+        """Test FAUCET can be initialized."""
+        os.environ['FAUCET_CONFIG'] = '/dev/null'
+        os.environ['FAUCET_LOG'] = '/dev/null'
+        os.environ['FAUCET_EXCEPTION_LOG'] = '/dev/null'
+        ryu_app = faucet.Faucet(
+            dpset={},
+            faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
+            reg=CollectorRegistry())
+        ryu_app.reload_config(None)
 
 
 if __name__ == "__main__":

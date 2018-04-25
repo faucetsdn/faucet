@@ -47,6 +47,7 @@ class RyuAppBase(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(RyuAppBase, self).__init__(*args, **kwargs)
         self.dpset = kwargs['dpset']
+        self._reg = kwargs.get('reg', None)
         self.config_file = self.get_setting('CONFIG', True)
         self.stat_reload = self.get_setting('CONFIG_STAT_RELOAD')
         loglevel = self.get_setting('LOG_LEVEL')
