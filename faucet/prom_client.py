@@ -23,7 +23,7 @@ from urllib.parse import parse_qs
 from ryu.lib import hub
 from pbr.version import VersionInfo
 from prometheus_client import Gauge as PromGauge
-from prometheus_client import core, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, REGISTRY
 
 
 # Ryu's WSGI implementation doesn't always set QUERY_STRING
@@ -47,7 +47,7 @@ class PromClient(object): # pylint: disable=too-few-public-methods
     """Prometheus client."""
 
     REQUIRED_LABELS = ['dp_id', 'dp_name']
-    _reg = core.REGISTRY
+    _reg = REGISTRY
     server = None
     thread = None
 
