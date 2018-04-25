@@ -23,6 +23,8 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import type_desc
 from ryu.lib import hub
 
+from prometheus_client import CollectorRegistry
+
 
 class QuietHandler(BaseHTTPRequestHandler):
 
@@ -204,7 +206,7 @@ class PretendInflux(QuietHandler):
 class GaugePrometheusTests(unittest.TestCase):
     """Tests the GaugePortStatsPrometheusPoller update method"""
 
-    prom_client = gauge_prom.GaugePrometheusClient()
+    prom_client = gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
 
     def parse_prom_output(self, output):
         """Parses the port stats from prometheus into a dictionary"""
