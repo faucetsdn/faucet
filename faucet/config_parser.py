@@ -224,6 +224,9 @@ def _watcher_parser_v2(conf, logname, prom_client):
     logger = config_parser_util.get_logger(logname)
     result = []
 
+    if conf is None:
+        conf = {}
+
     dps = {}
     if 'faucet_configs' in conf:
         for faucet_file in conf['faucet_configs']:
@@ -244,7 +247,7 @@ def _watcher_parser_v2(conf, logname, prom_client):
 
     if not dps:
         raise InvalidConfigError(
-            'Gauge configured without any faucet configuration'
+            'Gauge configured without any FAUCET configuration'
             )
 
     dbs = conf.pop('dbs')

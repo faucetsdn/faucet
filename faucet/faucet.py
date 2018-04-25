@@ -92,6 +92,8 @@ class Faucet(RyuAppBase):
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
+        self.valves_manager = valves_manager.ValvesManager(
+            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self._send_flow_msgs)
 
     @kill_on_exception(exc_logname)
     def start(self):
@@ -108,9 +110,7 @@ class Faucet(RyuAppBase):
             self.threads.append(notifier_thread)
 
         # Configure all Valves
-        self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self._send_flow_msgs)
-        self._load_configs(self.config_file)
+        self.reload_config(None)
 
         # Start all threads
         self.threads.extend([
@@ -129,11 +129,6 @@ class Faucet(RyuAppBase):
         ryu_dp = self.dpset.get(deleted_dpid)
         if ryu_dp is not None:
             ryu_dp.close()
-
-    @kill_on_exception(exc_logname)
-    def _load_configs(self, new_config_file):
-        self.valves_manager.load_configs(
-            new_config_file, delete_dp=self._delete_deconfigured_dp)
 
     @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
