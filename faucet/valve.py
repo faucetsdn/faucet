@@ -18,6 +18,7 @@
 # limitations under the License.
 
 import logging
+import random
 import time
 
 from collections import deque, namedtuple
@@ -417,6 +418,36 @@ class Valve(object):
             self._last_advertise_sec = now
         return ofmsgs
 
+    def _send_lldp_beacon_on_port(self, port, now, chassis_id, ttl):
+        lldp_beacon = port.lldp_beacon
+        org_tlvs = [
+            (tlv['oui'], tlv['subtype'], tlv['info'])
+            for tlv in lldp_beacon['org_tlvs']]
+        org_tlvs.extend(valve_packet.faucet_lldp_tlvs(self.dp))
+        # if the port doesn't have a system name set, default to
+        # using the system name from the dp
+        if lldp_beacon['system_name'] is None:
+            lldp_beacon['system_name'] = self.dp.lldp_beacon['system_name']
+        lldp_beacon_pkt = valve_packet.lldp_beacon(
+            self.dp.faucet_dp_mac,
+            chassis_id, port.number, ttl,
+            org_tlvs=org_tlvs,
+            system_name=lldp_beacon['system_name'],
+            port_descr=lldp_beacon['port_descr'])
+        port.dyn_last_lldp_beacon_time = now
+        return valve_of.packetout(port.number, lldp_beacon_pkt.data)
+
+    def _lldp_beacon_ports(self, now):
+        cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
+        send_ports = []
+        for port in self.dp.lldp_beacon_ports:
+            if (port.dyn_last_lldp_beacon_time is None or
+                    port.dyn_last_lldp_beacon_time < cutoff_beacon_time):
+                send_ports.append(port)
+        random.shuffle(send_ports)
+        send_ports = send_ports[:self.dp.lldp_beacon['max_per_interval']]
+        return send_ports
+
     def send_lldp_beacons(self):
         """Called periodically to send LLDP beacon packets."""
         # TODO: the beacon service is specifically NOT to discover topology.
@@ -424,38 +455,11 @@ class Valve(object):
         # a standard cable tester can display OF port information)
         # A seperate system will be used to probe link/neighbor activity,
         # addressing issues such as authenticity of the probes.
-        ofmsgs = []
-        if self.dp.lldp_beacon_ports:
-            now = time.time()
-            beacons_sent = 0
-            cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
-            ttl = self.dp.lldp_beacon['send_interval'] * 3
-            chassis_id = str(self.dp.faucet_dp_mac)
-            for port in self.dp.lldp_beacon_ports:
-                if (port.dyn_last_lldp_beacon_time is None or
-                        port.dyn_last_lldp_beacon_time < cutoff_beacon_time):
-                    lldp_beacon = port.lldp_beacon
-                    org_tlvs = [
-                        (tlv['oui'], tlv['subtype'], tlv['info'])
-                        for tlv in lldp_beacon['org_tlvs']]
-                    org_tlvs.extend(valve_packet.faucet_lldp_tlvs(self.dp))
-                    # if the port doesn't have a system name set, default to
-                    # using the system name from the dp
-                    if lldp_beacon['system_name'] is None:
-                        lldp_beacon['system_name'] = self.dp.lldp_beacon['system_name']
-                    lldp_beacon_pkt = valve_packet.lldp_beacon(
-                        self.dp.faucet_dp_mac,
-                        chassis_id, port.number, ttl,
-                        org_tlvs=org_tlvs,
-                        system_name=lldp_beacon['system_name'],
-                        port_descr=lldp_beacon['port_descr'])
-                    ofmsgs.append(
-                        valve_of.packetout(
-                            port.number, lldp_beacon_pkt.data))
-                    port.dyn_last_lldp_beacon_time = now
-                    beacons_sent += 1
-                    if beacons_sent == self.dp.lldp_beacon['max_per_interval']:
-                        break
+        now = time.time()
+        chassis_id = str(self.dp.faucet_dp_mac)
+        ttl = self.dp.lldp_beacon['send_interval'] * 3
+        send_ports = self._lldp_beacon_ports(now)
+        ofmsgs = [self._send_lldp_beacon_on_port(port, now, chassis_id, ttl) for port in send_ports]
         return ofmsgs
 
     def datapath_connect(self, discovered_ports):
