@@ -41,6 +41,9 @@ class HostCacheEntry(object):
     def __str__(self):
         return '%s on %s' % (self.eth_src, self.port)
 
+    def __repr__(self):
+        return self.__str__()
+
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
 
