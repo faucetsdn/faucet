@@ -38,6 +38,12 @@ class HostCacheEntry(object):
     def __hash__(self):
         return hash((self.eth_src_int, self.port.number))
 
+    def __str__(self):
+        return '%s on %s' % (self.eth_src, self.port)
+
+    def __repr__(self):
+        return self.__str__()
+
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
 
@@ -298,11 +304,11 @@ class VLAN(Conf):
             self.dyn_oldest_host_time = now
             for entry in list(self.dyn_host_cache.values()):
                 if (not entry.port.permanent_learn and entry.cache_time < min_cache_time):
-                    expired_hosts.append(entry.eth_src)
+                    expired_hosts.append(entry)
                 else:
                     self.dyn_oldest_host_time = min(entry.cache_time, self.dyn_oldest_host_time)
-            for eth_src in expired_hosts:
-                self.expire_cache_host(eth_src)
+            for entry in expired_hosts:
+                self.expire_cache_host(entry.eth_src)
         return expired_hosts
 
     def ipvs(self):
