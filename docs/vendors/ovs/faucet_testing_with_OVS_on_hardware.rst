@@ -203,7 +203,7 @@ setting ``hw_switch=False`` initially for testing.
 
 .. code:: console
 
-    $ sudo cp /usr/local/src/faucet/tests/hw_switch_config.yaml /etc/faucet/hw_switch_config.yaml
+    $ sudo cp /usr/local/src/faucet/hw_switch_config.yaml /etc/faucet/hw_switch_config.yaml
     $ sudo $EDITOR /etc/faucet/hw_switch_config.yaml
     $ cd /usr/local/src/faucet/
 
