@@ -598,14 +598,34 @@ def controller_pps_meterdel(datapath=None):
         flags=ofp.OFPMF_PKTPS,
         meter_id=ofp.OFPM_CONTROLLER)
 
-def is_delflow(ofmsg):
+def is_delete(ofmsg):
     return is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg)
+
+
+def _msg_kind(ofmsg):
+    if is_table_features_req(ofmsg):
+        return 'tfm'
+    if is_delete(ofmsg):
+        return 'delete'
+    if is_groupadd(ofmsg):
+        return 'groupadd'
+    if is_meteradd(ofmsg):
+        return 'meteradd'
+    return 'other'
+
+
+def _partition_ofmsgs(input_ofmsgs):
+    """Partition input ofmsgs by kind."""
+    by_kind = {}
+    for ofmsg in input_ofmsgs:
+        by_kind.setdefault(_msg_kind(ofmsg), []).append(ofmsg)
+    return by_kind
 
 
 def dedupe_ofmsgs(input_ofmsgs):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
-    deduped_input_ofmsgs = set()
+    deduped_input_ofmsgs = []
     if input_ofmsgs:
         input_ofmsgs_hashes = set()
         for ofmsg in input_ofmsgs:
@@ -613,7 +633,7 @@ def dedupe_ofmsgs(input_ofmsgs):
             ofmsg_str = str(ofmsg)
             if ofmsg_str in input_ofmsgs_hashes:
                 continue
-            deduped_input_ofmsgs.add(ofmsg)
+            deduped_input_ofmsgs.append(ofmsg)
             input_ofmsgs_hashes.add(ofmsg_str)
     return deduped_input_ofmsgs
 
@@ -626,19 +646,18 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     # at most only one barrier to deal with.
     # TODO: further optimizations may be possible - for example,
     # reorder adds to be in priority order.
-    delete_ofmsgs = dedupe_ofmsgs([ofmsg for ofmsg in input_ofmsgs if is_delflow(ofmsg)])
+    by_kind = _partition_ofmsgs(input_ofmsgs)
+    delete_ofmsgs = dedupe_ofmsgs(by_kind.get('delete', []))
     if not delete_ofmsgs:
         return input_ofmsgs
-    input_ofmsgs = dedupe_ofmsgs(input_ofmsgs)
-    nondelete_ofmsgs = input_ofmsgs - delete_ofmsgs
-    groupadd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_groupadd(ofmsg)])
-    meteradd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_meteradd(ofmsg)])
-    tfm_ofmsgs =  set([ofmsg for ofmsg in nondelete_ofmsgs if is_table_features_req(ofmsg)])
-    other_ofmsgs = nondelete_ofmsgs - groupadd_ofmsgs.union(meteradd_ofmsgs)
+    groupadd_ofmsgs = dedupe_ofmsgs(by_kind.get('groupadd', []))
+    meteradd_ofmsgs = dedupe_ofmsgs(by_kind.get('meteradd', []))
+    tfm_ofmsgs = dedupe_ofmsgs(by_kind.get('tfm', []))
+    other_ofmsgs = dedupe_ofmsgs(by_kind.get('other', []))
     output_ofmsgs = []
     for ofmsgs in (delete_ofmsgs, tfm_ofmsgs, groupadd_ofmsgs, meteradd_ofmsgs):
         if ofmsgs:
-            output_ofmsgs.extend(list(ofmsgs))
+            output_ofmsgs.extend(ofmsgs)
             if use_barriers:
                 output_ofmsgs.append(barrier())
     output_ofmsgs.extend(other_ofmsgs)
