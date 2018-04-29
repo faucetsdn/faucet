@@ -108,6 +108,7 @@ class ValveHostManager(object):
             self.logger.info(
                 '%u recently active hosts on VLAN %u, expired %s' % (
                     vlan.hosts_count(), vlan.vid, expired_hosts))
+        return expired_hosts
 
     def _jitter_learn_timeout(self):
         """Calculate jittered learning timeout to avoid synchronized host timeouts."""

@@ -1086,7 +1086,13 @@ class Valve(object):
         if self.dp.running:
             now = time.time()
             for vlan in list(self.dp.vlans.values()):
-                self.host_manager.expire_hosts_from_vlan(vlan, now)
+                expired_hosts = self.host_manager.expire_hosts_from_vlan(vlan, now)
+                for entry in expired_hosts:
+                    self._notify(
+                        {'L2_EXPIRE': {
+                            'port_no': entry.port.number,
+                            'vid': vlan.vid,
+                            'eth_src': entry.eth_src}})
                 self._lacp_state_expire(vlan, now)
         return ofmsgs
 
