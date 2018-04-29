@@ -92,7 +92,7 @@ FAUCET_TEST_LINT_SRCS = glob.glob(
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
-CONFIG_FILE_DIRS = ['/etc/faucet', './']
+CONFIG_FILE_DIRS = ['/etc/faucet', './', '/faucet-src']
 REQUIRED_TEST_PORTS = 4
 
 
