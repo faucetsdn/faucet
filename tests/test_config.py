@@ -655,6 +655,24 @@ dps:
         self.assertTrue(dp.ports[1].max_hosts == 4)
         self.assertEqual(dp.ports[1].description, "video conf")
 
+    def test_single_range_valid_config(self):
+        """Test if port range with single port config applied correctly"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interface_ranges:
+            1:
+                native_vlan: office
+"""
+        conf_file = self.create_config_file(config)
+        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        dp = dps[0]
+        self.assertEqual(len(dp.ports), 1)
+
     def test_port_range_invalid_config(self):
         config = """
 vlans:

@@ -116,13 +116,13 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
             port_nums = set()
             if 'number' in port_conf:
                 del port_conf['number']
-            for range_ in re.findall(r'(\d+-\d+)', port_range):
+            for range_ in re.findall(r'(\d+-\d+)', str(port_range)):
                 start_num, end_num = [int(num) for num in range_.split('-')]
                 assert start_num < end_num, (
                     'Incorrect port range (%d - %d)' % (start_num, end_num))
                 port_nums.update(list(range(start_num, end_num + 1)))
                 port_range = re.sub(range_, '', port_range)
-            other_nums = [int(p) for p in re.findall(r'\d+', port_range)]
+            other_nums = [int(p) for p in re.findall(r'\d+', str(port_range))]
             port_nums.update(other_nums)
             assert port_nums, 'interface-ranges contain invalid config'
             for port_num in port_nums:
