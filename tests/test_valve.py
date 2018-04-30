@@ -153,6 +153,7 @@ dps:
                     port_descr: "first_port"
                 loop_protect: True
                 receive_lldp: True
+                max_hosts: 1
             p2:
                 number: 2
                 native_vlan: v200
