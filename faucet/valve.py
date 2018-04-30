@@ -1185,7 +1185,6 @@ class Valve(object):
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         self.dp.running = dp_running
         restart_type = 'none'
-        ofmsgs = []
         if self.dp.running:
             if cold_start:
                 ofmsgs = self.datapath_connect([])
@@ -1200,6 +1199,8 @@ class Valve(object):
                         **self.base_prom_labels).inc()
                     self.logger.info('Warm starting')
                     restart_type = 'warm'
+        else:
+            ofmsgs = []
         self._notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
         return ofmsgs
 
