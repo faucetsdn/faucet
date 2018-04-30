@@ -418,8 +418,11 @@ class Valve(object):
             self._last_advertise_sec = now
         return ofmsgs
 
-    def _send_lldp_beacon_on_port(self, port, now, chassis_id, ttl):
+    def _send_lldp_beacon_on_port(self, port, now):
+        chassis_id = str(self.dp.faucet_dp_mac)
+        ttl = self.dp.lldp_beacon['send_interval'] * 3
         lldp_beacon = port.lldp_beacon
+        chassis_id = str(self.dp.faucet_dp_mac)
         org_tlvs = [
             (tlv['oui'], tlv['subtype'], tlv['info'])
             for tlv in lldp_beacon['org_tlvs']]
@@ -456,10 +459,8 @@ class Valve(object):
         # A seperate system will be used to probe link/neighbor activity,
         # addressing issues such as authenticity of the probes.
         now = time.time()
-        chassis_id = str(self.dp.faucet_dp_mac)
-        ttl = self.dp.lldp_beacon['send_interval'] * 3
         send_ports = self._lldp_beacon_ports(now)
-        ofmsgs = [self._send_lldp_beacon_on_port(port, now, chassis_id, ttl) for port in send_ports]
+        ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
         return ofmsgs
 
     def datapath_connect(self, discovered_ports):
