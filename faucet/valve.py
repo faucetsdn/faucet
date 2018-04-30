@@ -1185,6 +1185,7 @@ class Valve(object):
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         self.dp.running = dp_running
         restart_type = 'none'
+        ofmsgs = []
         if self.dp.running:
             if cold_start:
                 ofmsgs = self.datapath_connect([])
