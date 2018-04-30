@@ -1184,20 +1184,24 @@ class Valve(object):
         cold_start, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         self.dp.running = dp_running
-
-        if not self.dp.running:
-            return []
-        if cold_start:
-            ofmsgs = self.datapath_connect([])
-        if ofmsgs:
+        restart_type = 'none'
+        if self.dp.running:
             if cold_start:
-                self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
-                    **self.base_prom_labels).inc()
-                self.logger.info('Cold starting')
-            else:
-                self.metrics.faucet_config_reload_warm.labels( # pylint: disable=no-member
-                    **self.base_prom_labels).inc()
-                self.logger.info('Warm starting')
+                ofmsgs = self.datapath_connect([])
+            if ofmsgs:
+                if cold_start:
+                    self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
+                        **self.base_prom_labels).inc()
+                    self.logger.info('Cold starting')
+                    restart_type = 'cold'
+                else:
+                    self.metrics.faucet_config_reload_warm.labels( # pylint: disable=no-member
+                        **self.base_prom_labels).inc()
+                    self.logger.info('Warm starting')
+                    restart_type = 'warm'
+        else:
+            ofmsgs = []
+        self._notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
         return ofmsgs
 
     def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
