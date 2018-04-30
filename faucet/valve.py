@@ -458,6 +458,8 @@ class Valve(object):
         # a standard cable tester can display OF port information)
         # A seperate system will be used to probe link/neighbor activity,
         # addressing issues such as authenticity of the probes.
+        if not self.dp.lldp_beacon:
+            return []
         now = time.time()
         send_ports = self._lldp_beacon_ports(now)
         ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
