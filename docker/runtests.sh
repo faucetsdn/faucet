@@ -63,6 +63,19 @@ if [ "$UNITTESTS" == 1 ] ; then
 fi
 
 echo "========== Running faucet system tests =========="
+test_failures=
 export PYTHONPATH=/faucet-src
+
+cd /faucet-src/tests
 python2 ./faucet_mininet_test.py -c
-http_proxy="" python2 ./faucet_mininet_test.py $FAUCET_TESTS || exit 1
+http_proxy="" python2 ./faucet_mininet_test.py $FAUCET_TESTS || test_failures+=" faucet_mininet_test"
+
+cd /faucet-src/clib
+http_proxy="" python2 ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
+
+if [ -n "$test_failures" ]; then
+    echo Test failures: $test_failures
+    exit 1
+fi
+
+echo Done with faucet system tests.
