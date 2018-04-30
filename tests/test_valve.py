@@ -152,6 +152,8 @@ dps:
                     system_name: "faucet"
                     port_descr: "first_port"
                 loop_protect: True
+                receive_lldp: True
+                max_hosts: 1
             p2:
                 number: 2
                 native_vlan: v200
@@ -370,23 +372,25 @@ vlans:
 
     def learn_hosts(self):
         """Learn some hosts."""
-        self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.UNKNOWN_MAC,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.2'})
-        self.rcv_packet(2, 0x200, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': self.P3_V200_MAC,
-            'ipv4_src': '10.0.0.2',
-            'ipv4_dst': '10.0.0.3',
-            'vid': 0x200})
-        self.rcv_packet(3, 0x200, {
-            'eth_src': self.P3_V200_MAC,
-            'eth_dst': self.P2_V200_MAC,
-            'ipv4_src': '10.0.0.3',
-            'ipv4_dst': '10.0.0.4',
-            'vid': 0x200})
+        # TODO: verify learn caching.
+        for _ in range(2):
+            self.rcv_packet(1, 0x100, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.UNKNOWN_MAC,
+                'ipv4_src': '10.0.0.1',
+                'ipv4_dst': '10.0.0.2'})
+            self.rcv_packet(2, 0x200, {
+                'eth_src': self.P2_V200_MAC,
+                'eth_dst': self.P3_V200_MAC,
+                'ipv4_src': '10.0.0.2',
+                'ipv4_dst': '10.0.0.3',
+                'vid': 0x200})
+            self.rcv_packet(3, 0x200, {
+                'eth_src': self.P3_V200_MAC,
+                'eth_dst': self.P2_V200_MAC,
+                'ipv4_src': '10.0.0.3',
+                'ipv4_dst': '10.0.0.4',
+                'vid': 0x200})
 
     def verify_flooding(self, matches):
         """Verify flooding for a packet, depending on the DP implementation."""
