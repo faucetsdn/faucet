@@ -19,6 +19,7 @@
 import collections
 import ipaddress
 import netaddr
+import random
 
 from faucet import valve_of
 from faucet.conf import Conf
@@ -420,7 +421,7 @@ class VLAN(Conf):
         pkt = packet_builder(vid, *args)
         return valve_of.packetout(port.number, pkt.data)
 
-    def flood_pkt(self, packet_builder, *args):
+    def flood_pkt(self, packet_builder, random_order, *args):
         ofmsgs = []
         for vid, ports in (
                 (self.vid, self.tagged_flood_ports(False)),
@@ -428,6 +429,8 @@ class VLAN(Conf):
             if ports:
                 pkt = packet_builder(vid, *args)
                 flood_ofmsgs = [valve_of.packetout(port.number, pkt.data) for port in ports if port.running()]
+                if random_order:
+                    random.shuffle(flood_ofmsgs)
                 ofmsgs.extend(flood_ofmsgs)
         return ofmsgs
 
