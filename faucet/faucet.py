@@ -153,12 +153,12 @@ class Faucet(RyuAppBase):
             return
         valve.send_flows(ryu_dp, flow_msgs)
 
-    def _get_valve(self, ryu_dp, handler_name, msg=None):
+    def _get_valve(self, handler_name, ryu_dp, msg=None):
         """Get Valve instance to response to an event.
 
         Args:
-            ryu_dp (ryu.controller.controller.Datapath): datapath.
             handler_name (string): handler name to log if datapath unknown.
+            ryu_dp (ryu.controller.controller.Datapath): datapath.
             msg (ryu.controller.ofp_event.EventOFPMsgBase): message from datapath.
         Returns:
             Valve instance or None.
@@ -261,7 +261,7 @@ class Faucet(RyuAppBase):
         """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
-        valve = self._get_valve(ryu_dp, 'packet_in_handler', msg)
+        valve = self._get_valve('packet_in_handler', ryu_dp, msg)
         if valve is None:
             return
         if valve.rate_limit_packet_ins():
@@ -281,7 +281,7 @@ class Faucet(RyuAppBase):
         """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
-        valve = self._get_valve(ryu_dp, 'error_handler', msg)
+        valve = self._get_valve('error_handler', ryu_dp, msg)
         if valve is None:
             return
         valve.oferror(msg)
@@ -296,7 +296,7 @@ class Faucet(RyuAppBase):
         """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
-        valve = self._get_valve(ryu_dp, 'features_handler', msg)
+        valve = self._get_valve('features_handler', ryu_dp, msg)
         if valve is None:
             return
         flowmods = valve.switch_features(msg)
@@ -309,7 +309,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
-        valve = self._get_valve(ryu_dp, '_datapath_connect')
+        valve = self._get_valve('_datapath_connect', ryu_dp)
         if valve is None:
             return
         discovered_ports = [
@@ -324,7 +324,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_dp (ryu.controller.controller.Datapath): datapath.
         """
-        valve = self._get_valve(ryu_dp, '_datapath_disconnect')
+        valve = self._get_valve('_datapath_disconnect', ryu_dp)
         if valve is None:
             return
         valve.datapath_disconnect()
@@ -361,7 +361,7 @@ class Faucet(RyuAppBase):
             ryu_event (ryu.controller.ofp_event.EventOFPDescStatsReply): trigger.
         """
         ryu_dp = ryu_event.msg.datapath
-        valve = self._get_valve(ryu_dp, 'desc_stats_reply_handler')
+        valve = self._get_valve('desc_stats_reply_handler', ryu_dp)
         if valve is None:
             return
         body = ryu_event.msg.body
@@ -377,7 +377,7 @@ class Faucet(RyuAppBase):
         """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
-        valve = self._get_valve(ryu_dp, 'port_status_handler', msg)
+        valve = self._get_valve('port_status_handler', ryu_dp, msg)
         if valve is None:
             return
         if not valve.dp.running:
@@ -401,7 +401,7 @@ class Faucet(RyuAppBase):
         """
         msg = ryu_event.msg
         ryu_dp = msg.datapath
-        valve = self._get_valve(ryu_dp, 'flowremoved_handler', msg)
+        valve = self._get_valve('flowremoved_handler', ryu_dp, msg)
         if valve is None:
             return
         ofp = ryu_dp.ofproto
