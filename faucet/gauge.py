@@ -42,7 +42,6 @@ class Gauge(RyuAppBase):
     GAUGE_CONFIG. It logs to the file set as the environment variable
     GAUGE_LOG,
     """
-    _CONTEXTS = {'dpset': dpset.DPSet}
     logname = 'gauge'
     exc_logname = logname + '.exception'
     prom_client = None

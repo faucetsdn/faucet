@@ -24,7 +24,7 @@ import signal
 import sys
 
 from ryu.base import app_manager
-from ryu.controller import event
+from ryu.controller import dpset, event
 from ryu.lib import hub
 
 from faucet import valve_of
@@ -41,6 +41,9 @@ class RyuAppBase(app_manager.RyuApp):
     """RyuApp base class for FAUCET/Gauge."""
 
     OFP_VERSIONS = valve_of.OFP_VERSIONS
+    _CONTEXTS = {
+        'dpset': dpset.DPSet,
+    }
     logname = ''
     exc_logname = ''
 
