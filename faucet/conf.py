@@ -79,7 +79,7 @@ class Conf(object):
         self._check_conf_types(conf, self.defaults_types)
 
     def check_config(self):
-        """As far as possible, check config at instantiation time for errors, typically via assert."""
+        """Check config at instantiation time for errors, typically via assert."""
         return
 
     def _conf_keys(self, conf, dyn=False, subconf=True, ignore_keys=None):
@@ -113,6 +113,7 @@ class Conf(object):
         return result
 
     def conf_hash(self, dyn=False, subconf=True, ignore_keys=None):
+        """Return hash of keys configurably filtering attributes."""
         return hash(frozenset(list(map(
             str, self._conf_keys(self, dyn=dyn, subconf=subconf, ignore_keys=ignore_keys)))))
 
@@ -130,8 +131,8 @@ class Conf(object):
 
     def ignore_subconf(self, other, ignore_keys=None):
         """Return True if this config same as other, ignoring sub config."""
-        return (self.conf_hash(dyn=False, subconf=False, ignore_keys=ignore_keys) 
-            == other.conf_hash(dyn=False, subconf=False, ignore_keys=ignore_keys))
+        return (self.conf_hash(dyn=False, subconf=False, ignore_keys=ignore_keys)
+                == other.conf_hash(dyn=False, subconf=False, ignore_keys=ignore_keys))
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
