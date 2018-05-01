@@ -141,7 +141,7 @@ class Gauge(RyuAppBase):
                         '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
 
     @kill_on_exception(exc_logname)
-    def _handler_datapath_up(self, ryu_event):
+    def _datapath_connect(self, ryu_event):
         """Handle DP up.
 
         Args:
@@ -166,7 +166,7 @@ class Gauge(RyuAppBase):
                     watcher.stop()
 
     @kill_on_exception(exc_logname)
-    def _handler_datapath_down(self, ryu_event):
+    def _datapath_disconnect(self, ryu_event):
         """Handle DP down.
 
         Args:
@@ -178,29 +178,6 @@ class Gauge(RyuAppBase):
             return
         self.logger.info('%s down', dpid_log(ryu_dp.id))
         self._stop_watchers(ryu_dp.id, watchers)
-
-    @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
-    @kill_on_exception(exc_logname)
-    def handler_connect_or_disconnect(self, ryu_event):
-        """Handle DP dis/connect.
-
-        Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
-        """
-        if ryu_event.enter:
-            self._handler_datapath_up(ryu_event)
-        else:
-            self._handler_datapath_down(ryu_event)
-
-    @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
-    @kill_on_exception(exc_logname)
-    def handler_reconnect(self, ryu_event):
-        """Handle a DP reconnection event.
-
-        Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
-        """
-        self._handler_datapath_up(ryu_event)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

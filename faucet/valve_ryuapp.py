@@ -25,6 +25,7 @@ import sys
 
 from ryu.base import app_manager
 from ryu.controller import dpset, event
+from ryu.controller.handler import set_ev_cls
 from ryu.lib import hub
 
 from faucet import valve_of
@@ -117,3 +118,30 @@ class RyuAppBase(app_manager.RyuApp):
             ryu_dp.close()
             self.logger.error('%s: unknown datapath %s', handler_name, dpid_log(dp_id))
         return (datapath_obj, ryu_dp, msg)
+
+    def _datapath_connect(self, ryu_event):
+        return
+
+    def _datapath_disconnect(self, ryu_event):
+        return
+
+    @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
+    def connect_or_disconnect_handler(self, ryu_event):
+        """Handle connection or disconnection of a datapath.
+
+        Args:
+            ryu_event (ryu.controller.dpset.EventDP): trigger.
+        """
+        if ryu_event.enter:
+            self._datapath_connect(ryu_event)
+        else:
+            self._datapath_disconnect(ryu_event)
+
+    @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
+    def reconnect_handler(self, ryu_event):
+        """Handle reconnection of a datapath.
+
+        Args:
+            ryu_event (ryu.controller.dpset.EventDPReconnected): trigger.
+        """
+        self._datapath_connect(ryu_event)

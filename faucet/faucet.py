@@ -317,29 +317,6 @@ class Faucet(RyuAppBase):
             return
         valve.datapath_disconnect()
 
-    @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
-    @kill_on_exception(exc_logname)
-    def connect_or_disconnect_handler(self, ryu_event):
-        """Handle connection or disconnection of a datapath.
-
-        Args:
-            ryu_event (ryu.controller.dpset.EventDP): trigger.
-        """
-        if ryu_event.enter:
-            self._datapath_connect(ryu_event)
-        else:
-            self._datapath_disconnect(ryu_event)
-
-    @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
-    @kill_on_exception(exc_logname)
-    def reconnect_handler(self, ryu_event):
-        """Handle reconnection of a datapath.
-
-        Args:
-            ryu_event (ryu.controller.dpset.EventDPReconnected): trigger.
-        """
-        self._datapath_connect(ryu_event)
-
     @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
     def desc_stats_reply_handler(self, ryu_event):
