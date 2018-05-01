@@ -51,11 +51,6 @@ class Gauge(RyuAppBase):
         self.config_watcher = ConfigWatcher()
         self.prom_client = GaugePrometheusClient(reg=self._reg)
 
-    def start(self):
-        super(Gauge, self).start()
-        self.threads.extend([
-            hub.spawn(thread) for thread in (self._config_file_stat,)])
-
     def _get_watchers(self, handler_name, ryu_event):
         """Get Watchers instances to response to an event.
 

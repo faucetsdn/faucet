@@ -112,6 +112,8 @@ class RyuAppBase(app_manager.RyuApp):
         if self.stat_reload:
             self.logger.info('will automatically reload new config on changes')
         self.reload_config(None)
+        self.threads.extend([
+            hub.spawn(thread) for thread in (self._config_file_stat,)])
         signal.signal(signal.SIGHUP, self.signal_handler)
         signal.signal(signal.SIGINT, self.signal_handler)
 
