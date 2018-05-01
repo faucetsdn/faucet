@@ -212,7 +212,9 @@ class Faucet(RyuAppBase):
 
     def get_tables(self, dp_id):
         """FAUCET experimental API: return config tables for one Valve."""
-        return self.valves_manager.valves[dp_id].dp.get_tables()
+        if dp_id in self.valves_manager.valves:
+            return self.valves_manager.valves[dp_id].dp.get_tables()
+        return {}
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
