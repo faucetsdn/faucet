@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MINRATING="9.0"
+MINRATING="9.1"
 SRC_FILES=`dirname $0`"/../faucet/[a-z]*.py"
 
 
