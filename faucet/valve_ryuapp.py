@@ -24,11 +24,12 @@ import signal
 import sys
 
 from ryu.base import app_manager
-from ryu.controller import event
+from ryu.controller import dpset, event
+from ryu.controller.handler import set_ev_cls
 from ryu.lib import hub
 
 from faucet import valve_of
-from faucet.valve_util import get_logger, get_setting
+from faucet.valve_util import dpid_log, get_logger, get_setting
 
 
 class EventReconfigure(event.EventBase):
@@ -41,6 +42,9 @@ class RyuAppBase(app_manager.RyuApp):
     """RyuApp base class for FAUCET/Gauge."""
 
     OFP_VERSIONS = valve_of.OFP_VERSIONS
+    _CONTEXTS = {
+        'dpset': dpset.DPSet,
+    }
     logname = ''
     exc_logname = ''
 
@@ -89,3 +93,55 @@ class RyuAppBase(app_manager.RyuApp):
             self.logger.info('will automatically reload new config on changes')
         signal.signal(signal.SIGHUP, self.signal_handler)
         signal.signal(signal.SIGINT, self.signal_handler)
+
+    def _get_datapath_obj(self, handler_name, datapath_objs, ryu_event):
+        """Get datapath object to response to an event.
+
+        Args:
+            handler_name (string): handler name to log if datapath unknown.
+            datapath_objs (dict): datapath objects indexed by DP ID.
+            ryu_event (ryu.controller.event.Event): event.
+        Returns:
+            valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and Ryu msg (if any)
+        """
+        datapath_obj = None
+        msg = None
+        if hasattr(ryu_event, 'msg'):
+            msg = ryu_event.msg
+            ryu_dp = msg.datapath
+        else:
+            ryu_dp = ryu_event.dp
+        dp_id = ryu_dp.id
+        if dp_id in datapath_objs:
+            datapath_obj = datapath_objs[dp_id]
+        else:
+            ryu_dp.close()
+            self.logger.error('%s: unknown datapath %s', handler_name, dpid_log(dp_id))
+        return (datapath_obj, ryu_dp, msg)
+
+    def _datapath_connect(self, ryu_event):
+        return
+
+    def _datapath_disconnect(self, ryu_event):
+        return
+
+    @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
+    def connect_or_disconnect_handler(self, ryu_event):
+        """Handle connection or disconnection of a datapath.
+
+        Args:
+            ryu_event (ryu.controller.dpset.EventDP): trigger.
+        """
+        if ryu_event.enter:
+            self._datapath_connect(ryu_event)
+        else:
+            self._datapath_disconnect(ryu_event)
+
+    @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
+    def reconnect_handler(self, ryu_event):
+        """Handle reconnection of a datapath.
+
+        Args:
+            ryu_event (ryu.controller.dpset.EventDPReconnected): trigger.
+        """
+        self._datapath_connect(ryu_event)
