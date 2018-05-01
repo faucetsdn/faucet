@@ -123,9 +123,6 @@ class Gauge(RyuAppBase):
                 is_active = i == 0
                 watcher.report_dp_status(1)
                 watcher.start(ryu_dp, is_active)
-                if is_active:
-                    self.logger.info(
-                        '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
 
     @kill_on_exception(exc_logname)
     def _datapath_connect(self, ryu_event):
@@ -148,8 +145,6 @@ class Gauge(RyuAppBase):
             for watcher in watchers_by_name:
                 watcher.report_dp_status(0)
                 if watcher.is_active():
-                    self.logger.info(
-                        '%s %s watcher stopping', dpid_log(dp_id), watcher.conf.type)
                     watcher.stop()
 
     @kill_on_exception(exc_logname)
