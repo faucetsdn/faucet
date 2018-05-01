@@ -26,6 +26,7 @@ import tempfile
 import shutil
 import socket
 
+from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether, inet
@@ -476,6 +477,14 @@ class ValveTestCase(ValveTestBase):
 
     def tearDown(self):
         self.teardown_valve()
+
+    def test_notifier_socket_path(self):
+        new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
+        self.assertEqual(self.notifier.check_path(new_path), new_path)
+        stale_socket = os.path.join(self.tmpdir, 'stale_socket')
+        with open(stale_socket, 'w') as stale_socket_file:
+            stale_socket_file.write('')
+        self.assertEqual(self.notifier.check_path(stale_socket), stale_socket)
 
     def test_disconnect(self):
         """Test disconnection of DP from controller."""
@@ -1282,6 +1291,26 @@ class RyuAppSmokeTest(unittest.TestCase):
             faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
+        ryu_app.metric_update(None)
+        ryu_app.get_config()
+        ryu_app.get_tables(0)
+        for event_handler in (
+                ryu_app.error_handler,
+                ryu_app.features_handler,
+                ryu_app.packet_in_handler,
+                ryu_app.desc_stats_reply_handler,
+                ryu_app.port_status_handler,
+                ryu_app.flowremoved_handler,
+                ryu_app._datapath_connect,
+                ryu_app._datapath_disconnect):
+            datapath = namedtuple('datapath', 'id')
+            datapath.id = 0
+            datapath.close = lambda: None
+            msg = namedtuple('msg', 'datapath')
+            msg.datapath = datapath
+            event = EventOFPMsgBase(msg=msg)
+            event.dp = datapath
+            event_handler(event)
 
 
 if __name__ == "__main__":

@@ -34,7 +34,6 @@ from faucet.valve_util import dpid_log, get_logger, get_setting
 
 class EventReconfigure(event.EventBase):
     """Event sent to controller to cause config reload."""
-
     pass
 
 
@@ -63,9 +62,20 @@ class RyuAppBase(app_manager.RyuApp):
             self.exc_logname, exc_logfile, logging.DEBUG, 1)
 
     @staticmethod
-    def _thread_jitter(period, jitter=3):
+    def _thread_jitter(period, jitter=2):
         """Reschedule another thread with a random jitter."""
         hub.sleep(period + random.randint(0, jitter))
+
+    def _thread_reschedule(self, ryu_event, period, jitter=2):
+        """Trigger Ryu events periodically with a jitter.
+
+        Args:
+            ryu_event (ryu.controller.event.EventReplyBase): event to trigger.
+            period (int): how often to trigger.
+        """
+        while True:
+            self.send_event(self.__class__.__name__, ryu_event)
+            self._thread_jitter(period, jitter)
 
     def get_setting(self, setting, path_eval=False):
         """Return config setting prefaced with logname."""
@@ -83,16 +93,33 @@ class RyuAppBase(app_manager.RyuApp):
         if sigid == signal.SIGHUP:
             self.send_event(self.__class__.__name__, EventReconfigure())
 
+    @staticmethod
+    def _config_files_changed():
+        """Return True if config files changed."""
+        return False
+
+    def _config_file_stat(self):
+        """Periodically stat config files for any changes."""
+        while True:
+            if self._config_files_changed():
+                if self.stat_reload:
+                    self.send_event(self.__class__.__name__, EventReconfigure())
+            self._thread_jitter(3)
+
     def start(self):
         """Start controller."""
         super(RyuAppBase, self).start()
-
-        self.logger.info('Loaded configuration from %s', self.config_file)
-
         if self.stat_reload:
             self.logger.info('will automatically reload new config on changes')
+        self.reload_config(None)
+        self.threads.extend([
+            hub.spawn(thread) for thread in (self._config_file_stat,)])
         signal.signal(signal.SIGHUP, self.signal_handler)
         signal.signal(signal.SIGINT, self.signal_handler)
+
+    def reload_config(self, _ryu_event):
+        """Handle reloading configuration."""
+        self.logger.info('Reloading configuration')
 
     def _get_datapath_obj(self, handler_name, datapath_objs, ryu_event):
         """Get datapath object to response to an event.
@@ -102,7 +129,7 @@ class RyuAppBase(app_manager.RyuApp):
             datapath_objs (dict): datapath objects indexed by DP ID.
             ryu_event (ryu.controller.event.Event): event.
         Returns:
-            valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and Ryu msg (if any)
+            valve, ryu_dp, msg: Nones, or datapath object, Ryu datapath, and Ryu msg (if any).
         """
         datapath_obj = None
         msg = None
@@ -119,10 +146,12 @@ class RyuAppBase(app_manager.RyuApp):
             self.logger.error('%s: unknown datapath %s', handler_name, dpid_log(dp_id))
         return (datapath_obj, ryu_dp, msg)
 
-    def _datapath_connect(self, ryu_event):
+    @staticmethod
+    def _datapath_connect(_ryu_event):
         return
 
-    def _datapath_disconnect(self, ryu_event):
+    @staticmethod
+    def _datapath_disconnect(_ryu_event):
         return
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)

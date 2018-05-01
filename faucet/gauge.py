@@ -20,7 +20,6 @@ import time
 
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.controller import dpset
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
@@ -51,12 +50,6 @@ class Gauge(RyuAppBase):
         self.watchers = {}
         self.config_watcher = ConfigWatcher()
         self.prom_client = GaugePrometheusClient(reg=self._reg)
-
-    def start(self):
-        super(Gauge, self).start()
-        self.reload_config(None)
-        self.threads.extend([
-            hub.spawn(thread) for thread in (self._config_file_stat,)])
 
     def _get_watchers(self, handler_name, ryu_event):
         """Get Watchers instances to response to an event.
@@ -114,19 +107,13 @@ class Gauge(RyuAppBase):
             for watcher in watchers[name]:
                 watcher.update(rcv_time, ryu_dp.id, msg)
 
-    @kill_on_exception(exc_logname)
-    def _config_file_stat(self):
-        """Periodically stat config files for any changes."""
-        while True:
-            if self.config_watcher.files_changed():
-                if self.stat_reload:
-                    self.send_event('Gauge', EventReconfigure())
-            self._thread_jitter(3)
+    def _config_files_changed(self):
+        return self.config_watcher.files_changed()
 
     @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
-    def reload_config(self, _):
+    def reload_config(self, ryu_event):
         """Handle request for Gauge config reload."""
-        self.logger.warning('reload config requested')
+        super(Gauge, self).reload_config(ryu_event)
         self._load_config()
 
     def _start_watchers(self, ryu_dp, dp_id, watchers):
@@ -136,9 +123,6 @@ class Gauge(RyuAppBase):
                 is_active = i == 0
                 watcher.report_dp_status(1)
                 watcher.start(ryu_dp, is_active)
-                if is_active:
-                    self.logger.info(
-                        '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
 
     @kill_on_exception(exc_logname)
     def _datapath_connect(self, ryu_event):
@@ -161,8 +145,6 @@ class Gauge(RyuAppBase):
             for watcher in watchers_by_name:
                 watcher.report_dp_status(0)
                 if watcher.is_active():
-                    self.logger.info(
-                        '%s %s watcher stopping', dpid_log(dp_id), watcher.conf.type)
                     watcher.stop()
 
     @kill_on_exception(exc_logname)
