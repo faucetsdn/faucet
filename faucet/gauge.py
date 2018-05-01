@@ -152,7 +152,7 @@ class Gauge(RyuAppBase):
             return
         self.logger.info('%s up', dpid_log(ryu_dp.id))
         ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
-        ryu_dp.send_msg(valve_of.gauge_async(datapath=ryu_dp))
+        ryu_dp.send_msg(valve_of.faucet_async(datapath=ryu_dp, packet_in=False))
         self._start_watchers(ryu_dp, ryu_dp.id, watchers)
 
     def _stop_watchers(self, dp_id, watchers):
