@@ -109,9 +109,6 @@ class Faucet(RyuAppBase):
         if notifier_thread is not None:
             self.threads.append(notifier_thread)
 
-        # Configure all Valves
-        self.reload_config(None)
-
         # Start all threads
         self.threads.extend([
             hub.spawn(thread) for thread in (
@@ -132,8 +129,9 @@ class Faucet(RyuAppBase):
 
     @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
-    def reload_config(self, _):
+    def reload_config(self, ryu_event):
         """Handle a request to reload configuration."""
+        super(Faucet, self).reload_config(ryu_event)
         self.valves_manager.request_reload_configs(
             self.config_file, delete_dp=self._delete_deconfigured_dp)
 

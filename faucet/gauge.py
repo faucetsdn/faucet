@@ -53,7 +53,6 @@ class Gauge(RyuAppBase):
 
     def start(self):
         super(Gauge, self).start()
-        self.reload_config(None)
         self.threads.extend([
             hub.spawn(thread) for thread in (self._config_file_stat,)])
 
@@ -117,9 +116,9 @@ class Gauge(RyuAppBase):
         return self.config_watcher.files_changed()
 
     @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
-    def reload_config(self, _):
+    def reload_config(self, ryu_event):
         """Handle request for Gauge config reload."""
-        self.logger.warning('reload config requested')
+        super(Gauge, self).reload_config(ryu_event)
         self._load_config()
 
     def _start_watchers(self, ryu_dp, dp_id, watchers):

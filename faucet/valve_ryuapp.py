@@ -109,13 +109,14 @@ class RyuAppBase(app_manager.RyuApp):
     def start(self):
         """Start controller."""
         super(RyuAppBase, self).start()
-
-        self.logger.info('Loaded configuration from %s', self.config_file)
-
         if self.stat_reload:
             self.logger.info('will automatically reload new config on changes')
+        self.reload_config(None)
         signal.signal(signal.SIGHUP, self.signal_handler)
         signal.signal(signal.SIGINT, self.signal_handler)
+
+    def reload_config(self, _ryu_event):
+        self.logger.info('Reloading configuration')
 
     def _get_datapath_obj(self, handler_name, datapath_objs, ryu_event):
         """Get datapath object to response to an event.
