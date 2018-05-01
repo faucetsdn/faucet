@@ -59,22 +59,16 @@ class Gauge(RyuAppBase):
         self.threads.extend([
             hub.spawn(thread) for thread in (self._config_file_stat,)])
 
-    def _get_watchers(self, ryu_dp, handler_name):
+    def _get_watchers(self, handler_name, ryu_event):
         """Get Watchers instances to response to an event.
 
         Args:
-            ryu_dp (ryu.controller.controller.Datapath): datapath.
             handler_name (string): handler name to log if datapath unknown.
+            ryu_event (ryu.controller.event.EventReplyBase): DP event.
         Returns:
-            dict of Watchers instances or None.
         """
-        dp_id = ryu_dp.id
-        if dp_id in self.watchers:
-            return self.watchers[dp_id]
-        ryu_dp.close()
-        self.logger.error(
-            '%s: unknown datapath %s', handler_name, dpid_log(dp_id))
-        return None
+        return self._get_datapath_obj(
+            handler_name, self.watchers, ryu_event)
 
     @kill_on_exception(exc_logname)
     def _load_config(self):
@@ -110,10 +104,11 @@ class Gauge(RyuAppBase):
         self.logger.info('config complete')
 
     @kill_on_exception(exc_logname)
-    def _update_watcher(self, ryu_dp, name, msg):
+    def _update_watcher(self, name, ryu_event):
         """Call watcher with event data."""
         rcv_time = time.time()
-        watchers = self._get_watchers(ryu_dp, '_update_watcher')
+        watchers, ryu_dp, msg = self._get_watchers(
+            '_update_watcher: %s' % name, ryu_event)
         if watchers is None:
             return
         if name in watchers:
@@ -147,13 +142,13 @@ class Gauge(RyuAppBase):
                         '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
 
     @kill_on_exception(exc_logname)
-    def _handler_datapath_up(self, ryu_dp):
+    def _handler_datapath_up(self, ryu_event):
         """Handle DP up.
 
         Args:
-            ryu_dp (ryu.controller.controller.Datapath): datapath.
+            ryu_event (ryu.controller.event.EventReplyBase): DP event.
         """
-        watchers = self._get_watchers(ryu_dp, '_handler_datapath_up')
+        watchers, ryu_dp, _ = self._get_watchers('_handler_datapath_up', ryu_event)
         if watchers is None:
             return
         self.logger.info('%s up', dpid_log(ryu_dp.id))
@@ -172,13 +167,14 @@ class Gauge(RyuAppBase):
                     watcher.stop()
 
     @kill_on_exception(exc_logname)
-    def _handler_datapath_down(self, ryu_dp):
+    def _handler_datapath_down(self, ryu_event):
         """Handle DP down.
 
         Args:
-            ryu_dp (ryu.controller.controller.Datapath): datapath.
+           ryu_event (ryu.controller.event.EventReplyBase): DP event.
         """
-        watchers = self._get_watchers(ryu_dp, '_handler_datapath_down')
+        watchers, ryu_dp, _ = self._get_watchers(
+            '_handler_datapath_down', ryu_event)
         if watchers is None:
             return
         self.logger.info('%s down', dpid_log(ryu_dp.id))
@@ -192,11 +188,10 @@ class Gauge(RyuAppBase):
         Args:
            ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
         """
-        ryu_dp = ryu_event.dp
         if ryu_event.enter:
-            self._handler_datapath_up(ryu_dp)
+            self._handler_datapath_up(ryu_event)
         else:
-            self._handler_datapath_down(ryu_dp)
+            self._handler_datapath_down(ryu_event)
 
     @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
     @kill_on_exception(exc_logname)
@@ -206,8 +201,7 @@ class Gauge(RyuAppBase):
         Args:
            ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
         """
-        ryu_dp = ryu_event.dp
-        self._handler_datapath_up(ryu_dp)
+        self._handler_datapath_up(ryu_event)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -217,8 +211,7 @@ class Gauge(RyuAppBase):
         Args:
            ryu_event (ryu.controller.event.EventReplyBase): port status change event.
         """
-        self._update_watcher(
-            ryu_event.msg.datapath, 'port_state', ryu_event.msg)
+        self._update_watcher('port_state', ryu_event)
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -228,8 +221,7 @@ class Gauge(RyuAppBase):
         Args:
            ryu_event (ryu.controller.event.EventReplyBase): port stats event.
         """
-        self._update_watcher(
-            ryu_event.msg.datapath, 'port_stats', ryu_event.msg)
+        self._update_watcher('port_stats', ryu_event)
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -239,5 +231,4 @@ class Gauge(RyuAppBase):
         Args:
            ryu_event (ryu.controller.event.EventReplyBase): flow stats event.
         """
-        self._update_watcher(
-            ryu_event.msg.datapath, 'flow_table', ryu_event.msg)
+        self._update_watcher('flow_table', ryu_event)

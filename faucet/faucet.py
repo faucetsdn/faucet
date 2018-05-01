@@ -160,24 +160,12 @@ class Faucet(RyuAppBase):
             handler_name (string): handler name to log if datapath unknown.
             ryu_event (ryu.controller.event.Event): event
         Returns:
-            Valve instance or None.
+            valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and Ryu msg (if any)
         """
-        valve = None
-        msg = None
-        if hasattr(ryu_event, 'msg'):
-            msg = ryu_event.msg
-            ryu_dp = msg.datapath
-        else:
-            ryu_dp = ryu_event.dp
-        dp_id = ryu_dp.id
-        if dp_id in self.valves_manager.valves:
-            valve = self.valves_manager.valves[dp_id]
-            if msg:
-                valve.ofchannel_log([msg])
-        else:
-            ryu_dp.close()
-            self.logger.error(
-                '%s: unknown datapath %s', handler_name, dpid_log(dp_id))
+        valve, ryu_dp, msg = self._get_datapath_obj(
+            handler_name, self.valves_manager.valves, ryu_event)
+        if valve and msg:
+            valve.ofchannel_log([msg])
         return (valve, ryu_dp, msg)
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):
