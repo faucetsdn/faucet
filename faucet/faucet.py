@@ -153,24 +153,19 @@ class Faucet(RyuAppBase):
             return
         valve.send_flows(ryu_dp, flow_msgs)
 
-    def _get_valve(self, handler_name, ryu_event, require_dp_running=True):
+    def _get_valve(self, handler_name, ryu_event):
         """Get Valve instance to response to an event.
 
         Args:
             handler_name (string): handler name to log if datapath unknown.
-            ryu_event (ryu.controller.event.Event): event.
-            require_dp_running (bool): if True, require the Valve object's status to be running.
+            ryu_event (ryu.controller.event.Event): event
         Returns:
-            valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and Ryu msg (if any).
+            valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and Ryu msg (if any)
         """
         valve, ryu_dp, msg = self._get_datapath_obj(
             handler_name, self.valves_manager.valves, ryu_event)
-        if valve:
-            if msg:
-                valve.ofchannel_log([msg])
-            if require_dp_running:
-               if not valve.dp.running:
-                   valve = None
+        if valve and msg:
+            valve.ofchannel_log([msg])
         return (valve, ryu_dp, msg)
 
     def _thread_reschedule(self, ryu_event, period, jitter=2):
@@ -276,7 +271,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPErrorMsg): trigger
         """
-        valve, _, msg = self._get_valve('error_handler', ryu_event, require_dp_running=False)
+        valve, _, msg = self._get_valve('error_handler', ryu_event)
         if valve is None:
             return
         valve.oferror(msg)
@@ -302,7 +297,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.Event)
         """
-        valve, ryu_dp, _ = self._get_valve('_datapath_connect', ryu_event, require_dp_running=False)
+        valve, ryu_dp, _ = self._get_valve('_datapath_connect', ryu_event)
         if valve is None:
             return
         discovered_ports = [
@@ -346,6 +341,8 @@ class Faucet(RyuAppBase):
         """
         valve, _, msg = self._get_valve('port_status_handler', ryu_event)
         if valve is None:
+            return
+        if not valve.dp.running:
             return
         port_no = msg.desc.port_no
         reason = msg.reason
