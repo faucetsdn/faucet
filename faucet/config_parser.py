@@ -39,6 +39,7 @@ V2_TOP_CONFS = (
 
 
 def dp_parser(config_file, logname):
+    """Parse a config file into DP configuration objects with hashes of config include/files."""
     conf = config_parser_util.read_config(config_file, logname)
     config_hashes = None
     dps = None

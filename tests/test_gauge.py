@@ -1,6 +1,6 @@
 """Unit tests for gauge"""
 
-import json
+from collections import namedtuple
 import random
 import re
 import shutil
@@ -10,24 +10,28 @@ import time
 import os
 import unittest
 from unittest import mock
-import urllib
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import yaml
 
 import requests
+from requests.exceptions import ConnectionError, ReadTimeout
 
-from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher
-from ryu.ofproto import ofproto_v1_3 as ofproto
-from ryu.ofproto import ofproto_v1_3_parser as parser
+from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import type_desc
 from ryu.lib import hub
+from ryu.ofproto import ofproto_v1_3 as ofproto
+from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from prometheus_client import CollectorRegistry
 
+from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher
+
+
 
 class QuietHandler(BaseHTTPRequestHandler):
+    """Don't log requests."""
 
     def log_message(self, _format, *_args):
         return
@@ -380,8 +384,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
             shipper.conf = self.create_config_obj(server.server_port)
             points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
             shipper.ship_points(points)
-
-        except Exception as err:
+        except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
         finally:
             server.socket.close()
@@ -397,8 +400,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
             shipper.logger = mock.Mock()
             points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
             shipper.ship_points(points)
-
-        except Exception as err:
+        except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
 
     def test_ship_no_config(self):
@@ -409,8 +411,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
             shipper = gauge_influx.InfluxShipper()
             points = [{'measurement': 'test_stat_name', 'fields' : {'value':1}},]
             shipper.ship_points(points)
-
-        except Exception as err:
+        except (ConnectionError, ReadTimeout) as err:
             self.fail("Code threw an exception: {}".format(err))
 
     def test_point(self):
@@ -845,14 +846,26 @@ class RyuAppSmokeTest(unittest.TestCase):
             dpset={},
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
+        for event_handler in (
+                ryu_app._datapath_connect,
+                ryu_app._datapath_disconnect):
+            datapath = namedtuple('datapath', 'id')
+            datapath.id = 0
+            datapath.close = lambda: None
+            msg = namedtuple('msg', 'datapath')
+            msg.datapath = datapath
+            event = EventOFPMsgBase(msg=msg)
+            event.dp = datapath
+            event_handler(event)
 
     def test_gauge_config(self):
+        """Test Gauge minimal config."""
         tmpdir = tempfile.mkdtemp()
         os.environ['FAUCET_CONFIG'] = os.path.join(tmpdir, 'faucet.yaml')
         os.environ['GAUGE_CONFIG'] = os.path.join(tmpdir, 'gauge.yaml')
         with open(os.environ['FAUCET_CONFIG'], 'w') as faucet_config:
             faucet_config.write(
-"""
+                """
 vlans:
    100:
        description: "100"
@@ -867,7 +880,7 @@ dps:
         os.environ['GAUGE_CONFIG'] = os.path.join(tmpdir, 'gauge.yaml')
         with open(os.environ['GAUGE_CONFIG'], 'w') as gauge_config:
             gauge_config.write(
-"""
+                """
 faucet_configs:
    - '%s'
 watchers:

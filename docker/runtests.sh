@@ -2,7 +2,7 @@
 
 UNITTESTS=1
 DEPCHECK=1
-MINCOVERAGE=82
+MINCOVERAGE=83
 
 # if -n passed, don't check dependencies/lint/type/documentation.
 # wrapper script only cares about -n, others passed to test suite.
