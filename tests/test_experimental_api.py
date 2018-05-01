@@ -1,6 +1,7 @@
 """Test RyuApp that uses the experimental API."""
 
 import os
+import unittest
 
 from ryu.base import app_manager
 from ryu.controller.handler import set_ev_cls
@@ -9,7 +10,7 @@ from faucet import faucet # pylint: disable=import-error
 from faucet import faucet_experimental_api # pylint: disable=import-error
 
 
-class TestFaucetExperimentalAPI(app_manager.RyuApp):
+class TestFaucetExperimentalAPIViaRyu(app_manager.RyuApp):
     """Test experimental API."""
 
     _CONTEXTS = {
@@ -21,7 +22,7 @@ class TestFaucetExperimentalAPI(app_manager.RyuApp):
             result_file.write(result)
 
     def __init__(self, *args, **kwargs):
-        super(TestFaucetExperimentalAPI, self).__init__(*args, **kwargs)
+        super(TestFaucetExperimentalAPIViaRyu, self).__init__(*args, **kwargs)
         self.faucet_experimental_api = kwargs['faucet_experimental_api']
         self.result_file_name = os.getenv('API_TEST_RESULT')
         self._update_test_result('not registered')
@@ -36,3 +37,28 @@ class TestFaucetExperimentalAPI(app_manager.RyuApp):
             self._update_test_result('pass')
         except AssertionError as err:
             self._update_test_result(str(err))
+
+
+class TestFaucetExperimentalAPI(unittest.TestCase):
+    """Test methods for experimental API."""
+
+    def test_api(self):
+        api = faucet_experimental_api.FaucetExperimentalAPI()
+        self.assertFalse(api.is_registered())
+        api.reload_config()
+        self.assertIsNone(api.get_config())
+        self.assertIsNone(api.get_tables(0))
+        with self.assertRaises(NotImplementedError):
+            api.push_config(None)
+        with self.assertRaises(NotImplementedError):
+            api.add_port_acl(None, None)
+        with self.assertRaises(NotImplementedError):
+            api.add_vlan_acl(None, None)
+        with self.assertRaises(NotImplementedError):
+            api.delete_port_acl(None, None)
+        with self.assertRaises(NotImplementedError):
+            api.delete_vlan_acl(None, None)
+
+
+if __name__ == "__main__":
+    unittest.main()
