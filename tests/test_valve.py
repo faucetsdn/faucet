@@ -477,6 +477,14 @@ class ValveTestCase(ValveTestBase):
     def tearDown(self):
         self.teardown_valve()
 
+    def test_notifier_socket_path(self):
+        new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
+        self.assertEqual(self.notifier.check_path(new_path), new_path)
+        stale_socket = os.path.join(self.tmpdir, 'stale_socket')
+        with open(stale_socket, 'w') as stale_socket_file:
+            stale_socket_file.write('')
+        self.assertEqual(self.notifier.check_path(stale_socket), stale_socket)
+
     def test_disconnect(self):
         """Test disconnection of DP from controller."""
         # TODO: verify DP state change.
