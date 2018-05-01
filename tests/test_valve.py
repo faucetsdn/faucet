@@ -1300,7 +1300,9 @@ class RyuAppSmokeTest(unittest.TestCase):
                 ryu_app.packet_in_handler,
                 ryu_app.desc_stats_reply_handler,
                 ryu_app.port_status_handler,
-                ryu_app.flowremoved_handler):
+                ryu_app.flowremoved_handler,
+                ryu_app._datapath_connect,
+                ryu_app._datapath_disconnect):
             datapath = namedtuple('datapath', 'id')
             datapath.id = 0
             datapath.close = lambda: None
