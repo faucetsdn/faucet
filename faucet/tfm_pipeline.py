@@ -7,6 +7,7 @@ from faucet import valve_of
 
 
 class LoadRyuTables(object):
+    """Serialize table features messages from JSON."""
 
     _CLASS_NAME_TO_NAME_IDS = {
         'OFPTableFeaturePropInstructions': 'instruction_ids',
