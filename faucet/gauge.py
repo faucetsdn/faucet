@@ -16,8 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller import ofp_event
@@ -98,14 +96,13 @@ class Gauge(RyuAppBase):
     @kill_on_exception(exc_logname)
     def _update_watcher(self, name, ryu_event):
         """Call watcher with event data."""
-        rcv_time = time.time()
         watchers, ryu_dp, msg = self._get_watchers(
             '_update_watcher: %s' % name, ryu_event)
         if watchers is None:
             return
         if name in watchers:
             for watcher in watchers[name]:
-                watcher.update(rcv_time, ryu_dp.id, msg)
+                watcher.update(ryu_event.timestamp, ryu_dp.id, msg)
 
     def _config_files_changed(self):
         return self.config_watcher.files_changed()
