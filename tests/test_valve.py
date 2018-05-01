@@ -26,6 +26,7 @@ import tempfile
 import shutil
 import socket
 
+from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether, inet
@@ -1293,6 +1294,21 @@ class RyuAppSmokeTest(unittest.TestCase):
         ryu_app.metric_update(None)
         ryu_app.get_config()
         ryu_app.get_tables(0)
+        for event_handler in (
+                ryu_app.error_handler,
+                ryu_app.features_handler,
+                ryu_app.packet_in_handler,
+                ryu_app.desc_stats_reply_handler,
+                ryu_app.port_status_handler,
+                ryu_app.flowremoved_handler):
+            datapath = namedtuple('datapath', 'id')
+            datapath.id = 0
+            datapath.close = lambda: None
+            msg = namedtuple('msg', 'datapath')
+            msg.datapath = datapath
+            event = EventOFPMsgBase(msg=msg)
+            event.dp = datapath
+            event_handler(event)
 
 
 if __name__ == "__main__":
