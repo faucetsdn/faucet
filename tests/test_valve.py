@@ -40,11 +40,12 @@ from faucet import faucet_bgp
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
-from faucet import valve
 from faucet import valves_manager
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_util
+
+from faucet.valve import TfmValve
 
 from fakeoftable import FakeOFTable
 
@@ -479,6 +480,7 @@ class ValveTestCase(ValveTestBase):
         self.teardown_valve()
 
     def test_notifier_socket_path(self):
+        """Test notifier socket path checker."""
         new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
         self.assertEqual(self.notifier.check_path(new_path), new_path)
         stale_socket = os.path.join(self.tmpdir, 'stale_socket')
@@ -502,7 +504,7 @@ class ValveTestCase(ValveTestBase):
 
     def test_switch_features(self):
         """Test switch features handler."""
-        self.assertTrue(isinstance(self.valve, valve.TfmValve), msg=type(self.valve))
+        self.assertTrue(isinstance(self.valve, TfmValve), msg=type(self.valve))
         features_flows = self.valve.switch_features(None)
         tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
         # TODO: verify TFM content.
