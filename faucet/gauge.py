@@ -179,32 +179,20 @@ class Gauge(RyuAppBase):
         self.logger.info('%s down', dpid_log(ryu_dp.id))
         self._stop_watchers(ryu_dp.id, watchers)
 
+    _WATCHER_HANDLERS = {
+        ofp_event.EventOFPPortStatus: 'port_state', # pylint: disable=no-member
+        ofp_event.EventOFPPortStatsReply: 'port_stats', # pylint: disable=no-member
+        ofp_event.EventOFPFlowStatsReply: 'flow_table', # pylint: disable=no-member
+    }
+
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
-    def port_status_handler(self, ryu_event):
+    def update_watcher_handler(self, ryu_event):
         """Handle port status change event.
 
         Args:
            ryu_event (ryu.controller.event.EventReplyBase): port status change event.
         """
-        self._update_watcher('port_state', ryu_event)
-
-    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
-    @kill_on_exception(exc_logname)
-    def port_stats_reply_handler(self, ryu_event):
-        """Handle port stats reply event.
-
-        Args:
-           ryu_event (ryu.controller.event.EventReplyBase): port stats event.
-        """
-        self._update_watcher('port_stats', ryu_event)
-
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
-    @kill_on_exception(exc_logname)
-    def flow_stats_reply_handler(self, ryu_event):
-        """Handle flow stats reply event.
-
-        Args:
-           ryu_event (ryu.controller.event.EventReplyBase): flow stats event.
-        """
-        self._update_watcher('flow_table', ryu_event)
+        self._update_watcher(self._WATCHER_HANDLERS[type(ryu_event)], ryu_event)
