@@ -20,7 +20,6 @@ import time
 
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.controller import dpset
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
@@ -114,14 +113,8 @@ class Gauge(RyuAppBase):
             for watcher in watchers[name]:
                 watcher.update(rcv_time, ryu_dp.id, msg)
 
-    @kill_on_exception(exc_logname)
-    def _config_file_stat(self):
-        """Periodically stat config files for any changes."""
-        while True:
-            if self.config_watcher.files_changed():
-                if self.stat_reload:
-                    self.send_event('Gauge', EventReconfigure())
-            self._thread_jitter(3)
+    def _config_files_changed(self):
+        return self.config_watcher.files_changed()
 
     @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
     def reload_config(self, _):

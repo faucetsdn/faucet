@@ -168,25 +168,8 @@ class Faucet(RyuAppBase):
             valve.ofchannel_log([msg])
         return (valve, ryu_dp, msg)
 
-    def _thread_reschedule(self, ryu_event, period, jitter=2):
-        """Trigger Ryu events periodically with a jitter.
-
-        Args:
-            ryu_event (ryu.controller.event.EventReplyBase): event to trigger.
-            period (int): how often to trigger.
-        """
-        while True:
-            self.send_event('Faucet', ryu_event)
-            self._thread_jitter(period, jitter)
-
-    @kill_on_exception(exc_logname)
-    def _config_file_stat(self):
-        """Periodically stat config files for any changes."""
-        while True:
-            if self.valves_manager.config_watcher.files_changed():
-                if self.stat_reload:
-                    self.send_event('Faucet', EventReconfigure())
-            self._thread_jitter(3)
+    def _config_files_changed(self):
+        return self.valves_manager.config_watcher.files_changed()
 
     def _gateway_resolve_request(self):
         self._thread_reschedule(EventFaucetResolveGateways(), 2)

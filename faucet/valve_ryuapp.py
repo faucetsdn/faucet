@@ -63,9 +63,20 @@ class RyuAppBase(app_manager.RyuApp):
             self.exc_logname, exc_logfile, logging.DEBUG, 1)
 
     @staticmethod
-    def _thread_jitter(period, jitter=3):
+    def _thread_jitter(period, jitter=2):
         """Reschedule another thread with a random jitter."""
         hub.sleep(period + random.randint(0, jitter))
+
+    def _thread_reschedule(self, ryu_event, period, jitter=2):
+        """Trigger Ryu events periodically with a jitter.
+
+        Args:
+            ryu_event (ryu.controller.event.EventReplyBase): event to trigger.
+            period (int): how often to trigger.
+        """
+        while True:
+            self.send_event(self.__class__.__name__, ryu_event)
+            self._thread_jitter(period, jitter)
 
     def get_setting(self, setting, path_eval=False):
         """Return config setting prefaced with logname."""
@@ -82,6 +93,18 @@ class RyuAppBase(app_manager.RyuApp):
             sys.exit(0)
         if sigid == signal.SIGHUP:
             self.send_event(self.__class__.__name__, EventReconfigure())
+
+    def _config_files_changed(self):
+        """Return True if config files changed."""
+        return False
+
+    def _config_file_stat(self):
+        """Periodically stat config files for any changes."""
+        while True:
+            if self._config_files_changed():
+                if self.stat_reload:
+                    self.send_event(self.__class__.__name__, EventReconfigure())
+            self._thread_jitter(3)
 
     def start(self):
         """Start controller."""
