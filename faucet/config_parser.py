@@ -44,16 +44,12 @@ def dp_parser(config_file, logname):
     config_hashes = None
     dps = None
 
-    try:
-        test_config_condition(conf is None, 'Config file is empty')
-        test_config_condition(not isinstance(conf, dict), 'Config file does not have valid syntax')
-        version = conf.pop('version', 2)
-        test_config_condition(version != 2, 'Only config version 2 is supported')
-        config_hashes, dps = _config_parser_v2(config_file, logname)
-        test_config_condition(dps is None, 'no DPs are not defined')
-
-    except AssertionError as err:
-        raise InvalidConfigError(err)
+    test_config_condition(conf is None, 'Config file is empty')
+    test_config_condition(not isinstance(conf, dict), 'Config file does not have valid syntax')
+    version = conf.pop('version', 2)
+    test_config_condition(version != 2, 'Only config version 2 is supported')
+    config_hashes, dps = _config_parser_v2(config_file, logname)
+    test_config_condition(dps is None, 'no DPs are not defined')
 
     return config_hashes, dps
 
@@ -98,8 +94,10 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         port_ranges_conf = dp_conf.get('interface_ranges', {})
         # as users can config port vlan by using vlan name, we store vid in
         # Port instance instead of vlan name for data consistency
-        test_config_condition(not isinstance(ports_conf, dict), 'Invalid syntax in interface config')
-        test_config_condition(not isinstance(port_ranges_conf, dict), 'Invalid syntax in interface ranges config')
+        test_config_condition(not isinstance(ports_conf, dict), (
+            'Invalid syntax in interface config'))
+        test_config_condition(not isinstance(port_ranges_conf, dict), (
+            'Invalid syntax in interface ranges config'))
         port_num_to_port_conf = {}
         for port_key, port_conf in list(ports_conf.items()):
             test_config_condition(not isinstance(port_conf, dict), 'Invalid syntax in port config')
@@ -253,6 +251,7 @@ def _watcher_parser_v2(conf, logname, prom_client):
 
     dbs = conf.pop('dbs')
 
+    # pylint: disable=fixme
     for watcher_name, watcher_conf in list(conf['watchers'].items()):
         if watcher_conf.get('all_dps', False):
             watcher_dps = list(dps.keys())

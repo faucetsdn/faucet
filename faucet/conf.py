@@ -22,9 +22,9 @@ class InvalidConfigError(Exception):
     pass
 
 
-def test_config_condition(testCondition, errorMessage):
-    if testCondition:
-        raise InvalidConfigError(errorMessage)
+def test_config_condition(cond, msg):
+    if cond:
+        raise InvalidConfigError(msg)
 
 
 class Conf(object):
@@ -40,7 +40,7 @@ class Conf(object):
         self.dp_id = dp_id
         if conf is None:
             conf = {}
-        # TODO: handle conf as a sequence.
+        # TODO: handle conf as a sequence. # pylint: disable=fixme
         if isinstance(conf, dict):
             self.update(conf)
             self.set_defaults()

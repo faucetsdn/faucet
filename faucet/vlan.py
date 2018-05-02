@@ -199,13 +199,16 @@ class VLAN(Conf):
 
         if self.bgp_as:
             test_config_condition(not isinstance(self.bgp_port, int), (
-                "BGP port must be %s not %s" % (int, type(self.bgp_port))))
-            test_config_condition(self.bgp_connect_mode not in ('active', 'passive', 'both'), "")
-            test_config_condition(not ipaddress.IPv4Address(btos(self.bgp_routerid)), "")
-            test_config_condition(not self.bgp_neighbor_as, "")
-            test_config_condition(not self.bgp_neighbor_addresses, "")
+                'BGP port must be %s not %s' % (int, type(self.bgp_port))))
+            test_config_condition(self.bgp_connect_mode not in ('active', 'passive', 'both'), (
+                '%s must be active, passive or both' % self.bgp_connect_mode))
+            test_config_condition(not ipaddress.IPv4Address(btos(self.bgp_routerid)), (
+                '%s is not a valid IPv4 address' % (self.bgp_routerid)))
+            test_config_condition(not self.bgp_neighbor_as, 'No BGP neighbor AS')
+            test_config_condition(not self.bgp_neighbor_addresses, 'No BGP neighbor addresses')
             neighbor_ips = [ipaddress.ip_address(btos(ip)) for ip in self.bgp_neighbor_addresses]
-            test_config_condition(len(neighbor_ips) != len(self.bgp_neighbor_addresses), "")
+            test_config_condition(len(neighbor_ips) != len(self.bgp_neighbor_addresses), (
+                'Neighbor IPs is not the same length as BGP neighbor addresses'))
             peer_versions = [ip.version for ip in neighbor_ips]
             test_config_condition( len(peer_versions) != 1 and self.bgp_connect_mode != 'active', (
                 'if using multiple address families bgp_connect_mode must be active'))
@@ -219,7 +222,7 @@ class VLAN(Conf):
                         ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
                     except (ValueError, AttributeError, TypeError) as err:
                         raise InvalidConfigError('Invalid IP address in route: %s' % err)
-                    test_config_condition(ip_gw.version != ip_dst.version, "")
+                    test_config_condition(ip_gw.version != ip_dst.version, 'ip_gw version does not match the ip_dst version')
                     self.add_route(ip_dst, ip_gw)
             except KeyError:
                 raise InvalidConfigError('missing route config')

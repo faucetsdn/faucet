@@ -235,15 +235,19 @@ configuration.
         return self.name
 
     def check_config(self):
-        test_config_condition(not isinstance(self.dp_id, int), 'dp_id must be %s not %s' % (int, type(self.dp_id)))
-        test_config_condition(self.dp_id < 0 or self.dp_id > 2**64-1, 'DP ID %s not in valid range' % self.dp_id)
-        test_config_condition(not netaddr.valid_mac(self.faucet_dp_mac), 'invalid MAC address %s' % self.faucet_dp_mac)
+        test_config_condition(not isinstance(self.dp_id, int), (
+            'dp_id must be %s not %s' % (int, type(self.dp_id))))
+        test_config_condition(self.dp_id < 0 or self.dp_id > 2**64-1, (
+            'DP ID %s not in valid range' % self.dp_id))
+        test_config_condition(not netaddr.valid_mac(self.faucet_dp_mac), (
+            'invalid MAC address %s' % self.faucet_dp_mac))
         test_config_condition(self.group_table and self.group_table_routing, (
             'groups for routing and other functions simultaneously not supported'))
         test_config_condition(not (self.interfaces or self.interface_ranges), (
             'DP %s must have at least one interface' % self))
         # To prevent L2 learning from timing out before L3 can refresh
-        test_config_condition(self.timeout < self.arp_neighbor_timeout, 'L2 timeout must be >= L3 timeout')
+        test_config_condition(self.timeout < self.arp_neighbor_timeout, (
+            'L2 timeout must be >= L3 timeout'))
         if self.lldp_beacon:
             self._check_conf_types(self.lldp_beacon, self.lldp_beacon_defaults_types)
             test_config_condition('send_interval' not in self.lldp_beacon, (
@@ -353,12 +357,14 @@ configuration.
         for dp in dps:
             if dp.stack is not None:
                 stack_dps.append(dp)
-                if 'priority' in dp.stack:#TODO: 
-                    test_config_condition(dp.stack['priority'] <= 0, 'stack priority must be > 0')
+                if 'priority' in dp.stack: 
+                    test_config_condition(dp.stack['priority'] <= 0, (
+                        'stack priority must be > 0'))
                     test_config_condition(root_dp is not None, 'cannot have multiple stack roots')
                     root_dp = dp
                     for vlan in list(dp.vlans.values()):
-                        test_config_condition(vlan.faucet_vips != [], 'routing + stacking not supported')
+                        test_config_condition(vlan.faucet_vips != [], (
+                            'routing + stacking not supported'))
 
         if root_dp is None:
             test_config_condition(stack_dps, 'stacking enabled but no root_dp')
@@ -409,7 +415,8 @@ configuration.
 
     def peer_stack_up_ports(self, peer_dp):
         """Return list of stack ports that are up towards a peer."""
-        return [port for port in self.stack_ports if port.running() and port.stack['dp'].name == peer_dp]
+        return [port for port in self.stack_ports if port.running() and (
+            port.stack['dp'].name == peer_dp)]
 
     def shortest_path_port(self, dest_dp):
         """Return first port on our DP, that is the shortest path towards dest DP."""
@@ -475,13 +482,14 @@ configuration.
             port_stack_dp = {}
             for port in self.stack_ports:
                 stack_dp = port.stack['dp']
-                test_config_condition(stack_dp not in dp_by_name, 'stack DP %s not defined' % stack_dp)
+                test_config_condition(stack_dp not in dp_by_name, (
+                    'stack DP %s not defined' % stack_dp))
                 port_stack_dp[port] = dp_by_name[stack_dp]
             for port, dp in list(port_stack_dp.items()):
                 port.stack['dp'] = dp
                 stack_port_name = port.stack['port']
-                test_config_condition(stack_port_name not in dp.ports, 'stack port %s not defined in DP %s' % (
-                    stack_port_name, dp.name))
+                test_config_condition(stack_port_name not in dp.ports, (
+                    'stack port %s not defined in DP %s' % (stack_port_name, dp.name)))
                 port.stack['port'] = dp.ports[stack_port_name]
 
         def resolve_mirror_destinations():
@@ -537,7 +545,8 @@ configuration.
 
             def resolve_output(_acl, action_conf):
                 resolved_action_conf = {}
-                test_config_condition(not isinstance(action_conf, dict), 'action conf is not a dictionary')
+                test_config_condition(not isinstance(action_conf, dict), (
+                    'action conf is not a dictionary'))
                 for output_action, output_action_values in list(action_conf.items()):
                     if output_action == 'port':
                         port_name = output_action_values
@@ -550,7 +559,8 @@ configuration.
                             output_action_values)
                     elif output_action == 'failover':
                         failover = output_action_values
-                        test_config_condition(not isinstance(failover, dict), 'failover is not a dictionary')
+                        test_config_condition(not isinstance(failover, dict), (
+                            'failover is not a dictionary'))
                         resolved_action_conf[output_action] = {}
                         for failover_name, failover_values in list(failover.items()):
                             if failover_name == 'ports':
@@ -600,7 +610,8 @@ configuration.
                 for attrib, attrib_value in list(rule_conf.items()):
                     if attrib == 'actions':
                         resolved_actions = {}
-                        test_config_condition(not isinstance(attrib_value, dict), 'attrib_value is not a dictionary')
+                        test_config_condition(not isinstance(attrib_value, dict), (
+                            'attrib_value is not a dictionary'))
                         for action_name, action_conf in list(attrib_value.items()):
                             resolved_action_conf = action_resolvers[action_name](
                                 acl, action_conf)
@@ -678,8 +689,9 @@ configuration.
             bgp_ports = set([vlan.bgp_port for vlan in bgp_vlans])
             test_config_condition(len(bgp_ports) != 1, 'BGP ports must all be the same')
             for vlan in bgp_vlans:
-                test_config_condition(vlan.bgp_server_addresses != bgp_vlans[0].bgp_server_addresses, (
-                    'BGP server addresses must all be the same'))
+                test_config_condition(vlan.bgp_server_addresses != (
+                    bgp_vlans[0].bgp_server_addresses), (
+                        'BGP server addresses must all be the same'))
 
         for port in list(self.ports.values()):
             port.finalize()
