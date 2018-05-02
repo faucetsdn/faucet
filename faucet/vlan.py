@@ -22,7 +22,7 @@ import netaddr
 import random
 
 from faucet import valve_of
-from faucet.conf import Conf
+from faucet.conf import Conf, test_config_condition, InvalidConfigError
 from faucet.valve_util import btos
 from faucet.valve_packet import FAUCET_MAC
 
@@ -183,31 +183,32 @@ class VLAN(Conf):
 
     def check_config(self):
         super(VLAN, self).check_config()
-        assert self.vid_valid(self.vid), 'invalid VID %s' % self.vid
-        assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
-
+        test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
+        test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
+            'invalid MAC address %s' % self.faucet_mac))
         if self.faucet_vips:
             try:
                 self.faucet_vips = [
                     ipaddress.ip_interface(btos(ip)) for ip in self.faucet_vips]
             except (ValueError, AttributeError, TypeError) as err:
-                assert False, 'Invalid IP address in faucet_vips: %s' % err
+                raise InvalidConfigError('Invalid IP address in faucet_vips: %s' % err)
             for faucet_vip in self.faucet_vips:
                 self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(
                     faucet_vip)
             self.dyn_ipvs = list(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_as:
-            assert isinstance(self.bgp_port, int)
-            assert self.bgp_connect_mode in ('active', 'passive', 'both')
-            assert ipaddress.IPv4Address(btos(self.bgp_routerid))
-            assert self.bgp_neighbor_as
-            assert self.bgp_neighbor_addresses
+            test_config_condition(not isinstance(self.bgp_port, int), (
+                "BGP port must be %s not %s" % (int, type(self.bgp_port))))
+            test_config_condition(self.bgp_connect_mode not in ('active', 'passive', 'both'), "")
+            test_config_condition(not ipaddress.IPv4Address(btos(self.bgp_routerid)), "")
+            test_config_condition(not self.bgp_neighbor_as, "")
+            test_config_condition(not self.bgp_neighbor_addresses, "")
             neighbor_ips = [ipaddress.ip_address(btos(ip)) for ip in self.bgp_neighbor_addresses]
-            assert len(neighbor_ips) == len(self.bgp_neighbor_addresses)
+            test_config_condition(len(neighbor_ips) != len(self.bgp_neighbor_addresses), "")
             peer_versions = [ip.version for ip in neighbor_ips]
-            assert len(peer_versions) == 1 or self.bgp_connect_mode == 'active', (
-                'if using multiple address families bgp_connect_mode must be active')
+            test_config_condition( len(peer_versions) != 1 and self.bgp_connect_mode != 'active', (
+                'if using multiple address families bgp_connect_mode must be active'))
 
         if self.routes:
             try:
@@ -217,21 +218,20 @@ class VLAN(Conf):
                         ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
                         ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
                     except (ValueError, AttributeError, TypeError) as err:
-                        assert False, 'Invalid IP address in route: %s' % err
-                    assert ip_gw.version == ip_dst.version
+                        raise InvalidConfigError('Invalid IP address in route: %s' % err)
+                    test_config_condition(ip_gw.version != ip_dst.version, "")
                     self.add_route(ip_dst, ip_gw)
             except KeyError:
-                assert False, 'missing route config'
+                raise InvalidConfigError('missing route config')
             except TypeError:
-                assert False, '%s is not a valid routes value' % self.routes
-        if self.acl_in and self.acls_in:
-            assert False, 'found both acl_in and acls_in, use only acls_in'
+                raise InvalidConfigError('%s is not a valid routes value' % self.routes)
+        test_config_condition(self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
         if self.acl_in and not isinstance(self.acl_in, list):
             self.acls_in = [self.acl_in,]
             self.acl_in = None
         if self.acls_in:
             for acl in self.acls_in:
-                assert isinstance(acl, (int, str)), 'acl names must be int or str'
+                test_config_condition(not isinstance(acl, (int, str)), 'acl names must be int or str')
 
     @staticmethod
     def vid_valid(vid):
