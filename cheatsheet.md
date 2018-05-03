@@ -1,0 +1,47 @@
+# Cheatsheet
+
+
+Delete things:
+ovs-vsctl del-br <bridge name>
+ovs-vsctl del-port <bridge name> <port name>
+ip netns delete <netns name>
+ip link delete <interface name>
+
+
+cleanup
+cleanup () {
+    for br in $(ovs-vsctl list-br); do
+        ovs-vsctl del-br $br
+    done
+    IFS=$'\n';
+    for i in  $(ip netns list); do
+        echo $i | cut -d ' ' -f1 | xargs ip netns delete ;
+    done
+}
+
+Create Things:
+ovs-vsctl add-br <bridge name>
+ovs-vsctl add-port <bridge name> <port name> -- set interface <interface name> ofport_request=<port number>
+ovs-vsctl set-controller <bridge name> tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
+
+create_ns <netns name> <ip>/<subnet>
+create_ns () {
+    NETNS=$1
+    IP=$2
+    sudo ip netns add ${NETNS}
+    sudo ip link add dev veth-${NETNS} type veth peer name veth0 netns $NETNS
+    sudo ip link set dev veth-${NETNS} up
+    sudo ip netns exec $NETNS ip link set dev veth0 up
+    sudo ip netns exec $NETNS ip addr add dev veth0 $IP
+    sudo ip netns exec $NETNS ip link set dev lo up
+}
+
+
+
+execute command in namespace:
+as_ns <netns> <command> ...
+as_ns () {
+    NETNS=$1
+    shift
+    sudo ip netns exec $NETNS $@
+}
