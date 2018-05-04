@@ -7,9 +7,11 @@ ETA: ~30 mins.
 In this tutorial we will look how to do the following tasks using faucet: 
 * Native VLAN.
 * Mixed VLANS (native and tagged). 
-* Routing between different VLANs.
 * Trunk link 
-* ACL for a particular VLAN. 
+* ACL for a particular VLAN.  
+
+
+Note: You can find routing between VLANs [here](..routing.md)
 
 To demonistrat these tasks we will use a demo network where a single switch br0 connects to:
 - Native vlan100: host1 (192.168.0.1/24), host2 (192.168.0.2/24). 
@@ -182,46 +184,6 @@ as_ns host7 ping 192.168.3.9
 ```
 All these traffic should go through to the host9 as it is connected through trunk link. 
 
-## Routing between vlans
-Let's try to make a route between hosts in vlan100 and vlan200. 
-To do that, add a router and change vlans section in the /etc/faucet/faucet.yaml to be like.
-```
-vlans:
-    vlan100:
-        vid: 100
-        faucet_vips: ["192.168.0.254/24"]
-    vlan200:
-        vid: 200
-        faucet_vips: ["192.168.2.254/24"]
-    vlan300:
-        vid: 300
-
-routers:
-    router-1:
-        vlans: [vlan100, vlan200] 
-        
-```
-Send SIGHUP singnal to reload the configuration file. 
-```
-sudo pkill -HUP -f faucet.faucet
-```
-Configure vlan100 (native, tagged), vlan200 hosts gateway to be faucet IP as shown in the faucet.yaml file.
-```
-as_ns host1 route add default gw 192.168.0.254 veth0
-as_ns host2 route add default gw 192.168.0.254 veth0
-
-as_ns host3 route add default gw 192.168.0.254 veth0.100
-as_ns host4 route add default gw 192.168.0.254 veth0.100
-
-as_ns host5 route add default gw 192.168.2.254 veth0
-as_ns host6 route add default gw 192.168.2.254 veth0
-```
-Then make some traffic between vlan100 and vlan200. 
-```
-as_ns host1 ping 192.168.2.5
-as_ns host3 ping 192.168.2.6
-```
-It should works and traffic should go through. 
 
 ## Vlan ACL
 Let's apply ACL on a particular vlan (e.g. vlan300). We will block any ICMP packets on Vlan300. 
