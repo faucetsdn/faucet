@@ -11,7 +11,7 @@ In this tutorial we will look how to do the following tasks using faucet:
 * ACL for a particular VLAN.  
 
 
-Note: You can find routing between VLANs [here](..routing.md)
+Note: You can find routing between VLANs [here](routing.md)
 
 To demonistrat these tasks we will use a demo network where a single switch br0 connects to:
 - Native vlan100: host1 (192.168.0.1/24), host2 (192.168.0.2/24). 

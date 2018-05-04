@@ -77,22 +77,20 @@ It should work and traffic should go through.
 
 
 ## Static Routing
-For this we will setup two Faucet switches with two hosts each
+For this we will setup a Faucet switch with three hosts.
+One of these hosts will act like a gateway,
 
-h1 --- sw1 --- sw2 --- h3
-h2 ---/           \--- h4
 ![static routing network diagram](./static-routing.svg)
 Run the cleanup script to remove old namespaces and switches.
 ```bash
 cleanup
 ```
 
-Create 4 hosts, in 2 diffferent subnets:
+Create 3 hosts, in 2 diffferent subnets:
 ```bash
 create_ns host1 10.0.0.1/24
 create_ns host2 10.0.0.2/24
-create_ns host3 10.0.1.3/24
-create_ns host4 10.0.1.4/24
+create_ns hostgw 10.0.1.3/24
 ```
 
 And add a default route for each host to it's gateway router.
@@ -100,42 +98,24 @@ And add a default route for each host to it's gateway router.
 as_ns host1 ip route add default via 10.0.0.254
 as_ns host2 ip route add default via 10.0.0.254
 as_ns host3 ip route add default via 10.0.1.254
-as_ns host4 ip route add default via 10.0.1.254
 ```
 
-Create the 2 bridges and add hosts 1 & 2 to br1 and 3 & 4 to br2.
+Create the bridge and add hosts 1, 2 and the gw to br1.
 ```bash
 sudo ovs-vsctl add-br br1 \
 -- set bridge br1 other-config:datapath-id=0000000000000001 \
 -- set bridge br1 other-config:disable-in-band=true \
 -- set bridge br1 fail_mode=secure \
--- add-port br1 veth-host1 -- set interface veth-host1 ofport_request=2 \
--- add-port br1 veth-host2 -- set interface veth-host2 ofport_request=3 \
+-- add-port br1 veth-host1 -- set interface veth-host1 ofport_request=1 \
+-- add-port br1 veth-host2 -- set interface veth-host2 ofport_request=2 \
+-- add-port br1 veth-hostgw -- set interface veth-hostgw ofport_request=3 \
 -- set-controller br1 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
-
-sudo ovs-vsctl add-br br2 \
--- set bridge br2 other-config:datapath-id=0000000000000002 \
--- set bridge br2 other-config:disable-in-band=true \
--- set bridge br2 fail_mode=secure \
--- add-port br2 veth-host3 -- set interface veth-host3 ofport_request=2 \
--- add-port br2 veth-host4 -- set interface veth-host4 ofport_request=3 \
--- set-controller br2 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
-```
-
-Finally connect the two bridges together with an OVS 'patch-port'
-```bash
-sudo ovs-vsctl add-port br1 br1-br2 -- set interface br1-br2 ofport_request=1 \
--- set interface br1-br2 type=patch -- set interface br1-br2 options:peer=br2-br1 \
--- add-port br2 br2-br1 -- set interface br2-br1 ofport_request=1 \
--- set interface br2-br1 type=patch -- set interface br2-br1 options:peer=br1-br2
 ```
 
 For this Faucet configuration we will start from scratch.
-First we need to define 4 VLANs.
-1. br1's hosts.
-2. br1's link local address to the 'remote' router (br2)
-3. br2's link local address to the 'remote' router (br1)
-4. br2's hosts.
+First we need to define 2 VLANs.
+1. hosts.
+2. gw.
 
 Here we have 3 new options:
 - faucet_mac: The MAC address of Faucet's routing interface on this VLAN.
@@ -154,31 +134,15 @@ vlans:
         faucet_mac: "00:00:00:00:00:11"
         faucet_vips: ["10.0.0.254/24"]
 
-    br1-peer:
+    br1-gw:
         vid: 200
-        description: "vlan for peering port"
+        description: "vlan for gw port"
         faucet_mac: "00:00:00:00:00:22"
-        faucet_vips: ["192.168.1.1/24"]
-        routes:
-            - route:
-                ip_dst: "10.0.1.0/24"
-                ip_gw: '192.168.1.2'
-
-    br2-peer:
-        vid: 300
-        description: "vlan for peering port"
-        faucet_mac: "00:00:00:00:00:33"
-        faucet_vips: ["192.168.1.2/24"]
-        routes:
-            - route:
-                ip_dst: "10.0.0.0/24"
-                ip_gw: "192.168.1.1"
-
-    br2-hosts:
-        vid: 400
-        description: "h3 & h4's vlan"
-        faucet_mac: "00:00:00:00:00:44"
         faucet_vips: ["10.0.1.254/24"]
+        routes:
+            - route:
+                ip_dst: "0.0.0.0/24"
+                ip_gw: '10.0.1.1/24'
 ```
 
 As our routing interface is in a different VLAN, we will want to route between the two VLANs on the switch (br1-hosts & br1-peer).
@@ -187,8 +151,6 @@ So as with inter VLAN routing we will create a router for each switch.
 routers:
     router-br1:
         vlans: [br1-hosts, br1-peer]
-    router-br2:
-        vlans: [br2-hosts, br2-peer]
 ```
 And the rest of the config looks like this:
 ```yaml
@@ -198,35 +160,18 @@ dps:
         hardware: "Open vSwitch"
         interfaces:
             1:
-                name: "br2"
-                description: "connects to br2"
-                native_vlan: br1-peer
-            2:
                 name: "host1"
                 description: "host1 network namespace"
                 native_vlan: br1-hosts
-            3:
+            2:
                 name: "host2"
                 description: "host2 network namespace"
                 native_vlan: br1-hosts
-    br2:
-        dp_id: 0x2
-        hardware: "Open vSwitch"
-        interfaces:
-            1:
-                name: "br1"
-                description: "connects to br1"
-                native_vlan: br2-peer
-            2:
-                name: 'host3'
-                description: "host3 network namespace"
-                native_vlan: br2-hosts
             3:
-                name: "host4"
-                description: "host4 network namespace"
-                native_vlan: br2-hosts
+                name: "gw:"
+                description: "hostgw network namespace"
+                native_vlan: br1-gw
 ```
-
 
 
 Start/reload Faucet.
