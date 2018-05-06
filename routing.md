@@ -66,8 +66,8 @@ sudo pkill -HUP -f faucet.faucet
 ```
 Add the default route to the 'faucet_vips' as above.
 ```bash
-as_ns host1 ip route add default via 10.0.0.254 veth0
-as_ns host2 ip route add default via 10.0.1.254 veth0
+as_ns host1 ip route add default via 10.0.0.254 dev veth0
+as_ns host2 ip route add default via 10.0.1.254 dev veth0
 ```
 Then make some traffic between our two hosts.
 ```bash
@@ -201,10 +201,10 @@ If you are NOT using the workshop VM you will need to install BIRD.
 
 To install BIRD:
 ```bash
-apt-get install flex bison libncurses5-dev libreadline-dev
+apt-get install flex bison libncurses5-dev libreadline-dev make
 wget ftp://bird.network.cz/pub/bird/bird-1.6.4.tar.gz
 tar -xf bird-1.6.4.tar.gz
-cd bird1.6.4
+cd bird-1.6.4
  ./configure
 make
 make install
@@ -301,8 +301,8 @@ sudo systemctl stop faucet
 
 And now we can start the Faucets (start them in different terminals, we will need to restart them later).
 ```bash
-$ sudo env FAUCET_CONFIG=/home/ubuntu/sw1-faucet.yaml FAUCET_LOG=/var/log/faucet/sw1-faucet.log faucet
-$ sudo env FAUCET_CONFIG=/home/ubuntu/sw2-faucet.yaml FAUCET_LOG=/var/log/faucet/sw2-faucet.log  FAUCET_PROMETHEUS_PORT=9304 faucet --ryu-ofp-tcp-listen-port=6650
+sudo env FAUCET_CONFIG=$HOME/sw1-faucet.yaml FAUCET_LOG=/var/log/faucet/sw1-faucet.log faucet
+sudo env FAUCET_CONFIG=$HOME/sw2-faucet.yaml FAUCET_LOG=/var/log/faucet/sw2-faucet.log  FAUCET_PROMETHEUS_PORT=9304 faucet --ryu-ofp-tcp-listen-port=6650 
 ```
 
 Check the logs to confirm the two switches have connected to the correct Faucet.
@@ -322,8 +322,8 @@ May 03 10:51:58 faucet.valve INFO     DPID 2 (0x2) Ignoring port:4294967294 not 
 
 And check that host1 can ping host2 but not host3 or host4.
 ```bash
-$ as_ns host1 ping 10.0.0.2
-$ as_ns host1 ping 10.0.1.3
+as_ns host1 ping 10.0.0.2
+as_ns host1 ping 10.0.1.3
 ```
 
 Next we will add a new host to run our BGP service on, connect it to the switch's dataplane and create a virtual link for it to be able to communicate with Faucet.
@@ -331,23 +331,23 @@ Next we will add a new host to run our BGP service on, connect it to the switch'
 ![BGP Routing Namespace Diagram](bgp-routing-ns.svg)
 ```bash
 create_ns bgphost1 192.168.1.3/24
-ovs-vsctl add-port br1 veth-bgphost1 -- set interface veth-bgphost1 ofport_request=4
-ip link add name veth-bgphost1-0 type veth peer name vethbgpctrl0
-ip link set vethbgpctrl0 netns bgphost1
-ip addr add 172.16.1.1/24 dev veth-bgphost1-0
+sudo ovs-vsctl add-port br1 veth-bgphost1 -- set interface veth-bgphost1 ofport_request=4
+sudo ip link add name veth-bgphost1-0 type veth peer name vethbgpctrl0
+sudo ip link set vethbgpctrl0 netns bgphost1
+sudo ip addr add 172.16.1.1/24 dev veth-bgphost1-0
 as_ns bgphost1 ip addr add 172.16.1.2/24 dev vethbgpctrl0
-ip link set veth-bgphost1-0 up
+sudo ip link set veth-bgphost1-0 up
 as_ns bgphost1 ip link set vethbgpctrl0 up
 ```
 And repeat for the other side.
 ```bash
 create_ns bgphost2 192.168.1.4/24
-ovs-vsctl add-port br2 veth-bgphost2 -- set interface veth-bgphost2 ofport_request=4
-ip link add name veth-bgphost2-0 type veth peer name vethbgpctrl0
-ip link set vethbgpctrl0 netns bgphost2
-ip addr add 172.16.2.1/24 dev veth-bgphost2-0
+sudo ovs-vsctl add-port br2 veth-bgphost2 -- set interface veth-bgphost2 ofport_request=4
+sudo ip link add name veth-bgphost2-0 type veth peer name vethbgpctrl0
+sudo ip link set vethbgpctrl0 netns bgphost2
+sudo ip addr add 172.16.2.1/24 dev veth-bgphost2-0
 as_ns bgphost2 ip addr add 172.16.2.2/24 dev vethbgpctrl0
-ip link set veth-bgphost2-0 up
+sudo ip link set veth-bgphost2-0 up
 as_ns bgphost2 ip link set vethbgpctrl0 up
 ```
 
@@ -357,7 +357,7 @@ $ as_ns bgphost1 ping 172.16.1.1
 ```
 
 To configure BIRD1
-bird1.conf
+Create bird1.conf on $HOME
 ```
 protocol kernel {
     scan time 60;
@@ -388,7 +388,7 @@ protocol bgp kiwi {
 }
 ```
 and for BIRD2:
-bird2.conf
+Create bird2.conf on $HOME
 ```
 protocol kernel {
     scan time 60;
@@ -421,15 +421,15 @@ protocol bgp fruit {
 
 Start the two BIRDs
 ```bash
-$ as_ns bgphost1 bird -s /var/run/bird1.ctl-c /home/ubuntu/bird1.conf
+$ as_ns bgphost1 bird -s /var/run/bird1.ctl -c $HOME/bird1.conf
 ```
 and
 ```bash
-$ as_ns bgphost2 bird -s /var/run/bird2.ctl -c /home/ubuntu/bird2.conf
+$ as_ns bgphost2 bird -s /var/run/bird2.ctl -c $HOME/bird2.conf
 ```
 
 We'll configure the Faucets by adding the BGP configuration to the \*-peer VLAN.
-/etc/faucet/br1-faucet.yaml
+$HOME/sw1-faucet.yaml
 ```yaml
 vlans:
     br1-hosts:
@@ -455,7 +455,7 @@ routers:
         vlans: [br1-hosts, br1-peer]
 ```
 
-/etc/faucet/br2-faucet.yaml
+$HOME/sw2-faucet.yaml
 ```yaml
 vlans:
     br2-peer:
@@ -506,8 +506,8 @@ dps:
 ```
 Now restart the Faucets.
 ```bash
-$ sudo env FAUCET_CONFIG=/home/ubuntu/sw1-faucet.yaml FAUCET_LOG=/var/log/faucet/sw1-faucet.log faucet &
-$ sudo env FAUCET_CONFIG=/home/ubuntu/sw2-faucet.yaml FAUCET_LOG=/var/log/faucet/sw2-faucet.log  FAUCET_PROMETHEUS_PORT=9304 faucet --ryu-ofp-tcp-listen-port=6650 &
+sudo env FAUCET_CONFIG=$HOME/sw1-faucet.yaml FAUCET_LOG=/var/log/faucet/sw1-faucet.log faucet &
+sudo env FAUCET_CONFIG=$HOME/sw2-faucet.yaml FAUCET_LOG=/var/log/faucet/sw2-faucet.log  FAUCET_PROMETHEUS_PORT=9304 faucet --ryu-ofp-tcp-listen-port=6650 &
 ```
 
 and our logs should show us BGP peer router up.
@@ -523,7 +523,7 @@ Now we should be able to ping from host1 to host3.
 
 To confirm we are getting the routes from BGP we can query BIRD:
 ```bash
-$ birdcl -s /var/run/bird2.ctl show route
+birdcl -s /var/run/bird2.ctl show route
 BIRD 1.6.4 ready.
 10.0.0.0/24        via 192.168.1.1 on veth0 [fruit 11:38:47 from 192.168.1.3] * (100) [AS64512i]
 10.0.1.0/24        via 192.168.1.2 on veth0 [static1 11:31:29] * (200)
@@ -540,9 +540,9 @@ Next we will move host2 into a different subnet and add a route for it to be adv
 Remove the old 10.0.0.0/24 IP address and add the new one.
 
 ```bash
-$ as_ns host2 ip addr flush dev veth0
-$ as_ns host2 ip addr add 10.0.2.2/24 dev veth0
-$ as_ns host2 ip route add default via 10.0.2.254
+as_ns host2 ip addr flush dev veth0
+as_ns host2 ip addr add 10.0.2.2/24 dev veth0
+as_ns host2 ip route add default via 10.0.2.254
 ```
 
 And configure Faucet to put host 2 in a new VLAN.
