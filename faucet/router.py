@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from faucet.conf import Conf
+from faucet.conf import Conf, test_config_condition
 
 
 class Router(Conf):
@@ -37,5 +37,5 @@ class Router(Conf):
 
     def check_config(self):
         super(Router, self).check_config()
-        assert isinstance(self.vlans, list) and len(self.vlans) > 1, (
-            'router %s must have at least 2 VLANs configured' % self)
+        test_config_condition(not (isinstance(self.vlans, list) and len(self.vlans) > 1), (
+            'router %s must have at least 2 VLANs configured' % self))
