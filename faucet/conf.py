@@ -22,6 +22,11 @@ class InvalidConfigError(Exception):
     pass
 
 
+def test_config_condition(cond, msg):
+    if cond:
+        raise InvalidConfigError(msg)
+
+
 class Conf(object):
     """Base class for FAUCET configuration."""
 
@@ -35,7 +40,7 @@ class Conf(object):
         self.dp_id = dp_id
         if conf is None:
             conf = {}
-        # TODO: handle conf as a sequence.
+        # TODO: handle conf as a sequence. # pylint: disable=fixme
         if isinstance(conf, dict):
             self.update(conf)
             self.set_defaults()
@@ -50,18 +55,18 @@ class Conf(object):
         """Check that supplied conf dict doesn't specify keys not defined."""
         sub_conf_names = set(conf.keys())
         unknown_conf_names = sub_conf_names - set(self.defaults.keys())
-        assert not unknown_conf_names, '%s fields unknown in %s' % (
-            unknown_conf_names, self._id)
+        test_config_condition(unknown_conf_names, '%s fields unknown in %s' % (
+            unknown_conf_names, self._id))
 
     def _check_conf_types(self, conf, conf_types):
         """Check that conf value is of the correct type."""
         for conf_key, conf_value in list(conf.items()):
-            assert conf_key in conf_types, '%s field unknown in %s (known types %s)' % (
-                conf_key, self._id, conf_types)
+            test_config_condition(conf_key not in conf_types, '%s field unknown in %s (known types %s)' % (
+                conf_key, self._id, conf_types))
             if conf_value is not None:
                 conf_type = conf_types[conf_key]
-                assert isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
-                    conf_key, conf_value, conf_type, type(conf_value))
+                test_config_condition(not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
+                    conf_key, conf_value, conf_type, type(conf_value)))
 
     def _set_unknown_conf(self, conf, conf_types):
         for conf_key, conf_type in list(conf_types.items()):

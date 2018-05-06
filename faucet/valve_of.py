@@ -27,6 +27,7 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
+from faucet.conf import test_config_condition, InvalidConfigError
 from faucet.valve_of_old import OLD_MATCH_FIELDS
 
 MIN_VID = 1
@@ -418,11 +419,11 @@ def match_from_dict(match_dict):
 
     kwargs = {}
     for of_match, field in list(match_dict.items()):
-        assert of_match in MATCH_FIELDS, 'Unknown match field: %s' % of_match
+        test_config_condition(of_match not in MATCH_FIELDS, 'Unknown match field: %s' % of_match)
         try:
             encoded_field = MATCH_FIELDS[of_match](field)
         except TypeError:
-            assert False, '%s cannot be type %s' % (of_match, type(field))
+            raise InvalidConfigError('%s cannot be type %s' % (of_match, type(field)))
         kwargs[of_match] = encoded_field
 
     return parser.OFPMatch(**kwargs)
