@@ -246,12 +246,16 @@ class ValveRouteManager(object):
         Returns:
             list: tuple, gateway, controller IP in same subnet.
         """
-        ip_gws = []
+        host_ip_gws = []
+        route_ip_gws = []
         for ip_gw in vlan.all_ip_gws(self.IPV):
             for faucet_vip in vlan.faucet_vips_by_ipv(self.IPV):
                 if ip_gw in faucet_vip.network:
-                    ip_gws.append((ip_gw, faucet_vip))
-        return ip_gws
+                    if self._is_host_fib_route(vlan, ip_gw):
+                        host_ip_gws.append((ip_gw, faucet_vip))
+                    else:
+                        route_ip_gws.append((ip_gw, faucet_vip))
+        return (route_ip_gws, host_ip_gws)
 
     def _add_unresolved_nexthops(self, vlan, ip_gws):
         """Populates any missing nexthop cache entries.
@@ -329,7 +333,8 @@ class ValveRouteManager(object):
         Returns:
             list: OpenFlow messages.
         """
-        ip_gws = self._vlan_ip_gws(vlan)
+        route_ip_gws, host_ip_gws = self._vlan_ip_gws(vlan)
+        ip_gws = route_ip_gws + host_ip_gws
         self._add_unresolved_nexthops(vlan, ip_gws)
         all_unresolved_nexthops = self._vlan_unresolved_nexthops(
             vlan, ip_gws, now)
