@@ -17,7 +17,7 @@
 # limitations under the License.
 
 from faucet.valve_of import MATCH_FIELDS, OLD_MATCH_FIELDS
-from faucet.conf import Conf
+from faucet.conf import Conf, test_config_condition
 
 
 class ACL(Conf):
@@ -98,25 +98,28 @@ The output action contains a dictionary with the following elements:
         if isinstance(conf, dict):
             if 'exact_match' in conf and conf['exact_match']:
                 self.exact_match = True
-            assert 'rules' in conf, 'no rules found for ACL %s' % _id
+            test_config_condition('rules' not in conf, 'no rules found for ACL %s' % _id)
             rules = conf['rules']
         self.rules = []
-        assert isinstance(rules, list)
+        test_config_condition(not isinstance(rules, list), (
+            "ACL rules is %s not %s" % (type(rules), dict)))
         for match_fields in (MATCH_FIELDS, OLD_MATCH_FIELDS):
             for match in list(match_fields.keys()):
                 self.rule_types[match] = (str, int)
         for rule in rules:
-            assert isinstance(rule, dict)
+            test_config_condition(not isinstance(rule, dict), (
+                "ACL rule is %s not %s" % (type(rule), dict)))
             for rule_key, rule_content in list(rule.items()):
-                assert rule_key == 'rule'
-                assert isinstance(rule_content, dict)
+                test_config_condition(rule_key != 'rule', "Incorrect ACL rule key")
+                test_config_condition(not isinstance(rule_content, dict), (
+                    "ACL rule content is %s not %s") % (type(rule_content), dict))
                 self._check_conf_types(rule_content, self.rule_types)
                 for rule_field, rule_conf in list(rule_content.items()):
                     if rule_field == 'cookie':
-                        assert rule_conf > 0 and rule_conf <= 2**16, (
-                            'rule cookie value must be 0-2**16')
+                        test_config_condition(rule_conf < 0 or rule_conf > 2**16, (
+                            'rule cookie value must be 0-2**16'))
                     elif rule_field == 'actions':
-                        assert rule_conf
+                        test_config_condition(not rule_conf, "Invalid syntax in ACL")
                         self._check_conf_types(rule_conf, self.actions_types)
                         for action_name, action_conf in list(rule_conf.items()):
                             if action_name == 'output':

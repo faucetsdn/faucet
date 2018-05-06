@@ -18,6 +18,7 @@
 # limitations under the License.
 
 from faucet import valve_of
+from faucet.conf import InvalidConfigError
 
 
 def push_vlan(vlan_vid):
@@ -148,7 +149,7 @@ def build_acl_entry(rule_conf, meters,
     try:
         acl_match = valve_of.match_from_dict(acl_match_dict)
     except TypeError:
-        assert False, 'invalid type in ACL'
+        raise InvalidConfigError('invalid type in ACL')
     if acl_act:
         acl_inst.append(valve_of.apply_actions(acl_act))
     return (acl_match, acl_inst, acl_cookie, acl_ofmsgs)
