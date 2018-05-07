@@ -1479,6 +1479,55 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_good_set_fields(self):
+        """Test good set_fields."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        set_fields:
+                            - eth_dst: "0e:00:00:00:00:01"
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_failover_acl(self):
+        """Test failover ACL fields."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        failover:
+                             group_id: 1
+                             ports: [1]
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_unreferenced_acl(self):
         """Test an unresolveable port in an ACL that is not referenced is OK."""
         config = """
