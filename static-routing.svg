@@ -121,8 +121,9 @@
 				<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197" v:verticalAlign="2"/>
 				<v:textRect cx="68.6283" cy="391.406" width="137.26" height="53.8583"/>
 				<rect x="0" y="364.477" width="137.257" height="53.8583" class="st12"/>
-				<text x="4" y="410.74" class="st2" v:langID="1033"><v:paragraph/><v:tabList/>host1 namespace</text>			</g>
-			<g id="shape4-40" v:mID="4" v:groupContext="shape" transform="translate(24.5197,-40.214)">
+				<text x="4" y="396.33" class="st2" v:langID="1033"><v:paragraph/><v:tabList/>host1<v:newlineChar/><tspan x="4"
+							dy="1.2em" class="st3">namespace</tspan></text>			</g>
+			<g id="shape4-41" v:mID="4" v:groupContext="shape" transform="translate(24.5197,-40.214)">
 				<title>Box.4</title>
 				<desc>veth0 10.0.0.1/24</desc>
 				<v:userDefs>
@@ -134,9 +135,9 @@
 				<text x="25.37" y="402.36" class="st5" v:langID="1033"><v:paragraph v:horizAlign="1"/><v:tabList/>veth0<v:newlineChar/><tspan
 							x="15.87" dy="1.2em" class="st3">10</tspan>.0.0.1/24</text>			</g>
 		</g>
-		<g id="group58-44" transform="translate(198.425,-140.921)" v:mID="58" v:groupContext="group">
+		<g id="group58-45" transform="translate(198.425,-140.921)" v:mID="58" v:groupContext="group">
 			<title>Sheet.58</title>
-			<g id="shape5-45" v:mID="5" v:groupContext="shape">
+			<g id="shape5-46" v:mID="5" v:groupContext="shape">
 				<title>Box.5</title>
 				<desc>host2 namespace</desc>
 				<v:userDefs>
@@ -145,8 +146,9 @@
 				<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197" v:verticalAlign="2"/>
 				<v:textRect cx="68.6283" cy="391.406" width="137.26" height="53.8583"/>
 				<rect x="0" y="364.477" width="137.257" height="53.8583" class="st12"/>
-				<text x="4" y="410.74" class="st2" v:langID="1033"><v:paragraph/><v:tabList/>host2 namespace</text>			</g>
-			<g id="shape6-48" v:mID="6" v:groupContext="shape" transform="translate(25.5796,-44.1608)">
+				<text x="4" y="396.33" class="st2" v:langID="1033"><v:paragraph/><v:tabList/>host2<v:newlineChar/><tspan x="4"
+							dy="1.2em" class="st3">namespace</tspan></text>			</g>
+			<g id="shape6-50" v:mID="6" v:groupContext="shape" transform="translate(25.5796,-44.1608)">
 				<title>Box.6</title>
 				<desc>veth0 10.0.0.2/24</desc>
 				<v:userDefs>
@@ -158,7 +160,7 @@
 				<text x="25.37" y="402.36" class="st5" v:langID="1033"><v:paragraph v:horizAlign="1"/><v:tabList/>veth0<v:newlineChar/><tspan
 							x="15.87" dy="1.2em" class="st3">10</tspan>.0.0.2/24</text>			</g>
 		</g>
-		<g id="shape61-52" v:mID="61" v:groupContext="shape" transform="translate(18.649,-32.4001)">
+		<g id="shape61-54" v:mID="61" v:groupContext="shape" transform="translate(18.649,-32.4001)">
 			<title>Sheet.61</title>
 			<desc>Legend: Namespace Application Interface Ovals = VLAN port gro...</desc>
 			<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197" v:verticalAlign="0"/>
@@ -168,9 +170,9 @@
 						dy="1.2em" class="st14">Namespace<v:newlineChar/></tspan><tspan x="4" dy="1.2em" class="st15">Application<v:newlineChar/></tspan><tspan
 						x="4" dy="1.2em" class="st16">Interface<v:newlineChar/></tspan><tspan x="4" dy="1.2em" class="st3">Ovals </tspan>= VLAN port groups – with <tspan
 						x="4" dy="1.2em" class="st3">virtual IP</tspan><v:newlineChar/></text>		</g>
-		<g id="group63-60" transform="translate(370.742,-140.921)" v:mID="63" v:groupContext="group">
+		<g id="group63-62" transform="translate(370.742,-140.921)" v:mID="63" v:groupContext="group">
 			<title>Sheet.63</title>
-			<g id="shape64-61" v:mID="64" v:groupContext="shape">
+			<g id="shape64-63" v:mID="64" v:groupContext="shape">
 				<title>Box.5</title>
 				<desc>hostgw namespace</desc>
 				<v:userDefs>
@@ -179,10 +181,11 @@
 				<v:textBlock v:margins="rect(4,4,4,4)" v:tabSpace="42.5197" v:verticalAlign="2"/>
 				<v:textRect cx="68.6283" cy="391.406" width="137.26" height="53.8583"/>
 				<rect x="0" y="364.477" width="137.257" height="53.8583" class="st12"/>
-				<text x="4" y="410.74" class="st2" v:langID="1033"><v:paragraph/><v:tabList/>hostgw namespace</text>			</g>
-			<g id="shape65-64" v:mID="65" v:groupContext="shape" transform="translate(25.5796,-44.1608)">
+				<text x="4" y="396.33" class="st2" v:langID="1033"><v:paragraph/><v:tabList/>hostgw<v:newlineChar/><tspan x="4"
+							dy="1.2em" class="st3">namespace</tspan></text>			</g>
+			<g id="shape65-67" v:mID="65" v:groupContext="shape" transform="translate(25.5796,-44.1608)">
 				<title>Box.6</title>
-				<desc>veth0 10.0.1.1/24</desc>
+				<desc>veth0 10.0.1.3/24</desc>
 				<v:userDefs>
 					<v:ud v:nameU="visVersion" v:val="VT0(15):26"/>
 				</v:userDefs>
@@ -190,9 +193,9 @@
 				<v:textRect cx="34.6386" cy="404.758" width="69.28" height="27.1529"/>
 				<rect x="0" y="391.182" width="69.2772" height="27.1529" class="st4"/>
 				<text x="25.37" y="402.36" class="st5" v:langID="1033"><v:paragraph v:horizAlign="1"/><v:tabList/>veth0<v:newlineChar/><tspan
-							x="15.87" dy="1.2em" class="st3">10</tspan>.0.1.1/24</text>			</g>
+							x="15.87" dy="1.2em" class="st3">10</tspan>.0.1.3/24</text>			</g>
 		</g>
-		<g id="shape66-68" v:mID="66" v:groupContext="shape" transform="translate(402.794,-324.314)">
+		<g id="shape66-71" v:mID="66" v:groupContext="shape" transform="translate(402.794,-324.314)">
 			<title>Box.66</title>
 			<desc>veth-hostgw</desc>
 			<v:userDefs>
@@ -202,7 +205,7 @@
 			<v:textRect cx="28.3465" cy="404.758" width="56.7" height="27.1529"/>
 			<rect x="0" y="391.182" width="56.6929" height="27.1529" class="st4"/>
 			<text x="8.03" y="407.16" class="st5" v:langID="1033"><v:paragraph v:horizAlign="1"/><v:tabList/>veth-hostgw</text>		</g>
-		<g id="shape67-71" v:mID="67" v:groupContext="shape" v:layerMember="0" transform="translate(438.137,-324.314)">
+		<g id="shape67-74" v:mID="67" v:groupContext="shape" v:layerMember="0" transform="translate(438.137,-324.314)">
 			<title>Dynamic connector.67</title>
 			<path d="M-7 418.33 L-7 428.96 L-7.18 428.96 L-7.18 530.41" class="st6"/>
 		</g>
