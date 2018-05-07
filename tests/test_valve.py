@@ -28,10 +28,12 @@ import socket
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
+from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+from ryu.services.protocols.bgp.bgpspeaker import EventPrefix
+from ryu.services.protocols.bgp.info_base.ipv4 import Ipv4Path
 
 from prometheus_client import CollectorRegistry
 
@@ -1014,6 +1016,17 @@ acls:
             'vlan_vid': 0x200,
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.3'})
+
+    def test_bgp_route_change(self):
+        nexthop = '10.0.0.1'
+        pattrs = {'prefix': '192.168.1.1/32'}
+        nlri = bgp.BGPNLRI(addr='192.168.1.1', length=32)
+        add_path = Ipv4Path(None, nlri, 1, pattrs=pattrs, nexthop=nexthop, is_withdraw=False)
+        add_event = EventPrefix(add_path, add_path.is_withdraw)
+        self.bgp._bgp_route_handler(add_event, self.DP_ID, 0x100)
+        del_path = Ipv4Path(None, nlri, 1, pattrs=pattrs, nexthop=nexthop, is_withdraw=True)
+        del_event = EventPrefix(del_path, del_path.is_withdraw)
+        self.bgp._bgp_route_handler(del_event, self.DP_ID, 0x100)
 
 
 class ValveChangePortCase(ValveTestBase):
