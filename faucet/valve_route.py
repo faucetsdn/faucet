@@ -138,7 +138,10 @@ class ValveRouteManager(object):
         if self.proactive_learn:
             for routed_vlan in self._routed_vlans(vlan):
                 ofmsgs.append(self.fib_table.flowmod(
-                    self.fib_table.match(eth_type=self.ETH_TYPE, vlan=routed_vlan, nw_dst=faucet_vip),
+                    self.fib_table.match(
+                        eth_type=self.ETH_TYPE,
+                        vlan=routed_vlan,
+                        nw_dst=faucet_vip),
                     priority=learn_connected_priority,
                     inst=[valve_of.goto_table(self.vip_table)]))
             ofmsgs.append(self.vip_table.flowcontroller(
@@ -787,78 +790,80 @@ class ValveIPv6RouteManager(ValveRouteManager):
         ofmsgs = []
         if not pkt_meta.packet_complete():
             return ofmsgs
-        src_ip = ipaddress.IPv6Address(btos(ipv6_pkt.src))
+        # Must be ICMPv6 and have no extended headers.
+        if ipv6_pkt.nxt != valve_of.inet.IPPROTO_ICMPV6:
+            return ofmsgs
+        if ipv6_pkt.ext_hdrs:
+            return ofmsgs
         dst_ip = ipaddress.IPv6Address(btos(ipv6_pkt.dst))
+        # Explicitly ignore messages to all notes.
+        if dst_ip == valve_packet.IPV6_ALL_NODES:
+            return ofmsgs
+        src_ip = ipaddress.IPv6Address(btos(ipv6_pkt.src))
         vlan = pkt_meta.vlan
-        if vlan.ip_in_vip_subnet(src_ip):
-            # Must be ICMPv6 and have no extended headers.
-            if ipv6_pkt.nxt != valve_of.inet.IPPROTO_ICMPV6:
-                return ofmsgs
-            if ipv6_pkt.ext_hdrs:
-                return ofmsgs
-            # Explicitly ignore messages to all notes.
-            if dst_ip == valve_packet.IPV6_ALL_NODES:
-                return ofmsgs
-            pkt_meta.reparse_ip(payload=32)
-            icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
-            if icmpv6_pkt is None:
-                return ofmsgs
-            icmpv6_type = icmpv6_pkt.type_
-            if (ipv6_pkt.hop_limit != valve_packet.IPV6_MAX_HOP_LIM and
-                    icmpv6_type != icmpv6.ICMPV6_ECHO_REQUEST):
-                return ofmsgs
-            port = pkt_meta.port
-            eth_src = pkt_meta.eth_src
-            if icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT:
-                solicited_ip = btos(icmpv6_pkt.data.dst)
-                if vlan.is_faucet_vip(ipaddress.ip_address(solicited_ip)):
+        if not vlan.ip_in_vip_subnet(src_ip):
+            return ofmsgs
+        pkt_meta.reparse_ip(payload=32)
+        icmpv6_pkt = pkt_meta.pkt.get_protocol(icmpv6.icmpv6)
+        if icmpv6_pkt is None:
+            return ofmsgs
+        icmpv6_type = icmpv6_pkt.type_
+        if (ipv6_pkt.hop_limit != valve_packet.IPV6_MAX_HOP_LIM and
+                icmpv6_type != icmpv6.ICMPV6_ECHO_REQUEST):
+            return ofmsgs
+
+        port = pkt_meta.port
+        eth_src = pkt_meta.eth_src
+        if icmpv6_type == icmpv6.ND_NEIGHBOR_SOLICIT:
+            solicited_ip = btos(icmpv6_pkt.data.dst)
+            if vlan.is_faucet_vip(ipaddress.ip_address(solicited_ip)):
+                ofmsgs.extend(
+                    self._add_host_fib_route(vlan, src_ip, blackhole=False))
+                ofmsgs.extend(self._update_nexthop(
+                    vlan, port, eth_src, src_ip))
+                ofmsgs.append(
+                    vlan.pkt_out_port(
+                        valve_packet.nd_advert, port,
+                        vlan.faucet_mac, eth_src,
+                        solicited_ip, src_ip))
+                self.logger.info(
+                    'Responded to ND solicit for %s to %s (%s) on VLAN %u' % (
+                        solicited_ip, src_ip, eth_src, vlan.vid))
+        elif icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT:
+            target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
+            if vlan.ip_in_vip_subnet(target_ip):
+                ofmsgs.extend(self._update_nexthop(
+                    vlan, port, eth_src, target_ip))
+                self.logger.info(
+                    'ND advert %s (%s) on VLAN %u' % (
+                        target_ip, eth_src, vlan.vid))
+        elif icmpv6_type == icmpv6.ND_ROUTER_SOLICIT:
+            link_local_vips, other_vips = self._link_and_other_vips(vlan)
+            for vip in link_local_vips:
+                if src_ip in vip.network:
                     ofmsgs.extend(
                         self._add_host_fib_route(vlan, src_ip, blackhole=False))
                     ofmsgs.extend(self._update_nexthop(
                         vlan, port, eth_src, src_ip))
                     ofmsgs.append(
                         vlan.pkt_out_port(
-                            valve_packet.nd_advert, port,
+                            valve_packet.router_advert, port,
                             vlan.faucet_mac, eth_src,
-                            solicited_ip, src_ip))
+                            vip.ip, src_ip, other_vips))
                     self.logger.info(
-                        'Responded to ND solicit for %s to %s (%s) on VLAN %u' % (
-                            solicited_ip, src_ip, eth_src, vlan.vid))
-            elif icmpv6_type == icmpv6.ND_NEIGHBOR_ADVERT:
-                target_ip = ipaddress.ip_address(btos(icmpv6_pkt.data.dst))
-                if vlan.ip_in_vip_subnet(target_ip):
-                    ofmsgs.extend(self._update_nexthop(
-                        vlan, port, eth_src, target_ip))
-                    self.logger.info(
-                        'ND advert %s (%s) on VLAN %u' % (
-                            target_ip, eth_src, vlan.vid))
-            elif icmpv6_type == icmpv6.ND_ROUTER_SOLICIT:
-                link_local_vips, other_vips = self._link_and_other_vips(vlan)
-                for vip in link_local_vips:
-                    if src_ip in vip.network:
-                        ofmsgs.extend(
-                            self._add_host_fib_route(vlan, src_ip, blackhole=False))
-                        ofmsgs.extend(self._update_nexthop(
-                            vlan, port, eth_src, src_ip))
-                        ofmsgs.append(
-                            vlan.pkt_out_port(
-                                valve_packet.router_advert, port,
-                                vlan.faucet_mac, eth_src,
-                                vip.ip, src_ip, other_vips))
-                        self.logger.info(
-                            'Responded to RS solicit from %s (%s) to VIP %s on VLAN %u' % (
-                                src_ip, eth_src, vip, vlan.vid))
-                        break
-            elif icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST:
-                if (vlan.from_connected_to_vip(src_ip, dst_ip) and
-                        pkt_meta.eth_dst == vlan.faucet_mac):
-                    ofmsgs.append(
-                        vlan.pkt_out_port(
-                            valve_packet.icmpv6_echo_reply, port,
-                            vlan.faucet_mac, eth_src,
-                            dst_ip, src_ip, ipv6_pkt.hop_limit,
-                            icmpv6_pkt.data.id, icmpv6_pkt.data.seq,
-                            icmpv6_pkt.data.data))
+                        'Responded to RS solicit from %s (%s) to VIP %s on VLAN %u' % (
+                            src_ip, eth_src, vip, vlan.vid))
+                    break
+        elif icmpv6_type == icmpv6.ICMPV6_ECHO_REQUEST:
+            if (vlan.from_connected_to_vip(src_ip, dst_ip) and
+                    pkt_meta.eth_dst == vlan.faucet_mac):
+                ofmsgs.append(
+                    vlan.pkt_out_port(
+                        valve_packet.icmpv6_echo_reply, port,
+                        vlan.faucet_mac, eth_src,
+                        dst_ip, src_ip, ipv6_pkt.hop_limit,
+                        icmpv6_pkt.data.id, icmpv6_pkt.data.seq,
+                        icmpv6_pkt.data.data))
         return ofmsgs
 
     def control_plane_handler(self, pkt_meta):
