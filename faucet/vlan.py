@@ -118,9 +118,9 @@ class VLAN(Conf):
         'max_hosts': 255,
         # Limit number of hosts that can be learned on a VLAN.
         'vid': None,
-        'proactive_arp_limit': 4096,
+        'proactive_arp_limit': 2048 + 4, # from L3 stress test
         # Don't proactively ARP for hosts if over this limit (None unlimited)
-        'proactive_nd_limit': 4096,
+        'proactive_nd_limit': 2048 + 4, # from L3 stress test
         # Don't proactively ND for hosts if over this limit (None unlimited)
         'targeted_gw_resolution': False,
         # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
