@@ -4182,7 +4182,7 @@ routers:
         self.one_ipv4_ping(second_host, first_host_ip.ip)
         second_host.cmd('ifconfig %s down' % second_host.defaultIntf().name)
         log_file_name = os.path.join(self.tmpdir, 'faucet.log')
-        expired_re = r'expiring dead host FIB route %s' % second_host_ip.ip
+        expired_re = r'expiring dead host route %s' % second_host_ip.ip
         found_expired = False
         for _ in range(30):
             if self.matching_lines_from_file(expired_re, log_file_name):
