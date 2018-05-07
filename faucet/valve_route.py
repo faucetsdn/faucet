@@ -284,7 +284,9 @@ class ValveRouteManager(object):
             if nexthop_cache_entry is None:
                 self._update_nexthop_cache(vlan, None, None, ip_gw)
                 nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-            elif self._nexthop_fresh(vlan, ip_gw, now):
+                if nexthop_cache_entry is None:
+                    continue
+            if self._nexthop_fresh(vlan, ip_gw, now):
                 continue
             last_retry_time = nexthop_cache_entry.last_retry_time
             ip_gw_with_retry_time = (ip_gw, faucet_vip, nexthop_cache_entry, last_retry_time)
