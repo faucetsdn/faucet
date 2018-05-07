@@ -1337,13 +1337,13 @@ vlans:
 
     def test_known_eth_src_rule(self):
         self.learn_hosts()
-        self.valve.flow_timeout(self.valve.dp.tables['eth_dst'],
+        self.assertTrue(
             self.valve.flow_timeout(
-                self.valve.dp.tables['eth_dst'],
+                self.valve.dp.tables['eth_dst'].table_id,
                 {'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}))
         self.assertFalse(
             self.valve.flow_timeout(
-                self.valve.dp.tables['eth_src'],
+                self.valve.dp.tables['eth_src'].table_id,
                 {'vlan_vid': self.V100, 'in_port': 1, 'eth_src': self.P1_V100_MAC}))
 
 
