@@ -267,16 +267,15 @@ class ValveRouteManager(object):
             return True
         return False
 
-    def _vlan_unresolved_nexthops(self, vlan, ip_gws, now, max_nexthops):
+    def _vlan_unresolved_nexthops(self, vlan, ip_gws, now):
         """Return unresolved or expired IP gateways, never tried/oldest first.
 
         Args:
            vlan (vlan): VLAN containing this RIB/FIB.
            ip_gws (list): tuple, IP gateway and controller IP in same subnet.
            now (float): seconds since epoch.
-           max_nexthops (int): maximum unresolved nexthops to return
         Returns:
-           list: tuple, gateway, controller IP in same subnet, last retry time.
+           list: tuple, gateway, controller IP in same subnet, last retry time, cache entry.
         """
         ip_gws_never_tried = []
         ip_gws_with_retry_time = []
@@ -288,7 +287,7 @@ class ValveRouteManager(object):
             elif self._nexthop_fresh(vlan, ip_gw, now):
                 continue
             last_retry_time = nexthop_cache_entry.last_retry_time
-            ip_gw_with_retry_time = (ip_gw, faucet_vip, last_retry_time)
+            ip_gw_with_retry_time = (ip_gw, faucet_vip, last_retry_time, nexthop_cache_entry)
             if last_retry_time is None:
                 ip_gws_never_tried.append(ip_gw_with_retry_time)
             else:
@@ -299,7 +298,7 @@ class ValveRouteManager(object):
         ip_gws_with_retry_time_sorted = list(
             sorted(ip_gws_with_retry_time, key=lambda x: x[-1]))
         unresolved_nexthops = ip_gws_never_tried + ip_gws_with_retry_time_sorted
-        return unresolved_nexthops[:max_nexthops]
+        return unresolved_nexthops
 
     def _is_host_fib_route(self, vlan, host_ip):
         """Return True if IP destination is a host FIB route.
@@ -320,28 +319,27 @@ class ValveRouteManager(object):
     def advertise(self, vlan):
         return []
 
-    def _resolve_gateways_flows(self, expire_dead, vlan, now, unresolved_nexthops):
+    def _resolve_gateways_flows(self, expire_dead, vlan, now, unresolved_nexthops, remaining_attempts):
         ofmsgs = []
-        resolution_attempts = 0
-        for ip_gw, faucet_vip, last_retry_time in unresolved_nexthops:
-            nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
-            if nexthop_cache_entry is None:
-                continue
+        max_age = self.max_host_fib_retry_count * self.max_resolve_backoff_time
+        for ip_gw, faucet_vip, last_retry_time, nexthop_cache_entry in unresolved_nexthops:
+            if remaining_attempts == 0:
+                break
             port = nexthop_cache_entry.port
-            if expire_dead and nexthop_cache_entry.resolve_retries >= self.max_host_fib_retry_count:
+            age = now - nexthop_cache_entry.cache_time
+            resolve_flows = []
+            if (expire_dead and
+                    (nexthop_cache_entry.resolve_retries >= self.max_host_fib_retry_count or
+                     age > max_age)):
                 self.logger.info(
                     'expiring dead host route %s (age %us) on VLAN %u' % (
-                        ip_gw,
-                        now - nexthop_cache_entry.cache_time,
-                        vlan.vid))
+                        ip_gw, age, vlan.vid))
                 self._del_vlan_nexthop_cache_entry(vlan, ip_gw)
-                del_ofmsgs = self._del_host_fib_route(
+                resolve_flows = self._del_host_fib_route(
                     vlan, ipaddress.ip_network(ip_gw.exploded))
                 if port is not None:
-                    ofmsgs.extend(del_ofmsgs)
-                    resolution_attempts += 1
+                    resolve_flows = []
             else:
-                resolution_attempts += 1
                 nexthop_cache_entry.last_retry_time = now
                 nexthop_cache_entry.resolve_retries += 1
                 resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
@@ -359,8 +357,10 @@ class ValveRouteManager(object):
                             now - last_retry_time,
                             len(resolve_flows),
                             vlan.vid))
-            ofmsgs.extend(resolve_flows)
-        return (resolution_attempts, ofmsgs)
+            if resolve_flows:
+                ofmsgs.extend(resolve_flows)
+                remaining_attempts -= 1
+        return (remaining_attempts, ofmsgs)
 
     def resolve_gateways(self, vlan, now):
         """Re/resolve all gateways.
@@ -375,11 +375,9 @@ class ValveRouteManager(object):
         remaining_attempts = self.max_hosts_per_resolve_cycle
         route_ip_gws, host_ip_gws = self._vlan_ip_gws(vlan)
         for ip_gws, expire_dead in ((route_ip_gws, False), (host_ip_gws, True)):
-            cycle_unresolved_nexthops = self._vlan_unresolved_nexthops(
-                vlan, ip_gws, now, remaining_attempts)
-            resolution_attempts, resolve_ofmsgs = self._resolve_gateways_flows(
-                expire_dead, vlan, now, cycle_unresolved_nexthops)
-            remaining_attempts -= resolution_attempts
+            unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, ip_gws, now)
+            remaining_attempts, resolve_ofmsgs = self._resolve_gateways_flows(
+                expire_dead, vlan, now, unresolved_nexthops, remaining_attempts)
             ofmsgs.extend(resolve_ofmsgs)
             if remaining_attempts == 0:
                 break
