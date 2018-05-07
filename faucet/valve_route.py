@@ -295,6 +295,7 @@ class ValveRouteManager(object):
                 if self._retry_backoff(
                         now, nexthop_cache_entry.resolve_retries, last_retry_time):
                     ip_gws_with_retry_time.append(ip_gw_with_retry_time)
+        random.shuffle(ip_gws_never_tried)
         ip_gws_with_retry_time_sorted = list(
             sorted(ip_gws_with_retry_time, key=lambda x: x[-1]))
         unresolved_nexthops = ip_gws_never_tried + ip_gws_with_retry_time_sorted
@@ -326,7 +327,7 @@ class ValveRouteManager(object):
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             if nexthop_cache_entry is None:
                 continue
-            resolution_attempts += 1
+            port = nexthop_cache_entry.port
             if expire_dead and nexthop_cache_entry.resolve_retries >= self.max_host_fib_retry_count:
                 self.logger.info(
                     'expiring dead host route %s (age %us) on VLAN %u' % (
@@ -334,26 +335,30 @@ class ValveRouteManager(object):
                         now - nexthop_cache_entry.cache_time,
                         vlan.vid))
                 self._del_vlan_nexthop_cache_entry(vlan, ip_gw)
-                ofmsgs.extend(self._del_host_fib_route(
-                    vlan, ipaddress.ip_network(ip_gw.exploded)))
-            nexthop_cache_entry.last_retry_time = now
-            nexthop_cache_entry.resolve_retries += 1
-            resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
-            if vlan.targeted_gw_resolution:
-                port = nexthop_cache_entry.port
-                if last_retry_time is None and port is not None:
-                    resolve_flows = [self.resolve_gw_on_port(vlan, port, faucet_vip, ip_gw)]
-            if last_retry_time is None:
-                self.logger.info(
-                    'resolving %s (%u flows) on VLAN %u' % (ip_gw, len(resolve_flows), vlan.vid))
+                del_ofmsgs = self._del_host_fib_route(
+                    vlan, ipaddress.ip_network(ip_gw.exploded))
+                if port is not None:
+                    ofmsgs.extend(del_ofmsgs)
+                    resolution_attempts += 1
             else:
-                self.logger.info(
-                    'resolving %s retry %u (last attempt was %us ago; %u flows) on VLAN %u' % (
-                        ip_gw,
-                        nexthop_cache_entry.resolve_retries,
-                        now - last_retry_time,
-                        len(resolve_flows),
-                        vlan.vid))
+                resolution_attempts += 1
+                nexthop_cache_entry.last_retry_time = now
+                nexthop_cache_entry.resolve_retries += 1
+                resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
+                if vlan.targeted_gw_resolution:
+                    if last_retry_time is None and port is not None:
+                        resolve_flows = [self.resolve_gw_on_port(vlan, port, faucet_vip, ip_gw)]
+                if last_retry_time is None:
+                    self.logger.info(
+                        'resolving %s (%u flows) on VLAN %u' % (ip_gw, len(resolve_flows), vlan.vid))
+                else:
+                    self.logger.info(
+                        'resolving %s retry %u (last attempt was %us ago; %u flows) on VLAN %u' % (
+                            ip_gw,
+                            nexthop_cache_entry.resolve_retries,
+                            now - last_retry_time,
+                            len(resolve_flows),
+                            vlan.vid))
             ofmsgs.extend(resolve_flows)
         return (resolution_attempts, ofmsgs)
 
