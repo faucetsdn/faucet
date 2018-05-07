@@ -66,6 +66,10 @@ DP1_CONFIG = """
             max_per_interval: 1
 """ % os.path.dirname(os.path.realpath(__file__))
 
+IDLE_DP1_CONFIG = """
+        use_idle_timeout: True
+""" + DP1_CONFIG
+
 
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
@@ -1278,6 +1282,70 @@ vlans:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
 """ % DP1_CONFIG
+
+
+class ValveIdleLearnTestCase(ValveTestBase):
+    """Smoke test for idle-flow based learning. This feature is not currently reliable."""
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                output_only: True
+                mirror: 4
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+""" % IDLE_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_unknown_eth_dst_rule(self):
+        self.learn_hosts()
+        matches = [
+            {
+                'in_port': 3,
+                'vlan_vid': self.V100,
+            },
+            {
+                'in_port': 2,
+                'vlan_vid': 0,
+                'eth_dst': self.P1_V100_MAC
+            },
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V100_MAC
+            },
+            {
+                'in_port': 3,
+                'vlan_vid': self.V200,
+                'eth_src': self.P2_V200_MAC,
+            }
+        ]
+        self.verify_flooding(matches)
 
 
 class RyuAppSmokeTest(unittest.TestCase):
