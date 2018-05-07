@@ -28,10 +28,12 @@ import socket
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
+from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+from ryu.services.protocols.bgp.bgpspeaker import EventPrefix
+from ryu.services.protocols.bgp.info_base.ipv4 import Ipv4Path
 
 from prometheus_client import CollectorRegistry
 
@@ -65,6 +67,10 @@ DP1_CONFIG = """
             send_interval: 1
             max_per_interval: 1
 """ % os.path.dirname(os.path.realpath(__file__))
+
+IDLE_DP1_CONFIG = """
+        use_idle_timeout: True
+""" + DP1_CONFIG
 
 
 def build_pkt(pkt):
@@ -1011,6 +1017,17 @@ acls:
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.3'})
 
+    def test_bgp_route_change(self):
+        nexthop = '10.0.0.1'
+        pattrs = {'prefix': '192.168.1.1/32'}
+        nlri = bgp.BGPNLRI(addr='192.168.1.1', length=32)
+        add_path = Ipv4Path(None, nlri, 1, pattrs=pattrs, nexthop=nexthop, is_withdraw=False)
+        add_event = EventPrefix(add_path, add_path.is_withdraw)
+        self.bgp._bgp_route_handler(add_event, self.DP_ID, 0x100)
+        del_path = Ipv4Path(None, nlri, 1, pattrs=pattrs, nexthop=nexthop, is_withdraw=True)
+        del_event = EventPrefix(del_path, del_path.is_withdraw)
+        self.bgp._bgp_route_handler(del_event, self.DP_ID, 0x100)
+
 
 class ValveChangePortCase(ValveTestBase):
     """Test changes to config on ports."""
@@ -1278,6 +1295,70 @@ vlans:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
 """ % DP1_CONFIG
+
+
+class ValveIdleLearnTestCase(ValveTestBase):
+    """Smoke test for idle-flow based learning. This feature is not currently reliable."""
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                output_only: True
+                mirror: 4
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+""" % IDLE_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_unknown_eth_dst_rule(self):
+        self.learn_hosts()
+        matches = [
+            {
+                'in_port': 3,
+                'vlan_vid': self.V100,
+            },
+            {
+                'in_port': 2,
+                'vlan_vid': 0,
+                'eth_dst': self.P1_V100_MAC
+            },
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V100_MAC
+            },
+            {
+                'in_port': 3,
+                'vlan_vid': self.V200,
+                'eth_src': self.P2_V200_MAC,
+            }
+        ]
+        self.verify_flooding(matches)
 
 
 class RyuAppSmokeTest(unittest.TestCase):

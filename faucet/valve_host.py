@@ -298,7 +298,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
         return ofmsgs
 
     def expire_hosts_from_vlan(self, _vlan, _now):
-        return
+        return []
 
     def learn_host_timeouts(self, port):
         """Calculate flow timeouts for learning on a port."""
