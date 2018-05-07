@@ -959,6 +959,8 @@ vlans:
 acls:
     drop_non_ospf_ipv4:
         - rule:
+            cookie: 0x1234
+            description: 'a description'
             nw_dst: '224.0.0.5'
             dl_type: 0x800
             actions:
