@@ -287,7 +287,7 @@ class ValveRouteManager(object):
             elif self._nexthop_fresh(vlan, ip_gw, now):
                 continue
             last_retry_time = nexthop_cache_entry.last_retry_time
-            ip_gw_with_retry_time = (ip_gw, faucet_vip, last_retry_time, nexthop_cache_entry)
+            ip_gw_with_retry_time = (ip_gw, faucet_vip, nexthop_cache_entry, last_retry_time)
             if last_retry_time is None:
                 ip_gws_never_tried.append(ip_gw_with_retry_time)
             else:
@@ -322,7 +322,7 @@ class ValveRouteManager(object):
     def _resolve_gateways_flows(self, expire_dead, vlan, now, unresolved_nexthops, remaining_attempts):
         ofmsgs = []
         max_age = self.max_host_fib_retry_count * self.max_resolve_backoff_time
-        for ip_gw, faucet_vip, last_retry_time, nexthop_cache_entry in unresolved_nexthops:
+        for ip_gw, faucet_vip, nexthop_cache_entry, last_retry_time in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
             port = nexthop_cache_entry.port
