@@ -58,7 +58,7 @@ FAUCET_MAC = '0e:00:00:00:00:01'
 # (ie. do not output to in_port)
 DP1_CONFIG = """
         dp_id: 1
-        ignore_learn_ins: 0
+        ignore_learn_ins: 100
         combinatorial_port_flood: True
         ofchannel_log: '/dev/null'
         pipeline_config_dir: '%s/../etc/faucet'
@@ -1029,6 +1029,13 @@ acls:
         del_path = Ipv4Path(None, nlri, 1, pattrs=pattrs, nexthop=nexthop, is_withdraw=True)
         del_event = EventPrefix(del_path, del_path.is_withdraw)
         self.bgp._bgp_route_handler(del_event, self.DP_ID, 0x100)
+
+    def test_packet_in_rate(self):
+        """Test packet in rate limit triggers."""
+        for i in range(self.valve.dp.ignore_learn_ins * 2 + 1):
+            if self.valve.rate_limit_packet_ins():
+                return
+        self.fail('packet in rate limit not triggered')
 
 
 class ValveChangePortCase(ValveTestBase):
