@@ -26,11 +26,14 @@ import tempfile
 import shutil
 import socket
 
+from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
-from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
+from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, slow, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+from ryu.services.protocols.bgp.bgpspeaker import EventPrefix
+from ryu.services.protocols.bgp.info_base.ipv4 import Ipv4Path
 
 from prometheus_client import CollectorRegistry
 
@@ -39,11 +42,12 @@ from faucet import faucet_bgp
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
-from faucet import valve
 from faucet import valves_manager
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_util
+
+from faucet.valve import TfmValve
 
 from fakeoftable import FakeOFTable
 
@@ -54,7 +58,7 @@ FAUCET_MAC = '0e:00:00:00:00:01'
 # (ie. do not output to in_port)
 DP1_CONFIG = """
         dp_id: 1
-        ignore_learn_ins: 0
+        ignore_learn_ins: 100
         combinatorial_port_flood: True
         ofchannel_log: '/dev/null'
         pipeline_config_dir: '%s/../etc/faucet'
@@ -63,6 +67,14 @@ DP1_CONFIG = """
             send_interval: 1
             max_per_interval: 1
 """ % os.path.dirname(os.path.realpath(__file__))
+
+IDLE_DP1_CONFIG = """
+        use_idle_timeout: True
+""" + DP1_CONFIG
+
+GROUP_DP1_CONFIG = """
+        group_table: True
+""" + DP1_CONFIG
 
 
 def build_pkt(pkt):
@@ -120,6 +132,36 @@ def build_pkt(pkt):
             proto = inet.IPPROTO_ICMP
         net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'], proto=proto)
         layers.append(net)
+    elif 'actor_system' in pkt and 'partner_system' in pkt:
+        ethertype = ether.ETH_TYPE_SLOW
+        layers.append(slow.lacp(
+            version=1,
+            actor_system=pkt['actor_system'],
+            actor_port=1,
+            partner_system=pkt['partner_system'],
+            partner_port=1,
+            actor_key=1,
+            partner_key=1,
+            actor_system_priority=65535,
+            partner_system_priority=1,
+            actor_port_priority=255,
+            partner_port_priority=255,
+            actor_state_defaulted=0,
+            partner_state_defaulted=0,
+            actor_state_expired=0,
+            partner_state_expired=0,
+            actor_state_timeout=1,
+            partner_state_timeout=1,
+            actor_state_collecting=1,
+            partner_state_collecting=1,
+            actor_state_distributing=1,
+            partner_state_distributing=1,
+            actor_state_aggregation=1,
+            partner_state_aggregation=1,
+            actor_state_synchronization=1,
+            partner_state_synchronization=1,
+            actor_state_activity=0,
+            partner_state_activity=0))
     assert ethertype is not None, pkt
     if 'vid' in pkt:
         tpid = ether.ETH_TYPE_8021Q
@@ -152,6 +194,8 @@ dps:
                     system_name: "faucet"
                     port_descr: "first_port"
                 loop_protect: True
+                receive_lldp: True
+                max_hosts: 1
             p2:
                 number: 2
                 native_vlan: v200
@@ -254,6 +298,7 @@ vlans:
     P1_V100_MAC = '00:00:00:01:00:01'
     P2_V200_MAC = '00:00:00:02:00:02'
     P3_V200_MAC = '00:00:00:02:00:03'
+    P1_V300_MAC = '00:00:00:03:00:01'
     UNKNOWN_MAC = '00:00:00:04:00:04'
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
@@ -370,23 +415,25 @@ vlans:
 
     def learn_hosts(self):
         """Learn some hosts."""
-        self.rcv_packet(1, 0x100, {
-            'eth_src': self.P1_V100_MAC,
-            'eth_dst': self.UNKNOWN_MAC,
-            'ipv4_src': '10.0.0.1',
-            'ipv4_dst': '10.0.0.2'})
-        self.rcv_packet(2, 0x200, {
-            'eth_src': self.P2_V200_MAC,
-            'eth_dst': self.P3_V200_MAC,
-            'ipv4_src': '10.0.0.2',
-            'ipv4_dst': '10.0.0.3',
-            'vid': 0x200})
-        self.rcv_packet(3, 0x200, {
-            'eth_src': self.P3_V200_MAC,
-            'eth_dst': self.P2_V200_MAC,
-            'ipv4_src': '10.0.0.3',
-            'ipv4_dst': '10.0.0.4',
-            'vid': 0x200})
+        # TODO: verify learn caching.
+        for _ in range(2):
+            self.rcv_packet(1, 0x100, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.UNKNOWN_MAC,
+                'ipv4_src': '10.0.0.1',
+                'ipv4_dst': '10.0.0.2'})
+            self.rcv_packet(2, 0x200, {
+                'eth_src': self.P2_V200_MAC,
+                'eth_dst': self.P3_V200_MAC,
+                'ipv4_src': '10.0.0.2',
+                'ipv4_dst': '10.0.0.3',
+                'vid': 0x200})
+            self.rcv_packet(3, 0x200, {
+                'eth_src': self.P3_V200_MAC,
+                'eth_dst': self.P2_V200_MAC,
+                'ipv4_src': '10.0.0.3',
+                'ipv4_dst': '10.0.0.4',
+                'vid': 0x200})
 
     def verify_flooding(self, matches):
         """Verify flooding for a packet, depending on the DP implementation."""
@@ -401,7 +448,8 @@ vlans:
 
             all_ports = set(
                 [port for port in self.valve.dp.ports.values() if port.running()])
-            remaining_ports = all_ports - set([port for port in valve_vlan.get_ports() if port.running])
+            remaining_ports = all_ports - set(
+                [port for port in valve_vlan.get_ports() if port.running])
 
             # Packet must be flooded to all ports on the VLAN.
             for port in valve_vlan.get_ports():
@@ -412,13 +460,13 @@ vlans:
                 if port.number == in_port:
                     self.assertFalse(
                         self.table.is_output(match, port=port.number, vid=vid),
-                        msg=('Packet %s with unknown eth_dst flooded back to input port'
+                        msg=('%s with unknown eth_dst flooded back to input port'
                              ' on VLAN %u to port %u' % (
                                  match, valve_vlan.vid, port.number)))
                 else:
                     self.assertTrue(
                         self.table.is_output(match, port=port.number, vid=vid),
-                        msg=('Packet %s with unknown eth_dst not flooded'
+                        msg=('%s with unknown eth_dst not flooded'
                              ' on VLAN %u to port %u' % (
                                  match, valve_vlan.vid, port.number)))
 
@@ -427,19 +475,19 @@ vlans:
                 if port.stack:
                     self.assertTrue(
                         self.table.is_output(match, port=port.number),
-                        msg=('Packet with unknown eth_dst not flooded to stack port %s' % port))
+                        msg=('Uknown eth_dst not flooded to stack port %s' % port))
                 elif not port.mirror:
                     self.assertFalse(
                         self.table.is_output(match, port=port.number),
-                        msg=('Packet with unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
+                        msg=('Unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
 
     def rcv_packet(self, port, vid, match):
         """Simulate control plane receiving a packet on a port/VID."""
         pkt = build_pkt(match)
         vlan_pkt = pkt
-        # TODO: packet submitted to packet in always has VID
+        # TODO: VLAN packet submitted to packet in always has VID
         # Fake OF switch implementation should do this by applying actions.
-        if vid not in match:
+        if vid and vid not in match:
             vlan_match = match
             vlan_match['vid'] = vid
             vlan_pkt = build_pkt(match)
@@ -452,6 +500,7 @@ vlans:
         msg.match = {'in_port': port}
         msg.cookie = self.valve.dp.cookie
         pkt_meta = self.valve.parse_pkt_meta(msg)
+        self.assertTrue(pkt_meta, msg=pkt)
         self.valves_manager.valve_packet_in(self.valve, pkt_meta) # pylint: disable=no-member
         rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
@@ -473,6 +522,21 @@ class ValveTestCase(ValveTestBase):
     def tearDown(self):
         self.teardown_valve()
 
+    def test_get_config_dict(self):
+        """Test API call for DP config."""
+        # TODO: test actual config contents.
+        self.assertTrue(self.valve.get_config_dict())
+        self.assertTrue(self.valve.dp.get_tables())
+
+    def test_notifier_socket_path(self):
+        """Test notifier socket path checker."""
+        new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
+        self.assertEqual(self.notifier.check_path(new_path), new_path)
+        stale_socket = os.path.join(self.tmpdir, 'stale_socket')
+        with open(stale_socket, 'w') as stale_socket_file:
+            stale_socket_file.write('')
+        self.assertEqual(self.notifier.check_path(stale_socket), stale_socket)
+
     def test_disconnect(self):
         """Test disconnection of DP from controller."""
         # TODO: verify DP state change.
@@ -489,7 +553,7 @@ class ValveTestCase(ValveTestBase):
 
     def test_switch_features(self):
         """Test switch features handler."""
-        self.assertTrue(isinstance(self.valve, valve.TfmValve), msg=type(self.valve))
+        self.assertTrue(isinstance(self.valve, TfmValve), msg=type(self.valve))
         features_flows = self.valve.switch_features(None)
         tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
         # TODO: verify TFM content.
@@ -576,7 +640,7 @@ class ValveTestCase(ValveTestBase):
             'eth_dst': mac.BROADCAST_STR,
             'arp_source_ip': '10.0.0.1',
             'arp_target_ip': '10.0.0.254'})
-        # TODO: check arp reply is valid
+        # TODO: check ARP reply is valid
         self.assertTrue(self.packet_outs_from_flows(arp_replies))
         valve_vlan = self.valve.dp.vlans[0x100]
         ip_dst = ipaddress.IPv4Network('10.100.100.0/24')
@@ -938,6 +1002,8 @@ vlans:
 acls:
     drop_non_ospf_ipv4:
         - rule:
+            cookie: 0x1234
+            description: 'a description'
             nw_dst: '224.0.0.5'
             dl_type: 0x800
             actions:
@@ -995,6 +1061,35 @@ acls:
             'vlan_vid': 0x200,
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.3'})
+
+    def test_bgp_route_change(self):
+        """Test BGP route change handler."""
+        nexthop = '10.0.0.1'
+        pattrs = {'prefix': '192.168.1.1/32'}
+        nlri = bgp.BGPNLRI(addr='192.168.1.1', length=32)
+        add_path = Ipv4Path(None, nlri, 1, pattrs=pattrs, nexthop=nexthop, is_withdraw=False)
+        add_event = EventPrefix(add_path, add_path.is_withdraw)
+        self.bgp._bgp_route_handler(add_event, self.DP_ID, 0x100)
+        del_path = Ipv4Path(None, nlri, 1, pattrs=pattrs, nexthop=nexthop, is_withdraw=True)
+        del_event = EventPrefix(del_path, del_path.is_withdraw)
+        self.bgp._bgp_route_handler(del_event, self.DP_ID, 0x100)
+
+    def test_packet_in_rate(self):
+        """Test packet in rate limit triggers."""
+        for _ in range(self.valve.dp.ignore_learn_ins * 2 + 1):
+            if self.valve.rate_limit_packet_ins():
+                return
+        self.fail('packet in rate limit not triggered')
+
+    def test_ofdescstats_handler(self):
+        """Test OFDescStatsReply handler."""
+        body = parser.OFPDescStats(
+            mfr_desc=u'test_mfr_desc'.encode(),
+            hw_desc=u'test_hw_desc'.encode(),
+            sw_desc=u'test_sw_desc'.encode(),
+            serial_num=u'99'.encode(),
+            dp_desc=u'test_dp_desc'.encode())
+        self.valve.ofdescstats_handler(body)
 
 
 class ValveChangePortCase(ValveTestBase):
@@ -1180,13 +1275,26 @@ class ValveStackTestCase(ValveTestBase):
     def tearDown(self):
         self.teardown_valve()
 
+    def test_stack_learn(self):
+        self.rcv_packet(1, 0x300, {
+            'eth_src': self.P1_V300_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
+        self.rcv_packet(5, 0x300, {
+            'eth_src': self.P1_V300_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'vid': 0x300,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
+
     def test_stack_flood(self):
         """Test packet flooding when stacking."""
         matches = [
             {
                 'in_port': 1,
                 'vlan_vid': 0,
-                'eth_src': self.P1_V100_MAC
+                'eth_src': self.P1_V300_MAC
             }]
         self.verify_flooding(matches)
 
@@ -1265,6 +1373,150 @@ vlans:
 """ % DP1_CONFIG
 
 
+class ValveGroupTestCase(ValveTestBase):
+    """Tests for datapath with group support."""
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                output_only: True
+                mirror: 4
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+""" % GROUP_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_known_eth_src_rule(self):
+        """Smoke test for group support"""
+        self.learn_hosts()
+
+
+class ValveIdleLearnTestCase(ValveTestBase):
+    """Smoke test for idle-flow based learning. This feature is not currently reliable."""
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                output_only: True
+                mirror: 4
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+""" % IDLE_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_known_eth_src_rule(self):
+        """Test removal flow handlers."""
+        self.learn_hosts()
+        self.assertTrue(
+            self.valve.flow_timeout(
+                self.valve.dp.tables['eth_dst'].table_id,
+                {'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}))
+        self.assertFalse(
+            self.valve.flow_timeout(
+                self.valve.dp.tables['eth_src'].table_id,
+                {'vlan_vid': self.V100, 'in_port': 1, 'eth_src': self.P1_V100_MAC}))
+
+
+class ValveLACPTestCase(ValveTestBase):
+    """Test LACP."""
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                lacp: 1
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                tagged_vlans: [v300]
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+    v300:
+        vid: 0x300
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_lacp(self):
+        self.rcv_packet(1, 0,
+            {'actor_system': '0e:00:00:00:00:02',
+             'partner_system': FAUCET_MAC,
+             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
+             'eth_src': '0e:00:00:00:00:02'})
+        # TODO: verify LACP state in Prometheus and learning state.
+        self.learn_hosts()
+
+
 class RyuAppSmokeTest(unittest.TestCase):
     """Test bare instantiation of controller classes."""
 
@@ -1278,6 +1530,27 @@ class RyuAppSmokeTest(unittest.TestCase):
             faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
+        ryu_app.metric_update(None)
+        ryu_app.get_config()
+        ryu_app.get_tables(0)
+        for event_handler in (
+                ryu_app.error_handler,
+                ryu_app.features_handler,
+                ryu_app.packet_in_handler,
+                ryu_app.desc_stats_reply_handler,
+                ryu_app.port_status_handler,
+                ryu_app.flowremoved_handler,
+                ryu_app.reconnect_handler,
+                ryu_app._datapath_connect,
+                ryu_app._datapath_disconnect):
+            datapath = namedtuple('datapath', 'id')
+            datapath.id = 0
+            datapath.close = lambda: None
+            msg = namedtuple('msg', 'datapath')
+            msg.datapath = datapath
+            event = EventOFPMsgBase(msg=msg)
+            event.dp = datapath
+            event_handler(event)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from faucet.conf import Conf
+from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet import valve_of
 
 
@@ -158,15 +158,16 @@ class Port(Conf):
 
     def check_config(self):
         super(Port, self).check_config()
-        assert isinstance(self.number, int) and self.number > 0 and not valve_of.ignore_port(self.number), (
-            'Port number invalid: %s' % self.number)
+        test_config_condition(not (isinstance(self.number, int) and self.number > 0 and (
+            not valve_of.ignore_port(self.number))), ('Port number invalid: %s' % self.number))
         if self.mirror:
-            assert not self.tagged_vlans and not self.native_vlan, (
-                'mirror port %s cannot have any VLANs assigned' % self)
+            test_config_condition(self.tagged_vlans or self.native_vlan, (
+                'mirror port %s cannot have any VLANs assigned' % self))
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
             for stack_config in list(self.stack_defaults_types.keys()):
-                assert stack_config in self.stack, 'stack %s must be defined' % stack_config
+                test_config_condition(stack_config not in self.stack, (
+                    'stack %s must be defined' % stack_config))
         if self.lldp_beacon:
             self._check_conf_types(
                 self.lldp_beacon, self.lldp_beacon_defaults_types)
@@ -179,8 +180,8 @@ class Port(Conf):
                 org_tlvs = []
                 for org_tlv in self.lldp_beacon['org_tlvs']:
                     self._check_conf_types(org_tlv, self.lldp_org_tlv_defaults_types)
-                    assert len(org_tlv) == len(self.lldp_org_tlv_defaults_types), (
-                        'missing org_tlv config')
+                    test_config_condition(len(org_tlv) != len(self.lldp_org_tlv_defaults_types), (
+                        'missing org_tlv config'))
                     if not isinstance(org_tlv['info'], bytearray):
                         try:
                             org_tlv['info'] = bytearray.fromhex(
@@ -193,22 +194,22 @@ class Port(Conf):
                     org_tlvs.append(org_tlv)
                 self.lldp_beacon['org_tlvs'] = org_tlvs
         if self.acl_in and self.acls_in:
-            assert False, 'found both acl_in and acls_in, use only acls_in'
+            raise InvalidConfigError('found both acl_in and acls_in, use only acls_in')
         if self.acl_in and not isinstance(self.acl_in, list):
             self.acls_in = [self.acl_in,]
             self.acl_in = None
         if self.acls_in:
             for acl in self.acls_in:
-                assert isinstance(acl, (int, str)), 'acl names must be int or'
+                test_config_condition(not isinstance(acl, (int, str)), 'acl names must be int or')
 
     def finalize(self):
-        assert self.vlans() or self.stack or self.output_only, (
-            '%s must have a VLAN, be a stack port, or have output_only: True' % self)
-        assert not (self.vlans() and self.stack), (
-            '%s cannot have stack and VLANs on same port' % self)
+        test_config_condition(not (self.vlans() or self.stack or self.output_only), (
+            '%s must have a VLAN, be a stack port, or have output_only: True' % self))
+        test_config_condition(self.vlans() and self.stack, (
+            '%s cannot have stack and VLANs on same port' % self))
         if self.native_vlan:
-            assert self.native_vlan not in self.tagged_vlans, (
-                'cannot have same native and tagged VLAN on same port')
+            test_config_condition(self.native_vlan in self.tagged_vlans, (
+                'cannot have same native and tagged VLAN on same port'))
         super(Port, self).finalize()
 
     def running(self):

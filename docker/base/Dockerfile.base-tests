@@ -1,7 +1,7 @@
 ## Image name: faucet/faucet-testbase
 ## Base image for FAUCET tests.
 
-FROM ubuntu:latest
+FROM ubuntu:16.04
 
 ENV OVSV="v2.9.0"
 ENV DPDK="18.02"

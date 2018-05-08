@@ -21,7 +21,6 @@ import random
 
 from ryu.lib import hub
 
-from faucet.valve_util import dpid_log
 from faucet.valve_of import devid_present
 from faucet.valve_of_old import OLD_MATCH_FIELDS
 
@@ -45,13 +44,15 @@ class GaugePoller(object):
         self.prom_client.dp_status.labels(
             **dict(dp_id=hex(self.dp.dp_id), dp_name=self.dp.name)).set(dp_status) # pylint: disable=no-member
 
-    def start(self, _ryudp, _active):
+    def start(self, ryudp, active):
         """Start the poller."""
-        return
+        self.ryudp = ryudp
+        if active:
+            self.logger.info('starting')
 
     def stop(self):
         """Stop the poller."""
-        return
+        self.logger.info('stopping')
 
     def running(self):
         """Return True if the poller is running."""
@@ -87,9 +88,7 @@ class GaugePoller(object):
         # TODO: it may be worth while verifying this is the correct stats
         # response before doing this
         if not self._running:
-            self.logger.debug('{} update received when not running'.format(
-                dpid_log(dp_id)
-                ))
+            self.logger.debug('update received when not running')
             return
         self.reply_pending = False
         self._update()
@@ -107,8 +106,7 @@ class GaugePoller(object):
             return 'LOCAL'
         elif stat.port_no in self.dp.ports:
             return self.dp.ports[stat.port_no].name
-        self.logger.debug('%s stats for unknown port %u',
-                         dpid_log(dp_id), stat.port_no)
+        self.logger.debug('stats for unknown port %u', stat.port_no)
         return str(stat.port_no)
 
     @staticmethod
@@ -147,13 +145,14 @@ class GaugeThreadPoller(GaugePoller):
         self.ryudp = None
 
     def start(self, ryudp, active):
-        self.ryudp = ryudp
+        super(GaugeThreadPoller, self).start(ryudp, active)
         self.stop()
         self._running = True
         if active:
             self.thread = hub.spawn(self)
 
     def stop(self):
+        super(GaugeThreadPoller, self).stop()
         self._running = False
         if self.is_active():
             hub.kill(self.thread)
@@ -200,8 +199,7 @@ class GaugePortStatsPoller(GaugeThreadPoller):
             self.ryudp.send_msg(req)
 
     def no_response(self):
-        self.logger.info(
-            'port stats request timed out for %s', self.dp.name)
+        self.logger.info('port stats request timed out')
 
 
 class GaugeFlowTablePoller(GaugeThreadPoller):
@@ -223,8 +221,7 @@ class GaugeFlowTablePoller(GaugeThreadPoller):
             self.ryudp.send_msg(req)
 
     def no_response(self):
-        self.logger.info(
-            'flow dump request timed out for %s', self.dp.name)
+        self.logger.info('flow dump request timed out')
 
     def _parse_flow_stats(self, stats):
         """Parse flow stats reply message into tags/labels and byte/packet counts."""

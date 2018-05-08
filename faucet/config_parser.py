@@ -21,7 +21,7 @@ import re
 
 from faucet import config_parser_util
 from faucet.acl import ACL
-from faucet.conf import InvalidConfigError
+from faucet.conf import test_config_condition, InvalidConfigError
 from faucet.dp import DP
 from faucet.meter import Meter
 from faucet.port import Port
@@ -39,20 +39,17 @@ V2_TOP_CONFS = (
 
 
 def dp_parser(config_file, logname):
+    """Parse a config file into DP configuration objects with hashes of config include/files."""
     conf = config_parser_util.read_config(config_file, logname)
     config_hashes = None
     dps = None
 
-    try:
-        assert conf is not None, 'Config file is empty'
-        assert isinstance(conf, dict), 'Config file does not have valid syntax'
-        version = conf.pop('version', 2)
-        assert version == 2, 'Only config version 2 is supported'
-        config_hashes, dps = _config_parser_v2(config_file, logname)
-        assert dps is not None, 'no DPs are not defined'
-
-    except AssertionError as err:
-        raise InvalidConfigError(err)
+    test_config_condition(conf is None, 'Config file is empty')
+    test_config_condition(not isinstance(conf, dict), 'Config file does not have valid syntax')
+    version = conf.pop('version', 2)
+    test_config_condition(version != 2, 'Only config version 2 is supported')
+    config_hashes, dps = _config_parser_v2(config_file, logname)
+    test_config_condition(dps is None, 'no DPs are not defined')
 
     return config_hashes, dps
 
@@ -62,8 +59,8 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
     dps = []
 
     def _get_vlan_by_key(dp_id, vlan_key, vlans):
-        assert isinstance(vlan_key, (str, int)), (
-            'VLAN key must not be type %s' % type(vlan_key))
+        test_config_condition(not isinstance(vlan_key, (str, int)), (
+            'VLAN key must not be type %s' % type(vlan_key)))
         if vlan_key in vlans:
             return vlans[vlan_key]
         for vlan in list(vlans.values()):
@@ -74,8 +71,8 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
 
     def _dp_parse_port(dp_id, port_key, port_conf, vlans):
         port = Port(port_key, dp_id, port_conf)
-        assert str(port_key) in (str(port.number), port.name), (
-            'Port key %s match port name or port number' % port_key)
+        test_config_condition(str(port_key) not in (str(port.number), port.name), (
+            'Port key %s match port name or port number' % port_key))
 
         def _dp_parse_native_port_vlan():
             if port.native_vlan is not None:
@@ -97,11 +94,13 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         port_ranges_conf = dp_conf.get('interface_ranges', {})
         # as users can config port vlan by using vlan name, we store vid in
         # Port instance instead of vlan name for data consistency
-        assert isinstance(ports_conf, dict), 'Invalid syntax in interface config '
-        assert isinstance(port_ranges_conf, dict), 'Invalid syntax in interface ranges config'
+        test_config_condition(not isinstance(ports_conf, dict), (
+            'Invalid syntax in interface config'))
+        test_config_condition(not isinstance(port_ranges_conf, dict), (
+            'Invalid syntax in interface ranges config'))
         port_num_to_port_conf = {}
         for port_key, port_conf in list(ports_conf.items()):
-            assert isinstance(port_conf, dict), 'Invalid syntax in port config'
+            test_config_condition(not isinstance(port_conf, dict), 'Invalid syntax in port config')
             if 'number' in port_conf:
                 port_num = port_conf['number']
             else:
@@ -109,22 +108,22 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
             try:
                 port_num_to_port_conf[port_num] = (port_key, port_conf)
             except TypeError:
-                assert False, 'Invalid syntax in port config'
+                raise InvalidConfigError('Invalid syntax in port config')
         for port_range, port_conf in list(port_ranges_conf.items()):
             # port range format: 1-6 OR 1-6,8-9 OR 1-3,5,7-9
-            assert isinstance(port_conf, dict), 'Invalid syntax in port conig'
+            test_config_condition(not isinstance(port_conf, dict), 'Invalid syntax in port config')
             port_nums = set()
             if 'number' in port_conf:
                 del port_conf['number']
-            for range_ in re.findall(r'(\d+-\d+)', port_range):
+            for range_ in re.findall(r'(\d+-\d+)', str(port_range)):
                 start_num, end_num = [int(num) for num in range_.split('-')]
-                assert start_num < end_num, (
-                    'Incorrect port range (%d - %d)' % (start_num, end_num))
+                test_config_condition(start_num >= end_num, (
+                    'Incorrect port range (%d - %d)' % (start_num, end_num)))
                 port_nums.update(list(range(start_num, end_num + 1)))
                 port_range = re.sub(range_, '', port_range)
-            other_nums = [int(p) for p in re.findall(r'\d+', port_range)]
+            other_nums = [int(p) for p in re.findall(r'\d+', str(port_range))]
             port_nums.update(other_nums)
-            assert port_nums, 'interface-ranges contain invalid config'
+            test_config_condition(not port_nums, 'interface-ranges contain invalid config')
             for port_num in port_nums:
                 if port_num in port_num_to_port_conf:
                     # port range config has lower priority than individual port config
@@ -138,18 +137,18 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         dp.reset_refs(vlans=vlans)
 
     for dp_key, dp_conf in list(dps_conf.items()):
-        assert isinstance(dp_conf, dict)
+        test_config_condition(not isinstance(dp_conf, dict), '')
         dp = DP(dp_key, dp_conf.get('dp_id', None), dp_conf)
-        assert dp.name == dp_key, (
-            'DP key %s and DP name must match' % dp_key)
+        test_config_condition(dp.name != dp_key, (
+            'DP key %s and DP name must match' % dp_key))
         dp_id = dp.dp_id
 
         vlans = {}
         for vlan_key, vlan_conf in list(vlans_conf.items()):
             vlan = VLAN(vlan_key, dp_id, vlan_conf)
             vlans[vlan_key] = vlan
-            assert str(vlan_key) in (str(vlan.vid), vlan.name), (
-                'VLAN %s key must match VLAN name or VLAN VID' % vlan_key)
+            test_config_condition(str(vlan_key) not in (str(vlan.vid), vlan.name), (
+                'VLAN %s key must match VLAN name or VLAN VID' % vlan_key))
         for acl_key, acl_conf in list(acls_conf.items()):
             acl = ACL(acl_key, dp_id, acl_conf)
             dp.add_acl(acl_key, acl)
@@ -172,8 +171,8 @@ def _dp_parser_v2(acls_conf, dps_conf, meters_conf,
         for router in list(dp.routers.keys()):
             router_ref_dps[router].add(dp)
     for router in list(routers_conf.keys()):
-        assert router_ref_dps[router], (
-            'router %s configured but not used by any DP' % router)
+        test_config_condition(not router_ref_dps[router], (
+            'router %s configured but not used by any DP' % router))
 
     return dps
 
@@ -188,9 +187,9 @@ def _config_parser_v2(config_file, logname):
 
     if not config_parser_util.dp_include(
             config_hashes, config_path, logname, top_confs):
-        assert False, 'Error found while loading config file: %s' % config_path
+        raise InvalidConfigError('Error found while loading config file: %s' % config_path)
     elif not top_confs['dps']:
-        assert False, 'DPs not configured in file: %s' % config_path
+        raise InvalidConfigError('DPs not configured in file: %s' % config_path)
     else:
         dps = _dp_parser_v2(
             top_confs['acls'],
@@ -252,6 +251,7 @@ def _watcher_parser_v2(conf, logname, prom_client):
 
     dbs = conf.pop('dbs')
 
+    # pylint: disable=fixme
     for watcher_name, watcher_conf in list(conf['watchers'].items()):
         if watcher_conf.get('all_dps', False):
             watcher_dps = list(dps.keys())

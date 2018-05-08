@@ -36,7 +36,7 @@ class ValveFloodManager(object):
         (False, valve_of.mac.BROADCAST_STR, None), # flood on ethernet broadcasts
     )
 
-    def __init__(self, flood_table, eth_src_table,
+    def __init__(self, flood_table, eth_src_table, # pylint: disable=too-many-arguments
                  flood_priority, bypass_priority,
                  use_group_table, groups,
                  combinatorial_port_flood):
@@ -73,7 +73,7 @@ class ValveFloodManager(object):
         return self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port)
 
-    def _build_flood_rule_for_vlan(self, vlan, eth_dst, eth_dst_mask,
+    def _build_flood_rule_for_vlan(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                    exclude_unicast, command, flood_priority,
                                    preflood_acts):
         ofmsgs = []
@@ -88,7 +88,7 @@ class ValveFloodManager(object):
             priority=flood_priority))
         return ofmsgs
 
-    def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask,
+    def _build_flood_rule_for_port(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                    exclude_unicast, command, flood_priority,
                                    port, preflood_acts):
         ofmsgs = []
@@ -104,7 +104,7 @@ class ValveFloodManager(object):
             priority=flood_priority))
         return ofmsgs
 
-    def _combinatorial_port_flood(self, vlan, eth_dst, eth_dst_mask,
+    def _combinatorial_port_flood(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                   exclude_unicast, command, flood_priority,
                                   mirror_acts):
         ofmsgs = []
@@ -118,7 +118,7 @@ class ValveFloodManager(object):
                     port, mirror_acts))
         return ofmsgs
 
-    def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask,
+    def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command, flood_priority,
                                 mirror_acts):
         ofmsgs = self._combinatorial_port_flood(
@@ -330,7 +330,7 @@ class ValveFloodStackManager(ValveFloodManager):
         # towards the root.
         return toward_flood_actions
 
-    def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask,
+    def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command, flood_priority,
                                 mirror_acts):
         ofmsgs = self._combinatorial_port_flood(

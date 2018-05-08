@@ -16,11 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.controller import dpset
 from ryu.controller import ofp_event
 from ryu.lib import hub
 
@@ -42,7 +39,6 @@ class Gauge(RyuAppBase):
     GAUGE_CONFIG. It logs to the file set as the environment variable
     GAUGE_LOG,
     """
-    _CONTEXTS = {'dpset': dpset.DPSet}
     logname = 'gauge'
     exc_logname = logname + '.exception'
     prom_client = None
@@ -53,28 +49,16 @@ class Gauge(RyuAppBase):
         self.config_watcher = ConfigWatcher()
         self.prom_client = GaugePrometheusClient(reg=self._reg)
 
-    def start(self):
-        super(Gauge, self).start()
-        self.reload_config(None)
-        self.threads.extend([
-            hub.spawn(thread) for thread in (self._config_file_stat,)])
-
-    def _get_watchers(self, ryu_dp, handler_name):
+    def _get_watchers(self, handler_name, ryu_event):
         """Get Watchers instances to response to an event.
 
         Args:
-            ryu_dp (ryu.controller.controller.Datapath): datapath.
             handler_name (string): handler name to log if datapath unknown.
+            ryu_event (ryu.controller.event.EventReplyBase): DP event.
         Returns:
-            dict of Watchers instances or None.
         """
-        dp_id = ryu_dp.id
-        if dp_id in self.watchers:
-            return self.watchers[dp_id]
-        ryu_dp.close()
-        self.logger.error(
-            '%s: unknown datapath %s', handler_name, dpid_log(dp_id))
-        return None
+        return self._get_datapath_obj(
+            handler_name, self.watchers, ryu_event)
 
     @kill_on_exception(exc_logname)
     def _load_config(self):
@@ -110,29 +94,23 @@ class Gauge(RyuAppBase):
         self.logger.info('config complete')
 
     @kill_on_exception(exc_logname)
-    def _update_watcher(self, ryu_dp, name, msg):
+    def _update_watcher(self, name, ryu_event):
         """Call watcher with event data."""
-        rcv_time = time.time()
-        watchers = self._get_watchers(ryu_dp, '_update_watcher')
+        watchers, ryu_dp, msg = self._get_watchers(
+            '_update_watcher: %s' % name, ryu_event)
         if watchers is None:
             return
         if name in watchers:
             for watcher in watchers[name]:
-                watcher.update(rcv_time, ryu_dp.id, msg)
+                watcher.update(ryu_event.timestamp, ryu_dp.id, msg)
 
-    @kill_on_exception(exc_logname)
-    def _config_file_stat(self):
-        """Periodically stat config files for any changes."""
-        while True:
-            if self.config_watcher.files_changed():
-                if self.stat_reload:
-                    self.send_event('Gauge', EventReconfigure())
-            self._thread_jitter(3)
+    def _config_files_changed(self):
+        return self.config_watcher.files_changed()
 
     @set_ev_cls(EventReconfigure, MAIN_DISPATCHER)
-    def reload_config(self, _):
+    def reload_config(self, ryu_event):
         """Handle request for Gauge config reload."""
-        self.logger.warning('reload config requested')
+        super(Gauge, self).reload_config(ryu_event)
         self._load_config()
 
     def _start_watchers(self, ryu_dp, dp_id, watchers):
@@ -142,23 +120,20 @@ class Gauge(RyuAppBase):
                 is_active = i == 0
                 watcher.report_dp_status(1)
                 watcher.start(ryu_dp, is_active)
-                if is_active:
-                    self.logger.info(
-                        '%s %s watcher starting', dpid_log(dp_id), watcher.conf.type)
 
     @kill_on_exception(exc_logname)
-    def _handler_datapath_up(self, ryu_dp):
+    def _datapath_connect(self, ryu_event):
         """Handle DP up.
 
         Args:
-            ryu_dp (ryu.controller.controller.Datapath): datapath.
+            ryu_event (ryu.controller.event.EventReplyBase): DP event.
         """
-        watchers = self._get_watchers(ryu_dp, '_handler_datapath_up')
+        watchers, ryu_dp, _ = self._get_watchers('_handler_datapath_up', ryu_event)
         if watchers is None:
             return
         self.logger.info('%s up', dpid_log(ryu_dp.id))
         ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
-        ryu_dp.send_msg(valve_of.gauge_async(datapath=ryu_dp))
+        ryu_dp.send_msg(valve_of.faucet_async(datapath=ryu_dp, packet_in=False))
         self._start_watchers(ryu_dp, ryu_dp.id, watchers)
 
     def _stop_watchers(self, dp_id, watchers):
@@ -167,77 +142,36 @@ class Gauge(RyuAppBase):
             for watcher in watchers_by_name:
                 watcher.report_dp_status(0)
                 if watcher.is_active():
-                    self.logger.info(
-                        '%s %s watcher stopping', dpid_log(dp_id), watcher.conf.type)
                     watcher.stop()
 
     @kill_on_exception(exc_logname)
-    def _handler_datapath_down(self, ryu_dp):
+    def _datapath_disconnect(self, ryu_event):
         """Handle DP down.
 
         Args:
-            ryu_dp (ryu.controller.controller.Datapath): datapath.
+           ryu_event (ryu.controller.event.EventReplyBase): DP event.
         """
-        watchers = self._get_watchers(ryu_dp, '_handler_datapath_down')
+        watchers, ryu_dp, _ = self._get_watchers(
+            '_handler_datapath_down', ryu_event)
         if watchers is None:
             return
         self.logger.info('%s down', dpid_log(ryu_dp.id))
         self._stop_watchers(ryu_dp.id, watchers)
 
-    @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
-    @kill_on_exception(exc_logname)
-    def handler_connect_or_disconnect(self, ryu_event):
-        """Handle DP dis/connect.
-
-        Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
-        """
-        ryu_dp = ryu_event.dp
-        if ryu_event.enter:
-            self._handler_datapath_up(ryu_dp)
-        else:
-            self._handler_datapath_down(ryu_dp)
-
-    @set_ev_cls(dpset.EventDPReconnected, dpset.DPSET_EV_DISPATCHER)
-    @kill_on_exception(exc_logname)
-    def handler_reconnect(self, ryu_event):
-        """Handle a DP reconnection event.
-
-        Args:
-           ryu_event (ryu.controller.event.EventReplyBase): DP reconnection.
-        """
-        ryu_dp = ryu_event.dp
-        self._handler_datapath_up(ryu_dp)
+    _WATCHER_HANDLERS = {
+        ofp_event.EventOFPPortStatus: 'port_state', # pylint: disable=no-member
+        ofp_event.EventOFPPortStatsReply: 'port_stats', # pylint: disable=no-member
+        ofp_event.EventOFPFlowStatsReply: 'flow_table', # pylint: disable=no-member
+    }
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
-    def port_status_handler(self, ryu_event):
+    def update_watcher_handler(self, ryu_event):
         """Handle port status change event.
 
         Args:
            ryu_event (ryu.controller.event.EventReplyBase): port status change event.
         """
-        self._update_watcher(
-            ryu_event.msg.datapath, 'port_state', ryu_event.msg)
-
-    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
-    @kill_on_exception(exc_logname)
-    def port_stats_reply_handler(self, ryu_event):
-        """Handle port stats reply event.
-
-        Args:
-           ryu_event (ryu.controller.event.EventReplyBase): port stats event.
-        """
-        self._update_watcher(
-            ryu_event.msg.datapath, 'port_stats', ryu_event.msg)
-
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
-    @kill_on_exception(exc_logname)
-    def flow_stats_reply_handler(self, ryu_event):
-        """Handle flow stats reply event.
-
-        Args:
-           ryu_event (ryu.controller.event.EventReplyBase): flow stats event.
-        """
-        self._update_watcher(
-            ryu_event.msg.datapath, 'flow_table', ryu_event.msg)
+        self._update_watcher(self._WATCHER_HANDLERS[type(ryu_event)], ryu_event)

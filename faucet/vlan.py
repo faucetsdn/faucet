@@ -18,10 +18,12 @@
 
 import collections
 import ipaddress
+import random
+
 import netaddr
 
 from faucet import valve_of
-from faucet.conf import Conf
+from faucet.conf import Conf, test_config_condition, InvalidConfigError
 from faucet.valve_util import btos
 from faucet.valve_packet import FAUCET_MAC
 
@@ -37,6 +39,12 @@ class HostCacheEntry(object):
 
     def __hash__(self):
         return hash((self.eth_src_int, self.port.number))
+
+    def __str__(self):
+        return '%s on %s' % (self.eth_src, self.port)
+
+    def __repr__(self):
+        return self.__str__()
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
@@ -111,9 +119,9 @@ class VLAN(Conf):
         'max_hosts': 255,
         # Limit number of hosts that can be learned on a VLAN.
         'vid': None,
-        'proactive_arp_limit': 4096,
+        'proactive_arp_limit': 2048 + 4, # from L3 stress test
         # Don't proactively ARP for hosts if over this limit (None unlimited)
-        'proactive_nd_limit': 4096,
+        'proactive_nd_limit': 2048 + 4, # from L3 stress test
         # Don't proactively ND for hosts if over this limit (None unlimited)
         'targeted_gw_resolution': False,
         # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
@@ -167,40 +175,37 @@ class VLAN(Conf):
         self._set_default(
             'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
-    @staticmethod
-    def _vid_valid(vid):
-        """Return True if VID valid."""
-        if isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID:
-            return True
-        return False
-
     def check_config(self):
         super(VLAN, self).check_config()
-        assert self.vid_valid(self.vid), 'invalid VID %s' % self.vid
-        assert netaddr.valid_mac(self.faucet_mac), 'invalid MAC address %s' % self.faucet_mac
-
+        test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
+        test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
+            'invalid MAC address %s' % self.faucet_mac))
         if self.faucet_vips:
             try:
                 self.faucet_vips = [
                     ipaddress.ip_interface(btos(ip)) for ip in self.faucet_vips]
             except (ValueError, AttributeError, TypeError) as err:
-                assert False, 'Invalid IP address in faucet_vips: %s' % err
+                raise InvalidConfigError('Invalid IP address in faucet_vips: %s' % err)
             for faucet_vip in self.faucet_vips:
                 self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(
                     faucet_vip)
             self.dyn_ipvs = list(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_as:
-            assert isinstance(self.bgp_port, int)
-            assert self.bgp_connect_mode in ('active', 'passive', 'both')
-            assert ipaddress.IPv4Address(btos(self.bgp_routerid))
-            assert self.bgp_neighbor_as
-            assert self.bgp_neighbor_addresses
+            test_config_condition(not isinstance(self.bgp_port, int), (
+                'BGP port must be %s not %s' % (int, type(self.bgp_port))))
+            test_config_condition(self.bgp_connect_mode not in ('active', 'passive', 'both'), (
+                '%s must be active, passive or both' % self.bgp_connect_mode))
+            test_config_condition(not ipaddress.IPv4Address(btos(self.bgp_routerid)), (
+                '%s is not a valid IPv4 address' % (self.bgp_routerid)))
+            test_config_condition(not self.bgp_neighbor_as, 'No BGP neighbor AS')
+            test_config_condition(not self.bgp_neighbor_addresses, 'No BGP neighbor addresses')
             neighbor_ips = [ipaddress.ip_address(btos(ip)) for ip in self.bgp_neighbor_addresses]
-            assert len(neighbor_ips) == len(self.bgp_neighbor_addresses)
+            test_config_condition(len(neighbor_ips) != len(self.bgp_neighbor_addresses), (
+                'Neighbor IPs is not the same length as BGP neighbor addresses'))
             peer_versions = [ip.version for ip in neighbor_ips]
-            assert len(peer_versions) == 1 or self.bgp_connect_mode == 'active', (
-                'if using multiple address families bgp_connect_mode must be active')
+            test_config_condition(len(peer_versions) != 1 and self.bgp_connect_mode != 'active', (
+                'if using multiple address families bgp_connect_mode must be active'))
 
         if self.routes:
             try:
@@ -210,21 +215,20 @@ class VLAN(Conf):
                         ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
                         ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
                     except (ValueError, AttributeError, TypeError) as err:
-                        assert False, 'Invalid IP address in route: %s' % err
-                    assert ip_gw.version == ip_dst.version
+                        raise InvalidConfigError('Invalid IP address in route: %s' % err)
+                    test_config_condition(ip_gw.version != ip_dst.version, 'ip_gw version does not match the ip_dst version')
                     self.add_route(ip_dst, ip_gw)
             except KeyError:
-                assert False, 'missing route config'
+                raise InvalidConfigError('missing route config')
             except TypeError:
-                assert False, '%s is not a valid routes value' % self.routes
-        if self.acl_in and self.acls_in:
-            assert False, 'found both acl_in and acls_in, use only acls_in'
+                raise InvalidConfigError('%s is not a valid routes value' % self.routes)
+        test_config_condition(self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
         if self.acl_in and not isinstance(self.acl_in, list):
             self.acls_in = [self.acl_in,]
             self.acl_in = None
         if self.acls_in:
             for acl in self.acls_in:
-                assert isinstance(acl, (int, str)), 'acl names must be int or str'
+                test_config_condition(not isinstance(acl, (int, str)), 'acl names must be int or str')
 
     @staticmethod
     def vid_valid(vid):
@@ -234,6 +238,7 @@ class VLAN(Conf):
         return False
 
     def reset_caches(self):
+        """Reset dynamic caches."""
         self.dyn_host_cache = {}
         self.dyn_host_cache_by_port = {}
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
@@ -254,6 +259,7 @@ class VLAN(Conf):
         self.dyn_host_cache[eth_src] = entry
 
     def expire_cache_host(self, eth_src):
+        """Expire a host from caches."""
         entry = self.cached_host(eth_src)
         if entry is not None:
             self.dyn_host_cache_by_port[entry.port.number].remove(entry)
@@ -298,11 +304,11 @@ class VLAN(Conf):
             self.dyn_oldest_host_time = now
             for entry in list(self.dyn_host_cache.values()):
                 if (not entry.port.permanent_learn and entry.cache_time < min_cache_time):
-                    expired_hosts.append(entry.eth_src)
+                    expired_hosts.append(entry)
                 else:
                     self.dyn_oldest_host_time = min(entry.cache_time, self.dyn_oldest_host_time)
-            for eth_src in expired_hosts:
-                self.expire_cache_host(eth_src)
+            for entry in expired_hosts:
+                self.expire_cache_host(entry.eth_src)
         return expired_hosts
 
     def ipvs(self):
@@ -414,7 +420,7 @@ class VLAN(Conf):
         pkt = packet_builder(vid, *args)
         return valve_of.packetout(port.number, pkt.data)
 
-    def flood_pkt(self, packet_builder, *args):
+    def flood_pkt(self, packet_builder, random_order, *args):
         ofmsgs = []
         for vid, ports in (
                 (self.vid, self.tagged_flood_ports(False)),
@@ -422,6 +428,8 @@ class VLAN(Conf):
             if ports:
                 pkt = packet_builder(vid, *args)
                 flood_ofmsgs = [valve_of.packetout(port.number, pkt.data) for port in ports if port.running()]
+                if random_order:
+                    random.shuffle(flood_ofmsgs)
                 ofmsgs.extend(flood_ofmsgs)
         return ofmsgs
 
@@ -449,13 +457,6 @@ class VLAN(Conf):
                         faucet_vip.network.broadcast_address):
                     return faucet_vip
         return None
-
-    def ips_in_vip_subnet(self, ips):
-        """Return True if all IPs are on same subnet as VIP on this VLAN."""
-        for ipa in ips:
-            if self.ip_in_vip_subnet(ipa) is None:
-                return False
-        return True
 
     def from_connected_to_vip(self, src_ip, dst_ip):
         """Return True if src_ip in connected network and dst_ip is a VIP.

@@ -2,7 +2,7 @@
 
 UNITTESTS=1
 DEPCHECK=1
-MINCOVERAGE=81
+MINCOVERAGE=85
 
 # if -n passed, don't check dependencies/lint/type/documentation.
 # wrapper script only cares about -n, others passed to test suite.
@@ -45,24 +45,31 @@ if [ "$DEPCHECK" == 1 ] ; then
     echo "============ Running pytype analyzer ============"
     cd /faucet-src/tests
     # TODO: pytype doesn't completely understand py3 yet.
-    ls -1 ../faucet/*py | parallel pytype -d pyi-error,import-error || exit 1
-
+    # ls -1 ../faucet/*py | parallel pytype -d pyi-error,import-error || exit 1
+    # TODO: can't use parallel because multiple access to egg cache dir
+    for i in ../faucet/*py ; do echo pytype $i ; pytype -d pyi-error,import-error $i || exit 1 ; done
 fi
 
 if [ "$UNITTESTS" == 1 ] ; then
     echo "========== Running faucet unit tests =========="
-    TMPDIR=$(mktemp -d /tmp/$(basename $0).XXXXXX)
-    python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing | tee $TMPDIR/coverage.txt || exit 1
-    COVERAGE=`grep TOTAL $TMPDIR/coverage.txt |grep -Eo '\b[0-9]+\%'|sed 's/\%//g'`
-    echo coverage: $COVERAGE percent
-    if [ "$COVERAGE" -lt "$MINCOVERAGE" ] ; then
-        echo coverage below minimum MINCOVERAGE percent
-        exit 1
-    fi
-    rm -rf "$TMPDIR"
+    cd /faucet-src/tests
+    PYTHONPATH=.. ./test_coverage.sh || exit 1
 fi
 
 echo "========== Running faucet system tests =========="
+test_failures=
 export PYTHONPATH=/faucet-src
+
+cd /faucet-src/tests
 python2 ./faucet_mininet_test.py -c
-http_proxy="" python2 ./faucet_mininet_test.py $FAUCET_TESTS || exit 1
+http_proxy="" python2 ./faucet_mininet_test.py $FAUCET_TESTS || test_failures+=" faucet_mininet_test"
+
+cd /faucet-src/clib
+http_proxy="" python2 ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
+
+if [ -n "$test_failures" ]; then
+    echo Test failures: $test_failures
+    exit 1
+fi
+
+echo Done with faucet system tests.

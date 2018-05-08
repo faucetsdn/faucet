@@ -26,7 +26,7 @@ from faucet.config_parser import dp_parser
 from faucet.conf import InvalidConfigError
 
 
-def check_config(conf_files, debug_level=logging.DEBUG):
+def check_config(conf_files, debug_level):
     """Return True and successful config dict, if all config can be parsed."""
     logname = '/dev/null'
     logger = logging.getLogger('%s.config' % logname)
@@ -39,12 +39,7 @@ def check_config(conf_files, debug_level=logging.DEBUG):
 
     for conf_file in conf_files:
         try:
-            parse_result = dp_parser(conf_file, logname)
-            if parse_result is None:
-                break
-            _, dps = parse_result
-            if dps is None:
-                break
+            _, dps = dp_parser(conf_file, logname)
             for dp in dps:
                 valve_dp = valve.valve_factory(dp)
                 if valve_dp is None:
@@ -58,12 +53,9 @@ def check_config(conf_files, debug_level=logging.DEBUG):
 
 
 def main():
-    check_result, check_output = check_config(sys.argv[1:])
+    check_result, check_output = check_config(sys.argv[1:], logging.DEBUG)
     print(check_output)
-    if check_result:
-        sys.exit(0)
-    else:
-        sys.exit(-1)
+    sys.exit(check_result)
 
 
 if __name__ == '__main__':

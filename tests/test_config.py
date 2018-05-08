@@ -26,6 +26,7 @@ class TestConfig(unittest.TestCase):
         shutil.rmtree(self.tmpdir)
 
     def conf_file_name(self):
+        """Return path to test config file in test directory."""
         return os.path.join(self.tmpdir, 'faucet.yaml')
 
     def create_config_file(self, config):
@@ -45,7 +46,7 @@ class TestConfig(unittest.TestCase):
             before_function()
         try:
             function(conf_file, LOGNAME)
-        except cp.InvalidConfigError as err:
+        except cp.InvalidConfigError as _err:
             return False
         return True
 
@@ -371,6 +372,26 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_override_port(self):
+        """Test override port is valid."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+                override_output_port: output_port
+            output_port:
+                number: 2
+                output_only: True
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_one_port_dp(self):
         """Test port number is valid."""
         config = """
@@ -523,6 +544,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_unresolved_mirror_ports(self):
+        """Test invalid mirror port name."""
         config = """
 vlans:
     office:
@@ -562,6 +584,7 @@ dps:
         self.check_config_success(config, cp.dp_parser)
 
     def test_vlans_on_mirror_ports(self):
+        """Test invalid VLANs configured on a mirror port."""
         config = """
 vlans:
     office:
@@ -579,6 +602,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_unresolved_output_ports(self):
+        """Test invalid output port name."""
         config = """
 vlans:
     office:
@@ -601,6 +625,7 @@ acls:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_unknown_output_ports(self):
+        """Test invalid mirror ACL port."""
         config = """
 vlans:
     office:
@@ -655,7 +680,26 @@ dps:
         self.assertTrue(dp.ports[1].max_hosts == 4)
         self.assertEqual(dp.ports[1].description, "video conf")
 
+    def test_single_range_valid_config(self):
+        """Test if port range with single port config applied correctly"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interface_ranges:
+            1:
+                native_vlan: office
+"""
+        conf_file = self.create_config_file(config)
+        _, dps = cp.dp_parser(conf_file, LOGNAME)
+        dp = dps[0]
+        self.assertEqual(len(dp.ports), 1)
+
     def test_port_range_invalid_config(self):
+        """Test invalid characters used in interface_ranges."""
         config = """
 vlans:
     office:
@@ -670,6 +714,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_acl_no_actions(self):
+        """Test ACL with invalid actions section."""
         config = """
 acls:
     office-vlan-protect:
@@ -691,6 +736,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_acl_invalid_ipv4(self):
+        """Test invalid IPv4 address in ACL."""
         config = """
 acls:
     office-vlan-protect:
@@ -712,6 +758,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_acl_invalid_ipv6(self):
+        """Test invalid IPv6 address in ACL."""
         config = """
 acls:
     office-vlan-protect:
@@ -733,6 +780,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_acl_invalid_mask(self):
+        """Test invalid IPv4 mask in ACL."""
         config = """
 acls:
     office-vlan-protect:
@@ -754,6 +802,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_acl_invalid_udp_port(self):
+        """Test invalid UDP port in ACL."""
         config = """
 acls:
     access-port-protect:
@@ -774,6 +823,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_acl_invalid_rule_name(self):
+        """Test invalid name for rule in ACL."""
         config = """
 acls:
     access-port-protect:
@@ -794,6 +844,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_acl_and_acls_vlan_invalid(self):
+        """Test cannot have acl_in and acls_in together."""
         config = """
 acls:
     access-port-protect:
@@ -817,7 +868,7 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
-    def test_inconsistent_acl_exact_match(self):
+    def test_inconsistent_exact_match(self):
         """Test that ACLs have consistent exact_match."""
         config = """
 acls:
@@ -869,6 +920,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_acls_vlan_valid(self):
+        """Test ACLs can be combined on VLAN."""
         config = """
 acls:
     access-port-protect:
@@ -892,6 +944,7 @@ dps:
         self.check_config_success(config, cp.dp_parser)
 
     def test_acls_port_valid(self):
+        """Test ACLs can be combined on a port."""
         config = """
 acls:
     access-port-protect:
@@ -915,10 +968,12 @@ dps:
         self.check_config_success(config, cp.dp_parser)
 
     def test_invalid_char(self):
+        """Test config file with invalid characters."""
         config = b'\x63\xe1'
         self.check_config_failure(config, cp.dp_parser)
 
     def test_perm_denied(self):
+        """Test config file has no read permission."""
 
         def unreadable():
             """Make config unreadable."""
@@ -928,6 +983,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser, before_function=unreadable)
 
     def test_missing_route_config(self):
+        """Test missing IP gateway for route."""
         config = """
 vlans:
     office:
@@ -946,6 +1002,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_invalid_dp_conf(self):
+        """Test invalid DP header config."""
         config = """
 vlans:
     office:
@@ -1016,6 +1073,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_invalid_acl_formation(self):
+        """Test missing ACL name."""
         config = """
 acls:
 #   office-vlan-protect:
@@ -1441,6 +1499,80 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_good_set_fields(self):
+        """Test good set_fields."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        set_fields:
+                            - eth_dst: "0e:00:00:00:00:01"
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_push_pop_vlans_acl(self):
+        """Test push and pop VLAN ACL fields."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        pop_vlans: 1
+                        vlan_vids:
+                            - { vid: 200, eth_type: 0x8100 }
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_failover_acl(self):
+        """Test failover ACL fields."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        failover:
+                             group_id: 1
+                             ports: [1]
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_unreferenced_acl(self):
         """Test an unresolveable port in an ACL that is not referenced is OK."""
         config = """
@@ -1625,6 +1757,7 @@ dps:
         self.check_config_failure(config, cp.dp_parser)
 
     def test_meter_config(self):
+        """Test valid meter config."""
         config = """
 meters:
     lossymeter:

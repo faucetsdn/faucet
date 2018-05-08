@@ -27,6 +27,7 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
+from faucet.conf import test_config_condition, InvalidConfigError
 from faucet.valve_of_old import OLD_MATCH_FIELDS
 
 MIN_VID = 1
@@ -418,11 +419,11 @@ def match_from_dict(match_dict):
 
     kwargs = {}
     for of_match, field in list(match_dict.items()):
-        assert of_match in MATCH_FIELDS, 'Unknown match field: %s' % of_match
+        test_config_condition(of_match not in MATCH_FIELDS, 'Unknown match field: %s' % of_match)
         try:
             encoded_field = MATCH_FIELDS[of_match](field)
         except TypeError:
-            assert False, '%s cannot be type %s' % (of_match, type(field))
+            raise InvalidConfigError('%s cannot be type %s' % (of_match, type(field)))
         kwargs[of_match] = encoded_field
 
     return parser.OFPMatch(**kwargs)
@@ -598,14 +599,34 @@ def controller_pps_meterdel(datapath=None):
         flags=ofp.OFPMF_PKTPS,
         meter_id=ofp.OFPM_CONTROLLER)
 
-def is_delflow(ofmsg):
+def is_delete(ofmsg):
     return is_flowdel(ofmsg) or is_groupdel(ofmsg) or is_meterdel(ofmsg)
+
+
+def _msg_kind(ofmsg):
+    if is_table_features_req(ofmsg):
+        return 'tfm'
+    if is_delete(ofmsg):
+        return 'delete'
+    if is_groupadd(ofmsg):
+        return 'groupadd'
+    if is_meteradd(ofmsg):
+        return 'meteradd'
+    return 'other'
+
+
+def _partition_ofmsgs(input_ofmsgs):
+    """Partition input ofmsgs by kind."""
+    by_kind = {}
+    for ofmsg in input_ofmsgs:
+        by_kind.setdefault(_msg_kind(ofmsg), []).append(ofmsg)
+    return by_kind
 
 
 def dedupe_ofmsgs(input_ofmsgs):
     """Return deduplicated ofmsg list."""
     # Built in comparison doesn't work until serialized() called
-    deduped_input_ofmsgs = set()
+    deduped_input_ofmsgs = []
     if input_ofmsgs:
         input_ofmsgs_hashes = set()
         for ofmsg in input_ofmsgs:
@@ -613,7 +634,7 @@ def dedupe_ofmsgs(input_ofmsgs):
             ofmsg_str = str(ofmsg)
             if ofmsg_str in input_ofmsgs_hashes:
                 continue
-            deduped_input_ofmsgs.add(ofmsg)
+            deduped_input_ofmsgs.append(ofmsg)
             input_ofmsgs_hashes.add(ofmsg_str)
     return deduped_input_ofmsgs
 
@@ -626,19 +647,18 @@ def valve_flowreorder(input_ofmsgs, use_barriers=True):
     # at most only one barrier to deal with.
     # TODO: further optimizations may be possible - for example,
     # reorder adds to be in priority order.
-    delete_ofmsgs = dedupe_ofmsgs([ofmsg for ofmsg in input_ofmsgs if is_delflow(ofmsg)])
+    by_kind = _partition_ofmsgs(input_ofmsgs)
+    delete_ofmsgs = dedupe_ofmsgs(by_kind.get('delete', []))
     if not delete_ofmsgs:
         return input_ofmsgs
-    input_ofmsgs = dedupe_ofmsgs(input_ofmsgs)
-    nondelete_ofmsgs = input_ofmsgs - delete_ofmsgs
-    groupadd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_groupadd(ofmsg)])
-    meteradd_ofmsgs = set([ofmsg for ofmsg in nondelete_ofmsgs if is_meteradd(ofmsg)])
-    tfm_ofmsgs =  set([ofmsg for ofmsg in nondelete_ofmsgs if is_table_features_req(ofmsg)])
-    other_ofmsgs = nondelete_ofmsgs - groupadd_ofmsgs.union(meteradd_ofmsgs)
+    groupadd_ofmsgs = dedupe_ofmsgs(by_kind.get('groupadd', []))
+    meteradd_ofmsgs = dedupe_ofmsgs(by_kind.get('meteradd', []))
+    tfm_ofmsgs = dedupe_ofmsgs(by_kind.get('tfm', []))
+    other_ofmsgs = dedupe_ofmsgs(by_kind.get('other', []))
     output_ofmsgs = []
     for ofmsgs in (delete_ofmsgs, tfm_ofmsgs, groupadd_ofmsgs, meteradd_ofmsgs):
         if ofmsgs:
-            output_ofmsgs.extend(list(ofmsgs))
+            output_ofmsgs.extend(ofmsgs)
             if use_barriers:
                 output_ofmsgs.append(barrier())
     output_ofmsgs.extend(other_ofmsgs)
@@ -686,28 +706,17 @@ def faucet_config(datapath=None):
     return parser.OFPSetConfig(datapath, ofp.OFPC_FRAG_NORMAL, 0)
 
 
-def faucet_async(datapath=None, notify_flow_removed=False):
-    """Return async message config for FAUCET."""
-    packet_in_mask = 1 << ofp.OFPR_ACTION
+def faucet_async(datapath=None, notify_flow_removed=False, packet_in=True):
+    """Return async message config for FAUCET/Gauge"""
+    packet_in_mask = 0
+    if packet_in:
+        packet_in_mask = 1 << ofp.OFPR_ACTION
     port_status_mask = (
         1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
     flow_removed_mask = 0
     if notify_flow_removed:
         flow_removed_mask = (
             1 << ofp.OFPRR_IDLE_TIMEOUT | 1 << ofp.OFPRR_HARD_TIMEOUT)
-    return parser.OFPSetAsync(
-        datapath,
-        [packet_in_mask, packet_in_mask],
-        [port_status_mask, port_status_mask],
-        [flow_removed_mask, flow_removed_mask])
-
-
-def gauge_async(datapath=None):
-    """Return async message config for Gauge."""
-    packet_in_mask = 0
-    port_status_mask = (
-        1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
-    flow_removed_mask = 0
     return parser.OFPSetAsync(
         datapath,
         [packet_in_mask, packet_in_mask],
