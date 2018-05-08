@@ -462,13 +462,6 @@ class VLAN(Conf):
                     return faucet_vip
         return None
 
-    def ips_in_vip_subnet(self, ips):
-        """Return True if all IPs are on same subnet as VIP on this VLAN."""
-        for ipa in ips:
-            if self.ip_in_vip_subnet(ipa) is None:
-                return False
-        return True
-
     def from_connected_to_vip(self, src_ip, dst_ip):
         """Return True if src_ip in connected network and dst_ip is a VIP.
 
