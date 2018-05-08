@@ -356,7 +356,7 @@ class ValveRouteManager(object):
     def _expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan):
         expire_flows = []
         self.logger.info(
-            'expiring dead host route %s (age %us) on %s' % (
+            'expiring dead route %s (age %us) on %s' % (
                 ip_gw, nexthop_cache_entry.age(now), vlan))
         port = nexthop_cache_entry.port
         self._del_vlan_nexthop_cache_entry(vlan, ip_gw)
@@ -366,18 +366,17 @@ class ValveRouteManager(object):
             expire_flows = []
         return expire_flows
 
-    def _resolve_gateways_flows(self, expire_dead, vlan, now, unresolved_nexthops, remaining_attempts):
+    def _resolve_and_expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, faucet_vip, now):
+        if self.nexthop_dead(nexthop_cache_entry):
+            return self._expire_gateway_flows(ip_gw, nexthop_cache_entry, vlan)
+        return self._resolve_gateway_flows(ip_gw, nexthop_cache_entry, vlan, faucet_vip, now)
+
+    def _resolve_gateways_flows(self, resolve_handler, vlan, now, unresolved_nexthops, remaining_attempts):
         ofmsgs = []
         for ip_gw, faucet_vip, nexthop_cache_entry in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
-            resolve_flows = []
-            if expire_dead and self.nexthop_dead(nexthop_cache_entry):
-                resolve_flows = self._expire_gateway_flows(
-                    ip_gw, nexthop_cache_entry, vlan)
-            else:
-                resolve_flows = self._resolve_gateway_flows(
-                    ip_gw, nexthop_cache_entry, vlan, faucet_vip, now)
+            resolve_flows = resolve_handler(ip_gw, nexthop_cache_entry, vlan, faucet_vip, now)
             if resolve_flows:
                 ofmsgs.extend(resolve_flows)
                 remaining_attempts -= 1
@@ -395,10 +394,12 @@ class ValveRouteManager(object):
         ofmsgs = []
         remaining_attempts = self.max_hosts_per_resolve_cycle
         route_ip_gws, host_ip_gws = self._vlan_ip_gws(vlan)
-        for ip_gws, expire_dead in ((route_ip_gws, False), (host_ip_gws, True)):
+        for ip_gws, resolve_handler in (
+                (route_ip_gws, self._resolve_gateway_flows),
+                (host_ip_gws, self._resolve_and_expire_gateway_flows)):
             unresolved_nexthops = self._vlan_unresolved_nexthops(vlan, ip_gws, now)
             remaining_attempts, resolve_ofmsgs = self._resolve_gateways_flows(
-                expire_dead, vlan, now, unresolved_nexthops, remaining_attempts)
+                resolve_handler, vlan, now, unresolved_nexthops, remaining_attempts)
             ofmsgs.extend(resolve_ofmsgs)
         return ofmsgs
 
