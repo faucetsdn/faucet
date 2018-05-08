@@ -1037,6 +1037,15 @@ acls:
                 return
         self.fail('packet in rate limit not triggered')
 
+    def test_ofdescstats_handler(self):
+        body = parser.OFPDescStats(
+            mfr_desc=u'test_mfr_desc'.encode(),
+            hw_desc=u'test_hw_desc'.encode(),
+            sw_desc=u'test_sw_desc'.encode(),
+            serial_num=u'99'.encode(),
+            dp_desc=u'test_dp_desc'.encode())
+        self.valve.ofdescstats_handler(body)
+
 
 class ValveChangePortCase(ValveTestBase):
     """Test changes to config on ports."""
