@@ -1271,6 +1271,12 @@ class ValveStackTestCase(ValveTestBase):
             'eth_dst': self.UNKNOWN_MAC,
             'ipv4_src': '10.0.0.1',
             'ipv4_dst': '10.0.0.2'})
+        self.rcv_packet(5, 0x300, {
+            'eth_src': self.P1_V300_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'vid': 0x300,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
 
     def test_stack_flood(self):
         """Test packet flooding when stacking."""
