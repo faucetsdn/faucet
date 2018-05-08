@@ -1503,6 +1503,31 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_push_pop_vlans_acl(self):
+        """Test push and pop VLAN ACL fields."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    output:
+                        pop_vlans: 1
+                        vlan_vids:
+                            - { vid: 200, eth_type: 0x8100 }
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_failover_acl(self):
         """Test failover ACL fields."""
         config = """
