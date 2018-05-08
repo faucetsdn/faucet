@@ -39,6 +39,14 @@ class NextHop(object):
         self.last_retry_time = None
         self.resolve_retries = 0
 
+    def age(self, now):
+        """Return age of this nexthop."""
+        return now - self.cache_time
+
+    def dead(self, now, max_age, max_fib_retries):
+        """Return True if this nexthop is considered dead."""
+        return self.resolve_retries >= max_fib_retries or self.age(now) > max_age
+
 
 class ValveRouteManager(object):
     """Base class to implement RIB/FIB."""
@@ -59,6 +67,7 @@ class ValveRouteManager(object):
         self.max_hosts_per_resolve_cycle = max_hosts_per_resolve_cycle
         self.max_host_fib_retry_count = max_host_fib_retry_count
         self.max_resolve_backoff_time = max_resolve_backoff_time
+        self.max_nexthop_age = self.max_host_fib_retry_count * self.max_resolve_backoff_time
         self.proactive_learn = proactive_learn
         self.dec_ttl = dec_ttl
         self.fib_table = fib_table
@@ -70,6 +79,9 @@ class ValveRouteManager(object):
         self.routers = routers
         self.use_group_table = use_group_table
         self.groups = groups
+
+    def nexthop_dead(self, now, nexthop_cache_entry):
+        return nexthop_cache_entry.dead(now, self.max_nexthop_age, self.max_host_fib_retry_count)
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return None
@@ -323,20 +335,16 @@ class ValveRouteManager(object):
 
     def _resolve_gateways_flows(self, expire_dead, vlan, now, unresolved_nexthops, remaining_attempts):
         ofmsgs = []
-        max_age = self.max_host_fib_retry_count * self.max_resolve_backoff_time
         for ip_gw, faucet_vip, nexthop_cache_entry in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
             last_retry_time = nexthop_cache_entry.last_retry_time
             port = nexthop_cache_entry.port
-            age = now - nexthop_cache_entry.cache_time
             resolve_flows = []
-            if (expire_dead and
-                    (nexthop_cache_entry.resolve_retries >= self.max_host_fib_retry_count or
-                     age > max_age)):
+            if expire_dead and self.nexthop_dead(now, nexthop_cache_entry):
                 self.logger.info(
                     'expiring dead host route %s (age %us) on VLAN %u' % (
-                        ip_gw, age, vlan.vid))
+                        ip_gw, nexthop_cache_entry.age(now), vlan.vid))
                 self._del_vlan_nexthop_cache_entry(vlan, ip_gw)
                 resolve_flows = self._del_host_fib_route(
                     vlan, ipaddress.ip_network(ip_gw.exploded))
@@ -406,11 +414,11 @@ class ValveRouteManager(object):
     def _proactive_resolve_neighbor(self, vlans, dst_ip):
         ofmsgs = []
         if not self.proactive_learn:
-            return []
+            return ofmsgs
         for vlan in vlans:
-            limit = self._vlan_nexthop_cache_limit(vlan)
             faucet_vip = vlan.ip_in_vip_subnet(dst_ip)
             if faucet_vip and not vlan.is_faucet_vip(dst_ip):
+                limit = self._vlan_nexthop_cache_limit(vlan)
                 if (limit is not None and
                         len(self._vlan_nexthop_cache(vlan)) >= limit):
                     self.logger.debug(
