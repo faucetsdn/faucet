@@ -522,6 +522,7 @@ class ValveTestCase(ValveTestBase):
         """Test API call for DP config."""
         # TODO: test actual config contents.
         self.assertTrue(self.valve.get_config_dict())
+        self.assertTrue(self.valve.dp.get_tables())
 
     def test_notifier_socket_path(self):
         """Test notifier socket path checker."""
