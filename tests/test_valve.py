@@ -294,6 +294,7 @@ vlans:
     P1_V100_MAC = '00:00:00:01:00:01'
     P2_V200_MAC = '00:00:00:02:00:02'
     P3_V200_MAC = '00:00:00:02:00:03'
+    P1_V300_MAC = '00:00:00:03:00:01'
     UNKNOWN_MAC = '00:00:00:04:00:04'
     V100 = 0x100|ofp.OFPVID_PRESENT
     V200 = 0x200|ofp.OFPVID_PRESENT
@@ -1264,13 +1265,26 @@ class ValveStackTestCase(ValveTestBase):
     def tearDown(self):
         self.teardown_valve()
 
+    def test_stack_learn(self):
+        self.rcv_packet(1, 0x300, {
+            'eth_src': self.P1_V300_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
+        self.rcv_packet(5, 0x300, {
+            'eth_src': self.P1_V300_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'vid': 0x300,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
+
     def test_stack_flood(self):
         """Test packet flooding when stacking."""
         matches = [
             {
                 'in_port': 1,
                 'vlan_vid': 0,
-                'eth_src': self.P1_V100_MAC
+                'eth_src': self.P1_V300_MAC
             }]
         self.verify_flooding(matches)
 
@@ -1446,6 +1460,7 @@ vlans:
              'partner_system': FAUCET_MAC,
              'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
              'eth_src': '0e:00:00:00:00:02'})
+        # TODO: verify LACP state in Prometheus and learning state.
         self.learn_hosts()
 
 
