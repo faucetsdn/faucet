@@ -18,6 +18,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import partial
+
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
@@ -78,6 +80,13 @@ class Faucet(RyuAppBase):
         'faucet_experimental_api': faucet_experimental_api.FaucetExperimentalAPI,
         }
     _EVENTS = [EventFaucetExperimentalAPIRegistered]
+    _VALVE_SERVICES = {
+        EventFaucetMetricUpdate: (None, 5),
+        EventFaucetResolveGateways: ('resolve_gateways', 2),
+        EventFaucetStateExpire: ('state_expire', 5),
+        EventFaucetAdvertise: ('advertise', 5),
+        EventFaucetLLDPAdvertise: ('send_lldp_beacons', 5),
+    }
     logname = 'faucet'
     exc_logname = logname + '.exception'
     bgp = None
@@ -109,12 +118,10 @@ class Faucet(RyuAppBase):
         if notifier_thread is not None:
             self.threads.append(notifier_thread)
 
-        # Start all threads
-        self.threads.extend([
-            hub.spawn(thread) for thread in (
-                self._gateway_resolve_request, self._state_expire_request,
-                self._metric_update_request, self._advertise_request,
-                self._lldp_beacon_request)])
+        for service_event, service_pair in list(self._VALVE_SERVICES.items()):
+            _, interval = service_pair
+            self.threads.append(hub.spawn(
+                partial(self._thread_reschedule, service_event(), interval)))
 
         # Register to API
         self.api._register(self)
@@ -169,33 +176,11 @@ class Faucet(RyuAppBase):
     def _config_files_changed(self):
         return self.valves_manager.config_watcher.files_changed()
 
-    def _metric_update_request(self):
-        self._thread_reschedule(EventFaucetMetricUpdate(), 5)
-
     @set_ev_cls(EventFaucetMetricUpdate, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
         self.valves_manager.update_metrics()
-
-    def _gateway_resolve_request(self):
-        self._thread_reschedule(EventFaucetResolveGateways(), 2)
-
-    def _state_expire_request(self):
-        self._thread_reschedule(EventFaucetStateExpire(), 5)
-
-    def _advertise_request(self):
-        self._thread_reschedule(EventFaucetAdvertise(), 5)
-
-    def _lldp_beacon_request(self):
-        self._thread_reschedule(EventFaucetLLDPAdvertise(), 5)
-
-    _VALVE_SERVICES = {
-        EventFaucetResolveGateways: 'resolve_gateways',
-        EventFaucetStateExpire: 'state_expire',
-        EventFaucetAdvertise: 'advertise',
-        EventFaucetLLDPAdvertise: 'send_lldp_beacons',
-    }
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
@@ -204,7 +189,8 @@ class Faucet(RyuAppBase):
     @kill_on_exception(exc_logname)
     def _valve_flow_services(self, ryu_event):
         """Call a method on all Valves and send any resulting flows."""
-        self.valves_manager.valve_flow_services(self._VALVE_SERVICES[type(ryu_event)])
+        self.valves_manager.valve_flow_services(
+            self._VALVE_SERVICES[type(ryu_event)][0])
 
     def get_config(self):
         """FAUCET experimental API: return config for all Valves."""
