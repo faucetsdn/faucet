@@ -23,7 +23,7 @@ import tempfile
 import unittest
 import re
 
-from faucet import check_faucet_config
+from faucet.check_faucet_config import check_config
 
 
 class CheckConfigTestCase(unittest.TestCase):
@@ -39,7 +39,7 @@ class CheckConfigTestCase(unittest.TestCase):
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
         with open(conf_file_name, 'w') as conf_file:
             conf_file.write(config)
-        result_ok, _ = check_faucet_config.check_config( # pylint: disable=unexpected-keyword-arg
+        result_ok, _ = check_config( # pylint: disable=unexpected-keyword-arg
             [conf_file_name], debug_level=logging.FATAL)
         return expected_ok == result_ok
 

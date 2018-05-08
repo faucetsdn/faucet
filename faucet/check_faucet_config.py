@@ -40,8 +40,6 @@ def check_config(conf_files, debug_level):
     for conf_file in conf_files:
         try:
             _, dps = dp_parser(conf_file, logname)
-            if dps is None:
-                break
             for dp in dps:
                 valve_dp = valve.valve_factory(dp)
                 if valve_dp is None:
