@@ -518,6 +518,11 @@ class ValveTestCase(ValveTestBase):
     def tearDown(self):
         self.teardown_valve()
 
+    def test_get_config_dict(self):
+        """Test API call for DP config."""
+        # TODO: test actual config contents.
+        self.assertTrue(self.valve.get_config_dict())
+
     def test_notifier_socket_path(self):
         """Test notifier socket path checker."""
         new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
