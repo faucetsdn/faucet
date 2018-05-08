@@ -18,8 +18,9 @@
 
 import collections
 import ipaddress
-import netaddr
 import random
+
+import netaddr
 
 from faucet import valve_of
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
@@ -174,13 +175,6 @@ class VLAN(Conf):
         self._set_default(
             'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
-    @staticmethod
-    def _vid_valid(vid):
-        """Return True if VID valid."""
-        if isinstance(vid, int) and vid >= valve_of.MIN_VID and vid <= valve_of.MAX_VID:
-            return True
-        return False
-
     def check_config(self):
         super(VLAN, self).check_config()
         test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
@@ -210,7 +204,7 @@ class VLAN(Conf):
             test_config_condition(len(neighbor_ips) != len(self.bgp_neighbor_addresses), (
                 'Neighbor IPs is not the same length as BGP neighbor addresses'))
             peer_versions = [ip.version for ip in neighbor_ips]
-            test_config_condition( len(peer_versions) != 1 and self.bgp_connect_mode != 'active', (
+            test_config_condition(len(peer_versions) != 1 and self.bgp_connect_mode != 'active', (
                 'if using multiple address families bgp_connect_mode must be active'))
 
         if self.routes:
@@ -244,6 +238,7 @@ class VLAN(Conf):
         return False
 
     def reset_caches(self):
+        """Reset dynamic caches."""
         self.dyn_host_cache = {}
         self.dyn_host_cache_by_port = {}
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
@@ -264,6 +259,7 @@ class VLAN(Conf):
         self.dyn_host_cache[eth_src] = entry
 
     def expire_cache_host(self, eth_src):
+        """Expire a host from caches."""
         entry = self.cached_host(eth_src)
         if entry is not None:
             self.dyn_host_cache_by_port[entry.port.number].remove(entry)
@@ -461,13 +457,6 @@ class VLAN(Conf):
                         faucet_vip.network.broadcast_address):
                     return faucet_vip
         return None
-
-    def ips_in_vip_subnet(self, ips):
-        """Return True if all IPs are on same subnet as VIP on this VLAN."""
-        for ipa in ips:
-            if self.ip_in_vip_subnet(ipa) is None:
-                return False
-        return True
 
     def from_connected_to_vip(self, src_ip, dst_ip):
         """Return True if src_ip in connected network and dst_ip is a VIP.

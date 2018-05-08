@@ -372,6 +372,26 @@ dps:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_override_port(self):
+        """Test override port is valid."""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            testing:
+                number: 1
+                native_vlan: office
+                override_output_port: output_port
+            output_port:
+                number: 2
+                output_only: True
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_one_port_dp(self):
         """Test port number is valid."""
         config = """
