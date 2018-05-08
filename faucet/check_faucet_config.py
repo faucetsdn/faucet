@@ -39,10 +39,7 @@ def check_config(conf_files, debug_level=logging.DEBUG):
 
     for conf_file in conf_files:
         try:
-            parse_result = dp_parser(conf_file, logname)
-            if parse_result is None:
-                break
-            _, dps = parse_result
+            _, dps = dp_parser(conf_file, logname)
             if dps is None:
                 break
             for dp in dps:
@@ -60,10 +57,7 @@ def check_config(conf_files, debug_level=logging.DEBUG):
 def main():
     check_result, check_output = check_config(sys.argv[1:])
     print(check_output)
-    if check_result:
-        sys.exit(0)
-    else:
-        sys.exit(-1)
+    sys.exit(check_result)
 
 
 if __name__ == '__main__':
