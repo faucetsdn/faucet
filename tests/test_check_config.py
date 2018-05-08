@@ -57,6 +57,14 @@ class CheckConfigTestCase(unittest.TestCase):
             acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
             self.assertTrue(self.run_check_config(acls_cfg, False))
 
+    def test_no_dps(self):
+        no_dps_conf = """
+vlans:
+    100:
+        description: "100"
+"""
+        self.check_config_failure(no_dps_conf)
+
     def test_minimal(self):
         """Test minimal correct config."""
         minimal_conf = """
