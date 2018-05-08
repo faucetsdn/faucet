@@ -17,6 +17,4 @@ for mypy_file in faucet/faucet.py faucet/gauge.py ; do
     PYTHONPATH=$BASE mypy --ignore-missing-imports $mypy_file || exit 1
 done
 cd tests
-coverage erase || exit 1
-for i in test_*py ; do cd $BASE/tests && PYTHONPATH=.. coverage run -a --source ../faucet $i || exit 1 ; done
-coverage report -m --fail-under=87 || exit 1
+./test_coverage.sh || exit 1
