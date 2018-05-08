@@ -43,9 +43,9 @@ class NextHop(object):
         """Return age of this nexthop."""
         return now - self.cache_time
 
-    def dead(self, now, max_age, max_fib_retries):
+    def dead(self, max_fib_retries):
         """Return True if this nexthop is considered dead."""
-        return self.resolve_retries >= max_fib_retries or self.age(now) > max_age
+        return self.resolve_retries >= max_fib_retries
 
 
 class ValveRouteManager(object):
@@ -67,7 +67,6 @@ class ValveRouteManager(object):
         self.max_hosts_per_resolve_cycle = max_hosts_per_resolve_cycle
         self.max_host_fib_retry_count = max_host_fib_retry_count
         self.max_resolve_backoff_time = max_resolve_backoff_time
-        self.max_nexthop_age = self.max_host_fib_retry_count * self.max_resolve_backoff_time
         self.proactive_learn = proactive_learn
         self.dec_ttl = dec_ttl
         self.fib_table = fib_table
@@ -80,8 +79,8 @@ class ValveRouteManager(object):
         self.use_group_table = use_group_table
         self.groups = groups
 
-    def nexthop_dead(self, now, nexthop_cache_entry):
-        return nexthop_cache_entry.dead(now, self.max_nexthop_age, self.max_host_fib_retry_count)
+    def nexthop_dead(self, nexthop_cache_entry):
+        return nexthop_cache_entry.dead(self.max_host_fib_retry_count)
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
         return None
@@ -360,10 +359,10 @@ class ValveRouteManager(object):
             if remaining_attempts == 0:
                 break
             resolve_flows = []
-            if expire_dead and self.nexthop_dead(now, nexthop_cache_entry):
+            if expire_dead and self.nexthop_dead(nexthop_cache_entry):
                 self.logger.info(
-                    'expiring dead host route %s (age %us) on VLAN %u' % (
-                        ip_gw, nexthop_cache_entry.age(now), vlan.vid))
+                    'expiring dead host route %s (age %us) on %s' % (
+                        ip_gw, nexthop_cache_entry.age(now), vlan))
                 port = nexthop_cache_entry.port
                 self._del_vlan_nexthop_cache_entry(vlan, ip_gw)
                 resolve_flows = self._del_host_fib_route(
