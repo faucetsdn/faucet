@@ -353,6 +353,19 @@ class ValveRouteManager(object):
                     vlan))
         return resolve_flows
 
+    def _expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan):
+        expire_flows = []
+        self.logger.info(
+            'expiring dead host route %s (age %us) on %s' % (
+                ip_gw, nexthop_cache_entry.age(now), vlan))
+        port = nexthop_cache_entry.port
+        self._del_vlan_nexthop_cache_entry(vlan, ip_gw)
+        expire_flows = self._del_host_fib_route(
+            vlan, ipaddress.ip_network(ip_gw.exploded))
+        if port is None:
+            expire_flows = []
+        return expire_flows
+
     def _resolve_gateways_flows(self, expire_dead, vlan, now, unresolved_nexthops, remaining_attempts):
         ofmsgs = []
         for ip_gw, faucet_vip, nexthop_cache_entry in unresolved_nexthops:
@@ -360,15 +373,8 @@ class ValveRouteManager(object):
                 break
             resolve_flows = []
             if expire_dead and self.nexthop_dead(nexthop_cache_entry):
-                self.logger.info(
-                    'expiring dead host route %s (age %us) on %s' % (
-                        ip_gw, nexthop_cache_entry.age(now), vlan))
-                port = nexthop_cache_entry.port
-                self._del_vlan_nexthop_cache_entry(vlan, ip_gw)
-                resolve_flows = self._del_host_fib_route(
-                    vlan, ipaddress.ip_network(ip_gw.exploded))
-                if port is None:
-                    resolve_flows = []
+                resolve_flows = self._expire_gateway_flows(
+                    ip_gw, nexthop_cache_entry, vlan)
             else:
                 resolve_flows = self._resolve_gateway_flows(
                     ip_gw, nexthop_cache_entry, vlan, faucet_vip, now)
