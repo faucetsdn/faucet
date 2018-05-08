@@ -413,7 +413,8 @@ vlans:
 
             all_ports = set(
                 [port for port in self.valve.dp.ports.values() if port.running()])
-            remaining_ports = all_ports - set([port for port in valve_vlan.get_ports() if port.running])
+            remaining_ports = all_ports - set(
+                [port for port in valve_vlan.get_ports() if port.running])
 
             # Packet must be flooded to all ports on the VLAN.
             for port in valve_vlan.get_ports():
@@ -424,13 +425,13 @@ vlans:
                 if port.number == in_port:
                     self.assertFalse(
                         self.table.is_output(match, port=port.number, vid=vid),
-                        msg=('Packet %s with unknown eth_dst flooded back to input port'
+                        msg=('%s with unknown eth_dst flooded back to input port'
                              ' on VLAN %u to port %u' % (
                                  match, valve_vlan.vid, port.number)))
                 else:
                     self.assertTrue(
                         self.table.is_output(match, port=port.number, vid=vid),
-                        msg=('Packet %s with unknown eth_dst not flooded'
+                        msg=('%s with unknown eth_dst not flooded'
                              ' on VLAN %u to port %u' % (
                                  match, valve_vlan.vid, port.number)))
 
@@ -439,11 +440,11 @@ vlans:
                 if port.stack:
                     self.assertTrue(
                         self.table.is_output(match, port=port.number),
-                        msg=('Packet with unknown eth_dst not flooded to stack port %s' % port))
+                        msg=('Uknown eth_dst not flooded to stack port %s' % port))
                 elif not port.mirror:
                     self.assertFalse(
                         self.table.is_output(match, port=port.number),
-                        msg=('Packet with unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
+                        msg=('Unknown eth_dst flooded to non-VLAN/stack/mirror %s' % port))
 
     def rcv_packet(self, port, vid, match):
         """Simulate control plane receiving a packet on a port/VID."""
@@ -597,7 +598,7 @@ class ValveTestCase(ValveTestBase):
             'eth_dst': mac.BROADCAST_STR,
             'arp_source_ip': '10.0.0.1',
             'arp_target_ip': '10.0.0.254'})
-        # TODO: check arp reply is valid
+        # TODO: check ARP reply is valid
         self.assertTrue(self.packet_outs_from_flows(arp_replies))
         valve_vlan = self.valve.dp.vlans[0x100]
         ip_dst = ipaddress.IPv4Network('10.100.100.0/24')
@@ -1020,6 +1021,7 @@ acls:
             'ipv4_dst': '10.0.0.3'})
 
     def test_bgp_route_change(self):
+        """Test BGP route change handler."""
         nexthop = '10.0.0.1'
         pattrs = {'prefix': '192.168.1.1/32'}
         nlri = bgp.BGPNLRI(addr='192.168.1.1', length=32)
@@ -1032,12 +1034,13 @@ acls:
 
     def test_packet_in_rate(self):
         """Test packet in rate limit triggers."""
-        for i in range(self.valve.dp.ignore_learn_ins * 2 + 1):
+        for _ in range(self.valve.dp.ignore_learn_ins * 2 + 1):
             if self.valve.rate_limit_packet_ins():
                 return
         self.fail('packet in rate limit not triggered')
 
     def test_ofdescstats_handler(self):
+        """Test OFDescStatsReply handler."""
         body = parser.OFPDescStats(
             mfr_desc=u'test_mfr_desc'.encode(),
             hw_desc=u'test_hw_desc'.encode(),
@@ -1354,6 +1357,7 @@ vlans:
         self.teardown_valve()
 
     def test_known_eth_src_rule(self):
+        """Test removal flow handlers."""
         self.learn_hosts()
         self.assertTrue(
             self.valve.flow_timeout(
