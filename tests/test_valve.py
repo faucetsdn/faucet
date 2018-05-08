@@ -28,7 +28,7 @@ import socket
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
-from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, packet, vlan
+from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, slow, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
@@ -128,6 +128,36 @@ def build_pkt(pkt):
             proto = inet.IPPROTO_ICMP
         net = ipv4.ipv4(src=pkt['ipv4_src'], dst=pkt['ipv4_dst'], proto=proto)
         layers.append(net)
+    elif 'actor_system' in pkt and 'partner_system' in pkt:
+        ethertype = ether.ETH_TYPE_SLOW
+        layers.append(slow.lacp(
+            version=1,
+            actor_system=pkt['actor_system'],
+            actor_port=1,
+            partner_system=pkt['partner_system'],
+            partner_port=1,
+            actor_key=1,
+            partner_key=1,
+            actor_system_priority=65535,
+            partner_system_priority=1,
+            actor_port_priority=255,
+            partner_port_priority=255,
+            actor_state_defaulted=0,
+            partner_state_defaulted=0,
+            actor_state_expired=0,
+            partner_state_expired=0,
+            actor_state_timeout=1,
+            partner_state_timeout=1,
+            actor_state_collecting=1,
+            partner_state_collecting=1,
+            actor_state_distributing=1,
+            partner_state_distributing=1,
+            actor_state_aggregation=1,
+            partner_state_aggregation=1,
+            actor_state_synchronization=1,
+            partner_state_synchronization=1,
+            actor_state_activity=0,
+            partner_state_activity=0))
     assert ethertype is not None, pkt
     if 'vid' in pkt:
         tpid = ether.ETH_TYPE_8021Q
@@ -450,9 +480,9 @@ vlans:
         """Simulate control plane receiving a packet on a port/VID."""
         pkt = build_pkt(match)
         vlan_pkt = pkt
-        # TODO: packet submitted to packet in always has VID
+        # TODO: VLAN packet submitted to packet in always has VID
         # Fake OF switch implementation should do this by applying actions.
-        if vid not in match:
+        if vid and vid not in match:
             vlan_match = match
             vlan_match['vid'] = vid
             vlan_pkt = build_pkt(match)
@@ -465,6 +495,7 @@ vlans:
         msg.match = {'in_port': port}
         msg.cookie = self.valve.dp.cookie
         pkt_meta = self.valve.parse_pkt_meta(msg)
+        self.assertTrue(pkt_meta, msg=pkt)
         self.valves_manager.valve_packet_in(self.valve, pkt_meta) # pylint: disable=no-member
         rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
@@ -1381,9 +1412,26 @@ dps:
                 number: 1
                 native_vlan: v100
                 lacp: 1
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                tagged_vlans: [v300]
 vlans:
     v100:
         vid: 0x100
+    v200:
+        vid: 0x200
+    v300:
+        vid: 0x300
 """ % DP1_CONFIG
 
     def setUp(self):
@@ -1393,7 +1441,12 @@ vlans:
         self.teardown_valve()
 
     def test_lacp(self):
-        pass
+        self.rcv_packet(1, 0,
+            {'actor_system': '0e:00:00:00:00:02',
+             'partner_system': FAUCET_MAC,
+             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
+             'eth_src': '0e:00:00:00:00:02'})
+        self.learn_hosts()
 
 
 class RyuAppSmokeTest(unittest.TestCase):
