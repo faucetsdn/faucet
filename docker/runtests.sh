@@ -52,15 +52,8 @@ fi
 
 if [ "$UNITTESTS" == 1 ] ; then
     echo "========== Running faucet unit tests =========="
-    TMPDIR=$(mktemp -d /tmp/$(basename $0).XXXXXX)
-    python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing | tee $TMPDIR/coverage.txt || exit 1
-    COVERAGE=`grep TOTAL $TMPDIR/coverage.txt |grep -Eo '\b[0-9]+\%'|sed 's/\%//g'`
-    echo coverage: $COVERAGE percent
-    if [ "$COVERAGE" -lt "$MINCOVERAGE" ] ; then
-        echo coverage below minimum MINCOVERAGE percent
-        exit 1
-    fi
-    rm -rf "$TMPDIR"
+    cd /faucet-src/tests
+    PYTHONPATH=.. ./test_coverage.sh || exit 1
 fi
 
 echo "========== Running faucet system tests =========="

@@ -17,6 +17,4 @@ for mypy_file in faucet/faucet.py faucet/gauge.py ; do
     PYTHONPATH=$BASE mypy --ignore-missing-imports $mypy_file || exit 1
 done
 cd tests
-for t in test_*.py ; do
-    cd $BASE/tests && PYTHONPATH=$BASE python3 $t || exit 1
-done
+./test_coverage.sh || exit 1
