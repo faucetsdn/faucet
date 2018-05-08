@@ -18,8 +18,9 @@
 
 import collections
 import ipaddress
-import netaddr
 import random
+
+import netaddr
 
 from faucet import valve_of
 from faucet.conf import Conf, test_config_condition, InvalidConfigError
@@ -210,7 +211,7 @@ class VLAN(Conf):
             test_config_condition(len(neighbor_ips) != len(self.bgp_neighbor_addresses), (
                 'Neighbor IPs is not the same length as BGP neighbor addresses'))
             peer_versions = [ip.version for ip in neighbor_ips]
-            test_config_condition( len(peer_versions) != 1 and self.bgp_connect_mode != 'active', (
+            test_config_condition(len(peer_versions) != 1 and self.bgp_connect_mode != 'active', (
                 'if using multiple address families bgp_connect_mode must be active'))
 
         if self.routes:
@@ -244,6 +245,7 @@ class VLAN(Conf):
         return False
 
     def reset_caches(self):
+        """Reset dynamic caches."""
         self.dyn_host_cache = {}
         self.dyn_host_cache_by_port = {}
         self.dyn_neigh_cache_by_ipv = collections.defaultdict(dict)
@@ -264,6 +266,7 @@ class VLAN(Conf):
         self.dyn_host_cache[eth_src] = entry
 
     def expire_cache_host(self, eth_src):
+        """Expire a host from caches."""
         entry = self.cached_host(eth_src)
         if entry is not None:
             self.dyn_host_cache_by_port[entry.port.number].remove(entry)
