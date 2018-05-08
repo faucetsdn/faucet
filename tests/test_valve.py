@@ -72,6 +72,10 @@ IDLE_DP1_CONFIG = """
         use_idle_timeout: True
 """ + DP1_CONFIG
 
+GROUP_DP1_CONFIG = """
+        group_table: True
+""" + DP1_CONFIG
+
 
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
@@ -1367,6 +1371,49 @@ vlans:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
 """ % DP1_CONFIG
+
+
+class ValveGroupTestCase(ValveTestBase):
+    """Tests for datapath with group support."""
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                output_only: True
+                mirror: 4
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+""" % GROUP_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_known_eth_src_rule(self):
+        """Smoke test for group support"""
+        self.learn_hosts()
 
 
 class ValveIdleLearnTestCase(ValveTestBase):
