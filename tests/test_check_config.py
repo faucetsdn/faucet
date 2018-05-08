@@ -23,7 +23,7 @@ import tempfile
 import unittest
 import re
 
-from faucet import check_faucet_config
+from faucet.check_faucet_config import check_config
 
 
 class CheckConfigTestCase(unittest.TestCase):
@@ -39,23 +39,31 @@ class CheckConfigTestCase(unittest.TestCase):
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
         with open(conf_file_name, 'w') as conf_file:
             conf_file.write(config)
-        result_ok, _ = check_faucet_config.check_config( # pylint: disable=unexpected-keyword-arg
+        result_ok, _ = check_config( # pylint: disable=unexpected-keyword-arg
             [conf_file_name], debug_level=logging.FATAL)
         return expected_ok == result_ok
 
+    def _deprecated_acl_check(self, config, success):
+        # TODO: Check acls_in work now acl_in is deprecated, remove in future
+        if 'acl_in' in config and not 'acls_in' in config:
+            acls_cfg = re.sub('(acl_in: )(.*)', 'acls_in: [\\2]', config)
+            self.assertTrue(self.run_check_config(acls_cfg, success))
+
     def check_config_success(self, config):
         self.assertTrue(self.run_check_config(config, True))
-        # Check acls_in work now acl_in is deprecated, TODO remove in future
-        if "acl_in" in config and not "acls_in" in config:
-            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
-            self.assertTrue(self.run_check_config(acls_cfg, True))
+        self._deprecated_acl_check(config, True)
 
     def check_config_failure(self, config):
         self.assertTrue(self.run_check_config(config, False))
-        # Check acls_in work now acl_in is deprecated, TODO remove in future
-        if "acl_in" in config and not "acls_in" in config:
-            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
-            self.assertTrue(self.run_check_config(acls_cfg, False))
+        self._deprecated_acl_check(config, False)
+
+    def test_no_dps(self):
+        no_dps_conf = """
+vlans:
+    100:
+        description: "100"
+"""
+        self.check_config_failure(no_dps_conf)
 
     def test_minimal(self):
         """Test minimal correct config."""
