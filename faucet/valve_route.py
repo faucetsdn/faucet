@@ -338,25 +338,26 @@ class ValveRouteManager(object):
         for ip_gw, faucet_vip, nexthop_cache_entry in unresolved_nexthops:
             if remaining_attempts == 0:
                 break
-            last_retry_time = nexthop_cache_entry.last_retry_time
-            port = nexthop_cache_entry.port
             resolve_flows = []
             if expire_dead and self.nexthop_dead(now, nexthop_cache_entry):
                 self.logger.info(
                     'expiring dead host route %s (age %us) on VLAN %u' % (
                         ip_gw, nexthop_cache_entry.age(now), vlan.vid))
+                port = nexthop_cache_entry.port
                 self._del_vlan_nexthop_cache_entry(vlan, ip_gw)
                 resolve_flows = self._del_host_fib_route(
                     vlan, ipaddress.ip_network(ip_gw.exploded))
-                if port is not None:
+                if port is None:
                     resolve_flows = []
             else:
+                last_retry_time = nexthop_cache_entry.last_retry_time
                 nexthop_cache_entry.last_retry_time = now
                 nexthop_cache_entry.resolve_retries += 1
                 resolve_flows = self.resolve_gw_on_vlan(vlan, faucet_vip, ip_gw)
                 if vlan.targeted_gw_resolution:
                     if last_retry_time is None and port is not None:
-                        resolve_flows = [self.resolve_gw_on_port(vlan, port, faucet_vip, ip_gw)]
+                        resolve_flows = [self.resolve_gw_on_port(
+                            vlan, nexthop_cache_entry.port, faucet_vip, ip_gw)]
                 if last_retry_time is None:
                     self.logger.info(
                         'resolving %s (%u flows) on VLAN %u' % (ip_gw, len(resolve_flows), vlan.vid))
@@ -390,8 +391,6 @@ class ValveRouteManager(object):
             remaining_attempts, resolve_ofmsgs = self._resolve_gateways_flows(
                 expire_dead, vlan, now, unresolved_nexthops, remaining_attempts)
             ofmsgs.extend(resolve_ofmsgs)
-            if remaining_attempts == 0:
-                break
         return ofmsgs
 
     def _cached_nexthop_eth_dst(self, vlan, ip_gw):
