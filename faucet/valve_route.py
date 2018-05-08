@@ -353,7 +353,7 @@ class ValveRouteManager(object):
                     vlan))
         return resolve_flows
 
-    def _expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan):
+    def _expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, now):
         expire_flows = []
         self.logger.info(
             'expiring dead route %s (age %us) on %s' % (
@@ -368,7 +368,7 @@ class ValveRouteManager(object):
 
     def _resolve_and_expire_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, faucet_vip, now):
         if self.nexthop_dead(nexthop_cache_entry):
-            return self._expire_gateway_flows(ip_gw, nexthop_cache_entry, vlan)
+            return self._expire_gateway_flows(ip_gw, nexthop_cache_entry, vlan, now)
         return self._resolve_gateway_flows(ip_gw, nexthop_cache_entry, vlan, faucet_vip, now)
 
     def _resolve_gateways_flows(self, resolve_handler, vlan, now, unresolved_nexthops, remaining_attempts):
