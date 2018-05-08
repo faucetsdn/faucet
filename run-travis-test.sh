@@ -15,7 +15,9 @@ if [ "${MATRIX_SHARD}" == "sanity" ] ; then
 
   cd ../tests
   PYTHONPATH=~/faucet ./test_min_pylint.sh || exit 1
-  PYTHONPATH=~/faucet python3 -m pytest ./test_*.py --cov faucet --doctest-modules -v --cov-report term-missing || exit 1
+  coverage erase || exit 1
+  for i in test_*py ; do PYTHONPATH=~/faucet coverage run -a --source ../faucet $i || exit 1 ; done
+  coverage report -m || exit 1
   codecov || true
   cd ..
   RUNTESTS="FaucetSanityTest"
