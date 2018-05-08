@@ -114,6 +114,9 @@ learned_macs\t[('dp_id', '{dp_id}')]\t{mac_addr}
 class FctlClassTestCase(FctlTestCaseBase):
     """Test fctl internal methods."""
 
+    def test_http_fail(self):
+        self.assertEqual(None, fctl.scrape_prometheus(['http://127.0.0.1:23']))
+
     def test_macs(self):
         prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
         with open(prom_input_file_name, 'w') as prom_input_file:
