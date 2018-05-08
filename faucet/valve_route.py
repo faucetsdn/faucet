@@ -288,16 +288,16 @@ class ValveRouteManager(object):
            ip_gws (list): tuple, IP gateway and controller IP in same subnet.
            now (float): seconds since epoch.
         Returns:
-           list: tuple, gateway, controller IP in same subnet, last retry time, cache entry.
+           list: tuple, gateway, controller IP in same subnet, cache entry.
         """
         ip_gws_never_tried = []
         ip_gws_with_retry_time = []
-        for ip_gw, faucet_vip in ip_gws:
+        not_fresh_nexthops = [
+            (ip_gw, faucet_vip) for ip_gw, faucet_vip in ip_gws if not self._nexthop_fresh(vlan, ip_gw, now)]
+        for ip_gw, faucet_vip in not_fresh_nexthops:
             nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)
             if nexthop_cache_entry is None:
                 nexthop_cache_entry = self._update_nexthop_cache(vlan, None, None, ip_gw)
-            if self._nexthop_fresh(vlan, ip_gw, now):
-                continue
             last_retry_time = nexthop_cache_entry.last_retry_time
             ip_gw_with_retry_time = (ip_gw, faucet_vip, nexthop_cache_entry)
             if last_retry_time is None:
@@ -343,7 +343,7 @@ class ValveRouteManager(object):
                     vlan, nexthop_cache_entry.port, faucet_vip, ip_gw)]
         if last_retry_time is None:
             self.logger.info(
-                'resolving %s (%u flows) on VLAN %u' % (ip_gw, len(resolve_flows), vlan.vid))
+                'resolving %s (%u flows) on %s' % (ip_gw, len(resolve_flows), vlan))
         else:
             self.logger.info(
                 'resolving %s retry %u (last attempt was %us ago; %u flows) on %s' % (
