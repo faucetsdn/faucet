@@ -63,6 +63,8 @@ class FaucetTestBase(unittest.TestCase):
 
     N_UNTAGGED = 0
     N_TAGGED = 0
+    N_EXTENDED = 0
+    EXTENDED_CLS = None
     NUM_DPS = 1
     LINKS_PER_HOST = 1
 
