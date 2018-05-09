@@ -26,6 +26,119 @@ http://google.github.io/styleguide/pyguide.html. Existing code not using
 this style will be incrementally migrated to comply with it. New code
 should comply.
 
+Faucet Development Environment
+------------------------------
+
+A common way of developing faucet is inside a `virtualenv <https://virtualenv.pypa.io>`_
+with an IDE such as `PyCharm <https://www.jetbrains.com/pycharm/>`_.
+
+Instructions on setting up PyCharm for developing faucet are as follows:
+
+Create a new project in PyCharm
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Set the ``Location`` of the project to the directory where a checked out
+copy of the faucet code from git is, for this tutorial I will assume the
+path is ``/Dev/faucet/``.
+
+Ignore the ``Project Interpreter`` settings for now, we will set those up
+after the project is created.
+
+Click ``Create`` when you have completed these steps.
+
+When asked ``Would you like to create a project from existing sources instead?``
+click ``Yes``.
+
+Create virtual environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now that the project is created and source code imported, click the
+``File -> Settings`` menu. In the dialog box that opens click the
+``Project: faucet -> Project Interpreter`` sub menu.
+
+Click the cog and select ``Add...``
+
+Under ``Virtualenv Environment`` you want to select ``New environment`` and
+select a ``Location`` for the virtualenv (which can be inside the directory
+where the faucet code lives, e.g ``/Dev/faucet/venv``).
+
+The ``Base interpreter`` should be set to /usr/bin/python3.
+
+Click ``Ok`` which will create the virtualenv.
+
+Now while that virtualenv builds and we still have the settings dialog open
+we will tweak a few project settings to make them compatible with our
+code style. Click on the ``Tools -> Python Integrated Tools`` menu
+and change the ``Docstring format`` to ``Google``.
+
+Finally, click ``Ok`` again to get back to the main screen of PyCharm.
+
+Install requirements
+~~~~~~~~~~~~~~~~~~~~
+
+Inside the PyCharm editor window we should now get a bar at the top of the
+window telling us of missing package requirements, click the
+``Install requirements`` option to install the dependencies for faucet.
+
+Create log and configuration directories
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now we need to create a log and configuration directory so that faucet
+can start:
+
+    .. code:: console
+
+       mkdir -p /Dev/faucet/venv/var/log/faucet/
+       mkdir -p /Dev/faucet/venv/etc/faucet/
+
+Copy the sample faucet configuration file from
+``/Dev/faucet/etc/faucet/faucet.yaml`` to ``/Dev/faucet/venv/etc/faucet/`` and
+edit this configuration file as necessary.
+
+Copy the sample gauge configuration file from
+``/Dev/faucet/etc/faucet/gauge.yaml`` to ``/Dev/faucet/venv/etc/faucet/`` and
+edit this configuration file as necessary.
+
+Configure PyCharm to run faucet
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Now we need to configure PyCharm to run faucet, gauge and the unit tests.
+
+First, click the ``Run -> Run..`` menu, then select the
+``Edit Configurations...`` option to get to the build settings dialog.
+
+We will edit the default ``faucet`` run configuration that has been created
+for us. First change the ``Script path`` to point to ryu-manager inside the
+virtualenv, for me this was ``../venv/bin/ryu-manager``. Then set the
+``Parameters`` to ``faucet.faucet``. Make sure the working directory is
+set to ``/Dev/faucet/faucet/``.
+
+We will also add a ``gauge`` run configuration for starting gauge.
+First change the ``Script path`` to point to ryu-manager inside the
+virtualenv, for me this was ``../venv/bin/ryu-manager``. Then set the
+``Parameters`` to ``faucet.gauge``. Make sure the working directory is
+set to ``/Dev/faucet/faucet/``.
+
+For running tests we need a few additional dependencies installed, I
+couldn't work out how to do this through PyCharm so run this command from a
+terminal window to install the correct dependencies inside the virtualenv:
+
+    .. code:: console
+
+       /Dev/faucet/venv/bin/pip3 install -r /Dev/faucet/test-requirements.txt
+
+Click the green plus icon to add a new build configuration, select
+``Python tests -> Unittests``. You can provide a ``Name`` of
+``Faucet Unit Tests`` for the run configuration. For ``Target`` select
+``Script path`` and enter the path ``/Dev/faucet/tests``. For ``Pattern``
+enter ``test_*.py``.
+
+You can click ``Apply`` and ``Close`` now that we've added all our new
+run configuration.
+
+Now that everything is setup you can run either the faucet controller, gauge
+controller and test suite from the ``Run`` menu.
+
 Makefile
 --------
 
