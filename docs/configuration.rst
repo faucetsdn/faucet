@@ -111,6 +111,12 @@ Top Level
       - Configuration specific to datapaths. The keys are names or dp_ids
         of each datapath, and the values are config dictionaries holding the
         datapath's configuration (see below).
+    * - meters
+      - dictionary
+      - {}
+      - Configuration specific to meters. The keys are names of each meter,
+        and the values are config dictionaries holding the meter's configuration
+        (see below).
     * - routers
       - dictionary
       - {}
@@ -633,6 +639,72 @@ follows:
       - None
       - The next hop for this route
 
+Meters
+~~~~~~
+
+Note: meters are platform dependent and not all functions may be available.
+Meters are configured under the 'meters' configuration block. The meters block
+contains a dictionary of individual meters each keyed by its name.
+
+.. list-table:: meters: <meter name>:
+   :widths: 31 15 15 60
+   :header-rows: 1
+   
+   * - Attribute
+     - Type
+     - Default
+     - Description
+   * - meter_id
+     - int
+     -
+     - Unique identifier.
+   * - entry
+     - dict
+     -
+     - Defines the meter actions. Details Below.
+
+.. list-table:: : meters: <meter name>: entry:
+   :widths: 31 15 15 60
+   :header-rows: 1
+   
+   * - Attribute
+     - Type
+     - Default
+     - Desciption
+   * - flags
+     - String or list of String
+     - KBPS
+     - Possible values are 'KBPS' (Rate value in kb/s (kilo-bit per second).), 'PKTPS' (Rate value in packet/sec.), 'BURST' (Do burst size), 'STATS' (Collect statistics)
+   * - bands
+     - list of bands (which are dicts, see below)
+     -
+     - 
+
+.. list-table:: : meters: <meter name>: entry: bands:
+   :widths: 31 15 15 60
+   :header-rows: 1
+   
+   * - Attribute
+     - Type
+     - Default
+     - Desciption
+   * - type
+     - String
+     -
+     - 'DROP' - drop apckets when the band rate is exceeded, or 'DSCP_REMARK'- use a simple DiffServ policer to remark the DSCP field in the IP header of packets that exceed the band rate.
+   * - rate
+     - int
+     -
+     - Rate for dropping or remarking packets, depending on the above type. Value is in KBPS or PKTPS flag depending on the flag set.
+   * - burst_size
+     - int
+     -
+     - Only used if flags includes BURST. Indicates the length of packet or byte burst to consider for applying the meter.
+   * - prec_level
+     - int
+     -
+     - Only used if type is DSCP_REMARK. The amount by which the drop precedence should be increased.
+   
 ACLs
 ~~~~
 
