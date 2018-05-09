@@ -55,7 +55,7 @@ def check_config(conf_files, debug_level):
 def main():
     check_result, check_output = check_config(sys.argv[1:], logging.DEBUG)
     print(check_output)
-    sys.exit(check_result)
+    sys.exit(not check_result)
 
 
 if __name__ == '__main__':
