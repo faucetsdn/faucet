@@ -642,7 +642,8 @@ follows:
 Meters
 ~~~~~~
 
-Note: meters are platform dependent and not all functions may be available.
+.. note:: Meters are platform dependent and not all functions may be available. 
+
 Meters are configured under the 'meters' configuration block. The meters block
 contains a dictionary of individual meters each keyed by its name.
 
