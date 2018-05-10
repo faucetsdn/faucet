@@ -284,6 +284,17 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                 description: "b4"
 """
 
+    def wireshark_payload_format(self, payload_str):
+        formatted_payload_str = ''
+        groupsize = 4
+        for payload_offset in range(len(payload_str) / groupsize):
+            char_count = payload_offset * 2
+            if char_count % 0x10 == 0:
+                formatted_payload_str += '0x%4.4x: ' % char_count
+            payload_fragment = payload_str[payload_offset * groupsize:][:groupsize]
+            formatted_payload_str += ' ' + payload_fragment
+        return formatted_payload_str
+
     def test_untagged(self):
         first_host = self.net.hosts[0]
         tcpdump_filter = 'ether proto 0x88cc'
@@ -292,16 +303,18 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
             first_host, tcpdump_filter, [
                 lambda: first_host.cmd('sleep %u' % timeout)],
             timeout=timeout, vflags='-vv', packets=1)
-        expected_lldp_dp_id = binascii.hexlify(str(self.dpid).encode('UTF-8'))
-        # Groups of 2, 2 character hex numbers.
-        grouped_expected_lldp_dp_id = ' '.join(
-            re.compile('(....)').findall(expected_lldp_dp_id))
+        oui_prefix = ''.join(self.FAUCET_MAC.split(':')[:3])
+        faucet_lldp_dp_id_attr = '%2.2x' % 1
+        expected_lldp_dp_id = ''.join((
+            oui_prefix,
+            faucet_lldp_dp_id_attr,
+            binascii.hexlify(str(self.dpid).encode('UTF-8'))))
         for lldp_required in (
-                r'0e:00:00:00:00:01 > 01:80:c2:00:00:0e, ethertype LLDP',
+                r'%s > 01:80:c2:00:00:0e, ethertype LLDP' % self.FAUCET_MAC,
                 r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
                 r'System Name TLV \(5\), length 6: faucet',
                 r'Port Description TLV \(4\), length 10: first_port',
-                grouped_expected_lldp_dp_id):
+                self.wireshark_payload_format(expected_lldp_dp_id)):
             self.assertTrue(
                 re.search(lldp_required, tcpdump_txt),
                 msg='%s: %s' % (lldp_required, tcpdump_txt))
@@ -332,7 +345,7 @@ class FaucetUntaggedLLDPDefaultFallbackTest(FaucetUntaggedTest):
                 lambda: first_host.cmd('sleep %u' % timeout)],
             timeout=timeout, vflags='-vv', packets=1)
         for lldp_required in (
-                r'0e:00:00:00:00:01 > 01:80:c2:00:00:0e, ethertype LLDP',
+                r'%s > 01:80:c2:00:00:0e, ethertype LLDP' % self.FAUCET_MAC,
                 r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
                 r'System Name TLV \(5\), length 8: faucet-1',
                 r'Port Description TLV \(4\), length 2: b1'):
