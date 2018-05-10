@@ -218,8 +218,8 @@ class VLAN(Conf):
                         raise InvalidConfigError('Invalid IP address in route: %s' % err)
                     test_config_condition(ip_gw.version != ip_dst.version, 'ip_gw version does not match the ip_dst version')
                     self.add_route(ip_dst, ip_gw)
-            except KeyError:
-                raise InvalidConfigError('missing route config')
+            except KeyError as e:
+                raise InvalidConfigError('missing route config %s' % e)
             except TypeError:
                 raise InvalidConfigError('%s is not a valid routes value' % self.routes)
         test_config_condition(self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
@@ -470,3 +470,16 @@ class VLAN(Conf):
         if self.is_faucet_vip(dst_ip) and self.ip_in_vip_subnet(src_ip):
             return True
         return False
+
+    def to_conf(self):
+        result = super(VLAN, self).to_conf()
+        if result is not None:
+            if self.routes:
+                result['routes'] = [{'route': route} for route in self.routes]
+            if self.faucet_vips:
+                result['faucet_vips'] = [str(vip) for vip in self.faucet_vips]
+            if 'bgp_neighbor_as' in result:
+                del result['bgp_neighbor_as']
+            if 'bgp_neighbor_addresses' in result:
+                del result['bgp_neighbor_addresses']
+        return result
