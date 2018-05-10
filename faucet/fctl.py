@@ -44,7 +44,7 @@ def decode_value(metric_name, value):
             )
     return result
 
-def scrape_prometheus(endpoints, retries=3):
+def scrape_prometheus(endpoints, retries=3, err_output_file=sys.stdout):
     """Scrape a list of Prometheus/FAUCET/Gauge endpoints and aggregate results."""
     metrics = []
     for endpoint in endpoints:
@@ -65,7 +65,7 @@ def scrape_prometheus(endpoints, retries=3):
                 err = exception
                 time.sleep(1)
         if err is not None:
-            print(err)
+            err_output_file.write(str(err))
             return None
         endpoint_metrics = parser.text_string_to_metric_families(
             content)
