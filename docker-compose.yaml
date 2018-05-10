@@ -30,7 +30,7 @@ services:
 
     grafana:
         restart: always
-        image: 'grafana/grafana:5.0.4'
+        image: 'grafana/grafana:5.1.2'
         ports:
             - '3000:3000'
         volumes:
