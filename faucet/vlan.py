@@ -476,6 +476,8 @@ class VLAN(Conf):
         if result is not None:
             if self.routes:
                 result['routes'] = [{'route': route} for route in self.routes]
+            if self.faucet_vips:
+                result['faucet_vips'] = [str(vip) for vip in self.faucet_vips]
             if 'bgp_neighbor_as' in result:
                 del result['bgp_neighbor_as']
             if 'bgp_neighbor_addresses' in result:

@@ -66,3 +66,20 @@ class FaucetVLANConfigTest(unittest.TestCase):
         output_config = vlan.to_conf()
 
         self.assertEqual(output_config, expected_config)
+
+    def test_with_vips(self):
+        """Tests a config with virtual IPs"""
+
+        input_config = {
+            'faucet_vips': ['10.0.0.254/24'],
+            'vid': 100
+        }
+
+        expected_config = self.default_config
+        expected_config.update(input_config)
+
+        vlan = VLAN(1, 1, input_config)
+        output_config = vlan.to_conf()
+
+        self.maxDiff = None
+        self.assertEqual(output_config, expected_config)
