@@ -15,10 +15,10 @@ This tutorial demonstrates how the previous topics in this tutorial series can b
 Prerequisites:
 ^^^^^^^^^^^^^^
 
-- Good understanding of the previous tutorial series topics (`ACLs <ACLs.html>`_, `VLANs <vlan_tutorial.html>`_, `Routing <routing.html>`_)
-- Install Faucet `Steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
-- Install OpenVSwitch `Steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
-- Copy to the Terminal Useful Bash Functions (`create_ns <_static/tutorial/create_ns>`_, `as_ns <_static/tutorial/as_ns>`_, `cleanup <_static/tutorial/cleanup>`_, `add_tagged_dev_ns <_static/tutorial/add_tagged_dev_ns>`_, `clear_ns <_static/tutorial/clear_ns>`_)
+- A good understanding of the previous tutorial series topics (`ACLs <ACLs.html>`_, `VLANs <vlan_tutorial.html>`_, `Routing <routing.html>`_)
+- Install Faucet - `Package installation steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
+- Install OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
+- Copy to the Terminal Useful Bash Functions (`create_ns <_static/tutorial/create_ns>`_, `as_ns <_static/tutorial/as_ns>`_, `cleanup <_static/tutorial/cleanup>`_, `add_tagged_dev_ns <_static/tutorial/add_tagged_dev_ns>`_, `clear_ns <_static/tutorial/clear_ns>`_). To make these functions persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'
 
 Let's start by run the cleanup script to remove old namespaces and switches.
 
@@ -29,34 +29,34 @@ Let's start by run the cleanup script to remove old namespaces and switches.
 Network setup
 ^^^^^^^^^^^^^
 
-Then we will create a switch with seven hosts as following
+We will create a switch with seven hosts as following
 
-.. image:: _static/images/NFV-valnTutorial.png
+.. image:: _static/images/NFV-vlanTutorial.png
     :alt: Demo network setup
     :align: center
-   
-   
+
+
 .. code:: console
-    
+
     # BRO
-    create_ns host1 192.168.0.1/24 
-    
+    create_ns host1 192.168.0.1/24
+
     # DHCP server
-    create_ns host2 0              
+    create_ns host2 0
     add_tagged_dev_ns host2 192.168.2.2/24 200 # to serve vlan 200
     add_tagged_dev_ns host2 192.168.3.2/24 300 # to serve vlan 300
-    
+
     # Gateway
-    create_ns host3 0              
+    create_ns host3 0
     add_tagged_dev_ns host3 192.168.2.3/24 200 # to serve vlan 200
     add_tagged_dev_ns host3 192.168.3.3/24 300 # to serve vlan 200
-    
-    # vlan 200 hosts 
+
+    # vlan 200 hosts
     create_ns host4 0
     create_ns host5 0
     # vlan 300 hosts
-    create_ns host6 0             
-    create_ns host7 0             
+    create_ns host6 0
+    create_ns host7 0
 
 Then create an OpenvSwitch and connect all hosts to it.
 
@@ -99,7 +99,7 @@ Let's run two services one for vlan 200 and another for vlan 300 as following
                         -O option:dns-server,8.8.8.8 \
                         -I lo -z -l /tmp/nfv-dhcp-vlan200.leases \
                         -8 /tmp/nfv.dhcp-vlan200.log -i veth0.200  --conf-file= &
-                        
+
     # 192.168.3.0/24 for vlan 300
     as_ns host2 dnsmasq --no-ping -p 0 -k \
                         --dhcp-range=192.168.3.10,192.168.3.20 \
@@ -164,7 +164,7 @@ Now reload faucet configuration file.
 
     sudo pkill -HUP -f "faucet\.faucet"
 
-Use dhclient to configure host4 to host7 using DHCP (it may take few seconds, but should return when successful).
+Use dhclient to configure host4 to host7 using DHCP (it may take a few seconds, but should return when successful).
 
 .. code:: console
 
@@ -173,16 +173,16 @@ Use dhclient to configure host4 to host7 using DHCP (it may take few seconds, bu
     as_ns host6 dhclient veth0
     as_ns host7 dhclient veth0
 
-You can check */tmp/nfv-dhcp<vlanid>.leases* and */tmp/nfv.dhcp<vlanid>.log* to find their IPs. 
-e.g. file /tmp/nfv-dhcp-vlan300.leases 
+You can check */tmp/nfv-dhcp<vlanid>.leases* and */tmp/nfv.dhcp<vlanid>.log* to find their IPs.
+e.g. file /tmp/nfv-dhcp-vlan300.leases
 
-.. code-block:: txt
+.. code-block:: text
     :caption: output:
-    
+
     1525938604 7e:bb:f0:46:6a:e8 192.168.3.11 ubuntu *
     1525938567 76:58:6c:26:78:44 192.168.3.10 * *
 
-    
+
 Alternatively:
 
 .. code:: console
@@ -198,12 +198,12 @@ Try to ping between them
 
 .. code:: console
 
-    as_ns host4 ping <ip of host5> # both in valn200 should work
+    as_ns host4 ping <ip of host5> # both in vlan200 should work
     as_ns host6 ping <ip of host7> # both in vlan300 should work
-    as_ns host4 ping <ip of host6> # each in different vlan should not work 
+    as_ns host4 ping <ip of host6> # each in different vlan should not work
 
-Ping between hosts valn 200 and vlan 300 works because host3 forward the traffic by default. 
-So we will fix this for the next sections by changing iptables on host3 (gateway) to not route traffic by default.
+Ping between hosts vlan 200 and vlan 300 works because host3 (gateway) forwards the traffic by default.
+So we will fix this for the next sections by changing iptables on host3 to not route traffic by default.
 
 .. code:: console
 
@@ -406,13 +406,14 @@ If we generate some DHCP traffic on either of the hosts VLANs
 
     as_ns host4 dhclient veth0
 
-and then inspect the bro logs, we should see that bro has learnt about the two DHCP Servers
+and then inspect the bro logs, we should see that bro has learnt about the two DHCP Servers.
+If the file does not exist check that faucet has successfully reloaded, and try the dhclient command again.
 
 .. code::
 
     sudo cat /var/log/bro/current/known_services.log
 
-.. code-block:: txt
+.. code-block:: text
     :caption: output:
 
     #separator \x09

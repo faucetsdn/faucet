@@ -15,6 +15,9 @@ Prerequisites:
 - Useful Bash Functions (`create_ns <_static/tutorial/create_ns>`_, `as_ns <_static/tutorial/as_ns>`_, `cleanup <_static/tutorial/cleanup>`_). To make these functions persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
 
 
+Network Setup
+-------------
+
 First we will add two new hosts to our network:
 
 .. code:: console
@@ -60,6 +63,8 @@ Add this to /etc/faucet/faucet.yaml below the 'dps'.
                 actions:
                     allow: True
 
+Overview
+--------
 
 Faucet ACLs are made up of lists of rules.
 The order of the rules in the list denote the priority with the first rules being highest and last lowest.
@@ -104,8 +109,13 @@ Test this with
     as_ns host1 ping 192.168.0.4
 
 
-Mirror:
-Mirroring traffic is useful if we want to send it to an out of band NFV service (e.g. Intrusion Detection System, packet capture the traffic).
+ACL Actions
+-----------
+
+Mirroring
++++++++++
+
+Mirroring traffic is useful if we want to send it to an out of band NFV service (e.g. Intrusion Detection System, packet capture a port or VLAN).
 To do this Faucet provides two ACL actions: mirror & output.
 
 The mirror action copies the packet, before any modifications, to the specified port (NOTE: mirroring is done in input direction only).
@@ -116,19 +126,19 @@ Let's add the mirror action to our block-ping ACL /etc/faucet/faucet.yaml
     :caption: /etc/faucet/faucet.yaml
 
     ...
-    block-ping:
-        - rule:
-            dl_type: 0x800
-            ip_proto: 1
-            actions:
-                allow: False
-                mirror: 4
-        - rule:
-            dl_type: 0x86dd
-            ip_proto: 58
-            actions:
-                allow: False
-                mirror: 4
+        block-ping:
+            - rule:
+                dl_type: 0x800
+                ip_proto: 1
+                actions:
+                    allow: False
+                    mirror: 4
+            - rule:
+                dl_type: 0x86dd
+                ip_proto: 58
+                actions:
+                    allow: False
+                    mirror: 4
 
 And again send the sighup signal to Faucet
 
@@ -162,6 +172,8 @@ Ping should have 100% packet loss.
     13:24:40.881129 2e:d4:1a:ca:54:4b > 06:5f:14:fc:47:02, ethertype IPv4 (0x0800), length 98: 192.168.0.3 > 192.168.0.1: ICMP echo reply, id 23660, seq 20, length 64
 
 
+Output
+++++++
 
 There is also the 'output' action which can be used to achieve the same thing.
 

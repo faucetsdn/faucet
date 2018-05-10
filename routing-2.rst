@@ -1,10 +1,13 @@
-===========================================================================
-TODO this is just copied from the original routing. it needs to be updated.
-===========================================================================
 
 
 Routing 2 Tutorial
 ==================
+
+===========================================================================
+TODO This will not be used in the tokyo tutorial.
+this is just copied from the original routing. it needs to be updated.
+===========================================================================
+
 
 This tutorial expands on the `routing tutorial <routing.html>`_ and will add route policy via an external BGP service.
 
