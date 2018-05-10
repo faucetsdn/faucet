@@ -31,7 +31,7 @@ services:
 
     grafana:
         restart: always
-        image: 'fg2it/grafana-armhf:v5.0.4'
+        image: 'fg2it/grafana-armhf:v5.1.0'
         ports:
             - '3000:3000'
         volumes:
