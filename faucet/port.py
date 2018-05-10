@@ -218,10 +218,14 @@ class Port(Conf):
 
     def to_conf(self):
         result = super(Port, self).to_conf()
-        if 'stack' in result and result['stack'] is not None:
-            result['stack'] = {}
-            for stack_config in list(self.stack_defaults_types.keys()):
-                result['stack'][stack_config] = self.stack[stack_config]
+        if result is not None:
+            if 'stack' in result and result['stack'] is not None:
+                result['stack'] = {}
+                for stack_config in list(self.stack_defaults_types.keys()):
+                    result['stack'][stack_config] = self.stack[stack_config]
+            if self.native_vlan is not None:
+                result['native_vlan'] = self.native_vlan.name
+            result['tagged_vlans'] = [vlan.name for vlan in self.tagged_vlans]
         return result
 
     def vlans(self):
