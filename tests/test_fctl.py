@@ -115,7 +115,9 @@ class FctlClassTestCase(FctlTestCaseBase):
     """Test fctl internal methods."""
 
     def test_http_fail(self):
-        self.assertEqual(None, fctl.scrape_prometheus(['http://127.0.0.1:23']))
+        with open(os.devnull, 'w') as err_output_file:
+            self.assertEqual(
+                None, fctl.scrape_prometheus(['http://127.0.0.1:23'], err_output_file=err_output_file))
 
     def test_macs(self):
         prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
@@ -135,6 +137,7 @@ class FctlClassTestCase(FctlTestCaseBase):
             label_matches=label_matches,
             nonzero_only=nonzero_only)
         self.assertEqual(report_out, self.learned_macs_result())
+
 
 if __name__ == "__main__":
     unittest.main()

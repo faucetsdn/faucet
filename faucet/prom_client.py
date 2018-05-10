@@ -29,6 +29,7 @@ from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, REGISTRY
 # Ryu's WSGI implementation doesn't always set QUERY_STRING
 def make_wsgi_app(registry):
     """Create a WSGI app which serves the metrics from a registry."""
+
     def prometheus_app(environ, start_response):
         query_str = environ.get('QUERY_STRING', '')
         params = parse_qs(query_str)
@@ -68,10 +69,17 @@ class PromClient(object): # pylint: disable=too-few-public-methods
         if not self.server:
             app = make_wsgi_app(self._reg)
             if use_test_thread:
-                from wsgiref.simple_server import make_server
+                from wsgiref.simple_server import make_server, WSGIRequestHandler
                 import threading
 
-                self.server = make_server(prom_addr, int(prom_port), app)
+                class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
+                    """Don't log requests."""
+
+                    def log_message(self, *_args): # pylint: disable=arguments-differ
+                        pass
+
+                self.server = make_server(
+                    prom_addr, int(prom_port), app, handler_class=NoLoggingWSGIRequestHandler)
                 self.thread = threading.Thread(target=self.server.serve_forever)
                 self.thread.daemon = True
                 self.thread.start()

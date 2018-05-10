@@ -19,6 +19,7 @@
 # limitations under the License.
 
 import logging
+import os
 import sys
 
 from faucet import valve
@@ -26,9 +27,9 @@ from faucet.config_parser import dp_parser
 from faucet.conf import InvalidConfigError
 
 
-def check_config(conf_files, debug_level):
+def check_config(conf_files, debug_level, check_output_file):
     """Return True and successful config dict, if all config can be parsed."""
-    logname = '/dev/null'
+    logname = os.devnull
     logger = logging.getLogger('%s.config' % logname)
     logger_handler = logging.StreamHandler(stream=sys.stderr)
     logger.addHandler(logger_handler)
@@ -49,14 +50,12 @@ def check_config(conf_files, debug_level):
                 check_result = True
         except InvalidConfigError as config_err:
             check_output = config_err
-    return (check_result, check_output)
+    check_output_file.write(str(check_output))
+    return check_result
 
 
 def main():
-    check_result, check_output = check_config(sys.argv[1:], logging.DEBUG)
-    print(check_output)
-    sys.exit(not check_result)
-
+    sys.exit(not check_config(sys.argv[1:], logging.DEBUG, sys.stdout))
 
 if __name__ == '__main__':
     main()
