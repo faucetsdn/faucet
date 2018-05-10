@@ -553,7 +553,7 @@ or a name. The following attributes can be configured:
         ACLs listed first take priority over those later in the list.
     * - bgp_as
       - integer
-      - 0
+      - None
       - The local AS number to used when speaking BGP
     * - bgp_connect_mode
       - string
@@ -569,7 +569,7 @@ or a name. The following attributes can be configured:
       - The list of BGP neighbours
     * - bgp_neighbour_as
       - integer
-      - 0
+      - None
       - The AS Number for the BGP neighbours
     * - bgp_port
       - integer
@@ -593,14 +593,14 @@ or a name. The following attributes can be configured:
       - A name that can be used to refer to this vlan.
     * - proactive_arp_limit
       - integer
-      - None
+      - 2052
       - Do not proactively ARP for hosts once this value has been reached
-        (unlimited by default)
+        (set to None for unlimited)
     * - proactive_nd_limit
       - integer
-      - None
+      - 2052
       - Don't proactively discover IPv6 hosts once this value has been reached
-        (unlimited by default)
+        (set to None for unlimited)
     * - routes
       - list of routes
       - None
