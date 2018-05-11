@@ -61,6 +61,20 @@ class FaucetPortConfigTest(unittest.TestCase):
 
         self.assertEqual(output_config, expected_config)
 
+        key_exceptions = [
+            'name',
+            '_id',
+            'dp_id',
+            'dyn_phys_up'
+        ]
+        dict_keys = set(port.__dict__.keys())
+        conf_keys = set(port.to_conf().keys())
+
+        for exception in key_exceptions:
+            dict_keys.remove(exception)
+
+        self.assertEqual(dict_keys, conf_keys)
+
     def test_config_with_port_number(self):
         """Tests the minimal config"""
 

@@ -142,7 +142,7 @@ configuration.
         # Max number of times to retry resolution of a host FIB route.
         'max_resolve_backoff_time': 32,
         # Max number of seconds to back off to when resolving nexthops.
-        'packetin_pps': 0,
+        'packetin_pps': None,
         # Ask switch to rate limit packet pps. TODO: Not supported by OVS in 2.7.0
         'learn_jitter': 10,
         # Jitter learn timeouts by up to this many seconds
