@@ -187,6 +187,9 @@ class FaucetBgp(object):
         for dp_id, bgp_speakers in list(self._dp_bgp_speakers.items()):
             valve = self._valves[dp_id]
             for vlan_vid, bgp_speaker in list(bgp_speakers.items()):
+                # TODO: VLAN may be deconfigured, online reconfiguration while BGP active not supported.
+                if vlan_vid not in valve.dp.vlans:
+                    continue
                 vlan = valve.dp.vlans[vlan_vid]
                 neighbor_states = self._neighbor_states(bgp_speaker)
                 for neighbor, neighbor_state in neighbor_states:
