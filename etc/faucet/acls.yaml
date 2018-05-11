@@ -49,7 +49,8 @@ acls:
             udp_dst: 53         # dns
             actions:
                 output:
-                    dl_dst: "72:b8:3c:4c:dc:4d"
+                    set_fields:
+                        - eth_dst: "72:b8:3c:4c:dc:4d"
                     port: 5     # s1 container
         # Force DNS to our DNS server
         - rule:
@@ -58,7 +59,8 @@ acls:
             tcp_dst: 53         # dns
             actions:
                 output:
-                    dl_dst: "72:b8:3c:4c:dc:4d"
+                    set_fields:
+                        - eth_dst: "72:b8:3c:4c:dc:4d"
                     port: 5     # s1 container
         - rule:
             actions:

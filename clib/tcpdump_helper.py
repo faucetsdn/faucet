@@ -3,14 +3,14 @@
 import re
 import subprocess
 
-from mininet.log import error
+from mininet.log import error, debug
 
 import mininet_test_util
 from mininet_test_base import pmonitor
 
+
 class TcpdumpHelper():
 
-    tcpdump_host = None
     tcpdump_out = None
     funcs = None
 
@@ -21,13 +21,18 @@ class TcpdumpHelper():
         intf = tcpdump_host.intf().name
         if root_intf:
             intf = intf.split('.')[0]
-        tcpdump_cmd = mininet_test_util.timeout_soft_cmd(
-            'tcpdump -i %s -e -n -U %s -c %u %s' % (
-                intf, vflags, packets, tcpdump_filter),
-            timeout)
+
+        tcpdump_flags=vflags
+        tcpdump_flags+=' -c %u' % packets if packets else ''
+        tcpdump_cmd='tcpdump -i %s %s -e -n -U %s' % (intf, tcpdump_flags, tcpdump_filter)
+        pipe_cmd=mininet_test_util.timeout_soft_cmd(
+            tcpdump_cmd, timeout) if timeout else tcpdump_cmd
+
+        debug(pipe_cmd)
         self.tcpdump_out = tcpdump_host.popen(
-            tcpdump_cmd,
+            pipe_cmd,
             stdin=mininet_test_util.DEVNULL,
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             close_fds=True)
 
@@ -47,5 +52,6 @@ class TcpdumpHelper():
                             func()
                 else:
                     error('tcpdump_helper: %s' % line)
+        self.tcpdump_out.stdout.close()
         assert tcpdump_started, '%s did not start' % tcpdump_cmd
         return tcpdump_txt

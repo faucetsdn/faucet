@@ -153,8 +153,8 @@ class FaucetBgp(object):
     def shutdown_bgp_speakers(self):
         """Shutdown any active BGP speakers."""
         for vlan_bgp_speakers in list(self._dp_bgp_speakers.values()):
-           for bgp_speaker in list(vlan_bgp_speakers.values()):
-               bgp_speaker.shutdown()
+            for bgp_speaker in list(vlan_bgp_speakers.values()):
+                bgp_speaker.shutdown()
         self._dp_bgp_speakers = {}
 
     def reset(self, valves):
@@ -187,6 +187,9 @@ class FaucetBgp(object):
         for dp_id, bgp_speakers in list(self._dp_bgp_speakers.items()):
             valve = self._valves[dp_id]
             for vlan_vid, bgp_speaker in list(bgp_speakers.items()):
+                # TODO: VLAN deconfigured, online reconfiguration while BGP active not supported.
+                if vlan_vid not in valve.dp.vlans:
+                    continue
                 vlan = valve.dp.vlans[vlan_vid]
                 neighbor_states = self._neighbor_states(bgp_speaker)
                 for neighbor, neighbor_state in neighbor_states:

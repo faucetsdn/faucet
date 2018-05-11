@@ -3,8 +3,8 @@ Faucet
 
 :version: 1.7.6
 
-.. image:: https://travis-ci.org/faucetsdn/faucet.svg?branch=master
-    :target: https://travis-ci.org/faucetsdn/faucet
+.. image:: https://travis-ci.com/faucetsdn/faucet.svg?branch=master
+    :target: https://travis-ci.com/faucetsdn/faucet
 
 .. image:: https://codecov.io/gh/faucetsdn/faucet/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/faucetsdn/faucet

@@ -111,6 +111,12 @@ Top Level
       - Configuration specific to datapaths. The keys are names or dp_ids
         of each datapath, and the values are config dictionaries holding the
         datapath's configuration (see below).
+    * - meters
+      - dictionary
+      - {}
+      - Configuration specific to meters. The keys are names of each meter,
+        and the values are config dictionaries holding the meter's configuration
+        (see below).
     * - routers
       - dictionary
       - {}
@@ -143,13 +149,17 @@ string names given to the datapath, or the OFP datapath id.
       - Type
       - Default
       - Description
+    * - advertise_interval
+      - type
+      - 30
+      - How often to advertise (eg. IPv6 RAs)
     * - arp_neighbor_timeout
       - type
-      - 500
+      - 250
       - ARP and neighbour timeout in seconds
     * - description
       - string
-      - None
+      - name
       - Description of this datapath, strictly informational
     * - dp_id
       - integer
@@ -171,14 +181,20 @@ string names given to the datapath, or the OFP datapath id.
       - True
       - If True, Faucet will drop all LLDP packets arriving at the datapath.
     * - drop_spoofed_faucet_mac
-      - bool
+      - boolean
       - True
       - If True, Faucet will drop any packet it receives with an ethernet
         source address equal to a MAC address that Faucet is using.
     * - group_table
-      - bool
+      - boolean
       - False
       - If True, Faucet will use the OpenFlow Group tables to flood packets.
+        This is an experimental feature that is not fully supported by all
+        devices and may not interoperate with all features of faucet.
+    * - group_table_routing
+      - boolean
+      - False
+      - If True, Faucet will use the OpenFlow Group tables for routing (nexthops)
         This is an experimental feature that is not fully supported by all
         devices and may not interoperate with all features of faucet.
     * - hardware
@@ -186,9 +202,17 @@ string names given to the datapath, or the OFP datapath id.
       - "Open vSwitch"
       - The hardware model of the datapath. Defaults to "Open vSwitch". Other
         options can be seen in the documentation for valve.py
+    * - high_priority
+      - integer
+      - low_priority + 1 (9001)
+      - The high priority value.
+    * - highest_priority
+      - integer
+      - high_priority + 98 (9099)
+      - The highest priority number to use.
     * - ignore_learn_ins
       - integer
-      - 3
+      - 10
       - Ignore every approx nth packet for learning. 2 will ignore 1 out of 2
         packets; 3 will ignore 1 out of 3 packets. This limits control plane
         activity when learning new hosts rapidly. Flooding will still be done
@@ -224,6 +248,14 @@ string names given to the datapath, or the OFP datapath id.
       - dict
       - {}
       - Configuration block for LLDP beacons
+    * - low_priority
+      - integer
+      - low_priority + 9000 (9000)
+      - The low priority value.
+    * - lowest_priority
+      - integer
+      - priority_offset (0)
+      - The lowest priority number to use.
     * - max_host_fib_retry_count
       - integer
       - 10
@@ -238,10 +270,31 @@ string names given to the datapath, or the OFP datapath id.
       - 32
       - When resolving next hop l2 addresses, Faucet will back off
         exponentially until it reaches this value.
+    * - metrics_rate_limit_sec
+      - integer
+      - 0
+      - Rate limit metric updates - don't update metrics if last update
+        was less than this many seconds ago.
     * - name
       - string
       - The configuration key
       - A name to reference the datapath by.
+    * - ofchannel_log
+      - string
+      - None
+      - Name of logfile for openflow logs
+    * - packetin_pps
+      - integer
+      - None
+      - Ask switch to rate limit packet pps.
+    * - priority_offset
+      - integer
+      - 0
+      - Shift all priority values by this number.
+    * - proactive_learn
+      - boolean
+      - True
+      - whether proactive learning is enabled for IP nexthops
     * - stack
       - dictionary
       - {}
@@ -251,14 +304,10 @@ string names given to the datapath, or the OFP datapath id.
       - integer
       - 300
       - timeout for MAC address learning
-    * - targeted_gw_resolution
-      - bool
+    * - use_idle_timeout
+      - boolean
       - False
-      - if True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
-    * - minimum_ip_size_check
-      - bool
-      - True
-      - If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
+      - Turn on/off the use of idle timeout for src_table, default OFF.
 
 
 Stacking (DP)
@@ -349,7 +398,7 @@ OFP port number ranges (eg. 1-6).
         those later in the list.
     * - description
       - string
-      - None
+      - name (which defaults to the configuration key)
       - Description, purely informational
     * - enabled
       - boolean
@@ -357,7 +406,7 @@ OFP port number ranges (eg. 1-6).
       - Allow packets to be forwarded through this port.
     * - hairpin
       - boolean
-      - True
+      - False
       - If True it allows packets arriving on this port to be output to this
         port. This is necessary to allow routing between two vlans on this
         port, or for use with a WIFI radio port.
@@ -365,6 +414,10 @@ OFP port number ranges (eg. 1-6).
       - dict
       - {}
       - Configuration block for lldp configuration
+    * - loop_protect
+      - boolean
+      - False
+      - If True, do simple loop protection on this port.
     * - max_hosts
       - integer
       - 255
@@ -387,6 +440,18 @@ OFP port number ranges (eg. 1-6).
       - integer
       - The configuration key.
       - The OFP port number for this port.
+    * - opstatus_reconf
+      - boolean
+      - True
+      - If True, FAUCET will reconfigure the pipeline based on operational status of the port.
+    * - output_only
+      - boolean
+      - False
+      - If True, no packets will be accepted from this port.
+    * - override_output_port
+      - integer
+      - None
+      - If set, packets are sent to this other port.
     * - permanent_learn
       - boolean
       - False
@@ -406,14 +471,6 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - True
       - If False unicast packets will not be flooded to this port.
-    * - output_only
-      - boolean
-      - False
-      - If True, no packets will be accepted from this port.
-    * - opstatus_reconf
-      - boolean
-      - True
-      - If True, FAUCET will reconfigure the pipeline based on operational status of the port.
 
 
 Stacking (Interfaces)
@@ -547,7 +604,7 @@ or a name. The following attributes can be configured:
         ACLs listed first take priority over those later in the list.
     * - bgp_as
       - integer
-      - 0
+      - None
       - The local AS number to used when speaking BGP
     * - bgp_connect_mode
       - string
@@ -563,7 +620,7 @@ or a name. The following attributes can be configured:
       - The list of BGP neighbours
     * - bgp_neighbour_as
       - integer
-      - 0
+      - None
       - The AS Number for the BGP neighbours
     * - bgp_port
       - integer
@@ -581,24 +638,32 @@ or a name. The following attributes can be configured:
       - integer
       - 255
       - The maximum number of hosts that can be learnt on this vlan.
+    * - minimum_ip_size_check
+      - boolean
+      - True
+      - If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
     * - name
       - string
       - the configuration key
       - A name that can be used to refer to this vlan.
     * - proactive_arp_limit
       - integer
-      - None
+      - 2052
       - Do not proactively ARP for hosts once this value has been reached
-        (unlimited by default)
+        (set to None for unlimited)
     * - proactive_nd_limit
       - integer
-      - None
+      - 2052
       - Don't proactively discover IPv6 hosts once this value has been reached
-        (unlimited by default)
+        (set to None for unlimited)
     * - routes
       - list of routes
       - None
       - static routes configured on this vlan (see below)
+    * - targeted_gw_resolution
+      - boolean
+      - False
+      - if True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
     * - unicast_flood
       - boolean
       - True
@@ -633,6 +698,73 @@ follows:
       - None
       - The next hop for this route
 
+Meters
+~~~~~~
+
+.. note:: Meters are platform dependent and not all functions may be available. 
+
+Meters are configured under the 'meters' configuration block. The meters block
+contains a dictionary of individual meters each keyed by its name.
+
+.. list-table:: meters: <meter name>:
+   :widths: 31 15 15 60
+   :header-rows: 1
+   
+   * - Attribute
+     - Type
+     - Default
+     - Description
+   * - meter_id
+     - int
+     -
+     - Unique identifier.
+   * - entry
+     - dict
+     -
+     - Defines the meter actions. Details Below.
+
+.. list-table:: : meters: <meter name>: entry:
+   :widths: 31 15 15 60
+   :header-rows: 1
+   
+   * - Attribute
+     - Type
+     - Default
+     - Desciption
+   * - flags
+     - String or list of String
+     - KBPS
+     - Possible values are 'KBPS' (Rate value in kb/s (kilo-bit per second).), 'PKTPS' (Rate value in packet/sec.), 'BURST' (Do burst size), 'STATS' (Collect statistics)
+   * - bands
+     - list of bands (which are dicts, see below)
+     -
+     - 
+
+.. list-table:: : meters: <meter name>: entry: bands:
+   :widths: 31 15 15 60
+   :header-rows: 1
+   
+   * - Attribute
+     - Type
+     - Default
+     - Desciption
+   * - type
+     - String
+     -
+     - 'DROP' - drop apckets when the band rate is exceeded, or 'DSCP_REMARK'- use a simple DiffServ policer to remark the DSCP field in the IP header of packets that exceed the band rate.
+   * - rate
+     - int
+     -
+     - Rate for dropping or remarking packets, depending on the above type. Value is in KBPS or PKTPS flag depending on the flag set.
+   * - burst_size
+     - int
+     -
+     - Only used if flags includes BURST. Indicates the length of packet or byte burst to consider for applying the meter.
+   * - prec_level
+     - int
+     -
+     - Only used if type is DSCP_REMARK. The amount by which the drop precedence should be increased.
+   
 ACLs
 ~~~~
 

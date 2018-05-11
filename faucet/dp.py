@@ -142,7 +142,7 @@ configuration.
         # Max number of times to retry resolution of a host FIB route.
         'max_resolve_backoff_time': 32,
         # Max number of seconds to back off to when resolving nexthops.
-        'packetin_pps': 0,
+        'packetin_pps': None,
         # Ask switch to rate limit packet pps. TODO: Not supported by OVS in 2.7.0
         'learn_jitter': 10,
         # Jitter learn timeouts by up to this many seconds
@@ -551,12 +551,14 @@ configuration.
                     if output_action == 'port':
                         port_name = output_action_values
                         port = resolve_port(port_name)
-                        # If this DP does not have this port, do not output.
-                        if port is not None:
-                            resolved_action_conf[output_action] = port.number
+                        test_config_condition(not port, (
+                            'output port not defined in DP: %s' % self.name))
+                        resolved_action_conf[output_action] = port.number
                     elif output_action == 'ports':
-                        resolved_action_conf[output_action] = resolve_port_numbers(
-                            output_action_values)
+                        resolved_ports = resolve_port_numbers(output_action_values)
+                        test_config_condition(len(resolved_ports) != len(output_action_values), (
+                            'output port(s) not defined in DP: %s' % self.name))
+                        resolved_action_conf[output_action] = resolved_ports
                     elif output_action == 'failover':
                         failover = output_action_values
                         test_config_condition(not isinstance(failover, dict), (
@@ -564,7 +566,10 @@ configuration.
                         resolved_action_conf[output_action] = {}
                         for failover_name, failover_values in list(failover.items()):
                             if failover_name == 'ports':
-                                failover_values = resolve_port_numbers(failover_values)
+                                resolved_failover_values = resolve_port_numbers(failover_values)
+                                test_config_condition(len(resolved_failover_values) != len(failover_values), (
+                                    'failover port(s) not defined in DP: %s' % self.name))
+                                failover_values = resolved_failover_values
                             resolved_action_conf[output_action][failover_name] = failover_values
                     else:
                         resolved_action_conf[output_action] = output_action_values

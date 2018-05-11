@@ -79,9 +79,11 @@ class FaucetHostCleanup(object):
     def terminate(self):
         """Override Mininet terminate() to partially avoid pty leak."""
         if self.shell is not None:
-            os.close(self.master)
             os.close(self.slave)
-            self.shell.kill()
+            self.stdin.close()
+            if self.shell.returncode == None:
+                self.shell.kill()
+                self.shell.poll()
         self.cleanup() # pylint: disable=no-member
 
 
@@ -200,6 +202,11 @@ class FaucetSwitchTopo(Topo):
         host_name = 'u%s%1.1u' % (sid_prefix, host_n + 1)
         return self.addHost(name=host_name, cls=FaucetHost, cpu=self.CPUF)
 
+    def _add_extended_host(self, sid_prefix, host_n, e_cls, tmpdir):
+        """Add a single extended test host."""
+        host_name = 'e%s%1.1u' % (sid_prefix, host_n + 1)
+        return self.addHost(name=host_name, cls=e_cls, host_n=host_n, tmpdir=tmpdir)
+
     def _add_faucet_switch(self, sid_prefix, dpid, ovs_type):
         """Add a FAUCET switch."""
         switch_name = 's%s' % sid_prefix
@@ -212,10 +219,12 @@ class FaucetSwitchTopo(Topo):
     def _add_links(self, switch, hosts, links_per_host):
         for host in hosts:
             for _ in range(links_per_host):
-                self.addLink(host, switch, delay=self.DELAY, use_htb=True)
+                # Order of switch/host is important, since host may be in a container.
+                self.addLink(switch, host, delay=self.DELAY, use_htb=True)
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
-              n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
+              n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
+              n_extended=0, e_cls=None, tmpdir=None):
         for dpid in dpids:
             serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
@@ -224,6 +233,8 @@ class FaucetSwitchTopo(Topo):
                 self._add_tagged_host(sid_prefix, tagged_vid, host_n)
             for host_n in range(n_untagged):
                 self._add_untagged_host(sid_prefix, host_n)
+            for host_n in range(n_extended):
+                self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
             switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type)
             self._add_links(switch, self.hosts(), links_per_host)
 

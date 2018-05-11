@@ -39,8 +39,9 @@ class CheckConfigTestCase(unittest.TestCase):
         conf_file_name = os.path.join(self.tmpdir, 'faucet.yaml')
         with open(conf_file_name, 'w') as conf_file:
             conf_file.write(config)
-        result_ok, _ = check_config( # pylint: disable=unexpected-keyword-arg
-            [conf_file_name], debug_level=logging.FATAL)
+        with open(os.devnull, 'w') as check_output_file:
+            result_ok = check_config( # pylint: disable=unexpected-keyword-arg
+                [conf_file_name], logging.FATAL, check_output_file)
         return expected_ok == result_ok
 
     def _deprecated_acl_check(self, config, success):
