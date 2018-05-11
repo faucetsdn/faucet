@@ -624,6 +624,30 @@ acls:
 """
         self.check_config_failure(config, cp.dp_parser)
 
+    def test_unresolved_actions_output_ports(self):
+        """Test invalid output port name with actions"""
+        config = """
+vlans:
+    office:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+                acl_in: output_unresolved
+acls:
+    output_unresolved:
+        - rule:
+            actions:
+                output:
+                    set_fields:
+                         - eth_dst: '01:00:00:00:00:00'
+                    port: UNRESOLVED
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
     def test_unknown_output_ports(self):
         """Test invalid mirror ACL port."""
         config = """
