@@ -526,7 +526,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
             port_config = port_desc['config']
             port_speed_mbps = (port_desc['curr_speed'] * 1e3) / 1e6
             error('DP %u is %s, at %u mbps\n' % (dp_port, port_name, port_speed_mbps))
-            if port_speed_mbps <= min_mbps:
+            if port_speed_mbps < min_mbps:
                 error('port speed %u below minimum %u mbps\n' % (
                     port_speed_mbps, min_mbps))
             elif port_config != 0:
