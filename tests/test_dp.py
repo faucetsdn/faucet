@@ -66,7 +66,27 @@ class FaucetDPConfigTest(unittest.TestCase):
         expected_config.update(input_config)
         expected_config.update(output_config)
 
-        dp = DP(dp_id, None, input_config)
+        dp = DP(dp_id, None, input_config) # pylint: disable=invalid-name
         output_config = dp.to_conf()
 
         self.assertEqual(output_config, expected_config)
+
+        key_exceptions = [
+            'lldp_beacon_ports',
+            'output_only_ports',
+            'vlans',
+            'routers',
+            'acls',
+            'ports',
+            'stack_ports',
+            '_id',
+            'groups',
+            'name'
+        ]
+        dict_keys = set(dp.__dict__.keys())
+        conf_keys = set(dp.to_conf().keys())
+
+        for exception in key_exceptions:
+            dict_keys.remove(exception)
+
+        self.assertEqual(dict_keys, conf_keys)
