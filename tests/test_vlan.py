@@ -52,6 +52,30 @@ class FaucetVLANConfigTest(FaucetVLANBaseTest):
 
         self.assertEqual(output_config, expected_config)
 
+        key_exceptions = [
+            'name',
+            'tagged',
+            'dyn_gws_by_ipv',
+            'dyn_host_cache_by_port',
+            'dp_id',
+            'bgp_neighbor_addresses',
+            'bgp_neighbor_as',
+            'dyn_routes_by_ipv',
+            '_id',
+            'dyn_neigh_cache_by_ipv',
+            'dyn_ipvs',
+            'dyn_host_cache',
+            'dyn_faucet_vips_by_ipv',
+            'untagged'
+        ]
+        dict_keys = set(vlan.__dict__.keys())
+        conf_keys = set(vlan.to_conf().keys())
+
+        for exception in key_exceptions:
+            dict_keys.remove(exception)
+
+        self.assertEqual(dict_keys, conf_keys)
+
     def test_with_routes(self):
         """Tests a config with routes"""
 

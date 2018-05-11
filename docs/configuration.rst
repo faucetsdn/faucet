@@ -149,13 +149,17 @@ string names given to the datapath, or the OFP datapath id.
       - Type
       - Default
       - Description
+    * - advertise_interval
+      - type
+      - 30
+      - How often to advertise (eg. IPv6 RAs)
     * - arp_neighbor_timeout
       - type
-      - 500
+      - 250
       - ARP and neighbour timeout in seconds
     * - description
       - string
-      - None
+      - name
       - Description of this datapath, strictly informational
     * - dp_id
       - integer
@@ -177,14 +181,20 @@ string names given to the datapath, or the OFP datapath id.
       - True
       - If True, Faucet will drop all LLDP packets arriving at the datapath.
     * - drop_spoofed_faucet_mac
-      - bool
+      - boolean
       - True
       - If True, Faucet will drop any packet it receives with an ethernet
         source address equal to a MAC address that Faucet is using.
     * - group_table
-      - bool
+      - boolean
       - False
       - If True, Faucet will use the OpenFlow Group tables to flood packets.
+        This is an experimental feature that is not fully supported by all
+        devices and may not interoperate with all features of faucet.
+    * - group_table_routing
+      - boolean
+      - False
+      - If True, Faucet will use the OpenFlow Group tables for routing (nexthops)
         This is an experimental feature that is not fully supported by all
         devices and may not interoperate with all features of faucet.
     * - hardware
@@ -192,9 +202,17 @@ string names given to the datapath, or the OFP datapath id.
       - "Open vSwitch"
       - The hardware model of the datapath. Defaults to "Open vSwitch". Other
         options can be seen in the documentation for valve.py
+    * - high_priority
+      - integer
+      - low_priority + 1 (9001)
+      - The high priority value.
+    * - highest_priority
+      - integer
+      - high_priority + 98 (9099)
+      - The highest priority number to use.
     * - ignore_learn_ins
       - integer
-      - 3
+      - 10
       - Ignore every approx nth packet for learning. 2 will ignore 1 out of 2
         packets; 3 will ignore 1 out of 3 packets. This limits control plane
         activity when learning new hosts rapidly. Flooding will still be done
@@ -230,6 +248,14 @@ string names given to the datapath, or the OFP datapath id.
       - dict
       - {}
       - Configuration block for LLDP beacons
+    * - low_priority
+      - integer
+      - low_priority + 9000 (9000)
+      - The low priority value.
+    * - lowest_priority
+      - integer
+      - priority_offset (0)
+      - The lowest priority number to use.
     * - max_host_fib_retry_count
       - integer
       - 10
@@ -244,10 +270,31 @@ string names given to the datapath, or the OFP datapath id.
       - 32
       - When resolving next hop l2 addresses, Faucet will back off
         exponentially until it reaches this value.
+    * - metrics_rate_limit_sec
+      - integer
+      - 0
+      - Rate limit metric updates - don't update metrics if last update
+        was less than this many seconds ago.
     * - name
       - string
       - The configuration key
       - A name to reference the datapath by.
+    * - ofchannel_log
+      - string
+      - None
+      - Name of logfile for openflow logs
+    * - packetin_pps
+      - integer
+      - None
+      - Ask switch to rate limit packet pps.
+    * - priority_offset
+      - integer
+      - 0
+      - Shift all priority values by this number.
+    * - proactive_learn
+      - boolean
+      - True
+      - whether proactive learning is enabled for IP nexthops
     * - stack
       - dictionary
       - {}
@@ -257,14 +304,10 @@ string names given to the datapath, or the OFP datapath id.
       - integer
       - 300
       - timeout for MAC address learning
-    * - targeted_gw_resolution
-      - bool
+    * - use_idle_timeout
+      - boolean
       - False
-      - if True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
-    * - minimum_ip_size_check
-      - bool
-      - True
-      - If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
+      - Turn on/off the use of idle timeout for src_table, default OFF.
 
 
 Stacking (DP)
@@ -595,6 +638,10 @@ or a name. The following attributes can be configured:
       - integer
       - 255
       - The maximum number of hosts that can be learnt on this vlan.
+    * - minimum_ip_size_check
+      - boolean
+      - True
+      - If False, don't check that IP packets have a payload (must be False for OVS trace/tutorial to work)
     * - name
       - string
       - the configuration key
@@ -613,6 +660,10 @@ or a name. The following attributes can be configured:
       - list of routes
       - None
       - static routes configured on this vlan (see below)
+    * - targeted_gw_resolution
+      - boolean
+      - False
+      - if True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
     * - unicast_flood
       - boolean
       - True
