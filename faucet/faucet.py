@@ -158,18 +158,22 @@ class Faucet(RyuAppBase):
             return
         valve.send_flows(ryu_dp, flow_msgs)
 
-    def _get_valve(self, ryu_event):
+    def _get_valve(self, ryu_event, require_running=False):
         """Get Valve instance to response to an event.
 
         Args:
             ryu_event (ryu.controller.event.Event): event
+            require_running (bool): require DP to be running.
         Returns:
             valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and Ryu msg (if any)
         """
         valve, ryu_dp, msg = self._get_datapath_obj(
             self.valves_manager.valves, ryu_event)
-        if valve and msg:
-            valve.ofchannel_log([msg])
+        if valve:
+            if msg:
+                valve.ofchannel_log([msg])
+            if require_running and not valve.dp.running:
+                valve = None
         return (valve, ryu_dp, msg)
 
     def _config_files_changed(self):
@@ -209,7 +213,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.event.EventReplyBase): packet in message.
         """
-        valve, _, msg = self._get_valve(ryu_event)
+        valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
         if valve.rate_limit_packet_ins():
@@ -295,10 +299,8 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPPortStatus): trigger.
         """
-        valve, _, msg = self._get_valve(ryu_event)
+        valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
-            return
-        if not valve.dp.running:
             return
         port_no = msg.desc.port_no
         reason = msg.reason
@@ -317,7 +319,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPFlowRemoved): trigger.
         """
-        valve, ryu_dp, msg = self._get_valve(ryu_event)
+        valve, ryu_dp, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
         ofp = ryu_dp.ofproto
