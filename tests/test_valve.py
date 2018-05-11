@@ -1541,6 +1541,7 @@ class RyuAppSmokeTest(unittest.TestCase):
             faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI(),
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
+        self.assertFalse(ryu_app._config_files_changed())
         ryu_app.metric_update(None)
         ryu_app.get_config()
         ryu_app.get_tables(0)

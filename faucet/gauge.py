@@ -19,7 +19,6 @@
 from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.controller import ofp_event
-from ryu.lib import hub
 
 from faucet import valve_of
 from faucet.conf import InvalidConfigError
@@ -49,16 +48,14 @@ class Gauge(RyuAppBase):
         self.config_watcher = ConfigWatcher()
         self.prom_client = GaugePrometheusClient(reg=self._reg)
 
-    def _get_watchers(self, handler_name, ryu_event):
+    def _get_watchers(self, ryu_event):
         """Get Watchers instances to response to an event.
 
         Args:
-            handler_name (string): handler name to log if datapath unknown.
             ryu_event (ryu.controller.event.EventReplyBase): DP event.
         Returns:
         """
-        return self._get_datapath_obj(
-            handler_name, self.watchers, ryu_event)
+        return self._get_datapath_obj(self.watchers, ryu_event)
 
     @kill_on_exception(exc_logname)
     def _load_config(self):
@@ -69,8 +66,8 @@ class Gauge(RyuAppBase):
             self.logger.error('invalid config: %s', err)
             return
 
-        for watcher_dpid, old_watchers in list(self.watchers.items()):
-            self._stop_watchers(watcher_dpid, old_watchers)
+        for old_watchers in list(self.watchers.values()):
+            self._stop_watchers(old_watchers)
 
         new_watchers = {}
 
@@ -87,7 +84,7 @@ class Gauge(RyuAppBase):
         for watcher_dpid, watchers in list(new_watchers.items()):
             ryu_dp = self.dpset.get(watcher_dpid)
             if ryu_dp:
-                self._start_watchers(ryu_dp, watcher_dpid, watchers)
+                self._start_watchers(ryu_dp, watchers)
 
         self.watchers = new_watchers
         self.config_watcher.update(self.config_file)
@@ -96,8 +93,7 @@ class Gauge(RyuAppBase):
     @kill_on_exception(exc_logname)
     def _update_watcher(self, name, ryu_event):
         """Call watcher with event data."""
-        watchers, ryu_dp, msg = self._get_watchers(
-            '_update_watcher: %s' % name, ryu_event)
+        watchers, ryu_dp, msg = self._get_watchers(ryu_event)
         if watchers is None:
             return
         if name in watchers:
@@ -113,7 +109,7 @@ class Gauge(RyuAppBase):
         super(Gauge, self).reload_config(ryu_event)
         self._load_config()
 
-    def _start_watchers(self, ryu_dp, dp_id, watchers):
+    def _start_watchers(self, ryu_dp, watchers):
         """Start watchers for DP if active."""
         for watchers_by_name in list(watchers.values()):
             for i, watcher in enumerate(watchers_by_name):
@@ -128,15 +124,15 @@ class Gauge(RyuAppBase):
         Args:
             ryu_event (ryu.controller.event.EventReplyBase): DP event.
         """
-        watchers, ryu_dp, _ = self._get_watchers('_handler_datapath_up', ryu_event)
+        watchers, ryu_dp, _ = self._get_watchers(ryu_event)
         if watchers is None:
             return
         self.logger.info('%s up', dpid_log(ryu_dp.id))
         ryu_dp.send_msg(valve_of.faucet_config(datapath=ryu_dp))
         ryu_dp.send_msg(valve_of.faucet_async(datapath=ryu_dp, packet_in=False))
-        self._start_watchers(ryu_dp, ryu_dp.id, watchers)
+        self._start_watchers(ryu_dp, watchers)
 
-    def _stop_watchers(self, dp_id, watchers):
+    def _stop_watchers(self, watchers):
         """Stop watchers for DP."""
         for watchers_by_name in list(watchers.values()):
             for watcher in watchers_by_name:
@@ -151,12 +147,11 @@ class Gauge(RyuAppBase):
         Args:
            ryu_event (ryu.controller.event.EventReplyBase): DP event.
         """
-        watchers, ryu_dp, _ = self._get_watchers(
-            '_handler_datapath_down', ryu_event)
+        watchers, ryu_dp, _ = self._get_watchers(ryu_event)
         if watchers is None:
             return
         self.logger.info('%s down', dpid_log(ryu_dp.id))
-        self._stop_watchers(ryu_dp.id, watchers)
+        self._stop_watchers(watchers)
 
     _WATCHER_HANDLERS = {
         ofp_event.EventOFPPortStatus: 'port_state', # pylint: disable=no-member

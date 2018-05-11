@@ -846,6 +846,7 @@ class RyuAppSmokeTest(unittest.TestCase):
             dpset={},
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
+        self.assertFalse(ryu_app._config_files_changed())
         for event_handler in (
                 ryu_app._datapath_connect,
                 ryu_app._datapath_disconnect):
