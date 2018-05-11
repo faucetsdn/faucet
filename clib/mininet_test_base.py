@@ -1063,10 +1063,9 @@ dbs:
             orig_conf = yaml.load(orig_conf_file.read())
         cold_start_conf = copy.deepcopy(orig_conf)
         for dp_conf in cold_start_conf['dps'].values():
-            unused_port_no = (self.N_UNTAGGED + self.N_TAGGED + 1)
             dp_conf['interfaces'] = {
-                unused_port_no: {
-                    'native_vlan': cold_start_conf['vlans'].keys()[0],
+                self.port_map[list(self.port_map.keys())[0]]: {
+                    'native_vlan': list(cold_start_conf['vlans'].keys())[0],
                 }
             }
         self.reload_conf(cold_start_conf, self.faucet_config_path, True, True)
