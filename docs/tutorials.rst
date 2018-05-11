@@ -149,7 +149,7 @@ of a single switch with two ports.
                   interfaces:
                       1:
                           name: "host1"
-                          description: "host2 network namespace"
+                          description: "host1 network namespace"
                           native_vlan: office
                       2:
                           name: "host2"
