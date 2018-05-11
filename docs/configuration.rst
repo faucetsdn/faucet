@@ -355,7 +355,7 @@ OFP port number ranges (eg. 1-6).
         those later in the list.
     * - description
       - string
-      - None
+      - name (which defaults to the configuration key)
       - Description, purely informational
     * - enabled
       - boolean
@@ -363,7 +363,7 @@ OFP port number ranges (eg. 1-6).
       - Allow packets to be forwarded through this port.
     * - hairpin
       - boolean
-      - True
+      - False
       - If True it allows packets arriving on this port to be output to this
         port. This is necessary to allow routing between two vlans on this
         port, or for use with a WIFI radio port.
@@ -371,6 +371,10 @@ OFP port number ranges (eg. 1-6).
       - dict
       - {}
       - Configuration block for lldp configuration
+    * - loop_protect
+      - boolean
+      - False
+      - If True, do simple loop protection on this port.
     * - max_hosts
       - integer
       - 255
@@ -393,6 +397,18 @@ OFP port number ranges (eg. 1-6).
       - integer
       - The configuration key.
       - The OFP port number for this port.
+    * - opstatus_reconf
+      - boolean
+      - True
+      - If True, FAUCET will reconfigure the pipeline based on operational status of the port.
+    * - output_only
+      - boolean
+      - False
+      - If True, no packets will be accepted from this port.
+    * - override_output_port
+      - integer
+      - None
+      - If set, packets are sent to this other port.
     * - permanent_learn
       - boolean
       - False
@@ -412,14 +428,6 @@ OFP port number ranges (eg. 1-6).
       - boolean
       - True
       - If False unicast packets will not be flooded to this port.
-    * - output_only
-      - boolean
-      - False
-      - If True, no packets will be accepted from this port.
-    * - opstatus_reconf
-      - boolean
-      - True
-      - If True, FAUCET will reconfigure the pipeline based on operational status of the port.
 
 
 Stacking (Interfaces)
