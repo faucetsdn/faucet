@@ -18,6 +18,8 @@
 # limitations under the License.
 
 from collections import namedtuple
+from functools import partial
+
 import ipaddress
 import logging
 import os
@@ -360,6 +362,11 @@ vlans:
             'dp_id': '0x%x' % self.DP_ID})
         return self.registry.get_sample_value(var, labels)
 
+    def prom_inc(self, func, var, labels=None):
+        before = self.get_prom(var, labels)
+        func()
+        self.assertTrue(before + 1, self.get_prom(var, labels))
+
     def send_flows_to_dp_by_id(self, valve, flows):
         """Callback for ValvesManager to simulate sending flows to DP."""
         valve = self.valves_manager.valves[self.DP_ID]
@@ -510,9 +517,9 @@ vlans:
         msg.cookie = self.valve.dp.cookie
         pkt_meta = self.valve.parse_pkt_meta(msg)
         self.assertTrue(pkt_meta, msg=pkt)
-        packet_in_before = self.get_prom('of_packet_ins')
-        self.valves_manager.valve_packet_in(self.valve, pkt_meta) # pylint: disable=no-member
-        self.assertEqual(packet_in_before + 1, self.get_prom('of_packet_ins'))
+        self.prom_inc(
+            partial(self.valves_manager.valve_packet_in, self.valve, pkt_meta),
+            'of_packet_ins')
         rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
         resolve_ofmsgs = self.valve.resolve_gateways()
@@ -1524,7 +1531,6 @@ vlans:
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
             'eth_src': '0e:00:00:00:00:02'})
-        # TODO: verify LACP state in Prometheus and learning state.
         self.learn_hosts()
 
 
