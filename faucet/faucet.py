@@ -247,8 +247,7 @@ class Faucet(RyuAppBase):
         valve, ryu_dp, msg = self._get_valve(ryu_event)
         if valve is None:
             return
-        flowmods = valve.switch_features(msg)
-        self._send_flow_msgs(valve, flowmods, ryu_dp=ryu_dp)
+        self._send_flow_msgs(valve, valve.switch_features(msg), ryu_dp=ryu_dp)
 
     @kill_on_exception(exc_logname)
     def _datapath_connect(self, ryu_event):
@@ -262,8 +261,7 @@ class Faucet(RyuAppBase):
             return
         discovered_ports = [
             port for port in list(ryu_dp.ports.values()) if not valve_of.ignore_port(port.port_no)]
-        flowmods = valve.datapath_connect(discovered_ports)
-        self._send_flow_msgs(valve, flowmods)
+        self._send_flow_msgs(valve, valve.datapath_connect(discovered_ports))
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_event):
@@ -288,8 +286,7 @@ class Faucet(RyuAppBase):
         valve, _, msg = self._get_valve(ryu_event)
         if valve is None:
             return
-        body = msg.body
-        valve.ofdescstats_handler(body)
+        valve.ofdescstats_handler(msg.body)
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -302,14 +299,8 @@ class Faucet(RyuAppBase):
         valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
-        port_no = msg.desc.port_no
-        reason = msg.reason
-        state = msg.desc.state
-        valve.logger.info('port state %u (reason %u)' % (state, reason))
-        port_status = valve_of.port_status_from_state(state)
-        flowmods = valve.port_status_handler(
-            port_no, reason, port_status)
-        self._send_flow_msgs(valve, flowmods)
+        self._send_flow_msgs(valve, valve.port_status_handler(
+            msg.desc.port_no, msg.reason, msg.desc.state))
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -322,8 +313,5 @@ class Faucet(RyuAppBase):
         valve, ryu_dp, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
-        ofp = ryu_dp.ofproto
-        reason = msg.reason
-        if reason == ofp.OFPRR_IDLE_TIMEOUT:
-            flowmods = valve.flow_timeout(msg.table_id, msg.match)
-            self._send_flow_msgs(valve, flowmods)
+        if msg.reason == ryu_dp.ofproto.OFPRR_IDLE_TIMEOUT:
+            self._send_flow_msgs(valve, valve.flow_timeout(msg.table_id, msg.match))

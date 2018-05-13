@@ -369,7 +369,7 @@ class Valve(object):
         self.metrics.port_status.labels( # pylint: disable=no-member
             **port_labels).set(port_status)
 
-    def port_status_handler(self, port_no, reason, port_status):
+    def port_status_handler(self, port_no, reason, state):
         """Return OpenFlow messages responding to port operational status change."""
 
         def _decode_port_status(reason):
@@ -381,10 +381,12 @@ class Valve(object):
             }
             return port_status_codes.get(reason, 'UNKNOWN')
 
+        port_status = valve_of.port_status_from_state(state)
         self._notify(
             {'PORT_CHANGE': {
                 'port_no': port_no,
                 'reason': _decode_port_status(reason),
+                'state': state,
                 'status': port_status}})
         ofmsgs = []
         if not self.port_no_valid(port_no):
@@ -402,8 +404,8 @@ class Valve(object):
             if port_status:
                 ofmsgs.extend(self.port_add(port_no))
         else:
-            self.logger.warning('Unhandled port status %s for %s' % (
-                reason, port))
+            self.logger.warning('Unhandled port status %s/state %s for %s' % (
+                reason, state, port))
         return ofmsgs
 
     def advertise(self):

@@ -412,12 +412,12 @@ vlans:
     def set_port_down(self, port_no):
         """Set port status of port to down."""
         self.table.apply_ofmsgs(self.valve.port_status_handler(
-            port_no, ofp.OFPPR_DELETE, 0))
+            port_no, ofp.OFPPR_DELETE, ofp.OFPPS_LINK_DOWN))
 
     def set_port_up(self, port_no):
         """Set port status of port to up."""
         self.table.apply_ofmsgs(self.valve.port_status_handler(
-            port_no, ofp.OFPPR_ADD, 1))
+            port_no, ofp.OFPPR_ADD, 0))
 
     def flap_port(self, port_no):
         """Flap op status on a port."""
