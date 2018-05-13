@@ -95,34 +95,33 @@ class FaucetExperimentalEventNotifier(object):
         for header_key in list(event):
             assert header_key not in event_dict
         event.update(event_dict)
-        if self.thread:
-            self.metrics.faucet_event_id.set(event['event_id'])
-            if self.event_q.full():
-                self.event_q.get()
-            self.event_q.put(event)
+        self.metrics.faucet_event_id.set(event['event_id'])
+        if self.event_q.full():
+            self.event_q.get()
+        self.event_q.put(event)
 
     def check_path(self, socket_path):
         """Check that socket_path is valid."""
         if not socket_path:
             return None
         socket_path = os.path.abspath(socket_path)
+        # Remove stale socket file.
+        if os.path.exists(socket_path):
+            try:
+                os.remove(socket_path)
+            except (PermissionError,) as err: # pytype: disable=name-error
+                self.logger.error('Unable to remove old socket: %s', err)
+                return None
         socket_dir = os.path.dirname(socket_path)
         # Create parent directories that don't exist.
         if not os.path.exists(socket_dir):
             try:
                 os.makedirs(socket_dir)
-            except (PermissionError) as err: # pytype: disable=name-error
+            except (PermissionError,) as err: # pytype: disable=name-error
                 self.logger.error('Unable to create event socket directory: %s', err)
                 return None
         # Check directory permissions.
         if not os.access(socket_dir, os.R_OK | os.W_OK | os.X_OK):
             self.logger.error('Incorrect permissions set on socket directory %s', socket_dir)
             return None
-        # Remove stale socket file.
-        if os.path.exists(socket_path):
-            try:
-                os.remove(socket_path)
-            except (PermissionError) as err: # pytype: disable=name-error
-                self.logger.error('Unable to remove old socket: %s', err)
-                return None
         return socket_path

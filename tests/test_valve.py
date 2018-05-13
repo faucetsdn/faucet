@@ -27,6 +27,7 @@ import unittest
 import tempfile
 import shutil
 import socket
+import stat
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
@@ -556,12 +557,23 @@ class ValveTestCase(ValveTestBase):
 
     def test_notifier_socket_path(self):
         """Test notifier socket path checker."""
-        new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
-        self.assertEqual(self.notifier.check_path(new_path), new_path)
+        # Path exists but can't be removed
+        unwritable_path = os.path.join(self.tmpdir, 'unwritable/unwritable')
+        unwritable_dir = os.path.dirname(unwritable_path)
+        os.makedirs(unwritable_dir)
+        with open(unwritable_path, 'w') as unwritable_file:
+            unwritable_file.write('')
+        os.chmod(unwritable_dir, stat.S_IRUSR|stat.S_IXUSR)
+        self.assertEqual(None, self.notifier.check_path(unwritable_path))
+        os.chmod(unwritable_dir, stat.S_IRUSR|stat.S_IXUSR|stat.S_IWUSR)
+        # Stale socket exists
         stale_socket = os.path.join(self.tmpdir, 'stale_socket')
         with open(stale_socket, 'w') as stale_socket_file:
             stale_socket_file.write('')
         self.assertEqual(self.notifier.check_path(stale_socket), stale_socket)
+        # Create new socket
+        new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
+        self.assertEqual(self.notifier.check_path(new_path), new_path)
 
     def test_disconnect(self):
         """Test disconnection of DP from controller."""
@@ -584,6 +596,19 @@ class ValveTestCase(ValveTestBase):
         tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
         # TODO: verify TFM content.
         self.assertTrue(tfm_flows)
+
+    def test_pkt_meta(self):
+        """Test bad fields in OFPacketIn."""
+        msg = parser.OFPPacketIn(datapath=None)
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+        msg.cookie = self.valve.dp.cookie
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+        msg.reason = valve_of.ofp.OFPR_ACTION
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+        msg.match = parser.OFPMatch(in_port=1)
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+        msg.data = b'1234'
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
 
     def test_lldp(self):
         """Test LLDP reception."""
@@ -1297,6 +1322,9 @@ dps:
             p5:
                 number: 5
                 native_vlan: v300
+            p6:
+                number: 6
+                native_vlan: v400
 vlans:
     v100:
         vid: 0x100
@@ -1304,6 +1332,8 @@ vlans:
         vid: 0x200
     v300:
         vid: 0x300
+    v400:
+        vid: 0x400
 """ % DP1_CONFIG
 
     def setUp(self):
