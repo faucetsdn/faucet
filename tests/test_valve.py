@@ -1067,6 +1067,20 @@ acls:
         """Test port status change for unknown port handled."""
         self.set_port_up(99)
 
+    def test_port_modify(self):
+        """Set port status modify."""
+        for port_status in (0, 1):
+            self.table.apply_ofmsgs(self.valve.port_status_handler(
+                1, ofp.OFPPR_MODIFY, port_status))
+
+    def test_unknown_port_status(self):
+        """Test unknown port status message."""
+        known_messages = set([ofp.OFPPR_MODIFY, ofp.OFPPR_ADD, ofp.OFPPR_DELETE])
+        unknown_messages = list(set(range(0, len(known_messages) + 1)) - known_messages)
+        self.assertTrue(unknown_messages)
+        self.assertFalse(self.valve.port_status_handler(
+            1, unknown_messages[0], 1))
+
     def test_move_port(self):
         """Test host moves a port."""
         self.rcv_packet(2, 0x200, {

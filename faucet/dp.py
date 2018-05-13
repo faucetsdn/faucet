@@ -86,6 +86,7 @@ configuration.
     metrics_rate_limit_sec = None
     faucet_dp_mac = None
     combinatorial_port_flood = None
+    lacp_timeout = None
 
     dyn_last_coldstart_time = None
 
@@ -164,6 +165,8 @@ configuration.
         # MAC address of packets sent by FAUCET, not associated with any VLAN.
         'combinatorial_port_flood': False,
         # if True, use a seperate output flow for each input port on this VLAN.
+        'lacp_timeout': 30,
+        # Number of seconds without a LACP message when we consider a LACP group down.
         }
 
     defaults_types = {
