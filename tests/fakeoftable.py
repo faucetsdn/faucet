@@ -29,6 +29,62 @@ class FakeOFTable(object):
     def __init__(self, num_tables):
         self.tables = [[] for _ in range(0, num_tables)]
 
+    def _apply_flowmod(self, ofmsg):
+        table_id = ofmsg.table_id
+        if table_id == ofp.OFPTT_ALL or table_id is None:
+            tables = self.tables
+        else:
+            tables = [self.tables[table_id]]
+        flowmod = FlowMod(ofmsg)
+        for table in tables:
+            if ofmsg.command == ofp.OFPFC_ADD:
+                # From the 1.3 spec, section 6.4:
+                # For add requests (OFPFC_ADD) with the
+                # OFPFF_CHECK_OVERLAP flag set, the switch must first
+                # check for any overlapping flow entries in the
+                # requested table.  Two flow entries overlap if a
+                # single packet may match both, and both flow entries
+                # have the same priority, but the two flow entries
+                # don't have the exact same match.  If an overlap
+                # conflict exists between an existing flow entry and
+                # the add request, the switch must refuse the addition
+                # and respond with an ofp_error_msg with
+                # OFPET_FLOW_MOD_FAILED type and OFPFMFC_OVERLAP code.
+                #
+                # Without the check overlap flag it seems like it is
+                # possible that we can have overlapping flow table
+                # entries which will cause ambiguous behaviour. This is
+                # obviously unnacceptable so we will assume this is
+                # always set
+                add = True
+                for fte in table:
+                    if flowmod.fte_matches(fte, strict=True):
+                        table.remove(fte)
+                        break
+                    elif flowmod.overlaps(fte):
+                        add = False
+                        break
+                if add:
+                    table.append(flowmod)
+            elif ofmsg.command == ofp.OFPFC_DELETE:
+                removals = [fte for fte in table if flowmod.fte_matches(fte)]
+                for fte in removals:
+                    table.remove(fte)
+            elif ofmsg.command == ofp.OFPFC_DELETE_STRICT:
+                for fte in table:
+                    if flowmod.fte_matches(fte, strict=True):
+                        table.remove(fte)
+                        break
+            elif ofmsg.command == ofp.OFPFC_MODIFY:
+                for fte in table:
+                    if flowmod.fte_matches(fte):
+                        fte.instructions = flowmod.instructions
+            elif ofmsg.command == ofp.OFPFC_MODIFY_STRICT:
+                for fte in table:
+                    if flowmod.fte_matches(fte, strict=True):
+                        fte.instructions = flowmod.instructions
+                        break
+
     def apply_ofmsgs(self, ofmsgs):
         """This is used to update the fake flowtable.
 
@@ -36,61 +92,8 @@ class FakeOFTable(object):
         according to section 6.4 of the OpenFlow 1.3 specification."""
         for ofmsg in ofmsgs:
             if isinstance(ofmsg, parser.OFPFlowMod):
-                table_id = ofmsg.table_id
-                if table_id == ofp.OFPTT_ALL or table_id is None:
-                    tables = self.tables
-                else:
-                    tables = [self.tables[table_id]]
-                flowmod = FlowMod(ofmsg)
-                for table in tables:
-                    if ofmsg.command == ofp.OFPFC_ADD:
-                        # From the 1.3 spec, section 6.4:
-                        # For add requests (OFPFC_ADD) with the
-                        # OFPFF_CHECK_OVERLAP flag set, the switch must first
-                        # check for any overlapping flow entries in the
-                        # requested table.  Two flow entries overlap if a
-                        # single packet may match both, and both flow entries
-                        # have the same priority, but the two flow entries
-                        # don't have the exact same match.  If an overlap
-                        # conflict exists between an existing flow entry and
-                        # the add request, the switch must refuse the addition
-                        # and respond with an ofp_error_msg with
-                        # OFPET_FLOW_MOD_FAILED type and OFPFMFC_OVERLAP code.
-                        #
-                        # Without the check overlap flag it seems like it is
-                        # possible that we can have overlapping flow table
-                        # entries which will cause ambiguous behaviour. This is
-                        # obviously unnacceptable so we will assume this is
-                        # always set
-                        add = True
-                        for fte in table:
-                            if flowmod.fte_matches(fte, strict=True):
-                                table.remove(fte)
-                                break
-                            elif flowmod.overlaps(fte):
-                                add = False
-                                break
-                        if add:
-                            table.append(flowmod)
-                    elif ofmsg.command == ofp.OFPFC_DELETE:
-                        removals = [fte for fte in table if flowmod.fte_matches(fte)]
-                        for fte in removals:
-                            table.remove(fte)
-                    elif ofmsg.command == ofp.OFPFC_DELETE_STRICT:
-                        for fte in table:
-                            if flowmod.fte_matches(fte, strict=True):
-                                table.remove(fte)
-                                break
-                    elif ofmsg.command == ofp.OFPFC_MODIFY:
-                        for fte in table:
-                            if flowmod.fte_matches(fte):
-                                fte.instructions = flowmod.instructions
-                    elif ofmsg.command == ofp.OFPFC_MODIFY_STRICT:
-                        for fte in table:
-                            if flowmod.fte_matches(fte, strict=True):
-                                fte.instructions = flowmod.instructions
-                                break
-        self.sort_tables()
+                self._apply_flowmod(ofmsg)
+                self.sort_tables()
 
     def lookup(self, match):
         """Return the entries from flowmods that matches match.
