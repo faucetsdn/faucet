@@ -95,11 +95,10 @@ class FaucetExperimentalEventNotifier(object):
         for header_key in list(event):
             assert header_key not in event_dict
         event.update(event_dict)
-        if self.thread:
-            self.metrics.faucet_event_id.set(event['event_id'])
-            if self.event_q.full():
-                self.event_q.get()
-            self.event_q.put(event)
+        self.metrics.faucet_event_id.set(event['event_id'])
+        if self.event_q.full():
+            self.event_q.get()
+        self.event_q.put(event)
 
     def check_path(self, socket_path):
         """Check that socket_path is valid."""
