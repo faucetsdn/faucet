@@ -34,6 +34,7 @@ from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, lldp, s
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
+from ryu.services.protocols.bgp.bgpspeaker import EventPrefix
 from ryu.services.protocols.bgp.info_base.ipv4 import Ipv4Path
 
 from prometheus_client import CollectorRegistry
@@ -47,9 +48,6 @@ from faucet import valves_manager
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_util
-
-from beka.route import RouteAddition, RouteRemoval
-from beka.ip4 import IP4Address, IP4Prefix
 
 from faucet.valve import TfmValve
 
@@ -1126,17 +1124,13 @@ acls:
     def test_bgp_route_change(self):
         """Test BGP route change handler."""
         nexthop = '10.0.0.1'
-        prefix = '192.168.1.1/32'
-        add_event = RouteAddition(
-            IP4Prefix.from_string(prefix),
-            IP4Address.from_string(nexthop),
-            '65001',
-            'IGP'
-        )
-        del_event = RouteRemoval(
-            IP4Prefix.from_string(prefix),
-        )
+        pattrs = {'prefix': '192.168.1.1/32'}
+        nlri = bgp.BGPNLRI(addr='192.168.1.1', length=32)
+        add_path = Ipv4Path(None, nlri, 1, pattrs=pattrs, nexthop=nexthop, is_withdraw=False)
+        add_event = EventPrefix(add_path, add_path.is_withdraw)
         self.bgp._bgp_route_handler(add_event, self.DP_ID, 0x100)
+        del_path = Ipv4Path(None, nlri, 1, pattrs=pattrs, nexthop=nexthop, is_withdraw=True)
+        del_event = EventPrefix(del_path, del_path.is_withdraw)
         self.bgp._bgp_route_handler(del_event, self.DP_ID, 0x100)
 
     def test_packet_in_rate(self):
@@ -1426,7 +1420,7 @@ vlans:
     v200:
         vid: 0x200
         faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
-        bgp_port: 9179
+        bgp_port: 0
         bgp_server_addresses: ['127.0.0.1']
         bgp_as: 1
         bgp_routerid: '1.1.1.1'
