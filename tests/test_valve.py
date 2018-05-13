@@ -30,7 +30,7 @@ import socket
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
-from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, slow, packet, vlan
+from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, lldp, slow, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
@@ -164,6 +164,10 @@ def build_pkt(pkt):
             partner_state_synchronization=1,
             actor_state_activity=0,
             partner_state_activity=0))
+    elif 'chassis_id' in pkt and 'port_id' in pkt:
+        ethertype = ether.ETH_TYPE_LLDP
+        return valve_packet.lldp_beacon(
+            pkt['eth_src'], pkt['chassis_id'], str(pkt['port_id']), 1)
     assert ethertype is not None, pkt
     if 'vid' in pkt:
         tpid = ether.ETH_TYPE_8021Q
@@ -338,6 +342,7 @@ vlans:
         self.valves_manager = valves_manager.ValvesManager(
             self.LOGNAME, self.logger, self.metrics, self.notifier,
             self.bgp, self.send_flows_to_dp_by_id)
+        self.last_flows_to_dp[self.DP_ID] = []
         self.notifier.start()
         self.update_config(config)
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -381,7 +386,7 @@ vlans:
             config_file.write(config)
         if existing_config:
             self.assertTrue(self.valves_manager.config_watcher.files_changed())
-        self.last_flows_to_dp = {}
+        self.last_flows_to_dp[self.DP_ID] = []
         self.valves_manager.request_reload_configs(self.config_file)
         self.valve = self.valves_manager.valves[self.DP_ID]
         if self.DP_ID in self.last_flows_to_dp:
@@ -517,6 +522,7 @@ vlans:
         msg.cookie = self.valve.dp.cookie
         pkt_meta = self.valve.parse_pkt_meta(msg)
         self.assertTrue(pkt_meta, msg=pkt)
+        self.last_flows_to_dp[self.DP_ID] = []
         self.prom_inc(
             partial(self.valves_manager.valve_packet_in, self.valve, pkt_meta),
             'of_packet_ins')
@@ -576,6 +582,14 @@ class ValveTestCase(ValveTestBase):
         tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
         # TODO: verify TFM content.
         self.assertTrue(tfm_flows)
+
+    def test_lldp(self):
+        """Test LLDP reception."""
+        self.assertFalse(self.rcv_packet(1, 0, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
+            'chassis_id': self.P1_V100_MAC,
+            'port_id': 1}))
 
     def test_arp_for_controller(self):
         """ARP request for controller VIP."""
