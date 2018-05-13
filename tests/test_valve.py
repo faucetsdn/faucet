@@ -1310,6 +1310,9 @@ dps:
             p5:
                 number: 5
                 native_vlan: v300
+            p6:
+                number: 6
+                native_vlan: v400
 vlans:
     v100:
         vid: 0x100
@@ -1317,6 +1320,8 @@ vlans:
         vid: 0x200
     v300:
         vid: 0x300
+    v400:
+        vid: 0x400
 """ % DP1_CONFIG
 
     def setUp(self):
