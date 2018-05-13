@@ -185,18 +185,15 @@ class FakeOFTable(object):
         return False
 
     def __str__(self):
-        string = ""
+        string = ''
         for table_id, table in enumerate(self.tables):
-            string += "----- Table {0} -----\n".format(table_id)
-            for flowmod in table:
-                string += str(flowmod)
-                string += "\n"
+            string += '----- Table %u -----\n' % (table_id)
+            string += '\n'.join([flowmod for flowmod in table])
         return string
 
     def sort_tables(self):
         """Sort flows in tables by priority order."""
         self.tables = [sorted(table, reverse=True) for table in self.tables]
-        return self.tables
 
 
 class FlowMod(object):
