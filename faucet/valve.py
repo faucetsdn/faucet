@@ -1078,8 +1078,7 @@ class Valve(object):
             lacp_up_ports = [port for port in ports if port.dyn_lacp_up]
             for port in lacp_up_ports:
                 lacp_age = now - port.dyn_lacp_updated_time
-                # TODO: LACP timeout configurable.
-                if lacp_age > 10:
+                if lacp_age > self.dp.lacp_timeout:
                     self.logger.info('LACP on %s expired' % port)
                     ofmsgs.extend(self.lacp_down(port))
         return ofmsgs
