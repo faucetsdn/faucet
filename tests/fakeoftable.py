@@ -200,8 +200,6 @@ class FlowMod(object):
     """Represents a flow modification message and its corresponding entry in
     the flow table.
     """
-
-
     MAC_MATCH_FIELDS = (
         'eth_src', 'eth_dst', 'arp_sha', 'arp_tha', 'ipv6_nd_sll',
         'ipv6_nd_tll'
@@ -216,16 +214,14 @@ class FlowMod(object):
         self.match_values = {}
         self.match_masks = {}
         self.out_port = None
-        if (flowmod.command == ofp.OFPFC_DELETE or\
-           flowmod.command == ofp.OFPFC_DELETE_STRICT) and\
-           flowmod.out_port != ofp.OFPP_ANY:
+        if ((flowmod.command == ofp.OFPFC_DELETE or flowmod.command == ofp.OFPFC_DELETE_STRICT) and
+                flowmod.out_port != ofp.OFPP_ANY):
             self.out_port = flowmod.out_port
 
-        for key, v in flowmod.match.items():
-            if isinstance(v, tuple):
-                val, mask = v
+        for key, val in flowmod.match.items():
+            if isinstance(val, tuple):
+                val, mask = val
             else:
-                val = v
                 mask = -1
 
             mask = self.match_to_bits(key, mask)
@@ -256,7 +252,7 @@ class FlowMod(object):
         in the pkt_dict that is assumed to indicate a failed match
         """
 
-        #TODO: add cookie and out_group
+        # TODO: add cookie and out_group
         for key, val in self.match_values.items():
             if key not in pkt_dict:
                 return False
@@ -265,6 +261,11 @@ class FlowMod(object):
                 if val_bits != (val & self.match_masks[key]):
                     return False
         return True
+
+    def _matches_match(self, other):
+        return (self.priority == other.priority and
+                self.match_values == other.match_values and
+                self.match_masks == other.match_masks)
 
     def fte_matches(self, other, strict=False):
         """returns True if the flow table entry other matches this flowmod.
@@ -280,18 +281,14 @@ class FlowMod(object):
         if not self.out_port_matches(other):
             return False
         if strict:
-            return self.priority == other.priority and\
-                   self.match_values == other.match_values and\
-                   self.match_masks == other.match_masks
-        else:
-            for key, val in self.match_values.items():
-                if key not in other.match_values:
+            return self._matches_match(other)
+        for key, val in self.match_values.items():
+            if key not in other.match_values:
+                return False
+            else:
+                if other.match_values[key] & self.match_masks[key] != val:
                     return False
-                else:
-                    if other.match_values[key] & self.match_masks[key] != val:
-                        return False
         return True
-
 
     def overlaps(self, other):
         """ returns True if any packet can match both self and other."""
@@ -300,11 +297,11 @@ class FlowMod(object):
         # potentially an overlap and therefore is considered success
         if other.priority != self.priority:
             return False
-        for k, v in self.match_values.items():
-            if k in other.match_values:
-                if v & other.match_masks[k] != other.match_values[k]:
+        for key, val in self.match_values.items():
+            if key in other.match_values:
+                if val & other.match_masks[key] != other.match_values[key]:
                     return False
-                if other.match_values[k] & self.match_masks[k] != v:
+                if other.match_values[key] & self.match_masks[key] != val:
                     return False
         return True
 
@@ -317,38 +314,28 @@ class FlowMod(object):
         if isinstance(val, Bits):
             return val
 
+        def _val_to_bits(conv, val, length):
+            if val is -1:
+                return Bits(int=-1, length=length)
+            return Bits(bytes=conv(val), length=length)
+
         if key in self.MAC_MATCH_FIELDS:
-            if val is -1:
-                val = Bits(int=-1, length=48)
-            elif isinstance(val, str):
-                val = Bits(bytes=addrconv.mac.text_to_bin(val), length=48)
-
+            return _val_to_bits(addrconv.mac.text_to_bin, val, 48)
         elif key in self.IPV4_MATCH_FIELDS:
-            if val is -1:
-                val = Bits(int=-1, length=32)
-            elif isinstance(val, str):
-                val = Bits(bytes=addrconv.ipv4.text_to_bin(val), length=32)
-
+            return _val_to_bits(addrconv.ipv4.text_to_bin, val, 32)
         elif key in self.IPV6_MATCH_FIELDS:
-            if val is -1:
-                val = Bits(int=-1, length=128)
-            elif isinstance(val, str):
-                val = Bits(bytes=addrconv.ipv6.text_to_bin(val), length=128)
-
+            return _val_to_bits(addrconv.ipv6.text_to_bin, val, 128)
         else:
             val = Bits(int=int(val), length=64)
-
         return val
 
     def __lt__(self, other):
         return self.priority < other.priority
 
     def __eq__(self, other):
-        return self.priority == other.priority and\
-               self.match_values == other.match_values and\
-               self.match_masks == other.match_masks and\
-               self.out_port == other.out_port and\
-               self.instructions == other.instructions
+        return (self._matches_match(other) and
+                self.out_port == other.out_port and
+                self.instructions == other.instructions)
 
     def __str__(self):
         string = 'priority: {0}'.format(self.priority)
