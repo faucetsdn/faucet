@@ -27,9 +27,7 @@ class FakeOFTable(object):
     """
 
     def __init__(self, num_tables):
-        self.tables = []
-        for _ in range(0, num_tables):
-            self.tables.append([])
+        self.tables = [[] for _ in range(0, num_tables)]
 
     def apply_ofmsgs(self, ofmsgs):
         """This is used to update the fake flowtable.
@@ -75,10 +73,7 @@ class FakeOFTable(object):
                         if add:
                             table.append(flowmod)
                     elif ofmsg.command == ofp.OFPFC_DELETE:
-                        removals = []
-                        for fte in table:
-                            if flowmod.fte_matches(fte):
-                                removals.append(fte)
+                        removals = [fte for fte in table if flowmod.fte_matches(fte)]
                         for fte in removals:
                             table.remove(fte)
                     elif ofmsg.command == ofp.OFPFC_DELETE_STRICT:
@@ -168,34 +163,24 @@ class FakeOFTable(object):
         for instruction in instructions:
             if instruction.type == ofp.OFPIT_APPLY_ACTIONS:
                 for action in instruction.actions:
-
                     if action.type == ofp.OFPAT_PUSH_VLAN:
                         vid_stack.append(ofp.OFPVID_PRESENT)
-
                     elif action.type == ofp.OFPAT_POP_VLAN:
                         vid_stack.pop()
-
                     elif action.type == ofp.OFPAT_SET_FIELD:
                         if action.key == 'vlan_vid':
                             vid_stack[-1] = action.value
                         else:
                             continue
-
                     elif action.type == ofp.OFPAT_OUTPUT:
                         if port is None:
                             return True
-
-                        elif action.port == port:
-
+                        if action.port == port:
                             if vid is None:
                                 return True
-
-                            elif vid & ofp.OFPVID_PRESENT == 0:
-                                return len(vid_stack) == 0
-
-                            else:
-                                return\
-                                    len(vid_stack) > 0 and vid == vid_stack[-1]
+                            if vid & ofp.OFPVID_PRESENT == 0:
+                                return not vid_stack
+                            return vid_stack and vid == vid_stack[-1]
 
         return False
 
@@ -209,8 +194,8 @@ class FakeOFTable(object):
         return string
 
     def sort_tables(self):
-        for table_id, table in enumerate(self.tables):
-            self.tables[table_id] = sorted(table, reverse=True)
+        """Sort flows in tables by priority order."""
+        self.tables = [sorted(table, reverse=True) for table in self.tables]
         return self.tables
 
 
