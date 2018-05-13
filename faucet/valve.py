@@ -920,10 +920,14 @@ class Valve(object):
         # Drop any packet we didn't specifically ask for
         if msg.reason != valve_of.ofp.OFPR_ACTION:
             return None
+        if not msg.match:
+            return None
         in_port = msg.match['in_port']
-        if not self.port_no_valid(in_port):
+        if not in_port or not self.port_no_valid(in_port):
             return None
 
+        if not msg.data:
+            return None
         # Truncate packet in data (OVS > 2.5 does not honor max_len)
         msg.data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
 

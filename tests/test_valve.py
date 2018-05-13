@@ -585,6 +585,19 @@ class ValveTestCase(ValveTestBase):
         # TODO: verify TFM content.
         self.assertTrue(tfm_flows)
 
+    def test_pkt_meta(self):
+        """Test bad fields in OFPacketIn."""
+        msg = parser.OFPPacketIn(datapath=None)
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+        msg.cookie = self.valve.dp.cookie
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+        msg.reason = valve_of.ofp.OFPR_ACTION
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+        msg.match = parser.OFPMatch(in_port=1)
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+        msg.data = b'1234'
+        self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+
     def test_lldp(self):
         """Test LLDP reception."""
         self.assertFalse(self.rcv_packet(1, 0, {
