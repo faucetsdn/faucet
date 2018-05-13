@@ -105,23 +105,23 @@ class FaucetExperimentalEventNotifier(object):
         if not socket_path:
             return None
         socket_path = os.path.abspath(socket_path)
+        # Remove stale socket file.
+        if os.path.exists(socket_path):
+            try:
+                os.remove(socket_path)
+            except (PermissionError,) as err: # pytype: disable=name-error
+                self.logger.error('Unable to remove old socket: %s', err)
+                return None
         socket_dir = os.path.dirname(socket_path)
         # Create parent directories that don't exist.
         if not os.path.exists(socket_dir):
             try:
                 os.makedirs(socket_dir)
-            except (PermissionError) as err: # pytype: disable=name-error
+            except (PermissionError,) as err: # pytype: disable=name-error
                 self.logger.error('Unable to create event socket directory: %s', err)
                 return None
         # Check directory permissions.
         if not os.access(socket_dir, os.R_OK | os.W_OK | os.X_OK):
             self.logger.error('Incorrect permissions set on socket directory %s', socket_dir)
             return None
-        # Remove stale socket file.
-        if os.path.exists(socket_path):
-            try:
-                os.remove(socket_path)
-            except (PermissionError) as err: # pytype: disable=name-error
-                self.logger.error('Unable to remove old socket: %s', err)
-                return None
         return socket_path

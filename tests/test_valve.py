@@ -27,6 +27,7 @@ import unittest
 import tempfile
 import shutil
 import socket
+import stat
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
@@ -556,12 +557,23 @@ class ValveTestCase(ValveTestBase):
 
     def test_notifier_socket_path(self):
         """Test notifier socket path checker."""
-        new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
-        self.assertEqual(self.notifier.check_path(new_path), new_path)
+        # Path exists but can't be removed
+        unwritable_path = os.path.join(self.tmpdir, 'unwritable/unwritable')
+        unwritable_dir = os.path.dirname(unwritable_path)
+        os.makedirs(unwritable_dir)
+        with open(unwritable_path, 'w') as unwritable_file:
+            unwritable_file.write('')
+        os.chmod(unwritable_dir, stat.S_IRUSR|stat.S_IXUSR)
+        self.assertEqual(None, self.notifier.check_path(unwritable_path))
+        os.chmod(unwritable_dir, stat.S_IRUSR|stat.S_IXUSR|stat.S_IWUSR)
+        # Stale socket exists
         stale_socket = os.path.join(self.tmpdir, 'stale_socket')
         with open(stale_socket, 'w') as stale_socket_file:
             stale_socket_file.write('')
         self.assertEqual(self.notifier.check_path(stale_socket), stale_socket)
+        # Create new socket
+        new_path = os.path.join(self.tmpdir, 'new_path/new_socket')
+        self.assertEqual(self.notifier.check_path(new_path), new_path)
 
     def test_disconnect(self):
         """Test disconnection of DP from controller."""
