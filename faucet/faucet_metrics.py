@@ -114,6 +114,10 @@ class FaucetMetrics(PromClient):
             'port_learn_bans',
             'number of times learning was banned on a port',
             self.REQUIRED_LABELS + ['port'])
+        self.port_lacp_status = self._gauge(
+            'port_lacp_status',
+            'status of LACP on port',
+            self.REQUIRED_LABELS + ['port'])
         self.dp_status = self._dpid_gauge(
             'dp_status',
             'status of datapaths')

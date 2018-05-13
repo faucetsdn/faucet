@@ -719,6 +719,8 @@ class Valve(object):
                 eth_dst=valve_packet.SLOW_PROTOCOL_MULTICAST),
             priority=self.dp.highest_priority,
             max_len=128))
+        self.metrics.port_lacp_status.labels( # pylint: disable=no-member
+            **dict(self.base_prom_labels, port=port.number)).set(0)
         return ofmsgs
 
     def lacp_up(self, port):
@@ -728,6 +730,8 @@ class Valve(object):
         ofmsgs.extend(vlan_table.flowdel(
             match=vlan_table.match(in_port=port.number),
             priority=self.dp.high_priority, strict=True))
+        self.metrics.port_lacp_status.labels( # pylint: disable=no-member
+            **dict(self.base_prom_labels, port=port.number)).set(1)
         return ofmsgs
 
     def lacp_handler(self, pkt_meta):

@@ -2502,6 +2502,10 @@ details partner lacp pdu:
     port number: %d
     port state: 62
 """.strip() % (self.port_map['port_1'], self.port_map['port_2'])
+        for lacp_port in (self.port_map['port_1'], self.port_map['port_2']):
+            self.assertEqual(
+                0,
+                self.scrape_prometheus_var('port_lacp_status', {'port': str(lacp_port)}))
         orig_ip = first_host.IP()
         switch = self.net.switches[0]
         bond_members = [pair[0].name for pair in first_host.connectionsTo(switch)]
@@ -2529,6 +2533,10 @@ details partner lacp pdu:
                 self.one_ipv4_ping(first_host, '10.0.0.254', require_host_learned=False, intf=bond)
                 return
             time.sleep(1)
+        for lacp_port in (self.port_map['port_1'], self.port_map['port_2']):
+            self.assertEqual(
+                1,
+                self.scrape_prometheus_var('port_lacp_status', {'port': str(lacp_port)}))
         self.fail('LACP did not synchronize: %s\n\nexpected:\n\n%s' % (
             result, synced_state_txt))
         self.one_ipv4_ping(first_host, second_host.IP())

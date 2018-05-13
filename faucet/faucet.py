@@ -158,19 +158,22 @@ class Faucet(RyuAppBase):
             return
         valve.send_flows(ryu_dp, flow_msgs)
 
-    def _get_valve(self, handler_name, ryu_event):
+    def _get_valve(self, ryu_event, require_running=False):
         """Get Valve instance to response to an event.
 
         Args:
-            handler_name (string): handler name to log if datapath unknown.
             ryu_event (ryu.controller.event.Event): event
+            require_running (bool): require DP to be running.
         Returns:
             valve, ryu_dp, msg: tuple of Nones, or datapath object, Ryu datapath, and Ryu msg (if any)
         """
         valve, ryu_dp, msg = self._get_datapath_obj(
-            handler_name, self.valves_manager.valves, ryu_event)
-        if valve and msg:
-            valve.ofchannel_log([msg])
+            self.valves_manager.valves, ryu_event)
+        if valve:
+            if msg:
+                valve.ofchannel_log([msg])
+            if require_running and not valve.dp.running:
+                valve = None
         return (valve, ryu_dp, msg)
 
     def _config_files_changed(self):
@@ -210,7 +213,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.event.EventReplyBase): packet in message.
         """
-        valve, _, msg = self._get_valve('packet_in_handler', ryu_event)
+        valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
         if valve.rate_limit_packet_ins():
@@ -228,7 +231,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPErrorMsg): trigger
         """
-        valve, _, msg = self._get_valve('error_handler', ryu_event)
+        valve, _, msg = self._get_valve(ryu_event)
         if valve is None:
             return
         valve.oferror(msg)
@@ -241,7 +244,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPStateChange): trigger.
         """
-        valve, ryu_dp, msg = self._get_valve('features_handler', ryu_event)
+        valve, ryu_dp, msg = self._get_valve(ryu_event)
         if valve is None:
             return
         flowmods = valve.switch_features(msg)
@@ -254,7 +257,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.Event)
         """
-        valve, ryu_dp, _ = self._get_valve('_datapath_connect', ryu_event)
+        valve, ryu_dp, _ = self._get_valve(ryu_event)
         if valve is None:
             return
         discovered_ports = [
@@ -269,7 +272,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.Event)
         """
-        valve, _, _ = self._get_valve('_datapath_disconnect', ryu_event)
+        valve, _, _ = self._get_valve( ryu_event)
         if valve is None:
             return
         valve.datapath_disconnect()
@@ -282,7 +285,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPDescStatsReply): trigger.
         """
-        valve, _, msg = self._get_valve('desc_stats_reply_handler', ryu_event)
+        valve, _, msg = self._get_valve(ryu_event)
         if valve is None:
             return
         body = msg.body
@@ -296,10 +299,8 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPPortStatus): trigger.
         """
-        valve, _, msg = self._get_valve('port_status_handler', ryu_event)
+        valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
-            return
-        if not valve.dp.running:
             return
         port_no = msg.desc.port_no
         reason = msg.reason
@@ -318,7 +319,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.EventOFPFlowRemoved): trigger.
         """
-        valve, ryu_dp, msg = self._get_valve('flowremoved_handler', ryu_event)
+        valve, ryu_dp, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
         ofp = ryu_dp.ofproto
