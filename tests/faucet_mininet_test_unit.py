@@ -29,6 +29,8 @@ from clib import mininet_test_base
 from clib import mininet_test_util
 from clib import mininet_test_topo
 
+from clib.mininet_test_base import PEER_BGP_AS
+
 
 class QuietHTTPServer(HTTPServer):
 
@@ -1894,9 +1896,10 @@ vlans:
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_neighbor_as: 2
         bgp_connect_mode: "passive"
-"""
+""" + """
+        bgp_neighbor_as: %u
+""" % PEER_BGP_AS
 
     CONFIG = """
         arp_neighbor_timeout: 2
@@ -1965,13 +1968,14 @@ vlans:
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_neighbor_as: 2
         bgp_connect_mode: "passive"
         routes:
             - route:
                 ip_dst: 10.99.99.0/24
                 ip_gw: 10.0.0.1
-"""
+""" + """
+        bgp_neighbor_as: %u
+""" % PEER_BGP_AS
 
     CONFIG = """
         arp_neighbor_timeout: 2
@@ -2047,7 +2051,6 @@ vlans:
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_neighbor_as: 2
         bgp_connect_mode: "passive"
         routes:
             - route:
@@ -2059,7 +2062,9 @@ vlans:
             - route:
                 ip_dst: "10.0.3.0/24"
                 ip_gw: "10.0.0.2"
-"""
+""" + """
+        bgp_neighbor_as: %u
+""" % PEER_BGP_AS
 
     CONFIG = """
         arp_neighbor_timeout: 2
@@ -4470,9 +4475,10 @@ vlans:
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
-        bgp_neighbor_as: 2
         bgp_connect_mode: "passive"
-"""
+""" + """
+        bgp_neighbor_as: %u
+""" % PEER_BGP_AS
 
     CONFIG = """
         arp_neighbor_timeout: 2
@@ -4540,9 +4546,10 @@ vlans:
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
-        bgp_neighbor_as: 2
         bgp_connect_mode: "passive"
-"""
+""" + """
+        bgp_neighbor_as: %u
+""" % PEER_BGP_AS
 
     CONFIG = """
         arp_neighbor_timeout: 2
@@ -4665,7 +4672,6 @@ vlans:
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["::1"]
-        bgp_neighbor_as: 2
         bgp_connect_mode: "passive"
         routes:
             - route:
@@ -4677,7 +4683,9 @@ vlans:
             - route:
                 ip_dst: "fc00::30:0/112"
                 ip_gw: "fc00::1:2"
-"""
+""" + """
+        bgp_neighbor_as: %u
+""" % PEER_BGP_AS
 
     CONFIG = """
         arp_neighbor_timeout: 2
