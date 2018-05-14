@@ -243,7 +243,8 @@ class FaucetHwSwitchTopo(FaucetSwitchTopo):
     """FAUCET switch topology that contains a hardware switch."""
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
-              n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0):
+              n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
+              n_extended=0, e_cls=None, tmpdir=None):
         for dpid in dpids:
             serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
