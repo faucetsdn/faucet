@@ -73,7 +73,7 @@ RUN \
     mkdir -p $BUILDDIR && \
     cd $BUILDDIR && \
     wget -q -O- http://fast.dpdk.org/rel/dpdk-$DPDK.tar.xz | tar -Jxf- && \
-      cd dpdk-$DPDK && \
+      cd dpdk* && \
       make install T=$DPDK_TARGET DESTDIR=install && \
     cd .. && \
     git clone https://github.com/openvswitch/ovs -b ${OVSV} && \
