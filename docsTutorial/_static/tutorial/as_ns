@@ -1,0 +1,5 @@
+as_ns () {
+    NETNS=$1
+    shift
+    sudo ip netns exec $NETNS $@
+}
