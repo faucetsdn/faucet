@@ -49,7 +49,7 @@ from faucet import valve_packet
 from faucet import valve_util
 
 from beka.route import RouteAddition, RouteRemoval
-from beka.ip4 import IP4Address, IP4Prefix
+from beka.ip import IPAddress, IPPrefix
 
 from faucet.valve import TfmValve
 
@@ -1128,13 +1128,13 @@ acls:
         nexthop = '10.0.0.1'
         prefix = '192.168.1.1/32'
         add_event = RouteAddition(
-            IP4Prefix.from_string(prefix),
-            IP4Address.from_string(nexthop),
+            IPPrefix.from_string(prefix),
+            IPAddress.from_string(nexthop),
             '65001',
             'IGP'
         )
         del_event = RouteRemoval(
-            IP4Prefix.from_string(prefix),
+            IPPrefix.from_string(prefix),
         )
         self.bgp._bgp_route_handler(add_event, self.DP_ID, 0x100)
         self.bgp._bgp_route_handler(del_event, self.DP_ID, 0x100)
