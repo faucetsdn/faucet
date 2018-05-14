@@ -1894,7 +1894,7 @@ vlans:
         bgp_as: 1
         bgp_routerid: "1.1.1.1"
         bgp_neighbor_addresses: ["127.0.0.1"]
-        bgp_neighbor_as: 2
+        bgp_neighbor_as: 65537
         bgp_connect_mode: "passive"
 """
 

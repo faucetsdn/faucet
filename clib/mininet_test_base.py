@@ -81,6 +81,8 @@ class FaucetTestBase(unittest.TestCase):
     FLOOD_TABLE = 8
     ETH_DST_TABLE = 7
 
+    PEER_BGP_AS = 2**16 + 1
+
     config = None
     dpid = None
     hardware = 'Open vSwitch'
@@ -608,10 +610,10 @@ dbs:
     local-address %s;
     connect %s;
     peer-as 1;
-    local-as 2;
+    local-as %s;
     %s
   }
-""" % (peer, peer, '%(bgp_port)d', peer_config)
+""" % (peer, peer, '%(bgp_port)d', self.PEER_BGP_AS, peer_config)
 
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = mininet_test_util.str_int_dpid(dpid)
