@@ -45,3 +45,7 @@ as_ns () {
     shift
     sudo ip netns exec $NETNS $@
 }
+
+
+sudo systemctl reload faucet
+sudo systemctl restart faucet

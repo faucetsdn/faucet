@@ -12,11 +12,85 @@ Prerequisites:
 
 - Faucet - `Package installation steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
 - OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
-- Useful Bash Functions (`create_ns <_static/tutorial/create_ns>`_, `as_ns <_static/tutorial/as_ns>`_, `cleanup <_static/tutorial/cleanup>`_). To make these functions persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+- Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+
+.. literalinclude:: _static/tutorial/create_ns
+
+
+.. literalinclude:: _static/tutorial/as_ns
+
+.. literalinclude:: _static/tutorial/cleanup
+
+To make these functions persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+
+.. note:: If not continuing on from the 'Installing Faucet for first time tutorial' to setup the hosts and switch run:
+
+    .. code:: bash
+
+        create_ns host1 192.168.0.1/24
+        create_ns host2 192.168.0.2/24
+        sudo ovs-vsctl add-br br0 \
+        -- set bridge br0 other-config:datapath-id=0000000000000001 \
+        -- set bridge br0 other-config:disable-in-band=true \
+        -- set bridge br0 fail_mode=secure \
+        -- add-port br0 veth-host1 -- set interface veth-host1 ofport_request=1 \
+        -- add-port br0 veth-host2 -- set interface veth-host2 ofport_request=2 \
+        -- set-controller br0 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
+
+    And the faucet.yaml configuration file looks like:
+
+    .. code-block:: yaml
+        :caption: /etc/faucet/faucet.yaml
+
+        vlans:
+            office:
+                vid: 100
+                description: "office network"
+
+        dps:
+            sw1:
+                dp_id: 0x1
+                hardware: "Open vSwitch"
+                interfaces:
+                    1:
+                        name: "host1"
+                        description: "host2 network namespace"
+                        native_vlan: office
+                    2:
+                        name: "host2"
+                        description: "host2 network namespace"
+                        native_vlan: office
+
+Overview
+--------
+
+Faucet ACLs are made up of lists of rules.
+The order of the rules in the list denote the priority with the first rules being highest and last lowest.
+Each of these lists has a name (e.g. 'block-ping'), and can be used on multiple port or VLAN 'acls_in' fields.
+Again these are applied in order so all of 'block-ping' rules will be higher than 'allow-all'.
+
+Each rule contains two main items 'matches' and 'actions'.
+Matches are any packet field such as MAC/IP/transport source/destination fields.
+For a full list visit https://ryu.readthedocs.io/en/latest/ofproto_v1_3_ref.html#flow-match-structure
+
+Actions are used to control what the packet does, for example normal l2 forwarding ('allow').
+Apply a 'meter' to rate limit traffic, and manipulation of the packet contents and output.
+Full list https://faucet.readthedocs.io/en/latest/configuration.html#id13
+
+The example below has defined two ACLs 'block-ping' & 'allow-all' these can be used on any and multiple ports or VLANs (more on VLANs later) using the 'acls_in' key.
+The block-ping ACL has two rules, one to block ICMP on IPv4 and another for ICMPv6 on IPv6.
+The allow-all ACL has one rule, which specifies no match fields, and therefore matches all packets, and the action 'allow'.
+The 'allow' action is a boolean, if it's True allow the packet to continue through the Faucet pipeline, if False drop the packet.
+'allow' can be used in conjunction with the other actions to let the traffic flow with the expected layer 2 forwarding behaviour AND be mirrored to another port.
 
 
 Network Setup
 -------------
+We are going to create the following network:
+
+.. image:: _static/images/acls.svg
+    :alt: ACL network diagram
+    :align: center
 
 First we will add two new hosts to our network:
 
@@ -27,10 +101,10 @@ First we will add two new hosts to our network:
 
 And connect them to br0
 
-.. code:: console
+.. code-block:: console
 
     sudo ovs-vsctl add-port br0 veth-host3 -- set interface veth-host3 ofport_request=3 \
-    -- add-port br0 veth-host4 -- set interface veth-host4 ofport_request=4
+        -- add-port br0 veth-host4 -- set interface veth-host4 ofport_request=4
 
 
 The configuration below will block ICMP on traffic coming in on port 3, and allow everything else.
@@ -63,28 +137,6 @@ Add this to /etc/faucet/faucet.yaml below the 'dps'.
                 actions:
                     allow: True
 
-Overview
---------
-
-Faucet ACLs are made up of lists of rules.
-The order of the rules in the list denote the priority with the first rules being highest and last lowest.
-Each of these lists has a name (e.g. 'block-ping'), and can be used on multiple port or VLAN 'acls_in' fields.
-Again these are applied in order so all of 'block-ping' rules will be higher than 'allow-all'.
-
-Each rule contains two main items 'matches' and 'actions'.
-Matches are any packet field such as MAC/IP/transport source/destination fields.
-For a full list visit https://ryu.readthedocs.io/en/latest/ofproto_v1_3_ref.html#flow-match-structure
-
-Actions are used to control what the packet does, for example normal l2 forwarding ('allow').
-Apply a 'meter' to rate limit traffic, and manipulation of the packet contents and output.
-Full list https://faucet.readthedocs.io/en/latest/configuration.html#id13
-
-The above example has defined two ACLs 'block-ping' & 'allow-all' these can be used on any and multiple ports or VLANs (more on VLANs later) using the 'acls_in' key.
-The block-ping ACL has two rules, one to block ICMP on IPv4 and another for ICMPv6 on IPv6.
-The allow-all ACL has one rule, which specifies no match fields, and therefore matches all packets, and the action 'allow'.
-The 'allow' action is a boolean, if it's True allow the packet to continue through the Faucet pipeline, if False drop the packet.
-'allow' can be used in conjunction with the other actions to let the traffic flow with the expected layer 2 forwarding behaviour AND be mirrored to another port.
-
 
 Now tell Faucet to reload its configuration, this can be done by restarting the application.
 But a better way is to send Faucet a SIGHUP signal.
@@ -96,7 +148,7 @@ But a better way is to send Faucet a SIGHUP signal.
 
 .. code:: console
 
-    pkill -HUP -f faucet.faucet
+    sudo systemctl reload faucet
 
 
 Now pings to/from host3 should fail, but the other three hosts should be fine.
@@ -144,11 +196,15 @@ And again send the sighup signal to Faucet
 
 .. code:: console
 
-    pkill -HUP -f faucet.faucet
-
+    sudo systemctl reload faucet
 
 To check this we will ping from host1 to host3, while performing a tcpdump on host4 who should receive the ping replies.
 It is a good idea to run each from a different terminal (screen, tmux, ...)
+
+.. code:: console
+
+    as_ns host4 tcpdump -l -e -n -i veth0
+
 
 .. code:: console
 
@@ -156,9 +212,6 @@ It is a good idea to run each from a different terminal (screen, tmux, ...)
 
 Ping should have 100% packet loss.
 
-.. code:: console
-
-    as_ns host4 tcpdump -l -e -n -i veth0
 
 .. code:: console
 

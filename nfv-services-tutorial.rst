@@ -18,7 +18,19 @@ Prerequisites:
 - A good understanding of the previous tutorial series topics (`ACLs <ACLs.html>`_, `VLANs <vlan_tutorial.html>`_, `Routing <routing.html>`_)
 - Install Faucet - `Package installation steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
 - Install OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
-- Copy to the Terminal Useful Bash Functions (`create_ns <_static/tutorial/create_ns>`_, `as_ns <_static/tutorial/as_ns>`_, `cleanup <_static/tutorial/cleanup>`_, `add_tagged_dev_ns <_static/tutorial/add_tagged_dev_ns>`_, `clear_ns <_static/tutorial/clear_ns>`_). To make these functions persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'
+
+- Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+
+.. literalinclude:: _static/tutorial/create_ns
+
+.. literalinclude:: _static/tutorial/as_ns
+
+.. literalinclude:: _static/tutorial/cleanup
+
+.. literalinclude:: _static/tutorial/add_tagged_dev_ns
+
+.. literalinclude:: _static/tutorial/clear_ns
+
 
 Let's start by run the cleanup script to remove old namespaces and switches.
 
@@ -29,10 +41,18 @@ Let's start by run the cleanup script to remove old namespaces and switches.
 Network setup
 ^^^^^^^^^^^^^
 
-We will create a switch with seven hosts as following
+We will create a switch and attach seven hosts like so:
 
-.. image:: _static/images/NFV-vlanTutorial.png
-    :alt: Demo network setup
+.. image:: _static/images/nfv-l1.svg
+    :alt: Layer 1 NFV Network Diagram
+    :align: center
+
+
+The network will be divided into 3 VLANs like so, 2 client vlans (200 & 300) with two clients each (host4-7), and a VLAN for the Bro server.
+The layer 2 & 3 diagram looks like:
+
+.. image:: _static/images/nfv-l2+3.svg
+    :alt: Layer 2 & 3 NFV Network Diagram
     :align: center
 
 
@@ -162,7 +182,7 @@ Now reload faucet configuration file.
 
 .. code:: console
 
-    sudo pkill -HUP -f "faucet\.faucet"
+    sudo systemctl reload faucet
 
 Use dhclient to configure host4 to host7 using DHCP (it may take a few seconds, but should return when successful).
 
@@ -221,46 +241,53 @@ Gateway (NAT)
 
 In this section we will configure host3 as a gateway (NAT) to provide internet connection for our network.
 
-.. code:: console
+.. code-block:: console
+    :caption: Define some variables we will use\:
 
     NS=host3        # gateway host namespace
     TO_DEF=to_def   # to the internet
     TO_NS=to_${NS}  # to gw (host3)
     OUT_INTF=enp0s3 # host machine interface for internet connection.
 
-    # enable forwarding in the hosted machine and in the host3 namespace.
+.. code-block:: console
+    :caption: Enable forwarding in the hosted machine and in the host3 namespace.
+
     sudo sysctl net.ipv4.ip_forward=1
     as_ns ${NS} sysctl net.ipv4.ip_forward=1
 
-    # create veth pair
-    sudo ip link add name ${TO_NS} type veth peer name ${TO_DEF} netns ${NS}
+.. code-block:: console
+    :caption: Create the link to bridge the two namespaces
 
-    # configure interfaces and routes
+    sudo ip link add name ${TO_NS} type veth peer name ${TO_DEF} netns ${NS}
     sudo ip addr add 192.168.100.1/30 dev ${TO_NS}
     sudo ip link set ${TO_NS} up
 
-    # sudo ip route add 192.168.100.0/30 dev ${TO_NS}
+.. code-block:: console
+    :caption: Configure link towards the root namespace on the GW host's namespace.
+
     as_ns ${NS} ip addr add 192.168.100.2/30 dev ${TO_DEF}
     as_ns ${NS} ip link set ${TO_DEF} up
     as_ns ${NS} ip route add default via 192.168.100.1
 
-    # do not allow routing between vlan300 & vlan200 on the gateway host.
+
+.. code-block:: console
+    :caption: Do not allow routing between vlan300 & vlan200 on the gateway host. Allow each vlan to be sent to/from the gateway interface while being NAT-ed.
+
     as_ns ${NS} iptables -P FORWARD DROP
 
-    # allow each vlan to be sent to and from the gateway interface
     as_ns ${NS} iptables -A FORWARD -i veth0.200 -o ${TO_DEF} -j ACCEPT
     as_ns ${NS} iptables -A FORWARD -i veth0.300 -o ${TO_DEF} -j ACCEPT
     as_ns ${NS} iptables -A FORWARD -i ${TO_DEF} -o veth0.200 -j ACCEPT
     as_ns ${NS} iptables -A FORWARD -i ${TO_DEF} -o veth0.300 -j ACCEPT
 
-    # NAT in ${NS}
     as_ns ${NS} iptables -t nat -F
     as_ns ${NS} iptables -t nat -A POSTROUTING -o ${TO_DEF} -j MASQUERADE
-    # NAT in default
+
+.. code-block:: console
+    :caption: Assuming the host does not have other NAT rules. Setup the final forward towards the internet.
+
     sudo iptables -P FORWARD DROP
     sudo iptables -F FORWARD
-
-    # Assuming the host does not have other NAT rules.
     sudo iptables -t nat -F
     sudo iptables -t nat -A POSTROUTING -s 192.168.100.0/30 -o ${OUT_INTF} -j MASQUERADE
     sudo iptables -A FORWARD -i ${OUT_INTF} -o ${TO_NS} -j ACCEPT
@@ -397,7 +424,7 @@ As usual reload faucet configuration file.
 
 .. code:: console
 
-    sudo pkill -HUP -f "faucet\.faucet"
+    sudo systemctl reload faucet
 
 
 If we generate some DHCP traffic on either of the hosts VLANs

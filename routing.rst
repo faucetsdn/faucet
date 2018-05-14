@@ -14,7 +14,16 @@ Prerequisites:
 
 - Faucet - `Package installation steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
 - OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
-- Useful Bash Functions (`create_ns <_static/tutorial/create_ns>`_, `as_ns <_static/tutorial/as_ns>`_, `cleanup <_static/tutorial/cleanup>`_). To make these functions persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'
+- Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+
+.. literalinclude:: _static/tutorial/create_ns
+
+
+.. literalinclude:: _static/tutorial/as_ns
+
+.. literalinclude:: _static/tutorial/cleanup
+
+
 
 Run the cleanup script to remove old namespaces and switches:
 
@@ -39,8 +48,8 @@ Let's start with a single switch connected to two hosts in two different vlans.
     -- set bridge br1 other-config:datapath-id=0000000000000001 \
     -- set bridge br1 other-config:disable-in-band=true \
     -- set bridge br1 fail_mode=secure \
-    -- add-port br1 veth-host1 -- set interface veth-host1 ofport_request=2 \
-    -- add-port br1 veth-host2 -- set interface veth-host2 ofport_request=3 \
+    -- add-port br1 veth-host1 -- set interface veth-host1 ofport_request=1 \
+    -- add-port br1 veth-host2 -- set interface veth-host2 ofport_request=2 \
     -- set-controller br1 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
 
 
@@ -81,7 +90,7 @@ Send the SIGHUP signal to reload the configuration file.
 
 .. code:: console
 
-    sudo pkill -HUP -f "faucet\.faucet"
+    sudo systemctl reload faucet
 
 Add the default route to the 'faucet_vips' as above.
 
@@ -255,10 +264,10 @@ To install BIRD:
     sudo apt-get install bird
 
 
-Our data plane will end up looking like this:
+Our data plane will end up looking like below, you may notice how we have the Faucet application connected to the control plane and dataplane.
 
-.. image:: _static/images/bgp-dataplane.svg
-    :alt: BGP network diagram
+.. image:: _static/images/bgp-routing-ns.svg
+    :alt: BGP Routing Namespace Diagram
 
 .. note:: When using BGP and Faucet, if changing Faucet's routing configuration (routers, static routes, or a VLAN's BGP configuration) the Faucet application must be restarted to reload the configuration correctly (not sighup reloaded).
 
@@ -306,8 +315,7 @@ Reload Faucet
 
 .. code:: console
 
-    sudo pkill -HUP -f "faucet\.faucet"
-
+    sudo systemctl reload faucet
 
 And check that host1 can ping host2 but not the gw.
 
@@ -318,9 +326,6 @@ And check that host1 can ping host2 but not the gw.
 
 
 Next we will add Faucet to our switch's data plane so that it can communicate with the BGP speaking hostgw.
-
-.. image:: _static/images/bgp-routing-ns.svg
-    :alt: BGP Routing Namespace Diagram
 
 .. code:: console
 

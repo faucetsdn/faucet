@@ -10,50 +10,55 @@ Prerequisites:
 
 - Faucet - `Package installation steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
 - OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
-- Useful Bash Functions (`create_ns <_static/tutorial/create_ns>`_, `as_ns <_static/tutorial/as_ns>`_, `cleanup <_static/tutorial/cleanup>`_, `add_tagged_dev_ns <_static/tutorial/add_tagged_dev_ns>`_, `clear_ns <_static/tutorial/clear_ns>`_). To make these functions persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'
+- Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+
+.. literalinclude:: _static/tutorial/create_ns
 
 
-In this tutorial we will look at how to do the following tasks using Faucet:
+.. literalinclude:: _static/tutorial/as_ns
 
-- Native VLAN.
-- Mixed VLANS (native and tagged).
-- Trunk links.
-- ACL for a particular VLAN.
+.. literalinclude:: _static/tutorial/cleanup
 
-.. note:: You can find routing between VLANs `here <./routing.html#routing-between-vlans>`_
-
-Configuring VLANs:
-^^^^^^^^^^^^^^^^^^
-
-To demonstrate these tasks we will use a demo network where a single switch br0 connects to:
-
-- Native vlan100: host1 (192.168.0.1/24), host2 (192.168.0.2/24).
-- Tagged vlan100: host3 (veth0.100: 192.168.0.3/24), host4 (veth0.100: 192.168.0.4/24).
-- Native vlan200: host5 (192.168.2.5/24), host6 (192.168.2.6/24).
-- Tagged vlan300: host7 (veth0.300: 192.168.3.7/24), host8 (veth0.300: 192.168.3.8/24).
-- Tagged vlan100, vlan200, vlan300: host9 (veth0.100: 192.168.0.9/24,veth0.200: 192.168.2.9/24, veth0.300: 192.168.3.9/24).
-
-Here is the structure of the demo setup.
-
-.. image:: _static/images/faucetVLANTutorial.png
-    :alt: Demo network setup
-    :align: center
-
-.. note:: Keep a piece of paper with the network layout and hosts' names, vlans, IPs to simplify following the rest of the tutorial.
-
-
-In addition to the bash scripts in the prerequisite section we will use the following functions:
 
 - to add a tagged network interface to a host namespaces
 
 .. literalinclude:: _static/tutorial/add_tagged_dev_ns
     :language: bash
 
-- delete hosts
+Overview:
+^^^^^^^^^
 
-.. literalinclude:: _static/tutorial/clear_ns
-    :language: bash
+In this tutorial we will look at how to do the following tasks using Faucet:
 
+- Use VLANs to segment traffic.
+- Create Trunk links.
+- ACLs for a particular VLAN.
+
+.. note:: You can find routing between VLANs `here <./routing.html#routing-between-vlans>`_
+
+A port can be in several VLAN modes:
+1. native - where packets come into the switch with no 802.1Q tag.
+2. tagged - where packets come into the switch with a 802.1Q tag.
+3. Both native and tagged.
+
+If a packet comes in with a tag for a VLAN that the port is not configured for it will be dropped.
+
+
+Configuring VLANs:
+^^^^^^^^^^^^^^^^^^
+
+To demonstrate these tasks we will use a demo network where a single switch br0 connects to 9 hosts.
+
+Ports 1, 2, 5, 6 will be native (untagged) ports.
+While ports 3 & 4, 7 & 8, and 9 will be tagged ports.
+
+Here is the structure of the demo setup.
+
+.. image:: _static/images/vlans.svg
+    :alt: VLAN Network Diagram
+    :align: center
+
+.. note:: Keep a piece of paper with the network layout and hosts' names, VLANs, IPs to simplify following the rest of the tutorial.
 
 
 Network setup
@@ -78,12 +83,11 @@ Let’s start. Keep host1, host2 on the native vlan 100 (office vlan) as in the 
 
 Then add the following hosts with the corresponding vlan:
 
-- In tagged vlan 100 add host3 and host4, and create a vlan interface on each of them.
-- In native vlan 200 add host5 and host6 (no need to add any vlan interface for hosts connected to native vlan).
-- In tagged vlan 300 add host7 and host8,  and create a vlan interface on each of them.
-- Add host9 to all previous vlans to work as NFV host .
+- Assign host3 and host4 a vlan interface (vid:100) as they are on a tagged port.
+- Assign host5 and host6 an IP address from the VLAN 200 range.
+- Assign host7 and host8 a vlan interface (vid:300) as they are on a tagged port.
+- Add host9 to all vlans (100, 200, 300) to work as a NFV host.
 
-Let's start.
 
 Tagged vlan 100
 
@@ -132,7 +136,7 @@ Then  connect all the hosts to the switch (br0)
     -- add-port br0 veth-host9 -- set interface veth-host9 ofport_request=9
 
 Now we have everything to start working with faucet through its configuration file.
-Each time we need only to change the configuration file and restart faucet (or send it HUP signal to reload the configuration file).
+Each time we will only need to change the configuration file and restart faucet (or send it HUP signal to reload the configuration file).
 
 Basic vlan settings
 -------------------
@@ -188,7 +192,7 @@ Send SIGHUP signal to reload the configuration file, and check how its log the n
 
 .. code:: console
 
-    sudo pkill -HUP -f "faucet\.faucet"
+    sudo systemctl reload faucet
     cat /var/log/faucet/faucet.log
 
 Let's do the following simple tests:
@@ -285,7 +289,7 @@ Now let's apply the configuration, send SIGHUP signal to reload the configuratio
 
 .. code:: console
 
-    sudo pkill -HUP -f faucet.faucet
+    sudo systemctl reload faucet
 
 Now if you try to ping from host7 and host8, it will not work as it is specified by their vlan acl.
 

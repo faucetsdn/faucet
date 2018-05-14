@@ -11,4 +11,3 @@ Tutorials
     vlan_tutorial
     routing
     nfv-services-tutorial
-    byon
