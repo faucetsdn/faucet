@@ -37,6 +37,9 @@ import mininet_test_topo
 from tcpdump_helper import TcpdumpHelper
 
 
+PEER_BGP_AS = 2**16 + 1
+
+
 class FaucetTestBase(unittest.TestCase):
     """Base class for all FAUCET unit tests."""
 
@@ -80,8 +83,6 @@ class FaucetTestBase(unittest.TestCase):
     VIP_TABLE = 6
     FLOOD_TABLE = 8
     ETH_DST_TABLE = 7
-
-    PEER_BGP_AS = 2**16 + 1
 
     config = None
     dpid = None
@@ -613,7 +614,7 @@ dbs:
     local-as %s;
     %s
   }
-""" % (peer, peer, '%(bgp_port)d', self.PEER_BGP_AS, peer_config)
+""" % (peer, peer, '%(bgp_port)d', PEER_BGP_AS, peer_config)
 
     def get_all_groups_desc_from_dpid(self, dpid, timeout=2):
         int_dpid = mininet_test_util.str_int_dpid(dpid)
