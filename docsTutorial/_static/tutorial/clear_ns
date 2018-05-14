@@ -1,0 +1,5 @@
+clear_ns(){
+   NETNS=$1
+   sudo ip netns delete $NETNS
+   sudo ovs-vsctl  del-port br0 veth-${NETNS}
+}

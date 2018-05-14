@@ -1,0 +1,10 @@
+create_ns () {
+    NETNS=$1
+    IP=$2
+    sudo ip netns add ${NETNS}
+    sudo ip link add dev veth-${NETNS} type veth peer name veth0 netns $NETNS
+    sudo ip link set dev veth-${NETNS} up
+    sudo ip netns exec $NETNS ip link set dev veth0 up
+    sudo ip netns exec $NETNS ip addr add dev veth0 $IP
+    sudo ip netns exec $NETNS ip link set dev lo up
+}

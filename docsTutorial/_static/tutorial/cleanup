@@ -1,0 +1,13 @@
+cleanup () {
+    for br in $(sudo ovs-vsctl list-br); do
+        sudo ovs-vsctl del-br $br
+    done
+    IFS=$'\n';
+    for i in  $(sudo ip netns list); do
+
+        NS=$(echo $i | cut -d ' ' -f1)
+        sudo ip netns delete $NS;
+        # Sometimes the veth-$NS is not deleted.
+        sudo ip link delete veth-$NS;
+    done
+}
