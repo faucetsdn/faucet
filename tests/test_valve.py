@@ -207,6 +207,7 @@ dps:
                 number: 2
                 native_vlan: v200
                 tagged_vlans: [v100]
+                loop_protect: True
             p3:
                 number: 3
                 tagged_vlans: [v100, v200]
@@ -445,6 +446,12 @@ vlans:
                 'eth_dst': self.UNKNOWN_MAC,
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.2'})
+            # TODO: verify host learning banned
+            self.rcv_packet(1, 0x100, {
+                'eth_src': self.UNKNOWN_MAC,
+                'eth_dst': self.P1_V100_MAC,
+                'ipv4_src': '10.0.0.2',
+                'ipv4_dst': '10.0.0.1'})
             self.rcv_packet(2, 0x200, {
                 'eth_src': self.P2_V200_MAC,
                 'eth_dst': self.P3_V200_MAC,
@@ -616,6 +623,21 @@ class ValveTestCase(ValveTestBase):
         msg.data = b'1234'
         self.assertEqual(None, self.valve.parse_pkt_meta(msg))
 
+    def test_loop_protect(self):
+        """Learn loop protection."""
+        for _ in range(2):
+            self.rcv_packet(1, 0x100, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.UNKNOWN_MAC,
+                'ipv4_src': '10.0.0.1',
+                'ipv4_dst': '10.0.0.2'})
+            self.rcv_packet(2, 0x100, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.UNKNOWN_MAC,
+                'ipv4_src': '10.0.0.1',
+                'ipv4_dst': '10.0.0.2',
+                'vid': 0x100})
+
     def test_lldp(self):
         """Test LLDP reception."""
         self.assertFalse(self.rcv_packet(1, 0, {
@@ -755,6 +777,18 @@ class ValveTestCase(ValveTestBase):
             'vid': 0x100,
             'ipv4_src': '10.0.0.1',
             'ipv4_dst': '10.0.0.99',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check proactive neighbor resolution
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
+
+    def test_icmp_ping6_unknown_neighbor(self):
+        """IPv4 ping unknown host on same subnet, causing proactive learning."""
+        echo_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': FAUCET_MAC,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:2',
+            'ipv6_dst': 'fc00::1:4',
             'echo_request_data': bytes('A'*8, encoding='UTF-8')})
         # TODO: check proactive neighbor resolution
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
@@ -1072,11 +1106,24 @@ acls:
             nw_dst: '224.0.0.5'
             dl_type: 0x800
             actions:
+                meter: testmeter
                 allow: 1
         - rule:
             dl_type: 0x800
             actions:
                 allow: 0
+meters:
+    testmeter:
+        meter_id: 99
+        entry:
+            flags: "KBPS"
+            bands:
+                [
+                    {
+                        type: "DROP",
+                        rate: 1
+                    }
+                ]
 """ % DP1_CONFIG
 
         drop_match = {
