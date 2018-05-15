@@ -28,7 +28,6 @@
 
 import json
 import os
-import queue
 import socket
 import time
 
@@ -44,10 +43,10 @@ class FaucetExperimentalEventNotifier(object):
     def __init__(self, socket_path, metrics, logger):
         self.metrics = metrics
         self.logger = logger
-        self.event_q = queue.Queue(120)
         self.event_id = 0
         self.thread = None
         self.lock = eventlet.semaphore.Semaphore()
+        self.event_q = eventlet.queue.Queue(120)
         self.socket_path = self.check_path(socket_path)
 
     def start(self):
@@ -56,7 +55,6 @@ class FaucetExperimentalEventNotifier(object):
             self.thread = hub.spawn(
                 StreamServer((self.socket_path, None), self._loop).serve_forever)
             return self.thread
-
         return None
 
     def _loop(self, sock, _addr):
@@ -70,16 +68,14 @@ class FaucetExperimentalEventNotifier(object):
             return
         self.logger.info('event client connected')
         while True:
-            while not self.event_q.empty():
-                event = self.event_q.get()
-                event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
-                try:
-                    sock.sendall(event_bytes)
-                except (socket.error, IOError) as err:
-                    self.lock.release()
-                    self.logger.info('event client disconnected: %s', err)
-                    return
-            hub.sleep(0.1)
+            event = self.event_q.get()
+            event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
+            try:
+                sock.sendall(event_bytes)
+            except (socket.error, IOError) as err:
+                self.lock.release()
+                self.logger.info('event client disconnected: %s', err)
+                return
 
     def notify(self, dp_id, dp_name, event_dict):
         """Notify of an event."""
