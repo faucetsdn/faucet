@@ -1368,54 +1368,6 @@ acls:
             msg='Packet not allowed by ACL')
 
 
-class ValveReloadConfigTestCase(ValveTestCase):
-    """Repeats the tests after a config reload."""
-
-    OLD_CONFIG = """
-version: 2
-dps:
-    s1:
-        hardware: 'Open vSwitch'
-%s
-        interfaces:
-            p1:
-                number: 1
-                tagged_vlans: [v100, v200]
-            p2:
-                number: 2
-                native_vlan: v100
-            p3:
-                number: 3
-                tagged_vlans: [v100, v200]
-            p4:
-                number: 4
-                tagged_vlans: [v200]
-            p5:
-                number: 5
-                native_vlan: v300
-            p6:
-                number: 6
-                native_vlan: v400
-vlans:
-    v100:
-        vid: 0x100
-    v200:
-        vid: 0x200
-    v300:
-        vid: 0x300
-    v400:
-        vid: 0x400
-""" % DP1_CONFIG
-
-    def setUp(self):
-        self.setup_valve(self.OLD_CONFIG)
-        self.flap_port(1)
-        self.update_config(self.CONFIG)
-
-    def tearDown(self):
-        self.teardown_valve()
-
-
 class ValveStackTestCase(ValveTestBase):
     """Test stacking/forwarding."""
 
@@ -1450,80 +1402,6 @@ class ValveStackTestCase(ValveTestBase):
                 'eth_src': self.P1_V300_MAC
             }]
         self.verify_flooding(matches)
-
-
-class ValveMirrorTestCase(ValveTestCase):
-    """Test ACL and interface mirroring."""
-    # TODO: check mirror packets are present/correct
-
-    CONFIG = """
-acls:
-    mirror_ospf:
-        - rule:
-            nw_dst: '224.0.0.5'
-            dl_type: 0x800
-            actions:
-                mirror: p5
-                allow: 1
-        - rule:
-            actions:
-                allow: 1
-dps:
-    s1:
-        hardware: 'GenericTFM'
-%s
-        interfaces:
-            p1:
-                number: 1
-                native_vlan: v100
-                lldp_beacon:
-                    enable: True
-                    system_name: "faucet"
-                    port_descr: "first_port"
-                acls_in: [mirror_ospf]
-            p2:
-                number: 2
-                native_vlan: v200
-                tagged_vlans: [v100]
-            p3:
-                number: 3
-                tagged_vlans: [v100, v200]
-            p4:
-                number: 4
-                tagged_vlans: [v200]
-            p5:
-                number: 5
-                output_only: True
-                mirror: 4
-vlans:
-    v100:
-        vid: 0x100
-        faucet_vips: ['10.0.0.254/24']
-        routes:
-            - route:
-                ip_dst: 10.99.99.0/24
-                ip_gw: 10.0.0.1
-            - route:
-                ip_dst: 10.99.98.0/24
-                ip_gw: 10.0.0.99
-    v200:
-        vid: 0x200
-        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
-        bgp_port: 9179
-        bgp_server_addresses: ['127.0.0.1']
-        bgp_as: 1
-        bgp_routerid: '1.1.1.1'
-        bgp_neighbor_addresses: ['127.0.0.1']
-        bgp_neighbor_as: 2
-        bgp_connect_mode: 'passive'
-        routes:
-            - route:
-                ip_dst: 'fc00::10:0/112'
-                ip_gw: 'fc00::1:1'
-            - route:
-                ip_dst: 'fc00::20:0/112'
-                ip_gw: 'fc00::1:99'
-""" % DP1_CONFIG
 
 
 class ValveGroupRoutingTestCase(ValveTestBase):
@@ -1760,6 +1638,128 @@ vlans:
             'eth_src': '0e:00:00:00:00:02'})
         self.learn_hosts()
         self.verify_expiry()
+
+
+class ValveReloadConfigTestCase(ValveTestCase):
+    """Repeats the tests after a config reload."""
+
+    OLD_CONFIG = """
+version: 2
+dps:
+    s1:
+        hardware: 'Open vSwitch'
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [v100, v200]
+            p2:
+                number: 2
+                native_vlan: v100
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                native_vlan: v300
+            p6:
+                number: 6
+                native_vlan: v400
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+    v300:
+        vid: 0x300
+    v400:
+        vid: 0x400
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.OLD_CONFIG)
+        self.flap_port(1)
+        self.update_config(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+
+class ValveMirrorTestCase(ValveTestCase):
+    """Test ACL and interface mirroring."""
+    # TODO: check mirror packets are present/correct
+
+    CONFIG = """
+acls:
+    mirror_ospf:
+        - rule:
+            nw_dst: '224.0.0.5'
+            dl_type: 0x800
+            actions:
+                mirror: p5
+                allow: 1
+        - rule:
+            actions:
+                allow: 1
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                lldp_beacon:
+                    enable: True
+                    system_name: "faucet"
+                    port_descr: "first_port"
+                acls_in: [mirror_ospf]
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                output_only: True
+                mirror: 4
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+        routes:
+            - route:
+                ip_dst: 10.99.99.0/24
+                ip_gw: 10.0.0.1
+            - route:
+                ip_dst: 10.99.98.0/24
+                ip_gw: 10.0.0.99
+    v200:
+        vid: 0x200
+        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
+        bgp_port: 9179
+        bgp_server_addresses: ['127.0.0.1']
+        bgp_as: 1
+        bgp_routerid: '1.1.1.1'
+        bgp_neighbor_addresses: ['127.0.0.1']
+        bgp_neighbor_as: 2
+        bgp_connect_mode: 'passive'
+        routes:
+            - route:
+                ip_dst: 'fc00::10:0/112'
+                ip_gw: 'fc00::1:1'
+            - route:
+                ip_dst: 'fc00::20:0/112'
+                ip_gw: 'fc00::1:99'
+""" % DP1_CONFIG
 
 
 class RyuAppSmokeTest(unittest.TestCase):
