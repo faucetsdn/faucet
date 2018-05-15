@@ -1349,8 +1349,14 @@ class OVSValve(Valve):
     USE_BARRIERS = False
 
 
+class AlliedTelesis(OVSValve):
+    """Valve implementation for AT."""
+
+    DEC_TTL = False
+
+
 SUPPORTED_HARDWARE = {
-    'Allied-Telesis': Valve,
+    'Allied-Telesis': AlliedTelesis,
     'Aruba': ArubaValve,
     'GenericTFM': TfmValve,
     'Lagopus': Valve,
