@@ -30,11 +30,10 @@ import socket
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
-from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, lldp, slow, packet, vlan
+from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, lldp, slow, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
-from ryu.services.protocols.bgp.info_base.ipv4 import Ipv4Path
 
 from prometheus_client import CollectorRegistry
 
@@ -47,11 +46,10 @@ from faucet import valves_manager
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_util
+from faucet.valve import TfmValve
 
 from beka.route import RouteAddition, RouteRemoval
 from beka.ip import IPAddress, IPPrefix
-
-from faucet.valve import TfmValve
 
 from fakeoftable import FakeOFTable
 
@@ -370,6 +368,7 @@ vlans:
         return self.registry.get_sample_value(var, labels)
 
     def prom_inc(self, func, var, labels=None):
+        """Check Prometheus variable increments by 1 after calling a function."""
         before = self.get_prom(var, labels)
         func()
         self.assertTrue(before + 1, self.get_prom(var, labels))
