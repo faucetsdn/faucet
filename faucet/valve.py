@@ -740,6 +740,7 @@ class Valve(object):
         We are a currently a passive, non-aggregateable LACP partner.
 
         Args:
+            now (float): current epoch time.
             pkt_meta (PacketMeta): packet for control plane.
         Returns:
             list: OpenFlow messages, if any.
@@ -834,7 +835,7 @@ class Valve(object):
                 return True
         return False
 
-    def _learn_host(self, other_valves, pkt_meta):
+    def _learn_host(self, now, other_valves, pkt_meta):
         """Possibly learn a host on a port.
 
         Args:
@@ -847,7 +848,7 @@ class Valve(object):
             other_valves, pkt_meta)
         if learn_port is not None:
             learn_flows, previous_port = self.host_manager.learn_host_on_vlan_ports(
-                learn_port, pkt_meta.vlan, pkt_meta.eth_src,
+                now, learn_port, pkt_meta.vlan, pkt_meta.eth_src,
                 last_dp_coldstart_time=self.dp.dyn_last_coldstart_time)
             if learn_flows:
                 if pkt_meta.l3_pkt is None:
@@ -1062,7 +1063,7 @@ class Valve(object):
                 else:
                     ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(pkt_meta))
 
-        ofmsgs.extend(self._learn_host(other_valves, pkt_meta))
+        ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
         return ofmsgs
 
     def _lacp_state_expire(self, vlan, now):
@@ -1278,16 +1279,17 @@ class Valve(object):
             flow_msg.datapath = ryu_dp
             ryu_dp.send_msg(flow_msg)
 
-    def flow_timeout(self, table_id, match):
+    def flow_timeout(self, now, table_id, match):
         """Call flow timeout message handler:
 
         Args:
+            now (float): current epoch time.
             table_id (int): ID of table where flow was installed.
             match (dict): match conditions for expired flow.
         Returns:
             list: OpenFlow messages, if any.
         """
-        return self.host_manager.flow_timeout(table_id, match)
+        return self.host_manager.flow_timeout(now, table_id, match)
 
     def get_config_dict(self):
         """Return datapath config as a dict for experimental API."""

@@ -317,4 +317,4 @@ class Faucet(RyuAppBase):
         if valve is None:
             return
         if msg.reason == ryu_dp.ofproto.OFPRR_IDLE_TIMEOUT:
-            self._send_flow_msgs(valve, valve.flow_timeout(msg.table_id, msg.match))
+            self._send_flow_msgs(valve, valve.flow_timeout(time.time(), msg.table_id, msg.match))
