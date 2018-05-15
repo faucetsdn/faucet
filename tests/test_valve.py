@@ -27,6 +27,7 @@ import unittest
 import tempfile
 import shutil
 import socket
+import time
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
@@ -394,7 +395,7 @@ vlans:
         if existing_config:
             self.assertTrue(self.valves_manager.config_watcher.files_changed())
         self.last_flows_to_dp[self.DP_ID] = []
-        self.valves_manager.request_reload_configs(self.config_file)
+        self.valves_manager.request_reload_configs(time.time(), self.config_file)
         self.valve = self.valves_manager.valves[self.DP_ID]
         if self.DP_ID in self.last_flows_to_dp:
             reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
@@ -417,7 +418,7 @@ vlans:
                 curr_speed=1e6,
                 max_speed=1e6)
             discovered_ports.append(ofpport)
-        self.table.apply_ofmsgs(self.valve.datapath_connect(discovered_ports))
+        self.table.apply_ofmsgs(self.valve.datapath_connect(time.time(), discovered_ports))
         for port in discovered_ports:
             self.set_port_up(port.port_no)
 
@@ -554,17 +555,18 @@ vlans:
         pkt_meta = self.valve.parse_pkt_meta(msg)
         self.assertTrue(pkt_meta, msg=pkt)
         self.last_flows_to_dp[self.DP_ID] = []
+        now = time.time()
         self.prom_inc(
-            partial(self.valves_manager.valve_packet_in, self.valve, pkt_meta),
+            partial(self.valves_manager.valve_packet_in, now, self.valve, pkt_meta),
             'of_packet_ins')
         rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
-        resolve_ofmsgs = self.valve.resolve_gateways()
+        resolve_ofmsgs = self.valve.resolve_gateways(now)
         self.table.apply_ofmsgs(resolve_ofmsgs)
-        self.valve.advertise()
-        self.valve.state_expire()
-        self.valves_manager.update_metrics()
-        self.bgp.update_metrics()
+        self.valve.advertise(now)
+        self.valve.state_expire(now)
+        self.valves_manager.update_metrics(now)
+        self.bgp.update_metrics(now)
         return rcv_packet_ofmsgs
 
 
@@ -1157,7 +1159,7 @@ meters:
     def test_lldp_beacon(self):
         """Test LLDP beacon service."""
         # TODO: verify LLDP packet content.
-        self.assertTrue(self.valve.send_lldp_beacons())
+        self.assertTrue(self.valve.send_lldp_beacons(time.time()))
 
     def test_unknown_port(self):
         """Test port status change for unknown port handled."""
@@ -1210,8 +1212,9 @@ meters:
 
     def test_packet_in_rate(self):
         """Test packet in rate limit triggers."""
+        now = time.time()
         for _ in range(self.valve.dp.ignore_learn_ins * 2 + 1):
-            if self.valve.rate_limit_packet_ins():
+            if self.valve.rate_limit_packet_ins(now):
                 return
         self.fail('packet in rate limit not triggered')
 

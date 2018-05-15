@@ -186,7 +186,7 @@ class FaucetBgp(object):
             self._dp_bgp_speakers[dp_id][ipv] = {
                 vlan_vid: self._create_bgp_speaker_for_vlan(bgp_vlan, dp_id, vlan_vid, ipv)}
 
-    def update_metrics(self):
+    def update_metrics(self, _now):
         """Update BGP metrics."""
         for dp_id, bgp_speakers_by_ipv in list(self._dp_bgp_speakers.items()):
             valve = self._valves[dp_id]
