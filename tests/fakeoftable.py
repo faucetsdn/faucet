@@ -19,6 +19,11 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import addrconv
 
 
+class FakeOFTableException(Exception):
+
+    pass
+
+
 class FakeOFTable(object):
     """Fake OFTable is a virtual openflow pipeline used for testing openflow controllers.
 
@@ -28,8 +33,39 @@ class FakeOFTable(object):
 
     def __init__(self, num_tables):
         self.tables = [[] for _ in range(0, num_tables)]
+        self.groups = {}
+
+    def _apply_groupmod(self, ofmsg):
+        """Maintain group table."""
+
+        def _del(_ofmsg, group_id):
+            if group_id == ofp.OFPG_ALL:
+                self.groups = {}
+                return
+            if group_id in self.groups:
+                del self.groups[group_id]
+
+        def _add(ofmsg, group_id):
+            if group_id in self.groups:
+                raise FakeOFTableException('group already in group table: %s' % ofmsg)
+            self.groups[group_id] = ofmsg
+
+        def _modify(ofmsg, group_id):
+            if group_id not in self.groups:
+                raise FakeOFTableException('group not in group table: %s' % ofmsg)
+            self.groups[group_id] = ofmsg
+
+        _groupmod_handlers = {
+            ofp.OFPGC_DELETE: _del,
+            ofp.OFPGC_ADD: _add,
+            ofp.OFPGC_MODIFY: _modify,
+        }
+
+        _groupmod_handlers[ofmsg.command](ofmsg, ofmsg.group_id)
 
     def _apply_flowmod(self, ofmsg):
+        """Adds, Deletes and modify flow modification messages are applied
+           according to section 6.4 of the OpenFlow 1.3 specification."""
 
         def _add(table, flowmod):
             # From the 1.3 spec, section 6.4:
@@ -102,14 +138,23 @@ class FakeOFTable(object):
             _flowmod_handlers[ofmsg.command](table, flowmod)
 
     def apply_ofmsgs(self, ofmsgs):
-        """This is used to update the fake flowtable.
-
-        Adds, Deletes and modify flow modification messages are applied
-        according to section 6.4 of the OpenFlow 1.3 specification."""
+        """Update state of test flow tables."""
         for ofmsg in ofmsgs:
+            if isinstance(ofmsg, parser.OFPBarrierRequest):
+                continue
+            if isinstance(ofmsg, parser.OFPPacketOut):
+                continue
+            if isinstance(ofmsg, parser.OFPGroupMod):
+                self._apply_groupmod(ofmsg)
+                continue
+            if isinstance(ofmsg, parser.OFPMeterMod):
+                # TODO: handle OFPMeterMod
+                continue
             if isinstance(ofmsg, parser.OFPFlowMod):
                 self._apply_flowmod(ofmsg)
                 self.sort_tables()
+                continue
+            raise FakeOFTableException('Unsupported flow %s' % str(ofmsg))
 
     def lookup(self, match):
         """Return the entries from flowmods that matches match.
@@ -169,38 +214,59 @@ class FakeOFTable(object):
         Arguments:
         Match: a dictionary keyed by header field names with values.
         """
+        def _output_result(action, vid_stack, port, vid):
+            if port is None:
+                return True
+            if action.port == port:
+                if vid is None:
+                    return True
+                if vid & ofp.OFPVID_PRESENT == 0:
+                    return not vid_stack
+                return vid_stack and vid == vid_stack[-1]
+            return None
+
+        def _process_vid_stack(action, vid_stack):
+            if action.type == ofp.OFPAT_PUSH_VLAN:
+                vid_stack.append(ofp.OFPVID_PRESENT)
+            elif action.type == ofp.OFPAT_POP_VLAN:
+                vid_stack.pop()
+            elif action.type == ofp.OFPAT_SET_FIELD:
+                if action.key == 'vlan_vid':
+                    vid_stack[-1] = action.value
+            return vid_stack
+
         # vid_stack represents the packet's vlan stack, innermost label listed
         # first
         match_vid = match.get('vlan_vid', 0)
+        vid_stack = []
         if match_vid & ofp.OFPVID_PRESENT != 0:
-            vid_stack = [match_vid]
-        else:
-            vid_stack = []
-
+            vid_stack.append(match_vid)
         instructions = self.lookup(match)
 
         for instruction in instructions:
-            if instruction.type == ofp.OFPIT_APPLY_ACTIONS:
-                for action in instruction.actions:
-                    if action.type == ofp.OFPAT_PUSH_VLAN:
-                        vid_stack.append(ofp.OFPVID_PRESENT)
-                    elif action.type == ofp.OFPAT_POP_VLAN:
-                        vid_stack.pop()
-                    elif action.type == ofp.OFPAT_SET_FIELD:
-                        if action.key == 'vlan_vid':
-                            vid_stack[-1] = action.value
-                        else:
-                            continue
-                    elif action.type == ofp.OFPAT_OUTPUT:
-                        if port is None:
-                            return True
-                        if action.port == port:
-                            if vid is None:
-                                return True
-                            if vid & ofp.OFPVID_PRESENT == 0:
-                                return not vid_stack
-                            return vid_stack and vid == vid_stack[-1]
-
+            if instruction.type != ofp.OFPIT_APPLY_ACTIONS:
+                continue
+            for action in instruction.actions:
+                vid_stack = _process_vid_stack(action, vid_stack)
+                if action.type == ofp.OFPAT_OUTPUT:
+                    output_result = _output_result(action, vid_stack, port, vid)
+                    if output_result is not None:
+                        return output_result
+                elif action.type == ofp.OFPAT_GROUP:
+                    if action.group_id not in self.groups:
+                        raise FakeOFTableException(
+                            'output group not in group table: %s' % action)
+                    buckets = self.groups[action.group_id].buckets
+                    for bucket in buckets:
+                        bucket_vid_stack = vid_stack
+                        for bucket_action in bucket.actions:
+                            bucket_vid_stack = _process_vid_stack(
+                                bucket_action, bucket_vid_stack)
+                            if bucket_action.type == ofp.OFPAT_OUTPUT:
+                                output_result = _output_result(
+                                    bucket_action, vid_stack, port, vid)
+                                if output_result is not None:
+                                    return output_result
         return False
 
     def __str__(self):

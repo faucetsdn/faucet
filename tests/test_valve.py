@@ -30,11 +30,10 @@ import socket
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
-from ryu.lib.packet import arp, bgp, ethernet, icmp, icmpv6, ipv4, ipv6, lldp, slow, packet, vlan
+from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, lldp, slow, packet, vlan
 from ryu.ofproto import ether, inet
 from ryu.ofproto import ofproto_v1_3 as ofp
 from ryu.ofproto import ofproto_v1_3_parser as parser
-from ryu.services.protocols.bgp.info_base.ipv4 import Ipv4Path
 
 from prometheus_client import CollectorRegistry
 
@@ -47,11 +46,10 @@ from faucet import valves_manager
 from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_util
+from faucet.valve import TfmValve
 
 from beka.route import RouteAddition, RouteRemoval
 from beka.ip import IPAddress, IPPrefix
-
-from faucet.valve import TfmValve
 
 from fakeoftable import FakeOFTable
 
@@ -204,6 +202,7 @@ dps:
                 loop_protect: True
                 receive_lldp: True
                 max_hosts: 1
+                hairpin: True
             p2:
                 number: 2
                 native_vlan: v200
@@ -370,6 +369,7 @@ vlans:
         return self.registry.get_sample_value(var, labels)
 
     def prom_inc(self, func, var, labels=None):
+        """Check Prometheus variable increments by 1 after calling a function."""
         before = self.get_prom(var, labels)
         func()
         self.assertTrue(before + 1, self.get_prom(var, labels))
@@ -460,38 +460,56 @@ vlans:
 
     def verify_flooding(self, matches):
         """Verify flooding for a packet, depending on the DP implementation."""
+
+        combinatorial_port_flood = self.valve.dp.combinatorial_port_flood
+        if self.valve.dp.group_table:
+            combinatorial_port_flood = False
+
+        def _verify_flood_to_port(match, port, valve_vlan, port_number=None):
+            if valve_vlan.port_is_tagged(port):
+                vid = valve_vlan.vid|ofp.OFPVID_PRESENT
+            else:
+                vid = 0
+            if port_number is None:
+                port_number = port.number
+            return self.table.is_output(match, port=port_number, vid=vid)
+
         for match in matches:
-            in_port = match['in_port']
+            in_port_number = match['in_port']
+            in_port = self.valve.dp.ports[in_port_number]
 
             if ('vlan_vid' in match and
                     match['vlan_vid'] & ofp.OFPVID_PRESENT is not 0):
                 valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
             else:
-                valve_vlan = self.valve.dp.get_native_vlan(in_port)
+                valve_vlan = in_port.native_vlan
 
             all_ports = set(
                 [port for port in self.valve.dp.ports.values() if port.running()])
             remaining_ports = all_ports - set(
                 [port for port in valve_vlan.get_ports() if port.running])
 
+            hairpin_output = _verify_flood_to_port(
+                match, in_port, valve_vlan, ofp.OFPP_IN_PORT)
+            self.assertEqual(
+                in_port.hairpin, hairpin_output,
+                msg='hairpin flooding incorrect (expected %s got %s)' % (
+                    in_port.hairpin, hairpin_output))
+
             # Packet must be flooded to all ports on the VLAN.
             for port in valve_vlan.get_ports():
-                if valve_vlan.port_is_tagged(port):
-                    vid = valve_vlan.vid|ofp.OFPVID_PRESENT
-                else:
-                    vid = 0
-                if port.number == in_port:
-                    self.assertFalse(
-                        self.table.is_output(match, port=port.number, vid=vid),
-                        msg=('%s with unknown eth_dst flooded back to input port'
-                             ' on VLAN %u to port %u' % (
-                                 match, valve_vlan.vid, port.number)))
-                else:
-                    self.assertTrue(
-                        self.table.is_output(match, port=port.number, vid=vid),
-                        msg=('%s with unknown eth_dst not flooded'
-                             ' on VLAN %u to port %u' % (
-                                 match, valve_vlan.vid, port.number)))
+                output = _verify_flood_to_port(match, port, valve_vlan)
+                if port == in_port:
+                    self.assertNotEqual(
+                        combinatorial_port_flood, output,
+                        msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
+                            output, combinatorial_port_flood))
+                    continue
+                self.assertTrue(
+                    output,
+                    msg=('%s with unknown eth_dst not flooded'
+                         ' on VLAN %u to port %u' % (
+                             match, valve_vlan.vid, port.number)))
 
             # Packet must not be flooded to ports not on the VLAN.
             for port in remaining_ports:
@@ -1481,9 +1499,36 @@ vlans:
     def tearDown(self):
         self.teardown_valve()
 
-    def test_known_eth_src_rule(self):
-        """Smoke test for group support"""
+    def test_unknown_eth_dst_rule(self):
+        """Test that packets with unkown eth dst addrs get flooded correctly.
+
+        They must be output to each port on the associated vlan, with the
+        correct vlan tagging. And they must not be forwarded to a port not
+        on the associated vlan
+        """
         self.learn_hosts()
+        matches = [
+            {
+                'in_port': 3,
+                'vlan_vid': self.V100,
+            },
+            {
+                'in_port': 2,
+                'vlan_vid': 0,
+                'eth_dst': self.P1_V100_MAC
+            },
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V100_MAC
+            },
+            {
+                'in_port': 3,
+                'vlan_vid': self.V200,
+                'eth_src': self.P2_V200_MAC,
+            }
+        ]
+        self.verify_flooding(matches)
 
 
 class ValveIdleLearnTestCase(ValveTestBase):
