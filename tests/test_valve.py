@@ -207,6 +207,7 @@ dps:
                 number: 2
                 native_vlan: v200
                 tagged_vlans: [v100]
+                loop_protect: True
             p3:
                 number: 3
                 tagged_vlans: [v100, v200]
@@ -621,6 +622,21 @@ class ValveTestCase(ValveTestBase):
         self.assertEqual(None, self.valve.parse_pkt_meta(msg))
         msg.data = b'1234'
         self.assertEqual(None, self.valve.parse_pkt_meta(msg))
+
+    def test_loop_protect(self):
+        """Learn loop protection."""
+        for _ in range(2):
+            self.rcv_packet(1, 0x100, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.UNKNOWN_MAC,
+                'ipv4_src': '10.0.0.1',
+                'ipv4_dst': '10.0.0.2'})
+            self.rcv_packet(2, 0x100, {
+                'eth_src': self.P1_V100_MAC,
+                'eth_dst': self.UNKNOWN_MAC,
+                'ipv4_src': '10.0.0.1',
+                'ipv4_dst': '10.0.0.2',
+                'vid': 0x100})
 
     def test_lldp(self):
         """Test LLDP reception."""
