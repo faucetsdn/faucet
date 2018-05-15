@@ -33,6 +33,35 @@ class FakeOFTable(object):
 
     def __init__(self, num_tables):
         self.tables = [[] for _ in range(0, num_tables)]
+        self.groups = {}
+
+    def _apply_groupmod(self, ofmsg):
+        """Maintain group table."""
+
+        def _del(_ofmsg, group_id):
+            if group_id == ofp.OFPG_ALL:
+                self.groups = {}
+                return
+            if group_id in self.groups:
+                del self.groups[group_id]
+
+        def _add(ofmsg, group_id):
+            if group_id in self.groups:
+                raise FakeOFTableException('group already in group table: %s' % ofmsg)
+            self.groups[group_id] = ofmsg
+
+        def _modify(ofmsg, group_id):
+            if group_id not in self.groups:
+                raise FakeOFTableException('group not in group table: %s' % ofmsg)
+            self.groups[group_id] = ofmsg
+
+        _groupmod_handlers = {
+            ofp.OFPGC_DELETE: _del,
+            ofp.OFPGC_ADD: _add,
+            ofp.OFPGC_MODIFY: _modify,
+        }
+
+        _groupmod_handlers[ofmsg.command](ofmsg, ofmsg.group_id)
 
     def _apply_flowmod(self, ofmsg):
         """Adds, Deletes and modify flow modification messages are applied
@@ -116,7 +145,7 @@ class FakeOFTable(object):
             if isinstance(ofmsg, parser.OFPPacketOut):
                 continue
             if isinstance(ofmsg, parser.OFPGroupMod):
-                # TODO: handle OFPGroupMod
+                self._apply_groupmod(ofmsg)
                 continue
             if isinstance(ofmsg, parser.OFPMeterMod):
                 # TODO: handle OFPMeterMod
