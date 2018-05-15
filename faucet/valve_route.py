@@ -417,7 +417,7 @@ class ValveRouteManager(object):
         return self._host_ip_to_host_int(faucet_vip.ip)
 
     def _vlan_nexthop_cache_limit(self, vlan):
-        pass
+        raise NotImplementedError # pragma: no cover
 
     def _proactive_resolve_neighbor(self, now, vlans, dst_ip):
         ofmsgs = []
@@ -511,7 +511,7 @@ class ValveRouteManager(object):
         Returns:
             IP ryu.lib.packet parsed from pkt.
         """
-        pass
+        raise NotImplementedError # pragma: no cover
 
     def _nexthop_fresh(self, vlan, ip_gw, now):
         nexthop_cache_entry = self._vlan_nexthop_cache_entry(vlan, ip_gw)

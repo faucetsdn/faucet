@@ -280,6 +280,7 @@ routers:
 vlans:
     v100:
         vid: 0x100
+        targeted_gw_resolution: True
         faucet_vips: ['10.0.0.254/24']
         routes:
             - route:
