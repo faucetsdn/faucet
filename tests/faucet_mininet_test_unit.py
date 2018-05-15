@@ -1882,6 +1882,76 @@ class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):
     # Use the stat-based reload method.
     STAT_RELOAD = '1'
 
+class FaucetUntaggedBGPDualstackDefaultRouteTest(FaucetUntaggedTest):
+    """Test IPv4 routing and import default route from BGP."""
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+        faucet_vips: ["10.0.0.254/24", "fc00::1:254/112"]
+        bgp_port: %(bgp_port)d
+        bgp_server_addresses: ["127.0.0.1", "::1"]
+        bgp_as: 1
+        bgp_routerid: "1.1.1.1"
+        bgp_neighbor_addresses: ["127.0.0.1", "::1"]
+        bgp_connect_mode: "active"
+""" + """
+        bgp_neighbor_as: %u
+""" % PEER_BGP_AS
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    exabgp_peer_conf = """
+    static {
+      route 0.0.0.0/0 next-hop 10.0.0.1 local-preference 100;
+    }
+"""
+    exabgp_log = None
+    exabgp_err = None
+    config_ports = {'bgp_port': None}
+
+
+    def pre_start_net(self):
+        exabgp_conf = self.get_exabgp_conf(
+            mininet_test_util.LOCALHOST, self.exabgp_peer_conf)
+        self.exabgp_log, self.exabgp_err = self.start_exabgp(exabgp_conf)
+
+    def test_untagged(self):
+        """Test IPv4 routing, and BGP routes received."""
+        first_host, second_host = self.net.hosts[:2]
+        first_host_alias_ip = ipaddress.ip_interface(u'10.99.99.99/24')
+        first_host_alias_host_ip = ipaddress.ip_interface(
+            ipaddress.ip_network(first_host_alias_ip.ip))
+        self.host_ipv4_alias(first_host, first_host_alias_ip)
+        self.wait_bgp_up(
+            mininet_test_util.LOCALHOST, 100, self.exabgp_log, self.exabgp_err)
+        self.assertGreater(
+            self.scrape_prometheus_var(
+                'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
+            0)
+        self.wait_exabgp_sent_updates(self.exabgp_log)
+        self.add_host_route(
+            second_host, first_host_alias_host_ip, self.FAUCET_VIPV4.ip)
+        self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
+        self.one_ipv4_controller_ping(first_host)
+        self.coldstart_conf()
 
 class FaucetUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
     """Test IPv4 routing and import default route from BGP."""
