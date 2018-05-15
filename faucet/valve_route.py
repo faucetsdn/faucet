@@ -82,10 +82,10 @@ class ValveRouteManager(object):
         return nexthop_cache_entry.dead(self.max_host_fib_retry_count)
 
     def resolve_gw_on_vlan(self, vlan, faucet_vip, ip_gw):
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def resolve_gw_on_port(self, vlan, port, faucet_vip, ip_gw):
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def _vlan_routes(self, vlan):
         return vlan.routes_by_ipv(self.IPV)
@@ -161,7 +161,7 @@ class ValveRouteManager(object):
         return ofmsgs
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def add_faucet_vip(self, vlan, faucet_vip):
         ofmsgs = []
@@ -327,7 +327,7 @@ class ValveRouteManager(object):
         return False
 
     def advertise(self, vlan):
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def _resolve_gateway_flows(self, ip_gw, nexthop_cache_entry, vlan, faucet_vip, now):
         resolve_flows = []
@@ -578,7 +578,7 @@ class ValveRouteManager(object):
         return ofmsgs
 
     def control_plane_handler(self, now, pkt_meta):
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
 
 class ValveIPv4RouteManager(ValveRouteManager):

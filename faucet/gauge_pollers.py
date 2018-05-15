@@ -65,11 +65,11 @@ class GaugePoller(object):
 
     def send_req(self):
         """Send a stats request to a datapath."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def update(self, rcv_time, dp_id, msg):
         """Handle the responses to requests.
@@ -179,11 +179,11 @@ class GaugeThreadPoller(GaugePoller):
 
     def send_req(self):
         """Send a stats request to a datapath."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
 
 class GaugePortStatsPoller(GaugeThreadPoller):
@@ -259,8 +259,8 @@ class GaugePortStatePoller(GaugePoller):
 
     def send_req(self):
         """Send a stats request to a datapath."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def no_response(self):
         """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
