@@ -202,6 +202,7 @@ dps:
                 loop_protect: True
                 receive_lldp: True
                 max_hosts: 1
+                hairpin: True
             p2:
                 number: 2
                 native_vlan: v200
@@ -460,6 +461,10 @@ vlans:
     def verify_flooding(self, matches):
         """Verify flooding for a packet, depending on the DP implementation."""
 
+        combinatorial_port_flood = self.valve.dp.combinatorial_port_flood
+        if self.valve.dp.group_table:
+            combinatorial_port_flood = False
+
         def _verify_flood_to_port(match, port, valve_vlan, port_number=None):
             if valve_vlan.port_is_tagged(port):
                 vid = valve_vlan.vid|ofp.OFPVID_PRESENT
@@ -496,9 +501,9 @@ vlans:
                 output = _verify_flood_to_port(match, port, valve_vlan)
                 if port == in_port:
                     self.assertNotEqual(
-                        self.valve.dp.combinatorial_port_flood, output,
+                        combinatorial_port_flood, output,
                         msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
-                            output, self.valve.dp.combinatorial_port_flood))
+                            output, combinatorial_port_flood))
                     continue
                 self.assertTrue(
                     output,
@@ -1494,9 +1499,36 @@ vlans:
     def tearDown(self):
         self.teardown_valve()
 
-    def test_known_eth_src_rule(self):
-        """Smoke test for group support"""
+    def test_unknown_eth_dst_rule(self):
+        """Test that packets with unkown eth dst addrs get flooded correctly.
+
+        They must be output to each port on the associated vlan, with the
+        correct vlan tagging. And they must not be forwarded to a port not
+        on the associated vlan
+        """
         self.learn_hosts()
+        matches = [
+            {
+                'in_port': 3,
+                'vlan_vid': self.V100,
+            },
+            {
+                'in_port': 2,
+                'vlan_vid': 0,
+                'eth_dst': self.P1_V100_MAC
+            },
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V100_MAC
+            },
+            {
+                'in_port': 3,
+                'vlan_vid': self.V200,
+                'eth_src': self.P2_V200_MAC,
+            }
+        ]
+        self.verify_flooding(matches)
 
 
 class ValveIdleLearnTestCase(ValveTestBase):

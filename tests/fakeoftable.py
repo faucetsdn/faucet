@@ -244,13 +244,29 @@ class FakeOFTable(object):
         instructions = self.lookup(match)
 
         for instruction in instructions:
-            if instruction.type == ofp.OFPIT_APPLY_ACTIONS:
-                for action in instruction.actions:
-                    vid_stack = _process_vid_stack(action, vid_stack)
-                    if action.type == ofp.OFPAT_OUTPUT:
-                        output_result = _output_result(action, vid_stack, port, vid)
-                        if output_result is not None:
-                            return output_result
+            if instruction.type != ofp.OFPIT_APPLY_ACTIONS:
+                continue
+            for action in instruction.actions:
+                vid_stack = _process_vid_stack(action, vid_stack)
+                if action.type == ofp.OFPAT_OUTPUT:
+                    output_result = _output_result(action, vid_stack, port, vid)
+                    if output_result is not None:
+                        return output_result
+                elif action.type == ofp.OFPAT_GROUP:
+                    if action.group_id not in self.groups:
+                        raise FakeOFTableException(
+                            'output group not in group table: %s' % action)
+                    buckets = self.groups[action.group_id].buckets
+                    for bucket in buckets:
+                        bucket_vid_stack = vid_stack
+                        for bucket_action in bucket.actions:
+                            bucket_vid_stack = _process_vid_stack(
+                                bucket_action, bucket_vid_stack)
+                            if bucket_action.type == ofp.OFPAT_OUTPUT:
+                                output_result = _output_result(
+                                    bucket_action, vid_stack, port, vid)
+                                if output_result is not None:
+                                    return output_result
         return False
 
     def __str__(self):
