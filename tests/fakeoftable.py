@@ -217,11 +217,9 @@ class FakeOFTable(object):
         # vid_stack represents the packet's vlan stack, innermost label listed
         # first
         match_vid = match.get('vlan_vid', 0)
+        vid_stack = []
         if match_vid & ofp.OFPVID_PRESENT != 0:
-            vid_stack = [match_vid]
-        else:
-            vid_stack = []
-
+            vid_stack.append(match_vid)
         instructions = self.lookup(match)
 
         for instruction in instructions:
@@ -234,8 +232,6 @@ class FakeOFTable(object):
                     elif action.type == ofp.OFPAT_SET_FIELD:
                         if action.key == 'vlan_vid':
                             vid_stack[-1] = action.value
-                        else:
-                            continue
                     elif action.type == ofp.OFPAT_OUTPUT:
                         if port is None:
                             return True
@@ -245,7 +241,6 @@ class FakeOFTable(object):
                             if vid & ofp.OFPVID_PRESENT == 0:
                                 return not vid_stack
                             return vid_stack and vid == vid_stack[-1]
-
         return False
 
     def __str__(self):
