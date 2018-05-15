@@ -765,6 +765,18 @@ class ValveTestCase(ValveTestBase):
         # TODO: check proactive neighbor resolution
         self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
+    def test_icmp_ping6_unknown_neighbor(self):
+        """IPv4 ping unknown host on same subnet, causing proactive learning."""
+        echo_replies = self.rcv_packet(2, 0x200, {
+            'eth_src': self.P2_V200_MAC,
+            'eth_dst': FAUCET_MAC,
+            'vid': 0x200,
+            'ipv6_src': 'fc00::1:2',
+            'ipv6_dst': 'fc00::1:4',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: check proactive neighbor resolution
+        self.assertTrue(self.packet_outs_from_flows(echo_replies))
+
     def test_icmpv6_ping_controller(self):
         """IPv6 ping controller VIP."""
         echo_replies = self.rcv_packet(2, 0x200, {
