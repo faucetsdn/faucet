@@ -1072,11 +1072,24 @@ acls:
             nw_dst: '224.0.0.5'
             dl_type: 0x800
             actions:
+                meter: testmeter
                 allow: 1
         - rule:
             dl_type: 0x800
             actions:
                 allow: 0
+meters:
+    testmeter:
+        meter_id: 99
+        entry:
+            flags: "KBPS"
+            bands:
+                [
+                    {
+                        type: "DROP",
+                        rate: 1
+                    }
+                ]
 """ % DP1_CONFIG
 
         drop_match = {
