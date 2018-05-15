@@ -470,6 +470,10 @@ vlans:
                 'ipv4_dst': '10.0.0.4',
                 'vid': 0x200})
 
+    def verify_expiry(self):
+        self.valve.state_expire(time.time() + (self.valve.dp.timeout * 2))
+        # TODO: verify state expired
+
     def verify_flooding(self, matches):
         """Verify flooding for a packet, depending on the DP implementation."""
 
@@ -760,6 +764,7 @@ class ValveTestCase(ValveTestBase):
         # We want to know this host was learned we did not get packet outs.
         self.assertTrue(fib_route_replies)
         self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
+        self.verify_expiry()
 
     def test_host_ipv6_fib_route(self):
         """Test learning a FIB rule for an IPv6 host."""
@@ -975,6 +980,7 @@ class ValveTestCase(ValveTestBase):
                     self.table.is_output(match, port=port),
                     msg=('packet %s output to incorrect port %u when eth_dst '
                          'is known' % (match, port)))
+        self.verify_expiry()
 
     def test_mac_learning_vlan_separation(self):
         """Test that when a mac is seen on a second vlan the original vlan
@@ -1739,12 +1745,14 @@ vlans:
         self.teardown_valve()
 
     def test_lacp(self):
+        # TODO: verify LACP state
         self.rcv_packet(1, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
             'eth_src': '0e:00:00:00:00:02'})
         self.learn_hosts()
+        self.verify_expiry()
 
 
 class RyuAppSmokeTest(unittest.TestCase):
