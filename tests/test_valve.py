@@ -227,7 +227,6 @@ dps:
                 native_vlan: v100
     s3:
         hardware: 'Open vSwitch'
-        combinatorial_port_flood: True
         dp_id: 0x3
         stack:
             priority: 1
@@ -465,21 +464,21 @@ vlans:
                 'ipv4_dst': '10.0.0.4',
                 'vid': 0x200})
 
+    def verify_flood_to_port(self, match, port, valve_vlan, port_number=None):
+        if valve_vlan.port_is_tagged(port):
+            vid = valve_vlan.vid|ofp.OFPVID_PRESENT
+        else:
+            vid = 0
+        if port_number is None:
+            port_number = port.number
+        return self.table.is_output(match, port=port_number, vid=vid)
+
     def verify_flooding(self, matches):
         """Verify flooding for a packet, depending on the DP implementation."""
 
         combinatorial_port_flood = self.valve.dp.combinatorial_port_flood
         if self.valve.dp.group_table:
             combinatorial_port_flood = False
-
-        def _verify_flood_to_port(match, port, valve_vlan, port_number=None):
-            if valve_vlan.port_is_tagged(port):
-                vid = valve_vlan.vid|ofp.OFPVID_PRESENT
-            else:
-                vid = 0
-            if port_number is None:
-                port_number = port.number
-            return self.table.is_output(match, port=port_number, vid=vid)
 
         for match in matches:
             in_port_number = match['in_port']
@@ -496,7 +495,7 @@ vlans:
             remaining_ports = all_ports - set(
                 [port for port in valve_vlan.get_ports() if port.running])
 
-            hairpin_output = _verify_flood_to_port(
+            hairpin_output = self.verify_flood_to_port(
                 match, in_port, valve_vlan, ofp.OFPP_IN_PORT)
             self.assertEqual(
                 in_port.hairpin, hairpin_output,
@@ -504,19 +503,20 @@ vlans:
                     in_port.hairpin, hairpin_output))
 
             # Packet must be flooded to all ports on the VLAN.
-            for port in valve_vlan.get_ports():
-                output = _verify_flood_to_port(match, port, valve_vlan)
-                if port == in_port:
-                    self.assertNotEqual(
-                        combinatorial_port_flood, output,
-                        msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
-                            output, combinatorial_port_flood))
-                    continue
-                self.assertTrue(
-                    output,
-                    msg=('%s with unknown eth_dst not flooded'
-                         ' on VLAN %u to port %u' % (
-                             match, valve_vlan.vid, port.number)))
+            if not self.valve.dp.stack_ports or 'priority' in self.valve.dp.stack:
+                for port in valve_vlan.get_ports():
+                    output = self.verify_flood_to_port(match, port, valve_vlan)
+                    if port == in_port:
+                        self.assertNotEqual(
+                            combinatorial_port_flood, output,
+                            msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
+                                output, combinatorial_port_flood))
+                        continue
+                    self.assertTrue(
+                        output,
+                        msg=('%s with unknown eth_dst not flooded'
+                             ' on VLAN %u to port %u' % (
+                                match, valve_vlan.vid, port.number)))
 
             # Packet must not be flooded to ports not on the VLAN.
             for port in remaining_ports:
@@ -1398,11 +1398,46 @@ vlans:
         self.teardown_valve()
 
 
-class ValveStackTestCase(ValveTestBase):
+class ValveRootStackTestCase(ValveTestBase):
     """Test stacking/forwarding."""
 
     DP = 's3'
     DP_ID = 0x3
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_stack_learn(self):
+        self.rcv_packet(1, 0x300, {
+            'eth_src': self.P1_V300_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
+        self.rcv_packet(5, 0x300, {
+            'eth_src': self.P1_V300_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'vid': 0x300,
+            'ipv4_src': '10.0.0.1',
+            'ipv4_dst': '10.0.0.2'})
+
+    def test_stack_flood(self):
+        """Test packet flooding when stacking."""
+        matches = [
+            {
+                'in_port': 1,
+                'vlan_vid': 0,
+                'eth_src': self.P1_V300_MAC
+            }]
+        self.verify_flooding(matches)
+
+
+class ValveEdgeStackTestCase(ValveTestBase):
+
+    DP = 's4'
+    DP_ID = 0x4
 
     def setUp(self):
         self.setup_valve(self.CONFIG)
