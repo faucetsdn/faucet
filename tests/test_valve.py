@@ -471,7 +471,11 @@ vlans:
                 'vid': 0x200})
 
     def verify_expiry(self):
-        self.valve.state_expire(time.time() + (self.valve.dp.timeout * 2))
+        now = time.time()
+        for _ in range(self.valve.dp.max_host_fib_retry_count + 1):
+            now += (self.valve.dp.timeout * 2)
+            self.valve.state_expire(now)
+            self.valve.resolve_gateways(now)
         # TODO: verify state expired
 
     def verify_flooding(self, matches):
