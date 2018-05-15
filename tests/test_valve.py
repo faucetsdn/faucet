@@ -457,8 +457,16 @@ vlans:
                 'ipv4_dst': '10.0.0.4',
                 'vid': 0x200})
 
-    def verify_flooding(self, matches):
+    def verify_flooding(self, matches, hairpin=False):
         """Verify flooding for a packet, depending on the DP implementation."""
+
+        def _verify_flood_to_port(match, port, valve_vlan):
+            if valve_vlan.port_is_tagged(port):
+                vid = valve_vlan.vid|ofp.OFPVID_PRESENT
+            else:
+                vid = 0
+            return self.table.is_output(match, port=port.number, vid=vid)
+
         for match in matches:
             in_port = match['in_port']
 
@@ -473,21 +481,21 @@ vlans:
             remaining_ports = all_ports - set(
                 [port for port in valve_vlan.get_ports() if port.running])
 
+            if hairpin:
+                self.assertTrue(_verify_flood_to_port(match, ofp.OFP_IN_PORT, valve_vlan))
+
             # Packet must be flooded to all ports on the VLAN.
             for port in valve_vlan.get_ports():
-                if valve_vlan.port_is_tagged(port):
-                    vid = valve_vlan.vid|ofp.OFPVID_PRESENT
-                else:
-                    vid = 0
+                output = _verify_flood_to_port(match, port, valve_vlan)
                 if port.number == in_port:
                     self.assertFalse(
-                        self.table.is_output(match, port=port.number, vid=vid),
+                        output,
                         msg=('%s with unknown eth_dst flooded back to input port'
                              ' on VLAN %u to port %u' % (
                                  match, valve_vlan.vid, port.number)))
                 else:
                     self.assertTrue(
-                        self.table.is_output(match, port=port.number, vid=vid),
+                        output,
                         msg=('%s with unknown eth_dst not flooded'
                              ' on VLAN %u to port %u' % (
                                  match, valve_vlan.vid, port.number)))
