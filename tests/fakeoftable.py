@@ -19,6 +19,11 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import addrconv
 
 
+class FakeOFTableException(Exception):
+
+    pass
+
+
 class FakeOFTable(object):
     """Fake OFTable is a virtual openflow pipeline used for testing openflow controllers.
 
@@ -30,6 +35,8 @@ class FakeOFTable(object):
         self.tables = [[] for _ in range(0, num_tables)]
 
     def _apply_flowmod(self, ofmsg):
+        """Adds, Deletes and modify flow modification messages are applied
+           according to section 6.4 of the OpenFlow 1.3 specification."""
 
         def _add(table, flowmod):
             # From the 1.3 spec, section 6.4:
@@ -102,14 +109,23 @@ class FakeOFTable(object):
             _flowmod_handlers[ofmsg.command](table, flowmod)
 
     def apply_ofmsgs(self, ofmsgs):
-        """This is used to update the fake flowtable.
-
-        Adds, Deletes and modify flow modification messages are applied
-        according to section 6.4 of the OpenFlow 1.3 specification."""
+        """Update state of test flow tables."""
         for ofmsg in ofmsgs:
+            if isinstance(ofmsg, parser.OFPBarrierRequest):
+                continue
+            if isinstance(ofmsg, parser.OFPPacketOut):
+                continue
+            if isinstance(ofmsg, parser.OFPGroupMod):
+                # TODO: handle OFPGroupMod
+                continue
+            if isinstance(ofmsg, parser.OFPMeterMod):
+                # TODO: handle OFPMeterMod
+                continue
             if isinstance(ofmsg, parser.OFPFlowMod):
                 self._apply_flowmod(ofmsg)
                 self.sort_tables()
+                continue
+            raise FakeOFTableException('Unsupported flow %s' % str(ofmsg))
 
     def lookup(self, match):
         """Return the entries from flowmods that matches match.
