@@ -1,6 +1,3 @@
-Tutorials
-=========
-
 Installing faucet for the first time
 ------------------------------------
 

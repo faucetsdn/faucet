@@ -1,12 +1,10 @@
-Faucet Tutorial Series
-======================
-
 Tutorials
 ---------
 
 .. toctree::
     :maxdepth: 2
 
+    tutorials
     ACLs
     vlan_tutorial
     routing

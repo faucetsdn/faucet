@@ -8,7 +8,7 @@ User Documentation
    :maxdepth: 2
 
    intro
-   tutorials
+   tutorial-index
    installation
    docker
    configuration
