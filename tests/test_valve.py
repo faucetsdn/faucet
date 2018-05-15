@@ -78,6 +78,10 @@ GROUP_DP1_CONFIG = """
         group_table: True
 """ + DP1_CONFIG
 
+GROUP_ROUTING_DP1_CONFIG = """
+        group_table_routing: True
+""" + DP1_CONFIG
+
 
 def build_pkt(pkt):
     """Build and return a packet and eth type from a dict."""
@@ -1506,6 +1510,68 @@ vlans:
                 ip_dst: 'fc00::20:0/112'
                 ip_gw: 'fc00::1:99'
 """ % DP1_CONFIG
+
+
+class ValveGroupRoutingTestCase(ValveTestBase):
+    """Tests for datapath with group support."""
+    CONFIG = """
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                output_only: True
+                mirror: 4
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+        routes:
+            - route:
+                ip_dst: 10.99.99.0/24
+                ip_gw: 10.0.0.1
+            - route:
+                ip_dst: 10.99.98.0/24
+                ip_gw: 10.0.0.99
+
+    v200:
+        vid: 0x200
+""" % GROUP_ROUTING_DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+    def test_host_ipv4_fib_route(self):
+        """Test learning a FIB rule for an IPv4 host."""
+        fib_route_replies = self.rcv_packet(1, 0x100, {
+            'eth_src': self.P1_V100_MAC,
+            'eth_dst': self.UNKNOWN_MAC,
+            'vid': 0x100,
+            'ipv4_src': '10.0.0.2',
+            'ipv4_dst': '10.0.0.4',
+            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+        # TODO: verify learning rule contents
+        # We want to know this host was learned we did not get packet outs.
+        self.assertTrue(fib_route_replies)
+        self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
 
 
 class ValveGroupTestCase(ValveTestBase):
