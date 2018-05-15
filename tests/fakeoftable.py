@@ -214,6 +214,27 @@ class FakeOFTable(object):
         Arguments:
         Match: a dictionary keyed by header field names with values.
         """
+        def _output_result(action, vid_stack, port, vid):
+            if port is None:
+                return True
+            if action.port == port:
+                if vid is None:
+                    return True
+                if vid & ofp.OFPVID_PRESENT == 0:
+                    return not vid_stack
+                return vid_stack and vid == vid_stack[-1]
+            return None
+
+        def _process_vid_stack(action, vid_stack):
+            if action.type == ofp.OFPAT_PUSH_VLAN:
+                vid_stack.append(ofp.OFPVID_PRESENT)
+            elif action.type == ofp.OFPAT_POP_VLAN:
+                vid_stack.pop()
+            elif action.type == ofp.OFPAT_SET_FIELD:
+                if action.key == 'vlan_vid':
+                    vid_stack[-1] = action.value
+            return vid_stack
+
         # vid_stack represents the packet's vlan stack, innermost label listed
         # first
         match_vid = match.get('vlan_vid', 0)
@@ -225,22 +246,11 @@ class FakeOFTable(object):
         for instruction in instructions:
             if instruction.type == ofp.OFPIT_APPLY_ACTIONS:
                 for action in instruction.actions:
-                    if action.type == ofp.OFPAT_PUSH_VLAN:
-                        vid_stack.append(ofp.OFPVID_PRESENT)
-                    elif action.type == ofp.OFPAT_POP_VLAN:
-                        vid_stack.pop()
-                    elif action.type == ofp.OFPAT_SET_FIELD:
-                        if action.key == 'vlan_vid':
-                            vid_stack[-1] = action.value
-                    elif action.type == ofp.OFPAT_OUTPUT:
-                        if port is None:
-                            return True
-                        if action.port == port:
-                            if vid is None:
-                                return True
-                            if vid & ofp.OFPVID_PRESENT == 0:
-                                return not vid_stack
-                            return vid_stack and vid == vid_stack[-1]
+                    vid_stack = _process_vid_stack(action, vid_stack)
+                    if action.type == ofp.OFPAT_OUTPUT:
+                        output_result = _output_result(action, vid_stack, port, vid)
+                        if output_result is not None:
+                            return output_result
         return False
 
     def __str__(self):
