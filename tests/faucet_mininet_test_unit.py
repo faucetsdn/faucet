@@ -1871,6 +1871,7 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
             self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
         self.change_port_config(
             self.port_map['port_1'], 'acls_in', [3, 4, 'allow'], restart=restart)
+        self.coldstart_conf()
         self._verify_hosts_learned((first_host, second_host, third_host))
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
