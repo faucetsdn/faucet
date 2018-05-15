@@ -445,6 +445,12 @@ vlans:
                 'eth_dst': self.UNKNOWN_MAC,
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.2'})
+            # TODO: verify host learning banned
+            self.rcv_packet(1, 0x100, {
+                'eth_src': self.UNKNOWN_MAC,
+                'eth_dst': self.P1_V100_MAC,
+                'ipv4_src': '10.0.0.2',
+                'ipv4_dst': '10.0.0.1'})
             self.rcv_packet(2, 0x200, {
                 'eth_src': self.P2_V200_MAC,
                 'eth_dst': self.P3_V200_MAC,
