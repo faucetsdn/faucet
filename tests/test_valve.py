@@ -183,7 +183,7 @@ def build_pkt(pkt):
     return result
 
 
-class ValveTestBase(object):
+class ValveTestBase(unittest.TestCase):
     """Base class for all Valve unit tests."""
 
     CONFIG = """
@@ -325,26 +325,6 @@ vlans:
     notifier = None
     config_file = None
 
-    def assertTrue(self, _cond, msg=None): # pylint: disable=invalid-name
-        """Not used (overridden by unittest)."""
-        raise NotImplementedError
-
-    def assertFalse(self, _cond, msg=None): # pylint: disable=invalid-name
-        """Not used (overridden by unittest)."""
-        raise NotImplementedError
-
-    def assertEqual(self, _a, _b, msg=None): # pylint: disable=invalid-name
-        """Not used (overridden by unittest)."""
-        raise NotImplementedError
-
-    def assertNotEqual(self, _a, _b, msg=None): # pylint: disable=invalid-name
-        """Not used (overridden by unittest)."""
-        raise NotImplementedError
-
-    def fail(self, _msg): # pylint: disable=invalid-name
-        """Not used (overridden by unittest)."""
-        raise NotImplementedError
-
     def setup_valve(self, config):
         """Set up test DP with config."""
         self.tmpdir = tempfile.mkdtemp()
@@ -485,7 +465,6 @@ vlans:
                 'vid': 0x200})
 
     def verify_flood_to_port(self, match, port, valve_vlan, port_number=None):
-        """Verify flooding to a port."""
         if valve_vlan.port_is_tagged(port):
             vid = valve_vlan.vid|ofp.OFPVID_PRESENT
         else:
@@ -537,7 +516,7 @@ vlans:
                         output,
                         msg=('%s with unknown eth_dst not flooded'
                              ' on VLAN %u to port %u' % (
-                                 match, valve_vlan.vid, port.number)))
+                                match, valve_vlan.vid, port.number)))
 
             # Packet must not be flooded to ports not on the VLAN.
             for port in remaining_ports:
@@ -585,8 +564,14 @@ vlans:
         return rcv_packet_ofmsgs
 
 
-class ValveTestCaseCommon(ValveTestBase): # pylint: disable=abstract-method
+class ValveTestCase(ValveTestBase):
     """Test basic switching/L2/L3 functions."""
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
 
     def test_get_config_dict(self):
         """Test API call for DP config."""
@@ -621,8 +606,7 @@ class ValveTestCaseCommon(ValveTestBase): # pylint: disable=abstract-method
         """Test switch features handler."""
         self.assertTrue(isinstance(self.valve, TfmValve), msg=type(self.valve))
         features_flows = self.valve.switch_features(None)
-        tfm_flows = [flow for flow in features_flows if isinstance(
-            flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
+        tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
         # TODO: verify TFM content.
         self.assertTrue(tfm_flows)
 
@@ -1238,16 +1222,7 @@ meters:
         self.valve.ofdescstats_handler(body)
 
 
-class ValveTestCase(unittest.TestCase, ValveTestCaseCommon):
-
-    def setUp(self):
-        self.setup_valve(self.CONFIG)
-
-    def tearDown(self):
-        self.teardown_valve()
-
-
-class ValveChangePortCase(unittest.TestCase, ValveTestBase):
+class ValveChangePortCase(ValveTestBase):
     """Test changes to config on ports."""
 
     CONFIG = """
@@ -1295,7 +1270,7 @@ dps:
         self.update_config(self.LESS_CONFIG)
 
 
-class ValveACLTestCase(unittest.TestCase, ValveTestBase):
+class ValveACLTestCase(ValveTestBase):
     """Test ACL drop/allow and reloading."""
 
     def setUp(self):
@@ -1375,7 +1350,7 @@ acls:
             msg='Packet not allowed by ACL')
 
 
-class ValveReloadConfigTestCase(unittest.TestCase, ValveTestCaseCommon):
+class ValveReloadConfigTestCase(ValveTestCase):
     """Repeats the tests after a config reload."""
 
     OLD_CONFIG = """
@@ -1423,7 +1398,7 @@ vlans:
         self.teardown_valve()
 
 
-class ValveRootStackTestCase(unittest.TestCase, ValveTestBase):
+class ValveRootStackTestCase(ValveTestBase):
     """Test stacking/forwarding."""
 
     DP = 's3'
@@ -1459,7 +1434,7 @@ class ValveRootStackTestCase(unittest.TestCase, ValveTestBase):
         self.verify_flooding(matches)
 
 
-class ValveEdgeStackTestCase(unittest.TestCase, ValveTestBase):
+class ValveEdgeStackTestCase(ValveTestBase):
 
     DP = 's4'
     DP_ID = 0x4
@@ -1494,7 +1469,7 @@ class ValveEdgeStackTestCase(unittest.TestCase, ValveTestBase):
         self.verify_flooding(matches)
 
 
-class ValveMirrorTestCase(unittest.TestCase, ValveTestCaseCommon):
+class ValveMirrorTestCase(ValveTestCase):
     """Test ACL and interface mirroring."""
     # TODO: check mirror packets are present/correct
 
@@ -1567,14 +1542,8 @@ vlans:
                 ip_gw: 'fc00::1:99'
 """ % DP1_CONFIG
 
-    def setUp(self):
-        self.setup_valve(self.CONFIG)
 
-    def tearDown(self):
-        self.teardown_valve()
-
-
-class ValveGroupTestCase(unittest.TestCase, ValveTestBase):
+class ValveGroupTestCase(ValveTestBase):
     """Tests for datapath with group support."""
     CONFIG = """
 dps:
@@ -1644,7 +1613,7 @@ vlans:
         self.verify_flooding(matches)
 
 
-class ValveIdleLearnTestCase(unittest.TestCase, ValveTestBase):
+class ValveIdleLearnTestCase(ValveTestBase):
     """Smoke test for idle-flow based learning. This feature is not currently reliable."""
     CONFIG = """
 dps:
@@ -1695,7 +1664,7 @@ vlans:
                 {'vlan_vid': self.V100, 'in_port': 1, 'eth_src': self.P1_V100_MAC}))
 
 
-class ValveLACPTestCase(unittest.TestCase, ValveTestBase):
+class ValveLACPTestCase(ValveTestBase):
     """Test LACP."""
     CONFIG = """
 dps:
