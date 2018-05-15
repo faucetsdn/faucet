@@ -16,12 +16,11 @@ Prerequisites:
 - OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
 - Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude:: _static/tutorial/create_ns
+.. literalinclude::  ../_static/tutorial/create_ns
 
+.. literalinclude:: ../_static/tutorial/as_ns
 
-.. literalinclude:: _static/tutorial/as_ns
-
-.. literalinclude:: _static/tutorial/cleanup
+.. literalinclude:: ../_static/tutorial/cleanup
 
 
 
@@ -36,7 +35,7 @@ Routing between VLANs
 ^^^^^^^^^^^^^^^^^^^^^
 Let's start with a single switch connected to two hosts in two different vlans.
 
-.. image:: _static/images/vlan-routing.svg
+.. image:: ../_static/images/vlan-routing.svg
     :alt: vlan routing diagram
 
 
@@ -114,7 +113,7 @@ Static Routing
 For this we will set-up a Faucet switch with three hosts.
 One of these hosts will act like a gateway,
 
-.. image:: _static/images/static-routing.svg
+.. image:: ../_static/images/static-routing.svg
     :alt: static routing network diagram
 
 Run the cleanup script to remove old namespaces and switches.
@@ -266,7 +265,7 @@ To install BIRD:
 
 Our data plane will end up looking like below, you may notice how we have the Faucet application connected to the control plane and dataplane.
 
-.. image:: _static/images/bgp-routing-ns.svg
+.. image:: ../_static/images/bgp-routing-ns.svg
     :alt: BGP Routing Namespace Diagram
 
 .. note:: When using BGP and Faucet, if changing Faucet's routing configuration (routers, static routes, or a VLAN's BGP configuration) the Faucet application must be restarted to reload the configuration correctly (not sighup reloaded).

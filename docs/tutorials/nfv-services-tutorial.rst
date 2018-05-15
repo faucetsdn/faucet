@@ -21,15 +21,15 @@ Prerequisites:
 
 - Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude:: _static/tutorial/create_ns
+.. literalinclude:: ../_static/tutorial/create_ns
 
-.. literalinclude:: _static/tutorial/as_ns
+.. literalinclude:: ../_static/tutorial/as_ns
 
-.. literalinclude:: _static/tutorial/cleanup
+.. literalinclude:: ../_static/tutorial/cleanup
 
-.. literalinclude:: _static/tutorial/add_tagged_dev_ns
+.. literalinclude:: ../_static/tutorial/add_tagged_dev_ns
 
-.. literalinclude:: _static/tutorial/clear_ns
+.. literalinclude:: ../_static/tutorial/clear_ns
 
 
 Let's start by run the cleanup script to remove old namespaces and switches.
@@ -43,7 +43,7 @@ Network setup
 
 We will create a switch and attach seven hosts like so:
 
-.. image:: _static/images/nfv-l1.svg
+.. image:: ../_static/images/nfv-l1.svg
     :alt: Layer 1 NFV Network Diagram
     :align: center
 
@@ -51,7 +51,7 @@ We will create a switch and attach seven hosts like so:
 The network will be divided into 3 VLANs like so, 2 client vlans (200 & 300) with two clients each (host4-7), and a VLAN for the Bro server.
 The layer 2 & 3 diagram looks like:
 
-.. image:: _static/images/nfv-l2+3.svg
+.. image:: ../_static/images/nfv-l2+3.svg
     :alt: Layer 2 & 3 NFV Network Diagram
     :align: center
 

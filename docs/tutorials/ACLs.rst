@@ -10,16 +10,15 @@ ETA: ~25 minutes.
 Prerequisites:
 --------------
 
-- Faucet - `Package installation steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
-- OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
+- Faucet - `Package installation steps 1 & 2 <tutorials.html#package-installation>`__
+- OpenVSwitch - `Connect your first datapath steps 1 & 2 <tutorials.html#connect-your-first-datapath>`__
 - Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
 
-.. literalinclude:: _static/tutorial/create_ns
+.. literalinclude:: ../_static/tutorial/create_ns
 
+.. literalinclude:: ../_static/tutorial/as_ns
 
-.. literalinclude:: _static/tutorial/as_ns
-
-.. literalinclude:: _static/tutorial/cleanup
+.. literalinclude:: ../_static/tutorial/cleanup
 
 To make these functions persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
 
@@ -88,7 +87,7 @@ Network Setup
 -------------
 We are going to create the following network:
 
-.. image:: _static/images/acls.svg
+.. image:: ../_static/images/acls.svg
     :alt: ACL network diagram
     :align: center
 

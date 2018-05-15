@@ -46,7 +46,7 @@ configuration file for prometheus which sets it up to scrape a single faucet
 and gauge controller running on the same machine as prometheus. The
 configuration file we ship looks like:
 
-.. literalinclude:: ../etc/prometheus/prometheus.yml
+.. literalinclude:: ../../etc/prometheus/prometheus.yml
   :language: shell
   :caption: prometheus.yml
   :name: prometheus.yml
@@ -114,9 +114,9 @@ source and add our first dashboard:
        We will import the following dashboards, just download the following
        links and upload them through the grafana dashboard import screen:
 
-       * `Instrumentation <_static/grafana-dashboards/faucet_instrumentation.json>`_
-       * `Inventory <_static/grafana-dashboards/faucet_inventory.json>`_
-       * `Port Statistics <_static/grafana-dashboards/faucet_port_statistics.json>`_
+       * `Instrumentation <../_static/grafana-dashboards/faucet_instrumentation.json>`_
+       * `Inventory <../_static/grafana-dashboards/faucet_inventory.json>`_
+       * `Port Statistics <../_static/grafana-dashboards/faucet_port_statistics.json>`_
 
 Configure faucet
 ^^^^^^^^^^^^^^^^
@@ -222,7 +222,7 @@ faucet as it will be good enough to complete the rest of this tutorial. If you
 did need to modify it the path is ``/etc/faucet/gauge.yaml`` and the default
 configuration looks like:
 
-.. literalinclude:: ../etc/faucet/gauge.yaml
+.. literalinclude:: ../../etc/faucet/gauge.yaml
   :language: yaml
   :caption: gauge.yaml
   :name: tutorial-gauge.yaml
@@ -372,10 +372,10 @@ Further steps
 Now that you know how to setup and run faucet in a self-contained virtual
 environment you can build on this tutorial and start to make more interesting
 topologies by adding more Open vSwitch bridges, ports and network namespaces.
-Check out the faucet :doc:`configuration` document for more information on
+Check out the faucet :doc:`../configuration` document for more information on
 features you can turn on and off. In future we will publish additional tutorials
 on layer 3 routing, inter-vlan routing, ACLs.
 
 You can also easily add real hardware into the mix as well instead of using
-a software switch. See the :doc:`vendors/index` section for information on how
+a software switch. See the :doc:`../vendors/index` section for information on how
 to configure a wide variety of different vendor devices for faucet.
