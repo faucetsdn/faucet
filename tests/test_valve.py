@@ -457,48 +457,54 @@ vlans:
                 'ipv4_dst': '10.0.0.4',
                 'vid': 0x200})
 
-    def verify_flooding(self, matches, hairpin=False):
+    def verify_flooding(self, matches):
         """Verify flooding for a packet, depending on the DP implementation."""
 
-        def _verify_flood_to_port(match, port, valve_vlan):
+        def _verify_flood_to_port(match, port, valve_vlan, port_number=None):
             if valve_vlan.port_is_tagged(port):
                 vid = valve_vlan.vid|ofp.OFPVID_PRESENT
             else:
                 vid = 0
-            return self.table.is_output(match, port=port.number, vid=vid)
+            if port_number is None:
+                port_number = port.number
+            return self.table.is_output(match, port=port_number, vid=vid)
 
         for match in matches:
-            in_port = match['in_port']
+            in_port_number = match['in_port']
+            in_port = self.valve.dp.ports[in_port_number]
 
             if ('vlan_vid' in match and
                     match['vlan_vid'] & ofp.OFPVID_PRESENT is not 0):
                 valve_vlan = self.valve.dp.vlans[match['vlan_vid'] & ~ofp.OFPVID_PRESENT]
             else:
-                valve_vlan = self.valve.dp.get_native_vlan(in_port)
+                valve_vlan = in_port.native_vlan
 
             all_ports = set(
                 [port for port in self.valve.dp.ports.values() if port.running()])
             remaining_ports = all_ports - set(
                 [port for port in valve_vlan.get_ports() if port.running])
 
-            if hairpin:
-                self.assertTrue(_verify_flood_to_port(match, ofp.OFP_IN_PORT, valve_vlan))
+            hairpin_output = _verify_flood_to_port(
+                match, in_port, valve_vlan, ofp.OFPP_IN_PORT)
+            self.assertEqual(
+                in_port.hairpin, hairpin_output,
+                msg='hairpin flooding incorrect (expected %s got %s)' % (
+                    in_port.hairpin, hairpin_output))
 
             # Packet must be flooded to all ports on the VLAN.
             for port in valve_vlan.get_ports():
                 output = _verify_flood_to_port(match, port, valve_vlan)
-                if port.number == in_port:
-                    self.assertFalse(
-                        output,
-                        msg=('%s with unknown eth_dst flooded back to input port'
-                             ' on VLAN %u to port %u' % (
-                                 match, valve_vlan.vid, port.number)))
-                else:
-                    self.assertTrue(
-                        output,
-                        msg=('%s with unknown eth_dst not flooded'
-                             ' on VLAN %u to port %u' % (
-                                 match, valve_vlan.vid, port.number)))
+                if port == in_port:
+                    self.assertNotEqual(
+                        self.valve.dp.combinatorial_port_flood, output,
+                        msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
+                            output, self.valve.dp.combinatorial_port_flood))
+                    continue
+                self.assertTrue(
+                    output,
+                    msg=('%s with unknown eth_dst not flooded'
+                         ' on VLAN %u to port %u' % (
+                             match, valve_vlan.vid, port.number)))
 
             # Packet must not be flooded to ports not on the VLAN.
             for port in remaining_ports:
