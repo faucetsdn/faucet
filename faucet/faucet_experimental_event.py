@@ -30,11 +30,31 @@ import json
 import os
 import socket
 import time
+from contextlib import contextmanager
 
 import eventlet
 
 from ryu.lib import hub
 from ryu.lib.hub import StreamServer
+
+
+class NonBlockLock(object):
+    """Non blocking lock that can be used as a context manager."""
+
+    def __init__(self):
+        self._lock = eventlet.semaphore.Semaphore()
+
+    @contextmanager
+    def acquire_nonblock(self):
+        """Attempt to acquire a lock."""
+        result = self._lock.acquire(blocking=False)
+        yield result
+        if result:
+            self.release()
+
+    def release(self):
+        """Release lock when done."""
+        self._lock.release()
 
 
 class FaucetExperimentalEventNotifier(object):
@@ -45,7 +65,7 @@ class FaucetExperimentalEventNotifier(object):
         self.logger = logger
         self.event_id = 0
         self.thread = None
-        self.lock = eventlet.semaphore.Semaphore()
+        self.lock = NonBlockLock()
         self.event_q = eventlet.queue.Queue(120)
         self.socket_path = self.check_path(socket_path)
 
@@ -59,23 +79,20 @@ class FaucetExperimentalEventNotifier(object):
 
     def _loop(self, sock, _addr):
         """Serve events."""
-        if not self.lock.acquire(blocking=False):
-            try:
-                self.logger.error('multiple event clients not supported')
-                sock.close()
-            except (socket.error, IOError):
-                pass
-            return
-        self.logger.info('event client connected')
-        while True:
-            event = self.event_q.get()
-            event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
-            try:
-                sock.sendall(event_bytes)
-            except (socket.error, IOError) as err:
-                self.lock.release()
-                self.logger.info('event client disconnected: %s', err)
-                return
+        with self.lock.acquire_nonblock():
+            self.logger.info('event client connected')
+            while True:
+                event = self.event_q.get()
+                event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
+                try:
+                    sock.sendall(event_bytes)
+                except (socket.error, IOError) as err:
+                    self.logger.info('event client disconnected: %s', err)
+                    break
+        try:
+            sock.close()
+        except (socket.error, IOError):
+            pass
 
     def notify(self, dp_id, dp_name, event_dict):
         """Notify of an event."""

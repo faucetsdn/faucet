@@ -112,7 +112,7 @@ vlans:
 
     def verify_events_log(self, event_log):
         required_events = set(['PORT_CHANGE', 'L2_LEARN', 'PORTS_STATUS'])
-        for _ in range(3):
+        for _ in range(10):
             prom_event_id = self.scrape_prometheus_var('faucet_event_id', dpid=False)
             event_id = None
             with open(event_log, 'r') as event_log_file:
