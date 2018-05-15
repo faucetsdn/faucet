@@ -1,0 +1,9 @@
+add_tagged_dev_ns () {
+     NETNS=$1
+     IP=$2
+     VLAN=$3
+     sudo ip netns exec $NETNS ip link add link veth0 name veth0.${VLAN} type vlan id $VLAN
+     sudo ip netns exec $NETNS ip link set dev veth0.${VLAN} up
+     sudo ip netns exec $NETNS ip addr flush dev veth0
+     sudo ip netns exec $NETNS ip addr add dev veth0.${VLAN}  $IP
+ }
