@@ -144,11 +144,20 @@ class FakeOFTable(object):
                 continue
             if isinstance(ofmsg, parser.OFPPacketOut):
                 continue
-            if isinstance(ofmsg, parser.OFPGroupMod):
-                self._apply_groupmod(ofmsg)
+            if isinstance(ofmsg, parser.OFPSetConfig):
+                continue
+            if isinstance(ofmsg, parser.OFPSetAsync):
+                continue
+            if isinstance(ofmsg, parser.OFPDescStatsRequest):
+                continue
+            if isinstance(ofmsg, parser.OFPTableFeaturesStatsRequest):
+                # TODO: validate TFM
                 continue
             if isinstance(ofmsg, parser.OFPMeterMod):
                 # TODO: handle OFPMeterMod
+                continue
+            if isinstance(ofmsg, parser.OFPGroupMod):
+                self._apply_groupmod(ofmsg)
                 continue
             if isinstance(ofmsg, parser.OFPFlowMod):
                 self._apply_flowmod(ofmsg)

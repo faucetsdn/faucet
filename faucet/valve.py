@@ -70,7 +70,6 @@ class Valve(object):
 
     DEC_TTL = True
     USE_BARRIERS = True
-    L3 = False
     base_prom_labels = None
     recent_ofmsgs = deque(maxlen=32) # type: ignore
     logger = None
@@ -1053,15 +1052,16 @@ class Valve(object):
         if ban_rules:
             return ban_rules
 
-        if self.L3 and pkt_meta.eth_type in self._route_manager_by_eth_type:
-            pkt_meta.reparse_ip()
-            if pkt_meta.l3_pkt:
-                route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
-                control_plane_ofmsgs = self._control_plane_handler(now, pkt_meta, route_manager)
-                if control_plane_ofmsgs:
-                    ofmsgs.extend(control_plane_ofmsgs)
-                else:
-                    ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
+        if pkt_meta.eth_type in self._route_manager_by_eth_type:
+            route_manager = self._route_manager_by_eth_type[pkt_meta.eth_type]
+            if route_manager.active:
+                pkt_meta.reparse_ip()
+                if pkt_meta.l3_pkt:
+                    control_plane_ofmsgs = self._control_plane_handler(now, pkt_meta, route_manager)
+                    if control_plane_ofmsgs:
+                        ofmsgs.extend(control_plane_ofmsgs)
+                    else:
+                        ofmsgs.extend(route_manager.add_host_fib_route_from_pkt(now, pkt_meta))
 
         ofmsgs.extend(self._learn_host(now, other_valves, pkt_meta))
         return ofmsgs
@@ -1192,7 +1192,8 @@ class Valve(object):
         restart_type = 'none'
         if self.dp.running:
             if cold_start:
-                ofmsgs = self.datapath_connect(now, [])
+                # Need to reprovision pipeline on cold start.
+                ofmsgs = self.switch_features(None) + self.datapath_connect(now, [])
             if ofmsgs:
                 if cold_start:
                     self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
@@ -1213,7 +1214,6 @@ class Valve(object):
         ofmsgs = []
         for faucet_vip in faucet_vips:
             ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
-            self.L3 = True
         return ofmsgs
 
     def add_route(self, vlan, ip_gw, ip_dst):

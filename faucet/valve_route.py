@@ -55,6 +55,7 @@ class ValveRouteManager(object):
     ICMP_TYPE = None
     MAX_LEN = valve_of.MAX_PACKET_IN_BYTES
     CONTROL_ETH_TYPES = () # type: ignore
+    active = False
 
     def __init__(self, logger, arp_neighbor_timeout,
                  max_hosts_per_resolve_cycle, max_host_fib_retry_count,
@@ -172,6 +173,7 @@ class ValveRouteManager(object):
             vlan, priority, faucet_vip, faucet_vip_host))
         ofmsgs.extend(self._add_faucet_fib_to_vip(
             vlan, priority, faucet_vip, faucet_vip_host))
+        self.active = True
         return ofmsgs
 
     def _add_resolved_route(self, vlan, ip_gw, ip_dst, eth_dst, is_updated):
