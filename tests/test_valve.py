@@ -787,6 +787,7 @@ class ValveTestCase(ValveTestBase):
         # We want to know this host was learned we did not get packet outs.
         self.assertTrue(fib_route_replies)
         self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
+        self.verify_expiry()
 
     def test_icmp_ping_unknown_neighbor(self):
         """IPv4 ping unknown host on same subnet, causing proactive learning."""
