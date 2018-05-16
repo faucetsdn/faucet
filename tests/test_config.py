@@ -1540,6 +1540,31 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_bad_match_fields(self):
+        """Test bad match fields."""
+        config = """
+acls:
+    bad_acl:
+        rules:
+            - rule:
+                notsuch: "match"
+                actions:
+                    output:
+                        set_fields:
+                            - eth_dst: "0e:00:00:00:00:01"
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: bad_acl
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
     def test_push_pop_vlans_acl(self):
         """Test push and pop VLAN ACL fields."""
         config = """
