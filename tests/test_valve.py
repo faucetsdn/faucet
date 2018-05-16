@@ -1223,6 +1223,8 @@ meters:
         )
         self.bgp._bgp_route_handler(add_event, self.DP_ID, 0x100)
         self.bgp._bgp_route_handler(del_event, self.DP_ID, 0x100)
+        self.bgp._bgp_up_handler(nexthop, 65001)
+        self.bgp._bgp_down_handler(nexthop, 65001)
 
     def test_packet_in_rate(self):
         """Test packet in rate limit triggers."""

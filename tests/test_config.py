@@ -41,6 +41,9 @@ class TestConfig(unittest.TestCase):
 
     def run_function_with_config(self, config, function, before_function=None):
         """Return False if provided function raises InvalidConfigError."""
+        # TODO: Check acls_in work now acl_in is deprecated
+        if isinstance(config, str) and 'acl_in' in config and not 'acls_in':
+            config = re.sub('(acl_in: )(.*)', 'acls_in: [\\2]', config)
         conf_file = self.create_config_file(config)
         if before_function:
             before_function()
@@ -54,21 +57,11 @@ class TestConfig(unittest.TestCase):
         """Ensure config parsing reported as failed."""
         self.assertEqual(
             self.run_function_with_config(config, function, before_function), False)
-        # Check acls_in work now acl_in is deprecated, TODO remove in future
-        if isinstance(config, str) and "acl_in" in config and not "acls_in" in config:
-            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
-            self.assertEqual(
-                self.run_function_with_config(acls_cfg, function, before_function), False)
 
     def check_config_success(self, config, function, before_function=None):
         """Ensure config parsing reported succeeded."""
         self.assertEqual(
             self.run_function_with_config(config, function, before_function), True)
-        # Check acls_in work now acl_in is deprecated, TODO remove in future
-        if "acl_in" in config and not "acls_in" in config:
-            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
-            self.assertEqual(
-                self.run_function_with_config(acls_cfg, function, before_function), True)
 
     def test_config_contains_only_int(self):
         """Test that config is invalid when only an int"""
@@ -1747,6 +1740,28 @@ vlans:
         bgp_as: 1
         bgp_routerid: '1.1.1.1'
         bgp_neighbor_addresses: ['127.0.0.1']
+        bgp_neighbor_as: 2
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_failure(bgp_config, cp.dp_parser)
+
+    def test_bgp_neighbor_invalid(self):
+        """Test invalid BGP server address."""
+        bgp_config = """
+vlans:
+    100:
+        description: "100"
+        bgp_port: 9179
+        bgp_server_addresses: ['127.0.0.1']
+        bgp_as: 1
+        bgp_routerid: '1.1.1.1'
+        bgp_neighbor_addresses: ['256.0.0.1']
         bgp_neighbor_as: 2
 dps:
     switch1:

@@ -59,7 +59,7 @@ class ValveHostManager(object):
         if entry is None:
             if port.max_hosts:
                 if port.hosts_count() == port.max_hosts:
-                    ofmsgs.append(self._temp_ban_host_learning_on_port(port))
+                    ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(in_port=port.number)))
                     port.dyn_learn_ban_count += 1
                     self.logger.info(
                         'max hosts %u reached on %s, '
@@ -69,7 +69,7 @@ class ValveHostManager(object):
             if vlan is not None and vlan.max_hosts:
                 hosts_count = vlan.hosts_count()
                 if hosts_count == vlan.max_hosts:
-                    ofmsgs.append(self._temp_ban_host_learning_on_vlan(vlan))
+                    ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(vlan=vlan)))
                     vlan.dyn_learn_ban_count += 1
                     self.logger.info(
                         'max hosts %u reached on VLAN %u, '
@@ -78,15 +78,9 @@ class ValveHostManager(object):
                             vlan.max_hosts, vlan.vid, eth_src, port))
         return ofmsgs
 
-    def _temp_ban_host_learning_on_port(self, port):
+    def _temp_ban_host_learning(self, match):
         return self.eth_src_table.flowdrop(
-            self.eth_src_table.match(in_port=port.number),
-            priority=(self.low_priority + 1),
-            hard_timeout=self.learn_ban_timeout)
-
-    def _temp_ban_host_learning_on_vlan(self, vlan):
-        return self.eth_src_table.flowdrop(
-            self.eth_src_table.match(vlan=vlan),
+            match,
             priority=(self.low_priority + 1),
             hard_timeout=self.learn_ban_timeout)
 
@@ -244,7 +238,7 @@ class ValveHostManager(object):
             # already, or newly in protect mode, apply the ban rules.
             if learn_ban:
                 port.dyn_last_ban_time = now
-                ofmsgs.append(self._temp_ban_host_learning_on_port(port))
+                ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(in_port=port.number)))
                 return (ofmsgs, cache_port)
 
         (src_rule_idle_timeout,

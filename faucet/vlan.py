@@ -515,8 +515,8 @@ class VLAN(Conf):
                 result['routes'] = [{'route': route} for route in self.routes]
             if self.faucet_vips:
                 result['faucet_vips'] = [str(vip) for vip in self.faucet_vips]
-            if self.bgp_neighbour_addresses:
-                result['bgp_neighbour_addresses'] = [str(vip) for vip in self.bgp_neighbour_addresses]
+            if self.bgp_neighbor_addresses:
+                result['bgp_neighbor_addresses'] = [str(vip) for vip in self.bgp_neighbor_addresses]
             if self.bgp_server_addresses:
                 result['bgp_server_addresses'] = [str(vip) for vip in self.bgp_server_addresses]
             if 'bgp_neighbor_as' in result:
