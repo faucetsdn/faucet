@@ -1370,7 +1370,7 @@ acls:
             msg='Packet not allowed by ACL')
 
 
-class ValveStackTestCase(ValveTestBase):
+class ValveRootStackTestCase(ValveTestBase):
     """Test stacking/forwarding."""
 
     DP = 's3'
