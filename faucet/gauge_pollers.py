@@ -94,7 +94,9 @@ class GaugePoller(object):
         self._update()
 
     def _update(self):
-        raise NotImplementedError # pragma: no cover
+        # TODO: this should be implemented by subclasses instead of having a
+        # super call to update
+        pass
 
     def _stat_port_name(self, msg, stat, dp_id):
         """Return port name as string based on port number."""
