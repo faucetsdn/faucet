@@ -29,6 +29,7 @@ import shutil
 import socket
 import time
 
+from ryu.controller import dpset
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, lldp, slow, packet, vlan
@@ -422,6 +423,7 @@ vlans:
         self.table.apply_ofmsgs(self.valve.datapath_connect(time.time(), discovered_ports))
         for port in discovered_ports:
             self.set_port_up(port.port_no)
+        self.assertTrue(self.valve.dp.to_conf())
 
     def set_port_down(self, port_no):
         """Set port status of port to down."""
@@ -518,19 +520,20 @@ vlans:
                     in_port.hairpin, hairpin_output))
 
             # Packet must be flooded to all ports on the VLAN.
-            for port in valve_vlan.get_ports():
-                output = _verify_flood_to_port(match, port, valve_vlan)
-                if port == in_port:
-                    self.assertNotEqual(
-                        combinatorial_port_flood, output,
-                        msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
-                            output, combinatorial_port_flood))
-                    continue
-                self.assertTrue(
-                    output,
-                    msg=('%s with unknown eth_dst not flooded'
-                         ' on VLAN %u to port %u' % (
-                             match, valve_vlan.vid, port.number)))
+            if not self.valve.dp.stack or 'priority' in self.valve.dp.stack:
+                for port in valve_vlan.get_ports():
+                    output = _verify_flood_to_port(match, port, valve_vlan)
+                    if port == in_port:
+                        self.assertNotEqual(
+                            combinatorial_port_flood, output,
+                            msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
+                                output, combinatorial_port_flood))
+                        continue
+                    self.assertTrue(
+                        output,
+                        msg=('%s with unknown eth_dst not flooded'
+                             ' on VLAN %u to port %u' % (
+                                 match, valve_vlan.vid, port.number)))
 
             # Packet must not be flooded to ports not on the VLAN.
             for port in remaining_ports:
@@ -1368,7 +1371,7 @@ acls:
             msg='Packet not allowed by ACL')
 
 
-class ValveStackTestCase(ValveTestBase):
+class ValveRootStackTestCase(ValveTestBase):
     """Test stacking/forwarding."""
 
     DP = 's3'
@@ -1765,6 +1768,12 @@ vlans:
 class RyuAppSmokeTest(unittest.TestCase):
     """Test bare instantiation of controller classes."""
 
+    def _fake_dp(self):
+        datapath = namedtuple('datapath', 'id')
+        datapath.id = 0
+        datapath.close = lambda: None
+        return datapath
+
     def test_faucet(self):
         """Test FAUCET can be initialized."""
         os.environ['FAUCET_CONFIG'] = '/dev/null'
@@ -1779,6 +1788,10 @@ class RyuAppSmokeTest(unittest.TestCase):
         ryu_app.metric_update(None)
         ryu_app.get_config()
         ryu_app.get_tables(0)
+        event_dp = dpset.EventDPReconnected(dp=self._fake_dp())
+        for enter in (True, False):
+            event_dp.enter = enter
+            ryu_app.connect_or_disconnect_handler(event_dp)
         for event_handler in (
                 ryu_app.error_handler,
                 ryu_app.features_handler,
@@ -1789,10 +1802,8 @@ class RyuAppSmokeTest(unittest.TestCase):
                 ryu_app.reconnect_handler,
                 ryu_app._datapath_connect,
                 ryu_app._datapath_disconnect):
-            datapath = namedtuple('datapath', 'id')
-            datapath.id = 0
-            datapath.close = lambda: None
             msg = namedtuple('msg', 'datapath')
+            datapath = self._fake_dp()
             msg.datapath = datapath
             event = EventOFPMsgBase(msg=msg)
             event.dp = datapath
