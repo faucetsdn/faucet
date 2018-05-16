@@ -1751,6 +1751,28 @@ dps:
 """
         self.check_config_failure(bgp_config, cp.dp_parser)
 
+    def test_bgp_neighbor_invalid(self):
+        """Test invalid BGP server address."""
+        bgp_config = """
+vlans:
+    100:
+        description: "100"
+        bgp_port: 9179
+        bgp_server_addresses: ['127.0.0.1']
+        bgp_as: 1
+        bgp_routerid: '1.1.1.1'
+        bgp_neighbor_addresses: ['256.0.0.1']
+        bgp_neighbor_as: 2
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_failure(bgp_config, cp.dp_parser)
+
     def test_unknown_vlan_key(self):
         """Test unknown VLAN key."""
         config = """
