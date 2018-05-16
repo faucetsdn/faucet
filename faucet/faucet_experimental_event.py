@@ -29,6 +29,7 @@
 import json
 import os
 import socket
+import threading
 import time
 from contextlib import contextmanager
 
@@ -60,9 +61,10 @@ class NonBlockLock(object):
 class FaucetExperimentalEventNotifier(object):
     """Event notification, via Unix domain socket."""
 
-    def __init__(self, socket_path, metrics, logger):
+    def __init__(self, socket_path, metrics, logger, test_thread=False):
         self.metrics = metrics
         self.logger = logger
+        self.test_thread = test_thread
         self.event_id = 0
         self.thread = None
         self.lock = NonBlockLock()
@@ -72,8 +74,11 @@ class FaucetExperimentalEventNotifier(object):
     def start(self):
         """Start socket server."""
         if self.socket_path:
-            self.thread = hub.spawn(
-                StreamServer((self.socket_path, None), self._loop).serve_forever)
+            stream_server = StreamServer((self.socket_path, None), self._loop).serve_forever
+            if self.test_thread:
+                self.thread = threading.Thread(target=stream_server)
+            else:
+                self.thread = hub.spawn(stream_server)
             return self.thread
         return None
 

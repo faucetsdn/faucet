@@ -345,7 +345,7 @@ vlans:
         self.metrics = faucet_metrics.FaucetMetrics(reg=self.registry) # pylint: disable=unexpected-keyword-arg
         # TODO: verify events
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
-            self.faucet_event_sock, self.metrics, self.logger)
+            self.faucet_event_sock, self.metrics, self.logger, test_thread=True)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
         self.valves_manager = valves_manager.ValvesManager(
             self.LOGNAME, self.logger, self.metrics, self.notifier,
