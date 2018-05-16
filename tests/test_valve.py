@@ -29,6 +29,7 @@ import shutil
 import socket
 import time
 
+from ryu.controller import dpset
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
 from ryu.lib.packet import arp, ethernet, icmp, icmpv6, ipv4, ipv6, lldp, slow, packet, vlan
@@ -1765,6 +1766,12 @@ vlans:
 class RyuAppSmokeTest(unittest.TestCase):
     """Test bare instantiation of controller classes."""
 
+    def _fake_dp(self):
+        datapath = namedtuple('datapath', 'id')
+        datapath.id = 0
+        datapath.close = lambda: None
+        return datapath
+
     def test_faucet(self):
         """Test FAUCET can be initialized."""
         os.environ['FAUCET_CONFIG'] = '/dev/null'
@@ -1779,6 +1786,10 @@ class RyuAppSmokeTest(unittest.TestCase):
         ryu_app.metric_update(None)
         ryu_app.get_config()
         ryu_app.get_tables(0)
+        event_dp = dpset.EventDPReconnected(dp=self._fake_dp())
+        for enter in (True, False):
+            event_dp.enter = enter
+            ryu_app.reconnect_handler(event_dp)
         for event_handler in (
                 ryu_app.error_handler,
                 ryu_app.features_handler,
@@ -1789,10 +1800,8 @@ class RyuAppSmokeTest(unittest.TestCase):
                 ryu_app.reconnect_handler,
                 ryu_app._datapath_connect,
                 ryu_app._datapath_disconnect):
-            datapath = namedtuple('datapath', 'id')
-            datapath.id = 0
-            datapath.close = lambda: None
             msg = namedtuple('msg', 'datapath')
+            datapath = self._fake_dp()
             msg.datapath = datapath
             event = EventOFPMsgBase(msg=msg)
             event.dp = datapath
