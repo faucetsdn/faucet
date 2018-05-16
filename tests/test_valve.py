@@ -573,12 +573,11 @@ vlans:
             'of_packet_ins')
         rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
-        resolve_ofmsgs = self.valve.resolve_gateways(now)
-        self.table.apply_ofmsgs(resolve_ofmsgs)
-        self.valve.advertise(now)
-        self.valve.state_expire(now)
+        for valve_service in ('resolve_gateways', 'advertise', 'send_lldp_beacons', 'state_expire'):
+            ofmsgs = self.valves_manager.valve_flow_services(now, valve_service)
+            if ofmsgs:
+                self.table.apply_ofmsgs(ofmsgs)
         self.valves_manager.update_metrics(now)
-        self.bgp.update_metrics(now)
         return rcv_packet_ofmsgs
 
 
