@@ -837,7 +837,7 @@ class ValveTestBases:
             for match in matches:
                 self.assertFalse(
                     self.table.is_output(match),
-                    msg="Packets with incorrect vlan tags are output")
+                    msg='Packets with incorrect vlan tags are output')
 
         def test_unknown_eth_src(self):
             """Test that packets from unknown macs are sent to controller.
@@ -1671,44 +1671,8 @@ vlans:
 class ValveReloadConfigTestCase(ValveTestBases.ValveTestBig):
     """Repeats the tests after a config reload."""
 
-    OLD_CONFIG = """
-version: 2
-dps:
-    s1:
-        hardware: 'Open vSwitch'
-%s
-        interfaces:
-            p1:
-                number: 1
-                tagged_vlans: [v100, v200]
-            p2:
-                number: 2
-                native_vlan: v100
-            p3:
-                number: 3
-                tagged_vlans: [v100, v200]
-            p4:
-                number: 4
-                tagged_vlans: [v200]
-            p5:
-                number: 5
-                native_vlan: v300
-            p6:
-                number: 6
-                native_vlan: v400
-vlans:
-    v100:
-        vid: 0x100
-    v200:
-        vid: 0x200
-    v300:
-        vid: 0x300
-    v400:
-        vid: 0x400
-""" % DP1_CONFIG
-
     def setUp(self):
-        self.setup_valve(self.OLD_CONFIG)
+        super(ValveReloadConfigTestCase, self).setUp()
         self.flap_port(1)
         self.update_config(CONFIG)
 
