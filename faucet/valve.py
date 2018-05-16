@@ -1192,7 +1192,8 @@ class Valve(object):
         restart_type = 'none'
         if self.dp.running:
             if cold_start:
-                ofmsgs = self.datapath_connect(now, [])
+                # Need to reprovision pipeline on cold start.
+                ofmsgs = self.switch_features(None) + self.datapath_connect(now, [])
             if ofmsgs:
                 if cold_start:
                     self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
