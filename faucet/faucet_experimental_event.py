@@ -79,16 +79,19 @@ class FaucetExperimentalEventNotifier(object):
 
     def _loop(self, sock, _addr):
         """Serve events."""
-        with self.lock.acquire_nonblock():
-            self.logger.info('event client connected')
-            while True:
-                event = self.event_q.get()
-                event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
-                try:
-                    sock.sendall(event_bytes)
-                except (socket.error, IOError) as err:
-                    self.logger.info('event client disconnected: %s', err)
-                    break
+        with self.lock.acquire_nonblock() as result:
+            if not result:
+                self.logger.info('multiple event clients not supported')
+            else:
+                self.logger.info('event client connected')
+                while True:
+                    event = self.event_q.get()
+                    event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
+                    try:
+                        sock.sendall(event_bytes)
+                    except (socket.error, IOError) as err:
+                        self.logger.info('event client disconnected: %s', err)
+                        break
         try:
             sock.close()
         except (socket.error, IOError):
