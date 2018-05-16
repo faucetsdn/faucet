@@ -252,7 +252,7 @@ class Faucet(RyuAppBase):
             return
         self._send_flow_msgs(valve, valve.switch_features(msg), ryu_dp=ryu_dp)
 
-    # @kill_on_exception(exc_logname)
+    @kill_on_exception(exc_logname)
     def _datapath_connect(self, ryu_event):
         """Handle any/all re/connection of a datapath.
 
@@ -266,7 +266,7 @@ class Faucet(RyuAppBase):
             port for port in list(ryu_dp.ports.values()) if not valve_of.ignore_port(port.port_no)]
         self._send_flow_msgs(valve, valve.datapath_connect(time.time(), discovered_ports))
 
-    # @kill_on_exception(exc_logname)
+    @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_event):
         """Handle any/all disconnection of a datapath.
 
