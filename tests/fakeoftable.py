@@ -273,7 +273,7 @@ class FakeOFTable(object):
         string = ''
         for table_id, table in enumerate(self.tables):
             string += '----- Table %u -----\n' % (table_id)
-            string += '\n'.join([flowmod for flowmod in table])
+            string += '\n'.join([str(flowmod) for flowmod in table])
         return string
 
     def sort_tables(self):
