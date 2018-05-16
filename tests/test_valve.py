@@ -520,19 +520,20 @@ vlans:
                     in_port.hairpin, hairpin_output))
 
             # Packet must be flooded to all ports on the VLAN.
-            for port in valve_vlan.get_ports():
-                output = _verify_flood_to_port(match, port, valve_vlan)
-                if port == in_port:
-                    self.assertNotEqual(
-                        combinatorial_port_flood, output,
-                        msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
-                            output, combinatorial_port_flood))
-                    continue
-                self.assertTrue(
-                    output,
-                    msg=('%s with unknown eth_dst not flooded'
-                         ' on VLAN %u to port %u' % (
-                             match, valve_vlan.vid, port.number)))
+            if not self.valve.dp.stack or 'priority' in self.valve.dp.stack:
+                for port in valve_vlan.get_ports():
+                    output = _verify_flood_to_port(match, port, valve_vlan)
+                    if port == in_port:
+                        self.assertNotEqual(
+                            combinatorial_port_flood, output,
+                            msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
+                                output, combinatorial_port_flood))
+                        continue
+                    self.assertTrue(
+                        output,
+                        msg=('%s with unknown eth_dst not flooded'
+                             ' on VLAN %u to port %u' % (
+                                 match, valve_vlan.vid, port.number)))
 
             # Packet must not be flooded to ports not on the VLAN.
             for port in remaining_ports:
