@@ -41,6 +41,9 @@ class TestConfig(unittest.TestCase):
 
     def run_function_with_config(self, config, function, before_function=None):
         """Return False if provided function raises InvalidConfigError."""
+        # TODO: Check acls_in work now acl_in is deprecated
+        if isinstance(config, str) and 'acl_in' in config and not 'acls_in':
+            config = re.sub('(acl_in: )(.*)', 'acls_in: [\\2]', config)
         conf_file = self.create_config_file(config)
         if before_function:
             before_function()
@@ -54,21 +57,11 @@ class TestConfig(unittest.TestCase):
         """Ensure config parsing reported as failed."""
         self.assertEqual(
             self.run_function_with_config(config, function, before_function), False)
-        # Check acls_in work now acl_in is deprecated, TODO remove in future
-        if isinstance(config, str) and "acl_in" in config and not "acls_in" in config:
-            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
-            self.assertEqual(
-                self.run_function_with_config(acls_cfg, function, before_function), False)
 
     def check_config_success(self, config, function, before_function=None):
         """Ensure config parsing reported succeeded."""
         self.assertEqual(
             self.run_function_with_config(config, function, before_function), True)
-        # Check acls_in work now acl_in is deprecated, TODO remove in future
-        if "acl_in" in config and not "acls_in" in config:
-            acls_cfg = re.sub("(acl_in: )(.*)", "acls_in: [\\2]", config)
-            self.assertEqual(
-                self.run_function_with_config(acls_cfg, function, before_function), True)
 
     def test_config_contains_only_int(self):
         """Test that config is invalid when only an int"""
