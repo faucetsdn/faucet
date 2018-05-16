@@ -18,6 +18,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 from functools import partial
 
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -140,7 +142,7 @@ class Faucet(RyuAppBase):
         """Handle a request to reload configuration."""
         super(Faucet, self).reload_config(ryu_event)
         self.valves_manager.request_reload_configs(
-            self.config_file, delete_dp=self._delete_deconfigured_dp)
+            time.time(), self.config_file, delete_dp=self._delete_deconfigured_dp)
 
     @kill_on_exception(exc_logname)
     def _send_flow_msgs(self, valve, flow_msgs, ryu_dp=None):
@@ -183,7 +185,7 @@ class Faucet(RyuAppBase):
     @kill_on_exception(exc_logname)
     def metric_update(self, _):
         """Handle a request to update metrics in the controller."""
-        self.valves_manager.update_metrics()
+        self.valves_manager.update_metrics(time.time())
 
     @set_ev_cls(EventFaucetResolveGateways, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
@@ -193,6 +195,7 @@ class Faucet(RyuAppBase):
     def _valve_flow_services(self, ryu_event):
         """Call a method on all Valves and send any resulting flows."""
         self.valves_manager.valve_flow_services(
+            time.time(),
             self._VALVE_SERVICES[type(ryu_event)][0])
 
     def get_config(self):
@@ -216,12 +219,12 @@ class Faucet(RyuAppBase):
         valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
-        if valve.rate_limit_packet_ins():
+        if valve.rate_limit_packet_ins(ryu_event.timestamp):
             return
         pkt_meta = valve.parse_pkt_meta(msg)
         if pkt_meta is None:
             return
-        self.valves_manager.valve_packet_in(valve, pkt_meta)
+        self.valves_manager.valve_packet_in(ryu_event.timestamp, valve, pkt_meta)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -261,7 +264,7 @@ class Faucet(RyuAppBase):
             return
         discovered_ports = [
             port for port in list(ryu_dp.ports.values()) if not valve_of.ignore_port(port.port_no)]
-        self._send_flow_msgs(valve, valve.datapath_connect(discovered_ports))
+        self._send_flow_msgs(valve, valve.datapath_connect(time.time(), discovered_ports))
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_event):
@@ -270,7 +273,7 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.Event)
         """
-        valve, _, _ = self._get_valve( ryu_event)
+        valve, _, _ = self._get_valve(ryu_event)
         if valve is None:
             return
         valve.datapath_disconnect()
@@ -314,4 +317,4 @@ class Faucet(RyuAppBase):
         if valve is None:
             return
         if msg.reason == ryu_dp.ofproto.OFPRR_IDLE_TIMEOUT:
-            self._send_flow_msgs(valve, valve.flow_timeout(msg.table_id, msg.match))
+            self._send_flow_msgs(valve, valve.flow_timeout(time.time(), msg.table_id, msg.match))

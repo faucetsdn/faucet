@@ -27,6 +27,7 @@ import unittest
 import tempfile
 import shutil
 import socket
+import time
 
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
@@ -279,6 +280,7 @@ routers:
 vlans:
     v100:
         vid: 0x100
+        targeted_gw_resolution: True
         faucet_vips: ['10.0.0.254/24']
         routes:
             - route:
@@ -394,7 +396,7 @@ vlans:
         if existing_config:
             self.assertTrue(self.valves_manager.config_watcher.files_changed())
         self.last_flows_to_dp[self.DP_ID] = []
-        self.valves_manager.request_reload_configs(self.config_file)
+        self.valves_manager.request_reload_configs(time.time(), self.config_file)
         self.valve = self.valves_manager.valves[self.DP_ID]
         if self.DP_ID in self.last_flows_to_dp:
             reload_ofmsgs = self.last_flows_to_dp[self.DP_ID]
@@ -417,7 +419,7 @@ vlans:
                 curr_speed=1e6,
                 max_speed=1e6)
             discovered_ports.append(ofpport)
-        self.table.apply_ofmsgs(self.valve.datapath_connect(discovered_ports))
+        self.table.apply_ofmsgs(self.valve.datapath_connect(time.time(), discovered_ports))
         for port in discovered_ports:
             self.set_port_up(port.port_no)
 
@@ -468,6 +470,14 @@ vlans:
                 'ipv4_src': '10.0.0.3',
                 'ipv4_dst': '10.0.0.4',
                 'vid': 0x200})
+
+    def verify_expiry(self):
+        now = time.time()
+        for _ in range(self.valve.dp.max_host_fib_retry_count + 1):
+            now += (self.valve.dp.timeout * 2)
+            self.valve.state_expire(now)
+            self.valve.resolve_gateways(now)
+        # TODO: verify state expired
 
     def verify_flooding(self, matches):
         """Verify flooding for a packet, depending on the DP implementation."""
@@ -554,17 +564,18 @@ vlans:
         pkt_meta = self.valve.parse_pkt_meta(msg)
         self.assertTrue(pkt_meta, msg=pkt)
         self.last_flows_to_dp[self.DP_ID] = []
+        now = time.time()
         self.prom_inc(
-            partial(self.valves_manager.valve_packet_in, self.valve, pkt_meta),
+            partial(self.valves_manager.valve_packet_in, now, self.valve, pkt_meta),
             'of_packet_ins')
         rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
         self.table.apply_ofmsgs(rcv_packet_ofmsgs)
-        resolve_ofmsgs = self.valve.resolve_gateways()
+        resolve_ofmsgs = self.valve.resolve_gateways(now)
         self.table.apply_ofmsgs(resolve_ofmsgs)
-        self.valve.advertise()
-        self.valve.state_expire()
-        self.valves_manager.update_metrics()
-        self.bgp.update_metrics()
+        self.valve.advertise(now)
+        self.valve.state_expire(now)
+        self.valves_manager.update_metrics(now)
+        self.bgp.update_metrics(now)
         return rcv_packet_ofmsgs
 
 
@@ -758,6 +769,7 @@ class ValveTestCase(ValveTestBase):
         # We want to know this host was learned we did not get packet outs.
         self.assertTrue(fib_route_replies)
         self.assertFalse(self.packet_outs_from_flows(fib_route_replies))
+        self.verify_expiry()
 
     def test_host_ipv6_fib_route(self):
         """Test learning a FIB rule for an IPv6 host."""
@@ -973,6 +985,7 @@ class ValveTestCase(ValveTestBase):
                     self.table.is_output(match, port=port),
                     msg=('packet %s output to incorrect port %u when eth_dst '
                          'is known' % (match, port)))
+        self.verify_expiry()
 
     def test_mac_learning_vlan_separation(self):
         """Test that when a mac is seen on a second vlan the original vlan
@@ -1157,7 +1170,7 @@ meters:
     def test_lldp_beacon(self):
         """Test LLDP beacon service."""
         # TODO: verify LLDP packet content.
-        self.assertTrue(self.valve.send_lldp_beacons())
+        self.assertTrue(self.valve.send_lldp_beacons(time.time()))
 
     def test_unknown_port(self):
         """Test port status change for unknown port handled."""
@@ -1210,8 +1223,9 @@ meters:
 
     def test_packet_in_rate(self):
         """Test packet in rate limit triggers."""
+        now = time.time()
         for _ in range(self.valve.dp.ignore_learn_ins * 2 + 1):
-            if self.valve.rate_limit_packet_ins():
+            if self.valve.rate_limit_packet_ins(now):
                 return
         self.fail('packet in rate limit not triggered')
 
@@ -1354,54 +1368,6 @@ acls:
             msg='Packet not allowed by ACL')
 
 
-class ValveReloadConfigTestCase(ValveTestCase):
-    """Repeats the tests after a config reload."""
-
-    OLD_CONFIG = """
-version: 2
-dps:
-    s1:
-        hardware: 'Open vSwitch'
-%s
-        interfaces:
-            p1:
-                number: 1
-                tagged_vlans: [v100, v200]
-            p2:
-                number: 2
-                native_vlan: v100
-            p3:
-                number: 3
-                tagged_vlans: [v100, v200]
-            p4:
-                number: 4
-                tagged_vlans: [v200]
-            p5:
-                number: 5
-                native_vlan: v300
-            p6:
-                number: 6
-                native_vlan: v400
-vlans:
-    v100:
-        vid: 0x100
-    v200:
-        vid: 0x200
-    v300:
-        vid: 0x300
-    v400:
-        vid: 0x400
-""" % DP1_CONFIG
-
-    def setUp(self):
-        self.setup_valve(self.OLD_CONFIG)
-        self.flap_port(1)
-        self.update_config(self.CONFIG)
-
-    def tearDown(self):
-        self.teardown_valve()
-
-
 class ValveStackTestCase(ValveTestBase):
     """Test stacking/forwarding."""
 
@@ -1436,80 +1402,6 @@ class ValveStackTestCase(ValveTestBase):
                 'eth_src': self.P1_V300_MAC
             }]
         self.verify_flooding(matches)
-
-
-class ValveMirrorTestCase(ValveTestCase):
-    """Test ACL and interface mirroring."""
-    # TODO: check mirror packets are present/correct
-
-    CONFIG = """
-acls:
-    mirror_ospf:
-        - rule:
-            nw_dst: '224.0.0.5'
-            dl_type: 0x800
-            actions:
-                mirror: p5
-                allow: 1
-        - rule:
-            actions:
-                allow: 1
-dps:
-    s1:
-        hardware: 'GenericTFM'
-%s
-        interfaces:
-            p1:
-                number: 1
-                native_vlan: v100
-                lldp_beacon:
-                    enable: True
-                    system_name: "faucet"
-                    port_descr: "first_port"
-                acls_in: [mirror_ospf]
-            p2:
-                number: 2
-                native_vlan: v200
-                tagged_vlans: [v100]
-            p3:
-                number: 3
-                tagged_vlans: [v100, v200]
-            p4:
-                number: 4
-                tagged_vlans: [v200]
-            p5:
-                number: 5
-                output_only: True
-                mirror: 4
-vlans:
-    v100:
-        vid: 0x100
-        faucet_vips: ['10.0.0.254/24']
-        routes:
-            - route:
-                ip_dst: 10.99.99.0/24
-                ip_gw: 10.0.0.1
-            - route:
-                ip_dst: 10.99.98.0/24
-                ip_gw: 10.0.0.99
-    v200:
-        vid: 0x200
-        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
-        bgp_port: 9179
-        bgp_server_addresses: ['127.0.0.1']
-        bgp_as: 1
-        bgp_routerid: '1.1.1.1'
-        bgp_neighbor_addresses: ['127.0.0.1']
-        bgp_neighbor_as: 2
-        bgp_connect_mode: 'passive'
-        routes:
-            - route:
-                ip_dst: 'fc00::10:0/112'
-                ip_gw: 'fc00::1:1'
-            - route:
-                ip_dst: 'fc00::20:0/112'
-                ip_gw: 'fc00::1:99'
-""" % DP1_CONFIG
 
 
 class ValveGroupRoutingTestCase(ValveTestBase):
@@ -1687,10 +1579,12 @@ vlans:
         self.learn_hosts()
         self.assertTrue(
             self.valve.flow_timeout(
+                time.time(),
                 self.valve.dp.tables['eth_dst'].table_id,
                 {'vlan_vid': self.V100, 'eth_dst': self.P1_V100_MAC}))
         self.assertFalse(
             self.valve.flow_timeout(
+                time.time(),
                 self.valve.dp.tables['eth_src'].table_id,
                 {'vlan_vid': self.V100, 'in_port': 1, 'eth_src': self.P1_V100_MAC}))
 
@@ -1736,12 +1630,136 @@ vlans:
         self.teardown_valve()
 
     def test_lacp(self):
+        # TODO: verify LACP state
         self.rcv_packet(1, 0, {
             'actor_system': '0e:00:00:00:00:02',
             'partner_system': FAUCET_MAC,
             'eth_dst': slow.SLOW_PROTOCOL_MULTICAST,
             'eth_src': '0e:00:00:00:00:02'})
         self.learn_hosts()
+        self.verify_expiry()
+
+
+class ValveReloadConfigTestCase(ValveTestCase):
+    """Repeats the tests after a config reload."""
+
+    OLD_CONFIG = """
+version: 2
+dps:
+    s1:
+        hardware: 'Open vSwitch'
+%s
+        interfaces:
+            p1:
+                number: 1
+                tagged_vlans: [v100, v200]
+            p2:
+                number: 2
+                native_vlan: v100
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                native_vlan: v300
+            p6:
+                number: 6
+                native_vlan: v400
+vlans:
+    v100:
+        vid: 0x100
+    v200:
+        vid: 0x200
+    v300:
+        vid: 0x300
+    v400:
+        vid: 0x400
+""" % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.OLD_CONFIG)
+        self.flap_port(1)
+        self.update_config(self.CONFIG)
+
+    def tearDown(self):
+        self.teardown_valve()
+
+
+class ValveMirrorTestCase(ValveTestCase):
+    """Test ACL and interface mirroring."""
+    # TODO: check mirror packets are present/correct
+
+    CONFIG = """
+acls:
+    mirror_ospf:
+        - rule:
+            nw_dst: '224.0.0.5'
+            dl_type: 0x800
+            actions:
+                mirror: p5
+                allow: 1
+        - rule:
+            actions:
+                allow: 1
+dps:
+    s1:
+        hardware: 'GenericTFM'
+%s
+        interfaces:
+            p1:
+                number: 1
+                native_vlan: v100
+                lldp_beacon:
+                    enable: True
+                    system_name: "faucet"
+                    port_descr: "first_port"
+                acls_in: [mirror_ospf]
+            p2:
+                number: 2
+                native_vlan: v200
+                tagged_vlans: [v100]
+            p3:
+                number: 3
+                tagged_vlans: [v100, v200]
+            p4:
+                number: 4
+                tagged_vlans: [v200]
+            p5:
+                number: 5
+                output_only: True
+                mirror: 4
+vlans:
+    v100:
+        vid: 0x100
+        faucet_vips: ['10.0.0.254/24']
+        routes:
+            - route:
+                ip_dst: 10.99.99.0/24
+                ip_gw: 10.0.0.1
+            - route:
+                ip_dst: 10.99.98.0/24
+                ip_gw: 10.0.0.99
+    v200:
+        vid: 0x200
+        faucet_vips: ['fc00::1:254/112', 'fe80::1:254/64']
+        bgp_port: 9179
+        bgp_server_addresses: ['127.0.0.1']
+        bgp_as: 1
+        bgp_routerid: '1.1.1.1'
+        bgp_neighbor_addresses: ['127.0.0.1']
+        bgp_neighbor_as: 2
+        bgp_connect_mode: 'passive'
+        routes:
+            - route:
+                ip_dst: 'fc00::10:0/112'
+                ip_gw: 'fc00::1:1'
+            - route:
+                ip_dst: 'fc00::20:0/112'
+                ip_gw: 'fc00::1:99'
+""" % DP1_CONFIG
 
 
 class RyuAppSmokeTest(unittest.TestCase):
