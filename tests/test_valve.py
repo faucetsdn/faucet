@@ -423,6 +423,7 @@ vlans:
         self.table.apply_ofmsgs(self.valve.datapath_connect(time.time(), discovered_ports))
         for port in discovered_ports:
             self.set_port_up(port.port_no)
+        self.assertTrue(self.valve.dp.to_conf())
 
     def set_port_down(self, port_no):
         """Set port status of port to down."""
