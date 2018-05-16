@@ -3376,7 +3376,8 @@ acls:
             dl_dst: "01:02:03:04:05:06"
             actions:
                 output:
-                    dl_dst: "06:06:06:06:06:06"
+                    set_fields:
+                        - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [123, 456]
                     port: acloutport
 """
@@ -3428,7 +3429,8 @@ acls:
             dl_dst: "01:02:03:04:05:06"
             actions:
                 output:
-                    dl_dst: "06:06:06:06:06:06"
+                    set_fields:
+                        - eth_dst: "06:06:06:06:06:06"
                     vlan_vids: [{vid: 123, eth_type: 0x88a8}, 456]
                     port: acloutport
 """
@@ -3838,7 +3840,8 @@ acls:
             dl_dst: "01:02:03:04:05:06"
             actions:
                 output:
-                    dl_dst: "06:06:06:06:06:06"
+                    set_fields:
+                        - eth_dst: "06:06:06:06:06:06"
                     pop_vlans: 1
                     port: acloutport
 """
@@ -5612,7 +5615,8 @@ acls:
             actions:
                 allow: 1
                 output:
-                    dl_dst: "00:00:00:00:00:03"
+                    set_fields:
+                        - eth_dst: "00:00:00:00:00:03"
         - rule:
             actions:
                 allow: 1
