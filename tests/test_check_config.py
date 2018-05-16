@@ -82,6 +82,40 @@ dps:
 """
         self.check_config_success(minimal_conf)
 
+    def test_include_optional(self):
+        """Test minimal include optional correct config."""
+        minimal_conf = """
+include-optional: ['/nonexistant']
+vlans:
+    100:
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_success(minimal_conf)
+
+    def test_include_required(self):
+        """Test minimal include optional correct config."""
+        minimal_conf = """
+include: ['/nonexistant']
+vlans:
+    100:
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_failure(minimal_conf)
+
     def test_invalid_vid(self):
         """Test invalid VID."""
         invalid_vid_conf = """
