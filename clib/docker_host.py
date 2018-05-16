@@ -35,6 +35,8 @@ def MakeDockerHost(image, prefix='mininet', startup_timeout_ms=None):
 
 class DockerHost(Host):
 
+    STARTUP_TIMEOUT_MS = 20000
+
     master = None
     shell = None
     slave = None
@@ -60,7 +62,7 @@ class DockerHost(Host):
 
 
     def __init__(self, name, image=None, tmpdir=None, prefix=None, env_vars=[],
-            vol_maps=[], startup_timeout_ms=10000, **kwargs ):
+            vol_maps=[], startup_timeout_ms=STARTUP_TIMEOUT_MS, **kwargs ):
         self.image = image
         self.tmpdir = tmpdir
         self.prefix = prefix
@@ -206,7 +208,8 @@ class DockerHost(Host):
     def read( self, maxbytes=1024 ):
         poll_results = self.pollIn.poll(self.startup_timeout_ms)
         data_ready = poll_results and (poll_results[0][1] & select.POLLIN)
-        assert data_ready, 'Timeout waiting for read data on %d' % self.stdout.fileno()
+        assert data_ready, ('Timeout waiting for read data on %d after %ds' %
+            (self.stdout.fileno(), self.startup_timeout_ms / 1000))
         return Host.read(self, maxbytes)
 
     def terminate(self):
