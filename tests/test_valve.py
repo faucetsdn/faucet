@@ -1789,7 +1789,7 @@ class RyuAppSmokeTest(unittest.TestCase):
         event_dp = dpset.EventDPReconnected(dp=self._fake_dp())
         for enter in (True, False):
             event_dp.enter = enter
-            ryu_app.reconnect_handler(event_dp)
+            ryu_app.connect_or_disconnect_handler(event_dp)
         for event_handler in (
                 ryu_app.error_handler,
                 ryu_app.features_handler,
