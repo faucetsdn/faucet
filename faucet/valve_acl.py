@@ -63,10 +63,6 @@ def build_output_actions(output_dict):
     vlan_actions = rewrite_vlan(output_dict)
     if vlan_actions:
         output_actions.extend(vlan_actions)
-    # if destination rewriting selected, rewrite it.
-    if 'dl_dst' in output_dict:
-        output_actions.append(
-            valve_of.set_eth_dst(output_dict['dl_dst']))
     if 'set_fields' in output_dict:
         for set_fields in output_dict['set_fields']:
             output_actions.append(
