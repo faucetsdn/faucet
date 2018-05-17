@@ -8,4 +8,4 @@ pbr>=1.9
 prometheus_client
 pyyaml
 ryu==4.24
-beka==0.3.2
+beka==0.3.3
