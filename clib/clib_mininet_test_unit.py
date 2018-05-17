@@ -108,7 +108,8 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         next_line = tcpdump_helper.next_line()
         self.assertTrue(re.search('%s: ICMP echo reply' % from_host.IP(), next_line), next_line)
         self.assertFalse(re.search('ICMP', tcpdump_helper.next_line()))
-        self.assertNotEqual(tcpdump_helper.terminate(), 0, 'terminate result code')
+        time.sleep(1)
+        self.assertEqual(tcpdump_helper.terminate(), 0, 'terminate result code')
 
 
 class FaucetDockerHostTest(FaucetSimpleTest):
