@@ -173,7 +173,6 @@ class ValveRouteManager(object):
             vlan, priority, faucet_vip, faucet_vip_host))
         ofmsgs.extend(self._add_faucet_fib_to_vip(
             vlan, priority, faucet_vip, faucet_vip_host))
-        self.active = True
         return ofmsgs
 
     def _add_resolved_route(self, vlan, ip_gw, ip_dst, eth_dst, is_updated):

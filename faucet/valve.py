@@ -91,8 +91,16 @@ class Valve(object):
         self.dp_init()
 
     def _skip_tables(self):
-        return [route_manager.fib_table for route_manager in self._route_manager_by_ipv.values()
-                if not route_manager.active]
+        tables = []
+        any_routing = False
+        for route_manager in list(self._route_manager_by_ipv.values()):
+            if route_manager.active:
+                any_routing = True
+            else:
+                tables.append(route_manager.fib_table)
+        if not any_routing:
+            tables.append(self.dp.tables['vip'])
+        return tables
 
     def _active_tables(self):
         return set(self.dp.all_valve_tables()) - set(self._skip_tables())
@@ -119,6 +127,7 @@ class Valve(object):
         self._route_manager_by_ipv = {}
         self._route_manager_by_eth_type = {}
         self._port_highwater = {}
+
         for vlan_vid in list(self.dp.vlans.keys()):
             self._port_highwater[vlan_vid] = {}
             for port_number in list(self.dp.ports.keys()):
@@ -135,6 +144,9 @@ class Valve(object):
                 self.dp.highest_priority, self.dp.routers,
                 self.dp.group_table_routing, self.dp.groups)
             self._route_manager_by_ipv[route_manager.IPV] = route_manager
+            for vlan in list(self.dp.vlans.values()):
+                if vlan.faucet_vips_by_ipv(route_manager.IPV):
+                    route_manager.active = True
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         if self.dp.stack:
