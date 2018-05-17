@@ -1333,7 +1333,9 @@ class TfmValve(Valve):
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         self.logger.info('loading pipeline configuration')
-        tfm = valve_of.table_features(ryu_table_loader.load_tables())
+        active_table_ids = [table.table_id for table in self._active_tables()]
+        tfm = valve_of.table_features(
+            ryu_table_loader.load_tables(active_table_ids))
         self._verify_pipeline_config(tfm)
         ofmsgs.append(tfm)
         return ofmsgs
