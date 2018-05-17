@@ -90,6 +90,13 @@ class Valve(object):
         self.notifier = notifier
         self.dp_init()
 
+    def _skip_tables(self):
+        return [route_manager.fib_table for route_manager in self._route_manager_by_ipv.values()
+                if not route_manager.active]
+
+    def _active_tables(self):
+        return set(self.dp.all_valve_tables()) - set(self._skip_tables())
+
     def close_logs(self):
         """Explicitly close any active loggers."""
         if self.logger is not None:
@@ -217,7 +224,7 @@ class Valve(object):
 
         # default drop on all tables.
         ofmsgs = []
-        for table in self.dp.all_valve_tables():
+        for table in self._active_tables():
             ofmsgs.append(table.flowdrop(priority=self.dp.lowest_priority))
 
         # drop broadcast sources
