@@ -16,6 +16,8 @@ class TcpdumpHelper():
     started = False
     last_line = None
     funcs = None
+    readbuf = None
+    blocking = True
 
     def __init__(self, tcpdump_host, tcpdump_filter, funcs=None,
             vflags='-v', timeout=10, packets=2, root_intf=False,
@@ -39,8 +41,9 @@ class TcpdumpHelper():
             stderr=subprocess.STDOUT,
             close_fds=True)
 
-        debug('tcpdump_helper stream fd %s' % self.stream().fileno())
+        debug('tcpdump_helper stream fd %s %s' % (self.stream().fileno(), self.intf_name))
 
+        self.readbuf = ''
         self.blocking(blocking)
 
     def stream(self):
@@ -49,6 +52,7 @@ class TcpdumpHelper():
     def blocking(self, blocking=True):
         fd = self.pipe.stdout.fileno()
         flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+        self.blocking = blocking
         if blocking:
             flags = flags & ~os.O_NONBLOCK
         else:
@@ -83,12 +87,32 @@ class TcpdumpHelper():
             error('Error closing tcpdump_helper fd %d: %s' % (self.pipe.stdout.fileno(), e))
             return -2
 
+    def readline(self):
+        """Replacement readline() because built-in doesn't work with non-blocking IO"""
+        fileno = self.pipe.stdout.fileno()
+        while '\n' not in self.readbuf:
+            try:
+                read = os.read(fileno, 1024)
+            except OSError as e:
+                if e.errno != errno.EAGAIN or not self.blocking:
+                    raise
+                continue
+            if len(read) == 0:
+                line = self.readbuf
+                self.readbuf = ''
+                return line
+            self.readbuf += read
+        pos = self.readbuf.find('\n') + 1
+        line = self.readbuf[0:pos]
+        self.readbuf = self.readbuf[pos:]
+        return line
+
     def next_line(self):
         while True:
             try:
-                line = self.pipe.stdout.readline()
-            except IOError as e:
-                if e.errno == errno.EWOULDBLOCK:
+                line = self.readline()
+            except OSError as e:
+                if e.errno == errno.EWOULDBLOCK or e.errno == errno.EAGAIN:
                     return None
                 raise
             assert len(line) > 0 or self.started, 'tcpdump did not start: %s' % self.last_line.strip()
