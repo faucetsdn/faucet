@@ -1038,7 +1038,7 @@ dbs:
                 self.scrape_prometheus_var(var, dpid=True, default=0))
             old_mac_table = sorted(self.scrape_prometheus_var(
                 'learned_macs', labels=vlan_labels, multiple=True, default=[]))
-            self.verify_hup_faucet()
+            self.verify_faucet_reconf()
             new_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
             new_mac_table = sorted(self.scrape_prometheus_var(
@@ -1472,7 +1472,7 @@ dbs:
             return False
         return True
 
-    def verify_hup_faucet(self, timeout=3):
+    def verify_faucet_reconf(self, timeout=3):
         """HUP and verify the HUP was processed."""
         start_configure_count = self.get_configure_count()
         self.hup_faucet()
@@ -1487,7 +1487,7 @@ dbs:
         """Force FAUCET to reload by adding new line to config file."""
         with open(self.env['faucet']['FAUCET_CONFIG'], 'a') as config_file:
             config_file.write(new_config)
-        self.verify_hup_faucet()
+        self.verify_faucet_reconf()
 
     def get_host_port_stats(self, hosts_switch_ports):
         port_stats = {}
