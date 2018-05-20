@@ -1590,7 +1590,9 @@ acls:
             yaml_acl_conf = {'acls': {1: {'exact_match': True, 'rules': rules_yaml}}}
             tuple_txt = '%u IPv%u tuples\n' % (len(rules_yaml), host_ip.version)
             error('pushing %s' % tuple_txt)
-            self.reload_conf(yaml_acl_conf, self.acl_config_file, True, False)
+            self.reload_conf(
+                yaml_acl_conf, self.acl_config_file,
+                restart=True, cold_start=False)
             error('pushed %s' % tuple_txt)
             self.wait_until_matching_flow({'tp_src': port}, table_id=0)
             rules *= 2
@@ -1737,7 +1739,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         }
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=False)
+            restart=True, cold_start=False,
+            change_expected=False)
 
     def test_tabs_are_bad(self):
         self.ping_all_when_learned()
@@ -1746,7 +1749,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.ping_all_when_learned()
         self.reload_conf(
             orig_conf, self.faucet_config_path,
-            restart=True, cold_start=False, change_expected=False)
+            restart=True, cold_start=False,
+            change_expected=False)
 
     def test_port_change_vlan(self):
         first_host, second_host = self.net.hosts[:2]
@@ -1779,7 +1783,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self.reload_conf(
             orig_conf, self.faucet_config_path,
-            True, cold_start=False, host_cache=100)
+            restart=True, cold_start=False,
+            host_cache=100)
         self.verify_tp_dst_notblocked(
             5001, first_host, second_host, table_id=None)
         self.verify_tp_dst_notblocked(
@@ -1819,7 +1824,8 @@ class FaucetDeleteConfigReloadTest(FaucetConfigReloadTestBase):
         }
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart=True, cold_start=True, change_expected=True)
+            restart=True, cold_start=True,
+            change_expected=True)
 
 
 class FaucetRouterConfigReloadTest(FaucetConfigReloadTestBase):
@@ -1833,7 +1839,8 @@ class FaucetRouterConfigReloadTest(FaucetConfigReloadTestBase):
         }
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart=True, cold_start=True, change_expected=True)
+            restart=True, cold_start=True,
+            change_expected=True)
 
 
 class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
