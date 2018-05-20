@@ -803,6 +803,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self._wait_influx_log()
         self._verify_influx_log()
 
+
 class FaucetUntaggedMultiDBWatcherTest(
         FaucetUntaggedInfluxTest, FaucetUntaggedPrometheusGaugeTest):
     GAUGE_CONFIG_DBS = """
@@ -859,6 +860,7 @@ class FaucetUntaggedMultiDBWatcherTest(
         self._wait_influx_log()
         error('_verify_influx_log')
         self._verify_influx_log()
+
 
 class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
 
@@ -1883,6 +1885,7 @@ class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):
     # Use the stat-based reload method.
     STAT_RELOAD = '1'
 
+
 class FaucetUntaggedBGPDualstackDefaultRouteTest(FaucetUntaggedTest):
     """Test IPv4 routing and import default route from BGP."""
 
@@ -1953,6 +1956,7 @@ vlans:
         self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
         self.one_ipv4_controller_ping(first_host)
         self.coldstart_conf()
+
 
 class FaucetUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
     """Test IPv4 routing and import default route from BGP."""
