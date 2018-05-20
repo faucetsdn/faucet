@@ -1502,7 +1502,7 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
             self._configure_count_with_retry(i)
             with open(self.faucet_config_path, 'a') as config_file:
                 config_file.write('\n')
-            self.verify_faucet_reconf()
+            self.verify_faucet_reconf(change_expected=False)
             self._configure_count_with_retry(i+1)
             self.assertEqual(
                 self.scrape_prometheus_var(
@@ -5387,7 +5387,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
             config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
-        self.verify_faucet_reconf()
+        self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
 
     def test_port5002_notblocked(self):
@@ -5397,7 +5397,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.verify_tp_dst_blocked(5002, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
             config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
-        self.verify_faucet_reconf()
+        self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 

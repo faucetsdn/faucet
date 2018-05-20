@@ -1033,22 +1033,7 @@ dbs:
             vlan_labels = dict(vlan=host_cache)
             old_mac_table = sorted(self.scrape_prometheus_var(
                 'learned_macs', labels=vlan_labels, multiple=True, default=[]))
-            var = 'faucet_config_reload_warm'
-            if cold_start:
-                var = 'faucet_config_reload_cold'
-            old_count = int(
-                self.scrape_prometheus_var(var, dpid=True, default=0))
             self.verify_faucet_reconf()
-            new_count = int(
-                self.scrape_prometheus_var(var, dpid=True, default=0))
-            if change_expected:
-                self.assertEqual(
-                    old_count + 1, new_count,
-                    msg='%s did not increment: %u' % (var, new_count))
-            else:
-                self.assertEqual(
-                    old_count, new_count,
-                    msg='%s incremented: %u' % (var, new_count))
             if host_cache:
                 new_mac_table = sorted(self.scrape_prometheus_var(
                     'learned_macs', labels=vlan_labels, multiple=True, default=[]))
@@ -1472,22 +1457,38 @@ dbs:
             return False
         return True
 
-    def verify_faucet_reconf(self, timeout=3):
+    def verify_faucet_reconf(self, timeout=3, cold_start=True, change_expected=True):
         """HUP and verify the HUP was processed."""
+        var = 'faucet_config_reload_warm'
+        if cold_start:
+            var = 'faucet_config_reload_cold'
+        old_count = int(
+            self.scrape_prometheus_var(var, dpid=True, default=0))
         start_configure_count = self.get_configure_count()
         self.hup_faucet()
         for _ in range(timeout):
             configure_count = self.get_configure_count()
             if configure_count > start_configure_count:
-                return
+                break
             time.sleep(1)
-        self.fail('HUP not processed by FAUCET')
+        self.assertNotEqual(
+            start_configure_count, configure_count, 'HUP not processed by FAUCET')
+        new_count = int(
+            self.scrape_prometheus_var(var, dpid=True, default=0))
+        if change_expected:
+            self.assertEqual(
+                old_count + 1, new_count,
+                msg='%s did not increment: %u' % (var, new_count))
+        else:
+            self.assertEqual(
+                old_count, new_count,
+                msg='%s incremented: %u' % (var, new_count))
 
     def force_faucet_reload(self, new_config):
         """Force FAUCET to reload by adding new line to config file."""
         with open(self.env['faucet']['FAUCET_CONFIG'], 'a') as config_file:
             config_file.write(new_config)
-        self.verify_faucet_reconf()
+        self.verify_faucet_reconf(cold_start=True, change_expected=True)
 
     def get_host_port_stats(self, hosts_switch_ports):
         port_stats = {}
