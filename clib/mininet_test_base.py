@@ -1030,28 +1030,17 @@ dbs:
             with open(conf_path, 'w') as config_file:
                 config_file.write(yaml.dump(yaml_conf))
         if restart:
+            vlan_labels = dict(vlan=host_cache)
+            old_mac_table = sorted(self.scrape_prometheus_var(
+                'learned_macs', labels=vlan_labels, multiple=True, default=[]))
             var = 'faucet_config_reload_warm'
             if cold_start:
                 var = 'faucet_config_reload_cold'
-            vlan_labels = dict(vlan=host_cache)
             old_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
-            old_mac_table = sorted(self.scrape_prometheus_var(
-                'learned_macs', labels=vlan_labels, multiple=True, default=[]))
             self.verify_faucet_reconf()
             new_count = int(
                 self.scrape_prometheus_var(var, dpid=True, default=0))
-            new_mac_table = sorted(self.scrape_prometheus_var(
-                'learned_macs', labels=vlan_labels, multiple=True, default=[]))
-            if host_cache:
-                self.assertFalse(
-                    cold_start, msg='host cache is not maintained with cold start')
-                self.assertTrue(
-                    new_mac_table, msg='no host cache for vlan %u' % host_cache)
-                self.assertEqual(
-                    old_mac_table, new_mac_table,
-                    msg='host cache for vlan %u not same over reload (old %s, new %s)' % (
-                        host_cache, old_mac_table, new_mac_table))
             if change_expected:
                 self.assertEqual(
                     old_count + 1, new_count,
@@ -1060,6 +1049,17 @@ dbs:
                 self.assertEqual(
                     old_count, new_count,
                     msg='%s incremented: %u' % (var, new_count))
+            if host_cache:
+                new_mac_table = sorted(self.scrape_prometheus_var(
+                    'learned_macs', labels=vlan_labels, multiple=True, default=[]))
+                self.assertFalse(
+                    cold_start, msg='host cache is not maintained with cold start')
+                self.assertTrue(
+                    new_mac_table, msg='no host cache for vlan %u' % host_cache)
+                self.assertEqual(
+                    old_mac_table, new_mac_table,
+                    msg='host cache for vlan %u not same over reload (old %s, new %s)' % (
+                        host_cache, old_mac_table, new_mac_table))
 
     def coldstart_conf(self):
         with open(self.faucet_config_path) as orig_conf_file:
