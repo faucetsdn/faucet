@@ -39,13 +39,15 @@ class QuietHTTPServer(HTTPServer):
     allow_reuse_address = True
     timeout = None
 
-    def handle_error(self, _request, _client_address):
+    @staticmethod
+    def handle_error(_request, _client_address):
         return
 
 
 class PostHandler(SimpleHTTPRequestHandler):
 
-    def log_message(self, _format, *_args):
+    @staticmethod
+    def log_message(_format, *_args):
         return
 
     def _log_post(self):
@@ -230,6 +232,7 @@ class FaucetExperimentalAPITest(FaucetUntaggedTest):
     """Test the experimental Faucet API."""
 
     CONTROLLER_CLASS = mininet_test_topo.FaucetExperimentalAPI
+    results_file = None
 
     def _set_static_vars(self):
         super(FaucetExperimentalAPITest, self)._set_static_vars()
@@ -288,7 +291,8 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
                 description: "b4"
 """
 
-    def wireshark_payload_format(self, payload_str):
+    @staticmethod
+    def wireshark_payload_format(payload_str):
         formatted_payload_str = ''
         groupsize = 4
         for payload_offset in range(len(payload_str) / groupsize):
@@ -1796,7 +1800,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.verify_tp_dst_notblocked(
             5002, first_host, second_host, table_id=None)
 
-    def test_port_change_permanent_learn(self):
+    def test_port_change_perm_learn(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
         self.change_port_config(
             self.port_map['port_1'], 'permanent_learn', True,
@@ -4884,7 +4888,10 @@ class FaucetStringOfDPTest(FaucetTest):
     NUM_HOSTS = 4
     LINKS_PER_HOST = 1
     VID = 100
+    CONFIG = None
+    dpid = None
     dpids = None
+    topo = None
 
     def get_config_header(self, _config_global, _debug_log, _dpid, _hardware):
         """Don't generate standard config file header."""
