@@ -5,6 +5,8 @@
 # pylint: disable=missing-docstring
 # pylint: disable=too-many-arguments
 
+from functools import partial
+
 import binascii
 import itertools
 import json
@@ -56,14 +58,14 @@ class PostHandler(SimpleHTTPRequestHandler):
 
 class InfluxPostHandler(PostHandler):
 
-    def do_POST(self):
+    def do_POST(self): # pylint: disable=invalid-name
         self._log_post()
         return self.send_response(204)
 
 
 class SlowInfluxPostHandler(PostHandler):
 
-    def do_POST(self):
+    def do_POST(self): # pylint: disable=invalid-name
         self._log_post()
         time.sleep(self.server.timeout * 3)
         return self.send_response(500)
@@ -102,7 +104,7 @@ vlans:
                 description: "b4"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -726,12 +728,12 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             self.server.influx_log = self.influx_log
             self.server.timeout = self.DB_TIMEOUT
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         self.handler = InfluxPostHandler
         super(FaucetUntaggedInfluxTest, self).setUp()
         self.setup_influx()
 
-    def tearDown(self):
+    def tearDown(self): # pylint: disable=invalid-name
         if self.server:
             self.server.shutdown()
             self.server.socket.close()
@@ -803,6 +805,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         self._wait_influx_log()
         self._verify_influx_log()
 
+
 class FaucetUntaggedMultiDBWatcherTest(
         FaucetUntaggedInfluxTest, FaucetUntaggedPrometheusGaugeTest):
     GAUGE_CONFIG_DBS = """
@@ -860,6 +863,7 @@ class FaucetUntaggedMultiDBWatcherTest(
         error('_verify_influx_log')
         self._verify_influx_log()
 
+
 class FaucetUntaggedInfluxDownTest(FaucetUntaggedInfluxTest):
 
     def _start_gauge_check(self):
@@ -897,7 +901,7 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
 
 class FaucetSingleUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         self.handler = SlowInfluxPostHandler
         super(FaucetUntaggedInfluxTest, self).setUp()
         self.setup_influx()
@@ -1150,7 +1154,7 @@ vlans:
                 description: "b4"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -1492,15 +1496,18 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
         init_config_count = self.get_configure_count()
-        init_cold_start_count = self.scrape_prometheus_var(
-            'faucet_config_reload_cold', dpid=True, default=None)
-        init_warm_start_count = self.scrape_prometheus_var(
-            'faucet_config_reload_warm', dpid=True, default=None)
+        reload_type_vars = (
+            'faucet_config_reload_cold',
+            'faucet_config_reload_warm')
+        reload_vals = {}
+        for var in reload_type_vars:
+            reload_vals[var] = self.scrape_prometheus_var(
+                var, dpid=True, default=None)
         for i in range(init_config_count, init_config_count+3):
             self._configure_count_with_retry(i)
             with open(self.faucet_config_path, 'a') as config_file:
                 config_file.write('\n')
-            self.verify_hup_faucet()
+            self.verify_faucet_reconf(change_expected=False)
             self._configure_count_with_retry(i+1)
             self.assertEqual(
                 self.scrape_prometheus_var(
@@ -1512,10 +1519,10 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
                 1)
             self.wait_until_controller_flow()
             self.ping_all_when_learned()
-        self.assertEqual(0, self.scrape_prometheus_var(
-            'faucet_config_reload_cold', dpid=True, default=None) - init_cold_start_count)
-        self.assertEqual(0, self.scrape_prometheus_var(
-            'faucet_config_reload_warm', dpid=True, default=None) - init_warm_start_count)
+        for var in reload_type_vars:
+            self.assertEqual(
+                reload_vals[var],
+                self.scrape_prometheus_var(var, dpid=True, default=None))
 
 
 class FaucetIPv4TupleTest(FaucetTest):
@@ -1554,7 +1561,7 @@ acls:
        rules: []
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetIPv4TupleTest, self).setUp()
         self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
         self.CONFIG = '\n'.join(
@@ -1588,7 +1595,9 @@ acls:
             yaml_acl_conf = {'acls': {1: {'exact_match': True, 'rules': rules_yaml}}}
             tuple_txt = '%u IPv%u tuples\n' % (len(rules_yaml), host_ip.version)
             error('pushing %s' % tuple_txt)
-            self.reload_conf(yaml_acl_conf, self.acl_config_file, True, False)
+            self.reload_conf(
+                yaml_acl_conf, self.acl_config_file,
+                restart=True, cold_start=False)
             error('pushed %s' % tuple_txt)
             self.wait_until_matching_flow({'tp_src': port}, table_id=0)
             rules *= 2
@@ -1711,7 +1720,7 @@ acls:
                allow: 1
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetConfigReloadTestBase, self).setUp()
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         with open(self.acl_config_file, 'w') as config_file:
@@ -1740,7 +1749,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
     def test_tabs_are_bad(self):
         self.ping_all_when_learned()
         orig_conf = self._get_conf()
-        self.force_faucet_reload('\t'.join(('tabs', 'are', 'bad')))
+        self.force_faucet_reload(
+            '\t'.join(('tabs', 'are', 'bad')))
         self.ping_all_when_learned()
         self.reload_conf(
             orig_conf, self.faucet_config_path,
@@ -1751,9 +1761,11 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         third_host, fourth_host = self.net.hosts[2:]
         self.ping_all_when_learned()
         self.change_port_config(
-            self.port_map['port_1'], 'native_vlan', 200, restart=False)
+            self.port_map['port_1'], 'native_vlan', 200,
+            restart=False, cold_start=False)
         self.change_port_config(
-            self.port_map['port_2'], 'native_vlan', 200, restart=True, cold_start=True)
+            self.port_map['port_2'], 'native_vlan', 200,
+            restart=True, cold_start=True)
         for port_name in ('port_1', 'port_2'):
             self.wait_until_matching_flow(
                 {u'in_port': int(self.port_map[port_name])},
@@ -1769,7 +1781,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         first_host, second_host = self.net.hosts[0:2]
         orig_conf = self._get_conf()
         self.change_port_config(
-            self.port_map['port_1'], 'acl_in', 1, cold_start=False)
+            self.port_map['port_1'], 'acl_in', 1,
+            cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
             table_id=self.PORT_ACL_TABLE, cookie=1234)
@@ -1777,7 +1790,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self.reload_conf(
             orig_conf, self.faucet_config_path,
-            True, cold_start=False, host_cache=100)
+            restart=True, cold_start=False, host_cache=100)
         self.verify_tp_dst_notblocked(
             5001, first_host, second_host, table_id=None)
         self.verify_tp_dst_notblocked(
@@ -1786,7 +1799,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
     def test_port_change_permanent_learn(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
         self.change_port_config(
-            self.port_map['port_1'], 'permanent_learn', True, cold_start=False)
+            self.port_map['port_1'], 'permanent_learn', True,
+            restart=True, cold_start=False)
         self.ping_all_when_learned(hard_timeout=0)
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
@@ -1795,7 +1809,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         third_host.setMAC(original_third_host_mac)
         self.ping_all_when_learned(hard_timeout=0)
         self.change_port_config(
-            self.port_map['port_1'], 'acl_in', 1, cold_start=False)
+            self.port_map['port_1'], 'acl_in', 1,
+            restart=True, cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
             table_id=self.PORT_ACL_TABLE)
@@ -1864,14 +1879,16 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
             'vlan_hosts_learned', {'vlan': '100'}))
 
     def test_port_acls(self):
-        restart = not self.STAT_RELOAD
+        hup = not self.STAT_RELOAD
         first_host, second_host, third_host = self.net.hosts[:3]
         self._verify_hosts_learned((first_host, second_host))
         self.change_port_config(
-            self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
+            self.port_map['port_3'], 'acl_in', 'allow',
+            restart=True, cold_start=False, hup=hup)
         self.change_port_config(
-            self.port_map['port_1'], 'acls_in', [3, 4, 'allow'], restart=restart)
-        self.coldstart_conf()
+            self.port_map['port_1'], 'acls_in', [3, 4, 'allow'],
+            restart=True, cold_start=False, hup=hup)
+        self.coldstart_conf(hup=hup)
         self._verify_hosts_learned((first_host, second_host, third_host))
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
@@ -1882,6 +1899,7 @@ class FaucetConfigStatReloadAclTest(FaucetConfigReloadAclTest):
 
     # Use the stat-based reload method.
     STAT_RELOAD = '1'
+
 
 class FaucetUntaggedBGPDualstackDefaultRouteTest(FaucetUntaggedTest):
     """Test IPv4 routing and import default route from BGP."""
@@ -1953,6 +1971,7 @@ vlans:
         self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
         self.one_ipv4_controller_ping(first_host)
         self.coldstart_conf()
+
 
 class FaucetUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
     """Test IPv4 routing and import default route from BGP."""
@@ -2393,7 +2412,7 @@ vlans:
                 loop_protect: True
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetUntaggedLoopTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -2487,7 +2506,7 @@ vlans:
                 description: "b2"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetUntaggedIPv4LACPTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -2912,7 +2931,7 @@ vlans:
                 description: "b4"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetTaggedAndUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -3651,7 +3670,7 @@ vlans:
                 description: "b4"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetTaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -4052,7 +4071,8 @@ vlans:
         # change of a VLAN/ports not involved in routing, should be a warm start.
         for vid in (300, 200):
             self.change_port_config(
-                self.port_map['port_4'], 'native_vlan', vid, restart=True, cold_start=False)
+                self.port_map['port_4'], 'native_vlan', vid,
+                restart=True, cold_start=False)
 
 
 class FaucetTaggedTargetedResolutionIPv4RouteTest(FaucetTaggedIPv4RouteTest):
@@ -5078,7 +5098,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPUntaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
@@ -5093,7 +5113,7 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPTaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID)
@@ -5109,7 +5129,7 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetSingleStackStringOfDPTaggedTest, self).setUp()
         self.build_net(
             stack=True,
@@ -5147,7 +5167,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
     NUM_DPS = 2
     NUM_HOSTS = 2
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetStackStringOfDPUntaggedTest, self).setUp()
         self.build_net(
             stack=True,
@@ -5266,7 +5286,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
         },
     }
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetSingleStackAclControlTest, self).setUp()
         self.build_net(
             stack=True,
@@ -5363,7 +5383,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         },
     }
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
         self.build_net(
@@ -5383,7 +5403,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.verify_tp_dst_notblocked(5001, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
             config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
-        self.verify_hup_faucet()
+        self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
 
     def test_port5002_notblocked(self):
@@ -5393,7 +5413,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         self.verify_tp_dst_blocked(5002, first_host, second_host)
         with open(self.acls_config, 'w') as config_file:
             config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
-        self.verify_hup_faucet()
+        self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
