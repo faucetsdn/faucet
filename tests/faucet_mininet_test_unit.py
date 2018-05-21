@@ -5503,9 +5503,6 @@ vlans:
             - route:
                 ip_dst: "10.0.2.0/24"
                 ip_gw: "10.0.0.2"
-            - route:
-                ip_dst: "10.0.3.0/24"
-                ip_gw: "10.0.0.2"
 """
     CONFIG = """
         arp_neighbor_timeout: 2
@@ -5539,7 +5536,6 @@ vlans:
             self.swap_host_macs(first_host, second_host)
 
 
-@unittest.skip('group table routing unreliable')
 class FaucetGroupTableUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -5553,9 +5549,6 @@ vlans:
                 ip_gw: "fc00::1:1"
             - route:
                 ip_dst: "fc00::20:0/112"
-                ip_gw: "fc00::1:2"
-            - route:
-                ip_dst: "fc00::30:0/112"
                 ip_gw: "fc00::1:2"
 """
 

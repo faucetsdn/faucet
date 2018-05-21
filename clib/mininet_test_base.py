@@ -750,7 +750,6 @@ dbs:
             cookie=cookie)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
-        group_id = None
         for _ in range(timeout):
             flow_dict = self.get_matching_flow(
                 match, timeout=timeout, table_id=table_id)
@@ -758,13 +757,9 @@ dbs:
                 for action in flow_dict['actions']:
                     if action.startswith('GROUP'):
                         _, group_id = action.split(':')
-                        group_id = int(group_id)
-                        break
+                        return int(group_id)
             time.sleep(1)
-        self.assertTrue(
-            group_id,
-            msg='Cannot find group_id for matching flow %s' % match)
-        return group_id
+        return None
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                       actions=None, match_exact=None, hard_timeout=0,
@@ -1941,6 +1936,7 @@ dbs:
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(
                 nw_dst_match)
+            self.assertTrue(group_id)
             self.wait_matching_in_group_table(
                 nexthop_action, group_id, timeout)
         else:
