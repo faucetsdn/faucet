@@ -4327,10 +4327,10 @@ class FaucetUntaggedIPv6InterVLANRouteTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
     100:
-        faucet_vips: ["fc00::1:254/64"]
+        faucet_vips: ["fc00::1:254/112"]
     vlanb:
         vid: 200
-        faucet_vips: ["fc01::1:254/64"]
+        faucet_vips: ["fc01::1:254/112"]
         faucet_mac: "%s"
     vlanc:
         vid: 100
@@ -4523,7 +4523,7 @@ class FaucetUntaggedMixedIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fc00::1:254/64", "fc01::1:254/64"]
+        faucet_vips: ["fc00::1:254/112", "fc01::1:254/112"]
 """
 
     CONFIG = """
@@ -5488,6 +5488,7 @@ class FaucetTaggedGroupTableTest(FaucetTaggedTest):
                 {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
                 table_id=self._FLOOD_TABLE))
 
+
 class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -5501,9 +5502,6 @@ vlans:
                 ip_gw: "10.0.0.1"
             - route:
                 ip_dst: "10.0.2.0/24"
-                ip_gw: "10.0.0.2"
-            - route:
-                ip_dst: "10.0.3.0/24"
                 ip_gw: "10.0.0.2"
 """
     CONFIG = """
@@ -5530,18 +5528,14 @@ vlans:
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
         second_host_routed_ip = ipaddress.ip_interface(u'10.0.2.1/24')
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip,
-            with_group_table=True)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip,
-            with_group_table=True)
+        for _ in range(2):
+            self.verify_ipv4_routing(
+                first_host, first_host_routed_ip,
+                second_host, second_host_routed_ip,
+                with_group_table=True)
+            self.swap_host_macs(first_host, second_host)
 
 
-@unittest.skip('group table routing unreliable')
 class FaucetGroupTableUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -5555,9 +5549,6 @@ vlans:
                 ip_gw: "fc00::1:1"
             - route:
                 ip_dst: "fc00::20:0/112"
-                ip_gw: "fc00::1:2"
-            - route:
-                ip_dst: "fc00::30:0/112"
                 ip_gw: "fc00::1:2"
 """
 
@@ -5587,15 +5578,12 @@ vlans:
         second_host_ip = ipaddress.ip_interface(u'fc00::1:2/112')
         first_host_routed_ip = ipaddress.ip_interface(u'fc00::10:1/112')
         second_host_routed_ip = ipaddress.ip_interface(u'fc00::20:1/112')
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=True)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=True)
+        for _ in range(2):
+            self.verify_ipv6_routing_pair(
+                first_host, first_host_ip, first_host_routed_ip,
+                second_host, second_host_ip, second_host_routed_ip,
+                with_group_table=True)
+            self.swap_host_macs(first_host, second_host)
 
 
 class FaucetEthSrcMaskTest(FaucetUntaggedTest):

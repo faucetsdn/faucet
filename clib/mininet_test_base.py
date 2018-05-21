@@ -47,8 +47,8 @@ class FaucetTestBase(unittest.TestCase):
     ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
     FAUCET_VIPV4 = ipaddress.ip_interface(u'10.0.0.254/24')
     FAUCET_VIPV4_2 = ipaddress.ip_interface(u'172.16.0.254/24')
-    FAUCET_VIPV6 = ipaddress.ip_interface(u'fc00::1:254/64')
-    FAUCET_VIPV6_2 = ipaddress.ip_interface(u'fc01::1:254/64')
+    FAUCET_VIPV6 = ipaddress.ip_interface(u'fc00::1:254/112')
+    FAUCET_VIPV6_2 = ipaddress.ip_interface(u'fc01::1:254/112')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     VSCTL = 'ovs-vsctl'
     OVS_TYPE = 'kernel'
@@ -750,7 +750,6 @@ dbs:
             cookie=cookie)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
-        group_id = None
         for _ in range(timeout):
             flow_dict = self.get_matching_flow(
                 match, timeout=timeout, table_id=table_id)
@@ -758,13 +757,9 @@ dbs:
                 for action in flow_dict['actions']:
                     if action.startswith('GROUP'):
                         _, group_id = action.split(':')
-                        group_id = int(group_id)
-                        break
+                        return int(group_id)
             time.sleep(1)
-        self.assertTrue(
-            group_id,
-            msg='Cannot find group_id for matching flow %s' % match)
-        return group_id
+        return None
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                       actions=None, match_exact=None, hard_timeout=0,
@@ -1941,6 +1936,7 @@ dbs:
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(
                 nw_dst_match)
+            self.assertTrue(group_id)
             self.wait_matching_in_group_table(
                 nexthop_action, group_id, timeout)
         else:
