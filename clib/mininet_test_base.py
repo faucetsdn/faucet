@@ -764,6 +764,7 @@ dbs:
         self.assertTrue(
             group_id,
             msg='Cannot find group_id for matching flow %s' % match)
+        return group_id
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                       actions=None, match_exact=None, hard_timeout=0,
