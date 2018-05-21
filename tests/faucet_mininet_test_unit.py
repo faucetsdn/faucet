@@ -5488,7 +5488,6 @@ class FaucetTaggedGroupTableTest(FaucetTaggedTest):
                 {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
                 table_id=self._FLOOD_TABLE))
 
-
 class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -5542,7 +5541,8 @@ vlans:
             with_group_table=True)
 
 
-class FaucetGroupUntaggedIPv6RouteTest(FaucetUntaggedTest):
+@unittest.skip('group table routing unreliable')
+class FaucetGroupTableUntaggedIPv6RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
 vlans:
