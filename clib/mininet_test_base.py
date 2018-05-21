@@ -1079,7 +1079,8 @@ dbs:
             conf = self._get_conf()
         conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
         self.reload_conf(
-            conf, self.faucet_config_path, restart, cold_start)
+            conf, self.faucet_config_path,
+            restart, cold_start)
 
     def change_vlan_config(self, vlan, config_name, config_value,
                            restart=True, conf=None, cold_start=False):
@@ -1087,7 +1088,8 @@ dbs:
             conf = self._get_conf()
         conf['vlans'][vlan][config_name] = config_value
         self.reload_conf(
-            conf, self.faucet_config_path, restart, cold_start)
+            conf, self.faucet_config_path,
+            restart, cold_start)
 
     def ipv4_vip_bcast(self):
         return self.FAUCET_VIPV4.network.broadcast_address

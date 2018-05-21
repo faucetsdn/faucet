@@ -1793,7 +1793,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
     def test_port_change_permanent_learn(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
         self.change_port_config(
-            self.port_map['port_1'], 'permanent_learn',
+            self.port_map['port_1'], 'permanent_learn', True,
             restart=True, cold_start=False)
         self.ping_all_when_learned(hard_timeout=0)
         original_third_host_mac = third_host.MAC()
