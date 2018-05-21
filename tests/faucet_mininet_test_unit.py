@@ -1496,10 +1496,13 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
     def test_untagged(self):
         """Test that FAUCET receives HUP signal and keeps switching."""
         init_config_count = self.get_configure_count()
-        init_cold_start_count = self.scrape_prometheus_var(
-            'faucet_config_reload_cold', dpid=True, default=None)
-        init_warm_start_count = self.scrape_prometheus_var(
-            'faucet_config_reload_warm', dpid=True, default=None)
+        reload_type_vars = (
+            'faucet_config_reload_cold',
+            'faucet_config_reload_warm')
+        reload_vals = {}
+        for var in reload_type_vars:
+            reload_vals[var] = self.scrape_prometheus_var(
+                var, dpid=True, default=None)
         for i in range(init_config_count, init_config_count+3):
             self._configure_count_with_retry(i)
             with open(self.faucet_config_path, 'a') as config_file:
@@ -1516,10 +1519,10 @@ class FaucetUntaggedHUPTest(FaucetUntaggedTest):
                 1)
             self.wait_until_controller_flow()
             self.ping_all_when_learned()
-        self.assertEqual(0, self.scrape_prometheus_var(
-            'faucet_config_reload_cold', dpid=True, default=None) - init_cold_start_count)
-        self.assertEqual(0, self.scrape_prometheus_var(
-            'faucet_config_reload_warm', dpid=True, default=None) - init_warm_start_count)
+        for var in reload_type_vars:
+            self.assertEqual(
+                reload_vals[var],
+                self.scrape_prometheus_var(var, dpid=True, default=None))
 
 
 class FaucetIPv4TupleTest(FaucetTest):
