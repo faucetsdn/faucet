@@ -543,7 +543,7 @@ class FaucetTestBase(unittest.TestCase):
                     exception_log_name, exception_contents))
 
     def tcpdump_helper(self, *args, **kwargs):
-        return TcpdumpHelper(self, *args, **kwargs).execute()
+        return TcpdumpHelper(*args, **kwargs).execute()
 
     @staticmethod
     def pre_start_net():
