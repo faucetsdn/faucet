@@ -1033,7 +1033,8 @@ dbs:
             vlan_labels = dict(vlan=host_cache)
             old_mac_table = sorted(self.scrape_prometheus_var(
                 'learned_macs', labels=vlan_labels, multiple=True, default=[]))
-            self.verify_faucet_reconf()
+            self.verify_faucet_reconf(
+                cold_start=cold_start, change_expected=change_expected)
             if host_cache:
                 new_mac_table = sorted(self.scrape_prometheus_var(
                     'learned_macs', labels=vlan_labels, multiple=True, default=[]))

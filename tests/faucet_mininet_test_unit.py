@@ -1753,9 +1753,11 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         third_host, fourth_host = self.net.hosts[2:]
         self.ping_all_when_learned()
         self.change_port_config(
-            self.port_map['port_1'], 'native_vlan', 200, restart=False)
+            self.port_map['port_1'], 'native_vlan', 200,
+            restart=False, cold_start=False)
         self.change_port_config(
-            self.port_map['port_2'], 'native_vlan', 200, restart=True, cold_start=True)
+            self.port_map['port_2'], 'native_vlan', 200,
+            restart=True, cold_start=True)
         for port_name in ('port_1', 'port_2'):
             self.wait_until_matching_flow(
                 {u'in_port': int(self.port_map[port_name])},
@@ -1771,7 +1773,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         first_host, second_host = self.net.hosts[0:2]
         orig_conf = self._get_conf()
         self.change_port_config(
-            self.port_map['port_1'], 'acl_in', 1, cold_start=False)
+            self.port_map['port_1'], 'acl_in', 1,
+            cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
             table_id=self.PORT_ACL_TABLE, cookie=1234)
@@ -1788,7 +1791,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
     def test_port_change_permanent_learn(self):
         first_host, second_host, third_host = self.net.hosts[0:3]
         self.change_port_config(
-            self.port_map['port_1'], 'permanent_learn', True, cold_start=False)
+            self.port_map['port_1'], 'permanent_learn',
+            restart=True, cold_start=False)
         self.ping_all_when_learned(hard_timeout=0)
         original_third_host_mac = third_host.MAC()
         third_host.setMAC(first_host.MAC())
@@ -1797,7 +1801,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         third_host.setMAC(original_third_host_mac)
         self.ping_all_when_learned(hard_timeout=0)
         self.change_port_config(
-            self.port_map['port_1'], 'acl_in', 1, cold_start=False)
+            self.port_map['port_1'], 'acl_in', 1,
+            restart=True, cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
             table_id=self.PORT_ACL_TABLE)
@@ -1870,9 +1875,11 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
         first_host, second_host, third_host = self.net.hosts[:3]
         self._verify_hosts_learned((first_host, second_host))
         self.change_port_config(
-            self.port_map['port_3'], 'acl_in', 'allow', restart=restart)
+            self.port_map['port_3'], 'acl_in', 'allow',
+            restart=restart, cold_start=False)
         self.change_port_config(
-            self.port_map['port_1'], 'acls_in', [3, 4, 'allow'], restart=restart)
+            self.port_map['port_1'], 'acls_in', [3, 4, 'allow'],
+            restart=restart, cold_start=False)
         self.coldstart_conf()
         self._verify_hosts_learned((first_host, second_host, third_host))
         self.verify_tp_dst_blocked(5001, first_host, second_host)
@@ -4056,7 +4063,8 @@ vlans:
         # change of a VLAN/ports not involved in routing, should be a warm start.
         for vid in (300, 200):
             self.change_port_config(
-                self.port_map['port_4'], 'native_vlan', vid, restart=True, cold_start=False)
+                self.port_map['port_4'], 'native_vlan', vid,
+                restart=True, cold_start=False)
 
 
 class FaucetTaggedTargetedResolutionIPv4RouteTest(FaucetTaggedIPv4RouteTest):
