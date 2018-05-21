@@ -5488,6 +5488,7 @@ class FaucetTaggedGroupTableTest(FaucetTaggedTest):
                 {u'dl_vlan': u'100', u'dl_dst': u'ff:ff:ff:ff:ff:ff'},
                 table_id=self._FLOOD_TABLE))
 
+
 class FaucetGroupTableUntaggedIPv4RouteTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -5530,15 +5531,12 @@ vlans:
         first_host, second_host = host_pair
         first_host_routed_ip = ipaddress.ip_interface(u'10.0.1.1/24')
         second_host_routed_ip = ipaddress.ip_interface(u'10.0.2.1/24')
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip,
-            with_group_table=True)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv4_routing(
-            first_host, first_host_routed_ip,
-            second_host, second_host_routed_ip,
-            with_group_table=True)
+        for _ in range(2):
+            self.verify_ipv4_routing(
+                first_host, first_host_routed_ip,
+                second_host, second_host_routed_ip,
+                with_group_table=True)
+            self.swap_host_macs(first_host, second_host)
 
 
 @unittest.skip('group table routing unreliable')
@@ -5587,15 +5585,12 @@ vlans:
         second_host_ip = ipaddress.ip_interface(u'fc00::1:2/112')
         first_host_routed_ip = ipaddress.ip_interface(u'fc00::10:1/112')
         second_host_routed_ip = ipaddress.ip_interface(u'fc00::20:1/112')
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=True)
-        self.swap_host_macs(first_host, second_host)
-        self.verify_ipv6_routing_pair(
-            first_host, first_host_ip, first_host_routed_ip,
-            second_host, second_host_ip, second_host_routed_ip,
-            with_group_table=True)
+        for _ in range(2):
+            self.verify_ipv6_routing_pair(
+                first_host, first_host_ip, first_host_routed_ip,
+                second_host, second_host_ip, second_host_routed_ip,
+                with_group_table=True)
+            self.swap_host_macs(first_host, second_host)
 
 
 class FaucetEthSrcMaskTest(FaucetUntaggedTest):
