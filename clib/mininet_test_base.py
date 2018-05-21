@@ -5,6 +5,7 @@
 # pylint: disable=missing-docstring
 # pylint: disable=too-many-arguments
 
+from functools import partial
 import collections
 import copy
 import glob
@@ -1026,16 +1027,22 @@ dbs:
 
     def reload_conf(self, yaml_conf, conf_path, restart, cold_start,
                     change_expected=True, host_cache=None):
-        if yaml_conf:
-            with open(conf_path, 'w') as config_file:
-                config_file.write(yaml.dump(yaml_conf))
+
+        def _update_conf(conf_path, yaml_conf):
+            if yaml_conf:
+                with open(conf_path, 'w') as config_file:
+                    config_file.write(yaml.dump(yaml_conf))
+
+        update_conf_func = partial(_update_conf, conf_path, yaml_conf)
+
         if restart:
-            vlan_labels = dict(vlan=host_cache)
-            old_mac_table = sorted(self.scrape_prometheus_var(
-                'learned_macs', labels=vlan_labels, multiple=True, default=[]))
-            self.verify_faucet_reconf(
-                cold_start=cold_start, change_expected=change_expected)
             if host_cache:
+                vlan_labels = dict(vlan=host_cache)
+                old_mac_table = sorted(self.scrape_prometheus_var(
+                    'learned_macs', labels=vlan_labels, multiple=True, default=[]))
+                self.verify_faucet_reconf(
+                    cold_start=cold_start, change_expected=change_expected,
+                    reconf_funcs=[update_conf_func])
                 new_mac_table = sorted(self.scrape_prometheus_var(
                     'learned_macs', labels=vlan_labels, multiple=True, default=[]))
                 self.assertFalse(
@@ -1046,6 +1053,13 @@ dbs:
                     old_mac_table, new_mac_table,
                     msg='host cache for vlan %u not same over reload (old %s, new %s)' % (
                         host_cache, old_mac_table, new_mac_table))
+            else:
+                self.verify_faucet_reconf(
+                    cold_start=cold_start, change_expected=change_expected,
+                    reconf_funcs=[update_conf_func])
+            return
+
+        update_conf_func()
 
     def coldstart_conf(self):
         with open(self.faucet_config_path) as orig_conf_file:
@@ -1463,7 +1477,9 @@ dbs:
             return False
         return True
 
-    def verify_faucet_reconf(self, timeout=3, cold_start=True, change_expected=True):
+    def verify_faucet_reconf(self, timeout=3,
+                             cold_start=True, change_expected=True,
+                             hup=True, reconf_funcs=None):
         """HUP and verify the HUP was processed."""
         var = 'faucet_config_reload_warm'
         if cold_start:
@@ -1471,7 +1487,12 @@ dbs:
         old_count = int(
             self.scrape_prometheus_var(var, dpid=True, default=0))
         start_configure_count = self.get_configure_count()
-        self.hup_faucet()
+        if reconf_funcs is None:
+            reconf_funcs = []
+        if hup:
+            reconf_funcs.append(partial(self.hup_faucet))
+        for reconf_func in reconf_funcs:
+            reconf_func()
         for _ in range(timeout):
             configure_count = self.get_configure_count()
             if configure_count > start_configure_count:

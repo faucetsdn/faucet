@@ -5,6 +5,8 @@
 # pylint: disable=missing-docstring
 # pylint: disable=too-many-arguments
 
+from functools import partial
+
 import binascii
 import itertools
 import json
@@ -56,14 +58,14 @@ class PostHandler(SimpleHTTPRequestHandler):
 
 class InfluxPostHandler(PostHandler):
 
-    def do_POST(self):
+    def do_POST(self): # pylint: disable=invalid-name
         self._log_post()
         return self.send_response(204)
 
 
 class SlowInfluxPostHandler(PostHandler):
 
-    def do_POST(self):
+    def do_POST(self): # pylint: disable=invalid-name
         self._log_post()
         time.sleep(self.server.timeout * 3)
         return self.send_response(500)
@@ -102,7 +104,7 @@ vlans:
                 description: "b4"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -726,12 +728,12 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             self.server.influx_log = self.influx_log
             self.server.timeout = self.DB_TIMEOUT
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         self.handler = InfluxPostHandler
         super(FaucetUntaggedInfluxTest, self).setUp()
         self.setup_influx()
 
-    def tearDown(self):
+    def tearDown(self): # pylint: disable=invalid-name
         if self.server:
             self.server.shutdown()
             self.server.socket.close()
@@ -899,7 +901,7 @@ class FaucetUntaggedInfluxUnreachableTest(FaucetUntaggedInfluxTest):
 
 class FaucetSingleUntaggedInfluxTooSlowTest(FaucetUntaggedInfluxTest):
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         self.handler = SlowInfluxPostHandler
         super(FaucetUntaggedInfluxTest, self).setUp()
         self.setup_influx()
@@ -1152,7 +1154,7 @@ vlans:
                 description: "b4"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -1556,7 +1558,7 @@ acls:
        rules: []
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetIPv4TupleTest, self).setUp()
         self.acl_config_file = os.path.join(self.tmpdir, 'acl.txt')
         self.CONFIG = '\n'.join(
@@ -1715,7 +1717,7 @@ acls:
                allow: 1
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetConfigReloadTestBase, self).setUp()
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         with open(self.acl_config_file, 'w') as config_file:
@@ -2407,7 +2409,7 @@ vlans:
                 loop_protect: True
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetUntaggedLoopTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -2501,7 +2503,7 @@ vlans:
                 description: "b2"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetUntaggedIPv4LACPTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -2926,7 +2928,7 @@ vlans:
                 description: "b4"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetTaggedAndUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -3665,7 +3667,7 @@ vlans:
                 description: "b4"
 """
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetTaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
@@ -5093,7 +5095,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPUntaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_untagged=self.NUM_HOSTS, untagged_vid=self.VID)
@@ -5108,7 +5110,7 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPTaggedTest, self).setUp()
         self.build_net(
             n_dps=self.NUM_DPS, n_tagged=self.NUM_HOSTS, tagged_vid=self.VID)
@@ -5124,7 +5126,7 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     NUM_DPS = 3
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetSingleStackStringOfDPTaggedTest, self).setUp()
         self.build_net(
             stack=True,
@@ -5162,7 +5164,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
     NUM_DPS = 2
     NUM_HOSTS = 2
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetStackStringOfDPUntaggedTest, self).setUp()
         self.build_net(
             stack=True,
@@ -5281,7 +5283,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
         },
     }
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetSingleStackAclControlTest, self).setUp()
         self.build_net(
             stack=True,
@@ -5378,7 +5380,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
         },
     }
 
-    def setUp(self):
+    def setUp(self): # pylint: disable=invalid-name
         super(FaucetStringOfDPACLOverrideTest, self).setUp()
         self.acls_config = os.path.join(self.tmpdir, 'acls.yaml')
         self.build_net(
