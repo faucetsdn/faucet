@@ -47,8 +47,8 @@ class FaucetTestBase(unittest.TestCase):
     ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
     FAUCET_VIPV4 = ipaddress.ip_interface(u'10.0.0.254/24')
     FAUCET_VIPV4_2 = ipaddress.ip_interface(u'172.16.0.254/24')
-    FAUCET_VIPV6 = ipaddress.ip_interface(u'fc00::1:254/64')
-    FAUCET_VIPV6_2 = ipaddress.ip_interface(u'fc01::1:254/64')
+    FAUCET_VIPV6 = ipaddress.ip_interface(u'fc00::1:254/112')
+    FAUCET_VIPV6_2 = ipaddress.ip_interface(u'fc01::1:254/112')
     OFCTL = 'ovs-ofctl -OOpenFlow13'
     VSCTL = 'ovs-vsctl'
     OVS_TYPE = 'kernel'

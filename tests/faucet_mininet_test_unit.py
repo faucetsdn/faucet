@@ -4327,10 +4327,10 @@ class FaucetUntaggedIPv6InterVLANRouteTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
     100:
-        faucet_vips: ["fc00::1:254/64"]
+        faucet_vips: ["fc00::1:254/112"]
     vlanb:
         vid: 200
-        faucet_vips: ["fc01::1:254/64"]
+        faucet_vips: ["fc01::1:254/112"]
         faucet_mac: "%s"
     vlanc:
         vid: 100
@@ -4523,7 +4523,7 @@ class FaucetUntaggedMixedIPv6RouteTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        faucet_vips: ["fc00::1:254/64", "fc01::1:254/64"]
+        faucet_vips: ["fc00::1:254/112", "fc01::1:254/112"]
 """
 
     CONFIG = """
