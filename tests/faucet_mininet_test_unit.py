@@ -1590,7 +1590,9 @@ acls:
             yaml_acl_conf = {'acls': {1: {'exact_match': True, 'rules': rules_yaml}}}
             tuple_txt = '%u IPv%u tuples\n' % (len(rules_yaml), host_ip.version)
             error('pushing %s' % tuple_txt)
-            self.reload_conf(yaml_acl_conf, self.acl_config_file, True, False)
+            self.reload_conf(
+                yaml_acl_conf, self.acl_config_file,
+                restart=True, cold_start=False)
             error('pushed %s' % tuple_txt)
             self.wait_until_matching_flow({'tp_src': port}, table_id=0)
             rules *= 2
@@ -1782,7 +1784,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self.reload_conf(
             orig_conf, self.faucet_config_path,
-            True, cold_start=False, host_cache=100)
+            restart=True, cold_start=False, host_cache=100)
         self.verify_tp_dst_notblocked(
             5001, first_host, second_host, table_id=None)
         self.verify_tp_dst_notblocked(

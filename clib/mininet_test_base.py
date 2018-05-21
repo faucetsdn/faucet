@@ -1064,8 +1064,9 @@ dbs:
                     'native_vlan': unused_vid,
                 }
             }
-        self.reload_conf(cold_start_conf, self.faucet_config_path, True, True)
-        self.reload_conf(orig_conf, self.faucet_config_path, True, True)
+        for conf in (cold_start_conf, orig_conf):
+            self.reload_conf(
+                conf, self.faucet_config_path, restart=True, cold_start=True)
 
     def _get_conf(self):
         with open(self.faucet_config_path) as config_file:
@@ -1077,14 +1078,16 @@ dbs:
         if conf is None:
             conf = self._get_conf()
         conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
-        self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
+        self.reload_conf(
+            conf, self.faucet_config_path, restart, cold_start)
 
     def change_vlan_config(self, vlan, config_name, config_value,
                            restart=True, conf=None, cold_start=False):
         if conf is None:
             conf = self._get_conf()
         conf['vlans'][vlan][config_name] = config_value
-        self.reload_conf(conf, self.faucet_config_path, restart, cold_start)
+        self.reload_conf(
+            conf, self.faucet_config_path, restart, cold_start)
 
     def ipv4_vip_bcast(self):
         return self.FAUCET_VIPV4.network.broadcast_address
