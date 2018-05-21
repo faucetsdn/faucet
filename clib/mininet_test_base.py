@@ -609,7 +609,8 @@ dbs:
        monitor_flow_table_file,
        self.GAUGE_CONFIG_DBS)
 
-    def get_exabgp_conf(self, peer, peer_config=''):
+    @staticmethod
+    def get_exabgp_conf(peer, peer_config=''):
         return """
   neighbor %s {
     router-id 2.2.2.2;
@@ -632,7 +633,8 @@ dbs:
         return self._ofctl_get(
             int_dpid, 'stats/flow/%s' % int_dpid, timeout)
 
-    def _port_stat(self, port_stats, port):
+    @staticmethod
+    def _port_stat(port_stats, port):
         if port_stats:
             for port_stat in port_stats:
                 port_stat = json.loads(port_stat)
@@ -1999,6 +2001,25 @@ dbs:
         return None
 
     def iperf(self, client_host, client_ip, server_host, server_ip, seconds):
+
+        def run_iperf(iperf_server_cmd, server_host, server_start_exp, port):
+            server_out = server_host.popen(
+                iperf_server_cmd,
+                stdin=mininet_test_util.DEVNULL,
+                stderr=subprocess.STDOUT,
+                close_fds=True)
+            popens = {server_host: server_out}
+            for host, line in pmonitor(popens):
+                if host == server_host:
+                    if re.search(server_start_exp, line):
+                        self.wait_for_tcp_listen(
+                            server_host, port, ipv=server_ip.version)
+                        iperf_mbps = self.iperf_client(
+                            client_host, iperf_client_cmd)
+                        self._signal_proc_on_port(server_host, port, 9)
+                        return iperf_mbps
+            return None
+
         for _ in range(3):
             port = mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
@@ -2012,26 +2033,7 @@ dbs:
             iperf_client_cmd = mininet_test_util.timeout_cmd(
                 '%s -y c -c %s -B %s -t %u' % (iperf_base_cmd, server_ip, client_ip, seconds),
                 seconds + 5)
-
-            def run_iperf():
-                server_out = server_host.popen(
-                    iperf_server_cmd,
-                    stdin=mininet_test_util.DEVNULL,
-                    stderr=subprocess.STDOUT,
-                    close_fds=True)
-                popens = {server_host: server_out}
-                for host, line in pmonitor(popens):
-                    if host == server_host:
-                        if re.search(server_start_exp, line):
-                            self.wait_for_tcp_listen(
-                                server_host, port, ipv=server_ip.version)
-                            iperf_mbps = self.iperf_client(
-                                client_host, iperf_client_cmd)
-                            self._signal_proc_on_port(server_host, port, 9)
-                            return iperf_mbps
-                return None
-
-            iperf_mbps = run_iperf()
+            iperf_mbps = run_iperf(iperf_server_cmd, server_host, server_start_exp, port)
             if iperf_mbps is not None:
                 return iperf_mbps
             time.sleep(1)
