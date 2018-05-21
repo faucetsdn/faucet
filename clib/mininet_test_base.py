@@ -1306,8 +1306,8 @@ dbs:
                 first_host.MAC(), second_host.MAC())
             tcpdump_txt = self.tcpdump_helper(
                 other_vlan_host, tcpdump_filter, [
-                    lambda: first_host.cmd('arp -d %s' % second_host.IP()),
-                    lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+                    partial(first_host.cmd, 'arp -d %s' % second_host.IP()),
+                    partial(first_host.cmd, 'ping -c1 %s' % second_host.IP())],
                 packets=1)
             self.assertTrue(
                 re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
@@ -1789,7 +1789,7 @@ dbs:
             self.wait_nonzero_packet_count_flow(
                 {u'tp_dst': match_port}, table_id=table_id)
 
-    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
+    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
         """Verify that a TCP port on a host is NOT blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEqual(
@@ -1799,8 +1799,7 @@ dbs:
             self.wait_nonzero_packet_count_flow(
                 {u'tp_dst': int(port)}, table_id=table_id)
 
-    def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re,
-                                 table_id, mask, retries):
+    def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
         tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
             first_host.MAC(), "ff:ff:ff:ff:ff:ff")
         target_addr = str(self.FAUCET_VIPV4.network.broadcast_address)
@@ -1816,17 +1815,15 @@ dbs:
             time.sleep(1)
         return False
 
-    def verify_bcast_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
+    def verify_bcast_dst_blocked(self, port, first_host, second_host):
         """Verify that a UDP port on a host is blocked from broadcast."""
         self.assertTrue(self.bcast_dst_blocked_helper(
-            port, first_host, second_host, r'0 packets received by filter',
-            table_id, mask, 1))
+            port, first_host, second_host, r'0 packets received by filter', 1))
 
-    def verify_bcast_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
+    def verify_bcast_dst_notblocked(self, port, first_host, second_host):
         """Verify that a UDP port on a host is NOT blocked from broadcast."""
         self.assertTrue(self.bcast_dst_blocked_helper(
-            port, first_host, second_host, r'1 packet received by filter',
-            table_id, mask, 3))
+            port, first_host, second_host, r'1 packet received by filter', 3))
 
     @staticmethod
     def swap_host_macs(first_host, second_host):
