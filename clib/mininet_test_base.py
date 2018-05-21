@@ -75,15 +75,15 @@ class FaucetTestBase(unittest.TestCase):
     RUN_GAUGE = True
     REQUIRES_METERS = False
 
-    PORT_ACL_TABLE = 0
-    VLAN_TABLE = 1
-    VLAN_ACL_TABLE = 2
-    ETH_SRC_TABLE = 3
-    IPV4_FIB_TABLE = 4
-    IPV6_FIB_TABLE = 5
-    VIP_TABLE = 6
-    FLOOD_TABLE = 8
-    ETH_DST_TABLE = 7
+    _PORT_ACL_TABLE = 0
+    _VLAN_TABLE = 1
+    _VLAN_ACL_TABLE = 2
+    _ETH_SRC_TABLE = 3
+    _IPV4_FIB_TABLE = 4
+    _IPV6_FIB_TABLE = 5
+    _VIP_TABLE = 6
+    _FLOOD_TABLE = 8
+    _ETH_DST_TABLE = 7
 
     config = None
     dpid = None
@@ -343,7 +343,8 @@ class FaucetTestBase(unittest.TestCase):
         """Return first controller."""
         return self.net.controllers[0]
 
-    def _start_gauge_check(self):
+    @staticmethod
+    def _start_gauge_check():
         return None
 
     def _start_check(self):
@@ -420,7 +421,8 @@ class FaucetTestBase(unittest.TestCase):
         return 'http://%s:%u/%s' % (
             mininet_test_util.LOCALHOST, self._get_controller().ofctl_port, req)
 
-    def _ofctl(self, req):
+    @staticmethod
+    def _ofctl(req):
         try:
             ofctl_result = requests.get(req).text
         except ConnectionError:
@@ -456,7 +458,8 @@ class FaucetTestBase(unittest.TestCase):
             json={'dpid': str(int_dpid), 'port_no': str(port_no),
                   'config': str(config), 'mask': str(mask)})
 
-    def _signal_proc_on_port(self, host, port, signal):
+    @staticmethod
+    def _signal_proc_on_port(host, port, signal):
         tcp_pattern = '%s/tcp' % port
         fuser_out = host.cmd('fuser %s -k -%u' % (tcp_pattern, signal))
         return re.search(r'%s:\s+\d+' % tcp_pattern, fuser_out)
@@ -540,9 +543,10 @@ class FaucetTestBase(unittest.TestCase):
                     exception_log_name, exception_contents))
 
     def tcpdump_helper(self, *args, **kwargs):
-        return TcpdumpHelper(*args, **kwargs).execute()
+        return TcpdumpHelper(self, *args, **kwargs).execute()
 
-    def pre_start_net(self):
+    @staticmethod
+    def pre_start_net():
         """Hook called after Mininet initializtion, before Mininet started."""
         return
 
@@ -744,6 +748,7 @@ dbs:
             cookie=cookie)
 
     def get_group_id_for_matching_flow(self, match, timeout=10, table_id=None):
+        group_id = None
         for _ in range(timeout):
             flow_dict = self.get_matching_flow(
                 match, timeout=timeout, table_id=table_id)
@@ -751,10 +756,12 @@ dbs:
                 for action in flow_dict['actions']:
                     if action.startswith('GROUP'):
                         _, group_id = action.split(':')
-                        return int(group_id)
+                        group_id = int(group_id)
+                        break
             time.sleep(1)
-        self.fail(
-            'Cannot find group_id for matching flow %s' % match)
+        self.assertTrue(
+            group_id,
+            msg='Cannot find group_id for matching flow %s' % match)
 
     def matching_flow_present_on_dpid(self, dpid, match, timeout=10, table_id=None,
                                       actions=None, match_exact=None, hard_timeout=0,
@@ -793,11 +800,11 @@ dbs:
     def mac_learned(self, mac, timeout=10, in_port=None, hard_timeout=1):
         """Return True if a MAC has been learned on default DPID."""
         for eth_field, table_id in (
-                (u'dl_src', self.ETH_SRC_TABLE),
-                (u'dl_dst', self.ETH_DST_TABLE)):
+                (u'dl_src', self._ETH_SRC_TABLE),
+                (u'dl_dst', self._ETH_DST_TABLE)):
             match = {eth_field: u'%s' % mac}
             match_hard_timeout = 0
-            if table_id == self.ETH_SRC_TABLE:
+            if table_id == self._ETH_SRC_TABLE:
                 if in_port is not None:
                     match[u'in_port'] = in_port
                 match_hard_timeout = hard_timeout
@@ -806,7 +813,8 @@ dbs:
                 return False
         return True
 
-    def mac_as_int(self, mac):
+    @staticmethod
+    def mac_as_int(mac):
         return long(mac.replace(':', ''), 16)
 
     def mac_from_int(self, mac_int):
@@ -910,6 +918,7 @@ dbs:
         elif controller == 'gauge':
             return 'http://%s:%u' % (
                 self.get_prom_addr(), self.config_ports['gauge_prom_port'])
+        raise NotImplementedError
 
     def scrape_prometheus(self, controller='faucet', timeout=15, var=None):
         url = self._prometheus_url(controller)
@@ -1004,15 +1013,16 @@ dbs:
                 re.search(r'%s\S+\s+0' % zero_var, prom_out),
                 msg='expected %s to be present and zero (%s)' % (zero_var, prom_out))
 
-    def get_configure_count(self):
+    def get_configure_count(self, retries=5):
         """Return the number of times FAUCET has processed a reload request."""
-        for _ in range(3):
+        for _ in range(retries):
             count = self.scrape_prometheus_var(
                 'faucet_config_reload_requests', default=None, dpid=False)
-            if count is not None:
-                return count
+            if count:
+                break
             time.sleep(1)
-        self.fail('configure count stayed zero')
+        self.assertTrue(count, msg='configure count stayed zero')
+        return count
 
     def hup_faucet(self):
         """Send a HUP signal to the controller."""
@@ -1170,14 +1180,6 @@ dbs:
 
     def verify_learning(self, test_net, learn_ip, min_hosts, max_hosts, learn_pps=20):
 
-        def dump_packet_counters():
-            packet_in_count = self.scrape_prometheus_var(
-                'of_packet_ins', retries=5)
-            flow_msgs_count = self.scrape_prometheus_var(
-                'of_flowmsgs_sent', retries=5)
-            error('%u packet ins, %u flows sent\n' % (
-                packet_in_count, flow_msgs_count))
-
         # TODO: test environment is pretty hard on test host, with this many macvlans
         def simplify_intf_conf(host, intf):
             for conf_cmd in (
@@ -1238,7 +1240,6 @@ dbs:
                     time.sleep((pps_ms - fping_ms) / 1e3)
 
             def verify_connectivity(learn_hosts):
-                # dump_packet_counters()
                 error('verifying connectivity')
                 all_unverified_ips = [str(ipa) for ipa in test_ipas[:learn_hosts]]
                 while all_unverified_ips:
@@ -1255,11 +1256,11 @@ dbs:
                         unverified_ips = []
                         for fping_line in fping_lines:
                             fping_out = fping_line.split()
-                            ip = fping_out[0]
+                            ipa = fping_out[0]
                             loss = fping_out[4]
                             verified = loss.endswith('/0%,')
                             if not verified:
-                                unverified_ips.append(ip)
+                                unverified_ips.append(ipa)
                         if not unverified_ips:
                             break
                         time.sleep(0.1 * len(unverified_ips))
@@ -1612,15 +1613,15 @@ dbs:
             self.assertEqual('', result, msg='%s: %s' % (command, result))
 
     def _config_tableids(self):
-        self.PORT_ACL_TABLE = self._get_tableid('port_acl')
-        self.VLAN_TABLE = self._get_tableid('vlan')
-        self.VLAN_ACL_TABLE = self._get_tableid('vlan_acl')
-        self.ETH_SRC_TABLE = self._get_tableid('eth_src')
-        self.IPV4_FIB_TABLE = self._get_tableid('ipv4_fib')
-        self.IPV6_FIB_TABLE = self._get_tableid('ipv6_fib')
-        self.VIP_TABLE = self._get_tableid('vip')
-        self.ETH_DST_TABLE = self._get_tableid('eth_dst')
-        self.FLOOD_TABLE = self._get_tableid('flood')
+        self._PORT_ACL_TABLE = self._get_tableid('port_acl')
+        self._VLAN_TABLE = self._get_tableid('vlan')
+        self._VLAN_ACL_TABLE = self._get_tableid('vlan_acl')
+        self._ETH_SRC_TABLE = self._get_tableid('eth_src')
+        self._IPV4_FIB_TABLE = self._get_tableid('ipv4_fib')
+        self._IPV6_FIB_TABLE = self._get_tableid('ipv6_fib')
+        self._VIP_TABLE = self._get_tableid('vip')
+        self._ETH_DST_TABLE = self._get_tableid('eth_dst')
+        self._FLOOD_TABLE = self._get_tableid('flood')
 
     def _dp_ports(self):
         port_count = self.N_TAGGED + self.N_UNTAGGED
@@ -1827,7 +1828,8 @@ dbs:
             port, first_host, second_host, r'1 packet received by filter',
             table_id, mask, 3))
 
-    def swap_host_macs(self, first_host, second_host):
+    @staticmethod
+    def swap_host_macs(first_host, second_host):
         """Swap the MAC addresses of two Mininet hosts."""
         first_host_mac = first_host.MAC()
         second_host_mac = second_host.MAC()
@@ -1858,9 +1860,11 @@ dbs:
         controller.cmd(exabgp_cli)
         for _ in range(timeout):
             if os.path.exists(exabgp_log):
-                return (exabgp_log, exabgp_err)
+                break
             time.sleep(1)
-        self.fail('exabgp (%s) did not start' % exabgp_cli)
+        self.assertTrue(
+            os.path.exists(exabgp_log), msg='exabgp (%s) did not start' % exabgp_cli)
+        return (exabgp_log, exabgp_err)
 
     def wait_bgp_up(self, neighbor, vlan, exabgp_log, exabgp_err):
         """Wait for BGP to come up."""
@@ -1886,17 +1890,19 @@ dbs:
             return [log_line for log_line in log_file if re.search(exp, log_line)]
         return []
 
-    def exabgp_updates(self, exabgp_log):
+    def exabgp_updates(self, exabgp_log, timeout=60):
         """Verify that exabgp process has received BGP updates."""
         controller = self._get_controller()
+        updates = []
         # exabgp should have received our BGP updates
-        for _ in range(60):
+        for _ in range(timeout):
             updates = controller.cmd(
                 r'grep UPDATE %s |grep -Eo "\S+ next-hop \S+"' % exabgp_log)
             if updates:
-                return updates
+                break
             time.sleep(1)
-        self.fail('exabgp did not receive BGP updates')
+        self.assertTrue(updates, 'exabgp did not receive BGP updates')
+        return updates
 
     def wait_exabgp_sent_updates(self, exabgp_log_name):
         """Verify that exabgp process has sent BGP updates."""
@@ -1925,10 +1931,10 @@ dbs:
             prefix.network_address, prefix.netmask)
         if prefix.version == 6:
             nw_dst_match = {u'ipv6_dst': exp_prefix}
-            table_id = self.IPV6_FIB_TABLE
+            table_id = self._IPV6_FIB_TABLE
         else:
             nw_dst_match = {u'nw_dst': exp_prefix}
-            table_id = self.IPV4_FIB_TABLE
+            table_id = self._IPV4_FIB_TABLE
         nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
         if vlan_vid is not None:
             nw_dst_match[u'dl_vlan'] = unicode(vlan_vid)
@@ -1958,7 +1964,8 @@ dbs:
         host.cmd(del_cmd)
         self.quiet_commands(host, (add_cmd,))
 
-    def _ip_neigh(self, host, ipa, ip_ver):
+    @staticmethod
+    def _ip_neigh(host, ipa, ip_ver):
         neighbors = host.cmd('ip -%u neighbor show %s' % (ip_ver, ipa))
         neighbors_fields = neighbors.split()
         if len(neighbors_fields) >= 5:
@@ -2099,7 +2106,8 @@ dbs:
             second_host, second_host_routed_ip2,
             with_group_table=with_group_table)
 
-    def host_drop_all_ips(self, host):
+    @staticmethod
+    def host_drop_all_ips(host):
         for ipv in (4, 6):
             host.cmd('ip -%u addr flush dev %s' % (ipv, host.defaultIntf()))
 
