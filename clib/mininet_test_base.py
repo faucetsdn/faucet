@@ -1494,7 +1494,7 @@ dbs:
         """Force FAUCET to reload by adding new line to config file."""
         with open(self.env['faucet']['FAUCET_CONFIG'], 'a') as config_file:
             config_file.write(new_config)
-        self.verify_faucet_reconf(cold_start=True, change_expected=True)
+        self.verify_faucet_reconf(change_expected=False)
 
     def get_host_port_stats(self, hosts_switch_ports):
         port_stats = {}

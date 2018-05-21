@@ -1744,7 +1744,8 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
     def test_tabs_are_bad(self):
         self.ping_all_when_learned()
         orig_conf = self._get_conf()
-        self.force_faucet_reload('\t'.join(('tabs', 'are', 'bad')))
+        self.force_faucet_reload(
+            '\t'.join(('tabs', 'are', 'bad')))
         self.ping_all_when_learned()
         self.reload_conf(
             orig_conf, self.faucet_config_path,
