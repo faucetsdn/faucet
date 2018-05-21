@@ -1879,16 +1879,16 @@ class FaucetConfigReloadAclTest(FaucetConfigReloadTestBase):
             'vlan_hosts_learned', {'vlan': '100'}))
 
     def test_port_acls(self):
-        restart = not self.STAT_RELOAD
+        hup = not self.STAT_RELOAD
         first_host, second_host, third_host = self.net.hosts[:3]
         self._verify_hosts_learned((first_host, second_host))
         self.change_port_config(
             self.port_map['port_3'], 'acl_in', 'allow',
-            restart=restart, cold_start=False)
+            restart=True, cold_start=False, hup=hup)
         self.change_port_config(
             self.port_map['port_1'], 'acls_in', [3, 4, 'allow'],
-            restart=restart, cold_start=False)
-        self.coldstart_conf()
+            restart=True, cold_start=False, hup=hup)
+        self.coldstart_conf(hup=hup)
         self._verify_hosts_learned((first_host, second_host, third_host))
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)

@@ -1026,7 +1026,7 @@ dbs:
                 self.gauge_controller, int(self.gauge_of_port), 1))
 
     def reload_conf(self, yaml_conf, conf_path, restart, cold_start,
-                    change_expected=True, host_cache=None):
+                    change_expected=True, host_cache=None, hup=True):
 
         def _update_conf(conf_path, yaml_conf):
             if yaml_conf:
@@ -1034,34 +1034,35 @@ dbs:
                     config_file.write(yaml.dump(yaml_conf))
 
         update_conf_func = partial(_update_conf, conf_path, yaml_conf)
+        verify_faucet_reconf_func = partial(
+            self.verify_faucet_reconf,
+            cold_start=cold_start,
+            change_expected=change_expected,
+            reconf_funcs=[update_conf_func], hup=hup)
 
         if restart:
             if host_cache:
                 vlan_labels = dict(vlan=host_cache)
                 old_mac_table = sorted(self.scrape_prometheus_var(
                     'learned_macs', labels=vlan_labels, multiple=True, default=[]))
-                self.verify_faucet_reconf(
-                    cold_start=cold_start, change_expected=change_expected,
-                    reconf_funcs=[update_conf_func])
+                verify_faucet_reconf_func()
                 new_mac_table = sorted(self.scrape_prometheus_var(
                     'learned_macs', labels=vlan_labels, multiple=True, default=[]))
                 self.assertFalse(
                     cold_start, msg='host cache is not maintained with cold start')
                 self.assertTrue(
-                    new_mac_table, msg='no host cache for vlan %u' % host_cache)
+                    new_mac_table, msg='no host cache for VLAN %u' % host_cache)
                 self.assertEqual(
                     old_mac_table, new_mac_table,
-                    msg='host cache for vlan %u not same over reload (old %s, new %s)' % (
+                    msg='host cache for VLAN %u not same over reload (old %s, new %s)' % (
                         host_cache, old_mac_table, new_mac_table))
             else:
-                self.verify_faucet_reconf(
-                    cold_start=cold_start, change_expected=change_expected,
-                    reconf_funcs=[update_conf_func])
+                verify_faucet_reconf_func()
             return
 
         update_conf_func()
 
-    def coldstart_conf(self):
+    def coldstart_conf(self, hup=True):
         with open(self.faucet_config_path) as orig_conf_file:
             orig_conf = yaml.load(orig_conf_file.read())
         cold_start_conf = copy.deepcopy(orig_conf)
@@ -1080,7 +1081,8 @@ dbs:
             }
         for conf in (cold_start_conf, orig_conf):
             self.reload_conf(
-                conf, self.faucet_config_path, restart=True, cold_start=True)
+                conf, self.faucet_config_path,
+                restart=True, cold_start=True, hup=hup)
 
     def _get_conf(self):
         with open(self.faucet_config_path) as config_file:
@@ -1088,22 +1090,24 @@ dbs:
         return config
 
     def change_port_config(self, port, config_name, config_value,
-                           restart=True, conf=None, cold_start=False):
+                           conf=None, restart=True, cold_start=False,
+                           hup=True):
         if conf is None:
             conf = self._get_conf()
         conf['dps'][self.DP_NAME]['interfaces'][port][config_name] = config_value
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart, cold_start)
+            restart, cold_start, hup=hup)
 
     def change_vlan_config(self, vlan, config_name, config_value,
-                           restart=True, conf=None, cold_start=False):
+                           conf=None, restart=True, cold_start=False,
+                           hup=True):
         if conf is None:
             conf = self._get_conf()
         conf['vlans'][vlan][config_name] = config_value
         self.reload_conf(
             conf, self.faucet_config_path,
-            restart, cold_start)
+            restart, cold_start, hup=hup)
 
     def ipv4_vip_bcast(self):
         return self.FAUCET_VIPV4.network.broadcast_address
@@ -1477,7 +1481,7 @@ dbs:
             return False
         return True
 
-    def verify_faucet_reconf(self, timeout=3,
+    def verify_faucet_reconf(self, timeout=10,
                              cold_start=True, change_expected=True,
                              hup=True, reconf_funcs=None):
         """HUP and verify the HUP was processed."""
@@ -1499,7 +1503,7 @@ dbs:
                 break
             time.sleep(1)
         self.assertNotEqual(
-            start_configure_count, configure_count, 'HUP not processed by FAUCET')
+            start_configure_count, configure_count, 'FAUCET did not reconfigure')
         new_count = int(
             self.scrape_prometheus_var(var, dpid=True, default=0))
         if change_expected:
