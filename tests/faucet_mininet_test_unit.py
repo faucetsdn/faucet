@@ -5327,10 +5327,10 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
     def test_broadcast(self):
         """Hosts in stack topology can appropriately reach each other over broadcast."""
         hosts = self.net.hosts
-        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1], table_id=None)
-        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
-        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[6], table_id=None)
-        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[7], table_id=None)
+        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[1])
+        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3])
+        self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[6])
+        self.verify_bcast_dst_blocked(5000, hosts[0], hosts[7])
 
 
 class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):

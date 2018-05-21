@@ -543,7 +543,7 @@ class FaucetTestBase(unittest.TestCase):
                     exception_log_name, exception_contents))
 
     def tcpdump_helper(self, *args, **kwargs):
-        return TcpdumpHelper(self, *args, **kwargs).execute()
+        return TcpdumpHelper(*args, **kwargs).execute()
 
     @staticmethod
     def pre_start_net():
@@ -609,7 +609,8 @@ dbs:
        monitor_flow_table_file,
        self.GAUGE_CONFIG_DBS)
 
-    def get_exabgp_conf(self, peer, peer_config=''):
+    @staticmethod
+    def get_exabgp_conf(peer, peer_config=''):
         return """
   neighbor %s {
     router-id 2.2.2.2;
@@ -632,7 +633,8 @@ dbs:
         return self._ofctl_get(
             int_dpid, 'stats/flow/%s' % int_dpid, timeout)
 
-    def _port_stat(self, port_stats, port):
+    @staticmethod
+    def _port_stat(port_stats, port):
         if port_stats:
             for port_stat in port_stats:
                 port_stat = json.loads(port_stat)
@@ -1306,8 +1308,8 @@ dbs:
                 first_host.MAC(), second_host.MAC())
             tcpdump_txt = self.tcpdump_helper(
                 other_vlan_host, tcpdump_filter, [
-                    lambda: first_host.cmd('arp -d %s' % second_host.IP()),
-                    lambda: first_host.cmd('ping -c1 %s' % second_host.IP())],
+                    partial(first_host.cmd, 'arp -d %s' % second_host.IP()),
+                    partial(first_host.cmd, 'ping -c1 %s' % second_host.IP())],
                 packets=1)
             self.assertTrue(
                 re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
@@ -1789,7 +1791,7 @@ dbs:
             self.wait_nonzero_packet_count_flow(
                 {u'tp_dst': match_port}, table_id=table_id)
 
-    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
+    def verify_tp_dst_notblocked(self, port, first_host, second_host, table_id=0):
         """Verify that a TCP port on a host is NOT blocked from another host."""
         self.serve_hello_on_tcp_port(second_host, port)
         self.assertEqual(
@@ -1799,8 +1801,7 @@ dbs:
             self.wait_nonzero_packet_count_flow(
                 {u'tp_dst': int(port)}, table_id=table_id)
 
-    def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re,
-                                 table_id, mask, retries):
+    def bcast_dst_blocked_helper(self, port, first_host, second_host, success_re, retries):
         tcpdump_filter = 'udp and ether src %s and ether dst %s' % (
             first_host.MAC(), "ff:ff:ff:ff:ff:ff")
         target_addr = str(self.FAUCET_VIPV4.network.broadcast_address)
@@ -1816,17 +1817,15 @@ dbs:
             time.sleep(1)
         return False
 
-    def verify_bcast_dst_blocked(self, port, first_host, second_host, table_id=0, mask=None):
+    def verify_bcast_dst_blocked(self, port, first_host, second_host):
         """Verify that a UDP port on a host is blocked from broadcast."""
         self.assertTrue(self.bcast_dst_blocked_helper(
-            port, first_host, second_host, r'0 packets received by filter',
-            table_id, mask, 1))
+            port, first_host, second_host, r'0 packets received by filter', 1))
 
-    def verify_bcast_dst_notblocked(self, port, first_host, second_host, table_id=0, mask=None):
+    def verify_bcast_dst_notblocked(self, port, first_host, second_host):
         """Verify that a UDP port on a host is NOT blocked from broadcast."""
         self.assertTrue(self.bcast_dst_blocked_helper(
-            port, first_host, second_host, r'1 packet received by filter',
-            table_id, mask, 3))
+            port, first_host, second_host, r'1 packet received by filter', 3))
 
     @staticmethod
     def swap_host_macs(first_host, second_host):
@@ -2002,6 +2001,25 @@ dbs:
         return None
 
     def iperf(self, client_host, client_ip, server_host, server_ip, seconds):
+
+        def run_iperf(iperf_server_cmd, server_host, server_start_exp, port):
+            server_out = server_host.popen(
+                iperf_server_cmd,
+                stdin=mininet_test_util.DEVNULL,
+                stderr=subprocess.STDOUT,
+                close_fds=True)
+            popens = {server_host: server_out}
+            for host, line in pmonitor(popens):
+                if host == server_host:
+                    if re.search(server_start_exp, line):
+                        self.wait_for_tcp_listen(
+                            server_host, port, ipv=server_ip.version)
+                        iperf_mbps = self.iperf_client(
+                            client_host, iperf_client_cmd)
+                        self._signal_proc_on_port(server_host, port, 9)
+                        return iperf_mbps
+            return None
+
         for _ in range(3):
             port = mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
@@ -2015,26 +2033,7 @@ dbs:
             iperf_client_cmd = mininet_test_util.timeout_cmd(
                 '%s -y c -c %s -B %s -t %u' % (iperf_base_cmd, server_ip, client_ip, seconds),
                 seconds + 5)
-
-            def run_iperf():
-                server_out = server_host.popen(
-                    iperf_server_cmd,
-                    stdin=mininet_test_util.DEVNULL,
-                    stderr=subprocess.STDOUT,
-                    close_fds=True)
-                popens = {server_host: server_out}
-                for host, line in pmonitor(popens):
-                    if host == server_host:
-                        if re.search(server_start_exp, line):
-                            self.wait_for_tcp_listen(
-                                server_host, port, ipv=server_ip.version)
-                            iperf_mbps = self.iperf_client(
-                                client_host, iperf_client_cmd)
-                            self._signal_proc_on_port(server_host, port, 9)
-                            return iperf_mbps
-                return None
-
-            iperf_mbps = run_iperf()
+            iperf_mbps = run_iperf(iperf_server_cmd, server_host, server_start_exp, port)
             if iperf_mbps is not None:
                 return iperf_mbps
             time.sleep(1)
