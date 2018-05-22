@@ -1886,7 +1886,7 @@ dbs:
     def matching_lines_from_file(exp, log_name):
         match = re.compile(exp)
         with open(log_name) as log_file:
-            return [log_line for log_line in log_file if match.match(log_line)]
+            return [log_line for log_line in log_file if match(log_line)]
         return []
 
     def exabgp_updates(self, exabgp_log, timeout=60):
