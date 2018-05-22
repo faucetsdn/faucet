@@ -1635,8 +1635,7 @@ dbs:
         for port_no in self._dp_ports():
             self.flap_port(port_no, flap_time=flap_time)
 
-    @staticmethod
-    def get_mac_of_intf(host, intf):
+    def get_mac_of_intf(self, host, intf):
         """Get MAC address of a port."""
         return host.cmd(
             '|'.join((
@@ -1730,8 +1729,7 @@ dbs:
             time.sleep(1)
         self.fail('ping %f loss > required loss %f' % (loss, required_loss))
 
-    @staticmethod
-    def tcp_port_free(host, port, ipv=4):
+    def tcp_port_free(self, host, port, ipv=4):
         listen_out = host.cmd(
             mininet_test_util.tcp_listening_cmd(port, ipv))
         if listen_out:
@@ -1882,11 +1880,9 @@ dbs:
                     exabgp_log_content.append(log.read())
         self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
-    @staticmethod
-    def matching_lines_from_file(exp, log_name):
-        match = re.compile(exp)
+    def matching_lines_from_file(self, exp, log_name):
         with open(log_name) as log_file:
-            return [log_line for log_line in log_file if match(log_line)]
+            return [log_line for log_line in log_file if re.search(exp, log_line)]
         return []
 
     def exabgp_updates(self, exabgp_log, timeout=60):
