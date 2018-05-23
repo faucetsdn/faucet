@@ -233,6 +233,7 @@ class Valve(object):
         """Add default drop rules on all FAUCET tables."""
         vlan_table = self.dp.tables['vlan']
         eth_src_table = self.dp.tables['eth_src']
+        flood_table = self.dp.tables['flood']
 
         # default drop on all tables.
         ofmsgs = []
@@ -253,20 +254,12 @@ class Valve(object):
                     eth_src_table.match(eth_src=vlan.faucet_mac),
                     priority=self.dp.high_priority))
 
-        # drop STP BPDU
-        # TODO: compatible bridge loop detection/mitigation.
-        if self.dp.drop_bpdu:
-            for bpdu_mac in (
-                    valve_packet.BRIDGE_GROUP_ADDRESS,
-                    valve_packet.CISCO_SPANNING_GROUP_ADDRESS):
-                ofmsgs.append(vlan_table.flowdrop(
-                    vlan_table.match(eth_dst=bpdu_mac),
-                    priority=self.dp.highest_priority))
-
-        # drop LLDP, if configured to.
-        if self.dp.drop_lldp:
-            ofmsgs.append(vlan_table.flowdrop(
-                vlan_table.match(eth_type=valve_of.ether.ETH_TYPE_LLDP),
+        for bpdu_mac in (
+                valve_packet.BRIDGE_GROUP_ADDRESS,
+                valve_packet.CISCO_SPANNING_GROUP_ADDRESS,
+                valve_packet.LLDP_MAC_NEAREST_BRIDGE):
+            ofmsgs.append(flood_table.flowdrop(
+                flood_table.match(eth_dst=bpdu_mac),
                 priority=self.dp.highest_priority))
 
         return ofmsgs
@@ -633,6 +626,7 @@ class Valve(object):
                 ofmsgs.append(vlan_table.flowcontroller(
                     match=vlan_table.match(
                         in_port=port_num,
+                        eth_dst=valve_packet.LLDP_MAC_NEAREST_BRIDGE,
                         eth_type=valve_of.ether.ETH_TYPE_LLDP),
                     priority=self.dp.highest_priority,
                     max_len=128))
