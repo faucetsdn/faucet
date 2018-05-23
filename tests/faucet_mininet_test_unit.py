@@ -5,8 +5,6 @@
 # pylint: disable=missing-docstring
 # pylint: disable=too-many-arguments
 
-from functools import partial
-
 import binascii
 import itertools
 import json
@@ -1358,11 +1356,10 @@ vlans:
 
         # learn batches of hosts, then down them
         for base in (10, 20, 30):
-            mac_intfs = []
-            mac_ips = []
-            learned_mac_ports = {}
-
             def add_macvlans(base, count):
+                mac_intfs = []
+                mac_ips = []
+                learned_mac_ports = {}
                 for i in range(base, base + count):
                     mac_intf = 'mac%u' % i
                     mac_intfs.append(mac_intf)
@@ -1371,17 +1368,19 @@ vlans:
                     self.add_macvlan(second_host, mac_intf, ipa=mac_ipv4)
                     macvlan_mac = self.get_mac_of_intf(second_host, mac_intf)
                     learned_mac_ports[macvlan_mac] = self.port_map['port_2']
+                return (mac_intfs, mac_ips, learned_mac_ports)
 
             def down_macvlans(macvlans):
                 for macvlan in macvlans:
                     second_host.cmd('ip link set dev %s down' % macvlan)
 
             def learn_then_down_hosts(base, count):
-                add_macvlans(base, count)
+                mac_intfs, mac_ips, learned_mac_ports = add_macvlans(base, count)
                 self.verify_hosts_learned(first_host, second_host, mac_ips, learned_mac_ports)
                 down_macvlans(mac_intfs)
+                return learned_mac_ports
 
-            learn_then_down_hosts(base, 5)
+            learned_mac_ports = learn_then_down_hosts(base, 5)
             all_learned_mac_ports.update(learned_mac_ports)
 
         # make sure at least one host still learned
