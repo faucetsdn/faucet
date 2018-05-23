@@ -629,6 +629,7 @@ class Valve(object):
                     match=vlan_table.match(
                         in_port=port_num,
                         eth_dst=valve_packet.LLDP_MAC_NEAREST_BRIDGE,
+                        eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK,
                         eth_type=valve_of.ether.ETH_TYPE_LLDP),
                     priority=self.dp.highest_priority,
                     max_len=128))
