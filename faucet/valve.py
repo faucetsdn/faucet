@@ -254,13 +254,15 @@ class Valve(object):
                     eth_src_table.match(eth_src=vlan.faucet_mac),
                     priority=self.dp.high_priority))
 
-        for bpdu_mac in (
-                valve_packet.BRIDGE_GROUP_ADDRESS,
-                valve_packet.CISCO_SPANNING_GROUP_ADDRESS,
-                valve_packet.LLDP_MAC_NEAREST_BRIDGE):
-            ofmsgs.append(flood_table.flowdrop(
-                flood_table.match(eth_dst=bpdu_mac),
-                priority=self.dp.highest_priority))
+        ofmsgs.append(flood_table.flowdrop(
+            flood_table.match(
+                eth_dst=valve_packet.CISCO_SPANNING_GROUP_ADDRESS),
+            priority=self.dp.highest_priority))
+        ofmsgs.append(flood_table.flowdrop(
+            flood_table.match(
+                eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
+                eth_dst_mask=valve_packet.BRIDGE_GROUP_ADDRESS_MASK),
+            priority=self.dp.highest_priority))
 
         return ofmsgs
 

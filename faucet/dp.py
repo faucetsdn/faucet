@@ -62,8 +62,6 @@ configuration.
     ignore_learn_ins = None
     drop_broadcast_source_address = None
     drop_spoofed_faucet_mac = None
-    drop_bpdu = None
-    drop_lldp = None
     groups = None
     group_table = False
     group_table_routing = False
@@ -129,10 +127,6 @@ configuration.
         # By default drop packets with a broadcast source address
         'drop_spoofed_faucet_mac': True,
         # By default drop packets on datapath spoofing the FAUCET_MAC
-        'drop_bpdu': True,
-        # By default drop STP BPDU frames
-        'drop_lldp': True,
-        # By default, drop LLDP. Set to False, to enable NFV offload of LLDP.
         'group_table': False,
         # Use GROUP tables for VLAN flooding
         'group_table_routing': False,
