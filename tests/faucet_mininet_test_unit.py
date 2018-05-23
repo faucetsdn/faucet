@@ -9,6 +9,7 @@ import binascii
 import itertools
 import json
 import os
+import random
 import re
 import socket
 import threading
@@ -147,6 +148,38 @@ vlans:
             mininet_test_util.timeout_cmd(
                 'nc -U %s' % sock, 10))
         self.verify_events_log(event_log)
+
+
+class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    randvlan:
+        vid: 100
+        description: "untagged"
+"""
+
+    CONFIG = """
+        interfaces:
+            %(port_1)d:
+                native_vlan: randvlan
+                description: "b1"
+            %(port_2)d:
+                native_vlan: randvlan
+                description: "b2"
+            %(port_3)d:
+                native_vlan: randvlan
+                description: "b3"
+            %(port_4)d:
+                native_vlan: randvlan
+                description: "b4"
+"""
+
+    def test_untagged(self):
+        for _ in range(5):
+            vid = random.randint(2, 512)
+            self.change_vlan_config('randvlan', 'vid', vid, cold_start=True)
+            self.ping_all_when_learned()
 
 
 class FaucetUntaggedNoCombinatorialFlood(FaucetUntaggedTest):
