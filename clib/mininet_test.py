@@ -429,17 +429,22 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class CleanupResult(unittest.runner.TextTestResult):
+class FaucetResult(unittest.runner.TextTestResult):
+
+    pass
+
+
+class FaucetCleanupResult(FaucetResult):
 
     root_tmpdir = None
     successes = []
 
     def addSuccess(self, test):
-        self.successes.append((test, ''))
+        self.successes.append((test, test.output_text))
         test_tmpdir = os.path.join(
             self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
         shutil.rmtree(test_tmpdir)
-        super(CleanupResult, self).addSuccess(test)
+        super(FaucetCleanupResult, self).addSuccess(test)
 
 
 def test_runner(root_tmpdir, resultclass, failfast=False):
@@ -472,7 +477,7 @@ def run_single_test_suites(root_tmpdir, resultclass, single_tests):
 def run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests):
     sanity_runner = test_runner(root_tmpdir, resultclass, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
-    return sanity_result.wasSuccessful()
+    return sanity_result
 
 
 def report_tests(test_status, test_list):
@@ -485,9 +490,9 @@ def report_tests(test_status, test_list):
     return tests_json
 
 
-def report_results(results, report_json_filename):
+def report_results(results, hw_config, report_json_filename):
     if results:
-        report_json = {}
+        report_json = {'hw_config': hw_config, 'tests': {}}
         report_title = 'test results'
         print('\n')
         print(report_title)
@@ -502,20 +507,22 @@ def report_results(results, report_json_filename):
                 test_lists.append(
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
-                report_json.update(report_tests(test_status, test_list))
+                report_json['tests'].update(report_tests(test_status, test_list))
         print('\n')
         if report_json_filename:
             with open(report_json_filename, 'w') as report_json_file:
                 report_json_file.write(json.dumps(report_json))
 
 
-def run_test_suites(report_json_filename, root_tmpdir, resultclass, single_tests, parallel_tests):
+def run_test_suites(report_json_filename, hw_config, root_tmpdir,
+                    resultclass, single_tests, parallel_tests, sanity_result):
     print('running %u tests in parallel and %u tests serial' % (
         parallel_tests.countTestCases(), single_tests.countTestCases()))
     results = []
     results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
     results.extend(run_single_test_suites(root_tmpdir, resultclass, single_tests))
-    report_results(results, report_json_filename)
+    results.append(sanity_result)
+    report_results(results, hw_config, report_json_filename)
     successful_results = [result for result in results if result.wasSuccessful()]
     return len(results) == len(successful_results)
 
@@ -602,20 +609,22 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
     sanity_tests, single_tests, parallel_tests = expand_tests(
         module, requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    resultclass = CleanupResult
+    resultclass = FaucetCleanupResult
     if keep_logs:
-        resultclass = resultclass.__bases__[0]
+        resultclass = FaucetResult
     all_successful = False
-    sanity = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
-    if sanity:
+    sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
+    if sanity_result.wasSuccessful():
         all_successful = run_test_suites(
-            report_json_filename, root_tmpdir,
-            resultclass, single_tests, parallel_tests)
+            report_json_filename, hw_config, root_tmpdir,
+            resultclass, single_tests, parallel_tests, sanity_result)
     os.remove(ports_sock)
     decoded_pcap_logs = glob.glob(os.path.join(
         os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
     pipeline_superset_report(decoded_pcap_logs)
-    clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail)
+    clean_test_dirs(
+        root_tmpdir, all_successful,
+        sanity_result.wasSuccessful(), keep_logs, dumpfail)
     if not all_successful:
         sys.exit(-1)
 

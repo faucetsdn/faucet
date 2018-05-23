@@ -26,6 +26,8 @@ import scapy.all
 from mininet.log import error, output
 from mininet.net import Mininet
 
+from prometheus_client import parser
+
 from clib import mininet_test_base
 from clib import mininet_test_util
 from clib import mininet_test_topo
@@ -557,6 +559,14 @@ class FaucetUntaggedTcpIPv6IperfTest(FaucetUntaggedTest):
 class FaucetSanityTest(FaucetUntaggedTest):
     """Sanity test - make sure test environment is correct before running all tess."""
 
+    @staticmethod
+    def _metrics_to_json(prom_text):
+        var_dict = {}
+        for metric in parser.text_string_to_metric_families(prom_text):
+            for var, labels, _ in metric.samples:
+                var_dict[var] = labels
+        return var_dict
+
     def verify_dp_port_healthy(self, dp_port, retries=5, min_mbps=100):
         for _ in range(retries):
             port_desc = self.get_port_desc_from_dpid(self.dpid, dp_port)
@@ -574,7 +584,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
                 error('state %u must be 0 (all flags clear or live)\n' % (
                     port_state))
             else:
-                return
+                return port_desc
             time.sleep(1)
         self.fail('DP port %u not healthy (%s)' % (dp_port, port_desc))
 
@@ -582,7 +592,9 @@ class FaucetSanityTest(FaucetUntaggedTest):
         prom_desc = self.scrape_prometheus(
             controller='faucet', var='of_dp_desc_stats')
         self.assertIsNotNone(prom_desc, msg='Cannot scrape of_dp_desc_stats')
-        error('DP: %s\n' % prom_desc[0])
+        var_dict = self._metrics_to_json(prom_desc[0])
+        error('DP: %s\n' % var_dict)
+        portdesc = {}
         for i, host in enumerate(self.net.hosts):
             in_port = 'port_%u' % (i + 1)
             dp_port = self.port_map[in_port]
@@ -592,8 +604,10 @@ class FaucetSanityTest(FaucetUntaggedTest):
             else:
                 error('verifying host %s -> dp %s\n' % (
                     in_port, dp_port))
-            self.verify_dp_port_healthy(dp_port)
+            portdesc[dp_port] = self.verify_dp_port_healthy(dp_port)
             self.require_host_learned(host, in_port=dp_port)
+        var_dict['portdesc'] = portdesc
+        self.output_text = str(var_dict)
 
 
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
