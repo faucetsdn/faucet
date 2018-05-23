@@ -429,22 +429,17 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class FaucetResult(unittest.runner.TextTestResult):
-
-    pass
-
-
-class FaucetCleanupResult(FaucetResult):
+class CleanupResult(unittest.runner.TextTestResult):
 
     root_tmpdir = None
     successes = []
 
     def addSuccess(self, test):
-        self.successes.append((test, test.output_text))
+        self.successes.append((test, ''))
         test_tmpdir = os.path.join(
             self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
         shutil.rmtree(test_tmpdir)
-        super(FaucetCleanupResult, self).addSuccess(test)
+        super(CleanupResult, self).addSuccess(test)
 
 
 def test_runner(root_tmpdir, resultclass, failfast=False):
@@ -492,7 +487,7 @@ def report_tests(test_status, test_list):
 
 def report_results(results, hw_config, report_json_filename):
     if results:
-        report_json = {'hw_config': hw_config, 'tests': {}}
+        report_json = {'hw_config': hw_config}
         report_title = 'test results'
         print('\n')
         print(report_title)
@@ -507,7 +502,7 @@ def report_results(results, hw_config, report_json_filename):
                 test_lists.append(
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
-                report_json['tests'].update(report_tests(test_status, test_list))
+                report_json.update(report_tests(test_status, test_list))
         print('\n')
         if report_json_filename:
             with open(report_json_filename, 'w') as report_json_file:
@@ -609,9 +604,9 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
     sanity_tests, single_tests, parallel_tests = expand_tests(
         module, requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    resultclass = FaucetCleanupResult
+    resultclass = CleanupResult
     if keep_logs:
-        resultclass = FaucetResult
+        resultclass = resultclass.__bases__[0]
     all_successful = False
     sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
     if sanity_result.wasSuccessful():

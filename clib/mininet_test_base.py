@@ -107,7 +107,6 @@ class FaucetTestBase(unittest.TestCase):
     env = collections.defaultdict(dict)
     rand_dpids = set()
     event_sock = None
-    output_text = ''
 
 
     def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
