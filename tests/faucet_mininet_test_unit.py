@@ -1091,30 +1091,6 @@ class FaucetUntaggedCDPTest(FaucetUntaggedTest):
         self.assertFalse(self.is_cdp_blocked())
 
 
-class FaucetUntaggedLLDPUnblockedTest(FaucetUntaggedTest):
-
-    CONFIG = """
-        drop_lldp: False
-        interfaces:
-            %(port_1)d:
-                native_vlan: 100
-                description: "b1"
-            %(port_2)d:
-                native_vlan: 100
-                description: "b2"
-            %(port_3)d:
-                native_vlan: 100
-                description: "b3"
-            %(port_4)d:
-                native_vlan: 100
-                description: "b4"
-"""
-
-    def test_untagged(self):
-        self.ping_all_when_learned()
-        self.assertFalse(self.verify_lldp_blocked())
-
-
 class FaucetZodiacUntaggedTest(FaucetUntaggedTest):
     """Zodiac has only 3 ports available, and one controller so no Gauge."""
 
@@ -5048,7 +5024,6 @@ class FaucetStringOfDPTest(FaucetTest):
                 'ofchannel_log': dpid_ofchannel_log,
                 'interfaces': {},
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
-                'drop_lldp': False,
             }
             interfaces_config = dp_config['interfaces']
 
