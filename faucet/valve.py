@@ -261,7 +261,7 @@ class Valve(object):
         ofmsgs.append(flood_table.flowdrop(
             flood_table.match(
                 eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
-                eth_dst_mask=valve_packet.BRIDGE_GROUP_ADDRESS_MASK),
+                eth_dst_mask=valve_packet.mac_byte_mask(5)),
             priority=self.dp.highest_priority))
 
         return ofmsgs
