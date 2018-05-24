@@ -144,7 +144,7 @@ Running the tests
       -v /tmp:/tmp \
       -ti faucet/tests
 
-Running a single test
+Running a single test including pytype, linting, and documentation
 ~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: console
@@ -165,6 +165,21 @@ in order to complete a faucet test suite run against hardware quicker.
 
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="-n" \
+      -v /etc/faucet:/etc/faucet \
+      -v /tmp:/tmp \
+      -ti faucet/tests
+
+Running only a single integration test
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Sometimes you will want to skip the pytype, linting and documenation tests
+and simply run a single integration test. Optionally ``-k`` will also save
+the results.
+
+.. code:: console
+
+  sudo docker run --privileged --net=host \
+      -e FAUCET_TESTS="-i -n -k FaucetUntaggedLLDPTest" \
       -v /etc/faucet:/etc/faucet \
       -v /tmp:/tmp \
       -ti faucet/tests
