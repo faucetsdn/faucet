@@ -48,6 +48,7 @@ class Port(Conf):
     op_status_reconf = None
     receive_lldp = None
     override_output_port = None
+    max_lldp_lost = None
 
     dyn_learn_ban_count = 0
     dyn_phys_up = False
@@ -97,6 +98,8 @@ class Port(Conf):
         # If True, receive LLDP on this port.
         'override_output_port': None,
         # If set, packets are sent to this other port.
+        'max_lldp_lost': 3,
+        # threshold before marking a stack port as down
     }
 
     defaults_types = {
