@@ -274,3 +274,35 @@ class Port(Conf):
         if self.mirror is not None:
             return [valve_of.output_port(mirror_port) for mirror_port in self.mirror]
         return []
+
+    def is_stack_up(self):
+        """Return True if port is in UP state."""
+        return self.dyn_stack_current_state == STACK_STATE_UP
+
+    def is_stack_down(self):
+        """Return True if port is in DOWN state."""
+        return self.dyn_stack_current_state == STACK_STATE_DOWN
+
+    def is_stack_admin_down(self):
+        """Return True if port is in ADMIN_DOWN state."""
+        return self.dyn_stack_current_state == STACK_STATE_ADMIN_DOWN
+
+    def is_stack_init(self):
+        """Return True if port is in INIT state."""
+        return self.dyn_stack_current_state == STACK_STATE_DOWN
+
+    def stack_up(self):
+        """Change the current stack state to UP."""
+        self.dyn_stack_current_state = STACK_STATE_UP
+
+    def stack_down(self):
+        """Change the current stack state to DOWN."""
+        self.dyn_stack_current_state = STACK_STATE_DOWN
+
+    def stack_admin_down(self):
+        """Change the current stack state to ADMIN_DOWN."""
+        self.dyn_stack_current_state = STACK_STATE_ADMIN_DOWN
+
+    def stack_init(self):
+        """Change the current stack state to INIT_DOWN."""
+        self.dyn_stack_current_state = STACK_STATE_INIT
