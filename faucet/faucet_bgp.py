@@ -18,17 +18,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import ipaddress
 
 import eventlet
 eventlet.monkey_patch()
 
-from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker # pylint: disable=wrong-import-position
-from ryu.services.protocols.bgp.api.base import CoreNotStarted # pylint: disable=wrong-import-position
+from ryu.lib import hub # pylint: disable=wrong-import-position
 
-from faucet.valve_util import btos # pylint: disable=wrong-import-position
-
+from beka.beka import Beka # pylint: disable=wrong-import-position
 
 class FaucetBgp(object):
     """Wrapper for Ryu BGP speaker."""
@@ -45,11 +42,7 @@ class FaucetBgp(object):
         """Return state of each neighbor for a BGP speaker as a list."""
         neighbor_states = []
         if bgp_speaker is not None:
-            try:
-                neighbor_states = list(json.loads(
-                    bgp_speaker.neighbor_state_get()).items())
-            except CoreNotStarted:
-                pass
+            neighbor_states = bgp_speaker.neighbor_states()
         return neighbor_states
 
     def _bgp_up_handler(self, remote_ip, remote_as):
@@ -73,24 +66,26 @@ class FaucetBgp(object):
             return
 
         vlan = valve.dp.vlans[vlan_vid]
-        prefix = ipaddress.ip_network(btos(path_change.prefix))
-        nexthop = ipaddress.ip_address(btos(path_change.nexthop))
+        prefix = ipaddress.ip_network(str(path_change.prefix))
 
-        if vlan.is_faucet_vip(nexthop):
-            self.logger.error(
-                'BGP nexthop %s for prefix %s cannot be us',
-                nexthop, prefix)
-            return
-        if vlan.ip_in_vip_subnet(nexthop) is None:
-            self.logger.error(
-                'BGP nexthop %s for prefix %s is not a connected network',
-                nexthop, prefix)
-            return
+        if path_change.next_hop:
+            nexthop = ipaddress.ip_address(str(path_change.next_hop))
+
+            if vlan.is_faucet_vip(nexthop):
+                self.logger.error(
+                    'BGP nexthop %s for prefix %s cannot be us',
+                    nexthop, prefix)
+                return
+            if vlan.ip_in_vip_subnet(nexthop) is None:
+                self.logger.error(
+                    'BGP nexthop %s for prefix %s is not a connected network',
+                    nexthop, prefix)
+                return
 
         flowmods = []
         if path_change.is_withdraw:
             self.logger.info(
-                'BGP withdraw %s nexthop %s', prefix, nexthop)
+                'BGP withdraw %s', prefix)
             flowmods = valve.del_route(vlan, prefix)
         else:
             self.logger.info(
@@ -109,17 +104,16 @@ class FaucetBgp(object):
         return bgp_vlans
 
     @staticmethod
-    def _vlan_prefixes(vlan):
+    def _vlan_prefixes_by_ipv(vlan, ipv):
         vlan_prefixes = []
-        for faucet_vip in vlan.faucet_vips:
+        for faucet_vip in vlan.faucet_vips_by_ipv(ipv):
             vlan_prefixes.append((str(faucet_vip), str(faucet_vip.ip)))
-        for ipv in vlan.ipvs():
-            routes = vlan.routes_by_ipv(ipv)
-            for ip_dst, ip_gw in list(routes.items()):
-                vlan_prefixes.append((str(ip_dst), str(ip_gw)))
+        routes = vlan.routes_by_ipv(ipv)
+        for ip_dst, ip_gw in list(routes.items()):
+            vlan_prefixes.append((str(ip_dst), str(ip_gw)))
         return vlan_prefixes
 
-    def _create_bgp_speaker_for_vlan(self, vlan, dp_id, vlan_vid):
+    def _create_bgp_speaker_for_vlan(self, vlan, dp_id, vlan_vid, ipv):
         """Set up BGP speaker for an individual VLAN if required.
 
         Args:
@@ -130,31 +124,39 @@ class FaucetBgp(object):
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
         handler = lambda x: self._bgp_route_handler(x, dp_id, vlan_vid)
-        bgp_speaker = BGPSpeaker(
-            as_number=vlan.bgp_as,
+
+        if len(vlan.bgp_server_addresses_by_ipv(ipv)) > 1:
+            self.logger.warning(
+                'Only one server per IPv per vlan supported')
+        server_address = sorted(vlan.bgp_server_addresses_by_ipv(ipv))[0]
+        beka = Beka(
+            local_address=str(server_address),
+            bgp_port=vlan.bgp_port,
+            local_as=vlan.bgp_as,
             router_id=vlan.bgp_routerid,
-            bgp_server_port=vlan.bgp_port,
-            bgp_server_hosts=vlan.bgp_server_addresses,
-            best_path_change_handler=handler,
             peer_up_handler=self._bgp_up_handler,
-            peer_down_handler=self._bgp_down_handler)
-        for ip_dst, ip_gw in self._vlan_prefixes(vlan):
-            bgp_speaker.prefix_add(prefix=ip_dst, next_hop=ip_gw)
-        for bgp_neighbor_address in vlan.bgp_neighbor_addresses:
-            bgp_speaker.neighbor_add(
-                connect_mode=vlan.bgp_connect_mode,
-                address=bgp_neighbor_address,
-                remote_as=vlan.bgp_neighbor_as,
-                local_address=vlan.bgp_local_address,
-                enable_ipv4=True,
-                enable_ipv6=True)
-        return bgp_speaker
+            peer_down_handler=self._bgp_down_handler,
+            route_handler=handler,
+            error_handler=self.logger.warning
+        )
+        for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(vlan, ipv):
+            beka.add_route(prefix=str(ip_dst), next_hop=str(ip_gw))
+        for bgp_neighbor_address in vlan.bgp_neighbor_addresses_by_ipv(ipv):
+            beka.add_neighbor(
+                connect_mode="passive",
+                peer_ip=str(bgp_neighbor_address),
+                peer_as=vlan.bgp_neighbor_as
+                )
+
+        hub.spawn(beka.run)
+        return beka
 
     def shutdown_bgp_speakers(self):
         """Shutdown any active BGP speakers."""
-        for vlan_bgp_speakers in list(self._dp_bgp_speakers.values()):
-            for bgp_speaker in list(vlan_bgp_speakers.values()):
-                bgp_speaker.shutdown()
+        for vlan_bgp_speakers_by_ipv in list(self._dp_bgp_speakers.values()):
+            for vlan_bgp_speakers in list(vlan_bgp_speakers_by_ipv.values()):
+                for bgp_speaker in list(vlan_bgp_speakers.values()):
+                    bgp_speaker.shutdown()
         self._dp_bgp_speakers = {}
 
     def reset(self, valves):
@@ -179,24 +181,26 @@ class FaucetBgp(object):
         bgp_vlan = sorted(bgp_vlans)[0]
         dp_id = bgp_vlan.dp_id
         vlan_vid = bgp_vlan.vid
-        self._dp_bgp_speakers[dp_id] = {
-            vlan_vid: self._create_bgp_speaker_for_vlan(bgp_vlan, dp_id, vlan_vid)}
+        self._dp_bgp_speakers[dp_id] = {}
+        for ipv in bgp_vlan.bgp_ipvs():
+            self._dp_bgp_speakers[dp_id][ipv] = {
+                vlan_vid: self._create_bgp_speaker_for_vlan(bgp_vlan, dp_id, vlan_vid, ipv)}
 
-    def update_metrics(self):
+    def update_metrics(self, _now):
         """Update BGP metrics."""
-        for dp_id, bgp_speakers in list(self._dp_bgp_speakers.items()):
+        for dp_id, bgp_speakers_by_ipv in list(self._dp_bgp_speakers.items()):
             valve = self._valves[dp_id]
-            for vlan_vid, bgp_speaker in list(bgp_speakers.items()):
-                # TODO: VLAN deconfigured, online reconfiguration while BGP active not supported.
-                if vlan_vid not in valve.dp.vlans:
-                    continue
-                vlan = valve.dp.vlans[vlan_vid]
-                neighbor_states = self._neighbor_states(bgp_speaker)
-                for neighbor, neighbor_state in neighbor_states:
-                    neighbor_labels = dict(
-                        valve.base_prom_labels, vlan=vlan.vid, neighbor=neighbor)
-                    self.metrics.bgp_neighbor_uptime_seconds.labels( # pylint: disable=no-member
-                        **neighbor_labels).set(neighbor_state['info']['uptime'])
-                    for ipv in vlan.ipvs():
+            for ipv, bgp_speakers in list(bgp_speakers_by_ipv.items()):
+                for vlan_vid, bgp_speaker in list(bgp_speakers.items()):
+                    # TODO: VLAN deconfigured, online reconfiguration while BGP active not supported.
+                    if vlan_vid not in valve.dp.vlans:
+                        continue
+                    vlan = valve.dp.vlans[vlan_vid]
+                    neighbor_states = self._neighbor_states(bgp_speaker)
+                    for neighbor, neighbor_state in neighbor_states:
+                        neighbor_labels = dict(
+                            valve.base_prom_labels, vlan=vlan.vid, neighbor=neighbor)
+                        self.metrics.bgp_neighbor_uptime_seconds.labels( # pylint: disable=no-member
+                            **neighbor_labels).set(neighbor_state['info']['uptime'])
                         self.metrics.bgp_neighbor_routes.labels( # pylint: disable=no-member
                             **dict(neighbor_labels, ipv=ipv)).set(vlan.route_count_by_ipv(ipv))

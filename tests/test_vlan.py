@@ -64,8 +64,11 @@ class FaucetVLANConfigTest(FaucetVLANBaseTest):
             '_id',
             'dyn_neigh_cache_by_ipv',
             'dyn_ipvs',
+            'dyn_bgp_ipvs',
             'dyn_host_cache',
             'dyn_faucet_vips_by_ipv',
+            'dyn_bgp_neighbor_addresses_by_ipv',
+            'dyn_bgp_server_addresses_by_ipv',
             'untagged'
         ]
         dict_keys = set(vlan.__dict__.keys())
@@ -160,6 +163,38 @@ class FaucetVLANMethodTest(FaucetVLANBaseTest):
 
         vlan = VLAN(1, 1, self.input_config)
         self.assertEqual(set(vlan.ipvs()), set([4, 6]))
+
+    def test_bgp_servers_change_bgp_ipvs_ipv4(self):
+        """Tests the ipvs() method with an IPv4 BGP server"""
+
+        self.input_config.update({
+            'bgp_server_addresses': ['127.0.0.1']
+        })
+
+        vlan = VLAN(1, 1, self.input_config)
+        self.assertEqual(vlan.bgp_ipvs(), [4])
+
+    def test_bgp_servers_change_bgp_ipvs_ipv6(self):
+        """Tests the ipvs() method with an IPv4 BGP server"""
+
+        self.input_config.update({
+            'bgp_server_addresses': ['::1']
+        })
+
+        vlan = VLAN(1, 1, self.input_config)
+        self.assertEqual(vlan.bgp_ipvs(), [6])
+
+    def test_bgp_servers_change_bgp_ipvs_both(self):
+        """Tests the ipvs() method with an IPv4 BGP server"""
+
+        self.input_config.update({
+            'bgp_server_addresses': ['127.0.0.1', '::1']
+        })
+
+        vlan = VLAN(1, 1, self.input_config)
+        self.assertEqual(vlan.bgp_ipvs(), [4, 6])
+        self.assertEqual(vlan.bgp_server_addresses_by_ipv(4), [ip_address('127.0.0.1')])
+        self.assertEqual(vlan.bgp_server_addresses_by_ipv(6), [ip_address('::1')])
 
     def test_faucet_vips_by_ipv_none(self):
         """Tests the faucet_vips_by_ipv() method when there are no vips"""

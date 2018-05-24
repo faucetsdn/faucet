@@ -82,6 +82,40 @@ dps:
 """
         self.check_config_success(minimal_conf)
 
+    def test_include_optional(self):
+        """Test minimal include optional correct config."""
+        minimal_conf = """
+include-optional: ['/nonexistant']
+vlans:
+    100:
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_success(minimal_conf)
+
+    def test_include_required(self):
+        """Test minimal include optional correct config."""
+        minimal_conf = """
+include: ['/nonexistant']
+vlans:
+    100:
+        description: "100"
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+"""
+        self.check_config_failure(minimal_conf)
+
     def test_invalid_vid(self):
         """Test invalid VID."""
         invalid_vid_conf = """
@@ -311,6 +345,33 @@ dps:
         hardware: 'Open vSwitch'
         interfaces:
             1:
+                native_vlan: 100
+                acl_in: 101
+"""
+        self.check_config_success(acl_config)
+
+    def test_ports_good_acl(self):
+        """Test that an ACL with good match field is accepted."""
+        acl_config = """
+vlans:
+    100:
+        description: "100"
+acls:
+    101:
+        - rule:
+            dl_dst: "0e:00:00:00:02:02"
+            actions:
+                output:
+                    ports: [1, 2]
+dps:
+    switch1:
+        dp_id: 0xcafef00d
+        hardware: 'Open vSwitch'
+        interfaces:
+            1:
+                native_vlan: 100
+                acl_in: 101
+            2:
                 native_vlan: 100
                 acl_in: 101
 """

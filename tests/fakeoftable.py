@@ -19,6 +19,11 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 from ryu.lib import addrconv
 
 
+class FakeOFTableException(Exception):
+
+    pass
+
+
 class FakeOFTable(object):
     """Fake OFTable is a virtual openflow pipeline used for testing openflow controllers.
 
@@ -27,75 +32,138 @@ class FakeOFTable(object):
     """
 
     def __init__(self, num_tables):
-        self.tables = []
-        for _ in range(0, num_tables):
-            self.tables.append([])
+        self.tables = [[] for _ in range(0, num_tables)]
+        self.groups = {}
+
+    def _apply_groupmod(self, ofmsg):
+        """Maintain group table."""
+
+        def _del(_ofmsg, group_id):
+            if group_id == ofp.OFPG_ALL:
+                self.groups = {}
+                return
+            if group_id in self.groups:
+                del self.groups[group_id]
+
+        def _add(ofmsg, group_id):
+            if group_id in self.groups:
+                raise FakeOFTableException('group already in group table: %s' % ofmsg)
+            self.groups[group_id] = ofmsg
+
+        def _modify(ofmsg, group_id):
+            if group_id not in self.groups:
+                raise FakeOFTableException('group not in group table: %s' % ofmsg)
+            self.groups[group_id] = ofmsg
+
+        _groupmod_handlers = {
+            ofp.OFPGC_DELETE: _del,
+            ofp.OFPGC_ADD: _add,
+            ofp.OFPGC_MODIFY: _modify,
+        }
+
+        _groupmod_handlers[ofmsg.command](ofmsg, ofmsg.group_id)
+
+    def _apply_flowmod(self, ofmsg):
+        """Adds, Deletes and modify flow modification messages are applied
+           according to section 6.4 of the OpenFlow 1.3 specification."""
+
+        def _add(table, flowmod):
+            # From the 1.3 spec, section 6.4:
+            # For add requests (OFPFC_ADD) with the
+            # OFPFF_CHECK_OVERLAP flag set, the switch must first
+            # check for any overlapping flow entries in the
+            # requested table.  Two flow entries overlap if a
+            # single packet may match both, and both flow entries
+            # have the same priority, but the two flow entries
+            # don't have the exact same match.  If an overlap
+            # conflict exists between an existing flow entry and
+            # the add request, the switch must refuse the addition
+            # and respond with an ofp_error_msg with
+            # OFPET_FLOW_MOD_FAILED type and OFPFMFC_OVERLAP code.
+            #
+            # Without the check overlap flag it seems like it is
+            # possible that we can have overlapping flow table
+            # entries which will cause ambiguous behaviour. This is
+            # obviously unnacceptable so we will assume this is
+            # always set
+            add = True
+            for fte in table:
+                if flowmod.fte_matches(fte, strict=True):
+                    table.remove(fte)
+                    break
+                elif flowmod.overlaps(fte):
+                    add = False
+                    break
+            if add:
+                table.append(flowmod)
+
+        def _del(table, flowmod):
+            removals = [fte for fte in table if flowmod.fte_matches(fte)]
+            for fte in removals:
+                table.remove(fte)
+
+        def _del_strict(table, flowmod):
+            for fte in table:
+                if flowmod.fte_matches(fte, strict=True):
+                    table.remove(fte)
+                    break
+
+        def _modify(table, flowmod):
+            for fte in table:
+                if flowmod.fte_matches(fte):
+                    fte.instructions = flowmod.instructions
+
+        def _modify_strict(table, flowmod):
+            for fte in table:
+                if flowmod.fte_matches(fte, strict=True):
+                    fte.instructions = flowmod.instructions
+                    break
+
+        _flowmod_handlers = {
+            ofp.OFPFC_ADD: _add,
+            ofp.OFPFC_DELETE: _del,
+            ofp.OFPFC_DELETE_STRICT: _del_strict,
+            ofp.OFPFC_MODIFY: _modify,
+            ofp.OFPFC_MODIFY_STRICT: _modify_strict,
+        }
+
+        table_id = ofmsg.table_id
+        if table_id == ofp.OFPTT_ALL or table_id is None:
+            tables = self.tables
+        else:
+            tables = [self.tables[table_id]]
+        flowmod = FlowMod(ofmsg)
+
+        for table in tables:
+            _flowmod_handlers[ofmsg.command](table, flowmod)
 
     def apply_ofmsgs(self, ofmsgs):
-        """This is used to update the fake flowtable.
-
-        Adds, Deletes and modify flow modification messages are applied
-        according to section 6.4 of the OpenFlow 1.3 specification."""
+        """Update state of test flow tables."""
         for ofmsg in ofmsgs:
+            if isinstance(ofmsg, parser.OFPBarrierRequest):
+                continue
+            if isinstance(ofmsg, parser.OFPPacketOut):
+                continue
+            if isinstance(ofmsg, parser.OFPSetConfig):
+                continue
+            if isinstance(ofmsg, parser.OFPSetAsync):
+                continue
+            if isinstance(ofmsg, parser.OFPDescStatsRequest):
+                continue
+            if isinstance(ofmsg, parser.OFPTableFeaturesStatsRequest):
+                # TODO: validate TFM
+                continue
+            if isinstance(ofmsg, parser.OFPMeterMod):
+                # TODO: handle OFPMeterMod
+                continue
+            if isinstance(ofmsg, parser.OFPGroupMod):
+                self._apply_groupmod(ofmsg)
+                continue
             if isinstance(ofmsg, parser.OFPFlowMod):
-                table_id = ofmsg.table_id
-                if table_id == ofp.OFPTT_ALL or table_id is None:
-                    tables = self.tables
-                else:
-                    tables = [self.tables[table_id]]
-                flowmod = FlowMod(ofmsg)
-                for table in tables:
-                    if ofmsg.command == ofp.OFPFC_ADD:
-                        # From the 1.3 spec, section 6.4:
-                        # For add requests (OFPFC_ADD) with the
-                        # OFPFF_CHECK_OVERLAP flag set, the switch must first
-                        # check for any overlapping flow entries in the
-                        # requested table.  Two flow entries overlap if a
-                        # single packet may match both, and both flow entries
-                        # have the same priority, but the two flow entries
-                        # don't have the exact same match.  If an overlap
-                        # conflict exists between an existing flow entry and
-                        # the add request, the switch must refuse the addition
-                        # and respond with an ofp_error_msg with
-                        # OFPET_FLOW_MOD_FAILED type and OFPFMFC_OVERLAP code.
-                        #
-                        # Without the check overlap flag it seems like it is
-                        # possible that we can have overlapping flow table
-                        # entries which will cause ambiguous behaviour. This is
-                        # obviously unnacceptable so we will assume this is
-                        # always set
-                        add = True
-                        for fte in table:
-                            if flowmod.fte_matches(fte, strict=True):
-                                table.remove(fte)
-                                break
-                            elif flowmod.overlaps(fte):
-                                add = False
-                                break
-                        if add:
-                            table.append(flowmod)
-                    elif ofmsg.command == ofp.OFPFC_DELETE:
-                        removals = []
-                        for fte in table:
-                            if flowmod.fte_matches(fte):
-                                removals.append(fte)
-                        for fte in removals:
-                            table.remove(fte)
-                    elif ofmsg.command == ofp.OFPFC_DELETE_STRICT:
-                        for fte in table:
-                            if flowmod.fte_matches(fte, strict=True):
-                                table.remove(fte)
-                                break
-                    elif ofmsg.command == ofp.OFPFC_MODIFY:
-                        for fte in table:
-                            if flowmod.fte_matches(fte):
-                                fte.instructions = flowmod.instructions
-                    elif ofmsg.command == ofp.OFPFC_MODIFY_STRICT:
-                        for fte in table:
-                            if flowmod.fte_matches(fte, strict=True):
-                                fte.instructions = flowmod.instructions
-                                break
-        self.sort_tables()
+                self._apply_flowmod(ofmsg)
+                self.sort_tables()
+                continue
+            raise FakeOFTableException('Unsupported flow %s' % str(ofmsg))
 
     def lookup(self, match):
         """Return the entries from flowmods that matches match.
@@ -155,71 +223,77 @@ class FakeOFTable(object):
         Arguments:
         Match: a dictionary keyed by header field names with values.
         """
+        def _output_result(action, vid_stack, port, vid):
+            if port is None:
+                return True
+            if action.port == port:
+                if vid is None:
+                    return True
+                if vid & ofp.OFPVID_PRESENT == 0:
+                    return not vid_stack
+                return vid_stack and vid == vid_stack[-1]
+            return None
+
+        def _process_vid_stack(action, vid_stack):
+            if action.type == ofp.OFPAT_PUSH_VLAN:
+                vid_stack.append(ofp.OFPVID_PRESENT)
+            elif action.type == ofp.OFPAT_POP_VLAN:
+                vid_stack.pop()
+            elif action.type == ofp.OFPAT_SET_FIELD:
+                if action.key == 'vlan_vid':
+                    vid_stack[-1] = action.value
+            return vid_stack
+
         # vid_stack represents the packet's vlan stack, innermost label listed
         # first
         match_vid = match.get('vlan_vid', 0)
+        vid_stack = []
         if match_vid & ofp.OFPVID_PRESENT != 0:
-            vid_stack = [match_vid]
-        else:
-            vid_stack = []
-
+            vid_stack.append(match_vid)
         instructions = self.lookup(match)
 
         for instruction in instructions:
-            if instruction.type == ofp.OFPIT_APPLY_ACTIONS:
-                for action in instruction.actions:
-
-                    if action.type == ofp.OFPAT_PUSH_VLAN:
-                        vid_stack.append(ofp.OFPVID_PRESENT)
-
-                    elif action.type == ofp.OFPAT_POP_VLAN:
-                        vid_stack.pop()
-
-                    elif action.type == ofp.OFPAT_SET_FIELD:
-                        if action.key == 'vlan_vid':
-                            vid_stack[-1] = action.value
-                        else:
-                            continue
-
-                    elif action.type == ofp.OFPAT_OUTPUT:
-                        if port is None:
-                            return True
-
-                        elif action.port == port:
-
-                            if vid is None:
-                                return True
-
-                            elif vid & ofp.OFPVID_PRESENT == 0:
-                                return len(vid_stack) == 0
-
-                            else:
-                                return\
-                                    len(vid_stack) > 0 and vid == vid_stack[-1]
-
+            if instruction.type != ofp.OFPIT_APPLY_ACTIONS:
+                continue
+            for action in instruction.actions:
+                vid_stack = _process_vid_stack(action, vid_stack)
+                if action.type == ofp.OFPAT_OUTPUT:
+                    output_result = _output_result(action, vid_stack, port, vid)
+                    if output_result is not None:
+                        return output_result
+                elif action.type == ofp.OFPAT_GROUP:
+                    if action.group_id not in self.groups:
+                        raise FakeOFTableException(
+                            'output group not in group table: %s' % action)
+                    buckets = self.groups[action.group_id].buckets
+                    for bucket in buckets:
+                        bucket_vid_stack = vid_stack
+                        for bucket_action in bucket.actions:
+                            bucket_vid_stack = _process_vid_stack(
+                                bucket_action, bucket_vid_stack)
+                            if bucket_action.type == ofp.OFPAT_OUTPUT:
+                                output_result = _output_result(
+                                    bucket_action, vid_stack, port, vid)
+                                if output_result is not None:
+                                    return output_result
         return False
 
     def __str__(self):
-        string = ""
+        string = ''
         for table_id, table in enumerate(self.tables):
-            string += "----- Table {0} -----\n".format(table_id)
-            for flowmod in table:
-                string += str(flowmod)
-                string += "\n"
+            string += '----- Table %u -----\n' % (table_id)
+            string += '\n'.join([str(flowmod) for flowmod in table])
         return string
 
     def sort_tables(self):
-        for table_id, table in enumerate(self.tables):
-            self.tables[table_id] = sorted(table, reverse=True)
-        return self.tables
+        """Sort flows in tables by priority order."""
+        self.tables = [sorted(table, reverse=True) for table in self.tables]
 
 
 class FlowMod(object):
     """Represents a flow modification message and its corresponding entry in
     the flow table.
     """
-
-
     MAC_MATCH_FIELDS = (
         'eth_src', 'eth_dst', 'arp_sha', 'arp_tha', 'ipv6_nd_sll',
         'ipv6_nd_tll'
@@ -234,16 +308,14 @@ class FlowMod(object):
         self.match_values = {}
         self.match_masks = {}
         self.out_port = None
-        if (flowmod.command == ofp.OFPFC_DELETE or\
-           flowmod.command == ofp.OFPFC_DELETE_STRICT) and\
-           flowmod.out_port != ofp.OFPP_ANY:
+        if ((flowmod.command == ofp.OFPFC_DELETE or flowmod.command == ofp.OFPFC_DELETE_STRICT) and
+                flowmod.out_port != ofp.OFPP_ANY):
             self.out_port = flowmod.out_port
 
-        for key, v in flowmod.match.items():
-            if isinstance(v, tuple):
-                val, mask = v
+        for key, val in flowmod.match.items():
+            if isinstance(val, tuple):
+                val, mask = val
             else:
-                val = v
                 mask = -1
 
             mask = self.match_to_bits(key, mask)
@@ -274,7 +346,7 @@ class FlowMod(object):
         in the pkt_dict that is assumed to indicate a failed match
         """
 
-        #TODO: add cookie and out_group
+        # TODO: add cookie and out_group
         for key, val in self.match_values.items():
             if key not in pkt_dict:
                 return False
@@ -283,6 +355,11 @@ class FlowMod(object):
                 if val_bits != (val & self.match_masks[key]):
                     return False
         return True
+
+    def _matches_match(self, other):
+        return (self.priority == other.priority and
+                self.match_values == other.match_values and
+                self.match_masks == other.match_masks)
 
     def fte_matches(self, other, strict=False):
         """returns True if the flow table entry other matches this flowmod.
@@ -298,18 +375,14 @@ class FlowMod(object):
         if not self.out_port_matches(other):
             return False
         if strict:
-            return self.priority == other.priority and\
-                   self.match_values == other.match_values and\
-                   self.match_masks == other.match_masks
-        else:
-            for key, val in self.match_values.items():
-                if key not in other.match_values:
+            return self._matches_match(other)
+        for key, val in self.match_values.items():
+            if key not in other.match_values:
+                return False
+            else:
+                if other.match_values[key] & self.match_masks[key] != val:
                     return False
-                else:
-                    if other.match_values[key] & self.match_masks[key] != val:
-                        return False
         return True
-
 
     def overlaps(self, other):
         """ returns True if any packet can match both self and other."""
@@ -318,11 +391,11 @@ class FlowMod(object):
         # potentially an overlap and therefore is considered success
         if other.priority != self.priority:
             return False
-        for k, v in self.match_values.items():
-            if k in other.match_values:
-                if v & other.match_masks[k] != other.match_values[k]:
+        for key, val in self.match_values.items():
+            if key in other.match_values:
+                if val & other.match_masks[key] != other.match_values[key]:
                     return False
-                if other.match_values[k] & self.match_masks[k] != v:
+                if other.match_values[key] & self.match_masks[key] != val:
                     return False
         return True
 
@@ -335,38 +408,28 @@ class FlowMod(object):
         if isinstance(val, Bits):
             return val
 
+        def _val_to_bits(conv, val, length):
+            if val is -1:
+                return Bits(int=-1, length=length)
+            return Bits(bytes=conv(val), length=length)
+
         if key in self.MAC_MATCH_FIELDS:
-            if val is -1:
-                val = Bits(int=-1, length=48)
-            elif isinstance(val, str):
-                val = Bits(bytes=addrconv.mac.text_to_bin(val), length=48)
-
+            return _val_to_bits(addrconv.mac.text_to_bin, val, 48)
         elif key in self.IPV4_MATCH_FIELDS:
-            if val is -1:
-                val = Bits(int=-1, length=32)
-            elif isinstance(val, str):
-                val = Bits(bytes=addrconv.ipv4.text_to_bin(val), length=32)
-
+            return _val_to_bits(addrconv.ipv4.text_to_bin, val, 32)
         elif key in self.IPV6_MATCH_FIELDS:
-            if val is -1:
-                val = Bits(int=-1, length=128)
-            elif isinstance(val, str):
-                val = Bits(bytes=addrconv.ipv6.text_to_bin(val), length=128)
-
+            return _val_to_bits(addrconv.ipv6.text_to_bin, val, 128)
         else:
             val = Bits(int=int(val), length=64)
-
         return val
 
     def __lt__(self, other):
         return self.priority < other.priority
 
     def __eq__(self, other):
-        return self.priority == other.priority and\
-               self.match_values == other.match_values and\
-               self.match_masks == other.match_masks and\
-               self.out_port == other.out_port and\
-               self.instructions == other.instructions
+        return (self._matches_match(other) and
+                self.out_port == other.out_port and
+                self.instructions == other.instructions)
 
     def __str__(self):
         string = 'priority: {0}'.format(self.priority)

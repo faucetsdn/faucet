@@ -92,12 +92,12 @@ class GaugePortStateLogger(GaugePortStatePoller):
     @staticmethod
     def send_req():
         """Send a stats request to a datapath."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     @staticmethod
     def no_response():
         """Called when a polling cycle passes without receiving a response."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
 
 class GaugePortStatsLogger(GaugePortStatsPoller):

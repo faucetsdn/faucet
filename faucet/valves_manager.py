@@ -17,8 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
 from faucet.conf import InvalidConfigError
 from faucet.config_parser_util import config_changed
 from faucet.config_parser import dp_parser
@@ -103,7 +101,7 @@ class ValvesManager(object):
             sorted(list(SUPPORTED_HARDWARE.keys())))
         return None
 
-    def load_configs(self, new_config_file, delete_dp=None):
+    def load_configs(self, now, new_config_file, delete_dp=None):
         """Load/apply new config to all Valves."""
         new_dps = self.parse_configs(new_config_file)
         if new_dps is not None:
@@ -115,7 +113,7 @@ class ValvesManager(object):
                 if dp_id in self.valves:
                     self.logger.info('Reconfiguring existing datapath %s', dpid_log(dp_id))
                     valve = self.valves[dp_id]
-                    ofmsgs = valve.reload_config(new_dp)
+                    ofmsgs = valve.reload_config(now, new_dp)
                     if ofmsgs:
                         self.send_flows_to_dp_by_id(valve, ofmsgs)
                 else:
@@ -131,38 +129,36 @@ class ValvesManager(object):
                     del self.valves[deleted_dp]
             self.bgp.reset(self.valves)
 
-    def request_reload_configs(self, new_config_file, delete_dp=None):
+    def request_reload_configs(self, now, new_config_file, delete_dp=None):
         """Process a request to load config changes."""
         if self.config_watcher.content_changed(new_config_file):
             self.logger.info('configuration %s changed, analyzing differences', new_config_file)
-            self.load_configs(new_config_file, delete_dp=delete_dp)
+            self.load_configs(now, new_config_file, delete_dp=delete_dp)
         else:
             self.logger.info('configuration is unchanged, not reloading')
         self.metrics.faucet_config_reload_requests.inc() # pylint: disable=no-member
 
-    def update_metrics(self):
+    def update_metrics(self, now):
         """Update metrics in all Valves."""
         for valve in list(self.valves.values()):
-            valve.update_metrics(rate_limited=False)
-        self.bgp.update_metrics()
+            valve.update_metrics(now, rate_limited=False)
+        self.bgp.update_metrics(now)
 
-    def valve_flow_services(self, valve_service):
+    def valve_flow_services(self, now, valve_service):
         """Call a method on all Valves and send any resulting flows."""
         for dp_id, valve in list(self.valves.items()):
-            ofmsgs = getattr(valve, valve_service)()
+            ofmsgs = getattr(valve, valve_service)(now)
             if ofmsgs:
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
 
-    def valve_packet_in(self, valve, pkt_meta):
+    def valve_packet_in(self, now, valve, pkt_meta):
         """Time a call to Valve packet in handler."""
         other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
         self.metrics.of_packet_ins.labels( # pylint: disable=no-member
             **valve.base_prom_labels).inc()
-        packet_in_start = time.time()
-        ofmsgs = valve.rcv_packet(other_valves, pkt_meta)
-        packet_in_stop = time.time()
-        self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).observe(packet_in_stop - packet_in_start)
+        with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
+                **valve.base_prom_labels).time():
+            ofmsgs = valve.rcv_packet(now, other_valves, pkt_meta)
         if ofmsgs:
             self.send_flows_to_dp_by_id(valve, ofmsgs)
-            valve.update_metrics(pkt_meta.port, rate_limited=True)
+            valve.update_metrics(now, pkt_meta.port, rate_limited=True)

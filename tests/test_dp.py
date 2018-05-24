@@ -15,7 +15,6 @@ class FaucetDPConfigTest(unittest.TestCase):
             'arp_neighbor_timeout': 250,
             'combinatorial_port_flood': False,
             'cookie': 1524372928,
-            'drop_bpdu': True,
             'drop_broadcast_source_address': True,
             'drop_lldp': True,
             'drop_spoofed_faucet_mac': True,

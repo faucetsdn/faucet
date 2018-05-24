@@ -62,8 +62,6 @@ configuration.
     ignore_learn_ins = None
     drop_broadcast_source_address = None
     drop_spoofed_faucet_mac = None
-    drop_bpdu = None
-    drop_lldp = None
     groups = None
     group_table = False
     group_table_routing = False
@@ -86,6 +84,7 @@ configuration.
     metrics_rate_limit_sec = None
     faucet_dp_mac = None
     combinatorial_port_flood = None
+    lacp_timeout = None
 
     dyn_last_coldstart_time = None
 
@@ -128,10 +127,6 @@ configuration.
         # By default drop packets with a broadcast source address
         'drop_spoofed_faucet_mac': True,
         # By default drop packets on datapath spoofing the FAUCET_MAC
-        'drop_bpdu': True,
-        # By default drop STP BPDU frames
-        'drop_lldp': True,
-        # By default, drop LLDP. Set to False, to enable NFV offload of LLDP.
         'group_table': False,
         # Use GROUP tables for VLAN flooding
         'group_table_routing': False,
@@ -164,6 +159,8 @@ configuration.
         # MAC address of packets sent by FAUCET, not associated with any VLAN.
         'combinatorial_port_flood': False,
         # if True, use a seperate output flow for each input port on this VLAN.
+        'lacp_timeout': 30,
+        # Number of seconds without a LACP message when we consider a LACP group down.
         }
 
     defaults_types = {

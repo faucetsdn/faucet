@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MINCOVERAGE=90
+MINCOVERAGE=93
 
 coverage erase || exit 1
 for i in test_*py ; do PYTHONPATH=.. coverage run -a --source ../faucet $i || exit 1 ; done

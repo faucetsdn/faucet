@@ -17,7 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
 import random
 
 from faucet import valve_of
@@ -60,7 +59,7 @@ class ValveHostManager(object):
         if entry is None:
             if port.max_hosts:
                 if port.hosts_count() == port.max_hosts:
-                    ofmsgs.append(self._temp_ban_host_learning_on_port(port))
+                    ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(in_port=port.number)))
                     port.dyn_learn_ban_count += 1
                     self.logger.info(
                         'max hosts %u reached on %s, '
@@ -70,7 +69,7 @@ class ValveHostManager(object):
             if vlan is not None and vlan.max_hosts:
                 hosts_count = vlan.hosts_count()
                 if hosts_count == vlan.max_hosts:
-                    ofmsgs.append(self._temp_ban_host_learning_on_vlan(vlan))
+                    ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(vlan=vlan)))
                     vlan.dyn_learn_ban_count += 1
                     self.logger.info(
                         'max hosts %u reached on VLAN %u, '
@@ -79,15 +78,9 @@ class ValveHostManager(object):
                             vlan.max_hosts, vlan.vid, eth_src, port))
         return ofmsgs
 
-    def _temp_ban_host_learning_on_port(self, port):
+    def _temp_ban_host_learning(self, match):
         return self.eth_src_table.flowdrop(
-            self.eth_src_table.match(in_port=port.number),
-            priority=(self.low_priority + 1),
-            hard_timeout=self.learn_ban_timeout)
-
-    def _temp_ban_host_learning_on_vlan(self, vlan):
-        return self.eth_src_table.flowdrop(
-            self.eth_src_table.match(vlan=vlan),
+            match,
             priority=(self.low_priority + 1),
             hard_timeout=self.learn_ban_timeout)
 
@@ -104,7 +97,7 @@ class ValveHostManager(object):
         """Expire hosts from VLAN cache."""
         expired_hosts = vlan.expire_cache_hosts(now, self.learn_timeout)
         if expired_hosts:
-            vlan.dyn_last_time_hosts_expired = time.time()
+            vlan.dyn_last_time_hosts_expired = now
             self.logger.info(
                 '%u recently active hosts on VLAN %u, expired %s' % (
                     vlan.hosts_count(), vlan.vid, expired_hosts))
@@ -197,14 +190,12 @@ class ValveHostManager(object):
 
         return ofmsgs
 
-    def learn_host_on_vlan_ports(self, port, vlan, eth_src,
+    def learn_host_on_vlan_ports(self, now, port, vlan, eth_src,
                                  delete_existing=True,
                                  last_dp_coldstart_time=None):
         """Learn a host on a port."""
         ofmsgs = []
         cache_port = None
-
-        now = time.time()
         cache_age = None
         entry = vlan.cached_host(eth_src)
         # Host not cached, and no hosts expired since we cold started
@@ -247,7 +238,7 @@ class ValveHostManager(object):
             # already, or newly in protect mode, apply the ban rules.
             if learn_ban:
                 port.dyn_last_ban_time = now
-                ofmsgs.append(self._temp_ban_host_learning_on_port(port))
+                ofmsgs.append(self._temp_ban_host_learning(self.eth_src_table.match(in_port=port.number)))
                 return (ofmsgs, cache_port)
 
         (src_rule_idle_timeout,
@@ -262,7 +253,7 @@ class ValveHostManager(object):
         vlan.add_cache_host(eth_src, port, now)
         return (ofmsgs, cache_port)
 
-    def flow_timeout(self, _table_id, _match):
+    def flow_timeout(self, _now, _table_id, _match):
         """Handle a flow timed out message from dataplane."""
         return []
 
@@ -275,7 +266,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
         not currently reliable.
     """
 
-    def flow_timeout(self, table_id, match):
+    def flow_timeout(self, now, table_id, match):
         ofmsgs = []
         if table_id in (self.eth_src_table.table_id, self.eth_dst_table.table_id):
             if 'vlan_vid' in match:
@@ -294,7 +285,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
                     port = self.ports[in_port]
                     ofmsgs.extend(self._src_rule_expire(vlan, port, eth_src))
                 elif eth_dst:
-                    ofmsgs.extend(self._dst_rule_expire(vlan, eth_dst))
+                    ofmsgs.extend(self._dst_rule_expire(now, vlan, eth_dst))
         return ofmsgs
 
     def expire_hosts_from_vlan(self, _vlan, _now):
@@ -324,7 +315,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
             self.logger.info('expired src_rule for host %s' % eth_src)
         return ofmsgs
 
-    def _dst_rule_expire(self, vlan, eth_dst):
+    def _dst_rule_expire(self, now, vlan, eth_dst):
         """Expiring a dst rule may indicate that the host is actively sending
         traffic but not receving. If the src rule not yet expires, we reinstall
         host rules."""
@@ -332,7 +323,7 @@ class ValveHostFlowRemovedManager(ValveHostManager):
         entry = vlan.cached_host(eth_dst)
         if entry is not None:
             ofmsgs.extend(self.learn_host_on_vlan_ports(
-                entry.port, vlan, eth_dst, delete_existing=False))
+                now, entry.port, vlan, eth_dst, delete_existing=False))
             self.logger.info(
                 'refreshing host %s from VLAN %u' % (eth_dst, vlan.vid))
         return ofmsgs

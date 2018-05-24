@@ -839,6 +839,20 @@ class RyuAppSmokeTest(unittest.TestCase):
         os.environ['GAUGE_LOG'] = '/dev/null'
         os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
 
+    def _fake_dp(self):
+        datapath = namedtuple('datapath', 'id')
+        datapath.id = 0
+        datapath.close = lambda: None
+        return datapath
+
+    def _fake_event(self):
+        datapath = self._fake_dp()
+        msg = namedtuple('msg', 'datapath')
+        msg.datapath = datapath
+        event = EventOFPMsgBase(msg=msg)
+        event.dp = datapath
+        return event
+
     def test_gauge(self):
         """Test Gauge can be initialized."""
         os.environ['GAUGE_CONFIG'] = '/dev/null'
@@ -846,17 +860,13 @@ class RyuAppSmokeTest(unittest.TestCase):
             dpset={},
             reg=CollectorRegistry())
         ryu_app.reload_config(None)
+        self.assertFalse(ryu_app._config_files_changed())
+        ryu_app._update_watcher(None, self._fake_event())
+        ryu_app._start_watchers(self._fake_dp(), {})
         for event_handler in (
                 ryu_app._datapath_connect,
                 ryu_app._datapath_disconnect):
-            datapath = namedtuple('datapath', 'id')
-            datapath.id = 0
-            datapath.close = lambda: None
-            msg = namedtuple('msg', 'datapath')
-            msg.datapath = datapath
-            event = EventOFPMsgBase(msg=msg)
-            event.dp = datapath
-            event_handler(event)
+            event_handler(self._fake_event())
 
     def test_gauge_config(self):
         """Test Gauge minimal config."""

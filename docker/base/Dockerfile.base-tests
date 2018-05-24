@@ -4,7 +4,7 @@
 FROM ubuntu:16.04
 
 ENV OVSV="v2.9.0"
-ENV DPDK="18.02"
+ENV DPDK="18.02.1"
 ENV MININETV="2.2.2"
 
 ENV OVSDEPS="autoconf automake libpcap-dev libcap-ng-dev libnuma-dev libtool libssl-dev linux-headers-generic libffi-dev"
@@ -61,6 +61,7 @@ RUN \
     psmisc \
     python-pip \
     python3-pip \
+    python-six \
     software-properties-common \
     sudo \
     tcpdump \
@@ -73,13 +74,13 @@ RUN \
     mkdir -p $BUILDDIR && \
     cd $BUILDDIR && \
     wget -q -O- http://fast.dpdk.org/rel/dpdk-$DPDK.tar.xz | tar -Jxf- && \
-      cd dpdk-$DPDK && \
+      cd dpdk* && \
       make install T=$DPDK_TARGET DESTDIR=install && \
     cd .. && \
     git clone https://github.com/openvswitch/ovs -b ${OVSV} && \
       cd ovs && \
       ./boot.sh && \
-      ./configure --enable-silent-rules --quiet --with-dpdk=../dpdk-$DPDK/$DPDK_TARGET && \
+      ./configure --enable-silent-rules --quiet --with-dpdk=`echo ../dpdk*/$DPDK_TARGET` && \
       make install && \
     cd .. && \
     git clone https://github.com/mininet/mininet -b $MININETV && \

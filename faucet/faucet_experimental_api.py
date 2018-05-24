@@ -61,20 +61,20 @@ class FaucetExperimentalAPI(object):
 
     def push_config(self, config):
         """Push supplied config to FAUCET."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def add_port_acl(self, port, acl):
         """Add an ACL to a port."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def add_vlan_acl(self, vlan, acl):
         """Add an ACL to a VLAN."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def delete_port_acl(self, port, acl):
         """Delete an ACL from a port."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover
 
     def delete_vlan_acl(self, vlan, acl):
         """Delete an ACL from a VLAN."""
-        raise NotImplementedError
+        raise NotImplementedError # pragma: no cover

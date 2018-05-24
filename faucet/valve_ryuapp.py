@@ -96,7 +96,7 @@ class RyuAppBase(app_manager.RyuApp):
     @staticmethod
     def _config_files_changed():
         """Return True if config files changed."""
-        return False
+        raise NotImplementedError # pragma: no cover
 
     def _config_file_stat(self):
         """Periodically stat config files for any changes."""
@@ -121,11 +121,10 @@ class RyuAppBase(app_manager.RyuApp):
         """Handle reloading configuration."""
         self.logger.info('Reloading configuration')
 
-    def _get_datapath_obj(self, handler_name, datapath_objs, ryu_event):
+    def _get_datapath_obj(self, datapath_objs, ryu_event):
         """Get datapath object to response to an event.
 
         Args:
-            handler_name (string): handler name to log if datapath unknown.
             datapath_objs (dict): datapath objects indexed by DP ID.
             ryu_event (ryu.controller.event.Event): event.
         Returns:
@@ -143,16 +142,16 @@ class RyuAppBase(app_manager.RyuApp):
             datapath_obj = datapath_objs[dp_id]
         else:
             ryu_dp.close()
-            self.logger.error('%s: unknown datapath %s', handler_name, dpid_log(dp_id))
+            self.logger.error('%s: unknown datapath %s', str(ryu_event), dpid_log(dp_id))
         return (datapath_obj, ryu_dp, msg)
 
     @staticmethod
     def _datapath_connect(_ryu_event):
-        return
+        raise NotImplementedError # pragma: no cover
 
     @staticmethod
     def _datapath_disconnect(_ryu_event):
-        return
+        raise NotImplementedError # pragma: no cover
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     def connect_or_disconnect_handler(self, ryu_event):

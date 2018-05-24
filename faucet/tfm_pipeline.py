@@ -15,19 +15,23 @@ class LoadRyuTables(object):
         'OFPTableFeaturePropActions': 'action_ids',
         'OFPTableFeaturePropOxm': 'oxm_ids'}
 
+    _SKIP_PROPERTIES = set([
+        'OFPTableFeaturePropNextTables',
+    ])
+
     def __init__(self, cfgpath, pipeline_conf):
         self.ryu_table_translator = OpenflowToRyuTranslator(
             cfgpath, pipeline_conf)
 
-    def load_tables(self):
+    def load_tables(self, active_table_ids):
         try:
             tables = self.ryu_table_translator.create_ryu_structure()
-            return self._create_tables(tables)
+            return self._create_tables(tables, active_table_ids)
         except (ValueError, IOError) as err:
             print(err)
         return []
 
-    def _create_tables(self, tables_information):
+    def _create_tables(self, tables_information, active_table_ids):
         table_array = []
         for table in tables_information:
             for table_class_name, table_attr in list(table.items()):
@@ -36,7 +40,13 @@ class LoadRyuTables(object):
                 table_attr['properties'] = properties
                 table_attr['name'] = table_attr['name'].encode('utf-8')
                 new_table = table_class(**table_attr)
-                table_array.append(new_table)
+                next_tables = sorted(
+                    [table_id for table_id in active_table_ids if table_id > new_table.table_id])
+                if next_tables:
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropNextTables(table_ids=next_tables, type_=2))
+                if new_table.table_id in active_table_ids:
+                    table_array.append(new_table)
         return table_array
 
     def _create_features(self, table_features_information):
@@ -44,6 +54,8 @@ class LoadRyuTables(object):
         for feature in table_features_information:
             for feature_class_name, feature_attr in list(feature.items()):
                 name_id = self._CLASS_NAME_TO_NAME_IDS[feature_class_name]
+                if feature_class_name in self._SKIP_PROPERTIES:
+                    continue
                 feature_class = getattr(valve_of.parser, feature_class_name)
                 instruction_ids = self._create_instructions(feature_attr[name_id])
                 feature_attr[name_id] = instruction_ids

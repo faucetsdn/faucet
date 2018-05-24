@@ -28,9 +28,9 @@
 
 import json
 import os
-import queue
 import socket
 import time
+from contextlib import contextmanager
 
 import eventlet
 
@@ -38,48 +38,63 @@ from ryu.lib import hub
 from ryu.lib.hub import StreamServer
 
 
+class NonBlockLock(object):
+    """Non blocking lock that can be used as a context manager."""
+
+    def __init__(self):
+        self._lock = eventlet.semaphore.Semaphore()
+
+    @contextmanager
+    def acquire_nonblock(self):
+        """Attempt to acquire a lock."""
+        result = self._lock.acquire(blocking=False)
+        yield result
+        if result:
+            self.release()
+
+    def release(self):
+        """Release lock when done."""
+        self._lock.release()
+
+
 class FaucetExperimentalEventNotifier(object):
     """Event notification, via Unix domain socket."""
 
     def __init__(self, socket_path, metrics, logger):
-        self.metrics = metrics
         self.logger = logger
-        self.event_q = queue.Queue(120)
+        self.socket_path = self.check_path(socket_path)
+        self.metrics = metrics
         self.event_id = 0
         self.thread = None
-        self.lock = eventlet.semaphore.Semaphore()
-        self.socket_path = self.check_path(socket_path)
+        self.lock = NonBlockLock()
+        self.event_q = eventlet.queue.Queue(120)
 
     def start(self):
         """Start socket server."""
         if self.socket_path:
-            self.thread = hub.spawn(
-                StreamServer((self.socket_path, None), self._loop).serve_forever)
-            return self.thread
-
-        return None
+            stream_server = StreamServer((self.socket_path, None), self._loop).serve_forever
+            self.thread = hub.spawn(stream_server)
+        return self.thread
 
     def _loop(self, sock, _addr):
         """Serve events."""
-        if not self.lock.acquire(blocking=False):
-            try:
-                self.logger.error('multiple event clients not supported')
-                sock.close()
-            except (socket.error, IOError):
-                pass
-            return
-        self.logger.info('event client connected')
-        while True:
-            while not self.event_q.empty():
-                event = self.event_q.get()
-                event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
-                try:
-                    sock.sendall(event_bytes)
-                except (socket.error, IOError) as err:
-                    self.lock.release()
-                    self.logger.info('event client disconnected: %s', err)
-                    return
-            hub.sleep(0.1)
+        with self.lock.acquire_nonblock() as result:
+            if not result:
+                self.logger.info('multiple event clients not supported')
+            else:
+                self.logger.info('event client connected')
+                while True:
+                    event = self.event_q.get()
+                    event_bytes = bytes('\n'.join((json.dumps(event), '')).encode('UTF-8'))
+                    try:
+                        sock.sendall(event_bytes)
+                    except (socket.error, IOError) as err:
+                        self.logger.info('event client disconnected: %s', err)
+                        break
+        try:
+            sock.close()
+        except (socket.error, IOError):
+            pass
 
     def notify(self, dp_id, dp_name, event_dict):
         """Notify of an event."""
@@ -95,11 +110,10 @@ class FaucetExperimentalEventNotifier(object):
         for header_key in list(event):
             assert header_key not in event_dict
         event.update(event_dict)
-        if self.thread:
-            self.metrics.faucet_event_id.set(event['event_id'])
-            if self.event_q.full():
-                self.event_q.get()
-            self.event_q.put(event)
+        self.metrics.faucet_event_id.set(event['event_id'])
+        if self.event_q.full():
+            self.event_q.get()
+        self.event_q.put(event)
 
     def check_path(self, socket_path):
         """Check that socket_path is valid."""

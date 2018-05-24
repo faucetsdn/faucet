@@ -12,13 +12,14 @@ all dependencies correctly installed. See ../docs/.
 
 # pylint: disable=missing-docstring
 
+import argparse
 import collections
 import copy
+import json
 import glob
 import inspect
 import os
 import sys
-import getopt
 import multiprocessing
 import random
 import re
@@ -31,11 +32,12 @@ import unittest
 
 import yaml
 
+from packaging import version
+
 from concurrencytest import ConcurrentTestSuite, fork_for_tests
 # pylint: disable=import-error
 from mininet.log import setLogLevel
 from mininet.clean import Cleanup
-from packaging import version
 
 import mininet_test_util
 
@@ -412,7 +414,7 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
     if len(parallel_test_suites) == 1:
         single_test_suites.extend(parallel_test_suites)
         parallel_test_suites = []
-    if len(parallel_test_suites) > 0:
+    if parallel_test_suites:
         seed = time.time()
         print('seeding parallel test shuffle with %f' % seed)
         random.seed(seed)
@@ -470,17 +472,22 @@ def run_single_test_suites(root_tmpdir, resultclass, single_tests):
 def run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests):
     sanity_runner = test_runner(root_tmpdir, resultclass, failfast=True)
     sanity_result = sanity_runner.run(sanity_tests)
-    return sanity_result.wasSuccessful()
+    return sanity_result
 
 
 def report_tests(test_status, test_list):
+    tests_json = {}
     for test_class, test_text in test_list:
         test_text = test_text.replace('\n', '\t')
         print('\t'.join((test_class.id(), test_status, test_text)))
+        tests_json.update({
+            test_class.id(): {'status': test_status, 'output': test_text}})
+    return tests_json
 
 
-def report_results(results):
+def report_results(results, hw_config, report_json_filename):
     if results:
+        report_json = {'hw_config': hw_config}
         report_title = 'test results'
         print('\n')
         print(report_title)
@@ -495,17 +502,22 @@ def report_results(results):
                 test_lists.append(
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
-                report_tests(test_status, test_list)
+                report_json.update(report_tests(test_status, test_list))
         print('\n')
+        if report_json_filename:
+            with open(report_json_filename, 'w') as report_json_file:
+                report_json_file.write(json.dumps(report_json))
 
 
-def run_test_suites(root_tmpdir, resultclass, single_tests, parallel_tests):
+def run_test_suites(report_json_filename, hw_config, root_tmpdir,
+                    resultclass, single_tests, parallel_tests, sanity_result):
     print('running %u tests in parallel and %u tests serial' % (
         parallel_tests.countTestCases(), single_tests.countTestCases()))
     results = []
     results.extend(run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests))
     results.extend(run_single_test_suites(root_tmpdir, resultclass, single_tests))
-    report_results(results)
+    results.append(sanity_result)
+    report_results(results, hw_config, report_json_filename)
     successful_results = [result for result in results if result.wasSuccessful()]
     return len(results) == len(successful_results)
 
@@ -578,7 +590,7 @@ def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
 
 
 def run_tests(module, hw_config, requested_test_classes, dumpfail,
-              keep_logs, serial, excluded_test_classes):
+              keep_logs, serial, excluded_test_classes, report_json_filename):
     """Actually run the test suites, potentially in parallel."""
     if hw_config is not None:
         print('Testing hardware, forcing test serialization')
@@ -596,57 +608,61 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
     if keep_logs:
         resultclass = resultclass.__bases__[0]
     all_successful = False
-    sanity = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
-    if sanity:
+    sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
+    if sanity_result.wasSuccessful():
         all_successful = run_test_suites(
-            root_tmpdir, resultclass, single_tests, parallel_tests)
+            report_json_filename, hw_config, root_tmpdir,
+            resultclass, single_tests, parallel_tests, sanity_result)
     os.remove(ports_sock)
     decoded_pcap_logs = glob.glob(os.path.join(
         os.path.join(root_tmpdir, '*'), '*of.cap.txt'))
     pipeline_superset_report(decoded_pcap_logs)
-    clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail)
+    clean_test_dirs(
+        root_tmpdir, all_successful,
+        sanity_result.wasSuccessful(), keep_logs, dumpfail)
     if not all_successful:
         sys.exit(-1)
 
 
 def parse_args():
     """Parse command line arguments."""
-    try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            'cdknsix:',
-            ['clean', 'dumpfail', 'keep_logs', 'nocheck', 'serial', 'integration'])
-    except getopt.GetoptError as err:
-        print(str(err))
-        sys.exit(2)
 
-    clean = False
-    dumpfail = False
-    keep_logs = False
-    nocheck = False
-    serial = False
+    parser = argparse.ArgumentParser(
+        prog='faucet_mininet_unit')
+    parser.add_argument(
+        '-c', '--clean', action='store_true', help='run mininet cleanup')
+    parser.add_argument(
+        '-d', '--dumpfail', action='store_true', help='dump logs for failed tests')
+    parser.add_argument(
+        '-k', '--keep_logs', action='store_true', help='keep logs even for OK tests')
+    parser.add_argument(
+        '-n', '--nocheck', action='store_true', help='skip dependency check')
+    parser.add_argument(
+        '-i', '--integration', default=True, action='store_true', help='run integration tests')
+    parser.add_argument(
+        '-s', '--serial', action='store_true', help='run tests serially')
+    parser.add_argument(
+        '-j', '--jsonreport', help='write a json file with test results')
+    parser.add_argument(
+        '-x', help='list of test classes to exclude')
+
     excluded_test_classes = []
-    integration = True # By definition these are all integration tests.
+    report_json_filename = None
 
-    for opt, arg in opts:
-        if opt in ('-c', '--clean'):
-            clean = True
-        if opt in ('-d', '--dumpfail'):
-            dumpfail = True
-        if opt in ('-k', '--keep_logs'):
-            keep_logs = True
-        if opt in ('-n', '--nocheck'):
-            nocheck = True
-        if opt in ('-i', '--integration'):
-            integration = True
-        if opt in ('-s', '--serial'):
-            serial = True
-        if opt == '-x':
-            excluded_test_classes.append(arg)
+    try:
+        args, requested_test_classes = parser.parse_known_args(sys.argv[1:])
+    except(KeyError, IndexError):
+        parser.print_usage()
+        sys.exit(-1)
 
+    if args.jsonreport:
+        report_json_filename = args.jsonreport
+    if args.x:
+        excluded_test_classes = args.x.split(',')
     return (
-        args, clean, dumpfail, keep_logs, nocheck,
-        serial, excluded_test_classes)
+        requested_test_classes, args.clean, args.dumpfail,
+        args.keep_logs, args.nocheck, args.serial,
+        excluded_test_classes, report_json_filename)
 
 
 def test_main(module):
@@ -654,7 +670,7 @@ def test_main(module):
     setLogLevel('error')
     print('testing module %s' % module)
     (requested_test_classes, clean, dumpfail, keep_logs, nocheck,
-     serial, excluded_test_classes) = parse_args()
+     serial, excluded_test_classes, report_json_filename) = parse_args()
 
     if clean:
         print('Cleaning up test interfaces, processes and openvswitch '
@@ -674,4 +690,4 @@ def test_main(module):
     hw_config = import_hw_config()
     run_tests(
         module, hw_config, requested_test_classes, dumpfail,
-        keep_logs, serial, excluded_test_classes)
+        keep_logs, serial, excluded_test_classes, report_json_filename)
