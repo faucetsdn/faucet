@@ -152,6 +152,7 @@ vlans:
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
 
+    STAT_RELOAD = '1'
     CONFIG_GLOBAL = """
 vlans:
     randvlan:
@@ -178,7 +179,8 @@ vlans:
     def test_untagged(self):
         for _ in range(5):
             vid = random.randint(2, 512)
-            self.change_vlan_config('randvlan', 'vid', vid, cold_start=True)
+            self.change_vlan_config(
+                'randvlan', 'vid', vid, cold_start=True, hup=False)
             self.ping_all_when_learned()
 
 
