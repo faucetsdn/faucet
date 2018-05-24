@@ -429,7 +429,12 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class CleanupResult(unittest.runner.TextTestResult):
+class FaucetResult(unittest.runner.TextTestResult):
+
+    pass
+
+
+class FaucetCleanupResult(FaucetResult):
 
     root_tmpdir = None
     successes = []
@@ -439,7 +444,7 @@ class CleanupResult(unittest.runner.TextTestResult):
         test_tmpdir = os.path.join(
             self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
         shutil.rmtree(test_tmpdir)
-        super(CleanupResult, self).addSuccess(test)
+        super(FaucetCleanupResult, self).addSuccess(test)
 
 
 def test_runner(root_tmpdir, resultclass, failfast=False):
@@ -608,9 +613,9 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
     sanity_tests, single_tests, parallel_tests = expand_tests(
         module, requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    resultclass = CleanupResult
+    resultclass = FaucetCleanupResult
     if keep_logs:
-        resultclass = resultclass.__bases__[0]
+        resultclass = FaucetResult
     all_successful = False
     sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
     if sanity_result.wasSuccessful():
