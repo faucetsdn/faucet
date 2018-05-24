@@ -56,6 +56,7 @@ class Port(Conf):
     dyn_lacp_updated_time = None
     dyn_last_ban_time = None
     dyn_last_lldp_beacon_time = None
+    dyn_stack_current_state = STACK_STATE_DOWN
 
     defaults = {
         'number': None,
