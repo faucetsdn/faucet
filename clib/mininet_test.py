@@ -431,19 +431,21 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
 
 class FaucetResult(unittest.runner.TextTestResult):
 
-    pass
+    root_tmpdir = None
+
+    def _test_tmpdir(self, test):
+        return os.path.join(
+            self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
 
 
 class FaucetCleanupResult(FaucetResult):
 
-    root_tmpdir = None
     successes = []
 
     def addSuccess(self, test):
-        self.successes.append((test, ''))
-        test_tmpdir = os.path.join(
-            self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
+        test_tmpdir = self._test_tmpdir(test)
         shutil.rmtree(test_tmpdir)
+        self.successes.append((test, ''))
         super(FaucetCleanupResult, self).addSuccess(test)
 
 
