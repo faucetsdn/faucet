@@ -487,7 +487,7 @@ def report_tests(test_status, test_list):
 
 def report_results(results, hw_config, report_json_filename):
     if results:
-        report_json = {'hw_config': hw_config}
+        tests_json = {}
         report_title = 'test results'
         print('\n')
         print(report_title)
@@ -502,9 +502,13 @@ def report_results(results, hw_config, report_json_filename):
                 test_lists.append(
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
-                report_json.update(report_tests(test_status, test_list))
+                tests_json.update(report_tests(test_status, test_list))
         print('\n')
         if report_json_filename:
+            report_json = {
+                'hw_config': hw_config,
+                'tests': tests_json,
+            }
             with open(report_json_filename, 'w') as report_json_file:
                 report_json_file.write(json.dumps(report_json))
 
