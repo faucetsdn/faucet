@@ -467,6 +467,7 @@ class Valve(object):
             (tlv['oui'], tlv['subtype'], tlv['info'])
             for tlv in lldp_beacon['org_tlvs']]
         org_tlvs.extend(valve_packet.faucet_lldp_tlvs(self.dp))
+        org_tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(self.dp, port))
         # if the port doesn't have a system name set, default to
         # using the system name from the dp
         if lldp_beacon['system_name'] is None:
