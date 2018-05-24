@@ -19,6 +19,10 @@
 from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet import valve_of
 
+STACK_STATE_ADMIN_DOWN = 0
+STACK_STATE_INIT = 1
+STACK_STATE_DOWN = 2
+STACK_STATE_UP = 3
 
 class Port(Conf):
     """Stores state for ports, including the configuration."""
