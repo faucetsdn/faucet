@@ -57,6 +57,7 @@ class Port(Conf):
     dyn_last_ban_time = None
     dyn_last_lldp_beacon_time = None
     dyn_stack_current_state = STACK_STATE_DOWN
+    dyn_stack_probe_info = None
 
     defaults = {
         'number': None,
@@ -143,6 +144,7 @@ class Port(Conf):
     def __init__(self, _id, dp_id, conf=None):
         super(Port, self).__init__(_id, dp_id, conf)
         self.dyn_phys_up = False
+        self.dyn_stack_probe_info = {}
 
         # If the port is mirrored convert single attributes to a array
         if self.mirror and not isinstance(self.mirror, list):
