@@ -827,7 +827,7 @@ class Valve(object):
                 ofmsgs.append(valve_of.packetout(pkt_meta.port.number, pkt.data))
         return ofmsgs
 
-    def lldp_handler(self, pkt_meta):
+    def lldp_handler(self, now, pkt_meta):
         """Handle an LLDP packet.
 
         Args:
@@ -1089,7 +1089,7 @@ class Valve(object):
                 lacp_ofmsgs = self.lacp_handler(now, pkt_meta)
                 if lacp_ofmsgs:
                     return lacp_ofmsgs
-            self.lldp_handler(pkt_meta)
+            self.lldp_handler(now, pkt_meta)
             # TODO: verify stacking connectivity using LLDP (DPID, port)
             # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs
