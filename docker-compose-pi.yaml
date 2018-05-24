@@ -16,8 +16,8 @@ services:
     prometheus:
         restart: always
         build:
-            context: docker/prometheus
-            dockerfile: Dockerfile
+            context: https://github.com/faucetsdn/docker-prometheus.git
+            dockerfile: Dockerfile.pi
         image: 'faucet/prometheus-pi:2.2.1'
         user: 'root'
         ports:
@@ -46,7 +46,7 @@ services:
         restart: always
         build:
             context: .
-            dockerfile: Dockerfile.pi-gauge
+            dockerfile: Dockerfile.gauge.pi
         image: 'faucet/gauge-pi:latest'
         environment:
             GAUGE_CONFIG: '/etc/faucet/gauge.yaml'
@@ -63,7 +63,7 @@ services:
         restart: always
         build:
             context: .
-            dockerfile: Dockerfile.pi
+            dockerfile: Dockerfile.faucet.pi
         image: 'faucet/faucet-pi:latest'
         volumes:
             - '${FAUCET_PREFIX}/var/log/faucet:/var/log/faucet'
