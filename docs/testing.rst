@@ -79,6 +79,12 @@ to the dataplane, and one for the CPN for OpenFlow. You will need to assign
 an IP address to the CPN interface on the host, and configure the switch
 with a CPN IP address and establish that they can reach each other (eg via ping).
 
+NOTE: it is very important to disable any process that cause any traffic
+on the dataplane test interfaces, as this may interfere with the tests.
+For example, the test interfaces should have all IPv4/IPv6 dynamic
+address assignment disabled. To achieve this, on Ubuntu for example, you
+can set the interfaces to "unmanaged" in Network Manager.
+
 You will need to configure the switch with two OpenFlow controllers, both
 with the host's CPN IP address, but with different ports (defaults are given
 below for *of_port* and *gauge_of_port*).
