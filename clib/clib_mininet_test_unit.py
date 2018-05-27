@@ -55,6 +55,11 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         self.assertEqual(
             0, term_returns, msg='terminate code not 0: %d' % term_returns)
 
+    def _terminate_with_nonzero(self, tcpdump_helper):
+        term_returns = tcpdump_helper.terminate()
+        self.assertNotEqual(
+            0, term_returns, msg='terminate code s 0: %d' % term_returns)
+
     def test_tcpdump_execute(self):
         """Check tcpdump filter monitors ping using execute"""
         self.ping_all_when_learned()
@@ -98,7 +103,7 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         while tcpdump_helper.next_line():
             count = count + 1
             self.assertTrue(count < 10, 'Too many ping results before noblock')
-        self._terminate_with_zero(tcpdump_helper)
+        self._terminate_with_nonzero(tcpdump_helper)
 
     def test_tcpdump_nextline(self):
         """Check tcpdump filter monitors ping using next_line"""
