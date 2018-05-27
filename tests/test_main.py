@@ -34,6 +34,7 @@ class MainTestCase(unittest.TestCase):
         self.assertTrue(parse_args(['--verbose']).verbose)
 
     def test_build_ryu_args(self):
+        """Test build_ryu_args()."""
         self.assertTrue(build_ryu_args(['faucet', '--use-stderr', '--use-syslog', '--verbose']))
         self.assertTrue(build_ryu_args(['gauge', '--use-stderr', '--use-syslog', '--verbose']))
         self.assertFalse(build_ryu_args(['faucet', '--version']))
