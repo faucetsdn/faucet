@@ -367,13 +367,16 @@ class Valve(object):
 
     def ofdescstats_handler(self, body):
         """Handle OF DP description."""
+        def _decode(msg_str):
+            return msg_str.decode('utf-8', errors='replace')
+
         self.metrics.of_dp_desc_stats.labels( # pylint: disable=no-member
             **dict(self.base_prom_labels,
-                   mfr_desc=body.mfr_desc.decode(),
-                   hw_desc=body.hw_desc.decode(),
-                   sw_desc=body.sw_desc.decode(),
-                   serial_num=body.serial_num.decode(),
-                   dp_desc=body.dp_desc.decode())).set(self.dp.dp_id)
+                   mfr_desc=_decode(body.mfr_desc),
+                   hw_desc=_decode(body.hw_desc),
+                   sw_desc=_decode(body.sw_desc),
+                   serial_num=_decode(body.serial_num),
+                   dp_desc=_decode(body.dp_desc))).set(self.dp.dp_id)
 
     def _set_port_status(self, port_no, port_status):
         """Set port operational status."""
