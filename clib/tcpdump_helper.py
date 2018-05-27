@@ -20,18 +20,18 @@ class TcpdumpHelper():
     blocking = True
 
     def __init__(self, tcpdump_host, tcpdump_filter, funcs=None,
-            vflags='-v', timeout=10, packets=2, root_intf=False,
-            pcap_out=None, intf_name=None, blocking=True):
+                 vflags='-v', timeout=10, packets=2, root_intf=False,
+                 pcap_out=None, intf_name=None, blocking=True):
         self.intf_name = intf_name if intf_name else tcpdump_host.intf().name
         self.funcs = funcs
         if root_intf:
             self.intf_name = self.intf_name.split('.')[0]
 
-        tcpdump_flags=vflags
-        tcpdump_flags+=' -c %u' % packets if packets else ''
-        tcpdump_flags+=' -w %s' % pcap_out if pcap_out else ''
-        tcpdump_cmd='tcpdump -i %s %s -e -n -U %s' % (self.intf_name, tcpdump_flags, tcpdump_filter)
-        pipe_cmd=mininet_test_util.timeout_soft_cmd(tcpdump_cmd, timeout) if timeout else tcpdump_cmd
+        tcpdump_flags = vflags
+        tcpdump_flags += ' -c %u' % packets if packets else ''
+        tcpdump_flags += ' -w %s' % pcap_out if pcap_out else ''
+        tcpdump_cmd = 'tcpdump -i %s %s -e -n -U %s' % (self.intf_name, tcpdump_flags, tcpdump_filter)
+        pipe_cmd = mininet_test_util.timeout_soft_cmd(tcpdump_cmd, timeout) if timeout else tcpdump_cmd
 
         debug(pipe_cmd)
         self.pipe = tcpdump_host.popen(
@@ -44,12 +44,12 @@ class TcpdumpHelper():
         debug('tcpdump_helper stream fd %s %s' % (self.stream().fileno(), self.intf_name))
 
         self.readbuf = ''
-        self.blocking(blocking)
+        self.set_blocking(blocking)
 
     def stream(self):
         return self.pipe.stdout if self.pipe else None
 
-    def blocking(self, blocking=True):
+    def set_blocking(self, blocking=True):
         fd = self.pipe.stdout.fileno()
         flags = fcntl.fcntl(fd, fcntl.F_GETFL)
         self.blocking = blocking
@@ -83,8 +83,9 @@ class TcpdumpHelper():
             self.pipe.stdout.close()
             self.pipe = None
             return result
-        except Exception as e:
-            error('Error closing tcpdump_helper fd %d: %s' % (self.pipe.stdout.fileno(), e))
+        except Exception as err:
+            error('Error closing tcpdump_helper fd %d: %s' % (
+                self.pipe.stdout.fileno(), err))
             return -2
 
     def readline(self):
@@ -93,11 +94,11 @@ class TcpdumpHelper():
         while '\n' not in self.readbuf:
             try:
                 read = os.read(fileno, 1024)
-            except OSError as e:
-                if e.errno != errno.EAGAIN or not self.blocking:
+            except OSError as err:
+                if err.errno != errno.EAGAIN or not self.blocking:
                     raise
                 continue
-            if len(read) == 0:
+            if not read:
                 line = self.readbuf
                 self.readbuf = ''
                 return line
@@ -111,11 +112,11 @@ class TcpdumpHelper():
         while True:
             try:
                 line = self.readline()
-            except OSError as e:
-                if e.errno == errno.EWOULDBLOCK or e.errno == errno.EAGAIN:
+            except OSError as err:
+                if err.errno == errno.EWOULDBLOCK or err.errno == errno.EAGAIN:
                     return None
                 raise
-            assert len(line) > 0 or self.started, 'tcpdump did not start: %s' % self.last_line.strip()
+            assert line or self.started, 'tcpdump did not start: %s' % self.last_line.strip()
             if self.started:
                 return line
             elif re.search('listening on %s' % self.intf_name, line):

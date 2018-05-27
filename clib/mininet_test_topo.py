@@ -81,7 +81,7 @@ class FaucetHostCleanup(object):
         if self.shell is not None:
             os.close(self.slave)
             self.stdin.close()
-            if self.shell.returncode == None:
+            if self.shell.returncode is None:
                 self.shell.kill()
                 self.shell.poll()
         self.cleanup() # pylint: disable=no-member
@@ -116,11 +116,11 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
                          for intf in switch_intfs)
         # Command to create controller entries
         clist = [(self.name + c.name, '%s:%s:%d' %
-                 (c.protocol, c.IP(), c.port))
+                  (c.protocol, c.IP(), c.port))
                  for c in controllers]
         if self.listenPort:
             clist.append((self.name + '-listen',
-                           'ptcp:%s' % self.listenPort))
+                          'ptcp:%s' % self.listenPort))
         ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
         if self.reconnectms:
             ccmd += ' max_backoff=%d' % self.reconnectms
@@ -138,12 +138,12 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
                    ' -- add-br %s' % self +
                    ' -- set bridge %s controller=[%s]' % (self, cids) +
                    self.bridgeOpts() +
-                   intfs )
+                   intfs)
         # switch interfaces on mininet host, must have no IP config.
         for intf in switch_intfs:
             for ipv in (4, 6):
                 self.cmd('ip -%u addr flush dev %s' % (ipv, intf))
-            assert '' == self.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % intf)
+            assert self.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % intf) == ''
         # If necessary, restore TC config overwritten by OVS
         if not self.batch:
             for intf in self.intfList():

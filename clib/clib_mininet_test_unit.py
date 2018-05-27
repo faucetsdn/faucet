@@ -5,7 +5,6 @@
 
 import os
 import re
-import time
 
 from mininet.net import Mininet
 
@@ -15,6 +14,7 @@ import mininet_test_topo
 
 from tcpdump_helper import TcpdumpHelper
 from docker_host import MakeDockerHost
+
 
 class FaucetSimpleTest(mininet_test_base.FaucetTestBase):
     """Basic untagged VLAN test."""
@@ -52,7 +52,7 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
 
     def _terminate_with_zero(self, tcpdump_helper):
         term_returns = tcpdump_helper.terminate()
-        self.assertEquals(
+        self.assertEqual(
             0, term_returns, msg='terminate code not 0: %d' % term_returns)
 
     def test_tcpdump_execute(self):
@@ -62,7 +62,7 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         to_host = self.net.hosts[1]
         tcpdump_filter = ('icmp')
         tcpdump_helper = TcpdumpHelper(to_host, tcpdump_filter, [
-                lambda: from_host.cmd('ping -c1 %s' % to_host.IP())])
+            lambda: from_host.cmd('ping -c1 %s' % to_host.IP())])
         tcpdump_txt = tcpdump_helper.execute()
         self.assertTrue(re.search(
             '%s: ICMP echo request' % to_host.IP(), tcpdump_txt))
@@ -75,10 +75,11 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         to_host = self.net.hosts[1]
         tcpdump_filter = ('icmp')
         pcap_file = os.path.join(self.tmpdir, 'out.pcap')
-        tcpdump_helper = TcpdumpHelper(to_host, tcpdump_filter, [
-                lambda: from_host.cmd('ping -c3 %s' % to_host.IP())],
-                pcap_out = pcap_file, packets = None)
-        tcpdump_txt = tcpdump_helper.execute()
+        tcpdump_helper = TcpdumpHelper(
+            to_host, tcpdump_filter,
+            [lambda: from_host.cmd('ping -c3 %s' % to_host.IP())],
+            pcap_out=pcap_file, packets=None)
+        tcpdump_helper.execute()
         self._terminate_with_zero(tcpdump_helper)
         result = from_host.cmd('tcpdump -en -r %s' % pcap_file)
         self.assertEqual(result.count('ICMP echo reply'), 3, 'three icmp echo replies')
@@ -89,9 +90,10 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         from_host = self.net.hosts[0]
         to_host = self.net.hosts[1]
         tcpdump_filter = ('icmp')
-        tcpdump_helper = TcpdumpHelper(to_host, tcpdump_filter, [
-                lambda: from_host.cmd('ping -c10 %s' % to_host.IP())],
-                blocking = False, packets = None)
+        tcpdump_helper = TcpdumpHelper(
+            to_host, tcpdump_filter,
+            [lambda: from_host.cmd('ping -c10 %s' % to_host.IP())],
+            blocking=False, packets=None)
         count = 0
         while tcpdump_helper.next_line():
             count = count + 1
@@ -105,7 +107,7 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
         to_host = self.net.hosts[1]
         tcpdump_filter = ('icmp')
         tcpdump_helper = TcpdumpHelper(to_host, tcpdump_filter, [
-                lambda: from_host.cmd('ping -c5 -i2 %s' % to_host.IP())])
+            lambda: from_host.cmd('ping -c5 -i2 %s' % to_host.IP())])
 
         self.assertTrue(re.search('proto ICMP', tcpdump_helper.next_line()))
         next_line = tcpdump_helper.next_line()
@@ -121,13 +123,13 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
 
 class FaucetDockerHostTest(FaucetSimpleTest):
 
-    N_UNTAGGED=2
-    N_EXTENDED=2
-    EXTENDED_CLS=MakeDockerHost('faucet/test-host')
+    N_UNTAGGED = 2
+    N_EXTENDED = 2
+    EXTENDED_CLS = MakeDockerHost('faucet/test-host')
 
     def test_containers(self):
         """Test containers to make sure they're actually docker."""
-        count=0
+        count = 0
         host_name = None
 
         for host in self.net.hosts:
@@ -138,10 +140,13 @@ class FaucetDockerHostTest(FaucetSimpleTest):
                 host.activate()
                 host.wait()
 
-        self.assertTrue(count == self.N_EXTENDED,
+        self.assertTrue(
+            count == self.N_EXTENDED,
             'Found %d containers, expected %d' % (count, self.N_EXTENDED))
 
-        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, host_name, 'tmp')),
+        self.assertTrue(
+            os.path.exists(
+                os.path.join(self.tmpdir, host_name, 'tmp')),
             'container tmp dir missing')
 
         host_log = os.path.join(self.tmpdir, host_name, 'activate.log')
