@@ -1245,6 +1245,13 @@ meters:
                 serial_num=u'99'.encode(),
                 dp_desc=u'test_dp_desc'.encode())
             self.valve.ofdescstats_handler(body)
+            invalid_body = parser.OFPDescStats(
+                mfr_desc=b'\x80',
+                hw_desc=b'test_hw_desc',
+                sw_desc=b'test_sw_desc',
+                serial_num=b'99',
+                dp_desc=b'test_dp_desc')
+            self.valve.ofdescstats_handler(invalid_body)
 
 
 class ValveTestCase(ValveTestBases.ValveTestBig):
