@@ -791,6 +791,10 @@ is a dictionary of actions to apply upon match.
       - False
       - If True allow the packet to continue through the Faucet pipeline, if
         False drop the packet.
+    * - force_port_vlan
+      - boolean
+      - False
+      - if True, don't verify VLAN/port association.
     * - cookie
       - int, 0-2**16
       - defaults to datapath cookie value
