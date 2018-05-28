@@ -1038,8 +1038,14 @@ dbs:
 
         def _update_conf(conf_path, yaml_conf):
             if yaml_conf:
+                orig_mtime = os.path.getmtime(conf_path)
                 with open(conf_path, 'w') as config_file:
                     config_file.write(yaml.dump(yaml_conf))
+                for _ in range(3):
+                    if orig_mtime < os.path.getmtime(conf_path):
+                        return
+                    time.sleep(1)
+                self.fail('could not write %s' % conf_path)
 
         update_conf_func = partial(_update_conf, conf_path, yaml_conf)
         verify_faucet_reconf_func = partial(
