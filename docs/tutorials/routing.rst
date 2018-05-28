@@ -9,19 +9,23 @@ There are three types of routing we can use.
 - Static routing
 - BGP via an external application (Quagga, Bird, EXABGP, ...)
 
-Prerequisites:
-^^^^^^^^^^^^^^
+Prerequisites
+^^^^^^^^^^^^^
 
-- Faucet - `Package installation steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
-- OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
-- Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+- Install Faucet - :ref:`tutorial-package-installation` steps 1 & 2
+- Install Open vSwitch - :ref:`tutorial-first-datapath-connection` steps 1 & 2
+- Useful Bash Functions - Copy and paste the following definitions into your
+  bash terminal, or to make them persistent between sessions add them to the
+  bottom of your .bashrc and run 'source .bashrc'.
 
 .. literalinclude::  ../_static/tutorial/create_ns
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/as_ns
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/cleanup
-
+   :language: bash
 
 
 Run the cleanup script to remove old namespaces and switches:
@@ -30,6 +34,7 @@ Run the cleanup script to remove old namespaces and switches:
 
     cleanup
 
+.. _tutorial-ivr:
 
 Routing between VLANs
 ^^^^^^^^^^^^^^^^^^^^^
@@ -52,8 +57,8 @@ Let's start with a single switch connected to two hosts in two different vlans.
     -- set-controller br1 tcp:127.0.0.1:6653 tcp:127.0.0.1:6654
 
 
-To allow traffic between vlans we use a router, and assign each VLAN at least one IP address (gateway IP address).
-Lets add the routers and vlans section like so.
+To allow traffic between vlans we use a router, and assign each VLAN at least
+one IP address (gateway IP address). Lets add the routers and vlans section like so.
 
 .. code-block:: yaml
     :caption: /etc/faucet/faucet.yaml
@@ -163,8 +168,11 @@ First we need to define 2 VLANs.
 
 Here we have 3 new options:
 
-- faucet_mac: The MAC address of Faucet's routing interface on this VLAN. If we do not set faucet_mac for each VLAN, routed packets will be dropped unless 'drop_spoofed_faucet_mac' is set to false. TODO explain above more.
-- faucet_vips: The IP address for Faucet's routing interface on this VLAN. Multiple IP addresses (IPv4 & IPv6) can be used.
+- faucet_mac: The MAC address of Faucet's routing interface on this VLAN.
+  If we do not set faucet_mac for each VLAN, routed packets will be dropped
+  unless 'drop_spoofed_faucet_mac' is set to false.
+- faucet_vips: The IP address for Faucet's routing interface on this VLAN.
+  Multiple IP addresses (IPv4 & IPv6) can be used.
 - routes: Static routes for this VLAN.
 
 
@@ -188,7 +196,8 @@ Here we have 3 new options:
                     ip_dst: "0.0.0.0/24"
                     ip_gw: '10.0.1.3'
 
-As our routing interface is in a different VLAN, we will want to route between the two VLANs on the switch (br1-hosts & br1-peer).
+As our routing interface is in a different VLAN, we will want to route between
+the two VLANs on the switch (br1-hosts & br1-peer).
 So as with inter VLAN routing we will create a router for each switch.
 
 .. code-block:: yaml
@@ -248,10 +257,8 @@ For this section we are going to change our static routes from above into BGP ro
 BGP (and other routing) is provided by a NFV service, here we will use `BIRD <http://bird.network.cz/>`_.
 Other applications such as ExaBGP & Quagga could be used.
 Faucet imports all routes provided by this NVF service.
-This means we can use our service for other routing protocols (OSPF, RIP, etc) and apply filtering using the service's policy language.
-See `Routing 2 Tutorial <routing-2.html>`_ for more advanced BGP route filtering.
-
-If you are NOT using the workshop VM you will need to install BIRD.
+This means we can use our service for other routing protocols (OSPF, RIP, etc)
+and apply filtering using the service's policy language.
 
 Setup
 -----
@@ -263,12 +270,18 @@ To install BIRD:
     sudo apt-get install bird
 
 
-Our data plane will end up looking like below, you may notice how we have the Faucet application connected to the control plane and dataplane.
+Our data plane will end up looking like below, you may notice how we have the
+Faucet application connected to the control plane and dataplane.
 
 .. image:: ../_static/images/bgp-routing-ns.svg
     :alt: BGP Routing Namespace Diagram
 
-.. note:: When using BGP and Faucet, if changing Faucet's routing configuration (routers, static routes, or a VLAN's BGP configuration) the Faucet application must be restarted to reload the configuration correctly (not sighup reloaded).
+.. note::
+
+   When using BGP and Faucet, if changing Faucet's routing configuration
+   (routers, static routes, or a VLAN's BGP configuration) the Faucet
+   application must be restarted to reload the configuration correctly
+   (not sighup reloaded).
 
 Remove the static routes added above:
 
@@ -364,7 +377,6 @@ To configure BIRD
     }
 
     # Local
-    # TODO is this right?
     protocol static {
         route 172.16.0.0/24 via 172.16.0.2
         route 1.0.0.0/24 via 172.16.0.2
@@ -437,7 +449,8 @@ Now restart Faucet.
     sudo systemctl restart faucet
 
 
-and our logs should show us 'BGP peer router ID 10.0.1.3 AS 64513 up' & 'BGP add 172.16.0.0/24 nexthop 10.0.1.3' which is our route advertised via BGP.
+and our logs should show us 'BGP peer router ID 10.0.1.3 AS 64513 up' &
+'BGP add 172.16.0.0/24 nexthop 10.0.1.3' which is our route advertised via BGP.
 
 .. code-block:: console
     :caption: /var/log/faucet/faucet.log
@@ -476,6 +489,3 @@ Now we should be able to ping from host1 to hostwww.
     64 bytes from 1.0.0.1: icmp_seq=2 ttl=62 time=0.053 ms
     64 bytes from 1.0.0.1: icmp_seq=3 ttl=62 time=0.058 ms
     64 bytes from 1.0.0.1: icmp_seq=4 ttl=62 time=0.054 ms
-
-
-For more advanced routing including BGP route policy filtering see `routing 2 tutorial <routing-2.html>`_.

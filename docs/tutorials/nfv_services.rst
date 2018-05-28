@@ -1,7 +1,7 @@
 NFV Services Tutorial
 =====================
 
-This tutorial will cover using Faucet with Network Function Virtualisation (NFV) services.
+This tutorial will cover using faucet with Network Function Virtualisation (NFV) services.
 
 NFV services that will be demonstrated in this tutorial are:
 
@@ -9,27 +9,35 @@ NFV services that will be demonstrated in this tutorial are:
 - NAT Gateway
 - `BRO <https://www.bro.org/>`_ Intrusion Detection System (IDS)
 
-This tutorial demonstrates how the previous topics in this tutorial series can be integrated with other services on our network.
+This tutorial demonstrates how the previous topics in this tutorial series can
+be integrated with other services on our network.
 
 
-Prerequisites:
-^^^^^^^^^^^^^^
+Prerequisites
+^^^^^^^^^^^^^
 
-- A good understanding of the previous tutorial series topics (`ACLs <ACLs.html>`_, `VLANs <vlan_tutorial.html>`_, `Routing <routing.html>`_)
-- Install Faucet - `Package installation steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
-- Install OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
-
-- Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+- A good understanding of the previous tutorial topics
+  (:doc:`acls`, :doc:`vlans`, :doc:`routing`)
+- Install Faucet - :ref:`tutorial-package-installation` steps 1 & 2
+- Install Open vSwitch - :ref:`tutorial-first-datapath-connection` steps 1 & 2
+- Useful Bash Functions - Copy and paste the following definitions into your
+  bash terminal, or to make them persistent between sessions add them to the
+  bottom of your .bashrc and run 'source .bashrc'.
 
 .. literalinclude:: ../_static/tutorial/create_ns
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/as_ns
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/cleanup
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/add_tagged_dev_ns
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/clear_ns
+   :language: bash
 
 
 Let's start by run the cleanup script to remove old namespaces and switches.
@@ -48,7 +56,8 @@ We will create a switch and attach seven hosts like so:
     :align: center
 
 
-The network will be divided into 3 VLANs like so, 2 client vlans (200 & 300) with two clients each (host4-7), and a VLAN for the Bro server.
+The network will be divided into 3 VLANs like so, 2 client vlans (200 & 300)
+with two clients each (host4-7), and a VLAN for the Bro server.
 The layer 2 & 3 diagram looks like:
 
 .. image:: ../_static/images/nfv-l2+3.svg
@@ -184,7 +193,8 @@ Now reload faucet configuration file.
 
     sudo systemctl reload faucet
 
-Use dhclient to configure host4 to host7 using DHCP (it may take a few seconds, but should return when successful).
+Use dhclient to configure host4 to host7 using DHCP (it may take a few seconds,
+but should return when successful).
 
 .. code:: console
 
@@ -193,8 +203,8 @@ Use dhclient to configure host4 to host7 using DHCP (it may take a few seconds, 
     as_ns host6 dhclient veth0
     as_ns host7 dhclient veth0
 
-You can check */tmp/nfv-dhcp<vlanid>.leases* and */tmp/nfv.dhcp<vlanid>.log* to find their IPs.
-e.g. file /tmp/nfv-dhcp-vlan300.leases
+You can check */tmp/nfv-dhcp<vlanid>.leases* and */tmp/nfv.dhcp<vlanid>.log* to
+find their IPs. e.g. file /tmp/nfv-dhcp-vlan300.leases
 
 .. code-block:: text
     :caption: output:
@@ -222,8 +232,9 @@ Try to ping between them
     as_ns host6 ping <ip of host7> # both in vlan300 should work
     as_ns host4 ping <ip of host6> # each in different vlan should not work
 
-Ping between hosts vlan 200 and vlan 300 works because host3 (gateway) forwards the traffic by default.
-So we will fix this for the next sections by changing iptables on host3 to not route traffic by default.
+Ping between hosts vlan 200 and vlan 300 works because host3 (gateway) forwards
+the traffic by default. So we will fix this for the next sections by changing
+iptables on host3 to not route traffic by default.
 
 .. code:: console
 
@@ -239,7 +250,8 @@ Now the ping should fail
 Gateway (NAT)
 ^^^^^^^^^^^^^
 
-In this section we will configure host3 as a gateway (NAT) to provide internet connection for our network.
+In this section we will configure host3 as a gateway (NAT) to provide internet
+connection for our network.
 
 .. code-block:: console
     :caption: Define some variables we will use\:
@@ -339,7 +351,8 @@ Comment out MailTo in /etc/bro/broctl.cfg
 Run bro in host2
 ----------------
 
-Since this is the first-time use of the bro command shell application, perform an initial installation of the BroControl configuration:
+Since this is the first-time use of the bro command shell application, perform
+an initial installation of the BroControl configuration:
 
 .. code:: console
 
@@ -433,8 +446,9 @@ If we generate some DHCP traffic on either of the hosts VLANs
 
     as_ns host4 dhclient veth0
 
-and then inspect the bro logs, we should see that bro has learnt about the two DHCP Servers.
-If the file does not exist check that faucet has successfully reloaded, and try the dhclient command again.
+Then if we inspect the bro logs, we should see that bro has learnt about the two
+DHCP Servers. If the file does not exist check that faucet has successfully
+reloaded, and try the dhclient command again.
 
 .. code::
 

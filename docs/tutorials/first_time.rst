@@ -18,6 +18,8 @@ We will be installing and configuring the following components:
 This tutorial was written for Ubuntu 16.04, however the steps should work fine
 on any newer supported version of Ubuntu or Debian.
 
+.. _tutorial-package-installation:
+
 Package installation
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -237,6 +239,8 @@ our new faucet configuration:
     .. code:: console
 
         sudo systemctl restart gauge
+
+.. _tutorial-first-datapath-connection:
 
 Connect your first datapath
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
