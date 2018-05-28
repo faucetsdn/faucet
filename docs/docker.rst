@@ -32,7 +32,7 @@ easily without having to build your own.
 We use Docker tags to differentiate between versions of Faucet. The latest
 tag will always point to the latest stable release of Faucet. All tagged
 versions of Faucet in git are also available to use, for example using the
-``faucet/faucet:1.7.0`` Docker will run the released version 1.7.0 of Faucet.
+``faucet/faucet:1.8.0`` Docker will run the released version 1.8.0 of Faucet.
 
 By default the Faucet and Gauge images are run as the `faucet` user under
 UID 0, GID 0. If you need to change that it can be overridden at runtime with
@@ -141,7 +141,6 @@ Then add two data sources. Use the following settings for prometheus:
   Name: Prometheus
   Type: Prometheus
   Url: http://prometheus:9090
-  Access: proxy
 
 And the following settings for InfluxDB:
 
@@ -150,7 +149,6 @@ And the following settings for InfluxDB:
   Name: InfluxDB
   Type: InfluxDB
   Url: http://influxdb:8086
-  Access: proxy
   With Credentials: true
   Database: faucet
   User: faucet
@@ -159,4 +157,12 @@ And the following settings for InfluxDB:
 Check the connection using test connection.
 
 From here you can add a new dashboard and a graphs for pulling data from the
-data sources. See the Grafana's documentation for more on how to do this.
+data sources. Hover over the ``+`` button on the left sidebar in the web
+interface and click ``Import``.
+
+We will import the following dashboards, just download the following
+links and upload them through the grafana dashboard import screen:
+
+* `Instrumentation <_static/grafana-dashboards/faucet_instrumentation.json>`_
+* `Inventory <_static/grafana-dashboards/faucet_inventory.json>`_
+* `Port Statistics <_static/grafana-dashboards/faucet_port_statistics.json>`_
