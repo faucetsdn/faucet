@@ -1,6 +1,6 @@
 ## Image name: faucet/packet-fuzzer
 
-FROM faucet/faucet-testbase:latest
+FROM faucet/test-base:latest
 
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"

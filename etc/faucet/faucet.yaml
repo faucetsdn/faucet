@@ -45,7 +45,7 @@ dps:
                 acls_in: [access-port-protect]
             4:
                 name: "s1"
-                description: "services1 container"
+                description: "services container"
                 native_vlan: office
                 acls_in: [service-port-protect]
             5:
@@ -59,12 +59,17 @@ dps:
         interfaces:
             1:
                 name: "pi"
-                description: "Raspberry Pi"
+                description: "raspberry pi"
                 native_vlan: office
                 acls_in: [access-port-protect]
             2:
                 name: "laptop"
-                description: "Guest Laptop"
+                description: "guest laptop"
+                native_vlan: guest
+                acls_in: [access-port-protect]
+            3:
+                name: "s1"
+                description: "services Laptop"
                 native_vlan: guest
                 acls_in: [access-port-protect]
             24:

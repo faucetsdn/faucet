@@ -7,7 +7,7 @@ services:
             dockerfile: Dockerfile
         depends_on:
             - faucet
-        image: 'rabbitmq-adapter:faucet'
+        image: 'faucet/event-adapter-rabbitmq'
         volumes_from:
             - faucet
         environment:
