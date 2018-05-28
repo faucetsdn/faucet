@@ -1590,6 +1590,31 @@ dps:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_force_port_vlan(self):
+        """Test push force_port_vlan."""
+        config = """
+acls:
+    good_acl:
+        rules:
+            - rule:
+                actions:
+                    allow: 1
+                    force_port_vlan: 1
+                    output:
+                        swap_vid: 101
+vlans:
+    guest:
+        vid: 100
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                tagged_vlans: [100]
+                acl_in: good_acl
+"""
+        self.check_config_success(config, cp.dp_parser)
+
     def test_failover_acl(self):
         """Test failover ACL fields."""
         config = """
