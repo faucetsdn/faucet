@@ -1039,7 +1039,7 @@ dbs:
         def _update_conf(conf_path, yaml_conf):
             if yaml_conf:
                 orig_mtime = os.path.getmtime(conf_path)
-                with open(conf_path, 'w') as config_file:
+                with open(conf_path, 'w', buffering=0) as config_file:
                     config_file.write(yaml.dump(yaml_conf))
                 for _ in range(3):
                     if orig_mtime < os.path.getmtime(conf_path):
