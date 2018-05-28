@@ -698,6 +698,8 @@ follows:
       - None
       - The next hop for this route
 
+.. _configuration-meters:
+
 Meters
 ~~~~~~
 

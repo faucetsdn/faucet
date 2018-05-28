@@ -1,26 +1,29 @@
-ACLs tutorial
-=============
+ACL tutorial
+============
 
-In the `first tutorial <tutorials.html>`_ we covered how to install and set-up Faucet.
+In the :doc:`first_time` tutorial we covered how to install and set-up Faucet.
 Next we are going to introduce Access Control Lists (ACLs).
 
 
 ETA: ~25 minutes.
 
-Prerequisites:
---------------
+Prerequisites
+-------------
 
-- Faucet - `Package installation steps 1 & 2 <tutorials.html#package-installation>`__
-- OpenVSwitch - `Connect your first datapath steps 1 & 2 <tutorials.html#connect-your-first-datapath>`__
-- Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+- Install Faucet - :ref:`tutorial-package-installation` steps 1 & 2
+- Install Open vSwitch - :ref:`tutorial-first-datapath-connection` steps 1 & 2
+- Useful Bash Functions - Copy and paste the following definitions into your
+  bash terminal, or to make them persistent between sessions add them to the
+  bottom of your .bashrc and run 'source .bashrc'.
 
 .. literalinclude:: ../_static/tutorial/create_ns
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/as_ns
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/cleanup
-
-To make these functions persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+   :language: bash
 
 .. note:: If not continuing on from the 'Installing Faucet for first time tutorial' to setup the hosts and switch run:
 
@@ -64,23 +67,31 @@ Overview
 --------
 
 Faucet ACLs are made up of lists of rules.
-The order of the rules in the list denote the priority with the first rules being highest and last lowest.
-Each of these lists has a name (e.g. 'block-ping'), and can be used on multiple port or VLAN 'acls_in' fields.
-Again these are applied in order so all of 'block-ping' rules will be higher than 'allow-all'.
+The order of the rules in the list denote the priority with the first rules
+being highest and last lowest. Each of these lists has a name
+(e.g. 'block-ping'), and can be used on multiple port or VLAN 'acls_in' fields.
+Again these are applied in order so all of 'block-ping' rules will be higher
+than 'allow-all'.
 
 Each rule contains two main items 'matches' and 'actions'.
 Matches are any packet field such as MAC/IP/transport source/destination fields.
-For a full list visit https://ryu.readthedocs.io/en/latest/ofproto_v1_3_ref.html#flow-match-structure
+For a full list visit the
+`Ryu documentation <https://ryu.readthedocs.io/en/latest/ofproto_v1_3_ref.html#flow-match-structure>`_.
 
-Actions are used to control what the packet does, for example normal l2 forwarding ('allow').
-Apply a 'meter' to rate limit traffic, and manipulation of the packet contents and output.
-Full list https://faucet.readthedocs.io/en/latest/configuration.html#id13
+Actions are used to control what the packet does, for example normal l2
+forwarding ('allow'). Apply a 'meter' to rate limit traffic, and manipulation of
+the packet contents and output. Full list is available in the
+:ref:`configuration-meters` section of the documentation.
 
-The example below has defined two ACLs 'block-ping' & 'allow-all' these can be used on any and multiple ports or VLANs (more on VLANs later) using the 'acls_in' key.
-The block-ping ACL has two rules, one to block ICMP on IPv4 and another for ICMPv6 on IPv6.
-The allow-all ACL has one rule, which specifies no match fields, and therefore matches all packets, and the action 'allow'.
-The 'allow' action is a boolean, if it's True allow the packet to continue through the Faucet pipeline, if False drop the packet.
-'allow' can be used in conjunction with the other actions to let the traffic flow with the expected layer 2 forwarding behaviour AND be mirrored to another port.
+The example below has defined two ACLs 'block-ping' & 'allow-all' these can be
+used on any and multiple ports or VLANs (more on VLANs later) using the
+'acls_in' key. The block-ping ACL has two rules, one to block ICMP on IPv4 and
+another for ICMPv6 on IPv6. The allow-all ACL has one rule, which specifies no
+match fields, and therefore matches all packets, and the action 'allow'.
+The 'allow' action is a boolean, if it's True allow the packet to continue
+through the Faucet pipeline, if False drop the packet. 'allow' can be used in
+conjunction with the other actions to let the traffic flow with the expected
+layer 2 forwarding behaviour AND be mirrored to another port.
 
 
 Network Setup
@@ -166,10 +177,14 @@ ACL Actions
 Mirroring
 +++++++++
 
-Mirroring traffic is useful if we want to send it to an out of band NFV service (e.g. Intrusion Detection System, packet capture a port or VLAN).
+Mirroring traffic is useful if we want to send it to an out of band NFV service
+(e.g. Intrusion Detection System, packet capture a port or VLAN).
 To do this Faucet provides two ACL actions: mirror & output.
 
-The mirror action copies the packet, before any modifications, to the specified port (NOTE: mirroring is done in input direction only).
+The mirror action copies the packet, before any modifications, to the specified
+port.
+
+.. note:: Mirroring is done in input direction only.
 
 Let's add the mirror action to our block-ping ACL /etc/faucet/faucet.yaml
 
@@ -197,7 +212,8 @@ And again send the sighup signal to Faucet
 
     sudo systemctl reload faucet
 
-To check this we will ping from host1 to host3, while performing a tcpdump on host4 who should receive the ping replies.
+To check this we will ping from host1 to host3, while performing a tcpdump on
+host4 who should receive the ping replies.
 It is a good idea to run each from a different terminal (screen, tmux, ...)
 
 .. code:: console
@@ -249,8 +265,10 @@ There is also the 'output' action which can be used to achieve the same thing.
                     port: 4
 
 
-The output action also allows us to change the packet by setting fields (mac/ip addresses, ...), VLAN operations (push/pop/swap VIDs).
-It can be used in conjunction with the other actions, e.g. output directly and but do not allow through the Faucet pipeline (allow: false).
+The output action also allows us to change the packet by setting fields
+(mac/ip addresses, ...), VLAN operations (push/pop/swap VIDs).
+It can be used in conjunction with the other actions, e.g. output directly but
+do not allow through the Faucet pipeline (allow: false).
 
 Let's create a new ACL for host2's port that will change the MAC source address.
 
@@ -292,7 +310,8 @@ Ping host1 from host2
 
     as_ns host2 ping 192.168.0.1
 
-Here we can see ICMP echo requests are coming from the MAC address "00:00:00:00:00:02" that we set in our output ACL.
+Here we can see ICMP echo requests are coming from the MAC address
+"00:00:00:00:00:02" that we set in our output ACL.
 (The reply is destined to the actual MAC address of host2 thanks to ARP).
 
 .. code:: console
@@ -310,7 +329,9 @@ Here we can see ICMP echo requests are coming from the MAC address "00:00:00:00:
 
 
 
-With the output action we could also use it to mirror traffic to a NFV server (like our fake mirror output action above), and use a VLAN tag to identify what port the traffic originated on on the switch.
+With the output action we could also use it to mirror traffic to a NFV server
+(like our fake mirror output action above), and use a VLAN tag to identify what
+port the traffic originated on on the switch.
 To do this we will use both the 'port' & 'vlan_vid' output fields.
 
 .. code-block:: yaml
@@ -336,7 +357,8 @@ To do this we will use both the 'port' & 'vlan_vid' output fields.
 
 
 Again reload Faucet, start a tcpdump on host4, and ping from host1 to host3.
-Ping should still not be allowed through and the tcpdump output should be similar to below (Note the 802.1Q tag and vlan 3):
+Ping should still not be allowed through and the tcpdump output should be
+similar to below (Note the 802.1Q tag and vlan 3):
 
 .. code:: console
 

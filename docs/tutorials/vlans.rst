@@ -5,19 +5,23 @@ Next we are going to introduce VLANs.
 
 ETA: ~30 mins.
 
-Prerequisites:
-^^^^^^^^^^^^^^
+Prerequisites
+^^^^^^^^^^^^^
 
-- Faucet - `Package installation steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#package-installation>`__
-- OpenVSwitch - `Connect your first datapath steps 1 & 2 <https://faucet.readthedocs.io/en/latest/tutorials.html#connect-your-first-datapath>`__
-- Useful Bash Functions - Copy and paste the following definitions into your bash terminal, or to make them persistent between sessions add them to the bottom of your .bashrc and run 'source .bashrc'.
+- Install Faucet - :ref:`tutorial-package-installation` steps 1 & 2
+- Install Open vSwitch - :ref:`tutorial-first-datapath-connection` steps 1 & 2
+- Useful Bash Functions - Copy and paste the following definitions into your
+  bash terminal, or to make them persistent between sessions add them to the
+  bottom of your .bashrc and run 'source .bashrc'.
 
 .. literalinclude:: ../_static/tutorial/create_ns
-
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/as_ns
+   :language: bash
 
 .. literalinclude:: ../_static/tutorial/cleanup
+   :language: bash
 
 
 - to add a tagged network interface to a host namespaces
@@ -25,8 +29,8 @@ Prerequisites:
 .. literalinclude:: ../_static/tutorial/add_tagged_dev_ns
     :language: bash
 
-Overview:
-^^^^^^^^^
+Overview
+^^^^^^^^
 
 In this tutorial we will look at how to do the following tasks using Faucet:
 
@@ -34,20 +38,24 @@ In this tutorial we will look at how to do the following tasks using Faucet:
 - Create Trunk links.
 - ACLs for a particular VLAN.
 
-.. note:: You can find routing between VLANs `here <./routing.html#routing-between-vlans>`_
+.. note::
+
+   We cover :ref:`tutorial-ivr` in a later tutorial.
 
 A port can be in several VLAN modes:
 1. native - where packets come into the switch with no 802.1Q tag.
 2. tagged - where packets come into the switch with a 802.1Q tag.
 3. Both native and tagged.
 
-If a packet comes in with a tag for a VLAN that the port is not configured for it will be dropped.
+If a packet comes in with a tag for a VLAN that the port is not configured for
+it will be dropped.
 
 
-Configuring VLANs:
-^^^^^^^^^^^^^^^^^^
+Configuring VLANs
+^^^^^^^^^^^^^^^^^
 
-To demonstrate these tasks we will use a demo network where a single switch br0 connects to 9 hosts.
+To demonstrate these tasks we will use a demo network where a single switch br0
+connects to 9 hosts.
 
 Ports 1, 2, 5, 6 will be native (untagged) ports.
 While ports 3 & 4, 7 & 8, and 9 will be tagged ports.
@@ -58,13 +66,17 @@ Here is the structure of the demo setup.
     :alt: VLAN Network Diagram
     :align: center
 
-.. note:: Keep a piece of paper with the network layout and hosts' names, VLANs, IPs to simplify following the rest of the tutorial.
+.. tip::
+
+    Keep a piece of paper with the network layout and hosts' names, VLANs, IPs
+    to simplify following the rest of the tutorial.
 
 
 Network setup
 -------------
 
-Let’s start. Keep host1, host2 on the native vlan 100 (office vlan) as in the first and second tutorials.
+Let's start. Keep host1, host2 on the native vlan 100 (office vlan) as in the
+first and second tutorials.
 
 .. note:: To create the hosts and switch again run
 
@@ -136,7 +148,8 @@ Then  connect all the hosts to the switch (br0)
     -- add-port br0 veth-host9 -- set interface veth-host9 ofport_request=9
 
 Now we have everything to start working with faucet through its configuration file.
-Each time we will only need to change the configuration file and restart faucet (or send it HUP signal to reload the configuration file).
+Each time we will only need to change the configuration file and restart faucet
+(or send it HUP signal to reload the configuration file).
 
 Basic vlan settings
 -------------------
@@ -188,7 +201,8 @@ Change /etc/faucet/faucet.yaml to reflect our setting.
                     name: "host9"
                     tagged_vlans: [vlan100,vlan200,vlan300]
 
-Send SIGHUP signal to reload the configuration file, and check how its log the new configuration in /var/log/faucet/faucet.log
+Send SIGHUP signal to reload the configuration file, and check how its log the
+new configuration in /var/log/faucet/faucet.log
 
 .. code:: console
 
@@ -208,13 +222,15 @@ Let's do the following simple tests:
 
 All should work.
 
-2. Ping between hosts in the same vlan where the port's vlan mode is both native and tagged. In particular between host1 (native vlan100) to host3 (tagged vlan100).
+2. Ping between hosts in the same vlan where the port's vlan mode is both native
+   and tagged. In particular between host1 (native vlan100) to host3 (tagged vlan100).
 
 .. code:: console
 
     as_ns host1 ping 192.168.0.3
 
-3. Ping between hosts in different vlans. Let's change host5 (native vlan200) ip to be 192.168.0.5 and try to ping it from host1 (native vlan100).
+3. Ping between hosts in different vlans. Let's change host5 (native vlan200) ip
+   to be 192.168.0.5 and try to ping it from host1 (native vlan100).
 
 .. code:: console
 
