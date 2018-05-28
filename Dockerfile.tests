@@ -1,6 +1,6 @@
 ## Image name: faucet/tests
 
-FROM faucet/faucet-testbase:latest
+FROM faucet/test-base:latest
 
 ENV PIP="pip -q --no-cache-dir install --upgrade"
 ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
@@ -9,10 +9,10 @@ COPY ./ /faucet-src/
 WORKDIR /faucet-src/
 
 RUN \
-    ./docker/base/retrycmd.sh "$PIP -r /faucet-src/test-requirements.txt" && \
-    ./docker/base/retrycmd.sh "$PIP3 -r /faucet-src/requirements.txt" && \
-    ./docker/base/retrycmd.sh "$PIP3 -r /faucet-src/test-requirements.txt" && \
-    ./docker/base/retrycmd.sh "$PIP3 -r /faucet-src/docs/requirements.txt" && \
+    ./docker/retrycmd.sh "$PIP -r /faucet-src/test-requirements.txt" && \
+    ./docker/retrycmd.sh "$PIP3 -r /faucet-src/requirements.txt" && \
+    ./docker/retrycmd.sh "$PIP3 -r /faucet-src/test-requirements.txt" && \
+    ./docker/retrycmd.sh "$PIP3 -r /faucet-src/docs/requirements.txt" && \
     $PIP3 .
 
 CMD ["docker/runtests.sh"]

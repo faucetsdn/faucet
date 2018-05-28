@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# We need qemu-user-static for arm/pi builds
+docker run --rm --privileged multiarch/qemu-user-static:register --reset

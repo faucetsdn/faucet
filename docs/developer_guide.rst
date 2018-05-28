@@ -147,7 +147,6 @@ is normally stored in ``dist`` directory. The following are the targets that
 can be used:
 
  - **uml**: Uses ``pyreverse`` to provide code class diagrams.
- - **dot**: Uses ``dot`` to provide hirearchical representation of ``faucet.yaml`` based on ``docs/images/faucet-yaml.dot`` file
  - **codefmt**: Provides command line usage to "Code Style" the Python file
  - **codeerrors**: Uses ``pylint`` on all Python files to generate a code error report and is placed in ``dist`` directory.
  - **stats**: Provides a list of all commits since the last release tag.

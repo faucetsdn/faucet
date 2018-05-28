@@ -241,8 +241,6 @@ The VM comes pre-installed with FAUCET, GAUGE, prometheus and grafana.
 Openstack's `diskimage-builder <https://docs.openstack.org/diskimage-builder/latest/>`_
 (DIB) is used to build the VM images in many formats (qcow2,tgz,squashfs,vhd,raw).
 
-We provide `DIB elements <elements>`_ for configuring each component installed in the VM.
-
 Pre-built images are available on our build host `<https://builder.faucet.nz>`_.
 
 Building the images
@@ -272,7 +270,7 @@ SSH                      22
 Faucet OpenFlow Channel  6653
 Gauge OpenFlow Channel   6654
 Grafana Web Interface    3000
-Prometheus Web Interface 3000
+Prometheus Web Interface 9090
 ======================== ====
 
 **Default Credentials**
@@ -292,9 +290,26 @@ Grafana comes installed but unconfigured, you will need to login to the grafana
 web interface at ``http://VM_IP:3000`` and configure a data source and some dashboards.
 
 After logging in with the default credentials shown above, the first step is to add a `prometheus data source <https://prometheus.io/docs/visualization/grafana/#creating-a-prometheus-data-source>`_,
-please add ``http://localhost:9090`` as your data source.
-Next step is to configure some dashboards, you can add some we have `prepared earlier <https://monitoring.redcables.wand.nz/grafana-dashboards/>`_
-or `create your own <http://docs.grafana.org/features/datasources/prometheus/>`_.
+use the following settings then click ``Save & Test``:
+
+  ::
+
+      Name:   Prometheus
+      Type:   Prometheus
+      URL:    http://localhost:9090
+
+Next we want to add some dashboards so that we can later view the metrics
+from faucet.
+
+Hover over the ``+`` button on the left sidebar in the web interface
+and click ``Import``.
+
+We will import the following dashboards, just download the following
+links and upload them through the grafana dashboard import screen:
+
+* `Instrumentation <_static/grafana-dashboards/faucet_instrumentation.json>`_
+* `Inventory <_static/grafana-dashboards/faucet_inventory.json>`_
+* `Port Statistics <_static/grafana-dashboards/faucet_port_statistics.json>`_
 
 You will need to supply your own faucet.yaml and gauge.yaml configuration in the VM.
 There are samples provided at /etc/faucet/faucet.yaml and /etc/faucet/gauge.yaml.

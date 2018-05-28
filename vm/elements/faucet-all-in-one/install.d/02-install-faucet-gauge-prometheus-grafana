@@ -1,0 +1,34 @@
+#!/bin/bash
+
+if [ ${DIB_DEBUG_TRACE:-1} -gt 0 ]; then
+    set -x
+fi
+set -eu
+set -o pipefail
+
+SCRIPTDIR=$(dirname $0)
+
+# Add a `faucet' user
+adduser --disabled-password --gecos "faucet user" faucet
+echo faucet:faucet | chpasswd
+gpasswd -a faucet sudo
+
+# Add faucet repo
+echo "deb https://packagecloud.io/faucetsdn/faucet/$(lsb_release -si | awk '{print tolower($0)}')/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/faucet.list
+curl -L https://packagecloud.io/faucetsdn/faucet/gpgkey | apt-key add -
+apt-get update
+
+# Install faucet/gauge/prometheus/grafana
+apt-get install -y faucet-all-in-one
+
+# Configure prometheus
+cat << EOF > /etc/default/prometheus
+# Set the command-line arguments to pass to the server.
+ARGS="--config.file=/etc/faucet/prometheus/prometheus.yml"
+EOF
+sudo systemctl restart prometheus
+
+# Configure grafana
+systemctl daemon-reload
+systemctl enable grafana-server
+systemctl start grafana-server

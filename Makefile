@@ -36,10 +36,6 @@ uml:
 	$(MV) classes*png $(DIST_DIR)/doc
 	$(MV) packages*png $(DIST_DIR)/doc
 
-dot:
-	$(MKDIR) $(DIST_DIR)/doc
-	$(DOT) -Tpng $(SRC_DIR)/docs/images/faucet-yaml.dot -o $(DIST_DIR)/doc/faucet-yaml.png
-
 codefmt:
 	@echo Run below command manually to inline replace current code with newly formatted code per “pep8” guidelines
 	@echo $(YAPF) --style pep8 -i \*py

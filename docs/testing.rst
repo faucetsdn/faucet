@@ -151,7 +151,7 @@ Running the tests
       -ti faucet/tests
 
 Running a single test including pytype, linting, and documentation
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: console
 
