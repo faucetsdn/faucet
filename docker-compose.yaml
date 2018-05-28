@@ -30,7 +30,7 @@ services:
 
     grafana:
         restart: always
-        image: 'grafana/grafana:5.1.2'
+        image: 'grafana/grafana:5.1.3'
         user: 'root'
         ports:
             - '3000:3000'
@@ -61,7 +61,7 @@ services:
         restart: always
         build:
             context: .
-            dockerfile: Dockerfile
+            dockerfile: Dockerfile.faucet
         image: 'faucet/faucet:latest'
         volumes:
             - '${FAUCET_PREFIX}/var/log/faucet:/var/log/faucet'

@@ -3,21 +3,9 @@ stages:
   - build
   - deploy
 
-build-env:
-  stage: build-env
-  image: docker:latest
-  services:
-  - docker:dind
-  script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
-    - docker build -t registry.gitlab.com/faucetsdn/faucet/dbuilder:latest -f ci/Dockerfile .
-    - docker push registry.gitlab.com/faucetsdn/faucet/dbuilder:latest
-  only:
-      - tags
-
 build-package:
   stage: build
-  image: registry.gitlab.com/faucetsdn/faucet/dbuilder
+  image: faucet/dbuilder
   script:
     - cd /builds/faucetsdn/faucet
     - TAG="git describe --tags"
@@ -38,7 +26,7 @@ build-package:
 
 deploy-package:
   stage: deploy
-  image: registry.gitlab.com/faucetsdn/faucet/dbuilder
+  image: faucet/dbuilder
   script:
     - cd /builds/faucetsdn/faucet/built-packages/
     - echo "{\"url\":\"https://packagecloud.io\",\"token\":\"$PACKAGECLOUD_TOKEN\"}" > ~/.packagecloud

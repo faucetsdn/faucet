@@ -1,10 +1,10 @@
 ## Image name: faucet/gauge-pi
 
-FROM faucet/faucet-python3-pi
+FROM faucet/python3-pi
 
 COPY ./ /faucet-src/
 
-RUN ./faucet-src/docker/base/install-faucet.sh
+RUN ./faucet-src/docker/install-faucet.sh
 
 VOLUME ["/etc/faucet/", "/var/log/faucet/"]
 

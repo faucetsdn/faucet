@@ -32,7 +32,7 @@ easily without having to build your own.
 We use Docker tags to differentiate between versions of Faucet. The latest
 tag will always point to the latest stable release of Faucet. All tagged
 versions of Faucet in git are also available to use, for example using the
-``faucet/faucet:1.7.0`` Docker will run the released version 1.7.0 of Faucet.
+``faucet/faucet:1.8.0`` Docker will run the released version 1.8.0 of Faucet.
 
 By default the Faucet and Gauge images are run as the `faucet` user under
 UID 0, GID 0. If you need to change that it can be overridden at runtime with
@@ -103,81 +103,6 @@ You can get a list of all additional arguments faucet supports by running:
 
   docker run -it faucet/faucet faucet --help
 
-Dockerfile
-----------
-
-If building Faucet yourself, you first need to build the base images from this
-repo:
-
-.. code:: console
-
-  cd docker/base
-  docker build -t faucet/faucet-base .
-  cd ../python
-  docker build -t faucet/faucet-python3 .
-  cd ../..
-  docker build -t faucet/faucet .
-
-It can be run as following:
-
-.. code:: console
-
-  mkdir -p /var/log/faucet/
-  docker run -d \
-      --name faucet \
-      --restart=always \
-      -v /etc/faucet/:/etc/faucet/ \
-      -v /var/log/faucet/:/var/log/faucet/ \
-      -p 6653:6653 \
-      faucet/faucet
-
-By default the Dockerfile for Faucet will build an image that will run as the
-`faucet` user, if you need to change that it can be overridden at runtime with
-the Docker `-e LOCAL_USER_ID` flag.
-
-By default it listens on port 6653 for an OpenFlow switch to connect. Faucet
-expects to find the configuration file faucet.yaml in the config folder. If
-needed the -e option can be used to specify the names of files with the
-FAUCET\_LOG, FAUCET\_EXCEPTION\_LOG, FAUCET\_CONFIG environment variables.
-
-Dockerfile.gauge
-----------------
-
-If building Gauge yourself, you first need to build the base images from this
-repo:
-
-.. code:: console
-
-  cd docker/base
-  docker build -t faucet/faucet-base .
-  cd ../python
-  docker build -t faucet/faucet-python3 .
-  cd ../..
-  docker build -f Dockerfile.gauge -t faucet/gauge .
-
-It can be run as following:
-
-.. code:: console
-
-  mkdir -p /var/log/faucet
-  docker run -d \
-      --name gauge \
-      --restart=always \
-      -v /etc/faucet/:/etc/faucet/ \
-      -v /var/log/faucet/:/var/log/faucet/ \
-      -p 6654:6653 \
-      faucet/gauge
-
-By default the Dockerfile for Gauge will build an image that will run as the
-`faucet` user, if you need to change that it can be overridden at runtime with
-the Docker `-e LOCAL_USER_ID` flag.
-
-By default listens on port 6653. If you are running this with
-Faucet you will need to modify the port one of the containers listens on and
-configure your switches to talk to both. The faucet
-configuration file faucet.yaml should be placed in the config directory, this
-also should include to configuration for gauge.
-
 Docker compose
 --------------
 
@@ -216,7 +141,6 @@ Then add two data sources. Use the following settings for prometheus:
   Name: Prometheus
   Type: Prometheus
   Url: http://prometheus:9090
-  Access: proxy
 
 And the following settings for InfluxDB:
 
@@ -225,7 +149,6 @@ And the following settings for InfluxDB:
   Name: InfluxDB
   Type: InfluxDB
   Url: http://influxdb:8086
-  Access: proxy
   With Credentials: true
   Database: faucet
   User: faucet
@@ -234,4 +157,12 @@ And the following settings for InfluxDB:
 Check the connection using test connection.
 
 From here you can add a new dashboard and a graphs for pulling data from the
-data sources. See the Grafana's documentation for more on how to do this.
+data sources. Hover over the ``+`` button on the left sidebar in the web
+interface and click ``Import``.
+
+We will import the following dashboards, just download the following
+links and upload them through the grafana dashboard import screen:
+
+* `Instrumentation <_static/grafana-dashboards/faucet_instrumentation.json>`_
+* `Inventory <_static/grafana-dashboards/faucet_inventory.json>`_
+* `Port Statistics <_static/grafana-dashboards/faucet_port_statistics.json>`_
