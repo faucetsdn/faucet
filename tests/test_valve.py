@@ -304,6 +304,7 @@ def build_pkt(pkt):
 
 
 class ValveTestBases:
+    """Insulate test base classes from unittest so we can reuse base clases."""
 
 
     class ValveTestSmall(unittest.TestCase):
@@ -480,6 +481,7 @@ class ValveTestBases:
                     'vid': 0x200})
 
         def verify_expiry(self):
+            """Verify FIB resolution attempts expire."""
             now = time.time()
             for _ in range(self.valve.dp.max_host_fib_retry_count + 1):
                 now += (self.valve.dp.timeout * 2)
@@ -532,8 +534,9 @@ class ValveTestBases:
                         if port == in_port:
                             self.assertNotEqual(
                                 combinatorial_port_flood, output,
-                                msg='flooding to in_port (%s) not compatible with flood mode (%s)' % (
-                                    output, combinatorial_port_flood))
+                                msg=('flooding to in_port (%s) not '
+                                     'compatible with flood mode (%s)') % (
+                                         output, combinatorial_port_flood))
                             continue
                         self.assertTrue(
                             output,
@@ -579,8 +582,11 @@ class ValveTestBases:
                 'of_packet_ins')
             rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
             self.table.apply_ofmsgs(rcv_packet_ofmsgs)
-            for valve_service in ('resolve_gateways', 'advertise', 'send_lldp_beacons', 'state_expire'):
-                ofmsgs = self.valves_manager.valve_flow_services(now, valve_service)
+            for valve_service in (
+                    'resolve_gateways', 'advertise',
+                    'send_lldp_beacons', 'state_expire'):
+                ofmsgs = self.valves_manager.valve_flow_services(
+                    now, valve_service)
                 if ofmsgs:
                     self.table.apply_ofmsgs(ofmsgs)
             self.valves_manager.update_metrics(now)
@@ -624,9 +630,13 @@ class ValveTestBases:
 
         def test_switch_features(self):
             """Test switch features handler."""
-            self.assertTrue(isinstance(self.valve, TfmValve), msg=type(self.valve))
+            self.assertTrue(
+                isinstance(self.valve, TfmValve),
+                msg=type(self.valve))
             features_flows = self.valve.switch_features(None)
-            tfm_flows = [flow for flow in features_flows if isinstance(flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
+            tfm_flows = [
+                flow for flow in features_flows if isinstance(
+                    flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
             # TODO: verify TFM content.
             self.assertTrue(tfm_flows)
 
@@ -1255,6 +1265,7 @@ meters:
 
 
 class ValveTestCase(ValveTestBases.ValveTestBig):
+    """Run complete set of basic tests."""
 
     pass
 
@@ -1391,6 +1402,7 @@ class ValveRootStackTestCase(ValveTestBases.ValveTestSmall):
         self.setup_valve(CONFIG)
 
     def test_stack_learn(self):
+        """Test host learning on stack root."""
         self.rcv_packet(1, 0x300, {
             'eth_src': self.P1_V300_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -1424,6 +1436,7 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
         self.setup_valve(CONFIG)
 
     def test_stack_learn(self):
+        """Test host learning on non-root switch."""
         self.rcv_packet(1, 0x300, {
             'eth_src': self.P1_V300_MAC,
             'eth_dst': self.UNKNOWN_MAC,
@@ -1665,6 +1678,7 @@ vlans:
         self.setup_valve(self.CONFIG)
 
     def test_lacp(self):
+        """Test LACP comes up."""
         # TODO: verify LACP state
         self.rcv_packet(1, 0, {
             'actor_system': '0e:00:00:00:00:02',
@@ -1768,7 +1782,8 @@ vlans:
 class RyuAppSmokeTest(unittest.TestCase):
     """Test bare instantiation of controller classes."""
 
-    def _fake_dp(self):
+    @staticmethod
+    def _fake_dp():
         datapath = namedtuple('datapath', 'id')
         datapath.id = 0
         datapath.close = lambda: None

@@ -13,25 +13,6 @@ from mininet.node import Host
 
 from mininet_test_util import DEVNULL
 
-def MakeDockerHost(image, prefix='mininet', startup_timeout_ms=None):
-
-    class ImageHost(DockerHost):
-
-        def __init__(self, *args, **kwargs):
-            host_name = args[0]
-            kwargs['image'] = image
-            assert kwargs['tmpdir'], 'tmpdir required for docker host'
-            kwargs['tmpdir'] = os.path.join(kwargs['tmpdir'], host_name)
-            kwargs['prefix'] = prefix
-            if startup_timeout_ms:
-                kwargs['startup_timeout_ms'] = startup_timeout_ms
-            elif 'DOCKER_STARTUP_TIMEOUT_MS' in os.environ:
-                env_val = os.environ['DOCKER_STARTUP_TIMEOUT_MS']
-                if env_val:
-                    kwargs['startup_timeout_ms'] = int(env_val)
-            DockerHost.__init__(self, *args, **kwargs)
-    return ImageHost
-
 
 class DockerHost(Host):
 
@@ -63,12 +44,16 @@ class DockerHost(Host):
     pollIn = None
     active_log = None
 
-    def __init__(self, name, image=None, tmpdir=None, prefix=None, env_vars=[],
-                 vol_maps=[], startup_timeout_ms=STARTUP_TIMEOUT_MS, **kwargs):
+    def __init__(self, name, image=None, tmpdir=None, prefix=None, env_vars=None,
+                 vol_maps=None, startup_timeout_ms=STARTUP_TIMEOUT_MS, **kwargs):
         self.image = image
         self.tmpdir = tmpdir
         self.prefix = prefix
+        if env_vars is None:
+            env_vars = []
         self.env_vars = env_vars
+        if vol_maps is None:
+            vol_maps = []
         self.vol_maps = vol_maps
         self.startup_timeout_ms = startup_timeout_ms
         Host.__init__(self, name, **kwargs)
@@ -131,6 +116,7 @@ class DockerHost(Host):
         self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member
 
     def kill(self, purge=False):
+        """Kill a container."""
         debug('killing container %s.' % self.container)
         if purge:
             kill_cmd = ["docker", "rm", "-f", self.container]
@@ -146,6 +132,7 @@ class DockerHost(Host):
             raise
 
     def inspect_pid(self):
+        """Return container PID."""
         try:
             pid_cmd = ["docker", "inspect", "--format={{ .State.Pid }}", self.container]
             pid_pipe = self._popen(pid_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
@@ -158,9 +145,11 @@ class DockerHost(Host):
             raise
 
     def open_log(self, log_name='activate.log'):
+        """Open a log file for writing and return it."""
         return open(os.path.join(self.tmpdir, log_name), 'w')
 
     def activate(self, log_name='activate.log'):
+        """Active a container and return STDOUT to it."""
         assert not self.active_pipe, 'container %s already activated' % self.container
         debug('activating container %s.' % self.container)
         inspect_cmd = ["docker", "inspect", "--format={{json .Config}}", self.image]
@@ -194,6 +183,7 @@ class DockerHost(Host):
         return self.active_pipe
 
     def wait(self):
+        """Wait for an activated container to terminate."""
         try:
             if self.active_pipe_returncode != None:
                 return self.active_pipe_returncode
@@ -209,6 +199,7 @@ class DockerHost(Host):
             raise
 
     def read(self, maxbytes=1024):
+        """Read from an activated container."""
         poll_results = self.pollIn.poll(self.startup_timeout_ms)
         data_ready = poll_results and (poll_results[0][1] & select.POLLIN)
         assert data_ready, (
@@ -272,3 +263,23 @@ class DockerHost(Host):
             out_fd = pipe.stdout.fileno() if stdout else None
             debug('docker pid %d: %s, fd %s' % (pipe.pid, cmd, out_fd))
         return pipe
+
+
+def MakeDockerHost(image, prefix='mininet', startup_timeout_ms=None):
+
+    class ImageHost(DockerHost):
+
+        def __init__(self, *args, **kwargs):
+            host_name = args[0]
+            kwargs['image'] = image
+            assert kwargs['tmpdir'], 'tmpdir required for docker host'
+            kwargs['tmpdir'] = os.path.join(kwargs['tmpdir'], host_name)
+            kwargs['prefix'] = prefix
+            if startup_timeout_ms:
+                kwargs['startup_timeout_ms'] = startup_timeout_ms
+            elif 'DOCKER_STARTUP_TIMEOUT_MS' in os.environ:
+                env_val = os.environ['DOCKER_STARTUP_TIMEOUT_MS']
+                if env_val:
+                    kwargs['startup_timeout_ms'] = int(env_val)
+            DockerHost.__init__(self, *args, **kwargs)
+    return ImageHost

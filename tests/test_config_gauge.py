@@ -46,10 +46,10 @@ faucet_configs:
         shutil.rmtree(self.tmpdir)
 
     def conf_file_name(self, faucet=False):
+        """Return path for configuration file."""
         if faucet:
             return os.path.join(self.tmpdir, 'faucet.yaml')
-        else:
-            return os.path.join(self.tmpdir, 'gauge.yaml')
+        return os.path.join(self.tmpdir, 'gauge.yaml')
 
     def create_config_files(self, config, faucet_config=None):
         """Returns file path to file containing the config parameter."""
@@ -65,10 +65,11 @@ faucet_configs:
         return (gauge_file_name, faucet_file_name)
 
     def get_config(self, conf_suffix):
+        """Return config file together with header template."""
         return self.GAUGE_CONFIG_HEADER + conf_suffix
 
-
     def test_all_dps(self):
+        """Test config applies for all DPs."""
         GAUGE_CONF = """
 watchers:
     port_stats_poller:
@@ -81,7 +82,7 @@ dbs:
         type: 'prometheus'
 """
         conf = self.get_config(GAUGE_CONF)
-        gauge_file, faucet_file = self.create_config_files(conf)
+        gauge_file, _ = self.create_config_files(conf)
         watcher_confs = cp.watcher_parser(gauge_file, 'gauge_config_test', None)
         self.assertEqual(len(watcher_confs), 2, 'failed to create config for each dp')
         for watcher_conf in watcher_confs:
@@ -91,6 +92,7 @@ dbs:
             self.assertEqual(watcher_conf.db_type, 'prometheus', msg)
 
     def test_no_faucet_config_file(self):
+        """Test missing FAUCET config."""
         GAUGE_CONF = """
 faucet:
     dps:
@@ -111,7 +113,7 @@ dbs:
     prometheus:
         type: 'prometheus'
 """
-        gauge_file, faucet_file = self.create_config_files(GAUGE_CONF, '')
+        gauge_file, _ = self.create_config_files(GAUGE_CONF, '')
         watcher_conf = cp.watcher_parser(
             gauge_file, 'gauge_config_test', None)[0]
         msg = 'failed to create watcher correctly when dps configured in gauge.yaml'

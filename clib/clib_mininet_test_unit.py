@@ -9,8 +9,6 @@ import re
 from mininet.net import Mininet
 
 import mininet_test_base
-import mininet_test_util
-import mininet_test_topo
 
 from tcpdump_helper import TcpdumpHelper
 from docker_host import MakeDockerHost
