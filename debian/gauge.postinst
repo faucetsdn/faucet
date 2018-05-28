@@ -28,11 +28,11 @@ case "$1" in
             ${USER}
     fi
 
-    mkdir -p /var/log/gauge
+    mkdir -p /var/log/faucet
     mkdir -p /etc/faucet
 
     if id -u $USER > /dev/null 2>&1; then
-        chown ${USER}:${GROUP} /var/log/gauge
+        chown ${USER}:${GROUP} /var/log/faucet
         chown ${USER}:${GROUP} /etc/faucet
     fi
   ;;
