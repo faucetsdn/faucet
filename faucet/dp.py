@@ -85,6 +85,7 @@ configuration.
     faucet_dp_mac = None
     combinatorial_port_flood = None
     lacp_timeout = None
+    dp_acls = None
 
     dyn_last_coldstart_time = None
 
@@ -161,6 +162,8 @@ configuration.
         # if True, use a seperate output flow for each input port on this VLAN.
         'lacp_timeout': 30,
         # Number of seconds without a LACP message when we consider a LACP group down.
+        'dp_acls': None,
+        # List of dataplane ACLs (overriding per port ACLs).
         }
 
     defaults_types = {
@@ -201,6 +204,7 @@ configuration.
         'metrics_rate_limit_sec': int,
         'faucet_dp_mac': str,
         'combinatorial_port_flood': bool,
+        'dp_acls': list,
     }
 
     stack_defaults_types = {
@@ -643,12 +647,20 @@ configuration.
                     verify_acl_exact_match(acls)
             for port in list(self.ports.values()):
                 if port.acls_in:
+                    test_config_condition(self.dp_acls, (
+                        'dataplane ACLs cannot be used with port ACLs.'))
                     acls = []
                     for acl in port.acls_in:
                         resolve_acl(acl)
                         acls.append(self.acls[acl])
                     port.acls_in = acls
                     verify_acl_exact_match(acls)
+            if self.dp_acls:
+                acls = []
+                for acl in self.acls:
+                    resolve_acl(acl)
+                    acls.append(self.acls[acl])
+                self.dp_acls = acls
 
         def resolve_vlan_names_in_routers():
             """Resolve VLAN references in routers."""
