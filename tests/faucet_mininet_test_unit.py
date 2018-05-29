@@ -3019,6 +3019,58 @@ acls:
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
 
 
+class FaucetUntaggedDPACLTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+acls:
+    1:
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5002
+            actions:
+                allow: 1
+        - rule:
+            dl_type: 0x800
+            ip_proto: 6
+            tcp_dst: 5001
+            actions:
+                allow: 0
+        - rule:
+            actions:
+                allow: 1
+"""
+    CONFIG = """
+        dp_acls: [1]
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+    def test_port5001_blocked(self):
+        self.ping_all_when_learned()
+        first_host, second_host = self.net.hosts[0:2]
+        self.verify_tp_dst_blocked(5001, first_host, second_host)
+
+    def test_port5002_notblocked(self):
+        self.ping_all_when_learned()
+        first_host, second_host = self.net.hosts[0:2]
+        self.verify_tp_dst_notblocked(5002, first_host, second_host)
+
+
 class FaucetUntaggedNoReconfACLTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """

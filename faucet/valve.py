@@ -224,14 +224,16 @@ class Valve(object):
     def _delete_all_port_match_flows(self, port):
         """Delete all flows that match an input port from all FAUCET tables."""
         ofmsgs = []
+        port_acl_table = self.dp.tables['port_acl']
         for table in self.dp.in_port_tables():
+            if self.dp.dp_acls and table == port_acl_table:
+                continue
             ofmsgs.extend(table.flowdel(
                 match=table.match(in_port=port.number)))
         return ofmsgs
 
     def _add_default_drop_flows(self):
         """Add default drop rules on all FAUCET tables."""
-        vlan_table = self.dp.tables['vlan']
         eth_src_table = self.dp.tables['eth_src']
         flood_table = self.dp.tables['flood']
 
@@ -299,6 +301,20 @@ class Valve(object):
                 valve_of.controller_pps_meteradd(pps=self.dp.packetin_pps)]
         return []
 
+    def _add_dp_acls(self):
+        """Add dataplane ACLs, if any."""
+        ofmsgs = []
+        if self.dp.dp_acls:
+            port_acl_table = self.dp.tables['port_acl']
+            acl_allow_inst = valve_of.goto_table(self.dp.tables['vlan'])
+            acl_force_port_vlan_inst = valve_of.goto_table(self.dp.tables['eth_dst'])
+            ofmsgs.extend(valve_acl.build_acl_ofmsgs(
+                self.dp.dp_acls, port_acl_table,
+                acl_allow_inst, acl_force_port_vlan_inst,
+                self.dp.highest_priority, self.dp.meters,
+                False)) # TODO: exact match support for DP ACLs.
+        return ofmsgs
+
     def _add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
         ofmsgs = []
@@ -309,6 +325,7 @@ class Valve(object):
                 ofmsgs.append(meter.entry_msg)
         ofmsgs.extend(self._add_default_drop_flows())
         ofmsgs.extend(self._add_vlan_flood_flow())
+        ofmsgs.extend(self._add_dp_acls())
         return ofmsgs
 
     def _add_vlan(self, vlan):
@@ -462,7 +479,8 @@ class Valve(object):
         cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
         nonpriority_ports = set([
             port for port in self.dp.lldp_beacon_ports
-            if port.running and (port.dyn_last_lldp_beacon_time is None or
+            if port.running and (
+                port.dyn_last_lldp_beacon_time is None or
                 port.dyn_last_lldp_beacon_time < cutoff_beacon_time)])
         nonpriority_ports -= priority_ports
         send_ports = list(priority_ports)
@@ -653,8 +671,9 @@ class Valve(object):
                         valve_of.output_controller(),
                         valve_of.output_port(port.override_output_port.number)])]))
 
-            acl_ofmsgs = self._port_add_acl(port)
-            ofmsgs.extend(acl_ofmsgs)
+            if not self.dp.dp_acls:
+                acl_ofmsgs = self._port_add_acl(port)
+                ofmsgs.extend(acl_ofmsgs)
 
             port_vlans = port.vlans()
 
@@ -1233,7 +1252,8 @@ class Valve(object):
         self._notify({'CONFIG_CHANGE': {'restart_type': restart_type}})
         return ofmsgs
 
-    def _add_faucet_vips(self, route_manager, vlan, faucet_vips):
+    @staticmethod
+    def _add_faucet_vips(route_manager, vlan, faucet_vips):
         ofmsgs = []
         for faucet_vip in faucet_vips:
             ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
