@@ -1038,8 +1038,13 @@ dbs:
 
         def _update_conf(conf_path, yaml_conf):
             if yaml_conf:
-                with open(conf_path, 'w') as config_file:
-                    config_file.write(yaml.dump(yaml_conf))
+                config_file_tmp = tempfile.NamedTemporaryFile(
+                    prefix=os.path.basename(conf_path),
+                    dir=os.path.dirname(conf_path),
+                    delete=False)
+                config_file_tmp.write(yaml.dump(yaml_conf))
+                config_file_tmp.close()
+                os.rename(config_file_tmp.name, conf_path)
 
         update_conf_func = partial(_update_conf, conf_path, yaml_conf)
         verify_faucet_reconf_func = partial(

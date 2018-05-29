@@ -457,23 +457,27 @@ class Valve(object):
         return valve_of.packetout(port.number, lldp_beacon_pkt.data)
 
     def _lldp_beacon_ports(self, now):
+        """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
+        priority_ports = set([port for port in self.dp.stack_ports if port.running])
         cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
-        send_ports = []
-        for port in self.dp.lldp_beacon_ports:
-            if (port.dyn_last_lldp_beacon_time is None or
-                    port.dyn_last_lldp_beacon_time < cutoff_beacon_time):
-                send_ports.append(port)
+        nonpriority_ports = set([
+            port for port in self.dp.lldp_beacon_ports
+            if port.running and (port.dyn_last_lldp_beacon_time is None or
+                port.dyn_last_lldp_beacon_time < cutoff_beacon_time)])
+        nonpriority_ports -= priority_ports
+        send_ports = list(priority_ports)
+        send_ports.extend(list(nonpriority_ports)[:self.dp.lldp_beacon['max_per_interval']])
         random.shuffle(send_ports)
-        send_ports = send_ports[:self.dp.lldp_beacon['max_per_interval']]
         return send_ports
 
     def send_lldp_beacons(self, now):
         """Called periodically to send LLDP beacon packets."""
-        # TODO: the beacon service is specifically NOT to discover topology.
+        # TODO: the beacon service is specifically NOT to support conventional R/STP.
         # It is intended to facilitate physical troubleshooting (e.g.
-        # a standard cable tester can display OF port information)
-        # A seperate system will be used to probe link/neighbor activity,
-        # addressing issues such as authenticity of the probes.
+        # a standard cable tester can display OF port information).
+        # It is used also by stacking to verify stacking links.
+        # TODO: in the stacking case, provide an authentication scheme for the probes
+        # so they cannot be forged.
         if not self.dp.lldp_beacon:
             return []
         send_ports = self._lldp_beacon_ports(now)
