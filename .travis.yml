@@ -7,7 +7,6 @@ services:
   - docker
 addons:
   apt:
-    update: true
     packages:
       - parallel
       - openvswitch-switch
