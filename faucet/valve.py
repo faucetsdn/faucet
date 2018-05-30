@@ -1383,6 +1383,10 @@ class ArubaValve(TfmValve):
     PIPELINE_CONF = 'aruba_pipeline.json'
     DEC_TTL = False
 
+class CiscoC9KValve(TfmValve):
+    """Valve implementation that uses OpenFlow send table features messages."""
+
+    PIPELINE_CONF = 'cisco_c9k_pipeline.json'
 
 class OVSValve(Valve):
     """Valve implementation for OVS."""
@@ -1399,6 +1403,7 @@ class AlliedTelesis(OVSValve):
 SUPPORTED_HARDWARE = {
     'Allied-Telesis': AlliedTelesis,
     'Aruba': ArubaValve,
+    'CiscoC9K': CiscoC9KValve,
     'GenericTFM': TfmValve,
     'Lagopus': Valve,
     'Netronome': Valve,
