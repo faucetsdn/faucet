@@ -14,7 +14,9 @@ from mininet.node import Host
 from mininet_test_util import DEVNULL
 
 
+# pylint: disable=too-many-instance-attributes
 class DockerHost(Host):
+    """Mininet host that encapsulates execution in a docker container"""
 
     STARTUP_TIMEOUT_MS = 20000
 
@@ -44,6 +46,7 @@ class DockerHost(Host):
     pollIn = None
     active_log = None
 
+    # pylint: disable=too-many-arguments
     def __init__(self, name, image=None, tmpdir=None, prefix=None, env_vars=None,
                  vol_maps=None, startup_timeout_ms=STARTUP_TIMEOUT_MS, **kwargs):
         self.image = image
@@ -58,11 +61,14 @@ class DockerHost(Host):
         self.startup_timeout_ms = startup_timeout_ms
         Host.__init__(self, name, **kwargs)
 
-    def startShell(self):
+    # pylint: disable=invalid-name
+    def startShell(self, mnopts=None):
         """Start a shell process for running commands."""
         if self.shell:
             error('shell is already running')
             return
+
+        assert mnopts is None, 'mnopts not supported for DockerHost'
 
         self.container = '%s-%s' % (self.prefix, self.name)
 
@@ -265,10 +271,11 @@ class DockerHost(Host):
         return pipe
 
 
-def MakeDockerHost(image, prefix='mininet', startup_timeout_ms=None):
+def make_docker_host(image, prefix='mininet', startup_timeout_ms=None):
+    """Utility function to create a docker-host class that can be passed to mininet"""
 
-    class ImageHost(DockerHost):
-
+    class _ImageHost(DockerHost):
+        """Internal class that represents a docker image host"""
         def __init__(self, *args, **kwargs):
             host_name = args[0]
             kwargs['image'] = image
@@ -282,4 +289,4 @@ def MakeDockerHost(image, prefix='mininet', startup_timeout_ms=None):
                 if env_val:
                     kwargs['startup_timeout_ms'] = int(env_val)
             DockerHost.__init__(self, *args, **kwargs)
-    return ImageHost
+    return _ImageHost

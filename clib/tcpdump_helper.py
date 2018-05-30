@@ -20,6 +20,7 @@ class TcpdumpHelper(object):
     readbuf = None
     blocking = True
 
+    # pylint: disable=too-many-arguments
     def __init__(self, tcpdump_host, tcpdump_filter, funcs=None,
                  vflags='-v', timeout=10, packets=2, root_intf=False,
                  pcap_out=None, intf_name=None, blocking=True):
@@ -92,7 +93,7 @@ class TcpdumpHelper(object):
             self.pipe.stdout.close()
             self.pipe = None
             return result
-        except Exception as err:
+        except EnvironmentError as err:
             error('Error closing tcpdump_helper fd %d: %s' % (
                 self.pipe.stdout.fileno(), err))
             return -2
