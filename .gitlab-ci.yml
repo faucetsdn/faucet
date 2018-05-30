@@ -1,5 +1,4 @@
 stages:
-  - build-env
   - build
   - deploy
 
