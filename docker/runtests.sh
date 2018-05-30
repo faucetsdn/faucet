@@ -56,6 +56,9 @@ if [ "$UNITTESTS" == 1 ] ; then
     PYTHONPATH=.. ./test_coverage.sh || exit 1
 fi
 
+echo "========== Starting docker container =========="
+service docker start
+
 echo "========== Running faucet system tests =========="
 test_failures=
 export PYTHONPATH=/faucet-src
