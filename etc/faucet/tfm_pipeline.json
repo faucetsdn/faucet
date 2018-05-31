@@ -636,6 +636,23 @@
                 ]
             },
             {
+                "name": "OFPTFPT_INSTRUCTIONS_MISS",
+                "type": 1,
+                "instruction_ids": [
+                    {
+                        "name": "OFPIT_GOTO_TABLE",
+                        "type": 1
+                    }
+                ]
+            },
+            {
+                "name": "OFPTFPT_NEXT_TABLES_MISS",
+                "type": 3,
+                "table_ids": [
+                    7
+                ]
+            },
+            {
                 "name": "OFPTFPT_APPLY_ACTIONS",
                 "type": 6,
                 "action_ids": [

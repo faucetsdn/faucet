@@ -312,7 +312,7 @@ class Valve(object):
     def _add_non_local_vlan_destination_flow(self):
         """Add flow to handle packets not destined to a local VLAN."""
         return [self.dp.tables['eth_src'].flowmod(
-            priority=self.dp.lowest_priority + 1,
+            priority=self.dp.lowest_priority,
             inst=[valve_of.goto_table(self.dp.tables['eth_dst'])])]
 
     def _add_default_flows(self):
