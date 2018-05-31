@@ -15,10 +15,6 @@ class LoadRyuTables(object):
         'OFPTableFeaturePropActions': 'action_ids',
         'OFPTableFeaturePropOxm': 'oxm_ids'}
 
-    _SKIP_PROPERTIES = set([
-        'OFPTableFeaturePropNextTables',
-    ])
-
     def __init__(self, cfgpath, pipeline_conf):
         self.ryu_table_translator = OpenflowToRyuTranslator(
             cfgpath, pipeline_conf)
@@ -54,8 +50,6 @@ class LoadRyuTables(object):
         for feature in table_features_information:
             for feature_class_name, feature_attr in list(feature.items()):
                 name_id = self._CLASS_NAME_TO_NAME_IDS[feature_class_name]
-                if feature_class_name in self._SKIP_PROPERTIES:
-                    continue
                 feature_class = getattr(valve_of.parser, feature_class_name)
                 instruction_ids = self._create_instructions(feature_attr[name_id])
                 feature_attr[name_id] = instruction_ids
