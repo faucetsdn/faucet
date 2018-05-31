@@ -40,7 +40,8 @@ class LoadRyuTables(object):
                     [table_id for table_id in active_table_ids if table_id > new_table.table_id])
                 if next_tables:
                     new_table.properties.append(
-                        valve_of.parser.OFPTableFeaturePropNextTables(table_ids=next_tables, type_=2))
+                        valve_of.parser.OFPTableFeaturePropNextTables(
+                            table_ids=next_tables, type_=2))
                 if new_table.table_id in active_table_ids:
                     table_array.append(new_table)
         return table_array
