@@ -14,7 +14,7 @@ import re
 import socket
 import threading
 import time
-import unittest
+import unittest2
 
 from SimpleHTTPServer import SimpleHTTPRequestHandler
 from BaseHTTPServer import HTTPServer
@@ -3500,7 +3500,7 @@ acls:
             'vlan 456.+vlan 123', tcpdump_txt))
 
 
-@unittest.skip('190318: works under OVS 2.9.0 locally, but not under Travis')
+@unittest2.skip('190318: works under OVS 2.9.0 locally, but not under Travis')
 class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
@@ -5773,7 +5773,7 @@ acls:
             source_host, overridden_host, rewrite_host, overridden_host)
 
 
-@unittest.skip('use_idle_timeout unreliable')
+@unittest2.skip('use_idle_timeout unreliable')
 class FaucetWithUseIdleTimeoutTest(FaucetUntaggedTest):
     CONFIG_GLOBAL = """
 vlans:
@@ -5845,7 +5845,7 @@ vlans:
             self.require_host_learned(host, in_port=int(port))
 
 
-@unittest.skip('use_idle_timeout unreliable')
+@unittest2.skip('use_idle_timeout unreliable')
 class FaucetWithUseIdleTimeoutRuleExpiredTest(FaucetWithUseIdleTimeoutTest):
 
     def test_untagged(self):
