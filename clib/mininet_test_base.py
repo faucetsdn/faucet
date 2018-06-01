@@ -107,7 +107,7 @@ class FaucetTestBase(unittest.TestCase):
     env = collections.defaultdict(dict)
     rand_dpids = set()
     event_sock = None
-
+    faucet_config_path = None
 
     def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
         super(FaucetTestBase, self).__init__(name)

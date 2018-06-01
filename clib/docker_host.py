@@ -128,6 +128,7 @@ class DockerHost(Host):
             kill_cmd = ["docker", "rm", "-f", self.container]
         else:
             kill_cmd = ["docker", "kill", self.container]
+        kill_pipe = None
         try:
             kill_pipe = self._popen(kill_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
             kill_pipe.stdout.readlines()
@@ -159,6 +160,7 @@ class DockerHost(Host):
         assert not self.active_pipe, 'container %s already activated' % self.container
         debug('activating container %s.' % self.container)
         inspect_cmd = ["docker", "inspect", "--format={{json .Config}}", self.image]
+        inspect_pipe = None
         try:
             inspect_pipe = self._popen(inspect_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
             config_json = inspect_pipe.stdout.readlines()

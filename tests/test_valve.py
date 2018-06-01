@@ -336,6 +336,7 @@ class ValveTestBases:
         sock = None
         notifier = None
         config_file = None
+        _icmp_payload = bytes('A'*8, encoding='UTF-8') # pytype: disable=wrong-keyword-args
 
         def setup_valve(self, config):
             """Set up test DP with config."""
@@ -746,7 +747,8 @@ class ValveTestBases:
                 'vid': 0x100,
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.254',
-                'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+                'echo_request_data': bytes(
+                    'A'*8, encoding='UTF-8')}) # pytype: disable=wrong-keyword-args
             # TODO: check ping response
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
@@ -779,7 +781,8 @@ class ValveTestBases:
                 'vid': 0x100,
                 'ipv4_src': '10.0.0.2',
                 'ipv4_dst': '10.0.0.4',
-                'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+                'echo_request_data': bytes(
+                    'A'*8, encoding='UTF-8')}) # pytype: disable=wrong-keyword-args
             # TODO: verify learning rule contents
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
@@ -794,7 +797,7 @@ class ValveTestBases:
                 'vid': 0x200,
                 'ipv6_src': 'fc00::1:2',
                 'ipv6_dst': 'fc00::1:4',
-                'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+                'echo_request_data': self._icmp_payload})
             # TODO: verify learning rule contents
             # We want to know this host was learned we did not get packet outs.
             self.assertTrue(fib_route_replies)
@@ -809,7 +812,7 @@ class ValveTestBases:
                 'vid': 0x100,
                 'ipv4_src': '10.0.0.1',
                 'ipv4_dst': '10.0.0.99',
-                'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+                'echo_request_data': self._icmp_payload})
             # TODO: check proactive neighbor resolution
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
@@ -821,7 +824,7 @@ class ValveTestBases:
                 'vid': 0x200,
                 'ipv6_src': 'fc00::1:2',
                 'ipv6_dst': 'fc00::1:4',
-                'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+                'echo_request_data': self._icmp_payload})
             # TODO: check proactive neighbor resolution
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
@@ -833,7 +836,7 @@ class ValveTestBases:
                 'vid': 0x200,
                 'ipv6_src': 'fc00::1:1',
                 'ipv6_dst': 'fc00::1:254',
-                'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+                'echo_request_data': self._icmp_payload})
             # TODO: check ping response
             self.assertTrue(self.packet_outs_from_flows(echo_replies))
 
@@ -1513,7 +1516,7 @@ vlans:
             'vid': 0x100,
             'ipv4_src': '10.0.0.2',
             'ipv4_dst': '10.0.0.4',
-            'echo_request_data': bytes('A'*8, encoding='UTF-8')})
+            'echo_request_data': self._icmp_payload})
         # TODO: verify learning rule contents
         # We want to know this host was learned we did not get packet outs.
         self.assertTrue(fib_route_replies)

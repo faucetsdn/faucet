@@ -7,7 +7,7 @@
 #    rm -f ../.git/hooks/pre-commit
 #    ln -s ../../git-hook/pre-commit ../.git/hooks
 
-git-pylint-commit-hook
+git-pylint-commit-hook --limit=9.2
 
 # From .git/hooks
 BASE=`dirname $0`/../..
