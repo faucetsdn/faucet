@@ -419,9 +419,7 @@ class FlowMod(object):
             return _val_to_bits(addrconv.ipv4.text_to_bin, val, 32)
         elif key in self.IPV6_MATCH_FIELDS:
             return _val_to_bits(addrconv.ipv6.text_to_bin, val, 128)
-        else:
-            val = Bits(int=int(val), length=64)
-        return val
+        return Bits(int=int(val), length=64)
 
     def __lt__(self, other):
         return self.priority < other.priority
@@ -436,7 +434,7 @@ class FlowMod(object):
         for key, val in self.match_values.items():
             mask = self.match_masks[key]
             string += ' {0}: {1}'.format(key, val)
-            if mask.int != -1:
+            if mask.int != -1: # pytype: disable=attribute-error
                 string += '/{0}'.format(mask)
         string += ' Instructions: {0}'.format(str(self.instructions))
         return string

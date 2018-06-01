@@ -5104,7 +5104,9 @@ class FaucetStringOfDPTest(FaucetTest):
 
         def add_dp(name, dpid, i, dpid_count, stack,
                    n_tagged, tagged_vid, n_untagged, untagged_vid):
-            dpid_ofchannel_log = ofchannel_log + str(i)
+            dpid_ofchannel_log = None
+            if ofchannel_log is not None:
+                 dpid_ofchannel_log = ofchannel_log + str(i)
             dp_config = {
                 'dp_id': int(dpid),
                 'hardware': hardware,

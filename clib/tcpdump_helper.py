@@ -45,7 +45,9 @@ class TcpdumpHelper(object):
             stderr=subprocess.STDOUT,
             close_fds=True)
 
-        debug('tcpdump_helper stream fd %s %s' % (self.stream().fileno(), self.intf_name))
+        if self.stream():
+            debug('tcpdump_helper stream fd %s %s' % (
+                self.stream().fileno(), self.intf_name))
 
         self.readbuf = ''
         self.set_blocking(blocking)
@@ -70,16 +72,18 @@ class TcpdumpHelper(object):
     def execute(self):
         """Run the helper and accumulate tcpdump output."""
         tcpdump_txt = ''
-        line = ' '
-        while line:
-            tcpdump_txt += line.strip()
-            line = self.next_line()
-            debug('tcpdump_helper fd %d line "%s"' % (self.stream().fileno(), line))
+        if self.stream():
+            while True:
+                line = self.next_line()
+                if not line:
+                    break
+                debug('tcpdump_helper fd %d line "%s"' % (self.stream().fileno(), line))
+                tcpdump_txt += line.strip()
         return tcpdump_txt
 
     def terminate(self):
         """Terminate the helper."""
-        if not self.pipe:
+        if not self.pipe or not self.stream():
             return -1
 
         try:

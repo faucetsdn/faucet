@@ -807,9 +807,10 @@ class GaugeWatcherTest(unittest.TestCase):
                 #grab the port number (only works for single digit port nums)
                 index = line.find('port')
                 port_num = int(line[index + 4])
-
-                #grab the number at the end of the line
-                val = int(re.search(r'(\d+)$', line).group())
+                # grab the number at the end of the line
+                last_n = re.search(r'(\d+)$', line)
+                assert last_n
+                val = int(last_n.group())
                 logger_stat_name = '_'.join((stat_name[0], stat_name[1]))
                 original_val = original_stats[port_num - 1][logger_stat_name]
                 self.assertEqual(original_val, val)
