@@ -1,17 +1,16 @@
 """Mininet tests for clib."""
 
-# pylint: disable=missing-docstring
-# pylint: disable=too-many-arguments
 
 import os
 import re
 
+# Required to prevent circular import cycle.  pylint: disable=unused-import
 from mininet.net import Mininet
 
 import mininet_test_base
 
 from tcpdump_helper import TcpdumpHelper
-from docker_host import MakeDockerHost
+from docker_host import make_docker_host
 
 
 class FaucetSimpleTest(mininet_test_base.FaucetTestBase):
@@ -125,10 +124,11 @@ class FaucetTcpdumpHelperTest(FaucetSimpleTest):
 
 
 class FaucetDockerHostTest(FaucetSimpleTest):
+    """Test basic docker host functionality"""
 
     N_UNTAGGED = 2
     N_EXTENDED = 2
-    EXTENDED_CLS = MakeDockerHost('faucet/test-host')
+    EXTENDED_CLS = make_docker_host('faucet/test-host')
 
     def test_containers(self):
         """Test containers to make sure they're actually docker."""
