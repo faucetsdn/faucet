@@ -201,6 +201,17 @@ def goto_table(table):
     return parser.OFPInstructionGotoTable(table.table_id)
 
 
+def set_field(**kwds):
+    """Return action to set any field.
+
+    Args:
+        kwds (dict): exactly one field to set
+    Returns:
+        ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set field action.
+    """
+    return parser.OFPActionSetField(**kwds)
+
+
 def set_eth_src(eth_src):
     """Return action to set source Ethernet MAC address.
 
@@ -209,7 +220,7 @@ def set_eth_src(eth_src):
     Returns:
         ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set field action.
     """
-    return parser.OFPActionSetField(eth_src=eth_src)
+    return set_field(eth_src=eth_src)
 
 
 def set_eth_dst(eth_dst):
@@ -220,7 +231,7 @@ def set_eth_dst(eth_dst):
     Returns:
         ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set field action.
     """
-    return parser.OFPActionSetField(eth_dst=eth_dst)
+    return set_field(eth_dst=eth_dst)
 
 
 def vid_present(vid):
@@ -253,7 +264,7 @@ def set_vlan_vid(vlan_vid):
     Returns:
         ryu.ofproto.ofproto_v1_3_parser.OFPActionSetField: set VID with VID_PRESENT.
     """
-    return parser.OFPActionSetField(vlan_vid=vid_present(vlan_vid))
+    return set_field(vlan_vid=vid_present(vlan_vid))
 
 
 def push_vlan_act(vlan_vid, eth_type=ether.ETH_TYPE_8021Q):
