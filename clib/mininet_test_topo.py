@@ -54,7 +54,7 @@ class FaucetHostCleanup(object):
         cmd = ['mnexec', opts, 'env', 'PS1=' + chr(127),
                'bash', '--norc', '-is', 'mininet:' + self.name]
         self.master, self.slave = pty.openpty()
-        self.shell = self._popen( # pylint: disable=no-member
+        self.shell = self._popen( # pylint: disable=no-member; # pytype: disable=attribute-error
             cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
             close_fds=False)
         self.stdin = os.fdopen(self.master, 'rw')
@@ -62,19 +62,19 @@ class FaucetHostCleanup(object):
         self.pid = self.shell.pid
         self.pollOut = select.poll() # pylint: disable=invalid-name
         self.pollOut.register(self.stdout) # pylint: disable=no-member
-        self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member
-        self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member
+        self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
+        self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
         self.execed = False
         self.lastCmd = None # pylint: disable=invalid-name
         self.lastPid = None # pylint: disable=invalid-name
         self.readbuf = ''
         while True:
-            data = self.read(1024) # pylint: disable=no-member
+            data = self.read(1024) # pylint: disable=no-member; # pytype: disable=attribute-error
             if data[-1] == chr(127):
                 break
             self.pollOut.poll()
         self.waiting = False
-        self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member
+        self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member; # pytype: disable=attribute-error
 
     def terminate(self):
         """Override Mininet terminate() to partially avoid pty leak."""
@@ -84,7 +84,7 @@ class FaucetHostCleanup(object):
             if self.shell.returncode is None:
                 self.shell.kill()
                 self.shell.poll()
-        self.cleanup() # pylint: disable=no-member
+        self.cleanup() # pylint: disable=no-member; # pytype: disable=attribute-error
 
 
 class FaucetHost(FaucetHostCleanup, CPULimitedHost):
