@@ -47,6 +47,8 @@ class FctlTestCaseBase(unittest.TestCase):
         '--labels=dp_id:{dp_id}'.format(**DEFAULT_VALUES)
         ]
     FCTL = os.path.join(SRC_DIR, 'fctl.py')
+    tmpdir = None
+    prom_input_file_name = None
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
@@ -91,7 +93,7 @@ class FctlTestCase(FctlTestCaseBase):
             prom_input_file.write(prom_input)
         fctl_cli = ' '.join(
             ['python3', self.FCTL]  + self.fctl_args(extra_args))
-        retcode, output = subprocess.getstatusoutput(fctl_cli)
+        retcode, output = subprocess.getstatusoutput(fctl_cli) # pytype: disable=module-attr
         self.assertEqual(0, retcode, msg='%s returned %d' % (
             fctl_cli, retcode))
         output = output.strip()

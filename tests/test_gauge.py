@@ -443,6 +443,8 @@ class GaugeInfluxShipperTest(unittest.TestCase):
 class GaugeInfluxUpdateTest(unittest.TestCase):
     """Test the Influx loggers update methods"""
 
+    server = None
+
     def setUp(self):
         """ Starts up an HTTP server to mock InfluxDB.
         Also opens a new temp file for the server to write to """
@@ -709,14 +711,18 @@ class GaugeFlowTablePollerTest(GaugePollerTest):
         poller = gauge_pollers.GaugeFlowTablePoller(conf, '__name__', mock.Mock())
         self.check_send_req(poller, parser.OFPFlowStatsRequest)
 
-
     def test_no_response(self):
         """Check that the poller doesnt throw an exception"""
         poller = gauge_pollers.GaugeFlowTablePoller(mock.Mock(), '__name__', mock.Mock())
         self.check_no_response(poller)
 
+
 class GaugeWatcherTest(unittest.TestCase):
-    """ Checks the loggers in watcher.py"""
+    """Checks the loggers in watcher.py."""
+
+    conf = None
+    temp_fd = None
+    temp_path = None
 
     def setUp(self):
         """Creates a temporary file and a mocked conf object"""
@@ -734,7 +740,6 @@ class GaugeWatcherTest(unittest.TestCase):
             contents = file_.read()
             file_.seek(0, 0)
             file_.truncate()
-
         return contents
 
     def test_port_state(self):

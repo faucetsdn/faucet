@@ -37,6 +37,8 @@ class FaucetVLANBaseTest(unittest.TestCase):
 class FaucetVLANConfigTest(FaucetVLANBaseTest):
     """Test that VLAN serialises config as it receives it"""
 
+    default_config = None
+
     def test_basic_config(self):
         """Tests the minimal config"""
 

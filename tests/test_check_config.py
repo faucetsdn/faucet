@@ -29,6 +29,8 @@ from faucet.check_faucet_config import check_config
 class CheckConfigTestCase(unittest.TestCase):
     """Test that check config script handles various broken configs."""
 
+    tmpdir = None
+
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
 
