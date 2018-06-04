@@ -7,5 +7,5 @@ networkx
 pbr>=1.9
 prometheus_client
 pyyaml
-ryu==4.24
+ryu==4.25
 beka==0.3.3
