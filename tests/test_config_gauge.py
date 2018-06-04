@@ -36,6 +36,7 @@ vlans:
 faucet_configs:
     - '{}'
 """
+    tmpdir = None
 
     def setUp(self):
         logging.disable(logging.CRITICAL)

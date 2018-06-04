@@ -17,6 +17,8 @@ LOGNAME = '/dev/null'
 class TestConfig(unittest.TestCase):
     """Test config parsing raises correct exception."""
 
+    tmpdir = None
+
     def setUp(self):
         logging.disable(logging.CRITICAL)
         self.tmpdir = tempfile.mkdtemp()

@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-import unittest
+import unittest2
 import yaml
 
 import requests
@@ -41,7 +41,7 @@ from tcpdump_helper import TcpdumpHelper
 PEER_BGP_AS = 2**16 + 1
 
 
-class FaucetTestBase(unittest.TestCase):
+class FaucetTestBase(unittest2.TestCase):
     """Base class for all FAUCET unit tests."""
 
     ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
@@ -107,7 +107,7 @@ class FaucetTestBase(unittest.TestCase):
     env = collections.defaultdict(dict)
     rand_dpids = set()
     event_sock = None
-
+    faucet_config_path = None
 
     def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
         super(FaucetTestBase, self).__init__(name)

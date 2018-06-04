@@ -28,7 +28,7 @@ import subprocess
 import tempfile
 import threading
 import time
-import unittest
+import unittest2
 
 import yaml
 
@@ -234,9 +234,9 @@ def lint_check():
 
 def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
     """Compose test suite based on test class names."""
-    testloader = unittest.TestLoader()
+    testloader = unittest2.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
-    suite = unittest.TestSuite()
+    suite = unittest2.TestSuite()
     for name in testnames:
         suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock, max_test_load))
     return suite
@@ -408,9 +408,9 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
                 else:
                     parallel_test_suites.append(test_suite)
 
-    sanity_tests = unittest.TestSuite()
-    single_tests = unittest.TestSuite()
-    parallel_tests = unittest.TestSuite()
+    sanity_tests = unittest2.TestSuite()
+    single_tests = unittest2.TestSuite()
+    parallel_tests = unittest2.TestSuite()
 
     if len(parallel_test_suites) == 1:
         single_test_suites.extend(parallel_test_suites)
@@ -430,7 +430,7 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class FaucetResult(unittest.runner.TextTestResult):
+class FaucetResult(unittest2.runner.TextTestResult):
 
     root_tmpdir = None
 
@@ -452,7 +452,7 @@ class FaucetCleanupResult(FaucetResult):
 
 def test_runner(root_tmpdir, resultclass, failfast=False):
     resultclass.root_tmpdir = root_tmpdir
-    return unittest.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
+    return unittest2.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
 
 
 def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests):

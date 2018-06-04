@@ -65,8 +65,7 @@ def build_output_actions(output_dict):
         output_actions.extend(vlan_actions)
     if 'set_fields' in output_dict:
         for set_fields in output_dict['set_fields']:
-            output_actions.append(
-                valve_of.parser.OFPActionSetField(**set_fields))
+            output_actions.append(valve_of.set_field(**set_fields))
     if 'port' in output_dict:
         output_port = output_dict['port']
         output_actions.append(valve_of.output_port(output_port))

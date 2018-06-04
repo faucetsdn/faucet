@@ -20,6 +20,7 @@ class TcpdumpHelper(object):
     readbuf = None
     blocking = True
 
+    # pylint: disable=too-many-arguments
     def __init__(self, tcpdump_host, tcpdump_filter, funcs=None,
                  vflags='-v', timeout=10, packets=2, root_intf=False,
                  pcap_out=None, intf_name=None, blocking=True):
@@ -45,7 +46,9 @@ class TcpdumpHelper(object):
             stderr=subprocess.STDOUT,
             close_fds=True)
 
-        debug('tcpdump_helper stream fd %s %s' % (self.stream().fileno(), self.intf_name))
+        if self.stream():
+            debug('tcpdump_helper stream fd %s %s' % (
+                self.stream().fileno(), self.intf_name))
 
         self.readbuf = ''
         self.set_blocking(blocking)
@@ -70,16 +73,18 @@ class TcpdumpHelper(object):
     def execute(self):
         """Run the helper and accumulate tcpdump output."""
         tcpdump_txt = ''
-        line = ' '
-        while line:
-            tcpdump_txt += line.strip()
-            line = self.next_line()
-            debug('tcpdump_helper fd %d line "%s"' % (self.stream().fileno(), line))
+        if self.stream():
+            while True:
+                line = self.next_line()
+                if not line:
+                    break
+                debug('tcpdump_helper fd %d line "%s"' % (self.stream().fileno(), line))
+                tcpdump_txt += line.strip()
         return tcpdump_txt
 
     def terminate(self):
         """Terminate the helper."""
-        if not self.pipe:
+        if not self.pipe or not self.stream():
             return -1
 
         try:
@@ -92,7 +97,7 @@ class TcpdumpHelper(object):
             self.pipe.stdout.close()
             self.pipe = None
             return result
-        except Exception as err:
+        except EnvironmentError as err:
             error('Error closing tcpdump_helper fd %d: %s' % (
                 self.pipe.stdout.fileno(), err))
             return -2

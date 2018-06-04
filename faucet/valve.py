@@ -287,12 +287,6 @@ class Valve(object):
             priority=self.dp.low_priority,
             inst=[valve_of.goto_table(self.dp.tables['flood'])])]
 
-    def _add_controller_learn_flow(self):
-        """Add a flow for controller to learn/add flows for destinations."""
-        return [self.dp.tables['eth_src'].flowcontroller(
-            priority=self.dp.low_priority,
-            inst=[valve_of.goto_table(self.dp.tables['eth_dst'])])]
-
     def _add_packetin_meter(self):
         """Add rate limiting of packet in pps (not supported by many DPs)."""
         if self.dp.packetin_pps:
@@ -315,6 +309,12 @@ class Valve(object):
                 False)) # TODO: exact match support for DP ACLs.
         return ofmsgs
 
+    def _add_non_local_vlan_destination_flow(self):
+        """Add flow to handle packets not destined to a local VLAN."""
+        return [self.dp.tables['eth_src'].flowmod(
+            priority=self.dp.lowest_priority,
+            inst=[valve_of.goto_table(self.dp.tables['eth_dst'])])]
+
     def _add_default_flows(self):
         """Configure datapath with necessary default tables and rules."""
         ofmsgs = []
@@ -326,21 +326,28 @@ class Valve(object):
         ofmsgs.extend(self._add_default_drop_flows())
         ofmsgs.extend(self._add_vlan_flood_flow())
         ofmsgs.extend(self._add_dp_acls())
+        ofmsgs.extend(self._add_non_local_vlan_destination_flow())
         return ofmsgs
 
     def _add_vlan(self, vlan):
         """Configure a VLAN."""
         ofmsgs = []
         self.logger.info('Configuring %s' % vlan)
-        # install eth_dst_table flood ofmsgs
-        ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
-        # add acl rules
+        # add ACL rules
         ofmsgs.extend(self._vlan_add_acl(vlan))
         # add controller IPs if configured.
         for ipv in vlan.ipvs():
             route_manager = self._route_manager_by_ipv[ipv]
             ofmsgs.extend(self._add_faucet_vips(
                 route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
+        # install eth_dst_table flood ofmsgs
+        ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
+        # add learn rule for this VLAN.
+        eth_src_table = self.dp.tables['eth_src']
+        ofmsgs.append(eth_src_table.flowcontroller(
+            eth_src_table.match(vlan=vlan),
+            priority=self.dp.low_priority,
+            inst=[valve_of.goto_table(self.dp.tables['eth_dst'])]))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -518,7 +525,6 @@ class Valve(object):
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_ports))
-        ofmsgs.extend(self._add_controller_learn_flow())
         self.dp.dyn_last_coldstart_time = now
         self.dp.running = True
         self.metrics.of_dp_connections.labels( # pylint: disable=no-member
