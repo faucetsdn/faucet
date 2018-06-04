@@ -510,6 +510,11 @@ class Valve(object):
         ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
         return ofmsgs
 
+    def probe_stack_links(self, now):
+        """Called periodically to verify the state of stack ports."""
+        # TODO: implement the verification logic
+        pass
+
     def datapath_connect(self, now, discovered_ports):
         """Handle Ryu datapath connection event and provision pipeline.
 
