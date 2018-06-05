@@ -289,7 +289,7 @@ class Port(Conf):
 
     def is_stack_init(self):
         """Return True if port is in INIT state."""
-        return self.dyn_stack_current_state == STACK_STATE_DOWN
+        return self.dyn_stack_current_state == STACK_STATE_INIT
 
     def stack_up(self):
         """Change the current stack state to UP."""
