@@ -118,13 +118,13 @@ class VLAN(Conf):
         'bgp_neighbour_as': None,
         'bgp_neighbor_as': None,
         'routes': None,
-        'max_hosts': 255,
+        'max_hosts': 256,
         # Limit number of hosts that can be learned on a VLAN.
         'vid': None,
-        'proactive_arp_limit': 2048 + 4, # from L3 stress test
-        # Don't proactively ARP for hosts if over this limit (None unlimited)
-        'proactive_nd_limit': 2048 + 4, # from L3 stress test
-        # Don't proactively ND for hosts if over this limit (None unlimited)
+        'proactive_arp_limit': 0,
+        # Don't proactively ARP for hosts if over this limit (default 2*max_hosts)
+        'proactive_nd_limit': 0,
+        # Don't proactively ND for hosts if over this limit (default 2*max_hosts)
         'targeted_gw_resolution': False,
         # If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
         'minimum_ip_size_check': True,
@@ -185,6 +185,11 @@ class VLAN(Conf):
         test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
         test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
             'invalid MAC address %s' % self.faucet_mac))
+        if self.max_hosts:
+            if not self.proactive_arp_limit:
+                self.proactive_arp_limit = 2 * self.max_hosts
+            if not self.proactive_nd_limit:
+                self.proactive_nd_limit = 2 * self.max_hosts
         if self.faucet_vips:
             try:
                 self.faucet_vips = [
