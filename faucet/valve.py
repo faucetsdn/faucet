@@ -517,7 +517,7 @@ class Valve(object):
         if not self.dp.stack:
             return
         for port in self.dp.stack_ports:
-            if not port.running() or port.is_stack_admin_down():
+            if port.is_stack_admin_down():
                 continue
             stack_probe_info = port.dyn_stack_probe_info
             last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
