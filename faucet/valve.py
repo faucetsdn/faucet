@@ -31,7 +31,7 @@ from faucet import valve_packet
 from faucet import valve_route
 from faucet import valve_util
 
-from faucet.port import STACK_STATE_INIT, STACK_STATE_UP
+from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 
 
 class ValveLogger(object):
@@ -546,6 +546,9 @@ class Valve(object):
                         remote_port_state in [STACK_STATE_UP, STACK_STATE_INIT]):
                     port.stack_up()
                     self.logger.info('Stack port %u UP' % port.number)
+                elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
+                    port.stack_down()
+                    self.logger.info('Stack port %u DOWN. Remote port is down' % port.number)
 
     def datapath_connect(self, now, discovered_ports):
         """Handle Ryu datapath connection event and provision pipeline.
