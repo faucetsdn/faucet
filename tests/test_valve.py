@@ -1480,6 +1480,10 @@ dps:
                     dp: s2
                     port: 1
             2:
+                stack:
+                    dp: s2
+                    port: 2
+            3:
                 native_vlan: v100
     s2:
         hardware: 'Open vSwitch'
@@ -1493,6 +1497,15 @@ dps:
                     dp: s1
                     port: 1
             2:
+                stack:
+                    dp: s1
+                    port: 2
+            3:
+                native_vlan: v100
+    s3:
+        dp_id: 0x3
+        interfaces:
+            1:
                 native_vlan: v100
 vlans:
     v100:
@@ -1520,6 +1533,8 @@ vlans:
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
+        self.valve.probe_stack_links(time.time())
+        self.assertTrue(stack_port.is_stack_down())
         for change_func, check_func in [
                 ('stack_init', 'is_stack_init'),
                 ('stack_up', 'is_stack_up'),
@@ -1527,6 +1542,31 @@ vlans:
             getattr(other_port, change_func)()
             self.rcv_lldp(other_dp, other_port)
             self.assertTrue(getattr(stack_port, check_func)())
+
+    def test_stack_miscabling(self):
+        """Test probing stack with miscabling."""
+        stack_port = self.valve.dp.ports[1]
+        other_dp = self.valves_manager.valves[2].dp
+        other_port = other_dp.ports[1]
+        wrong_port = other_dp.ports[2]
+        wrong_dp = self.valves_manager.valves[3].dp
+        for remote_dp, remote_port in [
+                (wrong_dp, other_port),
+                (other_dp, wrong_port)]:
+            self.rcv_lldp(other_dp, other_port)
+            self.assertTrue(stack_port.is_stack_init())
+            self.rcv_lldp(remote_dp, remote_port)
+            self.assertTrue(stack_port.is_stack_down())
+
+    def test_stack_lost_lldp(self):
+        stack_port = self.valve.dp.ports[1]
+        other_dp = self.valves_manager.valves[2].dp
+        other_port = other_dp.ports[1]
+        self.rcv_lldp(other_dp, other_port)
+        self.assertTrue(stack_port.is_stack_init())
+        self.valve.probe_stack_links(time.time() + 300) #just to simulate packet loss
+        self.assertTrue(stack_port.is_stack_down())
+
 
 
 class ValveGroupRoutingTestCase(ValveTestBases.ValveTestSmall):
