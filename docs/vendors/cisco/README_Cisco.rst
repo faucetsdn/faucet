@@ -155,7 +155,7 @@ Command to check the openflow flows installed
 
 .. code-block:: console
 
-	Switch-C9300#
+    Switch-C9300#
     Switch-C9300#show openflow switch 1 flow list
 	Logical Switch Id: 1
 	Total flows: 9
