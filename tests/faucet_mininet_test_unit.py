@@ -599,10 +599,10 @@ class FaucetSanityTest(FaucetUntaggedTest):
 
     def test_listening(self):
         msg_template = (
-            'Processes listening on test interfaces will interfere with tests. '
+            'Processes listening on test, or all interfaces may interfere with tests. '
             'Please deconfigure them (e.g. configure interface as "unmanaged"):\n\n%s')
         controller = self._get_controller()
-        ss_out = controller.cmd('ss -lep').splitlines()
+        ss_out = controller.cmd('ss -lnep').splitlines()
         listening_all_re = re.compile(r'^.+\s+(\*:\S+|:+\S+)\s+(:+\*|\*:\*).+$')
         listening_all = [line for line in ss_out if listening_all_re.match(line)]
         for test_intf in list(self.switch_map.values()):
@@ -611,9 +611,8 @@ class FaucetSanityTest(FaucetUntaggedTest):
             self.assertFalse(
                 len(listening_int),
                 msg=(msg_template % '\n'.join(listening_int)))
-        self.assertFalse(
-            len(listening_all),
-            msg=(msg_template % '\n'.join(listening_all)))
+        if listening_all:
+            print('Warning: %s' % (msg_template % '\n'.join(listening_all)))
 
 
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
