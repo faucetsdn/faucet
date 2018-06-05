@@ -31,6 +31,8 @@ from faucet import valve_packet
 from faucet import valve_route
 from faucet import valve_util
 
+from faucet.port import STACK_STATE_INIT, STACK_STATE_UP
+
 
 class ValveLogger(object):
     """Logger for a Valve that adds DP ID."""
@@ -512,8 +514,38 @@ class Valve(object):
 
     def probe_stack_links(self, now):
         """Called periodically to verify the state of stack ports."""
-        # TODO: implement the verification logic
-        pass
+        if not self.dp.stack:
+            return
+        for port in self.dp.stack_ports:
+            if not port.running or port.is_stack_admin_down():
+                continue
+            stack_probe_info = port.dyn_stack_probe_info
+            last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
+            if last_seen_lldp_time is None:
+                port.stack_down()
+            elif (stack_probe_info['remote_dp_id'] != port.stack['dp'].dp_id or
+                    stack_probe_info['remote_dp_name'] != port.stack['dp'].name):
+                port.stack_down()
+                self.logger.info("Stack port %u is connected to an incorrect dp" % port.number)
+            elif stack_probe_info['remote_port_id'] != port.stack['port'].number:
+                port.stack_down()
+                self.logger.info("Stack port %u is connected to an incorrect port" % port.number)
+            else:
+                remote_port_state = stack_probe_info.get('remote_port_state', None)
+                send_interval = port.stack['dp'].lldp_beacon['send_interval']
+                num_lost_lldp = round((now - last_seen_lldp_time)/send_interval)
+                if num_lost_lldp > port.max_lldp_lost:
+                    if not port.is_stack_down():
+                        port.stack_down()
+                        self.logger.info(
+                            'Stack port %u DOWN. Too many (%d) packets lost' % (port.number, num_lost_lldp))
+                elif port.is_stack_down():
+                    port.stack_init()
+                    self.logger.info('Stack port %u INIT' % port.number)
+                elif (port.is_stack_init() and
+                        remote_port_state in [STACK_STATE_UP, STACK_STATE_INIT]):
+                    port.stack_up()
+                    self.logger.info('Stack port %u UP' % port.number)
 
     def datapath_connect(self, now, discovered_ports):
         """Handle Ryu datapath connection event and provision pipeline.
