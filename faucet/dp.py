@@ -358,7 +358,7 @@ configuration.
         for dp in dps:
             if dp.stack is not None:
                 stack_dps.append(dp)
-                if 'priority' in dp.stack: 
+                if 'priority' in dp.stack:
                     test_config_condition(dp.stack['priority'] <= 0, (
                         'stack priority must be > 0'))
                     test_config_condition(root_dp is not None, 'cannot have multiple stack roots')

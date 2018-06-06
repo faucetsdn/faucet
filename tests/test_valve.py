@@ -287,7 +287,9 @@ def build_pkt(pkt):
     elif 'chassis_id' in pkt and 'port_id' in pkt:
         ethertype = ether.ETH_TYPE_LLDP
         return valve_packet.lldp_beacon(
-            pkt['eth_src'], pkt['chassis_id'], str(pkt['port_id']), 1)
+            pkt['eth_src'], pkt['chassis_id'], str(pkt['port_id']), 1,
+            org_tlvs=pkt.get('org_tlvs', None),
+            system_name=pkt.get('system_name', None))
     assert ethertype is not None, pkt
     if 'vid' in pkt:
         tpid = ether.ETH_TYPE_8021Q
@@ -1461,6 +1463,110 @@ class ValveEdgeStackTestCase(ValveTestBases.ValveTestSmall):
                 'eth_src': self.P1_V300_MAC
             }]
         self.verify_flooding(matches)
+
+
+class ValveStackProbeTestCase(ValveTestBases.ValveTestSmall):
+    """Test stack link probing."""
+
+    CONFIG = """
+dps:
+    s1:
+%s
+        stack:
+            priority: 1
+        interfaces:
+            1:
+                stack:
+                    dp: s2
+                    port: 1
+            2:
+                stack:
+                    dp: s2
+                    port: 2
+            3:
+                native_vlan: v100
+    s2:
+        hardware: 'Open vSwitch'
+        dp_id: 0x2
+        lldp_beacon:
+            send_interval: 5
+            max_per_interval: 1
+        interfaces:
+            1:
+                stack:
+                    dp: s1
+                    port: 1
+            2:
+                stack:
+                    dp: s1
+                    port: 2
+            3:
+                native_vlan: v100
+    s3:
+        dp_id: 0x3
+        interfaces:
+            1:
+                native_vlan: v100
+vlans:
+    v100:
+        vid: 100
+    """ % DP1_CONFIG
+
+    def setUp(self):
+        self.setup_valve(self.CONFIG)
+
+    def rcv_lldp(self, other_dp, other_port):
+        tlvs = []
+        tlvs.extend(valve_packet.faucet_lldp_tlvs(other_dp))
+        tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(other_dp, other_port))
+        self.rcv_packet(1, 0, {
+            'eth_src': FAUCET_MAC,
+            'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
+            'port_id': other_port.number,
+            'chassis_id': FAUCET_MAC,
+            'system_name': other_dp.name,
+            'org_tlvs': tlvs})
+        self.valve.probe_stack_links(time.time())
+
+    def test_stack_probe(self):
+        """Test probing works correctly."""
+        stack_port = self.valve.dp.ports[1]
+        other_dp = self.valves_manager.valves[2].dp
+        other_port = other_dp.ports[1]
+        self.valve.probe_stack_links(time.time())
+        self.assertTrue(stack_port.is_stack_down())
+        for change_func, check_func in [
+                ('stack_init', 'is_stack_init'),
+                ('stack_up', 'is_stack_up'),
+                ('stack_down', 'is_stack_down')]:
+            getattr(other_port, change_func)()
+            self.rcv_lldp(other_dp, other_port)
+            self.assertTrue(getattr(stack_port, check_func)())
+
+    def test_stack_miscabling(self):
+        """Test probing stack with miscabling."""
+        stack_port = self.valve.dp.ports[1]
+        other_dp = self.valves_manager.valves[2].dp
+        other_port = other_dp.ports[1]
+        wrong_port = other_dp.ports[2]
+        wrong_dp = self.valves_manager.valves[3].dp
+        for remote_dp, remote_port in [
+                (wrong_dp, other_port),
+                (other_dp, wrong_port)]:
+            self.rcv_lldp(other_dp, other_port)
+            self.assertTrue(stack_port.is_stack_init())
+            self.rcv_lldp(remote_dp, remote_port)
+            self.assertTrue(stack_port.is_stack_down())
+
+    def test_stack_lost_lldp(self):
+        stack_port = self.valve.dp.ports[1]
+        other_dp = self.valves_manager.valves[2].dp
+        other_port = other_dp.ports[1]
+        self.rcv_lldp(other_dp, other_port)
+        self.assertTrue(stack_port.is_stack_init())
+        self.valve.probe_stack_links(time.time() + 300) #just to simulate packet loss
+        self.assertTrue(stack_port.is_stack_down())
+
 
 
 class ValveGroupRoutingTestCase(ValveTestBases.ValveTestSmall):
