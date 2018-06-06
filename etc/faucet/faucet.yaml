@@ -67,7 +67,7 @@ dps:
                 description: "guest laptop"
                 native_vlan: guest
                 acls_in: [access-port-protect]
-            3:
+            4:
                 name: "s1"
                 description: "services Laptop"
                 native_vlan: guest
