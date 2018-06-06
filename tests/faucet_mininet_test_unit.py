@@ -597,6 +597,23 @@ class FaucetSanityTest(FaucetUntaggedTest):
             self.verify_dp_port_healthy(dp_port)
             self.require_host_learned(host, in_port=dp_port)
 
+    def test_listening(self):
+        msg_template = (
+            'Processes listening on test, or all interfaces may interfere with tests. '
+            'Please deconfigure them (e.g. configure interface as "unmanaged"):\n\n%s')
+        controller = self._get_controller()
+        ss_out = controller.cmd('ss -lnep').splitlines()
+        listening_all_re = re.compile(r'^.+\s+(\*:\S+|:+\S+)\s+(:+\*|\*:\*).+$')
+        listening_all = [line for line in ss_out if listening_all_re.match(line)]
+        for test_intf in list(self.switch_map.values()):
+            int_re = re.compile(r'^.+\b%s\b.+$' % test_intf)
+            listening_int = [line for line in ss_out if int_re.match(line)]
+            self.assertFalse(
+                len(listening_int),
+                msg=(msg_template % '\n'.join(listening_int)))
+        if listening_all:
+            print('Warning: %s' % (msg_template % '\n'.join(listening_all)))
+
 
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     """Testing Gauge Prometheus"""
