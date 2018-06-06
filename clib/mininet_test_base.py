@@ -11,6 +11,7 @@ import copy
 import glob
 import ipaddress
 import json
+import netifaces
 import os
 import random
 import re
@@ -319,10 +320,15 @@ class FaucetTestBase(unittest2.TestCase):
                      phys_port.name,
                      phys_port.name,
                      mapped_port_i))
+            phys_mac = netifaces.ifaddresses(phys_port.name)[netifaces.AF_LINK][0]['addr']
+            switch.cmd('%s add-flow %s in_port=%u,eth_src=%s,priority=2,actions=drop' % (
+                self.OFCTL, switch.name, mapped_port_i, phys_mac))
+            switch.cmd('%s add-flow %s in_port=%u,eth_dst=%s,priority=2,actions=drop' % (
+                self.OFCTL, switch.name, port_i, phys_mac))
             for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
-                port_x, port_y = port_pair
-                switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
-                    self.OFCTL, switch.name, port_x, port_y))
+                in_port, out_port = port_pair
+                switch.cmd('%s add-flow %s in_port=%u,priority=1,actions=output:%u' % (
+                    self.OFCTL, switch.name, in_port, out_port))
 
     def start_net(self):
         """Start Mininet network."""
