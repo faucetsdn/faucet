@@ -489,7 +489,7 @@ class Valve(object):
         cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
         nonpriority_ports = set([
             port for port in self.dp.lldp_beacon_ports
-            if port.running and (
+            if port.running() and (
                 port.dyn_last_lldp_beacon_time is None or
                 port.dyn_last_lldp_beacon_time < cutoff_beacon_time)])
         nonpriority_ports -= priority_ports
