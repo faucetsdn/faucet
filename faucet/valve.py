@@ -20,7 +20,7 @@
 import logging
 import random
 
-from collections import deque, namedtuple
+from collections import defaultdict, deque, namedtuple
 
 from faucet import tfm_pipeline
 from faucet import valve_acl
@@ -362,33 +362,41 @@ class Valve(object):
 
     def _add_ports_and_vlans(self, discovered_ports):
         """Add all configured and discovered ports and VLANs."""
-        all_port_nums = set()
-        ports_status = {}
-        for port in discovered_ports:
-            status = valve_of.port_status_from_state(port.state)
-            self._set_port_status(port.port_no, status)
-            ports_status[port.port_no] = status
-            all_port_nums.add(port.port_no)
-        self._notify({'PORTS_STATUS': ports_status})
+        all_configured_port_nos = set()
 
         for port in self.dp.stack_ports:
-            all_port_nums.add(port.number)
+            all_configured_port_nos.add(port.number)
 
         for port in self.dp.output_only_ports:
-            all_port_nums.add(port.number)
+            all_configured_port_nos.add(port.number)
 
         ofmsgs = []
         for vlan in list(self.dp.vlans.values()):
             vlan_ports = vlan.get_ports()
             if vlan_ports:
                 for port in vlan_ports:
-                    all_port_nums.add(port.number)
+                    all_configured_port_nos.add(port.number)
                 ofmsgs.extend(self._add_vlan(vlan))
             vlan.reset_caches()
 
+        ports_status = {}
+        for port in discovered_ports:
+            if port.port_no in all_configured_port_nos:
+                ports_status[port.port_no] = valve_of.port_status_from_state(port.state)
+        self._notify({'PORTS_STATUS': ports_status})
+
+        all_up_port_nos = set()
+        for port_no in all_configured_port_nos:
+            status = True
+            if port_no in ports_status:
+                status = ports_status[port_no]
+            self._set_port_status(port_no, status)
+            if status:
+                all_up_port_nos.add(port_no)
+
         ofmsgs.extend(
             self.ports_add(
-                all_port_nums, cold_start=True, log_msg='configured'))
+                all_up_port_nos, cold_start=True, log_msg='configured'))
         return ofmsgs
 
     def ofdescstats_handler(self, body):
@@ -1151,7 +1159,6 @@ class Valve(object):
                 if lacp_ofmsgs:
                     return lacp_ofmsgs
             self.lldp_handler(now, pkt_meta)
-            # TODO: verify stacking connectivity using LLDP (DPID, port)
             # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs
 
