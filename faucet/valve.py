@@ -20,7 +20,7 @@
 import logging
 import random
 
-from collections import deque, namedtuple
+from collections import defaultdict, deque, namedtuple
 
 from faucet import tfm_pipeline
 from faucet import valve_acl
@@ -362,33 +362,41 @@ class Valve(object):
 
     def _add_ports_and_vlans(self, discovered_ports):
         """Add all configured and discovered ports and VLANs."""
-        all_port_nums = set()
-        ports_status = {}
-        for port in discovered_ports:
-            status = valve_of.port_status_from_state(port.state)
-            self._set_port_status(port.port_no, status)
-            ports_status[port.port_no] = status
-            all_port_nums.add(port.port_no)
-        self._notify({'PORTS_STATUS': ports_status})
+        all_configured_port_nos = set()
 
         for port in self.dp.stack_ports:
-            all_port_nums.add(port.number)
+            all_configured_port_nos.add(port.number)
 
         for port in self.dp.output_only_ports:
-            all_port_nums.add(port.number)
+            all_configured_port_nos.add(port.number)
 
         ofmsgs = []
         for vlan in list(self.dp.vlans.values()):
             vlan_ports = vlan.get_ports()
             if vlan_ports:
                 for port in vlan_ports:
-                    all_port_nums.add(port.number)
+                    all_configured_port_nos.add(port.number)
                 ofmsgs.extend(self._add_vlan(vlan))
             vlan.reset_caches()
 
+        ports_status = {}
+        for port in discovered_ports:
+            if port.port_no in all_configured_port_nos:
+                ports_status[port.port_no] = valve_of.port_status_from_state(port.state)
+        self._notify({'PORTS_STATUS': ports_status})
+
+        all_up_port_nos = set()
+        for port_no in all_configured_port_nos:
+            status = True
+            if port_no in ports_status:
+                status = ports_status[port_no]
+            self._set_port_status(port_no, status)
+            if status:
+                all_up_port_nos.add(port_no)
+
         ofmsgs.extend(
             self.ports_add(
-                all_port_nums, cold_start=True, log_msg='configured'))
+                all_up_port_nos, cold_start=True, log_msg='configured'))
         return ofmsgs
 
     def ofdescstats_handler(self, body):
@@ -519,36 +527,34 @@ class Valve(object):
         for port in self.dp.stack_ports:
             if port.is_stack_admin_down():
                 continue
+            next_state = port.stack_down
+            remote_dp = port.stack['dp']
             stack_probe_info = port.dyn_stack_probe_info
             last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
-            if last_seen_lldp_time is None:
-                port.stack_down()
-            elif (stack_probe_info['remote_dp_id'] != port.stack['dp'].dp_id or
-                    stack_probe_info['remote_dp_name'] != port.stack['dp'].name):
-                port.stack_down()
-                self.logger.info("Stack port %u is connected to an incorrect dp" % port.number)
-            elif stack_probe_info['remote_port_id'] != port.stack['port'].number:
-                port.stack_down()
-                self.logger.info("Stack port %u is connected to an incorrect port" % port.number)
-            else:
-                remote_port_state = stack_probe_info.get('remote_port_state', None)
-                send_interval = port.stack['dp'].lldp_beacon['send_interval']
-                num_lost_lldp = round((now - last_seen_lldp_time)/send_interval)
-                if num_lost_lldp > port.max_lldp_lost:
-                    if not port.is_stack_down():
-                        port.stack_down()
-                        self.logger.info(
-                            'Stack port %u DOWN. Too many (%d) packets lost' % (port.number, num_lost_lldp))
-                elif port.is_stack_down():
-                    port.stack_init()
-                    self.logger.info('Stack port %u INIT' % port.number)
-                elif (port.is_stack_init() and
-                        remote_port_state in [STACK_STATE_UP, STACK_STATE_INIT]):
-                    port.stack_up()
-                    self.logger.info('Stack port %u UP' % port.number)
-                elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
-                    port.stack_down()
-                    self.logger.info('Stack port %u DOWN. Remote port is down' % port.number)
+            if last_seen_lldp_time is not None:
+                if (stack_probe_info['remote_dp_id'] != remote_dp.dp_id or
+                        stack_probe_info['remote_dp_name'] != remote_dp.name):
+                    self.logger.info('Stack %s is connected to an incorrect DP' % port)
+                elif stack_probe_info['remote_port_id'] != port.stack['port'].number:
+                    self.logger.info('Stack %s is connected to an incorrect port' % port)
+                else:
+                    remote_port_state = stack_probe_info.get('remote_port_state', None)
+                    send_interval = remote_dp.lldp_beacon['send_interval']
+                    num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
+                    if num_lost_lldp > port.max_lldp_lost:
+                        if not port.is_stack_down():
+                            self.logger.info(
+                                'Stack %s DOWN. Too many (%u) packets lost' % (port, num_lost_lldp))
+                    elif port.is_stack_down():
+                        next_state = port.stack_init
+                        self.logger.info('Stack %s INIT' % port)
+                    elif (port.is_stack_init() and
+                          remote_port_state in set([STACK_STATE_UP, STACK_STATE_INIT])):
+                        next_state = port.stack_up
+                        self.logger.info('Stack %s UP' % port)
+                    elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
+                        self.logger.info('Stack %s DOWN. Remote port is down' % port)
+            next_state()
 
     def datapath_connect(self, now, discovered_ports):
         """Handle Ryu datapath connection event and provision pipeline.
@@ -1153,7 +1159,6 @@ class Valve(object):
                 if lacp_ofmsgs:
                     return lacp_ofmsgs
             self.lldp_handler(now, pkt_meta)
-            # TODO: verify stacking connectivity using LLDP (DPID, port)
             # TODO: verify LLDP message (e.g. org-specific authenticator TLV)
             return ofmsgs
 
