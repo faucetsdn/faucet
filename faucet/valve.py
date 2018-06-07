@@ -533,21 +533,27 @@ class Valve(object):
                 continue
             next_state = port.stack_down
             remote_dp = port.stack['dp']
+            remote_port = port.stack['port']
             stack_probe_info = port.dyn_stack_probe_info
             last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
             if last_seen_lldp_time is not None:
                 if (stack_probe_info['remote_dp_id'] != remote_dp.dp_id or
-                        stack_probe_info['remote_dp_name'] != remote_dp.name):
-                    self.logger.info('Stack %s is connected to an incorrect DP' % port)
-                elif stack_probe_info['remote_port_id'] != port.stack['port'].number:
-                    self.logger.info('Stack %s is connected to an incorrect port' % port)
+                        stack_probe_info['remote_dp_name'] != remote_dp.name or
+                        stack_probe_info['remote_port_id'] != remote_port.number):
+                    self.logger.error(
+                        'Stack %s incorrect, expected %s:%u, actual %s:%u' % (
+                            port,
+                            valve_util.dpid_log(remote_dp.dp_id),
+                            remote_port.number,
+                            valve_util.dpid_log(stack_probe_info['remote_dp_id']),
+                            stack_probe_info['remote_port_id']))
                 else:
                     remote_port_state = stack_probe_info.get('remote_port_state', None)
                     send_interval = remote_dp.lldp_beacon['send_interval']
                     num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
                     if num_lost_lldp > port.max_lldp_lost:
                         if not port.is_stack_down():
-                            self.logger.info(
+                            self.logger.error(
                                 'Stack %s DOWN. Too many (%u) packets lost' % (port, num_lost_lldp))
                     elif port.is_stack_down():
                         next_state = port.stack_init
@@ -557,7 +563,7 @@ class Valve(object):
                         next_state = port.stack_up
                         self.logger.info('Stack %s UP' % port)
                     elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
-                        self.logger.info('Stack %s DOWN. Remote port is down' % port)
+                        self.logger.error('Stack %s DOWN. Remote port is down' % port)
             next_state()
 
     def datapath_connect(self, now, discovered_up_ports):
