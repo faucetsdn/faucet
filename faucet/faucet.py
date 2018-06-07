@@ -270,8 +270,7 @@ class Faucet(RyuAppBase):
         if valve is None:
             return
         discovered_ports = [
-            port for port in list(ryu_dp.ports.values())
-            if port.is_live() and valve_of.ignore_port(port.port_no)]
+            port for port in list(ryu_dp.ports.values()) if not valve_of.ignore_port(port.port_no)]
         self._send_flow_msgs(valve, valve.datapath_connect(time.time(), discovered_ports))
 
     @kill_on_exception(exc_logname)
