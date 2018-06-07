@@ -360,7 +360,7 @@ class Valve(object):
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs
 
-    def _add_ports_and_vlans(self, discovered_ports):
+    def _add_ports_and_vlans(self, discovered_up_port_nos):
         """Add all configured and discovered ports and VLANs."""
         all_configured_port_nos = set()
 
@@ -379,17 +379,15 @@ class Valve(object):
                 ofmsgs.extend(self._add_vlan(vlan))
             vlan.reset_caches()
 
-        ports_status = {}
-        for port in discovered_ports:
-            if port.port_no in all_configured_port_nos:
-                ports_status[port.port_no] = valve_of.port_status_from_state(port.state)
+        ports_status = defaultdict(bool)
+        for port_no in discovered_up_port_nos:
+            if port_no in all_configured_port_nos:
+                ports_status[port_no] = True
         self._notify({'PORTS_STATUS': ports_status})
 
         all_up_port_nos = set()
         for port_no in all_configured_port_nos:
-            status = True
-            if port_no in ports_status:
-                status = ports_status[port_no]
+            status = ports_status[port_no]
             self._set_port_status(port_no, status)
             if status:
                 all_up_port_nos.add(port_no)
@@ -1302,6 +1300,7 @@ class Valve(object):
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
+        up_ports = [port.number for port in list(self.dp.ports.values()) if port.running()]
         dp_running = self.dp.running
         cold_start, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
@@ -1310,7 +1309,7 @@ class Valve(object):
         if self.dp.running:
             if cold_start:
                 # Need to reprovision pipeline on cold start.
-                ofmsgs = self.switch_features(None) + self.datapath_connect(now, [])
+                ofmsgs = self.switch_features(None) + self.datapath_connect(now, up_ports)
             if ofmsgs:
                 if cold_start:
                     self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
