@@ -380,6 +380,7 @@ class Valve(object):
             vlan.reset_caches()
 
         ports_status = defaultdict(bool)
+        self.dp.dyn_up_ports = set(discovered_up_port_nos)
         for port_no in discovered_up_port_nos:
             if port_no in all_configured_port_nos:
                 ports_status[port_no] = True
