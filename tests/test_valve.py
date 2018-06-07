@@ -415,24 +415,10 @@ class ValveTestBases:
 
         def connect_dp(self):
             """Call DP connect and set all ports to up."""
-            discovered_ports = []
-            for port_no in range(1, self.NUM_PORTS + 1):
-                ofpport = parser.OFPPort(
-                    port_no=port_no,
-                    hw_addr=None,
-                    name=str(port_no),
-                    config=0,
-                    state=0,
-                    curr=0,
-                    advertised=0,
-                    supported=0,
-                    peer=0,
-                    curr_speed=1e6,
-                    max_speed=1e6)
-                discovered_ports.append(ofpport)
-            self.table.apply_ofmsgs(self.valve.datapath_connect(time.time(), discovered_ports))
-            for port in discovered_ports:
-                self.set_port_up(port.port_no)
+            discovered_up_ports = [port_no for port_no in range(1, self.NUM_PORTS + 1)]
+            self.table.apply_ofmsgs(self.valve.datapath_connect(time.time(), discovered_up_ports))
+            for port_no in discovered_up_ports:
+                self.set_port_up(port_no)
             self.assertTrue(self.valve.dp.to_conf())
 
         def set_port_down(self, port_no):

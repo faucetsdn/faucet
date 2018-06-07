@@ -360,7 +360,7 @@ class Valve(object):
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs
 
-    def _add_ports_and_vlans(self, discovered_ports):
+    def _add_ports_and_vlans(self, discovered_up_port_nos):
         """Add all configured and discovered ports and VLANs."""
         all_configured_port_nos = set()
 
@@ -379,24 +379,24 @@ class Valve(object):
                 ofmsgs.extend(self._add_vlan(vlan))
             vlan.reset_caches()
 
-        ports_status = {}
-        for port in discovered_ports:
-            if port.port_no in all_configured_port_nos:
-                ports_status[port.port_no] = valve_of.port_status_from_state(port.state)
+        ports_status = defaultdict(bool)
+        for port_no in discovered_up_port_nos:
+            if port_no in all_configured_port_nos:
+                ports_status[port_no] = True
         self._notify({'PORTS_STATUS': ports_status})
 
         all_up_port_nos = set()
         for port_no in all_configured_port_nos:
-            status = True
-            if port_no in ports_status:
-                status = ports_status[port_no]
-            self._set_port_status(port_no, status)
-            if status:
+            if ports_status[port_no]:
+                self._set_port_status(port_no, True)
                 all_up_port_nos.add(port_no)
+            else:
+                self._set_port_status(port_no, False)
 
         ofmsgs.extend(
             self.ports_add(
                 all_up_port_nos, cold_start=True, log_msg='configured'))
+        self.dp.dyn_up_ports = set(discovered_up_port_nos)
         return ofmsgs
 
     def ofdescstats_handler(self, body):
@@ -417,6 +417,10 @@ class Valve(object):
         port_labels = dict(self.base_prom_labels, port=port_no)
         self.metrics.port_status.labels( # pylint: disable=no-member
             **port_labels).set(port_status)
+        if port_status:
+            self.dp.dyn_up_ports.add(port_no)
+        else:
+            self.dp.dyn_up_ports -= set([port_no])
 
     def port_status_handler(self, port_no, reason, state):
         """Return OpenFlow messages responding to port operational status change."""
@@ -438,9 +442,9 @@ class Valve(object):
                 'state': state,
                 'status': port_status}})
         ofmsgs = []
+        self._set_port_status(port_no, port_status)
         if not self.port_no_valid(port_no):
             return ofmsgs
-        self._set_port_status(port_no, port_status)
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
             return ofmsgs
@@ -529,21 +533,27 @@ class Valve(object):
                 continue
             next_state = port.stack_down
             remote_dp = port.stack['dp']
+            remote_port = port.stack['port']
             stack_probe_info = port.dyn_stack_probe_info
             last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
             if last_seen_lldp_time is not None:
                 if (stack_probe_info['remote_dp_id'] != remote_dp.dp_id or
-                        stack_probe_info['remote_dp_name'] != remote_dp.name):
-                    self.logger.info('Stack %s is connected to an incorrect DP' % port)
-                elif stack_probe_info['remote_port_id'] != port.stack['port'].number:
-                    self.logger.info('Stack %s is connected to an incorrect port' % port)
+                        stack_probe_info['remote_dp_name'] != remote_dp.name or
+                        stack_probe_info['remote_port_id'] != remote_port.number):
+                    self.logger.error(
+                        'Stack %s incorrect, expected %s:%u, actual %s:%u' % (
+                            port,
+                            valve_util.dpid_log(remote_dp.dp_id),
+                            remote_port.number,
+                            valve_util.dpid_log(stack_probe_info['remote_dp_id']),
+                            stack_probe_info['remote_port_id']))
                 else:
                     remote_port_state = stack_probe_info.get('remote_port_state', None)
                     send_interval = remote_dp.lldp_beacon['send_interval']
                     num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
                     if num_lost_lldp > port.max_lldp_lost:
                         if not port.is_stack_down():
-                            self.logger.info(
+                            self.logger.error(
                                 'Stack %s DOWN. Too many (%u) packets lost' % (port, num_lost_lldp))
                     elif port.is_stack_down():
                         next_state = port.stack_init
@@ -553,15 +563,15 @@ class Valve(object):
                         next_state = port.stack_up
                         self.logger.info('Stack %s UP' % port)
                     elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
-                        self.logger.info('Stack %s DOWN. Remote port is down' % port)
+                        self.logger.error('Stack %s DOWN. Remote port is down' % port)
             next_state()
 
-    def datapath_connect(self, now, discovered_ports):
+    def datapath_connect(self, now, discovered_up_ports):
         """Handle Ryu datapath connection event and provision pipeline.
 
         Args:
             now (float): current epoch time.
-            discovered_ports (list): datapath OFPorts.
+            discovered_up_ports (list): datapath port numbers that are up.
         Returns:
             list: OpenFlow messages to send to datapath.
         """
@@ -571,7 +581,7 @@ class Valve(object):
                 'reason': 'cold_start'}})
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
-        ofmsgs.extend(self._add_ports_and_vlans(discovered_ports))
+        ofmsgs.extend(self._add_ports_and_vlans(discovered_up_ports))
         self.dp.dyn_last_coldstart_time = now
         self.dp.running = True
         self.metrics.of_dp_connections.labels( # pylint: disable=no-member
@@ -1303,6 +1313,7 @@ class Valve(object):
             ofmsgs (list): OpenFlow messages.
         """
         dp_running = self.dp.running
+        up_ports = self.dp.dyn_up_ports
         cold_start, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         self.dp.running = dp_running
@@ -1310,7 +1321,7 @@ class Valve(object):
         if self.dp.running:
             if cold_start:
                 # Need to reprovision pipeline on cold start.
-                ofmsgs = self.switch_features(None) + self.datapath_connect(now, [])
+                ofmsgs = self.switch_features(None) + self.datapath_connect(now, up_ports)
             if ofmsgs:
                 if cold_start:
                     self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
