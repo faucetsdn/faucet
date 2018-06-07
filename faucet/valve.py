@@ -387,10 +387,11 @@ class Valve(object):
 
         all_up_port_nos = set()
         for port_no in all_configured_port_nos:
-            status = ports_status[port_no]
-            self._set_port_status(port_no, status)
-            if status:
+            if ports_status[port_no]:
+                self._set_port_status(port_no, True)
                 all_up_port_nos.add(port_no)
+            else:
+                self._set_port_status(port_no, False)
 
         ofmsgs.extend(
             self.ports_add(
@@ -415,6 +416,10 @@ class Valve(object):
         port_labels = dict(self.base_prom_labels, port=port_no)
         self.metrics.port_status.labels( # pylint: disable=no-member
             **port_labels).set(port_status)
+        if port_status:
+            self.dp.dyn_up_ports.add(port_no)
+        else:
+            self.dp.dyn_up_ports -= set([port_no])
 
     def port_status_handler(self, port_no, reason, state):
         """Return OpenFlow messages responding to port operational status change."""
@@ -436,9 +441,9 @@ class Valve(object):
                 'state': state,
                 'status': port_status}})
         ofmsgs = []
+        self._set_port_status(port_no, port_status)
         if not self.port_no_valid(port_no):
             return ofmsgs
-        self._set_port_status(port_no, port_status)
         port = self.dp.ports[port_no]
         if not port.opstatus_reconf:
             return ofmsgs
@@ -554,12 +559,12 @@ class Valve(object):
                         self.logger.info('Stack %s DOWN. Remote port is down' % port)
             next_state()
 
-    def datapath_connect(self, now, discovered_ports):
+    def datapath_connect(self, now, discovered_up_ports):
         """Handle Ryu datapath connection event and provision pipeline.
 
         Args:
             now (float): current epoch time.
-            discovered_ports (list): datapath OFPorts.
+            discovered_up_ports (list): datapath port numbers that are up.
         Returns:
             list: OpenFlow messages to send to datapath.
         """
@@ -569,7 +574,7 @@ class Valve(object):
                 'reason': 'cold_start'}})
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
-        ofmsgs.extend(self._add_ports_and_vlans(discovered_ports))
+        ofmsgs.extend(self._add_ports_and_vlans(discovered_up_ports))
         self.dp.dyn_last_coldstart_time = now
         self.dp.running = True
         self.metrics.of_dp_connections.labels( # pylint: disable=no-member
@@ -1300,8 +1305,8 @@ class Valve(object):
         Returns:
             ofmsgs (list): OpenFlow messages.
         """
-        up_ports = [port.number for port in list(self.dp.ports.values()) if port.running()]
         dp_running = self.dp.running
+        up_ports = self.dp.dyn_up_ports
         cold_start, ofmsgs = self._apply_config_changes(
             new_dp, self.dp.get_config_changes(self.logger, new_dp))
         self.dp.running = dp_running

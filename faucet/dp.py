@@ -18,6 +18,7 @@
 
 import copy
 import netaddr
+from typing import Set
 
 from collections import namedtuple, defaultdict
 from datadiff import diff
@@ -88,6 +89,7 @@ configuration.
     dp_acls = None
 
     dyn_last_coldstart_time = None
+    dyn_up_ports = set() # type: Set[int]
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
