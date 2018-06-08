@@ -42,9 +42,9 @@ if [ "$DEPCHECK" == 1 ] ; then
     make html || exit 1
     rm -rf _build
 
-    echo "============ Running pytype analyzer ============"
     cd /faucet-src/tests
-    ls -1 ../faucet/*py ../tests/*py ../clib/*.py | parallel --bar pytype -d pyi-error,import-error || exit 1
+    echo "============ Running pytype analyzer ============"
+    ./test_pytype.sh || exit 1
 
     echo "============ Running pylint analyzer ============"
     PYTHONPATH=.. ./test_min_pylint.sh || exit 1
