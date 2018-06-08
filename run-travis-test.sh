@@ -8,6 +8,7 @@ docker images
 RUNCLI="sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 -t"
 
 if [ "${MATRIX_SHARD}" == "sanity" ] ; then
+  echo $MATRIX_SHARD
   $RUNCLI FAUCETTESTS=FaucetSanityTest ${FAUCET_TEST_IMG} || exit 1 
 else:
   ALLTESTFILES="tests/faucet_mininet_test_unit.py clib/clib_mininet_test_unit.py"
@@ -26,5 +27,7 @@ else:
   }
 
   shard "$ALLTESTS" ${MATRIX_SHARDS}
-  $RUNCLI FAUCETTESTS="-i ${sharded[${MATRIX_SHARD}]}" ${FAUCET_TEST_IMG} || exit 1
+  FAUCETTESTS="-i ${sharded[${MATRIX_SHARD}]}"
+  echo $MATRIX_SHARD: $FAUCETESTS
+  $RUNCLI FAUCETTESTS="$FAUCETTESTS" ${FAUCET_TEST_IMG} || exit 1
 fi
