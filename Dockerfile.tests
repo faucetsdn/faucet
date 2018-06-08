@@ -2,17 +2,7 @@
 
 FROM faucet/test-base:latest
 
-ENV PIP="pip -q install --upgrade"
-ENV PIP3="pip3 -q install --upgrade"
-
 COPY ./ /faucet-src/
 WORKDIR /faucet-src/
-
-RUN \
-    ./docker/retrycmd.sh "$PIP -r /faucet-src/test-requirements.txt" && \
-    ./docker/retrycmd.sh "$PIP3 -r /faucet-src/requirements.txt" && \
-    ./docker/retrycmd.sh "$PIP3 -r /faucet-src/test-requirements.txt" && \
-    ./docker/retrycmd.sh "$PIP3 -r /faucet-src/docs/requirements.txt" && \
-    $PIP3 .
 
 CMD ["docker/runtests.sh"]

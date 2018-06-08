@@ -4,6 +4,18 @@ UNITTESTS=1
 DEPCHECK=1
 MINCOVERAGE=85
 
+cd /faucet-src
+
+if [ -d /var/tmp/pip-cache ] ; then
+  cp -r /var/tmp/pip-cache /var/tmp/pip-cache-local || exit 1
+fi
+
+for p in pip pip3 ; do
+  for r in test-requirements.txt requirements.txt docs/requirements.txt ; do
+    ./docker/retrycmd.sh "$p install --upgrade --cache-dir=/var/tmp/pip-cache-local -r $r" || exit 1
+  done
+done
+
 # if -n passed, don't check dependencies/lint/type/documentation.
 # wrapper script only cares about -n, others passed to test suite.
 while getopts "cdjknsxi" o $FAUCET_TESTS; do
