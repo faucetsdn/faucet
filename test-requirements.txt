@@ -9,7 +9,7 @@ netifaces
 networkx
 packaging
 prometheus_client
-pylint==1.9.1
+pylint
 pytest-cov
 pyyaml
 requests
