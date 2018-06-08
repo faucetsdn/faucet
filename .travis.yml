@@ -22,7 +22,7 @@ env:
     - MATRIX_SHARD=2
     - MATRIX_SHARD=3
 install:
-  - ./docker/retrycmd.sh "pip3 install -q -r requirements.txt"
+  - ./docker/pip_deps.sh
   - python3 setup.py -q sdist
   - pip3 install -q dist/*tar.gz
   - pip3 show faucet
