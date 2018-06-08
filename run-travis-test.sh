@@ -7,7 +7,7 @@ docker images
 
 RUNCLI="sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0"
 
-if [ "${MATRIX_SHARD}" == "sanity" ] ; then
+if [ "${MATRIX_SHARD}" = "sanity" ] ; then
   echo $MATRIX_SHARD
   $RUNCLI -e FAUCETTESTS=FaucetSanityTest -t ${FAUCET_TEST_IMG} || exit 1
 else:
