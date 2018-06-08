@@ -48,6 +48,9 @@ if [ "$DEPCHECK" == 1 ] ; then
     # ls -1 ../faucet/*py | parallel pytype -d pyi-error,import-error || exit 1
     # TODO: can't use parallel because multiple access to egg cache dir
     for i in ../faucet/*py ../tests/*py ../clib/*.py ; do echo pytype $i ; pytype -d pyi-error,import-error $i || exit 1 ; done
+
+    echo "============ Running pylint analyzer ============"
+    PYTHONPATH=.. ./test_min_pylint.sh || exit 1
 fi
 
 if [ "$UNITTESTS" == 1 ] ; then
