@@ -7,17 +7,17 @@ docker images
 
 # If sanity shard, just the sanity test and lint/type/dependency checks.
 if [ "${MATRIX_SHARD}" == "sanity" ] ; then
-  touch ~/.pylintrc
   cd ./docs
-  pip3 install -r requirements.txt
   make html || exit 1
   rm -rf _build
 
   cd ../tests
+  touch ~/.pylintrc
   PYTHONPATH=~/faucet ./test_min_pylint.sh || exit 1
   PYTHONPATH=~/faucet ./test_coverage.sh || exit 1
   codecov || true
   cd ..
+
   RUNTESTS="FaucetSanityTest"
 # If not the sanity shard, run sharded tests but skip lint/type/dependency checks.
 else
