@@ -6,10 +6,10 @@ docker rmi faucet/test-base
 docker images
 
 if [ "${MATRIX_SHARD}" = "sanity" ] ; then
-  FAUCETTESTS="FaucetSanityTest"
+  FAUCET_TESTS="FaucetSanityTest"
 else
   ALLTESTFILES="tests/faucet_mininet_test_unit.py clib/clib_mininet_test_unit.py"
-  ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" $ALLTESTFILES|cut -f2 -d" "|sort`
+  ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES}|cut -f2 -d" "|sort`
   declare -A sharded
 
   function shard {
@@ -24,8 +24,9 @@ else
   }
 
   shard "$ALLTESTS" ${MATRIX_SHARDS}
-  FAUCETTESTS="-i ${sharded[${MATRIX_SHARD}]}"
+  FAUCET_TESTS="-i ${sharded[${MATRIX_SHARD}]}"
 fi
 
 echo $MATRIX_SHARD: $FAUCETTESTS
-sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 -e FAUCETTESTS="$FAUCETTESTS" -t ${FAUCET_TEST_IMG}
+sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 -e FAUCET_TESTS="${FAUCET_TESTS}" -t ${FAUCET_TEST_IMG}
+}
