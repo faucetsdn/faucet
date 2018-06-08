@@ -44,10 +44,7 @@ if [ "$DEPCHECK" == 1 ] ; then
 
     echo "============ Running pytype analyzer ============"
     cd /faucet-src/tests
-    # TODO: pytype doesn't completely understand py3 yet.
-    # ls -1 ../faucet/*py | parallel pytype -d pyi-error,import-error || exit 1
-    # TODO: can't use parallel because multiple access to egg cache dir
-    for i in ../faucet/*py ../tests/*py ../clib/*.py ; do echo pytype $i ; pytype -d pyi-error,import-error $i || exit 1 ; done
+    ls -1 ../faucet/*py ../tests/*py ../clib/*.py | parallel pytype -d pyi-error,import-error || exit 1
 
     echo "============ Running pylint analyzer ============"
     PYTHONPATH=.. ./test_min_pylint.sh || exit 1
