@@ -11,7 +11,7 @@ for i in tests/faucet_mininet_test_unit.py clib/clib_mininet_test_unit.py ; do
 done
 RUNTESTS="FaucetSanityTest"
 
-if [ "${MATRIX_SHARD}" != "sanity" ] ; then
+if [ "${MATRIX_SHARD}" == "sanity" ] ; then
   cd tests
   PYTHONPATH=~/faucet ./test_coverage.sh || exit 1
   codecov || true
