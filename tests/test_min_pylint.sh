@@ -1,6 +1,5 @@
 #!/bin/bash
 
 FAUCETHOME=`dirname $0`"/.."
-SRC_FILES=$FAUCETHOME/*/[a-z]*.py
-ls -1 $SRC_FILES | parallel --bar ./min_pylint.sh || exit 1
+echo `$FAUCETHOME/tests/src_files.sh` | parallel -d " " --bar ./min_pylint.sh || exit 1
 exit 0
