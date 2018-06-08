@@ -162,3 +162,11 @@ class ValvesManager(object):
         if ofmsgs:
             self.send_flows_to_dp_by_id(valve, ofmsgs)
             valve.update_metrics(now, pkt_meta.port, rate_limited=True)
+
+    def stack_topo_change(self, now, valve):
+        """Update stack topo of all other Valves affected by the event on this Valve."""
+        for other_valve in list(self.valves.values()):
+            if valve == other_valve or not valve.dp.running:
+                continue
+            other_valve.flood_manager.update_stack_topo(valve.dp.running, valve)
+            # TODO: rebuild flood rules
