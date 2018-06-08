@@ -43,6 +43,14 @@ cd /faucet-src/tests
 
 ./sysctls_for_tests.sh
 
+if [ "$UNITTESTS" == 1 ] ; then
+    echo "========== Running faucet unit tests =========="
+    cd /faucet-src/tests
+    PYTHONPATH=.. ./test_coverage.sh || exit 1
+    # TODO: enable under travis
+    # codecov || true
+fi
+
 if [ "$DEPCHECK" == 1 ] ; then
     echo "========== Building documentation =========="
     cd /faucet-src/docs
@@ -55,14 +63,6 @@ if [ "$DEPCHECK" == 1 ] ; then
 
     echo "============ Running pylint analyzer ============"
     PYTHONPATH=.. ./test_min_pylint.sh || exit 1
-fi
-
-if [ "$UNITTESTS" == 1 ] ; then
-    echo "========== Running faucet unit tests =========="
-    cd /faucet-src/tests
-    PYTHONPATH=.. ./test_coverage.sh || exit 1
-    # TODO: enable under travis
-    # codecov || true
 fi
 
 echo "========== Starting docker container =========="
