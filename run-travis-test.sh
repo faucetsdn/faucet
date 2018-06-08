@@ -9,9 +9,10 @@ ALLTESTS=""
 for i in tests/faucet_mininet_test_unit.py clib/clib_mininet_test_unit.py ; do
   ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" $i|cut -f2 -d" "|sort`" "
 done
-RUNTESTS="FaucetSanityTest"
 
-if [ "${MATRIX_SHARD}" != "sanity" ] ; then
+if [ "${MATRIX_SHARD}" == "sanity" ] ; then
+  RUNTESTS="FaucetSanityTest"
+else:
   declare -A sharded
 
   function shard {
