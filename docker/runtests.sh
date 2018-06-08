@@ -61,7 +61,8 @@ if [ "$UNITTESTS" == 1 ] ; then
     echo "========== Running faucet unit tests =========="
     cd /faucet-src/tests
     PYTHONPATH=.. ./test_coverage.sh || exit 1
-    codecov || true
+    # TODO: enable under travis
+    # codecov || true
 fi
 
 echo "========== Starting docker container =========="
