@@ -2,8 +2,8 @@
 
 FROM faucet/test-base:latest
 
-ENV PIP="pip -q --no-cache-dir install --upgrade"
-ENV PIP3="pip3 -q --no-cache-dir install --upgrade"
+ENV PIP="pip -q install --upgrade"
+ENV PIP3="pip3 -q install --upgrade"
 
 COPY ./ /faucet-src/
 WORKDIR /faucet-src/
