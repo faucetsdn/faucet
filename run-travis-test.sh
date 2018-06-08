@@ -10,7 +10,7 @@ if [ "${MATRIX_SHARD}" = "sanity" ] ; then
   # TODO: move to docker.
   cd tests
   PYTHONPATH=.. ./test_coverage.sh || exit 1
-  coverage || true
+  codecov || true
   cd ..
 else
   ALLTESTFILES="tests/faucet_mininet_test_unit.py clib/clib_mininet_test_unit.py"
