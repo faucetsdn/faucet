@@ -927,7 +927,10 @@ class Valve(object):
             if tlv.subtype == valve_packet.LLDP_FAUCET_STACK_STATE]
         if not port_state_tlvs:
             return
-        remote_port_state = int(port_state_tlvs[0].info)
+        try:
+            remote_port_state = int(port_state_tlvs[0].info)
+        except ValueError:
+            return
         dp_name_tlvs = self._get_tlvs_by_type(
             lldp_pkt, valve_packet.lldp.LLDP_TLV_SYSTEM_NAME)
         if not dp_name_tlvs:
