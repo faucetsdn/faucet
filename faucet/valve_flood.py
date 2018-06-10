@@ -201,6 +201,10 @@ class ValveFloodManager(object):
             return self._build_group_flood_rules(vlan, modify, command)
         return self._build_multiout_flood_rules(vlan, command)
 
+    def update_stack_topo(self, event, dp, port=None): # pylint: disable=unused-argument
+        """Update the stack topology. It has nothing to do for non-stacking DPs."""
+        return
+
     @staticmethod
     def edge_learn_port(_other_valves, pkt_meta):
         """Possibly learn a host on a port.
@@ -425,6 +429,32 @@ class ValveFloodStackManager(ValveFloodManager):
                     if entry.port.stack is None:
                         return other_valve.dp
         return None
+
+    def update_stack_topo(self, event, dp, port=None):
+        """Update the stack topo according to the event."""
+
+        def _stack_topo_up_dp(dp): # pylint: disable=unused-argument
+            pass
+
+        def _stack_topo_down_dp(dp): # pylint: disable=unused-argument
+            pass
+
+        def _stack_topo_up_port(dp, port): # pylint: disable=unused-argument
+            pass
+
+        def _stack_topo_down_port(dp, port): # pylint: disable=unused-argument
+            pass
+
+        if port:
+            if event:
+                _stack_topo_up_port(dp, port)
+            else:
+                _stack_topo_down_port(dp, port)
+        else:
+            if event:
+                _stack_topo_up_dp(dp)
+            else:
+                _stack_topo_down_dp(dp)
 
     def edge_learn_port(self, other_valves, pkt_meta):
         """Possibly learn a host on a port.

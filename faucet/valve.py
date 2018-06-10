@@ -565,6 +565,10 @@ class Valve(object):
                     elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
                         self.logger.error('Stack %s DOWN. Remote port is down' % port)
             next_state()
+            if port.is_stack_up():
+                self.flood_manager.update_stack_topo(True, self.dp, port)
+            else:
+                self.flood_manager.update_stack_topo(False, self.dp, port)
 
     def datapath_connect(self, now, discovered_up_ports):
         """Handle Ryu datapath connection event and provision pipeline.
