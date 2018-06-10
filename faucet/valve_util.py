@@ -41,6 +41,11 @@ def kill_on_exception(logname):
     return _koe
 
 
+def utf8_decode(msg_str):
+    """Gracefully decode a possibly UTF-8 string."""
+    return msg_str.decode('utf-8', errors='replace')
+
+
 def get_sys_prefix():
     """Returns an additional prefix for log and configuration files when used in
     a virtual environment"""
