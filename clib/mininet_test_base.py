@@ -565,8 +565,9 @@ dps:
         ofchannel_log: %s
         dp_id: 0x%x
         hardware: "%s"
-""" % (config_global, self.DP_NAME, debug_log, int(dpid), hardware)
-
+        cookie: %u
+""" % (config_global, self.DP_NAME, debug_log,
+       int(dpid), hardware, random.randint(1, 2**64-1))
 
     def get_gauge_watcher_config(self):
         return """

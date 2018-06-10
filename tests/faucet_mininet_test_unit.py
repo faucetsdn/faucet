@@ -704,6 +704,8 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         self.wait_dp_status(1, controller='gauge')
         self.assertIsNotNone(self.scrape_prometheus_var(
             'faucet_pbr_version', any_labels=True, controller='gauge', retries=3))
+        conf = self._get_conf()
+        cookie = conf['dps'][self.DP_NAME]['cookie']
 
         if not self._prom_ports_updating():
             self.fail(msg='Gauge Prometheus port counters not increasing')
@@ -714,7 +716,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                 host_labels = {
                     'dp_id': self.dpid,
                     'dp_name': self.DP_NAME,
-                    'cookie': str(1524372928),
+                    'cookie': cookie,
                     'eth_dst': host.MAC(),
                     'inst_count': str(1),
                     'priority': str(9099),
