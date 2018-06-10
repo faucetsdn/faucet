@@ -41,7 +41,7 @@ ARP_PKT_SIZE = 28 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Pa
 
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
-BRIDGE_GROUP_MASK ='ff:ff:ff:ff:ff:f0'
+BRIDGE_GROUP_MASK = 'ff:ff:ff:ff:ff:f0'
 LLDP_MAC_NEAREST_BRIDGE = lldp.LLDP_MAC_NEAREST_BRIDGE
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
@@ -614,7 +614,7 @@ class PacketMeta(object):
 
     def reparse(self, max_len):
         """Reparse packet using data up to the specified maximum length."""
-        pkt, eth_pkt, eth_type, vlan_vid = parse_packet_in_pkt(
+        pkt, eth_pkt, eth_type, _ = parse_packet_in_pkt(
             self.data, max_len)
         if pkt is None or eth_type is None:
             return
