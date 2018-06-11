@@ -1,7 +1,8 @@
 #!/bin/bash
 
 FAUCETHOME=`dirname $0`"/.."
-PARGS='--delay 1 -j 2 --bar pytype -d pyi-error,import-error'
+# TODO: increase job count - pytype is a memory hog
+PARGS='--delay 1 -j 1 --bar pytype -d pyi-error,import-error'
 
 PY2=""
 PY3=""
