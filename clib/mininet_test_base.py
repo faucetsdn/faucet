@@ -820,11 +820,11 @@ dbs:
 
     @staticmethod
     def mac_as_int(mac):
-        return long(mac.replace(':', ''), 16)
+        return long(mac.replace(':', ''), 16) # pytype: disable=name-error
 
     def mac_from_int(self, mac_int):
-        mac_int_str = '%012x' % long(mac_int)
-        return ':'.join([x.encode('hex') for x in str(mac_int_str).decode('hex')])
+        mac_int_str = '%012x' % long(mac_int) # pytype: disable=name-error
+        return ':'.join([x.encode('hex') for x in str(mac_int_str).decode('hex')]) # pytype: disable=name-error
 
     def prom_macs_learned(self, port=None, vlan=None):
         labels = {
@@ -885,7 +885,7 @@ dbs:
         if not host_ip_net:
             host_ip_net = self.host_ipv6(host)
         broadcast = ipaddress.ip_interface(
-            unicode(host_ip_net)).network.broadcast_address
+            unicode(host_ip_net)).network.broadcast_address # pytype: disable=name-error
         broadcast_str = str(broadcast)
 
         packets = 1
@@ -942,9 +942,9 @@ dbs:
                               dpid=True, multiple=False, controller='faucet', retries=3):
         if dpid:
             if dpid is True:
-                dpid = long(self.dpid)
+                dpid = long(self.dpid) # pytype: disable=name-error
             else:
-                dpid = long(dpid)
+                dpid = long(dpid) # pytype: disable=name-error
         label_values_re = r''
         if any_labels:
             label_values_re = r'\{[^\}]+\}'
@@ -971,7 +971,7 @@ dbs:
                 prom_var = prom_line_match.group(1)
                 value = prom_line_match.group(2)
                 if var_re.match(prom_var):
-                    value_int = long(float(value))
+                    value_int = long(float(value)) # pytype: disable=name-error 
                     results.append((var, value_int))
                     if not multiple:
                         break
@@ -1596,7 +1596,7 @@ dbs:
             expected_status = 1
             if status == ofp.OFPPC_PORT_DOWN:
                 expected_status = 0
-            self.wait_port_status(long(dpid), port_no, expected_status)
+            self.wait_port_status(long(dpid), port_no, expected_status) # pytype: disable=name-error
 
     def set_port_down(self, port_no, dpid=None, wait=True):
         self.set_port_status(dpid, port_no, ofp.OFPPC_PORT_DOWN, wait)
@@ -1944,7 +1944,7 @@ dbs:
             table_id = self._IPV4_FIB_TABLE
         nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
         if vlan_vid is not None:
-            nw_dst_match[u'dl_vlan'] = unicode(vlan_vid)
+            nw_dst_match[u'dl_vlan'] = unicode(vlan_vid) # pytype: disable=name-error
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(
                 nw_dst_match)
@@ -1992,14 +1992,14 @@ dbs:
         self._verify_host_learned_mac(host, ipa, 4, mac, retries)
 
     def verify_ipv4_host_learned_host(self, host, learned_host):
-        learned_ip = ipaddress.ip_interface(unicode(self.host_ipv4(learned_host)))
+        learned_ip = ipaddress.ip_interface(unicode(self.host_ipv4(learned_host))) # pytype: disable=name-error
         self.verify_ipv4_host_learned_mac(host, learned_ip.ip, learned_host.MAC())
 
     def verify_ipv6_host_learned_mac(self, host, ip6, mac, retries=3):
         self._verify_host_learned_mac(host, ip6, 6, mac, retries)
 
     def verify_ipv6_host_learned_host(self, host, learned_host):
-        learned_ip6 = ipaddress.ip_interface(unicode(self.host_ipv6(learned_host)))
+        learned_ip6 = ipaddress.ip_interface(unicode(self.host_ipv6(learned_host))) # pytype: disable=name-error
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
     def iperf_client(self, client_host, iperf_client_cmd):
