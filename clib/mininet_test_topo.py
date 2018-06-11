@@ -12,6 +12,7 @@ import time
 import netifaces
 
 # pylint: disable=import-error
+# pylint: disable=no-name-in-module
 from mininet.log import error, output
 from mininet.topo import Topo
 from mininet.node import Controller

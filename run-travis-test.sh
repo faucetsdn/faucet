@@ -32,10 +32,10 @@ else
   FAUCET_TESTS="-i ${sharded[${MATRIX_SHARD}]}"
 fi
 
-echo $MATRIX_SHARD: $FAUCETTESTS
+echo Shard $MATRIX_SHARD: $FAUCETTESTS
 sudo docker run --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 \
   -v $HOME/.cache/pip:/var/tmp/pip-cache \
   -e FAUCET_TESTS="${FAUCET_TESTS}" \
   -e CODECOV_TOKEN="${CODECOV_TOKEN}" \
-  -t ${FAUCET_TEST_IMG}
+  -t ${FAUCET_TEST_IMG} || exit 1
 exit 0
