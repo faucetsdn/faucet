@@ -1,8 +1,9 @@
 #!/bin/bash
 
 FAUCETHOME=`dirname $0`"/.."
-# TODO: increase job count - pytype is a memory hog
-PARGS='--delay 1 -j 1 --bar pytype -Z -d pyi-error,import-error'
+# TODO: pytype is a memory hog, use -Z for now
+PYTYPEARGS='pytype -Z -d pyi-error,import-error'
+PARARGS='parallel --delay 1 --bar'
 
 PY2=""
 PY3=""
@@ -14,5 +15,5 @@ for i in `$FAUCETHOME/tests/src_files.sh` ; do
   fi
 done
 
-echo -e $PY2 | parallel $PARGS -V2.7 || exit 1
-echo -e $PY3 | parallel $PARGS -V3.5 || exit 1
+echo -e $PY2 | $PARARGS $PYTYPEARGS -V2.7 || exit 1
+echo -e $PY3 | $PARARGS $PYTYPEARGS -V3.5 || exit 1
