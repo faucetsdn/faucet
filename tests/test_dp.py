@@ -4,7 +4,7 @@ import unittest
 
 from faucet.dp import DP
 
-class FaucetDPConfigTest(unittest.TestCase):
+class FaucetDPConfigTest(unittest.TestCase): # pytype: disable=module-attr
     """Test that DP serialises config as it receives it"""
 
     def setUp(self):

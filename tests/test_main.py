@@ -25,7 +25,7 @@ import unittest
 from faucet.__main__ import parse_args, build_ryu_args
 
 
-class MainTestCase(unittest.TestCase):
+class MainTestCase(unittest.TestCase): # pytype: disable=module-attr
     """Test __main__ methods."""
 
     def test_parse_args(self):
@@ -41,4 +41,4 @@ class MainTestCase(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main() # pytype: disable=module-attr

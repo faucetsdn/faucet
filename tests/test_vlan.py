@@ -5,7 +5,8 @@ from ipaddress import ip_address, ip_network, ip_interface
 
 from faucet.vlan import VLAN
 
-class FaucetVLANBaseTest(unittest.TestCase):
+
+class FaucetVLANBaseTest(unittest.TestCase): # pytype: disable=module-attr
     """Set up defaults for VLAN tests"""
 
     def setUp(self):

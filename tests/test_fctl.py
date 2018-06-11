@@ -27,7 +27,7 @@ import unittest
 
 from faucet import fctl
 
-class FctlTestCaseBase(unittest.TestCase):
+class FctlTestCaseBase(unittest.TestCase): # pytype: disable=module-attr
     """Base class for fctl tests."""
 
     DEFAULT_VALUES = {
@@ -142,4 +142,4 @@ class FctlClassTestCase(FctlTestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main() # pytype: disable=module-attr

@@ -309,7 +309,7 @@ class ValveTestBases:
     """Insulate test base classes from unittest so we can reuse base clases."""
 
 
-    class ValveTestSmall(unittest.TestCase):
+    class ValveTestSmall(unittest.TestCase): # pytype: disable=module-attr
         """Base class for all Valve unit tests."""
 
         DP = 's1'
@@ -1874,7 +1874,7 @@ vlans:
         self.setup_valve(self.CONFIG)
 
 
-class RyuAppSmokeTest(unittest.TestCase):
+class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
     """Test bare instantiation of controller classes."""
 
     @staticmethod
@@ -1921,4 +1921,4 @@ class RyuAppSmokeTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main() # pytype: disable=module-attr
