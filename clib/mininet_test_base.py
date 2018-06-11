@@ -824,7 +824,7 @@ dbs:
 
     def mac_from_int(self, mac_int):
         mac_int_str = '%012x' % long(mac_int) # pytype: disable=name-error
-        return ':'.join([x.encode('hex') for x in str(mac_int_str).decode('hex')]) # pytype: disable=name-error
+        return ':'.join([x.encode('hex') for x in str(mac_int_str).decode('hex')]) # pytype: disable=attribute-error
 
     def prom_macs_learned(self, port=None, vlan=None):
         labels = {
