@@ -39,7 +39,7 @@ class TestFaucetExperimentalAPIViaRyu(app_manager.RyuApp):
             self._update_test_result(str(err))
 
 
-class TestFaucetExperimentalAPI(unittest.TestCase):
+class TestFaucetExperimentalAPI(unittest.TestCase): # pytype: disable=module-attr
     """Test methods for experimental API."""
 
     def test_api(self):
@@ -61,4 +61,4 @@ class TestFaucetExperimentalAPI(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main() # pytype: disable=module-attr

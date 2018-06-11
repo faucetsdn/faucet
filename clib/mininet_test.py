@@ -117,7 +117,7 @@ def import_hw_config():
         required_config = {
             'dp_ports': (dict,),
             'cpn_intf': (str,),
-            'dpid': (long, int),
+            'dpid': (long, int), # pytype: disable=name-error
             'of_port': (int,),
             'gauge_of_port': (int,),
         }
@@ -505,7 +505,7 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
         args=(ports_sock, start_free_ports, min_free_ports))
     ports_server.setDaemon(True)
     ports_server.start()
-    for _ in range(min_free_ports / 2):
+    for _ in range(min_free_ports / 2): # pytype: disable=wrong-arg-types
         if os.path.exists(ports_sock):
             break
         time.sleep(1)

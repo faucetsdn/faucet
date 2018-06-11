@@ -26,7 +26,7 @@ import re
 from faucet.check_faucet_config import check_config
 
 
-class CheckConfigTestCase(unittest.TestCase):
+class CheckConfigTestCase(unittest.TestCase): # pytype: disable=module-attr
     """Test that check config script handles various broken configs."""
 
     tmpdir = None
@@ -410,4 +410,4 @@ dps:
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main() # pytype: disable=module-attr

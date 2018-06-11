@@ -55,7 +55,8 @@ class FakeLogger(object): # pylint: disable=too-few-public-methods
     def __init__(self):
         self.warning = None
 
-class FaucetBgpTest(unittest.TestCase):
+
+class FaucetBgpTest(unittest.TestCase): # pytype: disable=module-attr
     """Test Faucet BGP"""
 
     def test_creates_one_ipv4_speaker(self):

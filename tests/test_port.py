@@ -10,7 +10,8 @@ class MockVLAN(object): # pylint: disable=too-few-public-methods
     def __init__(self, name):
         self.name = name
 
-class FaucetPortConfigTest(unittest.TestCase):
+
+class FaucetPortConfigTest(unittest.TestCase): # pytype: disable=module-attr
     """Test that Port serialises config as it receives it"""
 
     def setUp(self):
@@ -133,7 +134,8 @@ class FaucetPortConfigTest(unittest.TestCase):
 
         self.assertEqual(output_config, expected_config)
 
-class FaucetPortMethodTest(unittest.TestCase):
+
+class FaucetPortMethodTest(unittest.TestCase): # pytype: disable=module-attr
     """Test a range of methods on Port"""
 
     def test_vlans(self):
