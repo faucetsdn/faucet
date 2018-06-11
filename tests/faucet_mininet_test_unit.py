@@ -704,6 +704,8 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         self.wait_dp_status(1, controller='gauge')
         self.assertIsNotNone(self.scrape_prometheus_var(
             'faucet_pbr_version', any_labels=True, controller='gauge', retries=3))
+        conf = self._get_conf()
+        cookie = conf['dps'][self.DP_NAME]['cookie']
 
         if not self._prom_ports_updating():
             self.fail(msg='Gauge Prometheus port counters not increasing')
@@ -714,7 +716,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                 host_labels = {
                     'dp_id': self.dpid,
                     'dp_name': self.DP_NAME,
-                    'cookie': str(1524372928),
+                    'cookie': cookie,
                     'eth_dst': host.MAC(),
                     'inst_count': str(1),
                     'priority': str(9099),
@@ -1680,45 +1682,45 @@ acls:
     1:
         - rule:
             description: "rule 1"
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5001
             actions:
                 allow: 0
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5002
             actions:
                 allow: 1
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             actions:
                 allow: 1
     2:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5001
             actions:
                 allow: 1
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5002
             actions:
                 allow: 0
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             actions:
                 allow: 1
     3:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5003
@@ -1726,14 +1728,14 @@ acls:
                 allow: 0
     4:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5002
             actions:
                 allow: 1
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5001
@@ -1741,18 +1743,21 @@ acls:
                 allow: 0
     deny:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             actions:
                 allow: 0
     allow:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             actions:
                allow: 1
 """
+    ACL_COOKIE = None
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetConfigReloadTestBase, self).setUp()
+        self.ACL_COOKIE = random.randint(1, 2**16-1)
+        self.ACL = self.ACL.replace('COOKIE', str(self.ACL_COOKIE))
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         with open(self.acl_config_file, 'w') as config_file:
             config_file.write(self.ACL)
@@ -1816,7 +1821,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
-            table_id=self._PORT_ACL_TABLE, cookie=1234)
+            table_id=self._PORT_ACL_TABLE, cookie=self.ACL_COOKIE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self.reload_conf(
