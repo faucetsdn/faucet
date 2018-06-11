@@ -5242,11 +5242,14 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             switch_to_switch_links=2)
         self.start_net()
 
-    def verify_one_stack_down(self, port_no):
+    def verify_one_stack_down(self, port_no, coldstart=False):
         self.retry_net_ping()
         self.set_port_down(port_no, wait=False)
         # self.dpids[1] is the intermediate switch.
         self.set_port_down(port_no, self.dpids[1], wait=False)
+        # test case where one link is down when coldstarted.
+        if coldstart:
+            self.coldstart_conf()
         self.retry_net_ping()
         # Broadcast works, and first switch doesn't see broadcast packet ins from stack.
         packet_in_before_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
@@ -5258,10 +5261,12 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
-        self.verify_one_stack_down(self.NUM_HOSTS + 1)
+        for coldstart in (False, True):
+            self.verify_one_stack_down(self.NUM_HOSTS + 1, coldstart)
 
     def test_other_tagged(self):
-        self.verify_one_stack_down(self.NUM_HOSTS + 2)
+        for coldstart in (False, True):
+            self.verify_one_stack_down(self.NUM_HOSTS + 2, coldstart)
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
