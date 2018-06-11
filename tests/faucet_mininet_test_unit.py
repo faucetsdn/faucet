@@ -328,7 +328,7 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
     def wireshark_payload_format(payload_str):
         formatted_payload_str = ''
         groupsize = 4
-        for payload_offset in range(len(payload_str) / groupsize):
+        for payload_offset in range(len(payload_str) / groupsize): # pytype: disable=wrong-arg-types
             char_count = payload_offset * 2
             if char_count % 0x10 == 0:
                 formatted_payload_str += '0x%4.4x: ' % char_count
@@ -349,7 +349,7 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
         expected_lldp_dp_id = ''.join((
             oui_prefix,
             faucet_lldp_dp_id_attr,
-            binascii.hexlify(str(self.dpid).encode('UTF-8'))))
+            str(binascii.hexlify(str(self.dpid).encode('UTF-8')))))
         for lldp_required in (
                 r'%s > 01:80:c2:00:00:0e, ethertype LLDP' % self.FAUCET_MAC,
                 r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
@@ -526,8 +526,8 @@ class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
-        first_host_ip = ipaddress.ip_address(unicode(first_host.IP()))
-        second_host_ip = ipaddress.ip_address(unicode(second_host.IP()))
+        first_host_ip = ipaddress.ip_address(unicode(first_host.IP())) # pytype: disable=name-error
+        second_host_ip = ipaddress.ip_address(unicode(second_host.IP())) # pytype: disable=name-error
         for _ in range(3):
             self.ping_all_when_learned()
             self.one_ipv4_ping(first_host, second_host_ip)
@@ -596,6 +596,23 @@ class FaucetSanityTest(FaucetUntaggedTest):
                     in_port, dp_port))
             self.verify_dp_port_healthy(dp_port)
             self.require_host_learned(host, in_port=dp_port)
+
+    def test_listening(self):
+        msg_template = (
+            'Processes listening on test, or all interfaces may interfere with tests. '
+            'Please deconfigure them (e.g. configure interface as "unmanaged"):\n\n%s')
+        controller = self._get_controller()
+        ss_out = controller.cmd('ss -lnep').splitlines()
+        listening_all_re = re.compile(r'^.+\s+(\*:\S+|:+\S+)\s+(:+\*|\*:\*).+$')
+        listening_all = [line for line in ss_out if listening_all_re.match(line)]
+        for test_intf in list(self.switch_map.values()):
+            int_re = re.compile(r'^.+\b%s\b.+$' % test_intf)
+            listening_int = [line for line in ss_out if int_re.match(line)]
+            self.assertFalse(
+                len(listening_int),
+                msg=(msg_template % '\n'.join(listening_int)))
+        if listening_all:
+            print('Warning: %s' % (msg_template % '\n'.join(listening_all)))
 
 
 class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
@@ -687,6 +704,8 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
         self.wait_dp_status(1, controller='gauge')
         self.assertIsNotNone(self.scrape_prometheus_var(
             'faucet_pbr_version', any_labels=True, controller='gauge', retries=3))
+        conf = self._get_conf()
+        cookie = conf['dps'][self.DP_NAME]['cookie']
 
         if not self._prom_ports_updating():
             self.fail(msg='Gauge Prometheus port counters not increasing')
@@ -697,7 +716,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
                 host_labels = {
                     'dp_id': self.dpid,
                     'dp_name': self.DP_NAME,
-                    'cookie': str(1524372928),
+                    'cookie': cookie,
                     'eth_dst': host.MAC(),
                     'inst_count': str(1),
                     'priority': str(9099),
@@ -1663,45 +1682,45 @@ acls:
     1:
         - rule:
             description: "rule 1"
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5001
             actions:
                 allow: 0
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5002
             actions:
                 allow: 1
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             actions:
                 allow: 1
     2:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5001
             actions:
                 allow: 1
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5002
             actions:
                 allow: 0
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             actions:
                 allow: 1
     3:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5003
@@ -1709,14 +1728,14 @@ acls:
                 allow: 0
     4:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5002
             actions:
                 allow: 1
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             dl_type: 0x800
             ip_proto: 6
             tcp_dst: 5001
@@ -1724,18 +1743,21 @@ acls:
                 allow: 0
     deny:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             actions:
                 allow: 0
     allow:
         - rule:
-            cookie: 1234
+            cookie: COOKIE
             actions:
                allow: 1
 """
+    ACL_COOKIE = None
 
     def setUp(self): # pylint: disable=invalid-name
         super(FaucetConfigReloadTestBase, self).setUp()
+        self.ACL_COOKIE = random.randint(1, 2**16-1)
+        self.ACL = self.ACL.replace('COOKIE', str(self.ACL_COOKIE))
         self.acl_config_file = '%s/acl.yaml' % self.tmpdir
         with open(self.acl_config_file, 'w') as config_file:
             config_file.write(self.ACL)
@@ -1799,7 +1821,7 @@ class FaucetConfigReloadTest(FaucetConfigReloadTestBase):
             cold_start=False)
         self.wait_until_matching_flow(
             {u'in_port': int(self.port_map['port_1']), u'tcp_dst': 5001, u'ip_proto': 6},
-            table_id=self._PORT_ACL_TABLE, cookie=1234)
+            table_id=self._PORT_ACL_TABLE, cookie=self.ACL_COOKIE)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
         self.reload_conf(
@@ -5220,11 +5242,14 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
             switch_to_switch_links=2)
         self.start_net()
 
-    def verify_one_stack_down(self, port_no):
+    def verify_one_stack_down(self, port_no, coldstart=False):
         self.retry_net_ping()
         self.set_port_down(port_no, wait=False)
         # self.dpids[1] is the intermediate switch.
         self.set_port_down(port_no, self.dpids[1], wait=False)
+        # test case where one link is down when coldstarted.
+        if coldstart:
+            self.coldstart_conf()
         self.retry_net_ping()
         # Broadcast works, and first switch doesn't see broadcast packet ins from stack.
         packet_in_before_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
@@ -5236,10 +5261,12 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
-        self.verify_one_stack_down(self.NUM_HOSTS + 1)
+        for coldstart in (False, True):
+            self.verify_one_stack_down(self.NUM_HOSTS + 1, coldstart)
 
     def test_other_tagged(self):
-        self.verify_one_stack_down(self.NUM_HOSTS + 2)
+        for coldstart in (False, True):
+            self.verify_one_stack_down(self.NUM_HOSTS + 2, coldstart)
 
 
 class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):

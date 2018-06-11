@@ -11,6 +11,7 @@ packaging
 prometheus_client
 pylint
 pytest-cov
+pytype
 pyyaml
 requests
 ryu==4.25

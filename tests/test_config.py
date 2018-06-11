@@ -14,7 +14,7 @@ from faucet import config_parser as cp
 LOGNAME = '/dev/null'
 
 
-class TestConfig(unittest.TestCase):
+class TestConfig(unittest.TestCase): # pytype: disable=module-attr
     """Test config parsing raises correct exception."""
 
     tmpdir = None
@@ -2070,4 +2070,4 @@ acls:
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main() # pytype: disable=module-attr

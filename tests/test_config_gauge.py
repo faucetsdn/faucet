@@ -12,7 +12,7 @@ from faucet import config_parser as cp
 LOGNAME = '/dev/null'
 
 
-class TestGaugeConfig(unittest.TestCase):
+class TestGaugeConfig(unittest.TestCase): # pytype: disable=module-attr
     """Test gauge.yaml config parsing."""
 
     DEFAULT_FAUCET_CONFIG = """
@@ -122,5 +122,5 @@ dbs:
         self.assertEqual(watcher_conf.type, 'port_stats', msg)
         self.assertEqual(watcher_conf.db_type, 'prometheus', msg)
 
-if __name__ == "__main__":
-    unittest.main()
+if __name__ == "__main__": 
+    unittest.main() # pytype: disable=module-attr

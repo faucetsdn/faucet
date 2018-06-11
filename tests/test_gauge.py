@@ -29,7 +29,6 @@ from prometheus_client import CollectorRegistry
 from faucet import gauge, gauge_prom, gauge_influx, gauge_pollers, watcher
 
 
-
 class QuietHandler(BaseHTTPRequestHandler):
     """Don't log requests."""
 
@@ -213,7 +212,7 @@ class PretendInflux(QuietHandler):
         self.end_headers()
 
 
-class GaugePrometheusTests(unittest.TestCase):
+class GaugePrometheusTests(unittest.TestCase): # pytype: disable=module-attr
     """Tests the GaugePortStatsPrometheusPoller update method"""
 
     prom_client = gauge_prom.GaugePrometheusClient(reg=CollectorRegistry())
@@ -347,8 +346,7 @@ class GaugePrometheusTests(unittest.TestCase):
         prom_poller.update(rcv_time, conf.dp.dp_id, msg)
 
 
-
-class GaugeInfluxShipperTest(unittest.TestCase):
+class GaugeInfluxShipperTest(unittest.TestCase): # pytype: disable=module-attr
     """Tests the InfluxShipper"""
 
     def create_config_obj(self, port=12345):
@@ -440,7 +438,7 @@ class GaugeInfluxShipperTest(unittest.TestCase):
         self.assertAlmostEqual(point_vals_stat.pop(), stat_val)
 
 
-class GaugeInfluxUpdateTest(unittest.TestCase):
+class GaugeInfluxUpdateTest(unittest.TestCase): # pytype: disable=module-attr
     """Test the Influx loggers update methods"""
 
     server = None
@@ -553,10 +551,10 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
         for line in output:
             measurement, influx_data = self.parse_influx_output(line)
 
-            #get the number at the end of the port_name
-            port_num = int(influx_data['port_name'][-1])
-            #get the original port stat value
-            port_stat_val = logger_to_ofp(msg.body[port_num - 1])[measurement]
+            # get the number at the end of the port_name
+            port_num = int(influx_data['port_name'][-1]) # pytype: disable=unsupported-operands
+            # get the original port stat value
+            port_stat_val = logger_to_ofp(msg.body[port_num - 1])[measurement] # pytype: disable=unsupported-operands
 
             self.assertEqual(port_stat_val, influx_data['value'])
             self.assertEqual(conf.dp.name, influx_data['dp_name'])
@@ -607,7 +605,8 @@ class GaugeInfluxUpdateTest(unittest.TestCase):
                 else:
                     self.fail("Unknown key: {} and value: {}".format(stat_name, stat_val))
 
-class GaugeThreadPollerTest(unittest.TestCase):
+
+class GaugeThreadPollerTest(unittest.TestCase): # pytype: disable=module-attr
     """Tests the methods in the GaugeThreadPoller class"""
 
     def setUp(self):
@@ -668,7 +667,8 @@ class GaugeThreadPollerTest(unittest.TestCase):
         self.assertFalse(self.poller.is_active())
         self.assertFalse(self.poller.running())
 
-class GaugePollerTest(unittest.TestCase):
+
+class GaugePollerTest(unittest.TestCase): # pytype: disable=module-attr
     """Checks the send_req and no_response methods in a Gauge Poller"""
 
     def check_send_req(self, poller, msg_class):
@@ -717,7 +717,7 @@ class GaugeFlowTablePollerTest(GaugePollerTest):
         self.check_no_response(poller)
 
 
-class GaugeWatcherTest(unittest.TestCase):
+class GaugeWatcherTest(unittest.TestCase): # pytype: disable=module-attr
     """Checks the loggers in watcher.py."""
 
     conf = None
@@ -839,7 +839,7 @@ class GaugeWatcherTest(unittest.TestCase):
         compare_flow_msg(msg, yaml_dict, self)
 
 
-class RyuAppSmokeTest(unittest.TestCase):
+class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
 
     def setUp(self):
         os.environ['GAUGE_LOG'] = '/dev/null'
@@ -931,4 +931,4 @@ dbs:
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main() # pytype: disable=module-attr

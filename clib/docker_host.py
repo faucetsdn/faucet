@@ -6,8 +6,10 @@ import os
 import pty
 import select
 from subprocess import PIPE, STDOUT
+from functools import reduce
 
 # pylint: disable=import-error
+# pylint: disable=no-name-in-module
 from mininet.log import error, debug
 from mininet.node import Host
 

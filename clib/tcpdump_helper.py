@@ -7,6 +7,9 @@ import os
 import re
 
 import mininet_test_util
+
+# pylint: disable=import-error
+# pylint: disable=no-name-in-module
 from mininet.log import error, debug
 
 
@@ -107,7 +110,7 @@ class TcpdumpHelper(object):
         fileno = self.pipe.stdout.fileno()
         while '\n' not in self.readbuf:
             try:
-                read = os.read(fileno, 1024)
+                read = str(os.read(fileno, 2**10))
             except OSError as err:
                 if err.errno != errno.EAGAIN or not self.blocking:
                     raise

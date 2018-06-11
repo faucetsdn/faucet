@@ -12,6 +12,7 @@ import time
 import netifaces
 
 # pylint: disable=import-error
+# pylint: disable=no-name-in-module
 from mininet.log import error, output
 from mininet.topo import Topo
 from mininet.node import Controller
@@ -65,7 +66,7 @@ class FaucetHostCleanup(object):
         self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
         self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
         self.execed = False
-        self.lastCmd = None # pylint: disable=invalid-name
+        self.lastCmd = None # pylint: disable=invalid-typevar
         self.lastPid = None # pylint: disable=invalid-name
         self.readbuf = ''
         while True:
@@ -185,7 +186,7 @@ class FaucetSwitchTopo(Topo):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
         # pylint: disable=no-member
-        id_chars = string.letters + string.digits
+        id_chars = string.letters + string.digits # pytype: disable=module-attr
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
         return '%s%s' % (

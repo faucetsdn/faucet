@@ -88,6 +88,7 @@ configuration.
     dp_acls = None
 
     dyn_last_coldstart_time = None
+    dyn_up_ports = set() # type: ignore
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -358,7 +359,7 @@ configuration.
         for dp in dps:
             if dp.stack is not None:
                 stack_dps.append(dp)
-                if 'priority' in dp.stack: 
+                if 'priority' in dp.stack:
                     test_config_condition(dp.stack['priority'] <= 0, (
                         'stack priority must be > 0'))
                     test_config_condition(root_dp is not None, 'cannot have multiple stack roots')
@@ -401,16 +402,17 @@ configuration.
 
     def shortest_path(self, dest_dp):
         """Return shortest path to a DP, as a list of DPs."""
-        if self.stack is None:
-            return None
-        return networkx.shortest_path(
-            self.stack['graph'], self.name, dest_dp)
+        if self.stack is not None and 'root_dp' in self.stack:
+            return networkx.shortest_path(
+                self.stack['graph'], self.name, dest_dp)
+        return []
 
     def shortest_path_to_root(self):
         """Return shortest path to root DP, as list of DPs."""
-        if self.stack is not None:
+        # TODO: root_dp will be None, if stacking is enabled but the root DP is down.
+        if self.stack is not None and 'root_dp' in self.stack:
             root_dp = self.stack['root_dp']
-            if root_dp != self:
+            if root_dp is not None and root_dp != self:
                 return self.shortest_path(root_dp.name)
         return []
 

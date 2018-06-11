@@ -146,7 +146,7 @@ class ValvesManager(object):
 
     def valve_flow_services(self, now, valve_service):
         """Call a method on all Valves and send any resulting flows."""
-        for dp_id, valve in list(self.valves.items()):
+        for valve in list(self.valves.values()):
             ofmsgs = getattr(valve, valve_service)(now)
             if ofmsgs:
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
@@ -157,8 +157,16 @@ class ValvesManager(object):
         self.metrics.of_packet_ins.labels( # pylint: disable=no-member
             **valve.base_prom_labels).inc()
         with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
-                **valve.base_prom_labels).time():
+            **valve.base_prom_labels).time():
             ofmsgs = valve.rcv_packet(now, other_valves, pkt_meta)
         if ofmsgs:
             self.send_flows_to_dp_by_id(valve, ofmsgs)
             valve.update_metrics(now, pkt_meta.port, rate_limited=True)
+
+    def stack_topo_change(self, _now, valve):
+        """Update stack topo of all other Valves affected by the event on this Valve."""
+        for other_valve in list(self.valves.values()):
+            if valve == other_valve or not valve.dp.running:
+                continue
+            other_valve.flood_manager.update_stack_topo(valve.dp.running, valve)
+            # TODO: rebuild flood rules

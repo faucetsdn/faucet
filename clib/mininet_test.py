@@ -69,8 +69,6 @@ EXTERNAL_DEPENDENCIES = (
      r'ExaBGP : (\d+\.\d+).\d+', "4.0"),
     ('pip', ['show', 'influxdb'], 'influxdb',
      r'Version:\s+(\d+\.\d+)\.\d+', "3.0"),
-    ('pylint', ['--version'], 'pylint',
-     r'pylint (\d+\.\d+).\d+,', "1.6"),
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', "7.3"),
     ('ladvd', ['-h'], 'ladvd',
@@ -85,12 +83,6 @@ EXTERNAL_DEPENDENCIES = (
      r'TShark.+(\d+\.\d+)', "2.1"),
     ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
-
-# Must pass with 0 lint errors
-FAUCET_LINT_SRCS = glob.glob(
-    os.path.join(mininet_test_util.FAUCET_DIR, '*py'))
-FAUCET_TEST_LINT_SRCS = glob.glob(
-    os.path.join(os.path.dirname(__file__), 'mininet_test*py'))
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
@@ -125,7 +117,7 @@ def import_hw_config():
         required_config = {
             'dp_ports': (dict,),
             'cpn_intf': (str,),
-            'dpid': (long, int),
+            'dpid': (long, int), # pytype: disable=name-error
             'of_port': (int,),
             'gauge_of_port': (int,),
         }
@@ -201,34 +193,6 @@ def check_dependencies():
                 print('%s version %s is less than required version %s' % (
                     required_binary, binary_version, binary_minversion))
                 return False
-    return True
-
-
-def lint_check():
-    """Run pylint on required source files."""
-    print('Running pylint checks')
-    for faucet_src in FAUCET_LINT_SRCS: # + FAUCET_TEST_LINT_SRCS:
-        ret = subprocess.call(
-            ['env',
-             'PYTHONPATH=%s' % mininet_test_util.FAUCET_DIR,
-             'pylint',
-             '--rcfile=/dev/null',
-             '-E', faucet_src],
-            stdin=mininet_test_util.DEVNULL,
-            close_fds=True)
-        if ret:
-            print(('pylint of %s returns an error' % faucet_src))
-            return False
-    for faucet_src in FAUCET_LINT_SRCS:
-        output_2to3 = subprocess.check_output(
-            ['2to3', '--nofix=import', faucet_src],
-            stdin=mininet_test_util.DEVNULL,
-            stderr=mininet_test_util.DEVNULL,
-            close_fds=True)
-        if output_2to3:
-            print(('2to3 of %s returns a diff (not python3 compatible)' % faucet_src))
-            print(output_2to3)
-            return False
     return True
 
 
@@ -541,7 +505,7 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
         args=(ports_sock, start_free_ports, min_free_ports))
     ports_server.setDaemon(True)
     ports_server.start()
-    for _ in range(min_free_ports / 2):
+    for _ in range(min_free_ports / 2): # pytype: disable=wrong-arg-types
         if os.path.exists(ports_sock):
             break
         time.sleep(1)
@@ -690,14 +654,11 @@ def test_main(module):
         Cleanup.cleanup()
         sys.exit(0)
     if nocheck:
-        print('Skipping dependencies/lint checks')
+        print('Skipping dependency checks')
     else:
         if not check_dependencies():
             print('dependency check failed. check required library/binary '
                   'list in header of this script')
-            sys.exit(-1)
-        if not lint_check():
-            print('pylint must pass with no errors')
             sys.exit(-1)
     hw_config = import_hw_config()
     run_tests(

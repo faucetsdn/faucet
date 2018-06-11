@@ -71,6 +71,11 @@ class EventFaucetLLDPAdvertise(event.EventBase):
     pass
 
 
+class EventFaucetStackProbe(event.EventBase):
+    """Event used to trigger periodic stack probes."""
+    pass
+
+
 class Faucet(RyuAppBase):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
@@ -88,6 +93,7 @@ class Faucet(RyuAppBase):
         EventFaucetStateExpire: ('state_expire', 5),
         EventFaucetAdvertise: ('advertise', 5),
         EventFaucetLLDPAdvertise: ('send_lldp_beacons', 5),
+        EventFaucetStackProbe: ('probe_stack_links', 2),
     }
     logname = 'faucet'
     exc_logname = logname + '.exception'
@@ -191,6 +197,7 @@ class Faucet(RyuAppBase):
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetLLDPAdvertise, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetStackProbe, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _valve_flow_services(self, ryu_event):
         """Call a method on all Valves and send any resulting flows."""
@@ -259,12 +266,15 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.Event)
         """
+        now = time.time()
         valve, ryu_dp, _ = self._get_valve(ryu_event)
         if valve is None:
             return
-        discovered_ports = [
-            port for port in list(ryu_dp.ports.values()) if not valve_of.ignore_port(port.port_no)]
-        self._send_flow_msgs(valve, valve.datapath_connect(time.time(), discovered_ports))
+        discovered_up_ports = [
+            port.port_no for port in list(ryu_dp.ports.values())
+            if valve_of.port_status_from_state(port.state) and not valve_of.ignore_port(port.port_no)]
+        self._send_flow_msgs(valve, valve.datapath_connect(now, discovered_up_ports))
+        self.valves_manager.stack_topo_change(now, valve)
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_event):
@@ -277,6 +287,7 @@ class Faucet(RyuAppBase):
         if valve is None:
             return
         valve.datapath_disconnect()
+        self.valves_manager.stack_topo_change(time.time(), valve)
 
     @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
