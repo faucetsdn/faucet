@@ -2,12 +2,13 @@
 
 FAUCETHOME=`dirname $0`"/.."
 # TODO: pytype is a memory hog, use -Z for now
-PYTYPEARGS='pytype -Z -d pyi-error,import-error'
-PARARGS='parallel --delay 1 --bar'
+PYTYPEARGS="pytype -d pyi-error,import-error -Z"
+PARARGS="parallel --delay 1 --bar"
 
 PY2=""
 PY3=""
 for i in `$FAUCETHOME/tests/src_files.sh` ; do
+  # mininet requires python2
   if grep -qn "import mininet" $i ; then
     PY2+="$i\n"
   else
@@ -15,5 +16,5 @@ for i in `$FAUCETHOME/tests/src_files.sh` ; do
   fi
 done
 
-echo -e $PY2 | $PARARGS $PYTYPEARGS -V2.7 || exit 1
-echo -e $PY3 | $PARARGS $PYTYPEARGS -V3.5 || exit 1
+echo -ne $PY2 | $PARARGS $PYTYPEARGS -V2.7 || exit 1
+echo -ne $PY3 | $PARARGS $PYTYPEARGS -V3.5 || exit 1
