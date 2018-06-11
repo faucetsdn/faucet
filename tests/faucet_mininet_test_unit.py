@@ -328,7 +328,7 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
     def wireshark_payload_format(payload_str):
         formatted_payload_str = ''
         groupsize = 4
-        for payload_offset in range(len(payload_str) / groupsize):
+        for payload_offset in range(len(payload_str) / groupsize): # pytype: disable=wrong-arg-types
             char_count = payload_offset * 2
             if char_count % 0x10 == 0:
                 formatted_payload_str += '0x%4.4x: ' % char_count
@@ -349,7 +349,7 @@ class FaucetUntaggedLLDPTest(FaucetUntaggedTest):
         expected_lldp_dp_id = ''.join((
             oui_prefix,
             faucet_lldp_dp_id_attr,
-            binascii.hexlify(str(self.dpid).encode('UTF-8'))))
+            str(binascii.hexlify(str(self.dpid).encode('UTF-8')))))
         for lldp_required in (
                 r'%s > 01:80:c2:00:00:0e, ethertype LLDP' % self.FAUCET_MAC,
                 r'Application type \[voice\] \(0x01\), Flags \[Tagged\]Vlan id 50',
@@ -526,8 +526,8 @@ class FaucetUntaggedTcpIPv4IperfTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         first_host, second_host = self.net.hosts[:2]
-        first_host_ip = ipaddress.ip_address(unicode(first_host.IP()))
-        second_host_ip = ipaddress.ip_address(unicode(second_host.IP()))
+        first_host_ip = ipaddress.ip_address(unicode(first_host.IP())) # pytype: disable=name-error
+        second_host_ip = ipaddress.ip_address(unicode(second_host.IP())) # pytype: disable=name-error
         for _ in range(3):
             self.ping_all_when_learned()
             self.one_ipv4_ping(first_host, second_host_ip)

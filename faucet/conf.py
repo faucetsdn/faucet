@@ -66,7 +66,7 @@ class Conf(object):
             if conf_value is not None:
                 conf_type = conf_types[conf_key]
                 test_config_condition(not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
-                    conf_key, conf_value, conf_type, type(conf_value)))
+                    conf_key, conf_value, conf_type, type(conf_value))) # pytype: disable=invalid-typevar
 
     def _set_unknown_conf(self, conf, conf_types):
         for conf_key, conf_type in list(conf_types.items()):
