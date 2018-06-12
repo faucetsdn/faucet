@@ -15,12 +15,13 @@ from mininet.node import Host
 
 from mininet_test_util import DEVNULL
 
+DEFAULT_NETWORK = 'none'
+DEFAULT_PREFIX = 'mininet'
+STARTUP_TIMEOUT_MS = 20000
 
 # pylint: disable=too-many-instance-attributes
 class DockerHost(Host):
     """Mininet host that encapsulates execution in a docker container"""
-
-    STARTUP_TIMEOUT_MS = 20000
 
     master = None
     shell = None
@@ -49,8 +50,8 @@ class DockerHost(Host):
     active_log = None
 
     # pylint: disable=too-many-arguments
-    def __init__(self, name, image=None, tmpdir=None, prefix=None, env_vars=None,
-                 vol_maps=None, startup_timeout_ms=STARTUP_TIMEOUT_MS, **kwargs):
+    def __init__(self, name, image=None, tmpdir=None, prefix=None, env_vars=None, vol_maps=None,
+                 startup_timeout_ms=STARTUP_TIMEOUT_MS, network=None, **kwargs):
         self.image = image
         self.tmpdir = tmpdir
         self.prefix = prefix
@@ -60,6 +61,7 @@ class DockerHost(Host):
         if vol_maps is None:
             vol_maps = []
         self.vol_maps = vol_maps
+        self.network = network
         self.startup_timeout_ms = startup_timeout_ms
         Host.__init__(self, name, **kwargs)
 
@@ -82,13 +84,14 @@ class DockerHost(Host):
         tmp_volume = container_tmp_dir + ':/tmp'
 
         base_cmd = ["docker", "run", "-ti", "--privileged", "--entrypoint", "env",
-                    "--net=none", "-h", self.name, "--name", self.container]
+                    "-h", self.name, "--name", self.container]
+        opt_args = ['--net=%s' % self.network]
         env_args = reduce(operator.add, (['--env', var] for var in self.env_vars), [])
         vol_args = reduce(operator.add, (['-v', var] for var in self.vol_maps), ['-v', tmp_volume])
         image_args = [
             self.image, "TERM=dumb", "PS1=" + chr(127), "bash", "--norc",
             "-is", "mininet:" + self.name]
-        cmd = base_cmd + env_args + vol_args + image_args
+        cmd = base_cmd + opt_args + env_args + vol_args + image_args
         self.master, self.slave = pty.openpty()
         debug('docker command "%s", fd %d, fd %d' % (' '.join(cmd), self.master, self.slave))
         try:
@@ -275,7 +278,8 @@ class DockerHost(Host):
         return pipe
 
 
-def make_docker_host(image, prefix='mininet', startup_timeout_ms=None):
+def make_docker_host(image, prefix=DEFAULT_PREFIX, network=DEFAULT_NETWORK,
+                     startup_timeout_ms=None):
     """Utility function to create a docker-host class that can be passed to mininet"""
 
     class _ImageHost(DockerHost):
@@ -286,6 +290,7 @@ def make_docker_host(image, prefix='mininet', startup_timeout_ms=None):
             assert kwargs['tmpdir'], 'tmpdir required for docker host'
             kwargs['tmpdir'] = os.path.join(kwargs['tmpdir'], host_name)
             kwargs['prefix'] = prefix
+            kwargs['network'] = network
             if startup_timeout_ms:
                 kwargs['startup_timeout_ms'] = startup_timeout_ms
             elif 'DOCKER_STARTUP_TIMEOUT_MS' in os.environ:
