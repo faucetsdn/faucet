@@ -1,8 +1,7 @@
 #!/bin/bash
 
 FAUCETHOME=`dirname $0`"/.."
-# TODO: pytype is a memory hog, use -Z for now
-PYTYPEARGS="pytype -d pyi-error,import-error -Z"
+PYTYPEARGS="pytype -d pyi-error,import-error"
 PARARGS="parallel --delay 1 --bar"
 
 PY2=""
