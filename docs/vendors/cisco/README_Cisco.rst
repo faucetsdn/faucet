@@ -138,7 +138,7 @@ Command to check overall openflow configuration
 		 Hardware: C9300-48P
 		 Software: Cisco IOS Software [Fuji], Catalyst L3 Switch Software (CAT9K_IOSXE), Version 16.8.1GO3, RELEASE SOFTWARE (fc1)| openvswitch 2.1
 		 Serial Num: FCW2145L0FP
-		 DP Description: Google-C9300:sw1
+		 DP Description: Faucet-C9300:sw1
 	  OF Features:
 		 DPID: 0x000000ABCDEF1234
 		 Number of tables: 9
