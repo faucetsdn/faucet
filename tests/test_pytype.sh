@@ -1,12 +1,13 @@
 #!/bin/bash
 
 FAUCETHOME=`dirname $0`"/.."
-# TODO: increase job count - pytype is a memory hog
-PARGS='--delay 1 -j 1 --bar pytype -d pyi-error,import-error'
+PYTYPEARGS="pytype -d pyi-error,import-error"
+PARARGS="parallel --delay 1 --bar"
 
 PY2=""
 PY3=""
 for i in `$FAUCETHOME/tests/src_files.sh` ; do
+  # mininet requires python2
   if grep -qn "import mininet" $i ; then
     PY2+="$i\n"
   else
@@ -14,6 +15,5 @@ for i in `$FAUCETHOME/tests/src_files.sh` ; do
   fi
 done
 
-echo -e $PY2 | parallel $PARGS -V2.7 || exit 1
-# TODO: re-enable as broken under Travis
-# echo -e $PY3 | parallel $PARGS -V3.5 || exit 1
+echo -ne $PY2 | $PARARGS $PYTYPEARGS -V2.7 || exit 1
+echo -ne $PY3 | $PARARGS $PYTYPEARGS -V3.5 || exit 1
