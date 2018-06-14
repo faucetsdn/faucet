@@ -1,0 +1,231 @@
+Faucet on Cisco Switches (Beta)
+===============================
+
+Introduction
+------------
+Cisco supports Openflow with FAUCET pipeline on the Catalyst 9000 Series switches.
+
+The solution support is currently in beta on the following models:
+
+- `C9300-48P-A <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9300-series-switches/datasheet-c78-738977.html>`_
+- `C9410R with SUP1 <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9400-series-switches/datasheet-c78-739053.html>`_
+- `C9500-48X-A <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9500-series-switches/datasheet-c78-738978.html>`_
+
+For access to the beta image and for solution support, please send an email to `cat9k-openflow-triage(mailer list) <cat9k-openflow-triage@cisco.com>`_.
+
+Setup
+-----
+
+Boot up in Openflow Mode
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Catalyst 9K will be in traditional switching mode by default.  The below command will enable Openflow mode on the switch.
+
+.. code-block:: console
+
+	Switch-C9300#
+	Switch-C9300#configure terminal
+	Switch-C9300(config)#boot mode ?
+	openflow  openflow forwarding mode
+
+	Switch-C9300(config)#boot mode openflow
+	Changes to the boot mode preferences have been stored,
+	but it cannot take effect until the next reload.
+	Use "show boot mode" to check the boot mode currently
+	active.
+	Switch-C9300(config)#end
+
+	Switch-C9300#show boot mode
+	System initialized in normal switching mode
+	System configured to boot in openflow forwarding mode
+
+	Reload required to boot switch in configured boot mode.
+
+	Switch-C9300#reload
+
+
+Configure Openflow
+^^^^^^^^^^^^^^^^^^
+
+** Configure the Management interface communicate with controller. **
+
+.. code-block:: console
+
+	Switch-C9300#
+	Switch-C9300#configure terminal
+	Switch-C9300(config)#interface GigabitEthernet0/0
+	Switch-C9300(config-if)#vrf forwarding Mgmt-vrf
+	Switch-C9300(config-if)#ip address 192.168.0.41 255.255.255.0
+	Switch-C9300(config-if)#negotiation auto
+	Switch-C9300(config-if)#end
+	Switch-C9300#
+
+** Configure the Openflow feature and controller connectivity **
+
+.. code-block::  console
+
+	Switch-C9300#
+	Switch-C9300#configure terminal
+	Switch-C9300(config)#feature openflow
+	Switch-C9300(config)#openflow
+	Switch-C9300(config-openflow)#switch 1 pipeline 1
+	Switch-C9300(config-openflow-switch)#controller ipv4 192.168.0.91 port 6334 vrf Mgmt-vrf security none
+	Switch-C9300(config-openflow-switch)#datapath-id 0xABCDEF1234
+	Switch-C9300(config-openflow-switch)#end
+	Switch-C9300#
+
+Faucet
+^^^^^^
+
+On the FAUCET configuration file (``/etc/faucet/faucet.yaml``), add the datapath of the switch you wish to be managed by FAUCET. The device type (hardware) should be set to ``CiscoC9K`` in the configuration file.
+
+.. code-block:: yaml
+
+  :caption: /etc/faucet/faucet.yaml
+  :name: cisco/faucet.yaml
+
+	dps:
+	    Cisco-C9K:
+	        dp_id: 0xABCDEF1234
+	        hardware: "CiscoC9K"
+	        interfaces:
+	            1:
+	                native_vlan: 100
+	                name: "port1"
+	            2:
+	                native_vlan: 100
+	                name: "port2"
+
+
+You will also need to install pipeline configuration files (these files instruct FAUCET to configure the switch with the right OpenFlow tables - these files and FAUCET's pipeline must match).
+
+.. code:: console
+
+       $ sudo cp etc/faucet/ofproto_to_ryu.json /etc/faucet
+       $ sudo cp etc/faucet/cisco_c9k_pipeline.json /etc/faucet
+
+Troubleshooting
+^^^^^^^^^^^^^^^
+
+Command to check overall openflow configuration
+
+.. code-block:: console
+
+	Switch-C9300#
+	Switch-C9300#show openflow switch 1
+	Logical Switch Context
+	  Id: 1
+	  Switch type: Forwarding
+	  Pipeline id: 1
+	  Data plane: secure
+	  Table-Miss default: drop
+	  Configured protocol version: Negotiate
+	  Config state: no-shutdown
+	  Working state: enabled
+	  Rate limit (packet per second): 0
+	  Burst limit: 0
+	  Max backoff (sec): 8
+	  Probe interval (sec): 5
+	  TLS local trustpoint name: not configured
+	  TLS remote trustpoint name: not configured
+	  Logging flow changes: Disabled
+	  Stats collect interval (sec): 5
+	  Stats collect Max flows: 9216
+	  Stats collect period (sec):  1
+	  Minimum flow idle timeout (sec):  10
+	  OFA Description:
+		 Manufacturer: Cisco Systems, Inc.
+		 Hardware: C9300-48P
+		 Software: Cisco IOS Software [Fuji], Catalyst L3 Switch Software (CAT9K_IOSXE), Version 16.8.1GO3, RELEASE SOFTWARE (fc1)| openvswitch 2.1
+		 Serial Num: FCW2145L0FP
+		 DP Description: Faucet-C9300:sw1
+	  OF Features:
+		 DPID: 0x000000ABCDEF1234
+		 Number of tables: 9
+		 Number of buffers: 256
+		 Capabilities: FLOW_STATS TABLE_STATS PORT_STATS
+	  Controllers:
+		 192.168.0.91:6334, Protocol: TCP, VRF: Mgmt-vrf
+	  Interfaces:
+		 GigabitEthernet1/0/1
+		 GigabitEthernet1/0/2
+		 ....
+
+Command to check the openflow flows installed
+
+.. code-block:: console
+
+    Switch-C9300#
+    Switch-C9300#show openflow switch 1 flow list
+	Logical Switch Id: 1
+	Total flows: 9
+
+	Flow: 1 Match: any Actions: drop, Priority: 0, Table: 0, Cookie: 0x0, Duration: 33812.029s, Packets: 46853, Bytes: 3636857
+	...
+
+Command to check the state of the port status
+
+.. code-block:: console
+
+    Switch-C9300#
+    Switch-C9300#show openflow switch 1 ports
+	Logical Switch Id: 1
+	Port    Interface Name   Config-State     Link-State  Features
+	   1           Gi1/0/1        PORT_UP        LINK_UP  1GB-HD
+	   2           Gi1/0/2        PORT_UP      LINK_DOWN  1GB-HD
+	   3           Gi1/0/3        PORT_UP      LINK_DOWN  1GB-HD
+	   4           Gi1/0/4        PORT_UP      LINK_DOWN  1GB-HD
+
+Command to check the status of the controller
+
+.. code-block:: console
+
+    Switch-C9300#
+    Switch-C9300#show openflow switch 1 controller
+    show openflow switch 1 controller
+	Logical Switch Id: 1
+	Total Controllers: 1
+
+	  Controller: 1
+		192.168.0.91:6334
+		Protocol: tcp
+		VRF: Mgmt-vrf
+		Connected: No
+		Role: Master
+		Negotiated Protocol Version: disconnected
+		Last Alive Ping: N/A
+		last_error: Unknown error 260
+		state: CONNECTING
+		sec_since_disconnect: 15
+
+Command to check controller statistics
+
+.. code-block:: console
+
+    Switch-C9300#show openflow switch 1 controller stats
+	Logical Switch Id: 1
+	Total Controllers: 1
+
+	  Controller: 1
+		address                         :  tcp:192.168.0.91:6334%Mgmt-vrf
+		connection attempts             :  2127
+		successful connection attempts  :  0
+		flow adds                       :  0
+		flow mods                       :  0
+		flow deletes                    :  0
+		flow removals                   :  0
+		flow errors                     :  0
+		flow unencodable errors         :  0
+		total errors                    :  0
+		echo requests                   :  rx: 0, tx:0
+		echo reply                      :  rx: 0, tx:0
+		flow stats                      :  rx: 0, tx:0
+		barrier                         :  rx: 0, tx:0
+		packet-in/packet-out            :  rx: 0, tx:0
+
+References
+^^^^^^^^^^
+
+- `Catalyst 9K at-a-glance <https://www.cisco.com/c/dam/en/us/products/collateral/switches/catalyst-9300-series-switches/nb-09-cat-9k-aag-cte-en.pdf>`_
+- `Catalyst 9400 SUP1 <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9400-series-switches/datasheet-c78-739055.html>`_
+- `Catalyst 9400 Linecard <https://www.cisco.com/c/en/us/products/collateral/switches/catalyst-9400-series-switches/datasheet-c78-739054.html>`_
