@@ -148,7 +148,7 @@ Running the tests
   modprobe openvswitch
   sudo docker run --privileged --net=host \
       -v /etc/faucet:/etc/faucet \
-      -v /tmp:/tmp \
+      -v /var/tmp:/var/tmp \
       -ti faucet/tests
 
 Running a single test including pytype, linting, and documentation
@@ -159,7 +159,7 @@ Running a single test including pytype, linting, and documentation
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="FaucetUntaggedTest" \
       -v /etc/faucet:/etc/faucet \
-      -v /tmp:/tmp \
+      -v /var/tmp:/var/tmp \
       -ti faucet/tests
 
 Running only the integration tests
@@ -171,9 +171,9 @@ in order to complete a faucet test suite run against hardware quicker.
 .. code:: console
 
   sudo docker run --privileged --net=host \
-      -e FAUCET_TESTS="-n" \
+      -e FAUCET_TESTS="-i" \
       -v /etc/faucet:/etc/faucet \
-      -v /tmp:/tmp \
+      -v /var/tmp:/var/tmp \
       -ti faucet/tests
 
 Running only a single integration test
@@ -188,7 +188,7 @@ the results.
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="-i -n -k FaucetUntaggedLLDPTest" \
       -v /etc/faucet:/etc/faucet \
-      -v /tmp:/tmp \
+      -v /var/tmp:/var/tmp \
       -ti faucet/tests
 
 Checking test results
