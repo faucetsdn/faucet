@@ -886,10 +886,40 @@ class Valve(object):
     def _get_tlvs_by_type(lldp_pkt, tlv_type):
         return [tlv for tlv in lldp_pkt.tlvs if tlv.tlv_type == tlv_type]
 
+    @staticmethod
+    def _tlvs_by_subtype(tlvs, subtype):
+        return [tlv for tlv in tlvs if tlv.subtype == subtype]
+
     def _get_faucet_tlvs(self, lldp_pkt):
         return [tlv for tlv in self._get_tlvs_by_type(
             lldp_pkt, valve_packet.lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC)
                 if tlv.oui == valve_packet.faucet_oui(self.dp.faucet_dp_mac)]
+
+    def _parse_faucet_lldp(self, lldp_pkt):
+        remote_dp_id = None
+        remote_dp_name = None
+        remote_port_id = None
+        remote_port_state = None
+
+        faucet_tlvs = self._get_faucet_tlvs(lldp_pkt)
+        if faucet_tlvs:
+            dp_id_tlvs = self._tlvs_by_subtype(
+                faucet_tlvs, valve_packet.LLDP_FAUCET_DP_ID)
+            dp_name_tlvs = self._get_tlvs_by_type(
+                lldp_pkt, valve_packet.lldp.LLDP_TLV_SYSTEM_NAME)
+            port_id_tlvs = self._get_tlvs_by_type(
+                lldp_pkt, valve_packet.lldp.LLDP_TLV_PORT_ID)
+            port_state_tlvs = self._tlvs_by_subtype(
+                faucet_tlvs, valve_packet.LLDP_FAUCET_STACK_STATE)
+            try:
+                remote_dp_id = int(dp_id_tlvs[0].info)
+                remote_dp_name = valve_util.utf8_decode(
+                    dp_name_tlvs[0].system_name)
+                remote_port_id = int(port_id_tlvs[0].port_id)
+                remote_port_state = int(port_state_tlvs[0].info)
+            except ValueError:
+                pass
+        return (remote_dp_id, remote_dp_name, remote_port_id, remote_port_state)
 
     def lldp_handler(self, now, pkt_meta):
         """Handle an LLDP packet.
@@ -904,44 +934,24 @@ class Valve(object):
         if not lldp_pkt:
             return
 
-        self.logger.info('LLDP from port %u: %s' % (
-            pkt_meta.port.number, lldp_pkt))
-        faucet_tlvs = self._get_faucet_tlvs(lldp_pkt)
-        port_id_tlvs = self._get_tlvs_by_type(
-            lldp_pkt, valve_packet.lldp.LLDP_TLV_PORT_ID)
-        dp_id_tlvs = [
-            tlv for tlv in faucet_tlvs if tlv.subtype == valve_packet.LLDP_FAUCET_DP_ID]
-        if not (port_id_tlvs and dp_id_tlvs):
-            return
-
-        remote_dp_id = int(dp_id_tlvs[0].info)
-        remote_port_id = int(port_id_tlvs[0].port_id)
-        self.logger.info('FAUCET LLDP from %s, port %u' % (
-            valve_util.dpid_log(remote_dp_id), remote_port_id))
         port = pkt_meta.port
-        if not port.stack:
+        (remote_dp_id, remote_dp_name,
+         remote_port_id, remote_port_state) = self._parse_faucet_lldp(lldp_pkt)
+
+        if remote_dp_id:
+            self.logger.info('FAUCET LLDP from %s (remote DP ID %s, remote port %u): %s' % (
+                pkt_meta.port, remote_dp_id, remote_port_id, str(lldp_pkt)))
+            if port.stack:
+                port.dyn_stack_probe_info = {
+                    'last_seen_lldp_time': now,
+                    'remote_dp_id': remote_dp_id,
+                    'remote_dp_name': remote_dp_name,
+                    'remote_port_id': remote_port_id,
+                    'remote_port_state': remote_port_state
+                }
             return
 
-        port_state_tlvs = [
-            tlv for tlv in faucet_tlvs
-            if tlv.subtype == valve_packet.LLDP_FAUCET_STACK_STATE]
-        if not port_state_tlvs:
-            return
-        try:
-            remote_port_state = int(port_state_tlvs[0].info)
-        except ValueError:
-            return
-        dp_name_tlvs = self._get_tlvs_by_type(
-            lldp_pkt, valve_packet.lldp.LLDP_TLV_SYSTEM_NAME)
-        if not dp_name_tlvs:
-            return
-        remote_dp_name = valve_util.utf8_decode(
-            dp_name_tlvs[0].system_name)
-        port.dyn_stack_probe_info['last_seen_lldp_time'] = now
-        port.dyn_stack_probe_info['remote_dp_id'] = remote_dp_id
-        port.dyn_stack_probe_info['remote_dp_name'] = remote_dp_name
-        port.dyn_stack_probe_info['remote_port_id'] = remote_port_id
-        port.dyn_stack_probe_info['remote_port_state'] = remote_port_state
+        self.logger.info('LLDP from %s: %s' % (pkt_meta.port, str(lldp_pkt)))
 
     @staticmethod
     def _control_plane_handler(now, pkt_meta, route_manager):
