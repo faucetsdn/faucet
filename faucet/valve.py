@@ -521,49 +521,51 @@ class Valve(object):
         ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
         return ofmsgs
 
-    def probe_stack_links(self, now):
-        """Called periodically to verify the state of stack ports."""
-        if not self.dp.stack:
+    def _update_stack_link_state(self, port, now):
+        if port.is_stack_admin_down():
             return
-        for port in self.dp.stack_ports:
-            if port.is_stack_admin_down():
-                continue
+        stack_probe_info = port.dyn_stack_probe_info
+        last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
+        if last_seen_lldp_time is None:
+            return
+        next_state = None
+        remote_dp = port.stack['dp']
+        stack_correct = stack_probe_info['stack_correct']
+        remote_port_state = stack_probe_info['remote_port_state']
+        send_interval = remote_dp.lldp_beacon['send_interval']
+        num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
+        if not stack_correct:
+            if not port.is_stack_down():
+                next_state = port.stack_down
+                self.logger.error('Stack %s DOWN, incorrect cabling')
+        elif num_lost_lldp > port.max_lldp_lost:
+            if not port.is_stack_down():
+                next_state = port.stack_down
+                self.logger.error(
+                    'Stack %s DOWN, too many (%u) packets lost' % (port, num_lost_lldp))
+        elif port.is_stack_down() and not port.is_stack_init():
+            next_state = port.stack_init
+            self.logger.info('Stack %s INIT' % port)
+        elif (port.is_stack_init() and
+              remote_port_state in set([STACK_STATE_UP, STACK_STATE_INIT])):
+            next_state = port.stack_up
+            self.logger.info('Stack %s UP' % port)
+        elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
             next_state = port.stack_down
-            remote_dp = port.stack['dp']
-            remote_port = port.stack['port']
-            stack_probe_info = port.dyn_stack_probe_info
-            last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
-            if last_seen_lldp_time is not None:
-                if (stack_probe_info['remote_dp_id'] != remote_dp.dp_id or
-                        stack_probe_info['remote_dp_name'] != remote_dp.name or
-                        stack_probe_info['remote_port_id'] != remote_port.number):
-                    self.logger.error(
-                        'Stack %s incorrect, expected %s:%u, actual %s:%u' % (
-                            port,
-                            valve_util.dpid_log(remote_dp.dp_id),
-                            remote_port.number,
-                            valve_util.dpid_log(stack_probe_info['remote_dp_id']),
-                            stack_probe_info['remote_port_id']))
-                else:
-                    remote_port_state = stack_probe_info.get('remote_port_state', None)
-                    send_interval = remote_dp.lldp_beacon['send_interval']
-                    num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
-                    if num_lost_lldp > port.max_lldp_lost:
-                        if not port.is_stack_down():
-                            self.logger.error(
-                                'Stack %s DOWN. Too many (%u) packets lost' % (port, num_lost_lldp))
-                    elif port.is_stack_down():
-                        next_state = port.stack_init
-                        self.logger.info('Stack %s INIT' % port)
-                    elif (port.is_stack_init() and
-                          remote_port_state in set([STACK_STATE_UP, STACK_STATE_INIT])):
-                        next_state = port.stack_up
-                        self.logger.info('Stack %s UP' % port)
-                    elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
-                        self.logger.error('Stack %s DOWN. Remote port is down' % port)
-            next_state()
-            port_stack_up = port.is_stack_up()
-            self.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+            self.logger.error('Stack %s DOWN, remote port is down' % port)
+        if next_state is None:
+            return
+        next_state()
+        port_labels = dict(self.base_prom_labels, port=port.number)
+        self.metrics.port_stack_state.labels( # pylint: disable=no-member
+            **port_labels).set(port.dyn_stack_current_state)
+        port_stack_up = port.is_stack_up()
+        self.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+
+    def update_stack_link_states(self, now):
+        """Called periodically to verify the state of stack ports."""
+        for port in self.dp.stack_ports:
+            self._update_stack_link_state(port, now)
 
     def datapath_connect(self, now, discovered_up_ports):
         """Handle Ryu datapath connection event and provision pipeline.
@@ -886,10 +888,40 @@ class Valve(object):
     def _get_tlvs_by_type(lldp_pkt, tlv_type):
         return [tlv for tlv in lldp_pkt.tlvs if tlv.tlv_type == tlv_type]
 
+    @staticmethod
+    def _tlvs_by_subtype(tlvs, subtype):
+        return [tlv for tlv in tlvs if tlv.subtype == subtype]
+
     def _get_faucet_tlvs(self, lldp_pkt):
         return [tlv for tlv in self._get_tlvs_by_type(
             lldp_pkt, valve_packet.lldp.LLDP_TLV_ORGANIZATIONALLY_SPECIFIC)
                 if tlv.oui == valve_packet.faucet_oui(self.dp.faucet_dp_mac)]
+
+    def _parse_faucet_lldp(self, lldp_pkt):
+        remote_dp_id = None
+        remote_dp_name = None
+        remote_port_id = None
+        remote_port_state = None
+
+        faucet_tlvs = self._get_faucet_tlvs(lldp_pkt)
+        if faucet_tlvs:
+            dp_id_tlvs = self._tlvs_by_subtype(
+                faucet_tlvs, valve_packet.LLDP_FAUCET_DP_ID)
+            dp_name_tlvs = self._get_tlvs_by_type(
+                lldp_pkt, valve_packet.lldp.LLDP_TLV_SYSTEM_NAME)
+            port_id_tlvs = self._get_tlvs_by_type(
+                lldp_pkt, valve_packet.lldp.LLDP_TLV_PORT_ID)
+            port_state_tlvs = self._tlvs_by_subtype(
+                faucet_tlvs, valve_packet.LLDP_FAUCET_STACK_STATE)
+            try:
+                remote_dp_id = int(dp_id_tlvs[0].info)
+                remote_dp_name = valve_util.utf8_decode(
+                    dp_name_tlvs[0].system_name)
+                remote_port_id = int(port_id_tlvs[0].port_id)
+                remote_port_state = int(port_state_tlvs[0].info)
+            except ValueError:
+                pass
+        return (remote_dp_id, remote_dp_name, remote_port_id, remote_port_state)
 
     def lldp_handler(self, now, pkt_meta):
         """Handle an LLDP packet.
@@ -904,44 +936,39 @@ class Valve(object):
         if not lldp_pkt:
             return
 
-        self.logger.info('LLDP from port %u: %s' % (
-            pkt_meta.port.number, lldp_pkt))
-        faucet_tlvs = self._get_faucet_tlvs(lldp_pkt)
-        port_id_tlvs = self._get_tlvs_by_type(
-            lldp_pkt, valve_packet.lldp.LLDP_TLV_PORT_ID)
-        dp_id_tlvs = [
-            tlv for tlv in faucet_tlvs if tlv.subtype == valve_packet.LLDP_FAUCET_DP_ID]
-        if not (port_id_tlvs and dp_id_tlvs):
-            return
-
-        remote_dp_id = int(dp_id_tlvs[0].info)
-        remote_port_id = int(port_id_tlvs[0].port_id)
-        self.logger.info('FAUCET LLDP from %s, port %u' % (
-            valve_util.dpid_log(remote_dp_id), remote_port_id))
         port = pkt_meta.port
-        if not port.stack:
-            return
+        (remote_dp_id, remote_dp_name,
+         remote_port_id, remote_port_state) = self._parse_faucet_lldp(lldp_pkt)
 
-        port_state_tlvs = [
-            tlv for tlv in faucet_tlvs
-            if tlv.subtype == valve_packet.LLDP_FAUCET_STACK_STATE]
-        if not port_state_tlvs:
-            return
-        try:
-            remote_port_state = int(port_state_tlvs[0].info)
-        except ValueError:
-            return
-        dp_name_tlvs = self._get_tlvs_by_type(
-            lldp_pkt, valve_packet.lldp.LLDP_TLV_SYSTEM_NAME)
-        if not dp_name_tlvs:
-            return
-        remote_dp_name = valve_util.utf8_decode(
-            dp_name_tlvs[0].system_name)
-        port.dyn_stack_probe_info['last_seen_lldp_time'] = now
-        port.dyn_stack_probe_info['remote_dp_id'] = remote_dp_id
-        port.dyn_stack_probe_info['remote_dp_name'] = remote_dp_name
-        port.dyn_stack_probe_info['remote_port_id'] = remote_port_id
-        port.dyn_stack_probe_info['remote_port_state'] = remote_port_state
+        if remote_dp_id and remote_port_id:
+            self.logger.info('FAUCET LLDP from %s (remote %s, port %u)' % (
+                pkt_meta.port, valve_util.dpid_log(remote_dp_id), remote_port_id))
+            if port.stack:
+                remote_dp = port.stack['dp']
+                remote_port = port.stack['port']
+                stack_correct = True
+                if (remote_dp_id != remote_dp.dp_id or
+                        remote_dp_name != remote_dp.name or
+                        remote_port_id != remote_port.number):
+                    self.logger.error(
+                        'Stack %s cabling incorrect, expected %s:%u, actual %s:%u' % (
+                            port,
+                            valve_util.dpid_log(remote_dp.dp_id),
+                            remote_port.number,
+                            valve_util.dpid_log(remote_dp_id),
+                            remote_port_id))
+                    stack_correct = False
+                port.dyn_stack_probe_info = {
+                    'last_seen_lldp_time': now,
+                    'stack_correct': stack_correct,
+                    'remote_dp_id': remote_dp_id,
+                    'remote_dp_name': remote_dp_name,
+                    'remote_port_id': remote_port_id,
+                    'remote_port_state': remote_port_state
+                }
+                self._update_stack_link_state(port, now)
+
+        self.logger.debug('LLDP from %s: %s' % (pkt_meta.port, str(lldp_pkt)))
 
     @staticmethod
     def _control_plane_handler(now, pkt_meta, route_manager):

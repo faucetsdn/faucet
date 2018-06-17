@@ -71,8 +71,8 @@ class EventFaucetLLDPAdvertise(event.EventBase):
     pass
 
 
-class EventFaucetStackProbe(event.EventBase):
-    """Event used to trigger periodic stack probes."""
+class EventFaucetStackLinkStates(event.EventBase):
+    """Event used to update link stack states."""
     pass
 
 
@@ -93,7 +93,7 @@ class Faucet(RyuAppBase):
         EventFaucetStateExpire: ('state_expire', 5),
         EventFaucetAdvertise: ('advertise', 5),
         EventFaucetLLDPAdvertise: ('send_lldp_beacons', 5),
-        EventFaucetStackProbe: ('probe_stack_links', 2),
+        EventFaucetStackLinkStates: ('update_stack_link_states', 2),
     }
     logname = 'faucet'
     exc_logname = logname + '.exception'
@@ -197,7 +197,7 @@ class Faucet(RyuAppBase):
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetLLDPAdvertise, MAIN_DISPATCHER)
-    @set_ev_cls(EventFaucetStackProbe, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetStackLinkStates, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _valve_flow_services(self, ryu_event):
         """Call a method on all Valves and send any resulting flows."""

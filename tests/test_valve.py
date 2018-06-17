@@ -1512,14 +1512,13 @@ vlans:
             'chassis_id': FAUCET_MAC,
             'system_name': other_dp.name,
             'org_tlvs': tlvs})
-        self.valve.probe_stack_links(time.time())
 
     def test_stack_probe(self):
         """Test probing works correctly."""
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        self.valve.probe_stack_links(time.time())
+        self.valve.update_stack_link_states(time.time())
         self.assertTrue(stack_port.is_stack_down())
         for change_func, check_func in [
                 ('stack_init', 'is_stack_init'),
@@ -1550,9 +1549,8 @@ vlans:
         other_port = other_dp.ports[1]
         self.rcv_lldp(other_dp, other_port)
         self.assertTrue(stack_port.is_stack_init())
-        self.valve.probe_stack_links(time.time() + 300) #just to simulate packet loss
+        self.valve.update_stack_link_states(time.time() + 300) # simulate packet loss
         self.assertTrue(stack_port.is_stack_down())
-
 
 
 class ValveGroupRoutingTestCase(ValveTestBases.ValveTestSmall):

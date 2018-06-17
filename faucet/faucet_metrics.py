@@ -110,6 +110,10 @@ class FaucetMetrics(PromClient):
             'port_status',
             'status of switch ports',
             self.REQUIRED_LABELS + ['port'])
+        self.port_stack_state = self._gauge(
+            'port_stack_state',
+            'state of stacking on a port',
+            self.REQUIRED_LABELS + ['port'])
         self.port_learn_bans = self._gauge(
             'port_learn_bans',
             'number of times learning was banned on a port',
