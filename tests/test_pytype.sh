@@ -6,7 +6,7 @@ PARARGS="parallel --delay 1 --bar"
 
 PY2=""
 PY3=""
-for i in `$FAUCETHOME/tests/src_files.sh` ; do
+for i in `$FAUCETHOME/tests/src_files.sh|shuf` ; do
   # mininet requires python2
   if grep -qn "import mininet" $i ; then
     PY2+="$i\n"
