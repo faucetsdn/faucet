@@ -729,6 +729,10 @@ configuration.
         """Return list of VLANs with BGP enabled."""
         return [vlan for vlan in list(self.vlans.values()) if vlan.bgp_as]
 
+    def dot1x_ports(self):
+        """Return list of ports with 802.1x enabled."""
+        return [port for port in list(self.ports.values()) if port.dot1x]
+
     def to_conf(self):
         """Return DP config as dict."""
         result = super(DP, self).to_conf()

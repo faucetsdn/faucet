@@ -693,6 +693,7 @@ class Valve(object):
         vlans_with_ports_added = set()
         eth_src_table = self.dp.tables['eth_src']
         vlan_table = self.dp.tables['vlan']
+        port_acl_table = self.dp.tables['port_acl']
 
         for port_num in port_nums:
             if port_num not in self.dp.ports:
@@ -1382,6 +1383,17 @@ class Valve(object):
         for faucet_vip in faucet_vips:
             ofmsgs.extend(route_manager.add_faucet_vip(vlan, faucet_vip))
         return ofmsgs
+
+    def add_authed_mac(self, port_num, mac):
+        """Add authed mac address"""
+        # TODO: track dynamic auth state.
+        ofmsg = self.dp.tables['port_acl'].flowmod(
+            self.dp.tables['port_acl'].match(
+                in_port=port_num,
+                eth_src=mac),
+            priority=self.dp.highest_priority,
+            inst=[valve_of.goto_table(self.dp.tables['vlan'])])
+        return [ofmsg]
 
     def add_route(self, vlan, ip_gw, ip_dst):
         """Add route to VLAN routing table."""
