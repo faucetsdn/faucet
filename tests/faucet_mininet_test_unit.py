@@ -219,10 +219,11 @@ class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
 
     def test_untagged(self):
         super(FaucetUntaggedControllerNfvTest, self).test_untagged()
-        # Confirm controller can see switch interface.
+        # Confirm controller can see switch interface with traffic.
+        ifconfig_output = self.net.controllers[0].cmd('ifconfig %s' % self.last_host_switch_intf)
         self.assertTrue(
-            re.search('(R|TX packets): [1-9]',
-                self.net.controllers[0].cmd('ifconfig %s' % self.last_host_switch_intf)))
+            re.search('(R|T)X packets:[1-9]', ifconfig_output),
+            msg=ifconfig_output)
 
 
 class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
