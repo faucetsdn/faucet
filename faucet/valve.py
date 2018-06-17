@@ -530,7 +530,6 @@ class Valve(object):
             return
         next_state = None
         remote_dp = port.stack['dp']
-        remote_port = port.stack['port']
         stack_correct = stack_probe_info['stack_correct']
         remote_port_state = stack_probe_info['remote_port_state']
         send_interval = remote_dp.lldp_beacon['send_interval']
@@ -538,7 +537,7 @@ class Valve(object):
         if not stack_correct:
             next_state = port.stack_down
             self.logger.error('Stack %s DOWN, incorrect cabling')
-        if num_lost_lldp > port.max_lldp_lost:
+        elif num_lost_lldp > port.max_lldp_lost:
             if not port.is_stack_down():
                 next_state = port.stack_down
                 self.logger.error(
@@ -547,7 +546,7 @@ class Valve(object):
             next_state = port.stack_init
             self.logger.info('Stack %s INIT' % port)
         elif (port.is_stack_init() and
-            remote_port_state in set([STACK_STATE_UP, STACK_STATE_INIT])):
+              remote_port_state in set([STACK_STATE_UP, STACK_STATE_INIT])):
             next_state = port.stack_up
             self.logger.info('Stack %s UP' % port)
         elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
@@ -556,6 +555,9 @@ class Valve(object):
         if next_state is None:
             return
         next_state()
+        port_labels = dict(self.base_prom_labels, port=port.number)
+        self.metrics.port_stack_state.labels( # pylint: disable=no-member
+            **port_labels).set(port.dyn_stack_current_state)
         port_stack_up = port.is_stack_up()
         self.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
 
