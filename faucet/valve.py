@@ -535,8 +535,9 @@ class Valve(object):
         send_interval = remote_dp.lldp_beacon['send_interval']
         num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
         if not stack_correct:
-            next_state = port.stack_down
-            self.logger.error('Stack %s DOWN, incorrect cabling')
+            if not port.is_stack_down():
+                next_state = port.stack_down
+                self.logger.error('Stack %s DOWN, incorrect cabling')
         elif num_lost_lldp > port.max_lldp_lost:
             if not port.is_stack_down():
                 next_state = port.stack_down
