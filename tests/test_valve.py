@@ -29,6 +29,9 @@ import shutil
 import socket
 import time
 
+from beka.route import RouteAddition, RouteRemoval
+from beka.ip import IPAddress, IPPrefix
+
 from ryu.controller import dpset
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
@@ -49,9 +52,6 @@ from faucet import valve_of
 from faucet import valve_packet
 from faucet import valve_util
 from faucet.valve import TfmValve
-
-from beka.route import RouteAddition, RouteRemoval
-from beka.ip import IPAddress, IPPrefix
 
 from fakeoftable import FakeOFTable
 

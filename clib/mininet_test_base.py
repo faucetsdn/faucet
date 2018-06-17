@@ -11,7 +11,6 @@ import copy
 import glob
 import ipaddress
 import json
-import netifaces
 import os
 import random
 import re
@@ -23,7 +22,6 @@ import unittest2
 import yaml
 
 import requests
-
 from requests.exceptions import ConnectionError, ReadTimeout
 
 # pylint: disable=import-error
@@ -33,6 +31,8 @@ from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
+
+import netifaces
 
 import mininet_test_util
 import mininet_test_topo
@@ -380,7 +380,6 @@ class FaucetTestBase(unittest2.TestCase):
             self._allocate_config_ports()
             self._allocate_faucet_ports()
             self._set_vars()
-            self._write_faucet_config()
             for log in glob.glob(os.path.join(self.tmpdir, '*.log')):
                 os.remove(log)
             self.net = Mininet(
@@ -409,6 +408,7 @@ class FaucetTestBase(unittest2.TestCase):
                     ca_certs=self.ca_certs,
                     port=self.gauge_of_port)
                 self.net.addController(self.gauge_controller)
+            self._write_faucet_config()
             self.net.start()
             self._wait_load()
             last_error_txt = self._start_check()
@@ -971,7 +971,7 @@ dbs:
                 prom_var = prom_line_match.group(1)
                 value = prom_line_match.group(2)
                 if var_re.match(prom_var):
-                    value_int = long(float(value)) # pytype: disable=name-error 
+                    value_int = long(float(value)) # pytype: disable=name-error
                     results.append((var, value_int))
                     if not multiple:
                         break

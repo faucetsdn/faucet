@@ -204,6 +204,28 @@ class FaucetUntaggedNoCombinatorialFlood(FaucetUntaggedTest):
 """
 
 
+class FaucetUntaggedControllerNfvTest(FaucetUntaggedTest):
+
+    # Name of switch interface connected to last host, accessible to controller.
+    last_host_switch_intf = None
+
+    def _write_faucet_config(self):
+        last_host = self.net.hosts[-1]
+        switch = self.net.switches[0]
+        last_host_switch_link = switch.connectionsTo(last_host)[0]
+        self.last_host_switch_intf = [intf for intf in last_host_switch_link if intf in switch.intfList()][0]
+        # Now that interface is known, FAUCET config can be written to include it.
+        super(FaucetUntaggedControllerNfvTest, self)._write_faucet_config()
+
+    def test_untagged(self):
+        super(FaucetUntaggedControllerNfvTest, self).test_untagged()
+        # Confirm controller can see switch interface with traffic.
+        ifconfig_output = self.net.controllers[0].cmd('ifconfig %s' % self.last_host_switch_intf)
+        self.assertTrue(
+            re.search('(R|T)X packets:[1-9]', ifconfig_output),
+            msg=ifconfig_output)
+
+
 class FaucetUntaggedBroadcastTest(FaucetUntaggedTest):
 
     UNICAST_MAC1 = '0e:00:00:00:00:02'
