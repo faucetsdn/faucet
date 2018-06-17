@@ -521,49 +521,48 @@ class Valve(object):
         ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
         return ofmsgs
 
-    def probe_stack_links(self, now):
-        """Called periodically to verify the state of stack ports."""
-        if not self.dp.stack:
+    def _update_stack_link_state(self, port, now):
+        if port.is_stack_admin_down():
             return
-        for port in self.dp.stack_ports:
-            if port.is_stack_admin_down():
-                continue
+        stack_probe_info = port.dyn_stack_probe_info
+        last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
+        if last_seen_lldp_time is None:
+            return
+        next_state = None
+        remote_dp = port.stack['dp']
+        remote_port = port.stack['port']
+        stack_correct = stack_probe_info['stack_correct']
+        remote_port_state = stack_probe_info['remote_port_state']
+        send_interval = remote_dp.lldp_beacon['send_interval']
+        num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
+        if not stack_correct:
             next_state = port.stack_down
-            remote_dp = port.stack['dp']
-            remote_port = port.stack['port']
-            stack_probe_info = port.dyn_stack_probe_info
-            last_seen_lldp_time = stack_probe_info.get('last_seen_lldp_time', None)
-            if last_seen_lldp_time is not None:
-                if (stack_probe_info['remote_dp_id'] != remote_dp.dp_id or
-                        stack_probe_info['remote_dp_name'] != remote_dp.name or
-                        stack_probe_info['remote_port_id'] != remote_port.number):
-                    self.logger.error(
-                        'Stack %s incorrect, expected %s:%u, actual %s:%u' % (
-                            port,
-                            valve_util.dpid_log(remote_dp.dp_id),
-                            remote_port.number,
-                            valve_util.dpid_log(stack_probe_info['remote_dp_id']),
-                            stack_probe_info['remote_port_id']))
-                else:
-                    remote_port_state = stack_probe_info.get('remote_port_state', None)
-                    send_interval = remote_dp.lldp_beacon['send_interval']
-                    num_lost_lldp = round((now - last_seen_lldp_time) / send_interval)
-                    if num_lost_lldp > port.max_lldp_lost:
-                        if not port.is_stack_down():
-                            self.logger.error(
-                                'Stack %s DOWN. Too many (%u) packets lost' % (port, num_lost_lldp))
-                    elif port.is_stack_down():
-                        next_state = port.stack_init
-                        self.logger.info('Stack %s INIT' % port)
-                    elif (port.is_stack_init() and
-                          remote_port_state in set([STACK_STATE_UP, STACK_STATE_INIT])):
-                        next_state = port.stack_up
-                        self.logger.info('Stack %s UP' % port)
-                    elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
-                        self.logger.error('Stack %s DOWN. Remote port is down' % port)
-            next_state()
-            port_stack_up = port.is_stack_up()
-            self.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+            self.logger.error('Stack %s DOWN, incorrect cabling')
+        if num_lost_lldp > port.max_lldp_lost:
+            if not port.is_stack_down():
+                next_state = port.stack_down
+                self.logger.error(
+                    'Stack %s DOWN, too many (%u) packets lost' % (port, num_lost_lldp))
+        elif port.is_stack_down() and not port.is_stack_init():
+            next_state = port.stack_init
+            self.logger.info('Stack %s INIT' % port)
+        elif (port.is_stack_init() and
+            remote_port_state in set([STACK_STATE_UP, STACK_STATE_INIT])):
+            next_state = port.stack_up
+            self.logger.info('Stack %s UP' % port)
+        elif port.is_stack_up() and remote_port_state == STACK_STATE_DOWN:
+            next_state = port.stack_down
+            self.logger.error('Stack %s DOWN, remote port is down' % port)
+        if next_state is None:
+            return
+        next_state()
+        port_stack_up = port.is_stack_up()
+        self.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+
+    def update_stack_link_states(self, now):
+        """Called periodically to verify the state of stack ports."""
+        for port in self.dp.stack_ports:
+            self._update_stack_link_state(port, now)
 
     def datapath_connect(self, now, discovered_up_ports):
         """Handle Ryu datapath connection event and provision pipeline.
@@ -938,20 +937,35 @@ class Valve(object):
         (remote_dp_id, remote_dp_name,
          remote_port_id, remote_port_state) = self._parse_faucet_lldp(lldp_pkt)
 
-        if remote_dp_id:
-            self.logger.info('FAUCET LLDP from %s (remote DP ID %s, remote port %u): %s' % (
-                pkt_meta.port, remote_dp_id, remote_port_id, str(lldp_pkt)))
+        if remote_dp_id and remote_port_id:
+            self.logger.info('FAUCET LLDP from %s (remote %s, port %u)' % (
+                pkt_meta.port, valve_util.dpid_log(remote_dp_id), remote_port_id))
             if port.stack:
+                remote_dp = port.stack['dp']
+                remote_port = port.stack['port']
+                stack_correct = True
+                if (remote_dp_id != remote_dp.dp_id or
+                        remote_dp_name != remote_dp.name or
+                        remote_port_id != remote_port.number):
+                    self.logger.error(
+                        'Stack %s cabling incorrect, expected %s:%u, actual %s:%u' % (
+                            port,
+                            valve_util.dpid_log(remote_dp.dp_id),
+                            remote_port.number,
+                            valve_util.dpid_log(remote_dp_id),
+                            remote_port_id))
+                    stack_correct = False
                 port.dyn_stack_probe_info = {
                     'last_seen_lldp_time': now,
+                    'stack_correct': stack_correct,
                     'remote_dp_id': remote_dp_id,
                     'remote_dp_name': remote_dp_name,
                     'remote_port_id': remote_port_id,
                     'remote_port_state': remote_port_state
                 }
-            return
+                self._update_stack_link_state(port, now)
 
-        self.logger.info('LLDP from %s: %s' % (pkt_meta.port, str(lldp_pkt)))
+        self.logger.debug('LLDP from %s: %s' % (pkt_meta.port, str(lldp_pkt)))
 
     @staticmethod
     def _control_plane_handler(now, pkt_meta, route_manager):
