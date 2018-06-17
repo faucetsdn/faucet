@@ -16,10 +16,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import namedtuple, defaultdict
 import copy
 import netaddr
 
-from collections import namedtuple, defaultdict
 from datadiff import diff
 from netaddr.core import AddrFormatError
 import networkx
@@ -536,7 +536,7 @@ configuration.
                     'meter %s is not configured' % meter_name))
                 return action_conf
 
-            def resolve_mirror(acl, action_conf):
+            def resolve_mirror(_acl, action_conf):
                 port_name = action_conf
                 port = resolve_port(port_name)
                 # If this DP does not have this port, do nothing.

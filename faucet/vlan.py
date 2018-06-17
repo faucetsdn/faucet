@@ -248,8 +248,8 @@ class VLAN(Conf):
                         raise InvalidConfigError('Invalid IP address in route: %s' % err)
                     test_config_condition(ip_gw.version != ip_dst.version, 'ip_gw version does not match the ip_dst version')
                     self.add_route(ip_dst, ip_gw)
-            except KeyError as e:
-                raise InvalidConfigError('missing route config %s' % e)
+            except KeyError as err:
+                raise InvalidConfigError('missing route config %s' % err)
             except TypeError:
                 raise InvalidConfigError('%s is not a valid routes value' % self.routes)
         test_config_condition(self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')

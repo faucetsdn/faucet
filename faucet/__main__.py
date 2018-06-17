@@ -80,10 +80,14 @@ def parse_args(sys_args):
 
     for ryu_arg in RYU_OPTIONAL_ARGS:
         if len(ryu_arg) >= 3:
-            args.add_argument('--ryu-%s' % ryu_arg[0],
-                help=ryu_arg[1], default=ryu_arg[2])
+            args.add_argument(
+                '--ryu-%s' % ryu_arg[0],
+                help=ryu_arg[1],
+                default=ryu_arg[2])
         else:
-            args.add_argument('--ryu-%s' % ryu_arg[0], help=ryu_arg[1])
+            args.add_argument(
+                '--ryu-%s' % ryu_arg[0],
+                help=ryu_arg[1])
 
     return args.parse_args(sys_args)
 

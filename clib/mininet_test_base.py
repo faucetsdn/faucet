@@ -11,7 +11,6 @@ import copy
 import glob
 import ipaddress
 import json
-import netifaces
 import os
 import random
 import re
@@ -23,7 +22,6 @@ import unittest2
 import yaml
 
 import requests
-
 from requests.exceptions import ConnectionError, ReadTimeout
 
 # pylint: disable=import-error
@@ -33,6 +31,8 @@ from mininet.log import error, output
 from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
+
+import netifaces
 
 import mininet_test_util
 import mininet_test_topo
@@ -971,7 +971,7 @@ dbs:
                 prom_var = prom_line_match.group(1)
                 value = prom_line_match.group(2)
                 if var_re.match(prom_var):
-                    value_int = long(float(value)) # pytype: disable=name-error 
+                    value_int = long(float(value)) # pytype: disable=name-error
                     results.append((var, value_int))
                     if not multiple:
                         break
