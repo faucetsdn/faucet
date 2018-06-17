@@ -380,7 +380,6 @@ class FaucetTestBase(unittest2.TestCase):
             self._allocate_config_ports()
             self._allocate_faucet_ports()
             self._set_vars()
-            self._write_faucet_config()
             for log in glob.glob(os.path.join(self.tmpdir, '*.log')):
                 os.remove(log)
             self.net = Mininet(
@@ -409,6 +408,7 @@ class FaucetTestBase(unittest2.TestCase):
                     ca_certs=self.ca_certs,
                     port=self.gauge_of_port)
                 self.net.addController(self.gauge_controller)
+            self._write_faucet_config()
             self.net.start()
             self._wait_load()
             last_error_txt = self._start_check()
