@@ -1454,22 +1454,27 @@ dbs:
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
-    def verify_lldp_blocked(self):
+    def verify_lldp_blocked(self, hosts=None):
         first_host, second_host = self.net.hosts[0:2]
         lldp_filter = 'ether proto 0x88cc'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
-        send_lldp = '%s -L -o %s' % (
-            mininet_test_util.timeout_cmd(self.LADVD, 30),
-            second_host.defaultIntf())
-        tcpdump_txt = self.tcpdump_helper(
-            first_host, lldp_filter,
-            [lambda: second_host.cmd(ladvd_mkdir),
-             lambda: second_host.cmd(send_lldp),
-             lambda: second_host.cmd(send_lldp),
-             lambda: second_host.cmd(send_lldp)],
-            timeout=20, packets=5)
-        if re.search(second_host.MAC(), tcpdump_txt):
-            return False
+        if hosts is None:
+            hosts = self.net.hosts
+        first_host = hosts[0]
+        other_hosts = hosts[1:]
+        for other_host in other_hosts:
+            send_lldp = '%s -L -o %s' % (
+                mininet_test_util.timeout_cmd(self.LADVD, 30),
+                other_host.defaultIntf())
+            tcpdump_txt = self.tcpdump_helper(
+                first_host, lldp_filter,
+                [lambda: other_host.cmd(ladvd_mkdir),
+                 lambda: other_host.cmd(send_lldp),
+                 lambda: other_host.cmd(send_lldp),
+                 lambda: other_host.cmd(send_lldp)],
+                timeout=20, packets=5)
+            if re.search(other_host.MAC(), tcpdump_txt):
+                return False
         return True
 
     def is_cdp_blocked(self):

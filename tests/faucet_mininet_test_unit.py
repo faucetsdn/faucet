@@ -1250,6 +1250,10 @@ class FaucetUntaggedLLDPBlockedTest(FaucetUntaggedTest):
     def test_untagged(self):
         self.ping_all_when_learned()
         self.assertTrue(self.verify_lldp_blocked())
+        # Verify 802.1x flood block triggered.
+        self.wait_nonzero_packet_count_flow(
+            {u'dl_dst': u'01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
+            table_id=self._FLOOD_TABLE)
 
 
 class FaucetUntaggedCDPTest(FaucetUntaggedTest):
@@ -5401,7 +5405,26 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
     def test_untagged(self):
         """All untagged hosts in stack topology can reach each other."""
-        self.retry_net_ping()
+        lldp_cap_files = []
+        for host in self.net.hosts:
+            lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
+            lldp_cap_files.append(lldp_cap_file)
+            host.cmd(mininet_test_util.timeout_cmd(
+                'tcpdump -U -n -c 1 -i %s -w %s ether proto 0x88CC &' % (
+                    host.defaultIntf(), lldp_cap_file), 60))
+        for _ in range(3):
+            self.retry_net_ping()
+        # hosts should see no LLDP probes
+        for lldp_cap_file in lldp_cap_files:
+            self.quiet_commands(
+                self.net.controllers[0],
+                ['tcpdump -n -r %s 2> /dev/null' % lldp_cap_file])
+        # should not flood LLDP from hosts
+        self.verify_lldp_blocked(self.net.hosts)
+        # Verify 802.1x flood block triggered.
+        self.wait_nonzero_packet_count_flow(
+            {u'dl_dst': u'01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
+            table_id=self._FLOOD_TABLE)
 
 
 class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
