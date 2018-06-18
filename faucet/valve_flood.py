@@ -365,8 +365,7 @@ class ValveFloodStackManager(ValveFloodManager):
                 self.eth_src_table.match(
                     in_port=port.number,
                     vlan=vlan,
-                    eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
-                    eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
+                    eth_dst=valve_packet.LLDP_MAC_NEAREST_BRIDGE),
                priority=self.bypass_priority+1))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst:
