@@ -95,7 +95,7 @@ DEFAULTS = {
 
 
 def _cast_bool(value):
-    "Return True if value is a non-zero int."
+    """Return True if value is a non-zero int."""
     try:
         return int(value) != 0
     except ValueError:

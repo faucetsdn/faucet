@@ -150,6 +150,84 @@ vlans:
         self.verify_events_log(event_log)
 
 
+class FaucetUntagged8021XTest(FaucetUntaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+    100:
+        description: "untagged"
+
+acls:
+    eapol_nfv:
+        - rule:
+            dl_type: 0x888e
+            actions:
+                output:
+                    set_fields:
+                        - eth_dst: 00:00:00:00:00:01
+                    port: %(port_4)d
+        - rule:
+            actions:
+                allow: 0
+    eapol_host_1:
+        - rule:
+            dl_type: 0x888e
+            eth_dst: 00:00:00:00:00:01
+            actions:
+                output:
+                    set_fields:
+                        - eth_dst: 01:80:c2:00:00:03
+                    port: %(port_1)d
+        - rule:
+            actions:
+                allow: 0
+"""
+
+    CONFIG = """
+        arp_neighbor_timeout: 2
+        max_resolve_backoff_time: 1
+        dot1x:
+            nfv_intf: NFV_INTF
+        interfaces:
+            %(port_1)d:
+                native_vlan: 100
+                description: "b1 - 802.1x client."
+                acl_in: eapol_nfv
+                dot1x: True
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "NFV host - interface used by controller."
+"""
+
+    eapol_host = None
+    nfv_host = None
+    nfv_intf = None
+
+    def _write_faucet_config(self):
+        self.eapol_host = self.net.hosts[0]
+        self.nfv_host = self.net.hosts[-1]
+        switch = self.net.switches[0]
+        last_host_switch_link = switch.connectionsTo(self.nfv_host)[0]
+        self.nfv_intf = str([
+            intf for intf in last_host_switch_link if intf in switch.intfList()][0])
+        self.CONFIG = self.CONFIG.replace('NFV_INTF', self.nfv_intf)
+        super(FaucetUntagged8021XTest, self)._write_faucet_config()
+
+    def setUp(self):
+        super(FaucetUntagged8021XTest, self).setUp()
+        self.host_drop_all_ips(self.nfv_host)
+
+    def test_untagged(self):
+        return
+
+
+
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
 
     STAT_RELOAD = '1'

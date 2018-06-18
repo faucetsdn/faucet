@@ -27,10 +27,9 @@ from chewie.mac_address import MacAddress # pylint: disable=wrong-import-positio
 
 
 class FaucetDot1x(object):
-    """Wrapper for Ryu BGP speaker."""
+    """Wrapper for experimental Chewie 802.1x authenticator."""
 
-    INTERFACE = 'lo'
-    PORT_NUM = 1
+    # TODO: support other credentials.
     CREDENTIALS = {
         'gary': 'microphone',
     }
@@ -39,12 +38,14 @@ class FaucetDot1x(object):
         self.logger = logger
         self.metrics = metrics
         self._send_flow_msgs = send_flow_msgs
-        self.dot1x_speaker = None
         self._valve = None
+        self.dot1x_speaker = None
+        self.dot1x_intf = None
+        self.dot1x_port = None
 
     def _create_dot1x_speaker(self):
         chewie = Chewie(
-            self.INTERFACE, self.CREDENTIALS,
+            self.dot1x_intf, self.CREDENTIALS,
             self.logger, self.auth_handler,
             MacAddress.from_string('00:00:00:00:00:01'))
         hub.spawn(chewie.run)
@@ -52,18 +53,22 @@ class FaucetDot1x(object):
 
     def auth_handler(self, address, _group_address):
         """Callback for when a successful auth happens."""
-
         self.logger.info(
-            'Successful auth from MAC %s on port %u' % (str(address), self.PORT_NUM))
-        flowmods = self._valve.add_authed_mac(self.PORT_NUM, str(address))
+            'Successful auth from MAC %s on port %u' % (
+                str(address), self.dot1x_port.number))
+        flowmods = self._valve.add_authed_mac(
+            self.dot1x_port.number, str(address))
         if flowmods:
             self._send_flow_msgs(self._valve, flowmods)
 
     def reset(self, valves):
         """Set up a dot1x speaker."""
-        if len(valves) > 1:
-            self.logger.warning('Dot1x only supports 1 Valve.')
-        if valves:
-            self._valve = list(valves.values())[0]
-            if self._valve.dp.dot1x_ports():
-                self.dot1x_speaker = self._create_dot1x_speaker()
+        # TODO: support multiple Valves and ports.
+        if self.dot1x_speaker is None:
+            for valve in list(valves.values()):
+                if valve.dp.dot1x and valve.dp.dot1x_ports():
+                    self._valve = valve
+                    self.dot1x_intf = self._valve.dp.dot1x['nfv_intf']
+                    self.dot1x_port = self._valve.dp.dot1x_ports()[0]
+                    self.dot1x_speaker = self._create_dot1x_speaker()
+                    break
