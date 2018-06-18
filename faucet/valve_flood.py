@@ -360,6 +360,14 @@ class ValveFloodStackManager(ValveFloodManager):
         ofmsgs = self._build_multiout_flood_rules(vlan, command)
         # Because stacking uses reflected broadcasts from the root,
         # don't try to learn broadcast sources from stacking ports.
+        for port in self.stack_ports:
+            ofmsgs.append(self.eth_src_table.flowdrop(
+                self.eth_src_table.match(
+                    in_port=port.number,
+                    vlan=vlan,
+                    eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
+                    eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
+               priority=self.bypass_priority+1))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst:
                 continue
