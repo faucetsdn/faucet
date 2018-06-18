@@ -5138,7 +5138,8 @@ class FaucetStringOfDPTest(FaucetTest):
             acls = {}
         if acl_in_dp is None:
             acl_in_dp = {}
-        self.dpids = [self.dpid] + [str(self.rand_dpid()) for _ in range(n_dps-1)]
+        self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
+        self.dpids[0] = self.dpid
         self.topo = mininet_test_topo.FaucetStringOfDPSwitchTopo(
             self.OVS_TYPE,
             self.ports_sock,
