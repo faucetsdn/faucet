@@ -86,6 +86,7 @@ configuration.
     combinatorial_port_flood = None
     lacp_timeout = None
     dp_acls = None
+    dot1x = None
 
     dyn_last_coldstart_time = None
     dyn_up_ports = set() # type: ignore
@@ -165,6 +166,8 @@ configuration.
         # Number of seconds without a LACP message when we consider a LACP group down.
         'dp_acls': None,
         # List of dataplane ACLs (overriding per port ACLs).
+        'dot1x': None,
+        # Experimental dot1x configuration.
         }
 
     defaults_types = {
@@ -206,6 +209,7 @@ configuration.
         'faucet_dp_mac': str,
         'combinatorial_port_flood': bool,
         'dp_acls': list,
+        'dot1x': dict,
     }
 
     stack_defaults_types = {
@@ -216,6 +220,10 @@ configuration.
         'send_interval': int,
         'max_per_interval': int,
         'system_name': str,
+    }
+
+    dot1x_defaults_types = {
+        'nfv_intf': str,
     }
 
     wildcard_table = ValveTable(
@@ -262,6 +270,8 @@ configuration.
                 self.lldp_beacon['system_name'] = self.name
         if self.stack:
             self._check_conf_types(self.stack, self.stack_defaults_types)
+        if self.dot1x:
+            self._check_conf_types(self.dot1x, self.dot1x_defaults_types)
 
     def _configure_tables(self):
         """Configure FAUCET pipeline of tables with matches."""
@@ -728,6 +738,10 @@ configuration.
     def bgp_vlans(self):
         """Return list of VLANs with BGP enabled."""
         return [vlan for vlan in list(self.vlans.values()) if vlan.bgp_as]
+
+    def dot1x_ports(self):
+        """Return list of ports with 802.1x enabled."""
+        return [port for port in list(self.ports.values()) if port.dot1x]
 
     def to_conf(self):
         """Return DP config as dict."""

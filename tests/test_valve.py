@@ -29,9 +29,6 @@ import shutil
 import socket
 import time
 
-from beka.route import RouteAddition, RouteRemoval
-from beka.ip import IPAddress, IPPrefix
-
 from ryu.controller import dpset
 from ryu.controller.ofp_event import EventOFPMsgBase
 from ryu.lib import mac
@@ -42,8 +39,12 @@ from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from prometheus_client import CollectorRegistry
 
+from beka.route import RouteAddition, RouteRemoval
+from beka.ip import IPAddress, IPPrefix
+
 from faucet import faucet
 from faucet import faucet_bgp
+from faucet import faucet_dot1x
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_metrics
@@ -355,9 +356,11 @@ class ValveTestBases:
             self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
                 self.faucet_event_sock, self.metrics, self.logger)
             self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self.send_flows_to_dp_by_id)
+            self.dot1x = faucet_dot1x.FaucetDot1x(
+                self.logger, self.metrics, self.send_flows_to_dp_by_id)
             self.valves_manager = valves_manager.ValvesManager(
                 self.LOGNAME, self.logger, self.metrics, self.notifier,
-                self.bgp, self.send_flows_to_dp_by_id)
+                self.bgp, self.dot1x, self.send_flows_to_dp_by_id)
             self.last_flows_to_dp[self.DP_ID] = []
             self.notifier.start()
             self.update_config(config)
@@ -1502,6 +1505,7 @@ vlans:
         self.setup_valve(self.CONFIG)
 
     def rcv_lldp(self, other_dp, other_port):
+        """Receive an LLDP packet"""
         tlvs = []
         tlvs.extend(valve_packet.faucet_lldp_tlvs(other_dp))
         tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(other_dp, other_port))
@@ -1544,6 +1548,7 @@ vlans:
             self.assertTrue(stack_port.is_stack_down())
 
     def test_stack_lost_lldp(self):
+        """Test stacking when LLDP packets get dropped"""
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]

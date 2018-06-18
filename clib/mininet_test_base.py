@@ -1692,23 +1692,23 @@ dbs:
             ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)
         self.quiet_commands(host, (add_cmd,))
 
-    def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned):
+    def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned, expected_result=True):
         if require_host_learned:
             self.require_host_learned(host)
         for _ in range(retries):
             ping_result = host.cmd(ping_cmd)
             if re.search(self.ONE_GOOD_PING, ping_result):
-                return
+                break
         self.assertTrue(
-            re.search(self.ONE_GOOD_PING, ping_result),
+            bool(re.search(self.ONE_GOOD_PING, ping_result)) ^ (not expected_result),
             msg='%s: %s' % (ping_cmd, ping_result))
 
-    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None):
+    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None, expected_result=True):
         """Ping an IPv4 destination from a host."""
         if intf is None:
             intf = host.defaultIntf()
         ping_cmd = 'ping -c1 -I%s %s' % (intf, dst)
-        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned)
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned, expected_result)
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
@@ -1918,6 +1918,28 @@ dbs:
                 return
             time.sleep(1)
         self.fail('exabgp did not send BGP updates')
+
+    def start_wpasupplicant(self, host, wpasupplicant_conf, timeout=10, log_prefix=''):
+        """Start wpasupplicant process on Mininet host."""
+        wpasupplicant_conf_file_name = os.path.join(
+            self.tmpdir, '%swpasupplicant.conf' % log_prefix)
+        wpasupplicant_log = os.path.join(
+            self.tmpdir, '%swpasupplicant.log' % log_prefix)
+        with open(wpasupplicant_conf_file_name, 'w') as wpasupplicant_conf_file:
+            wpasupplicant_conf_file.write(wpasupplicant_conf)
+        wpasupplicant_cmd = mininet_test_util.timeout_cmd(
+            'wpa_supplicant -dd -t -c %s -i %s -D wired -f %s &' % (
+                wpasupplicant_conf_file_name, host.defaultIntf(), wpasupplicant_log),
+            timeout * 3)
+        host.cmd(wpasupplicant_cmd)
+        for _ in range(timeout):
+            if os.path.exists(wpasupplicant_log):
+                break
+            time.sleep(1)
+        self.assertTrue(
+            os.path.exists(wpasupplicant_log),
+            msg='wpasupplicant (%s) did not start' % wpasupplicant_cmd)
+        return wpasupplicant_log
 
     def ping_all_when_learned(self, retries=3, hard_timeout=1):
         """Verify all hosts can ping each other once FAUCET has learned all."""

@@ -61,7 +61,7 @@ class ValvesManager(object):
     valves = {} # type: dict
 
     def __init__(self, logname, logger, metrics, notifier, bgp,
-                 send_flows_to_dp_by_id):
+                 dot1x, send_flows_to_dp_by_id):
         """Initialize ValvesManager.
 
         Args:
@@ -77,6 +77,7 @@ class ValvesManager(object):
         self.metrics = metrics
         self.notifier = notifier
         self.bgp = bgp
+        self.dot1x = dot1x
         self.send_flows_to_dp_by_id = send_flows_to_dp_by_id
         self.config_watcher = ConfigWatcher()
 
@@ -128,6 +129,7 @@ class ValvesManager(object):
                     delete_dp(deleted_dp)
                     del self.valves[deleted_dp]
             self.bgp.reset(self.valves)
+            self.dot1x.reset(self.valves)
 
     def request_reload_configs(self, now, new_config_file, delete_dp=None):
         """Process a request to load config changes."""

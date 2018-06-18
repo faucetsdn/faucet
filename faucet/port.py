@@ -100,6 +100,8 @@ class Port(Conf):
         # If set, packets are sent to this other port.
         'max_lldp_lost': 3,
         # threshold before marking a stack port as down
+        'dot1x': False,
+        # If true, block this port until a successful 802.1x auth
     }
 
     defaults_types = {
@@ -124,6 +126,7 @@ class Port(Conf):
         'opstatus_reconf': bool,
         'receive_lldp': bool,
         'override_output_port': (str, int),
+        'dot1x': bool,
     }
 
     stack_defaults_types = {
