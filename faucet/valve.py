@@ -479,15 +479,14 @@ class Valve(object):
             for tlv in lldp_beacon['org_tlvs']]
         org_tlvs.extend(valve_packet.faucet_lldp_tlvs(self.dp))
         org_tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(self.dp, port))
-        # if the port doesn't have a system name set, default to
-        # using the system name from the dp
-        if lldp_beacon['system_name'] is None:
-            lldp_beacon['system_name'] = self.dp.lldp_beacon['system_name']
+        system_name = lldp_beacon['system_name']
+        if not system_name:
+            system_name = self.dp.lldp_beacon['system_name']
         lldp_beacon_pkt = valve_packet.lldp_beacon(
             self.dp.faucet_dp_mac,
             chassis_id, port.number, ttl,
             org_tlvs=org_tlvs,
-            system_name=lldp_beacon['system_name'],
+            system_name=system_name,
             port_descr=lldp_beacon['port_descr'])
         port.dyn_last_lldp_beacon_time = now
         return valve_of.packetout(port.number, lldp_beacon_pkt.data)

@@ -325,12 +325,15 @@ def filter_test_hardware(test_obj, hw_config):
     test_links = test_hosts * test_obj.LINKS_PER_HOST
     if hw_config is not None:
         test_hardware = hw_config['hardware']
-        if test_obj.NUM_DPS != 1:
-            return False
-        if test_links < REQUIRED_TEST_PORTS:
-            if test_hardware == 'ZodiacFX':
-                return True
-            return False
+        if test_obj.NUM_DPS > 1:
+            # TODO: test other stacking combinations.
+            if test_obj.NUM_HOSTS > 2:
+                return False
+        else:
+            if test_links < REQUIRED_TEST_PORTS:
+                if test_hardware == 'ZodiacFX':
+                    return True
+                return False
         if test_obj.REQUIRES_METERS:
             if test_hardware not in SUPPORTS_METERS:
                 return False
