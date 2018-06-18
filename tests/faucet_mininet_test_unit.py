@@ -5314,6 +5314,16 @@ class FaucetStringOfDPTest(FaucetTest):
                 return True
         return False
 
+    def verify_no_cable_errors(self):
+        i = 0
+        for dpid in self.dpids:
+            i += 1
+            labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': 'faucet-%u' % i}
+            self.assertEquals(
+                0, self.scrape_prometheus_var(var='stack_cabling_errors', labels=labels))
+            self.assertGreater(
+                self.scrape_prometheus_var(var='stack_probes_received', labels=labels), 0)
+
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
 
@@ -5328,6 +5338,7 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
     def test_untagged(self):
         """All untagged hosts in multi switch topology can reach one another."""
         self.retry_net_ping()
+        self.verify_no_cable_errors()
 
 
 class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
@@ -5343,6 +5354,7 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
     def test_tagged(self):
         """All tagged hosts in multi switch topology can reach one another."""
         self.retry_net_ping()
+        self.verify_no_cable_errors()
 
 
 class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
@@ -5376,6 +5388,7 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.assertEqual(
             packet_in_before_broadcast,
             packet_in_after_broadcast)
+        self.verify_no_cable_errors()
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
@@ -5425,6 +5438,7 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
         self.wait_nonzero_packet_count_flow(
             {u'dl_dst': u'01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
             table_id=self._FLOOD_TABLE)
+        self.verify_no_cable_errors()
 
 
 class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
@@ -5550,6 +5564,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
         self.verify_tp_dst_blocked(5000, hosts[0], hosts[3], table_id=None)
         self.verify_tp_dst_notblocked(5000, hosts[0], hosts[6], table_id=None)
         self.verify_tp_dst_blocked(5000, hosts[0], hosts[7], table_id=None)
+        self.verify_no_cable_errors()
 
     def test_broadcast(self):
         """Hosts in stack topology can appropriately reach each other over broadcast."""
@@ -5558,6 +5573,7 @@ class FaucetSingleStackAclControlTest(FaucetStringOfDPTest):
         self.verify_bcast_dst_blocked(5000, hosts[0], hosts[3])
         self.verify_bcast_dst_notblocked(5000, hosts[0], hosts[6])
         self.verify_bcast_dst_blocked(5000, hosts[0], hosts[7])
+        self.verify_no_cable_errors()
 
 
 class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
@@ -5650,6 +5666,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
             config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_blocked(5001, first_host, second_host)
+        self.verify_no_cable_errors()
 
     def test_port5002_notblocked(self):
         """Test that TCP port 5002 is not blocked."""
@@ -5660,6 +5677,7 @@ class FaucetStringOfDPACLOverrideTest(FaucetStringOfDPTest):
             config_file.write(self.get_config(acls=self.ACLS_OVERRIDE))
         self.verify_faucet_reconf(cold_start=False, change_expected=True)
         self.verify_tp_dst_notblocked(5002, first_host, second_host)
+        self.verify_no_cable_errors()
 
 
 class FaucetGroupTableTest(FaucetUntaggedTest):

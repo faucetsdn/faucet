@@ -955,6 +955,8 @@ class Valve(object):
                 remote_dp = port.stack['dp']
                 remote_port = port.stack['port']
                 stack_correct = True
+                self.metrics.stack_probes_received.labels( # pylint: disable=no-member
+                    **self.base_prom_labels).inc()
                 if (remote_dp_id != remote_dp.dp_id or
                         remote_dp_name != remote_dp.name or
                         remote_port_id != remote_port.number):
@@ -968,6 +970,8 @@ class Valve(object):
                             remote_dp_name,
                             remote_port_id))
                     stack_correct = False
+                    self.metrics.stack_cabling_errors.labels( # pylint: disable=no-member
+                        **self.base_prom_labels).inc()
                 port.dyn_stack_probe_info = {
                     'last_seen_lldp_time': now,
                     'stack_correct': stack_correct,
