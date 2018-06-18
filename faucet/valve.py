@@ -693,7 +693,6 @@ class Valve(object):
         vlans_with_ports_added = set()
         eth_src_table = self.dp.tables['eth_src']
         vlan_table = self.dp.tables['vlan']
-        port_acl_table = self.dp.tables['port_acl']
 
         for port_num in port_nums:
             if port_num not in self.dp.ports:
@@ -744,6 +743,14 @@ class Valve(object):
 
             # If this is a stacking port, accept all VLANs (came from another FAUCET)
             if port.stack is not None:
+                # Actual stack traffic will have VLAN tags.
+                null_vlan = namedtuple('null_vlan', 'vid')
+                null_vlan.vid = valve_of.ofp.OFPVID_NONE
+                ofmsgs.append(vlan_table.flowdrop(
+                    match=vlan_table.match(
+                        in_port=port_num,
+                        vlan=null_vlan),
+                    priority=self.dp.low_priority+1))
                 ofmsgs.append(vlan_table.flowmod(
                     match=vlan_table.match(in_port=port_num),
                     priority=self.dp.low_priority,
