@@ -923,10 +923,10 @@ class Valve(object):
                 faucet_tlvs, valve_packet.LLDP_FAUCET_STACK_STATE)
             try:
                 remote_dp_id = int(dp_id_tlvs[0].info)
-                remote_dp_name = valve_util.utf8_decode(
-                    dp_name_tlvs[0].system_name)
                 remote_port_id = int(port_id_tlvs[0].port_id)
                 remote_port_state = int(port_state_tlvs[0].info)
+                remote_dp_name = valve_util.utf8_decode(
+                    dp_name_tlvs[0].system_name)
             except ValueError:
                 pass
         return (remote_dp_id, remote_dp_name, remote_port_id, remote_port_state)
@@ -959,11 +959,13 @@ class Valve(object):
                         remote_dp_name != remote_dp.name or
                         remote_port_id != remote_port.number):
                     self.logger.error(
-                        'Stack %s cabling incorrect, expected %s:%u, actual %s:%u' % (
+                        'Stack %s cabling incorrect, expected %s:%s:%u, actual %s:%s:%u' % (
                             port,
                             valve_util.dpid_log(remote_dp.dp_id),
+                            remote_dp.name,
                             remote_port.number,
                             valve_util.dpid_log(remote_dp_id),
+                            remote_dp_name,
                             remote_port_id))
                     stack_correct = False
                 port.dyn_stack_probe_info = {
