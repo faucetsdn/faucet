@@ -88,6 +88,7 @@ class FaucetTestBase(unittest2.TestCase):
 
     config = None
     dpid = None
+    hw_dpid = None
     hardware = 'Open vSwitch'
     hw_switch = False
     gauge_controller = None
@@ -257,12 +258,11 @@ class FaucetTestBase(unittest2.TestCase):
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_static_vars()
-
+        self.topo_class = mininet_test_topo.FaucetSwitchTopo
         if self.hw_switch:
-            self.topo_class = mininet_test_topo.FaucetHwSwitchTopo
-            self.dpid = mininet_test_util.str_int_dpid(self.dpid)
+            self.hw_dpid = mininet_test_util.str_int_dpid(self.dpid)
+            self.dpid = self.hw_dpid
         else:
-            self.topo_class = mininet_test_topo.FaucetSwitchTopo
             self.dpid = self.rand_dpid()
 
     def tearDown(self):

@@ -110,7 +110,7 @@ vlans:
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
-            links_per_host=self.LINKS_PER_HOST)
+            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid)
         self.start_net()
 
     def verify_events_log(self, event_log):
@@ -1308,7 +1308,8 @@ vlans:
         super(FaucetTaggedAndUntaggedVlanTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=1, n_untagged=3, links_per_host=self.LINKS_PER_HOST)
+            n_tagged=1, n_untagged=3, links_per_host=self.LINKS_PER_HOST,
+            hw_dpid=self.hw_dpid)
         self.start_net()
 
     def test_untagged(self):
@@ -1741,7 +1742,7 @@ acls:
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
-            links_per_host=self.LINKS_PER_HOST)
+            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid)
         self.start_net()
 
     def _push_tuples(self, eth_type, host_ips):
@@ -1904,7 +1905,7 @@ acls:
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
-            links_per_host=self.LINKS_PER_HOST)
+            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid)
         self.start_net()
 
 
@@ -2590,7 +2591,8 @@ vlans:
         super(FaucetUntaggedLoopTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED, links_per_host=self.LINKS_PER_HOST)
+            n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
+            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid)
         self.start_net()
 
     def total_port_bans(self):
@@ -2685,7 +2687,7 @@ vlans:
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
-            links_per_host=self.LINKS_PER_HOST)
+            links_per_host=self.LINKS_PER_HOST, hw_dpid=self.hw_dpid)
         self.start_net()
 
     def test_untagged(self):
@@ -3109,7 +3111,8 @@ vlans:
         super(FaucetTaggedAndUntaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=2, n_untagged=2, links_per_host=self.LINKS_PER_HOST)
+            n_tagged=2, n_untagged=2, links_per_host=self.LINKS_PER_HOST,
+            hw_dpid=self.hw_dpid)
         self.start_net()
 
     def test_separate_untagged_tagged(self):
@@ -3900,7 +3903,8 @@ vlans:
         super(FaucetTaggedTest, self).setUp()
         self.topo = self.topo_class(
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
-            n_tagged=4, links_per_host=self.LINKS_PER_HOST)
+            n_tagged=4, links_per_host=self.LINKS_PER_HOST,
+            hw_dpid=self.hw_dpid)
         self.start_net()
 
     def test_tagged(self):
@@ -5111,7 +5115,6 @@ class FaucetStringOfDPTest(FaucetTest):
     LINKS_PER_HOST = 1
     VID = 100
     CONFIG = None
-    dpid = None
     dpids = None
     topo = None
 
@@ -5134,8 +5137,7 @@ class FaucetStringOfDPTest(FaucetTest):
             acls = {}
         if acl_in_dp is None:
             acl_in_dp = {}
-        self.dpids = [str(self.rand_dpid()) for _ in range(n_dps)]
-        self.dpid = self.dpids[0]
+        self.dpids = [self.dpid] + [str(self.rand_dpid()) for _ in range(n_dps-1)]
         self.topo = mininet_test_topo.FaucetStringOfDPSwitchTopo(
             self.OVS_TYPE,
             self.ports_sock,
@@ -5145,7 +5147,8 @@ class FaucetStringOfDPTest(FaucetTest):
             n_untagged=n_untagged,
             links_per_host=self.LINKS_PER_HOST,
             switch_to_switch_links=switch_to_switch_links,
-            test_name=self._test_name()
+            test_name=self._test_name(),
+            hw_dpid=self.hw_dpid,
         )
         self.CONFIG = self.get_config(
             self.dpids,
