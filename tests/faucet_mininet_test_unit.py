@@ -5403,7 +5403,7 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         # test case where one link is down when coldstarted.
         if coldstart:
             self.coldstart_conf()
-        self.verify_stack_hosts()
+        self.verify_stack_hosts(verify_bridge_local_rule=False)
         # Broadcast works, and first switch doesn't see broadcast packet ins from stack.
         packet_in_before_broadcast = self.scrape_prometheus_var('of_vlan_packet_ins')
         self.verify_broadcast()
