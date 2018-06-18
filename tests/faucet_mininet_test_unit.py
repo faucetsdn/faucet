@@ -5324,7 +5324,7 @@ class FaucetStringOfDPTest(FaucetTest):
             self.assertGreater(
                 self.scrape_prometheus_var(var='stack_probes_received', labels=labels), 0)
 
-    def verify_stack_hosts(self):
+    def verify_stack_hosts(self, verify_bridge_local_rule=True):
         lldp_cap_files = []
         for host in self.net.hosts:
             lldp_cap_file = os.path.join(self.tmpdir, '%s-lldp.cap' % host)
@@ -5341,10 +5341,13 @@ class FaucetStringOfDPTest(FaucetTest):
                 ['tcpdump -n -r %s 2> /dev/null' % lldp_cap_file])
         # should not flood LLDP from hosts
         self.verify_lldp_blocked(self.net.hosts)
-        # Verify 802.1x flood block triggered.
-        self.wait_nonzero_packet_count_flow(
-            {u'dl_dst': u'01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
-            table_id=self._FLOOD_TABLE)
+        if verify_bridge_local_rule:
+            # Verify 802.1x flood block triggered.
+            for dpid in self.dpids:
+                self.wait_nonzero_packet_count_flow(
+                    {u'dl_dst': u'01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0'},
+                    dpid=dpid,
+                    table_id=self._FLOOD_TABLE)
 
 
 class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
@@ -5374,7 +5377,7 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
 
     def test_tagged(self):
         """All tagged hosts in multi switch topology can reach one another."""
-        self.verify_stack_hosts()
+        self.verify_stack_hosts(verify_bridge_local_rule=False)
 
 
 class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
