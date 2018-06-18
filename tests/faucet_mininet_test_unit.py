@@ -5338,7 +5338,6 @@ class FaucetStringOfDPUntaggedTest(FaucetStringOfDPTest):
     def test_untagged(self):
         """All untagged hosts in multi switch topology can reach one another."""
         self.retry_net_ping()
-        self.verify_no_cable_errors()
 
 
 class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
@@ -5354,7 +5353,6 @@ class FaucetStringOfDPTaggedTest(FaucetStringOfDPTest):
     def test_tagged(self):
         """All tagged hosts in multi switch topology can reach one another."""
         self.retry_net_ping()
-        self.verify_no_cable_errors()
 
 
 class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
