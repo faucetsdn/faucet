@@ -1322,6 +1322,26 @@ vlans:
             self.verify_no_bcast_to_self(host)
 
 
+class FaucetTaggedAndUntaggedVlanGroupTest(FaucetTaggedAndUntaggedVlanTest):
+
+    CONFIG = """
+        group_table: True
+        interfaces:
+            %(port_1)d:
+                tagged_vlans: [100]
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
+"""
+
+
 class FaucetZodiacTaggedAndUntaggedVlanTest(FaucetUntaggedTest):
 
     RUN_GAUGE = False
