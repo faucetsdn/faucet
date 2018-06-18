@@ -5340,7 +5340,7 @@ class FaucetStringOfDPTest(FaucetTest):
             i += 1
             labels = {'dp_id': '0x%x' % int(dpid), 'dp_name': 'faucet-%u' % i}
             self.assertEquals(
-                0, self.scrape_prometheus_var(var='stack_cabling_errors', labels=labels))
+                0, self.scrape_prometheus_var(var='stack_cabling_errors', labels=labels, default=0))
             self.assertGreater(
                 self.scrape_prometheus_var(var='stack_probes_received', labels=labels), 0)
 
