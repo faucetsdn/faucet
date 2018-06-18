@@ -5431,7 +5431,6 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.assertEqual(
             packet_in_before_broadcast,
             packet_in_after_broadcast)
-        self.verify_no_cable_errors()
 
     def test_tagged(self):
         """All tagged hosts in stack topology can reach each other."""
