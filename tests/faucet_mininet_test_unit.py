@@ -158,18 +158,18 @@ vlans:
         description: "untagged"
 
 acls:
-    eapol_nfv:
+    eapol_to_nfv:
         - rule:
             dl_type: 0x888e
             actions:
                 output:
                     set_fields:
                         - eth_dst: 00:00:00:00:00:01
-                    port: %(port_4)d
+                    port: b4
         - rule:
             actions:
-                allow: 0
-    eapol_host_1:
+                allow: 1
+    eapol_from_nfv:
         - rule:
             dl_type: 0x888e
             eth_dst: 00:00:00:00:00:01
@@ -177,7 +177,7 @@ acls:
                 output:
                     set_fields:
                         - eth_dst: 01:80:c2:00:00:03
-                    port: %(port_1)d
+                    port: b1
         - rule:
             actions:
                 allow: 0
@@ -190,9 +190,10 @@ acls:
             nfv_intf: NFV_INTF
         interfaces:
             %(port_1)d:
+                name: b1
                 native_vlan: 100
                 description: "b1 - 802.1x client."
-                acl_in: eapol_nfv
+                acl_in: eapol_to_nfv
                 dot1x: True
             %(port_2)d:
                 native_vlan: 100
@@ -201,16 +202,30 @@ acls:
                 native_vlan: 100
                 description: "b3"
             %(port_4)d:
+                name: b4
                 native_vlan: 100
                 description: "NFV host - interface used by controller."
+                acl_in: eapol_from_nfv
+"""
+
+    wpasupplicant_conf = """
+ap_scan=0
+network={
+    key_mgmt=IEEE8021X
+    eap=MD5
+    identity="user@example.com"
+    password="microphone"
+}
 """
 
     eapol_host = None
+    ping_host = None
     nfv_host = None
     nfv_intf = None
 
     def _write_faucet_config(self):
         self.eapol_host = self.net.hosts[0]
+        self.ping_host = self.net.hosts[1]
         self.nfv_host = self.net.hosts[-1]
         switch = self.net.switches[0]
         last_host_switch_link = switch.connectionsTo(self.nfv_host)[0]
@@ -225,7 +240,6 @@ acls:
 
     def test_untagged(self):
         return
-
 
 
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):

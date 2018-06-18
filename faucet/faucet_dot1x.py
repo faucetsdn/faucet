@@ -54,8 +54,8 @@ class FaucetDot1x(object):
     def auth_handler(self, address, _group_address):
         """Callback for when a successful auth happens."""
         self.logger.info(
-            'Successful auth from MAC %s on port %u' % (
-                str(address), self.dot1x_port.number))
+            'Successful auth from MAC %s on %s' % (
+                str(address), self.dot1x_port))
         flowmods = self._valve.add_authed_mac(
             self.dot1x_port.number, str(address))
         if flowmods:
@@ -71,4 +71,7 @@ class FaucetDot1x(object):
                     self.dot1x_intf = self._valve.dp.dot1x['nfv_intf']
                     self.dot1x_port = self._valve.dp.dot1x_ports()[0]
                     self.dot1x_speaker = self._create_dot1x_speaker()
+                    self.logger.info(
+                        'dot1x enabled on %s %s, NFV interface %s' % (
+                            self._valve.dp, self.dot1x_port, self.dot1x_intf))
                     break

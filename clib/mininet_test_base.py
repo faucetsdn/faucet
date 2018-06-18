@@ -184,7 +184,7 @@ class FaucetTestBase(unittest2.TestCase):
     def _write_faucet_config(self):
         faucet_config = '\n'.join((
             self.get_config_header(
-                self.CONFIG_GLOBAL % self.port_map, self.debug_log_path, self.dpid, self.hardware),
+                self.CONFIG_GLOBAL, self.debug_log_path, self.dpid, self.hardware),
             self.CONFIG % self.port_map))
         if self.config_ports:
             faucet_config = faucet_config % self.config_ports
