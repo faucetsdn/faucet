@@ -5127,7 +5127,8 @@ class FaucetStringOfDPTest(FaucetTest):
                   n_tagged=0, tagged_vid=100,
                   n_untagged=0, untagged_vid=100,
                   include=None, include_optional=None,
-                  acls=None, acl_in_dp=None, switch_to_switch_links=1):
+                  acls=None, acl_in_dp=None,
+                  switch_to_switch_links=1, hw_dpid=None):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -5148,7 +5149,7 @@ class FaucetStringOfDPTest(FaucetTest):
             links_per_host=self.LINKS_PER_HOST,
             switch_to_switch_links=switch_to_switch_links,
             test_name=self._test_name(),
-            hw_dpid=self.hw_dpid,
+            hw_dpid=hw_dpid,
         )
         self.CONFIG = self.get_config(
             self.dpids,
@@ -5460,7 +5461,8 @@ class FaucetStackStringOfDPUntaggedTest(FaucetStringOfDPTest):
             n_dps=self.NUM_DPS,
             n_untagged=self.NUM_HOSTS,
             untagged_vid=self.VID,
-            switch_to_switch_links=2)
+            switch_to_switch_links=2,
+            hw_dpid=self.hw_dpid)
         self.start_net()
 
     def test_untagged(self):
