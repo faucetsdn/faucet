@@ -367,7 +367,7 @@ class ValveFloodStackManager(ValveFloodManager):
                     vlan=vlan,
                     eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
                     eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
-               priority=self.bypass_priority+1))
+                priority=self.bypass_priority+1))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst:
                 continue
