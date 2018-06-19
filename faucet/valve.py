@@ -38,13 +38,14 @@ from faucet.vlan import NullVLAN
 class ValveLogger(object):
     """Logger for a Valve that adds DP ID."""
 
-    def __init__(self, logger, dp_id):
+    def __init__(self, logger, dp_id, dp_name):
         self.logger = logger
         self.dp_id = dp_id
+        self.dp_name = dp_name
 
     def _dpid_prefix(self, log_msg):
         """Add DP ID prefix to log message."""
-        return ' '.join((valve_util.dpid_log(self.dp_id), log_msg))
+        return ' '.join((valve_util.dpid_log(self.dp_id), self.dp_name, log_msg))
 
     def debug(self, log_msg):
         """Log debug level message."""
@@ -118,7 +119,7 @@ class Valve(object):
         """Initialize datapath state at connection/re/config time."""
         self.close_logs()
         self.logger = ValveLogger(
-            logging.getLogger(self.logname + '.valve'), self.dp.dp_id)
+            logging.getLogger(self.logname + '.valve'), self.dp.dp_id, self.dp.name)
         self.ofchannel_logger = None
         self.base_prom_labels = {
             'dp_id': hex(self.dp.dp_id),
@@ -518,6 +519,7 @@ class Valve(object):
         if not self.dp.lldp_beacon:
             return []
         send_ports = self._lldp_beacon_ports(now)
+        self.logger.debug('sending LLDP beacons on ports %s' % send_ports)
         ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
         return ofmsgs
 
