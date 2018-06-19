@@ -10,7 +10,8 @@ build-package:
     - TAG="git describe --tags"
     - TAG=$($TAG)
     - TAG="${TAG//[!0-9.-]/}"
-    - apt-get upgrade -y && mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
+    - apt-get update && apt-get upgrade -y
+    - mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
     - export DEBEMAIL='maintainers@faucet.nz' && export DEBFULLNAME='Faucet Maintainers'
     - debchange --newversion $TAG -b "New upstream release"
     - fakeroot debian/rules binary
