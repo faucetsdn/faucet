@@ -119,7 +119,7 @@ The output action contains a dictionary with the following elements:
                         test_config_condition(rule_conf < 0 or rule_conf > 2**16, (
                             'rule cookie value must be 0-2**16'))
                     elif rule_field == 'actions':
-                        test_config_condition(not rule_conf, "Invalid syntax in ACL")
+                        test_config_condition(not rule_conf, "Missing rule actions in ACL %s" % _id)
                         self._check_conf_types(rule_conf, self.actions_types)
                         for action_name, action_conf in list(rule_conf.items()):
                             if action_name == 'output':
