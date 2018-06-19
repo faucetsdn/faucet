@@ -242,6 +242,7 @@ network={
         return
 
 
+@unittest2.skip('Disabled while investigating flakes')
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
 
     STAT_RELOAD = '1'
