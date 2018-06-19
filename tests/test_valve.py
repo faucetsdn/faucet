@@ -559,12 +559,9 @@ class ValveTestBases:
                 vlan_pkt = build_pkt(match)
             msg = namedtuple(
                 'null_msg',
-                ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))
-            msg.reason = valve_of.ofp.OFPR_ACTION
-            msg.data = vlan_pkt.data
-            msg.total_len = len(msg.data)
-            msg.match = {'in_port': port}
-            msg.cookie = self.valve.dp.cookie
+                ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))(
+                    {'in_port': port}, port, vlan_pkt.data, len(vlan_pkt.data),
+                    self.valve.dp.cookie, valve_of.ofp.OFPR_ACTION)
             pkt_meta = self.valve.parse_pkt_meta(msg)
             self.assertTrue(pkt_meta, msg=pkt)
             self.last_flows_to_dp[self.DP_ID] = []
@@ -1882,9 +1879,7 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
 
     @staticmethod
     def _fake_dp():
-        datapath = namedtuple('datapath', 'id')
-        datapath.id = 0
-        datapath.close = lambda: None
+        datapath = namedtuple('datapath', ['id', 'close'])(0, lambda: None)
         return datapath
 
     def test_faucet(self):
@@ -1915,11 +1910,9 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
                 ryu_app.reconnect_handler,
                 ryu_app._datapath_connect,
                 ryu_app._datapath_disconnect):
-            msg = namedtuple('msg', 'datapath')
-            datapath = self._fake_dp()
-            msg.datapath = datapath
+            msg = namedtuple('msg', ['datapath'])(self._fake_dp())
             event = EventOFPMsgBase(msg=msg)
-            event.dp = datapath
+            event.dp = msg.datapath
             event_handler(event)
 
 

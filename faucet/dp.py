@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 import copy
 import netaddr
 
@@ -31,6 +31,12 @@ from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet.valve_table import ValveTable, ValveGroupTable
 from faucet.valve_util import get_setting
 from faucet.valve_packet import FAUCET_MAC
+
+
+class NullRyuDatapath(object):
+    """Placeholder Ryu Datapath."""
+
+    ofproto = valve_of.ofp
 
 
 # Documentation generated using documentation_generator.py
@@ -604,8 +610,6 @@ configuration.
             def build_acl(acl, vid=None):
                 """Check that ACL can be built from config and mark mirror destinations."""
                 if acl.rules:
-                    null_dp = namedtuple('null_dp', 'ofproto')
-                    null_dp.ofproto = valve_of.ofp
                     try:
                         ofmsgs = valve_acl.build_acl_ofmsgs(
                             [acl], self.wildcard_table,
@@ -615,7 +619,7 @@ configuration.
                             vlan_vid=vid)
                         test_config_condition(not ofmsgs, 'of messages is empty')
                         for ofmsg in ofmsgs:
-                            ofmsg.datapath = null_dp
+                            ofmsg.datapath = NullRyuDatapath()
                             ofmsg.set_xid(0)
                             ofmsg.serialize()
                     except (AddrFormatError, KeyError, ValueError) as err:

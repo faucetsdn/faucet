@@ -846,17 +846,14 @@ class RyuAppSmokeTest(unittest.TestCase): # pytype: disable=module-attr
         os.environ['GAUGE_EXCEPTION_LOG'] = '/dev/null'
 
     def _fake_dp(self):
-        datapath = namedtuple('datapath', 'id')
-        datapath.id = 0
-        datapath.close = lambda: None
+        datapath = namedtuple('datapath', ['id', 'close'])(0, lambda: None)
         return datapath
 
     def _fake_event(self):
         datapath = self._fake_dp()
-        msg = namedtuple('msg', 'datapath')
-        msg.datapath = datapath
+        msg = namedtuple('msg', ['datapath'])(datapath)
         event = EventOFPMsgBase(msg=msg)
-        event.dp = datapath
+        event.dp = msg.datapath
         return event
 
     def test_gauge(self):

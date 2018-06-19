@@ -20,7 +20,7 @@
 import logging
 import random
 
-from collections import defaultdict, deque, namedtuple
+from collections import defaultdict, deque
 
 from faucet import tfm_pipeline
 from faucet import valve_acl
@@ -32,18 +32,20 @@ from faucet import valve_route
 from faucet import valve_util
 
 from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
+from faucet.vlan import NullVLAN
 
 
 class ValveLogger(object):
     """Logger for a Valve that adds DP ID."""
 
-    def __init__(self, logger, dp_id):
+    def __init__(self, logger, dp_id, dp_name):
         self.logger = logger
         self.dp_id = dp_id
+        self.dp_name = dp_name
 
     def _dpid_prefix(self, log_msg):
         """Add DP ID prefix to log message."""
-        return ' '.join((valve_util.dpid_log(self.dp_id), log_msg))
+        return ' '.join((valve_util.dpid_log(self.dp_id), self.dp_name, log_msg))
 
     def debug(self, log_msg):
         """Log debug level message."""
@@ -117,7 +119,7 @@ class Valve(object):
         """Initialize datapath state at connection/re/config time."""
         self.close_logs()
         self.logger = ValveLogger(
-            logging.getLogger(self.logname + '.valve'), self.dp.dp_id)
+            logging.getLogger(self.logname + '.valve'), self.dp.dp_id, self.dp.name)
         self.ofchannel_logger = None
         self.base_prom_labels = {
             'dp_id': hex(self.dp.dp_id),
@@ -517,6 +519,7 @@ class Valve(object):
         if not self.dp.lldp_beacon:
             return []
         send_ports = self._lldp_beacon_ports(now)
+        self.logger.debug('sending LLDP beacons on ports %s' % send_ports)
         ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
         return ofmsgs
 
@@ -638,9 +641,7 @@ class Valve(object):
             valve_of.apply_actions(push_vlan_act),
             valve_of.goto_table(forwarding_table)
         ]
-        null_vlan = namedtuple('null_vlan', 'vid')
-        null_vlan.vid = valve_of.ofp.OFPVID_NONE
-        return self._port_add_vlan_rules(port, null_vlan, push_vlan_inst)
+        return self._port_add_vlan_rules(port, NullVLAN(), push_vlan_inst)
 
     def _port_add_vlan_tagged(self, port, vlan, forwarding_table, mirror_act):
         vlan_inst = [
@@ -743,12 +744,10 @@ class Valve(object):
             # If this is a stacking port, accept all VLANs (came from another FAUCET)
             if port.stack is not None:
                 # Actual stack traffic will have VLAN tags.
-                null_vlan = namedtuple('null_vlan', 'vid')
-                null_vlan.vid = valve_of.ofp.OFPVID_NONE
                 ofmsgs.append(vlan_table.flowdrop(
                     match=vlan_table.match(
                         in_port=port_num,
-                        vlan=null_vlan),
+                        vlan=NullVLAN()),
                     priority=self.dp.low_priority+1))
                 ofmsgs.append(vlan_table.flowmod(
                     match=vlan_table.match(in_port=port_num),
@@ -1105,11 +1104,11 @@ class Valve(object):
         if not msg.data:
             return None
         # Truncate packet in data (OVS > 2.5 does not honor max_len)
-        msg.data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
+        data = msg.data[:valve_of.MAX_PACKET_IN_BYTES]
 
         # eth/VLAN header only
         pkt, eth_pkt, eth_type, vlan_vid = valve_packet.parse_packet_in_pkt(
-            msg.data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
+            data, max_len=valve_packet.ETH_VLAN_HEADER_SIZE)
         if pkt is None or eth_pkt is None:
             self.logger.info(
                 'unparseable packet from port %u' % in_port)
@@ -1119,7 +1118,7 @@ class Valve(object):
                 'packet for unknown VLAN %u' % vlan_vid)
             return None
         pkt_meta = self.parse_rcv_packet(
-            in_port, vlan_vid, eth_type, msg.data, msg.total_len, pkt, eth_pkt)
+            in_port, vlan_vid, eth_type, data, msg.total_len, pkt, eth_pkt)
         if not valve_packet.mac_addr_is_unicast(pkt_meta.eth_src):
             self.logger.info(
                 'packet with non-unicast eth_src %s port %u' % (
