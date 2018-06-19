@@ -495,7 +495,7 @@ class Valve(object):
 
     def _lldp_beacon_ports(self, now):
         """Return list of ports to send LLDP packets; stacked ports always send LLDP."""
-        priority_ports = set([port for port in self.dp.stack_ports if port.running()])
+        priority_ports = set([port for port in self.dp.stack_ports if port.running() and port.lldp_beacon_enabled()])
         cutoff_beacon_time = now - self.dp.lldp_beacon['send_interval']
         nonpriority_ports = set([
             port for port in self.dp.lldp_beacon_ports
@@ -520,8 +520,7 @@ class Valve(object):
             return []
         send_ports = self._lldp_beacon_ports(now)
         self.logger.debug('sending LLDP beacons on ports %s' % send_ports)
-        # TODO: correct lldp_beacon_enabled()
-        ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports if port.lldp_beacon]
+        ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
         return ofmsgs
 
     def _update_stack_link_state(self, port, now):
