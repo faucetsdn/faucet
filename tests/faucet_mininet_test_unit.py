@@ -3912,6 +3912,7 @@ vlans:
         self.ping_all_when_learned()
 
 
+@unittest2.skip('Disabled while investigating flakes')
 class FaucetTaggedScaleTest(FaucetTaggedTest):
 
     CONFIG_GLOBAL = """
