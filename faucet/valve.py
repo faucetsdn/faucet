@@ -520,7 +520,8 @@ class Valve(object):
             return []
         send_ports = self._lldp_beacon_ports(now)
         self.logger.debug('sending LLDP beacons on ports %s' % send_ports)
-        ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports]
+        # TODO: correct lldp_beacon_enabled()
+        ofmsgs = [self._send_lldp_beacon_on_port(port, now) for port in send_ports if port.lldp_beacon]
         return ofmsgs
 
     def _update_stack_link_state(self, port, now):
