@@ -3911,6 +3911,67 @@ vlans:
         self.ping_all_when_learned()
 
 
+class FaucetTaggedScaleTest(FaucetTaggedTest):
+
+    CONFIG_GLOBAL = """
+vlans:
+""" + '\n'.join(['\n'.join(('    %u:', '        description: "tagged"')) %
+                 i for i in range(100, 164)])
+    CONFIG = """
+        interfaces:
+            %s:
+                tagged_vlans: [%s]
+                description: "b1"
+            %s:
+                tagged_vlans: [%s]
+                description: "b2"
+            %s:
+                tagged_vlans: [%s]
+                description: "b3"
+            %s:
+                tagged_vlans: [%s]
+                description: "b4"
+""" % ('%(port_1)d', ','.join([str(i) for i in range(100, 164)]),
+       '%(port_2)d', ','.join([str(i) for i in range(100, 164)]),
+       '%(port_3)d', ','.join([str(i) for i in range(100, 164)]),
+       '%(port_4)d', ','.join([str(i) for i in range(100, 164)]))
+
+
+    def test_tagged(self):
+        self.ping_all_when_learned()
+        for host in self.net.hosts:
+            setup_commands = []
+            for i in range(101, 164):
+                setup_commands.extend([
+                    'ip link add link %s name %s.%u type vlan id %u' % (
+                        host.intf_root_name, host.intf_root_name, i, i),
+                    'ip link set dev %s.%u up' % (
+                        host.intf_root_name, i)])
+            self.quiet_commands(host, setup_commands)
+        for host in self.net.hosts:
+            rdisc6_commands = []
+            for i in range(101, 164):
+                rdisc6_commands.append(
+                    'rdisc6 -r2 -w1 -q %s.%u 2> /dev/null' % (
+                        host.intf_root_name, i))
+            self.quiet_commands(host, rdisc6_commands)
+        for vlan in range(101, 164):
+            for _ in range(3):
+                for host in self.net.hosts:
+                    self.quiet_commands(
+                        host,
+                        ['rdisc6 -r2 -w1 -q %s.%u 2> /dev/null' % (
+                            host.intf_root_name, i)])
+                vlan_hosts_learned = self.scrape_prometheus_var(
+                    'vlan_hosts_learned', {'vlan': str(vlan)})
+                if vlan_hosts_learned == len(self.net.hosts):
+                    break
+                time.sleep(1)
+            self.assertEqual(
+                len(self.net.hosts), vlan_hosts_learned,
+                msg='not all VLAN %u hosts learned (%u)' % (vlan, vlan_hosts_learned))
+
+
 class FaucetTaggedBroadcastTest(FaucetTaggedTest):
 
     def test_tagged(self):
