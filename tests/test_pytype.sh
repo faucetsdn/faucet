@@ -27,5 +27,5 @@ done
 
 for i in $PY3 ; do
   echo $i
-  $PYTYPEARGS -V3.5 $i || exit 1
+  $PYTYPEARGS -V2.7 $i || exit 1
 done
