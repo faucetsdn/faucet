@@ -1,8 +1,12 @@
 #!/bin/bash
 
 FAUCETHOME=`dirname $0`"/.."
-PYTYPEARGS="pytype -d pyi-error,import-error"
 PARARGS="parallel --delay 1 --bar"
+PYTYPEARGS="pytype -d pyi-error,import-error"
+PYTYPE=`which pytype`
+PYHEADER=`head -1 $PYTYPE`
+
+echo "Using $PYTYPE (header $PYHEADER)"
 
 PY2=""
 PY3=""
