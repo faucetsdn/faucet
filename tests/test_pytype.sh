@@ -1,7 +1,7 @@
 #!/bin/bash
 
 FAUCETHOME=`dirname $0`"/.."
-PARARGS="parallel --delay 1 --bar"p
+PARARGS="parallel --delay 1 --bar"
 PYTYPEARGS="pytype -d pyi-error,import-error"
 PYTYPE=`which pytype`
 PYHEADER=`head -1 $PYTYPE`
