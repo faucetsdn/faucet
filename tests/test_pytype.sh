@@ -2,7 +2,7 @@
 
 FAUCETHOME=`dirname $0`"/.."
 PYTYPEARGS="pytype -d pyi-error,import-error"
-PARARGS="parallel --delay 1 --bar"
+PARARGS="parallel --delay 1 --bar -j1"
 
 PY2=""
 PY3=""
