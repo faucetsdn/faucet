@@ -3969,7 +3969,7 @@ vlans:
                     break
                 time.sleep(1)
             self.assertGreater(
-                1, vlan_hosts_learned,
+                vlan_hosts_learned, 1,
                 msg='not all VLAN %u hosts learned (%u)' % (vlan, vlan_hosts_learned))
 
 
