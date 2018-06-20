@@ -6,7 +6,8 @@ PARARGS="parallel --delay 1 --bar"
 
 PY2=""
 PY3=""
-for i in `$FAUCETHOME/tests/src_files.sh|shuf` ; do
+# TODO: skip mininet files to reduce pytype resources
+for i in `$FAUCETHOME/tests/src_files.sh|shuf|grep -v mininet` ; do
   # mininet requires python2
   if grep -qn "import mininet" $i ; then
     PY2+="$i\n"
