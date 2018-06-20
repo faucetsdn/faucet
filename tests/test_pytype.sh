@@ -2,7 +2,6 @@
 
 FAUCETHOME=`dirname $0`"/.."
 PYTYPEARGS="pytype -d pyi-error,import-error"
-PARARGS="parallel --delay 1 --bar -j1"
 
 PY2=""
 PY3=""
@@ -10,11 +9,18 @@ PY3=""
 for i in `$FAUCETHOME/tests/src_files.sh|shuf|grep -v mininet` ; do
   # mininet requires python2
   if grep -qn "import mininet" $i ; then
-    PY2+="$i\n"
+    PY2+="$i "
   else
-    PY3+="$i\n"
+    PY3+="$i "
   fi
 done
 
-echo -ne $PY2 | $PARARGS $PYTYPEARGS -V2.7 || exit 1
-echo -ne $PY3 | $PARARGS $PYTYPEARGS -V3.5 || exit 1
+for i in $PY2 ; do
+  echo $i
+  $PYTYPEARGS -V2.7 $i
+done
+
+for i in $PY3 ; do
+  echo $i
+  $PYTYPEARGS -V3.5 $i
+done
