@@ -242,10 +242,8 @@ network={
         return
 
 
-@unittest2.skip('Disabled while investigating flakes')
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
 
-    STAT_RELOAD = '1'
     CONFIG_GLOBAL = """
 vlans:
     randvlan:
@@ -273,7 +271,7 @@ vlans:
         for _ in range(5):
             vid = random.randint(2, 512)
             self.change_vlan_config(
-                'randvlan', 'vid', vid, cold_start=True, hup=False)
+                'randvlan', 'vid', vid, cold_start=True, hup=True)
             self.ping_all_when_learned()
 
 
@@ -3664,7 +3662,7 @@ acls:
             'vlan 456.+vlan 123', tcpdump_txt))
 
 
-@unittest2.skip('190318: works under OVS 2.9.0 locally, but not under Travis')
+@unittest2.skip('190318: works under OVS 2.9.2 locally, but not under Travis')
 class FaucetUntaggedMultiConfVlansOutputTest(FaucetUntaggedTest):
 
     CONFIG_GLOBAL = """
