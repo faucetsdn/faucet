@@ -242,10 +242,8 @@ network={
         return
 
 
-@unittest2.skip('Disabled while investigating flakes')
 class FaucetUntaggedRandomVidTest(FaucetUntaggedTest):
 
-    STAT_RELOAD = '1'
     CONFIG_GLOBAL = """
 vlans:
     randvlan:
@@ -273,7 +271,7 @@ vlans:
         for _ in range(5):
             vid = random.randint(2, 512)
             self.change_vlan_config(
-                'randvlan', 'vid', vid, cold_start=True, hup=False)
+                'randvlan', 'vid', vid, cold_start=True, hup=True)
             self.ping_all_when_learned()
 
 
