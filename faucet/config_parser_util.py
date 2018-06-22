@@ -48,7 +48,7 @@ class UniqueKeyLoader(Loader):
         return mapping
 
 
-yaml.add_constructor(
+yaml.SafeLoader.add_constructor(
     yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
     UniqueKeyLoader.construct_mapping)
 
@@ -63,7 +63,7 @@ def read_config(config_file, logname):
     logger = get_logger(logname)
     try:
         with open(config_file, 'r') as stream:
-            conf = yaml.load(stream.read())
+            conf = yaml.safe_load(stream.read())
     except (yaml.YAMLError, UnicodeDecodeError,
             PermissionError, ValueError) as err: # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
