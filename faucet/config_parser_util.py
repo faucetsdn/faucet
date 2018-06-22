@@ -48,7 +48,7 @@ class UniqueKeyLoader(Loader):
         return mapping
 
 
-yaml.add_constructor(
+yaml.SafeLoader.add_constructor(
     yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
     UniqueKeyLoader.construct_mapping)
 
