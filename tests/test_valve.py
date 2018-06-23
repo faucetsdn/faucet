@@ -562,12 +562,10 @@ class ValveTestBases:
                 ('match', 'in_port', 'data', 'total_len', 'cookie', 'reason'))(
                     {'in_port': port}, port, vlan_pkt.data, len(vlan_pkt.data),
                     self.valve.dp.cookie, valve_of.ofp.OFPR_ACTION)
-            pkt_meta = self.valve.parse_pkt_meta(msg)
-            self.assertTrue(pkt_meta, msg=pkt)
             self.last_flows_to_dp[self.DP_ID] = []
             now = time.time()
             self.prom_inc(
-                partial(self.valves_manager.valve_packet_in, now, self.valve, pkt_meta),
+                partial(self.valves_manager.valve_packet_in, now, self.valve, msg),
                 'of_packet_ins')
             rcv_packet_ofmsgs = self.last_flows_to_dp[self.DP_ID]
             self.table.apply_ofmsgs(rcv_packet_ofmsgs)
