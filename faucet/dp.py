@@ -456,28 +456,28 @@ configuration.
             if vlan.get_ports():
                 self.vlans[vlan.vid] = vlan
 
+    def resolve_port(self, port_name):
+        """Resolve a port by number or name."""
+        if isinstance(port_name, int):
+            if port_name in self.ports:
+                return self.ports[port_name]
+        elif isinstance(port_name, str):
+            resolved_ports = [port for port in list(self.ports.values()) if port_name == port.name]
+            if resolved_ports:
+                return resolved_ports[0]
+        return None
+
     def finalize_config(self, dps):
         """Perform consistency checks after initial config parsing."""
 
-        port_by_name = {}
         dp_by_name = {}
         vlan_by_name = {}
-
-        def resolve_port(port_name):
-            """Resolve port by name or number."""
-            test_config_condition(not isinstance(port_name, (str, int)), (
-                'Port must be type %s or %s not %s' % (str, int, type(port_name))))
-            if port_name in port_by_name:
-                return port_by_name[port_name]
-            elif port_name in self.ports:
-                return self.ports[port_name]
-            return None
 
         def resolve_ports(port_names):
             """Resolve list of ports, by port by name or number."""
             resolved_ports = []
             for port_name in port_names:
-                port = resolve_port(port_name)
+                port = self.resolve_port(port_name)
                 if port is not None:
                     resolved_ports.append(port)
             return resolved_ports
@@ -506,10 +506,10 @@ configuration.
                 port_stack_dp[port] = dp_by_name[stack_dp]
             for port, dp in list(port_stack_dp.items()):
                 port.stack['dp'] = dp
-                stack_port_name = port.stack['port']
-                test_config_condition(stack_port_name not in dp.ports, (
-                    'stack port %s not defined in DP %s' % (stack_port_name, dp.name)))
-                port.stack['port'] = dp.ports[stack_port_name]
+                stack_port = dp.resolve_port(port.stack['port'])
+                test_config_condition(stack_port is None, (
+                    'stack port %s not defined in DP %s' % (port.stack['port'], dp.name)))
+                port.stack['port'] = stack_port
 
         def resolve_mirror_destinations():
             """Resolve mirror port references and destinations."""
@@ -534,7 +534,7 @@ configuration.
             """Resolve override output ports."""
             for port_no, port in list(self.ports.items()):
                 if port.override_output_port:
-                    port.override_output_port = resolve_port(port.override_output_port)
+                    port.override_output_port = self.resolve_port(port.override_output_port)
                     test_config_condition(not port.override_output_port, (
                         'override_output_port port not defined'))
                     self.ports[port_no] = port
@@ -554,7 +554,7 @@ configuration.
 
             def resolve_mirror(_acl, action_conf):
                 port_name = action_conf
-                port = resolve_port(port_name)
+                port = self.resolve_port(port_name)
                 # If this DP does not have this port, do nothing.
                 if port is not None:
                     action_conf = port.number
@@ -569,7 +569,7 @@ configuration.
                 for output_action, output_action_values in list(action_conf.items()):
                     if output_action == 'port':
                         port_name = output_action_values
-                        port = resolve_port(port_name)
+                        port = self.resolve_port(port_name)
                         test_config_condition(not port, (
                             'output port not defined in DP: %s' % self.name))
                         resolved_action_conf[output_action] = port.number
@@ -695,8 +695,6 @@ configuration.
 
         test_config_condition(not self.vlans, 'no VLANs referenced by interfaces in %s' % self.name)
 
-        for port in list(self.ports.values()):
-            port_by_name[port.name] = port
         for dp in dps:
             dp_by_name[dp.name] = dp
         for vlan in list(self.vlans.values()):
