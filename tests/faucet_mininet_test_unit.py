@@ -5226,8 +5226,7 @@ class FaucetStringOfDPTest(FaucetTest):
             acls,
             acl_in_dp,
         )
-        with open(self.faucet_config_path, 'w') as config_file:
-            config_file.write(self.CONFIG)
+        self._write_faucet_config()
 
     def get_config(self, dpids=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
@@ -5268,6 +5267,10 @@ class FaucetStringOfDPTest(FaucetTest):
         def add_dp_to_dp_ports(dp_config, port, interfaces_config, i,
                                dpid_count, stack, n_tagged, tagged_vid,
                                n_untagged, untagged_vid):
+
+            def stack_name(name, port):
+                return '%s_%u' % (dp_name(name), port)
+
             # Add configuration for the switch-to-switch links
             # (0 for a single switch, 1 for an end switch, 2 for middle switches).
             first_dp = i == 0
@@ -5299,6 +5302,7 @@ class FaucetStringOfDPTest(FaucetTest):
                         peer_port = peer_stack_port_base + stack_dp_port
                         description = 'to %s port %u' % (dp_name(peer_dp), peer_port)
                         interfaces_config[port] = {
+                            'name': stack_name(i, port),
                             'description': description,
                         }
                         if stack:
@@ -5310,7 +5314,7 @@ class FaucetStringOfDPTest(FaucetTest):
                                     'receive_lldp': True,
                                     'stack': {
                                         'dp': dp_name(peer_dp),
-                                        'port': peer_port}
+                                        'port': stack_name(peer_dp, peer_port)}
                                 })
                         else:
                             # not a stack - make this a trunk.
