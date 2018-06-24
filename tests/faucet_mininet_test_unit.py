@@ -5214,6 +5214,7 @@ class FaucetStringOfDPTest(FaucetTest):
         )
         self.CONFIG = self.get_config(
             self.dpids,
+            hw_dpid,
             stack,
             self.hardware,
             self.debug_log_path,
@@ -5228,7 +5229,7 @@ class FaucetStringOfDPTest(FaucetTest):
         )
         self._write_faucet_config()
 
-    def get_config(self, dpids=None, stack=False, hardware=None, ofchannel_log=None,
+    def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
                    include=None, include_optional=None, acls=None, acl_in_dp=None):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
@@ -5331,7 +5332,7 @@ class FaucetStringOfDPTest(FaucetTest):
                         add_acl_to_port(name, port, interfaces_config)
                         port += 1
 
-        def add_dp(name, dpid, i, dpid_count, stack,
+        def add_dp(name, dpid, hw_dpid, i, dpid_count, stack,
                    n_tagged, tagged_vid, n_untagged, untagged_vid):
             dpid_ofchannel_log = None
             if ofchannel_log is not None:
@@ -5366,6 +5367,12 @@ class FaucetStringOfDPTest(FaucetTest):
                 dp_config, port, interfaces_config, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
+            if dpid == hw_dpid:
+                for interface, config in list(interfaces_config.items()):
+                    del interfaces_config[interface]
+                    mapped_interface = self.port_map['port_%u' % interface]
+                    interfaces_config[mapped_interface] = config
+
             return dp_config
 
         config = {'version': 2}
@@ -5387,7 +5394,7 @@ class FaucetStringOfDPTest(FaucetTest):
         for i, dpid in enumerate(dpids):
             name = dp_name(i)
             config['dps'][name] = add_dp(
-                name, dpid, i, dpid_count, stack,
+                name, dpid, hw_dpid, i, dpid_count, stack,
                 n_tagged, tagged_vid, n_untagged, untagged_vid)
 
         return yaml.dump(config, default_flow_style=False)
@@ -5485,6 +5492,9 @@ class FaucetSingleStackStringOfDPTaggedTest(FaucetStringOfDPTest):
         self.start_net()
 
     def verify_one_stack_down(self, port_no, coldstart=False):
+        switch_port_key = 'port_%u' % port_no
+        if switch_port_key in self.port_map:
+            port_no = self.port_map[switch_port_key]
         self.retry_net_ping()
         self.set_port_down(port_no, wait=False)
         # self.dpids[1] is the intermediate switch.
