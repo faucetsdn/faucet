@@ -153,22 +153,28 @@ class ValvesManager(object):
             if ofmsgs:
                 self.send_flows_to_dp_by_id(valve, ofmsgs)
 
-    def valve_packet_in(self, now, valve, pkt_meta):
+    def _other_running_valves(self, valve):
+        return [other_valve for other_valve in list(self.valves.values())
+                if valve != other_valve and other_valve.dp.running]
+
+    def valve_packet_in(self, now, valve, msg):
         """Time a call to Valve packet in handler."""
-        other_valves = [other_valve for other_valve in list(self.valves.values()) if valve != other_valve]
+        if valve.rate_limit_packet_ins(now):
+            return
+        pkt_meta = valve.parse_pkt_meta(msg)
+        if pkt_meta is None:
+            return
         self.metrics.of_packet_ins.labels( # pylint: disable=no-member
             **valve.base_prom_labels).inc()
         with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
             **valve.base_prom_labels).time():
-            ofmsgs = valve.rcv_packet(now, other_valves, pkt_meta)
+            ofmsgs = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
         if ofmsgs:
             self.send_flows_to_dp_by_id(valve, ofmsgs)
             valve.update_metrics(now, pkt_meta.port, rate_limited=True)
 
     def stack_topo_change(self, _now, valve):
         """Update stack topo of all other Valves affected by the event on this Valve."""
-        for other_valve in list(self.valves.values()):
-            if valve == other_valve or not valve.dp.running:
-                continue
+        for other_valve in self._other_running_valves(valve):
             other_valve.flood_manager.update_stack_topo(valve.dp.running, valve)
             # TODO: rebuild flood rules

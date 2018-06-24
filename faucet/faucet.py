@@ -230,12 +230,7 @@ class Faucet(RyuAppBase):
         valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
-        if valve.rate_limit_packet_ins(ryu_event.timestamp):
-            return
-        pkt_meta = valve.parse_pkt_meta(msg)
-        if pkt_meta is None:
-            return
-        self.valves_manager.valve_packet_in(ryu_event.timestamp, valve, pkt_meta)
+        self.valves_manager.valve_packet_in(ryu_event.timestamp, valve, msg)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
