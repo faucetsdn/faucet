@@ -572,7 +572,7 @@ configuration.
                         port = self.resolve_port(port_name)
                         test_config_condition(not port, (
                             'output port not defined in DP: %s' % self.name))
-                        resolved_action_conf[output_action] = port.number
+                        resolved_action_conf[output_action] = port.number # pytype: disable=attribute-error
                     elif output_action == 'ports':
                         resolved_ports = resolve_port_numbers(output_action_values)
                         test_config_condition(len(resolved_ports) != len(output_action_values), (
