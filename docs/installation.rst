@@ -75,8 +75,8 @@ faucet-all-in-one Install faucet, gauge, prometheus and grafana. Easy to use and
 ================= ==========================================================================================================
 
 
-Installation on Debian 8 (jessie)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Installation on Debian/Raspbian 8 (jessie)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Installing faucet on jessie requires jessie-backports.
 
@@ -107,8 +107,8 @@ or you can install the individual components:
 
   <a href="https://packagecloud.io/"><img height="46" width="158" alt="Private NPM registry and Maven, RPM, DEB, PyPi and RubyGem Repository · packagecloud" src="https://packagecloud.io/images/packagecloud-badge.png" /></a>
 
-Installation on Debian 9+ and Ubuntu 16.04+
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Installation on Debian/Raspbian 9+ and Ubuntu 16.04+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: console
 
