@@ -60,7 +60,8 @@ if [ "$DEPCHECK" == 1 ] ; then
     cd /faucet-src/tests
     echo "============ Running pytype analyzer ============"
     # TODO: need to force UTF-8 as POSIX causes pytype errors
-    locale-gen en_US.UTF-8 || exit 1
+    apt-get install -qqy locales
+    locale-gen en_US.UTF-8
     LANG=en_US.UTF-8 LANGUAGE=en_US.en LC_ALL=en_US.UTF-8 ./test_pytype.sh || exit 1
 
     echo "============ Running pylint analyzer ============"
