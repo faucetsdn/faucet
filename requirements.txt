@@ -1,5 +1,6 @@
 chewie==0.0.2
 datadiff
+eventlet==0.22.1
 influxdb
 ipaddress
 msgpack

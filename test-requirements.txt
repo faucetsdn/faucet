@@ -2,6 +2,7 @@ astroid
 bitstring
 codecov
 concurrencytest
+eventlet==0.22.1
 exabgp
 influxdb
 ipaddress
