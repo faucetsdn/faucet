@@ -115,7 +115,7 @@ class VLAN(Conf):
         # set MAC for FAUCET VIPs on this VLAN
         'unicast_flood': True,
         'bgp_as': None,
-        'bgp_connect_mode': 'both',
+        'bgp_connect_mode': 'passive',
         'bgp_local_address': None,
         'bgp_port': 9179,
         'bgp_server_addresses': ['0.0.0.0', '::'],
@@ -187,42 +187,48 @@ class VLAN(Conf):
         self._set_default(
             'bgp_neighbor_addresses', self.bgp_neighbour_addresses)
 
+    @staticmethod
+    def _check_ip_str(ip_str, ip_method=ipaddress.ip_address):
+        try:
+            return ip_method(btos(ip_str))
+        except (ValueError, AttributeError, TypeError) as err:
+            raise InvalidConfigError('Invalid IP address %s: %s' % (ip_str, err))
+
     def check_config(self):
         super(VLAN, self).check_config()
         test_config_condition(not self.vid_valid(self.vid), 'invalid VID %s' % self.vid)
         test_config_condition(not netaddr.valid_mac(self.faucet_mac), (
             'invalid MAC address %s' % self.faucet_mac))
+
+        test_config_condition(self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
+        if self.acl_in and not isinstance(self.acl_in, list):
+            self.acls_in = [self.acl_in,]
+            self.acl_in = None
+        if self.acls_in:
+            for acl in self.acls_in:
+                test_config_condition(not isinstance(acl, (int, str)), 'acl names must be int or str')
+
         if self.max_hosts:
             if not self.proactive_arp_limit:
                 self.proactive_arp_limit = 2 * self.max_hosts
             if not self.proactive_nd_limit:
                 self.proactive_nd_limit = 2 * self.max_hosts
+
         if self.faucet_vips:
-            try:
-                self.faucet_vips = [
-                    ipaddress.ip_interface(btos(ip)) for ip in self.faucet_vips]
-            except (ValueError, AttributeError, TypeError) as err:
-                raise InvalidConfigError('Invalid IP address in faucet_vips: %s' % err)
+            self.faucet_vips = [self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips]
             for faucet_vip in self.faucet_vips:
-                self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(
-                    faucet_vip)
+                self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(faucet_vip)
             self.dyn_ipvs = list(self.dyn_faucet_vips_by_ipv.keys())
+
         if self.bgp_neighbor_addresses or self.bgp_neighbour_addresses:
             neigh_addresses = set(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
-            try:
-                self.bgp_neighbor_addresses = [
-                    ipaddress.ip_address(btos(ip)) for ip in neigh_addresses]
-            except (ValueError, AttributeError, TypeError) as err:
-                raise InvalidConfigError('Invalid IP address in bgp_neighbor_addresses: %s' % err)
+            self.bgp_neighbor_addresses = [self._check_ip_str(ip_str) for ip_str in neigh_addresses]
             for bgp_neighbor_address in self.bgp_neighbor_addresses:
                 self.dyn_bgp_neighbor_addresses_by_ipv[bgp_neighbor_address.version].append(
                     bgp_neighbor_address)
+
         if self.bgp_server_addresses:
-            try:
-                self.bgp_server_addresses = [
-                    ipaddress.ip_address(btos(ip)) for ip in self.bgp_server_addresses]
-            except (ValueError, AttributeError, TypeError) as err:
-                raise InvalidConfigError('Invalid IP address in bgp_server_addresses: %s' % err)
+            self.bgp_server_addresses = [self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses]
             for bgp_server_address in self.bgp_server_addresses:
                 self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version].append(
                     bgp_server_address)
@@ -231,7 +237,7 @@ class VLAN(Conf):
         if self.bgp_as:
             test_config_condition(not isinstance(self.bgp_port, int), (
                 'BGP port must be %s not %s' % (int, type(self.bgp_port))))
-            test_config_condition(self.bgp_connect_mode not in ('active', 'passive', 'both'), (
+            test_config_condition(self.bgp_connect_mode not in ('passive'), (
                 '%s must be active, passive or both' % self.bgp_connect_mode))
             test_config_condition(not ipaddress.IPv4Address(btos(self.bgp_routerid)), (
                 '%s is not a valid IPv4 address' % (self.bgp_routerid)))
@@ -240,32 +246,22 @@ class VLAN(Conf):
             neighbor_ips = self.bgp_neighbor_addresses
             test_config_condition(len(neighbor_ips) != len(self.bgp_neighbor_addresses), (
                 'Neighbor IPs is not the same length as BGP neighbor addresses'))
-            peer_versions = [ip.version for ip in neighbor_ips]
-            test_config_condition(len(peer_versions) != 1 and self.bgp_connect_mode != 'active', (
-                'if using multiple address families bgp_connect_mode must be active'))
 
         if self.routes:
             try:
                 self.routes = [route['route'] for route in self.routes]
-                for route in self.routes:
-                    try:
-                        ip_gw = ipaddress.ip_address(btos(route['ip_gw']))
-                        ip_dst = ipaddress.ip_network(btos(route['ip_dst']))
-                    except (ValueError, AttributeError, TypeError) as err:
-                        raise InvalidConfigError('Invalid IP address in route: %s' % err)
-                    test_config_condition(ip_gw.version != ip_dst.version, 'ip_gw version does not match the ip_dst version')
-                    self.add_route(ip_dst, ip_gw)
-            except KeyError as err:
-                raise InvalidConfigError('missing route config %s' % err)
             except TypeError:
                 raise InvalidConfigError('%s is not a valid routes value' % self.routes)
-        test_config_condition(self.acl_in and self.acls_in, 'found both acl_in and acls_in, use only acls_in')
-        if self.acl_in and not isinstance(self.acl_in, list):
-            self.acls_in = [self.acl_in,]
-            self.acl_in = None
-        if self.acls_in:
-            for acl in self.acls_in:
-                test_config_condition(not isinstance(acl, (int, str)), 'acl names must be int or str')
+            for route in self.routes:
+                try:
+                    ip_gw = self._check_ip_str(route['ip_gw'])
+                    ip_dst = self._check_ip_str(route['ip_dst'], ip_method=ipaddress.ip_network)
+                except KeyError as err:
+                    raise InvalidConfigError('missing route config %s' % err)
+                test_config_condition(
+                    ip_gw.version != ip_dst.version,
+                    'ip_gw version does not match the ip_dst version')
+                self.add_route(ip_dst, ip_gw)
 
     @staticmethod
     def vid_valid(vid):
