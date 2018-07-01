@@ -137,16 +137,14 @@ class FaucetBgp(object):
             peer_up_handler=self._bgp_up_handler,
             peer_down_handler=self._bgp_down_handler,
             route_handler=handler,
-            error_handler=self.logger.warning
-        )
+            error_handler=self.logger.warning)
         for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(vlan, ipv):
             beka.add_route(prefix=str(ip_dst), next_hop=str(ip_gw))
         for bgp_neighbor_address in vlan.bgp_neighbor_addresses_by_ipv(ipv):
             beka.add_neighbor(
-                connect_mode="passive",
+                connect_mode=vlan.bgp_connect_mode,
                 peer_ip=str(bgp_neighbor_address),
-                peer_as=vlan.bgp_neighbor_as
-                )
+                peer_as=vlan.bgp_neighbor_as)
 
         hub.spawn(beka.run)
         return beka
@@ -162,29 +160,21 @@ class FaucetBgp(object):
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
-        # TODO: BGP speaker library does not cleanly handle del/add of same peer
-        # TODO: BGP speaker can listen only on one address family at once
-        # TODO: Ryu BGP supports only one speaker
-        # (https://sourceforge.net/p/ryu/mailman/message/32699012/)
-        # TODO: Ryu BGP cannot be restarted cleanly (so config cannot change at runtime)
+        # TODO: BGP speaker library does not cleanly handle del/add of same peer, or warm stats
         self._valves = valves
         if self._dp_bgp_speakers:
             self.logger.warning(
                 'not updating existing BGP speaker, runtime BGP changes not supported')
             return
-        bgp_vlans = self._bgp_vlans(self._valves)
-        if not bgp_vlans:
-            return
-        if len(bgp_vlans) > 1:
-            self.logger.warning(
-                'only one BGP VLAN currently supported')
-        bgp_vlan = sorted(bgp_vlans)[0]
-        dp_id = bgp_vlan.dp_id
-        vlan_vid = bgp_vlan.vid
-        self._dp_bgp_speakers[dp_id] = {}
-        for ipv in bgp_vlan.bgp_ipvs():
-            self._dp_bgp_speakers[dp_id][ipv] = {
-                vlan_vid: self._create_bgp_speaker_for_vlan(bgp_vlan, dp_id, vlan_vid, ipv)}
+        self._dp_bgp_speakers = {}
+        for bgp_vlan in self._bgp_vlans(self._valves):
+            dp_id = bgp_vlan.dp_id
+            vlan_vid = bgp_vlan.vid
+            if dp_id not in self._dp_bgp_speakers:
+                self._dp_bgp_speakers[dp_id] = {}
+            for ipv in bgp_vlan.bgp_ipvs():
+                self._dp_bgp_speakers[dp_id][ipv] = {
+                    vlan_vid: self._create_bgp_speaker_for_vlan(bgp_vlan, dp_id, vlan_vid, ipv)}
 
     def update_metrics(self, _now):
         """Update BGP metrics."""
