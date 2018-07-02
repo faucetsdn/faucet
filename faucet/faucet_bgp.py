@@ -27,6 +27,7 @@ from ryu.lib import hub # pylint: disable=wrong-import-position
 
 from beka.beka import Beka # pylint: disable=wrong-import-position
 
+
 class FaucetBgp(object):
     """Wrapper for Ryu BGP speaker."""
 
@@ -51,6 +52,15 @@ class FaucetBgp(object):
     def _bgp_down_handler(self, remote_ip, remote_as):
         self.logger.info('BGP peer router ID %s AS %s down' % (remote_ip, remote_as))
 
+    def _valve_vlan(self, dp_id, vlan_vid):
+        valve = None
+        vlan = None
+        if dp_id in self._valves:
+            if vlan_vid in self._valves[dp_id].dp.vlans:
+                valve = self._valves[dp_id]
+                vlan = self._valves[dp_id].dp.vlans[vlan_vid]
+        return (valve, vlan)
+
     def _bgp_route_handler(self, path_change, dp_id, vlan_vid):
         """Handle a BGP change event.
 
@@ -59,13 +69,9 @@ class FaucetBgp(object):
             dp_id (int): Datapath ID this path change was received for.
             vlan_vid (vlan_vid): VLAN VID this path change was received for.
         """
-        if not self._valves or dp_id not in self._valves:
+        valve, vlan = self._valve_vlan(dp_id, vlan_vid)
+        if vlan is None:
             return
-        valve = self._valves[dp_id]
-        if not vlan_vid in valve.dp.vlans:
-            return
-
-        vlan = valve.dp.vlans[vlan_vid]
         prefix = ipaddress.ip_network(str(path_change.prefix))
 
         if path_change.next_hop:
@@ -113,21 +119,16 @@ class FaucetBgp(object):
             vlan_prefixes.append((str(ip_dst), str(ip_gw)))
         return vlan_prefixes
 
-    def _create_bgp_speaker_for_vlan(self, vlan, dp_id, vlan_vid, ipv):
+    def _create_bgp_speaker_for_vlan(self, dp_id, vlan, ipv):
         """Set up BGP speaker for an individual VLAN if required.
 
         Args:
-            vlan (valve VLAN): VLAN for BGP speaker.
             dp_id (int): Datapath ID for BGP speaker.
-            vlan_vid (vlan_vid): VLAN VID for BGP speaker.
+            vlan (valve VLAN): VLAN for BGP speaker.
         Returns:
             ryu.services.protocols.bgp.bgpspeaker.BGPSpeaker: BGP speaker.
         """
-        handler = lambda x: self._bgp_route_handler(x, dp_id, vlan_vid)
-
-        if len(vlan.bgp_server_addresses_by_ipv(ipv)) > 1:
-            self.logger.warning(
-                'Only one server per IPv per vlan supported')
+        route_handler = lambda x: self._bgp_route_handler(x, dp_id, vlan.vid)
         server_address = sorted(vlan.bgp_server_addresses_by_ipv(ipv))[0]
         beka = Beka(
             local_address=str(server_address),
@@ -136,7 +137,7 @@ class FaucetBgp(object):
             router_id=vlan.bgp_routerid,
             peer_up_handler=self._bgp_up_handler,
             peer_down_handler=self._bgp_down_handler,
-            route_handler=handler,
+            route_handler=route_handler,
             error_handler=self.logger.warning)
         for ip_dst, ip_gw in self._vlan_prefixes_by_ipv(vlan, ipv):
             beka.add_route(prefix=str(ip_dst), next_hop=str(ip_gw))
@@ -145,7 +146,6 @@ class FaucetBgp(object):
                 connect_mode=vlan.bgp_connect_mode,
                 peer_ip=str(bgp_neighbor_address),
                 peer_as=vlan.bgp_neighbor_as)
-
         hub.spawn(beka.run)
         return beka
 
@@ -160,32 +160,34 @@ class FaucetBgp(object):
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
-        # TODO: BGP speaker library does not cleanly handle del/add of same peer, or warm stats
-        self._valves = valves
-        if self._dp_bgp_speakers:
-            self.logger.warning(
-                'not updating existing BGP speaker, runtime BGP changes not supported')
-            return
-        self._dp_bgp_speakers = {}
-        for bgp_vlan in self._bgp_vlans(self._valves):
+        for bgp_vlan in self._bgp_vlans(valves):
             dp_id = bgp_vlan.dp_id
             vlan_vid = bgp_vlan.vid
             if dp_id not in self._dp_bgp_speakers:
                 self._dp_bgp_speakers[dp_id] = {}
             for ipv in bgp_vlan.bgp_ipvs():
-                self._dp_bgp_speakers[dp_id][ipv] = {
-                    vlan_vid: self._create_bgp_speaker_for_vlan(bgp_vlan, dp_id, vlan_vid, ipv)}
+                if ipv not in self._dp_bgp_speakers[dp_id]:
+                    self._dp_bgp_speakers[dp_id][ipv] = {}
+                if vlan_vid not in self._dp_bgp_speakers[dp_id][ipv]:
+                    self._dp_bgp_speakers[dp_id][ipv][vlan_vid] = self._create_bgp_speaker_for_vlan(
+                        dp_id, bgp_vlan, ipv)
+                    self.logger.info(
+                        'Adding BGP speaker for %s' % bgp_vlan)
+                else:
+                    # TODO: support reconfiguration of exisiting BGP speaker.
+                    self.logger.info(
+                        'Skipping re/configuration of existing BGP speaker for %s' % bgp_vlan)
+        # TODO: handle deconfiguration of a BGP speaker.
+        self._valves = valves
 
     def update_metrics(self, _now):
         """Update BGP metrics."""
         for dp_id, bgp_speakers_by_ipv in list(self._dp_bgp_speakers.items()):
-            valve = self._valves[dp_id]
             for ipv, bgp_speakers in list(bgp_speakers_by_ipv.items()):
                 for vlan_vid, bgp_speaker in list(bgp_speakers.items()):
-                    # TODO: VLAN deconfigured, online reconfiguration while BGP active not supported.
-                    if vlan_vid not in valve.dp.vlans:
+                    valve, vlan = self._valve_vlan(dp_id, vlan_vid)
+                    if vlan is None:
                         continue
-                    vlan = valve.dp.vlans[vlan_vid]
                     neighbor_states = self._neighbor_states(bgp_speaker)
                     for neighbor, neighbor_state in neighbor_states:
                         neighbor_labels = dict(

@@ -215,37 +215,42 @@ class VLAN(Conf):
                 self.proactive_nd_limit = 2 * self.max_hosts
 
         if self.faucet_vips:
-            self.faucet_vips = [self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips]
+            self.faucet_vips = [
+                self._check_ip_str(ip_str, ip_method=ipaddress.ip_interface) for ip_str in self.faucet_vips]
             for faucet_vip in self.faucet_vips:
                 self.dyn_faucet_vips_by_ipv[faucet_vip.version].append(faucet_vip)
             self.dyn_ipvs = list(self.dyn_faucet_vips_by_ipv.keys())
 
         if self.bgp_neighbor_addresses or self.bgp_neighbour_addresses:
             neigh_addresses = set(self.bgp_neighbor_addresses + self.bgp_neighbour_addresses)
-            self.bgp_neighbor_addresses = [self._check_ip_str(ip_str) for ip_str in neigh_addresses]
+            self.bgp_neighbor_addresses = [
+                self._check_ip_str(ip_str) for ip_str in neigh_addresses]
             for bgp_neighbor_address in self.bgp_neighbor_addresses:
                 self.dyn_bgp_neighbor_addresses_by_ipv[bgp_neighbor_address.version].append(
                     bgp_neighbor_address)
 
         if self.bgp_server_addresses:
-            self.bgp_server_addresses = [self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses]
+            self.bgp_server_addresses = [
+                self._check_ip_str(ip_str) for ip_str in self.bgp_server_addresses]
             for bgp_server_address in self.bgp_server_addresses:
                 self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version].append(
                     bgp_server_address)
+                test_config_condition(
+                    len(self.dyn_bgp_server_addresses_by_ipv[bgp_server_address.version]) != 1,
+                    'Only one BGP server address per IP version supported')
             self.dyn_bgp_ipvs = list(self.dyn_bgp_server_addresses_by_ipv.keys())
 
         if self.bgp_as:
             test_config_condition(not isinstance(self.bgp_port, int), (
                 'BGP port must be %s not %s' % (int, type(self.bgp_port))))
             test_config_condition(self.bgp_connect_mode not in ('passive'), (
-                '%s must be active, passive or both' % self.bgp_connect_mode))
+                'BGP connect mode %s must be passive' % self.bgp_connect_mode))
             test_config_condition(not ipaddress.IPv4Address(btos(self.bgp_routerid)), (
                 '%s is not a valid IPv4 address' % (self.bgp_routerid)))
             test_config_condition(not self.bgp_neighbor_as, 'No BGP neighbor AS')
             test_config_condition(not self.bgp_neighbor_addresses, 'No BGP neighbor addresses')
-            neighbor_ips = self.bgp_neighbor_addresses
-            test_config_condition(len(neighbor_ips) != len(self.bgp_neighbor_addresses), (
-                'Neighbor IPs is not the same length as BGP neighbor addresses'))
+            test_config_condition(len(self.bgp_neighbor_addresses) != len(self.bgp_neighbor_addresses), (
+                'Must be as many BGP neighbor addresses as BGP server addresses'))
 
         if self.routes:
             try:
