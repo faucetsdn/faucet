@@ -2142,9 +2142,10 @@ vlans:
         self.wait_exabgp_sent_updates(self.exabgp_log)
         self.add_host_route(
             second_host, first_host_alias_host_ip, self.FAUCET_VIPV4.ip)
-        self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
-        self.one_ipv4_controller_ping(first_host)
-        self.coldstart_conf()
+        for _ in range(2):
+            self.one_ipv4_ping(second_host, first_host_alias_ip.ip)
+            self.one_ipv4_controller_ping(first_host)
+            self.coldstart_conf()
 
 
 class FaucetUntaggedBGPIPv4DefaultRouteTest(FaucetUntaggedTest):
