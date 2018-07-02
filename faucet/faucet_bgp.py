@@ -160,24 +160,26 @@ class FaucetBgp(object):
     def reset(self, valves):
         """Set up a BGP speaker for every VLAN that requires it."""
         # TODO: port status changes should cause us to withdraw a route.
+        new_dp_bgp_speakers = {}
         for bgp_vlan in self._bgp_vlans(valves):
             dp_id = bgp_vlan.dp_id
             vlan_vid = bgp_vlan.vid
-            if dp_id not in self._dp_bgp_speakers:
-                self._dp_bgp_speakers[dp_id] = {}
+            if dp_id not in new_dp_bgp_speakers:
+                new_dp_bgp_speakers[dp_id] = {}
             for ipv in bgp_vlan.bgp_ipvs():
-                if ipv not in self._dp_bgp_speakers[dp_id]:
-                    self._dp_bgp_speakers[dp_id][ipv] = {}
-                if vlan_vid not in self._dp_bgp_speakers[dp_id][ipv]:
-                    self._dp_bgp_speakers[dp_id][ipv][vlan_vid] = self._create_bgp_speaker_for_vlan(
-                        dp_id, bgp_vlan, ipv)
+                if ipv not in new_dp_bgp_speakers[dp_id]:
+                    new_dp_bgp_speakers[dp_id][ipv] = {}
+                try:
+                    speaker = self._dp_bgp_speakers[dp_id][ipv][vlan_vid]
                     self.logger.info(
-                        'Adding BGP speaker for %s' % bgp_vlan)
-                else:
-                    # TODO: support reconfiguration of exisiting BGP speaker.
-                    self.logger.info(
-                        'Skipping re/configuration of existing BGP speaker for %s' % bgp_vlan)
+                        'Skipping re/configuration of existing BGP speaker %s for %s' % (
+                            speaker, bgp_vlan))
+                except KeyError:
+                    speaker = self._create_bgp_speaker_for_vlan(dp_id, bgp_vlan, ipv)
+                    self.logger.info('Adding BGP speaker %s for %s' % (speaker, bgp_vlan))
+                new_dp_bgp_speakers[dp_id][ipv][vlan_vid] = speaker
         # TODO: handle deconfiguration of a BGP speaker.
+        self._dp_bgp_speakers = new_dp_bgp_speakers
         self._valves = valves
 
     def update_metrics(self, _now):
