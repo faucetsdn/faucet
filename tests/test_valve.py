@@ -1222,8 +1222,12 @@ meters:
             del_event = RouteRemoval(
                 IPPrefix.from_string(prefix),
             )
-            self.bgp._bgp_route_handler(add_event, self.DP_ID, 0x100)
-            self.bgp._bgp_route_handler(del_event, self.DP_ID, 0x100)
+            self.bgp._bgp_route_handler(
+                add_event,
+                faucet_bgp.BgpSpeakerKey(self.DP_ID, 0x100, 4))
+            self.bgp._bgp_route_handler(
+                del_event,
+                faucet_bgp.BgpSpeakerKey(self.DP_ID, 0x100, 4))
             self.bgp._bgp_up_handler(nexthop, 65001)
             self.bgp._bgp_down_handler(nexthop, 65001)
 
