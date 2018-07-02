@@ -198,13 +198,14 @@ class FaucetBgp(object):
                         'Skipping re/configuration of existing %s for %s' % (
                             bgp_speaker_key, bgp_vlan))
                     bgp_speaker = self._dp_bgp_speakers[bgp_speaker_key]
-                    # Re-add routes (to avoid flapping BGP even when VLAN cold starts).
-                    for prefix, nexthop in list(self._dp_bgp_rib[bgp_speaker_key].items()):
-                        self.logger.info(
-                            'Re-adding %s via %s' % (prefix, nexthop))
-                        flowmods = valve.add_route(bgp_vlan, nexthop, prefix)
-                        if flowmods:
-                            self._send_flow_msgs(valve, flowmods)
+                    if bgp_speaker_key in self._dp_bgp_rib:
+                        # Re-add routes (to avoid flapping BGP even when VLAN cold starts).
+                        for prefix, nexthop in list(self._dp_bgp_rib[bgp_speaker_key].items()):
+                            self.logger.info(
+                                'Re-adding %s via %s' % (prefix, nexthop))
+                            flowmods = valve.add_route(bgp_vlan, nexthop, prefix)
+                            if flowmods:
+                                self._send_flow_msgs(valve, flowmods)
                 else:
                     self.logger.info('Adding %s for %s' % (bgp_speaker_key, bgp_vlan))
                     bgp_speaker = self._create_bgp_speaker_for_vlan(bgp_vlan, bgp_speaker_key)
