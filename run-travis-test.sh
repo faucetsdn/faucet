@@ -9,11 +9,11 @@ if [ "${MATRIX_SHARD}" = "sanity" ] ; then
   FAUCET_TESTS="FaucetSanityTest"
   # TODO: move to docker.
   cd tests
-  PYTHONPATH=.. ./test_coverage.sh || exit 1
+  ./run_unit_tests.sh || exit 1
   codecov || true
   cd ..
 else
-  ALLTESTFILES="tests/faucet_mininet_test_unit.py clib/clib_mininet_test_unit.py"
+  ALLTESTFILES="tests/integration/mininet_tests.py clib/clib_mininet_test_unit.py"
   ALLTESTS=`grep -E -o "^class (Faucet[a-zA-Z0-9]+Test)" ${ALLTESTFILES}|cut -f2 -d" "|sort`
   declare -A sharded
 
