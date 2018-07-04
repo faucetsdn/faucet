@@ -342,8 +342,9 @@ configuration.
         if port.lldp_beacon_enabled():
             self.lldp_beacon_ports.append(port)
 
-    def resolve_stack_topology(self, dps):
-        """Resolve inter-DP config for stacking."""
+    @staticmethod
+    def modify_stack_topology(graph, dp, port, add=True):
+        """Add/remove an edge to the stack graph which originates from this dp and port."""
 
         def canonical_edge(dp, port):
             peer_dp = port.stack['dp']
@@ -370,6 +371,33 @@ configuration.
                 'dp_a': edge_a_dp, 'port_a': edge_a_port,
                 'dp_z': edge_z_dp, 'port_z': edge_z_port}
 
+        edge = canonical_edge(dp, port)
+        edge_a, edge_z = edge
+        edge_name = make_edge_name(edge_a, edge_z)
+        edge_attr = make_edge_attr(edge_a, edge_z)
+        edge_a_dp, _ = edge_a
+        edge_z_dp, _ = edge_z
+        if add:
+            graph.add_edge(
+                edge_a_dp.name, edge_z_dp.name,
+                key=edge_name, port_map=edge_attr)
+        else:
+            graph.remove_edge(edge_a_dp.name, edge_z_dp.name)
+
+        return edge_name
+
+    @classmethod
+    def add_stack_link(cls, graph, dp, port):
+        """Add a stack link to the stack graph."""
+        return cls.modify_stack_topology(graph, dp, port)
+
+    @classmethod
+    def remove_stack_link(cls, graph, dp, port):
+        """Remove a stack link to the stack graph."""
+        return cls.modify_stack_topology(graph, dp, port, False)
+
+    def resolve_stack_topology(self, dps):
+        """Resolve inter-DP config for stacking."""
         root_dp = None
         stack_dps = []
         for dp in dps:
@@ -395,18 +423,10 @@ configuration.
             if dp.stack_ports:
                 graph.add_node(dp.name)
                 for port in dp.stack_ports:
-                    edge = canonical_edge(dp, port)
-                    edge_a, edge_z = edge
-                    edge_name = make_edge_name(edge_a, edge_z)
-                    edge_attr = make_edge_attr(edge_a, edge_z)
-                    edge_a_dp, _ = edge_a
-                    edge_z_dp, _ = edge_z
+                    edge_name = self.add_stack_link(graph, dp, port)
                     if edge_name not in edge_count:
                         edge_count[edge_name] = 0
                     edge_count[edge_name] += 1
-                    graph.add_edge(
-                        edge_a_dp.name, edge_z_dp.name,
-                        key=edge_name, port_map=edge_attr)
         if graph.size():
             for edge_name, count in list(edge_count.items()):
                 test_config_condition(count != 2, '%s defined only in one direction' % edge_name)

@@ -442,16 +442,18 @@ class ValveFloodStackManager(ValveFloodManager):
         """Update the stack topo according to the event."""
 
         def _stack_topo_up_dp(dp): # pylint: disable=unused-argument
-            pass
+            for port in [port for port in dp.stack_ports if port.is_stack_up()]:
+                _stack_topo_up_port(dp, port)
 
         def _stack_topo_down_dp(dp): # pylint: disable=unused-argument
-            pass
+            for port in [port for port in dp.stack_ports if port.is_stack_up()]:
+                _stack_topo_down_port(dp, port)
 
         def _stack_topo_up_port(dp, port): # pylint: disable=unused-argument
-            pass
+            dp.add_stack_link(self.stack['graph'], dp, port)
 
         def _stack_topo_down_port(dp, port): # pylint: disable=unused-argument
-            pass
+            dp.remove_stack_link(self.stack['graph'], dp, port)
 
         if port:
             if event:
