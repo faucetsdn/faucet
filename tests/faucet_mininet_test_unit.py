@@ -5337,10 +5337,13 @@ class FaucetStringOfDPTest(FaucetTest):
                    n_tagged, tagged_vid, n_untagged, untagged_vid):
             dpid_ofchannel_log = None
             if ofchannel_log is not None:
-                 dpid_ofchannel_log = ofchannel_log + str(i)
+                dpid_ofchannel_log = ofchannel_log + str(i)
+            dp_hardware = hardware
+            if dpid != hw_dpid:
+                dp_hardware = 'Open vSwitch'
             dp_config = {
                 'dp_id': int(dpid),
-                'hardware': hardware,
+                'hardware': dp_hardware,
                 'ofchannel_log': dpid_ofchannel_log,
                 'interfaces': {},
                 'lldp_beacon': {'send_interval': 5, 'max_per_interval': 5},
