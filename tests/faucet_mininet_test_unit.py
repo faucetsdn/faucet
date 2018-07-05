@@ -5347,6 +5347,9 @@ class FaucetStringOfDPTest(FaucetTest):
             }
             interfaces_config = dp_config['interfaces']
 
+            if dpid != hw_dpid:
+                dp_config['hardware'] = 'Open vSwitch'
+
             port = 1
             for _ in range(n_tagged):
                 interfaces_config[port] = {
