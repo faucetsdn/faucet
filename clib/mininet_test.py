@@ -607,7 +607,7 @@ def parse_args():
     """Parse command line arguments."""
 
     parser = argparse.ArgumentParser(
-        prog='faucet_mininet_unit')
+        prog='mininet_tests')
     parser.add_argument(
         '-c', '--clean', action='store_true', help='run mininet cleanup')
     parser.add_argument(

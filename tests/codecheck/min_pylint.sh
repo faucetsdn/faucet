@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FAUCETHOME=`dirname $0`"/.."
+FAUCETHOME=`dirname $0`"/../.."
 PYTHONPATH=$FAUCETHOME:$FAUCETHOME/clib
 
 MINRATING=9.2

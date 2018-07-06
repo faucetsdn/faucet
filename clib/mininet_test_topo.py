@@ -556,4 +556,4 @@ class Gauge(BaseFAUCET):
 class FaucetExperimentalAPI(FAUCET):
     """Start a controller to run the Faucet experimental API tests."""
 
-    START_ARGS = ['--ryu-app=test_experimental_api.py', '--ryu-app=ryu.app.ofctl_rest']
+    START_ARGS = ['--ryu-app=experimental_api_test_app.py', '--ryu-app=ryu.app.ofctl_rest']
