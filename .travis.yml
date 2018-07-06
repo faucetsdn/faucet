@@ -8,6 +8,7 @@ services:
 before_install:
   - sudo ./docker/retrycmd.sh "apt-get -qy update"
   - sudo ./docker/retrycmd.sh "apt-get install -qy openvswitch-switch"
+  - sudo ./docker/retrycmd.sh "apt-get install docker-ce=17.09.1~ce-0~ubuntu"
 cache:
   pip: true
 # Run with 4 test shards (can't seem to schedule more).
