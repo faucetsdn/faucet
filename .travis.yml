@@ -8,6 +8,7 @@ services:
 before_install:
   - sudo ./docker/retrycmd.sh "apt-get -qy update"
   - sudo ./docker/retrycmd.sh "apt-get install -qy openvswitch-switch"
+  - sudo ./docker/retrycmd.sh "apt-cache madison docker-ce"
   - sudo ./docker/retrycmd.sh "apt-get install 17.12.1~ce-0~ubuntu"
 cache:
   pip: true
