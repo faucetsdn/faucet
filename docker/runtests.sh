@@ -46,7 +46,7 @@ cd /faucet-src/tests
 if [ "$UNITTESTS" == 1 ] ; then
     echo "========== Running faucet unit tests =========="
     cd /faucet-src/tests
-    PYTHONPATH=.. ./test_coverage.sh || exit 1
+    ./run_unit_tests.sh || exit 1
     # TODO: enable under travis
     # codecov || true
 fi
@@ -57,14 +57,14 @@ if [ "$DEPCHECK" == 1 ] ; then
     make html || exit 1
     rm -rf _build
 
-    cd /faucet-src/tests
+    cd /faucet-src/tests/codecheck
     echo "============ Running pytype analyzer ============"
     # TODO: need to force UTF-8 as POSIX causes pytype errors
     locale-gen en_US.UTF-8 || exit 1
-    LANG=en_US.UTF-8 LANGUAGE=en_US.en LC_ALL=en_US.UTF-8 ./test_pytype.sh || exit 1
+    LANG=en_US.UTF-8 LANGUAGE=en_US.en LC_ALL=en_US.UTF-8 ./pytype.sh || exit 1
 
     echo "============ Running pylint analyzer ============"
-    PYTHONPATH=.. ./test_min_pylint.sh || exit 1
+    PYTHONPATH=../.. ./pylint.sh || exit 1
 fi
 
 echo "========== Starting docker container =========="
@@ -72,11 +72,12 @@ service docker start
 
 echo "========== Running faucet system tests =========="
 test_failures=
+export FAUCET_DIR=/faucet-src/faucet
 export PYTHONPATH=/faucet-src
 
-cd /faucet-src/tests
-python2 ./faucet_mininet_test.py -c
-http_proxy="" python2 ./faucet_mininet_test.py $FAUCET_TESTS || test_failures+=" faucet_mininet_test"
+cd /faucet-src/tests/integration
+python2 ./mininet_main.py -c
+http_proxy="" python2 ./mininet_main.py $FAUCET_TESTS || test_failures+=" mininet_main"
 
 cd /faucet-src/clib
 http_proxy="" python2 ./clib_mininet_test.py $FAUCET_TESTS || test_failures+=" clib_mininet_test"
