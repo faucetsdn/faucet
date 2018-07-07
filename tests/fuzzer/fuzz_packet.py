@@ -1,33 +1,39 @@
 #!/usr/bin/env python3
+
+"""Run AFL repeatedly with externally supplied generated packet from STDIN."""
+
 import logging
-import os
 import sys
-import Fake
-from faucet import faucet
 from ryu.controller import dpset
+from faucet import faucet
 from faucet import faucet_experimental_api
+import afl
+import Fake
+
 
 logging.disable(logging.CRITICAL)
 
-# run faucet
-application = faucet.Faucet(dpset=dpset.DPSet(), faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
-application.start()
 
-# make sure dps are running
-for dp_id, valve in list(application.valves.items()):
-    valve.dp.running = True
+def main():
+    # run faucet
+    application = faucet.Faucet(
+        dpset=dpset.DPSet(),
+        faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
+    application.start()
 
-import afl
-while afl.loop(1000):
-    # receive input from afl
-    rcv = sys.stdin.read()
-    data = None
-    try:
-        data = bytearray.fromhex(rcv)
-    except (ValueError, TypeError):
-        pass
+    # make sure dps are running
+    for valve in list(application.valves_manager.valves.values()):
+        valve.dp.running = True
 
-    if data is not None:
+    while afl.loop(1000):
+        # receive input from afl
+        rcv = sys.stdin.read()
+        data = None
+        try:
+            data = bytearray.fromhex(rcv)
+        except (ValueError, TypeError):
+            continue
+
         # create fake packet
         dp = Fake.Datapath(1)
         msg = Fake.Message(datapath=dp, cookie=1524372928, port=1, data=data, in_port=1)
@@ -36,4 +42,6 @@ while afl.loop(1000):
         # send fake packet to faucet
         application.packet_in_handler(pkt)
 
-os._exit(0)
+
+if __name__ == "__main__":
+    main()

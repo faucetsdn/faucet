@@ -16,6 +16,7 @@ DEVNULL = open(os.devnull, 'wb')
 GETPORT = 'GETPORT'
 PUTPORTS = 'PUTPORTS'
 GETSERIAL = 'GETSERIAL'
+LISTPORTS = 'LISTPORTS'
 LOCALHOST = u'127.0.0.1'
 FAUCET_DIR = os.getenv('FAUCET_DIR', '../faucet')
 RESERVED_FOR_TESTS_PORTS = (179, 5001, 5002, 6633, 6653)
@@ -28,9 +29,18 @@ def flat_test_name(_id):
     return '-'.join(_id.split('.')[1:])
 
 
-def tcp_listening_cmd(port, ipv=4, state='LISTEN'):
-    """Return a command line for lsof for PIDs with specified TCP state."""
-    return 'lsof -b -P -n -t -sTCP:%s -i %u -a -i tcp:%u' % (state, ipv, port)
+def lsof_tcp_listening_cmd(port, ipv, state, terse):
+    """Return a command line for lsof for processes with specified TCP state."""
+    terse_arg = ''
+    if terse:
+        terse_arg = '-t'
+    return 'lsof -b -P -n %s -sTCP:%s -i %u -a -i tcp:%u' % (
+        terse_arg, state, ipv, port)
+
+
+def tcp_listening_cmd(port, ipv=4, state='LISTEN', terse=True):
+    """Call lsof_tcp_listening_cmd() with default args."""
+    return lsof_tcp_listening_cmd(port, ipv, state, terse)
 
 
 def mininet_dpid(int_dpid):
@@ -70,10 +80,12 @@ def test_server_request(ports_socket, name, command):
     sock.connect(ports_socket)
     sock.sendall(b'%s,%s\n' % (command, name))
     buf = receive_sock_line(sock)
-    response = int(buf.strip())
+    responses = [int(i) for i in buf.split('\n')]
     sock.close()
-    output('%s %s: %u' % (name, command, response))
-    return response
+    if len(responses) == 1:
+        responses = responses[0]
+    output('%s %s: %u' % (name, command, responses))
+    return responses
 
 
 def get_serialno(ports_socket, name):
@@ -83,8 +95,9 @@ def get_serialno(ports_socket, name):
 
 def find_free_port(ports_socket, name):
     """Retrieve a free TCP port from test server."""
+    request_name = '-'.join((name, str(os.getpid())))
     while True:
-        port = test_server_request(ports_socket, name, GETPORT)
+        port = test_server_request(ports_socket, request_name, GETPORT)
         if not tcp_listening(port):
             return port
         error('port %u is busy, try another' % port)
@@ -139,7 +152,7 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
         if command == GETSERIAL:
             serialno += 1
             response = serialno
-        if command == PUTPORTS:
+        elif command == PUTPORTS:
             ports_returned = 0
             for port in ports_by_name[name]:
                 ports_returned += 1
@@ -156,9 +169,14 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
                 time.sleep(1)
             ports_by_name[name].add(port)
             response = port
+        elif command == LISTPORTS:
+            response = list(ports_by_name[name])
         if response is not None:
-            # pylint: disable=no-member
-            connection.sendall(b'%u\n' % response)
+            response_str = ''
+            if isinstance(response, int):
+                response = [response]
+            response_str = bytes(''.join(['%u\n' % i for i in response]))
+            connection.sendall(response_str) # pylint: disable=no-member
         connection.close()
         if len(ports_q) < min_free_ports:
             queue_free_ports(len(ports_q) + 1)

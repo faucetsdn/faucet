@@ -1,28 +1,37 @@
 #!/usr/bin/env python3
 
+"""Run AFL repeatedly with externally supplied generated config from STDIN."""
+
+
 import logging
 import tempfile
 import os
 import sys
 from faucet import config_parser as cp
+import afl
 
 LOGNAME = 'FAUCETLOG'
 
-logging.disable(logging.CRITICAL)
-tmpdir = tempfile.mkdtemp()
 
 def create_config_file(config):
+    """Create config file with given contents."""
+    tmpdir = tempfile.mkdtemp()
     conf_file_name = os.path.join(tmpdir, 'faucet.yaml')
     with open(conf_file_name, 'w') as conf_file:
         conf_file.write(config)
     return conf_file_name
 
-import afl
-while afl.loop(500):
-    data = sys.stdin.read()
-    file_name = create_config_file(data)
-    try:
-        cp.dp_parser(file_name, LOGNAME)
-    except cp.InvalidConfigError as err:
-        pass
-os._exit(0)
+
+def main():
+    logging.disable(logging.CRITICAL)
+    while afl.loop(500):
+        config = sys.stdin.read()
+        file_name = create_config_file(config)
+        try:
+            cp.dp_parser(file_name, LOGNAME)
+        except cp.InvalidConfigError:
+            pass
+
+
+if __name__ == "__main__":
+    main()

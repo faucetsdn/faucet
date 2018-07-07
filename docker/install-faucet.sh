@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 APK="apk -q"
 BUILDDEPS="gcc python3-dev musl-dev"
 TESTDEPS="bitstring pytest setuptools wheel virtualenv"
