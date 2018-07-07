@@ -1017,19 +1017,12 @@ class FaucetUntaggedMultiDBWatcherTest(
 """ % (self.DP_NAME, self.DP_NAME, self.DP_NAME)
 
     def test_untagged(self):
-        error('wait_dp_status')
         self.wait_dp_status(1, controller='gauge')
-        error('_prom_ports_updating')
         self._prom_ports_updating()
-        error('ping_all_when_learned')
         self.ping_all_when_learned()
-        error('hup_gauge')
         self.hup_gauge()
-        error('flap_all_switch_ports')
         self.flap_all_switch_ports()
-        error('_wait_influx_log')
         self._wait_influx_log()
-        error('_verify_influx_log')
         self._verify_influx_log()
 
 
