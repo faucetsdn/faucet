@@ -2,7 +2,7 @@ version: '2'
 services:
     influxdb:
         restart: always
-        image: 'hypriot/rpi-influxdb:latest'
+        image: 'arm32v7/influxdb:1.6'
         ports:
             - '8086'
             - '8083'
