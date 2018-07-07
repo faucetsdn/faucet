@@ -12,7 +12,7 @@ These switches include:
 - `3810 <http://www.arubanetworks.com/products/networking/switches/3810-series/>`_
 - `2930F <http://www.arubanetworks.com/products/networking/switches/2930f-series/>`_
 
-The FAUCET pipeline is only supported from ``16.03`` release of the firmware onwards.
+The FAUCET pipeline is only supported from ``16.03`` release of the firmware onwards. HPE Aruba recommends use of the latest available firmware, which can be downloaded from `HPE Support <https://www.hpe.com/networking/support>`_.
 
 For any queries, please post your question on HPE's `SDN forum <https://community.hpe.com/t5/SDN-Discussions/bd-p/sdn-discussions>`_.
 
@@ -36,6 +36,17 @@ System & Network Requirements
 
 Switch
 ^^^^^^
+
+**Chassis configuration**
+
+Skip this step if you have a fixed configuration system (2930 or 3810). On a chassis system with insertable cards (5400R) new cards are configured to work in a backwards-compatible way (with reduced functionality) unless older cards are disabled in the chassis. To disable older (V2) cards and enable all functionality necessary to operate FAUCET, put the chassis into a mode where only V3 cards are allowed.
+
+* *Chassis system (5400R)*
+
+.. code-block:: none
+
+	// Disable backwards compatibility, enable full Openflow flexibility
+	switch (config)# no allow-v2-modules
 
 **VLAN/PORT configuration**
 

@@ -2,7 +2,7 @@
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,9 +66,10 @@ class Conf(object):
             if conf_value is not None:
                 conf_type = conf_types[conf_key]
                 test_config_condition(not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
-                    conf_key, conf_value, conf_type, type(conf_value)))
+                    conf_key, conf_value, conf_type, type(conf_value))) # pytype: disable=invalid-typevar
 
-    def _set_unknown_conf(self, conf, conf_types):
+    @staticmethod
+    def _set_unknown_conf(conf, conf_types):
         for conf_key, conf_type in list(conf_types.items()):
             if conf_key not in conf:
                 if conf_type == list:
@@ -87,7 +88,8 @@ class Conf(object):
         """Check config at instantiation time for errors, typically via assert."""
         return
 
-    def _conf_keys(self, conf, dyn=False, subconf=True, ignore_keys=None):
+    @staticmethod
+    def _conf_keys(conf, dyn=False, subconf=True, ignore_keys=None):
         """Return a list of key/values of attributes with dyn/Conf attributes/filtered."""
         conf_keys = []
         for key, value in list(conf.__dict__.items()):

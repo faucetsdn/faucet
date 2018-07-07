@@ -79,6 +79,13 @@ to the dataplane, and one for the CPN for OpenFlow. You will need to assign
 an IP address to the CPN interface on the host, and configure the switch
 with a CPN IP address and establish that they can reach each other (eg via ping).
 
+NOTE: it is very important to disable any process that cause any traffic
+on the dataplane test interfaces, as this may interfere with the tests.
+For example, the test interfaces should have all IPv4/IPv6 dynamic
+address assignment disabled. To achieve this, on Ubuntu for example, you
+can set the interfaces to "unmanaged" in Network Manager, and make sure
+processes like `Avahi <http://manpages.ubuntu.com/manpages/xenial/en/man5/avahi-daemon.conf.5.html>`_ ignores those interfaces.
+
 You will need to configure the switch with two OpenFlow controllers, both
 with the host's CPN IP address, but with different ports (defaults are given
 below for *of_port* and *gauge_of_port*).
@@ -141,18 +148,18 @@ Running the tests
   modprobe openvswitch
   sudo docker run --privileged --net=host \
       -v /etc/faucet:/etc/faucet \
-      -v /tmp:/tmp \
+      -v /var/tmp:/var/tmp \
       -ti faucet/tests
 
 Running a single test including pytype, linting, and documentation
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: console
 
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="FaucetUntaggedTest" \
       -v /etc/faucet:/etc/faucet \
-      -v /tmp:/tmp \
+      -v /var/tmp:/var/tmp \
       -ti faucet/tests
 
 Running only the integration tests
@@ -164,9 +171,9 @@ in order to complete a faucet test suite run against hardware quicker.
 .. code:: console
 
   sudo docker run --privileged --net=host \
-      -e FAUCET_TESTS="-n" \
+      -e FAUCET_TESTS="-i" \
       -v /etc/faucet:/etc/faucet \
-      -v /tmp:/tmp \
+      -v /var/tmp:/var/tmp \
       -ti faucet/tests
 
 Running only a single integration test
@@ -181,7 +188,7 @@ the results.
   sudo docker run --privileged --net=host \
       -e FAUCET_TESTS="-i -n -k FaucetUntaggedLLDPTest" \
       -v /etc/faucet:/etc/faucet \
-      -v /tmp:/tmp \
+      -v /var/tmp:/var/tmp \
       -ti faucet/tests
 
 Checking test results

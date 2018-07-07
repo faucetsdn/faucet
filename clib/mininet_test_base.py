@@ -18,11 +18,10 @@ import shutil
 import subprocess
 import tempfile
 import time
-import unittest
+import unittest2
 import yaml
 
 import requests
-
 from requests.exceptions import ConnectionError, ReadTimeout
 
 # pylint: disable=import-error
@@ -33,6 +32,8 @@ from mininet.net import Mininet
 from mininet.node import Intf
 from mininet.util import dumpNodeConnections, pmonitor
 
+import netifaces
+
 import mininet_test_util
 import mininet_test_topo
 from tcpdump_helper import TcpdumpHelper
@@ -41,7 +42,7 @@ from tcpdump_helper import TcpdumpHelper
 PEER_BGP_AS = 2**16 + 1
 
 
-class FaucetTestBase(unittest.TestCase):
+class FaucetTestBase(unittest2.TestCase):
     """Base class for all FAUCET unit tests."""
 
     ONE_GOOD_PING = '1 packets transmitted, 1 received, 0% packet loss'
@@ -87,6 +88,7 @@ class FaucetTestBase(unittest.TestCase):
 
     config = None
     dpid = None
+    hw_dpid = None
     hardware = 'Open vSwitch'
     hw_switch = False
     gauge_controller = None
@@ -107,7 +109,7 @@ class FaucetTestBase(unittest.TestCase):
     env = collections.defaultdict(dict)
     rand_dpids = set()
     event_sock = None
-
+    faucet_config_path = None
 
     def __init__(self, name, config, root_tmpdir, ports_sock, max_test_load):
         super(FaucetTestBase, self).__init__(name)
@@ -256,12 +258,11 @@ class FaucetTestBase(unittest.TestCase):
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_static_vars()
-
+        self.topo_class = mininet_test_topo.FaucetSwitchTopo
         if self.hw_switch:
-            self.topo_class = mininet_test_topo.FaucetHwSwitchTopo
-            self.dpid = mininet_test_util.str_int_dpid(self.dpid)
+            self.hw_dpid = mininet_test_util.str_int_dpid(self.dpid)
+            self.dpid = self.hw_dpid
         else:
-            self.topo_class = mininet_test_topo.FaucetSwitchTopo
             self.dpid = self.rand_dpid()
 
     def tearDown(self):
@@ -319,10 +320,15 @@ class FaucetTestBase(unittest.TestCase):
                      phys_port.name,
                      phys_port.name,
                      mapped_port_i))
+            phys_mac = netifaces.ifaddresses(phys_port.name)[netifaces.AF_LINK][0]['addr']
+            switch.cmd('%s add-flow %s in_port=%u,eth_src=%s,priority=2,actions=drop' % (
+                self.OFCTL, switch.name, mapped_port_i, phys_mac))
+            switch.cmd('%s add-flow %s in_port=%u,eth_dst=%s,priority=2,actions=drop' % (
+                self.OFCTL, switch.name, port_i, phys_mac))
             for port_pair in ((port_i, mapped_port_i), (mapped_port_i, port_i)):
-                port_x, port_y = port_pair
-                switch.cmd('%s add-flow %s in_port=%u,actions=output:%u' % (
-                    self.OFCTL, switch.name, port_x, port_y))
+                in_port, out_port = port_pair
+                switch.cmd('%s add-flow %s in_port=%u,priority=1,actions=output:%u' % (
+                    self.OFCTL, switch.name, in_port, out_port))
 
     def start_net(self):
         """Start Mininet network."""
@@ -374,7 +380,6 @@ class FaucetTestBase(unittest.TestCase):
             self._allocate_config_ports()
             self._allocate_faucet_ports()
             self._set_vars()
-            self._write_faucet_config()
             for log in glob.glob(os.path.join(self.tmpdir, '*.log')):
                 os.remove(log)
             self.net = Mininet(
@@ -403,6 +408,7 @@ class FaucetTestBase(unittest.TestCase):
                     ca_certs=self.ca_certs,
                     port=self.gauge_of_port)
                 self.net.addController(self.gauge_controller)
+            self._write_faucet_config()
             self.net.start()
             self._wait_load()
             last_error_txt = self._start_check()
@@ -559,8 +565,9 @@ dps:
         ofchannel_log: %s
         dp_id: 0x%x
         hardware: "%s"
-""" % (config_global, self.DP_NAME, debug_log, int(dpid), hardware)
-
+        cookie: %u
+""" % (config_global, self.DP_NAME, debug_log,
+       int(dpid), hardware, random.randint(1, 2**64-1))
 
     def get_gauge_watcher_config(self):
         return """
@@ -813,11 +820,11 @@ dbs:
 
     @staticmethod
     def mac_as_int(mac):
-        return long(mac.replace(':', ''), 16)
+        return long(mac.replace(':', ''), 16) # pytype: disable=name-error
 
     def mac_from_int(self, mac_int):
-        mac_int_str = '%012x' % long(mac_int)
-        return ':'.join([x.encode('hex') for x in str(mac_int_str).decode('hex')])
+        mac_int_str = '%012x' % long(mac_int) # pytype: disable=name-error
+        return ':'.join([x.encode('hex') for x in str(mac_int_str).decode('hex')]) # pytype: disable=attribute-error
 
     def prom_macs_learned(self, port=None, vlan=None):
         labels = {
@@ -878,7 +885,7 @@ dbs:
         if not host_ip_net:
             host_ip_net = self.host_ipv6(host)
         broadcast = ipaddress.ip_interface(
-            unicode(host_ip_net)).network.broadcast_address
+            unicode(host_ip_net)).network.broadcast_address # pytype: disable=name-error
         broadcast_str = str(broadcast)
 
         packets = 1
@@ -935,9 +942,9 @@ dbs:
                               dpid=True, multiple=False, controller='faucet', retries=3):
         if dpid:
             if dpid is True:
-                dpid = long(self.dpid)
+                dpid = long(self.dpid) # pytype: disable=name-error
             else:
-                dpid = long(dpid)
+                dpid = long(dpid) # pytype: disable=name-error
         label_values_re = r''
         if any_labels:
             label_values_re = r'\{[^\}]+\}'
@@ -964,7 +971,7 @@ dbs:
                 prom_var = prom_line_match.group(1)
                 value = prom_line_match.group(2)
                 if var_re.match(prom_var):
-                    value_int = long(float(value))
+                    value_int = long(float(value)) # pytype: disable=name-error
                     results.append((var, value_int))
                     if not multiple:
                         break
@@ -1038,8 +1045,13 @@ dbs:
 
         def _update_conf(conf_path, yaml_conf):
             if yaml_conf:
-                with open(conf_path, 'w') as config_file:
-                    config_file.write(yaml.dump(yaml_conf))
+                config_file_tmp = tempfile.NamedTemporaryFile(
+                    prefix=os.path.basename(conf_path),
+                    dir=os.path.dirname(conf_path),
+                    delete=False)
+                config_file_tmp.write(yaml.dump(yaml_conf))
+                config_file_tmp.close()
+                os.rename(config_file_tmp.name, conf_path)
 
         update_conf_func = partial(_update_conf, conf_path, yaml_conf)
         verify_faucet_reconf_func = partial(
@@ -1442,22 +1454,26 @@ dbs:
              lambda: self.net.ping(hosts=(second_host, third_host))])
         return not re.search('0 packets captured', tcpdump_txt)
 
-    def verify_lldp_blocked(self):
-        first_host, second_host = self.net.hosts[0:2]
+    def verify_lldp_blocked(self, hosts=None):
         lldp_filter = 'ether proto 0x88cc'
         ladvd_mkdir = 'mkdir -p /var/run/ladvd'
-        send_lldp = '%s -L -o %s' % (
-            mininet_test_util.timeout_cmd(self.LADVD, 30),
-            second_host.defaultIntf())
-        tcpdump_txt = self.tcpdump_helper(
-            first_host, lldp_filter,
-            [lambda: second_host.cmd(ladvd_mkdir),
-             lambda: second_host.cmd(send_lldp),
-             lambda: second_host.cmd(send_lldp),
-             lambda: second_host.cmd(send_lldp)],
-            timeout=20, packets=5)
-        if re.search(second_host.MAC(), tcpdump_txt):
-            return False
+        if hosts is None:
+            hosts = self.net.hosts[:2]
+        first_host = hosts[0]
+        other_hosts = hosts[1:]
+        for other_host in other_hosts:
+            send_lldp = '%s -L -o %s' % (
+                mininet_test_util.timeout_cmd(self.LADVD, 5),
+                other_host.defaultIntf())
+            tcpdump_txt = self.tcpdump_helper(
+                first_host, lldp_filter,
+                [lambda: other_host.cmd(ladvd_mkdir),
+                 lambda: other_host.cmd(send_lldp),
+                 lambda: other_host.cmd(send_lldp),
+                 lambda: other_host.cmd(send_lldp)],
+                timeout=5, packets=1)
+            if re.search(other_host.MAC(), tcpdump_txt):
+                return False
         return True
 
     def is_cdp_blocked(self):
@@ -1584,7 +1600,7 @@ dbs:
             expected_status = 1
             if status == ofp.OFPPC_PORT_DOWN:
                 expected_status = 0
-            self.wait_port_status(long(dpid), port_no, expected_status)
+            self.wait_port_status(long(dpid), port_no, expected_status) # pytype: disable=name-error
 
     def set_port_down(self, port_no, dpid=None, wait=True):
         self.set_port_status(dpid, port_no, ofp.OFPPC_PORT_DOWN, wait)
@@ -1680,23 +1696,23 @@ dbs:
             ip_dst.version, ip_dst.network.with_prefixlen, ip_gw)
         self.quiet_commands(host, (add_cmd,))
 
-    def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned):
+    def _one_ip_ping(self, host, ping_cmd, retries, require_host_learned, expected_result=True):
         if require_host_learned:
             self.require_host_learned(host)
         for _ in range(retries):
             ping_result = host.cmd(ping_cmd)
             if re.search(self.ONE_GOOD_PING, ping_result):
-                return
+                break
         self.assertTrue(
-            re.search(self.ONE_GOOD_PING, ping_result),
+            bool(re.search(self.ONE_GOOD_PING, ping_result)) ^ (not expected_result),
             msg='%s: %s' % (ping_cmd, ping_result))
 
-    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None):
+    def one_ipv4_ping(self, host, dst, retries=3, require_host_learned=True, intf=None, expected_result=True):
         """Ping an IPv4 destination from a host."""
         if intf is None:
             intf = host.defaultIntf()
         ping_cmd = 'ping -c1 -I%s %s' % (intf, dst)
-        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned)
+        return self._one_ip_ping(host, ping_cmd, retries, require_host_learned, expected_result)
 
     def one_ipv4_controller_ping(self, host):
         """Ping the controller from a host with IPv4."""
@@ -1760,10 +1776,13 @@ dbs:
             'echo hello | nc -l %s %u &' % (host.IP(), port), 10))
         self.wait_for_tcp_listen(host, port)
 
-    def wait_nonzero_packet_count_flow(self, match, timeout=10, table_id=None, actions=None):
+    def wait_nonzero_packet_count_flow(self, match, timeout=10, table_id=None, actions=None, dpid=None):
         """Wait for a flow to be present and have a non-zero packet_count."""
+        if dpid is None:
+            dpid = self.dpid
         for _ in range(timeout):
-            flow = self.get_matching_flow(match, timeout=1, table_id=table_id, actions=actions)
+            flow = self.get_matching_flow_on_dpid(
+                dpid, match, timeout=1, table_id=table_id, actions=actions)
             if flow and flow['packet_count'] > 0:
                 return
             time.sleep(1)
@@ -1907,6 +1926,28 @@ dbs:
             time.sleep(1)
         self.fail('exabgp did not send BGP updates')
 
+    def start_wpasupplicant(self, host, wpasupplicant_conf, timeout=10, log_prefix=''):
+        """Start wpasupplicant process on Mininet host."""
+        wpasupplicant_conf_file_name = os.path.join(
+            self.tmpdir, '%swpasupplicant.conf' % log_prefix)
+        wpasupplicant_log = os.path.join(
+            self.tmpdir, '%swpasupplicant.log' % log_prefix)
+        with open(wpasupplicant_conf_file_name, 'w') as wpasupplicant_conf_file:
+            wpasupplicant_conf_file.write(wpasupplicant_conf)
+        wpasupplicant_cmd = mininet_test_util.timeout_cmd(
+            'wpa_supplicant -dd -t -c %s -i %s -D wired -f %s &' % (
+                wpasupplicant_conf_file_name, host.defaultIntf(), wpasupplicant_log),
+            timeout * 3)
+        host.cmd(wpasupplicant_cmd)
+        for _ in range(timeout):
+            if os.path.exists(wpasupplicant_log):
+                break
+            time.sleep(1)
+        self.assertTrue(
+            os.path.exists(wpasupplicant_log),
+            msg='wpasupplicant (%s) did not start' % wpasupplicant_cmd)
+        return wpasupplicant_log
+
     def ping_all_when_learned(self, retries=3, hard_timeout=1):
         """Verify all hosts can ping each other once FAUCET has learned all."""
         # Cause hosts to send traffic that FAUCET can use to learn them.
@@ -1932,7 +1973,7 @@ dbs:
             table_id = self._IPV4_FIB_TABLE
         nexthop_action = u'SET_FIELD: {eth_dst:%s}' % nexthop
         if vlan_vid is not None:
-            nw_dst_match[u'dl_vlan'] = unicode(vlan_vid)
+            nw_dst_match[u'dl_vlan'] = unicode(vlan_vid) # pytype: disable=name-error
         if with_group_table:
             group_id = self.get_group_id_for_matching_flow(
                 nw_dst_match)
@@ -1980,14 +2021,14 @@ dbs:
         self._verify_host_learned_mac(host, ipa, 4, mac, retries)
 
     def verify_ipv4_host_learned_host(self, host, learned_host):
-        learned_ip = ipaddress.ip_interface(unicode(self.host_ipv4(learned_host)))
+        learned_ip = ipaddress.ip_interface(unicode(self.host_ipv4(learned_host))) # pytype: disable=name-error
         self.verify_ipv4_host_learned_mac(host, learned_ip.ip, learned_host.MAC())
 
     def verify_ipv6_host_learned_mac(self, host, ip6, mac, retries=3):
         self._verify_host_learned_mac(host, ip6, 6, mac, retries)
 
     def verify_ipv6_host_learned_host(self, host, learned_host):
-        learned_ip6 = ipaddress.ip_interface(unicode(self.host_ipv6(learned_host)))
+        learned_ip6 = ipaddress.ip_interface(unicode(self.host_ipv6(learned_host))) # pytype: disable=name-error
         self.verify_ipv6_host_learned_mac(host, learned_ip6.ip, learned_host.MAC())
 
     def iperf_client(self, client_host, iperf_client_cmd):

@@ -51,7 +51,7 @@ acls:
                 output:
                     set_fields:
                         - eth_dst: "72:b8:3c:4c:dc:4d"
-                    port: 5     # s1 container
+                    port: "s1"  # s1 container
         # Force DNS to our DNS server
         - rule:
             dl_type: 0x800      # ipv4
@@ -61,7 +61,7 @@ acls:
                 output:
                     set_fields:
                         - eth_dst: "72:b8:3c:4c:dc:4d"
-                    port: 5     # s1 container
+                    port: "s1"  # s1 container
         - rule:
             actions:
                 allow: 1        # allow

@@ -2,6 +2,7 @@ astroid
 bitstring
 codecov
 concurrencytest
+eventlet==0.22.1
 exabgp
 influxdb
 ipaddress
@@ -11,7 +12,8 @@ packaging
 prometheus_client
 pylint
 pytest-cov
+pytype==2018.6.19
 pyyaml
 requests
-ryu==4.24
+ryu==4.26
 beka==0.3.3

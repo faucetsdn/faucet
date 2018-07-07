@@ -4,38 +4,24 @@ import json
 import operator
 import os
 import pty
-import re
 import select
-import time
+from subprocess import PIPE, STDOUT
+from functools import reduce
 
 # pylint: disable=import-error
+# pylint: disable=no-name-in-module
 from mininet.log import error, debug
 from mininet.node import Host
-from subprocess import PIPE, STDOUT
 
 from mininet_test_util import DEVNULL
 
-def MakeDockerHost(image, prefix='mininet', startup_timeout_ms=None):
-    class ImageHost(DockerHost):
-        def __init__( self, *args, **kwargs ):
-            host_name = args[0]
-            kwargs['image'] = image
-            assert kwargs['tmpdir'], 'tmpdir required for docker host'
-            kwargs['tmpdir'] = os.path.join(kwargs['tmpdir'], host_name)
-            kwargs['prefix'] = prefix
-            if startup_timeout_ms:
-                kwargs['startup_timeout_ms'] = startup_timeout_ms
-            elif 'DOCKER_STARTUP_TIMEOUT_MS' in os.environ:
-                env_val = os.environ['DOCKER_STARTUP_TIMEOUT_MS']
-                if env_val:
-                    kwargs['startup_timeout_ms'] = int(env_val)
-            DockerHost.__init__(self, *args, **kwargs )
-    return ImageHost
+DEFAULT_NETWORK = 'none'
+DEFAULT_PREFIX = 'mininet'
+STARTUP_TIMEOUT_MS = 20000
 
-
+# pylint: disable=too-many-instance-attributes
 class DockerHost(Host):
-
-    STARTUP_TIMEOUT_MS = 20000
+    """Mininet host that encapsulates execution in a docker container"""
 
     master = None
     shell = None
@@ -59,23 +45,34 @@ class DockerHost(Host):
     vol_maps = None
     prefix = None
     startup_timeout_ms = None
+    container = None
+    pollIn = None
+    active_log = None
 
-
-    def __init__(self, name, image=None, tmpdir=None, prefix=None, env_vars=[],
-            vol_maps=[], startup_timeout_ms=STARTUP_TIMEOUT_MS, **kwargs ):
+    # pylint: disable=too-many-arguments
+    def __init__(self, name, image=None, tmpdir=None, prefix=None, env_vars=None, vol_maps=None,
+                 startup_timeout_ms=STARTUP_TIMEOUT_MS, network=None, **kwargs):
         self.image = image
         self.tmpdir = tmpdir
         self.prefix = prefix
+        if env_vars is None:
+            env_vars = []
         self.env_vars = env_vars
+        if vol_maps is None:
+            vol_maps = []
         self.vol_maps = vol_maps
+        self.network = network
         self.startup_timeout_ms = startup_timeout_ms
-        Host.__init__( self, name, **kwargs )
+        Host.__init__(self, name, **kwargs)
 
-    def startShell( self ):
-        "Start a shell process for running commands"
+    # pylint: disable=invalid-name
+    def startShell(self, mnopts=None):
+        """Start a shell process for running commands."""
         if self.shell:
-            error( "%s: shell is already running" )
+            error('shell is already running')
             return
+
+        assert mnopts is None, 'mnopts not supported for DockerHost'
 
         self.container = '%s-%s' % (self.prefix, self.name)
 
@@ -86,13 +83,15 @@ class DockerHost(Host):
         container_tmp_dir = os.path.join(os.path.abspath(self.tmpdir), 'tmp')
         tmp_volume = container_tmp_dir + ':/tmp'
 
-        base_cmd = [ "docker", "run", "-ti", "--privileged", "--entrypoint", "env",
-                     "--net=none", "-h", self.name, "--name", self.container ]
-        env_args = reduce(operator.add, ([ '--env', var ] for var in self.env_vars), [])
-        vol_args = reduce(operator.add, ([ '-v', var ] for var in self.vol_maps), [ '-v', tmp_volume ])
-        image_args = [ self.image, "TERM=dumb", "PS1=" + chr(127), "bash", "--norc",
-            "-is", "mininet:" + self.name ]
-        cmd = base_cmd + env_args + vol_args + image_args
+        base_cmd = ["docker", "run", "-ti", "--privileged", "--entrypoint", "env",
+                    "-h", self.name, "--name", self.container]
+        opt_args = ['--net=%s' % self.network]
+        env_args = reduce(operator.add, (['--env', var] for var in self.env_vars), [])
+        vol_args = reduce(operator.add, (['-v', var] for var in self.vol_maps), ['-v', tmp_volume])
+        image_args = [
+            self.image, "TERM=dumb", "PS1=" + chr(127), "bash", "--norc",
+            "-is", "mininet:" + self.name]
+        cmd = base_cmd + opt_args + env_args + vol_args + image_args
         self.master, self.slave = pty.openpty()
         debug('docker command "%s", fd %d, fd %d' % (' '.join(cmd), self.master, self.slave))
         try:
@@ -128,13 +127,15 @@ class DockerHost(Host):
         self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member
 
     def kill(self, purge=False):
+        """Kill a container."""
         debug('killing container %s.' % self.container)
         if purge:
-            kill_cmd = [ "docker", "rm", "-f", self.container ]
+            kill_cmd = ["docker", "rm", "-f", self.container]
         else:
-            kill_cmd = [ "docker", "kill", self.container ]
+            kill_cmd = ["docker", "kill", self.container]
+        kill_pipe = None
         try:
-            kill_pipe = self._popen( kill_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
+            kill_pipe = self._popen(kill_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
             kill_pipe.stdout.readlines()
             kill_pipe.stdout.close()
         except:
@@ -143,9 +144,10 @@ class DockerHost(Host):
             raise
 
     def inspect_pid(self):
+        """Return container PID."""
         try:
-            pid_cmd = ["docker","inspect","--format={{ .State.Pid }}", self.container]
-            pid_pipe = self._popen( pid_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
+            pid_cmd = ["docker", "inspect", "--format={{ .State.Pid }}", self.container]
+            pid_pipe = self._popen(pid_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
             ps_out = pid_pipe.stdout.readlines()
             pid_pipe.stdout.close()
             return int(ps_out[0])
@@ -155,12 +157,15 @@ class DockerHost(Host):
             raise
 
     def open_log(self, log_name='activate.log'):
+        """Open a log file for writing and return it."""
         return open(os.path.join(self.tmpdir, log_name), 'w')
 
     def activate(self, log_name='activate.log'):
+        """Active a container and return STDOUT to it."""
         assert not self.active_pipe, 'container %s already activated' % self.container
         debug('activating container %s.' % self.container)
         inspect_cmd = ["docker", "inspect", "--format={{json .Config}}", self.image]
+        inspect_pipe = None
         try:
             inspect_pipe = self._popen(inspect_cmd, stdin=DEVNULL, stdout=PIPE, stderr=STDOUT)
             config_json = inspect_pipe.stdout.readlines()
@@ -191,6 +196,7 @@ class DockerHost(Host):
         return self.active_pipe
 
     def wait(self):
+        """Wait for an activated container to terminate."""
         try:
             if self.active_pipe_returncode != None:
                 return self.active_pipe_returncode
@@ -200,21 +206,24 @@ class DockerHost(Host):
             self.active_pipe.returncode = self.active_pipe.wait()
             self.terminate()
             return self.active_pipe_returncode
-        except Exception as e:
-            error('Exception waiting for %s: %s' % (self.container, e))
+        except Exception as err:
+            error('Exception waiting for %s: %s' % (self.container, err))
             self.terminate()
             raise
 
-    def read( self, maxbytes=1024 ):
+    def read(self, maxbytes=1024):
+        """Read from an activated container."""
         poll_results = self.pollIn.poll(self.startup_timeout_ms)
         data_ready = poll_results and (poll_results[0][1] & select.POLLIN)
-        assert data_ready, ('Timeout waiting for read data on %d after %ds' %
-            (self.stdout.fileno(), self.startup_timeout_ms / 1000))
+        assert data_ready, (
+            'Timeout waiting for read data on %d after %ds' %
+            (self.stdout.fileno(), self.startup_timeout_ms / 1e3))
         return Host.read(self, maxbytes)
 
     def terminate(self):
         """Override Mininet terminate() to partially avoid pty leak."""
-        debug('Terminating container %s, shell %s, pipe %s' % (self.container, self.shell, self.active_pipe))
+        debug('Terminating container %s, shell %s, pipe %s' % (
+            self.container, self.shell, self.active_pipe))
         if self.slave:
             os.close(self.slave)
             self.slave = None
@@ -222,7 +231,7 @@ class DockerHost(Host):
             self.stdin.close()
             self.stdin = None
             self.master = None
-            if self.shell.returncode == None:
+            if self.shell.returncode is None:
                 self.shell.kill()
                 self.shell.poll()
             self.kill()
@@ -230,7 +239,7 @@ class DockerHost(Host):
         if self.active_pipe:
             if self.active_pipe.stdout:
                 self.active_pipe.stdout.close()
-            if self.active_pipe.returncode == None:
+            if self.active_pipe.returncode is None:
                 self.active_pipe.kill()
                 self.active_pipe.poll()
             self.active_pipe_returncode = self.active_pipe.returncode
@@ -241,15 +250,15 @@ class DockerHost(Host):
         self.cleanup() # pylint: disable=no-member
         return self.active_pipe_returncode
 
-    def popen( self, *args, **kwargs ):
+    def popen(self, *args, **kwargs):
         """Return a Popen() object in node's namespace
            args: Popen() args, single list, or string
            kwargs: Popen() keyword args"""
         # -t is necessary to prevent docker from buffering output. It might cause
         # problems with some commands like shells that then assume they can output
         # all sorts of crazy control characters b/c it's a terminal.
-        mncmd = [ 'docker', 'exec', '--env', 'TERM=dumb', '-t', self.container ]
-        pipe = Host.popen( self, mncmd=mncmd, *args, **kwargs )
+        mncmd = ['docker', 'exec', '--env', 'TERM=dumb', '-t', self.container]
+        pipe = Host.popen(self, mncmd=mncmd, *args, **kwargs)
         if pipe:
             debug('docker pid %d: %s %s %s' % (pipe.pid, mncmd, args, kwargs))
         return pipe
@@ -259,7 +268,7 @@ class DockerHost(Host):
         # a normal interactive terminal would. So, put it in a separate process group
         # so it doesn't receive stray SIGINTs, rather relying on the message sent
         # from the owning process through the pty.
-        if not 'preexec_fn' in params:
+        if 'preexec_fn' not in params:
             params['preexec_fn'] = os.setpgrp
         pipe = super(DockerHost, self)._popen(cmd, **params)
         if pipe:
@@ -267,3 +276,26 @@ class DockerHost(Host):
             out_fd = pipe.stdout.fileno() if stdout else None
             debug('docker pid %d: %s, fd %s' % (pipe.pid, cmd, out_fd))
         return pipe
+
+
+def make_docker_host(image, prefix=DEFAULT_PREFIX, network=DEFAULT_NETWORK,
+                     startup_timeout_ms=None):
+    """Utility function to create a docker-host class that can be passed to mininet"""
+
+    class _ImageHost(DockerHost):
+        """Internal class that represents a docker image host"""
+        def __init__(self, *args, **kwargs):
+            host_name = args[0]
+            kwargs['image'] = image
+            assert kwargs['tmpdir'], 'tmpdir required for docker host'
+            kwargs['tmpdir'] = os.path.join(kwargs['tmpdir'], host_name)
+            kwargs['prefix'] = prefix
+            kwargs['network'] = network
+            if startup_timeout_ms:
+                kwargs['startup_timeout_ms'] = startup_timeout_ms
+            elif 'DOCKER_STARTUP_TIMEOUT_MS' in os.environ:
+                env_val = os.environ['DOCKER_STARTUP_TIMEOUT_MS']
+                if env_val:
+                    kwargs['startup_timeout_ms'] = int(env_val)
+            DockerHost.__init__(self, *args, **kwargs)
+    return _ImageHost

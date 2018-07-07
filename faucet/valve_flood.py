@@ -3,7 +3,7 @@
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -201,6 +201,10 @@ class ValveFloodManager(object):
             return self._build_group_flood_rules(vlan, modify, command)
         return self._build_multiout_flood_rules(vlan, command)
 
+    def update_stack_topo(self, event, dp, port=None): # pylint: disable=unused-argument
+        """Update the stack topology. It has nothing to do for non-stacking DPs."""
+        return
+
     @staticmethod
     def edge_learn_port(_other_valves, pkt_meta):
         """Possibly learn a host on a port.
@@ -356,6 +360,14 @@ class ValveFloodStackManager(ValveFloodManager):
         ofmsgs = self._build_multiout_flood_rules(vlan, command)
         # Because stacking uses reflected broadcasts from the root,
         # don't try to learn broadcast sources from stacking ports.
+        for port in self.stack_ports:
+            ofmsgs.append(self.eth_src_table.flowdrop(
+                self.eth_src_table.match(
+                    in_port=port.number,
+                    vlan=vlan,
+                    eth_dst=valve_packet.BRIDGE_GROUP_ADDRESS,
+                    eth_dst_mask=valve_packet.BRIDGE_GROUP_MASK),
+                priority=self.bypass_priority+1))
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst:
                 continue
@@ -425,6 +437,32 @@ class ValveFloodStackManager(ValveFloodManager):
                     if entry.port.stack is None:
                         return other_valve.dp
         return None
+
+    def update_stack_topo(self, event, dp, port=None):
+        """Update the stack topo according to the event."""
+
+        def _stack_topo_up_dp(dp): # pylint: disable=unused-argument
+            pass
+
+        def _stack_topo_down_dp(dp): # pylint: disable=unused-argument
+            pass
+
+        def _stack_topo_up_port(dp, port): # pylint: disable=unused-argument
+            pass
+
+        def _stack_topo_down_port(dp, port): # pylint: disable=unused-argument
+            pass
+
+        if port:
+            if event:
+                _stack_topo_up_port(dp, port)
+            else:
+                _stack_topo_down_port(dp, port)
+        else:
+            if event:
+                _stack_topo_up_dp(dp)
+            else:
+                _stack_topo_down_dp(dp)
 
     def edge_learn_port(self, other_valves, pkt_meta):
         """Possibly learn a host on a port.

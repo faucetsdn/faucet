@@ -4,7 +4,7 @@
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,10 +80,14 @@ def parse_args(sys_args):
 
     for ryu_arg in RYU_OPTIONAL_ARGS:
         if len(ryu_arg) >= 3:
-            args.add_argument('--ryu-%s' % ryu_arg[0],
-                help=ryu_arg[1], default=ryu_arg[2])
+            args.add_argument(
+                '--ryu-%s' % ryu_arg[0],
+                help=ryu_arg[1],
+                default=ryu_arg[2])
         else:
-            args.add_argument('--ryu-%s' % ryu_arg[0], help=ryu_arg[1])
+            args.add_argument(
+                '--ryu-%s' % ryu_arg[0],
+                help=ryu_arg[1])
 
     return args.parse_args(sys_args)
 

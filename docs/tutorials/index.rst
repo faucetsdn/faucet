@@ -4,8 +4,8 @@ Tutorials
 .. toctree::
     :maxdepth: 2
 
-    tutorials
-    ACLs
-    vlan_tutorial
+    first_time
+    acls
+    vlans
     routing
-    nfv-services-tutorial
+    nfv_services

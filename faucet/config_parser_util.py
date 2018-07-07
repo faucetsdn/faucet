@@ -2,7 +2,7 @@
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ class UniqueKeyLoader(Loader):
         return mapping
 
 
-yaml.add_constructor(
+yaml.SafeLoader.add_constructor(
     yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
     UniqueKeyLoader.construct_mapping)
 
@@ -63,10 +63,13 @@ def read_config(config_file, logname):
     logger = get_logger(logname)
     try:
         with open(config_file, 'r') as stream:
-            conf = yaml.load(stream.read())
+            conf = yaml.safe_load(stream.read())
     except (yaml.YAMLError, UnicodeDecodeError,
             PermissionError, ValueError) as err: # pytype: disable=name-error
         logger.error('Error in file %s (%s)', config_file, str(err))
+        return None
+    except FileNotFoundError as err:
+        logger.error('Could not find requested file: %s', config_file)
         return None
     return conf
 

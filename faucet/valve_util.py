@@ -2,7 +2,7 @@
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,11 @@ def kill_on_exception(logname):
                 os.kill(os.getpid(), signal.SIGTERM)
         return __koe
     return _koe
+
+
+def utf8_decode(msg_str):
+    """Gracefully decode a possibly UTF-8 string."""
+    return msg_str.decode('utf-8', errors='replace')
 
 
 def get_sys_prefix():
@@ -90,7 +95,7 @@ DEFAULTS = {
 
 
 def _cast_bool(value):
-    "Return True if value is a non-zero int."
+    """Return True if value is a non-zero int."""
     try:
         return int(value) != 0
     except ValueError:
@@ -139,7 +144,7 @@ def get_logger(logname, logfile, loglevel, propagate):
             logger_handler = logging.StreamHandler(stream_handlers[logfile])
         else:
             logger_handler = WatchedFileHandler(logfile)
-    except PermissionError as err: # pytype: disable=name-error
+    except (PermissionError, FileNotFoundError) as err: # pytype: disable=name-error
         print(err)
         sys.exit(-1)
 

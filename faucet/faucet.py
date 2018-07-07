@@ -3,7 +3,7 @@
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ from faucet.valve_util import dpid_log, kill_on_exception
 from faucet import faucet_experimental_api
 from faucet import faucet_experimental_event
 from faucet import faucet_bgp
+from faucet import faucet_dot1x
 from faucet import valves_manager
 from faucet import faucet_metrics
 from faucet import valve_of
@@ -71,6 +72,11 @@ class EventFaucetLLDPAdvertise(event.EventBase):
     pass
 
 
+class EventFaucetStackLinkStates(event.EventBase):
+    """Event used to update link stack states."""
+    pass
+
+
 class Faucet(RyuAppBase):
     """A RyuApp that implements an L2/L3 learning VLAN switch.
 
@@ -88,6 +94,7 @@ class Faucet(RyuAppBase):
         EventFaucetStateExpire: ('state_expire', 5),
         EventFaucetAdvertise: ('advertise', 5),
         EventFaucetLLDPAdvertise: ('send_lldp_beacons', 5),
+        EventFaucetStackLinkStates: ('update_stack_link_states', 2),
     }
     logname = 'faucet'
     exc_logname = logname + '.exception'
@@ -101,10 +108,13 @@ class Faucet(RyuAppBase):
         self.api = kwargs['faucet_experimental_api']
         self.metrics = faucet_metrics.FaucetMetrics(reg=self._reg)
         self.bgp = faucet_bgp.FaucetBgp(self.logger, self.metrics, self._send_flow_msgs)
+        self.dot1x = faucet_dot1x.FaucetDot1x(
+            self.logger, self.metrics, self._send_flow_msgs)
         self.notifier = faucet_experimental_event.FaucetExperimentalEventNotifier(
             self.get_setting('EVENT_SOCK'), self.metrics, self.logger)
         self.valves_manager = valves_manager.ValvesManager(
-            self.logname, self.logger, self.metrics, self.notifier, self.bgp, self._send_flow_msgs)
+            self.logname, self.logger, self.metrics, self.notifier, self.bgp,
+            self.dot1x, self._send_flow_msgs)
 
     @kill_on_exception(exc_logname)
     def start(self):
@@ -191,6 +201,7 @@ class Faucet(RyuAppBase):
     @set_ev_cls(EventFaucetStateExpire, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetAdvertise, MAIN_DISPATCHER)
     @set_ev_cls(EventFaucetLLDPAdvertise, MAIN_DISPATCHER)
+    @set_ev_cls(EventFaucetStackLinkStates, MAIN_DISPATCHER)
     @kill_on_exception(exc_logname)
     def _valve_flow_services(self, ryu_event):
         """Call a method on all Valves and send any resulting flows."""
@@ -219,12 +230,7 @@ class Faucet(RyuAppBase):
         valve, _, msg = self._get_valve(ryu_event, require_running=True)
         if valve is None:
             return
-        if valve.rate_limit_packet_ins(ryu_event.timestamp):
-            return
-        pkt_meta = valve.parse_pkt_meta(msg)
-        if pkt_meta is None:
-            return
-        self.valves_manager.valve_packet_in(ryu_event.timestamp, valve, pkt_meta)
+        self.valves_manager.valve_packet_in(ryu_event.timestamp, valve, msg)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)
@@ -259,12 +265,15 @@ class Faucet(RyuAppBase):
         Args:
             ryu_event (ryu.controller.ofp_event.Event)
         """
+        now = time.time()
         valve, ryu_dp, _ = self._get_valve(ryu_event)
         if valve is None:
             return
-        discovered_ports = [
-            port for port in list(ryu_dp.ports.values()) if not valve_of.ignore_port(port.port_no)]
-        self._send_flow_msgs(valve, valve.datapath_connect(time.time(), discovered_ports))
+        discovered_up_ports = [
+            port.port_no for port in list(ryu_dp.ports.values())
+            if valve_of.port_status_from_state(port.state) and not valve_of.ignore_port(port.port_no)]
+        self._send_flow_msgs(valve, valve.datapath_connect(now, discovered_up_ports))
+        self.valves_manager.stack_topo_change(now, valve)
 
     @kill_on_exception(exc_logname)
     def _datapath_disconnect(self, ryu_event):
@@ -277,6 +286,7 @@ class Faucet(RyuAppBase):
         if valve is None:
             return
         valve.datapath_disconnect()
+        self.valves_manager.stack_topo_change(time.time(), valve)
 
     @set_ev_cls(ofp_event.EventOFPDescStatsReply, MAIN_DISPATCHER) # pylint: disable=no-member
     @kill_on_exception(exc_logname)

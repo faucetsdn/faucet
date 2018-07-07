@@ -28,7 +28,7 @@ import subprocess
 import tempfile
 import threading
 import time
-import unittest
+import unittest2
 
 import yaml
 
@@ -69,8 +69,6 @@ EXTERNAL_DEPENDENCIES = (
      r'ExaBGP : (\d+\.\d+).\d+', "4.0"),
     ('pip', ['show', 'influxdb'], 'influxdb',
      r'Version:\s+(\d+\.\d+)\.\d+', "3.0"),
-    ('pylint', ['--version'], 'pylint',
-     r'pylint (\d+\.\d+).\d+,', "1.6"),
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', "7.3"),
     ('ladvd', ['-h'], 'ladvd',
@@ -85,12 +83,6 @@ EXTERNAL_DEPENDENCIES = (
      r'TShark.+(\d+\.\d+)', "2.1"),
     ('scapy', ['-h'], 'Usage: scapy', '', 0),
 )
-
-# Must pass with 0 lint errors
-FAUCET_LINT_SRCS = glob.glob(
-    os.path.join(mininet_test_util.FAUCET_DIR, '*py'))
-FAUCET_TEST_LINT_SRCS = glob.glob(
-    os.path.join(os.path.dirname(__file__), 'mininet_test*py'))
 
 # see hw_switch_config.yaml for how to bridge in an external hardware switch.
 HW_SWITCH_CONFIG_FILE = 'hw_switch_config.yaml'
@@ -125,7 +117,7 @@ def import_hw_config():
         required_config = {
             'dp_ports': (dict,),
             'cpn_intf': (str,),
-            'dpid': (long, int),
+            'dpid': (long, int), # pytype: disable=name-error
             'of_port': (int,),
             'gauge_of_port': (int,),
         }
@@ -204,39 +196,11 @@ def check_dependencies():
     return True
 
 
-def lint_check():
-    """Run pylint on required source files."""
-    print('Running pylint checks')
-    for faucet_src in FAUCET_LINT_SRCS: # + FAUCET_TEST_LINT_SRCS:
-        ret = subprocess.call(
-            ['env',
-             'PYTHONPATH=%s' % mininet_test_util.FAUCET_DIR,
-             'pylint',
-             '--rcfile=/dev/null',
-             '-E', faucet_src],
-            stdin=mininet_test_util.DEVNULL,
-            close_fds=True)
-        if ret:
-            print(('pylint of %s returns an error' % faucet_src))
-            return False
-    for faucet_src in FAUCET_LINT_SRCS:
-        output_2to3 = subprocess.check_output(
-            ['2to3', '--nofix=import', faucet_src],
-            stdin=mininet_test_util.DEVNULL,
-            stderr=mininet_test_util.DEVNULL,
-            close_fds=True)
-        if output_2to3:
-            print(('2to3 of %s returns a diff (not python3 compatible)' % faucet_src))
-            print(output_2to3)
-            return False
-    return True
-
-
 def make_suite(tc_class, hw_config, root_tmpdir, ports_sock, max_test_load):
     """Compose test suite based on test class names."""
-    testloader = unittest.TestLoader()
+    testloader = unittest2.TestLoader()
     testnames = testloader.getTestCaseNames(tc_class)
-    suite = unittest.TestSuite()
+    suite = unittest2.TestSuite()
     for name in testnames:
         suite.addTest(tc_class(name, hw_config, root_tmpdir, ports_sock, max_test_load))
     return suite
@@ -357,15 +321,19 @@ def pipeline_superset_report(decoded_pcap_logs):
 
 
 def filter_test_hardware(test_obj, hw_config):
-    test_links = (test_obj.N_TAGGED + test_obj.N_UNTAGGED) * test_obj.LINKS_PER_HOST
+    test_hosts = test_obj.N_TAGGED + test_obj.N_UNTAGGED + test_obj.N_EXTENDED
+    test_links = test_hosts * test_obj.LINKS_PER_HOST
     if hw_config is not None:
         test_hardware = hw_config['hardware']
-        if test_obj.NUM_DPS != 1:
-            return False
-        if test_links < REQUIRED_TEST_PORTS:
-            if test_hardware == 'ZodiacFX':
-                return True
-            return False
+        if test_obj.NUM_DPS > 1:
+            # TODO: test other stacking combinations.
+            if test_obj.NUM_HOSTS > 2:
+                return False
+        else:
+            if test_links < REQUIRED_TEST_PORTS:
+                if test_hardware == 'ZodiacFX':
+                    return True
+                return False
         if test_obj.REQUIRES_METERS:
             if test_hardware not in SUPPORTS_METERS:
                 return False
@@ -407,9 +375,9 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
                 else:
                     parallel_test_suites.append(test_suite)
 
-    sanity_tests = unittest.TestSuite()
-    single_tests = unittest.TestSuite()
-    parallel_tests = unittest.TestSuite()
+    sanity_tests = unittest2.TestSuite()
+    single_tests = unittest2.TestSuite()
+    parallel_tests = unittest2.TestSuite()
 
     if len(parallel_test_suites) == 1:
         single_test_suites.extend(parallel_test_suites)
@@ -429,22 +397,29 @@ def expand_tests(module, requested_test_classes, excluded_test_classes,
     return (sanity_tests, single_tests, parallel_tests)
 
 
-class CleanupResult(unittest.runner.TextTestResult):
+class FaucetResult(unittest2.runner.TextTestResult):
 
     root_tmpdir = None
+
+    def _test_tmpdir(self, test):
+        return os.path.join(
+            self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
+
+
+class FaucetCleanupResult(FaucetResult):
+
     successes = []
 
     def addSuccess(self, test):
-        self.successes.append((test, ''))
-        test_tmpdir = os.path.join(
-            self.root_tmpdir, mininet_test_util.flat_test_name(test.id()))
+        test_tmpdir = self._test_tmpdir(test)
         shutil.rmtree(test_tmpdir)
-        super(CleanupResult, self).addSuccess(test)
+        self.successes.append((test, ''))
+        super(FaucetCleanupResult, self).addSuccess(test)
 
 
 def test_runner(root_tmpdir, resultclass, failfast=False):
     resultclass.root_tmpdir = root_tmpdir
-    return unittest.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
+    return unittest2.TextTestRunner(verbosity=255, resultclass=resultclass, failfast=failfast)
 
 
 def run_parallel_test_suites(root_tmpdir, resultclass, parallel_tests):
@@ -487,7 +462,7 @@ def report_tests(test_status, test_list):
 
 def report_results(results, hw_config, report_json_filename):
     if results:
-        report_json = {'hw_config': hw_config}
+        tests_json = {}
         report_title = 'test results'
         print('\n')
         print(report_title)
@@ -502,9 +477,13 @@ def report_results(results, hw_config, report_json_filename):
                 test_lists.append(
                     ('OK', result.successes))
             for test_status, test_list in test_lists:
-                report_json.update(report_tests(test_status, test_list))
+                tests_json.update(report_tests(test_status, test_list))
         print('\n')
         if report_json_filename:
+            report_json = {
+                'hw_config': hw_config,
+                'tests': tests_json,
+            }
             with open(report_json_filename, 'w') as report_json_file:
                 report_json_file.write(json.dumps(report_json))
 
@@ -529,7 +508,7 @@ def start_port_server(root_tmpdir, start_free_ports, min_free_ports):
         args=(ports_sock, start_free_ports, min_free_ports))
     ports_server.setDaemon(True)
     ports_server.start()
-    for _ in range(min_free_ports / 2):
+    for _ in range(min_free_ports / 2): # pytype: disable=wrong-arg-types
         if os.path.exists(ports_sock):
             break
         time.sleep(1)
@@ -604,9 +583,9 @@ def run_tests(module, hw_config, requested_test_classes, dumpfail,
     sanity_tests, single_tests, parallel_tests = expand_tests(
         module, requested_test_classes, excluded_test_classes,
         hw_config, root_tmpdir, ports_sock, serial)
-    resultclass = CleanupResult
+    resultclass = FaucetCleanupResult
     if keep_logs:
-        resultclass = resultclass.__bases__[0]
+        resultclass = FaucetResult
     all_successful = False
     sanity_result = run_sanity_test_suite(root_tmpdir, resultclass, sanity_tests)
     if sanity_result.wasSuccessful():
@@ -628,7 +607,7 @@ def parse_args():
     """Parse command line arguments."""
 
     parser = argparse.ArgumentParser(
-        prog='faucet_mininet_unit')
+        prog='mininet_tests')
     parser.add_argument(
         '-c', '--clean', action='store_true', help='run mininet cleanup')
     parser.add_argument(
@@ -678,14 +657,11 @@ def test_main(module):
         Cleanup.cleanup()
         sys.exit(0)
     if nocheck:
-        print('Skipping dependencies/lint checks')
+        print('Skipping dependency checks')
     else:
         if not check_dependencies():
             print('dependency check failed. check required library/binary '
                   'list in header of this script')
-            sys.exit(-1)
-        if not lint_check():
-            print('pylint must pass with no errors')
             sys.exit(-1)
     hw_config = import_hw_config()
     run_tests(

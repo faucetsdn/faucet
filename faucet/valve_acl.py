@@ -3,7 +3,7 @@
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,8 +65,7 @@ def build_output_actions(output_dict):
         output_actions.extend(vlan_actions)
     if 'set_fields' in output_dict:
         for set_fields in output_dict['set_fields']:
-            output_actions.append(
-                valve_of.parser.OFPActionSetField(**set_fields))
+            output_actions.append(valve_of.set_field(**set_fields))
     if 'port' in output_dict:
         output_port = output_dict['port']
         output_actions.append(valve_of.output_port(output_port))

@@ -1,4 +1,6 @@
+chewie==0.0.2
 datadiff
+eventlet==0.22.1
 influxdb
 ipaddress
 msgpack
@@ -7,5 +9,5 @@ networkx
 pbr>=1.9
 prometheus_client
 pyyaml
-ryu==4.24
+ryu==4.26
 beka==0.3.3

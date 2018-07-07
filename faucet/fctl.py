@@ -8,7 +8,7 @@
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import urllib.parse
 import urllib.request
 import requests
 from prometheus_client import parser
+
 
 # TODO: byte/packet counters could be per second (given multiple samples)
 def decode_value(metric_name, value):
@@ -100,7 +101,7 @@ def report_label_match_metrics(report_metrics, metrics, display_labels=None,
 def parse_args(sys_args):
     """Parse and return CLI args."""
 
-    parser = argparse.ArgumentParser(
+    arg_parser = argparse.ArgumentParser(
         prog='fctl',
         description='Retrieve FAUCET/Gauge state using Prometheus variables.',
         usage="""
@@ -112,15 +113,15 @@ def parse_args(sys_args):
 
     {self} -n --endpoints=http://172.17.0.1:9302 --metrics=dp_status
 """.format(**{'self': sys.argv[0]})) # pytype: disable=duplicate-keyword-argument
-    parser.add_argument(
+    arg_parser.add_argument(
         '-n', '--nonzero', action='store_true', help='nonzero results only')
-    parser.add_argument(
+    arg_parser.add_argument(
         '-e', '--endpoints', help='list of endpoint URLs to query')
-    parser.add_argument(
+    arg_parser.add_argument(
         '-m', '--metrics', help='list of metrics to query')
-    parser.add_argument(
+    arg_parser.add_argument(
         '-l', '--labels', help='list of labels that must be present')
-    parser.add_argument(
+    arg_parser.add_argument(
         '--display-labels', help='list of labels to filter display by (default all)')
 
     endpoints = []
@@ -130,7 +131,7 @@ def parse_args(sys_args):
     nonzero_only = False
 
     try:
-        args = parser.parse_args(sys_args)
+        args = arg_parser.parse_args(sys_args)
         if args.nonzero:
             nonzero_only = True
         if args.endpoints:
@@ -145,7 +146,7 @@ def parse_args(sys_args):
         if args.display_labels:
             display_labels = args.display_labels.split(',')
     except (KeyError, IndexError):
-        parser.print_usage()
+        arg_parser.print_usage()
         sys.exit(-1)
 
     return (endpoints, report_metrics, label_matches, nonzero_only, display_labels)

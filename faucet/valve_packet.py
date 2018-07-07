@@ -3,7 +3,7 @@
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ ARP_PKT_SIZE = 28 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Pa
 
 SLOW_PROTOCOL_MULTICAST = slow.SLOW_PROTOCOL_MULTICAST
 BRIDGE_GROUP_ADDRESS = bpdu.BRIDGE_GROUP_ADDRESS
-BRIDGE_GROUP_MASK ='ff:ff:ff:ff:ff:f0'
+BRIDGE_GROUP_MASK = 'ff:ff:ff:ff:ff:f0'
 LLDP_MAC_NEAREST_BRIDGE = lldp.LLDP_MAC_NEAREST_BRIDGE
 CISCO_SPANNING_GROUP_ADDRESS = '01:00:0c:cc:cc:cd'
 IPV6_ALL_NODES_MCAST = '33:33:00:00:00:01'
@@ -51,6 +51,7 @@ IPV6_ALL_NODES = ipaddress.IPv6Address(btos('ff02::1'))
 IPV6_MAX_HOP_LIM = 255
 
 LLDP_FAUCET_DP_ID = 1
+LLDP_FAUCET_STACK_STATE = 2
 
 
 def ipv4_parseable(ip_header_data):
@@ -258,6 +259,19 @@ def faucet_lldp_tlvs(dp):
     tlvs = []
     tlvs.append(
         (faucet_oui(dp.faucet_dp_mac), LLDP_FAUCET_DP_ID, str(dp.dp_id).encode('utf-8')))
+    return tlvs
+
+
+def faucet_lldp_stack_state_tlvs(dp, port):
+    """Return a LLDP TLV for state of a stack port."""
+    tlvs = []
+    if not port.stack:
+        return []
+    tlvs.append(
+        (
+            faucet_oui(dp.faucet_dp_mac),
+            LLDP_FAUCET_STACK_STATE,
+            str(port.dyn_stack_current_state).encode('utf-8')))
     return tlvs
 
 
@@ -600,7 +614,7 @@ class PacketMeta(object):
 
     def reparse(self, max_len):
         """Reparse packet using data up to the specified maximum length."""
-        pkt, eth_pkt, eth_type, vlan_vid = parse_packet_in_pkt(
+        pkt, eth_pkt, eth_type, _ = parse_packet_in_pkt(
             self.data, max_len)
         if pkt is None or eth_type is None:
             return

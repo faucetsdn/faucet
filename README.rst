@@ -1,7 +1,7 @@
 Faucet
 ======
 
-:version: 1.8.0
+:version: 1.8.7
 
 .. image:: https://travis-ci.com/faucetsdn/faucet.svg?branch=master
     :target: https://travis-ci.com/faucetsdn/faucet
@@ -38,6 +38,7 @@ FAUCET has been tested against the following switches (see also SUPPORTED_HARDWA
 - Northbound Networks - `Zodiac FX <http://northboundnetworks.com/collections/zodiac-fx>`_
 - Hewlett Packard Enterprise - `Aruba 5400R, 3810 and 2930F <http://www.arubanetworks.com/products/networking/switches/>`_
 - Netronome produces PCIe adaptors, via OVS - `Agilio CX 2x10GbE card <https://www.netronome.com/products/agilio-cx/>`_
+- Cisco Systems - `Catalyst 9000 Family Switches <http://www.cisco.com/c/en/us/products/switches/catalyst-9000.html>`_
 
 Faucet's design principle is to be as hardware agnostic as possible and not require Table Type Patterns. This means that Faucet expects the hardware Open Flow Agent (OFA) to hide implementation details, including which tables are best for certain matches or whether there is special support for multicast - Faucet expects the OFA to leverage the right hardware transparently.
 

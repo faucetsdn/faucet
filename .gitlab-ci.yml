@@ -1,31 +1,15 @@
 stages:
-  - build-env
   - build
   - deploy
 
-build-env:
-  stage: build-env
-  image: docker:latest
-  services:
-  - docker:dind
-  script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN registry.gitlab.com
-    - docker build -t registry.gitlab.com/faucetsdn/faucet/dbuilder:latest -f ci/Dockerfile .
-    - docker push registry.gitlab.com/faucetsdn/faucet/dbuilder:latest
-  only:
-      - tags
-
 build-package:
   stage: build
-  image: registry.gitlab.com/faucetsdn/faucet/dbuilder
+  image: faucet/dbuilder
   script:
-    - cd /builds/faucetsdn/faucet
-    - TAG="git describe --tags"
-    - TAG=$($TAG)
-    - TAG="${TAG//[!0-9.-]/}"
-    - apt-get upgrade -y && mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
+    - apt-get update && apt-get upgrade -y
+    - mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
     - export DEBEMAIL='maintainers@faucet.nz' && export DEBFULLNAME='Faucet Maintainers'
-    - debchange --newversion $TAG -b "New upstream release"
+    - debchange --newversion ${CI_COMMIT_REF_NAME} -b "New upstream release"
     - fakeroot debian/rules binary
     - mkdir built-packages || true
     - mv ../*.deb built-packages/
@@ -34,13 +18,13 @@ build-package:
       - built-packages/*
     expire_in: 1 day
   only:
-      - tags
+    - tags
 
 deploy-package:
   stage: deploy
-  image: registry.gitlab.com/faucetsdn/faucet/dbuilder
+  image: faucet/dbuilder
   script:
-    - cd /builds/faucetsdn/faucet/built-packages/
+    - cd built-packages/
     - echo "{\"url\":\"https://packagecloud.io\",\"token\":\"$PACKAGECLOUD_TOKEN\"}" > ~/.packagecloud
     - package_cloud push faucetsdn/faucet/debian/jessie *.deb || true
     - package_cloud push faucetsdn/faucet/debian/stretch *.deb || true
@@ -54,4 +38,4 @@ deploy-package:
     - package_cloud push faucetsdn/faucet/ubuntu/artful *.deb || true
     - package_cloud push faucetsdn/faucet/ubuntu/bionic *.deb || true
   only:
-      - tags
+    - tags

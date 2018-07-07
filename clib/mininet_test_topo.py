@@ -12,6 +12,7 @@ import time
 import netifaces
 
 # pylint: disable=import-error
+# pylint: disable=no-name-in-module
 from mininet.log import error, output
 from mininet.topo import Topo
 from mininet.node import Controller
@@ -54,7 +55,7 @@ class FaucetHostCleanup(object):
         cmd = ['mnexec', opts, 'env', 'PS1=' + chr(127),
                'bash', '--norc', '-is', 'mininet:' + self.name]
         self.master, self.slave = pty.openpty()
-        self.shell = self._popen( # pylint: disable=no-member
+        self.shell = self._popen( # pylint: disable=no-member; # pytype: disable=attribute-error
             cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave,
             close_fds=False)
         self.stdin = os.fdopen(self.master, 'rw')
@@ -62,29 +63,29 @@ class FaucetHostCleanup(object):
         self.pid = self.shell.pid
         self.pollOut = select.poll() # pylint: disable=invalid-name
         self.pollOut.register(self.stdout) # pylint: disable=no-member
-        self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member
-        self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member
+        self.outToNode[self.stdout.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
+        self.inToNode[self.stdin.fileno()] = self # pylint: disable=no-member; # pytype: disable=attribute-error
         self.execed = False
-        self.lastCmd = None # pylint: disable=invalid-name
+        self.lastCmd = None # pylint: disable=invalid-typevar
         self.lastPid = None # pylint: disable=invalid-name
         self.readbuf = ''
         while True:
-            data = self.read(1024) # pylint: disable=no-member
+            data = self.read(1024) # pylint: disable=no-member; # pytype: disable=attribute-error
             if data[-1] == chr(127):
                 break
             self.pollOut.poll()
         self.waiting = False
-        self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member
+        self.cmd('unset HISTFILE; stty -echo; set +m') # pylint: disable=no-member; # pytype: disable=attribute-error
 
     def terminate(self):
         """Override Mininet terminate() to partially avoid pty leak."""
         if self.shell is not None:
             os.close(self.slave)
             self.stdin.close()
-            if self.shell.returncode == None:
+            if self.shell.returncode is None:
                 self.shell.kill()
                 self.shell.poll()
-        self.cleanup() # pylint: disable=no-member
+        self.cleanup() # pylint: disable=no-member; # pytype: disable=attribute-error
 
 
 class FaucetHost(FaucetHostCleanup, CPULimitedHost):
@@ -116,11 +117,11 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
                          for intf in switch_intfs)
         # Command to create controller entries
         clist = [(self.name + c.name, '%s:%s:%d' %
-                 (c.protocol, c.IP(), c.port))
+                  (c.protocol, c.IP(), c.port))
                  for c in controllers]
         if self.listenPort:
             clist.append((self.name + '-listen',
-                           'ptcp:%s' % self.listenPort))
+                          'ptcp:%s' % self.listenPort))
         ccmd = '-- --id=@%s create Controller target=\\"%s\\"'
         if self.reconnectms:
             ccmd += ' max_backoff=%d' % self.reconnectms
@@ -138,12 +139,12 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
                    ' -- add-br %s' % self +
                    ' -- set bridge %s controller=[%s]' % (self, cids) +
                    self.bridgeOpts() +
-                   intfs )
+                   intfs)
         # switch interfaces on mininet host, must have no IP config.
         for intf in switch_intfs:
             for ipv in (4, 6):
                 self.cmd('ip -%u addr flush dev %s' % (ipv, intf))
-            assert '' == self.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % intf)
+            assert self.cmd('echo 1 > /proc/sys/net/ipv6/conf/%s/disable_ipv6' % intf) == ''
         # If necessary, restore TC config overwritten by OVS
         if not self.batch:
             for intf in self.intfList():
@@ -185,7 +186,7 @@ class FaucetSwitchTopo(Topo):
         """Return a unique switch/host prefix for a test."""
         # Linux tools require short interface names.
         # pylint: disable=no-member
-        id_chars = string.letters + string.digits
+        id_chars = string.letters + string.digits # pytype: disable=module-attr
         id_a = int(ports_served / len(id_chars))
         id_b = ports_served - (id_a * len(id_chars))
         return '%s%s' % (
@@ -224,7 +225,7 @@ class FaucetSwitchTopo(Topo):
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
-              n_extended=0, e_cls=None, tmpdir=None):
+              n_extended=0, e_cls=None, tmpdir=None, hw_dpid=None):
         for dpid in dpids:
             serialno = mininet_test_util.get_serialno(
                 ports_sock, test_name)
@@ -235,28 +236,11 @@ class FaucetSwitchTopo(Topo):
                 self._add_untagged_host(sid_prefix, host_n)
             for host_n in range(n_extended):
                 self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
-            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type)
-            self._add_links(switch, self.hosts(), links_per_host)
-
-
-class FaucetHwSwitchTopo(FaucetSwitchTopo):
-    """FAUCET switch topology that contains a hardware switch."""
-
-    def build(self, ovs_type, ports_sock, test_name, dpids,
-              n_tagged=0, tagged_vid=100, n_untagged=0, links_per_host=0,
-              n_extended=0, e_cls=None, tmpdir=None):
-        for dpid in dpids:
-            serialno = mininet_test_util.get_serialno(
-                ports_sock, test_name)
-            sid_prefix = self._get_sid_prefix(serialno)
-            for host_n in range(n_tagged):
-                self._add_tagged_host(sid_prefix, tagged_vid, host_n)
-            for host_n in range(n_untagged):
-                self._add_untagged_host(sid_prefix, host_n)
-            remap_dpid = str(int(dpid) + 1)
-            output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
-                dpid, int(dpid), remap_dpid, int(remap_dpid)))
-            dpid = remap_dpid
+            if hw_dpid and hw_dpid == dpid:
+                remap_dpid = str(int(dpid) + 1)
+                output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
+                    dpid, int(dpid), remap_dpid, int(remap_dpid)))
+                dpid = remap_dpid
             switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type)
             self._add_links(switch, self.hosts(), links_per_host)
 
@@ -268,7 +252,8 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
 
     def build(self, ovs_type, ports_sock, test_name, dpids,
               n_tagged=0, tagged_vid=100, n_untagged=0,
-              links_per_host=0, switch_to_switch_links=1):
+              links_per_host=0, switch_to_switch_links=1,
+              hw_dpid=None):
         """
 
                                Hosts
@@ -305,6 +290,11 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
             for host_n in range(n_untagged):
                 hosts.append(self._add_untagged_host(sid_prefix, host_n))
+            if hw_dpid and hw_dpid == dpid:
+                remap_dpid = str(int(dpid) + 1)
+                output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
+                    dpid, int(dpid), remap_dpid, int(remap_dpid)))
+                dpid = remap_dpid
             switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type)
             self._add_links(switch, hosts, links_per_host)
             if last_switch is not None:
@@ -362,6 +352,11 @@ socket_timeout=15
         ryu_conf_arg = '--ryu-config-file=%s' % ryu_conf_file
         return ' '.join((
             self.BASE_CARGS, pid_file_arg, ryu_conf_arg, ofp_listen_host_arg, cargs))
+
+    def IP(self):
+        if self.controller_intf is not None:
+            return self.controller_ip
+        return super(BaseFAUCET, self).IP()
 
     def _start_tcpdump(self):
         """Start a tcpdump for OF port."""
@@ -561,4 +556,4 @@ class Gauge(BaseFAUCET):
 class FaucetExperimentalAPI(FAUCET):
     """Start a controller to run the Faucet experimental API tests."""
 
-    START_ARGS = ['--ryu-app=test_experimental_api.py', '--ryu-app=ryu.app.ofctl_rest']
+    START_ARGS = ['--ryu-app=experimental_api_test_app.py', '--ryu-app=ryu.app.ofctl_rest']

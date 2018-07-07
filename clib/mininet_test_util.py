@@ -50,7 +50,7 @@ def receive_sock_line(sock):
     """Receive a \n terminated line from a socket."""
     buf = ''
     while buf.find('\n') <= -1:
-        buf = buf + sock.recv(1024)
+        buf += str(sock.recv(2**10))
     return buf.strip()
 
 
@@ -68,7 +68,7 @@ def test_server_request(ports_socket, name, command):
     assert name is not None
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(ports_socket)
-    sock.sendall('%s,%s\n' % (command, name))
+    sock.sendall(b'%s,%s\n' % (command, name))
     buf = receive_sock_line(sock)
     response = int(buf.strip())
     sock.close()
@@ -158,7 +158,7 @@ def serve_ports(ports_socket, start_free_ports, min_free_ports):
             response = port
         if response is not None:
             # pylint: disable=no-member
-            connection.sendall('%u\n' % response)
+            connection.sendall(b'%u\n' % response)
         connection.close()
         if len(ports_q) < min_free_ports:
             queue_free_ports(len(ports_q) + 1)

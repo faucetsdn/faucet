@@ -3,7 +3,7 @@
 # Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -110,6 +110,10 @@ class FaucetMetrics(PromClient):
             'port_status',
             'status of switch ports',
             self.REQUIRED_LABELS + ['port'])
+        self.port_stack_state = self._gauge(
+            'port_stack_state',
+            'state of stacking on a port',
+            self.REQUIRED_LABELS + ['port'])
         self.port_learn_bans = self._gauge(
             'port_learn_bans',
             'number of times learning was banned on a port',
@@ -125,6 +129,13 @@ class FaucetMetrics(PromClient):
             'of_dp_desc_stats',
             'DP description (OFPDescStatsReply)',
             self.REQUIRED_LABELS + ['mfr_desc', 'hw_desc', 'sw_desc', 'serial_num', 'dp_desc'])
+        self.stack_cabling_errors = self._dpid_counter(
+            'stack_cabling_errors',
+            'number of cabling errors detected in all FAUCET stacks')
+        self.stack_probes_received = self._dpid_counter(
+            'stack_probes_received',
+            'number of stacking messages received')
+
 
     def _counter(self, var, var_help, labels):
         return Counter(var, var_help, labels, registry=self._reg) # pylint: disable=unexpected-keyword-arg

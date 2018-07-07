@@ -2,7 +2,7 @@
 
 # Copyright (C) 2015 Brad Cowie, Christopher Lorier and Joe Stringer.
 # Copyright (C) 2015 Research and Education Advanced Network New Zealand Ltd.
-# Copyright (C) 2015--2017 The Contributors
+# Copyright (C) 2015--2018 The Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,10 @@
 from faucet.conf import Conf, InvalidConfigError, test_config_condition
 from faucet import valve_of
 
+STACK_STATE_ADMIN_DOWN = 0
+STACK_STATE_INIT = 1
+STACK_STATE_DOWN = 2
+STACK_STATE_UP = 3
 
 class Port(Conf):
     """Stores state for ports, including the configuration."""
@@ -44,6 +48,7 @@ class Port(Conf):
     op_status_reconf = None
     receive_lldp = None
     override_output_port = None
+    max_lldp_lost = None
 
     dyn_learn_ban_count = 0
     dyn_phys_up = False
@@ -52,6 +57,8 @@ class Port(Conf):
     dyn_lacp_updated_time = None
     dyn_last_ban_time = None
     dyn_last_lldp_beacon_time = None
+    dyn_stack_current_state = STACK_STATE_DOWN
+    dyn_stack_probe_info = None
 
     defaults = {
         'number': None,
@@ -91,6 +98,10 @@ class Port(Conf):
         # If True, receive LLDP on this port.
         'override_output_port': None,
         # If set, packets are sent to this other port.
+        'max_lldp_lost': 3,
+        # threshold before marking a stack port as down
+        'dot1x': False,
+        # If true, block this port until a successful 802.1x auth
     }
 
     defaults_types = {
@@ -115,6 +126,7 @@ class Port(Conf):
         'opstatus_reconf': bool,
         'receive_lldp': bool,
         'override_output_port': (str, int),
+        'dot1x': bool,
     }
 
     stack_defaults_types = {
@@ -138,6 +150,7 @@ class Port(Conf):
     def __init__(self, _id, dp_id, conf=None):
         super(Port, self).__init__(_id, dp_id, conf)
         self.dyn_phys_up = False
+        self.dyn_stack_probe_info = {}
 
         # If the port is mirrored convert single attributes to a array
         if self.mirror and not isinstance(self.mirror, list):
@@ -261,3 +274,35 @@ class Port(Conf):
         if self.mirror is not None:
             return [valve_of.output_port(mirror_port) for mirror_port in self.mirror]
         return []
+
+    def is_stack_up(self):
+        """Return True if port is in UP state."""
+        return self.dyn_stack_current_state == STACK_STATE_UP
+
+    def is_stack_down(self):
+        """Return True if port is in DOWN state."""
+        return self.dyn_stack_current_state == STACK_STATE_DOWN
+
+    def is_stack_admin_down(self):
+        """Return True if port is in ADMIN_DOWN state."""
+        return self.dyn_stack_current_state == STACK_STATE_ADMIN_DOWN
+
+    def is_stack_init(self):
+        """Return True if port is in INIT state."""
+        return self.dyn_stack_current_state == STACK_STATE_INIT
+
+    def stack_up(self):
+        """Change the current stack state to UP."""
+        self.dyn_stack_current_state = STACK_STATE_UP
+
+    def stack_down(self):
+        """Change the current stack state to DOWN."""
+        self.dyn_stack_current_state = STACK_STATE_DOWN
+
+    def stack_admin_down(self):
+        """Change the current stack state to ADMIN_DOWN."""
+        self.dyn_stack_current_state = STACK_STATE_ADMIN_DOWN
+
+    def stack_init(self):
+        """Change the current stack state to INIT_DOWN."""
+        self.dyn_stack_current_state = STACK_STATE_INIT
