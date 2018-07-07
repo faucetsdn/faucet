@@ -3,7 +3,6 @@
 """Shows the crash in the FAUCET log produced by given input."""
 
 
-import os
 import sys
 from faucet import faucet
 from faucet import faucet_experimental_api
@@ -24,7 +23,7 @@ def main():
     application.start()
 
     # make sure dps are running
-    for valve in list(application.valves.values()):
+    for valve in list(application.valves_manager.valves.values()):
         valve.dp.running = True
 
     # create data from read file
@@ -50,5 +49,3 @@ if __name__ == "__main__":
         main()
     else:
         print('USAGE: python3 display_packet_crash.py <AFL_CRASH_FILE>')
-
-os._exit(0)
