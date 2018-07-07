@@ -12,7 +12,6 @@ packaging
 prometheus_client
 pylint
 pytest-cov
-python-afl
 pytype==2018.6.19
 pyyaml
 requests

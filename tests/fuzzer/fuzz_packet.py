@@ -4,9 +4,9 @@
 
 import logging
 import sys
+from ryu.controller import dpset
 from faucet import faucet
 from faucet import faucet_experimental_api
-from ryu.controller import dpset
 import afl
 import Fake
 
