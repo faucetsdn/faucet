@@ -28,9 +28,18 @@ def flat_test_name(_id):
     return '-'.join(_id.split('.')[1:])
 
 
-def tcp_listening_cmd(port, ipv=4, state='LISTEN'):
-    """Return a command line for lsof for PIDs with specified TCP state."""
-    return 'lsof -b -P -n -t -sTCP:%s -i %u -a -i tcp:%u' % (state, ipv, port)
+def lsof_tcp_listening_cmd(port, ipv, state, terse):
+    """Return a command line for lsof for processes with specified TCP state."""
+    terse_arg = ''
+    if terse:
+        terse_arg = '-t'
+    return 'lsof -b -P -n %s -sTCP:%s -i %u -a -i tcp:%u' % (
+        terse_arg, state, ipv, port)
+
+
+def tcp_listening_cmd(port, ipv=4, state='LISTEN', terse=True):
+    """Call lsof_tcp_listening_cmd() with default args."""
+    return lsof_tcp_listening_cmd(port, ipv, state, terse)
 
 
 def mininet_dpid(int_dpid):
@@ -83,8 +92,9 @@ def get_serialno(ports_socket, name):
 
 def find_free_port(ports_socket, name):
     """Retrieve a free TCP port from test server."""
+    request_name = '-'.join((name, str(os.getpid())))
     while True:
-        port = test_server_request(ports_socket, name, GETPORT)
+        port = test_server_request(ports_socket, request_name, GETPORT)
         if not tcp_listening(port):
             return port
         error('port %u is busy, try another' % port)
