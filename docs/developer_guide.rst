@@ -130,7 +130,7 @@ terminal window to install the correct dependencies inside the virtualenv:
 Click the green plus icon to add a new build configuration, select
 ``Python tests -> Unittests``. You can provide a ``Name`` of
 ``Faucet Unit Tests`` for the run configuration. For ``Target`` select
-``Script path`` and enter the path ``/Dev/faucet/tests``. For ``Pattern``
+``Script path`` and enter the path ``/Dev/faucet/tests/unit``. For ``Pattern``
 enter ``test_*.py``.
 
 You can click ``Apply`` and ``Close`` now that we've added all our new
