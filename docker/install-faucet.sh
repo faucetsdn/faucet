@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 APK="apk -q"
 BUILDDEPS="gcc python3-dev musl-dev"
 TESTDEPS="bitstring pytest setuptools wheel virtualenv"
@@ -20,7 +22,7 @@ $APK add -U git yaml-dev $BUILDDEPS && \
 if [ "$ARCH" == "armhf" ]; then
   echo "Skipping tests on $ARCH platform"
 else
-  python3 -m pytest $FROOT/tests/test_valve.py
+  python3 -m pytest $FROOT/tests/unit/test_valve.py
 fi
 
 for i in $BUILDDEPS ; do
