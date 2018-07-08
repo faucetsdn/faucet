@@ -716,7 +716,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
             'Please deconfigure them (e.g. configure interface as "unmanaged"):\n\n%s')
         controller = self._get_controller()
         ss_out = controller.cmd('ss -lnep').splitlines()
-        listening_all_re = re.compile(r'^.+\s+(\*:\S+|:+\S+)\s+(:+\*|\*:\*).+$')
+        listening_all_re = re.compile(r'^.+\s+(\*:\d+|:::\d+)\s+(:+\*|\*:\*).+$')
         listening_all = [line for line in ss_out if listening_all_re.match(line)]
         for test_intf in list(self.switch_map.values()):
             int_re = re.compile(r'^.+\b%s\b.+$' % test_intf)
@@ -734,7 +734,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     GAUGE_CONFIG_DBS = """
     prometheus:
         type: 'prometheus'
-        prometheus_addr: '127.0.0.1'
+        prometheus_addr: '::1'
         prometheus_port: %(gauge_prom_port)d
 """
     config_ports = {'gauge_prom_port': None}
@@ -964,8 +964,8 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             self.server_thread.daemon = True
             self.server_thread.start()
             return None
-        except socket.error:
-            return 'cannot start Influx test server'
+        except socket.error as err:
+            return 'cannot start Influx test server: %s' % err
 
     def test_untagged(self):
         self.ping_all_when_learned()
@@ -980,7 +980,7 @@ class FaucetUntaggedMultiDBWatcherTest(
     GAUGE_CONFIG_DBS = """
     prometheus:
         type: 'prometheus'
-        prometheus_addr: '127.0.0.1'
+        prometheus_addr: '::1'
         prometheus_port: %(gauge_prom_port)d
     influx:
         type: 'influx'

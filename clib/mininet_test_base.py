@@ -134,7 +134,7 @@ class FaucetTestBase(unittest2.TestCase):
 
     def _set_prom_port(self, name='faucet'):
         self._set_var(name, 'FAUCET_PROMETHEUS_PORT', str(self.prom_port))
-        self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', mininet_test_util.LOCALHOST)
+        self._set_var(name, 'FAUCET_PROMETHEUS_ADDR', mininet_test_util.LOCALHOSTV6)
 
     def _set_static_vars(self):
         if self.event_sock and os.path.exists(self.event_sock):
@@ -429,8 +429,8 @@ class FaucetTestBase(unittest2.TestCase):
 
     def _ofctl_rest_url(self, req):
         """Return control URL for Ryu ofctl module."""
-        return 'http://%s:%u/%s' % (
-            mininet_test_util.LOCALHOST, self._get_controller().ofctl_port, req)
+        return 'http://[%s]:%u/%s' % (
+            mininet_test_util.LOCALHOSTV6, self._get_controller().ofctl_port, req)
 
     @staticmethod
     def _ofctl(req):
@@ -923,10 +923,10 @@ dbs:
 
     def _prometheus_url(self, controller):
         if controller == 'faucet':
-            return 'http://%s:%u' % (
+            return 'http://[%s]:%u' % (
                 self.get_prom_addr(), self.get_prom_port())
         elif controller == 'gauge':
-            return 'http://%s:%u' % (
+            return 'http://[%s]:%u' % (
                 self.get_prom_addr(), self.config_ports['gauge_prom_port'])
         raise NotImplementedError
 

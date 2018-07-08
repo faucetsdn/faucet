@@ -529,7 +529,7 @@ class FAUCET(BaseFAUCET):
         self.ofctl_port = mininet_test_util.find_free_port(
             ports_sock, test_name)
         cargs = ' '.join((
-            '--ryu-wsapi-host=%s' % mininet_test_util.LOCALHOST,
+            '--ryu-wsapi-host=%s' % mininet_test_util.LOCALHOSTV6,
             '--ryu-wsapi-port=%u' % self.ofctl_port,
             self._tls_cargs(port, ctl_privkey, ctl_cert, ca_certs)))
         super(FAUCET, self).__init__(
