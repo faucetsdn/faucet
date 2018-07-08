@@ -260,7 +260,6 @@ class FaucetTestBase(unittest2.TestCase):
             for switch in self.net.switches:
                  switch.cmd('%s del-controller %s' % (self.VSCTL, switch.name))
             self.net.stop()
-            self.net = None
 
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
@@ -286,6 +285,7 @@ class FaucetTestBase(unittest2.TestCase):
                 other_dump_name = os.path.join(self.tmpdir, '%s.log' % other_cmd.replace(' ', ''))
                 switch.cmd('%s %s > %s' % (self.VSCTL, other_cmd, other_dump_name))
         self._stop_net()
+        self.net = None
         if os.path.exists(self.event_sock):
             shutil.rmtree(os.path.dirname(self.event_sock))
         mininet_test_util.return_free_ports(
