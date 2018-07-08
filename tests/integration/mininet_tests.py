@@ -716,7 +716,7 @@ class FaucetSanityTest(FaucetUntaggedTest):
             'Please deconfigure them (e.g. configure interface as "unmanaged"):\n\n%s')
         controller = self._get_controller()
         ss_out = controller.cmd('ss -lnep').splitlines()
-        listening_all_re = re.compile(r'^.+\s+(\*:\S+|:+\S+)\s+(:+\*|\*:\*).+$')
+        listening_all_re = re.compile(r'^.+\s+(\*:\d+|:::\d+)\s+(:+\*|\*:\*).+$')
         listening_all = [line for line in ss_out if listening_all_re.match(line)]
         for test_intf in list(self.switch_map.values()):
             int_re = re.compile(r'^.+\b%s\b.+$' % test_intf)
