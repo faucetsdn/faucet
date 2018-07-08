@@ -734,7 +734,7 @@ class FaucetUntaggedPrometheusGaugeTest(FaucetUntaggedTest):
     GAUGE_CONFIG_DBS = """
     prometheus:
         type: 'prometheus'
-        prometheus_addr: '127.0.0.1'
+        prometheus_addr: '::1'
         prometheus_port: %(gauge_prom_port)d
 """
     config_ports = {'gauge_prom_port': None}
@@ -859,7 +859,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     influx:
         type: 'influx'
         influx_db: 'faucet'
-        influx_host: '127.0.0.1'
+        influx_host: '::1'
         influx_port: %(gauge_influx_port)d
         influx_user: 'faucet'
         influx_pwd: ''
@@ -957,7 +957,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
         influx_port = self.config_ports['gauge_influx_port']
         try:
             self.server = QuietHTTPServer(
-                (mininet_test_util.LOCALHOST, influx_port), self.handler)
+                (mininet_test_util.LOCALHOSTV6, influx_port), self.handler)
             self.server.timeout = self.DB_TIMEOUT
             self.server_thread = threading.Thread(
                 target=self.server.serve_forever)
@@ -980,12 +980,12 @@ class FaucetUntaggedMultiDBWatcherTest(
     GAUGE_CONFIG_DBS = """
     prometheus:
         type: 'prometheus'
-        prometheus_addr: '127.0.0.1'
+        prometheus_addr: '::1'
         prometheus_port: %(gauge_prom_port)d
     influx:
         type: 'influx'
         influx_db: 'faucet'
-        influx_host: '127.0.0.1'
+        influx_host: '::1'
         influx_port: %(gauge_influx_port)d
         influx_user: 'faucet'
         influx_pwd: ''
