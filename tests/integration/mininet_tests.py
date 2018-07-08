@@ -859,7 +859,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
     influx:
         type: 'influx'
         influx_db: 'faucet'
-        influx_host: '::1'
+        influx_host: '127.0.0.1'
         influx_port: %(gauge_influx_port)d
         influx_user: 'faucet'
         influx_pwd: ''
@@ -964,8 +964,8 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             self.server_thread.daemon = True
             self.server_thread.start()
             return None
-        except socket.error:
-            return 'cannot start Influx test server'
+        except socket.error as err:
+            return 'cannot start Influx test server: %s' % err
 
     def test_untagged(self):
         self.ping_all_when_learned()
@@ -985,7 +985,7 @@ class FaucetUntaggedMultiDBWatcherTest(
     influx:
         type: 'influx'
         influx_db: 'faucet'
-        influx_host: '::1'
+        influx_host: '127.0.0.1'
         influx_port: %(gauge_influx_port)d
         influx_user: 'faucet'
         influx_pwd: ''
