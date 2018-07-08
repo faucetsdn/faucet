@@ -151,6 +151,13 @@ class FaucetSwitch(FaucetHostCleanup, OVSSwitch):
                 self.TCReapply(intf)
 
 
+class NoControllerFaucetSwitch(FaucetSwitch):
+    """A switch without any controllers (typically for remapping hardware to software."""
+
+    def start(self, _controllers):
+        super(NoControllerFaucetSwitch, self).start(controllers=[])
+
+
 class VLANHost(FaucetHost):
     """Implementation of a Mininet host on a tagged VLAN."""
 
@@ -208,12 +215,12 @@ class FaucetSwitchTopo(Topo):
         host_name = 'e%s%1.1u' % (sid_prefix, host_n + 1)
         return self.addHost(name=host_name, cls=e_cls, host_n=host_n, tmpdir=tmpdir)
 
-    def _add_faucet_switch(self, sid_prefix, dpid, ovs_type):
+    def _add_faucet_switch(self, sid_prefix, dpid, ovs_type, switch_cls):
         """Add a FAUCET switch."""
         switch_name = 's%s' % sid_prefix
         return self.addSwitch(
             name=switch_name,
-            cls=FaucetSwitch,
+            cls=switch_cls,
             datapath=ovs_type,
             dpid=mininet_test_util.mininet_dpid(dpid))
 
@@ -236,12 +243,14 @@ class FaucetSwitchTopo(Topo):
                 self._add_untagged_host(sid_prefix, host_n)
             for host_n in range(n_extended):
                 self._add_extended_host(sid_prefix, host_n, e_cls, tmpdir)
+            switch_cls = FaucetSwitch
             if hw_dpid and hw_dpid == dpid:
                 remap_dpid = str(int(dpid) + 1)
                 output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
                     dpid, int(dpid), remap_dpid, int(remap_dpid)))
                 dpid = remap_dpid
-            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type)
+                switch_cls = NoControllerFaucetSwitch
+            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
             self._add_links(switch, self.hosts(), links_per_host)
 
 
@@ -290,12 +299,14 @@ class FaucetStringOfDPSwitchTopo(FaucetSwitchTopo):
                 hosts.append(self._add_tagged_host(sid_prefix, tagged_vid, host_n))
             for host_n in range(n_untagged):
                 hosts.append(self._add_untagged_host(sid_prefix, host_n))
+            switch_cls = FaucetSwitch
             if hw_dpid and hw_dpid == dpid:
                 remap_dpid = str(int(dpid) + 1)
                 output('bridging hardware switch DPID %s (%x) dataplane via OVS DPID %s (%x)' % (
                     dpid, int(dpid), remap_dpid, int(remap_dpid)))
                 dpid = remap_dpid
-            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type)
+                switch_cls = NoControllerFaucetSwitch
+            switch = self._add_faucet_switch(sid_prefix, dpid, ovs_type, switch_cls)
             self._add_links(switch, hosts, links_per_host)
             if last_switch is not None:
                 # Add a switch-to-switch link with the previous switch,

@@ -255,6 +255,13 @@ class FaucetTestBase(unittest2.TestCase):
             self.gauge_of_port = mininet_test_util.find_free_port(
                 self.ports_sock, self._test_name())
 
+    def _stop_net(self):
+        if self.net is not None:
+            for switch in self.net.switches:
+                 switch.cmd('%s del-controller %s' % (self.VSCTL, switch.name))
+            self.net.stop()
+            self.net = None
+
     def setUp(self):
         self.tmpdir = self._tmpdir_name()
         self._set_static_vars()
@@ -278,9 +285,7 @@ class FaucetTestBase(unittest2.TestCase):
             for other_cmd in ('show', 'list controller', 'list manager'):
                 other_dump_name = os.path.join(self.tmpdir, '%s.log' % other_cmd.replace(' ', ''))
                 switch.cmd('%s %s > %s' % (self.VSCTL, other_cmd, other_dump_name))
-        if self.net is not None:
-            self.net.stop()
-            self.net = None
+        self._stop_net()
         if os.path.exists(self.event_sock):
             shutil.rmtree(os.path.dirname(self.event_sock))
         mininet_test_util.return_free_ports(
@@ -416,7 +421,7 @@ class FaucetTestBase(unittest2.TestCase):
                 self._config_tableids()
                 self._wait_load()
                 return
-            self.net.stop()
+            self._stop_net()
             last_error_txt += '\n\n' + self._dump_controller_logs()
             error('%s: %s' % (self._test_name(), last_error_txt))
             time.sleep(mininet_test_util.MIN_PORT_AGE)
