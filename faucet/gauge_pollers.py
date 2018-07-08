@@ -120,11 +120,13 @@ class GaugePoller(object):
                 (('dropped', 'out'), stat.tx_dropped),
                 (('dropped', 'in'), stat.rx_dropped),
                 (('errors', 'in'), stat.rx_errors)):
+            stat_name = delim.join(stat_name_list)
             # For openvswitch, unsupported statistics are set to
             # all-1-bits (UINT64_MAX), skip reporting them
             if stat_val != 2**64-1:
-                stat_name = delim.join(stat_name_list)
                 formatted_port_stats.append((stat_name, stat_val))
+            else:
+                formatted_port_stats.append((stat_name, 0))
         return formatted_port_stats
 
 
