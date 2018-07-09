@@ -1327,7 +1327,7 @@ dbs:
             self.assertTrue(
                 re.search('0 packets captured', tcpdump_txt), msg=tcpdump_txt)
 
-    def verify_ping_mirrored(self, first_host, second_host, mirror_host):
+    def verify_ping_mirrored(self, first_host, second_host, mirror_host, both_mirrored=False):
         """Verify that unicast traffic to and from a mirrored port is mirrored."""
         self.net.ping((first_host, second_host))
         for host in (first_host, second_host):
@@ -1338,9 +1338,12 @@ dbs:
             '(icmp[icmptype] == 8 or icmp[icmptype] == 0)') % (
                 first_host.MAC(), second_host.MAC())
         first_ping_second = 'ping -c1 %s' % second_host.IP()
+        packets = 2
+        if both_mirrored:
+            packets *= 2
         tcpdump_txt = self.tcpdump_helper(
             mirror_host, tcpdump_filter, [
-                lambda: first_host.cmd(first_ping_second)])
+                lambda: first_host.cmd(first_ping_second)], packets=packets)
         self.assertTrue(re.search(
             '%s: ICMP echo request' % second_host.IP(), tcpdump_txt),
                         msg=tcpdump_txt)
@@ -1365,7 +1368,7 @@ dbs:
             '%s: ICMP echo request' % self.ipv4_vip_bcast(), tcpdump_txt),
                         msg=tcpdump_txt)
 
-    def verify_ping_mirrored_multi(self, ping_pairs, mirror_host):
+    def verify_ping_mirrored_multi(self, ping_pairs, mirror_host, both_mirrored=False):
         """ Verify that mirroring of multiple switchs works. Method
         will both perform a one at a time ping mirror check and a
         all at once test where all ping pairs are executed at the
@@ -1379,7 +1382,8 @@ dbs:
         """
         # Verify individual ping works
         for hosts in ping_pairs:
-            self.verify_ping_mirrored(hosts[0], hosts[1], mirror_host)
+            self.verify_ping_mirrored(
+                hosts[0], hosts[1], mirror_host, both_mirrored=both_mirrored)
 
         # Prepare our ping pairs
         for hosts in ping_pairs:
@@ -1397,7 +1401,9 @@ dbs:
 
         # Calculate the execpted number of pings we need
         # to capture to validate port mirroring
-        expected_pings = len(ping_pairs)*2
+        expected_pings = len(ping_pairs) * 2
+        if both_mirrored:
+            expected_pings *= 2
 
         # Generate and run the mirror test pings
         ping_commands = []

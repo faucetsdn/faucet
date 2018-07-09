@@ -3797,36 +3797,35 @@ class FaucetUntaggedMultiMirrorTest(FaucetUntaggedTest):
 vlans:
     100:
         description: "untagged"
-        unicast_flood: False
 """
 
     CONFIG = """
         interfaces:
-            %(port_1)d:
+            b1:
+                number: %(port_1)d
                 native_vlan: 100
                 description: "b1"
-            %(port_2)d:
+            b2:
+                number: %(port_2)d
                 native_vlan: 100
                 description: "b2"
             %(port_3)d:
-                native_vlan: 100
                 description: "b3"
+                native_vlan: 100
             %(port_4)d:
-                # port 4 will mirror ports 1 and 2
                 description: "b4"
                 mirror:
-                    - %(port_1)d
-                    - %(port_2)d
+                - b1
+                - b2
 """
 
     def test_untagged(self):
-        ping_pairs = [
-            (self.net.hosts[0], self.net.hosts[2]),
-            (self.net.hosts[1], self.net.hosts[2])]
-        mirror_host = self.net.hosts[3]
-
+        first_host, second_host, _third_host, mirror_host = self.net.hosts
+        ping_pairs = (
+            (first_host, second_host),
+            (second_host, first_host))
         self.flap_all_switch_ports()
-        self.verify_ping_mirrored_multi(ping_pairs, mirror_host)
+        self.verify_ping_mirrored_multi(ping_pairs, mirror_host, both_mirrored=True)
 
 
 class FaucetUntaggedMultiMirrorSepTest(FaucetUntaggedTest):
