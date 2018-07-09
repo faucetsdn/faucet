@@ -3814,9 +3814,7 @@ vlans:
                 native_vlan: 100
             %(port_4)d:
                 description: "b4"
-                mirror:
-                - b1
-                - b2
+                output_only: True
 """
 
     def test_untagged(self):
@@ -3825,6 +3823,9 @@ vlans:
             (first_host, second_host),
             (second_host, first_host))
         self.flap_all_switch_ports()
+        self.change_port_config(
+            self.port_map['port_4'], 'mirror', ['b1', 'b2'],
+            restart=True, cold_start=False, hup=True)
         self.verify_ping_mirrored_multi(ping_pairs, mirror_host, both_mirrored=True)
 
 
