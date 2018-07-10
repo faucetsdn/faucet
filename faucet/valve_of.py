@@ -56,7 +56,7 @@ def ignore_port(port_num):
 
 def port_status_from_state(state):
     """Return True if OFPPS_LINK_DOWN is not set."""
-    return not (state & ofp.OFPPS_LINK_DOWN)
+    return not state & ofp.OFPPS_LINK_DOWN
 
 
 def is_table_features_req(ofmsg):
@@ -309,6 +309,18 @@ def output_port(port_num, max_len=0):
         ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: output to port action.
     """
     return parser.OFPActionOutput(port_num, max_len=max_len)
+
+
+def dedupe_output_port_acts(output_port_acts):
+    """Deduplicate parser.OFPActionOutputs (because Ryu doesn't define __eq__).
+
+    Args:
+        list of ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: output to port actions.
+    Returns:
+        list of ryu.ofproto.ofproto_v1_3_parser.OFPActionOutput: output to port actions.
+    """
+    output_ports = set([output_port_act.port for output_port_act in output_port_acts])
+    return [output_port(port) for port in sorted(output_ports)]
 
 
 def output_in_port():
