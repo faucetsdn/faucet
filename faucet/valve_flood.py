@@ -133,10 +133,11 @@ class ValveFloodManager(object):
     def _build_multiout_flood_rules(self, vlan, command):
         """Build flooding rules for a VLAN without using groups."""
         flood_priority = self.flood_priority
-        mirror_acts = set()
+        mirror_acts = []
         for mirrored_port in vlan.mirrored_ports():
             for act in mirrored_port.mirror_actions():
-                mirror_acts.add(act)
+                mirror_acts.append(act)
+        mirror_acts = valve_of.dedupe_output_port_acts(mirror_acts)
         ofmsgs = []
         for unicast_eth_dst, eth_dst, eth_dst_mask in self.FLOOD_DSTS:
             if unicast_eth_dst and not vlan.unicast_flood:
