@@ -132,6 +132,7 @@ class Valve(object):
         self._route_manager_by_eth_type = {}
         self._port_highwater = {}
 
+        self.dp.reset_refs()
         for vlan_vid in list(self.dp.vlans.keys()):
             self._port_highwater[vlan_vid] = {}
             for port_number in list(self.dp.ports.keys()):
@@ -1326,7 +1327,6 @@ class Valve(object):
             ofmsgs.extend(self.ports_delete(changed_ports))
 
         self.dp = new_dp
-        self.dp.reset_refs()
         self.dp_init()
 
         if changed_vlans:
