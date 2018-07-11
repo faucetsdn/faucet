@@ -3801,32 +3801,30 @@ vlans:
 
     CONFIG = """
         interfaces:
-            b1:
-                number: %(port_1)d
+            %(port_1)d:
+                name: b1
                 native_vlan: 100
                 description: "b1"
-            b2:
-                number: %(port_2)d
+            %(port_2)d:
+                name: b2
                 native_vlan: 100
                 description: "b2"
             %(port_3)d:
                 description: "b3"
-                native_vlan: 100
-            %(port_4)d:
-                description: "b4"
                 output_only: True
 """
 
     def test_untagged(self):
-        first_host, second_host, _third_host, mirror_host = self.net.hosts
+        first_host, second_host, mirror_host = self.net.hosts[:3]
         ping_pairs = (
             (first_host, second_host),
             (second_host, first_host))
         self.flap_all_switch_ports()
         self.change_port_config(
-            self.port_map['port_4'], 'mirror', ['b1', 'b2'],
-            restart=True, cold_start=False, hup=True)
-        self.verify_ping_mirrored_multi(ping_pairs, mirror_host, both_mirrored=True)
+            self.port_map['port_3'], 'mirror', ['b1', 'b2'],
+            restart=True, cold_start=True, hup=True)
+        self.verify_ping_mirrored_multi(
+            ping_pairs, mirror_host, both_mirrored=True)
 
 
 class FaucetUntaggedMultiMirrorSepTest(FaucetUntaggedTest):
