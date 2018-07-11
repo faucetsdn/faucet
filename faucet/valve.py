@@ -233,10 +233,12 @@ class Valve(object):
     def _delete_all_port_match_flows(self, port):
         """Delete all flows that match an input port from all FAUCET tables."""
         ofmsgs = []
-        port_acl_table = self.dp.tables['port_acl']
-        for table in self.dp.in_port_tables():
-            if self.dp.dp_acls and table == port_acl_table:
-                continue
+        tables = [self.dp.wildcard_table]
+        if self.dp.dp_acls:
+            # DP ACL flows live forever.
+            port_acl_table = self.dp.tables['port_acl']
+            tables = set(self.dp.in_port_tables()) - set([port_acl_table])
+        for table in tables:
             ofmsgs.extend(table.flowdel(
                 match=table.match(in_port=port.number)))
         return ofmsgs
