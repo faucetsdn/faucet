@@ -358,7 +358,7 @@ class Valve(object):
     def _del_vlan(self, vlan):
         """Delete a configured VLAN."""
         ofmsgs = []
-        for table in self.dp.vlan_match_tables():
+        for table in self.dp.vlan_match_tables() & self._active_tables():
             ofmsgs.extend(table.flowdel(match=table.match(vlan=vlan)))
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs
