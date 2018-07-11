@@ -109,6 +109,9 @@ class Valve(object):
     def _active_tables(self):
         return set(self.dp.all_valve_tables()) - set(self._skip_tables())
 
+    def _active_table_ids(self):
+        return sorted([table.table_id for table in self._active_tables()])
+
     def close_logs(self):
         """Explicitly close any active loggers."""
         if self.logger is not None:
@@ -152,6 +155,7 @@ class Valve(object):
             for vlan in list(self.dp.vlans.values()):
                 if vlan.faucet_vips_by_ipv(route_manager.IPV):
                     route_manager.active = True
+                    self.logger.info('IPv%u routing is active on %s' % (route_manager.IPV, vlan))
             for eth_type in route_manager.CONTROL_ETH_TYPES:
                 self._route_manager_by_eth_type[eth_type] = route_manager
         if self.dp.stack:
@@ -229,10 +233,12 @@ class Valve(object):
     def _delete_all_port_match_flows(self, port):
         """Delete all flows that match an input port from all FAUCET tables."""
         ofmsgs = []
-        port_acl_table = self.dp.tables['port_acl']
-        for table in self.dp.in_port_tables():
-            if self.dp.dp_acls and table == port_acl_table:
-                continue
+        tables = [self.dp.wildcard_table]
+        if self.dp.dp_acls:
+            # DP ACL flows live forever.
+            port_acl_table = self.dp.tables['port_acl']
+            tables = set(self.dp.in_port_tables()) - set([port_acl_table])
+        for table in tables:
             ofmsgs.extend(table.flowdel(
                 match=table.match(in_port=port.number)))
         return ofmsgs
@@ -357,9 +363,8 @@ class Valve(object):
 
     def _del_vlan(self, vlan):
         """Delete a configured VLAN."""
-        ofmsgs = []
-        for table in self.dp.vlan_match_tables():
-            ofmsgs.extend(table.flowdel(match=table.match(vlan=vlan)))
+        table = self.dp.wildcard_table
+        ofmsgs = table.flowdel(match=table.match(vlan=vlan))
         self.logger.info('Delete VLAN %s' % vlan)
         return ofmsgs
 
@@ -1515,10 +1520,9 @@ class TfmValve(Valve):
         ofmsgs.extend(super(TfmValve, self).switch_features(msg))
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
-        self.logger.info('loading pipeline configuration')
-        active_table_ids = [table.table_id for table in self._active_tables()]
-        tfm = valve_of.table_features(
-            ryu_table_loader.load_tables(active_table_ids))
+        active_table_ids = self._active_table_ids()
+        self.logger.info('loading pipeline configuration (table IDs %s)' % str(active_table_ids))
+        tfm = valve_of.table_features(ryu_table_loader.load_tables(active_table_ids))
         self._verify_pipeline_config(tfm)
         ofmsgs.append(tfm)
         return ofmsgs
