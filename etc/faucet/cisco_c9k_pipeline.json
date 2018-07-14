@@ -1,7 +1,7 @@
 [
     {
         "config": 3,
-        "max_entries": 50,
+        "max_entries": 1100,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Port ACL",
@@ -237,7 +237,7 @@
     },
     {
         "config": 3,
-        "max_entries": 100,
+        "max_entries": 300,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "VLAN",
@@ -527,7 +527,7 @@
     },
     {
         "config": 3,
-        "max_entries": 100,
+        "max_entries": 400,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Source",
@@ -547,7 +547,8 @@
                     },
                     {
                         "name": "eth_dst",
-                        "type": "eth_dst"
+                        "type": "eth_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "eth_src",
@@ -573,7 +574,8 @@
                     },
                     {
                         "name": "eth_dst",
-                        "type": "eth_dst"
+                        "type": "eth_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "eth_src",
@@ -946,7 +948,7 @@
     },
     {
         "config": 3,
-        "max_entries": 100,
+        "max_entries": 300,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Ethernet Destination",
@@ -1047,7 +1049,7 @@
     },
     {
         "config": 3,
-        "max_entries": 300,
+        "max_entries": 400,
         "metadata_match": 0,
         "metadata_write": 0,
         "name": "Flood",
