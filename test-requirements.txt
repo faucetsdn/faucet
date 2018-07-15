@@ -1,7 +1,7 @@
 bitstring
 codecov
 concurrencytest
-eventlet==0.22.1
+eventlet==0.23.0
 exabgp
 influxdb
 ipaddress
