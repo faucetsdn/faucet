@@ -23,11 +23,12 @@ class InvalidConfigError(Exception):
 
 
 def test_config_condition(cond, msg):
+    """Evaluate condition and raise InvalidConfigError if condition not True."""
     if cond:
         raise InvalidConfigError(msg)
 
 
-class Conf(object):
+class Conf:
     """Base class for FAUCET configuration."""
 
     defaults = {} # type: dict
@@ -61,12 +62,15 @@ class Conf(object):
     def _check_conf_types(self, conf, conf_types):
         """Check that conf value is of the correct type."""
         for conf_key, conf_value in list(conf.items()):
-            test_config_condition(conf_key not in conf_types, '%s field unknown in %s (known types %s)' % (
-                conf_key, self._id, conf_types))
+            test_config_condition(
+                conf_key not in conf_types, '%s field unknown in %s (known types %s)' % (
+                    conf_key, self._id, conf_types))
             if conf_value is not None:
                 conf_type = conf_types[conf_key]
-                test_config_condition(not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
-                    conf_key, conf_value, conf_type, type(conf_value))) # pytype: disable=invalid-typevar
+                test_config_condition(
+                    not isinstance(conf_value, conf_type), '%s value %s must be %s not %s' % (
+                        conf_key, conf_value,
+                        conf_type, type(conf_value))) # pytype: disable=invalid-typevar
 
     @staticmethod
     def _set_unknown_conf(conf, conf_types):
@@ -86,7 +90,7 @@ class Conf(object):
 
     def check_config(self):
         """Check config at instantiation time for errors, typically via assert."""
-        return
+        pass
 
     @staticmethod
     def _conf_keys(conf, dyn=False, subconf=True, ignore_keys=None):
