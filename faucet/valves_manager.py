@@ -24,7 +24,7 @@ from faucet.valve import valve_factory, SUPPORTED_HARDWARE
 from faucet.valve_util import dpid_log, stat_config_files
 
 
-class ConfigWatcher(object):
+class ConfigWatcher:
     """Watch config for file or content changes."""
 
     config_file = None
@@ -55,7 +55,7 @@ class ConfigWatcher(object):
         self.config_hashes = new_config_hashes
 
 
-class ValvesManager(object):
+class ValvesManager:
     """Manage a collection of Valves."""
 
     valves = {} # type: dict
@@ -167,7 +167,7 @@ class ValvesManager(object):
         self.metrics.of_packet_ins.labels( # pylint: disable=no-member
             **valve.base_prom_labels).inc()
         with self.metrics.faucet_packet_in_secs.labels( # pylint: disable=no-member
-            **valve.base_prom_labels).time():
+                **valve.base_prom_labels).time():
             ofmsgs = valve.rcv_packet(now, self._other_running_valves(valve), pkt_meta)
         if ofmsgs:
             self.send_flows_to_dp_by_id(valve, ofmsgs)

@@ -26,7 +26,7 @@ from chewie.chewie import Chewie # pylint: disable=wrong-import-position
 from chewie.mac_address import MacAddress # pylint: disable=wrong-import-position
 
 
-class FaucetDot1x(object):
+class FaucetDot1x:
     """Wrapper for experimental Chewie 802.1x authenticator."""
 
     # TODO: support other credentials.

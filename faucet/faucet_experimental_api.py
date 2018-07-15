@@ -22,7 +22,7 @@
 # limitations under the License.
 
 
-class FaucetExperimentalAPI(object):
+class FaucetExperimentalAPI:
     """An experimental API for communicating with Faucet.
 
     Contains methods for interacting with a running Faucet controller from
@@ -30,7 +30,7 @@ class FaucetExperimentalAPI(object):
     ryu-manager process.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *_args, **_kwargs):
         self.faucet = None
 
     def is_registered(self):
