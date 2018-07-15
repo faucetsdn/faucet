@@ -17,6 +17,8 @@ class FaucetSimpleTest(mininet_test_base.FaucetTestBase):
     """Basic untagged VLAN test."""
 
     N_UNTAGGED = 4
+    N_TAGGED = 0
+    LINKS_PER_HOST = 1
     CONFIG_GLOBAL = """
 vlans:
     100:
@@ -24,9 +26,19 @@ vlans:
 """
 
     CONFIG = """
-        interface_ranges:
-            1-4:
+        interfaces:
+            %(port_1)d:
                 native_vlan: 100
+                description: "b1"
+            %(port_2)d:
+                native_vlan: 100
+                description: "b2"
+            %(port_3)d:
+                native_vlan: 100
+                description: "b3"
+            %(port_4)d:
+                native_vlan: 100
+                description: "b4"
 """
 
     def setUp(self):
@@ -35,7 +47,8 @@ vlans:
             self.OVS_TYPE, self.ports_sock, self._test_name(), [self.dpid],
             n_tagged=self.N_TAGGED, n_untagged=self.N_UNTAGGED,
             n_extended=self.N_EXTENDED, e_cls=self.EXTENDED_CLS,
-            tmpdir=self.tmpdir, links_per_host=self.LINKS_PER_HOST)
+            tmpdir=self.tmpdir, links_per_host=self.LINKS_PER_HOST,
+            hw_dpid=self.hw_dpid)
         self.start_net()
 
     def test_ping_all(self):
