@@ -1,8 +1,6 @@
 concurrencytest
-eventlet==0.22.1
 ipaddress
 netifaces
 packaging
 pyyaml
 requests
-ryu==4.26
