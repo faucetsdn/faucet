@@ -30,7 +30,7 @@ def main():
         rcv = sys.stdin.read()
         data = None
         try:
-            data = bytearray.fromhex(rcv)
+            data = bytearray.fromhex(rcv) # pytype: disable=missing-parameter
         except (ValueError, TypeError):
             continue
 
