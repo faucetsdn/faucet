@@ -67,7 +67,7 @@ EXTERNAL_DEPENDENCIES = (
      r'(\d+\.\d+).\d+', "2.2"),
     ('exabgp', ['--version'], 'ExaBGP',
      r'ExaBGP : (\d+\.\d+).\d+', "4.0"),
-    ('pip', ['show', 'influxdb'], 'influxdb',
+    ('pip3', ['show', 'influxdb'], 'influxdb',
      r'Version:\s+(\d+\.\d+)\.\d+', "3.0"),
     ('curl', ['--version'], 'libcurl',
      r'curl (\d+\.\d+).\d+', "7.3"),
