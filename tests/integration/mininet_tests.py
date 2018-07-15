@@ -5200,7 +5200,7 @@ class FaucetStringOfDPTest(FaucetTest):
                   n_untagged=0, untagged_vid=100,
                   include=None, include_optional=None,
                   acls=None, acl_in_dp=None,
-                  switch_to_switch_links=1, hw_dpid=None):
+                  switch_to_switch_links=1, hw_dpid=None, stack_ring=False):
         """Set up Mininet and Faucet for the given topology."""
         if include is None:
             include = []
@@ -5223,6 +5223,7 @@ class FaucetStringOfDPTest(FaucetTest):
             switch_to_switch_links=switch_to_switch_links,
             test_name=self._test_name(),
             hw_dpid=hw_dpid,
+            stack_ring=stack_ring,
         )
         self.CONFIG = self.get_config(
             self.dpids,
@@ -5238,12 +5239,13 @@ class FaucetStringOfDPTest(FaucetTest):
             include_optional,
             acls,
             acl_in_dp,
+            stack_ring,
         )
         self._write_faucet_config()
 
     def get_config(self, dpids=None, hw_dpid=None, stack=False, hardware=None, ofchannel_log=None,
                    n_tagged=0, tagged_vid=0, n_untagged=0, untagged_vid=0,
-                   include=None, include_optional=None, acls=None, acl_in_dp=None):
+                   include=None, include_optional=None, acls=None, acl_in_dp=None, stack_ring=False):
         """Build a complete Faucet configuration for each datapath, using the given topology."""
         if dpids is None:
             dpids = []
@@ -5301,13 +5303,20 @@ class FaucetStringOfDPTest(FaucetTest):
                 else:
                     peer_dps = [i - 1, i + 1]
 
+                if dpid_count > 2:
+                    if first_dp and stack and stack_ring:
+                        peer_dps.append(dpid_count - 1)
+                    if last_dp and stack and stack_ring:
+                        peer_dps.append(0)
+
                 # TODO: make the stacking root configurable
                 if stack and first_dp:
                     dp_config['stack'] = {
                         'priority': 1
                     }
                 for peer_dp in peer_dps:
-                    if first_dp or second_dp:
+                    if ((first_dp and peer_dp != dpid_count - 1) or second_dp
+                            or (not end_dp and peer_dp > i)):
                         peer_stack_port_base = first_stack_port
                     else:
                         peer_stack_port_base = first_stack_port + self.topo.switch_to_switch_links
