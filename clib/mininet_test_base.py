@@ -22,15 +22,12 @@ import unittest2
 import yaml
 
 import requests
-from requests.exceptions import ConnectionError, ReadTimeout
 
-# pylint: disable=import-error
-from ryu.ofproto import ofproto_v1_3 as ofp
-from mininet.link import TCLink
-from mininet.log import error, output
-from mininet.net import Mininet
-from mininet.node import Intf
-from mininet.util import dumpNodeConnections, pmonitor
+from mininet.link import TCLink # pylint: disable=import-error
+from mininet.log import error, output # pylint: disable=import-error
+from mininet.net import Mininet # pylint: disable=import-error
+from mininet.node import Intf # pylint: disable=import-error
+from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-error
 
 import netifaces
 
@@ -38,7 +35,7 @@ import mininet_test_util
 import mininet_test_topo
 from tcpdump_helper import TcpdumpHelper
 
-
+OFPPC_PORT_DOWN = 1 << 0 # TODO: avoid dependency on Python2 Ryu.
 PEER_BGP_AS = 2**16 + 1
 
 
@@ -258,7 +255,7 @@ class FaucetTestBase(unittest2.TestCase):
     def _stop_net(self):
         if self.net is not None:
             for switch in self.net.switches:
-                 switch.cmd('%s del-controller %s' % (self.VSCTL, switch.name))
+                switch.cmd('%s del-controller %s' % (self.VSCTL, switch.name))
             self.net.stop()
 
     def setUp(self):
@@ -436,7 +433,7 @@ class FaucetTestBase(unittest2.TestCase):
     def _ofctl(req):
         try:
             ofctl_result = requests.get(req).text
-        except ConnectionError:
+        except requests.exceptions.ConnectionError:
             return None
         return ofctl_result
 
@@ -559,7 +556,7 @@ class FaucetTestBase(unittest2.TestCase):
     @staticmethod
     def pre_start_net():
         """Hook called after Mininet initializtion, before Mininet started."""
-        return
+        pass
 
     def get_config_header(self, config_global, debug_log, dpid, hardware):
         """Build v2 FAUCET config header."""
@@ -925,7 +922,7 @@ dbs:
         if controller == 'faucet':
             return 'http://[%s]:%u' % (
                 self.get_prom_addr(), self.get_prom_port())
-        elif controller == 'gauge':
+        if controller == 'gauge':
             return 'http://[%s]:%u' % (
                 self.get_prom_addr(), self.config_ports['gauge_prom_port'])
         raise NotImplementedError
@@ -937,7 +934,7 @@ dbs:
             if var:
                 get_vars = {'name[]': var}
             prom_raw = requests.get(url, get_vars, timeout=timeout).text
-        except (ConnectionError, ReadTimeout):
+        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
             return []
         with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller), 'w') as prom_log:
             prom_log.write(prom_raw)
@@ -1606,15 +1603,15 @@ dbs:
     def set_port_status(self, dpid, port_no, status, wait):
         if dpid is None:
             dpid = self.dpid
-        self._portmod(dpid, port_no, status, ofp.OFPPC_PORT_DOWN)
+        self._portmod(dpid, port_no, status, OFPPC_PORT_DOWN)
         if wait:
             expected_status = 1
-            if status == ofp.OFPPC_PORT_DOWN:
+            if status == OFPPC_PORT_DOWN:
                 expected_status = 0
             self.wait_port_status(long(dpid), port_no, expected_status) # pytype: disable=name-error
 
     def set_port_down(self, port_no, dpid=None, wait=True):
-        self.set_port_status(dpid, port_no, ofp.OFPPC_PORT_DOWN, wait)
+        self.set_port_status(dpid, port_no, OFPPC_PORT_DOWN, wait)
 
     def set_port_up(self, port_no, dpid=None, wait=True):
         self.set_port_status(dpid, port_no, 0, wait)
