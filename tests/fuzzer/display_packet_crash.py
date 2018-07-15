@@ -14,7 +14,7 @@ def main():
     # go through all files in directory
     # read file and store in string
     with open(sys.argv[1]) as pkt:
-        packet_data = pkt.read()
+        packet_data = str(pkt.read())
 
     # start faucet
     application = faucet.Faucet(
@@ -29,7 +29,7 @@ def main():
     # create data from read file
     byte_data = None
     try:
-        byte_data = bytearray.fromhex(packet_data)
+        byte_data = bytearray.fromhex(packet_data) # pytype: disable=missing-parameter
     except (ValueError, TypeError):
         pass
 
