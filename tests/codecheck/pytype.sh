@@ -12,7 +12,7 @@ PY2=""
 PY3=""
 for i in `$FAUCETHOME/tests/codecheck/src_files.sh|shuf` ; do
   # mininet requires python2
-  if grep -qn "import mininet" $i ; then
+  if grep -qn -E "^(from|import) mininet" $i ; then
     PY2+="$i\n"
   else
     PY3+="$i\n"
