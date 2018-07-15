@@ -22,13 +22,12 @@ import unittest2
 import yaml
 
 import requests
-from requests.exceptions import ConnectionError, ReadTimeout
 
-from mininet.link import TCLink
-from mininet.log import error, output
-from mininet.net import Mininet
-from mininet.node import Intf
-from mininet.util import dumpNodeConnections, pmonitor
+from mininet.link import TCLink # pylint: disable=import-error
+from mininet.log import error, output # pylint: disable=import-error
+from mininet.net import Mininet # pylint: disable=import-error
+from mininet.node import Intf # pylint: disable=import-error
+from mininet.util import dumpNodeConnections, pmonitor # pylint: disable=import-error
 
 import netifaces
 
@@ -256,7 +255,7 @@ class FaucetTestBase(unittest2.TestCase):
     def _stop_net(self):
         if self.net is not None:
             for switch in self.net.switches:
-                 switch.cmd('%s del-controller %s' % (self.VSCTL, switch.name))
+                switch.cmd('%s del-controller %s' % (self.VSCTL, switch.name))
             self.net.stop()
 
     def setUp(self):
@@ -434,7 +433,7 @@ class FaucetTestBase(unittest2.TestCase):
     def _ofctl(req):
         try:
             ofctl_result = requests.get(req).text
-        except ConnectionError:
+        except requests.exceptions.ConnectionError:
             return None
         return ofctl_result
 
@@ -557,7 +556,7 @@ class FaucetTestBase(unittest2.TestCase):
     @staticmethod
     def pre_start_net():
         """Hook called after Mininet initializtion, before Mininet started."""
-        return
+        pass
 
     def get_config_header(self, config_global, debug_log, dpid, hardware):
         """Build v2 FAUCET config header."""
@@ -923,7 +922,7 @@ dbs:
         if controller == 'faucet':
             return 'http://[%s]:%u' % (
                 self.get_prom_addr(), self.get_prom_port())
-        elif controller == 'gauge':
+        if controller == 'gauge':
             return 'http://[%s]:%u' % (
                 self.get_prom_addr(), self.config_ports['gauge_prom_port'])
         raise NotImplementedError
@@ -935,7 +934,7 @@ dbs:
             if var:
                 get_vars = {'name[]': var}
             prom_raw = requests.get(url, get_vars, timeout=timeout).text
-        except (ConnectionError, ReadTimeout):
+        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
             return []
         with open(os.path.join(self.tmpdir, '%s-prometheus.log' % controller), 'w') as prom_log:
             prom_log.write(prom_raw)
