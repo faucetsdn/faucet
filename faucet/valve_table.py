@@ -22,7 +22,7 @@ import struct
 from faucet import valve_of
 
 
-class ValveTable(object):
+class ValveTable:
     """Wrapper for an OpenFlow table."""
 
     def __init__(self, table_id, name, restricted_match_types,
@@ -112,7 +112,7 @@ class ValveTable(object):
                 [valve_of.output_controller(max_len)])] + inst)
 
 
-class ValveGroupEntry(object):
+class ValveGroupEntry:
     """Abstraction for a single OpenFlow group entry."""
 
     def __init__(self, table, group_id, buckets):
@@ -121,6 +121,7 @@ class ValveGroupEntry(object):
         self.update_buckets(buckets)
 
     def update_buckets(self, buckets):
+        """Update entry with new buckets."""
         self.buckets = tuple(buckets)
 
     def add(self):
@@ -145,7 +146,7 @@ class ValveGroupEntry(object):
         return valve_of.groupdel(group_id=self.group_id)
 
 
-class ValveGroupTable(object):
+class ValveGroupTable:
     """Wrap access to group table."""
 
     entries = {} # type: dict
@@ -158,6 +159,7 @@ class ValveGroupTable(object):
         return struct.unpack('<L', digest[:4])[0]
 
     def get_entry(self, group_id, buckets):
+        """Update entry with group_id with buckets, and return the entry."""
         if group_id in self.entries:
             self.entries[group_id].update_buckets(buckets)
         else:
