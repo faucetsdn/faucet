@@ -1,0 +1,15 @@
+bitstring
+codecov
+concurrencytest
+eventlet==0.22.1
+exabgp
+influxdb
+ipaddress
+netifaces
+networkx
+packaging
+prometheus_client
+pytest-cov
+pyyaml
+requests
+ryu==4.26
