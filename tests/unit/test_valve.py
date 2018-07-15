@@ -326,6 +326,7 @@ class ValveTestBases:
         V200 = 0x200|ofp.OFPVID_PRESENT
         V300 = 0x300|ofp.OFPVID_PRESENT
         LOGNAME = 'faucet'
+        dot1x = None
         last_flows_to_dp = {}
         valve = None
         valves_manager = None
@@ -572,10 +573,8 @@ class ValveTestBases:
             for valve_service in (
                     'resolve_gateways', 'advertise',
                     'send_lldp_beacons', 'state_expire'):
-                ofmsgs = self.valves_manager.valve_flow_services(
+                self.valves_manager.valve_flow_services(
                     now, valve_service)
-                if ofmsgs:
-                    self.table.apply_ofmsgs(ofmsgs)
             self.valves_manager.update_metrics(now)
             return rcv_packet_ofmsgs
 
