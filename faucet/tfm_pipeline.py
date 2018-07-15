@@ -6,7 +6,7 @@ import os
 from faucet import valve_of
 
 
-class LoadRyuTables(object):
+class LoadRyuTables:
     """Serialize table features messages from JSON."""
 
     _CLASS_NAME_TO_NAME_IDS = {
@@ -75,7 +75,7 @@ class LoadRyuTables(object):
         return instruction_array
 
 
-class OpenflowToRyuTranslator(object):
+class OpenflowToRyuTranslator:
 
     def __init__(self, cfgpath, pipeline_conf):
         with open(os.path.join(cfgpath, 'ofproto_to_ryu.json')) as ofproto_file:
