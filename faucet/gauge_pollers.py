@@ -25,7 +25,7 @@ from faucet.valve_of import devid_present
 from faucet.valve_of_old import OLD_MATCH_FIELDS
 
 
-class GaugePoller(object):
+class GaugePoller:
     """Abstraction for a poller for statistics."""
 
     def __init__(self, conf, logname, prom_client):
@@ -102,9 +102,9 @@ class GaugePoller(object):
         """Return port name as string based on port number."""
         if stat.port_no == msg.datapath.ofproto.OFPP_CONTROLLER:
             return 'CONTROLLER'
-        elif stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
+        if stat.port_no == msg.datapath.ofproto.OFPP_LOCAL:
             return 'LOCAL'
-        elif stat.port_no in self.dp.ports:
+        if stat.port_no in self.dp.ports:
             return self.dp.ports[stat.port_no].name
         self.logger.debug('stats for unknown port %u', stat.port_no)
         return str(stat.port_no)

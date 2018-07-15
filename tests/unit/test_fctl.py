@@ -61,7 +61,7 @@ class FctlTestCaseBase(unittest.TestCase): # pytype: disable=module-attr
         """generate argument list for fctl"""
         result = copy.copy(self.FCTL_BASE_ARGS)
         result += ['--endpoints=file:%s' % self.prom_input_file_name]
-        if extra_args != None:
+        if extra_args is not None:
             result += extra_args
         return result
 
@@ -119,7 +119,8 @@ class FctlClassTestCase(FctlTestCaseBase):
     def test_http_fail(self):
         with open(os.devnull, 'w') as err_output_file:
             self.assertEqual(
-                None, fctl.scrape_prometheus(['http://127.0.0.1:23'], err_output_file=err_output_file))
+                None, fctl.scrape_prometheus(['http://127.0.0.1:23'],
+                err_output_file=err_output_file))
 
     def test_macs(self):
         prom_input_file_name = os.path.join(self.tmpdir, 'prom_input.txt')
