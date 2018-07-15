@@ -1,4 +1,3 @@
-astroid
 bitstring
 codecov
 concurrencytest
