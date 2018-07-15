@@ -18,9 +18,7 @@
 
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
-# pytype: disable=pyi-error
-from requests.exceptions import ReadTimeout
-
+import requests # pytype: disable=pyi-error
 from faucet.gauge_pollers import GaugePortStatePoller, GaugeFlowTablePoller, GaugePortStatsPoller
 
 
@@ -52,7 +50,8 @@ class InfluxShipper:
                 if not client.write_points(points=points, time_precision='s'):
                     self.logger.warning('%s failed to update InfluxDB' % self.ship_error_prefix)
                     return False
-            except (ConnectionError, ReadTimeout, InfluxDBClientError, InfluxDBServerError) as err:
+            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout,
+                       InfluxDBClientError, InfluxDBServerError) as err:
                 self.logger.warning('%s %s' % (self.ship_error_prefix, err))
                 return False
             return True
