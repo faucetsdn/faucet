@@ -19,12 +19,12 @@
 from influxdb import InfluxDBClient
 from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
 # pytype: disable=pyi-error
-from requests.exceptions import ConnectionError, ReadTimeout
+from requests.exceptions import ReadTimeout
 
 from faucet.gauge_pollers import GaugePortStatePoller, GaugeFlowTablePoller, GaugePortStatsPoller
 
 
-class InfluxShipper(object):
+class InfluxShipper:
     """Convenience class for shipping values to InfluxDB.
 
     Inheritors must have a WatcherConf object as conf.
