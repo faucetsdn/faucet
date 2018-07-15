@@ -21,7 +21,7 @@ from faucet import valve_of
 from faucet import valve_packet
 
 
-class ValveFloodManager(object):
+class ValveFloodManager:
     """Implement dataplane based flooding for standalone dataplanes."""
 
     # Enumerate possible eth_dst flood destinations.
@@ -204,7 +204,7 @@ class ValveFloodManager(object):
 
     def update_stack_topo(self, event, dp, port=None): # pylint: disable=unused-argument
         """Update the stack topology. It has nothing to do for non-stacking DPs."""
-        return
+        pass
 
     @staticmethod
     def edge_learn_port(_other_valves, pkt_meta):
