@@ -256,8 +256,12 @@ class ValveFloodStackManager(ValveFloodManager):
 
         If a standalone switch, then flood to local VLAN ports.
 
-        If a distributed switch, use selective flooding
-        (see the following example).
+        If a distributed switch where all switches are directly
+        connected to the root (star topology), edge switches flood locally
+        and to the root, and the root floods to the other edges.
+
+        If a non-star distributed switch topologies, use selective
+        flooding (see the following example).
 
                                Hosts
                                ||||
@@ -310,21 +314,26 @@ class ValveFloodStackManager(ValveFloodManager):
         4: 5(s)
         5: 1 2 3 4
         """
+        exclude_ports = []
         dp_local_in_port = self._port_is_dp_local(in_port)
+        if not dp_local_in_port:
+            in_port_peer_dp = in_port.stack['dp']
+            exclude_ports = [
+                port for port in self.stack_ports
+                if port.stack and port.stack['dp'] == in_port_peer_dp]
         local_flood_actions = self._build_flood_local_rule_actions(
             vlan, exclude_unicast, in_port)
         away_flood_actions = valve_of.flood_tagged_port_outputs(
-            self.away_from_root_stack_ports, in_port)
+            self.away_from_root_stack_ports, in_port, exclude_ports=exclude_ports)
         toward_flood_actions = valve_of.flood_tagged_port_outputs(
             self.towards_root_stack_ports, in_port)
         flood_all_except_self = away_flood_actions + local_flood_actions
 
         # TODO: optimization for 2 layer stack - no need to reflect off root.
         # We should generalize the edge switch case, too.
-        if self.stack['longest_path_to_root_len'] == 2:
+        if self.stack.get('longest_path_to_root_len', None) == 2:
             if self._dp_is_root():
-                if dp_local_in_port:
-                    return away_flood_actions + local_flood_actions
+                return away_flood_actions + local_flood_actions
             else:
                 if dp_local_in_port:
                     return toward_flood_actions + local_flood_actions
