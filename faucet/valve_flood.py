@@ -202,7 +202,7 @@ class ValveFloodManager:
             return self._build_group_flood_rules(vlan, modify, command)
         return self._build_multiout_flood_rules(vlan, command)
 
-    def update_stack_topo(self, event, dp, port=None): # pylint: disable=unused-argument
+    def update_stack_topo(self, event, dp, port=None): # pylint: disable=unused-argument,invalid-name
         """Update the stack topology. It has nothing to do for non-stacking DPs."""
         pass
 
@@ -334,24 +334,24 @@ class ValveFloodStackManager(ValveFloodManager):
         if self.stack.get('longest_path_to_root_len', None) == 2:
             if self._dp_is_root():
                 return away_flood_actions + local_flood_actions
-            else:
-                if dp_local_in_port:
-                    return toward_flood_actions + local_flood_actions
+            if dp_local_in_port:
+                return toward_flood_actions + local_flood_actions
             return local_flood_actions
-        else:
-            if self._dp_is_root():
-                if dp_local_in_port:
-                    return flood_all_except_self
-                # If input port non-local, then flood outward again
-                return [valve_of.output_in_port()] + flood_all_except_self
-            # We are not the root of the distributed switch
-            # If input port was connected to a switch closer to the root,
-            # then flood outwards (local VLAN and stacks further than us)
-            if in_port in self.towards_root_stack_ports:
+
+        if self._dp_is_root():
+            if dp_local_in_port:
                 return flood_all_except_self
-            # If input port local or from a further away switch, flood
-            # towards the root.
-            return toward_flood_actions
+            # If input port non-local, then flood outward again
+            return [valve_of.output_in_port()] + flood_all_except_self
+
+        # We are not the root of the distributed switch
+        # If input port was connected to a switch closer to the root,
+        # then flood outwards (local VLAN and stacks further than us)
+        if in_port in self.towards_root_stack_ports:
+            return flood_all_except_self
+        # If input port local or from a further away switch, flood
+        # towards the root.
+        return toward_flood_actions
 
     def _build_mask_flood_rules(self, vlan, eth_dst, eth_dst_mask, # pylint: disable=too-many-arguments
                                 exclude_unicast, command, flood_priority,
@@ -460,16 +460,16 @@ class ValveFloodStackManager(ValveFloodManager):
     def update_stack_topo(self, event, dp, port=None):
         """Update the stack topo according to the event."""
 
-        def _stack_topo_up_dp(dp): # pylint: disable=unused-argument
+        def _stack_topo_up_dp(_dp): # pylint: disable=invalid-name
             pass
 
-        def _stack_topo_down_dp(dp): # pylint: disable=unused-argument
+        def _stack_topo_down_dp(_dp): # pylint: disable=invalid-name
             pass
 
-        def _stack_topo_up_port(dp, port): # pylint: disable=unused-argument
+        def _stack_topo_up_port(_dp, _port): # pylint: disable=invalid-name
             pass
 
-        def _stack_topo_down_port(dp, port): # pylint: disable=unused-argument
+        def _stack_topo_down_port(_dp, _port): # pylint: disable=invalid-name
             pass
 
         if port:
