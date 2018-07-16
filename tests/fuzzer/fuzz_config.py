@@ -10,6 +10,7 @@ import sys
 from faucet import config_parser as cp
 import afl
 
+ROUNDS = 500
 LOGNAME = 'FAUCETLOG'
 
 
@@ -24,7 +25,7 @@ def create_config_file(config):
 
 def main():
     logging.disable(logging.CRITICAL)
-    while afl.loop(500):
+    while afl.loop(ROUNDS):
         config = sys.stdin.read()
         file_name = create_config_file(config)
         try:

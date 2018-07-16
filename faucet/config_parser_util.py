@@ -42,8 +42,11 @@ class UniqueKeyLoader(Loader):
             raise ConstructorError('invalid key type: %s' % err)
         mapping = {}
         for key, value in key_value_pairs:
-            if key in mapping:
-                raise ConstructorError('duplicate key: %s' % key)
+            try:
+                if key in mapping:
+                    raise ConstructorError('duplicate key: %s' % key)
+            except TypeError:
+                raise ConstructorError('unhashable key: %s' % key)
             mapping[key] = value
         return mapping
 
