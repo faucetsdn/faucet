@@ -10,12 +10,11 @@ from faucet import faucet_experimental_api
 import afl
 import Fake
 
-ROUNDS = 1e3
+ROUNDS = 1
 logging.disable(logging.CRITICAL)
 
 
 def main():
-    # run faucet
     application = faucet.Faucet(
         dpset=dpset.DPSet(),
         faucet_experimental_api=faucet_experimental_api.FaucetExperimentalAPI())
@@ -26,7 +25,7 @@ def main():
         for valve in list(application.valves_manager.valves.values()):
             valve.dp.running = True
 
-    while afl.loop(1e3):
+    while afl.loop(ROUNDS):
         # receive input from afl
         rcv = sys.stdin.read()
         data = None
