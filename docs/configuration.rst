@@ -634,6 +634,10 @@ or a name. The following attributes can be configured:
       - list of strings (IP address prefixes)
       - None
       - The IP Address for Faucet's routing interface on this vlan
+    * - faucet_mac
+      - string (MAC address)
+      - None
+      - set MAC for FAUCET VIPs on this VLAN
     * - max_hosts
       - integer
       - 255
