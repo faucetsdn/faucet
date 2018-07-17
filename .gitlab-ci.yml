@@ -1,6 +1,7 @@
 stages:
   - build
   - deploy
+  - build-image
 
 build-package:
   stage: build
@@ -39,3 +40,26 @@ deploy-package:
     - package_cloud push faucetsdn/faucet/ubuntu/bionic *.deb || true
   only:
     - tags
+
+build-rpi-image:
+  stage: build-image
+  image: faucet/dbuilder
+  script:
+    - cd /builds/faucetsdn/faucet/raspbian-image/
+    - apt-get update && apt-get upgrade -y
+    - apt-get install quilt parted manpages-pl xxd qemu-user-static debootstrap zerofree pxz zip dosfstools bsdtar libcap2-bin grep rsync xz-utils binfmt-support -y
+    - git clone https://github.com/RPi-Distro/pi-gen.git
+    - mv prerun.sh pi-gen/export-image/
+    - mv common pi-gen/scripts/
+    - mv 02-run.sh pi-gen/stage2/01-sys-tweaks/
+    - mv build.sh pi-gen/
+    - cd pi-gen
+    - echo "IMG_NAME='faucet_raspbian'" > config
+    - touch ./stage3/SKIP ./stage4/SKIP ./stage5/SKIP
+    - touch ./stage4/SKIP_IMAGES ./stage5/SKIP_IMAGES
+    - export container=lxc
+    - ./build.sh
+  artifacts:
+    paths:
+      - raspbian-image/pi-gen/deploy/*
+    expire_in: 1 week
