@@ -31,8 +31,12 @@ class LoadRyuTables:
         table_array = []
         for table in tables_information:
             for table_class_name, table_attr in list(table.items()):
-                table_class = getattr(valve_of.parser, table_class_name,)
-                properties = self._create_features(table_attr['properties'])
+                table_class = getattr(valve_of.parser, table_class_name)
+                new_table = table_class(**table_attr)
+                if new_table.table_id not in active_table_ids:
+                    continue
+                dynamic_features = set(['OFPTFPT_NEXT_TABLES'])
+                properties = self._create_features(table_attr['properties'], dynamic_features)
                 table_attr['properties'] = properties
                 table_attr['name'] = table_attr['name'].encode('utf-8')
                 new_table = table_class(**table_attr)
@@ -42,14 +46,17 @@ class LoadRyuTables:
                     new_table.properties.append(
                         valve_of.parser.OFPTableFeaturePropNextTables(
                             table_ids=next_tables, type_=2))
-                if new_table.table_id in active_table_ids:
-                    table_array.append(new_table)
+                table_array.append(new_table)
         return table_array
 
-    def _create_features(self, table_features_information):
+    def _create_features(self, table_features_information, dynamic_features):
+        if dynamic_features is None:
+            dynamic_features = set()
         features_array = []
         for feature in table_features_information:
             for feature_class_name, feature_attr in list(feature.items()):
+                if feature_class_name in dynamic_features:
+                    continue
                 name_id = self._CLASS_NAME_TO_NAME_IDS[feature_class_name]
                 feature_class = getattr(valve_of.parser, feature_class_name)
                 instruction_ids = self._create_instructions(feature_attr[name_id])
