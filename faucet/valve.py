@@ -1508,7 +1508,9 @@ class TfmValve(Valve):
                 if not (isinstance(prop, valve_of.parser.OFPTableFeaturePropOxm)
                         and prop.type == 8):
                     continue
-                tfm_matches = set(sorted([oxm.type for oxm in prop.oxm_ids]))
+                tfm_matches = {}
+                for oxm in prop.oxm_ids:
+                    tfm_matches[oxm.type] = oxm.hasmask
                 if tfm_matches != table.restricted_match_types:
                     self.logger.info(
                         'table %s ID %s match TFM config %s != pipeline %s' % (
