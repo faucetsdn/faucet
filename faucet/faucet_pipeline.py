@@ -19,14 +19,27 @@
 # pipeline definition is a list of tuples, one tuple per table,
 # starting at OpenFlow table 0.
 # The first item in tuple is the table name.
-# The second item in the tuple is a tuple of OpenFlow matches, that table ues.
+# The second item in the tuple, is a list of tuples of OpenFlow matches
+# that the table uses, and a flag whether the field is masked.
+
 FAUCET_PIPELINE = (
     ('port_acl', None),
-    ('vlan', ('eth_dst', 'eth_type', 'in_port', 'vlan_vid')),
+    ('vlan',
+     (('eth_dst', True), ('eth_type', False),
+      ('in_port', False), ('vlan_vid', False))),
     ('vlan_acl', None),
-    ('eth_src', ('eth_dst', 'eth_src', 'eth_type', 'in_port', 'vlan_vid')),
-    ('ipv4_fib', ('eth_type', 'ipv4_dst', 'vlan_vid')),
-    ('ipv6_fib', ('eth_type', 'ipv6_dst', 'vlan_vid')),
-    ('vip', ('arp_tpa', 'eth_dst', 'eth_type', 'icmpv6_type', 'ip_proto')),
-    ('eth_dst', ('eth_dst', 'in_port', 'vlan_vid')),
-    ('flood', ('eth_dst', 'in_port', 'vlan_vid')))
+    ('eth_src',
+     (('eth_dst', True), ('eth_src', False), ('eth_type', False),
+      ('in_port', False), ('vlan_vid', False))),
+    ('ipv4_fib',
+     (('eth_type', False), ('ipv4_dst', True), ('vlan_vid', False))),
+    ('ipv6_fib',
+     (('eth_type', False), ('ipv6_dst', True), ('vlan_vid', False))),
+    ('vip',
+     (('arp_tpa', False), ('eth_dst', False), ('eth_type', False),
+      ('icmpv6_type', False), ('ip_proto', False))),
+    ('eth_dst',
+     (('eth_dst', False), ('in_port', False), ('vlan_vid', False))),
+    ('flood',
+     (('eth_dst', True), ('in_port', False), ('vlan_vid', False))),
+)
