@@ -29,7 +29,7 @@ FAUCET_PIPELINE = (
       ('in_port', False), ('vlan_vid', False))),
     ('vlan_acl', None),
     ('eth_src',
-     (('eth_dst', None), ('eth_src', False), ('eth_type', False),
+     (('eth_dst', True), ('eth_src', False), ('eth_type', False),
       ('in_port', False), ('vlan_vid', False))),
     ('ipv4_fib',
      (('eth_type', False), ('ipv4_dst', True), ('vlan_vid', False))),
