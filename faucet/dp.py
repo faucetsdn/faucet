@@ -284,8 +284,12 @@ configuration.
         self.groups = ValveGroupTable()
         for table_id, table_config in enumerate(faucet_pipeline.FAUCET_PIPELINE):
             table_name, restricted_match_types = table_config
+            restricted_match_fields = None
+            if restricted_match_types is not None:
+                restricted_match_fields = [
+                    match_field for match_field, _mask in restricted_match_types]
             self.tables[table_name] = ValveTable(
-                table_id, table_name, restricted_match_types,
+                table_id, table_name, restricted_match_fields,
                 self.cookie, notify_flow_removed=self.use_idle_timeout)
             self.tables_by_id[table_id] = self.tables[table_name]
 
