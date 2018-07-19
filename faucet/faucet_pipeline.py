@@ -25,7 +25,7 @@
 FAUCET_PIPELINE = (
     ('port_acl', None),
     ('vlan',
-     (('eth_dst', False), ('eth_type', False),
+     (('eth_dst', True), ('eth_type', False),
       ('in_port', False), ('vlan_vid', False))),
     ('vlan_acl', None),
     ('eth_src',
