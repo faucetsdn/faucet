@@ -150,11 +150,11 @@ string names given to the datapath, or the OFP datapath id.
       - Default
       - Description
     * - advertise_interval
-      - type
+      - integer
       - 30
       - How often to advertise (eg. IPv6 RAs)
     * - arp_neighbor_timeout
-      - type
+      - integer
       - 250
       - ARP and neighbour timeout in seconds
     * - description
@@ -164,7 +164,7 @@ string names given to the datapath, or the OFP datapath id.
     * - dp_id
       - integer
       - The configuration key
-      - the OFP datapath-id of this datapath
+      - The OFP datapath-id of this datapath
     * - drop_bpdu
       - boolean
       - True
@@ -220,11 +220,11 @@ string names given to the datapath, or the OFP datapath id.
     * - interfaces
       - dictionary
       - {}
-      - configuration block for interface specific config (see below)
+      - Configuration block for interface specific config (see below)
     * - interface_ranges
       - dictionary
       - {}
-      - contains the config blocks for sets of multiple interfaces. The
+      - Contains the config blocks for sets of multiple interfaces. The
         configuration entered here will be used as the defaults for these
         interfaces.  The defaults can be overwritten by configuring the
         interfaces individually, which will also inherit all defaults not
@@ -245,7 +245,7 @@ string names given to the datapath, or the OFP datapath id.
       - In order to reduce load on the controller Faucet will randomly vary the
         timeout for learnt mac addresses by up to this number of seconds.
     * - lldp_beacon
-      - dict
+      - dictionary
       - {}
       - Configuration block for LLDP beacons
     * - low_priority
@@ -294,16 +294,16 @@ string names given to the datapath, or the OFP datapath id.
     * - proactive_learn
       - boolean
       - True
-      - whether proactive learning is enabled for IP nexthops
+      - Whether proactive learning is enabled for IP nexthops
     * - stack
       - dictionary
       - {}
-      - configuration block for stacking config, for loop protection (see
+      - Configuration block for stacking config, for loop protection (see
         below)
     * - timeout
       - integer
       - 300
-      - timeout for MAC address learning
+      - Timeout for MAC address learning
     * - use_idle_timeout
       - boolean
       - False
@@ -327,7 +327,7 @@ withing the configuration block 'stack':
     * - priority
       - integer
       - 0
-      - setting any value for stack priority indicates that this datapath
+      - Setting any value for stack priority indicates that this datapath
         should be the root for the stacking topology.
 
 LLDP (DP)
@@ -353,15 +353,15 @@ configuration block at the dp level:
     * - system_name
       - string
       - The datapath name
-      - seconds between sending beacons
+      - System name inside LLDP packet
     * - send_interval
       - integer
       - None
-      - seconds between sending beacons
+      - Seconds between sending beacons
     * - max_per_interval
       - integer
       - None
-      - the maximum number of beacons, across all ports to send each interval
+      - The maximum number of beacons, across all ports to send each interval
 
 Interfaces
 ~~~~~~~~~~
@@ -398,7 +398,7 @@ OFP port number ranges (eg. 1-6).
         those later in the list.
     * - description
       - string
-      - name (which defaults to the configuration key)
+      - Name (which defaults to the configuration key)
       - Description, purely informational
     * - enabled
       - boolean
@@ -411,7 +411,7 @@ OFP port number ranges (eg. 1-6).
         port. This is necessary to allow routing between two vlans on this
         port, or for use with a WIFI radio port.
     * - lldp_beacon
-      - dict
+      - dictionary
       - {}
       - Configuration block for lldp configuration
     * - loop_protect
@@ -490,11 +490,11 @@ interface configuration block. The following attributes can be configured:
     * - dp
       - integer or string
       - None
-      - the name of dp_id of the dp connected to this port
+      - The name of dp_id of the dp connected to this port
     * - port
       - integer or string
       - None
-      - the name or OFP port number of the interface on the remote dp connected
+      - The name or OFP port number of the interface on the remote dp connected
         to this interface.
 
 LLDP (Interfaces)
@@ -545,11 +545,11 @@ Each list element contains a dictionary with the following elements:
     * - info
       - string
       - None
-      - the info field of the tlv, as a hex string
+      - The info field of the tlv, as a hex string
     * - oui
       - integer
       - None
-      - the Organisationally Unique Identifier
+      - The Organisationally Unique Identifier
     * - subtype
       - integer
       - None
@@ -634,6 +634,10 @@ or a name. The following attributes can be configured:
       - list of strings (IP address prefixes)
       - None
       - The IP Address for Faucet's routing interface on this vlan
+    * - faucet_mac
+      - string (MAC address)
+      - None
+      - Set MAC for FAUCET VIPs on this VLAN
     * - max_hosts
       - integer
       - 255
@@ -659,11 +663,11 @@ or a name. The following attributes can be configured:
     * - routes
       - list of routes
       - None
-      - static routes configured on this vlan (see below)
+      - Static routes configured on this vlan (see below)
     * - targeted_gw_resolution
       - boolean
       - False
-      - if True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
+      - If True, and a gateway has been resolved, target the first re-resolution attempt to the same port rather than flooding.
     * - unicast_flood
       - boolean
       - True
@@ -711,7 +715,7 @@ contains a dictionary of individual meters each keyed by its name.
 .. list-table:: meters: <meter name>:
    :widths: 31 15 15 60
    :header-rows: 1
-   
+
    * - Attribute
      - Type
      - Default
@@ -721,37 +725,37 @@ contains a dictionary of individual meters each keyed by its name.
      -
      - Unique identifier.
    * - entry
-     - dict
+     - dictionary
      -
      - Defines the meter actions. Details Below.
 
 .. list-table:: : meters: <meter name>: entry:
    :widths: 31 15 15 60
    :header-rows: 1
-   
+
    * - Attribute
      - Type
      - Default
      - Desciption
    * - flags
-     - String or list of String
+     - string or list of strings
      - KBPS
      - Possible values are 'KBPS' (Rate value in kb/s (kilo-bit per second).), 'PKTPS' (Rate value in packet/sec.), 'BURST' (Do burst size), 'STATS' (Collect statistics)
    * - bands
-     - list of bands (which are dicts, see below)
+     - list of bands (which are dictionaries, see below)
      -
-     - 
+     -
 
 .. list-table:: : meters: <meter name>: entry: bands:
    :widths: 31 15 15 60
    :header-rows: 1
-   
+
    * - Attribute
      - Type
      - Default
      - Desciption
    * - type
-     - String
+     - string
      -
      - 'DROP' - drop apckets when the band rate is exceeded, or 'DSCP_REMARK'- use a simple DiffServ policer to remark the DSCP field in the IP header of packets that exceed the band rate.
    * - rate
@@ -766,7 +770,7 @@ contains a dictionary of individual meters each keyed by its name.
      - int
      -
      - Only used if type is DSCP_REMARK. The amount by which the drop precedence should be increased.
-   
+
 ACLs
 ~~~~
 
@@ -804,15 +808,15 @@ is a dictionary of actions to apply upon match.
     * - meter
       - string
       - None
-      - meter to apply to the packet
+      - Meter to apply to the packet
     * - mirror
       - string or integer
       - None
       - Copy the packet, before any modifications, to the specified port (NOTE: mirroring is done in input direction only)
     * - output
-      - dict
+      - dictionary
       - None
-      - used to output a packet directly. Details below.
+      - Used to output a packet directly. Details below.
 
 The output action contains a dictionary with the following elements:
 
@@ -825,7 +829,7 @@ The output action contains a dictionary with the following elements:
       - Default
       - Description
     * - set_fields
-      - list of dicts
+      - list of dictionaries
       - None
       - A list of fields to set with values, eg. eth_dst: "1:2:3:4:5:6"
     * - port
@@ -849,11 +853,11 @@ The output action contains a dictionary with the following elements:
       - None
       - Rewrite the vlan vid of the packet when outputting
     * - vlan_vids
-      - list of [ integer or { integer, eth_type } ]
+      - list of [ integer or {vid: integer, eth_type: integer} ]
       - None
       - Push vlan tags on output, with optional eth_type.
     * - failover
-      - dict
+      - dictionary
       - None
       - Output with a failover port (see below).
 
