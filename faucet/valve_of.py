@@ -729,13 +729,15 @@ def faucet_config(datapath=None):
     return parser.OFPSetConfig(datapath, ofp.OFPC_FRAG_NORMAL, 0)
 
 
-def faucet_async(datapath=None, notify_flow_removed=False, packet_in=True):
+def faucet_async(datapath=None, notify_flow_removed=False, packet_in=True, port_status=True):
     """Return async message config for FAUCET/Gauge"""
     packet_in_mask = 0
     if packet_in:
         packet_in_mask = 1 << ofp.OFPR_ACTION
-    port_status_mask = (
-        1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
+    port_status_mask = 0
+    if port_status:
+        port_status_mask = (
+             1 << ofp.OFPPR_ADD | 1 << ofp.OFPPR_DELETE | 1 << ofp.OFPPR_MODIFY)
     flow_removed_mask = 0
     if notify_flow_removed:
         flow_removed_mask = (

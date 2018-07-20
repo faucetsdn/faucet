@@ -19,15 +19,15 @@ class LoadRyuTables:
         self.ryu_table_translator = OpenflowToRyuTranslator(
             cfgpath, pipeline_conf)
 
-    def load_tables(self, active_table_ids):
+    def load_tables(self, active_table_ids, tables_by_id):
         try:
             tables = self.ryu_table_translator.create_ryu_structure()
-            return self._create_tables(tables, active_table_ids)
+            return self._create_tables(tables, active_table_ids, tables_by_id)
         except (ValueError, IOError) as err:
             print(err)
         return []
 
-    def _create_tables(self, tables_information, active_table_ids):
+    def _create_tables(self, tables_information, active_table_ids, tables_by_id):
         table_array = []
         for table in tables_information:
             for table_class_name, table_attr in list(table.items()):
@@ -35,8 +35,13 @@ class LoadRyuTables:
                 new_table = table_class(**table_attr)
                 if new_table.table_id not in active_table_ids:
                     continue
+                valve_table = tables_by_id[new_table.table_id]
                 dynamic_features = set(['OFPTFPT_NEXT_TABLES'])
-                properties = self._create_features(table_attr['properties'], dynamic_features)
+                if valve_table.restricted_match_types is not None:
+                    dynamic_features.add('OFPTFPT_MATCH')
+                    dynamic_features.add('OFPTFPT_WILDCARDS')
+                properties = self._create_features(
+                    table_attr['properties'], dynamic_features)
                 table_attr['properties'] = properties
                 table_attr['name'] = table_attr['name'].encode('utf-8')
                 new_table = table_class(**table_attr)
@@ -46,6 +51,16 @@ class LoadRyuTables:
                     new_table.properties.append(
                         valve_of.parser.OFPTableFeaturePropNextTables(
                             table_ids=next_tables, type_=2))
+                if valve_table.restricted_match_types is not None:
+                    # TODO: optimize for exact match
+                    oxm_ids = [
+                        valve_of.parser.OFPOxmId(type_=match_type, hasmask=hasmask)
+                        for match_type, hasmask in list(valve_table.restricted_match_types.items())]
+                    # OFPTFPT_MATCH, OFPTFPT_WILDCARDS
+                    for type_ in (8, 10):
+                        new_table.properties.append(
+                            valve_of.parser.OFPTableFeaturePropOxm(
+                                oxm_ids=oxm_ids, type_=type_))
                 table_array.append(new_table)
         return table_array
 
@@ -83,6 +98,7 @@ class LoadRyuTables:
 
 
 class OpenflowToRyuTranslator:
+    """Translate JSON description of OF class, to Ryu OF class."""
 
     def __init__(self, cfgpath, pipeline_conf):
         with open(os.path.join(cfgpath, 'ofproto_to_ryu.json')) as ofproto_file:

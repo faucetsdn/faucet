@@ -199,7 +199,8 @@ class Valve(object):
         """
         return [
             valve_of.faucet_config(),
-            valve_of.faucet_async(notify_flow_removed=self.dp.use_idle_timeout),
+            valve_of.faucet_async(
+                packet_in=False, notify_flow_removed=False, port_status=False),
             valve_of.desc_stats_request()]
 
     def ofchannel_log(self, ofmsgs):
@@ -591,6 +592,11 @@ class Valve(object):
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_ports))
+        ofmsgs.append(
+            valve_of.faucet_async(
+                packet_in=True,
+                port_status=True,
+                notify_flow_removed=self.dp.use_idle_timeout))
         self.dp.dyn_last_coldstart_time = now
         self.dp.running = True
         self.metrics.of_dp_connections.labels( # pylint: disable=no-member
@@ -1495,27 +1501,6 @@ class TfmValve(Valve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     PIPELINE_CONF = 'tfm_pipeline.json'
-    SKIP_VALIDATION_TABLES = ()
-
-    def _verify_pipeline_config(self, tfm):
-        for tfm_table in tfm.body:
-            table = self.dp.tables_by_id[tfm_table.table_id]
-            if table.table_id in self.SKIP_VALIDATION_TABLES:
-                continue
-            if table.restricted_match_types is None:
-                continue
-            for prop in tfm_table.properties:
-                if not (isinstance(prop, valve_of.parser.OFPTableFeaturePropOxm)
-                        and prop.type == 8):
-                    continue
-                tfm_matches = {}
-                for oxm in prop.oxm_ids:
-                    tfm_matches[oxm.type] = oxm.hasmask
-                if tfm_matches != table.restricted_match_types:
-                    self.logger.info(
-                        'table %s ID %s match TFM config %s != pipeline %s' % (
-                            tfm_table.name, tfm_table.table_id,
-                            tfm_matches, table.restricted_match_types))
 
     def switch_features(self, msg):
         ofmsgs = self._delete_all_valve_flows()
@@ -1524,8 +1509,8 @@ class TfmValve(Valve):
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         active_table_ids = self._active_table_ids()
         self.logger.info('loading pipeline configuration (table IDs %s)' % str(active_table_ids))
-        tfm = valve_of.table_features(ryu_table_loader.load_tables(active_table_ids))
-        self._verify_pipeline_config(tfm)
+        tfm = valve_of.table_features(
+            ryu_table_loader.load_tables(active_table_ids, self.dp.tables_by_id))
         ofmsgs.append(tfm)
         return ofmsgs
 
@@ -1536,10 +1521,12 @@ class ArubaValve(TfmValve):
     PIPELINE_CONF = 'aruba_pipeline.json'
     DEC_TTL = False
 
+
 class CiscoC9KValve(TfmValve):
     """Valve implementation that uses OpenFlow send table features messages."""
 
     PIPELINE_CONF = 'cisco_c9k_pipeline.json'
+
 
 class OVSValve(Valve):
     """Valve implementation for OVS."""
