@@ -98,6 +98,7 @@ class LoadRyuTables:
 
 
 class OpenflowToRyuTranslator:
+    """Translate JSON description of OF class, to Ryu OF class."""
 
     def __init__(self, cfgpath, pipeline_conf):
         with open(os.path.join(cfgpath, 'ofproto_to_ryu.json')) as ofproto_file:
