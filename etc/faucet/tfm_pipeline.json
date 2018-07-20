@@ -38,33 +38,12 @@
                         "type": "ip_proto"
                     },
                     {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "ipv6_src",
-                        "type": "ipv6_src",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "ipv6_dst",
-                        "type": "ipv6_dst",
-                        "hasmask": true
-                    },
-                    {
                         "name": "udp_src",
                         "type": "udp_src"
                     },
                     {
                         "name": "udp_dst",
-                        "type": "udp_dst",
-                        "hasmask": true
+                        "type": "udp_dst"
                     },
                     {
                         "name": "tcp_src",
@@ -72,21 +51,11 @@
                     },
                     {
                         "name": "tcp_dst",
-                        "type": "tcp_dst",
-                        "hasmask": true
+                        "type": "tcp_dst"
                     },
                     {
                         "name": "arp_tpa",
                         "type": "arp_tpa",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "icmpv6_type",
-                        "type": "icmpv6_type"
-                    },
-                    {
-                        "name": "ipv6_nd_target",
-                        "type": "ipv6_nd_target",
                         "hasmask": true
                     }
                 ]
@@ -122,33 +91,12 @@
                         "type": "ip_proto"
                     },
                     {
-                        "name": "ipv4_src",
-                        "type": "ipv4_src",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "ipv4_dst",
-                        "type": "ipv4_dst",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "ipv6_src",
-                        "type": "ipv6_src",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "ipv6_dst",
-                        "type": "ipv6_dst",
-                        "hasmask": true
-                    },
-                    {
                         "name": "udp_src",
                         "type": "udp_src"
                     },
                     {
                         "name": "udp_dst",
-                        "type": "udp_dst",
-                        "hasmask": true
+                        "type": "udp_dst"
                     },
                     {
                         "name": "tcp_src",
@@ -156,21 +104,11 @@
                     },
                     {
                         "name": "tcp_dst",
-                        "type": "tcp_dst",
-                        "hasmask": true
+                        "type": "tcp_dst"
                     },
                     {
                         "name": "arp_tpa",
                         "type": "arp_tpa",
-                        "hasmask": true
-                    },
-                    {
-                        "name": "icmpv6_type",
-                        "type": "icmpv6_type"
-                    },
-                    {
-                        "name": "ipv6_nd_target",
-                        "type": "ipv6_nd_target",
                         "hasmask": true
                     }
                 ]
@@ -583,7 +521,8 @@
                     },
                     {
                         "name": "eth_dst",
-                        "type": "eth_dst"
+                        "type": "eth_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "eth_src",
@@ -609,7 +548,8 @@
                     },
                     {
                         "name": "eth_dst",
-                        "type": "eth_dst"
+                        "type": "eth_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "eth_src",
@@ -998,8 +938,7 @@
                     },
                     {
                         "name": "eth_dst",
-                        "type": "eth_dst",
-                        "hasmask": true
+                        "type": "eth_dst"
                     },
                     {
                         "name": "vlan_vid",

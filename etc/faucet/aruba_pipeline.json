@@ -521,7 +521,8 @@
                     },
                     {
                         "name": "eth_dst",
-                        "type": "eth_dst"
+                        "type": "eth_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "eth_src",
@@ -547,7 +548,8 @@
                     },
                     {
                         "name": "eth_dst",
-                        "type": "eth_dst"
+                        "type": "eth_dst",
+                        "hasmask": true
                     },
                     {
                         "name": "eth_src",
@@ -928,8 +930,7 @@
                     },
                     {
                         "name": "eth_dst",
-                        "type": "eth_dst",
-                        "hasmask": true
+                        "type": "eth_dst"
                     },
                     {
                         "name": "vlan_vid",
