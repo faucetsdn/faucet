@@ -199,7 +199,8 @@ class Valve(object):
         """
         return [
             valve_of.faucet_config(),
-            valve_of.faucet_async(notify_flow_removed=self.dp.use_idle_timeout),
+            valve_of.faucet_async(
+                packet_in=False, notify_flow_removed=False, port_status=False),
             valve_of.desc_stats_request()]
 
     def ofchannel_log(self, ofmsgs):
@@ -591,6 +592,11 @@ class Valve(object):
         ofmsgs = []
         ofmsgs.extend(self._add_default_flows())
         ofmsgs.extend(self._add_ports_and_vlans(discovered_up_ports))
+        ofmsgs.append(
+            valve_of.faucet_async(
+                packet_in=True,
+                port_status=True,
+                notify_flow_removed=self.dp.use_idle_timeout))
         self.dp.dyn_last_coldstart_time = now
         self.dp.running = True
         self.metrics.of_dp_connections.labels( # pylint: disable=no-member
