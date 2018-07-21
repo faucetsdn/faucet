@@ -46,7 +46,7 @@ class LoadRyuTables:
                 properties = self._create_features(
                     table_attr['properties'], dynamic_features)
                 table_attr['properties'] = properties
-                table_attr['name'] = table_attr['name'].encode('utf-8')
+                table_attr['name'] = valve_table.name.encode('utf-8')
                 new_table = table_class(**table_attr)
                 next_tables = sorted(
                     [table_id for table_id in active_table_ids if table_id > new_table.table_id])
@@ -133,7 +133,7 @@ class OpenflowToRyuTranslator:
             tables.append(
                 self._create_table(
                     table_id=openflow_table['table_id'],
-                    name=openflow_table['name'],
+                    name=str(openflow_table['table_id']),
                     config=3,
                     max_entries=openflow_table['max_entries'],
                     metadata_match=0,
