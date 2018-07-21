@@ -38,8 +38,11 @@ class LoadRyuTables:
                 valve_table = tables_by_id[new_table.table_id]
                 dynamic_features = set(['OFPTFPT_NEXT_TABLES'])
                 if valve_table.restricted_match_types is not None:
-                    dynamic_features.add('OFPTFPT_MATCH')
-                    dynamic_features.add('OFPTFPT_WILDCARDS')
+                    for feature in (
+                            ('OFPTFPT_MATCH',
+                             'OFPTFPT_WILDCARDS',
+                             'OFPTFPT_INSTRUCTIONS')):
+                        dynamic_features.add(feature)
                 properties = self._create_features(
                     table_attr['properties'], dynamic_features)
                 table_attr['properties'] = properties
@@ -61,6 +64,15 @@ class LoadRyuTables:
                         new_table.properties.append(
                             valve_of.parser.OFPTableFeaturePropOxm(
                                 oxm_ids=oxm_ids, type_=type_))
+                    # Add instructions.
+                    insts = [('OFPIT_APPLY_ACTIONS', 4)]
+                    if next_tables:
+                        insts.append(('OFPIT_GOTO_TABLE', 1))
+                    inst_ids = [
+                        valve_of.parser.OFPInstructionId(type_) for _, type_ in insts]
+                    new_table.properties.append(
+                        valve_of.parser.OFPTableFeaturePropInstructions(
+                            type_=0, instruction_ids=inst_ids))
                 table_array.append(new_table)
         return table_array
 

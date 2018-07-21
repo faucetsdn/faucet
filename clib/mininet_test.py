@@ -216,6 +216,9 @@ def pipeline_superset_report(decoded_pcap_logs):
         matches_count = 0
         actions_count = 0
         instructions_count = 0
+        oxm_match_re = re.compile(r'.*Field: (\S+).*')
+        oxm_mask_match_re = re.compile(r'.*Has mask: True.*')
+        type_match_re = re.compile(r'Type: (\S+).+')
 
         for flow_line, depth, section_stack in flow_lines:
             if depth == 1:
@@ -239,7 +242,7 @@ def pipeline_superset_report(decoded_pcap_logs):
                 if table_id is not None:
                     if 'Match' in section_stack:
                         if section_name == 'OXM field':
-                            oxm_match = re.match(r'.*Field: (\S+).*', flow_line)
+                            oxm_match = oxm_match_re.match(flow_line)
                             if oxm_match:
                                 table_matches[table_id].add(oxm_match.group(1))
                                 last_oxm_match = oxm_match.group(1)
@@ -247,11 +250,11 @@ def pipeline_superset_report(decoded_pcap_logs):
                                 if matches_count > table_matches_max[table_id]:
                                     table_matches_max[table_id] = matches_count
                             else:
-                                oxm_mask_match = re.match(r'.*Has mask: True.*', flow_line)
+                                oxm_mask_match = oxm_mask_match_re.match(flow_line)
                                 if oxm_mask_match:
                                     table_matches[table_id].add(last_oxm_match + '/Mask')
                     elif 'Instruction' in section_stack:
-                        type_match = re.match(r'Type: (\S+).+', flow_line)
+                        type_match = type_match_re.match(flow_line)
                         if type_match:
                             if section_name == 'Instruction':
                                 table_instructions[table_id].add(type_match.group(1))
@@ -265,7 +268,7 @@ def pipeline_superset_report(decoded_pcap_logs):
                                     table_actions_max[table_id] = actions_count
                 elif group_id is not None:
                     if 'Bucket' in section_stack:
-                        type_match = re.match(r'Type: (\S+).+', flow_line)
+                        type_match = type_match_re.match(flow_line)
                         if type_match:
                             if section_name == 'Action':
                                 group_actions.add(type_match.group(1))
@@ -555,7 +558,7 @@ def dump_failed_test(test_name, test_dir):
 
 def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
     if all_successful:
-        if not keep_logs:
+        if not keep_logs or not os.listdir(root_tmpdir):
             shutil.rmtree(root_tmpdir)
     else:
         print('\nlog/debug files for failed tests are in %s\n' % root_tmpdir)
