@@ -101,7 +101,6 @@ You will also need to install pipeline configuration files (these files instruct
 
 .. code:: console
 
-       $ sudo cp etc/faucet/ofproto_to_ryu.json /etc/faucet
        $ sudo cp etc/faucet/cisco_c9k_pipeline.json /etc/faucet
 
 Troubleshooting
