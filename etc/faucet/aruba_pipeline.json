@@ -236,6 +236,14 @@
                 "type": 14,
                 "oxm_ids": [
                     {
+                        "name": "eth_dst",
+                        "type": "eth_dst"
+                    },
+                    {
+                        "name": "eth_src",
+                        "type": "eth_src"
+                    },
+                    {
                         "name": "vlan_vid",
                         "type": "vlan_vid"
                     }
