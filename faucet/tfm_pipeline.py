@@ -68,10 +68,11 @@ class LoadRyuTables:
                     insts = [('OFPIT_APPLY_ACTIONS', 4)]
                     if next_tables:
                         insts.append(('OFPIT_GOTO_TABLE', 1))
-                    inst_ids = [type_ for _, type_ in insts]
+                    inst_ids = [
+                        valve_of.parser.OFPInstructionId(type_) for _, type_ in insts]
                     new_table.properties.append(
-                         valve_of.parser.OFPTableFeaturePropInstructions(
-                             type_=0, instruction_ids=inst_ids))
+                        valve_of.parser.OFPTableFeaturePropInstructions(
+                            type_=0, instruction_ids=inst_ids))
                 table_array.append(new_table)
         return table_array
 
