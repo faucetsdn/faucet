@@ -214,20 +214,6 @@
         "table_id": 1,
         "properties": [
             {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    }
-                ]
-            },
-            {
                 "name": "OFPTFPT_APPLY_ACTIONS",
                 "type": 6,
                 "action_ids": [
@@ -462,20 +448,6 @@
         "table_id": 3,
         "properties": [
             {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    }
-                ]
-            },
-            {
                 "name": "OFPTFPT_INSTRUCTIONS_MISS",
                 "type": 1,
                 "instruction_ids": [
@@ -547,20 +519,6 @@
         "table_id": 4,
         "properties": [
             {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    }
-                ]
-            },
-            {
                 "name": "OFPTFPT_APPLY_ACTIONS",
                 "type": 6,
                 "action_ids": [
@@ -602,20 +560,6 @@
         "name": "IPv6 FIB",
         "table_id": 5,
         "properties": [
-            {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    }
-                ]
-            },
             {
                 "name": "OFPTFPT_APPLY_ACTIONS",
                 "type": 6,
@@ -659,20 +603,6 @@
         "table_id": 6,
         "properties": [
             {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    }
-                ]
-            },
-            {
                 "name": "OFPTFPT_APPLY_ACTIONS",
                 "type": 6,
                 "action_ids": [
@@ -692,20 +622,6 @@
         "name": "Ethernet Destination",
         "table_id": 7,
         "properties": [
-            {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_GOTO_TABLE",
-                        "type": 1
-                    },
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    }
-                ]
-            },
             {
                 "name": "OFPTFPT_APPLY_ACTIONS",
                 "type": 6,
@@ -756,16 +672,6 @@
         "name": "Flood",
         "table_id": 8,
         "properties": [
-            {
-                "name": "OFPTFPT_INSTRUCTIONS",
-                "type": 0,
-                "instruction_ids": [
-                    {
-                        "name": "OFPIT_APPLY_ACTIONS",
-                        "type": 4
-                    }
-                ]
-            },
             {
                 "name": "OFPTFPT_APPLY_ACTIONS",
                 "type": 6,
