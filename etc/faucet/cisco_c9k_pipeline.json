@@ -501,40 +501,6 @@
                     {
                         "name": "OFPAT_OUTPUT",
                         "type": 0
-                    },
-                    {
-                        "name": "OFPAT_PUSH_VLAN",
-                        "type": 17
-                    },
-                    {
-                        "name": "OFPAT_POP_VLAN",
-                        "type": 18
-                    },
-                    {
-                        "name": "OFPAT_GROUP",
-                        "type": 22
-                    },
-                    {
-                        "name": "OFPAT_SET_FIELD",
-                        "type": 25
-                    }
-                ]
-            },
-            {
-                "name": "OFPTFPT_APPLY_SETFIELD",
-                "type": 14,
-                "oxm_ids": [
-                    {
-                        "name": "eth_dst",
-                        "type": "eth_dst"
-                    },
-                    {
-                        "name": "eth_src",
-                        "type": "eth_src"
-                    },
-                    {
-                        "name": "vlan_vid",
-                        "type": "vlan_vid"
                     }
                 ]
             }
