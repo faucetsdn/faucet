@@ -46,7 +46,7 @@ class LoadRyuTables:
                 properties = self._create_features(
                     table_attr['properties'], dynamic_features)
                 table_attr['properties'] = properties
-                table_attr['name'] = table_attr['name'].encode('utf-8')
+                table_attr['name'] = valve_table.name.encode('utf-8')
                 new_table = table_class(**table_attr)
                 next_tables = sorted(
                     [table_id for table_id in active_table_ids if table_id > new_table.table_id])
@@ -112,9 +112,77 @@ class LoadRyuTables:
 class OpenflowToRyuTranslator:
     """Translate JSON description of OF class, to Ryu OF class."""
 
+    openflow_to_ryu = json.loads("""
+{
+    "tables" : {
+        "OFPTFPT_INSTRUCTIONS": {
+            "name" : "OFPTableFeaturePropInstructions",
+            "action_tag" : "instruction_ids"
+        },
+        "OFPTFPT_INSTRUCTIONS_MISS": {
+            "name" : "OFPTableFeaturePropInstructions",
+            "action_tag" : "instruction_ids"
+        },
+        "OFPTFPT_NEXT_TABLES": {
+            "name" : "OFPTableFeaturePropNextTables",
+            "action_tag" : "table_ids"
+        },
+        "OFPTFPT_NEXT_TABLES_MISS": {
+            "name" : "OFPTableFeaturePropNextTables",
+            "action_tag" : "table_ids"
+        },
+        "OFPTFPT_WRITE_ACTIONS": {
+            "name" : "OFPTableFeaturePropActions",
+            "action_tag" : "action_ids"
+        },
+        "OFPTFPT_WRITE_ACTIONS_MISS": {
+            "name" : "OFPTableFeaturePropActions",
+            "action_tag" : "action_ids"
+        },
+        "OFPTFPT_APPLY_ACTIONS": {
+            "name" : "OFPTableFeaturePropActions",
+            "action_tag" : "action_ids"
+        },
+        "OFPTFPT_APPLY_ACTIONS_MISS": {
+            "name" : "OFPTableFeaturePropActions",
+            "action_tag" : "action_ids"
+        },
+        "OFPTFPT_MATCH": {
+            "name" : "OFPTableFeaturePropOxm",
+            "action_tag" : "oxm_ids"
+        },
+        "OFPTFPT_WILDCARDS": {
+            "name" : "OFPTableFeaturePropOxm",
+            "action_tag" : "oxm_ids"
+        },
+        "OFPTFPT_WRITE_SETFIELD": {
+            "name" : "OFPTableFeaturePropOxm",
+            "action_tag" : "oxm_ids"
+        },
+        "OFPTFPT_WRITE_SETFIELD_MISS": {
+            "name" : "OFPTableFeaturePropOxm",
+            "action_tag" : "oxm_ids"
+        },
+        "OFPTFPT_APPLY_SETFIELD": {
+            "name" : "OFPTableFeaturePropOxm",
+            "action_tag" : "oxm_ids"
+        },
+        "OFPTFPT_APPLY_SETFIELD_MISS": {
+            "name" : "OFPTableFeaturePropOxm",
+            "action_tag" : "oxm_ids"
+        }
+    },
+    "content" : {
+        "instruction_ids": "OFPInstructionId",
+        "table_ids": [],
+        "action_ids": "OFPActionId",
+        "oxm_ids": "OFPOxmId"
+    },
+    "table_tag": "OFPTableFeaturesStats"
+}
+""")
+
     def __init__(self, cfgpath, pipeline_conf):
-        with open(os.path.join(cfgpath, 'ofproto_to_ryu.json')) as ofproto_file:
-            self.openflow_to_ryu = json.loads(ofproto_file.read())
         with open(os.path.join(cfgpath, pipeline_conf)) as pipeline_file:
             self.pipeline_conf = json.loads(pipeline_file.read())
 
@@ -133,7 +201,7 @@ class OpenflowToRyuTranslator:
             tables.append(
                 self._create_table(
                     table_id=openflow_table['table_id'],
-                    name=openflow_table['name'],
+                    name=str(openflow_table['table_id']),
                     config=3,
                     max_entries=openflow_table['max_entries'],
                     metadata_match=0,

@@ -439,6 +439,12 @@ configuration.
                 return self.shortest_path(root_dp.name)
         return []
 
+    def is_stack_edge(self):
+        """Return True if this DP is a stack edge."""
+        if self.stack and 'longest_path_to_root_len' in self.stack:
+            return self.stack['longest_path_to_root_len'] == len(self.shortest_path_to_root())
+        return False
+
     def peer_stack_up_ports(self, peer_dp):
         """Return list of stack ports that are up towards a peer."""
         return [port for port in self.stack_ports if port.running() and (
