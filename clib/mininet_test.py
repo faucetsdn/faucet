@@ -555,7 +555,7 @@ def dump_failed_test(test_name, test_dir):
 
 def clean_test_dirs(root_tmpdir, all_successful, sanity, keep_logs, dumpfail):
     if all_successful:
-        if not keep_logs:
+        if not keep_logs or not os.listdir(root_tmpdir):
             shutil.rmtree(root_tmpdir)
     else:
         print('\nlog/debug files for failed tests are in %s\n' % root_tmpdir)
