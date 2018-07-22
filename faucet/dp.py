@@ -388,8 +388,8 @@ configuration.
             graph.add_edge(
                 edge_a_dp.name, edge_z_dp.name,
                 key=edge_name, port_map=edge_attr)
-        else:
-            graph.remove_edge(edge_a_dp.name, edge_z_dp.name)
+        elif (edge_a_dp.name, edge_z_dp.name, edge_name) in graph.edges:
+            graph.remove_edge(edge_a_dp.name, edge_z_dp.name, edge_name)
 
         return edge_name
 
