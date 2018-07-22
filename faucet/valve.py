@@ -573,8 +573,11 @@ class Valve:
         port_labels = dict(self.base_prom_labels, port=port.number)
         self.metrics.port_stack_state.labels( # pylint: disable=no-member
             **port_labels).set(port.dyn_stack_current_state)
-        port_stack_up = port.is_stack_up()
-        self.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+        if port.is_stack_up() or port.is_stack_down():
+            port_stack_up = port.is_stack_up()
+            self.flood_manager.update_stack_topo(port_stack_up, self.dp, port)
+            # mark the stack status to inform other DPs
+            self.dp.stack['has_changed'] = True
 
     def update_stack_link_states(self, now):
         """Called periodically to verify the state of stack ports."""
