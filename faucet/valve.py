@@ -349,6 +349,11 @@ class Valve:
         self.logger.info('Configuring %s' % vlan)
         # add ACL rules
         ofmsgs.extend(self._vlan_add_acl(vlan))
+        # add controller IPs if configured.
+        for ipv in vlan.ipvs():
+            route_manager = self._route_manager_by_ipv[ipv]
+            ofmsgs.extend(self._add_faucet_vips(
+                route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
         # install eth_dst_table flood ofmsgs
         ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         # add learn rule for this VLAN.
@@ -357,11 +362,6 @@ class Valve:
             eth_src_table.match(vlan=vlan),
             priority=self.dp.low_priority,
             inst=[valve_of.goto_table(self.dp.tables['eth_dst'])]))
-        # add controller IPs if configured.
-        for ipv in vlan.ipvs():
-            route_manager = self._route_manager_by_ipv[ipv]
-            ofmsgs.extend(self._add_faucet_vips(
-                route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
         return ofmsgs
 
     def _del_vlan(self, vlan):
