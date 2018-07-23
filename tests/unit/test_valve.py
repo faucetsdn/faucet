@@ -1554,12 +1554,12 @@ vlans:
     def setUp(self):
         self.setup_valve(self.CONFIG)
 
-    def rcv_lldp(self, other_dp, other_port):
+    def rcv_lldp(self, port, other_dp, other_port):
         """Receive an LLDP packet"""
         tlvs = []
         tlvs.extend(valve_packet.faucet_lldp_tlvs(other_dp))
         tlvs.extend(valve_packet.faucet_lldp_stack_state_tlvs(other_dp, other_port))
-        self.rcv_packet(1, 0, {
+        self.rcv_packet(port.number, 0, {
             'eth_src': FAUCET_MAC,
             'eth_dst': lldp.LLDP_MAC_NEAREST_BRIDGE,
             'port_id': other_port.number,
@@ -1579,7 +1579,7 @@ vlans:
                 ('stack_up', 'is_stack_up'),
                 ('stack_down', 'is_stack_down')]:
             getattr(other_port, change_func)()
-            self.rcv_lldp(other_dp, other_port)
+            self.rcv_lldp(stack_port, other_dp, other_port)
             self.assertTrue(getattr(stack_port, check_func)())
 
     def test_stack_miscabling(self):
@@ -1592,9 +1592,9 @@ vlans:
         for remote_dp, remote_port in [
                 (wrong_dp, other_port),
                 (other_dp, wrong_port)]:
-            self.rcv_lldp(other_dp, other_port)
+            self.rcv_lldp(stack_port, other_dp, other_port)
             self.assertTrue(stack_port.is_stack_init())
-            self.rcv_lldp(remote_dp, remote_port)
+            self.rcv_lldp(stack_port, remote_dp, remote_port)
             self.assertTrue(stack_port.is_stack_down())
 
     def test_stack_lost_lldp(self):
@@ -1602,7 +1602,7 @@ vlans:
         stack_port = self.valve.dp.ports[1]
         other_dp = self.valves_manager.valves[2].dp
         other_port = other_dp.ports[1]
-        self.rcv_lldp(other_dp, other_port)
+        self.rcv_lldp(stack_port, other_dp, other_port)
         self.assertTrue(stack_port.is_stack_init())
         self.valve.update_stack_link_states(time.time() + 300) # simulate packet loss
         self.assertTrue(stack_port.is_stack_down())
