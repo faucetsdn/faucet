@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MINCOVERAGE=93
+MINCOVERAGE=92
 
 coverage erase || exit 1
 
