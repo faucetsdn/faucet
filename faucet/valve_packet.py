@@ -22,6 +22,7 @@ import socket
 import struct
 
 from ryu.lib import addrconv
+from ryu.lib.mac import BROADCAST, is_multicast, haddr_to_bin
 from ryu.lib.packet import (
     arp, bpdu, ethernet,
     icmp, icmpv6, ipv4, ipv6,
@@ -175,8 +176,10 @@ def mac_addr_is_unicast(mac_addr):
     Returns:
         bool: True if a unicast Ethernet address.
     """
-    msb = mac_addr.split(':')[0]
-    return msb[-1] in '02468aAcCeE'
+    mac_bin = haddr_to_bin(mac_addr)
+    if mac_bin == BROADCAST:
+        return False
+    return not is_multicast(mac_bin)
 
 
 def build_pkt_header(vid, eth_src, eth_dst, dl_type):

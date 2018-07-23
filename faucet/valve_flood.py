@@ -444,10 +444,10 @@ class ValveFloodStackManager(ValveFloodManager):
         # TODO: stacking handles failure of redundant links between DPs,
         # but not failure of an entire DP (should be able to find
         # shortest path via alternate DP).
-        if pkt_meta.port.stack:
-            peer_dp = pkt_meta.port.stack['dp']
-            if peer_dp.is_stack_edge():
-                return peer_dp
+        # if pkt_meta.port.stack:
+        #    peer_dp = pkt_meta.port.stack['dp']
+        #    if peer_dp.is_stack_edge():
+        #        return peer_dp
         eth_src = pkt_meta.eth_src
         vlan_vid = pkt_meta.vlan.vid
         stacked_valves = [valve for valve in other_valves if valve.dp.stack is not None]
