@@ -609,6 +609,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         ofmsgs = []
+        priority += vlan.vid
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
                 eth_type=valve_of.ether.ETH_TYPE_ARP,
