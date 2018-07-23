@@ -609,7 +609,9 @@ class ValveIPv4RouteManager(ValveRouteManager):
 
     def _add_faucet_vip_nd(self, vlan, priority, faucet_vip, faucet_vip_host):
         ofmsgs = []
-        priority += vlan.vid
+        controller_and_flood = [
+            valve_of.apply_actions([valve_of.output_controller()]),
+            valve_of.goto_table(self.flood_table)]
         ofmsgs.append(self.eth_src_table.flowmod(
             self.eth_src_table.match(
                 eth_type=valve_of.ether.ETH_TYPE_ARP,
@@ -620,7 +622,7 @@ class ValveIPv4RouteManager(ValveRouteManager):
             self.vip_table.match(
                 eth_type=valve_of.ether.ETH_TYPE_ARP),
             priority=priority,
-            inst=[valve_of.goto_table(self.eth_dst_table)]))
+            inst=controller_and_flood))
         priority += 1
         ofmsgs.append(self.vip_table.flowmod(
             self.vip_table.match(
@@ -628,13 +630,13 @@ class ValveIPv4RouteManager(ValveRouteManager):
                 eth_dst=valve_of.mac.BROADCAST_STR),
             priority=priority,
             inst=[valve_of.goto_table(self.flood_table)]))
-        priority += 1
-        ofmsgs.append(self.vip_table.flowcontroller(
-            self.vip_table.match(
-                eth_type=valve_of.ether.ETH_TYPE_ARP,
-                nw_dst=faucet_vip_host),
-            priority=priority,
-            max_len=self.MAX_LEN))
+        # priority += 1
+        # ofmsgs.append(self.vip_table.flowcontroller(
+        #    self.vip_table.match(
+        #        eth_type=valve_of.ether.ETH_TYPE_ARP,
+        #        nw_dst=faucet_vip_host),
+        #    priority=priority,
+        #    max_len=self.MAX_LEN))
         return ofmsgs
 
     def _control_plane_arp_handler(self, now, pkt_meta):
