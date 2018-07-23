@@ -1531,7 +1531,7 @@ class CiscoC9KValve(TfmValve):
 class OVSValve(Valve):
     """Valve implementation for OVS."""
 
-    USE_BARRIERS = False
+    USE_BARRIERS = True
 
 
 class AlliedTelesis(OVSValve):
