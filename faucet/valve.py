@@ -197,11 +197,13 @@ class Valve(object):
 
         Vendor specific configuration should be implemented here.
         """
-        return [
+        ofmsgs = [
             valve_of.faucet_config(),
             valve_of.faucet_async(
                 packet_in=False, notify_flow_removed=False, port_status=False),
             valve_of.desc_stats_request()]
+        ofmsgs.extend(self._delete_all_valve_flows())
+        return ofmsgs
 
     def ofchannel_log(self, ofmsgs):
         """Log OpenFlow messages in text format to debugging log."""
@@ -1503,8 +1505,7 @@ class TfmValve(Valve):
     PIPELINE_CONF = 'tfm_pipeline.json'
 
     def switch_features(self, msg):
-        ofmsgs = self._delete_all_valve_flows()
-        ofmsgs.extend(super(TfmValve, self).switch_features(msg))
+        ofmsgs = super(TfmValve, self).switch_features(msg)
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         active_table_ids = self._active_table_ids()
