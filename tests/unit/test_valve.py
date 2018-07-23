@@ -614,14 +614,15 @@ class ValveTestBases:
             test_error = valve_of.parser.OFPErrorMsg(datapath=datapath, msg=msg)
             self.valve.oferror(test_error)
 
-        def test_switch_features(self):
-            """Test switch features handler."""
+        def test_tfm(self):
+            """Test TFM is sent."""
             self.assertTrue(
                 isinstance(self.valve, TfmValve),
                 msg=type(self.valve))
-            features_flows = self.valve.switch_features(None)
+            discovered_up_ports = [port_no for port_no in range(1, self.NUM_PORTS + 1)]
+            flows = self.valve.datapath_connect(time.time(), discovered_up_ports)
             tfm_flows = [
-                flow for flow in features_flows if isinstance(
+                flow for flow in flows if isinstance(
                     flow, valve_of.parser.OFPTableFeaturesStatsRequest)]
             # TODO: verify TFM content.
             self.assertTrue(tfm_flows)

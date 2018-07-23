@@ -35,7 +35,7 @@ from faucet.port import STACK_STATE_INIT, STACK_STATE_UP, STACK_STATE_DOWN
 from faucet.vlan import NullVLAN
 
 
-class ValveLogger(object):
+class ValveLogger:
     """Logger for a Valve that adds DP ID."""
 
     def __init__(self, logger, dp_id, dp_name):
@@ -64,7 +64,7 @@ class ValveLogger(object):
         self.logger.warning(self._dpid_prefix(log_msg))
 
 
-class Valve(object):
+class Valve:
     """Generates the messages to configure a datapath as a l2 learning switch.
 
     Vendor specific implementations may require sending configuration flows.
@@ -197,11 +197,13 @@ class Valve(object):
 
         Vendor specific configuration should be implemented here.
         """
-        return [
+        ofmsgs = [
             valve_of.faucet_config(),
             valve_of.faucet_async(
                 packet_in=False, notify_flow_removed=False, port_status=False),
             valve_of.desc_stats_request()]
+        ofmsgs.extend(self._delete_all_valve_flows())
+        return ofmsgs
 
     def ofchannel_log(self, ofmsgs):
         """Log OpenFlow messages in text format to debugging log."""
@@ -347,11 +349,6 @@ class Valve(object):
         self.logger.info('Configuring %s' % vlan)
         # add ACL rules
         ofmsgs.extend(self._vlan_add_acl(vlan))
-        # add controller IPs if configured.
-        for ipv in vlan.ipvs():
-            route_manager = self._route_manager_by_ipv[ipv]
-            ofmsgs.extend(self._add_faucet_vips(
-                route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
         # install eth_dst_table flood ofmsgs
         ofmsgs.extend(self.flood_manager.build_flood_rules(vlan))
         # add learn rule for this VLAN.
@@ -360,6 +357,11 @@ class Valve(object):
             eth_src_table.match(vlan=vlan),
             priority=self.dp.low_priority,
             inst=[valve_of.goto_table(self.dp.tables['eth_dst'])]))
+        # add controller IPs if configured.
+        for ipv in vlan.ipvs():
+            route_manager = self._route_manager_by_ipv[ipv]
+            ofmsgs.extend(self._add_faucet_vips(
+                route_manager, vlan, vlan.faucet_vips_by_ipv(ipv)))
         return ofmsgs
 
     def _del_vlan(self, vlan):
@@ -1382,7 +1384,7 @@ class Valve(object):
         if self.dp.running:
             if cold_start:
                 # Need to reprovision pipeline on cold start.
-                ofmsgs = self.switch_features(None) + self.datapath_connect(now, up_ports)
+                ofmsgs = self.datapath_connect(now, up_ports)
             if ofmsgs:
                 if cold_start:
                     self.metrics.faucet_config_reload_cold.labels( # pylint: disable=no-member
@@ -1502,16 +1504,14 @@ class TfmValve(Valve):
 
     PIPELINE_CONF = 'tfm_pipeline.json'
 
-    def switch_features(self, msg):
-        ofmsgs = self._delete_all_valve_flows()
-        ofmsgs.extend(super(TfmValve, self).switch_features(msg))
+    def _add_default_flows(self):
         ryu_table_loader = tfm_pipeline.LoadRyuTables(
             self.dp.pipeline_config_dir, self.PIPELINE_CONF)
         active_table_ids = self._active_table_ids()
         self.logger.info('loading pipeline configuration (table IDs %s)' % str(active_table_ids))
-        tfm = valve_of.table_features(
-            ryu_table_loader.load_tables(active_table_ids, self.dp.tables_by_id))
-        ofmsgs.append(tfm)
+        ofmsgs = [valve_of.table_features(
+            ryu_table_loader.load_tables(active_table_ids, self.dp.tables_by_id))]
+        ofmsgs.extend(super(TfmValve, self)._add_default_flows())
         return ofmsgs
 
 
