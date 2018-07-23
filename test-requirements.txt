@@ -1,7 +1,7 @@
 bitstring
 codecov
 concurrencytest
-eventlet==0.23.0
+eventlet==0.22.1 # pyup: ignore
 exabgp
 influxdb
 ipaddress
