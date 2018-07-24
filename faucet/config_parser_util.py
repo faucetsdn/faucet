@@ -138,6 +138,7 @@ def dp_include(config_hashes, config_file, logname, top_confs):
                 include_file = str(include_file)
 
             include_path = dp_config_path(include_file, parent_file=config_file)
+            logger.info('including file: %s', include_path)
             if include_path in config_hashes:
                 logger.error(
                     'include file %s already loaded, include loop found in file: %s',
