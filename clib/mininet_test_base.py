@@ -1932,7 +1932,7 @@ dbs:
     def wait_exabgp_sent_updates(self, exabgp_log_name):
         """Verify that exabgp process has sent BGP updates."""
         for _ in range(60):
-            if self.matching_lines_from_file(r'>> [1-9]+[0-9]* UPDATE', exabgp_log_name):
+            if self.matching_lines_from_file(r'.+>> [1-9]+[0-9]* UPDATE.+', exabgp_log_name):
                 return
             time.sleep(1)
         self.fail('exabgp did not send BGP updates')
