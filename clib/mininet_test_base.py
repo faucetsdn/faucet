@@ -300,11 +300,13 @@ class FaucetTestBase(unittest2.TestCase):
                             switch_ovs_log.write('\n'.join(lines))
         # must not be any controller exception.
         self.verify_no_exception(self.env['faucet']['FAUCET_EXCEPTION_LOG'])
-        for _, debug_log_name in self._get_ofchannel_logs():
-            with open(debug_log_name) as debug_log:
-                self.assertFalse(
-                    re.search('OFPErrorMsg', debug_log.read()),
-                    msg='debug log has OFPErrorMsgs')
+        # must be no OFErrors
+        oferrors = '\n\n'.join(
+            self.matching_lines_from_file(
+                r'^.+(OFError.+)$', self.env['faucet']['FAUCET_LOG']))
+        self.assertFalse(
+            oferrors,
+            msg='log has OFPErrorMsgs: %s' % oferrors)
 
     def _attach_physical_switch(self):
         """Bridge a physical switch into test topology."""
@@ -1908,8 +1910,9 @@ dbs:
         self.fail('exabgp did not peer with FAUCET: %s' % '\n'.join(exabgp_log_content))
 
     def matching_lines_from_file(self, exp, log_name):
+        exp_re = re.compile(exp)
         with open(log_name) as log_file:
-            return [log_line for log_line in log_file if re.search(exp, log_line)]
+            return [log_line for log_line in log_file if exp_re.match(log_line)]
         return []
 
     def exabgp_updates(self, exabgp_log, timeout=60):

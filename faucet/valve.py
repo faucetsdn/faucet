@@ -1454,7 +1454,7 @@ class Valve:
         orig_msgs = [orig_msg for orig_msg in self.recent_ofmsgs if orig_msg.xid == msg.xid]
         error_txt = msg
         if orig_msgs:
-            error_txt = orig_msgs[0]
+            error_txt = '%s caused by %s' % (error_txt, orig_msgs[0])
         self.logger.error('OFError %s' % error_txt)
 
     def prepare_send_flows(self, flow_msgs):
