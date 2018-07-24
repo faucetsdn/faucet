@@ -1,10 +1,10 @@
 stages:
-  - build
-  - deploy
+  - build-package
+  - deploy-package
   - build-image
 
 build-package:
-  stage: build
+  stage: build-package
   image: faucet/dbuilder
   script:
     - apt-get update && apt-get upgrade -y
@@ -22,7 +22,7 @@ build-package:
     - tags
 
 deploy-package:
-  stage: deploy
+  stage: deploy-package
   image: faucet/dbuilder
   script:
     - cd built-packages/
@@ -45,7 +45,7 @@ build-rpi-image:
   stage: build-image
   image: faucet/dbuilder
   script:
-    - cd /builds/faucetsdn/faucet/raspbian-image/
+    - cd raspbian-image/
     - apt-get update && apt-get upgrade -y
     - apt-get install quilt parted manpages-pl xxd qemu-user-static debootstrap zerofree pxz zip dosfstools bsdtar libcap2-bin grep rsync xz-utils binfmt-support -y
     - git clone https://github.com/RPi-Distro/pi-gen.git
@@ -54,7 +54,7 @@ build-rpi-image:
     - mv 02-run.sh pi-gen/stage2/01-sys-tweaks/
     - mv build.sh pi-gen/
     - cd pi-gen
-    - echo "IMG_NAME='faucet_raspbian'" > config
+    - echo "IMG_NAME='faucet_${CI_COMMIT_REF_NAME}_raspbian'" > config
     - touch ./stage3/SKIP ./stage4/SKIP ./stage5/SKIP
     - touch ./stage4/SKIP_IMAGES ./stage5/SKIP_IMAGES
     - export container=lxc
