@@ -2101,6 +2101,57 @@ acls:
 """
         self.check_config_success(config, cp.dp_parser)
 
+    def test_vlan_route_dictionary_valid(self):
+        """Test new vlan route format as dictionary is valid"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        routes:
+            - {ip_gw: '10.0.0.1', ip_dst: '10.99.99.0/24'}
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_success(config, cp.dp_parser)
+
+    def test_vlan_route_missing_value_invalid(self):
+        """Test new vlan route format fails when missing value"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        routes:
+            - {}
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
+    def test_vlan_route_values_invalid(self):
+        """Test new vlan route format fails when values are invalid"""
+        config = """
+vlans:
+    office:
+        vid: 100
+        routes:
+            - {ip_gw: [],ip_gw: 5.5}
+dps:
+    sw1:
+        dp_id: 0x1
+        interfaces:
+            1:
+                native_vlan: office
+"""
+        self.check_config_failure(config, cp.dp_parser)
+
 
 if __name__ == "__main__":
     unittest.main() # pytype: disable=module-attr
