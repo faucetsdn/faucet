@@ -2285,8 +2285,8 @@ vlans:
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
-        self.verify_invalid_bgp_route(r'.+10.0.4.0\/24 cannot be us.+')
-        self.verify_invalid_bgp_route(r'.+10.0.5.0\/24 is not a connected network.+')
+        self.verify_invalid_bgp_route(r'.+10.0.4.0\/24 cannot be us$')
+        self.verify_invalid_bgp_route(r'.+10.0.5.0\/24 is not a connected network$')
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv4Network(u'10.0.3.0/24'))
         self.verify_ipv4_routing_mesh()
@@ -4971,8 +4971,8 @@ vlans:
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
-        self.verify_invalid_bgp_route(r'fc00::40:0\/112 cannot be us')
-        self.verify_invalid_bgp_route(r'fc00::50:0\/112 is not a connected network')
+        self.verify_invalid_bgp_route(r'fc00::40:0\/112 cannot be us$')
+        self.verify_invalid_bgp_route(r'fc00::50:0\/112 is not a connected network$')
         self.verify_ipv6_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
