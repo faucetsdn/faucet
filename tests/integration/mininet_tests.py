@@ -913,7 +913,7 @@ class FaucetUntaggedInfluxTest(FaucetUntaggedTest):
             timeout = self.DB_TIMEOUT * 3 * 2
         gauge_log_name = self.env['gauge']['GAUGE_LOG']
         for _ in range(timeout):
-            if self.matching_lines_from_file(r'error shipping', gauge_log_name):
+            if self.matching_lines_from_file(r'.+error shipping.+', gauge_log_name):
                 return
             time.sleep(1)
         self.fail('Influx error not noted in %s' % gauge_log_name)
@@ -2285,8 +2285,8 @@ vlans:
                 'bgp_neighbor_routes', {'ipv': '4', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
-        self.verify_invalid_bgp_route(r'10.0.4.0\/24 cannot be us')
-        self.verify_invalid_bgp_route(r'10.0.5.0\/24 is not a connected network')
+        self.verify_invalid_bgp_route(r'.+10.0.4.0\/24 cannot be us$')
+        self.verify_invalid_bgp_route(r'.+10.0.5.0\/24 is not a connected network$')
         self.wait_for_route_as_flow(
             second_host.MAC(), ipaddress.IPv4Network(u'10.0.3.0/24'))
         self.verify_ipv4_routing_mesh()
@@ -4584,7 +4584,7 @@ routers:
         self.one_ipv4_ping(second_host, first_host_ip.ip)
         second_host.cmd('ifconfig %s down' % second_host.defaultIntf().name)
         log_file_name = os.path.join(self.tmpdir, 'faucet.log')
-        expired_re = r'expiring dead route %s' % second_host_ip.ip
+        expired_re = r'.+expiring dead route %s.+' % second_host_ip.ip
         found_expired = False
         for _ in range(30):
             if self.matching_lines_from_file(expired_re, log_file_name):
@@ -4971,8 +4971,8 @@ vlans:
                 'bgp_neighbor_routes', {'ipv': '6', 'vlan': '100'}),
             0)
         self.wait_exabgp_sent_updates(self.exabgp_log)
-        self.verify_invalid_bgp_route(r'fc00::40:0\/112 cannot be us')
-        self.verify_invalid_bgp_route(r'fc00::50:0\/112 is not a connected network')
+        self.verify_invalid_bgp_route(r'.+fc00::40:0\/112 cannot be us$')
+        self.verify_invalid_bgp_route(r'.+fc00::50:0\/112 is not a connected network$')
         self.verify_ipv6_routing_mesh()
         self.flap_all_switch_ports()
         self.verify_ipv6_routing_mesh()
