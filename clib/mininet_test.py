@@ -347,7 +347,7 @@ def filter_test_hardware(test_obj, hw_config):
 
 
 def max_loadavg():
-    return multiprocessing.cpu_count() * 1.5
+    return int(multiprocessing.cpu_count() * 1.5)
 
 
 def expand_tests(module, requested_test_classes, excluded_test_classes,
