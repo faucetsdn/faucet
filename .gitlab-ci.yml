@@ -39,13 +39,30 @@ deploy-package:
   only:
     - tags
 
+build-vm-image:
+  stage: build-image
+  image: debian:stretch
+  script:
+    - cd images/vm/
+    - apt-get update && apt-get upgrade -y
+    - apt-get install -y locate python-pip qemu-utils kpartx squashfs-tools debootstrap procps wget sudo git
+    - wget http://ppa.launchpad.net/openstack-ci-core/vhd-util/ubuntu/pool/main/v/vhd-util/vhd-util_4.4.0-0ubuntu16_amd64.deb -O /tmp/vhd-util_4.4.0-0ubuntu16_amd64.deb
+    - dpkg -i /tmp/vhd-util_4.4.0-0ubuntu16_amd64.deb
+    - pip install diskimage-builder
+    - export container=docker
+    - ./build-faucet-vm.sh
+  artifacts:
+    paths:
+      - images/vm/faucet-amd64-*.qcow2*
+    expire_in: 1 week
+
 build-rpi-image:
   stage: build-image
   image: faucet/dbuilder
   script:
-    - cd raspbian-image/
+    - cd images/raspbian/
     - apt-get update && apt-get upgrade -y
-    - apt-get install quilt parted manpages-pl xxd qemu-user-static debootstrap zerofree pxz zip dosfstools bsdtar libcap2-bin grep rsync xz-utils binfmt-support -y
+    - apt-get install -y quilt parted manpages-pl xxd qemu-user-static debootstrap zerofree pxz zip dosfstools bsdtar libcap2-bin grep rsync xz-utils binfmt-support
     - git clone https://github.com/RPi-Distro/pi-gen.git
     - mv prerun.sh pi-gen/export-image/
     - mv common pi-gen/scripts/
@@ -59,7 +76,5 @@ build-rpi-image:
     - ./build.sh
   artifacts:
     paths:
-      - raspbian-image/pi-gen/deploy/*
+      - images/raspbian/pi-gen/deploy/*
     expire_in: 1 week
-  only:
-    - tags
