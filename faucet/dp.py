@@ -93,11 +93,11 @@ configuration.
     lacp_timeout = None
     dp_acls = None
     dot1x = None
+    vlan_acl_matches = {}
+    port_acl_matches = {}
 
     dyn_last_coldstart_time = None
     dyn_up_ports = set() # type: ignore
-    dyn_vlan_acl_matches = {}
-    dyn_port_acl_matches = {}
 
     # Values that are set to None will be set using set_defaults
     # they are included here for testing and informational purposes
@@ -639,7 +639,12 @@ configuration.
                             ofmsg.set_xid(0)
                             ofmsg.serialize()
                             for match, value in list(ofmsg.match.items()):
-                                matches[match] = True
+                                has_mask = isinstance(value, tuple)
+                                if match in matches:
+                                    if has_mask:
+                                        matches[match] = has_mask
+                                else:
+                                    matches[match] = has_mask
                     except (AddrFormatError, KeyError, ValueError) as err:
                         raise InvalidConfigError(err)
                     for port_no in mirror_destinations:
@@ -676,7 +681,7 @@ configuration.
                 if vlan.acls_in:
                     acls = []
                     for acl in vlan.acls_in:
-                        self.dyn_vlan_acl_matches.update(resolve_acl(acl))
+                        self.vlan_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     vlan.acls_in = acls
                     verify_acl_exact_match(acls)
@@ -684,16 +689,17 @@ configuration.
                 if port.acls_in:
                     test_config_condition(self.dp_acls, (
                         'dataplane ACLs cannot be used with port ACLs.'))
+                    self.port_acl_matches.update({'in_port': False})
                     acls = []
                     for acl in port.acls_in:
-                        self.dyn_port_acl_matches.update(resolve_acl(acl))
+                        self.port_acl_matches.update(resolve_acl(acl))
                         acls.append(self.acls[acl])
                     port.acls_in = acls
                     verify_acl_exact_match(acls)
             if self.dp_acls:
                 acls = []
                 for acl in self.acls:
-                    self.dyn_port_acl_matches.update(resolve_acl(acl))
+                    self.port_acl_matches.update(resolve_acl(acl))
                     acls.append(self.acls[acl])
                 self.dp_acls = acls
 
@@ -724,6 +730,13 @@ configuration.
         resolve_override_output_ports()
         resolve_vlan_names_in_routers()
         resolve_acls()
+
+        port_acl_table = self.tables['port_acl']
+        port_acl_table.restricted_match_types = self.port_acl_matches
+        vlan_acl_table = self.tables['vlan_acl']
+        vlan_acl_table.restricted_match_types = self.vlan_acl_matches
+        for table in (port_acl_table, vlan_acl_table):
+            self.tables_by_id[table.table_id] = table
 
         bgp_vlans = self.bgp_vlans()
         if bgp_vlans:

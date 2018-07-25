@@ -104,6 +104,9 @@ class Valve:
                 tables.append(route_manager.fib_table)
         if not any_routing:
             tables.append(self.dp.tables['vip'])
+        # TODO: handle no port ACL case as well.
+        if not self.dp.vlan_acl_matches:
+            tables.append(self.dp.tables['vlan_acl'])
         return tables
 
     def _active_tables(self):
