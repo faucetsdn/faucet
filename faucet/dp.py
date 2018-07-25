@@ -961,8 +961,8 @@ configuration.
         """
         if self.ignore_subconf(new_dp):
             logger.info('DP base level config changed - requires cold start')
-        if (self.vlan_acl_matches != new_dp.vlan_acl_matches or
-                self.port_acl_matches != new_dp.port_acl_matches):
+        elif (self.vlan_acl_matches != new_dp.vlan_acl_matches or
+                 self.port_acl_matches != new_dp.port_acl_matches):
             logger.info('ACL matches changed')
         elif new_dp.routers != self.routers:
             logger.info('DP routers config changed - requires cold start')
